@@ -5,6 +5,7 @@ import Documents from './pages/Documents'
 import Profile from './pages/Profile'
 import AddEmployee from './pages/AddEmployee'
 import Login from './pages/Login'
+import Sales from './pages/Sales'
 
 function App() {
   return (

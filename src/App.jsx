@@ -46,6 +46,15 @@ function App() {
           </AppLayout>
         }
       />
+
+      <Route
+        path="/sales"
+        element={
+          <AppLayout>
+            <Sales />
+          </AppLayout>
+        }
+      />
     </Routes>
   )
 }

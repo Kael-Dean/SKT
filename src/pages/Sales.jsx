@@ -251,7 +251,7 @@ const Sales = () => {
   /** ---------- UI ---------- */
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-6">
-      <h1 className="mb-4 text-2xl font-bold text-emerald-700">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
+      <h1 className="mb-4 text-2xl font-bold text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
 
       {/* ค้นหาลูกค้าด้วยเลขบัตร */}
       <div className="text-black mb-6 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">

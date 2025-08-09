@@ -352,7 +352,7 @@ const Sales = () => {
       <form onSubmit={handleSubmit} className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-lg font-semibold">รายละเอียดการซื้อ</h2>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className=" text-black grid gap-4 md:grid-cols-3">
           <div>
             <label className="mb-1 block text-sm font-medium">ชนิดข้าวเปลือก</label>
             <select

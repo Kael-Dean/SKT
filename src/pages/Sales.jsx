@@ -511,7 +511,7 @@ const Sales = () => {
         </div>
 
         {/* สรุป */}
-        <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="text-black mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <h3 className="mb-2 text-base font-semibold">สรุป</h3>
           <div className="grid gap-2 md:grid-cols-4">
             <div className="rounded-lg bg-white p-3 text-sm shadow">

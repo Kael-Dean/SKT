@@ -254,7 +254,7 @@ const Sales = () => {
       <h1 className="mb-4 text-2xl font-bold text-emerald-700">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
 
       {/* ค้นหาลูกค้าด้วยเลขบัตร */}
-      <div className="mb-6 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+      <div className="text-black mb-6 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-lg font-semibold">ข้อมูลลูกค้า</h2>
         <div className="grid gap-4 md:grid-cols-3">
           <div className="md:col-span-1">
@@ -281,7 +281,7 @@ const Sales = () => {
             </div>
           </div>
 
-          <div className="md:col-span-2">
+          <div className="md:col-span-2"> 
             <label className="mb-1 block text-sm font-medium">ชื่อ–สกุล</label>
             <input
               className={`w-full rounded-xl border p-2 outline-none transition ${

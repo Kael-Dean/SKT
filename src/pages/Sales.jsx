@@ -350,7 +350,7 @@ const Sales = () => {
 
       {/* ฟอร์มออเดอร์ */}
       <form onSubmit={handleSubmit} className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold">รายละเอียดการซื้อ</h2>
+        <h2 className="text-black mb-3 text-lg font-semibold">รายละเอียดการซื้อ</h2>
 
         <div className=" text-black grid gap-4 md:grid-cols-3">
           <div>
@@ -512,7 +512,7 @@ const Sales = () => {
 
         {/* สรุป */}
         <div className="text-black mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <h3 className="mb-2 text-base font-semibold">สรุป</h3>
+          <h3 className="text-black mb-2 text-base font-semibold">สรุป</h3>
           <div className="grid gap-2 md:grid-cols-4">
             <div className="rounded-lg bg-white p-3 text-sm shadow">
               <div className="text-slate-500">น้ำหนักตามใบชั่ง</div>

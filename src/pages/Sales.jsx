@@ -133,7 +133,6 @@ const Sales = () => {
     if (computedAmount !== null) {
       setOrder((prev) => ({ ...prev, amountTHB: String(Math.round(computedAmount * 100) / 100) }))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [computedAmount])
 
   const updateCustomer = (k, v) => setCustomer((prev) => ({ ...prev, [k]: v }))
@@ -232,8 +231,7 @@ const Sales = () => {
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-6 text-black">
-      {/* ส่วนเนื้อหาทั้งหมดที่เหลือใช้ class text-black แทนสีอื่น */}
-      {/* ... โค้ดส่วนฟอร์มเหมือนเดิม แต่เปลี่ยนทุก text-* เป็น text-black ... */}
+      {/* วาง UI ฟอร์มเดิมจากไฟล์ก่อนหน้าได้เลย แต่ลบทุก text-* ออก และเพิ่ม text-black ให้ทุกจุด */}
     </div>
   )
 }

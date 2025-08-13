@@ -56,7 +56,19 @@ function App() {
           </AppLayout>
         }
       />
+
+      <Route
+        path="/member-signup"
+        element={
+          <AppLayout>
+            <MemberSignup />
+          </AppLayout>
+        }
+      />
     </Routes>
+
+      
+    
   )
 }
 

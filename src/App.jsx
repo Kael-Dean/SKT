@@ -7,6 +7,7 @@ import AddEmployee from './pages/AddEmployee'
 import Login from './pages/Login'
 import Sales from './pages/Sales'
 import MemberSignup from './pages/MemberSignup'
+import MemberSearch from './pages/MemberSearch'
 
 function App() {
   return (
@@ -66,6 +67,16 @@ function App() {
           </AppLayout>
         }
       />
+
+      <Route
+       path="/search"
+      element={
+          <AppLayout>
+            <MemberSearch />
+          </AppLayout>
+  }
+/>
+
     </Routes>
 
       

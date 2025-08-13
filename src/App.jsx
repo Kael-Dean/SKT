@@ -6,6 +6,7 @@ import Profile from './pages/Profile'
 import AddEmployee from './pages/AddEmployee'
 import Login from './pages/Login'
 import Sales from './pages/Sales'
+import MemberSignup from './pages/MemberSignup'
 
 function App() {
   return (

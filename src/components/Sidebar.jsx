@@ -12,6 +12,7 @@
       { label: 'คลังเอกสาร', path: '/documents' },
       { label: 'โปรไฟล์ฉัน', path: '/profile' },
       { label: 'ยอดขาย', path: '/sales' },
+      { label: 'สมัครสมาชิก', path: '/member-signup' },
     ]
 
     // ✅ เพิ่มเมนู admin เท่านั้น

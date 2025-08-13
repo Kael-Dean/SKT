@@ -50,8 +50,6 @@ const FIELD_CONFIG = [
   { key: "tgs_id", label: "รหัสสมาชิกในระบบ (tgs_id)", type: "text" },
   { key: "spouce_name", label: "ชื่อคู่สมรส", type: "text" },
   { key: "orders_placed", label: "จำนวนครั้งที่ซื้อ", type: "number" },
-
-  // วันที่ 3 รายการ (อ่าน/แก้ไขได้)
   { key: "regis_date", label: "วันที่สมัคร", type: "date" },
   { key: "last_bought_date", label: "วันที่ซื้อครั้งล่าสุด", type: "date" },
   { key: "transfer_date", label: "วันที่โอน (ไม่ระบุก็ได้)", type: "date-optional" },
@@ -75,7 +73,7 @@ const MemberSearch = () => {
 
   const debouncedQ = useDebounce(q, 450)
 
-  // Drawer state
+  // Modal state
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(null) // แถวที่เลือก (object เต็ม)
   const [draft, setDraft] = useState(null) // แบบแก้ไข
@@ -114,12 +112,12 @@ const MemberSearch = () => {
     run()
   }, [debouncedQ])
 
-  const openDrawer = (row) => {
+  const openModal = (row) => {
     setActive(row)
     // draft เริ่มจากทุกฟิลด์
     const init = {}
     FIELD_CONFIG.forEach(({ key }) => (init[key] = row[key] ?? (key.includes("date") ? "" : "")))
-    // แปลงวันที่ให้เป็น yyyy-mm-dd ถ้าแก้ไขได้สะดวก
+    // แปลงวันที่ให้เป็น yyyy-mm-dd
     ;["regis_date", "last_bought_date", "transfer_date"].forEach((k) => {
       if (row[k]) {
         try {
@@ -134,7 +132,7 @@ const MemberSearch = () => {
     setOpen(true)
   }
 
-  const closeDrawer = () => {
+  const closeModal = () => {
     setOpen(false)
     setActive(null)
     setDraft(null)
@@ -162,18 +160,11 @@ const MemberSearch = () => {
       let ov = original[key]
       let ev = edited[key]
 
-      // ย้อนแปลงรูปแบบวันจาก yyyy-mm-dd เป็น ISO ให้ backend
       if (type === "date" || type === "date-optional") {
         ev = ev ? toISO(ev) : null
       }
-
-      // ตัวเลข
-      if (type === "number") {
-        ev = ev === "" || ev === null ? null : Number(ev)
-      }
-      if (type === "decimal") {
-        ev = ev === "" || ev === null ? null : Number(ev)
-      }
+      if (type === "number") ev = ev === "" || ev === null ? null : Number(ev)
+      if (type === "decimal") ev = ev === "" || ev === null ? null : Number(ev)
 
       if (ov !== ev) diff[key] = ev
     })
@@ -185,7 +176,6 @@ const MemberSearch = () => {
     setRowError("")
     setSaving(true)
     try {
-      // สร้าง original ที่ normalize วันที่เป็น ISO ก่อนเทียบ
       const original = { ...active }
       ;["regis_date", "last_bought_date", "transfer_date"].forEach((k) => {
         if (original[k]) {
@@ -198,14 +188,12 @@ const MemberSearch = () => {
       })
 
       const diff = computeDiff(original, draft)
-
       if (Object.keys(diff).length === 0) {
         setEditing(false)
         setSaving(false)
         return
       }
 
-      // optimistic update ในตารางหลัก
       const prevRows = rows
       const optimistic = rows.map((r) =>
         r.member_id === active.member_id ? { ...r, ...diff } : r
@@ -225,7 +213,6 @@ const MemberSearch = () => {
       }
 
       const updated = await res.json()
-      // อัปเดตทั้งตารางและ active/draft จากข้อมูลจริงของ server
       setRows((cur) => cur.map((r) => (r.member_id === updated.member_id ? updated : r)))
       setActive(updated)
 
@@ -301,8 +288,8 @@ const MemberSearch = () => {
                       ))}
                       <td className="px-3 py-2 text-right">
                         <button
-                          className="rounded-lg bg-emerald-50 px-3 py-1 text-emerald-700 hover:bg-emerald-100"
-                          onClick={() => openDrawer(r)}
+                          className="rounded-lg bg-black px-3 py-1 text-white hover:bg-black/90"
+                          onClick={() => openModal(r)}
                         >
                           ดูรายละเอียด
                         </button>
@@ -316,135 +303,139 @@ const MemberSearch = () => {
         )}
       </div>
 
-      {/* Drawer / Side Panel */}
+      {/* Modal: แนวยาว (กว้าง) กลางจอ */}
       <div
-        className={`fixed inset-0 z-50 transition ${open ? "pointer-events-auto" : "pointer-events-none"}`}
+        className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`}
         aria-hidden={!open}
       >
         {/* backdrop */}
         <div
           className={`absolute inset-0 bg-black/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
-          onClick={closeDrawer}
+          onClick={closeModal}
         />
-        {/* panel */}
-        <div
-          className={`absolute right-0 top-0 h-full w-full max-w-xl transform bg-white shadow-2xl transition-transform ${
-            open ? "translate-x-0" : "translate-x-full"
-          }`}
-        >
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <div className="text-lg font-semibold">
-              {active ? `รายละเอียดสมาชิก #${active.member_id}` : "รายละเอียดสมาชิก"}
+        {/* modal panel */}
+        <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4">
+          <div
+            className={`w-[95vw] max-w-[1200px] h-[85vh] transform rounded-2xl bg-white shadow-2xl transition-all ${
+              open ? "scale-100 opacity-100" : "scale-95 opacity-0"
+            }`}
+          >
+            {/* header */}
+            <div className="flex items-center justify-between border-b px-4 py-3 text-black">
+              <div className="text-lg font-semibold">
+                {active ? `รายละเอียดสมาชิก #${active.member_id}` : "รายละเอียดสมาชิก"}
+              </div>
+              <button
+                className="rounded-lg border px-3 py-1 text-black hover:bg-slate-50"
+                onClick={closeModal}
+              >
+                ปิด
+              </button>
             </div>
-            <button
-              className="rounded-lg border px-3 py-1 text-slate-700 hover:bg-slate-50"
-              onClick={closeDrawer}
-            >
-              ปิด
-            </button>
-          </div>
 
-          <div className="h-[calc(100%-56px)] overflow-y-auto p-4">
-            {!active ? (
-              <div className="text-slate-500">ไม่มีข้อมูล</div>
-            ) : (
-              <>
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="text-sm text-slate-500">
-                    สร้างเมื่อ: {formatDate(active.regis_date)} | ซื้อครั้งล่าสุด: {formatDate(active.last_bought_date)}
+            {/* body */}
+            <div className="h-[calc(85vh-56px)] overflow-y-auto p-4 text-black">
+              {!active ? (
+                <div className="text-slate-600">ไม่มีข้อมูล</div>
+              ) : (
+                <>
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-slate-600">
+                      สร้างเมื่อ: {formatDate(active.regis_date)} | ซื้อครั้งล่าสุด: {formatDate(active.last_bought_date)}
+                    </div>
+                    {!editing ? (
+                      <button
+                        className="rounded-lg bg-black px-3 py-1 text-white hover:bg-black/90"
+                        onClick={() => setEditing(true)}
+                      >
+                        แก้ไข
+                      </button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          className="rounded-lg bg-black px-3 py-1 text-white hover:bg-black/90 disabled:opacity-60"
+                          onClick={save}
+                          disabled={saving}
+                        >
+                          {saving ? "กำลังบันทึก..." : "บันทึก"}
+                        </button>
+                        <button
+                          className="rounded-lg border px-3 py-1 text-black hover:bg-slate-50"
+                          onClick={() => {
+                            setEditing(false)
+                            const reset = {}
+                            FIELD_CONFIG.forEach(({ key }) => (reset[key] = active[key] ?? ""))
+                            ;["regis_date", "last_bought_date", "transfer_date"].forEach((k) => {
+                              if (active[k]) {
+                                try {
+                                  const d = new Date(active[k])
+                                  if (!isNaN(d.getTime())) reset[k] = d.toISOString().slice(0, 10)
+                                } catch {}
+                              } else reset[k] = ""
+                            })
+                            setDraft(reset)
+                            setRowError("")
+                          }}
+                        >
+                          ยกเลิก
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {!editing ? (
-                    <button
-                      className="rounded-lg bg-emerald-600 px-3 py-1 text-white hover:bg-emerald-700"
-                      onClick={() => setEditing(true)}
-                    >
-                      แก้ไข
-                    </button>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button
-                        className="rounded-lg bg-emerald-600 px-3 py-1 text-white hover:bg-emerald-700 disabled:opacity-60"
-                        onClick={save}
-                        disabled={saving}
-                      >
-                        {saving ? "กำลังบันทึก..." : "บันทึก"}
-                      </button>
-                      <button
-                        className="rounded-lg bg-slate-200 px-3 py-1 text-slate-700 hover:bg-slate-300"
-                        onClick={() => {
-                          setEditing(false)
-                          // รีเซ็ต draft กลับจาก active
-                          const reset = {}
-                          FIELD_CONFIG.forEach(({ key }) => (reset[key] = active[key] ?? ""))
-                          ;["regis_date", "last_bought_date", "transfer_date"].forEach((k) => {
-                            if (active[k]) {
-                              try {
-                                const d = new Date(active[k])
-                                if (!isNaN(d.getTime())) reset[k] = d.toISOString().slice(0, 10)
-                              } catch {}
-                            } else reset[k] = ""
-                          })
-                          setDraft(reset)
-                          setRowError("")
-                        }}
-                      >
-                        ยกเลิก
-                      </button>
+
+                  {rowError && (
+                    <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700">
+                      {rowError}
                     </div>
                   )}
-                </div>
 
-                {rowError && (
-                  <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700">
-                    {rowError}
+                  {/* ฟอร์มรายละเอียดแบบแนวนอนยาว: ใช้กริด 3 คอลัมน์บนจอใหญ่ */}
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {FIELD_CONFIG.map((f) => {
+                      const val = editing ? draft?.[f.key] ?? "" : active?.[f.key]
+                      return (
+                        <div key={f.key}>
+                          <label className="mb-1 block text-xs font-medium text-slate-600">{f.label}</label>
+                          {!editing ? (
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                              {f.type === "date" || f.type === "date-optional"
+                                ? formatDate(val)
+                                : (val ?? "-")}
+                            </div>
+                          ) : f.type === "select" ? (
+                            <select
+                              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                              value={val ?? ""}
+                              onChange={(e) => onChangeField(f.key, e.target.value)}
+                            >
+                              {f.options.map((op) => (
+                                <option key={op} value={op}>
+                                  {op === "" ? "— เลือก —" : op}
+                                </option>
+                              ))}
+                            </select>
+                          ) : f.type === "date" || f.type === "date-optional" ? (
+                            <input
+                              type="date"
+                              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                              value={val ?? ""}
+                              onChange={(e) => onChangeField(f.key, e.target.value)}
+                            />
+                          ) : (
+                            <input
+                              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                              value={val ?? ""}
+                              onChange={(e) => onChangeField(f.key, e.target.value)}
+                              placeholder={f.type === "cid" ? "13 หลัก" : ""}
+                            />
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                )}
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {FIELD_CONFIG.map((f) => {
-                    const val = editing ? draft?.[f.key] ?? "" : active?.[f.key]
-                    return (
-                      <div key={f.key}>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">{f.label}</label>
-                        {!editing ? (
-                          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                            {f.type === "date" || f.type === "date-optional"
-                              ? formatDate(val)
-                              : (val ?? "-")}
-                          </div>
-                        ) : f.type === "select" ? (
-                          <select
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                            value={val ?? ""}
-                            onChange={(e) => onChangeField(f.key, e.target.value)}
-                          >
-                            {f.options.map((op) => (
-                              <option key={op} value={op}>
-                                {op === "" ? "— เลือก —" : op}
-                              </option>
-                            ))}
-                          </select>
-                        ) : f.type === "date" || f.type === "date-optional" ? (
-                          <input
-                            type="date"
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                            value={val ?? ""}
-                            onChange={(e) => onChangeField(f.key, e.target.value)}
-                          />
-                        ) : (
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                            value={val ?? ""}
-                            onChange={(e) => onChangeField(f.key, e.target.value)}
-                            placeholder={f.type === "cid" ? "13 หลัก" : ""}
-                          />
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

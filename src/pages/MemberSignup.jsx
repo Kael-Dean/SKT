@@ -203,7 +203,7 @@ const MemberSignup = () => {
   /** ---------- UI ---------- */
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-6">
-      <h1 className="mb-4 text-2xl font-bold text-white">👤 สมัครสมาชิก (เชื่อม FastAPI)</h1>
+      <h1 className="mb-4 text-2xl font-bold text-white">👤 สมัครสมาชิก </h1>
 
       <form onSubmit={handleSubmit} className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-lg font-semibold text-black">ข้อมูลหลัก</h2>

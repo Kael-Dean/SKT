@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
 
 const getInitialDark = () => {
-  // ใช้ค่าใน localStorage ถ้ามี ไม่งั้นตกลงตาม OS
   const stored = localStorage.getItem("darkMode")
   if (stored !== null) return stored === "true"
   return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? false
@@ -13,14 +12,14 @@ const AppLayout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(getInitialDark)
 
-  // apply/remove class 'dark' บน <html>
+  // ใส่/เอาออก class 'dark' ที่ <html>
   useEffect(() => {
-    const root = window.document.documentElement
+    const root = document.documentElement
     root.classList.toggle("dark", darkMode)
     localStorage.setItem("darkMode", String(darkMode))
   }, [darkMode])
 
-  // ปิด sidebar เมื่อเปลี่ยนขนาดจอเป็น desktop
+  // ปิด sidebar อัตโนมัติเมื่อกว้าง >= md
   useEffect(() => {
     const onResize = () => {
       if (window.innerWidth >= 768) setIsSidebarOpen(false)
@@ -52,9 +51,7 @@ const AppLayout = ({ children }) => {
         />
 
         <main className="flex-1 overflow-y-auto px-4 py-4 md:px-6">
-          <div className="mx-auto max-w-7xl">
-            {children}
-          </div>
+          <div className="mx-auto max-w-7xl">{children}</div>
         </main>
       </div>
     </div>

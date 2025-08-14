@@ -13,7 +13,7 @@ const Topbar = ({ onToggleSidebar, darkMode, setDarkMode }) => {
         <div className="flex items-center gap-3">
           <button
             onClick={onToggleSidebar}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm transition active:scale-95 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-750"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm transition active:scale-95 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
             aria-label="เปิด/ปิดเมนู"
           >
             ☰
@@ -21,9 +21,7 @@ const Topbar = ({ onToggleSidebar, darkMode, setDarkMode }) => {
 
           <div className="hidden select-none items-center gap-2 md:flex">
             <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 shadow-sm" />
-            <span className="text-lg font-bold tracking-tight">
-              โลโก้องค์กร
-            </span>
+            <span className="text-lg font-bold tracking-tight">โลโก้องค์กร</span>
           </div>
         </div>
 
@@ -35,7 +33,6 @@ const Topbar = ({ onToggleSidebar, darkMode, setDarkMode }) => {
               placeholder="ค้นหา ( / )"
               className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm shadow-sm outline-none ring-0 transition placeholder:text-gray-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 dark:border-gray-800 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-indigo-500 dark:focus:ring-indigo-500/20"
               onKeyDown={(e) => {
-                // กด Esc เคลียร์, กด / โฟกัส (ถ้าคุณมี global handler)
                 if (e.key === "Escape") e.currentTarget.blur()
               }}
             />
@@ -59,7 +56,7 @@ const Topbar = ({ onToggleSidebar, darkMode, setDarkMode }) => {
           <div className="mx-1 hidden h-6 w-px bg-gray-200 dark:bg-gray-800 md:block" />
 
           <button
-            className="group inline-flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-3 py-2 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:hover:bg-gray-750"
+            className="group inline-flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-3 py-2 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
             title="โปรไฟล์ฉัน"
           >
             <div className="relative">
@@ -72,9 +69,7 @@ const Topbar = ({ onToggleSidebar, darkMode, setDarkMode }) => {
             </div>
             <div className="hidden text-left md:block">
               <div className="text-sm font-semibold leading-4">คุณผู้ใช้</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                Admin
-              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Admin</div>
             </div>
             <span className="ml-1 hidden text-gray-400 group-hover:text-gray-600 dark:text-gray-500 md:block">
               ▼

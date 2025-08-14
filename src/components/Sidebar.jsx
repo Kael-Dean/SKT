@@ -26,6 +26,18 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     navigate('/')
   }
 
+  const baseBtn =
+    'block w-full rounded px-4 py-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
+
+  const idleBtn =
+    // ปกติ: ตัวอักษรเทา/ขาวตามธีม + hover เปลี่ยนเฉพาะพื้นหลังให้เห็นชัด
+    'text-gray-900 hover:bg-gray-200 dark:text-gray-100 dark:hover:bg-gray-800'
+
+  const activeBtn =
+    // ACTIVE: Light = พื้นดำ/ตัวอักษรขาว, Dark = พื้นขาว/ตัวอักษรดำ
+    // ใช้ hover:opacity-90 แทนการเปลี่ยนพื้นหลัง เพื่อคงคอนทราสต์
+    'bg-black text-white font-bold hover:opacity-90 dark:bg-white dark:text-black'
+
   return (
     <div
       className={`fixed z-40 top-0 left-0 h-full w-64 transform transition-transform duration-300 ease-in-out
@@ -34,9 +46,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     >
       <div className="p-4">
         <h1 className="mb-6 text-xl font-bold text-gray-900 dark:text-gray-100">🏢 องค์กร</h1>
+
         <nav className="space-y-2">
           {menuItems.map((item) => {
-            const active = location.pathname.startsWith(item.path)
+            const active = location.pathname === item.path
             return (
               <button
                 key={item.path}
@@ -44,22 +57,23 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                   navigate(item.path)
                   setIsOpen(false)
                 }}
-                className={`block w-full rounded px-4 py-2 text-left transition
-                  text-gray-900 hover:bg-gray-200 dark:text-gray-100 dark:hover:bg-gray-800
-                  ${active ? 'bg-black text-white font-bold dark:bg-white dark:text-black' : ''}`}
+                aria-current={active ? 'page' : undefined}
+                className={`${baseBtn} ${active ? activeBtn : idleBtn}`}
               >
                 {item.label}
               </button>
             )
           })}
-          <hr className="my-4 border-gray-200 dark:border-gray-800" />
-          <button
-            onClick={handleLogout}
-            className="block w-full rounded px-4 py-2 text-left text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30"
-          >
-            ออกจากระบบ
-          </button>
         </nav>
+
+        <hr className="my-4 border-gray-200 dark:border-gray-800" />
+
+        <button
+          onClick={handleLogout}
+          className="block w-full rounded px-4 py-2 text-left text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+        >
+          ออกจากระบบ
+        </button>
       </div>
     </div>
   )

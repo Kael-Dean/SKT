@@ -43,7 +43,7 @@ const AppLayout = ({ children }) => {
       )}
 
       {/* Main */}
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col">
+      <div className="relative  flex min-w-0 flex-1 flex-col">
         <Topbar
           onToggleSidebar={() => setIsSidebarOpen((v) => !v)}
           darkMode={darkMode}

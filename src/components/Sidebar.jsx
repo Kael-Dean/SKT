@@ -13,12 +13,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { label: 'โปรไฟล์ฉัน', path: '/profile' },
     { label: 'ยอดขาย', path: '/sales' },
     { label: 'สมัครสมาชิก', path: '/member-signup' },
-
-    // ✅ เพิ่มเมนูค้นหาสมาชิก
     { label: 'ค้นหาสมาชิก', path: '/search' },
   ]
 
-  // ✅ เมนูเฉพาะแอดมิน
   if (isAdmin) {
     menuItems.push({ label: 'เพิ่มพนักงานใหม่', path: '/add-employee' })
   }
@@ -31,34 +28,34 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   return (
     <div
-      className={`fixed z-40 top-0 left-0 h-full w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
-        md:translate-x-0 md:static md:block`}
+      className={`fixed z-40 top-0 left-0 h-full w-64 transform transition-transform duration-300 ease-in-out
+      ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+      bg-white dark:bg-gray-900 shadow-lg`}
     >
       <div className="p-4">
-        <h1 className="text-xl font-bold mb-6 text-black">🏢 องค์กร</h1>
+        <h1 className="mb-6 text-xl font-bold text-gray-900 dark:text-gray-100">🏢 องค์กร</h1>
         <nav className="space-y-2">
-          {menuItems.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => {
-                navigate(item.path)
-                setIsOpen(false)
-              }}
-              className={`block w-full text-left px-4 py-2 rounded text-black 
-                hover:bg-gray-300 ${
-                  location.pathname.startsWith(item.path)
-                    ? 'bg-black text-white font-bold'
-                    : ''
-                }`}
-            >
-              {item.label}
-            </button>
-          ))}
-          <hr className="my-4" />
+          {menuItems.map((item) => {
+            const active = location.pathname.startsWith(item.path)
+            return (
+              <button
+                key={item.path}
+                onClick={() => {
+                  navigate(item.path)
+                  setIsOpen(false)
+                }}
+                className={`block w-full rounded px-4 py-2 text-left transition
+                  text-gray-900 hover:bg-gray-200 dark:text-gray-100 dark:hover:bg-gray-800
+                  ${active ? 'bg-black text-white font-bold dark:bg-white dark:text-black' : ''}`}
+              >
+                {item.label}
+              </button>
+            )
+          })}
+          <hr className="my-4 border-gray-200 dark:border-gray-800" />
           <button
             onClick={handleLogout}
-            className="block w-full text-left px-4 py-2 rounded text-red-600 hover:bg-red-100"
+            className="block w-full rounded px-4 py-2 text-left text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30"
           >
             ออกจากระบบ
           </button>

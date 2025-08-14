@@ -19,7 +19,7 @@ const AppLayout = ({ children }) => {
     localStorage.setItem("darkMode", String(darkMode))
   }, [darkMode])
 
-  // ปิด sidebar อัตโนมัติเมื่อกว้าง >= md
+  // ปิด sidebar อัตโนมัติเมื่อกว้าง >= md (กันค้างสถานะ)
   useEffect(() => {
     const onResize = () => {
       if (window.innerWidth >= 768) setIsSidebarOpen(false)
@@ -33,19 +33,20 @@ const AppLayout = ({ children }) => {
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
 
-      {/* Overlay เฉพาะมือถือเมื่อ Sidebar เปิด */}
+      {/* Overlay: ใช้ทั้งมือถือและเดสก์ท็อป */}
       {isSidebarOpen && (
         <div
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm"
           aria-hidden="true"
         />
       )}
 
       {/* Main */}
-      <div className="relative  flex min-w-0 flex-1 flex-col">
+      <div className="relative flex min-w-0 flex-1 flex-col">
         <Topbar
           onToggleSidebar={() => setIsSidebarOpen((v) => !v)}
+          isSidebarOpen={isSidebarOpen}
           darkMode={darkMode}
           setDarkMode={setDarkMode}
         />

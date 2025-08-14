@@ -1,36 +1,39 @@
 import { useMemo } from "react"
 
-const Topbar = ({ onToggleSidebar, darkMode, setDarkMode }) => {
+const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
   const toggleLabel = useMemo(
     () => (darkMode ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด"),
     [darkMode]
   )
 
+  const sidebarBtnLabel = isSidebarOpen ? "ซ่อนเมนู" : "แสดงเมนู"
+  const sidebarBtnIcon = isSidebarOpen ? "⟨" : "☰" // เปิดอยู่ให้เป็นสัญลักษณ์เก็บเมนู
+
   return (
     <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6">
-        {/* Left: hamburger + logo */}
+        {/* Left: toggle sidebar + logo */}
         <div className="flex items-center gap-3">
           <button
             onClick={onToggleSidebar}
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm transition active:scale-95 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
-            aria-label="เปิด/ปิดเมนู"
+            aria-label={sidebarBtnLabel}
+            title={sidebarBtnLabel}
           >
-            ☰
+            {sidebarBtnIcon}
           </button>
 
           <div className="hidden select-none items-center gap-2 md:flex">
             <img
               src={darkMode ? "/logo/skt-logo-dark.png" : "/logo/skt-logo.png"}
               alt="โลโก้องค์กร"
-              className="h-10 w-auto object-contain transition-opacity duration-200 rounded"
+              className="h-10 w-auto rounded object-contain transition-opacity duration-200"
               loading="eager"
             />
             <span className="text-lg font-bold tracking-tight">
               สหกรณ์การเกษตร
             </span>
           </div>
-
         </div>
 
         {/* Center: search */}

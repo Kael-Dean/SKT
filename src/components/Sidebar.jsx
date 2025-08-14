@@ -27,13 +27,13 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   }
 
   const baseBtn =
-    'w-full h-12 flex items-center justify-center rounded-xl transition font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
+    'w-full h-12 flex items-center justify-center rounded-xl transition-all duration-200 ease-out font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
 
   const idleBtn =
-    'text-gray-900 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800/70'
+    'text-gray-900 hover:bg-gray-200 dark:text-gray-100 dark:hover:bg-gray-700 hover:scale-[1.02] hover:shadow-sm'
 
   const activeBtn =
-    'bg-black text-white font-semibold dark:bg-white dark:text-black'
+    'bg-black text-white font-semibold dark:bg-white dark:text-black hover:scale-[1.02] hover:shadow-md hover:opacity-90'
 
   return (
     <div
@@ -71,7 +71,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         <div className="mt-auto p-4 border-t border-gray-300/40 dark:border-gray-600/30">
           <button
             onClick={handleLogout}
-            className="w-full h-12 flex items-center justify-center rounded-xl font-semibold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+            className="w-full h-12 flex items-center justify-center rounded-xl font-semibold text-white bg-red-600 hover:bg-red-500 active:bg-red-700 hover:scale-[1.02] hover:shadow-md shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 transition-all duration-200 ease-out"
           >
             ออกจากระบบ
           </button>

@@ -20,12 +20,15 @@ const Topbar = ({ onToggleSidebar, darkMode, setDarkMode }) => {
           </button>
 
           <div className="hidden select-none items-center gap-2 md:flex">
-              <img
-                src="/skt-logo.png" // ถ้าไฟล์อยู่ใน public/
-                alt="โลโก้องค์กร"
-                className="h-10 w-auto object-contain"
-              />
-              <span className="text-lg font-bold tracking-tight">สหกรณ์การเกษตร</span>
+            <img
+              src={darkMode ? "/logo/skt-logo-dark.png" : "/logo/skt-logo.png"}
+              alt="โลโก้องค์กร"
+              className="h-10 w-auto object-contain transition-opacity duration-200 rounded"
+              loading="eager"
+            />
+            <span className="text-lg font-bold tracking-tight">
+              สหกรณ์การเกษตร
+            </span>
           </div>
 
         </div>

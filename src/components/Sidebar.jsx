@@ -27,7 +27,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   }
 
   const baseBtn =
-    'w-full px-4 py-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
+    'w-full h-12 flex items-center justify-center rounded-xl transition font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
 
   const idleBtn =
     'text-gray-900 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800/70'
@@ -48,7 +48,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         </div>
 
         {/* Menu */}
-        <nav>
+        <nav className="space-y-2 px-3">
           {menuItems.map((item) => {
             const active = location.pathname === item.path
             return (
@@ -71,7 +71,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         <div className="mt-auto p-4 border-t border-gray-300/40 dark:border-gray-600/30">
           <button
             onClick={handleLogout}
-            className="w-full rounded-lg px-4 py-2.5 text-left font-semibold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+            className="w-full h-12 flex items-center justify-center rounded-xl font-semibold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
           >
             ออกจากระบบ
           </button>

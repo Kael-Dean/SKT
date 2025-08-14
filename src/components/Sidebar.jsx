@@ -26,17 +26,18 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     navigate('/')
   }
 
+  // ปุ่มพื้นฐาน
   const baseBtn =
-    'block w-full rounded px-4 py-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
+    'w-full px-4 py-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
 
+  // ปุ่มปกติ + โฮเวอร์
   const idleBtn =
-    // ปกติ: ตัวอักษรเทา/ขาวตามธีม + hover เปลี่ยนเฉพาะพื้นหลังให้เห็นชัด
-    'text-gray-900 hover:bg-gray-200 dark:text-gray-100 dark:hover:bg-gray-800'
+    'text-gray-900 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800/70'
 
+  // ปุ่ม ACTIVE เน้นคอนทราสต์ + แถบซ้ายเล็ก ๆ ให้รู้ว่าเลือกอยู่
   const activeBtn =
-    // ACTIVE: Light = พื้นดำ/ตัวอักษรขาว, Dark = พื้นขาว/ตัวอักษรดำ
-    // ใช้ hover:opacity-90 แทนการเปลี่ยนพื้นหลัง เพื่อคงคอนทราสต์
-    'bg-black text-white font-bold hover:opacity-90 dark:bg-white dark:text-black'
+    'relative bg-black text-white font-semibold dark:bg-white dark:text-black ' +
+    "before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-black dark:before:bg-white"
 
   return (
     <div
@@ -44,36 +45,51 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       bg-white dark:bg-gray-900 shadow-lg`}
     >
-      <div className="p-4">
-        <h1 className="mb-6 text-xl font-bold text-gray-900 dark:text-gray-100">🏢 องค์กร</h1>
+      <div className="flex h-full flex-col">
+        {/* Header */}
+        <div className="p-4">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">🏢 องค์กร</h1>
+        </div>
 
-        <nav className="space-y-2">
-          {menuItems.map((item) => {
-            const active = location.pathname === item.path
-            return (
-              <button
-                key={item.path}
-                onClick={() => {
-                  navigate(item.path)
-                  setIsOpen(false)
-                }}
-                aria-current={active ? 'page' : undefined}
-                className={`${baseBtn} ${active ? activeBtn : idleBtn}`}
-              >
-                {item.label}
-              </button>
-            )
-          })}
+        {/* เมนู + เส้นคั่นแบบมินิมอล */}
+        <nav className="px-3">
+          <ul className="rounded-lg overflow-hidden border border-gray-200/70 dark:border-gray-800/70 divide-y divide-gray-200 dark:divide-gray-800">
+            {menuItems.map((item) => {
+              const active = location.pathname === item.path
+              return (
+                <li key={item.path} className="bg-white dark:bg-gray-900">
+                  <button
+                    onClick={() => {
+                      navigate(item.path)
+                      setIsOpen(false)
+                    }}
+                    aria-current={active ? 'page' : undefined}
+                    className={`${baseBtn} ${active ? activeBtn : idleBtn}`}
+                  >
+                    {item.label}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
         </nav>
 
-        <hr className="my-4 border-gray-200 dark:border-gray-800" />
+        {/* เส้นคั่นโซนล่าง */}
+        <div className="mt-4 px-4">
+          <hr className="border-gray-200 dark:border-gray-800" />
+        </div>
 
-        <button
-          onClick={handleLogout}
-          className="block w-full rounded px-4 py-2 text-left text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-        >
-          ออกจากระบบ
-        </button>
+        {/* ปุ่มออกจากระบบให้ชัดขึ้น + ตรึงไว้ล่าง */}
+        <div className="mt-auto p-4">
+          <button
+            onClick={handleLogout}
+            className="w-full rounded-lg px-4 py-2.5 text-left font-semibold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+          >
+            ออกจากระบบ
+          </button>
+          {/* ลิงก์รอง: ออกจากระบบแบบตัวหนังสือ */}
+          {/* <button className="mt-2 w-full text-sm text-red-600 hover:underline text-left" onClick={handleLogout}>ออกจากระบบ</button> */}
+        </div>
       </div>
     </div>
   )

@@ -30,9 +30,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     'w-full h-12 flex items-center justify-center rounded-xl transition-all duration-200 ease-out font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
 
   const idleBtn =
-    'text-gray-900 hover:bg-blue-100 hover:text-blue-800 ' + // Light mode hover
-    'dark:text-gray-100 dark:hover:bg-gray-700 ' + // Dark mode hover
-    'hover:scale-[1.02] hover:shadow-md'
+    'text-gray-900 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-100 dark:hover:bg-gray-700 hover:scale-[1.02] hover:shadow-md'
 
   const activeBtn =
     'bg-black text-white font-semibold dark:bg-white dark:text-black hover:scale-[1.02] hover:shadow-lg hover:opacity-90'

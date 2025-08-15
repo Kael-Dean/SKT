@@ -2,7 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import Home from './pages/Home'
 import Documents from './pages/Documents'
-import Profile from './pages/Profile'
+import Order from './pages/Order'
 import AddEmployee from './pages/AddEmployee'
 import Login from './pages/Login'
 import Sales from './pages/Sales'
@@ -33,10 +33,10 @@ function App() {
       />
 
       <Route
-        path="/profile"
+        path="/order"
         element={
           <AppLayout>
-            <Profile />
+            <Order />
           </AppLayout>
         }
       />

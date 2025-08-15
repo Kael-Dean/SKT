@@ -10,7 +10,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const menuItems = [
     { label: 'หน้าหลัก', path: '/home' },
     { label: 'คลังเอกสาร', path: '/documents' },
-    { label: 'โปรไฟล์ฉัน', path: '/profile' },
+    { label: 'ออเดอร์', path: '/order' },
     { label: 'ยอดขาย', path: '/sales' },
     { label: 'สมัครสมาชิก', path: '/member-signup' },
     { label: 'ค้นหาสมาชิก', path: '/search' },

@@ -59,7 +59,7 @@ const Sales = () => {
   const itemRefs = useRef([])
 
   /** dropdown: ชนิดข้าว/สาขา/คลัง */
-  // riceOptions: [{id, label, price, _raw}]
+  // riceOptions: [{id(string), label, price, _raw}]
   const [riceOptions, setRiceOptions] = useState([])
   const [branchOptions, setBranchOptions] = useState([]) // [{id, branch_name}]
   const [klangOptions, setKlangOptions] = useState([]) // [{id, klang_name}]
@@ -85,8 +85,8 @@ const Sales = () => {
 
   /** ฟอร์มออเดอร์ */
   const [order, setOrder] = useState({
-    riceType: "", // เก็บชื่อไว้แสดง
-    riceId: null, // ✅ ใช้ id ส่งเข้า backend
+    riceType: "",
+    riceId: "", // ✅ ใช้ string ให้ตรงกับ option
     moisturePct: "",
     impurityPct: "",
     grossWeightKg: "",
@@ -97,9 +97,9 @@ const Sales = () => {
     paymentRefNo: "",
     issueDate: new Date().toISOString().slice(0, 10),
     branchName: "",
-    branchId: null, // เก็บ id สาขา
+    branchId: null,
     klangName: "",
-    klangId: null, // ✅ เก็บ id คลัง
+    klangId: null,
     registeredPlace: "",
   })
 
@@ -128,9 +128,9 @@ const Sales = () => {
         const riceRaw = r1.ok ? await r1.json() : []
         const branch = r2.ok ? await r2.json() : []
 
-        // ✅ normalize rice
+        // ✅ normalize rice: id เป็น string เสมอ (กัน mismatch กับ <select>)
         const rice = (riceRaw || []).map((x) => ({
-          id: x.id ?? x.rice_id ?? x.riceId ?? null,
+          id: String(x.id ?? x.rice_id ?? x.riceId ?? ""), // 👈 สำคัญ
           label: x.rice_type ?? x.rice_name ?? x.name ?? "",
           price: x.price ?? x.unit_price ?? undefined,
           _raw: x,
@@ -401,13 +401,12 @@ const Sales = () => {
 
   /** เมื่อเลือกชนิดข้าว (id) ให้ auto-fill ราคา (ถ้ามี) */
   useEffect(() => {
-    if (order.riceId == null) return
-    const found = riceOptions.find((r) => r.id === order.riceId)
+    if (!order.riceId) return
+    const found = riceOptions.find((r) => r.id === order.riceId) // ✅ เทียบแบบ string
     if (found?.price != null) {
       setOrder((p) => ({ ...p, unitPrice: String(found.price) }))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [order.riceId])
+  }, [order.riceId, riceOptions])
 
   /** ---------- Handlers ---------- */
   const updateCustomer = (k, v) => setCustomer((prev) => ({ ...prev, [k]: v }))
@@ -437,8 +436,8 @@ const Sales = () => {
     const [firstName, ...rest] = customer.fullName.trim().split(" ")
     const lastName = rest.join(" ")
 
-    // ✅ ใช้ id ตรง ๆ
-    const riceId = order.riceId
+    // ✅ ใช้ id ตรง ๆ (riceId เป็น string -> แปลงเป็น numberถ้าเป็นตัวเลข)
+    const riceId = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
     const branchId = order.branchId ?? null
     const klangId = order.klangId ?? null
 
@@ -573,7 +572,7 @@ const Sales = () => {
     })
     setOrder({
       riceType: "",
-      riceId: null,
+      riceId: "", // ✅ reset เป็น string ว่าง
       moisturePct: "",
       impurityPct: "",
       grossWeightKg: "",
@@ -707,8 +706,8 @@ const Sales = () => {
                       <div className="text-xs text-slate-500">
                         ปชช. {r.citizenId} • {r.address ? `บ้าน ${r.address}` : ""} {r.mhoo ? `หมู่ ${r.mhoo}` : ""}
                         {r.sub_district ? ` • ต.${r.sub_district}` : ""}
-                        {r.district ? ` อ.${r.district}` : ""}
-                        {r.province ? ` จ.${r.province}` : ""} {r.postal_code ? ` ${r.postal_code}` : ""}
+                        {r.district ? ` อ.${r.district}` : ""} {r.province ? ` จ.${r.province}` : ""}{" "}
+                        {r.postal_code ? ` ${r.postal_code}` : ""}
                         {r.member_id ? " • สมาชิก" : ""}
                       </div>
                     </div>
@@ -796,10 +795,10 @@ const Sales = () => {
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.riceType ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
-              value={order.riceId ?? ""}
+              value={order.riceId} // ✅ string
               onChange={(e) => {
-                const id = e.target.value ? Number(e.target.value) : null
-                const found = riceOptions.find((r) => r.id === id)
+                const id = e.target.value // ✅ string
+                const found = riceOptions.find((r) => r.id === id) // ✅ เทียบ string
                 setOrder((p) => ({
                   ...p,
                   riceId: id,
@@ -810,7 +809,7 @@ const Sales = () => {
             >
               <option value="">— เลือกชนิด —</option>
               {riceOptions.map((r) => (
-                <option key={r.id ?? r.label} value={r.id ?? ""}>
+                <option key={r.id} value={r.id}>
                   {r.label}
                 </option>
               ))}

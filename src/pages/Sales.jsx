@@ -55,6 +55,11 @@ const Sales = () => {
   // ธงกดเลือกจาก dropdown แล้ว เพื่อกันการค้นหา/เปิด dropdown ซ้ำ
   const suppressNameSearchRef = useRef(false)
 
+  // index ที่ไฮไลต์อยู่ใน dropdown
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const listContainerRef = useRef(null)
+  const itemRefs = useRef([]) // refs ของปุ่มแต่ละรายการไว้เลื่อนตามไฮไลต์
+
   // ฟอร์มลูกค้า
   const [customer, setCustomer] = useState({
     citizenId: "",
@@ -186,12 +191,14 @@ const Sales = () => {
       suppressNameSearchRef.current = false
       setShowNameList(false)
       setNameResults([])
+      setHighlightedIndex(-1)
       return
     }
 
     if (q.length < 2) {
       setNameResults([])
       setShowNameList(false)
+      setHighlightedIndex(-1)
       setMemberMeta((m) => (m.type === "member" ? m : { type: "unknown", memberId: null, memberPk: null }))
       return
     }
@@ -221,11 +228,13 @@ const Sales = () => {
         // เปิด dropdown เฉพาะตอนที่ช่องชื่อกำลังโฟกัสอยู่จริง ๆ
         if (document.activeElement === nameInputRef.current) {
           setShowNameList(true)
+          setHighlightedIndex(mapped.length > 0 ? 0 : -1) // โฟกัสตัวแรกไว้ก่อน
         }
       } catch (err) {
         console.error(err)
         setNameResults([])
         setShowNameList(false)
+        setHighlightedIndex(-1)
       } finally {
         setLoadingCustomer(false)
       }
@@ -238,7 +247,10 @@ const Sales = () => {
   useEffect(() => {
     const onClick = (e) => {
       if (!nameBoxRef.current) return
-      if (!nameBoxRef.current.contains(e.target)) setShowNameList(false)
+      if (!nameBoxRef.current.contains(e.target)) {
+        setShowNameList(false)
+        setHighlightedIndex(-1)
+      }
     }
     document.addEventListener("click", onClick)
     return () => document.removeEventListener("click", onClick)
@@ -252,6 +264,47 @@ const Sales = () => {
     setCustomerFound(true)
     setShowNameList(false)
     setNameResults([])
+    setHighlightedIndex(-1)
+  }
+
+  // เลื่อนสกรอลให้ item ที่ไฮไลต์อยู่มองเห็น
+  const scrollHighlightedIntoView = (index) => {
+    const itemEl = itemRefs.current[index]
+    const listEl = listContainerRef.current
+    if (!itemEl || !listEl) return
+    const itemTop = itemEl.offsetTop
+    const itemBottom = itemTop + itemEl.offsetHeight
+    const viewTop = listEl.scrollTop
+    const viewBottom = viewTop + listEl.clientHeight
+    if (itemTop < viewTop) listEl.scrollTop = itemTop
+    else if (itemBottom > viewBottom) listEl.scrollTop = itemBottom - listEl.clientHeight
+  }
+
+  // คีย์บอร์ดนำทาง dropdown
+  const handleNameKeyDown = (e) => {
+    if (!showNameList || nameResults.length === 0) return
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      const next = highlightedIndex < nameResults.length - 1 ? highlightedIndex + 1 : 0
+      setHighlightedIndex(next)
+      // รอ state อัปเดตแล้วค่อยเลื่อน
+      requestAnimationFrame(() => scrollHighlightedIntoView(next))
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      const prev = highlightedIndex > 0 ? highlightedIndex - 1 : nameResults.length - 1
+      setHighlightedIndex(prev)
+      requestAnimationFrame(() => scrollHighlightedIntoView(prev))
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
+        pickNameResult(nameResults[highlightedIndex])
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault()
+      setShowNameList(false)
+      setHighlightedIndex(-1)
+    }
   }
 
   // คำนวณหัก/สุทธิ/จำนวนเงิน
@@ -362,6 +415,7 @@ const Sales = () => {
     setLoadingCustomer(false)
     setNameResults([])
     setShowNameList(false)
+    setHighlightedIndex(-1)
     setMemberMeta({ type: "unknown", memberId: null, memberPk: null })
     setCustomer({
       citizenId: "",
@@ -455,25 +509,46 @@ const Sales = () => {
               value={customer.fullName}
               onChange={(e) => {
                 setCustomer((p) => ({ ...p, fullName: e.target.value }))
-                if (e.target.value.trim().length >= 2) setShowNameList(true)
+                if (e.target.value.trim().length >= 2) {
+                  setShowNameList(true)
+                } else {
+                  setShowNameList(false)
+                  setHighlightedIndex(-1)
+                }
               }}
+              onKeyDown={handleNameKeyDown}
               placeholder="เช่น นายสมชาย ใจดี"
               onFocus={() => {
                 if (customer.fullName.trim().length >= 2 && nameResults.length > 0) {
                   setShowNameList(true)
+                  if (highlightedIndex === -1) setHighlightedIndex(0)
                 }
               }}
+              aria-expanded={showNameList}
+              aria-controls="name-results"
+              role="combobox"
+              aria-autocomplete="list"
             />
             {errors.fullName && <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>}
 
             {showNameList && nameResults.length > 0 && (
-              <div className="mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow">
-                {nameResults.map((r) => (
+              <div
+                id="name-results"
+                ref={listContainerRef}
+                className="mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow"
+                role="listbox"
+              >
+                {nameResults.map((r, idx) => (
                   <button
                     type="button"
+                    ref={(el) => (itemRefs.current[idx] = el)}
                     key={r.id || `${r.citizenId}-${r.first_name}-${r.last_name}`}
                     onClick={() => pickNameResult(r)}
-                    className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-emerald-50"
+                    role="option"
+                    aria-selected={idx === highlightedIndex}
+                    className={`flex w-full items-start gap-3 px-3 py-2 text-left ${
+                      idx === highlightedIndex ? "bg-emerald-50" : "hover:bg-emerald-50"
+                    }`}
                   >
                     <div className="flex-1">
                       <div className="font-medium">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</div>

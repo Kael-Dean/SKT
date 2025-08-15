@@ -59,9 +59,10 @@ const Sales = () => {
   const itemRefs = useRef([])
 
   /** dropdown: ชนิดข้าว/สาขา/คลัง */
-  const [riceOptions, setRiceOptions] = useState([])     // [{id, rice_type, price}]
+  // riceOptions: [{id, label, price, _raw}]
+  const [riceOptions, setRiceOptions] = useState([])
   const [branchOptions, setBranchOptions] = useState([]) // [{id, branch_name}]
-  const [klangOptions, setKlangOptions] = useState([])   // [{id, klang_name}]
+  const [klangOptions, setKlangOptions] = useState([]) // [{id, klang_name}]
 
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
@@ -78,13 +79,14 @@ const Sales = () => {
   /** เมตาสถานะสมาชิก/ลูกค้าทั่วไป */
   const [memberMeta, setMemberMeta] = useState({
     type: "unknown", // "member" | "guest" | "unknown"
-    memberId: null,  // member_id จากตารางสมาชิก
-    memberPk: null,  // id (PK) จากตารางสมาชิก
+    memberId: null, // member_id จากตารางสมาชิก
+    memberPk: null, // id (PK) จากตารางสมาชิก
   })
 
   /** ฟอร์มออเดอร์ */
   const [order, setOrder] = useState({
-    riceType: "",
+    riceType: "", // เก็บชื่อไว้แสดง
+    riceId: null, // ✅ ใช้ id ส่งเข้า backend
     moisturePct: "",
     impurityPct: "",
     grossWeightKg: "",
@@ -97,7 +99,8 @@ const Sales = () => {
     branchName: "",
     branchId: null, // เก็บ id สาขา
     klangName: "",
-    registeredPlace: "", // เผื่อใช้แสดง/บันทึกชื่อหน่วยงาน
+    klangId: null, // ✅ เก็บ id คลัง
+    registeredPlace: "",
   })
 
   /** debounce ค้นหา */
@@ -121,9 +124,19 @@ const Sales = () => {
           fetch(`${API_BASE}/order/rice/search`, { headers: authHeader() }),
           fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
         ])
-        const rice = r1.ok ? await r1.json() : []
+
+        const riceRaw = r1.ok ? await r1.json() : []
         const branch = r2.ok ? await r2.json() : []
-        setRiceOptions(rice || [])
+
+        // ✅ normalize rice
+        const rice = (riceRaw || []).map((x) => ({
+          id: x.id ?? x.rice_id ?? x.riceId ?? null,
+          label: x.rice_type ?? x.rice_name ?? x.name ?? "",
+          price: x.price ?? x.unit_price ?? undefined,
+          _raw: x,
+        }))
+
+        setRiceOptions(rice)
         setBranchOptions(branch || [])
       } catch (e) {
         console.error("Load dropdowns error:", e)
@@ -140,7 +153,7 @@ const Sales = () => {
 
     if (bId == null && !bName) {
       setKlangOptions([])
-      setOrder((p) => ({ ...p, klangName: "" }))
+      setOrder((p) => ({ ...p, klangName: "", klangId: null }))
       return
     }
 
@@ -201,7 +214,7 @@ const Sales = () => {
     }
   }
 
-  /** ---------- ค้นหาด้วยเลขบัตร (ใช้ endpoint สมาชิกเพื่อบอกสถานะ) ---------- */
+  /** ---------- ค้นหาด้วยเลขบัตร ---------- */
   useEffect(() => {
     const cid = onlyDigits(debouncedCitizenId)
     if (cid.length !== 13) {
@@ -212,7 +225,6 @@ const Sales = () => {
     const fetchByCid = async () => {
       try {
         setLoadingCustomer(true)
-        // ใช้ /member/members/search เพื่อให้ได้ member_id มาบอกสถานะ
         const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(cid)}`
         const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
@@ -235,7 +247,7 @@ const Sales = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedCitizenId])
 
-  /** ---------- ค้นหาด้วยชื่อ (dropdown) (ใช้ endpoint สมาชิกเช่นกัน) ---------- */
+  /** ---------- ค้นหาด้วยชื่อ (dropdown) ---------- */
   useEffect(() => {
     const q = (debouncedFullName || "").trim()
 
@@ -307,13 +319,13 @@ const Sales = () => {
 
   const pickNameResult = (rec) => {
     suppressNameSearchRef.current = true
-    fillFromMemberRecord(rec) // จะตั้งสถานะสมาชิกให้ด้วย
+    fillFromMemberRecord(rec)
     setShowNameList(false)
     setNameResults([])
     setHighlightedIndex(-1)
   }
 
-  /** ---------- เลื่อนให้รายการที่ไฮไลต์อยู่เข้าวิวอย่างนุ่มนวล ---------- */
+  /** ---------- เลื่อนให้รายการที่ไฮไลต์อยู่เข้าวิว ---------- */
   const scrollHighlightedIntoView = (index) => {
     const itemEl = itemRefs.current[index]
     const listEl = listContainerRef.current
@@ -321,7 +333,6 @@ const Sales = () => {
     try {
       itemEl.scrollIntoView({ block: "nearest", inline: "nearest" })
     } catch (_e) {
-      // fallback manual (ไม่บังคับ)
       const itemRect = itemEl.getBoundingClientRect()
       const listRect = listEl.getBoundingClientRect()
       const buffer = 6
@@ -333,7 +344,7 @@ const Sales = () => {
     }
   }
 
-  /** ---------- คีย์บอร์ดนำทาง dropdown (ปรับให้เลื่อนตาม) ---------- */
+  /** ---------- คีย์บอร์ดนำทาง dropdown ---------- */
   const handleNameKeyDown = (e) => {
     if (!showNameList || nameResults.length === 0) return
 
@@ -359,7 +370,6 @@ const Sales = () => {
     }
   }
 
-  /** ให้เลื่อนเข้าวิวทุกครั้งที่ index เปลี่ยน (เผื่อกรณีอื่น ๆ) */
   useEffect(() => {
     if (!showNameList) return
     if (highlightedIndex < 0) return
@@ -389,15 +399,15 @@ const Sales = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [computedAmount])
 
-  /** เมื่อเลือกชนิดข้าว ให้ auto-fill ราคา (ถ้ามี) */
+  /** เมื่อเลือกชนิดข้าว (id) ให้ auto-fill ราคา (ถ้ามี) */
   useEffect(() => {
-    if (!order.riceType) return
-    const found = riceOptions.find((r) => r.rice_type === order.riceType)
-    if (found?.price) {
+    if (order.riceId == null) return
+    const found = riceOptions.find((r) => r.id === order.riceId)
+    if (found?.price != null) {
       setOrder((p) => ({ ...p, unitPrice: String(found.price) }))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [order.riceType])
+  }, [order.riceId])
 
   /** ---------- Handlers ---------- */
   const updateCustomer = (k, v) => setCustomer((prev) => ({ ...prev, [k]: v }))
@@ -408,7 +418,7 @@ const Sales = () => {
     if (customer.citizenId && !validateThaiCitizenId(customer.citizenId)) e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
     if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
     if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
-    if (!order.riceType) e.riceType = "เลือกชนิดข้าวเปลือก"
+    if (!order.riceId) e.riceType = "เลือกชนิดข้าวเปลือก"
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
     if (!order.grossWeightKg || Number(order.grossWeightKg) <= 0) e.grossWeightKg = "กรอกน้ำหนักตามใบชั่ง"
@@ -421,134 +431,127 @@ const Sales = () => {
   }
 
   const handleSubmit = async (e) => {
-  e.preventDefault()
-  if (!validateAll()) return
+    e.preventDefault()
+    if (!validateAll()) return
 
-  const [firstName, ...rest] = customer.fullName.trim().split(" ")
-  const lastName = rest.join(" ")
+    const [firstName, ...rest] = customer.fullName.trim().split(" ")
+    const lastName = rest.join(" ")
 
-  // ✅ เตรียม id ที่ backend ต้องการ
-  const riceId = riceOptions.find((r) => r.rice_type === order.riceType)?.id ?? null
-  const branchId = order.branchId ?? null
-  const klangId = order.klangId ?? null
+    // ✅ ใช้ id ตรง ๆ
+    const riceId = order.riceId
+    const branchId = order.branchId ?? null
+    const klangId = order.klangId ?? null
 
-  // ตรวจ id ที่จำเป็น
-  if (!riceId) {
-    setErrors((prev) => ({ ...prev, riceType: "ไม่พบรหัสชนิดข้าว โปรดเลือกใหม่" }))
-    return
-  }
-  if (!branchId) {
-    setErrors((prev) => ({ ...prev, branchName: "ไม่พบรหัสสาขา โปรดเลือกใหม่" }))
-    return
-  }
-  if (!klangId) {
-    setErrors((prev) => ({ ...prev, klangName: "ไม่พบรหัสคลัง โปรดเลือกใหม่" }))
-    return
-  }
+    if (!riceId) {
+      setErrors((prev) => ({ ...prev, riceType: "ไม่พบรหัสชนิดข้าว โปรดเลือกใหม่" }))
+      return
+    }
+    if (!branchId) {
+      setErrors((prev) => ({ ...prev, branchName: "ไม่พบรหัสสาขา โปรดเลือกใหม่" }))
+      return
+    }
+    if (!klangId) {
+      setErrors((prev) => ({ ...prev, klangName: "ไม่พบรหัสคลัง โปรดเลือกใหม่" }))
+      return
+    }
 
-  const baseHeaders = authHeader()
+    const baseHeaders = authHeader()
 
-  // ✅ หา/สร้าง customer_id
-  let customer_id = memberMeta.memberPk ?? null
+    // ✅ หา/สร้าง customer_id
+    let customer_id = memberMeta.memberPk ?? null
 
-  // ถ้าไม่มี memberPk ให้ลอง upsert ลูกค้า (ถ้าคุณมี endpoint นี้)
-  if (!customer_id) {
+    // ถ้าไม่ใช่สมาชิก: พยายาม upsert ลูกค้า (หากมี endpoint)
+    if (!customer_id) {
+      try {
+        const upsertRes = await fetch(`${API_BASE}/order/customer/upsert`, {
+          method: "POST",
+          headers: baseHeaders,
+          body: JSON.stringify({
+            first_name: firstName || "",
+            last_name: lastName || "",
+            citizen_id: onlyDigits(customer.citizenId),
+            address: customer.houseNo.trim(),
+            mhoo: customer.moo.trim(),
+            sub_district: customer.subdistrict.trim(),
+            district: customer.district.trim(),
+            province: customer.province.trim(),
+            postal_code: customer.postalCode?.toString().trim() || "",
+          }),
+        })
+        if (upsertRes.ok) {
+          const u = await upsertRes.json()
+          customer_id = u?.id ?? u?.customer_id ?? null
+        }
+      } catch (_) {
+        /* ถ้าไม่มี endpoint นี้ก็จะยังไม่มี customer_id */
+      }
+    }
+
+    if (!customer_id) {
+      alert("ไม่พบ/ไม่สามารถสร้างรหัสลูกค้า (customer_id) โปรดเลือกจากรายชื่อสมาชิกหรือให้หลังบ้านเปิด endpoint upsert ลูกค้า")
+      return
+    }
+
+    // ✅ เตรียม payload ตาม schema หลังบ้าน
+    const netW =
+      toNumber(order.grossWeightKg) -
+      toNumber(
+        order.manualDeduct
+          ? order.deductWeightKg
+          : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct)
+      )
+
+    const payload = {
+      customer: {
+        first_name: firstName || "",
+        last_name: lastName || "",
+        citizen_id: onlyDigits(customer.citizenId),
+        address: customer.houseNo.trim(),
+        mhoo: customer.moo.trim(),
+        sub_district: customer.subdistrict.trim(),
+        district: customer.district.trim(),
+        province: customer.province.trim(),
+        postal_code: customer.postalCode?.toString().trim() || "",
+      },
+      order: {
+        customer_id, // ✅ บังคับ
+        rice_id: riceId, // ✅ บังคับ
+        branch_location: branchId, // ✅ บังคับ
+        klang_location: klangId, // ✅ บังคับ
+        humidity: Number(order.moisturePct || 0),
+        weight: netW > 0 ? netW : 0,
+        price: Number(order.amountTHB),
+        impurity: Number(order.impurityPct || 0),
+        order_serial: order.paymentRefNo.trim(),
+        date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
+      },
+      rice: { rice_type: order.riceType, id: riceId },
+      branch: { branch_name: order.branchName, id: branchId },
+      klang: { klang_name: order.klangName, id: klangId },
+      customerMeta: {
+        type: memberMeta.type === "unknown" ? "guest" : memberMeta.type,
+        memberId: memberMeta.memberId,
+        memberPk: memberMeta.memberPk,
+      },
+    }
+
     try {
-      const upsertRes = await fetch(`${API_BASE}/order/customer/upsert`, {
+      const res = await fetch(`${API_BASE}/order/customers/save`, {
         method: "POST",
         headers: baseHeaders,
-        body: JSON.stringify({
-          first_name: firstName || "",
-          last_name: lastName || "",
-          citizen_id: onlyDigits(customer.citizenId),
-          address: customer.houseNo.trim(),
-          mhoo: customer.moo.trim(),
-          sub_district: customer.subdistrict.trim(),
-          district: customer.district.trim(),
-          province: customer.province.trim(),
-          postal_code: customer.postalCode?.toString().trim() || "",
-        }),
+        body: JSON.stringify(payload),
       })
-      if (upsertRes.ok) {
-        const u = await upsertRes.json()
-        customer_id = u?.id ?? u?.customer_id ?? null
+      if (!res.ok) {
+        const t = await res.text()
+        throw new Error(t || "ไม่สามารถบันทึกออเดอร์ได้")
       }
-    } catch (_) {
-      /* เงียบไปก่อน ถ้าไม่มี endpoint นี้จริง ๆ */
+      alert("บันทึกออเดอร์เรียบร้อย ✅")
+      handleReset()
+    } catch (err) {
+      console.error(err)
+      alert("บันทึกล้มเหลว กรุณาลองใหม่")
     }
   }
-
-  // ถ้ายังไม่มี customer_id ให้ fallback ส่งเฉพาะชื่อ-ที่อยู่ด้วย (กรณี backend ของคุณรองรับ)
-  // แต่ถ้า backend “บังคับ” customer_id ให้หยุดและแจ้งผู้ใช้:
-  if (!customer_id) {
-    alert("ไม่พบ/ไม่สามารถสร้างรหัสลูกค้า (customer_id) โปรดเลือกจากรายชื่อสมาชิกหรือให้หลังบ้านเปิด endpoint upsert ลูกค้า")
-    return
-  }
-
-  // ✅ เตรียม payload ตามที่ backend ต้องการ
-  const netWeight =
-    toNumber(order.grossWeightKg) -
-    toNumber(
-      order.manualDeduct
-        ? order.deductWeightKg
-        : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct)
-    )
-
-  const payload = {
-    // เก็บ object รายละเอียดลูกค้าไว้ด้วย เผื่อ backend ใช้ (ไม่กระทบ)
-    customer: {
-      first_name: firstName || "",
-      last_name: lastName || "",
-      citizen_id: onlyDigits(customer.citizenId),
-      address: customer.houseNo.trim(),
-      mhoo: customer.moo.trim(),
-      sub_district: customer.subdistrict.trim(),
-      district: customer.district.trim(),
-      province: customer.province.trim(),
-      postal_code: customer.postalCode?.toString().trim() || "",
-    },
-    // ✅ บล็อกนี้สำคัญ: เติมฟิลด์ id ที่ขาด
-    order: {
-      customer_id,                 // ✅ ต้องมี
-      rice_id: riceId,             // ✅ ต้องมี
-      branch_location: branchId,   // ✅ ต้องมี
-      klang_location: klangId,     // ✅ ต้องมี
-      humidity: Number(order.moisturePct || 0),
-      weight: netWeight > 0 ? netWeight : 0,
-      price: Number(order.amountTHB),
-      impurity: Number(order.impurityPct || 0),
-      order_serial: order.paymentRefNo.trim(),
-      date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
-    },
-    // แนบชื่อไว้เผื่อหลังบ้านใช้ค้น/id (ไม่กระทบถ้าไม่ใช้)
-    rice: { rice_type: order.riceType },
-    branch: { branch_name: order.branchName, id: branchId },
-    klang: { klang_name: order.klangName, id: klangId },
-    customerMeta: {
-      type: memberMeta.type === "unknown" ? "guest" : memberMeta.type,
-      memberId: memberMeta.memberId,
-      memberPk: memberMeta.memberPk,
-    },
-  }
-
-  try {
-    const res = await fetch(`${API_BASE}/order/customers/save`, {
-      method: "POST",
-      headers: baseHeaders,
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) {
-      const t = await res.text()
-      throw new Error(t || "ไม่สามารถบันทึกออเดอร์ได้")
-    }
-    alert("บันทึกออเดอร์เรียบร้อย ✅")
-    handleReset()
-  } catch (err) {
-    console.error(err)
-    alert("บันทึกล้มเหลว กรุณาลองใหม่")
-  }
-}
-
 
   const handleReset = () => {
     setErrors({})
@@ -570,6 +573,7 @@ const Sales = () => {
     })
     setOrder({
       riceType: "",
+      riceId: null,
       moisturePct: "",
       impurityPct: "",
       grossWeightKg: "",
@@ -582,6 +586,7 @@ const Sales = () => {
       branchName: "",
       branchId: null,
       klangName: "",
+      klangId: null,
       registeredPlace: "",
     })
   }
@@ -701,7 +706,8 @@ const Sales = () => {
                       <div className="font-medium">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</div>
                       <div className="text-xs text-slate-500">
                         ปชช. {r.citizenId} • {r.address ? `บ้าน ${r.address}` : ""} {r.mhoo ? `หมู่ ${r.mhoo}` : ""}
-                        {r.sub_district ? ` • ต.${r.sub_district}` : ""}{r.district ? ` อ.${r.district}` : ""}
+                        {r.sub_district ? ` • ต.${r.sub_district}` : ""}
+                        {r.district ? ` อ.${r.district}` : ""}
                         {r.province ? ` จ.${r.province}` : ""} {r.postal_code ? ` ${r.postal_code}` : ""}
                         {r.member_id ? " • สมาชิก" : ""}
                       </div>
@@ -790,13 +796,22 @@ const Sales = () => {
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.riceType ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
-              value={order.riceType}
-              onChange={(e) => updateOrder("riceType", e.target.value)}
+              value={order.riceId ?? ""}
+              onChange={(e) => {
+                const id = e.target.value ? Number(e.target.value) : null
+                const found = riceOptions.find((r) => r.id === id)
+                setOrder((p) => ({
+                  ...p,
+                  riceId: id,
+                  riceType: found?.label ?? "",
+                  unitPrice: found?.price != null ? String(found.price) : p.unitPrice,
+                }))
+              }}
             >
               <option value="">— เลือกชนิด —</option>
               {riceOptions.map((r) => (
-                <option key={r.id ?? r.rice_type} value={r.rice_type}>
-                  {r.rice_type}
+                <option key={r.id ?? r.label} value={r.id ?? ""}>
+                  {r.label}
                 </option>
               ))}
             </select>
@@ -818,7 +833,8 @@ const Sales = () => {
                   ...p,
                   branchName: name,
                   branchId: found?.id ?? null,
-                  klangName: "", // เคลียร์คลังเดิม
+                  klangName: "",
+                  klangId: null,
                 }))
               }}
             >
@@ -840,7 +856,15 @@ const Sales = () => {
                 errors.klangName ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={order.klangName}
-              onChange={(e) => updateOrder("klangName", e.target.value)}
+              onChange={(e) => {
+                const name = e.target.value
+                const found = klangOptions.find((k) => k.klang_name === name)
+                setOrder((p) => ({
+                  ...p,
+                  klangName: name,
+                  klangId: found?.id ?? null,
+                }))
+              }}
               disabled={!order.branchName && order.branchId == null}
             >
               <option value="">— เลือกคลัง —</option>

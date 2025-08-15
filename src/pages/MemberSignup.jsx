@@ -572,7 +572,7 @@ const MemberSignup = () => {
                 { key:"rent", label:"เช่า" },
                 { key:"other",label:"อื่น ๆ" },
               ].map(({key,label})=>(
-                <tr key={key} className="border-t">
+                <tr key={key} className="border-none">
                   <td className="p-3 text-black">{label}</td>
                   <td className="p-2">
                     <input

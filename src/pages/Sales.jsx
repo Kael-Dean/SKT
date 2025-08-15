@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 
+/** ---------- ENV (ชี้ไปที่ API เดิมของคุณ) ---------- */
+const API_BASE = import.meta.env.VITE_API_BASE || "" // เช่น http://<ip>:<port>
+
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
@@ -87,23 +90,37 @@ const Sales = () => {
     }
   }
 
-  const fillFromCustomerRecord = (data = {}) => {
+  // map record จาก backend -> โครง UI ฝั่งเรา
+  const mapMemberToUI = (m = {}) => ({
+    citizenId: (m.citizen_id ?? m.citizenId ?? "").toString(),
+    fullName: `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || m.fullName || "",
+    houseNo: m.address ?? m.houseNo ?? "",
+    moo: m.mhoo ?? m.moo ?? "",
+    subdistrict: m.sub_district ?? m.subdistrict ?? "",
+    district: m.district ?? "",
+    province: m.province ?? "",
+  })
+
+  const fillFromRecord = (raw = {}) => {
+    const data = mapMemberToUI(raw)
     setCustomer((prev) => ({
       ...prev,
-      citizenId: data.citizenId ? onlyDigits(data.citizenId) : prev.citizenId,
-      fullName: data.fullName ?? prev.fullName ?? "",
-      houseNo: data.houseNo ?? "",
-      moo: data.moo ?? "",
-      subdistrict: data.subdistrict ?? "",
-      district: data.district ?? "",
-      province: data.province ?? "",
+      citizenId: onlyDigits(data.citizenId || prev.citizenId),
+      fullName: data.fullName || prev.fullName,
+      houseNo: data.houseNo || "",
+      moo: data.moo || "",
+      subdistrict: data.subdistrict || "",
+      district: data.district || "",
+      province: data.province || "",
     }))
   }
 
-  /** ---------- ค้นหาจาก "เลขบัตร" ---------- */
+  /** ---------- ค้นหาจาก "เลขบัตร" ด้วย /member/members/search?q= ---------- */
   useEffect(() => {
     const cid = onlyDigits(debouncedCitizenId)
-    if (cid.length !== 13 || !validateThaiCitizenId(cid)) {
+
+    // รอให้ครบ 13 หลักก่อนแล้วค่อยค้น (ปล่อยให้ checksum ผิดได้ แต่จะแจ้งเตือน)
+    if (cid.length !== 13) {
       setCustomerFound(null)
       return
     }
@@ -112,10 +129,21 @@ const Sales = () => {
       try {
         setLoadingCustomer(true)
         setCustomerFound(null)
-        const res = await fetch(`/api/customers/${cid}`, { headers: authHeader() })
-        if (res.ok) {
-          const data = await res.json()
-          fillFromCustomerRecord(data)
+
+        // เรียก endpoint เดิมของคุณ
+        const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(cid)}`
+        const res = await fetch(url, { headers: authHeader() })
+        if (!res.ok) throw new Error("search failed")
+        const arr = await res.json() // เป็นรายการสมาชิก
+
+        // หา exact match โดย citizen_id เท่ากันเป๊ะก่อน, ถ้าไม่มีก็ใช้ตัวแรก
+        const exact = (arr || []).find(
+          (r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid
+        )
+        const found = exact || (arr && arr[0])
+
+        if (found) {
+          fillFromRecord(found)
           setCustomerFound(true)
         } else {
           setCustomerFound(false)
@@ -131,7 +159,7 @@ const Sales = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedCitizenId])
 
-  /** ---------- ค้นหาจาก "ชื่อ–สกุล" พร้อมรายการให้เลือก ---------- */
+  /** ---------- ค้นหาจาก "ชื่อ–สกุล" (dropdown) ด้วย /member/members/search?q= ---------- */
   useEffect(() => {
     const q = (debouncedFullName || "").trim()
     if (q.length < 2) {
@@ -143,12 +171,24 @@ const Sales = () => {
     const searchByName = async () => {
       try {
         setLoadingCustomer(true)
-        const res = await fetch(`/api/customers/search?name=${encodeURIComponent(q)}`, {
-          headers: authHeader(),
-        })
+        const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(q)}`
+        const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
-        const items = await res.json() // [{ id, citizenId, fullName, houseNo, moo, subdistrict, district, province }]
-        setNameResults(items || [])
+        const items = (await res.json()) || []
+
+        // map เป็นโครงที่ UI แสดงใน dropdown
+        const mapped = items.map((r) => ({
+          id: r.id,
+          citizenId: r.citizen_id || r.citizenId,
+          first_name: r.first_name,
+          last_name: r.last_name,
+          address: r.address,
+          mhoo: r.mhoo,
+          sub_district: r.sub_district,
+          district: r.district,
+          province: r.province,
+        }))
+        setNameResults(mapped)
         setShowNameList(true)
       } catch (err) {
         console.error(err)
@@ -173,7 +213,7 @@ const Sales = () => {
   }, [])
 
   const pickNameResult = (rec) => {
-    fillFromCustomerRecord(rec)
+    fillFromRecord(rec)
     setCustomerFound(true)
     setShowNameList(false)
   }
@@ -207,7 +247,8 @@ const Sales = () => {
 
   const validateAll = () => {
     const e = {}
-    if (!validateThaiCitizenId(customer.citizenId)) e.citizenId = "เลขบัตรประชาชนไม่ถูกต้อง"
+    // แสดงเตือนถ้า checksum ผิด แต่ไม่บล็อกการบันทึก (ให้ backend ตัดสิน)
+    if (customer.citizenId && !validateThaiCitizenId(customer.citizenId)) e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
     if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
     if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
     if (!order.riceType) e.riceType = "เลือกชนิดข้าวเปลือก"
@@ -250,7 +291,7 @@ const Sales = () => {
     }
 
     try {
-      const res = await fetch("/api/orders", {
+      const res = await fetch(`${API_BASE}/api/orders`, {
         method: "POST",
         headers: authHeader(),
         body: JSON.stringify(payload),
@@ -309,10 +350,10 @@ const Sales = () => {
               inputMode="numeric"
               maxLength={13}
               className={`w-full rounded-xl border p-2 outline-none transition ${
-                errors.citizenId ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+                errors.citizenId ? "border-amber-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={customer.citizenId}
-              onChange={(e) => updateCustomer("citizenId", onlyDigits(e.target.value))}
+              onChange={(e) => setCustomer((p) => ({ ...p, citizenId: onlyDigits(e.target.value) }))}
               placeholder="เช่น 1234567890123"
             />
             <div className="mt-1 text-xs text-slate-500">
@@ -323,7 +364,10 @@ const Sales = () => {
               {!loadingCustomer && customer.citizenId.length === 13 && customerFound === false && (
                 <span className="text-amber-600">ไม่พบบุคคลนี้ในระบบ จะบันทึกเป็นลูกค้าใหม่</span>
               )}
-              {errors.citizenId && <span className="text-red-500"> — {errors.citizenId}</span>}
+              {/* ถ้า checksum ไม่ผ่าน แค่เตือน ไม่บล็อก */}
+              {customer.citizenId.length === 13 && !validateThaiCitizenId(customer.citizenId) && (
+                <span className="text-amber-600"> — เลขบัตรอาจไม่ถูกต้อง</span>
+              )}
             </div>
           </div>
 
@@ -335,7 +379,7 @@ const Sales = () => {
               }`}
               value={customer.fullName}
               onChange={(e) => {
-                updateCustomer("fullName", e.target.value)
+                setCustomer((p) => ({ ...p, fullName: e.target.value }))
                 if (e.target.value.trim().length >= 2) setShowNameList(true)
               }}
               placeholder="เช่น นายสมชาย ใจดี"
@@ -343,21 +387,20 @@ const Sales = () => {
             />
             {errors.fullName && <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>}
 
-            {/* รายการชื่อที่ค้นหาเจอ */}
             {showNameList && nameResults.length > 0 && (
               <div className="mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow">
                 {nameResults.map((r) => (
                   <button
                     type="button"
-                    key={r.id || `${r.citizenId}-${r.fullName}`}
+                    key={r.id || `${r.citizenId}-${r.first_name}-${r.last_name}`}
                     onClick={() => pickNameResult(r)}
                     className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-emerald-50"
                   >
                     <div className="flex-1">
-                      <div className="font-medium">{r.fullName}</div>
+                      <div className="font-medium">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</div>
                       <div className="text-xs text-slate-500">
-                        ปชช. {r.citizenId} • {r.houseNo ? `บ้าน ${r.houseNo}` : ""} {r.moo ? `หมู่ ${r.moo}` : ""}
-                        {r.subdistrict ? ` • ต.${r.subdistrict}` : ""}{r.district ? ` อ.${r.district}` : ""}
+                        ปชช. {r.citizenId} • {r.address ? `บ้าน ${r.address}` : ""} {r.mhoo ? `หมู่ ${r.mhoo}` : ""}
+                        {r.sub_district ? ` • ต.${r.sub_district}` : ""}{r.district ? ` อ.${r.district}` : ""}
                         {r.province ? ` จ.${r.province}` : ""}
                       </div>
                     </div>
@@ -372,7 +415,7 @@ const Sales = () => {
             <input
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={customer.houseNo}
-              onChange={(e) => updateCustomer("houseNo", e.target.value)}
+              onChange={(e) => setCustomer((p) => ({ ...p, houseNo: e.target.value }))}
               placeholder="เช่น 99/1"
             />
           </div>
@@ -381,7 +424,7 @@ const Sales = () => {
             <input
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={customer.moo}
-              onChange={(e) => updateCustomer("moo", e.target.value)}
+              onChange={(e) => setCustomer((p) => ({ ...p, moo: e.target.value }))}
               placeholder="เช่น 4"
             />
           </div>
@@ -392,7 +435,7 @@ const Sales = () => {
                 errors.address ? "border-amber-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={customer.subdistrict}
-              onChange={(e) => updateCustomer("subdistrict", e.target.value)}
+              onChange={(e) => setCustomer((p) => ({ ...p, subdistrict: e.target.value }))}
               placeholder="เช่น หนองปลาไหล"
             />
           </div>
@@ -403,7 +446,7 @@ const Sales = () => {
                 errors.address ? "border-amber-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={customer.district}
-              onChange={(e) => updateCustomer("district", e.target.value)}
+              onChange={(e) => setCustomer((p) => ({ ...p, district: e.target.value }))}
               placeholder="เช่น เมือง"
             />
           </div>
@@ -414,7 +457,7 @@ const Sales = () => {
                 errors.address ? "border-amber-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={customer.province}
-              onChange={(e) => updateCustomer("province", e.target.value)}
+              onChange={(e) => setCustomer((p) => ({ ...p, province: e.target.value }))}
               placeholder="เช่น ขอนแก่น"
             />
           </div>
@@ -433,7 +476,7 @@ const Sales = () => {
                 errors.riceType ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={order.riceType}
-              onChange={(e) => updateOrder("riceType", e.target.value)}
+              onChange={(e) => setOrder((p) => ({ ...p, riceType: e.target.value }))}
             >
               <option value="">— เลือกชนิด —</option>
               <option value="ข้าวหอมมะลิ">ข้าวหอมมะลิ</option>
@@ -452,7 +495,7 @@ const Sales = () => {
               inputMode="decimal"
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={order.moisturePct}
-              onChange={(e) => updateOrder("moisturePct", onlyDigits(e.target.value))}
+              onChange={(e) => setOrder((p) => ({ ...p, moisturePct: onlyDigits(e.target.value) }))}
               placeholder="เช่น 18"
             />
             <p className="mt-1 text-xs text-slate-500">มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
@@ -464,7 +507,7 @@ const Sales = () => {
               inputMode="decimal"
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={order.impurityPct}
-              onChange={(e) => updateOrder("impurityPct", onlyDigits(e.target.value))}
+              onChange={(e) => setOrder((p) => ({ ...p, impurityPct: onlyDigits(e.target.value) }))}
               placeholder="เช่น 2"
             />
           </div>
@@ -477,7 +520,9 @@ const Sales = () => {
                 errors.grossWeightKg ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={order.grossWeightKg}
-              onChange={(e) => updateOrder("grossWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+              onChange={(e) =>
+                setOrder((p) => ({ ...p, grossWeightKg: e.target.value.replace(/[^\d.]/g, "") }))
+              }
               placeholder="เช่น 5000"
             />
             {errors.grossWeightKg && <p className="mt-1 text-sm text-red-500">{errors.grossWeightKg}</p>}
@@ -490,7 +535,7 @@ const Sales = () => {
                 <input
                   type="checkbox"
                   checked={order.manualDeduct}
-                  onChange={(e) => updateOrder("manualDeduct", e.target.checked)}
+                  onChange={(e) => setOrder((p) => ({ ...p, manualDeduct: e.target.checked }))}
                 />
                 กำหนดเอง
               </label>
@@ -501,8 +546,10 @@ const Sales = () => {
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.deductWeightKg ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               } ${!order.manualDeduct ? "bg-slate-100" : ""}`}
-              value={order.manualDeduct ? order.deductWeightKg : String(Math.round(autoDeduct * 100) / 100)}
-              onChange={(e) => updateOrder("deductWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+              value={order.manualDeduct ? order.deductWeightKg : String(Math.round(suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct) * 100) / 100)}
+              onChange={(e) =>
+                setOrder((p) => ({ ...p, deductWeightKg: e.target.value.replace(/[^\d.]/g, "") }))
+              }
               placeholder="ระบบคำนวณให้ หรือกำหนดเอง"
             />
             {errors.deductWeightKg && <p className="mt-1 text-sm text-red-500">{errors.deductWeightKg}</p>}
@@ -516,7 +563,7 @@ const Sales = () => {
             <input
               disabled
               className="w-full rounded-xl border border-slate-300 bg-slate-100 p-2 outline-none"
-              value={Math.round(netWeight * 100) / 100}
+              value={Math.round((toNumber(order.grossWeightKg) - toNumber(order.manualDeduct ? order.deductWeightKg : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct))) * 100) / 100}
             />
           </div>
 
@@ -526,7 +573,7 @@ const Sales = () => {
               inputMode="decimal"
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={order.unitPrice}
-              onChange={(e) => updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
+              onChange={(e) => setOrder((p) => ({ ...p, unitPrice: e.target.value.replace(/[^\d.]/g, "") }))}
               placeholder="เช่น 12.50"
             />
             <p className="mt-1 text-xs text-slate-500">ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
@@ -540,7 +587,7 @@ const Sales = () => {
                 errors.amountTHB ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={order.amountTHB}
-              onChange={(e) => updateOrder("amountTHB", e.target.value.replace(/[^\d.]/g, ""))}
+              onChange={(e) => setOrder((p) => ({ ...p, amountTHB: e.target.value.replace(/[^\d.]/g, "") }))}
               placeholder="เช่น 60000"
             />
             {!!order.amountTHB && <p className="mt-1 text-xs text-slate-500">≈ {thb(Number(order.amountTHB))}</p>}
@@ -552,7 +599,7 @@ const Sales = () => {
             <input
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={order.paymentRefNo}
-              onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
+              onChange={(e) => setOrder((p) => ({ ...p, paymentRefNo: e.target.value }))}
               placeholder="เช่น A-2025-000123"
             />
           </div>
@@ -565,7 +612,7 @@ const Sales = () => {
                 errors.issueDate ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={order.issueDate}
-              onChange={(e) => updateOrder("issueDate", e.target.value)}
+              onChange={(e) => setOrder((p) => ({ ...p, issueDate: e.target.value }))}
             />
             {errors.issueDate && <p className="mt-1 text-sm text-red-500">{errors.issueDate}</p>}
           </div>
@@ -575,7 +622,7 @@ const Sales = () => {
             <input
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={order.registeredPlace}
-              onChange={(e) => updateOrder("registeredPlace", e.target.value)}
+              onChange={(e) => setOrder((p) => ({ ...p, registeredPlace: e.target.value }))}
               placeholder="เช่น สหกรณ์การเกษตรอำเภอ…"
             />
           </div>
@@ -591,11 +638,15 @@ const Sales = () => {
             </div>
             <div className="rounded-lg bg-white p-3 text-sm shadow">
               <div className="text-slate-500">หัก (ความชื้น+สิ่งเจือปน)</div>
-              <div className="text-lg font-semibold">{Math.round(autoDeduct * 100) / 100} กก.</div>
+              <div className="text-lg font-semibold">
+                {Math.round(suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct) * 100) / 100} กก.
+              </div>
             </div>
             <div className="rounded-lg bg-white p-3 text-sm shadow">
               <div className="text-slate-500">น้ำหนักสุทธิ</div>
-              <div className="text-lg font-semibold">{Math.round(netWeight * 100) / 100} กก.</div>
+              <div className="text-lg font-semibold">
+                {Math.round((toNumber(order.grossWeightKg) - toNumber(order.manualDeduct ? order.deductWeightKg : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct))) * 100) / 100} กก.
+              </div>
             </div>
             <div className="rounded-lg bg-white p-3 text-sm shadow">
               <div className="text-slate-500">เป็นเงิน</div>

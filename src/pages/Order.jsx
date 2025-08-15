@@ -104,7 +104,7 @@ const Order = () => {
       if (filters.klangId) params.set("klang_id", filters.klangId)
       if (filters.q?.trim()) params.set("q", filters.q.trim())
 
-      const r = await fetch(`${API_BASE}/order/salesreport?${params.toString()}`, { headers: authHeader() })
+      const r = await fetch(`${API_BASE}/order/orders/report?${params.toString()}`, { headers: authHeader() })
       const data = r.ok ? await r.json() : []
       setRows(Array.isArray(data) ? data : [])
     } catch (e) {

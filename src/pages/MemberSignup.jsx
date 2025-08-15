@@ -455,7 +455,7 @@ const MemberSignup = () => {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">ส่งหุ้น/เดือน (share_per_month)</label>
+            <label className="mb-1 block text_sm font-medium">ส่งหุ้น/เดือน (share_per_month)</label>
             <input
               inputMode="decimal"
               className={`w-full rounded-xl border p-2 ${errors.share_per_month ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
@@ -576,8 +576,8 @@ const MemberSignup = () => {
                   <td className="p-3 text-black">{label}</td>
                   <td className="p-2">
                     <input
-                      inputMode="numeric" 
-                      className={`w-full rounded-lg border p-2 placeholder:text-black ${errors[`${key}_rai`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+                      inputMode="numeric"
+                      className={`w-full rounded-lg border p-2 text-black placeholder-gray-400 ${errors[`${key}_rai`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
                       value={form[`${key}_rai`]}
                       onChange={(e)=>update(`${key}_rai`, onlyDigits(e.target.value))}
                       placeholder="0"
@@ -587,7 +587,7 @@ const MemberSignup = () => {
                   <td className="p-2">
                     <input
                       inputMode="numeric"
-                      className={`w-full rounded-lg border p-2 placeholder:text-black ${errors[`${key}_ngan`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+                      className={`w-full rounded-lg border p-2 text-black placeholder-gray-400 ${errors[`${key}_ngan`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
                       value={form[`${key}_ngan`]}
                       onChange={(e)=>update(`${key}_ngan`, String(clampNgan(e.target.value)))}
                       placeholder="0–3"
@@ -597,7 +597,7 @@ const MemberSignup = () => {
                   <td className="p-2">
                     <input
                       inputMode="numeric"
-                      className={`w-full rounded-lg border p-2 placeholder:text-black ${errors[`${key}_wa`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+                      className={`w-full rounded-lg border p-2 text-black placeholder-gray-400 ${errors[`${key}_wa`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
                       value={form[`${key}_wa`]}
                       onChange={(e)=>update(`${key}_wa`, String(clampWa(e.target.value)))}
                       placeholder="0–99"

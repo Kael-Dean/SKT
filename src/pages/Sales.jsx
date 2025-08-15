@@ -55,10 +55,10 @@ const Sales = () => {
   // ธงกดเลือกจาก dropdown แล้ว เพื่อกันการค้นหา/เปิด dropdown ซ้ำ
   const suppressNameSearchRef = useRef(false)
 
-  // index ที่ไฮไลต์อยู่ใน dropdown
+  // index ที่ไฮไลต์อยู่ใน dropdown + refs สำหรับเลื่อนตาม
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const listContainerRef = useRef(null)
-  const itemRefs = useRef([]) // refs ของปุ่มแต่ละรายการไว้เลื่อนตามไฮไลต์
+  const itemRefs = useRef([])
 
   // ฟอร์มลูกค้า
   const [customer, setCustomer] = useState({
@@ -267,18 +267,38 @@ const Sales = () => {
     setHighlightedIndex(-1)
   }
 
-  // เลื่อนสกรอลให้ item ที่ไฮไลต์อยู่มองเห็น
+  /** ---------- เลื่อนรายการไฮไลต์ให้อยู่ในวิวนุ่ม ๆ ---------- */
   const scrollHighlightedIntoView = (index) => {
     const itemEl = itemRefs.current[index]
     const listEl = listContainerRef.current
     if (!itemEl || !listEl) return
-    const itemTop = itemEl.offsetTop
-    const itemBottom = itemTop + itemEl.offsetHeight
-    const viewTop = listEl.scrollTop
-    const viewBottom = viewTop + listEl.clientHeight
-    if (itemTop < viewTop) listEl.scrollTop = itemTop
-    else if (itemBottom > viewBottom) listEl.scrollTop = itemBottom - listEl.clientHeight
+
+    // วิธีหลัก: ให้เบราว์เซอร์เลื่อนเฉพาะที่จำเป็น
+    try {
+      itemEl.scrollIntoView({ block: "nearest", inline: "nearest" })
+      return
+    } catch (_) {
+      // Fallback สำหรับบางเบราว์เซอร์
+    }
+
+    // Fallback manual ด้วย rect + buffer
+    const itemRect = itemEl.getBoundingClientRect()
+    const listRect = listEl.getBoundingClientRect()
+    const buffer = 6 // px กันชิดขอบ
+
+    if (itemRect.top < listRect.top + buffer) {
+      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+    } else if (itemRect.bottom > listRect.bottom - buffer) {
+      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+    }
   }
+
+  // (ออปชันที่ช่วยให้เนียน) ทุกครั้งที่ไฮไลต์เปลี่ยน ให้เลื่อนเข้าวิวอัตโนมัติ
+  useEffect(() => {
+    if (highlightedIndex >= 0) {
+      requestAnimationFrame(() => scrollHighlightedIntoView(highlightedIndex))
+    }
+  }, [highlightedIndex])
 
   // คีย์บอร์ดนำทาง dropdown
   const handleNameKeyDown = (e) => {
@@ -288,13 +308,10 @@ const Sales = () => {
       e.preventDefault()
       const next = highlightedIndex < nameResults.length - 1 ? highlightedIndex + 1 : 0
       setHighlightedIndex(next)
-      // รอ state อัปเดตแล้วค่อยเลื่อน
-      requestAnimationFrame(() => scrollHighlightedIntoView(next))
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
       const prev = highlightedIndex > 0 ? highlightedIndex - 1 : nameResults.length - 1
       setHighlightedIndex(prev)
-      requestAnimationFrame(() => scrollHighlightedIntoView(prev))
     } else if (e.key === "Enter") {
       e.preventDefault()
       if (highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
@@ -544,6 +561,10 @@ const Sales = () => {
                     ref={(el) => (itemRefs.current[idx] = el)}
                     key={r.id || `${r.citizenId}-${r.first_name}-${r.last_name}`}
                     onClick={() => pickNameResult(r)}
+                    onMouseEnter={() => {
+                      setHighlightedIndex(idx)
+                      requestAnimationFrame(() => scrollHighlightedIntoView(idx))
+                    }}
                     role="option"
                     aria-selected={idx === highlightedIndex}
                     className={`flex w-full items-start gap-3 px-3 py-2 text-left ${
@@ -641,7 +662,7 @@ const Sales = () => {
               <option value="ข้าวไรซ์เบอร์รี">ข้าวไรซ์เบอร์รี</option>
               <option value="อื่นๆ">อื่นๆ</option>
             </select>
-            {errors.riceType && <p className="mt-1 text-sm text-red-500">{errors.riceType}</p>}
+            {errors.riceType && <p className="mt-1 text_sm text-red-500">{errors.riceType}</p>}
           </div>
 
           <div>

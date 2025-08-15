@@ -558,7 +558,7 @@ const MemberSignup = () => {
         <h2 className="mt-6 mb-3 text-lg font-semibold text-black">ที่ดินถือครอง</h2>
         <div className="overflow-auto rounded-xl border border-slate-200">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50">
+            <thead className="bg-slate-50 text-black">
               <tr>
                 <th className="p-3 text-left">ประเภท</th>
                 <th className="p-3 text-center">ไร่</th>

@@ -313,17 +313,40 @@ const Sales = () => {
     setHighlightedIndex(-1)
   }
 
-  /** ---------- คีย์บอร์ดนำทาง dropdown ---------- */
+  /** ---------- เลื่อนให้รายการที่ไฮไลต์อยู่เข้าวิวอย่างนุ่มนวล ---------- */
+  const scrollHighlightedIntoView = (index) => {
+    const itemEl = itemRefs.current[index]
+    const listEl = listContainerRef.current
+    if (!itemEl || !listEl) return
+    try {
+      itemEl.scrollIntoView({ block: "nearest", inline: "nearest" })
+    } catch (_e) {
+      // fallback manual (ไม่บังคับ)
+      const itemRect = itemEl.getBoundingClientRect()
+      const listRect = listEl.getBoundingClientRect()
+      const buffer = 6
+      if (itemRect.top < listRect.top + buffer) {
+        listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+      } else if (itemRect.bottom > listRect.bottom - buffer) {
+        listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+      }
+    }
+  }
+
+  /** ---------- คีย์บอร์ดนำทาง dropdown (ปรับให้เลื่อนตาม) ---------- */
   const handleNameKeyDown = (e) => {
     if (!showNameList || nameResults.length === 0) return
+
     if (e.key === "ArrowDown") {
       e.preventDefault()
       const next = highlightedIndex < nameResults.length - 1 ? highlightedIndex + 1 : 0
       setHighlightedIndex(next)
+      requestAnimationFrame(() => scrollHighlightedIntoView(next))
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
       const prev = highlightedIndex > 0 ? highlightedIndex - 1 : nameResults.length - 1
       setHighlightedIndex(prev)
+      requestAnimationFrame(() => scrollHighlightedIntoView(prev))
     } else if (e.key === "Enter") {
       e.preventDefault()
       if (highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
@@ -335,6 +358,13 @@ const Sales = () => {
       setHighlightedIndex(-1)
     }
   }
+
+  /** ให้เลื่อนเข้าวิวทุกครั้งที่ index เปลี่ยน (เผื่อกรณีอื่น ๆ) */
+  useEffect(() => {
+    if (!showNameList) return
+    if (highlightedIndex < 0) return
+    requestAnimationFrame(() => scrollHighlightedIntoView(highlightedIndex))
+  }, [highlightedIndex, showNameList])
 
   /** ---------- คำนวณอัตโนมัติ ---------- */
   const autoDeduct = useMemo(() => {
@@ -586,14 +616,7 @@ const Sales = () => {
                     onClick={() => pickNameResult(r)}
                     onMouseEnter={() => {
                       setHighlightedIndex(idx)
-                      requestAnimationFrame(() => {
-                        const itemEl = itemRefs.current[idx]
-                        const listEl = listContainerRef.current
-                        if (!itemEl || !listEl) return
-                        try {
-                          itemEl.scrollIntoView({ block: "nearest", inline: "nearest" })
-                        } catch (_e) {}
-                      })
+                      requestAnimationFrame(() => scrollHighlightedIntoView(idx))
                     }}
                     role="option"
                     aria-selected={idx === highlightedIndex}

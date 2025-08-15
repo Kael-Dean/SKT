@@ -587,7 +587,7 @@ const MemberSignup = () => {
                   <td className="p-2">
                     <input
                       inputMode="numeric"
-                      className={`w-full rounded-lg border p-2 ${errors[`${key}_ngan`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+                      className={`w-full rounded-lg border p-2 placeholder:text-black ${errors[`${key}_ngan`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
                       value={form[`${key}_ngan`]}
                       onChange={(e)=>update(`${key}_ngan`, String(clampNgan(e.target.value)))}
                       placeholder="0–3"
@@ -597,7 +597,7 @@ const MemberSignup = () => {
                   <td className="p-2">
                     <input
                       inputMode="numeric"
-                      className={`w-full rounded-lg border p-2 ${errors[`${key}_wa`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+                      className={`w-full rounded-lg border p-2 placeholder:text-black ${errors[`${key}_wa`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
                       value={form[`${key}_wa`]}
                       onChange={(e)=>update(`${key}_wa`, String(clampWa(e.target.value)))}
                       placeholder="0–99"

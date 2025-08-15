@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -8,7 +8,6 @@ const thb = (n) =>
     isFinite(n) ? n : 0
   )
 
-// ตรวจเลขบัตร ปชช.ไทย (13 หลัก) แบบมี checksum
 function validateThaiCitizenId(id) {
   const cid = onlyDigits(id)
   if (cid.length !== 13) return false
@@ -28,13 +27,8 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
-/** กฎคำนวณหักน้ำหนัก (ตั้งค่าได้) 
- * สมมติ: ความชื้นมาตรฐาน 15%
- * - เกินทุก 1% หัก 1% ของน้ำหนัก
- * - สิ่งเจือปนหักเท่ากับ % ของน้ำหนัก
- */
+/** กฎคำนวณหักน้ำหนัก (ตั้งค่าได้) */
 const MOISTURE_STD = 15
-
 function suggestDeductionWeight(grossKg, moisturePct, impurityPct) {
   const w = toNumber(grossKg)
   const m = Math.max(0, toNumber(moisturePct) - MOISTURE_STD)
@@ -49,6 +43,10 @@ const Sales = () => {
   const [loadingCustomer, setLoadingCustomer] = useState(false)
   const [customerFound, setCustomerFound] = useState(null) // true | false | null
   const [errors, setErrors] = useState({})
+  const [nameResults, setNameResults] = useState([])
+  const [showNameList, setShowNameList] = useState(false)
+
+  const nameBoxRef = useRef(null)
 
   // ฟอร์มลูกค้า
   const [customer, setCustomer] = useState({
@@ -68,52 +66,56 @@ const Sales = () => {
     impurityPct: "",
     grossWeightKg: "",
     manualDeduct: false,
-    deductWeightKg: "", // กรอกเองเมื่อ manualDeduct = true
-    unitPrice: "", // ราคาต่อกก. (ถ้ามี)
-    amountTHB: "", // เป็นเงิน (แก้ไขได้)
+    deductWeightKg: "",
+    unitPrice: "",
+    amountTHB: "",
     paymentRefNo: "",
-    issueDate: new Date().toISOString().slice(0, 10), // yyyy-mm-dd
+    issueDate: new Date().toISOString().slice(0, 10),
     registeredPlace: "",
   })
 
-  // debounce ค้นหาลูกค้าจากเลขบัตร
+  // debounce ค้นหาลูกค้าจากเลขบัตร / จากชื่อ
   const debouncedCitizenId = useDebounce(customer.citizenId)
+  const debouncedFullName = useDebounce(customer.fullName)
 
-  // เติมอัตโนมัติถ้าเจอลูกค้า
+  /** ---------- API Helpers ---------- */
+  const authHeader = () => {
+    const token = localStorage.getItem("token")
+    return {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    }
+  }
+
+  const fillFromCustomerRecord = (data = {}) => {
+    setCustomer((prev) => ({
+      ...prev,
+      citizenId: data.citizenId ? onlyDigits(data.citizenId) : prev.citizenId,
+      fullName: data.fullName ?? prev.fullName ?? "",
+      houseNo: data.houseNo ?? "",
+      moo: data.moo ?? "",
+      subdistrict: data.subdistrict ?? "",
+      district: data.district ?? "",
+      province: data.province ?? "",
+    }))
+  }
+
+  /** ---------- ค้นหาจาก "เลขบัตร" ---------- */
   useEffect(() => {
     const cid = onlyDigits(debouncedCitizenId)
-    if (cid.length !== 13) {
-      setCustomerFound(null)
-      return
-    }
-    if (!validateThaiCitizenId(cid)) {
+    if (cid.length !== 13 || !validateThaiCitizenId(cid)) {
       setCustomerFound(null)
       return
     }
 
-    // เริ่มค้นหา
-    const fetchCustomer = async () => {
+    const fetchByCid = async () => {
       try {
         setLoadingCustomer(true)
         setCustomerFound(null)
-        const token = localStorage.getItem("token")
-        const res = await fetch(`/api/customers/${cid}`, {
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        })
+        const res = await fetch(`/api/customers/${cid}`, { headers: authHeader() })
         if (res.ok) {
           const data = await res.json()
-          setCustomer((prev) => ({
-            ...prev,
-            fullName: data.fullName || "",
-            houseNo: data.houseNo || "",
-            moo: data.moo || "",
-            subdistrict: data.subdistrict || "",
-            district: data.district || "",
-            province: data.province || "",
-          }))
+          fillFromCustomerRecord(data)
           setCustomerFound(true)
         } else {
           setCustomerFound(false)
@@ -125,10 +127,58 @@ const Sales = () => {
         setLoadingCustomer(false)
       }
     }
-    fetchCustomer()
+    fetchByCid()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedCitizenId])
 
-  // คำนวณหักน้ำหนักอัตโนมัติ (ถ้าไม่ manual)
+  /** ---------- ค้นหาจาก "ชื่อ–สกุล" พร้อมรายการให้เลือก ---------- */
+  useEffect(() => {
+    const q = (debouncedFullName || "").trim()
+    if (q.length < 2) {
+      setNameResults([])
+      setShowNameList(false)
+      return
+    }
+
+    const searchByName = async () => {
+      try {
+        setLoadingCustomer(true)
+        const res = await fetch(`/api/customers/search?name=${encodeURIComponent(q)}`, {
+          headers: authHeader(),
+        })
+        if (!res.ok) throw new Error("search failed")
+        const items = await res.json() // [{ id, citizenId, fullName, houseNo, moo, subdistrict, district, province }]
+        setNameResults(items || [])
+        setShowNameList(true)
+      } catch (err) {
+        console.error(err)
+        setNameResults([])
+        setShowNameList(false)
+      } finally {
+        setLoadingCustomer(false)
+      }
+    }
+    searchByName()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedFullName])
+
+  // ปิดรายการชื่อเมื่อคลิกนอกกล่อง
+  useEffect(() => {
+    const onClick = (e) => {
+      if (!nameBoxRef.current) return
+      if (!nameBoxRef.current.contains(e.target)) setShowNameList(false)
+    }
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [])
+
+  const pickNameResult = (rec) => {
+    fillFromCustomerRecord(rec)
+    setCustomerFound(true)
+    setShowNameList(false)
+  }
+
+  // คำนวณหัก/สุทธิ/จำนวนเงิน
   const autoDeduct = useMemo(() => {
     if (order.manualDeduct) return toNumber(order.deductWeightKg)
     return suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct)
@@ -139,7 +189,6 @@ const Sales = () => {
     return n > 0 ? n : 0
   }, [order.grossWeightKg, autoDeduct])
 
-  // เป็นเงิน (ถ้ากรอกราคาต่อกก. จะคำนวณให้โดยอัตโนมัติ แต่ยังแก้ไขได้)
   const computedAmount = useMemo(() => {
     if (order.unitPrice === "" || isNaN(Number(order.unitPrice))) return null
     return netWeight * Number(order.unitPrice)
@@ -201,17 +250,12 @@ const Sales = () => {
     }
 
     try {
-      const token = localStorage.getItem("token")
       const res = await fetch("/api/orders", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: authHeader(),
         body: JSON.stringify(payload),
       })
       if (!res.ok) throw new Error("ไม่สามารถบันทึกออเดอร์ได้")
-      // success
       alert("บันทึกออเดอร์เรียบร้อย ✅")
       handleReset()
     } catch (err) {
@@ -224,6 +268,8 @@ const Sales = () => {
     setErrors({})
     setCustomerFound(null)
     setLoadingCustomer(false)
+    setNameResults([])
+    setShowNameList(false)
     setCustomer({
       citizenId: "",
       fullName: "",
@@ -253,7 +299,7 @@ const Sales = () => {
     <div className="mx-auto max-w-6xl p-4 md:p-6">
       <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
 
-      {/* ค้นหาลูกค้าด้วยเลขบัตร */}
+      {/* ค้นหาลูกค้าด้วยเลขบัตร / ชื่อ */}
       <div className="text-black mb-6 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-lg font-semibold">ข้อมูลลูกค้า</h2>
         <div className="grid gap-4 md:grid-cols-3">
@@ -281,17 +327,44 @@ const Sales = () => {
             </div>
           </div>
 
-          <div className="md:col-span-2"> 
-            <label className="mb-1 block text-sm font-medium">ชื่อ–สกุล</label>
+          <div className="md:col-span-2" ref={nameBoxRef}>
+            <label className="mb-1 block text-sm font-medium">ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
             <input
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.fullName ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={customer.fullName}
-              onChange={(e) => updateCustomer("fullName", e.target.value)}
+              onChange={(e) => {
+                updateCustomer("fullName", e.target.value)
+                if (e.target.value.trim().length >= 2) setShowNameList(true)
+              }}
               placeholder="เช่น นายสมชาย ใจดี"
+              onFocus={() => customer.fullName.trim().length >= 2 && setShowNameList(true)}
             />
             {errors.fullName && <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>}
+
+            {/* รายการชื่อที่ค้นหาเจอ */}
+            {showNameList && nameResults.length > 0 && (
+              <div className="mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow">
+                {nameResults.map((r) => (
+                  <button
+                    type="button"
+                    key={r.id || `${r.citizenId}-${r.fullName}`}
+                    onClick={() => pickNameResult(r)}
+                    className="flex w-full items-start gap-3 px-3 py-2 text-left hover:bg-emerald-50"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium">{r.fullName}</div>
+                      <div className="text-xs text-slate-500">
+                        ปชช. {r.citizenId} • {r.houseNo ? `บ้าน ${r.houseNo}` : ""} {r.moo ? `หมู่ ${r.moo}` : ""}
+                        {r.subdistrict ? ` • ต.${r.subdistrict}` : ""}{r.district ? ` อ.${r.district}` : ""}
+                        {r.province ? ` จ.${r.province}` : ""}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
@@ -470,9 +543,7 @@ const Sales = () => {
               onChange={(e) => updateOrder("amountTHB", e.target.value.replace(/[^\d.]/g, ""))}
               placeholder="เช่น 60000"
             />
-            {!!order.amountTHB && (
-              <p className="mt-1 text-xs text-slate-500">≈ {thb(Number(order.amountTHB))}</p>
-            )}
+            {!!order.amountTHB && <p className="mt-1 text-xs text-slate-500">≈ {thb(Number(order.amountTHB))}</p>}
             {errors.amountTHB && <p className="mt-1 text-sm text-red-500">{errors.amountTHB}</p>}
           </div>
 

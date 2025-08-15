@@ -613,7 +613,7 @@ const Sales = () => {
           ) : (
             <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-700 ring-1 ring-amber-200">
               <span className="h-2 w-2 rounded-full bg-amber-500" />
-              โปรดกรอกชื่อหรือเลขบัตรเพื่อระบุสถานะ
+              โปรดกรอกชื่อหรือเลขรหัสบัตรประจำตัวประชาชนเพื่อระบุสถานะ
             </span>
           )}
         </div>

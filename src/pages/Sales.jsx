@@ -41,6 +41,151 @@ function suggestDeductionWeight(grossKg, moisturePct, impurityPct) {
   return Math.max(0, dedByMoisture + dedByImpurity)
 }
 
+/** ---------- Reusable ComboBox (สไตล์เหมือนช่องค้นหาชื่อ) ---------- */
+function ComboBox({
+  options = [],
+  value,
+  onChange, // (newValue, optionObj) => void
+  placeholder = "— เลือก —",
+  getLabel = (o) => o?.label ?? "",
+  getValue = (o) => o?.value ?? o?.id ?? "",
+  disabled = false,
+  error = false,
+}) {
+  const [open, setOpen] = useState(false)
+  const [highlight, setHighlight] = useState(-1)
+  const boxRef = useRef(null)
+  const listRef = useRef(null)
+  const btnRef = useRef(null)
+
+  const selectedLabel = useMemo(() => {
+    const found = options.find((o) => String(getValue(o)) === String(value))
+    return found ? getLabel(found) : ""
+  }, [options, value, getLabel, getValue])
+
+  useEffect(() => {
+    const onClick = (e) => {
+      if (!boxRef.current) return
+      if (!boxRef.current.contains(e.target)) {
+        setOpen(false)
+        setHighlight(-1)
+      }
+    }
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [])
+
+  const commit = (opt) => {
+    const v = String(getValue(opt))
+    onChange?.(v, opt)
+    setOpen(false)
+    setHighlight(-1)
+    // โฟกัสกลับไปที่ปุ่ม
+    requestAnimationFrame(() => btnRef.current?.focus())
+  }
+
+  const scrollHighlightedIntoView = (index) => {
+    const listEl = listRef.current
+    const itemEl = listEl?.children?.[index]
+    if (!listEl || !itemEl) return
+    const itemRect = itemEl.getBoundingClientRect()
+    const listRect = listEl.getBoundingClientRect()
+    const buffer = 6
+    if (itemRect.top < listRect.top + buffer) {
+      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+    } else if (itemRect.bottom > listRect.bottom - buffer) {
+      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+    }
+  }
+
+  const onKeyDown = (e) => {
+    if (disabled) return
+    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+      e.preventDefault()
+      setOpen(true)
+      setHighlight((h) => (h >= 0 ? h : 0))
+      return
+    }
+    if (!open) return
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setHighlight((h) => {
+        const next = h < options.length - 1 ? h + 1 : 0
+        requestAnimationFrame(() => scrollHighlightedIntoView(next))
+        return next
+      })
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setHighlight((h) => {
+        const prev = h > 0 ? h - 1 : options.length - 1
+        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
+        return prev
+      })
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
+    } else if (e.key === "Escape") {
+      e.preventDefault()
+      setOpen(false)
+      setHighlight(-1)
+    }
+  }
+
+  return (
+    <div className="relative" ref={boxRef}>
+      <button
+        type="button"
+        ref={btnRef}
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((o) => !o)}
+        onKeyDown={onKeyDown}
+        className={`w-full rounded-xl border p-2 text-left outline-none transition ${
+          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-white hover:bg-slate-50"
+        } ${error ? "border-red-400" : "border-slate-300 focus:border-emerald-500"} dark:bg-slate-800 dark:text-white dark:border-slate-600`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        {selectedLabel || <span className="text-slate-400">{placeholder}</span>}
+      </button>
+
+      {open && (
+        <div
+          ref={listRef}
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow dark:bg-slate-800 dark:border-slate-700"
+        >
+          {options.length === 0 && (
+            <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-300">ไม่มีตัวเลือก</div>
+          )}
+          {options.map((opt, idx) => {
+            const label = getLabel(opt)
+            const isActive = idx === highlight
+            return (
+              <button
+                key={String(getValue(opt)) || label || idx}
+                type="button"
+                role="option"
+                aria-selected={String(getValue(opt)) === String(value)}
+                onMouseEnter={() => setHighlight(idx)}
+                onClick={() => commit(opt)}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
+                  isActive ? "bg-emerald-50" : "hover:bg-emerald-50"
+                } dark:hover:bg-emerald-900/30 dark:text-white`}
+              >
+                <span className="flex-1">{label}</span>
+                {String(getValue(opt)) === String(value) && (
+                  <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** ---------- Component ---------- */
 const Sales = () => {
   /** สถานะค้นหาลูกค้า + dropdown ค้นหาชื่อ */
@@ -86,7 +231,7 @@ const Sales = () => {
   /** ฟอร์มออเดอร์ */
   const [order, setOrder] = useState({
     riceType: "",
-    riceId: "", // ✅ ใช้ string ให้ตรงกับ option
+    riceId: "", // string
     moisturePct: "",
     impurityPct: "",
     grossWeightKg: "",
@@ -128,9 +273,8 @@ const Sales = () => {
         const riceRaw = r1.ok ? await r1.json() : []
         const branch = r2.ok ? await r2.json() : []
 
-        // ✅ normalize rice: id เป็น string เสมอ (กัน mismatch กับ <select>)
         const rice = (riceRaw || []).map((x) => ({
-          id: String(x.id ?? x.rice_id ?? x.riceId ?? ""), // 👈 สำคัญ
+          id: String(x.id ?? x.rice_id ?? x.riceId ?? ""),
           label: x.rice_type ?? x.rice_name ?? x.name ?? "",
           price: x.price ?? x.unit_price ?? undefined,
           _raw: x,
@@ -146,7 +290,7 @@ const Sales = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** โหลด “คลัง” ตามสาขา (ใช้ branchId เป็นหลัก) */
+  /** โหลด “คลัง” ตามสาขา */
   useEffect(() => {
     const bId = order.branchId
     const bName = order.branchName?.trim()
@@ -204,13 +348,12 @@ const Sales = () => {
       province: data.province || "",
       postalCode: data.postalCode || "",
     }))
-    // ตั้งสถานะสมาชิก
     if (data.memberId) {
       setMemberMeta({ type: "member", memberId: data.memberId, memberPk: data.memberPk })
       setCustomerFound(true)
     } else {
       setMemberMeta({ type: "guest", memberId: null, memberPk: null })
-      setCustomerFound(true) // พบลูกค้าแต่ไม่ใช่สมาชิก
+      setCustomerFound(true)
     }
   }
 
@@ -402,7 +545,7 @@ const Sales = () => {
   /** เมื่อเลือกชนิดข้าว (id) ให้ auto-fill ราคา (ถ้ามี) */
   useEffect(() => {
     if (!order.riceId) return
-    const found = riceOptions.find((r) => r.id === order.riceId) // ✅ เทียบแบบ string
+    const found = riceOptions.find((r) => r.id === order.riceId)
     if (found?.price != null) {
       setOrder((p) => ({ ...p, unitPrice: String(found.price) }))
     }
@@ -436,7 +579,6 @@ const Sales = () => {
     const [firstName, ...rest] = customer.fullName.trim().split(" ")
     const lastName = rest.join(" ")
 
-    // ✅ ใช้ id ตรง ๆ (riceId เป็น string -> แปลงเป็น numberถ้าเป็นตัวเลข)
     const riceId = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
     const branchId = order.branchId ?? null
     const klangId = order.klangId ?? null
@@ -456,10 +598,8 @@ const Sales = () => {
 
     const baseHeaders = authHeader()
 
-    // ✅ หา/สร้าง customer_id
     let customer_id = memberMeta.memberPk ?? null
 
-    // ถ้าไม่ใช่สมาชิก: พยายาม upsert ลูกค้า (หากมี endpoint)
     if (!customer_id) {
       try {
         const upsertRes = await fetch(`${API_BASE}/order/customer/upsert`, {
@@ -481,9 +621,7 @@ const Sales = () => {
           const u = await upsertRes.json()
           customer_id = u?.id ?? u?.customer_id ?? null
         }
-      } catch (_) {
-        /* ถ้าไม่มี endpoint นี้ก็จะยังไม่มี customer_id */
-      }
+      } catch (_) {}
     }
 
     if (!customer_id) {
@@ -491,7 +629,6 @@ const Sales = () => {
       return
     }
 
-    // ✅ เตรียม payload ตาม schema หลังบ้าน
     const netW =
       toNumber(order.grossWeightKg) -
       toNumber(
@@ -513,10 +650,10 @@ const Sales = () => {
         postal_code: customer.postalCode?.toString().trim() || "",
       },
       order: {
-        customer_id, // ✅ บังคับ
-        rice_id: riceId, // ✅ บังคับ
-        branch_location: branchId, // ✅ บังคับ
-        klang_location: klangId, // ✅ บังคับ
+        customer_id,
+        rice_id: riceId,
+        branch_location: branchId,
+        klang_location: klangId,
         humidity: Number(order.moisturePct || 0),
         weight: netW > 0 ? netW : 0,
         price: Number(order.amountTHB),
@@ -572,7 +709,7 @@ const Sales = () => {
     })
     setOrder({
       riceType: "",
-      riceId: "", // ✅ reset เป็น string ว่าง
+      riceId: "",
       moisturePct: "",
       impurityPct: "",
       grossWeightKg: "",
@@ -596,22 +733,21 @@ const Sales = () => {
       <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
 
       {/* กล่องข้อมูลลูกค้า */}
-      <div className="text-black mb-6 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+      <div className="text-black mb-6 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm dark:bg-slate-900 dark:text-white dark:border-emerald-900/40">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h2 className="text-lg font-semibold">ข้อมูลลูกค้า</h2>
-          {/* Badge สถานะลูกค้า */}
           {memberMeta.type === "member" ? (
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 ring-1 ring-emerald-200">
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:ring-emerald-900/40">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
               สมาชิก • รหัสสมาชิก {memberMeta.memberId ?? "-"}
             </span>
           ) : memberMeta.type === "guest" ? (
-            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-slate-700 ring-1 ring-slate-200">
+            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">
               <span className="h-2 w-2 rounded-full bg-slate-500" />
               ลูกค้าทั่วไป (ไม่พบในฐานสมาชิก)
             </span>
           ) : (
-            <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-700 ring-1 ring-amber-200">
+            <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:ring-amber-900/40">
               <span className="h-2 w-2 rounded-full bg-amber-500" />
               โปรดกรอกชื่อหรือเลขรหัสบัตรประจำตัวประชาชนเพื่อระบุสถานะ
             </span>
@@ -627,21 +763,21 @@ const Sales = () => {
               maxLength={13}
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.citizenId ? "border-amber-400" : "border-slate-300 focus:border-emerald-500"
-              }`}
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={customer.citizenId}
               onChange={(e) => updateCustomer("citizenId", onlyDigits(e.target.value))}
               placeholder="เช่น 1234567890123"
             />
-            <div className="mt-1 text-xs text-slate-500">
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               {loadingCustomer && "กำลังค้นหาลูกค้า..."}
               {customer.citizenId.length === 13 && !validateThaiCitizenId(customer.citizenId) && (
-                <span className="text-amber-600"> เลขบัตรอาจไม่ถูกต้อง</span>
+                <span className="text-amber-600 dark:text-amber-400"> เลขบัตรอาจไม่ถูกต้อง</span>
               )}
               {customer.citizenId.length === 13 && customerFound === true && (
-                <span className="text-emerald-600 ml-1">พบข้อมูลลูกค้าแล้ว ✅</span>
+                <span className="text-emerald-600 ml-1 dark:text-emerald-400">พบข้อมูลลูกค้าแล้ว ✅</span>
               )}
               {customer.citizenId.length === 13 && customerFound === false && (
-                <span className="text-amber-600 ml-1">ไม่พบบุคคลนี้ในระบบ (ลูกค้าทั่วไป)</span>
+                <span className="text-amber-600 ml-1 dark:text-amber-400">ไม่พบบุคคลนี้ในระบบ (ลูกค้าทั่วไป)</span>
               )}
             </div>
           </div>
@@ -653,7 +789,7 @@ const Sales = () => {
               ref={nameInputRef}
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.fullName ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-              }`}
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={customer.fullName}
               onChange={(e) => {
                 updateCustomer("fullName", e.target.value)
@@ -682,7 +818,7 @@ const Sales = () => {
               <div
                 id="name-results"
                 ref={listContainerRef}
-                className="mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow"
+                className="mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow dark:bg-slate-800 dark:border-slate-700"
                 role="listbox"
               >
                 {nameResults.map((r, idx) => (
@@ -699,11 +835,11 @@ const Sales = () => {
                     aria-selected={idx === highlightedIndex}
                     className={`flex w-full items-start gap-3 px-3 py-2 text-left ${
                       idx === highlightedIndex ? "bg-emerald-50" : "hover:bg-emerald-50"
-                    }`}
+                    } dark:hover:bg-emerald-900/30`}
                   >
                     <div className="flex-1">
                       <div className="font-medium">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
                         ปชช. {r.citizenId} • {r.address ? `บ้าน ${r.address}` : ""} {r.mhoo ? `หมู่ ${r.mhoo}` : ""}
                         {r.sub_district ? ` • ต.${r.sub_district}` : ""}
                         {r.district ? ` อ.${r.district}` : ""} {r.province ? ` จ.${r.province}` : ""}{" "}
@@ -721,7 +857,7 @@ const Sales = () => {
           <div>
             <label className="mb-1 block text-sm font-medium">บ้านเลขที่</label>
             <input
-              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={customer.houseNo}
               onChange={(e) => updateCustomer("houseNo", e.target.value)}
               placeholder="เช่น 99/1"
@@ -730,7 +866,7 @@ const Sales = () => {
           <div>
             <label className="mb-1 block text-sm font-medium">หมู่</label>
             <input
-              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={customer.moo}
               onChange={(e) => updateCustomer("moo", e.target.value)}
               placeholder="เช่น 4"
@@ -741,7 +877,7 @@ const Sales = () => {
             <input
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.address ? "border-amber-400" : "border-slate-300 focus:border-emerald-500"
-              }`}
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={customer.subdistrict}
               onChange={(e) => updateCustomer("subdistrict", e.target.value)}
               placeholder="เช่น หนองปลาไหล"
@@ -752,7 +888,7 @@ const Sales = () => {
             <input
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.address ? "border-amber-400" : "border-slate-300 focus:border-emerald-500"
-              }`}
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={customer.district}
               onChange={(e) => updateCustomer("district", e.target.value)}
               placeholder="เช่น เมือง"
@@ -763,7 +899,7 @@ const Sales = () => {
             <input
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.address ? "border-amber-400" : "border-slate-300 focus:border-emerald-500"
-              }`}
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={customer.province}
               onChange={(e) => updateCustomer("province", e.target.value)}
               placeholder="เช่น ขอนแก่น"
@@ -774,7 +910,7 @@ const Sales = () => {
             <input
               inputMode="numeric"
               maxLength={5}
-              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={customer.postalCode}
               onChange={(e) => updateCustomer("postalCode", onlyDigits(e.target.value))}
               placeholder="เช่น 40000"
@@ -784,95 +920,70 @@ const Sales = () => {
       </div>
 
       {/* ฟอร์มออเดอร์ */}
-      <form onSubmit={handleSubmit} className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
-        <h2 className="text-black mb-3 text-lg font-semibold">รายละเอียดการซื้อ</h2>
+      <form onSubmit={handleSubmit} className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm dark:bg-slate-900 dark:border-emerald-900/40">
+        <h2 className="text-black dark:text-white mb-3 text-lg font-semibold">รายละเอียดการซื้อ</h2>
 
-        <div className="text-black grid gap-4 md:grid-cols-3">
-          {/* ชนิดข้าว */}
+        <div className="text-black dark:text-white grid gap-4 md:grid-cols-3">
+          {/* ชนิดข้าว (ComboBox) */}
           <div>
             <label className="mb-1 block text-sm font-medium">ชนิดข้าวเปลือก</label>
-            <select
-              className={`w-full rounded-xl border p-2 outline-none transition ${
-                errors.riceType ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-              }`}
-              value={order.riceId} // ✅ string
-              onChange={(e) => {
-                const id = e.target.value // ✅ string
-                const found = riceOptions.find((r) => r.id === id) // ✅ เทียบ string
+            <ComboBox
+              options={riceOptions}
+              value={order.riceId}
+              onChange={(id, found) =>
                 setOrder((p) => ({
                   ...p,
                   riceId: id,
                   riceType: found?.label ?? "",
                   unitPrice: found?.price != null ? String(found.price) : p.unitPrice,
                 }))
-              }}
-            >
-              <option value="">— เลือกชนิด —</option>
-              {riceOptions.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
+              }
+              placeholder="— เลือกชนิด —"
+              error={!!errors.riceType}
+            />
             {errors.riceType && <p className="mt-1 text-sm text-red-500">{errors.riceType}</p>}
           </div>
 
-          {/* สาขา */}
+          {/* สาขา (ComboBox) */}
           <div>
             <label className="mb-1 block text-sm font-medium">สาขา</label>
-            <select
-              className={`w-full rounded-xl border p-2 outline-none transition ${
-                errors.branchName ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-              }`}
+            <ComboBox
+              options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
               value={order.branchName}
-              onChange={(e) => {
-                const name = e.target.value
-                const found = branchOptions.find((b) => b.branch_name === name)
+              getValue={(o) => o.label}
+              onChange={(_val, found) =>
                 setOrder((p) => ({
                   ...p,
-                  branchName: name,
+                  branchName: found?.label ?? "",
                   branchId: found?.id ?? null,
                   klangName: "",
                   klangId: null,
                 }))
-              }}
-            >
-              <option value="">— เลือกสาขา —</option>
-              {branchOptions.map((b) => (
-                <option key={b.id ?? b.branch_name} value={b.branch_name}>
-                  {b.branch_name}
-                </option>
-              ))}
-            </select>
+              }
+              placeholder="— เลือกสาขา —"
+              error={!!errors.branchName}
+            />
             {errors.branchName && <p className="mt-1 text-sm text-red-500">{errors.branchName}</p>}
           </div>
 
-          {/* คลัง */}
+          {/* คลัง (ComboBox) */}
           <div>
             <label className="mb-1 block text-sm font-medium">คลัง</label>
-            <select
-              className={`w-full rounded-xl border p-2 outline-none transition ${
-                errors.klangName ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-              }`}
+            <ComboBox
+              options={klangOptions.map((k) => ({ id: k.id, label: k.klang_name }))}
               value={order.klangName}
-              onChange={(e) => {
-                const name = e.target.value
-                const found = klangOptions.find((k) => k.klang_name === name)
+              getValue={(o) => o.label}
+              onChange={(_val, found) =>
                 setOrder((p) => ({
                   ...p,
-                  klangName: name,
+                  klangName: found?.label ?? "",
                   klangId: found?.id ?? null,
                 }))
-              }}
+              }
+              placeholder="— เลือกคลัง —"
               disabled={!order.branchName && order.branchId == null}
-            >
-              <option value="">— เลือกคลัง —</option>
-              {klangOptions.map((k) => (
-                <option key={k.id ?? k.klang_name} value={k.klang_name}>
-                  {k.klang_name}
-                </option>
-              ))}
-            </select>
+              error={!!errors.klangName}
+            />
             {errors.klangName && <p className="mt-1 text-sm text-red-500">{errors.klangName}</p>}
           </div>
 
@@ -881,18 +992,18 @@ const Sales = () => {
             <label className="mb-1 block text-sm font-medium">ความชื้น (%)</label>
             <input
               inputMode="decimal"
-              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={order.moisturePct}
               onChange={(e) => updateOrder("moisturePct", onlyDigits(e.target.value))}
               placeholder="เช่น 18"
             />
-            <p className="mt-1 text-xs text-slate-500">มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">สิ่งเจือปน (%)</label>
             <input
               inputMode="decimal"
-              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={order.impurityPct}
               onChange={(e) => updateOrder("impurityPct", onlyDigits(e.target.value))}
               placeholder="เช่น 2"
@@ -904,7 +1015,7 @@ const Sales = () => {
               inputMode="decimal"
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.grossWeightKg ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-              }`}
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={order.grossWeightKg}
               onChange={(e) => updateOrder("grossWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
               placeholder="เช่น 5000"
@@ -930,7 +1041,7 @@ const Sales = () => {
               disabled={!order.manualDeduct}
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.deductWeightKg ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-              } ${!order.manualDeduct ? "bg-slate-100" : ""}`}
+              } ${!order.manualDeduct ? "bg-slate-100 dark:bg-slate-700/50" : "dark:bg-slate-800 dark:text-white dark:border-slate-600"}`}
               value={
                 order.manualDeduct
                   ? order.deductWeightKg
@@ -951,7 +1062,7 @@ const Sales = () => {
             <label className="mb-1 block text-sm font-medium">น้ำหนักสุทธิ (กก.)</label>
             <input
               disabled
-              className="w-full rounded-xl border border-slate-300 bg-slate-100 p-2 outline-none"
+              className="w-full rounded-xl border border-slate-300 bg-slate-100 p-2 outline-none dark:bg-slate-700/50 dark:text-white dark:border-slate-600"
               value={
                 Math.round(
                   (toNumber(order.grossWeightKg) -
@@ -971,12 +1082,12 @@ const Sales = () => {
             <label className="mb-1 block text-sm font-medium">ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
             <input
               inputMode="decimal"
-              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={order.unitPrice}
               onChange={(e) => updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
               placeholder="เช่น 12.50"
             />
-            <p className="mt-1 text-xs text-slate-500">ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
           </div>
 
           <div>
@@ -985,19 +1096,19 @@ const Sales = () => {
               inputMode="decimal"
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.amountTHB ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-              }`}
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={order.amountTHB}
               onChange={(e) => updateOrder("amountTHB", e.target.value.replace(/[^\d.]/g, ""))}
               placeholder="เช่น 60000"
             />
-            {!!order.amountTHB && <p className="mt-1 text-xs text-slate-500">≈ {thb(Number(order.amountTHB))}</p>}
+            {!!order.amountTHB && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">≈ {thb(Number(order.amountTHB))}</p>}
             {errors.amountTHB && <p className="mt-1 text-sm text-red-500">{errors.amountTHB}</p>}
           </div>
 
           <div>
             <label className="mb-1 block text-sm font-medium">เลขที่ใบสำคัญจ่ายเงิน</label>
             <input
-              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={order.paymentRefNo}
               onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
               placeholder="เช่น A-2025-000123"
@@ -1010,7 +1121,7 @@ const Sales = () => {
               type="date"
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.issueDate ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-              }`}
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={order.issueDate}
               onChange={(e) => updateOrder("issueDate", e.target.value)}
             />
@@ -1019,21 +1130,21 @@ const Sales = () => {
         </div>
 
         {/* สรุป */}
-        <div className="text-black mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <h3 className="text-black mb-2 text-base font-semibold">สรุป</h3>
+        <div className="text-black dark:text-white mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:bg-slate-800/60 dark:border-slate-700">
+          <h3 className="text-black dark:text-white mb-2 text-base font-semibold">สรุป</h3>
           <div className="grid gap-2 md:grid-cols-4">
-            <div className="rounded-lg bg-white p-3 text-sm shadow">
-              <div className="text-slate-500">ชนิดข้าว</div>
+            <div className="rounded-lg bg-white p-3 text-sm shadow dark:bg-slate-800">
+              <div className="text-slate-500 dark:text-slate-400">ชนิดข้าว</div>
               <div className="text-lg font-semibold">{order.riceType || "—"}</div>
             </div>
-            <div className="rounded-lg bg-white p-3 text-sm shadow">
-              <div className="text-slate-500">สาขา / คลัง</div>
+            <div className="rounded-lg bg-white p-3 text-sm shadow dark:bg-slate-800">
+              <div className="text-slate-500 dark:text-slate-400">สาขา / คลัง</div>
               <div className="text-lg font-semibold">
                 {order.branchName || "—"} {order.klangName ? `• ${order.klangName}` : ""}
               </div>
             </div>
-            <div className="rounded-lg bg-white p-3 text-sm shadow">
-              <div className="text-slate-500">น้ำหนักสุทธิ</div>
+            <div className="rounded-lg bg-white p-3 text-sm shadow dark:bg-slate-800">
+              <div className="text-slate-500 dark:text-slate-400">น้ำหนักสุทธิ</div>
               <div className="text-lg font-semibold">
                 {Math.round(
                   (toNumber(order.grossWeightKg) -
@@ -1047,8 +1158,8 @@ const Sales = () => {
                 กก.
               </div>
             </div>
-            <div className="rounded-lg bg-white p-3 text-sm shadow">
-              <div className="text-slate-500">เป็นเงิน</div>
+            <div className="rounded-lg bg-white p-3 text-sm shadow dark:bg-slate-800">
+              <div className="text-slate-500 dark:text-slate-400">เป็นเงิน</div>
               <div className="text-lg font-semibold">{order.amountTHB ? thb(Number(order.amountTHB)) : "—"}</div>
             </div>
           </div>
@@ -1065,7 +1176,7 @@ const Sales = () => {
           <button
             type="button"
             onClick={handleReset}
-            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50 active:scale-[.98]"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50 active:scale-[.98] dark:bg-slate-800 dark:text-white dark:border-slate-600"
           >
             รีเซ็ต
           </button>

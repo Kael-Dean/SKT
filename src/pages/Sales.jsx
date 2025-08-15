@@ -56,9 +56,9 @@ const Sales = () => {
   const itemRefs = useRef([])
 
   // dropdown data
-  const [riceOptions, setRiceOptions] = useState([])   // [{id, rice_type, price}]
-  const [branchOptions, setBranchOptions] = useState([]) // [{id, branch_name}]
-  const [klangOptions, setKlangOptions] = useState([]) // [{id, klang_name}]
+  const [riceOptions, setRiceOptions] = useState([]) // [{rice_type, price}]
+  const [branchOptions, setBranchOptions] = useState([]) // [{branch_name}]
+  const [klangOptions, setKlangOptions] = useState([]) // [{klang_name}]
 
   // ฟอร์มลูกค้า
   const [customer, setCustomer] = useState({
@@ -85,7 +85,6 @@ const Sales = () => {
     paymentRefNo: "",
     issueDate: new Date().toISOString().slice(0, 10),
     branchName: "",
-    branchId: null, // ➕ เก็บ id ของสาขาไว้ด้วย
     klangName: "",
   })
 
@@ -108,51 +107,38 @@ const Sales = () => {
           fetch(`${API_BASE}/order/rice/search`, { headers: authHeader() }),
           fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
         ])
-        if (!r1.ok) console.error("Load rice options failed:", r1.status, await r1.text())
-        if (!r2.ok) console.error("Load branch options failed:", r2.status, await r2.text())
         const rice = r1.ok ? await r1.json() : []
         const branch = r2.ok ? await r2.json() : []
         setRiceOptions(rice || [])
         setBranchOptions(branch || [])
-      } catch (e) {
-        console.error("Load dropdowns error:", e)
-      }
+      } catch (_) {}
     }
     loadDD()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // โหลดคลังตามสาขา (ใช้ branchId เป็นหลัก ถ้าไม่มีค่อยใช้ชื่อ)
+  // โหลดคลังตามสาขา
   useEffect(() => {
-    const bName = order.branchName?.trim()
-    const bId = order.branchId
-
-    if (!bName && (bId == null)) {
+    const b = order.branchName
+    if (!b) {
       setKlangOptions([])
       setOrder((p) => ({ ...p, klangName: "" }))
       return
     }
-
     const loadKlang = async () => {
       try {
-        const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
-        const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
-        if (!r.ok) {
-          const msg = await r.text()
-          console.error("Load klang failed:", r.status, msg)
-          setKlangOptions([])
-          return
-        }
-        const data = await r.json()
+        const r = await fetch(`${API_BASE}/order/klang/search?branch_name=${encodeURIComponent(b)}`, {
+          headers: authHeader(),
+        })
+        const data = r.ok ? await r.json() : []
         setKlangOptions(data || [])
-      } catch (e) {
-        console.error("Load klang error:", e)
+      } catch (_) {
         setKlangOptions([])
       }
     }
     loadKlang()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [order.branchName, order.branchId])
+  }, [order.branchName])
 
   // map record -> UI
   const mapMemberToUI = (m = {}) => {
@@ -200,7 +186,8 @@ const Sales = () => {
         const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const arr = (await res.json()) || []
-        const exact = arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
+        const exact =
+          arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
         if (exact) fillFromRecord(exact)
         else setCustomerFound(false)
       } catch (e) {
@@ -412,6 +399,7 @@ const Sales = () => {
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim(),
         date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
+        // branch_location / klang_location จะหา id ภายใน backend จากชื่อ
       },
       rice: { rice_type: order.riceType },
       branch: { branch_name: order.branchName },
@@ -465,7 +453,6 @@ const Sales = () => {
       paymentRefNo: "",
       issueDate: new Date().toISOString().slice(0, 10),
       branchName: "",
-      branchId: null,  // ➕ reset
       klangName: "",
     })
   }
@@ -488,7 +475,7 @@ const Sales = () => {
                 errors.citizenId ? "border-amber-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={customer.citizenId}
-              onChange={(e) => setCustomer((p) => ({ ...p, citizenId: onlyDigits(e.target.value) }))}
+              onChange={(e) => updateCustomer("citizenId", onlyDigits(e.target.value))}
               placeholder="เช่น 1234567890123"
             />
             <div className="mt-1 text-xs text-slate-500">
@@ -513,7 +500,7 @@ const Sales = () => {
               }`}
               value={customer.fullName}
               onChange={(e) => {
-                setCustomer((p) => ({ ...p, fullName: e.target.value }))
+                updateCustomer("fullName", e.target.value)
                 if (e.target.value.trim().length >= 2) setShowNameList(true)
                 else {
                   setShowNameList(false)
@@ -542,21 +529,10 @@ const Sales = () => {
                     type="button"
                     ref={(el) => (itemRefs.current[idx] = el)}
                     key={r.id || `${r.citizenId}-${r.first_name}-${r.last_name}`}
-                    onClick={() => {
-                      suppressNameSearchRef.current = true
-                      fillFromRecord(r)
-                      setShowNameList(false)
-                      setNameResults([])
-                      setHighlightedIndex(-1)
-                    }}
+                    onClick={() => pickNameResult(r)}
                     onMouseEnter={() => {
                       setHighlightedIndex(idx)
-                      requestAnimationFrame(() => {
-                        const itemEl = itemRefs.current[idx]
-                        const listEl = listContainerRef.current
-                        if (!itemEl || !listEl) return
-                        try { itemEl.scrollIntoView({ block: "nearest", inline: "nearest" }) } catch (_){}
-                      })
+                      requestAnimationFrame(() => scrollHighlightedIntoView(idx))
                     }}
                     role="option"
                     aria-selected={idx === highlightedIndex}
@@ -584,7 +560,7 @@ const Sales = () => {
             <input
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={customer.houseNo}
-              onChange={(e) => setCustomer((p) => ({ ...p, houseNo: e.target.value }))}
+              onChange={(e) => updateCustomer("houseNo", e.target.value)}
               placeholder="เช่น 99/1"
             />
           </div>
@@ -593,18 +569,18 @@ const Sales = () => {
             <input
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={customer.moo}
-              onChange={(e) => setCustomer((p) => ({ ...p, moo: e.target.value }))}
+              onChange={(e) => updateCustomer("moo", e.target.value)}
               placeholder="เช่น 4"
             />
           </div>
           <div>
-            <label className="mb-1 block text.sm font-medium">ตำบล</label>
+            <label className="mb-1 block text-sm font-medium">ตำบล</label>
             <input
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.address ? "border-amber-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={customer.subdistrict}
-              onChange={(e) => setCustomer((p) => ({ ...p, subdistrict: e.target.value }))}
+              onChange={(e) => updateCustomer("subdistrict", e.target.value)}
               placeholder="เช่น หนองปลาไหล"
             />
           </div>
@@ -615,7 +591,7 @@ const Sales = () => {
                 errors.address ? "border-amber-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={customer.district}
-              onChange={(e) => setCustomer((p) => ({ ...p, district: e.target.value }))}
+              onChange={(e) => updateCustomer("district", e.target.value)}
               placeholder="เช่น เมือง"
             />
           </div>
@@ -626,7 +602,7 @@ const Sales = () => {
                 errors.address ? "border-amber-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={customer.province}
-              onChange={(e) => setCustomer((p) => ({ ...p, province: e.target.value }))}
+              onChange={(e) => updateCustomer("province", e.target.value)}
               placeholder="เช่น ขอนแก่น"
             />
           </div>
@@ -637,7 +613,7 @@ const Sales = () => {
               maxLength={5}
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={customer.postalCode}
-              onChange={(e) => setCustomer((p) => ({ ...p, postalCode: onlyDigits(e.target.value) }))}
+              onChange={(e) => updateCustomer("postalCode", onlyDigits(e.target.value))}
               placeholder="เช่น 40000"
             />
           </div>
@@ -657,11 +633,11 @@ const Sales = () => {
                 errors.riceType ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={order.riceType}
-              onChange={(e) => setOrder((p) => ({ ...p, riceType: e.target.value }))}
+              onChange={(e) => updateOrder("riceType", e.target.value)}
             >
               <option value="">— เลือกชนิด —</option>
               {riceOptions.map((r) => (
-                <option key={r.id ?? r.rice_type} value={r.rice_type}>
+                <option key={r.rice_type} value={r.rice_type}>
                   {r.rice_type}
                 </option>
               ))}
@@ -677,20 +653,11 @@ const Sales = () => {
                 errors.branchName ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={order.branchName}
-              onChange={(e) => {
-                const name = e.target.value
-                const found = branchOptions.find((b) => b.branch_name === name)
-                setOrder((p) => ({
-                  ...p,
-                  branchName: name,
-                  branchId: found?.id ?? null,  // ➕ เก็บ id
-                  klangName: "",                 // เคลียร์คลังเดิม
-                }))
-              }}
+              onChange={(e) => updateOrder("branchName", e.target.value)}
             >
               <option value="">— เลือกสาขา —</option>
               {branchOptions.map((b) => (
-                <option key={b.id ?? b.branch_name} value={b.branch_name}>
+                <option key={b.branch_name} value={b.branch_name}>
                   {b.branch_name}
                 </option>
               ))}
@@ -706,12 +673,12 @@ const Sales = () => {
                 errors.klangName ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={order.klangName}
-              onChange={(e) => setOrder((p) => ({ ...p, klangName: e.target.value }))}
-              disabled={!order.branchName && order.branchId == null}
+              onChange={(e) => updateOrder("klangName", e.target.value)}
+              disabled={!order.branchName}
             >
               <option value="">— เลือกคลัง —</option>
               {klangOptions.map((k) => (
-                <option key={k.id ?? k.klang_name} value={k.klang_name}>
+                <option key={k.klang_name} value={k.klang_name}>
                   {k.klang_name}
                 </option>
               ))}
@@ -726,7 +693,7 @@ const Sales = () => {
               inputMode="decimal"
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={order.moisturePct}
-              onChange={(e) => setOrder((p) => ({ ...p, moisturePct: onlyDigits(e.target.value) }))}
+              onChange={(e) => updateOrder("moisturePct", onlyDigits(e.target.value))}
               placeholder="เช่น 18"
             />
             <p className="mt-1 text-xs text-slate-500">มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
@@ -737,7 +704,7 @@ const Sales = () => {
               inputMode="decimal"
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={order.impurityPct}
-              onChange={(e) => setOrder((p) => ({ ...p, impurityPct: onlyDigits(e.target.value) }))}
+              onChange={(e) => updateOrder("impurityPct", onlyDigits(e.target.value))}
               placeholder="เช่น 2"
             />
           </div>
@@ -749,7 +716,7 @@ const Sales = () => {
                 errors.grossWeightKg ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={order.grossWeightKg}
-              onChange={(e) => setOrder((p) => ({ ...p, grossWeightKg: e.target.value.replace(/[^\d.]/g, "") }))}
+              onChange={(e) => updateOrder("grossWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
               placeholder="เช่น 5000"
             />
             {errors.grossWeightKg && <p className="mt-1 text-sm text-red-500">{errors.grossWeightKg}</p>}
@@ -763,7 +730,7 @@ const Sales = () => {
                 <input
                   type="checkbox"
                   checked={order.manualDeduct}
-                  onChange={(e) => setOrder((p) => ({ ...p, manualDeduct: e.target.checked }))}
+                  onChange={(e) => updateOrder("manualDeduct", e.target.checked)}
                 />
                 กำหนดเอง
               </label>
@@ -783,7 +750,7 @@ const Sales = () => {
                       ) / 100
                     )
               }
-              onChange={(e) => setOrder((p) => ({ ...p, deductWeightKg: e.target.value.replace(/[^\d.]/g, "") }))}
+              onChange={(e) => updateOrder("deductWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
               placeholder="ระบบคำนวณให้ หรือกำหนดเอง"
             />
             {errors.deductWeightKg && <p className="mt-1 text-sm text-red-500">{errors.deductWeightKg}</p>}
@@ -795,17 +762,7 @@ const Sales = () => {
             <input
               disabled
               className="w-full rounded-xl border border-slate-300 bg-slate-100 p-2 outline-none"
-              value={
-                Math.round(
-                  (toNumber(order.grossWeightKg) -
-                    toNumber(
-                      order.manualDeduct
-                        ? order.deductWeightKg
-                        : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct)
-                    )) *
-                    100
-                ) / 100
-              }
+              value={Math.round((toNumber(order.grossWeightKg) - toNumber(order.manualDeduct ? order.deductWeightKg : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct))) * 100) / 100}
             />
           </div>
 
@@ -816,7 +773,7 @@ const Sales = () => {
               inputMode="decimal"
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={order.unitPrice}
-              onChange={(e) => setOrder((p) => ({ ...p, unitPrice: e.target.value.replace(/[^\d.]/g, "") }))}
+              onChange={(e) => updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
               placeholder="เช่น 12.50"
             />
             <p className="mt-1 text-xs text-slate-500">ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
@@ -829,7 +786,7 @@ const Sales = () => {
                 errors.amountTHB ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={order.amountTHB}
-              onChange={(e) => setOrder((p) => ({ ...p, amountTHB: e.target.value.replace(/[^\d.]/g, "") }))}
+              onChange={(e) => updateOrder("amountTHB", e.target.value.replace(/[^\d.]/g, ""))}
               placeholder="เช่น 60000"
             />
             {!!order.amountTHB && <p className="mt-1 text-xs text-slate-500">≈ {thb(Number(order.amountTHB))}</p>}
@@ -841,7 +798,7 @@ const Sales = () => {
             <input
               className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
               value={order.paymentRefNo}
-              onChange={(e) => setOrder((p) => ({ ...p, paymentRefNo: e.target.value }))}
+              onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
               placeholder="เช่น A-2025-000123"
             />
           </div>
@@ -854,7 +811,7 @@ const Sales = () => {
                 errors.issueDate ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
               value={order.issueDate}
-              onChange={(e) => setOrder((p) => ({ ...p, issueDate: e.target.value }))}
+              onChange={(e) => updateOrder("issueDate", e.target.value)}
             />
             {errors.issueDate && <p className="mt-1 text-sm text-red-500">{errors.issueDate}</p>}
           </div>
@@ -877,16 +834,7 @@ const Sales = () => {
             <div className="rounded-lg bg-white p-3 text-sm shadow">
               <div className="text-slate-500">น้ำหนักสุทธิ</div>
               <div className="text-lg font-semibold">
-                {Math.round(
-                  (toNumber(order.grossWeightKg) -
-                    toNumber(
-                      order.manualDeduct
-                        ? order.deductWeightKg
-                        : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct)
-                    )) *
-                    100
-                ) / 100}{" "}
-                กก.
+                {Math.round((toNumber(order.grossWeightKg) - toNumber(order.manualDeduct ? order.deductWeightKg : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct))) * 100) / 100} กก.
               </div>
             </div>
             <div className="rounded-lg bg-white p-3 text-sm shadow">

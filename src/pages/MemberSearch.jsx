@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
 
-const API_BASE = import.meta.env.VITE_API_BASE
+/** ---------- ENV: API BASE ---------- */
+const API_BASE = import.meta.env.VITE_API_BASE // เช่น http://18.142.48.127
 
+/** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const toISO = (d) => (d ? new Date(d).toISOString() : null)
 
@@ -25,7 +27,7 @@ function formatDate(d) {
   }
 }
 
-/** ฟิลด์ทั้งหมด (ตรงกับ MemberSignup + Backend) */
+/** ---------- Config: ฟิลด์ทั้งหมด (ตรงกับ Backend) ---------- */
 const FIELD_CONFIG = [
   { key: "member_id", label: "เลขสมาชิก", type: "number" },
   { key: "precode", label: "คำนำหน้า (รหัส)", type: "number" },
@@ -53,6 +55,19 @@ const FIELD_CONFIG = [
   { key: "regis_date", label: "วันที่สมัคร", type: "date" },
   { key: "last_bought_date", label: "วันที่ซื้อครั้งล่าสุด", type: "date" },
   { key: "transfer_date", label: "วันที่โอน (ไม่ระบุก็ได้)", type: "date-optional" },
+
+  // ---------- ฟิลด์ที่ดิน ----------
+  { key: "own_rai",   label: "ถือครอง (ไร่)", type: "number" },
+  { key: "own_ngan",  label: "ถือครอง (งาน)", type: "number" },
+  { key: "own_wa",    label: "ถือครอง (ตารางวา)", type: "number" },
+
+  { key: "rent_rai",  label: "เช่าทำกิน (ไร่)", type: "number" },
+  { key: "rent_ngan", label: "เช่าทำกิน (งาน)", type: "number" },
+  { key: "rent_wa",   label: "เช่าทำกิน (ตารางวา)", type: "number" },
+
+  { key: "other_rai",  label: "อื่นๆ (ไร่)", type: "number" },
+  { key: "other_ngan", label: "อื่นๆ (งาน)", type: "number" },
+  { key: "other_wa",   label: "อื่นๆ (ตารางวา)", type: "number" },
 ]
 
 // คอลัมน์สั้นๆ ในตารางหลัก
@@ -64,6 +79,23 @@ const TABLE_COLUMNS = [
   { key: "province", label: "จังหวัด" },
   { key: "regis_date", label: "วันที่สมัคร", render: (v) => formatDate(v) },
 ]
+
+/** ---------- ชุดคีย์ที่ดิน + ฟังก์ชัน clamp ---------- */
+const LAND_KEYS = [
+  "own_rai","own_ngan","own_wa",
+  "rent_rai","rent_ngan","rent_wa",
+  "other_rai","other_ngan","other_wa",
+]
+
+// จำกัดช่วงตัวเลขที่เหมาะสม: งาน 0–3, ตารางวา 0–99, ไร่ >= 0
+function clampLandValue(key, raw) {
+  const n = Number(onlyDigits(String(raw ?? "")))
+  if (Number.isNaN(n)) return 0
+  if (key.endsWith("_ngan")) return Math.min(Math.max(n, 0), 3)
+  if (key.endsWith("_wa"))   return Math.min(Math.max(n, 0), 99)
+  // _rai
+  return Math.max(n, 0)
+}
 
 const MemberSearch = () => {
   const [q, setQ] = useState("")
@@ -116,7 +148,13 @@ const MemberSearch = () => {
     setActive(row)
     // draft เริ่มจากทุกฟิลด์
     const init = {}
-    FIELD_CONFIG.forEach(({ key }) => (init[key] = row[key] ?? (key.includes("date") ? "" : "")))
+    FIELD_CONFIG.forEach(({ key }) => {
+      if (LAND_KEYS.includes(key)) {
+        init[key] = typeof row[key] === "number" ? row[key] : 0
+      } else {
+        init[key] = row[key] ?? (key.includes("date") ? "" : "")
+      }
+    })
     // แปลงวันที่ให้เป็น yyyy-mm-dd
     ;["regis_date", "last_bought_date", "transfer_date"].forEach((k) => {
       if (row[k]) {
@@ -144,7 +182,10 @@ const MemberSearch = () => {
   const onChangeField = (key, val) => {
     const cfg = FIELD_CONFIG.find((f) => f.key === key)
     if (!cfg) return
-    if (cfg.type === "cid") {
+
+    if (LAND_KEYS.includes(key)) {
+      val = clampLandValue(key, val)
+    } else if (cfg.type === "cid") {
       val = onlyDigits(val).slice(0, 13)
     } else if (cfg.type === "number") {
       val = onlyDigits(val)
@@ -162,9 +203,13 @@ const MemberSearch = () => {
 
       if (type === "date" || type === "date-optional") {
         ev = ev ? toISO(ev) : null
+      } else if (type === "number" || type === "decimal") {
+        if (LAND_KEYS.includes(key)) {
+          ev = (ev === "" || ev === null || Number.isNaN(Number(ev))) ? 0 : Number(ev)
+        } else {
+          ev = (ev === "" || ev === null) ? null : Number(ev)
+        }
       }
-      if (type === "number") ev = ev === "" || ev === null ? null : Number(ev)
-      if (type === "decimal") ev = ev === "" || ev === null ? null : Number(ev)
 
       if (ov !== ev) diff[key] = ev
     })
@@ -217,7 +262,13 @@ const MemberSearch = () => {
       setActive(updated)
 
       const nextDraft = {}
-      FIELD_CONFIG.forEach(({ key }) => (nextDraft[key] = updated[key] ?? ""))
+      FIELD_CONFIG.forEach(({ key }) => {
+        if (LAND_KEYS.includes(key)) {
+          nextDraft[key] = typeof updated[key] === "number" ? updated[key] : 0
+        } else {
+          nextDraft[key] = updated[key] ?? ""
+        }
+      })
       ;["regis_date", "last_bought_date", "transfer_date"].forEach((k) => {
         if (updated[k]) {
           try {
@@ -303,7 +354,7 @@ const MemberSearch = () => {
         )}
       </div>
 
-      {/* Modal: แนวยาว (กว้าง) กลางจอ */}
+      {/* Modal */}
       <div
         className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`}
         aria-hidden={!open}
@@ -364,7 +415,13 @@ const MemberSearch = () => {
                           onClick={() => {
                             setEditing(false)
                             const reset = {}
-                            FIELD_CONFIG.forEach(({ key }) => (reset[key] = active[key] ?? ""))
+                            FIELD_CONFIG.forEach(({ key }) => {
+                              if (LAND_KEYS.includes(key)) {
+                                reset[key] = typeof active[key] === "number" ? active[key] : 0
+                              } else {
+                                reset[key] = active[key] ?? ""
+                              }
+                            })
                             ;["regis_date", "last_bought_date", "transfer_date"].forEach((k) => {
                               if (active[k]) {
                                 try {
@@ -389,9 +446,9 @@ const MemberSearch = () => {
                     </div>
                   )}
 
-                  {/* ฟอร์มรายละเอียดแบบแนวนอนยาว: ใช้กริด 3 คอลัมน์บนจอใหญ่ */}
+                  {/* ---------- ข้อมูลทั่วไป (ไม่นับที่ดิน) ---------- */}
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {FIELD_CONFIG.map((f) => {
+                    {FIELD_CONFIG.filter(f => !LAND_KEYS.includes(f.key)).map((f) => {
                       const val = editing ? draft?.[f.key] ?? "" : active?.[f.key]
                       return (
                         <div key={f.key}>
@@ -432,6 +489,104 @@ const MemberSearch = () => {
                         </div>
                       )
                     })}
+                  </div>
+
+                  {/* ---------- ข้อมูลที่ดิน ---------- */}
+                  <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/30 p-4">
+                    <div className="mb-3 text-base font-semibold text-emerald-800">🌾 ข้อมูลที่ดิน</div>
+
+                    {/* ถือครอง */}
+                    <div className="mb-4">
+                      <div className="mb-1 text-sm font-medium text-slate-700">ถือครอง</div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        {["own_rai","own_ngan","own_wa"].map((k) => {
+                          const label = k.endsWith("_rai") ? "ไร่" : k.endsWith("_ngan") ? "งาน" : "ตารางวา"
+                          const val = editing ? draft?.[k] ?? 0 : (active?.[k] ?? 0)
+                          return (
+                            <div key={k}>
+                              {!editing ? (
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                                  {val}
+                                </div>
+                              ) : (
+                                <input
+                                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                                  inputMode="numeric"
+                                  value={val}
+                                  onChange={(e) => onChangeField(k, e.target.value)}
+                                  placeholder={label}
+                                />
+                              )}
+                              <div className="mt-1 text-xs text-slate-500">
+                                {label}{k.endsWith("_ngan") && " (0–3)"}{k.endsWith("_wa") && " (0–99)"}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* เช่าทำกิน */}
+                    <div className="mb-4">
+                      <div className="mb-1 text-sm font-medium text-slate-700">เช่าทำกิน</div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        {["rent_rai","rent_ngan","rent_wa"].map((k) => {
+                          const label = k.endsWith("_rai") ? "ไร่" : k.endsWith("_ngan") ? "งาน" : "ตารางวา"
+                          const val = editing ? draft?.[k] ?? 0 : (active?.[k] ?? 0)
+                          return (
+                            <div key={k}>
+                              {!editing ? (
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                                  {val}
+                                </div>
+                              ) : (
+                                <input
+                                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                                  inputMode="numeric"
+                                  value={val}
+                                  onChange={(e) => onChangeField(k, e.target.value)}
+                                  placeholder={label}
+                                />
+                              )}
+                              <div className="mt-1 text-xs text-slate-500">
+                                {label}{k.endsWith("_ngan") && " (0–3)"}{k.endsWith("_wa") && " (0–99)"}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* อื่นๆ */}
+                    <div>
+                      <div className="mb-1 text-sm font-medium text-slate-700">อื่นๆ</div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        {["other_rai","other_ngan","other_wa"].map((k) => {
+                          const label = k.endsWith("_rai") ? "ไร่" : k.endsWith("_ngan") ? "งาน" : "ตารางวา"
+                          const val = editing ? draft?.[k] ?? 0 : (active?.[k] ?? 0)
+                          return (
+                            <div key={k}>
+                              {!editing ? (
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                                  {val}
+                                </div>
+                              ) : (
+                                <input
+                                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                                  inputMode="numeric"
+                                  value={val}
+                                  onChange={(e) => onChangeField(k, e.target.value)}
+                                  placeholder={label}
+                                />
+                              )}
+                              <div className="mt-1 text-xs text-slate-500">
+                                {label}{k.endsWith("_ngan") && " (0–3)"}{k.endsWith("_wa") && " (0–99)"}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </>
               )}

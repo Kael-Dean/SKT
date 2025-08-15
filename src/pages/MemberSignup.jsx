@@ -573,11 +573,11 @@ const MemberSignup = () => {
                 { key:"other",label:"อื่น ๆ" },
               ].map(({key,label})=>(
                 <tr key={key} className="border-t">
-                  <td className="p-3">{label}</td>
+                  <td className="p-3 text-black">{label}</td>
                   <td className="p-2">
                     <input
-                      inputMode="numeric"
-                      className={`w-full rounded-lg border p-2 ${errors[`${key}_rai`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+                      inputMode="numeric" 
+                      className={`w-full rounded-lg border p-2 placeholder:text-black ${errors[`${key}_rai`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
                       value={form[`${key}_rai`]}
                       onChange={(e)=>update(`${key}_rai`, onlyDigits(e.target.value))}
                       placeholder="0"

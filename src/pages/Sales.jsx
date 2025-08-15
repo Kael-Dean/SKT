@@ -50,6 +50,10 @@ const Sales = () => {
   const [showNameList, setShowNameList] = useState(false)
 
   const nameBoxRef = useRef(null)
+  const nameInputRef = useRef(null)
+
+  // ธงกดเลือกจาก dropdown แล้ว เพื่อกันการค้นหา/เปิด dropdown ซ้ำ
+  const suppressNameSearchRef = useRef(false)
 
   // ฟอร์มลูกค้า
   const [customer, setCustomer] = useState({
@@ -176,6 +180,15 @@ const Sales = () => {
   /** ---------- ค้นหาด้วยชื่อ (dropdown) ---------- */
   useEffect(() => {
     const q = (debouncedFullName || "").trim()
+
+    // ถ้าเพิ่งกดเลือกชื่อจาก dropdown ให้ข้ามการค้นหา 1 ครั้งและปิด dropdown
+    if (suppressNameSearchRef.current) {
+      suppressNameSearchRef.current = false
+      setShowNameList(false)
+      setNameResults([])
+      return
+    }
+
     if (q.length < 2) {
       setNameResults([])
       setShowNameList(false)
@@ -204,7 +217,11 @@ const Sales = () => {
           member_id: r.member_id,
         }))
         setNameResults(mapped)
-        setShowNameList(true)
+
+        // เปิด dropdown เฉพาะตอนที่ช่องชื่อกำลังโฟกัสอยู่จริง ๆ
+        if (document.activeElement === nameInputRef.current) {
+          setShowNameList(true)
+        }
       } catch (err) {
         console.error(err)
         setNameResults([])
@@ -228,9 +245,13 @@ const Sales = () => {
   }, [])
 
   const pickNameResult = (rec) => {
+    // กันการค้นหา/เปิด dropdown ซ้ำในรอบถัดไป
+    suppressNameSearchRef.current = true
+
     fillFromRecord(rec) // จะ setMemberMeta เป็น member ให้ด้วย
     setCustomerFound(true)
     setShowNameList(false)
+    setNameResults([])
   }
 
   // คำนวณหัก/สุทธิ/จำนวนเงิน
@@ -427,6 +448,7 @@ const Sales = () => {
           <div className="md:col-span-2" ref={nameBoxRef}>
             <label className="mb-1 block text-sm font-medium">ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
             <input
+              ref={nameInputRef}
               className={`w-full rounded-xl border p-2 outline-none transition ${
                 errors.fullName ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
               }`}
@@ -436,7 +458,11 @@ const Sales = () => {
                 if (e.target.value.trim().length >= 2) setShowNameList(true)
               }}
               placeholder="เช่น นายสมชาย ใจดี"
-              onFocus={() => customer.fullName.trim().length >= 2 && setShowNameList(true)}
+              onFocus={() => {
+                if (customer.fullName.trim().length >= 2 && nameResults.length > 0) {
+                  setShowNameList(true)
+                }
+              }}
             />
             {errors.fullName && <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>}
 

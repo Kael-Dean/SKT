@@ -17,6 +17,16 @@ function validateThaiCitizenId(id) {
   return check === Number(cid[12])
 }
 
+// จำกัดช่วงค่า งาน/วา
+const clampNgan = (v) => {
+  const n = toNumber(onlyDigits(v))
+  return Math.max(0, Math.min(3, n)) // 0–3
+}
+const clampWa = (v) => {
+  const n = toNumber(onlyDigits(v))
+  return Math.max(0, Math.min(99, n)) // 0–99
+}
+
 /** ---------- Component ---------- */
 const MemberSignup = () => {
   const [errors, setErrors] = useState({})
@@ -29,6 +39,9 @@ const MemberSignup = () => {
    * subprov, postal_code, phone_number, sex, salary, tgs_group,
    * share_per_month, transfer_date (optional), ar_limit, normal_share,
    * last_bought_date (date), bank_account, tgs_id, spouce_name, orders_placed
+   *
+   * และเพิ่มฟิลด์ที่ดินถือครอง 9 ช่อง:
+   * own_rai, own_ngan, own_wa, rent_rai, rent_ngan, rent_wa, other_rai, other_ngan, other_wa
    */
   const [form, setForm] = useState({
     regis_date: new Date().toISOString().slice(0, 10), // yyyy-mm-dd
@@ -52,11 +65,16 @@ const MemberSignup = () => {
     transfer_date: "", // optional
     ar_limit: "",
     normal_share: "",
-    last_bought_date: new Date().toISOString().slice(0, 10), // yyyy-mm-dd (ใส่วันนี้ไปก่อน)
+    last_bought_date: new Date().toISOString().slice(0, 10), // yyyy-mm-dd
     bank_account: "",
     tgs_id: "",
     spouce_name: "",
     orders_placed: "",
+
+    // ---------- ที่ดินถือครอง ----------
+    own_rai: "",   own_ngan: "",   own_wa: "",
+    rent_rai: "",  rent_ngan: "",  rent_wa: "",
+    other_rai: "", other_ngan: "", other_wa: "",
   })
 
   const update = (k, v) => setForm((prev) => ({ ...prev, [k]: v }))
@@ -91,9 +109,26 @@ const MemberSignup = () => {
       "ar_limit",
       "normal_share",
       "orders_placed",
+      // land
+      "own_rai","own_ngan","own_wa",
+      "rent_rai","rent_ngan","rent_wa",
+      "other_rai","other_ngan","other_wa",
     ].forEach((k) => {
       const v = form[k]
       if (v !== "" && isNaN(Number(v))) e[k] = "ตัวเลขเท่านั้น"
+    })
+
+    // เงื่อนไขช่วง งาน/วา/ไร่ (ถ้ากรอก)
+    const landTriples = [
+      ["own_rai","own_ngan","own_wa"],
+      ["rent_rai","rent_ngan","rent_wa"],
+      ["other_rai","other_ngan","other_wa"],
+    ]
+    landTriples.forEach(([r,n,w]) => {
+      const vr = form[r], vn = form[n], vw = form[w]
+      if (vn !== "" && (toNumber(vn) < 0 || toNumber(vn) > 3)) e[n] = "งานต้อง 0–3"
+      if (vw !== "" && (toNumber(vw) < 0 || toNumber(vw) > 99)) e[w] = "วาต้อง 0–99"
+      if (vr !== "" && toNumber(vr) < 0) e[r] = "ไร่ต้อง ≥ 0"
     })
 
     // วันที่
@@ -104,8 +139,8 @@ const MemberSignup = () => {
     return Object.keys(e).length === 0
   }
 
+  // แสดง preview เล็ก ๆ (เดิม)
   const landPreview = useMemo(() => {
-    // ตัวอย่าง: แสดงผลรวมจาก normal_share เป็นข้อความ (ถ้าต้องการ)
     const ns = toNumber(form.normal_share)
     return ns ? `${ns.toLocaleString()} หุ้นปกติ` : ""
   }, [form.normal_share])
@@ -115,8 +150,6 @@ const MemberSignup = () => {
     if (!validateAll()) return
     setSubmitting(true)
 
-    // แมพ payload ให้ตรงกับ FastAPI ของเพื่อน
-    // - วันที่ backend รับเป็น datetime ได้ เราส่งเป็น ISO date ที่ 00:00:00 ก็ได้
     const toISODate = (d) => (d ? new Date(d).toISOString() : null)
 
     const payload = {
@@ -146,6 +179,19 @@ const MemberSignup = () => {
       tgs_id: form.tgs_id.trim(),
       spouce_name: form.spouce_name.trim(), // สะกดตามสคีมาของเพื่อน
       orders_placed: form.orders_placed === "" ? 0 : Number(form.orders_placed),
+
+      // ----- ใหม่: ที่ดินถือครอง -----
+      own_rai:  form.own_rai === "" ? 0 : Number(form.own_rai),
+      own_ngan: form.own_ngan === "" ? 0 : Number(form.own_ngan),
+      own_wa:   form.own_wa === "" ? 0 : Number(form.own_wa),
+
+      rent_rai:  form.rent_rai === "" ? 0 : Number(form.rent_rai),
+      rent_ngan: form.rent_ngan === "" ? 0 : Number(form.rent_ngan),
+      rent_wa:   form.rent_wa === "" ? 0 : Number(form.rent_wa),
+
+      other_rai:  form.other_rai === "" ? 0 : Number(form.other_rai),
+      other_ngan: form.other_ngan === "" ? 0 : Number(form.other_ngan),
+      other_wa:   form.other_wa === "" ? 0 : Number(form.other_wa),
     }
 
     try {
@@ -197,6 +243,11 @@ const MemberSignup = () => {
       tgs_id: "",
       spouce_name: "",
       orders_placed: "",
+
+      // reset land
+      own_rai:"", own_ngan:"", own_wa:"",
+      rent_rai:"", rent_ngan:"", rent_wa:"",
+      other_rai:"", other_ngan:"", other_wa:"",
     })
   }
   
@@ -501,6 +552,62 @@ const MemberSignup = () => {
             />
             {errors.orders_placed && <p className="mt-1 text-sm text-red-500">{errors.orders_placed}</p>}
           </div>
+        </div>
+
+        {/* ---------- ที่ดินถือครอง ---------- */}
+        <h2 className="mt-6 mb-3 text-lg font-semibold text-black">ที่ดินถือครอง</h2>
+        <div className="overflow-auto rounded-xl border border-slate-200">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="p-3 text-left">ประเภท</th>
+                <th className="p-3 text-center">ไร่</th>
+                <th className="p-3 text-center">งาน</th>
+                <th className="p-3 text-center">วา</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { key:"own",  label:"ของตนเอง" },
+                { key:"rent", label:"เช่า" },
+                { key:"other",label:"อื่น ๆ" },
+              ].map(({key,label})=>(
+                <tr key={key} className="border-t">
+                  <td className="p-3">{label}</td>
+                  <td className="p-2">
+                    <input
+                      inputMode="numeric"
+                      className={`w-full rounded-lg border p-2 ${errors[`${key}_rai`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+                      value={form[`${key}_rai`]}
+                      onChange={(e)=>update(`${key}_rai`, onlyDigits(e.target.value))}
+                      placeholder="0"
+                    />
+                    {errors[`${key}_rai`] && <p className="mt-1 text-xs text-red-500">{errors[`${key}_rai`]}</p>}
+                  </td>
+                  <td className="p-2">
+                    <input
+                      inputMode="numeric"
+                      className={`w-full rounded-lg border p-2 ${errors[`${key}_ngan`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+                      value={form[`${key}_ngan`]}
+                      onChange={(e)=>update(`${key}_ngan`, String(clampNgan(e.target.value)))}
+                      placeholder="0–3"
+                    />
+                    {errors[`${key}_ngan`] && <p className="mt-1 text-xs text-red-500">{errors[`${key}_ngan`]}</p>}
+                  </td>
+                  <td className="p-2">
+                    <input
+                      inputMode="numeric"
+                      className={`w-full rounded-lg border p-2 ${errors[`${key}_wa`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+                      value={form[`${key}_wa`]}
+                      onChange={(e)=>update(`${key}_wa`, String(clampWa(e.target.value)))}
+                      placeholder="0–99"
+                    />
+                    {errors[`${key}_wa`] && <p className="mt-1 text-xs text-red-500">{errors[`${key}_wa`]}</p>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
         {/* ปุ่ม */}

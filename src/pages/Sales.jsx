@@ -421,61 +421,134 @@ const Sales = () => {
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!validateAll()) return
+  e.preventDefault()
+  if (!validateAll()) return
 
-    const [firstName, ...rest] = customer.fullName.trim().split(" ")
-    const lastName = rest.join(" ")
+  const [firstName, ...rest] = customer.fullName.trim().split(" ")
+  const lastName = rest.join(" ")
 
-    /** payload สำหรับบันทึก (ใช้เส้น /order/customers/save) */
-    const payload = {
-      customer: {
-        first_name: firstName || "",
-        last_name: lastName || "",
-        citizen_id: onlyDigits(customer.citizenId),
-        address: customer.houseNo.trim(),
-        mhoo: customer.moo.trim(),
-        sub_district: customer.subdistrict.trim(),
-        district: customer.district.trim(),
-        province: customer.province.trim(),
-        postal_code: customer.postalCode?.toString().trim() || "",
-      },
-      order: {
-        humidity: Number(order.moisturePct || 0),
-        weight: netWeight, // น้ำหนักสุทธิ (หลังหัก)
-        price: Number(order.amountTHB), // “เป็นเงิน”
-        impurity: Number(order.impurityPct || 0),
-        order_serial: order.paymentRefNo.trim(),
-        date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
-      },
-      rice: { rice_type: order.riceType },
-      branch: { branch_name: order.branchName, id: order.branchId ?? undefined },
-      klang: { klang_name: order.klangName },
-      // แนบ meta สถานะสมาชิก (เผื่อ backend อยากใช้)
-      customerMeta: {
-        type: memberMeta.type === "unknown" ? "guest" : memberMeta.type,
-        memberId: memberMeta.memberId,
-        memberPk: memberMeta.memberPk,
-      },
-    }
+  // ✅ เตรียม id ที่ backend ต้องการ
+  const riceId = riceOptions.find((r) => r.rice_type === order.riceType)?.id ?? null
+  const branchId = order.branchId ?? null
+  const klangId = order.klangId ?? null
 
+  // ตรวจ id ที่จำเป็น
+  if (!riceId) {
+    setErrors((prev) => ({ ...prev, riceType: "ไม่พบรหัสชนิดข้าว โปรดเลือกใหม่" }))
+    return
+  }
+  if (!branchId) {
+    setErrors((prev) => ({ ...prev, branchName: "ไม่พบรหัสสาขา โปรดเลือกใหม่" }))
+    return
+  }
+  if (!klangId) {
+    setErrors((prev) => ({ ...prev, klangName: "ไม่พบรหัสคลัง โปรดเลือกใหม่" }))
+    return
+  }
+
+  const baseHeaders = authHeader()
+
+  // ✅ หา/สร้าง customer_id
+  let customer_id = memberMeta.memberPk ?? null
+
+  // ถ้าไม่มี memberPk ให้ลอง upsert ลูกค้า (ถ้าคุณมี endpoint นี้)
+  if (!customer_id) {
     try {
-      const res = await fetch(`${API_BASE}/order/customers/save`, {
+      const upsertRes = await fetch(`${API_BASE}/order/customer/upsert`, {
         method: "POST",
-        headers: authHeader(),
-        body: JSON.stringify(payload),
+        headers: baseHeaders,
+        body: JSON.stringify({
+          first_name: firstName || "",
+          last_name: lastName || "",
+          citizen_id: onlyDigits(customer.citizenId),
+          address: customer.houseNo.trim(),
+          mhoo: customer.moo.trim(),
+          sub_district: customer.subdistrict.trim(),
+          district: customer.district.trim(),
+          province: customer.province.trim(),
+          postal_code: customer.postalCode?.toString().trim() || "",
+        }),
       })
-      if (!res.ok) {
-        const t = await res.text()
-        throw new Error(t || "ไม่สามารถบันทึกออเดอร์ได้")
+      if (upsertRes.ok) {
+        const u = await upsertRes.json()
+        customer_id = u?.id ?? u?.customer_id ?? null
       }
-      alert("บันทึกออเดอร์เรียบร้อย ✅")
-      handleReset()
-    } catch (err) {
-      console.error(err)
-      alert("บันทึกล้มเหลว กรุณาลองใหม่")
+    } catch (_) {
+      /* เงียบไปก่อน ถ้าไม่มี endpoint นี้จริง ๆ */
     }
   }
+
+  // ถ้ายังไม่มี customer_id ให้ fallback ส่งเฉพาะชื่อ-ที่อยู่ด้วย (กรณี backend ของคุณรองรับ)
+  // แต่ถ้า backend “บังคับ” customer_id ให้หยุดและแจ้งผู้ใช้:
+  if (!customer_id) {
+    alert("ไม่พบ/ไม่สามารถสร้างรหัสลูกค้า (customer_id) โปรดเลือกจากรายชื่อสมาชิกหรือให้หลังบ้านเปิด endpoint upsert ลูกค้า")
+    return
+  }
+
+  // ✅ เตรียม payload ตามที่ backend ต้องการ
+  const netWeight =
+    toNumber(order.grossWeightKg) -
+    toNumber(
+      order.manualDeduct
+        ? order.deductWeightKg
+        : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct)
+    )
+
+  const payload = {
+    // เก็บ object รายละเอียดลูกค้าไว้ด้วย เผื่อ backend ใช้ (ไม่กระทบ)
+    customer: {
+      first_name: firstName || "",
+      last_name: lastName || "",
+      citizen_id: onlyDigits(customer.citizenId),
+      address: customer.houseNo.trim(),
+      mhoo: customer.moo.trim(),
+      sub_district: customer.subdistrict.trim(),
+      district: customer.district.trim(),
+      province: customer.province.trim(),
+      postal_code: customer.postalCode?.toString().trim() || "",
+    },
+    // ✅ บล็อกนี้สำคัญ: เติมฟิลด์ id ที่ขาด
+    order: {
+      customer_id,                 // ✅ ต้องมี
+      rice_id: riceId,             // ✅ ต้องมี
+      branch_location: branchId,   // ✅ ต้องมี
+      klang_location: klangId,     // ✅ ต้องมี
+      humidity: Number(order.moisturePct || 0),
+      weight: netWeight > 0 ? netWeight : 0,
+      price: Number(order.amountTHB),
+      impurity: Number(order.impurityPct || 0),
+      order_serial: order.paymentRefNo.trim(),
+      date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
+    },
+    // แนบชื่อไว้เผื่อหลังบ้านใช้ค้น/id (ไม่กระทบถ้าไม่ใช้)
+    rice: { rice_type: order.riceType },
+    branch: { branch_name: order.branchName, id: branchId },
+    klang: { klang_name: order.klangName, id: klangId },
+    customerMeta: {
+      type: memberMeta.type === "unknown" ? "guest" : memberMeta.type,
+      memberId: memberMeta.memberId,
+      memberPk: memberMeta.memberPk,
+    },
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/order/customers/save`, {
+      method: "POST",
+      headers: baseHeaders,
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const t = await res.text()
+      throw new Error(t || "ไม่สามารถบันทึกออเดอร์ได้")
+    }
+    alert("บันทึกออเดอร์เรียบร้อย ✅")
+    handleReset()
+  } catch (err) {
+    console.error(err)
+    alert("บันทึกล้มเหลว กรุณาลองใหม่")
+  }
+}
+
 
   const handleReset = () => {
     setErrors({})

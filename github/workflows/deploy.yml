@@ -1,8 +1,8 @@
-name: Deploy to GCS
+name: Deploy to GCS (amc-front)
 
 on:
   push:
-    branches: [ main ]   # ถ้าคุณใช้ branch อื่น เปลี่ยนตรงนี้
+    branches: [ main ]   # ถ้าใช้สาขาอื่น เปลี่ยนตรงนี้
 
 jobs:
   deploy:
@@ -12,7 +12,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Use Node 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -20,8 +20,8 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Build
-        run: npm run build
+      - name: Build (Vite/React)
+        run: npm run build   # จะได้โฟลเดอร์ dist/
 
       - name: Auth to GCP
         uses: google-github-actions/auth@v2
@@ -33,7 +33,5 @@ jobs:
 
       - name: Upload to GCS
         run: |
-          gsutil -m rsync -r -d ./dist gs://$BUCKET
-          gsutil web set -m index.html -e index.html gs://$BUCKET
-        env:
-          BUCKET: amc-front   # ← ใส่ชื่อบักเก็ตจริงของคุณ
+          gsutil -m rsync -r -d ./dist gs://amc-front
+          gsutil web set -m index.html -e index.html gs://amc-front

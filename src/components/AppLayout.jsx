@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Outlet } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
 
@@ -8,7 +9,7 @@ const getInitialDark = () => {
   return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? false
 }
 
-const AppLayout = ({ children }) => {
+const AppLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(getInitialDark)
 
@@ -52,7 +53,10 @@ const AppLayout = ({ children }) => {
         />
 
         <main className="flex-1 overflow-y-auto px-4 py-4 md:px-6">
-          <div className="mx-auto max-w-7xl">{children}</div>
+          <div className="mx-auto max-w-7xl">
+            {/* สำคัญ: เนื้อหาหน้าย่อยจะแสดงที่นี่ */}
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

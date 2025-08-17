@@ -1,38 +1,58 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import AppLayout from './components/AppLayout'
-import Home from './pages/Home'
-import Documents from './pages/Documents'
-import Order from './pages/Order'
-import AddEmployee from './pages/AddEmployee'
-import Login from './pages/Login'
-import Sales from './pages/Sales'
-import MemberSignup from './pages/MemberSignup'
-import MemberSearch from './pages/MemberSearch'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 
-function App() {
+function AppLayout() {
+  const navigate = useNavigate()
+
   return (
-    <Routes>
-      {/* กรณีมีคนเปิด /index.html โดยตรง ให้เด้งไปหน้าแรก */}
-      <Route path="/index.html" element={<Navigate to="/" replace />} />
+    <div className="min-h-screen bg-zinc-900 text-zinc-100">
+      {/* Topbar */}
+      <header className="h-16 border-b border-zinc-800 px-4 flex items-center justify-between sticky top-0 bg-zinc-900/90 backdrop-blur">
+        <button
+          className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700"
+          onClick={() => navigate('/home')}
+        >
+          เมนู
+        </button>
+        <div className="font-semibold">สหกรณ์การเกษตร</div>
+        <div className="px-3 py-2 rounded-lg bg-zinc-800">คุณไช</div>
+      </header>
 
-      {/* หน้าแรก (หน้า Login) */}
-      <Route path="/" element={<Login />} />
+      <div className="flex">
+        {/* Sidebar */}
+        <aside className="w-64 border-r border-zinc-800 hidden md:block">
+          <nav className="p-3 space-y-2">
+            <Item to="/home" label="หน้าหลัก" />
+            <Item to="/documents" label="คลังเอกสาร" />
+            <Item to="/order" label="ออเดอร์" />
+            <Item to="/sales" label="ยอดขาย" />
+            <Item to="/member-signup" label="สมัครสมาชิก" />
+            <Item to="/search" label="ค้นหาสมาชิก" />
+            <Item to="/add-employee" label="เพิ่มพนักงาน" />
+          </nav>
+        </aside>
 
-      {/* กลุ่มหน้าที่อยู่ภายใต้ Layout (ภายใน AppLayout ต้องมี <Outlet />) */}
-      <Route element={<AppLayout />}>
-        <Route path="/home" element={<Home />} />
-        <Route path="/documents" element={<Documents />} />
-        <Route path="/order" element={<Order />} />
-        <Route path="/add-employee" element={<AddEmployee />} />
-        <Route path="/sales" element={<Sales />} />
-        <Route path="/member-signup" element={<MemberSignup />} />
-        <Route path="/search" element={<MemberSearch />} />
-      </Route>
-
-      {/* กันพิมพ์พาธมั่ว */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Content Area */}
+        <main className="flex-1 p-6">
+          <Outlet /> {/* เพจลูกจะมาแสดงตรงนี้ */}
+        </main>
+      </div>
+    </div>
   )
 }
 
-export default App
+function Item({ to, label }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `block px-3 py-2 rounded-lg ${
+          isActive ? 'bg-zinc-700 text-white' : 'hover:bg-zinc-800'
+        }`
+      }
+    >
+      {label}
+    </NavLink>
+  )
+}
+
+export default AppLayout

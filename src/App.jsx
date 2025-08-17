@@ -12,13 +12,13 @@ import MemberSearch from './pages/MemberSearch'
 function App() {
   return (
     <Routes>
-      {/* ถ้ามีคนเปิด /index.html ให้เด้งกลับหน้าแรก */}
+      {/* กรณีมีคนเปิด /index.html โดยตรง ให้เด้งไปหน้าแรก */}
       <Route path="/index.html" element={<Navigate to="/" replace />} />
 
-      {/* หน้าแรก */}
+      {/* หน้าแรก (หน้า Login) */}
       <Route path="/" element={<Login />} />
 
-      {/* กลุ่มเพจที่มี Layout ครอบ */}
+      {/* กลุ่มหน้าที่อยู่ภายใต้ Layout (ภายใน AppLayout ต้องมี <Outlet />) */}
       <Route element={<AppLayout />}>
         <Route path="/home" element={<Home />} />
         <Route path="/documents" element={<Documents />} />

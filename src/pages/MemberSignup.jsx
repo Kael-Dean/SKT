@@ -256,15 +256,20 @@ const MemberSignup = () => {
     <div className="mx-auto max-w-6xl p-4 md:p-6">
       <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">👤 สมัครสมาชิก </h1>
 
-      <form onSubmit={handleSubmit} className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold text-black">ข้อมูลหลัก</h2>
+      <form
+        onSubmit={handleSubmit}
+        className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm dark:bg-slate-900 dark:text-white dark:border-emerald-900/40"
+      >
+        <h2 className="mb-3 text-lg font-semibold text-black dark:text-white">ข้อมูลหลัก</h2>
 
-        <div className="grid gap-4 md:grid-cols-4 text-black">
+        <div className="grid gap-4 md:grid-cols-4 text-black dark:text-white">
           <div>
             <label className="mb-1 block text-sm font-medium">เลขสมาชิก (member_id)</label>
             <input
               inputMode="numeric"
-              className={`w-full rounded-xl border p-2 ${errors.member_id ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.member_id ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.member_id}
               onChange={(e) => update("member_id", onlyDigits(e.target.value))}
               placeholder="เช่น 11263"
@@ -276,7 +281,9 @@ const MemberSignup = () => {
             <label className="mb-1 block text-sm font-medium">คำนำหน้า (precode)</label>
             <input
               inputMode="numeric"
-              className={`w-full rounded-xl border p-2 ${errors.precode ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.precode ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.precode}
               onChange={(e) => update("precode", onlyDigits(e.target.value))}
               placeholder="เช่น 1"
@@ -288,7 +295,9 @@ const MemberSignup = () => {
             <label className="mb-1 block text-sm font-medium">วันที่สมัคร (regis_date)</label>
             <input
               type="date"
-              className={`w-full rounded-xl border p-2 ${errors.regis_date ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.regis_date ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.regis_date}
               onChange={(e) => update("regis_date", e.target.value)}
             />
@@ -298,7 +307,9 @@ const MemberSignup = () => {
           <div className="md:col-span-2">
             <label className="mb-1 block text-sm font-medium">ชื่อ</label>
             <input
-              className={`w-full rounded-xl border p-2 ${errors.first_name ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.first_name ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.first_name}
               onChange={(e) => update("first_name", e.target.value)}
               placeholder="สมชาย"
@@ -309,7 +320,9 @@ const MemberSignup = () => {
           <div className="md:col-span-2">
             <label className="mb-1 block text-sm font-medium">นามสกุล</label>
             <input
-              className={`w-full rounded-xl border p-2 ${errors.last_name ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.last_name ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.last_name}
               onChange={(e) => update("last_name", e.target.value)}
               placeholder="ใจดี"
@@ -322,7 +335,9 @@ const MemberSignup = () => {
             <input
               inputMode="numeric"
               maxLength={13}
-              className={`w-full rounded-xl border p-2 ${errors.citizen_id ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.citizen_id ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.citizen_id}
               onChange={(e) => update("citizen_id", onlyDigits(e.target.value))}
               placeholder="1234567890123"
@@ -333,7 +348,9 @@ const MemberSignup = () => {
           <div>
             <label className="mb-1 block text-sm font-medium">เพศ (M/F)</label>
             <select
-              className={`w-full rounded-xl border p-2 ${errors.sex ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.sex ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.sex}
               onChange={(e) => update("sex", e.target.value)}
             >
@@ -347,7 +364,9 @@ const MemberSignup = () => {
           <div className="md:col-span-3">
             <label className="mb-1 block text-sm font-medium">ที่อยู่ (address)</label>
             <input
-              className={`w-full rounded-xl border p-2 ${errors.address ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.address ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.address}
               onChange={(e) => update("address", e.target.value)}
               placeholder="บ้านเลขที่ หมู่ ตำบล อำเภอ จังหวัด"
@@ -358,7 +377,7 @@ const MemberSignup = () => {
           <div>
             <label className="mb-1 block text-sm font-medium">หมู่ (mhoo)</label>
             <input
-              className="w-full rounded-xl border p-2 border-slate-300 focus:border-emerald-500"
+              className="w-full rounded-xl border p-2 outline-none transition border-slate-300 focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={form.mhoo}
               onChange={(e) => update("mhoo", e.target.value)}
               placeholder="เช่น 1"
@@ -368,7 +387,9 @@ const MemberSignup = () => {
           <div>
             <label className="mb-1 block text-sm font-medium">ตำบล (sub_district)</label>
             <input
-              className={`w-full rounded-xl border p-2 ${errors.sub_district ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.sub_district ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.sub_district}
               onChange={(e) => update("sub_district", e.target.value)}
             />
@@ -378,7 +399,9 @@ const MemberSignup = () => {
           <div>
             <label className="mb-1 block text-sm font-medium">อำเภอ (district)</label>
             <input
-              className={`w-full rounded-xl border p-2 ${errors.district ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.district ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.district}
               onChange={(e) => update("district", e.target.value)}
             />
@@ -388,7 +411,9 @@ const MemberSignup = () => {
           <div>
             <label className="mb-1 block text-sm font-medium">จังหวัด (province)</label>
             <input
-              className={`w-full rounded-xl border p-2 ${errors.province ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.province ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.province}
               onChange={(e) => update("province", e.target.value)}
             />
@@ -399,7 +424,7 @@ const MemberSignup = () => {
             <label className="mb-1 block text-sm font-medium">อำเภอย่อย/รหัสอำเภอ (subprov)</label>
             <input
               inputMode="numeric"
-              className="w-full rounded-xl border p-2 border-slate-300 focus:border-emerald-500"
+              className="w-full rounded-xl border p-2 outline-none transition border-slate-300 focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={form.subprov}
               onChange={(e) => update("subprov", onlyDigits(e.target.value))}
               placeholder="เช่น 501"
@@ -411,7 +436,9 @@ const MemberSignup = () => {
             <input
               inputMode="numeric"
               maxLength={5}
-              className={`w-full rounded-xl border p-2 ${errors.postal_code ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.postal_code ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.postal_code}
               onChange={(e) => update("postal_code", onlyDigits(e.target.value))}
             />
@@ -422,7 +449,9 @@ const MemberSignup = () => {
             <label className="mb-1 block text-sm font-medium">โทรศัพท์ (phone_number)</label>
             <input
               inputMode="tel"
-              className={`w-full rounded-xl border p-2 ${errors.phone_number ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.phone_number ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.phone_number}
               onChange={(e) => update("phone_number", e.target.value)}
               placeholder="08x-xxx-xxxx"
@@ -434,7 +463,9 @@ const MemberSignup = () => {
             <label className="mb-1 block text-sm font-medium">เงินเดือน (salary)</label>
             <input
               inputMode="decimal"
-              className={`w-full rounded-xl border p-2 ${errors.salary ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.salary ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.salary}
               onChange={(e) => update("salary", e.target.value.replace(/[^\d.]/g, ""))}
               placeholder="15000"
@@ -446,7 +477,9 @@ const MemberSignup = () => {
             <label className="mb-1 block text-sm font-medium">กลุ่ม (tgs_group)</label>
             <input
               inputMode="numeric"
-              className={`w-full rounded-xl border p-2 ${errors.tgs_group ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.tgs_group ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.tgs_group}
               onChange={(e) => update("tgs_group", onlyDigits(e.target.value))}
               placeholder="16"
@@ -458,7 +491,9 @@ const MemberSignup = () => {
             <label className="mb-1 block text_sm font-medium">ส่งหุ้น/เดือน (share_per_month)</label>
             <input
               inputMode="decimal"
-              className={`w-full rounded-xl border p-2 ${errors.share_per_month ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.share_per_month ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.share_per_month}
               onChange={(e) => update("share_per_month", e.target.value.replace(/[^\d.]/g, ""))}
               placeholder="500"
@@ -470,7 +505,9 @@ const MemberSignup = () => {
             <label className="mb-1 block text-sm font-medium">วงเงินสินเชื่อ (ar_limit)</label>
             <input
               inputMode="numeric"
-              className={`w-full rounded-xl border p-2 ${errors.ar_limit ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.ar_limit ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.ar_limit}
               onChange={(e) => update("ar_limit", onlyDigits(e.target.value))}
               placeholder="100000"
@@ -482,20 +519,24 @@ const MemberSignup = () => {
             <label className="mb-1 block text-sm font-medium">หุ้นปกติ (normal_share)</label>
             <input
               inputMode="decimal"
-              className={`w-full rounded-xl border p-2 ${errors.normal_share ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.normal_share ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.normal_share}
               onChange={(e) => update("normal_share", e.target.value.replace(/[^\d.]/g, ""))}
               placeholder="214"
             />
             {errors.normal_share && <p className="mt-1 text-sm text-red-500">{errors.normal_share}</p>}
-            <p className="mt-1 text-xs text-slate-500">{landPreview}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{landPreview}</p>
           </div>
 
           <div>
             <label className="mb-1 block text-sm font-medium">วันที่ซื้อครั้งล่าสุด (last_bought_date)</label>
             <input
               type="date"
-              className={`w-full rounded-xl border p-2 ${errors.last_bought_date ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.last_bought_date ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.last_bought_date}
               onChange={(e) => update("last_bought_date", e.target.value)}
             />
@@ -506,7 +547,7 @@ const MemberSignup = () => {
             <label className="mb-1 block text-sm font-medium">วันที่โอน (transfer_date - ไม่ระบุก็ได้)</label>
             <input
               type="date"
-              className="w-full rounded-xl border p-2 border-slate-300 focus:border-emerald-500"
+              className="w-full rounded-xl border p-2 outline-none transition border-slate-300 focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={form.transfer_date}
               onChange={(e) => update("transfer_date", e.target.value)}
             />
@@ -515,7 +556,7 @@ const MemberSignup = () => {
           <div className="md:col-span-2">
             <label className="mb-1 block text-sm font-medium">บัญชีธนาคาร (bank_account)</label>
             <input
-              className="w-full rounded-xl border p-2 border-slate-300 focus:border-emerald-500"
+              className="w-full rounded-xl border p-2 outline-none transition border-slate-300 focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={form.bank_account}
               onChange={(e) => update("bank_account", e.target.value)}
               placeholder="014-1-23456-7"
@@ -525,7 +566,7 @@ const MemberSignup = () => {
           <div>
             <label className="mb-1 block text-sm font-medium">รหัสสมาชิกในระบบ (tgs_id)</label>
             <input
-              className="w-full rounded-xl border p-2 border-slate-300 focus:border-emerald-500"
+              className="w-full rounded-xl border p-2 outline-none transition border-slate-300 focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={form.tgs_id}
               onChange={(e) => update("tgs_id", e.target.value)}
               placeholder="TGS-001"
@@ -535,7 +576,7 @@ const MemberSignup = () => {
           <div>
             <label className="mb-1 block text-sm font-medium">ชื่อคู่สมรส (spouce_name)</label>
             <input
-              className="w-full rounded-xl border p-2 border-slate-300 focus:border-emerald-500"
+              className="w-full rounded-xl border p-2 outline-none transition border-slate-300 focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={form.spouce_name}
               onChange={(e) => update("spouce_name", e.target.value)}
             />
@@ -545,7 +586,9 @@ const MemberSignup = () => {
             <label className="mb-1 block text-sm font-medium">จำนวนครั้งที่ซื้อ (orders_placed)</label>
             <input
               inputMode="numeric"
-              className={`w-full rounded-xl border p-2 ${errors.orders_placed ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+              className={`w-full rounded-xl border p-2 outline-none transition ${
+                errors.orders_placed ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+              } dark:bg-slate-800 dark:text-white dark:border-slate-600`}
               value={form.orders_placed}
               onChange={(e) => update("orders_placed", onlyDigits(e.target.value))}
               placeholder="เช่น 4"
@@ -555,10 +598,10 @@ const MemberSignup = () => {
         </div>
 
         {/* ---------- ที่ดินถือครอง ---------- */}
-        <h2 className="mt-6 mb-3 text-lg font-semibold text-black">ที่ดินถือครอง</h2>
-        <div className="overflow-auto rounded-xl border border-slate-200">
+        <h2 className="mt-6 mb-3 text-lg font-semibold text-black dark:text-white">ที่ดินถือครอง</h2>
+        <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-black">
+            <thead className="bg-slate-50 text-black dark:bg-slate-800 dark:text-white">
               <tr>
                 <th className="p-3 text-left">ประเภท</th>
                 <th className="p-3 text-center">ไร่</th>
@@ -566,18 +609,20 @@ const MemberSignup = () => {
                 <th className="p-3 text-center">วา</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="dark:text-white">
               {[
                 { key:"own",  label:"ของตนเอง" },
                 { key:"rent", label:"เช่า" },
                 { key:"other",label:"อื่น ๆ" },
               ].map(({key,label})=>(
-                <tr key={key} className="border-none">
-                  <td className="p-3 text-black">{label}</td>
+                <tr key={key} className="border-b border-slate-100 last:border-none dark:border-slate-700">
+                  <td className="p-3">{label}</td>
                   <td className="p-2">
                     <input
                       inputMode="numeric"
-                      className={`w-full rounded-lg border p-2 text-black placeholder-gray-400 ${errors[`${key}_rai`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+                      className={`w-full rounded-lg border p-2 outline-none transition placeholder-gray-400 ${
+                        errors[`${key}_rai`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+                      } dark:bg-slate-800 dark:text-white dark:border-slate-600 dark:placeholder-slate-400`}
                       value={form[`${key}_rai`]}
                       onChange={(e)=>update(`${key}_rai`, onlyDigits(e.target.value))}
                       placeholder="0"
@@ -587,7 +632,9 @@ const MemberSignup = () => {
                   <td className="p-2">
                     <input
                       inputMode="numeric"
-                      className={`w-full rounded-lg border p-2 text-black placeholder-gray-400 ${errors[`${key}_ngan`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+                      className={`w-full rounded-lg border p-2 outline-none transition placeholder-gray-400 ${
+                        errors[`${key}_ngan`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+                      } dark:bg-slate-800 dark:text-white dark:border-slate-600 dark:placeholder-slate-400`}
                       value={form[`${key}_ngan`]}
                       onChange={(e)=>update(`${key}_ngan`, String(clampNgan(e.target.value)))}
                       placeholder="0–3"
@@ -597,7 +644,9 @@ const MemberSignup = () => {
                   <td className="p-2">
                     <input
                       inputMode="numeric"
-                      className={`w-full rounded-lg border p-2 text-black placeholder-gray-400 ${errors[`${key}_wa`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}`}
+                      className={`w-full rounded-lg border p-2 outline-none transition placeholder-gray-400 ${
+                        errors[`${key}_wa`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
+                      } dark:bg-slate-800 dark:text-white dark:border-slate-600 dark:placeholder-slate-400`}
                       value={form[`${key}_wa`]}
                       onChange={(e)=>update(`${key}_wa`, String(clampWa(e.target.value)))}
                       placeholder="0–99"
@@ -622,7 +671,7 @@ const MemberSignup = () => {
           <button
             type="button"
             onClick={handleReset}
-            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50 active:scale-[.98]"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50 active:scale-[.98] dark:bg-slate-800 dark:text-white dark:border-slate-600"
           >
             รีเซ็ต
           </button>

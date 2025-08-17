@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import Home from './pages/Home'
 import Documents from './pages/Documents'
@@ -12,75 +12,26 @@ import MemberSearch from './pages/MemberSearch'
 function App() {
   return (
     <Routes>
+      {/* ถ้ามีคนเปิด /index.html ให้เด้งกลับหน้าแรก */}
+      <Route path="/index.html" element={<Navigate to="/" replace />} />
+
+      {/* หน้าแรก */}
       <Route path="/" element={<Login />} />
 
-      <Route
-        path="/home"
-        element={
-          <AppLayout>
-            <Home />
-          </AppLayout>
-        }
-      />
+      {/* กลุ่มเพจที่มี Layout ครอบ */}
+      <Route element={<AppLayout />}>
+        <Route path="/home" element={<Home />} />
+        <Route path="/documents" element={<Documents />} />
+        <Route path="/order" element={<Order />} />
+        <Route path="/add-employee" element={<AddEmployee />} />
+        <Route path="/sales" element={<Sales />} />
+        <Route path="/member-signup" element={<MemberSignup />} />
+        <Route path="/search" element={<MemberSearch />} />
+      </Route>
 
-      <Route
-        path="/documents"
-        element={
-          <AppLayout>
-            <Documents />
-          </AppLayout>
-        }
-      />
-
-      <Route
-        path="/order"
-        element={
-          <AppLayout>
-            <Order />
-          </AppLayout>
-        }
-      />
-
-      <Route
-        path="/add-employee"
-        element={
-          <AppLayout>
-            <AddEmployee />
-          </AppLayout>
-        }
-      />
-
-      <Route
-        path="/sales"
-        element={
-          <AppLayout>
-            <Sales />
-          </AppLayout>
-        }
-      />
-
-      <Route
-        path="/member-signup"
-        element={
-          <AppLayout>
-            <MemberSignup />
-          </AppLayout>
-        }
-      />
-
-      <Route
-       path="/search"
-      element={
-          <AppLayout>
-            <MemberSearch />
-          </AppLayout>
-  }
-/>
-
+      {/* กันพิมพ์พาธมั่ว */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-
-      
-    
   )
 }
 

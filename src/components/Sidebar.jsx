@@ -11,7 +11,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { label: 'หน้าหลัก', path: '/home' },
     { label: 'คลังเอกสาร', path: '/documents' },
     { label: 'ออเดอร์', path: '/order' },
-    { label: 'ยอดขาย', path: '/sales' },
+    { label: 'ออเดอร์ซื้อข้าว', path: '/sales' },
     { label: 'สมัครสมาชิก', path: '/member-signup' },
     { label: 'ค้นหาสมาชิก', path: '/search' },
   ]

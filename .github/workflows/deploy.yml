@@ -2,7 +2,7 @@ name: Deploy Vite React to GCS
 
 on:
   push:
-    branches: [ main ]  # เปลี่ยนเป็นสาขาที่คุณใช้
+    branches: [ main ]   # เปลี่ยนตามสาขาที่คุณใช้
 
 jobs:
   build-and-deploy:
@@ -10,7 +10,7 @@ jobs:
 
     permissions:
       contents: read
-      id-token: write   # สำคัญสำหรับ OIDC/WIF
+      id-token: write     # จำเป็นสำหรับ WIF (OIDC)
 
     steps:
       - name: Checkout
@@ -32,19 +32,21 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: Setup gcloud
+      - name: Setup gcloud (includes gsutil)
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure bucket website (safe if already set)
+      - name: Configure bucket website (idempotent)
         run: |
           gcloud storage buckets update gs://${{ secrets.GCS_BUCKET }} \
             --web-main-page-suffix=index.html \
             --web-error-page=index.html || true
 
-      - name: Upload to GCS
+      # ---- อัปโหลดแบบ "sync จริงๆ" และลบไฟล์ที่ไม่ใช้แล้ว (-d) ----
+      - name: Upload to GCS (gsutil rsync)
         run: |
-          gcloud storage rsync --recursive --delete dist gs://${{ secrets.GCS_BUCKET }}
+          gsutil -m rsync -r -d dist gs://${{ secrets.GCS_BUCKET }}
 
+      # ---- ปรับ cache: index.no-cache, assets immutable ----
       - name: Set Cache-Control headers
         run: |
           gsutil -m setmeta -h "Cache-Control:no-cache" gs://${{ secrets.GCS_BUCKET }}/index.html || true

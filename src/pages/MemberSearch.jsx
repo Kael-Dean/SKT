@@ -268,7 +268,7 @@ const MemberSearch = () => {
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-6 bg-white dark:bg-neutral-950 min-h-screen">
-      <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🔎 ค้นหาสมาชิก</h1>
+      <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🔎 ค้นหาสมาชิกสหกรณ์</h1>
 
       {/* กล่องค้นหา: โทนดำเหมือนหน้า Signup */}
       <div className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm

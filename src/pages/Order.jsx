@@ -154,7 +154,7 @@ const Order = () => {
     // พื้นหลังรอบนอก dark
     <div className="min-h-screen bg-slate-900 text-slate-100 dark:bg-slate-900 dark:text-slate-100">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
-        <h1 className="mb-4 text-2xl font-bold">📦 รายการออเดอร์</h1>
+        <h1 className="mb-4 text-2xl font-bold">📦 รายการออเดอร์ซื้อข้าวเปลือก</h1>
 
         {/* Filters: การ์ดขาวตัวดำ */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-200 dark:bg-white dark:text-black">

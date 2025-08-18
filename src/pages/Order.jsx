@@ -149,7 +149,7 @@ const Order = () => {
     })
   }
 
-  /** ---------- UI ---------- */
+  /** ----------- UI ----------- */
   return (
     // พื้นหลังหลัก: Light = ขาว, Dark = slate-900
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">

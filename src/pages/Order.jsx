@@ -151,21 +151,21 @@ const Order = () => {
 
   /** ---------- UI ---------- */
   return (
-    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white">
-      <div className="mx-auto max-w-6xl p-4 md:p-6">
-        {/* หัวข้อให้เข้ากับทุกโหมด เหมือนหน้า Sales */}
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-900 p-4 md:p-6">
+      <div className="mx-auto max-w-6xl rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm dark:border-emerald-900/40 dark:bg-slate-900">
+        {/* หัวข้อ */}
         <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">
           📦 รายการออเดอร์ซื้อข้าวเปลือก
         </h1>
 
-        {/* Filters: “การ์ดขาว + ขอบ emerald” ให้โทนเดียวกับหน้า Sales */}
-        <div className="mb-4 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm dark:border-emerald-900/40 dark:bg-slate-900">
+        {/* Filters */}
+        <div className="mb-4 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
           <div className="grid gap-4 md:grid-cols-6">
             <div>
               <label className="mb-1 block text-sm font-medium">วันที่เริ่ม</label>
               <input
                 type="date"
-                className="w-full rounded-xl border p-2 outline-none transition border-slate-300 focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
+                className="w-full rounded-xl border p-2 outline-none transition border-slate-300 focus:border-emerald-500"
                 value={filters.startDate}
                 onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
               />
@@ -174,7 +174,7 @@ const Order = () => {
               <label className="mb-1 block text-sm font-medium">วันที่สิ้นสุด</label>
               <input
                 type="date"
-                className="w-full rounded-xl border p-2 outline-none transition border-slate-300 focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
+                className="w-full rounded-xl border p-2 outline-none transition border-slate-300 focus:border-emerald-500"
                 value={filters.endDate}
                 onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
               />
@@ -183,7 +183,7 @@ const Order = () => {
             <div>
               <label className="mb-1 block text-sm font-medium">สาขา</label>
               <select
-                className="w-full rounded-xl border p-2 outline-none transition border-slate-300 focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
+                className="w-full rounded-xl border p-2 outline-none transition border-slate-300 focus:border-emerald-500"
                 value={filters.branchId}
                 onChange={(e) => setFilters((p) => ({ ...p, branchId: e.target.value, klangId: "" }))}
               >
@@ -199,7 +199,7 @@ const Order = () => {
             <div>
               <label className="mb-1 block text-sm font-medium">คลัง</label>
               <select
-                className="w-full rounded-xl border p-2 outline-none transition disabled:opacity-60 border-slate-300 focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
+                className="w-full rounded-xl border p-2 outline-none transition disabled:opacity-60 border-slate-300 focus:border-emerald-500"
                 value={filters.klangId}
                 onChange={(e) => setFilters((p) => ({ ...p, klangId: e.target.value }))}
                 disabled={!filters.branchId}
@@ -216,7 +216,7 @@ const Order = () => {
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm font-medium">ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)</label>
               <input
-                className="w-full rounded-xl border p-2 outline-none transition placeholder:text-slate-400 border-slate-300 focus:border-emerald-500 dark:bg-slate-800 dark:text-white dark:border-slate-600"
+                className="w-full rounded-xl border p-2 outline-none transition placeholder:text-slate-400 border-slate-300 focus:border-emerald-500"
                 value={filters.q}
                 onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
                 placeholder="พิมพ์อย่างน้อย 2 ตัวอักษร แล้วระบบจะค้นหาอัตโนมัติ"
@@ -234,7 +234,7 @@ const Order = () => {
               <button
                 onClick={resetFilters}
                 type="button"
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 font-medium text-slate-700 hover:bg-slate-50 active:scale-[.98] dark:bg-slate-800 dark:text-white dark:border-slate-600"
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 font-medium text-slate-700 hover:bg-slate-50 active:scale-[.98]"
               >
                 รีเซ็ต
               </button>
@@ -242,26 +242,26 @@ const Order = () => {
           </div>
         </div>
 
-        {/* Summary: โทนเดียวกับสรุปในหน้า Sales (การ์ดขาว/มืด + เงาบาง + มุมโค้ง) */}
+        {/* Summary */}
         <div className="mb-4 grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-emerald-200/60 dark:bg-slate-800 dark:text-white dark:ring-emerald-900/30">
-            <div className="text-slate-500 dark:text-slate-400">จำนวนรายการ</div>
+          <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-emerald-200/60">
+            <div className="text-slate-500">จำนวนรายการ</div>
             <div className="text-2xl font-semibold">{rows.length.toLocaleString()}</div>
           </div>
-          <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-emerald-200/60 dark:bg-slate-800 dark:text-white dark:ring-emerald-900/30">
-            <div className="text-slate-500 dark:text-slate-400">น้ำหนักรวม (กก.)</div>
+          <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-emerald-200/60">
+            <div className="text-slate-500">น้ำหนักรวม (กก.)</div>
             <div className="text-2xl font-semibold">{Math.round(toNumber(totals.weight) * 100) / 100}</div>
           </div>
-          <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-emerald-200/60 dark:bg-slate-800 dark:text-white dark:ring-emerald-900/30">
-            <div className="text-slate-500 dark:text-slate-400">มูลค่ารวม</div>
+          <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-emerald-200/60">
+            <div className="text-slate-500">มูลค่ารวม</div>
             <div className="text-2xl font-semibold">{thb(toNumber(totals.revenue))}</div>
           </div>
         </div>
 
-        {/* Table: กรอบ/พื้นหลัง/โฮเวอร์ให้เข้าธีมเดียวกับ Sales */}
-        <div className="overflow-x-auto rounded-2xl border border-emerald-200 bg-white text-black shadow-sm dark:border-emerald-900/40 dark:bg-slate-900">
+        {/* Table */}
+        <div className="overflow-x-auto rounded-2xl border border-emerald-200 bg-white text-black shadow-sm">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <thead className="bg-slate-50 text-slate-700">
               <tr>
                 <th className="px-3 py-2">วันที่</th>
                 <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
@@ -287,7 +287,7 @@ const Order = () => {
                 rows.map((r) => (
                   <tr
                     key={r.id}
-                    className="odd:bg-white even:bg-emerald-50/30 hover:bg-emerald-50 dark:odd:bg-slate-900 dark:even:bg-slate-800 dark:hover:bg-slate-800/70"
+                    className="odd:bg-white even:bg-emerald-50/30 hover:bg-emerald-50"
                   >
                     <td className="px-3 py-2">
                       {r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}

@@ -30,7 +30,7 @@ const authHeader = () => {
 }
 
 const Order = () => {
-  /** ---------- Dates (default: this month) ---------- */
+  /** ---------- Dates ---------- */
   const today = new Date().toISOString().slice(0, 10)
   const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     .toISOString()
@@ -39,37 +39,32 @@ const Order = () => {
   /** ---------- State ---------- */
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
-
-  const [branchOptions, setBranchOptions] = useState([]) // [{id, branch_name}]
-  const [klangOptions, setKlangOptions] = useState([])   // [{id, klang_name}]
-
+  const [branchOptions, setBranchOptions] = useState([])
+  const [klangOptions, setKlangOptions] = useState([])
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
     branchId: "",
     klangId: "",
-    q: "", // ค้นหา (ชื่อ, ปชช., เลขที่ใบสำคัญ ฯลฯ)
+    q: "",
   })
 
   const debouncedQ = useDebounce(filters.q, 500)
 
-  /** ---------- Dropdown: Branch ---------- */
+  /** ---------- Dropdowns ---------- */
   useEffect(() => {
     const loadBranch = async () => {
       try {
         const r = await fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() })
         const data = r.ok ? await r.json() : []
         setBranchOptions(Array.isArray(data) ? data : [])
-      } catch (e) {
-        console.error("load branch failed:", e)
+      } catch {
         setBranchOptions([])
       }
     }
     loadBranch()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** ---------- Dropdown: Klang (depends on branch) ---------- */
   useEffect(() => {
     const loadKlang = async () => {
       if (!filters.branchId) {
@@ -78,19 +73,16 @@ const Order = () => {
         return
       }
       try {
-        // ✅ แนะนำให้ backend รองรับ query ด้วย branch_id โดยตรง
         const r = await fetch(`${API_BASE}/order/klang/search?branch_id=${filters.branchId}`, {
           headers: authHeader(),
         })
         const data = r.ok ? await r.json() : []
         setKlangOptions(Array.isArray(data) ? data : [])
-      } catch (e) {
-        console.error("load klang failed:", e)
+      } catch {
         setKlangOptions([])
       }
     }
     loadKlang()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId])
 
   /** ---------- Fetch orders ---------- */
@@ -107,31 +99,21 @@ const Order = () => {
       const r = await fetch(`${API_BASE}/order/orders/report?${params.toString()}`, { headers: authHeader() })
       const data = r.ok ? await r.json() : []
       setRows(Array.isArray(data) ? data : [])
-    } catch (e) {
-      console.error(e)
+    } catch {
       setRows([])
     } finally {
       setLoading(false)
     }
   }
 
+  useEffect(() => { fetchOrders() }, [])
   useEffect(() => {
-    fetchOrders()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  /** ---------- Auto-refresh on debounced search ---------- */
-  useEffect(() => {
-    if (filters.q.length >= 2 || filters.q.length === 0) {
-      fetchOrders()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders()
   }, [debouncedQ])
 
   /** ---------- Totals ---------- */
   const totals = useMemo(() => {
-    let weight = 0
-    let revenue = 0
+    let weight = 0, revenue = 0
     rows.forEach((x) => {
       weight += toNumber(x.weight)
       revenue += toNumber(x.price)
@@ -156,31 +138,38 @@ const Order = () => {
       <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">📦 รายการออเดอร์</h1>
 
       {/* Filters */}
-      <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-6">
+      <div className="mb-4 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm 
+                      dark:bg-slate-900 dark:text-white dark:border-emerald-900/40">
+        <div className="grid gap-3 md:grid-cols-6 text-black dark:text-white">
           <div>
-            <label className="mb-1 block text-sm text-slate-600">วันที่เริ่ม</label>
+            <label className="mb-1 block text-sm">วันที่เริ่ม</label>
             <input
               type="date"
-              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border p-2 outline-none transition 
+                         border-slate-300 focus:border-emerald-500 
+                         dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={filters.startDate}
               onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm text-slate-600">วันที่สิ้นสุด</label>
+            <label className="mb-1 block text-sm">วันที่สิ้นสุด</label>
             <input
               type="date"
-              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border p-2 outline-none transition 
+                         border-slate-300 focus:border-emerald-500 
+                         dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={filters.endDate}
               onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-slate-600">สาขา</label>
+            <label className="mb-1 block text-sm">สาขา</label>
             <select
-              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border p-2 outline-none transition 
+                         border-slate-300 focus:border-emerald-500 
+                         dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={filters.branchId}
               onChange={(e) => setFilters((p) => ({ ...p, branchId: e.target.value, klangId: "" }))}
             >
@@ -194,9 +183,11 @@ const Order = () => {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-slate-600">คลัง</label>
+            <label className="mb-1 block text-sm">คลัง</label>
             <select
-              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border p-2 outline-none transition 
+                         border-slate-300 focus:border-emerald-500 
+                         dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={filters.klangId}
               onChange={(e) => setFilters((p) => ({ ...p, klangId: e.target.value }))}
               disabled={!filters.branchId}
@@ -211,25 +202,30 @@ const Order = () => {
           </div>
 
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm text-slate-600">ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)</label>
+            <label className="mb-1 block text-sm">ค้นหา</label>
             <input
-              className="w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border p-2 outline-none transition 
+                         border-slate-300 focus:border-emerald-500 
+                         dark:bg-slate-800 dark:text-white dark:border-slate-600"
               value={filters.q}
               onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
-              placeholder="พิมพ์อย่างน้อย 2 ตัวอักษร แล้วระบบจะค้นหาอัตโนมัติ"
+              placeholder="พิมพ์อย่างน้อย 2 ตัวอักษร"
             />
           </div>
 
           <div className="flex items-end gap-2 md:col-span-6">
             <button
               onClick={fetchOrders}
-              className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-4 text-white hover:bg-emerald-700 active:scale-[.98]"
+              className="inline-flex h-10 items-center justify-center rounded-xl 
+                         bg-emerald-600 px-4 text-white hover:bg-emerald-700 active:scale-[.98]"
             >
               ค้นหา
             </button>
             <button
               onClick={resetFilters}
-              className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-slate-700 hover:bg-slate-50 active:scale-[.98]"
+              className="inline-flex h-10 items-center justify-center rounded-xl 
+                         border border-slate-300 bg-white px-4 text-slate-700 hover:bg-slate-50 
+                         active:scale-[.98] dark:bg-slate-800 dark:text-white dark:border-slate-600"
             >
               รีเซ็ต
             </button>
@@ -239,24 +235,28 @@ const Order = () => {
 
       {/* Summary */}
       <div className="mb-4 grid gap-3 md:grid-cols-3">
-        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <div className="text-slate-500">จำนวนรายการ</div>
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 
+                        dark:bg-slate-900 dark:text-white dark:ring-slate-700">
+          <div className="text-slate-500 dark:text-slate-400">จำนวนรายการ</div>
           <div className="text-2xl font-semibold">{rows.length.toLocaleString()}</div>
         </div>
-        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <div className="text-slate-500">น้ำหนักรวม (กก.)</div>
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 
+                        dark:bg-slate-900 dark:text-white dark:ring-slate-700">
+          <div className="text-slate-500 dark:text-slate-400">น้ำหนักรวม (กก.)</div>
           <div className="text-2xl font-semibold">{Math.round(toNumber(totals.weight) * 100) / 100}</div>
         </div>
-        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <div className="text-slate-500">มูลค่ารวม</div>
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 
+                        dark:bg-slate-900 dark:text-white dark:ring-slate-700">
+          <div className="text-slate-500 dark:text-slate-400">มูลค่ารวม</div>
           <div className="text-2xl font-semibold">{thb(toNumber(totals.revenue))}</div>
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm 
+                      dark:bg-slate-900 dark:border-slate-700 dark:text-white">
         <table className="min-w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-600">
+          <thead className="bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
             <tr>
               <th className="px-3 py-2">วันที่</th>
               <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
@@ -276,7 +276,7 @@ const Order = () => {
               <tr><td className="px-3 py-3" colSpan={9}>ไม่พบข้อมูล</td></tr>
             ) : (
               rows.map((r) => (
-                <tr key={r.id}>
+                <tr key={r.id} className="border-t border-slate-100 dark:border-slate-700">
                   <td className="px-3 py-2">
                     {r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}
                   </td>

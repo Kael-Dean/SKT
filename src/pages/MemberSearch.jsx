@@ -287,71 +287,75 @@ const MemberSearch = () => {
   }
 
   return (
-    <div className="mx-auto max-w-6xl p-4 md:p-6">
-      <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🔎 ค้นหาสมาชิก</h1>
+    // ----- ภายนอก: Dark mode จริง ๆ -----
+    <div className="min-h-screen bg-slate-900 text-slate-100 dark:bg-slate-900 dark:text-slate-100">
+      <div className="mx-auto max-w-6xl p-4 md:p-6">
+        <h1 className="mb-4 text-2xl font-bold">🔎 ค้นหาสมาชิก</h1>
 
-      <div className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
-        <div className="mb-3">
-          <label className="mb-1 block text-sm font-medium text-black">คำค้นหา</label>
-          <input
-            className="w-full rounded-xl border border-slate-300 p-2 text-black outline-none focus:border-emerald-500"
-            placeholder="เช่น สมชาย ใจดี หรือ 1234567890123"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <p className="mt-1 text-xs text-slate-500">{hint}</p>
-        </div>
-
-        {loading && (
-          <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-emerald-700">
-            กำลังค้นหา...
+        {/* การ์ดด้านใน: บังคับพื้นขาวในทุกโหมด */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm text-black dark:border-slate-200 dark:bg-white">
+          <div className="mb-3">
+            <label className="mb-1 block text-sm font-medium text-black">คำค้นหา</label>
+            <input
+              className="w-full rounded-xl border border-slate-300 bg-white p-2 text-black outline-none focus:border-emerald-500 dark:bg-white dark:text-black"
+              placeholder="เช่น สมชาย ใจดี หรือ 1234567890123"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-slate-500"> {hint} </p>
           </div>
-        )}
-        {error && !loading && (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">{error}</div>
-        )}
 
-        {!loading && !error && debouncedQ.trim() && (
-          <div className="mt-4 overflow-x-auto">
-            {rows.length === 0 ? (
-              <div className="rounded-xl border border-slate-200 p-4 text-slate-600">
-                ไม่พบข้อมูลที่ตรงกับ “{debouncedQ}”
-              </div>
-            ) : (
-              <table className="min-w-full overflow-hidden rounded-xl border border-slate-200 text-left text-sm text-black">
-                <thead className="bg-slate-50 text-slate-700">
-                  <tr>
-                    {TABLE_COLUMNS.map((c) => (
-                      <th key={c.key} className="px-3 py-2">
-                        {c.label}
-                      </th>
-                    ))}
-                    <th className="px-3 py-2 text-right">การกระทำ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id ?? r.member_id} className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50">
+          {loading && (
+            <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-emerald-700">
+              กำลังค้นหา...
+            </div>
+          )}
+          {error && !loading && (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">{error}</div>
+          )}
+
+          {!loading && !error && debouncedQ.trim() && (
+            <div className="mt-4 overflow-x-auto">
+              {rows.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-white p-4 text-slate-700">
+                  ไม่พบข้อมูลที่ตรงกับ “{debouncedQ}”
+                </div>
+              ) : (
+                <table className="min-w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left text-sm text-black dark:bg-white">
+                  <thead className="bg-slate-50 text-slate-700">
+                    <tr>
                       {TABLE_COLUMNS.map((c) => (
-                        <td key={c.key} className="px-3 py-2">
-                          {c.render ? c.render(r[c.key]) : r[c.key] ?? "-"}
-                        </td>
+                        <th key={c.key} className="px-3 py-2">
+                          {c.label}
+                        </th>
                       ))}
-                      <td className="px-3 py-2 text-right">
-                        <button
-                          className="rounded-lg bg-black px-3 py-1 text-white hover:bg-black/90"
-                          onClick={() => openModal(r)}
-                        >
-                          ดูรายละเอียด
-                        </button>
-                      </td>
+                      <th className="px-3 py-2 text-right">การกระทำ</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.id ?? r.member_id} className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50">
+                        {TABLE_COLUMNS.map((c) => (
+                          <td key={c.key} className="px-3 py-2">
+                            {c.render ? c.render(r[c.key]) : r[c.key] ?? "-"}
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-right">
+                          <button
+                            className="rounded-lg bg-black px-3 py-1 text-white hover:bg-black/90"
+                            onClick={() => openModal(r)}
+                          >
+                            ดูรายละเอียด
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modal */}
@@ -359,25 +363,25 @@ const MemberSearch = () => {
         className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`}
         aria-hidden={!open}
       >
-        {/* backdrop */}
+        {/* backdrop (มืด) */}
         <div
-          className={`absolute inset-0 bg-black/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
           onClick={closeModal}
         />
-        {/* modal panel */}
+        {/* modal panel: บังคับพื้นขาว */}
         <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4">
           <div
-            className={`w-[95vw] max-w-[1200px] h-[85vh] transform rounded-2xl bg-white shadow-2xl transition-all ${
+            className={`h-[85vh] w-[95vw] max-w-[1200px] transform rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-white ${
               open ? "scale-100 opacity-100" : "scale-95 opacity-0"
             }`}
           >
             {/* header */}
-            <div className="flex items-center justify-between border-b px-4 py-3 text-black">
+            <div className="flex items-center justify-between border-b px-4 py-3">
               <div className="text-lg font-semibold">
                 {active ? `รายละเอียดสมาชิก #${active.member_id}` : "รายละเอียดสมาชิก"}
               </div>
               <button
-                className="rounded-lg border px-3 py-1 text-black hover:bg-slate-50"
+                className="rounded-lg border px-3 py-1 hover:bg-slate-50"
                 onClick={closeModal}
               >
                 ปิด
@@ -385,7 +389,7 @@ const MemberSearch = () => {
             </div>
 
             {/* body */}
-            <div className="h-[calc(85vh-56px)] overflow-y-auto p-4 text-black">
+            <div className="h-[calc(85vh-56px)] overflow-y-auto p-4">
               {!active ? (
                 <div className="text-slate-600">ไม่มีข้อมูล</div>
               ) : (
@@ -411,7 +415,7 @@ const MemberSearch = () => {
                           {saving ? "กำลังบันทึก..." : "บันทึก"}
                         </button>
                         <button
-                          className="rounded-lg border px-3 py-1 text-black hover:bg-slate-50"
+                          className="rounded-lg border px-3 py-1 hover:bg-slate-50"
                           onClick={() => {
                             setEditing(false)
                             const reset = {}
@@ -461,7 +465,7 @@ const MemberSearch = () => {
                             </div>
                           ) : f.type === "select" ? (
                             <select
-                              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black dark:bg-white"
                               value={val ?? ""}
                               onChange={(e) => onChangeField(f.key, e.target.value)}
                             >
@@ -474,13 +478,13 @@ const MemberSearch = () => {
                           ) : f.type === "date" || f.type === "date-optional" ? (
                             <input
                               type="date"
-                              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black dark:bg-white"
                               value={val ?? ""}
                               onChange={(e) => onChangeField(f.key, e.target.value)}
                             />
                           ) : (
                             <input
-                              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black placeholder:text-slate-400 dark:bg-white"
                               value={val ?? ""}
                               onChange={(e) => onChangeField(f.key, e.target.value)}
                               placeholder={f.type === "cid" ? "13 หลัก" : ""}
@@ -492,7 +496,7 @@ const MemberSearch = () => {
                   </div>
 
                   {/* ---------- ข้อมูลที่ดิน ---------- */}
-                  <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/30 p-4">
+                  <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
                     <div className="mb-3 text-base font-semibold text-emerald-800">🌾 ข้อมูลที่ดิน</div>
 
                     {/* ถือครอง */}
@@ -510,7 +514,7 @@ const MemberSearch = () => {
                                 </div>
                               ) : (
                                 <input
-                                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black dark:bg-white"
                                   inputMode="numeric"
                                   value={val}
                                   onChange={(e) => onChangeField(k, e.target.value)}
@@ -541,7 +545,7 @@ const MemberSearch = () => {
                                 </div>
                               ) : (
                                 <input
-                                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black dark:bg-white"
                                   inputMode="numeric"
                                   value={val}
                                   onChange={(e) => onChangeField(k, e.target.value)}
@@ -572,7 +576,7 @@ const MemberSearch = () => {
                                 </div>
                               ) : (
                                 <input
-                                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black dark:bg-white"
                                   inputMode="numeric"
                                   value={val}
                                   onChange={(e) => onChangeField(k, e.target.value)}

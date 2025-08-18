@@ -211,9 +211,8 @@ const MemberSearch = () => {
     try {
       const original = { ...active }
       ;["regis_date", "last_bought_date", "transfer_date"].forEach((k) => {
-        if (original[k]) {
-          try { original[k] = toISO(original[k]) } catch {}
-        } else { original[k] = null }
+        if (original[k]) { try { original[k] = toISO(original[k]) } catch {} }
+        else { original[k] = null }
       })
 
       const diff = computeDiff(original, draft)
@@ -268,23 +267,23 @@ const MemberSearch = () => {
   }
 
   return (
-    <div className="mx-auto max-w-6xl p-4 md:p-6">
+    <div className="mx-auto max-w-6xl p-4 md:p-6 bg-white dark:bg-neutral-950 min-h-screen">
       <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🔎 ค้นหาสมาชิก</h1>
 
-      {/* กล่องค้นหาเหมือน MemberSignup */}
+      {/* กล่องค้นหา: โทนดำเหมือนหน้า Signup */}
       <div className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm
-                      dark:bg-slate-900 dark:text-white dark:border-emerald-900/40">
+                      dark:bg-gray-900 dark:text-gray-100 dark:border-gray-800">
         <div className="mb-3">
-          <label className="mb-1 block text-sm font-medium text-black dark:text-white">คำค้นหา</label>
+          <label className="mb-1 block text-sm font-medium text-black dark:text-gray-100">คำค้นหา</label>
           <input
             className="w-full rounded-xl border p-2 text-black outline-none transition
                        border-slate-300 focus:border-emerald-500
-                       dark:bg-slate-800 dark:text-white dark:border-slate-600"
+                       dark:bg-black dark:text-gray-100 dark:border-gray-700 dark:placeholder-gray-500"
             placeholder="เช่น สมชาย ใจดี หรือ 1234567890123"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-gray-400">{hint}</p>
         </div>
 
         {loading && (
@@ -304,15 +303,15 @@ const MemberSearch = () => {
           <div className="mt-4 overflow-x-auto">
             {rows.length === 0 ? (
               <div className="rounded-xl border border-slate-200 p-4 text-slate-600
-                              dark:border-slate-700 dark:text-slate-300">
+                              dark:border-gray-800 dark:text-gray-300 dark:bg-black">
                 ไม่พบข้อมูลที่ตรงกับ “{debouncedQ}”
               </div>
             ) : (
               <table className="min-w-full overflow-hidden rounded-xl border text-left text-sm
                                  border-slate-200 text-black
-                                 dark:text-white dark:border-slate-700">
+                                 dark:text-gray-100 dark:border-gray-800">
                 <thead className="bg-slate-50 text-slate-700
-                                  dark:bg-slate-800 dark:text-slate-300">
+                                  dark:bg-gray-900 dark:text-gray-300">
                   <tr>
                     {TABLE_COLUMNS.map((c) => (
                       <th key={c.key} className="px-3 py-2">{c.label}</th>
@@ -320,14 +319,12 @@ const MemberSearch = () => {
                     <th className="px-3 py-2 text-right">การกระทำ</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                   {rows.map((r) => (
                     <tr
                       key={r.id ?? r.member_id}
                       className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50
-                                 dark:odd:bg-slate-900 dark:even:bg-slate-800
-                                 dark:hover:bg-slate-800/80 border-b
-                                 border-slate-100 dark:border-slate-700"
+                                 dark:odd:bg-black dark:even:bg-gray-900 dark:hover:bg-gray-800/70"
                     >
                       {TABLE_COLUMNS.map((c) => (
                         <td key={c.key} className="px-3 py-2">
@@ -336,8 +333,8 @@ const MemberSearch = () => {
                       ))}
                       <td className="px-3 py-2 text-right">
                         <button
-                          className="rounded-lg bg-black px-3 py-1 text-white hover:bg-black/90
-                                     dark:bg-slate-700 dark:hover:bg-slate-600"
+                          className="rounded-lg bg-emerald-600 px-3 py-1 text-white hover:bg-emerald-700
+                                     dark:bg-emerald-600 dark:hover:bg-emerald-500"
                           onClick={() => openModal(r)}
                         >
                           ดูรายละเอียด
@@ -356,26 +353,26 @@ const MemberSearch = () => {
       <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
         {/* backdrop */}
         <div
-          className={`absolute inset-0 bg-black/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
           onClick={closeModal}
         />
         {/* panel */}
         <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4">
           <div
             className={`w-[95vw] max-w-[1200px] h-[85vh] transform rounded-2xl bg-white text-black shadow-2xl transition-all
-                        dark:bg-slate-900 dark:text-white
+                        dark:bg-gray-900 dark:text-gray-100 dark:border dark:border-gray-800
                         ${open ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}
           >
             {/* header */}
             <div className="flex items-center justify-between border-b px-4 py-3
-                            text-black dark:text-white
-                            border-slate-200 dark:border-slate-700">
+                            text-black dark:text-gray-100
+                            border-slate-200 dark:border-gray-800">
               <div className="text-lg font-semibold">
                 {active ? `รายละเอียดสมาชิก #${active.member_id}` : "รายละเอียดสมาชิก"}
               </div>
               <button
                 className="rounded-lg border px-3 py-1 text-black hover:bg-slate-50
-                           dark:text-white dark:border-slate-600 dark:hover:bg-slate-800"
+                           dark:text-gray-100 dark:border-gray-700 dark:hover:bg-black"
                 onClick={closeModal}
               >
                 ปิด
@@ -383,19 +380,18 @@ const MemberSearch = () => {
             </div>
 
             {/* body */}
-            <div className="h-[calc(85vh-56px)] overflow-y-auto p-4 text-black dark:text-white">
+            <div className="h-[calc(85vh-56px)] overflow-y-auto p-4 text-black dark:text-gray-100">
               {!active ? (
-                <div className="text-slate-600 dark:text-slate-300">ไม่มีข้อมูล</div>
+                <div className="text-slate-600 dark:text-gray-300">ไม่มีข้อมูล</div>
               ) : (
                 <>
                   <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm text-slate-600 dark:text-slate-400">
+                    <div className="text-sm text-slate-600 dark:text-gray-400">
                       สร้างเมื่อ: {formatDate(active.regis_date)} | ซื้อครั้งล่าสุด: {formatDate(active.last_bought_date)}
                     </div>
                     {!editing ? (
                       <button
-                        className="rounded-lg bg-black px-3 py-1 text-white hover:bg-black/90
-                                   dark:bg-slate-700 dark:hover:bg-slate-600"
+                        className="rounded-lg bg-emerald-600 px-3 py-1 text-white hover:bg-emerald-700"
                         onClick={() => setEditing(true)}
                       >
                         แก้ไข
@@ -411,7 +407,7 @@ const MemberSearch = () => {
                         </button>
                         <button
                           className="rounded-lg border px-3 py-1 text-black hover:bg-slate-50
-                                     dark:text-white dark:border-slate-600 dark:hover:bg-slate-800"
+                                     dark:text-gray-100 dark:border-gray-700 dark:hover:bg-black"
                           onClick={() => {
                             setEditing(false)
                             const reset = {}
@@ -450,16 +446,16 @@ const MemberSearch = () => {
                       const val = editing ? draft?.[f.key] ?? "" : active?.[f.key]
                       return (
                         <div key={f.key}>
-                          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">{f.label}</label>
+                          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-gray-400">{f.label}</label>
                           {!editing ? (
                             <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm
-                                            dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                                            dark:border-gray-800 dark:bg-black dark:text-gray-100">
                               {f.type === "date" || f.type === "date-optional" ? formatDate(val) : (val ?? "-")}
                             </div>
                           ) : f.type === "select" ? (
                             <select
                               className="w-full rounded-lg border border-slate-300 px-3 py-2
-                                         dark:bg-slate-800 dark:text-white dark:border-slate-600"
+                                         dark:bg-black dark:text-gray-100 dark:border-gray-700"
                               value={val ?? ""}
                               onChange={(e) => onChangeField(f.key, e.target.value)}
                             >
@@ -473,14 +469,14 @@ const MemberSearch = () => {
                             <input
                               type="date"
                               className="w-full rounded-lg border border-slate-300 px-3 py-2
-                                         dark:bg-slate-800 dark:text-white dark:border-slate-600"
+                                         dark:bg-black dark:text-gray-100 dark:border-gray-700"
                               value={val ?? ""}
                               onChange={(e) => onChangeField(f.key, e.target.value)}
                             />
                           ) : (
                             <input
                               className="w-full rounded-lg border border-slate-300 px-3 py-2
-                                         dark:bg-slate-800 dark:text-white dark:border-slate-600"
+                                         dark:bg-black dark:text-gray-100 dark:border-gray-700"
                               value={val ?? ""}
                               onChange={(e) => onChangeField(f.key, e.target.value)}
                               placeholder={f.type === "cid" ? "13 หลัก" : ""}
@@ -493,107 +489,46 @@ const MemberSearch = () => {
 
                   {/* ข้อมูลที่ดิน */}
                   <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/30 p-4
-                                  dark:border-emerald-900/40 dark:bg-slate-900">
+                                  dark:border-gray-800 dark:bg-gray-900">
                     <div className="mb-3 text-base font-semibold text-emerald-800 dark:text-emerald-300">🌾 ข้อมูลที่ดิน</div>
 
-                    {/* ถือครอง */}
-                    <div className="mb-4">
-                      <div className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">ถือครอง</div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        {["own_rai","own_ngan","own_wa"].map((k) => {
-                          const label = k.endsWith("_rai") ? "ไร่" : k.endsWith("_ngan") ? "งาน" : "ตารางวา"
-                          const val = editing ? draft?.[k] ?? 0 : (active?.[k] ?? 0)
-                          return (
-                            <div key={k}>
-                              {!editing ? (
-                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm
-                                                dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-                                  {val}
+                    {[
+                      { title: "ถือครอง", keys: ["own_rai","own_ngan","own_wa"] },
+                      { title: "เช่าทำกิน", keys: ["rent_rai","rent_ngan","rent_wa"] },
+                      { title: "อื่นๆ", keys: ["other_rai","other_ngan","other_wa"] },
+                    ].map(({title, keys}) => (
+                      <div className="mb-4" key={title}>
+                        <div className="mb-1 text-sm font-medium text-slate-700 dark:text-gray-300">{title}</div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          {keys.map((k) => {
+                            const label = k.endsWith("_rai") ? "ไร่" : k.endsWith("_ngan") ? "งาน" : "ตารางวา"
+                            const val = editing ? draft?.[k] ?? 0 : (active?.[k] ?? 0)
+                            return (
+                              <div key={k}>
+                                {!editing ? (
+                                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm
+                                                  dark:border-gray-800 dark:bg-black dark:text-gray-100">
+                                    {val}
+                                  </div>
+                                ) : (
+                                  <input
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2
+                                               dark:bg-black dark:text-gray-100 dark:border-gray-700"
+                                    inputMode="numeric"
+                                    value={val}
+                                    onChange={(e) => onChangeField(k, e.target.value)}
+                                    placeholder={label}
+                                  />
+                                )}
+                                <div className="mt-1 text-xs text-slate-500 dark:text-gray-400">
+                                  {label}{k.endsWith("_ngan") && " (0–3)"}{k.endsWith("_wa") && " (0–99)"}
                                 </div>
-                              ) : (
-                                <input
-                                  className="w-full rounded-lg border border-slate-300 px-3 py-2
-                                             dark:bg-slate-800 dark:text-white dark:border-slate-600"
-                                  inputMode="numeric"
-                                  value={val}
-                                  onChange={(e) => onChangeField(k, e.target.value)}
-                                  placeholder={label}
-                                />
-                              )}
-                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                {label}{k.endsWith("_ngan") && " (0–3)"}{k.endsWith("_wa") && " (0–99)"}
                               </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
-
-                    {/* เช่าทำกิน */}
-                    <div className="mb-4">
-                      <div className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">เช่าทำกิน</div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        {["rent_rai","rent_ngan","rent_wa"].map((k) => {
-                          const label = k.endsWith("_rai") ? "ไร่" : k.endsWith("_ngan") ? "งาน" : "ตารางวา"
-                          const val = editing ? draft?.[k] ?? 0 : (active?.[k] ?? 0)
-                          return (
-                            <div key={k}>
-                              {!editing ? (
-                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm
-                                                dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-                                  {val}
-                                </div>
-                              ) : (
-                                <input
-                                  className="w-full rounded-lg border border-slate-300 px-3 py-2
-                                             dark:bg-slate-800 dark:text-white dark:border-slate-600"
-                                  inputMode="numeric"
-                                  value={val}
-                                  onChange={(e) => onChangeField(k, e.target.value)}
-                                  placeholder={label}
-                                />
-                              )}
-                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                {label}{k.endsWith("_ngan") && " (0–3)"}{k.endsWith("_wa") && " (0–99)"}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* อื่นๆ */}
-                    <div>
-                      <div className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">อื่นๆ</div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        {["other_rai","other_ngan","other_wa"].map((k) => {
-                          const label = k.endsWith("_rai") ? "ไร่" : k.endsWith("_ngan") ? "งาน" : "ตารางวา"
-                          const val = editing ? draft?.[k] ?? 0 : (active?.[k] ?? 0)
-                          return (
-                            <div key={k}>
-                              {!editing ? (
-                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm
-                                                dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-                                  {val}
-                                </div>
-                              ) : (
-                                <input
-                                  className="w-full rounded-lg border border-slate-300 px-3 py-2
-                                             dark:bg-slate-800 dark:text-white dark:border-slate-600"
-                                  inputMode="numeric"
-                                  value={val}
-                                  onChange={(e) => onChangeField(k, e.target.value)}
-                                  placeholder={label}
-                                />
-                              )}
-                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                {label}{k.endsWith("_ngan") && " (0–3)"}{k.endsWith("_wa") && " (0–99)"}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </>
               )}

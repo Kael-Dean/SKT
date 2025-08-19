@@ -91,7 +91,7 @@ jobs:
           ASSET=$(gsutil ls gs://$BUCKET/assets/** 2>/dev/null | head -n 1 || true)
           if [ -n "$ASSET" ]; then gsutil stat "$ASSET"; fi
 
-      # 11) Final log
+      # 11) Final log1111
       - name: Done
         run: |
           echo "✅ Deploy finished for bucket: $BUCKET"

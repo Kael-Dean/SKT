@@ -2,7 +2,7 @@ name: Deploy Vite React to GCS
 
 on:
   push:
-    branches: [ main ]   # เปลี่ยนตามสาขาที่ใช้
+    branches: [ main ]
 
 jobs:
   build-and-deploy:
@@ -10,11 +10,12 @@ jobs:
 
     permissions:
       contents: read
-      id-token: write     # จำเป็นสำหรับ WIF (OIDC)
+      id-token: write
 
     env:
-      GCS_BUCKET: ${{ secrets.GCS_BUCKET }}          # เช่น skt-front
-      GCP_CDN_URL_MAP: ${{ secrets.GCP_CDN_URL_MAP }} # ชื่อ URL Map (ถ้าใช้ Cloud CDN ใส่ใน Secrets)
+      GCS_BUCKET_RAW: ${{ secrets.GCS_BUCKET }}           # e.g. skt-front (ไม่ต้องมี gs://)
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}       # e.g. peaceful-web-469207-h1
+      GCP_CDN_URL_MAP: ${{ secrets.GCP_CDN_URL_MAP }}     # optional
 
     steps:
       - name: Checkout
@@ -40,42 +41,70 @@ jobs:
       - name: Setup gcloud (includes gsutil)
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure bucket website (idempotent)
+      # --- Normalize bucket & ensure it exists ---
+      - name: Verify/Create GCS bucket
+        id: verify_bucket
         run: |
           set -euo pipefail
-          if [ -z "${GCS_BUCKET:-}" ]; then
-            echo "ERROR: secrets.GCS_BUCKET is empty"; exit 1
+
+          # normalize: strip gs:// if user put it in secret
+          BUCKET="${GCS_BUCKET_RAW}"
+          BUCKET="${BUCKET#gs://}"
+          echo "BUCKET_NORMALIZED=$BUCKET" >> $GITHUB_OUTPUT
+          echo "Using bucket: $BUCKET"
+
+          # find project id (prefer secret; fallback to gcloud active)
+          PROJECT="${GCP_PROJECT_ID:-}"
+          if [ -z "$PROJECT" ]; then
+            PROJECT="$(gcloud config get-value core/project || true)"
           fi
-          gcloud storage buckets update "gs://${GCS_BUCKET}" \
+          if [ -z "$PROJECT" ]; then
+            echo "ERROR: GCP_PROJECT_ID is empty and no active gcloud project set."
+            exit 1
+          fi
+          echo "Using project: $PROJECT"
+
+          # create bucket if missing (choose a region you want)
+          if ! gcloud storage buckets describe "gs://$BUCKET" --project="$PROJECT" >/dev/null 2>&1; then
+            echo "Bucket gs://$BUCKET not found. Creating..."
+            gcloud storage buckets create "gs://$BUCKET" \
+              --project="$PROJECT" \
+              --location=ASIA-SOUTHEAST1 \
+              --uniform-bucket-level-access
+          else
+            echo "Bucket gs://$BUCKET exists."
+          fi
+
+          # website settings (idempotent)
+          gcloud storage buckets update "gs://$BUCKET" \
             --web-main-page-suffix=index.html \
             --web-error-page=index.html || true
 
-      # === อัปโหลด: ตั้ง Cache-Control ให้ถูกตั้งแต่มืออัป ===
+      # --- Upload with correct Cache-Control at upload time ---
       - name: Upload index.html (no-cache) and assets (immutable)
+        env:
+          BUCKET: ${{ steps.verify_bucket.outputs.BUCKET_NORMALIZED }}
         run: |
           set -euo pipefail
 
-          echo "Using bucket: ${GCS_BUCKET}"
-          test -n "${GCS_BUCKET}"
+          echo "Using bucket: $BUCKET"
 
-          # ตรวจไฟล์ build
           test -f dist/index.html || { echo "dist/index.html not found. Did build fail?"; exit 1; }
 
-          # ลบ assets เก่า (ถ้ามี) - ป้องกันไฟล์ตกค้าง
-          gsutil -m rm -r "gs://${GCS_BUCKET}/assets/**" 2>/dev/null || true
+          # remove old assets to avoid orphans
+          gsutil -m rm -r "gs://$BUCKET/assets/**" 2>/dev/null || true
 
-          # อัปโหลด index.html พร้อม no-cache (เบราว์เซอร์จะเช็คใหม่ทุกครั้ง)
-          gsutil -h "Cache-Control:no-cache" cp "dist/index.html" "gs://${GCS_BUCKET}/index.html"
+          # upload index.html with no-cache (always revalidate)
+          gsutil -h "Cache-Control:no-cache" cp "dist/index.html" "gs://$BUCKET/index.html"
 
-          # อัปโหลด assets ทั้งหมด พร้อม cache-control ยาว + immutable
+          # upload assets with long cache + immutable (Vite hashed filenames)
           if [ -d "dist/assets" ]; then
-            # ปลายทางต้องลงท้ายด้วย / เพื่อให้เป็นไดเรกทอรี
-            gsutil -m -h "Cache-Control:public, max-age=31536000, immutable" cp -r "dist/assets/*" "gs://${GCS_BUCKET}/assets/"
+            gsutil -m -h "Cache-Control:public, max-age=31536000, immutable" cp -r "dist/assets/*" "gs://$BUCKET/assets/"
           else
             echo "WARN: dist/assets not found (Vite may have inlined assets)"
           fi
 
-      # === (ทางเลือก) ใช้ Cloud CDN อยู่หรือไม่ ถ้าใช้อยู่ให้เคลียร์ cache ===
+      # --- (Optional) Invalidate Cloud CDN if you front this bucket with CDN ---
       - name: Invalidate Cloud CDN (optional)
         if: ${{ env.GCP_CDN_URL_MAP != '' }}
         run: |

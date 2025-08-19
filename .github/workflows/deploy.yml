@@ -13,8 +13,8 @@ jobs:
       id-token: write
 
     env:
-      GCS_BUCKET_RAW: ${{ secrets.GCS_BUCKET }}           # e.g. skt-front (ไม่ต้องมี gs://)
-      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}       # e.g. peaceful-web-469207-h1
+      GCS_BUCKET_RAW: ${{ secrets.GCS_BUCKET }}           # เช่น skt-front (ไม่มี gs://, ไม่มีเครื่องหมายคำพูด)
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}       # เช่น peaceful-web-469207-h1
       GCP_CDN_URL_MAP: ${{ secrets.GCP_CDN_URL_MAP }}     # optional
 
     steps:
@@ -41,42 +41,56 @@ jobs:
       - name: Setup gcloud (includes gsutil)
         uses: google-github-actions/setup-gcloud@v2
 
-      # --- Normalize bucket & ensure it exists ---
+      # --- Normalize + Validate + Ensure bucket exists ---
       - name: Verify/Create GCS bucket
         id: verify_bucket
         run: |
           set -euo pipefail
 
-          # normalize: strip gs:// if user put it in secret
-          BUCKET="${GCS_BUCKET_RAW}"
-          BUCKET="${BUCKET#gs://}"
-          echo "BUCKET_NORMALIZED=$BUCKET" >> $GITHUB_OUTPUT
-          echo "Using bucket: $BUCKET"
+          raw="${GCS_BUCKET_RAW:-}"
+          # ตัด gs://, ตัด / ท้าย, ตัดช่องว่าง/quote, บังคับเป็นตัวเล็ก
+          raw="${raw#gs://}"
+          raw="${raw%/}"
+          # shellcheck disable=SC2001
+          raw="$(echo "$raw" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^["'\'']+//; s/["'\'']+$//')"
 
-          # find project id (prefer secret; fallback to gcloud active)
+          echo "Using bucket (normalized): $raw"
+          if [ -z "$raw" ]; then
+            echo "ERROR: GCS_BUCKET is empty after normalization"; exit 1
+          fi
+
+          # ตรวจตามกฎชื่อบัคเก็ต
+          # - 3..63 ตัวอักษร
+          # - เริ่ม/จบด้วย [a-z0-9]
+          # - ใช้ได้เฉพาะ [a-z0-9._-]
+          if [ ${#raw} -lt 3 ] || [ ${#raw} -gt 63 ] || ! echo "$raw" | grep -Eq '^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$'; then
+            echo "ERROR: Invalid bucket name after normalization: '$raw'"
+            exit 1
+          fi
+
+          echo "BUCKET_NORMALIZED=$raw" >> "$GITHUB_OUTPUT"
+
           PROJECT="${GCP_PROJECT_ID:-}"
           if [ -z "$PROJECT" ]; then
             PROJECT="$(gcloud config get-value core/project || true)"
           fi
           if [ -z "$PROJECT" ]; then
-            echo "ERROR: GCP_PROJECT_ID is empty and no active gcloud project set."
-            exit 1
+            echo "ERROR: GCP_PROJECT_ID is empty and no active gcloud project set."; exit 1
           fi
           echo "Using project: $PROJECT"
 
-          # create bucket if missing (choose a region you want)
-          if ! gcloud storage buckets describe "gs://$BUCKET" --project="$PROJECT" >/dev/null 2>&1; then
-            echo "Bucket gs://$BUCKET not found. Creating..."
-            gcloud storage buckets create "gs://$BUCKET" \
+          if ! gcloud storage buckets describe "gs://$raw" --project="$PROJECT" >/dev/null 2>&1; then
+            echo "Bucket gs://$raw not found. Creating..."
+            gcloud storage buckets create "gs://$raw" \
               --project="$PROJECT" \
               --location=ASIA-SOUTHEAST1 \
               --uniform-bucket-level-access
           else
-            echo "Bucket gs://$BUCKET exists."
+            echo "Bucket gs://$raw exists."
           fi
 
-          # website settings (idempotent)
-          gcloud storage buckets update "gs://$BUCKET" \
+          # ตั้งหน้าเว็บ (idempotent)
+          gcloud storage buckets update "gs://$raw" \
             --web-main-page-suffix=index.html \
             --web-error-page=index.html || true
 
@@ -86,25 +100,24 @@ jobs:
           BUCKET: ${{ steps.verify_bucket.outputs.BUCKET_NORMALIZED }}
         run: |
           set -euo pipefail
-
           echo "Using bucket: $BUCKET"
 
           test -f dist/index.html || { echo "dist/index.html not found. Did build fail?"; exit 1; }
 
-          # remove old assets to avoid orphans
+          # ลบ assets เก่า กันไฟล์ตกค้าง
           gsutil -m rm -r "gs://$BUCKET/assets/**" 2>/dev/null || true
 
-          # upload index.html with no-cache (always revalidate)
+          # อัปโหลด index.html (no-cache)
           gsutil -h "Cache-Control:no-cache" cp "dist/index.html" "gs://$BUCKET/index.html"
 
-          # upload assets with long cache + immutable (Vite hashed filenames)
+          # อัปโหลด assets (immutable + cache ยาว)
           if [ -d "dist/assets" ]; then
             gsutil -m -h "Cache-Control:public, max-age=31536000, immutable" cp -r "dist/assets/*" "gs://$BUCKET/assets/"
           else
             echo "WARN: dist/assets not found (Vite may have inlined assets)"
           fi
 
-      # --- (Optional) Invalidate Cloud CDN if you front this bucket with CDN ---
+      # --- Optional: Invalidate Cloud CDN ---
       - name: Invalidate Cloud CDN (optional)
         if: ${{ env.GCP_CDN_URL_MAP != '' }}
         run: |

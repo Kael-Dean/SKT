@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 /** ---------- ENV ---------- */
 const API_BASE = import.meta.env.VITE_API_BASE || ""
@@ -29,6 +29,154 @@ const authHeader = () => {
   }
 }
 
+/** ---------- Reusable ComboBox (เหมือนหน้า Sales) ---------- */
+function ComboBox({
+  options = [],
+  value,
+  onChange, // (newValue, optionObj) => void
+  placeholder = "— เลือก —",
+  getLabel = (o) => o?.label ?? "",
+  getValue = (o) => o?.value ?? o?.id ?? "",
+  disabled = false,
+  error = false,
+}) {
+  const [open, setOpen] = useState(false)
+  const [highlight, setHighlight] = useState(-1)
+  const boxRef = useRef(null)
+  const listRef = useRef(null)
+  const btnRef = useRef(null)
+
+  const selectedLabel = useMemo(() => {
+    const found = options.find((o) => String(getValue(o)) === String(value))
+    return found ? getLabel(found) : ""
+  }, [options, value, getLabel, getValue])
+
+  useEffect(() => {
+    const onClick = (e) => {
+      if (!boxRef.current) return
+      if (!boxRef.current.contains(e.target)) {
+        setOpen(false)
+        setHighlight(-1)
+      }
+    }
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [])
+
+  const commit = (opt) => {
+    const v = String(getValue(opt))
+    onChange?.(v, opt)
+    setOpen(false)
+    setHighlight(-1)
+    requestAnimationFrame(() => btnRef.current?.focus())
+  }
+
+  const scrollHighlightedIntoView = (index) => {
+    const listEl = listRef.current
+    const itemEl = listEl?.children?.[index]
+    if (!listEl || !itemEl) return
+    const itemRect = itemEl.getBoundingClientRect()
+    const listRect = listEl.getBoundingClientRect()
+    const buffer = 6
+    if (itemRect.top < listRect.top + buffer) {
+      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+    } else if (itemRect.bottom > listRect.bottom - buffer) {
+      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+    }
+  }
+
+  const onKeyDown = (e) => {
+    if (disabled) return
+    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+      e.preventDefault()
+      setOpen(true)
+      setHighlight((h) => (h >= 0 ? h : 0))
+      return
+    }
+    if (!open) return
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setHighlight((h) => {
+        const next = h < options.length - 1 ? h + 1 : 0
+        requestAnimationFrame(() => scrollHighlightedIntoView(next))
+        return next
+      })
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setHighlight((h) => {
+        const prev = h > 0 ? h - 1 : options.length - 1
+        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
+        return prev
+      })
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
+    } else if (e.key === "Escape") {
+      e.preventDefault()
+      setOpen(false)
+      setHighlight(-1)
+    }
+  }
+
+  return (
+    <div className="relative" ref={boxRef}>
+      <button
+        type="button"
+        ref={btnRef}
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((o) => !o)}
+        onKeyDown={onKeyDown}
+        className={`w-full rounded-xl border p-2 text-left outline-none transition ${
+          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-white hover:bg-slate-50"
+        } ${error ? "border-red-400" : "border-slate-300 focus:border-emerald-500"} dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600/60`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        {selectedLabel || <span className="text-slate-400">{placeholder}</span>}
+      </button>
+
+      {open && (
+        <div
+          ref={listRef}
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white text-black shadow dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        >
+          {options.length === 0 && (
+            <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-300">ไม่มีตัวเลือก</div>
+          )}
+          {options.map((opt, idx) => {
+            const label = getLabel(opt)
+            const isActive = idx === highlight
+            const isChosen = String(getValue(opt)) === String(value)
+            return (
+              <button
+                key={String(getValue(opt)) || label || idx}
+                type="button"
+                role="option"
+                aria-selected={isChosen}
+                onMouseEnter={() => setHighlight(idx)}
+                onClick={() => commit(opt)}
+                className={`relative flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition
+                  ${isActive
+                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"}`}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-500 dark:bg-emerald-400/60 rounded-l-xl" />
+                )}
+                <span className="flex-1">{label}</span>
+                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** ---------- Page: Order ---------- */
 const Order = () => {
   /** ---------- Dates (default: this month) ---------- */
   const today = new Date().toISOString().slice(0, 10)
@@ -46,8 +194,10 @@ const Order = () => {
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
-    branchId: "",
+    branchId: "",     // ใช้เก็บ id จริง
+    branchName: "",   // เก็บชื่อไว้จับคู่กับ ComboBox (สะดวก map label)
     klangId: "",
+    klangName: "",
     q: "",
   })
 
@@ -74,7 +224,7 @@ const Order = () => {
     const loadKlang = async () => {
       if (!filters.branchId) {
         setKlangOptions([])
-        setFilters((p) => ({ ...p, klangId: "" }))
+        setFilters((p) => ({ ...p, klangId: "", klangName: "" }))
         return
       }
       try {
@@ -144,14 +294,16 @@ const Order = () => {
       startDate: firstDayThisMonth,
       endDate: today,
       branchId: "",
+      branchName: "",
       klangId: "",
+      klangName: "",
       q: "",
     })
   }
 
   /** ----------- UI ----------- */
   return (
-    // พื้นหลังหลัก: Light = ขาว, Dark = slate-900
+    // พื้นหลังหลัก: Light = ขาว, Dark = slate-900 + มุมมนสไตล์เดียวกับหน้า Sales
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
         {/* หัวข้อเข้ากับทุกโหมด */}
@@ -159,7 +311,7 @@ const Order = () => {
           📦 รายการออเดอร์ซื้อข้าวเปลือก
         </h1>
 
-        {/* Filters: การ์ดปรับตามโหมด */}
+        {/* Filters: การ์ด + ComboBox แบบเดียวกับ Sales */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="grid gap-3 md:grid-cols-6">
             <div>
@@ -181,37 +333,44 @@ const Order = () => {
               />
             </div>
 
+            {/* สาขา: ใช้ ComboBox */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
-              <select
-                className="w-full rounded-xl border border-slate-300 bg-white p-2 text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                value={filters.branchId}
-                onChange={(e) => setFilters((p) => ({ ...p, branchId: e.target.value, klangId: "" }))}
-              >
-                <option value="">ทุกสาขา</option>
-                {branchOptions.map((b) => (
-                  <option key={b.id ?? b.branch_name} value={b.id ?? ""}>
-                    {b.branch_name}
-                  </option>
-                ))}
-              </select>
+              <ComboBox
+                options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
+                value={filters.branchName}
+                getValue={(o) => o.label} // เก็บค่าเป็นชื่อเพื่อโชว์ label ตรง ๆ
+                onChange={(_val, found) =>
+                  setFilters((p) => ({
+                    ...p,
+                    branchName: found?.label ?? "",
+                    branchId: found?.id ?? "",
+                    // reset คลังเมื่อเปลี่ยนสาขา
+                    klangId: "",
+                    klangName: "",
+                  }))
+                }
+                placeholder="— เลือกสาขา —"
+              />
             </div>
 
+            {/* คลัง: ใช้ ComboBox */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
-              <select
-                className="w-full rounded-xl border border-slate-300 bg-white p-2 text-black outline-none focus:border-emerald-500 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                value={filters.klangId}
-                onChange={(e) => setFilters((p) => ({ ...p, klangId: e.target.value }))}
+              <ComboBox
+                options={klangOptions.map((k) => ({ id: k.id, label: k.klang_name }))}
+                value={filters.klangName}
+                getValue={(o) => o.label}
+                onChange={(_val, found) =>
+                  setFilters((p) => ({
+                    ...p,
+                    klangName: found?.label ?? "",
+                    klangId: found?.id ?? "",
+                  }))
+                }
+                placeholder="— เลือกคลัง —"
                 disabled={!filters.branchId}
-              >
-                <option value="">ทุกคลัง</option>
-                {klangOptions.map((k) => (
-                  <option key={k.id ?? k.klang_name} value={k.id ?? ""}>
-                    {k.klang_name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div className="md:col-span-2">
@@ -249,7 +408,9 @@ const Order = () => {
           </div>
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
             <div className="text-slate-500 dark:text-slate-400">น้ำหนักรวม (กก.)</div>
-            <div className="text-2xl font-semibold">{Math.round(toNumber(totals.weight) * 100) / 100}</div>
+            <div className="text-2xl font-semibold">
+              {Math.round(toNumber(totals.weight) * 100) / 100}
+            </div>
           </div>
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
             <div className="text-slate-500 dark:text-slate-400">มูลค่ารวม</div>

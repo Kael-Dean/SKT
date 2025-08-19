@@ -125,13 +125,32 @@ function ComboBox({
         disabled={disabled}
         onClick={() => !disabled && setOpen((o) => !o)}
         onKeyDown={onKeyDown}
-        className={`w-full rounded-xl border p-2 text-left outline-none transition ${
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-white hover:bg-slate-50"
-        } ${error ? "border-red-400" : "border-slate-300 focus:border-emerald-500"} dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600/60`}
+        className={`w-full rounded-xl border px-3 py-2 text-left outline-none transition
+          ${disabled ? "bg-slate-100 cursor-not-allowed" : "bg-white hover:bg-slate-50"}
+          ${error ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}
+          shadow-inner focus:ring-2 focus:ring-emerald-200
+          dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600/60 dark:focus:ring-emerald-900/30
+          ${open ? "ring-2 ring-emerald-200 dark:ring-emerald-900/30" : ""}`}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        {selectedLabel || <span className="text-slate-400">{placeholder}</span>}
+        <span className="block truncate">
+          {selectedLabel || <span className="text-slate-400">{placeholder}</span>}
+        </span>
+
+        {/* chevron */}
+        <svg
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 opacity-70 dark:opacity-80"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
       </button>
 
       {open && (
@@ -411,7 +430,7 @@ const MemberSignup = () => {
                 inputMode="numeric"
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.member_id ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.member_id}
                 onChange={(e) => update("member_id", onlyDigits(e.target.value))}
                 placeholder="เช่น 11263"
@@ -426,7 +445,7 @@ const MemberSignup = () => {
                 inputMode="numeric"
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.precode ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.precode}
                 onChange={(e) => update("precode", onlyDigits(e.target.value))}
                 placeholder="เช่น 1"
@@ -441,7 +460,7 @@ const MemberSignup = () => {
                 type="date"
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.regis_date ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.regis_date}
                 onChange={(e) => update("regis_date", e.target.value)}
               />
@@ -454,7 +473,7 @@ const MemberSignup = () => {
               <input
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.first_name ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.first_name}
                 onChange={(e) => update("first_name", e.target.value)}
                 placeholder="สมชาย"
@@ -468,7 +487,7 @@ const MemberSignup = () => {
               <input
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.last_name ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.last_name}
                 onChange={(e) => update("last_name", e.target.value)}
                 placeholder="ใจดี"
@@ -484,7 +503,7 @@ const MemberSignup = () => {
                 maxLength={13}
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.citizen_id ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.citizen_id}
                 onChange={(e) => update("citizen_id", onlyDigits(e.target.value))}
                 placeholder="1234567890123"
@@ -492,7 +511,7 @@ const MemberSignup = () => {
               {errors.citizen_id && <p className="mt-1 text-sm text-red-500">{errors.citizen_id}</p>}
             </div>
 
-            {/* เพศ: ใช้ ComboBox (สไตล์เดียวกับ Sales) */}
+            {/* เพศ: ใช้ ComboBox */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เพศ (M/F)</label>
               <ComboBox
@@ -514,7 +533,7 @@ const MemberSignup = () => {
               <input
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.address ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.address}
                 onChange={(e) => update("address", e.target.value)}
                 placeholder="บ้านเลขที่ หมู่ ตำบล อำเภอ จังหวัด"
@@ -526,7 +545,7 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">หมู่ (mhoo)</label>
               <input
-                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                 value={form.mhoo}
                 onChange={(e) => update("mhoo", e.target.value)}
                 placeholder="เช่น 1"
@@ -539,7 +558,7 @@ const MemberSignup = () => {
               <input
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.sub_district ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.sub_district}
                 onChange={(e) => update("sub_district", e.target.value)}
               />
@@ -552,7 +571,7 @@ const MemberSignup = () => {
               <input
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.district ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.district}
                 onChange={(e) => update("district", e.target.value)}
               />
@@ -565,7 +584,7 @@ const MemberSignup = () => {
               <input
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.province ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.province}
                 onChange={(e) => update("province", e.target.value)}
               />
@@ -577,7 +596,7 @@ const MemberSignup = () => {
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">อำเภอย่อย/รหัสอำเภอ (subprov)</label>
               <input
                 inputMode="numeric"
-                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                 value={form.subprov}
                 onChange={(e) => update("subprov", onlyDigits(e.target.value))}
                 placeholder="เช่น 501"
@@ -592,7 +611,7 @@ const MemberSignup = () => {
                 maxLength={5}
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.postal_code ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.postal_code}
                 onChange={(e) => update("postal_code", onlyDigits(e.target.value))}
               />
@@ -606,7 +625,7 @@ const MemberSignup = () => {
                 inputMode="tel"
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.phone_number ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.phone_number}
                 onChange={(e) => update("phone_number", e.target.value)}
                 placeholder="08x-xxx-xxxx"
@@ -621,7 +640,7 @@ const MemberSignup = () => {
                 inputMode="decimal"
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.salary ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.salary}
                 onChange={(e) => update("salary", e.target.value.replace(/[^\d.]/g, ""))}
                 placeholder="15000"
@@ -636,7 +655,7 @@ const MemberSignup = () => {
                 inputMode="numeric"
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.tgs_group ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.tgs_group}
                 onChange={(e) => update("tgs_group", onlyDigits(e.target.value))}
                 placeholder="16"
@@ -651,7 +670,7 @@ const MemberSignup = () => {
                 inputMode="decimal"
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.share_per_month ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.share_per_month}
                 onChange={(e) => update("share_per_month", e.target.value.replace(/[^\d.]/g, ""))}
                 placeholder="500"
@@ -666,7 +685,7 @@ const MemberSignup = () => {
                 inputMode="numeric"
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.ar_limit ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.ar_limit}
                 onChange={(e) => update("ar_limit", onlyDigits(e.target.value))}
                 placeholder="100000"
@@ -681,7 +700,7 @@ const MemberSignup = () => {
                 inputMode="decimal"
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.normal_share ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.normal_share}
                 onChange={(e) => update("normal_share", e.target.value.replace(/[^\d.]/g, ""))}
                 placeholder="214"
@@ -697,7 +716,7 @@ const MemberSignup = () => {
                 type="date"
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.last_bought_date ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.last_bought_date}
                 onChange={(e) => update("last_bought_date", e.target.value)}
               />
@@ -711,7 +730,7 @@ const MemberSignup = () => {
               </label>
               <input
                 type="date"
-                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                 value={form.transfer_date}
                 onChange={(e) => update("transfer_date", e.target.value)}
               />
@@ -721,7 +740,7 @@ const MemberSignup = () => {
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">บัญชีธนาคาร (bank_account)</label>
               <input
-                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                 value={form.bank_account}
                 onChange={(e) => update("bank_account", e.target.value)}
                 placeholder="014-1-23456-7"
@@ -732,7 +751,7 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รหัสสมาชิกในระบบ (tgs_id)</label>
               <input
-                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                 value={form.tgs_id}
                 onChange={(e) => update("tgs_id", e.target.value)}
                 placeholder="TGS-001"
@@ -743,7 +762,7 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชื่อคู่สมรส (spouce_name)</label>
               <input
-                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                 value={form.spouce_name}
                 onChange={(e) => update("spouce_name", e.target.value)}
               />
@@ -756,7 +775,7 @@ const MemberSignup = () => {
                 inputMode="numeric"
                 className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
                   errors.orders_placed ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                 value={form.orders_placed}
                 onChange={(e) => update("orders_placed", onlyDigits(e.target.value))}
                 placeholder="เช่น 4"
@@ -790,7 +809,7 @@ const MemberSignup = () => {
                         inputMode="numeric"
                         className={`w-full rounded-xl border p-2 text-center outline-none placeholder:text-slate-400 transition ${
                           errors[`${key}_rai`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                        } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                        } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                         value={form[`${key}_rai`]}
                         onChange={(e)=>update(`${key}_rai`, onlyDigits(e.target.value))}
                         placeholder="0"
@@ -802,7 +821,7 @@ const MemberSignup = () => {
                         inputMode="numeric"
                         className={`w-full rounded-xl border p-2 text-center outline-none placeholder:text-slate-400 transition ${
                           errors[`${key}_ngan`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                        } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                        } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                         value={form[`${key}_ngan`]}
                         onChange={(e)=>update(`${key}_ngan`, String(clampNgan(e.target.value)))}
                         placeholder="0–3"
@@ -814,7 +833,7 @@ const MemberSignup = () => {
                         inputMode="numeric"
                         className={`w-full rounded-xl border p-2 text-center outline-none placeholder:text-slate-400 transition ${
                           errors[`${key}_wa`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                        } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                        } shadow-inner dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
                         value={form[`${key}_wa`]}
                         onChange={(e)=>update(`${key}_wa`, String(clampWa(e.target.value)))}
                         placeholder="0–99"
@@ -832,14 +851,14 @@ const MemberSignup = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-2.5 font-medium text-white hover:bg-emerald-700 disabled:opacity-60 active:scale-[.98]"
+              className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-2.5 font-medium text-white shadow-md ring-1 ring-emerald-700/30 hover:bg-emerald-700 active:translate-y-[1px] active:shadow-inner disabled:opacity-60"
             >
               {submitting ? "กำลังบันทึก..." : "บันทึกการสมัครสมาชิก"}
             </button>
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50 active:scale-[.98] dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium text-slate-700 shadow-sm hover:bg-slate-50 active:translate-y-[1px] active:shadow-inner active:bg-slate-100 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
             >
               รีเซ็ต
             </button>

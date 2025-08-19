@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
 
-/** ---------- ENV ---------- */
+/** ---------- ENV: API BASE ---------- */
 const API_BASE = import.meta.env.VITE_API_BASE || ""
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
-const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
+const toISO = (d) => (d ? new Date(d).toISOString() : null)
 
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value)
@@ -16,228 +16,590 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
-const authHeader = () => {
-  const token = localStorage.getItem("token")
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  }
-}
-
-// แปลง "YYYY-MM-DD" หรือ ISO เป็น "DD/MM/BBBB (พ.ศ.)"
-function toThaiDate(d) {
+function formatDate(d) {
   if (!d) return "-"
-  const dt = new Date(d)
-  if (isNaN(dt)) return "-"
-  const dd = String(dt.getDate()).padStart(2, "0")
-  const mm = String(dt.getMonth() + 1).padStart(2, "0")
-  const yyyyBE = dt.getFullYear() + 543
-  return `${dd}/${mm}/${yyyyBE}`
-}
-
-/** ---------- Row item mapper ---------- */
-function mapRow(r = {}) {
-  return {
-    id: r.id ?? r.member_pk ?? null,
-    member_id: r.member_id ?? null,
-    first_name: r.first_name ?? "",
-    last_name: r.last_name ?? "",
-    citizen_id: onlyDigits(r.citizen_id ?? r.citizenId ?? ""),
-    phone: r.phone_number ?? r.phone ?? "-",
-    province: r.province ?? "-",
-    regis_date: r.regis_date ?? r.created_at ?? null,
+  try {
+    const dt = new Date(d)
+    if (isNaN(dt.getTime())) return "-"
+    return dt.toLocaleDateString("th-TH", { year: "numeric", month: "2-digit", day: "2-digit" })
+  } catch {
+    return "-"
   }
 }
 
-/** ---------- Component ---------- */
-const PAGE_SIZE = 20
+/** ---------- Config: ฟิลด์ทั้งหมด (ตรงกับ Backend) ---------- */
+const FIELD_CONFIG = [
+  { key: "member_id", label: "เลขสมาชิก", type: "number" },
+  { key: "precode", label: "คำนำหน้า (รหัส)", type: "number" },
+  { key: "first_name", label: "ชื่อ", type: "text" },
+  { key: "last_name", label: "นามสกุล", type: "text" },
+  { key: "citizen_id", label: "เลขบัตรประชาชน", type: "cid" },
+  { key: "sex", label: "เพศ (M/F)", type: "select", options: ["", "M", "F"] },
+  { key: "phone_number", label: "โทรศัพท์", type: "text" },
+  { key: "address", label: "ที่อยู่", type: "text" },
+  { key: "mhoo", label: "หมู่", type: "text" },
+  { key: "sub_district", label: "ตำบล", type: "text" },
+  { key: "district", label: "อำเภอ", type: "text" },
+  { key: "province", label: "จังหวัด", type: "text" },
+  { key: "postal_code", label: "รหัสไปรษณีย์", type: "number" },
+  { key: "subprov", label: "อำเภอย่อย/รหัสอำเภอ", type: "number" },
+  { key: "salary", label: "เงินเดือน", type: "decimal" },
+  { key: "tgs_group", label: "กลุ่ม", type: "number" },
+  { key: "share_per_month", label: "ส่งหุ้น/เดือน", type: "decimal" },
+  { key: "ar_limit", label: "วงเงินสินเชื่อ", type: "number" },
+  { key: "normal_share", label: "หุ้นปกติ", type: "decimal" },
+  { key: "bank_account", label: "บัญชีธนาคาร", type: "text" },
+  { key: "tgs_id", label: "รหัสสมาชิกในระบบ (tgs_id)", type: "text" },
+  { key: "spouce_name", label: "ชื่อคู่สมรส", type: "text" },
+  { key: "orders_placed", label: "จำนวนครั้งที่ซื้อ", type: "number" },
+  { key: "regis_date", label: "วันที่สมัคร", type: "date" },
+  { key: "last_bought_date", label: "วันที่ซื้อครั้งล่าสุด", type: "date" },
+  { key: "transfer_date", label: "วันที่โอน (ไม่ระบุก็ได้)", type: "date-optional" },
 
-export default function MemberSearch() {
+  // ---------- ฟิลด์ที่ดิน ----------
+  { key: "own_rai",   label: "ถือครอง (ไร่)", type: "number" },
+  { key: "own_ngan",  label: "ถือครอง (งาน)", type: "number" },
+  { key: "own_wa",    label: "ถือครอง (ตารางวา)", type: "number" },
+
+  { key: "rent_rai",  label: "เช่าทำกิน (ไร่)", type: "number" },
+  { key: "rent_ngan", label: "เช่าทำกิน (งาน)", type: "number" },
+  { key: "rent_wa",   label: "เช่าทำกิน (ตารางวา)", type: "number" },
+
+  { key: "other_rai",  label: "อื่นๆ (ไร่)", type: "number" },
+  { key: "other_ngan", label: "อื่นๆ (งาน)", type: "number" },
+  { key: "other_wa",   label: "อื่นๆ (ตารางวา)", type: "number" },
+]
+
+// คอลัมน์สั้นๆ ในตารางหลัก
+const TABLE_COLUMNS = [
+  { key: "first_name", label: "ชื่อ" },
+  { key: "last_name", label: "นามสกุล" },
+  { key: "citizen_id", label: "เลขบัตรประชาชน" },
+  { key: "phone_number", label: "โทรศัพท์" },
+  { key: "province", label: "จังหวัด" },
+  { key: "regis_date", label: "วันที่สมัคร", render: (v) => formatDate(v) },
+]
+
+/** ---------- ชุดคีย์ที่ดิน + ฟังก์ชัน clamp ---------- */
+const LAND_KEYS = [
+  "own_rai","own_ngan","own_wa",
+  "rent_rai","rent_ngan","rent_wa",
+  "other_rai","other_ngan","other_wa",
+]
+
+// จำกัดช่วงตัวเลขที่เหมาะสม: งาน 0–3, ตารางวา 0–99, ไร่ >= 0
+function clampLandValue(key, raw) {
+  const n = Number(onlyDigits(String(raw ?? "")))
+  if (Number.isNaN(n)) return 0
+  if (key.endsWith("_ngan")) return Math.min(Math.max(n, 0), 3)
+  if (key.endsWith("_wa"))   return Math.min(Math.max(n, 0), 99)
+  return Math.max(n, 0) // _rai
+}
+
+const MemberSearch = () => {
   const [q, setQ] = useState("")
-  const dq = useDebounce(q.trim(), 400)
-
-  const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [page, setPage] = useState(1)
+  const [rows, setRows] = useState([])
 
-  const total = rows.length
-  const maxPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const current = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE
-    return rows.slice(start, start + PAGE_SIZE)
-  }, [rows, page])
+  const debouncedQ = useDebounce(q, 450)
+
+  // Modal state
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(null) // แถวที่เลือก (object เต็ม)
+  const [draft, setDraft] = useState(null) // แบบแก้ไข
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [rowError, setRowError] = useState("")
+
+  const hint = useMemo(() => {
+    const digits = onlyDigits(q)
+    if (digits.length === 13) return "ค้นหาตามเลขบัตรประชาชน"
+    if (q.trim().includes(" ")) return "ค้นหาตามชื่อและนามสกุล"
+    if (q.trim().length >= 2) return "ค้นหาตามชื่อหรือนามสกุล"
+    return "พิมพ์ชื่อ/นามสกุล หรือเลขบัตรประชาชน"
+  }, [q])
 
   useEffect(() => {
-    // reset page เมื่อเปลี่ยนคำค้น
-    setPage(1)
-  }, [dq])
+    const run = async () => {
+      setError("")
+      setRows([])
+      const term = debouncedQ.trim()
+      if (!term) return
 
-  useEffect(() => {
-    const fetchMembers = async () => {
-      if (dq.length < 1) {
-        setRows([])
-        setError("")
-        return
-      }
+      setLoading(true)
       try {
-        setLoading(true)
-        setError("")
-        const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(dq)}`
-        const res = await fetch(url, { headers: authHeader() })
-        if (!res.ok) {
-          const t = await res.text()
-          throw new Error(t || `ค้นหาล้มเหลว (${res.status})`)
-        }
-        const arr = (await res.json()) || []
-        setRows(arr.map(mapRow))
+        const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(term)}`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error(await res.text())
+        const data = await res.json()
+        setRows(Array.isArray(data) ? data : [])
       } catch (e) {
-        console.error(e)
-        setError(e.message || "เกิดข้อผิดพลาด")
-        setRows([])
+        setError(e?.message || "ค้นหาไม่สำเร็จ")
       } finally {
         setLoading(false)
       }
     }
-    fetchMembers()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dq])
+    run()
+  }, [debouncedQ])
 
-  const viewDetail = (r) => {
-    // ปรับเส้นทางตามระบบคุณได้เลย
-    if (r?.id) window.location.href = `/members/${r.id}`
-    else if (r?.member_id) window.location.href = `/members?member_id=${r.member_id}`
-    else alert("ยังไม่มีเส้นทางสำหรับรายการนี้")
+  const openModal = (row) => {
+    setActive(row)
+    // draft เริ่มจากทุกฟิลด์
+    const init = {}
+    FIELD_CONFIG.forEach(({ key }) => {
+      if (LAND_KEYS.includes(key)) {
+        init[key] = typeof row[key] === "number" ? row[key] : 0
+      } else {
+        init[key] = row[key] ?? (key.includes("date") ? "" : "")
+      }
+    })
+    // แปลงวันที่ให้เป็น yyyy-mm-dd
+    ;["regis_date", "last_bought_date", "transfer_date"].forEach((k) => {
+      if (row[k]) {
+        try {
+          const d = new Date(row[k])
+          if (!isNaN(d.getTime())) init[k] = d.toISOString().slice(0, 10)
+        } catch {}
+      }
+    })
+    setDraft(init)
+    setRowError("")
+    setEditing(false)
+    setOpen(true)
+  }
+
+  const closeModal = () => {
+    setOpen(false)
+    setActive(null)
+    setDraft(null)
+    setEditing(false)
+    setSaving(false)
+    setRowError("")
+  }
+
+  const onChangeField = (key, val) => {
+    const cfg = FIELD_CONFIG.find((f) => f.key === key)
+    if (!cfg) return
+
+    if (LAND_KEYS.includes(key)) {
+      val = clampLandValue(key, val)
+    } else if (cfg.type === "cid") {
+      val = onlyDigits(val).slice(0, 13)
+    } else if (cfg.type === "number") {
+      val = onlyDigits(val)
+    } else if (cfg.type === "decimal") {
+      val = val.replace(/[^\d.]/g, "")
+    }
+    setDraft((d) => ({ ...d, [key]: val }))
+  }
+
+  const computeDiff = (original, edited) => {
+    const diff = {}
+    FIELD_CONFIG.forEach(({ key, type }) => {
+      let ov = original[key]
+      let ev = edited[key]
+
+      if (type === "date" || type === "date-optional") {
+        ev = ev ? toISO(ev) : null
+      } else if (type === "number" || type === "decimal") {
+        if (LAND_KEYS.includes(key)) {
+          ev = (ev === "" || ev === null || Number.isNaN(Number(ev))) ? 0 : Number(ev)
+        } else {
+          ev = (ev === "" || ev === null) ? null : Number(ev)
+        }
+      }
+
+      if (ov !== ev) diff[key] = ev
+    })
+    return diff
+  }
+
+  const save = async () => {
+    if (!active) return
+    setRowError("")
+    setSaving(true)
+    try {
+      const original = { ...active }
+      ;["regis_date", "last_bought_date", "transfer_date"].forEach((k) => {
+        if (original[k]) {
+          try { original[k] = toISO(original[k]) } catch {}
+        } else { original[k] = null }
+      })
+
+      const diff = computeDiff(original, draft)
+      if (Object.keys(diff).length === 0) {
+        setEditing(false)
+        setSaving(false)
+        return
+      }
+
+      const prevRows = rows
+      const optimistic = rows.map((r) =>
+        r.member_id === active.member_id ? { ...r, ...diff } : r
+      )
+      setRows(optimistic)
+
+      const res = await fetch(`${API_BASE}/member/members/${active.member_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(diff),
+      })
+
+      if (!res.ok) {
+        const msg = await res.text()
+        setRows(prevRows) // rollback
+        throw new Error(msg || "บันทึกไม่สำเร็จ")
+      }
+
+      const updated = await res.json()
+      setRows((cur) => cur.map((r) => (r.member_id === updated.member_id ? updated : r)))
+      setActive(updated)
+
+      const nextDraft = {}
+      FIELD_CONFIG.forEach(({ key }) => {
+        if (LAND_KEYS.includes(key)) {
+          nextDraft[key] = typeof updated[key] === "number" ? updated[key] : 0
+        } else {
+          nextDraft[key] = updated[key] ?? ""
+        }
+      })
+      ;["regis_date", "last_bought_date", "transfer_date"].forEach((k) => {
+        if (updated[k]) {
+          try {
+            const d = new Date(updated[k])
+            if (!isNaN(d.getTime())) nextDraft[k] = d.toISOString().slice(0, 10)
+          } catch {}
+        } else nextDraft[k] = ""
+      })
+      setDraft(nextDraft)
+      setEditing(false)
+    } catch (e) {
+      setRowError(e?.message || "บันทึกไม่สำเร็จ")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
-    <div className="min-h-screen rounded-2xl bg-white text-black dark:bg-slate-900 dark:text-white">
-      <div className="mx-auto max-w-7xl p-4 md:p-6">
-        {/* หัวข้อ */}
-        <h1 className="mb-4 flex items-center gap-2 text-2xl font-bold">
-          <span>🔎</span> <span>ค้นหาสมาชิก</span>
-        </h1>
+    // ----- พื้นหลังหลัก: Light = ขาว, Dark = slate-900 (เหมือนหน้า Order) -----
+    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
+      <div className="mx-auto max-w-6xl p-4 md:p-6">
+        {/* หัวข้อเข้ากับทุกโหมด */}
+        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🔎 ค้นหาสมาชิก</h1>
 
-        {/* การ์ดค้นหา */}
-        <div className="mb-5 rounded-2xl border border-slate-200/60 bg-white/85 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/40">
-          <label className="mb-2 block text-sm text-slate-700 dark:text-slate-300">คำค้นหา</label>
-          <div className="relative">
+        {/* การ์ดค้นหา: สไตล์เดียวกับ Filters ของ Order */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+          <div className="mb-3">
+            <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คำค้นหา</label>
             <input
+              className="w-full rounded-xl border border-slate-300 bg-white p-2 text-black outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+              placeholder="เช่น สมชาย ใจดี หรือ 1234567890123"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="ค้นหาตามชื่อหรือนามสกุล"
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 pr-10 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 dark:border-white/10 dark:bg-slate-800 dark:placeholder:text-slate-400 dark:focus:border-emerald-500 dark:focus:ring-emerald-500/20"
             />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
-              🔍
-            </span>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p>
           </div>
 
-          {/* สถานะผลลัพธ์ */}
-          <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            {dq ? (
-              loading ? (
-                <>กำลังค้นหา “{dq}”...</>
-              ) : error ? (
-                <>เกิดข้อผิดพลาด: {error}</>
-              ) : (
-                <>พบ {total.toLocaleString()} รายการ</>
-              )
-            ) : (
-              <>พิมพ์อย่างน้อย 1 ตัวอักษรเพื่อค้นหา</>
-            )}
-          </div>
-        </div>
-
-        {/* กล่องตาราง */}
-        <div className="rounded-2xl border border-slate-200/60 bg-white/85 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/40">
-          <div className="overflow-x-auto rounded-2xl">
-            <table className="w-full text-sm tabular-nums">
-              {/* หัวตาราง */}
-              <thead className="text-slate-700 dark:text-slate-100">
-                <tr className="sticky top-0 z-10 bg-slate-50/95 supports-[backdrop-filter]:bg-slate-50/60 dark:bg-slate-700/60">
-                  {["ชื่อ", "นามสกุล", "เลขบัตรประชาชน", "โทรศัพท์", "จังหวัด", "วันที่สมัคร", "การกระทำ"].map((h) => (
-                    <th key={h} className="whitespace-nowrap px-4 py-3 text-left text-[13px] font-semibold">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              {/* เนื้อหา */}
-              <tbody className="divide-y divide-slate-200/70 dark:divide-white/8">
-                {/* Loading skeleton */}
-                {loading &&
-                  Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={`sk-${i}`} className="animate-pulse dark:odd:bg-slate-800/30 dark:even:bg-slate-800/20">
-                      {Array.from({ length: 7 }).map((__, j) => (
-                        <td key={j} className="px-4 py-3">
-                          <div className="h-3.5 w-24 rounded bg-slate-200/70 dark:bg-slate-700/60" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-
-                {!loading && current.length === 0 && dq && !error && (
-                  <tr className="odd:bg-white/90 even:bg-slate-50/70 dark:odd:bg-slate-800/40 dark:even:bg-slate-800/25">
-                    <td className="px-4 py-6 text-center text-slate-500 dark:text-slate-300" colSpan={7}>
-                      ไม่พบข้อมูลที่ตรงกับ “{dq}”
-                    </td>
-                  </tr>
-                )}
-
-                {!loading &&
-                  current.map((r) => (
-                    <tr
-                      key={`${r.id ?? r.member_id ?? r.citizen_id}`}
-                      className="odd:bg-white/90 even:bg-slate-50/70 hover:bg-emerald-50/70 dark:odd:bg-slate-800/40 dark:even:bg-slate-800/25 dark:hover:bg-emerald-400/10 transition-colors"
-                    >
-                      <td className="px-4 py-3">{r.first_name || "-"}</td>
-                      <td className="px-4 py-3">{r.last_name || "-"}</td>
-                      <td className="px-4 py-3 tracking-wider">{r.citizen_id || "-"}</td>
-                      <td className="px-4 py-3">{r.phone || "-"}</td>
-                      <td className="px-4 py-3">{r.province || "-"}</td>
-                      <td className="px-4 py-3">{toThaiDate(r.regis_date)}</td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => viewDetail(r)}
-                          className="rounded-xl bg-emerald-600/90 px-3 py-1.5 text-sm font-medium text-white shadow-sm ring-1 ring-emerald-700/50 hover:bg-emerald-600 active:scale-[.98] dark:bg-emerald-500/85 dark:hover:bg-emerald-500"
-                        >
-                          ดูรายละเอียด
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* แถบแบ่งหน้า */}
-          {!loading && total > 0 && (
-            <div className="flex items-center justify-between gap-3 border-t border-slate-200/70 px-3 py-3 text-sm dark:border-white/10 md:px-4">
-              <div className="text-slate-500 dark:text-slate-400">
-                หน้า {page} / {maxPage} • ทั้งหมด {total.toLocaleString()} รายการ
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
-                >
-                  ก่อนหน้า
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(maxPage, p + 1))}
-                  disabled={page >= maxPage}
-                  className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
-                >
-                  ถัดไป
-                </button>
-              </div>
+          {/* แบนเนอร์สถานะให้เข้าธีมเดียวกัน */}
+          {loading && (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-700 dark:border-emerald-400 dark:bg-emerald-900/20 dark:text-emerald-200">
+              กำลังค้นหา...
             </div>
           )}
+          {error && !loading && (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700 dark:border-red-400 dark:bg-red-900/20 dark:text-red-200">
+              {error}
+            </div>
+          )}
+
+          {/* ตารางผลลัพธ์: ใช้คลาสเหมือนหน้า Order */}
+          {!loading && !error && debouncedQ.trim() && (
+            <div className="mt-4">
+              {rows.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-white p-4 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  ไม่พบข้อมูลที่ตรงกับ “{debouncedQ}”
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                      <tr>
+                        {TABLE_COLUMNS.map((c) => (
+                          <th key={c.key} className="px-3 py-2">{c.label}</th>
+                        ))}
+                        <th className="px-3 py-2 text-right">การกระทำ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((r) => (
+                        <tr
+                          key={r.id ?? r.member_id}
+                          className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
+                        >
+                          {TABLE_COLUMNS.map((c) => (
+                            <td key={c.key} className="px-3 py-2">
+                              {c.render ? c.render(r[c.key]) : (r[c.key] ?? "-")}
+                            </td>
+                          ))}
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700 active:scale-[.98]"
+                              onClick={() => openModal(r)}
+                            >
+                              ดูรายละเอียด
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal */}
+      <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
+        {/* backdrop */}
+        <div
+          className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
+          onClick={closeModal}
+        />
+        {/* panel */}
+        <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4">
+          <div
+            className={`h-[85vh] w-[95vw] max-w-[1200px] transform overflow-hidden rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-slate-800 dark:text-white ${
+              open ? "scale-100 opacity-100" : "scale-95 opacity-0"
+            }`}
+          >
+            {/* header */}
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+              <div className="text-lg font-semibold">
+                {active ? `รายละเอียดสมาชิก #${active.member_id}` : "รายละเอียดสมาชิก"}
+              </div>
+              <button
+                className="rounded-lg border border-slate-300 px-3 py-1 hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
+                onClick={closeModal}
+              >
+                ปิด
+              </button>
+            </div>
+
+            {/* body */}
+            <div className="h-[calc(85vh-56px)] overflow-y-auto p-4">
+              {!active ? (
+                <div className="text-slate-600 dark:text-slate-300">ไม่มีข้อมูล</div>
+              ) : (
+                <>
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-slate-600 dark:text-slate-300">
+                      สร้างเมื่อ: {formatDate(active.regis_date)} | ซื้อครั้งล่าสุด: {formatDate(active.last_bought_date)}
+                    </div>
+                    {!editing ? (
+                      <button
+                        className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700 active:scale-[.98]"
+                        onClick={() => setEditing(true)}
+                      >
+                        แก้ไข
+                      </button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700 active:scale-[.98] disabled:opacity-60"
+                          onClick={save}
+                          disabled={saving}
+                        >
+                          {saving ? "กำลังบันทึก..." : "บันทึก"}
+                        </button>
+                        <button
+                          className="rounded-xl border border-slate-300 px-3 py-1.5 hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
+                          onClick={() => {
+                            setEditing(false)
+                            const reset = {}
+                            FIELD_CONFIG.forEach(({ key }) => {
+                              if (LAND_KEYS.includes(key)) {
+                                reset[key] = typeof active[key] === "number" ? active[key] : 0
+                              } else {
+                                reset[key] = active[key] ?? ""
+                              }
+                            })
+                            ;["regis_date", "last_bought_date", "transfer_date"].forEach((k) => {
+                              if (active[k]) {
+                                try {
+                                  const d = new Date(active[k])
+                                  if (!isNaN(d.getTime())) reset[k] = d.toISOString().slice(0, 10)
+                                } catch {}
+                              } else reset[k] = ""
+                            })
+                            setDraft(reset)
+                            setRowError("")
+                          }}
+                        >
+                          ยกเลิก
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {rowError && (
+                    <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-400 dark:bg-red-900/20 dark:text-red-200">
+                      {rowError}
+                    </div>
+                  )}
+
+                  {/* ---------- ข้อมูลทั่วไป (ไม่นับที่ดิน) ---------- */}
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {FIELD_CONFIG.filter(f => !LAND_KEYS.includes(f.key)).map((f) => {
+                      const val = editing ? draft?.[f.key] ?? "" : active?.[f.key]
+                      return (
+                        <div key={f.key}>
+                          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">{f.label}</label>
+                          {!editing ? (
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-700/60">
+                              {f.type === "date" || f.type === "date-optional"
+                                ? formatDate(val)
+                                : (val ?? "-")}
+                            </div>
+                          ) : f.type === "select" ? (
+                            <select
+                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                              value={val ?? ""}
+                              onChange={(e) => onChangeField(f.key, e.target.value)}
+                            >
+                              {f.options.map((op) => (
+                                <option key={op} value={op}>
+                                  {op === "" ? "— เลือก —" : op}
+                                </option>
+                              ))}
+                            </select>
+                          ) : f.type === "date" || f.type === "date-optional" ? (
+                            <input
+                              type="date"
+                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                              value={val ?? ""}
+                              onChange={(e) => onChangeField(f.key, e.target.value)}
+                            />
+                          ) : (
+                            <input
+                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black placeholder:text-slate-400 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                              value={val ?? ""}
+                              onChange={(e) => onChangeField(f.key, e.target.value)}
+                              placeholder={f.type === "cid" ? "13 หลัก" : ""}
+                            />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* ---------- ข้อมูลที่ดิน ---------- */}
+                  <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-400 dark:bg-emerald-900/10">
+                    <div className="mb-3 text-base font-semibold text-emerald-800 dark:text-emerald-200">🌾 ข้อมูลที่ดิน</div>
+
+                    {/* ถือครอง */}
+                    <div className="mb-4">
+                      <div className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">ถือครอง</div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        {["own_rai","own_ngan","own_wa"].map((k) => {
+                          const label = k.endsWith("_rai") ? "ไร่" : k.endsWith("_ngan") ? "งาน" : "ตารางวา"
+                          const val = editing ? draft?.[k] ?? 0 : (active?.[k] ?? 0)
+                          return (
+                            <div key={k}>
+                              {!editing ? (
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-700/60">
+                                  {val}
+                                </div>
+                              ) : (
+                                <input
+                                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                                  inputMode="numeric"
+                                  value={val}
+                                  onChange={(e) => onChangeField(k, e.target.value)}
+                                  placeholder={label}
+                                />
+                              )}
+                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                {label}{k.endsWith("_ngan") && " (0–3)"}{k.endsWith("_wa") && " (0–99)"}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* เช่าทำกิน */}
+                    <div className="mb-4">
+                      <div className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">เช่าทำกิน</div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        {["rent_rai","rent_ngan","rent_wa"].map((k) => {
+                          const label = k.endsWith("_rai") ? "ไร่" : k.endsWith("_ngan") ? "งาน" : "ตารางวา"
+                          const val = editing ? draft?.[k] ?? 0 : (active?.[k] ?? 0)
+                          return (
+                            <div key={k}>
+                              {!editing ? (
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-700/60">
+                                  {val}
+                                </div>
+                              ) : (
+                                <input
+                                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                                  inputMode="numeric"
+                                  value={val}
+                                  onChange={(e) => onChangeField(k, e.target.value)}
+                                  placeholder={label}
+                                />
+                              )}
+                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                {label}{k.endsWith("_ngan") && " (0–3)"}{k.endsWith("_wa") && " (0–99)"}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* อื่นๆ */}
+                    <div>
+                      <div className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">อื่นๆ</div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        {["other_rai","other_ngan","other_wa"].map((k) => {
+                          const label = k.endsWith("_rai") ? "ไร่" : k.endsWith("_ngan") ? "งาน" : "ตารางวา"
+                          const val = editing ? draft?.[k] ?? 0 : (active?.[k] ?? 0)
+                          return (
+                            <div key={k}>
+                              {!editing ? (
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-700/60">
+                                  {val}
+                                </div>
+                              ) : (
+                                <input
+                                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                                  inputMode="numeric"
+                                  value={val}
+                                  onChange={(e) => onChangeField(k, e.target.value)}
+                                  placeholder={label}
+                                />
+                              )}
+                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                {label}{k.endsWith("_ngan") && " (0–3)"}{k.endsWith("_wa") && " (0–99)"}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   )
 }
+
+export default MemberSearch

@@ -2,7 +2,7 @@ name: Deploy Vite React to GCS
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ]   # เปลี่ยนตามสาขาที่ใช้
 
 jobs:
   build-and-deploy:
@@ -10,7 +10,7 @@ jobs:
 
     permissions:
       contents: read
-      id-token: write
+      id-token: write     # จำเป็นสำหรับ WIF (OIDC)
 
     steps:
       - name: Checkout
@@ -22,12 +22,9 @@ jobs:
           node-version: 20
 
       - name: Install & Build
-        shell: bash
         run: |
-          set -euo pipefail
           npm ci || npm i
           npm run build
-          ls -la dist || true
 
       - name: Auth with Google (WIF)
         uses: google-github-actions/auth@v2
@@ -38,100 +35,28 @@ jobs:
       - name: Setup gcloud (includes gsutil)
         uses: google-github-actions/setup-gcloud@v2
 
-      # ---------- Preflight: ตรวจชื่อบัคเก็ต + โปรเจกต์ + สิทธิ์ ----------
-      - name: Preflight checks (auth/project/bucket)
-        shell: bash
-        env:
-          BUCKET: ${{ secrets.GCS_BUCKET }}
-        run: |
-          set -euo pipefail
-
-          echo "== gcloud auth list =="
-          gcloud auth list
-
-          echo "== gcloud active project =="
-          gcloud config get-value project
-
-          if [ -z "${BUCKET:-}" ]; then
-            echo "ERROR: Secret GCS_BUCKET is empty. Please set it to your bucket NAME (e.g., skt-front)."
-            exit 1
-          fi
-
-          # บอกชื่อที่ใช้จริง (GitHub จะ mask ด้วย *** ใน log ซึ่งปกติ)
-          echo "Using bucket name: $BUCKET"
-
-          echo "== Check bucket existence =="
-          if ! gsutil ls -b "gs://$BUCKET" >/dev/null 2>&1; then
-            echo "ERROR: Bucket gs://$BUCKET does not exist or you lack permission."
-            echo "Tips:"
-            echo " - Create it once: gcloud storage buckets create gs://$BUCKET --location=ASIA --uniform-bucket-level-access"
-            echo " - Ensure the service account has roles/storage.admin"
-            echo " - Secret GCS_BUCKET must be the plain bucket NAME (no gs://)"
-            exit 1
-          fi
-
-      # ---------- ตั้งค่า Static Website + SPA fallback ----------
       - name: Configure bucket website (idempotent)
-        shell: bash
-        env:
-          BUCKET: ${{ secrets.GCS_BUCKET }}
         run: |
-          gcloud storage buckets update "gs://$BUCKET" \
+          gcloud storage buckets update gs://${{ secrets.GCS_BUCKET }} \
             --web-main-page-suffix=index.html \
             --web-error-page=index.html || true
 
-      # ---------- อัปโหลด assets (hash) + แคชยาว ----------
-      - name: Upload assets with long cache
-        shell: bash
+      # อัปโหลดแบบ sync (ลบไฟล์เก่าออกด้วย)
+      - name: Upload to GCS (gsutil rsync)
+        run: |
+          gsutil -m rsync -r -d dist gs://${{ secrets.GCS_BUCKET }}
+
+      # ตั้ง Cache-Control แบบปลอดภัย (เช็กก่อนว่ามีไฟล์/โฟลเดอร์)
+      - name: Set Cache-Control headers (safe)
         env:
           BUCKET: ${{ secrets.GCS_BUCKET }}
         run: |
-          set -euo pipefail
-          if [ -d "./dist/assets" ]; then
-            gsutil -m rsync -d -r "./dist/assets" "gs://$BUCKET/assets"
-            gsutil -m setmeta -h "Cache-Control:public, max-age=31536000, immutable" \
-              "gs://$BUCKET/assets/**" || true
+          # setmeta ให้ index.html ถ้ามี
+          if gsutil -q stat gs://$BUCKET/index.html; then
+            gsutil -m setmeta -h "Cache-Control:no-cache" gs://$BUCKET/index.html || true
           fi
 
-      # ---------- อัปโหลดไฟล์ root ที่ต้องรีเฟรชไว (แก้แคช index.html) ----------
-      - name: Upload HTML & root files with no-store
-        shell: bash
-        env:
-          BUCKET: ${{ secrets.GCS_BUCKET }}
-        run: |
-          set -euo pipefail
-
-          if [ ! -f "./dist/index.html" ]; then
-            echo "ERROR: ./dist/index.html not found"; ls -la dist || true; exit 1
+          # setmeta ให้ไฟล์ใน assets ถ้ามี
+          if gsutil -q ls gs://$BUCKET/assets/** >/dev/null 2>&1; then
+            gsutil -m setmeta -h "Cache-Control:public, max-age=31536000, immutable" gs://$BUCKET/assets/** || true
           fi
-
-          # ลบ index เดิมกัน header เก่าค้าง (ถ้ามี)
-          gsutil -q rm "gs://$BUCKET/index.html" || true
-
-          # อัปโหลด index.html ด้วย no-store (ป้องกันแคช)
-          gsutil -m -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" \
-            cp -Z "./dist/index.html" "gs://$BUCKET/index.html"
-
-          # ไฟล์ root ที่อาจเปลี่ยนบ่อย
-          if [ -f "./dist/manifest.webmanifest" ]; then
-            gsutil -m -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" \
-              cp -Z "./dist/manifest.webmanifest" "gs://$BUCKET/manifest.webmanifest"
-          fi
-          if [ -f "./dist/robots.txt" ]; then
-            gsutil -m -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" \
-              cp -Z "./dist/robots.txt" "gs://$BUCKET/robots.txt"
-          fi
-
-      # ---------- เผื่อมี .html/.json อื่นใน root ให้ no-store ด้วย ----------
-      - name: Ensure no-store on extra root HTML/JSON
-        shell: bash
-        env:
-          BUCKET: ${{ secrets.GCS_BUCKET }}
-        run: |
-          set -euo pipefail
-          gsutil -q ls "gs://$BUCKET/*.html" && \
-            gsutil -m setmeta -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" \
-              "gs://$BUCKET/*.html" || true
-          gsutil -q ls "gs://$BUCKET/*.json" && \
-            gsutil -m setmeta -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" \
-              "gs://$BUCKET/*.json" || true

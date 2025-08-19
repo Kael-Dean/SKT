@@ -141,11 +141,11 @@ function ComboBox({
         onKeyDown={onKeyDown}
         className={`w-full rounded-xl border p-2 text-left outline-none transition ${
           disabled ? "bg-slate-100 cursor-not-allowed" : "bg-white hover:bg-slate-50"
-        } ${error ? "border-red-400" : "border-slate-300 focus:border-emerald-500"} dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+        } ${error ? "border-red-400" : "border-slate-300 focus:border-emerald-500"} dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600/60`}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        {selectedLabel || <span className="text-slate-400">{placeholder}</span>}
+        {selectedLabel || <span className="text-slate-400">— เลือก —</span>}
       </button>
 
       {open && (
@@ -160,22 +160,26 @@ function ComboBox({
           {options.map((opt, idx) => {
             const label = getLabel(opt)
             const isActive = idx === highlight
+            const isChosen = String(getValue(opt)) === String(value)
             return (
               <button
                 key={String(getValue(opt)) || label || idx}
                 type="button"
                 role="option"
-                aria-selected={String(getValue(opt)) === String(value)}
+                aria-selected={isChosen}
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => commit(opt)}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
-                  isActive ? "bg-emerald-50" : "hover:bg-emerald-50"
-                } dark:hover:bg-emerald-900/30 dark:text-white`}
+                className={`relative flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition
+                  ${isActive
+                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"}`}
               >
-                <span className="flex-1">{label}</span>
-                {String(getValue(opt)) === String(value) && (
-                  <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+                {/* แถบซ้ายตอน active ให้เด่นใน dark mode */}
+                {isActive && (
+                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-500 dark:bg-emerald-400/60 rounded-l-xl" />
                 )}
+                <span className="flex-1">{label}</span>
+                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
               </button>
             )
           })}
@@ -724,7 +728,7 @@ const Sales = () => {
           🧾 บันทึกออเดอร์ซื้อข้าวเปลือก
         </h1>
 
-        {/* กล่องข้อมูลลูกค้า: การ์ด/เส้นขอบ/สี เหมือน Filters ของ Order */}
+        {/* กล่องข้อมูลลูกค้า */}
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold">ข้อมูลลูกค้า</h2>
@@ -813,34 +817,42 @@ const Sales = () => {
                   className="mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white text-black shadow dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   role="listbox"
                 >
-                  {nameResults.map((r, idx) => (
-                    <button
-                      type="button"
-                      ref={(el) => (itemRefs.current[idx] = el)}
-                      key={r.id || `${r.citizenId}-${r.first_name}-${r.last_name}`}
-                      onClick={() => pickNameResult(r)}
-                      onMouseEnter={() => {
-                        setHighlightedIndex(idx)
-                        requestAnimationFrame(() => scrollHighlightedIntoView(idx))
-                      }}
-                      role="option"
-                      aria-selected={idx === highlightedIndex}
-                      className={`flex w-full items-start gap-3 px-3 py-2 text-left ${
-                        idx === highlightedIndex ? "bg-emerald-50" : "hover:bg-emerald-50"
-                      } dark:hover:bg-emerald-900/30`}
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                          ปชช. {r.citizenId} • {r.address ? `บ้าน ${r.address}` : ""} {r.mhoo ? `หมู่ ${r.mhoo}` : ""}
-                          {r.sub_district ? ` • ต.${r.sub_district}` : ""}
-                          {r.district ? ` อ.${r.district}` : ""} {r.province ? ` จ.${r.province}` : ""}{" "}
-                          {r.postal_code ? ` ${r.postal_code}` : ""}
-                          {r.member_id ? " • สมาชิก" : ""}
+                  {nameResults.map((r, idx) => {
+                    const isActive = idx === highlightedIndex
+                    return (
+                      <button
+                        type="button"
+                        ref={(el) => (itemRefs.current[idx] = el)}
+                        key={r.id || `${r.citizenId}-${r.first_name}-${r.last_name}`}
+                        onClick={() => pickNameResult(r)}
+                        onMouseEnter={() => {
+                          setHighlightedIndex(idx)
+                          requestAnimationFrame(() => scrollHighlightedIntoView(idx))
+                        }}
+                        role="option"
+                        aria-selected={isActive}
+                        className={`relative flex w-full items-start gap-3 px-3 py-2 text-left transition
+                          ${isActive
+                            ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                            : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"}`}
+                      >
+                        {/* แถบซ้ายช่วยเน้น (เห็นชัดใน dark) */}
+                        {isActive && (
+                          <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+                        )}
+                        <div className="flex-1">
+                          <div className="font-medium">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-300">
+                            ปชช. {r.citizenId} • {r.address ? `บ้าน ${r.address}` : ""} {r.mhoo ? `หมู่ ${r.mhoo}` : ""}
+                            {r.sub_district ? ` • ต.${r.sub_district}` : ""}
+                            {r.district ? ` อ.${r.district}` : ""} {r.province ? ` จ.${r.province}` : ""}{" "}
+                            {r.postal_code ? ` ${r.postal_code}` : ""}
+                            {r.member_id ? " • สมาชิก" : ""}
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -880,7 +892,7 @@ const Sales = () => {
           </div>
         </div>
 
-        {/* ฟอร์มออเดอร์: การ์ดธีมเดียวกับ Order */}
+        {/* ฟอร์มออเดอร์ */}
         <form
           onSubmit={handleSubmit}
           className="rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
@@ -1095,7 +1107,7 @@ const Sales = () => {
             </div>
           </div>
 
-          {/* สรุป (การ์ดย่อยใช้โทนเดียวกับ Summary ของ Order) */}
+          {/* สรุป */}
           <div className="mt-6 grid gap-3 md:grid-cols-4">
             {[
               { label: "ชนิดข้าว", value: order.riceType || "—" },

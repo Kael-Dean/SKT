@@ -13,9 +13,8 @@ jobs:
       id-token: write     # จำเป็นสำหรับ WIF (OIDC)
 
     env:
-      GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
-      # (ทางเลือก) ตั้ง SECRET นี้ถ้าเสิร์ฟผ่าน Cloud CDN (Backend Bucket/Service + URL Map)
-      CDN_URL_MAP: ${{ secrets.GCP_CDN_URL_MAP }}
+      GCS_BUCKET: ${{ secrets.GCS_BUCKET }}          # เช่น skt-front
+      GCP_CDN_URL_MAP: ${{ secrets.GCP_CDN_URL_MAP }} # ชื่อ URL Map (ถ้าใช้ Cloud CDN ใส่ใน Secrets)
 
     steps:
       - name: Checkout
@@ -25,7 +24,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
       - name: Install & Build
         run: |
@@ -43,27 +42,43 @@ jobs:
 
       - name: Configure bucket website (idempotent)
         run: |
-          gcloud storage buckets update gs://$GCS_BUCKET \
+          set -euo pipefail
+          if [ -z "${GCS_BUCKET:-}" ]; then
+            echo "ERROR: secrets.GCS_BUCKET is empty"; exit 1
+          fi
+          gcloud storage buckets update "gs://${GCS_BUCKET}" \
             --web-main-page-suffix=index.html \
             --web-error-page=index.html || true
 
-      # --- อัปโหลดแบบกำหนด Cache-Control ตั้งแต่ตอนอัปโหลด ---
-      # ลบ assets เก่าออก (กันไฟล์ตกค้าง) แล้วอัปโหลดใหม่ด้วย header ที่ถูกต้อง
+      # === อัปโหลด: ตั้ง Cache-Control ให้ถูกตั้งแต่มืออัป ===
       - name: Upload index.html (no-cache) and assets (immutable)
         run: |
-          # ลบโฟลเดอร์ assets เก่า (ถ้ามี)
-          gsutil -m rm -r gs://$GCS_BUCKET/assets || true
+          set -euo pipefail
 
-          # อัปโหลด index.html พร้อมหัวข้อ Cache-Control:no-cache
-          # (เบราว์เซอร์จะเช็คไฟล์นี้ใหม่ทุกครั้ง แล้วจะชี้ไปหาไฟล์ asset ชื่อ-hash ล่าสุด)
-          gsutil -h "Cache-Control:no-cache" cp dist/index.html gs://$GCS_BUCKET/index.html
+          echo "Using bucket: ${GCS_BUCKET}"
+          test -n "${GCS_BUCKET}"
 
-          # อัปโหลด assets ทั้งโฟลเดอร์ และตั้ง Cache-Control ยาว + immutable
-          # (ไฟล์จาก Vite มีชื่อแบบ hashed อยู่แล้ว เปลี่ยนโค้ด = เปลี่ยนชื่อไฟล์ = โหลดใหม่แน่นอน)
-          gsutil -m -h "Cache-Control:public, max-age=31536000, immutable" rsync -r dist/assets gs://$GCS_BUCKET/assets
+          # ตรวจไฟล์ build
+          test -f dist/index.html || { echo "dist/index.html not found. Did build fail?"; exit 1; }
 
-      # --- (ทางเลือก) ถ้าเสิร์ฟผ่าน Cloud CDN: เคลียร์ cache หลังอัปโหลด ---
+          # ลบ assets เก่า (ถ้ามี) - ป้องกันไฟล์ตกค้าง
+          gsutil -m rm -r "gs://${GCS_BUCKET}/assets/**" 2>/dev/null || true
+
+          # อัปโหลด index.html พร้อม no-cache (เบราว์เซอร์จะเช็คใหม่ทุกครั้ง)
+          gsutil -h "Cache-Control:no-cache" cp "dist/index.html" "gs://${GCS_BUCKET}/index.html"
+
+          # อัปโหลด assets ทั้งหมด พร้อม cache-control ยาว + immutable
+          if [ -d "dist/assets" ]; then
+            # ปลายทางต้องลงท้ายด้วย / เพื่อให้เป็นไดเรกทอรี
+            gsutil -m -h "Cache-Control:public, max-age=31536000, immutable" cp -r "dist/assets/*" "gs://${GCS_BUCKET}/assets/"
+          else
+            echo "WARN: dist/assets not found (Vite may have inlined assets)"
+          fi
+
+      # === (ทางเลือก) ใช้ Cloud CDN อยู่หรือไม่ ถ้าใช้อยู่ให้เคลียร์ cache ===
       - name: Invalidate Cloud CDN (optional)
-        if: ${{ env.CDN_URL_MAP != '' }}
+        if: ${{ env.GCP_CDN_URL_MAP != '' }}
         run: |
-          gcloud compute url-maps invalidate-cdn-cache "$CDN_URL_MAP" --path "/*" --quiet
+          set -euo pipefail
+          echo "Invalidating CDN cache for URL Map: ${GCP_CDN_URL_MAP}"
+          gcloud compute url-maps invalidate-cdn-cache "${GCP_CDN_URL_MAP}" --path "/*" --quiet

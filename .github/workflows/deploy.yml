@@ -2,7 +2,7 @@ name: Deploy Vite React to GCS
 
 on:
   push:
-    branches: [ main ]   # เปลี่ยนตามสาขาที่ใช้
+    branches: [ main ]
 
 jobs:
   build-and-deploy:
@@ -10,7 +10,7 @@ jobs:
 
     permissions:
       contents: read
-      id-token: write     # จำเป็นสำหรับ WIF (OIDC)
+      id-token: write
 
     steps:
       - name: Checkout
@@ -35,29 +35,55 @@ jobs:
       - name: Setup gcloud (includes gsutil)
         uses: google-github-actions/setup-gcloud@v2
 
+      # ตั้งค่า Static Website + SPA fallback (ไม่ล้มถ้าตั้งไว้แล้ว)
       - name: Configure bucket website (idempotent)
         run: |
           gcloud storage buckets update gs://${{ secrets.GCS_BUCKET }} \
             --web-main-page-suffix=index.html \
             --web-error-page=index.html || true
 
-      # อัปโหลดแบบ sync (ลบไฟล์เก่าออกด้วย)
-      - name: Upload to GCS (gsutil rsync)
-        run: |
-          gsutil -m rsync -r -d dist gs://${{ secrets.GCS_BUCKET }}
-
-      # ตั้ง Cache-Control แบบปลอดภัย (เช็กก่อนว่ามีไฟล์/โฟลเดอร์)
-      - name: Set Cache-Control headers (safe)
+      # ---- อัปโหลดแบบควบคุมแคช ----
+      # 1) HTML/ไฟล์ที่ต้องรีเฟรชไว: no-store
+      - name: Upload HTML & root files with no-store
         env:
           BUCKET: ${{ secrets.GCS_BUCKET }}
         run: |
-          # setmeta ให้ index.html ถ้ามี
-          if gsutil -q stat gs://$BUCKET/index.html; then
-            gsutil -m setmeta -h "Cache-Control:no-cache" gs://$BUCKET/index.html || true
+          # ลบ index.html เก่าออกก่อนเพื่อกัน header เก่าค้าง (optional แต่ช่วยชัวร์)
+          gsutil -q stat gs://$BUCKET/index.html && gsutil rm gs://$BUCKET/index.html || true
+          # อัปโหลด index.html และไฟล์ root ที่เปลี่ยนบ่อย ด้วย no-store
+          gsutil -m -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" cp -Z \
+            dist/index.html gs://$BUCKET/
+
+          # ถ้ามีไฟล์เหล่านี้ ให้ตั้ง no-store ด้วย (เช่น manifest/pwa/icon ที่อาจเปลี่ยน)
+          if [ -f dist/manifest.webmanifest ]; then
+            gsutil -m -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" cp -Z \
+              dist/manifest.webmanifest gs://$BUCKET/
+          fi
+          if [ -f dist/robots.txt ]; then
+            gsutil -m -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" cp -Z \
+              dist/robots.txt gs://$BUCKET/
           fi
 
-          # setmeta ให้ไฟล์ใน assets ถ้ามี
-          if gsutil -q ls gs://$BUCKET/assets/** >/dev/null 2>&1; then
-            gsutil -m setmeta -h "Cache-Control:public, max-age=31536000, immutable" gs://$BUCKET/assets/** || true
+      # 2) assets ที่มีไฟล์ชื่อใส่ hash: แคชยาว + immutable
+      - name: Upload assets with long cache
+        env:
+          BUCKET: ${{ secrets.GCS_BUCKET }}
+        run: |
+          if [ -d dist/assets ]; then
+            # ลบไฟล์ asset เก่าที่ไม่ใช้แล้วทิ้ง (ทำให้ bucket สะอาด)
+            gsutil -m rsync -d -r dist/assets gs://$BUCKET/assets
+            # เซ็ต header ยาว (1 ปี) + immutable
+            gsutil -m setmeta -h "Cache-Control:public, max-age=31536000, immutable" "gs://$BUCKET/assets/**" || true
           fi
-          
+
+      # 3) ไฟล์อื่นๆที่เปลี่ยนบ่อยใน root (ถ้ามี) ให้ no-store เช่น .html อื่นๆ
+      - name: Ensure no-store on any extra HTML/JSON at root
+        env:
+          BUCKET: ${{ secrets.GCS_BUCKET }}
+        run: |
+          # ถ้ามีไฟล์ .html/.json เพิ่มเติมใน root ให้ตั้ง no-store
+          # ใช้ wildcard ของ gsutil (ใส่เครื่องหมายคำพูดกัน shell ขยายเอง)
+          gsutil -q ls "gs://$BUCKET/*.html" && \
+            gsutil -m setmeta -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" "gs://$BUCKET/*.html" || true
+          gsutil -q ls "gs://$BUCKET/*.json" && \
+            gsutil -m setmeta -h "Cache-Control:no-cache, no-store, must-revalidate, max-age=0" "gs://$BUCKET/*.json" || true

@@ -12,6 +12,11 @@ jobs:
       contents: read
       id-token: write     # จำเป็นสำหรับ WIF (OIDC)
 
+    env:
+      GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+      # (ทางเลือก) ตั้ง SECRET นี้ถ้าเสิร์ฟผ่าน Cloud CDN (Backend Bucket/Service + URL Map)
+      CDN_URL_MAP: ${{ secrets.GCP_CDN_URL_MAP }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,6 +25,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
       - name: Install & Build
         run: |
@@ -37,26 +43,27 @@ jobs:
 
       - name: Configure bucket website (idempotent)
         run: |
-          gcloud storage buckets update gs://${{ secrets.GCS_BUCKET }} \
+          gcloud storage buckets update gs://$GCS_BUCKET \
             --web-main-page-suffix=index.html \
             --web-error-page=index.html || true
 
-      # อัปโหลดแบบ sync (ลบไฟล์เก่าออกด้วย)
-      - name: Upload to GCS (gsutil rsync)
+      # --- อัปโหลดแบบกำหนด Cache-Control ตั้งแต่ตอนอัปโหลด ---
+      # ลบ assets เก่าออก (กันไฟล์ตกค้าง) แล้วอัปโหลดใหม่ด้วย header ที่ถูกต้อง
+      - name: Upload index.html (no-cache) and assets (immutable)
         run: |
-          gsutil -m rsync -r -d dist gs://${{ secrets.GCS_BUCKET }}
+          # ลบโฟลเดอร์ assets เก่า (ถ้ามี)
+          gsutil -m rm -r gs://$GCS_BUCKET/assets || true
 
-      # ตั้ง Cache-Control แบบปลอดภัย (เช็กก่อนว่ามีไฟล์/โฟลเดอร์)
-      - name: Set Cache-Control headers (safe)
-        env:
-          BUCKET: ${{ secrets.GCS_BUCKET }}
+          # อัปโหลด index.html พร้อมหัวข้อ Cache-Control:no-cache
+          # (เบราว์เซอร์จะเช็คไฟล์นี้ใหม่ทุกครั้ง แล้วจะชี้ไปหาไฟล์ asset ชื่อ-hash ล่าสุด)
+          gsutil -h "Cache-Control:no-cache" cp dist/index.html gs://$GCS_BUCKET/index.html
+
+          # อัปโหลด assets ทั้งโฟลเดอร์ และตั้ง Cache-Control ยาว + immutable
+          # (ไฟล์จาก Vite มีชื่อแบบ hashed อยู่แล้ว เปลี่ยนโค้ด = เปลี่ยนชื่อไฟล์ = โหลดใหม่แน่นอน)
+          gsutil -m -h "Cache-Control:public, max-age=31536000, immutable" rsync -r dist/assets gs://$GCS_BUCKET/assets
+
+      # --- (ทางเลือก) ถ้าเสิร์ฟผ่าน Cloud CDN: เคลียร์ cache หลังอัปโหลด ---
+      - name: Invalidate Cloud CDN (optional)
+        if: ${{ env.CDN_URL_MAP != '' }}
         run: |
-          # setmeta ให้ index.html ถ้ามี
-          if gsutil -q stat gs://$BUCKET/index.html; then
-            gsutil -m setmeta -h "Cache-Control:no-cache" gs://$BUCKET/index.html || true
-          fi
-
-          # setmeta ให้ไฟล์ใน assets ถ้ามี
-          if gsutil -q ls gs://$BUCKET/assets/** >/dev/null 2>&1; then
-            gsutil -m setmeta -h "Cache-Control:public, max-age=31536000, immutable" gs://$BUCKET/assets/** || true
-          fi
+          gcloud compute url-maps invalidate-cdn-cache "$CDN_URL_MAP" --path "/*" --quiet

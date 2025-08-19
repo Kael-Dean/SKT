@@ -27,6 +27,76 @@ const clampWa = (v) => {
   return Math.max(0, Math.min(99, n)) // 0–99
 }
 
+/** ---------- Reusable Select (สไตล์เหมือนหน้า Sales) ---------- */
+function SelectField({
+  label,
+  value,
+  onChange,
+  options = [],
+  placeholder = "— เลือก —",
+  error,
+  className = "",
+  name,
+  disabled = false,
+}) {
+  const base =
+    "w-full appearance-none rounded-xl border p-2 pr-10 outline-none placeholder:text-slate-400 transition " +
+    "bg-white text-black border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 " +
+    "dark:bg-slate-700 dark:text-white dark:border-slate-600 dark:focus:ring-emerald-900/40"
+  const err = error ? " border-red-400 focus:border-red-500 focus:ring-red-100 dark:focus:ring-red-900/40" : ""
+  const dis = disabled ? " opacity-60 cursor-not-allowed" : ""
+
+  return (
+    <div className={className}>
+      {label && (
+        <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300" htmlFor={name}>
+          {label}
+        </label>
+      )}
+
+      <div className="relative">
+        <select
+          id={name}
+          name={name}
+          className={base + err + dis}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+        >
+          <option value="">{placeholder}</option>
+          {options.map((opt) =>
+            typeof opt === "string" ? (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ) : (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ),
+          )}
+        </select>
+
+        {/* ไอคอนลูกศรลง (chevron) แบบเดียวกับหน้า Sales */}
+        <svg
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 opacity-70 dark:opacity-80"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </div>
+
+      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+    </div>
+  )
+}
+
 /** ---------- Component ---------- */
 const MemberSignup = () => {
   const [errors, setErrors] = useState({})
@@ -240,8 +310,8 @@ const MemberSignup = () => {
       other_rai:"", other_ngan:"", other_wa:"",
     })
   }
-  
-  /** ---------- UI (ธีมเดียวกับ Order) ---------- */
+
+  /** ---------- UI (ธีมเดียวกับ Order/Sales) ---------- */
   return (
     // พื้นหลังหลัก: Light = ขาว, Dark = slate-900 + มุมมนใหญ่
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
@@ -257,10 +327,7 @@ const MemberSignup = () => {
           <h2 className="mb-3 text-lg font-semibold">ข้อมูลหลัก</h2>
 
           <div className="grid gap-4 md:grid-cols-4">
-            {/* ...ฟิลด์ด้านบนคงเดิมทั้งหมด... */}
-            {/* (โค้ดส่วนฟิลด์อื่น ๆ ไม่เปลี่ยนจากที่คุณส่งมา) */}
-
-            {/* ——— ยกมาทั้งบล็อคตามที่คุณให้มา ——— */}
+            {/* เลขสมาชิก */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขสมาชิก (member_id)</label>
               <input
@@ -275,6 +342,7 @@ const MemberSignup = () => {
               {errors.member_id && <p className="mt-1 text-sm text-red-500">{errors.member_id}</p>}
             </div>
 
+            {/* คำนำหน้า */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คำนำหน้า (precode)</label>
               <input
@@ -289,6 +357,7 @@ const MemberSignup = () => {
               {errors.precode && <p className="mt-1 text-sm text-red-500">{errors.precode}</p>}
             </div>
 
+            {/* วันที่สมัคร */}
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่สมัคร (regis_date)</label>
               <input
@@ -302,6 +371,7 @@ const MemberSignup = () => {
               {errors.regis_date && <p className="mt-1 text-sm text-red-500">{errors.regis_date}</p>}
             </div>
 
+            {/* ชื่อ */}
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชื่อ</label>
               <input
@@ -315,6 +385,7 @@ const MemberSignup = () => {
               {errors.first_name && <p className="mt-1 text-sm text-red-500">{errors.first_name}</p>}
             </div>
 
+            {/* นามสกุล */}
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">นามสกุล</label>
               <input
@@ -328,6 +399,7 @@ const MemberSignup = () => {
               {errors.last_name && <p className="mt-1 text-sm text-red-500">{errors.last_name}</p>}
             </div>
 
+            {/* บัตรประชาชน */}
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขบัตรประชาชน (13 หลัก)</label>
               <input
@@ -343,22 +415,22 @@ const MemberSignup = () => {
               {errors.citizen_id && <p className="mt-1 text-sm text-red-500">{errors.citizen_id}</p>}
             </div>
 
-            <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เพศ (M/F)</label>
-              <select
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.sex ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
-                value={form.sex}
-                onChange={(e) => update("sex", e.target.value)}
-              >
-                <option value="">— เลือก —</option>
-                <option value="M">ชาย</option>
-                <option value="F">หญิง</option>
-              </select>
-              {errors.sex && <p className="mt-1 text-sm text-red-500">{errors.sex}</p>}
-            </div>
+            {/* เพศ: ใช้ SelectField (สไตล์หน้า Sales) */}
+            <SelectField
+              name="sex"
+              label="เพศ (M/F)"
+              value={form.sex}
+              onChange={(e) => update("sex", e.target.value)}
+              options={[
+                { value: "M", label: "ชาย (M)" },
+                { value: "F", label: "หญิง (F)" },
+              ]}
+              placeholder="— เลือก —"
+              error={errors.sex}
+              className=""
+            />
 
+            {/* ที่อยู่ */}
             <div className="md:col-span-3">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ที่อยู่ (address)</label>
               <input
@@ -372,6 +444,7 @@ const MemberSignup = () => {
               {errors.address && <p className="mt-1 text-sm text-red-500">{errors.address}</p>}
             </div>
 
+            {/* หมู่ */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">หมู่ (mhoo)</label>
               <input
@@ -382,6 +455,7 @@ const MemberSignup = () => {
               />
             </div>
 
+            {/* ตำบล */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ตำบล (sub_district)</label>
               <input
@@ -394,6 +468,7 @@ const MemberSignup = () => {
               {errors.sub_district && <p className="mt-1 text-sm text-red-500">{errors.sub_district}</p>}
             </div>
 
+            {/* อำเภอ */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">อำเภอ (district)</label>
               <input
@@ -406,6 +481,7 @@ const MemberSignup = () => {
               {errors.district && <p className="mt-1 text-sm text-red-500">{errors.district}</p>}
             </div>
 
+            {/* จังหวัด */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">จังหวัด (province)</label>
               <input
@@ -418,6 +494,7 @@ const MemberSignup = () => {
               {errors.province && <p className="mt-1 text-sm text-red-500">{errors.province}</p>}
             </div>
 
+            {/* subprov */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">อำเภอย่อย/รหัสอำเภอ (subprov)</label>
               <input
@@ -429,6 +506,7 @@ const MemberSignup = () => {
               />
             </div>
 
+            {/* รหัสไปรษณีย์ */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รหัสไปรษณีย์</label>
               <input
@@ -443,6 +521,7 @@ const MemberSignup = () => {
               {errors.postal_code && <p className="mt-1 text-sm text-red-500">{errors.postal_code}</p>}
             </div>
 
+            {/* โทรศัพท์ */}
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">โทรศัพท์ (phone_number)</label>
               <input
@@ -457,6 +536,7 @@ const MemberSignup = () => {
               {errors.phone_number && <p className="mt-1 text-sm text-red-500">{errors.phone_number}</p>}
             </div>
 
+            {/* เงินเดือน */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เงินเดือน (salary)</label>
               <input
@@ -471,6 +551,7 @@ const MemberSignup = () => {
               {errors.salary && <p className="mt-1 text-sm text-red-500">{errors.salary}</p>}
             </div>
 
+            {/* กลุ่ม */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">กลุ่ม (tgs_group)</label>
               <input
@@ -485,6 +566,7 @@ const MemberSignup = () => {
               {errors.tgs_group && <p className="mt-1 text-sm text-red-500">{errors.tgs_group}</p>}
             </div>
 
+            {/* ส่งหุ้น/เดือน */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ส่งหุ้น/เดือน (share_per_month)</label>
               <input
@@ -499,6 +581,7 @@ const MemberSignup = () => {
               {errors.share_per_month && <p className="mt-1 text-sm text-red-500">{errors.share_per_month}</p>}
             </div>
 
+            {/* วงเงินสินเชื่อ */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วงเงินสินเชื่อ (ar_limit)</label>
               <input
@@ -513,6 +596,7 @@ const MemberSignup = () => {
               {errors.ar_limit && <p className="mt-1 text-sm text-red-500">{errors.ar_limit}</p>}
             </div>
 
+            {/* หุ้นปกติ */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">หุ้นปกติ (normal_share)</label>
               <input
@@ -528,6 +612,7 @@ const MemberSignup = () => {
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{landPreview}</p>
             </div>
 
+            {/* วันที่ซื้อครั้งล่าสุด */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่ซื้อครั้งล่าสุด (last_bought_date)</label>
               <input
@@ -541,8 +626,11 @@ const MemberSignup = () => {
               {errors.last_bought_date && <p className="mt-1 text-sm text-red-500">{errors.last_bought_date}</p>}
             </div>
 
+            {/* วันที่โอน */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่โอน (transfer_date - ไม่ระบุก็ได้)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                วันที่โอน (transfer_date - ไม่ระบุก็ได้)
+              </label>
               <input
                 type="date"
                 className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
@@ -551,6 +639,7 @@ const MemberSignup = () => {
               />
             </div>
 
+            {/* บัญชีธนาคาร */}
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">บัญชีธนาคาร (bank_account)</label>
               <input
@@ -561,6 +650,7 @@ const MemberSignup = () => {
               />
             </div>
 
+            {/* รหัสสมาชิกระบบ */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รหัสสมาชิกในระบบ (tgs_id)</label>
               <input
@@ -571,6 +661,7 @@ const MemberSignup = () => {
               />
             </div>
 
+            {/* คู่สมรส */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชื่อคู่สมรส (spouce_name)</label>
               <input
@@ -580,6 +671,7 @@ const MemberSignup = () => {
               />
             </div>
 
+            {/* จำนวนครั้งที่ซื้อ */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">จำนวนครั้งที่ซื้อ (orders_placed)</label>
               <input
@@ -613,11 +705,7 @@ const MemberSignup = () => {
                   { key:"rent", label:"เช่า" },
                   { key:"other",label:"อื่น ๆ" },
                 ].map(({key,label})=>(
-                  <tr
-                    key={key}
-                    /* ใช้พื้นหลังเดียวกันทุกแถว เพื่อไม่ให้ "เช่า" สีต่าง */
-                    className="bg-white dark:bg-slate-800"
-                  >
+                  <tr key={key} className="bg-white dark:bg-slate-800">
                     <td className="px-3 py-2">{label}</td>
                     <td className="px-3 py-2">
                       <input

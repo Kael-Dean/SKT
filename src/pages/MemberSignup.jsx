@@ -63,7 +63,7 @@ const MemberSignup = () => {
     spouce_name: "",
     orders_placed: "",
 
-    // ที่ดินถือครอง
+    // จำนวนที่ดินถือครอง
     own_rai: "",   own_ngan: "",   own_wa: "",
     rent_rai: "",  rent_ngan: "",  rent_wa: "",
     other_rai: "", other_ngan: "", other_wa: "",

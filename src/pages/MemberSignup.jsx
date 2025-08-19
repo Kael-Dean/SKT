@@ -54,7 +54,7 @@ const MemberSignup = () => {
     salary: "",
     tgs_group: "",
     share_per_month: "",
-    transfer_date: "", // optional
+    transfer_date: "", // optional1
     ar_limit: "",
     normal_share: "",
     last_bought_date: new Date().toISOString().slice(0, 10),

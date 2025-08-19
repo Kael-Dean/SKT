@@ -2,7 +2,7 @@ name: Deploy Vite React to GCS
 
 on:
   push:
-    branches: [ main ]   # เปลี่ยนตามสาขาที่ใช้
+    branches: [ main ]
 
 jobs:
   build-and-deploy:
@@ -10,7 +10,7 @@ jobs:
 
     permissions:
       contents: read
-      id-token: write     # จำเป็นสำหรับ WIF (OIDC)
+      id-token: write
 
     steps:
       - name: Checkout
@@ -41,22 +41,39 @@ jobs:
             --web-main-page-suffix=index.html \
             --web-error-page=index.html || true
 
-      # อัปโหลดแบบ sync (ลบไฟล์เก่าออกด้วย)
+      # อัปโหลดแบบ sync (ลบไฟล์เก่าที่ไม่มีแล้ว)
       - name: Upload to GCS (gsutil rsync)
         run: |
           gsutil -m rsync -r -d dist gs://${{ secrets.GCS_BUCKET }}
 
-      # ตั้ง Cache-Control แบบปลอดภัย (เช็กก่อนว่ามีไฟล์/โฟลเดอร์)
+      # ตั้ง Cache-Control แบบเหมาะสมตามชนิดไฟล์
       - name: Set Cache-Control headers (safe)
         env:
           BUCKET: ${{ secrets.GCS_BUCKET }}
         run: |
-          # setmeta ให้ index.html ถ้ามี
-          if gsutil -q stat gs://$BUCKET/index.html; then
-            gsutil -m setmeta -h "Cache-Control:no-cache" gs://$BUCKET/index.html || true
+          set -e
+
+          # 1) HTML ทั้งหมด: no-cache (ป้องกัน stale shell)
+          if gsutil -q ls gs://$BUCKET/*.html >/dev/null 2>&1; then
+            gsutil -m setmeta -h "Cache-Control:no-cache, max-age=0, must-revalidate" gs://$BUCKET/*.html || true
+          fi
+          if gsutil -q ls gs://$BUCKET/**/*.html >/dev/null 2>&1; then
+            gsutil -m setmeta -h "Cache-Control:no-cache, max-age=0, must-revalidate" gs://$BUCKET/**/*.html || true
           fi
 
-          # setmeta ให้ไฟล์ใน assets ถ้ามี
+          # 2) ไฟล์ asset ที่มี hash: cache ยาว + immutable
           if gsutil -q ls gs://$BUCKET/assets/** >/dev/null 2>&1; then
             gsutil -m setmeta -h "Cache-Control:public, max-age=31536000, immutable" gs://$BUCKET/assets/** || true
+          fi
+
+          # 3) ไฟล์ static root ที่มักเปลี่ยนไม่บ่อย (แต่ไม่ควร immutable)
+          for f in favicon.ico manifest.json site.webmanifest robots.txt apple-touch-icon.png; do
+            if gsutil -q stat gs://$BUCKET/$f; then
+              gsutil -m setmeta -h "Cache-Control:public, max-age=3600" gs://$BUCKET/$f || true
+            fi
+          done
+
+          # 4) เผื่อมี index.html อยู่ (ตั้งซ้ำอีกชั้น ไม่เป็นไร)
+          if gsutil -q stat gs://$BUCKET/index.html; then
+            gsutil -m setmeta -h "Cache-Control:no-cache, max-age=0, must-revalidate" gs://$BUCKET/index.html || true
           fi

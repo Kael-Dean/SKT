@@ -5,9 +5,11 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
     () => (darkMode ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด"),
     [darkMode]
   )
-
   const sidebarBtnLabel = isSidebarOpen ? "ซ่อนเมนู" : "แสดงเมนู"
-  const sidebarBtnIcon = isSidebarOpen ? "⟨" : "☰" // เปิดอยู่ให้เป็นสัญลักษณ์เก็บเมนู
+  const sidebarBtnIcon = isSidebarOpen ? "⟨" : "☰"
+
+  // สร้างพาธ asset ให้ปลอดภัยตอน deploy ใต้ sub-path
+  const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
 
   return (
     <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70">
@@ -19,16 +21,31 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm transition active:scale-95 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
             aria-label={sidebarBtnLabel}
             title={sidebarBtnLabel}
+            type="button"
           >
             {sidebarBtnIcon}
           </button>
 
           <div className="hidden select-none items-center gap-2 md:flex">
             <img
-              src={darkMode ? "/logo/skt-logo-dark.png" : "/logo/skt-logo.png"}
+              src={
+                darkMode
+                  ? asset("/logo/skt-logo-dark.png")
+                  : asset("/logo/skt-logo.png")
+              }
+              onError={(e) => {
+                // ถ้ารูป dark หาย ให้สลับไป light และกลับกัน
+                const cur = e.currentTarget.src
+                const alt = cur.includes("skt-logo-dark")
+                  ? asset("/logo/skt-logo.png")
+                  : asset("/logo/skt-logo-dark.png")
+                if (cur !== alt) e.currentTarget.src = alt
+              }}
               alt="โลโก้องค์กร"
               className="h-10 w-auto rounded object-contain transition-opacity duration-200"
               loading="eager"
+              decoding="async"
+              fetchpriority="high"
             />
             <span className="text-lg font-bold tracking-tight">
               สหกรณ์การเกษตร
@@ -46,6 +63,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
               onKeyDown={(e) => {
                 if (e.key === "Escape") e.currentTarget.blur()
               }}
+              aria-label="ค้นหา"
             />
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
               🔍
@@ -60,6 +78,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             aria-label={toggleLabel}
             title={toggleLabel}
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-xl shadow-sm transition active:scale-95 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800"
+            type="button"
           >
             {darkMode ? "☀️" : "🌙"}
           </button>
@@ -69,12 +88,15 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
           <button
             className="group inline-flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-3 py-2 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
             title="โปรไฟล์ฉัน"
+            type="button"
           >
             <div className="relative">
               <img
                 src="https://ui-avatars.com/api/?name=U&background=random"
                 alt="avatar"
                 className="h-8 w-8 rounded-full"
+                loading="lazy"
+                decoding="async"
               />
               <span className="absolute -right-0.5 -top-0.5 block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900" />
             </div>

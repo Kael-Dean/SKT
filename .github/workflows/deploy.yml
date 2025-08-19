@@ -2,11 +2,7 @@ name: Deploy Vite React to GCS
 
 on:
   push:
-    branches: [ main ]
-
-concurrency:
-  group: gcs-deploy-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [ main ]   # เปลี่ยนตามสาขาที่ใช้
 
 jobs:
   build-and-deploy:
@@ -14,85 +10,53 @@ jobs:
 
     permissions:
       contents: read
-      id-token: write
-
-    env:
-      BUCKET: ${{ secrets.GCS_BUCKET }}
+      id-token: write     # จำเป็นสำหรับ WIF (OIDC)
 
     steps:
-      # 1) Checkout
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2) Setup Node + cache npm
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
-      # 3) Install & Build (guard dist)
       - name: Install & Build
         run: |
           npm ci || npm i
           npm run build
-          test -d dist || (echo "❌ dist/ not found. Build failed." && exit 1)
 
-      # 4) Auth with Google (WIF)
       - name: Auth with Google (WIF)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      # 5) Setup gcloud (includes gsutil)
       - name: Setup gcloud (includes gsutil)
         uses: google-github-actions/setup-gcloud@v2
 
-      # 6) Verify gcloud auth (for easier debugging)
-      - name: Verify gcloud auth
-        run: |
-          gcloud auth list
-          gcloud config list
-
-      # 7) Configure bucket website (idempotent SPA settings)
       - name: Configure bucket website (idempotent)
         run: |
-          gcloud storage buckets update gs://$BUCKET \
+          gcloud storage buckets update gs://${{ secrets.GCS_BUCKET }} \
             --web-main-page-suffix=index.html \
             --web-error-page=index.html || true
 
-      # 8) Upload (sync & delete removed files)
+      # อัปโหลดแบบ sync (ลบไฟล์เก่าออกด้วย)
       - name: Upload to GCS (gsutil rsync)
         run: |
-          gsutil -m rsync -r -c -d dist gs://$BUCKET
+          gsutil -m rsync -r -d dist gs://${{ secrets.GCS_BUCKET }}
 
-      # 9) Cache-Control: index.html no-cache, assets cache forever
-      - name: Set Cache-Control headers
+      # ตั้ง Cache-Control แบบปลอดภัย (เช็กก่อนว่ามีไฟล์/โฟลเดอร์)
+      - name: Set Cache-Control headers (safe)
+        env:
+          BUCKET: ${{ secrets.GCS_BUCKET }}
         run: |
-          # index.html → always revalidate (fix “คอมยังเป็นเวอร์ชั่นเก่า”)
+          # setmeta ให้ index.html ถ้ามี
           if gsutil -q stat gs://$BUCKET/index.html; then
-            gsutil -m setmeta -h "Cache-Control:no-cache, no-store, max-age=0, must-revalidate" gs://$BUCKET/index.html || true
+            gsutil -m setmeta -h "Cache-Control:no-cache" gs://$BUCKET/index.html || true
           fi
 
-          # assets → long cache; filenames are hashed by Vite
+          # setmeta ให้ไฟล์ใน assets ถ้ามี
           if gsutil -q ls gs://$BUCKET/assets/** >/dev/null 2>&1; then
             gsutil -m setmeta -h "Cache-Control:public, max-age=31536000, immutable" gs://$BUCKET/assets/** || true
           fi
-
-      # 10) Show deployed files & headers (quick sanity check in logs)
-      - name: Show deployed objects & headers
-        run: |
-          echo "=== Objects (top-level) ==="
-          gsutil ls -l gs://$BUCKET || true
-          echo "=== index.html headers ==="
-          gsutil stat gs://$BUCKET/index.html || true
-          echo "=== one asset sample (if exists) ==="
-          ASSET=$(gsutil ls gs://$BUCKET/assets/** 2>/dev/null | head -n 1 || true)
-          if [ -n "$ASSET" ]; then gsutil stat "$ASSET"; fi
-
-      # 11) Final log1111
-      - name: Done
-        run: |
-          echo "✅ Deploy finished for bucket: $BUCKET"
-          echo "Tip: Hard refresh (Ctrl+Shift+R) on desktop if you still see old UI."

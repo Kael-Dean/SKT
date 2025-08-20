@@ -248,14 +248,14 @@ const Sales = () => {
 
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
 
-  // ↓↓↓ ประกาศที่นี่ครั้งเดียวพอ ↓↓↓
+  // สำหรับ dropdown รายชื่ออัตโนมัติ
   const listContainerRef = useRef(null)
   const itemRefs = useRef([])
 
   /** dropdown opts */
   const [riceOptions, setRiceOptions] = useState([])     // [{id,label,price}]
-  const [branchOptions, setBranchOptions] = useState([]) // [{id,branch_name}]
-  const [klangOptions, setKlangOptions] = useState([])   // [{id,klang_name}]
+  const [branchOptions, setBranchOptions] = useState([]) // [{id,label}]
+  const [klangOptions, setKlangOptions] = useState([])   // [{id,label}]
 
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
@@ -279,7 +279,7 @@ const Sales = () => {
   /** ฟอร์มออเดอร์ */
   const [order, setOrder] = useState({
     riceType: "",
-    riceId: "",
+    riceId: "",        // keep as string for ComboBox matching
     moisturePct: "",
     impurityPct: "",
     grossWeightKg: "",
@@ -290,9 +290,9 @@ const Sales = () => {
     paymentRefNo: "",
     issueDate: new Date().toISOString().slice(0, 10),
     branchName: "",
-    branchId: null,
+    branchId: null,    // number
     klangName: "",
-    klangId: null,
+    klangId: null,     // number
     registeredPlace: "",
   })
 
@@ -340,21 +340,27 @@ const Sales = () => {
           fetch(`${API_BASE}/order/rice/search`, { headers: authHeader() }),
           fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
         ])
-        if (!r1.ok) console.error("rice search failed", r1.status, await r1.text())
-        if (!r2.ok) console.error("branch search failed", r2.status, await r2.text())
         const riceRaw = r1.ok ? await r1.json() : []
-        const branch  = r2.ok ? await r2.json() : []
+        const branchRaw  = r2.ok ? await r2.json() : []
+
         const rice = (riceRaw || []).map((x) => ({
-          id: String(x.id ?? x.rice_id ?? x.riceId ?? ""),
-          label: x.rice_type ?? x.rice_name ?? x.name ?? "",
-          price: x.price ?? x.unit_price ?? undefined,
-          _raw: x,
+          id: String(x.id),
+          label: x.rice_type ?? "",
+          price: x.price ?? undefined,
         }))
+
+        const branches = (branchRaw || []).map((b) => ({
+          id: String(b.id),
+          label: b.branch_name ?? "",
+        }))
+
         setRiceOptions(rice)
-        setBranchOptions(branch || [])
-        console.log("RiceOptions:", rice)
-        console.log("BranchOptions:", branch)
-      } catch (e) { console.error("Load dropdowns error:", e) }
+        setBranchOptions(branches)
+      } catch (e) {
+        console.error("Load dropdowns error:", e)
+        setRiceOptions([])
+        setBranchOptions([])
+      }
     }
     loadDD()
   }, [])
@@ -363,20 +369,28 @@ const Sales = () => {
   useEffect(() => {
     const bId = order.branchId
     const bName = order.branchName?.trim()
-    if (bId == null && !bName) {
+
+    if (!bId && !bName) {
       setKlangOptions([])
       setOrder((p) => ({ ...p, klangName: "", klangId: null }))
       return
     }
     const loadKlang = async () => {
       try {
-        const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
+        const qs = bId ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
         const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
-        if (!r.ok) { console.error("Load klang failed:", r.status, await r.text()); setKlangOptions([]); return }
+        if (!r.ok) {
+          console.error("Load klang failed:", r.status, await r.text())
+          setKlangOptions([])
+          return
+        }
         const data = await r.json()
-        setKlangOptions(data || [])
-        console.log("KlangOptions:", data)
-      } catch (e) { console.error("Load klang error:", e); setKlangOptions([]) }
+        const klangs = (data || []).map((k) => ({ id: String(k.id), label: k.klang_name ?? "" }))
+        setKlangOptions(klangs)
+      } catch (e) {
+        console.error("Load klang error:", e)
+        setKlangOptions([])
+      }
     }
     loadKlang()
   }, [order.branchId, order.branchName])
@@ -526,7 +540,7 @@ const Sales = () => {
     setHighlightedIndex(-1)
   }
 
-  /** scroll item ที่ไฮไลต์ */
+  /** scroll item ที่ไฮไลต์ (รายชื่อค้นหา) */
   const scrollHighlightedIntoView2 = (index) => {
     const itemEl = itemRefs.current[index]
     const listEl = listContainerRef.current
@@ -545,7 +559,7 @@ const Sales = () => {
     }
   }
 
-  /** ---- ช่วยจัดการสีแดงเฉพาะ 3 ช่อง ---- */
+  /** ---- จัดการ error class ---- */
   const hasRed = (key) => !!errors[key] || !!missingHints[key]
   const redFieldCls = (key) =>
     hasRed(key)
@@ -558,7 +572,7 @@ const Sales = () => {
       return rest
     })
 
-  /** คีย์บอร์ดนำทาง dropdown */
+  /** คีย์บอร์ดนำทาง dropdown รายชื่อ */
   const handleNameKeyDown = (e) => {
     if (!showNameList || nameResults.length === 0) return
     if (e.key === "ArrowDown") {
@@ -611,10 +625,10 @@ const Sales = () => {
     }
   }, [computedAmount])
 
-  /** auto-fill ราคา */
+  /** auto-fill ราคาเมื่อเลือกชนิดข้าว */
   useEffect(() => {
     if (!order.riceId) return
-    const found = riceOptions.find((r) => r.id === order.riceId)
+    const found = riceOptions.find((r) => String(r.id) === String(order.riceId))
     if (found?.price != null) {
       setOrder((p) => ({ ...p, unitPrice: String(found.price) }))
     }
@@ -640,8 +654,8 @@ const Sales = () => {
     if (!customer.province.trim()) m.province = true
     // ออเดอร์
     if (!order.riceId) m.riceType = true
-    if (!order.branchName) m.branchName = true
-    if (!order.klangName) m.klangName = true
+    if (!order.branchId) m.branchName = true
+    if (!order.klangId) m.klangName = true
     if (!order.grossWeightKg || Number(order.grossWeightKg) <= 0) m.grossWeightKg = true
     if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0)) m.deductWeightKg = true
     if (!order.amountTHB || Number(order.amountTHB) < 0) m.amountTHB = true
@@ -665,16 +679,14 @@ const Sales = () => {
     if (customer.citizenId && !validateThaiCitizenId(customer.citizenId)) e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
     if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
     if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
-
     if (!order.riceId) e.riceType = "เลือกชนิดข้าวเปลือก"
-    if (!order.branchName) e.branchName = "เลือกสาขา"
-    if (!order.klangName) e.klangName = "เลือกคลัง"
+    if (!order.branchId) e.branchName = "เลือกสาขา"
+    if (!order.klangId) e.klangName = "เลือกคลัง"
     if (!order.grossWeightKg || Number(order.grossWeightKg) <= 0) e.grossWeightKg = "กรอกน้ำหนักตามใบชั่ง"
     if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0))
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
     if (!order.amountTHB || Number(order.amountTHB) < 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
-
     setErrors(e)
     return e
   }
@@ -722,7 +734,7 @@ const Sales = () => {
     const [firstName, ...rest] = customer.fullName.trim().split(" ")
     const lastName = rest.join(" ")
 
-    const riceId   = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
+    const riceId   = /^\d+$/.test(String(order.riceId)) ? Number(order.riceId) : null
     const branchId = order.branchId ?? null
     const klangId  = order.klangId ?? null
 
@@ -759,7 +771,6 @@ const Sales = () => {
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim(),
         date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
-        // optional fields
         gram: null,
         season: null,
         field_type: null,
@@ -1012,8 +1023,15 @@ const Sales = () => {
               <ComboBox
                 options={riceOptions}
                 value={order.riceId}
+                // rice ใช้ id เป็นค่า value เช่นเดียวกับ options
+                getValue={(o) => o.id}
                 onChange={(id, found) => {
-                  setOrder((p) => ({ ...p, riceId: id, riceType: found?.label ?? "", unitPrice: found?.price != null ? String(found.price) : p.unitPrice }))
+                  setOrder((p) => ({
+                    ...p,
+                    riceId: id,
+                    riceType: found?.label ?? "",
+                    unitPrice: found?.price != null ? String(found.price) : p.unitPrice
+                  }))
                 }}
                 placeholder="— เลือกชนิด —"
                 error={!!errors.riceType}
@@ -1028,11 +1046,18 @@ const Sales = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">สาขา</label>
               <ComboBox
-                options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
-                value={order.branchName}
-                getValue={(o) => o.label}
-                onChange={(_val, found) => {
-                  setOrder((p) => ({ ...p, branchName: found?.label ?? "", branchId: found?.id ?? null, klangName: "", klangId: null }))
+                options={branchOptions}
+                value={order.branchId ?? ""}
+                getValue={(o) => o.id}       // ใช้ id เป็น value
+                onChange={(id, found) => {
+                  setOrder((p) => ({
+                    ...p,
+                    branchId: id ? Number(id) : null,
+                    branchName: found?.label ?? "",
+                    // reset คลังเมื่อเปลี่ยนสาขา
+                    klangName: "",
+                    klangId: null,
+                  }))
                 }}
                 placeholder="— เลือกสาขา —"
                 error={!!errors.branchName}
@@ -1047,14 +1072,18 @@ const Sales = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">คลัง</label>
               <ComboBox
-                options={klangOptions.map((k) => ({ id: k.id, label: k.klang_name }))}
-                value={order.klangName}
-                getValue={(o) => o.label}
-                onChange={(_val, found) => {
-                  setOrder((p) => ({ ...p, klangName: found?.label ?? "", klangId: found?.id ?? null }))
+                options={klangOptions}
+                value={order.klangId ?? ""}
+                getValue={(o) => o.id}   // ใช้ id เป็น value
+                onChange={(id, found) => {
+                  setOrder((p) => ({
+                    ...p,
+                    klangId: id ? Number(id) : null,
+                    klangName: found?.label ?? "",
+                  }))
                 }}
                 placeholder="— เลือกคลัง —"
-                disabled={!order.branchName && order.branchId == null}
+                disabled={!order.branchId}
                 error={!!errors.klangName}
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}

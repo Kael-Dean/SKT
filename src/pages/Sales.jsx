@@ -55,10 +55,9 @@ const baseField =
   "placeholder:text-slate-400 " +
   "border-slate-300 focus:border-emerald-500 " +
   // Dark
-  "dark:bg-gradient-to-b dark:from-slate-800 dark:to-slate-900 " +
+  "dark:bg-gradient-to-b dark:from-slate-700 dark:to-slate-700 " +
   "dark:text-white dark:border-slate-700 dark:placeholder:text-slate-400 " +
-  "dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)] " +
-  "dark:focus:shadow-[inset_0_2px_4px_rgba(255,255,255,0.08),_inset_0_-4px_12px_rgба(0,0,0,0.6)] " +
+
   "dark:focus:ring-emerald-400/60 dark:focus:border-emerald-400"
 
 /** ช่อง disabled */

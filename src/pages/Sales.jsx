@@ -1029,14 +1029,19 @@ const Sales = () => {
           <h2 className="mb-3 text-lg font-semibold">รายละเอียดการซื้อ</h2>
 
           <div className="grid gap-4 md:grid-cols-3">
-            {/* ชนิดข้าว */}
+                      {/* ชนิดข้าว */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชนิดข้าวเปลือก</label>
               <ComboBox
                 options={riceOptions}
                 value={order.riceId}
                 onChange={(id, found) => {
-                  setOrder((p) => ({ ...p, riceId: id, riceType: found?.label ?? "", unitPrice: found?.price != null ? String(found.price) : p.unitPrice }))
+                  setOrder((p) => ({
+                    ...p,
+                    riceId: id,
+                    riceType: found?.label ?? "",
+                    // ไม่ตั้งค่า unitPrice อัตโนมัติอีกต่อไป
+                  }))
                 }}
                 placeholder="— เลือกชนิด —"
                 error={!!errors.riceType}

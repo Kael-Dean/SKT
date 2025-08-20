@@ -247,6 +247,8 @@ const Sales = () => {
   const suppressNameSearchRef = useRef(false)
 
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
+
+  // ↓↓↓ ประกาศที่นี่ครั้งเดียวพอ ↓↓↓
   const listContainerRef = useRef(null)
   const itemRefs = useRef([])
 
@@ -525,8 +527,6 @@ const Sales = () => {
   }
 
   /** scroll item ที่ไฮไลต์ */
-  const listContainerRef = useRef(null)
-  const itemRefs = useRef([])
   const scrollHighlightedIntoView2 = (index) => {
     const itemEl = itemRefs.current[index]
     const listEl = listContainerRef.current
@@ -759,7 +759,7 @@ const Sales = () => {
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim(),
         date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
-        // optional fields (เซิร์ฟเวอร์ตั้ง default ได้)
+        // optional fields
         gram: null,
         season: null,
         field_type: null,

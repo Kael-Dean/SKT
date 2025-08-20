@@ -41,7 +41,7 @@ const BTN_PRIMARY =
   // light
   " bg-emerald-600 hover:bg-emerald-700 border-emerald-700/50 " +
   " shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_2px_6px_rgba(0,0,0,0.2)] " +
-  // dark: ไล่เฉด + เส้นขอบ + เงาลึก
+  // dark
   " dark:bg-gradient-to-b dark:from-emerald-600 dark:to-emerald-700 " +
   " dark:hover:from-emerald-500 dark:hover:to-emerald-600 " +
   " dark:border-emerald-400/30 " +
@@ -205,10 +205,32 @@ function ComboBox({
   )
 }
 
+/** ---------- เพิ่ม “สไตล์อินพุต” + ระบบเลื่อนหา error (ไม่แตะ validate เดิม) ---------- */
+const baseField =
+  "w-full rounded-xl border p-2 outline-none transition " +
+  // Light
+  "bg-gradient-to-b from-white to-slate-50 " +
+  "shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] " +
+  "focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.12)] " +
+  "focus:ring-2 focus:ring-emerald-500/60 " +
+  "placeholder:text-slate-400 " +
+  "border-slate-300 focus:border-emerald-500 " +
+  // Dark
+  "dark:bg-gradient-to-b dark:from-slate-700 dark:to-slate-700 " +
+  "dark:text-white dark:border-slate-700 dark:placeholder:text-slate-400 " +
+  "dark:focus:ring-emerald-400/60 dark:focus:border-emerald-400 " +
+  "dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),_inset_0_-1px_2px_rgba(0,0,0,0.5)]"
+
+const fieldError = "border-red-400 ring-2 ring-red-300 focus:ring-red-300 focus:border-red-400"
+const fieldDisabled = "bg-slate-100 dark:bg-slate-800/70 dark:text-slate-300 cursor-not-allowed opacity-90"
+
 /** ---------- Component ---------- */
 const MemberSignup = () => {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+
+  // เพิ่ม state เพื่อ “สั่งเลื่อน” หลัง validate ตั้ง errors แล้ว
+  const [shouldScrollError, setShouldScrollError] = useState(false)
 
   /**
    * ฟอร์มนี้ถูก “ทำให้ตรง” กับ RequestMember ของเพื่อน และเพิ่มฟิลด์ที่ดินถือครอง
@@ -247,8 +269,42 @@ const MemberSignup = () => {
     other_rai: "", other_ngan: "", other_wa: "",
   })
 
+  // ---- Refs สำหรับเลื่อนไปยังช่องที่พลาด (เรียงตามความสำคัญ) ----
+  const refs = {
+    member_id: useRef(null),
+    precode: useRef(null),
+    regis_date: useRef(null),
+    first_name: useRef(null),
+    last_name: useRef(null),
+    citizen_id: useRef(null),
+    address: useRef(null),
+    mhoo: useRef(null),
+    sub_district: useRef(null),
+    district: useRef(null),
+    province: useRef(null),
+    postal_code: useRef(null),
+    phone_number: useRef(null),
+    sex: useRef(null),
+    salary: useRef(null),
+    tgs_group: useRef(null),
+    share_per_month: useRef(null),
+    transfer_date: useRef(null),
+    ar_limit: useRef(null),
+    normal_share: useRef(null),
+    last_bought_date: useRef(null),
+    bank_account: useRef(null),
+    tgs_id: useRef(null),
+    spouce_name: useRef(null),
+    orders_placed: useRef(null),
+    // land
+    own_rai: useRef(null),  own_ngan: useRef(null),  own_wa: useRef(null),
+    rent_rai: useRef(null), rent_ngan: useRef(null), rent_wa: useRef(null),
+    other_rai: useRef(null),other_ngan: useRef(null),other_wa: useRef(null),
+  }
+
   const update = (k, v) => setForm((prev) => ({ ...prev, [k]: v }))
 
+  // -------------------- validate เดิม (ไม่แก้ logic) --------------------
   const validateAll = () => {
     const e = {}
     if (!form.member_id) e.member_id = "กรอกเลขสมาชิก"
@@ -267,7 +323,6 @@ const MemberSignup = () => {
     if (!form.phone_number) e.phone_number = "กรอกเบอร์โทร"
     if (!form.sex) e.sex = "เลือกเพศ (M/F)"
 
-    // ตัวเลข
     ;[
       "member_id",
       "precode",
@@ -288,7 +343,6 @@ const MemberSignup = () => {
       if (v !== "" && isNaN(Number(v))) e[k] = "ตัวเลขเท่านั้น"
     })
 
-    // เงื่อนไขช่วง งาน/วา/ไร่
     const landTriples = [
       ["own_rai","own_ngan","own_wa"],
       ["rent_rai","rent_ngan","rent_wa"],
@@ -301,13 +355,36 @@ const MemberSignup = () => {
       if (vr !== "" && toNumber(vr) < 0) e[r] = "ไร่ต้อง ≥ 0"
     })
 
-    // วันที่
     if (!form.regis_date) e.regis_date = "เลือกวันที่สมัคร"
     if (!form.last_bought_date) e.last_bought_date = "เลือกวันที่ซื้อครั้งล่าสุด (หรือกำหนดคร่าวๆได้)"
 
     setErrors(e)
     return Object.keys(e).length === 0
   }
+  // ---------------------------------------------------------------------
+
+  // เมื่อ errors เปลี่ยนและมีธง shouldScrollError ให้เลื่อนไปยังช่องแรกที่มี error
+  useEffect(() => {
+    if (!shouldScrollError) return
+    const keysOrder = [
+      "member_id","precode","regis_date",
+      "first_name","last_name","citizen_id",
+      "address","mhoo","sub_district","district","province","postal_code",
+      "phone_number","sex",
+      "salary","tgs_group","share_per_month","transfer_date","ar_limit","normal_share",
+      "last_bought_date","bank_account","tgs_id","spouce_name","orders_placed",
+      "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
+    ]
+    const firstKey = keysOrder.find((k) => k in errors)
+    if (firstKey) {
+      const el = refs[firstKey]?.current
+      if (el && typeof el.focus === "function") {
+        try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
+        el.focus()
+      }
+    }
+    setShouldScrollError(false)
+  }, [errors]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Preview เล็ก ๆ
   const landPreview = useMemo(() => {
@@ -317,7 +394,9 @@ const MemberSignup = () => {
 
   const handleSubmit = async (ev) => {
     ev.preventDefault()
-    if (!validateAll()) return
+    // ใช้ validate เดิม และ “สั่งเลื่อน” ผ่าน state (ไม่แก้ validate)
+    const ok = validateAll()
+    if (!ok) { setShouldScrollError(true); return }
     setSubmitting(true)
 
     const toISODate = (d) => (d ? new Date(d).toISOString() : null)
@@ -419,9 +498,8 @@ const MemberSignup = () => {
     })
   }
 
-  /** ---------- UI (ธีมเดียวกับ Order/Sales) ---------- */
+  /** ---------- UI (ธีม/สไตล์เหมือนหน้า Sales) ---------- */
   return (
-    // พื้นหลังหลัก: Light = ขาว, Dark = slate-900 + มุมมนใหญ่
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
         {/* หัวข้อ */}
@@ -439,13 +517,13 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขสมาชิก (member_id)</label>
               <input
+                ref={refs.member_id}
                 inputMode="numeric"
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.member_id ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.member_id ? fieldError : ""}`}
                 value={form.member_id}
                 onChange={(e) => update("member_id", onlyDigits(e.target.value))}
                 placeholder="เช่น 11263"
+                aria-invalid={errors.member_id ? true : undefined}
               />
               {errors.member_id && <p className="mt-1 text-sm text-red-500">{errors.member_id}</p>}
             </div>
@@ -454,13 +532,13 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คำนำหน้า (precode)</label>
               <input
+                ref={refs.precode}
                 inputMode="numeric"
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.precode ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.precode ? fieldError : ""}`}
                 value={form.precode}
                 onChange={(e) => update("precode", onlyDigits(e.target.value))}
                 placeholder="เช่น 1"
+                aria-invalid={errors.precode ? true : undefined}
               />
               {errors.precode && <p className="mt-1 text-sm text-red-500">{errors.precode}</p>}
             </div>
@@ -469,12 +547,12 @@ const MemberSignup = () => {
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่สมัคร (regis_date)</label>
               <input
+                ref={refs.regis_date}
                 type="date"
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.regis_date ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.regis_date ? fieldError : ""}`}
                 value={form.regis_date}
                 onChange={(e) => update("regis_date", e.target.value)}
+                aria-invalid={errors.regis_date ? true : undefined}
               />
               {errors.regis_date && <p className="mt-1 text-sm text-red-500">{errors.regis_date}</p>}
             </div>
@@ -483,12 +561,12 @@ const MemberSignup = () => {
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชื่อ</label>
               <input
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.first_name ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                ref={refs.first_name}
+                className={`${baseField} ${errors.first_name ? fieldError : ""}`}
                 value={form.first_name}
                 onChange={(e) => update("first_name", e.target.value)}
                 placeholder="สมชาย"
+                aria-invalid={errors.first_name ? true : undefined}
               />
               {errors.first_name && <p className="mt-1 text-sm text-red-500">{errors.first_name}</p>}
             </div>
@@ -497,12 +575,12 @@ const MemberSignup = () => {
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">นามสกุล</label>
               <input
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.last_name ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                ref={refs.last_name}
+                className={`${baseField} ${errors.last_name ? fieldError : ""}`}
                 value={form.last_name}
                 onChange={(e) => update("last_name", e.target.value)}
                 placeholder="ใจดี"
+                aria-invalid={errors.last_name ? true : undefined}
               />
               {errors.last_name && <p className="mt-1 text-sm text-red-500">{errors.last_name}</p>}
             </div>
@@ -511,31 +589,33 @@ const MemberSignup = () => {
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขบัตรประชาชน (13 หลัก)</label>
               <input
+                ref={refs.citizen_id}
                 inputMode="numeric"
                 maxLength={13}
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.citizen_id ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.citizen_id ? fieldError : ""}`}
                 value={form.citizen_id}
                 onChange={(e) => update("citizen_id", onlyDigits(e.target.value))}
                 placeholder="1234567890123"
+                aria-invalid={errors.citizen_id ? true : undefined}
               />
               {errors.citizen_id && <p className="mt-1 text-sm text-red-500">{errors.citizen_id}</p>}
             </div>
 
-            {/* เพศ: ใช้ ComboBox (สไตล์เดียวกับ Sales) */}
+            {/* เพศ */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เพศ (M/F)</label>
-              <ComboBox
-                options={[
-                  { value: "M", label: "ชาย (M)" },
-                  { value: "F", label: "หญิง (F)" },
-                ]}
-                value={form.sex}
-                onChange={(v) => update("sex", v)}
-                placeholder="— เลือก —"
-                error={!!errors.sex}
-              />
+              <div ref={refs.sex}>
+                <ComboBox
+                  options={[
+                    { value: "M", label: "ชาย (M)" },
+                    { value: "F", label: "หญิง (F)" },
+                  ]}
+                  value={form.sex}
+                  onChange={(v) => update("sex", v)}
+                  placeholder="— เลือก —"
+                  error={!!errors.sex}
+                />
+              </div>
               {errors.sex && <p className="mt-1 text-sm text-red-500">{errors.sex}</p>}
             </div>
 
@@ -543,12 +623,12 @@ const MemberSignup = () => {
             <div className="md:col-span-3">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ที่อยู่ (address)</label>
               <input
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.address ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                ref={refs.address}
+                className={`${baseField} ${errors.address ? fieldError : ""}`}
                 value={form.address}
                 onChange={(e) => update("address", e.target.value)}
                 placeholder="บ้านเลขที่ หมู่ ตำบล อำเภอ จังหวัด"
+                aria-invalid={errors.address ? true : undefined}
               />
               {errors.address && <p className="mt-1 text-sm text-red-500">{errors.address}</p>}
             </div>
@@ -557,7 +637,8 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">หมู่ (mhoo)</label>
               <input
-                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                ref={refs.mhoo}
+                className={baseField}
                 value={form.mhoo}
                 onChange={(e) => update("mhoo", e.target.value)}
                 placeholder="เช่น 1"
@@ -568,11 +649,11 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ตำบล (sub_district)</label>
               <input
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.sub_district ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                ref={refs.sub_district}
+                className={`${baseField} ${errors.sub_district ? fieldError : ""}`}
                 value={form.sub_district}
                 onChange={(e) => update("sub_district", e.target.value)}
+                aria-invalid={errors.sub_district ? true : undefined}
               />
               {errors.sub_district && <p className="mt-1 text-sm text-red-500">{errors.sub_district}</p>}
             </div>
@@ -581,11 +662,11 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">อำเภอ (district)</label>
               <input
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.district ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                ref={refs.district}
+                className={`${baseField} ${errors.district ? fieldError : ""}`}
                 value={form.district}
                 onChange={(e) => update("district", e.target.value)}
+                aria-invalid={errors.district ? true : undefined}
               />
               {errors.district && <p className="mt-1 text-sm text-red-500">{errors.district}</p>}
             </div>
@@ -594,11 +675,11 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">จังหวัด (province)</label>
               <input
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.province ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                ref={refs.province}
+                className={`${baseField} ${errors.province ? fieldError : ""}`}
                 value={form.province}
                 onChange={(e) => update("province", e.target.value)}
+                aria-invalid={errors.province ? true : undefined}
               />
               {errors.province && <p className="mt-1 text-sm text-red-500">{errors.province}</p>}
             </div>
@@ -607,8 +688,9 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text_sm text-slate-700 dark:text-slate-300">อำเภอย่อย/รหัสอำเภอ (subprov)</label>
               <input
+                ref={refs.subprov}
                 inputMode="numeric"
-                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                className={baseField}
                 value={form.subprov}
                 onChange={(e) => update("subprov", onlyDigits(e.target.value))}
                 placeholder="เช่น 501"
@@ -619,13 +701,13 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รหัสไปรษณีย์</label>
               <input
+                ref={refs.postal_code}
                 inputMode="numeric"
                 maxLength={5}
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.postal_code ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.postal_code ? fieldError : ""}`}
                 value={form.postal_code}
                 onChange={(e) => update("postal_code", onlyDigits(e.target.value))}
+                aria-invalid={errors.postal_code ? true : undefined}
               />
               {errors.postal_code && <p className="mt-1 text-sm text-red-500">{errors.postal_code}</p>}
             </div>
@@ -634,13 +716,13 @@ const MemberSignup = () => {
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">โทรศัพท์ (phone_number)</label>
               <input
+                ref={refs.phone_number}
                 inputMode="tel"
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.phone_number ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.phone_number ? fieldError : ""}`}
                 value={form.phone_number}
                 onChange={(e) => update("phone_number", e.target.value)}
                 placeholder="08x-xxx-xxxx"
+                aria-invalid={errors.phone_number ? true : undefined}
               />
               {errors.phone_number && <p className="mt-1 text-sm text-red-500">{errors.phone_number}</p>}
             </div>
@@ -649,13 +731,13 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เงินเดือน (salary)</label>
               <input
+                ref={refs.salary}
                 inputMode="decimal"
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.salary ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.salary ? fieldError : ""}`}
                 value={form.salary}
                 onChange={(e) => update("salary", e.target.value.replace(/[^\d.]/g, ""))}
                 placeholder="15000"
+                aria-invalid={errors.salary ? true : undefined}
               />
               {errors.salary && <p className="mt-1 text-sm text-red-500">{errors.salary}</p>}
             </div>
@@ -664,13 +746,13 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">กลุ่ม (tgs_group)</label>
               <input
+                ref={refs.tgs_group}
                 inputMode="numeric"
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.tgs_group ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.tgs_group ? fieldError : ""}`}
                 value={form.tgs_group}
                 onChange={(e) => update("tgs_group", onlyDigits(e.target.value))}
                 placeholder="16"
+                aria-invalid={errors.tgs_group ? true : undefined}
               />
               {errors.tgs_group && <p className="mt-1 text-sm text-red-500">{errors.tgs_group}</p>}
             </div>
@@ -679,13 +761,13 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ส่งหุ้น/เดือน (share_per_month)</label>
               <input
+                ref={refs.share_per_month}
                 inputMode="decimal"
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.share_per_month ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.share_per_month ? fieldError : ""}`}
                 value={form.share_per_month}
                 onChange={(e) => update("share_per_month", e.target.value.replace(/[^\d.]/g, ""))}
                 placeholder="500"
+                aria-invalid={errors.share_per_month ? true : undefined}
               />
               {errors.share_per_month && <p className="mt-1 text-sm text-red-500">{errors.share_per_month}</p>}
             </div>
@@ -694,13 +776,13 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วงเงินสินเชื่อ (ar_limit)</label>
               <input
+                ref={refs.ar_limit}
                 inputMode="numeric"
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.ar_limit ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.ar_limit ? fieldError : ""}`}
                 value={form.ar_limit}
                 onChange={(e) => update("ar_limit", onlyDigits(e.target.value))}
                 placeholder="100000"
+                aria-invalid={errors.ar_limit ? true : undefined}
               />
               {errors.ar_limit && <p className="mt-1 text-sm text-red-500">{errors.ar_limit}</p>}
             </div>
@@ -709,13 +791,13 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">หุ้นปกติ (normal_share)</label>
               <input
+                ref={refs.normal_share}
                 inputMode="decimal"
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.normal_share ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.normal_share ? fieldError : ""}`}
                 value={form.normal_share}
                 onChange={(e) => update("normal_share", e.target.value.replace(/[^\d.]/g, ""))}
                 placeholder="214"
+                aria-invalid={errors.normal_share ? true : undefined}
               />
               {errors.normal_share && <p className="mt-1 text-sm text-red-500">{errors.normal_share}</p>}
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{landPreview}</p>
@@ -725,12 +807,12 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่ซื้อครั้งล่าสุด (last_bought_date)</label>
               <input
+                ref={refs.last_bought_date}
                 type="date"
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.last_bought_date ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.last_bought_date ? fieldError : ""}`}
                 value={form.last_bought_date}
                 onChange={(e) => update("last_bought_date", e.target.value)}
+                aria-invalid={errors.last_bought_date ? true : undefined}
               />
               {errors.last_bought_date && <p className="mt-1 text-sm text-red-500">{errors.last_bought_date}</p>}
             </div>
@@ -741,8 +823,9 @@ const MemberSignup = () => {
                 วันที่โอน (transfer_date - ไม่ระบุก็ได้)
               </label>
               <input
+                ref={refs.transfer_date}
                 type="date"
-                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                className={baseField}
                 value={form.transfer_date}
                 onChange={(e) => update("transfer_date", e.target.value)}
               />
@@ -752,7 +835,8 @@ const MemberSignup = () => {
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">บัญชีธนาคาร (bank_account)</label>
               <input
-                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                ref={refs.bank_account}
+                className={baseField}
                 value={form.bank_account}
                 onChange={(e) => update("bank_account", e.target.value)}
                 placeholder="014-1-23456-7"
@@ -763,7 +847,8 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รหัสสมาชิกในระบบ (tgs_id)</label>
               <input
-                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                ref={refs.tgs_id}
+                className={baseField}
                 value={form.tgs_id}
                 onChange={(e) => update("tgs_id", e.target.value)}
                 placeholder="TGS-001"
@@ -774,7 +859,8 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชื่อคู่สมรส (spouce_name)</label>
               <input
-                className="w-full rounded-xl border border-slate-300 p-2 outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                ref={refs.spouce_name}
+                className={baseField}
                 value={form.spouce_name}
                 onChange={(e) => update("spouce_name", e.target.value)}
               />
@@ -784,13 +870,13 @@ const MemberSignup = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">จำนวนครั้งที่ซื้อ (orders_placed)</label>
               <input
+                ref={refs.orders_placed}
                 inputMode="numeric"
-                className={`w-full rounded-xl border p-2 outline-none placeholder:text-slate-400 transition ${
-                  errors.orders_placed ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                className={`${baseField} ${errors.orders_placed ? fieldError : ""}`}
                 value={form.orders_placed}
                 onChange={(e) => update("orders_placed", onlyDigits(e.target.value))}
                 placeholder="เช่น 4"
+                aria-invalid={errors.orders_placed ? true : undefined}
               />
               {errors.orders_placed && <p className="mt-1 text-sm text-red-500">{errors.orders_placed}</p>}
             </div>
@@ -818,37 +904,37 @@ const MemberSignup = () => {
                     <td className="px-3 py-2">{label}</td>
                     <td className="px-3 py-2">
                       <input
+                        ref={refs[`${key}_rai`]}
                         inputMode="numeric"
-                        className={`w-full rounded-xl border p-2 text-center outline-none placeholder:text-slate-400 transition ${
-                          errors[`${key}_rai`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                        } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                        className={`${baseField} text-center ${errors[`${key}_rai`] ? fieldError : ""}`}
                         value={form[`${key}_rai`]}
                         onChange={(e)=>update(`${key}_rai`, onlyDigits(e.target.value))}
                         placeholder="0"
+                        aria-invalid={errors[`${key}_rai`] ? true : undefined}
                       />
                       {errors[`${key}_rai`] && <p className="mt-1 text-xs text-red-500">{errors[`${key}_rai`]}</p>}
                     </td>
                     <td className="px-3 py-2">
                       <input
+                        ref={refs[`${key}_ngan`]}
                         inputMode="numeric"
-                        className={`w-full rounded-xl border p-2 text-center outline-none placeholder:text-slate-400 transition ${
-                          errors[`${key}_ngan`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                        } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                        className={`${baseField} text-center ${errors[`${key}_ngan`] ? fieldError : ""}`}
                         value={form[`${key}_ngan`]}
                         onChange={(e)=>update(`${key}_ngan`, String(clampNgan(e.target.value)))}
                         placeholder="0–3"
+                        aria-invalid={errors[`${key}_ngan`] ? true : undefined}
                       />
                       {errors[`${key}_ngan`] && <p className="mt-1 text-xs text-red-500">{errors[`${key}_ngan`]}</p>}
                     </td>
                     <td className="px-3 py-2">
                       <input
+                        ref={refs[`${key}_wa`]}
                         inputMode="numeric"
-                        className={`w-full rounded-xl border p-2 text-center outline-none placeholder:text-slate-400 transition ${
-                          errors[`${key}_wa`] ? "border-red-400" : "border-slate-300 focus:border-emerald-500"
-                        } dark:border-slate-600 dark:bg-slate-700 dark:text-white`}
+                        className={`${baseField} text-center ${errors[`${key}_wa`] ? fieldError : ""}`}
                         value={form[`${key}_wa`]}
                         onChange={(e)=>update(`${key}_wa`, String(clampWa(e.target.value)))}
                         placeholder="0–99"
+                        aria-invalid={errors[`${key}_wa`] ? true : undefined}
                       />
                       {errors[`${key}_wa`] && <p className="mt-1 text-xs text-red-500">{errors[`${key}_wa`]}</p>}
                     </td>

@@ -1029,7 +1029,7 @@ const Sales = () => {
           <h2 className="mb-3 text-lg font-semibold">รายละเอียดการซื้อ</h2>
 
           <div className="grid gap-4 md:grid-cols-3">
-                      {/* ชนิดข้าว */}
+            {/* ชนิดข้าว */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชนิดข้าวเปลือก</label>
               <ComboBox
@@ -1057,11 +1057,17 @@ const Sales = () => {
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
               <ComboBox
                 options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
-                value={order.branchName}
-                getValue={(o) => o.label}
+                value={order.branchId}
+                getValue={(o) => o.id}
                 onChange={(_val, found) => {
-                  setOrder((p) => ({ ...p, branchName: found?.label ?? "", branchId: found?.id ?? null, klangName: "", klangId: null }))
-                }}
+                  setOrder((p) => ({
+                      ...p,
+                      branchId: found?.id ?? null,    
+                      branchName: found?.label ?? "",
+                      klangName: "",
+                      klangId: null,
+                    }))
+                  }}
                 placeholder="— เลือกสาขา —"
                 error={!!errors.branchName}
                 hintRed={!!missingHints.branchName}
@@ -1076,13 +1082,17 @@ const Sales = () => {
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
               <ComboBox
                 options={klangOptions.map((k) => ({ id: k.id, label: k.klang_name }))}
-                value={order.klangName}
-                getValue={(o) => o.label}
+                value={order.klangId}
+                getValue={(o) => o.id}
                 onChange={(_val, found) => {
-                  setOrder((p) => ({ ...p, klangName: found?.label ?? "", klangId: found?.id ?? null }))
+                  setOrder((p) => ({
+                    ...p,
+                    klangId: found?.id ?? null,     
+                    klangName: found?.label ?? "",
+                  }))
                 }}
                 placeholder="— เลือกคลัง —"
-                disabled={!order.branchName && order.branchId == null}
+                disabled={!order.branchId}  
                 error={!!errors.klangName}
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}

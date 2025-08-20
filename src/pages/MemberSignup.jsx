@@ -205,21 +205,19 @@ function ComboBox({
   )
 }
 
-/** ---------- เพิ่ม “สไตล์อินพุต” + ระบบเลื่อนหา error (ไม่แตะ validate เดิม) ---------- */
+/** ---------- สไตล์อินพุต + ระบบเลื่อนหา error (ไม่แตะ validate เดิม) ---------- */
 const baseField =
   "w-full rounded-xl border p-2 outline-none transition " +
   // Light
   "bg-gradient-to-b from-white to-slate-50 " +
-  "shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] " +
-  "focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.12)] " +
   "focus:ring-2 focus:ring-emerald-500/60 " +
   "placeholder:text-slate-400 " +
   "border-slate-300 focus:border-emerald-500 " +
   // Dark
   "dark:bg-gradient-to-b dark:from-slate-700 dark:to-slate-700 " +
   "dark:text-white dark:border-slate-700 dark:placeholder:text-slate-400 " +
-  "dark:focus:ring-emerald-400/60 dark:focus:border-emerald-400 " +
-  "dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),_inset_0_-1px_2px_rgba(0,0,0,0.5)]"
+  "dark:focus:ring-emerald-400/60 dark:focus:border-emerald-400"
+// (ตัด shadow inner ออกให้ไม่เกิดกรอบซ้อน)
 
 const fieldError = "border-red-400 ring-2 ring-red-300 focus:ring-red-300 focus:border-red-400"
 const fieldDisabled = "bg-slate-100 dark:bg-slate-800/70 dark:text-slate-300 cursor-not-allowed opacity-90"
@@ -303,6 +301,14 @@ const MemberSignup = () => {
   }
 
   const update = (k, v) => setForm((prev) => ({ ...prev, [k]: v }))
+
+  // ล้าง error รายช่องเมื่อผู้ใช้แก้/โฟกัส
+  const clearError = (key) =>
+    setErrors((prev) => {
+      if (!(key in prev)) return prev
+      const { [key]: _omit, ...rest } = prev
+      return rest
+    })
 
   // -------------------- validate เดิม (ไม่แก้ logic) --------------------
   const validateAll = () => {
@@ -394,7 +400,6 @@ const MemberSignup = () => {
 
   const handleSubmit = async (ev) => {
     ev.preventDefault()
-    // ใช้ validate เดิม และ “สั่งเลื่อน” ผ่าน state (ไม่แก้ validate)
     const ok = validateAll()
     if (!ok) { setShouldScrollError(true); return }
     setSubmitting(true)
@@ -521,7 +526,8 @@ const MemberSignup = () => {
                 inputMode="numeric"
                 className={`${baseField} ${errors.member_id ? fieldError : ""}`}
                 value={form.member_id}
-                onChange={(e) => update("member_id", onlyDigits(e.target.value))}
+                onChange={(e) => { clearError("member_id"); update("member_id", onlyDigits(e.target.value)) }}
+                onFocus={() => clearError("member_id")}
                 placeholder="เช่น 11263"
                 aria-invalid={errors.member_id ? true : undefined}
               />
@@ -536,7 +542,8 @@ const MemberSignup = () => {
                 inputMode="numeric"
                 className={`${baseField} ${errors.precode ? fieldError : ""}`}
                 value={form.precode}
-                onChange={(e) => update("precode", onlyDigits(e.target.value))}
+                onChange={(e) => { clearError("precode"); update("precode", onlyDigits(e.target.value)) }}
+                onFocus={() => clearError("precode")}
                 placeholder="เช่น 1"
                 aria-invalid={errors.precode ? true : undefined}
               />
@@ -551,7 +558,8 @@ const MemberSignup = () => {
                 type="date"
                 className={`${baseField} ${errors.regis_date ? fieldError : ""}`}
                 value={form.regis_date}
-                onChange={(e) => update("regis_date", e.target.value)}
+                onChange={(e) => { clearError("regis_date"); update("regis_date", e.target.value) }}
+                onFocus={() => clearError("regis_date")}
                 aria-invalid={errors.regis_date ? true : undefined}
               />
               {errors.regis_date && <p className="mt-1 text-sm text-red-500">{errors.regis_date}</p>}
@@ -564,7 +572,8 @@ const MemberSignup = () => {
                 ref={refs.first_name}
                 className={`${baseField} ${errors.first_name ? fieldError : ""}`}
                 value={form.first_name}
-                onChange={(e) => update("first_name", e.target.value)}
+                onChange={(e) => { clearError("first_name"); update("first_name", e.target.value) }}
+                onFocus={() => clearError("first_name")}
                 placeholder="สมชาย"
                 aria-invalid={errors.first_name ? true : undefined}
               />
@@ -578,7 +587,8 @@ const MemberSignup = () => {
                 ref={refs.last_name}
                 className={`${baseField} ${errors.last_name ? fieldError : ""}`}
                 value={form.last_name}
-                onChange={(e) => update("last_name", e.target.value)}
+                onChange={(e) => { clearError("last_name"); update("last_name", e.target.value) }}
+                onFocus={() => clearError("last_name")}
                 placeholder="ใจดี"
                 aria-invalid={errors.last_name ? true : undefined}
               />
@@ -594,7 +604,8 @@ const MemberSignup = () => {
                 maxLength={13}
                 className={`${baseField} ${errors.citizen_id ? fieldError : ""}`}
                 value={form.citizen_id}
-                onChange={(e) => update("citizen_id", onlyDigits(e.target.value))}
+                onChange={(e) => { clearError("citizen_id"); update("citizen_id", onlyDigits(e.target.value)) }}
+                onFocus={() => clearError("citizen_id")}
                 placeholder="1234567890123"
                 aria-invalid={errors.citizen_id ? true : undefined}
               />
@@ -611,7 +622,7 @@ const MemberSignup = () => {
                     { value: "F", label: "หญิง (F)" },
                   ]}
                   value={form.sex}
-                  onChange={(v) => update("sex", v)}
+                  onChange={(v) => { clearError("sex"); update("sex", v) }}
                   placeholder="— เลือก —"
                   error={!!errors.sex}
                 />
@@ -626,7 +637,8 @@ const MemberSignup = () => {
                 ref={refs.address}
                 className={`${baseField} ${errors.address ? fieldError : ""}`}
                 value={form.address}
-                onChange={(e) => update("address", e.target.value)}
+                onChange={(e) => { clearError("address"); update("address", e.target.value) }}
+                onFocus={() => clearError("address")}
                 placeholder="บ้านเลขที่ หมู่ ตำบล อำเภอ จังหวัด"
                 aria-invalid={errors.address ? true : undefined}
               />
@@ -652,7 +664,8 @@ const MemberSignup = () => {
                 ref={refs.sub_district}
                 className={`${baseField} ${errors.sub_district ? fieldError : ""}`}
                 value={form.sub_district}
-                onChange={(e) => update("sub_district", e.target.value)}
+                onChange={(e) => { clearError("sub_district"); update("sub_district", e.target.value) }}
+                onFocus={() => clearError("sub_district")}
                 aria-invalid={errors.sub_district ? true : undefined}
               />
               {errors.sub_district && <p className="mt-1 text-sm text-red-500">{errors.sub_district}</p>}
@@ -665,7 +678,8 @@ const MemberSignup = () => {
                 ref={refs.district}
                 className={`${baseField} ${errors.district ? fieldError : ""}`}
                 value={form.district}
-                onChange={(e) => update("district", e.target.value)}
+                onChange={(e) => { clearError("district"); update("district", e.target.value) }}
+                onFocus={() => clearError("district")}
                 aria-invalid={errors.district ? true : undefined}
               />
               {errors.district && <p className="mt-1 text-sm text-red-500">{errors.district}</p>}
@@ -678,7 +692,8 @@ const MemberSignup = () => {
                 ref={refs.province}
                 className={`${baseField} ${errors.province ? fieldError : ""}`}
                 value={form.province}
-                onChange={(e) => update("province", e.target.value)}
+                onChange={(e) => { clearError("province"); update("province", e.target.value) }}
+                onFocus={() => clearError("province")}
                 aria-invalid={errors.province ? true : undefined}
               />
               {errors.province && <p className="mt-1 text-sm text-red-500">{errors.province}</p>}
@@ -706,7 +721,8 @@ const MemberSignup = () => {
                 maxLength={5}
                 className={`${baseField} ${errors.postal_code ? fieldError : ""}`}
                 value={form.postal_code}
-                onChange={(e) => update("postal_code", onlyDigits(e.target.value))}
+                onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value)) }}
+                onFocus={() => clearError("postal_code")}
                 aria-invalid={errors.postal_code ? true : undefined}
               />
               {errors.postal_code && <p className="mt-1 text-sm text-red-500">{errors.postal_code}</p>}
@@ -720,7 +736,8 @@ const MemberSignup = () => {
                 inputMode="tel"
                 className={`${baseField} ${errors.phone_number ? fieldError : ""}`}
                 value={form.phone_number}
-                onChange={(e) => update("phone_number", e.target.value)}
+                onChange={(e) => { clearError("phone_number"); update("phone_number", e.target.value) }}
+                onFocus={() => clearError("phone_number")}
                 placeholder="08x-xxx-xxxx"
                 aria-invalid={errors.phone_number ? true : undefined}
               />
@@ -735,7 +752,8 @@ const MemberSignup = () => {
                 inputMode="decimal"
                 className={`${baseField} ${errors.salary ? fieldError : ""}`}
                 value={form.salary}
-                onChange={(e) => update("salary", e.target.value.replace(/[^\d.]/g, ""))}
+                onChange={(e) => { clearError("salary"); update("salary", e.target.value.replace(/[^\d.]/g, "")) }}
+                onFocus={() => clearError("salary")}
                 placeholder="15000"
                 aria-invalid={errors.salary ? true : undefined}
               />
@@ -750,7 +768,8 @@ const MemberSignup = () => {
                 inputMode="numeric"
                 className={`${baseField} ${errors.tgs_group ? fieldError : ""}`}
                 value={form.tgs_group}
-                onChange={(e) => update("tgs_group", onlyDigits(e.target.value))}
+                onChange={(e) => { clearError("tgs_group"); update("tgs_group", onlyDigits(e.target.value)) }}
+                onFocus={() => clearError("tgs_group")}
                 placeholder="16"
                 aria-invalid={errors.tgs_group ? true : undefined}
               />
@@ -765,7 +784,8 @@ const MemberSignup = () => {
                 inputMode="decimal"
                 className={`${baseField} ${errors.share_per_month ? fieldError : ""}`}
                 value={form.share_per_month}
-                onChange={(e) => update("share_per_month", e.target.value.replace(/[^\d.]/g, ""))}
+                onChange={(e) => { clearError("share_per_month"); update("share_per_month", e.target.value.replace(/[^\d.]/g, "")) }}
+                onFocus={() => clearError("share_per_month")}
                 placeholder="500"
                 aria-invalid={errors.share_per_month ? true : undefined}
               />
@@ -780,7 +800,8 @@ const MemberSignup = () => {
                 inputMode="numeric"
                 className={`${baseField} ${errors.ar_limit ? fieldError : ""}`}
                 value={form.ar_limit}
-                onChange={(e) => update("ar_limit", onlyDigits(e.target.value))}
+                onChange={(e) => { clearError("ar_limit"); update("ar_limit", onlyDigits(e.target.value)) }}
+                onFocus={() => clearError("ar_limit")}
                 placeholder="100000"
                 aria-invalid={errors.ar_limit ? true : undefined}
               />
@@ -795,7 +816,8 @@ const MemberSignup = () => {
                 inputMode="decimal"
                 className={`${baseField} ${errors.normal_share ? fieldError : ""}`}
                 value={form.normal_share}
-                onChange={(e) => update("normal_share", e.target.value.replace(/[^\d.]/g, ""))}
+                onChange={(e) => { clearError("normal_share"); update("normal_share", e.target.value.replace(/[^\d.]/g, "")) }}
+                onFocus={() => clearError("normal_share")}
                 placeholder="214"
                 aria-invalid={errors.normal_share ? true : undefined}
               />
@@ -811,7 +833,8 @@ const MemberSignup = () => {
                 type="date"
                 className={`${baseField} ${errors.last_bought_date ? fieldError : ""}`}
                 value={form.last_bought_date}
-                onChange={(e) => update("last_bought_date", e.target.value)}
+                onChange={(e) => { clearError("last_bought_date"); update("last_bought_date", e.target.value) }}
+                onFocus={() => clearError("last_bought_date")}
                 aria-invalid={errors.last_bought_date ? true : undefined}
               />
               {errors.last_bought_date && <p className="mt-1 text-sm text-red-500">{errors.last_bought_date}</p>}
@@ -874,7 +897,8 @@ const MemberSignup = () => {
                 inputMode="numeric"
                 className={`${baseField} ${errors.orders_placed ? fieldError : ""}`}
                 value={form.orders_placed}
-                onChange={(e) => update("orders_placed", onlyDigits(e.target.value))}
+                onChange={(e) => { clearError("orders_placed"); update("orders_placed", onlyDigits(e.target.value)) }}
+                onFocus={() => clearError("orders_placed")}
                 placeholder="เช่น 4"
                 aria-invalid={errors.orders_placed ? true : undefined}
               />
@@ -908,7 +932,8 @@ const MemberSignup = () => {
                         inputMode="numeric"
                         className={`${baseField} text-center ${errors[`${key}_rai`] ? fieldError : ""}`}
                         value={form[`${key}_rai`]}
-                        onChange={(e)=>update(`${key}_rai`, onlyDigits(e.target.value))}
+                        onChange={(e)=>{ clearError(`${key}_rai`); update(`${key}_rai`, onlyDigits(e.target.value)) }}
+                        onFocus={() => clearError(`${key}_rai`)}
                         placeholder="0"
                         aria-invalid={errors[`${key}_rai`] ? true : undefined}
                       />
@@ -920,7 +945,8 @@ const MemberSignup = () => {
                         inputMode="numeric"
                         className={`${baseField} text-center ${errors[`${key}_ngan`] ? fieldError : ""}`}
                         value={form[`${key}_ngan`]}
-                        onChange={(e)=>update(`${key}_ngan`, String(clampNgan(e.target.value)))}
+                        onChange={(e)=>{ clearError(`${key}_ngan`); update(`${key}_ngan`, String(clampNgan(e.target.value))) }}
+                        onFocus={() => clearError(`${key}_ngan`)}
                         placeholder="0–3"
                         aria-invalid={errors[`${key}_ngan`] ? true : undefined}
                       />
@@ -932,7 +958,8 @@ const MemberSignup = () => {
                         inputMode="numeric"
                         className={`${baseField} text-center ${errors[`${key}_wa`] ? fieldError : ""}`}
                         value={form[`${key}_wa`]}
-                        onChange={(e)=>update(`${key}_wa`, String(clampWa(e.target.value)))}
+                        onChange={(e)=>{ clearError(`${key}_wa`); update(`${key}_wa`, String(clampWa(e.target.value))) }}
+                        onFocus={() => clearError(`${key}_wa`)}
                         placeholder="0–99"
                         aria-invalid={errors[`${key}_wa`] ? true : undefined}
                       />

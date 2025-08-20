@@ -57,8 +57,8 @@ const baseField =
   // Dark
   "dark:bg-gradient-to-b dark:from-slate-700 dark:to-slate-700 " +
   "dark:text-white dark:border-slate-700 dark:placeholder:text-slate-400 " +
-  "dark:focus:ring-emerald-400/60 dark:focus:border-emerald-400"+
-  "dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),_inset_0_-1px_2px_rgba(0,0,0,0.5)]"  
+  "dark:focus:ring-emerald-400/60 dark:focus:border-emerald-400 " +
+  "dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),_inset_0_-1px_2px_rgba(0,0,0,0.5)]"
 
 /** ช่อง disabled */
 const fieldDisabled =
@@ -246,13 +246,14 @@ const Sales = () => {
   const suppressNameSearchRef = useRef(false)
 
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const listContainerRef = useRef(null)   // <-- ประกาศตรงนี้ “ครั้งเดียว”
-  const itemRefs = useRef([])             // <-- ประกาศตรงนี้ “ครั้งเดียว”
+  const listContainerRef = useRef(null)
+  const itemRefs = useRef([])
 
   /** dropdown opts */
   const [riceOptions, setRiceOptions] = useState([])
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
+  const [fieldTypeOptions, setFieldTypeOptions] = useState([]) // <<<< ใหม่: ประเภทนา
 
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
@@ -291,6 +292,10 @@ const Sales = () => {
     klangName: "",
     klangId: null,
     registeredPlace: "",
+    // >>> ฟิลด์ใหม่
+    gram: "",        // คุณภาพข้าว
+    season: "",      // ปี
+    fieldType: "",   // นา (string)
   })
 
   /** ---------- Refs ---------- */
@@ -314,6 +319,9 @@ const Sales = () => {
     amountTHB: useRef(null),
     paymentRefNo: useRef(null),
     issueDate: useRef(null),
+    gram: useRef(null),
+    season: useRef(null),
+    fieldType: useRef(null),
   }
 
   /** debounce */
@@ -329,46 +337,86 @@ const Sales = () => {
     }
   }
 
+  /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอที่ใช้ได้ */
+  const fetchFirstOkJson = async (paths = []) => {
+    for (const p of paths) {
+      try {
+        const r = await fetch(`${API_BASE}${p}`, { headers: authHeader() })
+        if (r.ok) {
+          const data = await r.json()
+          if (Array.isArray(data)) return data
+        }
+      } catch (_) {}
+    }
+    return []
+  }
+
   /** โหลด dropdown */
-  // ใหม่ (ทนพัง, ไม่ลากอีกตัวล้มด้วย)
-    useEffect(() => {
-      const loadDD = async () => {
-        try {
-          const [riceRes, branchRes] = await Promise.allSettled([
-            fetch(`${API_BASE}/order/rice/search`,   { headers: authHeader() }),
-            fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
-          ])
+  useEffect(() => {
+    const loadDD = async () => {
+      try {
+        const [riceRes, branchRes] = await Promise.allSettled([
+          fetch(`${API_BASE}/order/rice/search`,   { headers: authHeader() }),
+          fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
+        ])
 
-          // rice
-          if (riceRes.status === "fulfilled" && riceRes.value.ok) {
-            const riceRaw = await riceRes.value.json()
-            const rice = (riceRaw || []).map((x) => ({
-              id: String(x.id ?? x.rice_id ?? x.riceId ?? ""),
-              label: x.rice_type ?? x.rice_name ?? x.name ?? "",
-              // ไม่มีราคาแล้วก็เว้นไว้
-            }))
-            setRiceOptions(rice)
-          } else {
-            console.error("rice/search failed:", riceRes)
-            setRiceOptions([]) // เคลียร์ให้แน่ใจ
-          }
-
-          // branch
-          if (branchRes.status === "fulfilled" && branchRes.value.ok) {
-            const branch = await branchRes.value.json()
-            setBranchOptions(branch || [])
-          } else {
-            console.error("branch/search failed:", branchRes)
-            setBranchOptions([])
-          }
-        } catch (err) {
-          console.error("loadDD fatal:", err)
+        // rice
+        if (riceRes.status === "fulfilled" && riceRes.value.ok) {
+          const riceRaw = await riceRes.value.json()
+          const rice = (riceRaw || []).map((x) => ({
+            id: String(x.id ?? x.rice_id ?? x.riceId ?? ""),
+            label: x.rice_type ?? x.rice_name ?? x.name ?? "",
+          }))
+          setRiceOptions(rice)
+        } else {
+          console.error("rice/search failed:", riceRes)
           setRiceOptions([])
+        }
+
+        // branch
+        if (branchRes.status === "fulfilled" && branchRes.value.ok) {
+          const branch = await branchRes.value.json()
+          setBranchOptions(branch || [])
+        } else {
+          console.error("branch/search failed:", branchRes)
           setBranchOptions([])
         }
+
+        // field types (ลองหลายรูปแบบ endpoint + field ชื่อแตกต่าง)
+        const ftRaw = await fetchFirstOkJson([
+          "/order/field-type/list",
+          "/order/field_type/list",
+          "/order/field-types",
+          "/order/field_type/search",
+          "/order/fieldtype/search",
+          "/order/fieldtype/list",
+          "/order/fieldTypes",
+          "/order/field_types",
+        ])
+        const ftMapped = (ftRaw || []).map((x, i) => {
+          const id =
+            x.id ??
+            x.field_type_id ??
+            x.value ??
+            i // ให้มี id เสมอ (fallback index)
+          const label =
+            x.field_type ??
+            x.name ??
+            x.label ??
+            (typeof x === "string" ? x : "")
+          return { id: String(id), label: String(label).trim() }
+        }).filter((o) => o.label)
+        setFieldTypeOptions(ftMapped)
+      } catch (err) {
+        console.error("loadDD fatal:", err)
+        setRiceOptions([])
+        setBranchOptions([])
+        setFieldTypeOptions([])
       }
-      loadDD()
-    }, [])
+    }
+    loadDD()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
 
   /** โหลดคลังตามสาขา */
@@ -458,6 +506,7 @@ const Sales = () => {
       }
     }
     fetchByCid()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedCitizenId])
 
   /** ค้นหาด้วยชื่อ */
@@ -514,6 +563,7 @@ const Sales = () => {
       }
     }
     searchByName()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedFullName])
 
   /** ปิด dropdown เมื่อคลิกนอกกล่อง */
@@ -657,6 +707,8 @@ const Sales = () => {
     if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0)) m.deductWeightKg = true
     if (!order.amountTHB || Number(order.amountTHB) < 0) m.amountTHB = true
     if (!order.issueDate) m.issueDate = true
+    // fieldType ไม่บังคับ แต่ถ้าต้องการบังคับให้ uncomment บรรทัดต่อไป
+    // if (!order.fieldType) m.fieldType = true
     return m
   }
 
@@ -685,7 +737,8 @@ const Sales = () => {
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
     if (!order.amountTHB || Number(order.amountTHB) < 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
-
+    // ถ้าจะบังคับ fieldType:
+    // if (!order.fieldType) e.fieldType = "เลือกประเภทนา"
     setErrors(e)
     return e
   }
@@ -701,6 +754,7 @@ const Sales = () => {
       "deductWeightKg",
       "amountTHB",
       "issueDate",
+      // "fieldType", // ถ้าบังคับให้เลือก
     ]
     const firstKey = orderKeys.find((k) => k in eObj)
     if (!firstKey) return
@@ -800,14 +854,19 @@ const Sales = () => {
         klang_location: klangId,
         humidity: Number(order.moisturePct || 0),
         weight: netW > 0 ? netW : 0,
-        price: Number(order.amountTHB),
+        price: Number(order.amountTHB),                // เป็นเงิน (ไว้โชว์หน้า Order)
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim(),
         date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
+        // >>> ฟิลด์ใหม่
+        gram: Number(order.gram || 0),
+        season: Number(order.season || 0),
+        field_type: (order.fieldType || "").trim(),    // ส่งเป็น string
+        price_per_kilo: Number(order.unitPrice || 0),  // สำหรับหลังบ้านคำนวณ/เก็บ
       },
-      rice: { rice_type: order.riceType, id: riceId },
+      rice:   { rice_type: order.riceType, id: riceId },
       branch: { branch_name: order.branchName, id: branchId },
-      klang: { klang_name: order.klangName, id: klangId },
+      klang:  { klang_name: order.klangName,  id: klangId },
       customerMeta: {
         type: memberMeta.type === "unknown" ? "guest" : memberMeta.type,
         memberId: memberMeta.memberId,
@@ -869,6 +928,9 @@ const Sales = () => {
       klangName: "",
       klangId: null,
       registeredPlace: "",
+      gram: "",
+      season: "",
+      fieldType: "",
     })
   }
 
@@ -962,7 +1024,7 @@ const Sales = () => {
                     "shadow-[inset_0_1px_2px_rgba(0,0,0,0.06),_0_10px_24px_rgba(0,0,0,0.08)] " +
                     "border-slate-200 " +
                     "dark:from-slate-800 dark:to-slate-900 dark:text-white dark:border-slate-700 " +
-                    "dark:shadow-[inset_0_1px_0_rgба(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55),_0_12px_28px_rgba(0,0,0,0.55)]"
+                    "dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55),_0_12px_28px_rgba(0,0,0,0.55)]"
                   }
                   role="listbox"
                 >
@@ -1074,7 +1136,7 @@ const Sales = () => {
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
               <ComboBox
                 options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
-                value={order.branchId}           // ใช้ id
+                value={order.branchId}
                 getValue={(o) => o.id}
                 onChange={(_val, found) => {
                   setOrder((p) => ({
@@ -1099,7 +1161,7 @@ const Sales = () => {
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
               <ComboBox
                 options={klangOptions.map((k) => ({ id: k.id, label: k.klang_name }))}
-                value={order.klangId}           // ใช้ id
+                value={order.klangId}
                 getValue={(o) => o.id}
                 onChange={(_val, found) => {
                   setOrder((p) => ({
@@ -1209,6 +1271,55 @@ const Sales = () => {
               />
             </div>
 
+            {/* --- ฟิลด์ใหม่: gram/season/field_type --- */}
+            <div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คุณภาพข้าว (gram)</label>
+              <input
+                ref={refs.gram}
+                inputMode="numeric"
+                className={baseField}
+                value={order.gram}
+                onChange={(e) => updateOrder("gram", onlyDigits(e.target.value))}
+                placeholder="เช่น 85"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ฤดูกาล/ปี (season)</label>
+              <input
+                ref={refs.season}
+                inputMode="numeric"
+                className={baseField}
+                value={order.season}
+                onChange={(e) => updateOrder("season", onlyDigits(e.target.value))}
+                placeholder="เช่น 2025"
+              />
+            </div>
+
+            {/* เปลี่ยนเป็น ComboBox */}
+            <div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ประเภทนา (field_type)</label>
+              <ComboBox
+                options={fieldTypeOptions}
+                value={
+                  // เก็บ value เป็น label เพื่อส่งไปหลังบ้านเป็น string
+                  // หา option ที่ label เท่ากับ order.fieldType เพื่อไฮไลต์
+                  fieldTypeOptions.find((o) => o.label === order.fieldType)?.id ?? ""
+                }
+                getValue={(o) => o.id}
+                onChange={(_id, found) => {
+                  setOrder((p) => ({ ...p, fieldType: found?.label ?? "" }))
+                }}
+                placeholder="— เลือกประเภทนา —"
+                // ถ้าบังคับให้เลือก ให้เปิด error/hint ต่อไปนี้
+                // error={!!errors.fieldType}
+                // hintRed={!!missingHints.fieldType}
+                clearHint={() => clearHint("fieldType")}
+                buttonRef={refs.fieldType}
+              />
+              {/* {errors.fieldType && <p className="mt-1 text-sm text-red-500">{errors.fieldType}</p>} */}
+            </div>
+
             {/* ราคา/เป็นเงิน/เลขอ้างอิง/ลงวันที่ */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
@@ -1270,7 +1381,7 @@ const Sales = () => {
           </div>
 
           {/* สรุป */}
-          <div className="mt-6 grid gap-3 md:grid-cols-4">
+          <div className="mt-6 grid gap-3 md:grid-cols-5">
             {[
               { label: "ชนิดข้าว", value: order.riceType || "—" },
               { label: "สาขา / คลัง", value: `${order.branchName || "—"}${order.klangName ? ` • ${order.klangName}` : ""}` },
@@ -1283,11 +1394,12 @@ const Sales = () => {
                       100
                   ) / 100) + " กก.",
               },
-              { label: "เป็นเงิน", value: order.amountTHB ? thb(Number(order.amountTHB)) : "—" },
+              { label: "คุณภาพ (gram)", value: order.gram || "—" },
+              { label: "ฤดูกาล/ปี", value: order.season || "—" },
             ].map((c) => (
               <div
                 key={c.label}
-                className="rounded-2xl bg-gradient-to-b from-white to-slate-50 p-4 text-black shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-slate-200 dark:from-slate-800 dark:to-slate-900 dark:text-white dark:ring-slate-700 dark:shadow-[inset_0_1px_0_rgба(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)]"
+                className="rounded-2xl bg-gradient-to-b from-white to-slate-50 p-4 text-black shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-slate-200 dark:from-slate-800 dark:to-slate-900 dark:text-white dark:ring-slate-700 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)]"
               >
                 <div className="text-slate-500 dark:text-slate-400">{c.label}</div>
                 <div className="text-lg font-semibold">{c.value}</div>

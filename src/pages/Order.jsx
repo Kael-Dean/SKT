@@ -196,8 +196,8 @@ const Order = () => {
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
-    branchId: "",     // ใช้เก็บ id จริง
-    branchName: "",   // เก็บชื่อไว้จับคู่กับ ComboBox (สะดวก map label)
+    branchId: "",     // เก็บ id จริง
+    branchName: "",   // แสดงใน ComboBox
     klangId: "",
     klangName: "",
     riceId: "",
@@ -228,7 +228,8 @@ const Order = () => {
       try {
         const r = await fetch(`${API_BASE}/order/rice/search`, { headers: authHeader() })
         const data = r.ok ? await r.json() : []
-        setRiceOptions(Array.isArray(data) ? data : [])
+        setRiceOptions(Array.isArray(data) ? data : []
+        )
       } catch (e) {
         console.error("load rice failed:", e)
         setRiceOptions([])
@@ -259,7 +260,7 @@ const Order = () => {
     loadKlang()
   }, [filters.branchId])
 
-  /** ---------- Fetch orders ---------- */
+  /** ---------- Fetch orders (support rice_id) ---------- */
   const fetchOrders = async () => {
     try {
       setLoading(true)
@@ -268,7 +269,7 @@ const Order = () => {
       params.set("end_date", filters.endDate)
       if (filters.branchId) params.set("branch_id", filters.branchId)
       if (filters.klangId) params.set("klang_id", filters.klangId)
-      if (filters.riceId)  params.set("rice_id", filters.riceId) // <<— ส่ง rice_id ด้วย
+      if (filters.riceId)  params.set("rice_id", filters.riceId)
       if (filters.q?.trim()) params.set("q", filters.q.trim())
 
       const r = await fetch(`${API_BASE}/order/orders/report?${params.toString()}`, { headers: authHeader() })
@@ -323,15 +324,13 @@ const Order = () => {
 
   /** ----------- UI ----------- */
   return (
-    // พื้นหลังหลัก: Light = ขาว, Dark = slate-900 + มุมมนสไตล์เดียวกับหน้า Sales
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
-        {/* หัวข้อเข้ากับทุกโหมด */}
         <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">
           📦 รายการออเดอร์ซื้อข้าวเปลือก
         </h1>
 
-        {/* Filters: การ์ด + ComboBox แบบเดียวกับ Sales */}
+        {/* Filters */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="grid gap-3 md:grid-cols-6">
             <div>
@@ -355,19 +354,18 @@ const Order = () => {
               />
             </div>
 
-            {/* สาขา: ใช้ ComboBox */}
+            {/* สาขา */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
               <ComboBox
                 options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
                 value={filters.branchName}
-                getValue={(o) => o.label} // เก็บค่าเป็นชื่อเพื่อโชว์ label ตรง ๆ
+                getValue={(o) => o.label}
                 onChange={(_val, found) =>
                   setFilters((p) => ({
                     ...p,
                     branchName: found?.label ?? "",
                     branchId: found?.id ?? "",
-                    // reset คลังเมื่อเปลี่ยนสาขา
                     klangId: "",
                     klangName: "",
                   }))
@@ -376,7 +374,7 @@ const Order = () => {
               />
             </div>
 
-            {/* คลัง: ใช้ ComboBox */}
+            {/* คลัง */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
               <ComboBox
@@ -395,7 +393,7 @@ const Order = () => {
               />
             </div>
 
-            {/* ประเภทข้าว: ใช้ ComboBox */}
+            {/* ประเภทข้าว */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ประเภทข้าว</label>
               <ComboBox
@@ -441,7 +439,7 @@ const Order = () => {
           </div>
         </div>
 
-        {/* Summary: การ์ดปรับตามโหมด */}
+        {/* Summary */}
         <div className="mb-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
             <div className="text-slate-500 dark:text-slate-400">จำนวนรายการ</div>
@@ -459,7 +457,7 @@ const Order = () => {
           </div>
         </div>
 
-        {/* Table: ปรับตามโหมด */}
+        {/* Table */}
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
@@ -471,15 +469,18 @@ const Order = () => {
                 <th className="px-3 py-2">ชนิดข้าว</th>
                 <th className="px-3 py-2">สาขา</th>
                 <th className="px-3 py-2">คลัง</th>
+                <th className="px-3 py-2">คุณภาพ (gram)</th>
+                <th className="px-3 py-2">ฤดูกาล (season)</th>
+                <th className="px-3 py-2">ประเภทนา</th>
                 <th className="px-3 py-2 text-right">น้ำหนัก (กก.)</th>
                 <th className="px-3 py-2 text-right">เป็นเงิน</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td className="px-3 py-3" colSpan={9}>กำลังโหลด...</td></tr>
+                <tr><td className="px-3 py-3" colSpan={12}>กำลังโหลด...</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td className="px-3 py-3" colSpan={9}>ไม่พบข้อมูล</td></tr>
+                <tr><td className="px-3 py-3" colSpan={12}>ไม่พบข้อมูล</td></tr>
               ) : (
                 rows.map((r) => (
                   <tr
@@ -495,6 +496,9 @@ const Order = () => {
                     <td className="px-3 py-2">{r.rice_type || "—"}</td>
                     <td className="px-3 py-2">{r.branch_name || "—"}</td>
                     <td className="px-3 py-2">{r.klang_name || "—"}</td>
+                    <td className="px-3 py-2">{r.gram ?? "—"}</td>
+                    <td className="px-3 py-2">{r.season ?? "—"}</td>
+                    <td className="px-3 py-2">{r.field_type ?? "—"}</td>
                     <td className="px-3 py-2 text-right">{toNumber(r.weight).toLocaleString()}</td>
                     <td className="px-3 py-2 text-right">{thb(toNumber(r.price))}</td>
                   </tr>

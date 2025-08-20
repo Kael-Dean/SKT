@@ -251,9 +251,9 @@ const Sales = () => {
   const itemRefs = useRef([])
 
   /** dropdown opts */
-  const [riceOptions, setRiceOptions] = useState([])
-  const [branchOptions, setBranchOptions] = useState([])
-  const [klangOptions, setKlangOptions] = useState([])
+  const [riceOptions, setRiceOptions] = useState([])     // [{id,label,price}]
+  const [branchOptions, setBranchOptions] = useState([]) // [{id,branch_name}]
+  const [klangOptions, setKlangOptions] = useState([])   // [{id,klang_name}]
 
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
@@ -330,7 +330,7 @@ const Sales = () => {
     }
   }
 
-  /** โหลด dropdown */
+  /** โหลด dropdown (ชนิดข้าว + สาขา) */
   useEffect(() => {
     const loadDD = async () => {
       try {
@@ -717,45 +717,13 @@ const Sales = () => {
     const [firstName, ...rest] = customer.fullName.trim().split(" ")
     const lastName = rest.join(" ")
 
-    const riceId  = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
+    const riceId   = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
     const branchId = order.branchId ?? null
     const klangId  = order.klangId ?? null
 
     if (!riceId)   { setErrors((prev) => ({ ...prev, riceType: "ไม่พบรหัสชนิดข้าว โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, riceType:true })); scrollToFirstError({ riceType: true }); return }
     if (!branchId) { setErrors((prev) => ({ ...prev, branchName: "ไม่พบรหัสสาขา โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, branchName:true })); scrollToFirstError({ branchName: true }); return }
     if (!klangId)  { setErrors((prev) => ({ ...prev, klangName: "ไม่พบรหัสคลัง โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, klangName:true })); scrollToFirstError({ klangName: true }); return }
-
-    const baseHeaders = authHeader()
-    let customer_id = memberMeta.memberPk ?? null
-
-    if (!customer_id) {
-      try {
-        const upsertRes = await fetch(`${API_BASE}/order/customer/upsert`, {
-          method: "POST",
-          headers: baseHeaders,
-          body: JSON.stringify({
-            first_name: firstName || "",
-            last_name: lastName || "",
-            citizen_id: onlyDigits(customer.citizenId),
-            address: customer.houseNo.trim(),
-            mhoo: customer.moo.trim(),
-            sub_district: customer.subdistrict.trim(),
-            district: customer.district.trim(),
-            province: customer.province.trim(),
-            postal_code: customer.postalCode?.toString().trim() || "",
-          }),
-        })
-        if (upsertRes.ok) {
-          const u = await upsertRes.json()
-          customer_id = u?.id ?? u?.customer_id ?? null
-        }
-      } catch {}
-    }
-
-    if (!customer_id) {
-      alert("ไม่พบ/ไม่สามารถสร้างรหัสลูกค้า (customer_id) โปรดเลือกจากรายชื่อสมาชิกหรือให้หลังบ้านเปิด endpoint upsert ลูกค้า")
-      return
-    }
 
     const netW = toNumber(order.grossWeightKg) - toNumber(
       order.manualDeduct
@@ -776,7 +744,7 @@ const Sales = () => {
         postal_code: customer.postalCode?.toString().trim() || "",
       },
       order: {
-        customer_id,
+        customer_id: null, // backend จะ upsert เองจาก citizen_id แล้วใช้ id นั้น
         rice_id: riceId,
         branch_location: branchId,
         klang_location: klangId,
@@ -787,9 +755,9 @@ const Sales = () => {
         order_serial: order.paymentRefNo.trim(),
         date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
       },
-      rice: { rice_type: order.riceType, id: riceId },
+      rice:   { rice_type: order.riceType, id: riceId },
       branch: { branch_name: order.branchName, id: branchId },
-      klang: { klang_name: order.klangName, id: klangId },
+      klang:  { klang_name: order.klangName, id: klangId },
       customerMeta: {
         type: memberMeta.type === "unknown" ? "guest" : memberMeta.type,
         memberId: memberMeta.memberId,
@@ -800,7 +768,7 @@ const Sales = () => {
     try {
       const res = await fetch(`${API_BASE}/order/customers/save`, {
         method: "POST",
-        headers: baseHeaders,
+        headers: authHeader(),
         body: JSON.stringify(payload),
       })
       if (!res.ok) {
@@ -911,7 +879,7 @@ const Sales = () => {
               </div>
             </div>
 
-            {/* ชื่อ–สกุล + รายการค้นหา (ปรับกันทับสี) */}
+            {/* ชื่อ–สกุล + รายการค้นหา */}
             <div className="md:col-span-2" ref={nameBoxRef}>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
               <input
@@ -1113,7 +1081,7 @@ const Sales = () => {
               />
             </div>
 
-            {/* น้ำหนักตามใบชั่ง (ปรับกันทับสี) */}
+            {/* น้ำหนักตามใบชั่ง */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">น้ำหนักตามใบชั่ง (กก.)</label>
               <input
@@ -1192,7 +1160,7 @@ const Sales = () => {
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
             </div>
 
-            {/* เป็นเงิน (ปรับกันทับสี) */}
+            {/* เป็นเงิน */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">เป็นเงิน (บาท)</label>
               <input
@@ -1256,7 +1224,7 @@ const Sales = () => {
             ].map((c) => (
               <div
                 key={c.label}
-                className="rounded-2xl bg-gradient-to-b from-white to-slate-50 p-4 text-black shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-slate-200 dark:from-slate-800 dark:to-slate-900 dark:text-white dark:ring-slate-700 dark:shadow-[inset_0_1px_0_rgба(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)]"
+                className="rounded-2xl bg-gradient-to-b from-white to-slate-50 p-4 text-black shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-slate-200 dark:from-slate-800 dark:to-slate-900 dark:text-white dark:ring-slate-700 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)]"
               >
                 <div className="text-slate-500 dark:text-slate-400">{c.label}</div>
                 <div className="text-lg font-semibold">{c.value}</div>

@@ -11,11 +11,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { label: 'หน้าหลัก', path: '/home' },
     { label: 'คลังเอกสาร', path: '/documents' },
     { label: 'ออเดอร์', path: '/order' },
-    { label: 'ออเดอร์ซื้อข้าว', path: '/sales' },
+    { label: 'ซื้อข้าว', path: '/sales' },
     { label: 'สมัครสมาชิก', path: '/member-signup' },
     { label: 'ค้นหาสมาชิก', path: '/search' },
   ]
-
+_
   if (isAdmin) {
     menuItems.push({ label: 'เพิ่มพนักงานใหม่', path: '/add-employee' })
   }

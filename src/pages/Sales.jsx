@@ -57,8 +57,8 @@ const baseField =
   // Dark
   "dark:bg-gradient-to-b dark:from-slate-700 dark:to-slate-700 " +
   "dark:text-white dark:border-slate-700 dark:placeholder:text-slate-400 " +
-
-  "dark:focus:ring-emerald-400/60 dark:focus:border-emerald-400"
+  "dark:focus:ring-emerald-400/60 dark:focus:border-emerald-400"+
+  "dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),_inset_0_-1px_2px_rgba(0,0,0,0.5)]"  
 
 /** ช่อง disabled */
 const fieldDisabled =

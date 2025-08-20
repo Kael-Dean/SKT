@@ -44,7 +44,7 @@ function suggestDeductionWeight(grossKg, moisturePct, impurityPct) {
 /** ---------- class helpers ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/** พื้นฐานอินพุต (ทั้งโหมด) — ปรับหลุมโหมดมืดให้เด่นขึ้น */
+/** พื้นฐานอินพุต (ทั้งโหมด) */
 const baseField =
   "w-full rounded-2xl border p-2 outline-none transition " +
   // Light
@@ -61,26 +61,30 @@ const baseField =
   "dark:focus:shadow-[inset_0_2px_4px_rgba(255,255,255,0.08),_inset_0_-4px_12px_rgba(0,0,0,0.6)] " +
   "dark:focus:ring-emerald-400/60 dark:focus:border-emerald-400"
 
-/** สำหรับช่อง disabled */
+/** ช่อง disabled */
 const fieldDisabled =
   "bg-slate-100 dark:bg-slate-800/70 dark:text-slate-300 cursor-not-allowed opacity-90"
 
-/** ---------- Reusable ComboBox (อัปเดตสไตล์ให้หลุม) ---------- */
+/** ---------- Reusable ComboBox ---------- */
 function ComboBox({
   options = [],
   value,
-  onChange, // (newValue, optionObj) => void
+  onChange,
   placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "",
   getValue = (o) => o?.value ?? o?.id ?? "",
   disabled = false,
   error = false,
+  buttonRef = null,
+  hintRed = false,
+  clearHint = () => {},
 }) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
   const boxRef = useRef(null)
   const listRef = useRef(null)
-  const btnRef = useRef(null)
+  const internalBtnRef = useRef(null)
+  const controlRef = buttonRef || internalBtnRef
 
   const selectedLabel = useMemo(() => {
     const found = options.find((o) => String(getValue(o)) === String(value))
@@ -104,7 +108,8 @@ function ComboBox({
     onChange?.(v, opt)
     setOpen(false)
     setHighlight(-1)
-    requestAnimationFrame(() => btnRef.current?.focus())
+    clearHint?.()
+    requestAnimationFrame(() => controlRef.current?.focus())
   }
 
   const scrollHighlightedIntoView = (index) => {
@@ -127,6 +132,7 @@ function ComboBox({
       e.preventDefault()
       setOpen(true)
       setHighlight((h) => (h >= 0 ? h : 0))
+      clearHint?.()
       return
     }
     if (!open) return
@@ -159,18 +165,21 @@ function ComboBox({
     <div className="relative" ref={boxRef}>
       <button
         type="button"
-        ref={btnRef}
+        ref={controlRef}
         disabled={disabled}
-        onClick={() => !disabled && setOpen((o) => !o)}
+        onClick={() => { if (!disabled) { setOpen((o) => !o); clearHint?.() } }}
         onKeyDown={onKeyDown}
+        onFocus={() => clearHint?.()}
         className={cx(
           baseField,
           "text-left",
           disabled && fieldDisabled,
-          error && "border-red-400 focus:ring-red-200/80 focus:border-red-400"
+          (error || hintRed) && "border-red-400 ring-2 ring-red-300 focus:ring-red-300 focus:border-red-400",
+          hintRed && "animate-pulse"
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-invalid={error || hintRed ? true : undefined}
       >
         {selectedLabel || <span className="text-slate-400">{placeholder}</span>}
       </button>
@@ -226,10 +235,10 @@ function ComboBox({
 
 /** ---------- Component ---------- */
 const Sales = () => {
-  /** สถานะค้นหาลูกค้า + dropdown ค้นหาชื่อ */
   const [loadingCustomer, setLoadingCustomer] = useState(false)
-  const [customerFound, setCustomerFound] = useState(null) // true | false | null
+  const [customerFound, setCustomerFound] = useState(null)
   const [errors, setErrors] = useState({})
+  const [missingHints, setMissingHints] = useState({})
   const [nameResults, setNameResults] = useState([])
   const [showNameList, setShowNameList] = useState(false)
 
@@ -241,10 +250,10 @@ const Sales = () => {
   const listContainerRef = useRef(null)
   const itemRefs = useRef([])
 
-  /** dropdown: ชนิดข้าว/สาขา/คลัง */
-  const [riceOptions, setRiceOptions] = useState([]) // {id,label,price,_raw}
-  const [branchOptions, setBranchOptions] = useState([]) // [{id, branch_name}]
-  const [klangOptions, setKlangOptions] = useState([])   // [{id, klang_name}]
+  /** dropdown opts */
+  const [riceOptions, setRiceOptions] = useState([])
+  const [branchOptions, setBranchOptions] = useState([])
+  const [klangOptions, setKlangOptions] = useState([])
 
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
@@ -258,17 +267,17 @@ const Sales = () => {
     postalCode: "",
   })
 
-  /** เมตาสถานะสมาชิก/ลูกค้าทั่วไป */
+  /** เมตาสมาชิก */
   const [memberMeta, setMemberMeta] = useState({
-    type: "unknown", // "member" | "guest" | "unknown"
-    memberId: null,  // member_id จากตารางสมาชิก
-    memberPk: null,  // id (PK) จากตารางสมาชิก
+    type: "unknown",
+    memberId: null,
+    memberPk: null,
   })
 
   /** ฟอร์มออเดอร์ */
   const [order, setOrder] = useState({
     riceType: "",
-    riceId: "", // string
+    riceId: "",
     moisturePct: "",
     impurityPct: "",
     grossWeightKg: "",
@@ -285,11 +294,34 @@ const Sales = () => {
     registeredPlace: "",
   })
 
-  /** debounce ค้นหา */
+  /** ---------- Refs ---------- */
+  const refs = {
+    citizenId: useRef(null),
+    fullName: useRef(null),
+    houseNo: useRef(null),
+    moo: useRef(null),
+    subdistrict: useRef(null),
+    district: useRef(null),
+    province: useRef(null),
+    postalCode: useRef(null),
+    riceType: useRef(null),
+    branchName: useRef(null),
+    klangName: useRef(null),
+    moisturePct: useRef(null),
+    impurityPct: useRef(null),
+    grossWeightKg: useRef(null),
+    deductWeightKg: useRef(null),
+    unitPrice: useRef(null),
+    amountTHB: useRef(null),
+    paymentRefNo: useRef(null),
+    issueDate: useRef(null),
+  }
+
+  /** debounce */
   const debouncedCitizenId = useDebounce(customer.citizenId)
   const debouncedFullName  = useDebounce(customer.fullName)
 
-  /** ---------- API Helpers ---------- */
+  /** API header */
   const authHeader = () => {
     const token = localStorage.getItem("token")
     return {
@@ -298,7 +330,7 @@ const Sales = () => {
     }
   }
 
-  /** โหลด dropdown ชนิดข้าว + สาขา */
+  /** โหลด dropdown */
   useEffect(() => {
     const loadDD = async () => {
       try {
@@ -306,59 +338,43 @@ const Sales = () => {
           fetch(`${API_BASE}/order/rice/search`, { headers: authHeader() }),
           fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
         ])
-
         const riceRaw = r1.ok ? await r1.json() : []
         const branch  = r2.ok ? await r2.json() : []
-
         const rice = (riceRaw || []).map((x) => ({
           id: String(x.id ?? x.rice_id ?? x.riceId ?? ""),
           label: x.rice_type ?? x.rice_name ?? x.name ?? "",
           price: x.price ?? x.unit_price ?? undefined,
           _raw: x,
         }))
-
         setRiceOptions(rice)
         setBranchOptions(branch || [])
-      } catch (e) {
-        console.error("Load dropdowns error:", e)
-      }
+      } catch (e) { console.error("Load dropdowns error:", e) }
     }
     loadDD()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** โหลด “คลัง” ตามสาขา */
+  /** โหลดคลังตามสาขา */
   useEffect(() => {
     const bId = order.branchId
     const bName = order.branchName?.trim()
-
     if (bId == null && !bName) {
       setKlangOptions([])
       setOrder((p) => ({ ...p, klangName: "", klangId: null }))
       return
     }
-
     const loadKlang = async () => {
       try {
         const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
         const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
-        if (!r.ok) {
-          console.error("Load klang failed:", r.status, await r.text())
-          setKlangOptions([])
-          return
-        }
+        if (!r.ok) { console.error("Load klang failed:", r.status, await r.text()); setKlangOptions([]); return }
         const data = await r.json()
         setKlangOptions(data || [])
-      } catch (e) {
-        console.error("Load klang error:", e)
-        setKlangOptions([])
-      }
+      } catch (e) { console.error("Load klang error:", e); setKlangOptions([]) }
     }
     loadKlang()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.branchId, order.branchName])
 
-  /** ---------- map record สมาชิก -> UI ---------- */
+  /** map member -> UI */
   const mapMemberToUI = (m = {}) => ({
     citizenId: (m.citizen_id ?? m.citizenId ?? "").toString(),
     fullName: `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || m.fullName || "",
@@ -394,7 +410,7 @@ const Sales = () => {
     }
   }
 
-  /** ---------- ค้นหาด้วยเลขบัตร ---------- */
+  /** ค้นหาด้วยเลขบัตร */
   useEffect(() => {
     const cid = onlyDigits(debouncedCitizenId)
     if (cid.length !== 13) {
@@ -424,10 +440,9 @@ const Sales = () => {
       }
     }
     fetchByCid()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedCitizenId])
 
-  /** ---------- ค้นหาด้วยชื่อ (dropdown) ---------- */
+  /** ค้นหาด้วยชื่อ */
   useEffect(() => {
     const q = (debouncedFullName || "").trim()
 
@@ -481,7 +496,6 @@ const Sales = () => {
       }
     }
     searchByName()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedFullName])
 
   /** ปิด dropdown เมื่อคลิกนอกกล่อง */
@@ -505,7 +519,7 @@ const Sales = () => {
     setHighlightedIndex(-1)
   }
 
-  /** ---------- เลื่อนให้รายการที่ไฮไลต์อยู่เข้าวิว ---------- */
+  /** scroll item ที่ไฮไลต์ */
   const scrollHighlightedIntoView2 = (index) => {
     const itemEl = itemRefs.current[index]
     const listEl = listContainerRef.current
@@ -524,10 +538,22 @@ const Sales = () => {
     }
   }
 
-  /** ---------- คีย์บอร์ดนำทาง dropdown ---------- */
+  /** ---- ช่วยจัดการสีแดงเฉพาะ 3 ช่อง ---- */
+  const hasRed = (key) => !!errors[key] || !!missingHints[key]
+  const redFieldCls = (key) =>
+    hasRed(key)
+      ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500 focus:shadow-none"
+      : ""
+  const clearError = (key) =>
+    setErrors((prev) => {
+      if (!(key in prev)) return prev
+      const { [key]: _omit, ...rest } = prev
+      return rest
+    })
+
+  /** คีย์บอร์ดนำทาง dropdown */
   const handleNameKeyDown = (e) => {
     if (!showNameList || nameResults.length === 0) return
-
     if (e.key === "ArrowDown") {
       e.preventDefault()
       const next = highlightedIndex < nameResults.length - 1 ? highlightedIndex + 1 : 0
@@ -556,7 +582,7 @@ const Sales = () => {
     requestAnimationFrame(() => scrollHighlightedIntoView2(highlightedIndex))
   }, [highlightedIndex, showNameList])
 
-  /** ---------- คำนวณอัตโนมัติ ---------- */
+  /** ---------- Auto calc ---------- */
   const autoDeduct = useMemo(() => {
     if (order.manualDeduct) return toNumber(order.deductWeightKg)
     return suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct)
@@ -576,10 +602,9 @@ const Sales = () => {
     if (computedAmount !== null) {
       setOrder((prev) => ({ ...prev, amountTHB: String(Math.round(computedAmount * 100) / 100) }))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [computedAmount])
 
-  /** เมื่อเลือกชนิดข้าว (id) ให้ auto-fill ราคา (ถ้ามี) */
+  /** auto-fill ราคา */
   useEffect(() => {
     if (!order.riceId) return
     const found = riceOptions.find((r) => r.id === order.riceId)
@@ -588,15 +613,52 @@ const Sales = () => {
     }
   }, [order.riceId, riceOptions])
 
-  /** ---------- Handlers ---------- */
-  const updateCustomer = (k, v) => setCustomer((prev) => ({ ...prev, [k]: v }))
-  const updateOrder = (k, v) => setOrder((prev) => ({ ...prev, [k]: v }))
+  /** ---------- Missing hints ---------- */
+  const redHintCls = (key) =>
+    missingHints[key]
+      ? "border-red-400 ring-2 ring-red-300 focus:ring-red-300 focus:border-red-400 animate-pulse"
+      : ""
 
+  const clearHint = (key) =>
+    setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
+
+  const computeMissingHints = () => {
+    const m = {}
+    // ลูกค้า
+    if (!customer.fullName.trim()) m.fullName = true
+    if (!customer.houseNo.trim()) m.houseNo = true
+    if (!customer.moo.trim()) m.moo = true
+    if (!customer.subdistrict.trim()) m.subdistrict = true
+    if (!customer.district.trim()) m.district = true
+    if (!customer.province.trim()) m.province = true
+    // ออเดอร์
+    if (!order.riceId) m.riceType = true
+    if (!order.branchName) m.branchName = true
+    if (!order.klangName) m.klangName = true
+    if (!order.grossWeightKg || Number(order.grossWeightKg) <= 0) m.grossWeightKg = true
+    if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0)) m.deductWeightKg = true
+    if (!order.amountTHB || Number(order.amountTHB) < 0) m.amountTHB = true
+    if (!order.issueDate) m.issueDate = true
+    return m
+  }
+
+  /** ---------- Handlers ---------- */
+  const updateCustomer = (k, v) => {
+    if (String(v).trim() !== "") clearHint(k)
+    setCustomer((prev) => ({ ...prev, [k]: v }))
+  }
+  const updateOrder = (k, v) => {
+    if (String(v).trim() !== "") clearHint(k)
+    setOrder((prev) => ({ ...prev, [k]: v }))
+  }
+
+  /** ---------- Validation ---------- */
   const validateAll = () => {
     const e = {}
     if (customer.citizenId && !validateThaiCitizenId(customer.citizenId)) e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
     if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
     if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
+
     if (!order.riceId) e.riceType = "เลือกชนิดข้าวเปลือก"
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
@@ -605,13 +667,52 @@ const Sales = () => {
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
     if (!order.amountTHB || Number(order.amountTHB) < 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
+
     setErrors(e)
-    return Object.keys(e).length === 0
+    return e
   }
 
+  const scrollToFirstError = (eObj) => {
+    const orderKeys = [
+      "fullName",
+      "address",
+      "riceType",
+      "branchName",
+      "klangName",
+      "grossWeightKg",
+      "deductWeightKg",
+      "amountTHB",
+      "issueDate",
+    ]
+    const firstKey = orderKeys.find((k) => k in eObj)
+    if (!firstKey) return
+
+    const keyToFocus =
+      firstKey === "address"
+        ? (customer.houseNo ? (customer.moo ? (customer.subdistrict ? (customer.district ? "province" : "district") : "subdistrict") : "moo") : "houseNo")
+        : firstKey
+
+    const el = refs[keyToFocus]?.current
+    if (el && typeof el.focus === "function") {
+      try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
+      el.focus()
+    }
+  }
+
+  /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!validateAll()) return
+
+    // 1) แสดง hint แดงทุกช่องที่ยังว่าง
+    const hints = computeMissingHints()
+    setMissingHints(hints)
+
+    // 2) วาลิเดตตามกฎเดิม
+    const eObj = validateAll()
+    if (Object.keys(eObj).length > 0) {
+      scrollToFirstError(eObj)
+      return
+    }
 
     const [firstName, ...rest] = customer.fullName.trim().split(" ")
     const lastName = rest.join(" ")
@@ -620,12 +721,11 @@ const Sales = () => {
     const branchId = order.branchId ?? null
     const klangId  = order.klangId ?? null
 
-    if (!riceId)   return setErrors((prev) => ({ ...prev, riceType: "ไม่พบรหัสชนิดข้าว โปรดเลือกใหม่" }))
-    if (!branchId) return setErrors((prev) => ({ ...prev, branchName: "ไม่พบรหัสสาขา โปรดเลือกใหม่" }))
-    if (!klangId)  return setErrors((prev) => ({ ...prev, klangName: "ไม่พบรหัสคลัง โปรดเลือกใหม่" }))
+    if (!riceId)   { setErrors((prev) => ({ ...prev, riceType: "ไม่พบรหัสชนิดข้าว โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, riceType:true })); scrollToFirstError({ riceType: true }); return }
+    if (!branchId) { setErrors((prev) => ({ ...prev, branchName: "ไม่พบรหัสสาขา โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, branchName:true })); scrollToFirstError({ branchName: true }); return }
+    if (!klangId)  { setErrors((prev) => ({ ...prev, klangName: "ไม่พบรหัสคลัง โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, klangName:true })); scrollToFirstError({ klangName: true }); return }
 
     const baseHeaders = authHeader()
-
     let customer_id = memberMeta.memberPk ?? null
 
     if (!customer_id) {
@@ -717,6 +817,7 @@ const Sales = () => {
 
   const handleReset = () => {
     setErrors({})
+    setMissingHints({})
     setCustomerFound(null)
     setLoadingCustomer(false)
     setNameResults([])
@@ -759,7 +860,7 @@ const Sales = () => {
       <div className="mx-auto max-w-7xl p-4 md:p-6">
         <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
 
-        {/* กล่องข้อมูลลูกค้า — match MemberSignup + เพิ่มเงาเล็กน้อย */}
+        {/* กล่องข้อมูลลูกค้า */}
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-md dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold">ข้อมูลลูกค้า</h2>
@@ -782,16 +883,19 @@ const Sales = () => {
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            {/* เลขบัตร */}
+            {/* เลขบัตร (ไม่บังคับ) */}
             <div className="md:col-span-1">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขที่บัตรประชาชน (13 หลัก)</label>
               <input
+                ref={refs.citizenId}
                 inputMode="numeric"
                 maxLength={13}
                 className={cx(baseField, errors.citizenId && "border-amber-400 focus:ring-amber-200/80")}
                 value={customer.citizenId}
                 onChange={(e) => updateCustomer("citizenId", onlyDigits(e.target.value))}
+                onFocus={() => clearHint("citizenId")}
                 placeholder="เช่น 1234567890123"
+                aria-invalid={errors.citizenId ? true : undefined}
               />
               <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {loadingCustomer && "กำลังค้นหาลูกค้า..."}
@@ -807,33 +911,26 @@ const Sales = () => {
               </div>
             </div>
 
-            {/* ชื่อ–สกุล + รายการค้นหา */}
+            {/* ชื่อ–สกุล + รายการค้นหา (ปรับกันทับสี) */}
             <div className="md:col-span-2" ref={nameBoxRef}>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
               <input
-                ref={nameInputRef}
-                className={cx(baseField, errors.fullName && "border-red-400 focus:ring-red-200/80")}
+                ref={(el) => { refs.fullName.current = el; nameInputRef.current = el }}
+                className={cx(baseField, redFieldCls("fullName"))}
                 value={customer.fullName}
                 onChange={(e) => {
                   updateCustomer("fullName", e.target.value)
                   if (e.target.value.trim().length >= 2) setShowNameList(true)
-                  else {
-                    setShowNameList(false)
-                    setHighlightedIndex(-1)
-                  }
+                  else { setShowNameList(false); setHighlightedIndex(-1) }
                 }}
+                onFocus={() => { clearHint("fullName"); clearError("fullName") }}
                 onKeyDown={handleNameKeyDown}
                 placeholder="เช่น นายสมชาย ใจดี"
-                onFocus={() => {
-                  if (customer.fullName.trim().length >= 2 && nameResults.length > 0) {
-                    setShowNameList(true)
-                    if (highlightedIndex === -1) setHighlightedIndex(0)
-                  }
-                }}
                 aria-expanded={showNameList}
                 aria-controls="name-results"
                 role="combobox"
                 aria-autocomplete="list"
+                aria-invalid={errors.fullName ? true : undefined}
               />
               {errors.fullName && <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>}
 
@@ -859,10 +956,7 @@ const Sales = () => {
                         ref={(el) => (itemRefs.current[idx] = el)}
                         key={r.id || `${r.citizenId}-${r.first_name}-${r.last_name}`}
                         onClick={() => pickNameResult(r)}
-                        onMouseEnter={() => {
-                          setHighlightedIndex(idx)
-                          requestAnimationFrame(() => scrollHighlightedIntoView2(idx))
-                        }}
+                        onMouseEnter={() => { setHighlightedIndex(idx); requestAnimationFrame(() => scrollHighlightedIntoView2(idx)) }}
                         role="option"
                         aria-selected={isActive}
                         className={cx(
@@ -879,10 +973,7 @@ const Sales = () => {
                           <div className="font-medium">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</div>
                           <div className="text-xs text-slate-500 dark:text-slate-300">
                             ปชช. {r.citizenId} • {r.address ? `บ้าน ${r.address}` : ""} {r.mhoo ? `หมู่ ${r.mhoo}` : ""}
-                            {r.sub_district ? ` • ต.${r.sub_district}` : ""}
-                            {r.district ? ` อ.${r.district}` : ""} {r.province ? ` จ.${r.province}` : ""}{" "}
-                            {r.postal_code ? ` ${r.postal_code}` : ""}
-                            {r.member_id ? " • สมาชิก" : ""}
+                            {r.sub_district ? ` • ต.${r.sub_district}` : ""}{r.district ? ` อ.${r.district}` : ""} {r.province ? ` จ.${r.province}` : ""} {r.postal_code ? ` ${r.postal_code}` : ""}{r.member_id ? " • สมาชิก" : ""}
                           </div>
                         </div>
                       </button>
@@ -903,10 +994,13 @@ const Sales = () => {
               <div key={k}>
                 <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">{label}</label>
                 <input
-                  className={cx(baseField, errors.address && "border-amber-400 focus:ring-amber-200/80")}
+                  ref={refs[k]}
+                  className={cx(baseField, errors.address && "border-amber-400 focus:ring-amber-200/80", redHintCls(k))}
                   value={customer[k]}
                   onChange={(e) => updateCustomer(k, e.target.value)}
+                  onFocus={() => clearHint(k)}
                   placeholder={ph}
+                  aria-invalid={errors.address ? true : undefined}
                 />
               </div>
             ))}
@@ -914,18 +1008,20 @@ const Sales = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รหัสไปรษณีย์ (ไม่บังคับ)</label>
               <input
+                ref={refs.postalCode}
                 inputMode="numeric"
                 maxLength={5}
                 className={baseField}
                 value={customer.postalCode}
                 onChange={(e) => updateCustomer("postalCode", onlyDigits(e.target.value))}
+                onFocus={() => clearHint("postalCode")}
                 placeholder="เช่น 40000"
               />
             </div>
           </div>
         </div>
 
-        {/* ฟอร์มออเดอร์ — match MemberSignup + เพิ่มเงาเล็กน้อย */}
+        {/* ฟอร์มออเดอร์ */}
         <form
           onSubmit={handleSubmit}
           className="rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-md dark:border-slate-700 dark:bg-slate-800 dark:text-white"
@@ -939,16 +1035,14 @@ const Sales = () => {
               <ComboBox
                 options={riceOptions}
                 value={order.riceId}
-                onChange={(id, found) =>
-                  setOrder((p) => ({
-                    ...p,
-                    riceId: id,
-                    riceType: found?.label ?? "",
-                    unitPrice: found?.price != null ? String(found.price) : p.unitPrice,
-                  }))
-                }
+                onChange={(id, found) => {
+                  setOrder((p) => ({ ...p, riceId: id, riceType: found?.label ?? "", unitPrice: found?.price != null ? String(found.price) : p.unitPrice }))
+                }}
                 placeholder="— เลือกชนิด —"
                 error={!!errors.riceType}
+                hintRed={!!missingHints.riceType}
+                clearHint={() => clearHint("riceType")}
+                buttonRef={refs.riceType}
               />
               {errors.riceType && <p className="mt-1 text-sm text-red-500">{errors.riceType}</p>}
             </div>
@@ -960,17 +1054,14 @@ const Sales = () => {
                 options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
                 value={order.branchName}
                 getValue={(o) => o.label}
-                onChange={(_val, found) =>
-                  setOrder((p) => ({
-                    ...p,
-                    branchName: found?.label ?? "",
-                    branchId: found?.id ?? null,
-                    klangName: "",
-                    klangId: null,
-                  }))
-                }
+                onChange={(_val, found) => {
+                  setOrder((p) => ({ ...p, branchName: found?.label ?? "", branchId: found?.id ?? null, klangName: "", klangId: null }))
+                }}
                 placeholder="— เลือกสาขา —"
                 error={!!errors.branchName}
+                hintRed={!!missingHints.branchName}
+                clearHint={() => clearHint("branchName")}
+                buttonRef={refs.branchName}
               />
               {errors.branchName && <p className="mt-1 text-sm text-red-500">{errors.branchName}</p>}
             </div>
@@ -982,16 +1073,15 @@ const Sales = () => {
                 options={klangOptions.map((k) => ({ id: k.id, label: k.klang_name }))}
                 value={order.klangName}
                 getValue={(o) => o.label}
-                onChange={(_val, found) =>
-                  setOrder((p) => ({
-                    ...p,
-                    klangName: found?.label ?? "",
-                    klangId: found?.id ?? null,
-                  }))
-                }
+                onChange={(_val, found) => {
+                  setOrder((p) => ({ ...p, klangName: found?.label ?? "", klangId: found?.id ?? null }))
+                }}
                 placeholder="— เลือกคลัง —"
                 disabled={!order.branchName && order.branchId == null}
                 error={!!errors.klangName}
+                hintRed={!!missingHints.klangName}
+                clearHint={() => clearHint("klangName")}
+                buttonRef={refs.klangName}
               />
               {errors.klangName && <p className="mt-1 text-sm text-red-500">{errors.klangName}</p>}
             </div>
@@ -1000,10 +1090,12 @@ const Sales = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ความชื้น (%)</label>
               <input
+                ref={refs.moisturePct}
                 inputMode="decimal"
-                className={baseField}
+                className={cx(baseField)}
                 value={order.moisturePct}
                 onChange={(e) => updateOrder("moisturePct", onlyDigits(e.target.value))}
+                onFocus={() => clearHint("moisturePct")}
                 placeholder="เช่น 18"
               />
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
@@ -1011,21 +1103,28 @@ const Sales = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สิ่งเจือปน (%)</label>
               <input
+                ref={refs.impurityPct}
                 inputMode="decimal"
-                className={baseField}
+                className={cx(baseField)}
                 value={order.impurityPct}
                 onChange={(e) => updateOrder("impurityPct", onlyDigits(e.target.value))}
+                onFocus={() => clearHint("impurityPct")}
                 placeholder="เช่น 2"
               />
             </div>
+
+            {/* น้ำหนักตามใบชั่ง (ปรับกันทับสี) */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">น้ำหนักตามใบชั่ง (กก.)</label>
               <input
+                ref={refs.grossWeightKg}
                 inputMode="decimal"
-                className={cx(baseField, errors.grossWeightKg && "border-red-400 focus:ring-red-200/80")}
+                className={cx(baseField, redFieldCls("grossWeightKg"))}
                 value={order.grossWeightKg}
                 onChange={(e) => updateOrder("grossWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                onFocus={() => { clearHint("grossWeightKg"); clearError("grossWeightKg") }}
                 placeholder="เช่น 5000"
+                aria-invalid={errors.grossWeightKg ? true : undefined}
               />
               {errors.grossWeightKg && <p className="mt-1 text-sm text-red-500">{errors.grossWeightKg}</p>}
             </div>
@@ -1046,24 +1145,24 @@ const Sales = () => {
                 </label>
               </div>
               <input
+                ref={refs.deductWeightKg}
                 inputMode="decimal"
                 disabled={!order.manualDeduct}
                 className={cx(
                   baseField,
                   !order.manualDeduct && fieldDisabled,
-                  errors.deductWeightKg && "border-red-400 focus:ring-red-200/80"
+                  errors.deductWeightKg && "border-red-400 focus:ring-red-200/80",
+                  order.manualDeduct && redHintCls("deductWeightKg")
                 )}
                 value={
                   order.manualDeduct
                     ? order.deductWeightKg
-                    : String(
-                        Math.round(
-                          suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct) * 100
-                        ) / 100
-                      )
+                    : String(Math.round(suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct) * 100) / 100)
                 }
                 onChange={(e) => updateOrder("deductWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                onFocus={() => clearHint("deductWeightKg")}
                 placeholder="ระบบคำนวณให้ หรือกำหนดเอง"
+                aria-invalid={errors.deductWeightKg ? true : undefined}
               />
               {errors.deductWeightKg && <p className="mt-1 text-sm text-red-500">{errors.deductWeightKg}</p>}
             </div>
@@ -1074,15 +1173,7 @@ const Sales = () => {
               <input
                 disabled
                 className={cx(baseField, fieldDisabled)}
-                value={
-                  Math.round(
-                    (toNumber(order.grossWeightKg) - toNumber(
-                      order.manualDeduct
-                        ? order.deductWeightKg
-                        : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct)
-                    )) * 100
-                  ) / 100
-                }
+                value={Math.round((toNumber(order.grossWeightKg) - toNumber(order.manualDeduct ? order.deductWeightKg : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct))) * 100) / 100}
               />
             </div>
 
@@ -1090,23 +1181,29 @@ const Sales = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
               <input
+                ref={refs.unitPrice}
                 inputMode="decimal"
                 className={baseField}
                 value={order.unitPrice}
                 onChange={(e) => updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
+                onFocus={() => clearHint("unitPrice")}
                 placeholder="เช่น 12.50"
               />
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
             </div>
 
+            {/* เป็นเงิน (ปรับกันทับสี) */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เป็นเงิน (บาท)</label>
               <input
+                ref={refs.amountTHB}
                 inputMode="decimal"
-                className={cx(baseField, errors.amountTHB && "border-red-400 focus:ring-red-200/80")}
+                className={cx(baseField, redFieldCls("amountTHB"))}
                 value={order.amountTHB}
                 onChange={(e) => updateOrder("amountTHB", e.target.value.replace(/[^\d.]/g, ""))}
+                onFocus={() => { clearHint("amountTHB"); clearError("amountTHB") }}
                 placeholder="เช่น 60000"
+                aria-invalid={errors.amountTHB ? true : undefined}
               />
               {!!order.amountTHB && (
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">≈ {thb(Number(order.amountTHB))}</p>
@@ -1117,9 +1214,11 @@ const Sales = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขที่ใบสำคัญจ่ายเงิน</label>
               <input
+                ref={refs.paymentRefNo}
                 className={baseField}
                 value={order.paymentRefNo}
                 onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
+                onFocus={() => clearHint("paymentRefNo")}
                 placeholder="เช่น A-2025-000123"
               />
             </div>
@@ -1127,10 +1226,13 @@ const Sales = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ลงวันที่</label>
               <input
+                ref={refs.issueDate}
                 type="date"
-                className={cx(baseField, errors.issueDate && "border-red-400 focus:ring-red-200/80")}
+                className={cx(baseField, errors.issueDate && "border-red-400 focus:ring-red-200/80", redHintCls("issueDate"))}
                 value={order.issueDate}
                 onChange={(e) => updateOrder("issueDate", e.target.value)}
+                onFocus={() => clearHint("issueDate")}
+                aria-invalid={errors.issueDate ? true : undefined}
               />
               {errors.issueDate && <p className="mt-1 text-sm text-red-500">{errors.issueDate}</p>}
             </div>
@@ -1146,11 +1248,7 @@ const Sales = () => {
                 value:
                   (Math.round(
                     (toNumber(order.grossWeightKg) -
-                      toNumber(
-                        order.manualDeduct
-                          ? order.deductWeightKg
-                          : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct)
-                      )) *
+                      toNumber(order.manualDeduct ? order.deductWeightKg : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct))) *
                       100
                   ) / 100) + " กก.",
               },
@@ -1158,7 +1256,7 @@ const Sales = () => {
             ].map((c) => (
               <div
                 key={c.label}
-                className="rounded-2xl bg-gradient-to-b from-white to-slate-50 p-4 text-black shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-slate-200 dark:from-slate-800 dark:to-slate-900 dark:text-white dark:ring-slate-700 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)]"
+                className="rounded-2xl bg-gradient-to-b from-white to-slate-50 p-4 text-black shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-slate-200 dark:from-slate-800 dark:to-slate-900 dark:text-white dark:ring-slate-700 dark:shadow-[inset_0_1px_0_rgба(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)]"
               >
                 <div className="text-slate-500 dark:text-slate-400">{c.label}</div>
                 <div className="text-lg font-semibold">{c.value}</div>

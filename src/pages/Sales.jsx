@@ -885,7 +885,7 @@ const Sales = () => {
           <div className="grid gap-4 md:grid-cols-3">
             {/* เลขบัตร (ไม่บังคับ) */}
             <div className="md:col-span-1">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขที่บัตรประชาชน (13 หลัก)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">เลขที่บัตรประชาชน (13 หลัก)</label>
               <input
                 ref={refs.citizenId}
                 inputMode="numeric"
@@ -913,7 +913,7 @@ const Sales = () => {
 
             {/* ชื่อ–สกุล + รายการค้นหา (ปรับกันทับสี) */}
             <div className="md:col-span-2" ref={nameBoxRef}>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
               <input
                 ref={(el) => { refs.fullName.current = el; nameInputRef.current = el }}
                 className={cx(baseField, redFieldCls("fullName"))}
@@ -992,7 +992,7 @@ const Sales = () => {
               ["province", "จังหวัด", "เช่น ขอนแก่น"],
             ].map(([k, label, ph]) => (
               <div key={k}>
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">{label}</label>
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">{label}</label>
                 <input
                   ref={refs[k]}
                   className={cx(baseField, errors.address && "border-amber-400 focus:ring-amber-200/80", redHintCls(k))}
@@ -1006,7 +1006,7 @@ const Sales = () => {
             ))}
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รหัสไปรษณีย์ (ไม่บังคับ)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">รหัสไปรษณีย์ (ไม่บังคับ)</label>
               <input
                 ref={refs.postalCode}
                 inputMode="numeric"
@@ -1031,7 +1031,7 @@ const Sales = () => {
           <div className="grid gap-4 md:grid-cols-3">
             {/* ชนิดข้าว */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชนิดข้าวเปลือก</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">ชนิดข้าวเปลือก</label>
               <ComboBox
                 options={riceOptions}
                 value={order.riceId}
@@ -1049,7 +1049,7 @@ const Sales = () => {
 
             {/* สาขา */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">สาขา</label>
               <ComboBox
                 options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
                 value={order.branchName}
@@ -1068,7 +1068,7 @@ const Sales = () => {
 
             {/* คลัง */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">คลัง</label>
               <ComboBox
                 options={klangOptions.map((k) => ({ id: k.id, label: k.klang_name }))}
                 value={order.klangName}
@@ -1088,7 +1088,7 @@ const Sales = () => {
 
             {/* ความชื้น/สิ่งเจือปน/น้ำหนัก */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ความชื้น (%)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">ความชื้น (%)</label>
               <input
                 ref={refs.moisturePct}
                 inputMode="decimal"
@@ -1101,7 +1101,7 @@ const Sales = () => {
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
             </div>
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สิ่งเจือปน (%)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">สิ่งเจือปน (%)</label>
               <input
                 ref={refs.impurityPct}
                 inputMode="decimal"
@@ -1115,7 +1115,7 @@ const Sales = () => {
 
             {/* น้ำหนักตามใบชั่ง (ปรับกันทับสี) */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">น้ำหนักตามใบชั่ง (กก.)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">น้ำหนักตามใบชั่ง (กก.)</label>
               <input
                 ref={refs.grossWeightKg}
                 inputMode="decimal"
@@ -1132,10 +1132,10 @@ const Sales = () => {
             {/* หักน้ำหนัก */}
             <div className="md:col-span-2">
               <div className="flex items-center justify-between">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">
                   หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)
                 </label>
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <label className="flex cursor-pointer items-center gap-2 text-sm dark:text-slate-100">
                   <input
                     type="checkbox"
                     checked={order.manualDeduct}
@@ -1169,7 +1169,7 @@ const Sales = () => {
 
             {/* สุทธิ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">น้ำหนักสุทธิ (กก.)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">น้ำหนักสุทธิ (กก.)</label>
               <input
                 disabled
                 className={cx(baseField, fieldDisabled)}
@@ -1179,7 +1179,7 @@ const Sales = () => {
 
             {/* ราคา/เป็นเงิน/เลขอ้างอิง/ลงวันที่ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
               <input
                 ref={refs.unitPrice}
                 inputMode="decimal"
@@ -1194,7 +1194,7 @@ const Sales = () => {
 
             {/* เป็นเงิน (ปรับกันทับสี) */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เป็นเงิน (บาท)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">เป็นเงิน (บาท)</label>
               <input
                 ref={refs.amountTHB}
                 inputMode="decimal"
@@ -1212,7 +1212,7 @@ const Sales = () => {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขที่ใบสำคัญจ่ายเงิน</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">เลขที่ใบสำคัญจ่ายเงิน</label>
               <input
                 ref={refs.paymentRefNo}
                 className={baseField}
@@ -1224,7 +1224,7 @@ const Sales = () => {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ลงวันที่</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">ลงวันที่</label>
               <input
                 ref={refs.issueDate}
                 type="date"

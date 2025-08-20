@@ -343,6 +343,7 @@ const Sales = () => {
         const rice = (riceRaw || []).map((x) => ({
           id: String(x.id ?? x.rice_id ?? x.riceId ?? ""),
           label: x.rice_type ?? x.rice_name ?? x.name ?? "",
+          price: x.price ?? x.unit_price ?? undefined,
           _raw: x,
         }))
         setRiceOptions(rice)
@@ -602,6 +603,15 @@ const Sales = () => {
       setOrder((prev) => ({ ...prev, amountTHB: String(Math.round(computedAmount * 100) / 100) }))
     }
   }, [computedAmount])
+
+  /** auto-fill ราคา */
+  useEffect(() => {
+    if (!order.riceId) return
+    const found = riceOptions.find((r) => r.id === order.riceId)
+    if (found?.price != null) {
+      setOrder((p) => ({ ...p, unitPrice: String(found.price) }))
+    }
+  }, [order.riceId, riceOptions])
 
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) =>
@@ -901,7 +911,7 @@ const Sales = () => {
               </div>
             </div>
 
-            {/* ชื่อ–สกุล + รายการค้นหา */}
+            {/* ชื่อ–สกุล + รายการค้นหา (ปรับกันทับสี) */}
             <div className="md:col-span-2" ref={nameBoxRef}>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
               <input
@@ -1026,12 +1036,7 @@ const Sales = () => {
                 options={riceOptions}
                 value={order.riceId}
                 onChange={(id, found) => {
-                  setOrder((p) => ({
-                    ...p,
-                    riceId: id,
-                    riceType: found?.label ?? "",
-                    // ไม่แตะ unitPrice อีกต่อไป — ให้แอดมินกรอกเอง
-                  }))
+                  setOrder((p) => ({ ...p, riceId: id, riceType: found?.label ?? "", unitPrice: found?.price != null ? String(found.price) : p.unitPrice }))
                 }}
                 placeholder="— เลือกชนิด —"
                 error={!!errors.riceType}
@@ -1108,7 +1113,7 @@ const Sales = () => {
               />
             </div>
 
-            {/* น้ำหนักตามใบชั่ง */}
+            {/* น้ำหนักตามใบชั่ง (ปรับกันทับสี) */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">น้ำหนักตามใบชั่ง (กก.)</label>
               <input
@@ -1174,7 +1179,7 @@ const Sales = () => {
 
             {/* ราคา/เป็นเงิน/เลขอ้างอิง/ลงวันที่ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ราคาต่อกก. (บาท) — ให้แอดมินกรอก</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
               <input
                 ref={refs.unitPrice}
                 inputMode="decimal"
@@ -1184,10 +1189,10 @@ const Sales = () => {
                 onFocus={() => clearHint("unitPrice")}
                 placeholder="เช่น 12.50"
               />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">กรอกเอง ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
             </div>
 
-            {/* เป็นเงิน */}
+            {/* เป็นเงิน (ปรับกันทับสี) */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เป็นเงิน (บาท)</label>
               <input
@@ -1270,7 +1275,7 @@ const Sales = () => {
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-gradient-to-b from-white to-slate-50 px-5 py-2.5 font-medium text-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] hover:from-white hover:to-slate-100 active:scale-[.98] dark:border-slate-600 dark:from-slate-800 dark:to-slate-900 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgба(0,0,0,0.55)]"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-gradient-to-b from-white to-slate-50 px-5 py-2.5 font-medium text-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] hover:from-white hover:to-slate-100 active:scale-[.98] dark:border-slate-600 dark:from-slate-800 dark:to-slate-900 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)]"
             >
               รีเซ็ต
             </button>

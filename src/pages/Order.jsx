@@ -127,9 +127,10 @@ function ComboBox({
         disabled={disabled}
         onClick={() => !disabled && setOpen((o) => !o)}
         onKeyDown={onKeyDown}
-        className={`w-full rounded-xl border p-2 text-left outline-none transition ${
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-white hover:bg-slate-50"
-        } ${error ? "border-red-400" : "border-slate-300 focus:border-emerald-500"} dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600/60`}
+        className={`w-full rounded-xl border p-2 text-left outline-none transition shadow-none
+          ${disabled ? "bg-slate-100 cursor-not-allowed" : "bg-white hover:bg-slate-50"}
+          ${error ? "border-red-400" : "border-slate-300 focus:border-emerald-500"}
+          dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-700/70`}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -190,6 +191,7 @@ const Order = () => {
 
   const [branchOptions, setBranchOptions] = useState([]) // [{id, branch_name}]
   const [klangOptions, setKlangOptions] = useState([])   // [{id, klang_name}]
+  const [riceOptions, setRiceOptions]   = useState([])   // [{id, rice_type}]
 
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
@@ -198,6 +200,8 @@ const Order = () => {
     branchName: "",   // เก็บชื่อไว้จับคู่กับ ComboBox (สะดวก map label)
     klangId: "",
     klangName: "",
+    riceId: "",
+    riceName: "",
     q: "",
   })
 
@@ -216,7 +220,21 @@ const Order = () => {
       }
     }
     loadBranch()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /** ---------- Dropdown: Rice (load all) ---------- */
+  useEffect(() => {
+    const loadRice = async () => {
+      try {
+        const r = await fetch(`${API_BASE}/order/rice/search`, { headers: authHeader() })
+        const data = r.ok ? await r.json() : []
+        setRiceOptions(Array.isArray(data) ? data : [])
+      } catch (e) {
+        console.error("load rice failed:", e)
+        setRiceOptions([])
+      }
+    }
+    loadRice()
   }, [])
 
   /** ---------- Dropdown: Klang (depends on branch) ---------- */
@@ -239,7 +257,6 @@ const Order = () => {
       }
     }
     loadKlang()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId])
 
   /** ---------- Fetch orders ---------- */
@@ -251,6 +268,7 @@ const Order = () => {
       params.set("end_date", filters.endDate)
       if (filters.branchId) params.set("branch_id", filters.branchId)
       if (filters.klangId) params.set("klang_id", filters.klangId)
+      if (filters.riceId)  params.set("rice_id", filters.riceId) // <<— ส่ง rice_id ด้วย
       if (filters.q?.trim()) params.set("q", filters.q.trim())
 
       const r = await fetch(`${API_BASE}/order/orders/report?${params.toString()}`, { headers: authHeader() })
@@ -297,6 +315,8 @@ const Order = () => {
       branchName: "",
       klangId: "",
       klangName: "",
+      riceId: "",
+      riceName: "",
       q: "",
     })
   }
@@ -318,7 +338,8 @@ const Order = () => {
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่เริ่ม</label>
               <input
                 type="date"
-                className="w-full rounded-xl border border-slate-300 bg-white p-2 text-black outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                className="w-full rounded-xl border border-slate-300 bg-white p-2 text-black outline-none placeholder:text-slate-400 focus:border-emerald-500
+                dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-400 shadow-none"
                 value={filters.startDate}
                 onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
               />
@@ -327,7 +348,8 @@ const Order = () => {
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่สิ้นสุด</label>
               <input
                 type="date"
-                className="w-full rounded-xl border border-slate-300 bg-white p-2 text-black outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                className="w-full rounded-xl border border-slate-300 bg-white p-2 text-black outline-none placeholder:text-slate-400 focus:border-emerald-500
+                dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-400 shadow-none"
                 value={filters.endDate}
                 onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
               />
@@ -373,10 +395,29 @@ const Order = () => {
               />
             </div>
 
+            {/* ประเภทข้าว: ใช้ ComboBox */}
+            <div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ประเภทข้าว</label>
+              <ComboBox
+                options={riceOptions.map((r) => ({ id: r.id, label: r.rice_type }))}
+                value={filters.riceName}
+                getValue={(o) => o.label}
+                onChange={(_val, found) =>
+                  setFilters((p) => ({
+                    ...p,
+                    riceName: found?.label ?? "",
+                    riceId: found?.id ?? "",
+                  }))
+                }
+                placeholder="— เลือกประเภทข้าว —"
+              />
+            </div>
+
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)</label>
               <input
-                className="w-full rounded-xl border border-slate-300 bg-white p-2 text-black outline-none placeholder:text-slate-400 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                className="w-full rounded-xl border border-slate-300 bg-white p-2 text-black outline-none placeholder:text-slate-400 focus:border-emerald-500
+                dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-400 shadow-none"
                 value={filters.q}
                 onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
                 placeholder="พิมพ์อย่างน้อย 2 ตัวอักษร แล้วระบบจะค้นหาอัตโนมัติ"
@@ -392,7 +433,7 @@ const Order = () => {
               </button>
               <button
                 onClick={resetFilters}
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-slate-700 hover:bg-slate-50 active:scale-[.98] dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-slate-700 hover:bg-slate-50 active:scale-[.98] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 shadow-none"
               >
                 รีเซ็ต
               </button>

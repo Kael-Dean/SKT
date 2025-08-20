@@ -358,6 +358,7 @@ const Sales = () => {
         const [riceRes, branchRes] = await Promise.allSettled([
           fetch(`${API_BASE}/order/rice/search`,   { headers: authHeader() }),
           fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
+          fetch(`${API_BASE}/order/field_type/list`, { headers: authHeader() }),  
         ])
 
         // rice

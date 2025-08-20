@@ -331,27 +331,46 @@ const Sales = () => {
   }
 
   /** โหลด dropdown */
-  useEffect(() => {
-    const loadDD = async () => {
-      try {
-        const [r1, r2] = await Promise.all([
-          fetch(`${API_BASE}/order/rice/search`, { headers: authHeader() }),
-          fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
-        ])
-        const riceRaw = r1.ok ? await r1.json() : []
-        const branch  = r2.ok ? await r2.json() : []
-        const rice = (riceRaw || []).map((x) => ({
-          id: String(x.id ?? x.rice_id ?? x.riceId ?? ""),
-          label: x.rice_type ?? x.rice_name ?? x.name ?? "",
-          price: x.price ?? x.unit_price ?? undefined,
-          _raw: x,
-        }))
-        setRiceOptions(rice)
-        setBranchOptions(branch || [])
-      } catch (e) { console.error("Load dropdowns error:", e) }
-    }
-    loadDD()
-  }, [])
+  // ใหม่ (ทนพัง, ไม่ลากอีกตัวล้มด้วย)
+    useEffect(() => {
+      const loadDD = async () => {
+        try {
+          const [riceRes, branchRes] = await Promise.allSettled([
+            fetch(`${API_BASE}/order/rice/search`,   { headers: authHeader() }),
+            fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
+          ])
+
+          // rice
+          if (riceRes.status === "fulfilled" && riceRes.value.ok) {
+            const riceRaw = await riceRes.value.json()
+            const rice = (riceRaw || []).map((x) => ({
+              id: String(x.id ?? x.rice_id ?? x.riceId ?? ""),
+              label: x.rice_type ?? x.rice_name ?? x.name ?? "",
+              // ไม่มีราคาแล้วก็เว้นไว้
+            }))
+            setRiceOptions(rice)
+          } else {
+            console.error("rice/search failed:", riceRes)
+            setRiceOptions([]) // เคลียร์ให้แน่ใจ
+          }
+
+          // branch
+          if (branchRes.status === "fulfilled" && branchRes.value.ok) {
+            const branch = await branchRes.value.json()
+            setBranchOptions(branch || [])
+          } else {
+            console.error("branch/search failed:", branchRes)
+            setBranchOptions([])
+          }
+        } catch (err) {
+          console.error("loadDD fatal:", err)
+          setRiceOptions([])
+          setBranchOptions([])
+        }
+      }
+      loadDD()
+    }, [])
+
 
   /** โหลดคลังตามสาขา */
   useEffect(() => {

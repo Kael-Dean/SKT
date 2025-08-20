@@ -58,7 +58,7 @@ const baseField =
   "dark:bg-gradient-to-b dark:from-slate-800 dark:to-slate-900 " +
   "dark:text-white dark:border-slate-700 dark:placeholder:text-slate-400 " +
   "dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)] " +
-  "dark:focus:shadow-[inset_0_2px_4px_rgba(255,255,255,0.08),_inset_0_-4px_12px_rgba(0,0,0,0.6)] " +
+  "dark:focus:shadow-[inset_0_2px_4px_rgba(255,255,255,0.08),_inset_0_-4px_12px_rgба(0,0,0,0.6)] " +
   "dark:focus:ring-emerald-400/60 dark:focus:border-emerald-400"
 
 /** ช่อง disabled */
@@ -247,8 +247,8 @@ const Sales = () => {
   const suppressNameSearchRef = useRef(false)
 
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const listContainerRef = useRef(null)
-  const itemRefs = useRef([])
+  const listContainerRef = useRef(null)   // <-- ประกาศตรงนี้ “ครั้งเดียว”
+  const itemRefs = useRef([])             // <-- ประกาศตรงนี้ “ครั้งเดียว”
 
   /** dropdown opts */
   const [riceOptions, setRiceOptions] = useState([])
@@ -317,14 +317,12 @@ const Sales = () => {
     issueDate: useRef(null),
   }
 
-  /** ---------- API headers ---------- */
-  // GET: อย่าใส่ Content-Type เพื่อลด preflight/CORS แปลกๆ
-  const authHeaderGET = () => {
-    const token = localStorage.getItem("token")
-    return token ? { Authorization: `Bearer ${token}` } : {}
-  }
-  // POST/PUT: ต้องมี JSON
-  const authHeaderJSON = () => {
+  /** debounce */
+  const debouncedCitizenId = useDebounce(customer.citizenId)
+  const debouncedFullName  = useDebounce(customer.fullName)
+
+  /** API header */
+  const authHeader = () => {
     const token = localStorage.getItem("token")
     return {
       "Content-Type": "application/json",
@@ -332,17 +330,13 @@ const Sales = () => {
     }
   }
 
-  /** debounce */
-  const debouncedCitizenId = useDebounce(customer.citizenId)
-  const debouncedFullName  = useDebounce(customer.fullName)
-
   /** โหลด dropdown */
   useEffect(() => {
     const loadDD = async () => {
       try {
         const [r1, r2] = await Promise.all([
-          fetch(`${API_BASE}/order/rice/search`,   { headers: authHeaderGET() }),
-          fetch(`${API_BASE}/order/branch/search`, { headers: authHeaderGET() }),
+          fetch(`${API_BASE}/order/rice/search`, { headers: authHeader() }),
+          fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
         ])
         const riceRaw = r1.ok ? await r1.json() : []
         const branch  = r2.ok ? await r2.json() : []
@@ -371,7 +365,7 @@ const Sales = () => {
     const loadKlang = async () => {
       try {
         const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
-        const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeaderGET() })
+        const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
         if (!r.ok) { console.error("Load klang failed:", r.status, await r.text()); setKlangOptions([]); return }
         const data = await r.json()
         setKlangOptions(data || [])
@@ -428,7 +422,7 @@ const Sales = () => {
       try {
         setLoadingCustomer(true)
         const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(cid)}`
-        const res = await fetch(url, { headers: authHeaderGET() })
+        const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const arr = (await res.json()) || []
         const exact = arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
@@ -471,7 +465,7 @@ const Sales = () => {
       try {
         setLoadingCustomer(true)
         const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(q)}`
-        const res = await fetch(url, { headers: authHeaderGET() })
+        const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const items = (await res.json()) || []
         const mapped = items.map((r) => ({
@@ -526,18 +520,21 @@ const Sales = () => {
   }
 
   /** scroll item ที่ไฮไลต์ */
-  const listContainerRef = useRef(null)
-  const itemRefs = useRef([])
   const scrollHighlightedIntoView2 = (index) => {
     const itemEl = itemRefs.current[index]
     const listEl = listContainerRef.current
     if (!itemEl || !listEl) return
-    try { itemEl.scrollIntoView({ block: "nearest", inline: "nearest" }) } catch {
+    try {
+      itemEl.scrollIntoView({ block: "nearest", inline: "nearest" })
+    } catch {
       const itemRect = itemEl.getBoundingClientRect()
       const listRect = listEl.getBoundingClientRect()
       const buffer = 6
-      if (itemRect.top < listRect.top + buffer) listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
-      else if (itemRect.bottom > listRect.bottom - buffer) listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+      if (itemRect.top < listRect.top + buffer) {
+        listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+      } else if (itemRect.bottom > listRect.bottom - buffer) {
+        listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+      }
     }
   }
 
@@ -607,7 +604,7 @@ const Sales = () => {
     }
   }, [computedAmount])
 
-  /** auto-fill ราคา */
+  /** auto-fill ราคา (ถ้าฝั่ง rice มีราคาแนบมา) */
   useEffect(() => {
     if (!order.riceId) return
     const found = riceOptions.find((r) => r.id === order.riceId)
@@ -728,13 +725,14 @@ const Sales = () => {
     if (!branchId) { setErrors((prev) => ({ ...prev, branchName: "ไม่พบรหัสสาขา โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, branchName:true })); scrollToFirstError({ branchName: true }); return }
     if (!klangId)  { setErrors((prev) => ({ ...prev, klangName: "ไม่พบรหัสคลัง โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, klangName:true })); scrollToFirstError({ klangName: true }); return }
 
+    const baseHeaders = authHeader()
     let customer_id = memberMeta.memberPk ?? null
 
     if (!customer_id) {
       try {
         const upsertRes = await fetch(`${API_BASE}/order/customer/upsert`, {
           method: "POST",
-          headers: authHeaderJSON(),
+          headers: baseHeaders,
           body: JSON.stringify({
             first_name: firstName || "",
             last_name: lastName || "",
@@ -802,7 +800,7 @@ const Sales = () => {
     try {
       const res = await fetch(`${API_BASE}/order/customers/save`, {
         method: "POST",
-        headers: authHeaderJSON(),
+        headers: baseHeaders,
         body: JSON.stringify(payload),
       })
       if (!res.ok) {
@@ -946,7 +944,7 @@ const Sales = () => {
                     "shadow-[inset_0_1px_2px_rgba(0,0,0,0.06),_0_10px_24px_rgba(0,0,0,0.08)] " +
                     "border-slate-200 " +
                     "dark:from-slate-800 dark:to-slate-900 dark:text-white dark:border-slate-700 " +
-                    "dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55),_0_12px_28px_rgba(0,0,0,0.55)]"
+                    "dark:shadow-[inset_0_1px_0_rgба(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55),_0_12px_28px_rgba(0,0,0,0.55)]"
                   }
                   role="listbox"
                 >
@@ -1036,7 +1034,7 @@ const Sales = () => {
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชนิดข้าวเปลือก</label>
               <ComboBox
                 options={riceOptions}
-                value={order.riceId}              // ใช้ id เป็นหลัก
+                value={order.riceId}
                 onChange={(id, found) => {
                   setOrder((p) => ({
                     ...p,
@@ -1058,7 +1056,7 @@ const Sales = () => {
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
               <ComboBox
                 options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
-                value={order.branchId}            // ใช้ id เป็นหลัก
+                value={order.branchId}           // ใช้ id
                 getValue={(o) => o.id}
                 onChange={(_val, found) => {
                   setOrder((p) => ({
@@ -1083,7 +1081,7 @@ const Sales = () => {
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
               <ComboBox
                 options={klangOptions.map((k) => ({ id: k.id, label: k.klang_name }))}
-                value={order.klangId}             // ใช้ id เป็นหลัก
+                value={order.klangId}           // ใช้ id
                 getValue={(o) => o.id}
                 onChange={(_val, found) => {
                   setOrder((p) => ({
@@ -1208,7 +1206,6 @@ const Sales = () => {
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
             </div>
 
-            {/* เป็นเงิน */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เป็นเงิน (บาท)</label>
               <input

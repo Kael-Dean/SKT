@@ -15,7 +15,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { label: 'สมัครสมาชิก', path: '/member-signup' },
     { label: 'ค้นหาสมาชิก', path: '/search' },
   ]
-_
+
   if (isAdmin) {
     menuItems.push({ label: 'เพิ่มพนักงานใหม่', path: '/add-employee' })
   }

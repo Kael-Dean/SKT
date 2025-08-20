@@ -338,6 +338,8 @@ const Sales = () => {
           fetch(`${API_BASE}/order/rice/search`, { headers: authHeader() }),
           fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
         ])
+        if (!r1.ok) console.error("rice search failed", r1.status, await r1.text())
+        if (!r2.ok) console.error("branch search failed", r2.status, await r2.text())
         const riceRaw = r1.ok ? await r1.json() : []
         const branch  = r2.ok ? await r2.json() : []
         const rice = (riceRaw || []).map((x) => ({
@@ -348,6 +350,8 @@ const Sales = () => {
         }))
         setRiceOptions(rice)
         setBranchOptions(branch || [])
+        console.log("RiceOptions:", rice)
+        console.log("BranchOptions:", branch)
       } catch (e) { console.error("Load dropdowns error:", e) }
     }
     loadDD()
@@ -369,6 +373,7 @@ const Sales = () => {
         if (!r.ok) { console.error("Load klang failed:", r.status, await r.text()); setKlangOptions([]); return }
         const data = await r.json()
         setKlangOptions(data || [])
+        console.log("KlangOptions:", data)
       } catch (e) { console.error("Load klang error:", e); setKlangOptions([]) }
     }
     loadKlang()
@@ -421,7 +426,7 @@ const Sales = () => {
     const fetchByCid = async () => {
       try {
         setLoadingCustomer(true)
-        const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(cid)}`
+        const url = `${API_BASE}/order/customers/search?q=${encodeURIComponent(cid)}`
         const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const arr = (await res.json()) || []
@@ -464,7 +469,7 @@ const Sales = () => {
     const searchByName = async () => {
       try {
         setLoadingCustomer(true)
-        const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(q)}`
+        const url = `${API_BASE}/order/customers/search?q=${encodeURIComponent(q)}`
         const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const items = (await res.json()) || []
@@ -520,6 +525,8 @@ const Sales = () => {
   }
 
   /** scroll item ที่ไฮไลต์ */
+  const listContainerRef = useRef(null)
+  const itemRefs = useRef([])
   const scrollHighlightedIntoView2 = (index) => {
     const itemEl = itemRefs.current[index]
     const listEl = listContainerRef.current
@@ -703,11 +710,9 @@ const Sales = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    // 1) แสดง hint แดงทุกช่องที่ยังว่าง
     const hints = computeMissingHints()
     setMissingHints(hints)
 
-    // 2) วาลิเดตตามกฎเดิม
     const eObj = validateAll()
     if (Object.keys(eObj).length > 0) {
       scrollToFirstError(eObj)
@@ -744,7 +749,7 @@ const Sales = () => {
         postal_code: customer.postalCode?.toString().trim() || "",
       },
       order: {
-        customer_id: null, // backend จะ upsert เองจาก citizen_id แล้วใช้ id นั้น
+        customer_id: null,
         rice_id: riceId,
         branch_location: branchId,
         klang_location: klangId,
@@ -754,6 +759,10 @@ const Sales = () => {
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim(),
         date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
+        // optional fields (เซิร์ฟเวอร์ตั้ง default ได้)
+        gram: null,
+        season: null,
+        field_type: null,
       },
       rice:   { rice_type: order.riceType, id: riceId },
       branch: { branch_name: order.branchName, id: branchId },

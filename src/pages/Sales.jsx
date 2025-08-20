@@ -247,15 +247,13 @@ const Sales = () => {
   const suppressNameSearchRef = useRef(false)
 
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
-
-  // ↓↓↓ ประกาศที่นี่ครั้งเดียวพอ ↓↓↓
   const listContainerRef = useRef(null)
   const itemRefs = useRef([])
 
   /** dropdown opts */
-  const [riceOptions, setRiceOptions] = useState([])     // [{id,label,price}]
-  const [branchOptions, setBranchOptions] = useState([]) // [{id,branch_name}]
-  const [klangOptions, setKlangOptions] = useState([])   // [{id,klang_name}]
+  const [riceOptions, setRiceOptions] = useState([])
+  const [branchOptions, setBranchOptions] = useState([])
+  const [klangOptions, setKlangOptions] = useState([])
 
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
@@ -332,7 +330,7 @@ const Sales = () => {
     }
   }
 
-  /** โหลด dropdown (ชนิดข้าว + สาขา) */
+  /** โหลด dropdown */
   useEffect(() => {
     const loadDD = async () => {
       try {
@@ -340,8 +338,6 @@ const Sales = () => {
           fetch(`${API_BASE}/order/rice/search`, { headers: authHeader() }),
           fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
         ])
-        if (!r1.ok) console.error("rice search failed", r1.status, await r1.text())
-        if (!r2.ok) console.error("branch search failed", r2.status, await r2.text())
         const riceRaw = r1.ok ? await r1.json() : []
         const branch  = r2.ok ? await r2.json() : []
         const rice = (riceRaw || []).map((x) => ({
@@ -352,8 +348,6 @@ const Sales = () => {
         }))
         setRiceOptions(rice)
         setBranchOptions(branch || [])
-        console.log("RiceOptions:", rice)
-        console.log("BranchOptions:", branch)
       } catch (e) { console.error("Load dropdowns error:", e) }
     }
     loadDD()
@@ -375,7 +369,6 @@ const Sales = () => {
         if (!r.ok) { console.error("Load klang failed:", r.status, await r.text()); setKlangOptions([]); return }
         const data = await r.json()
         setKlangOptions(data || [])
-        console.log("KlangOptions:", data)
       } catch (e) { console.error("Load klang error:", e); setKlangOptions([]) }
     }
     loadKlang()
@@ -428,7 +421,7 @@ const Sales = () => {
     const fetchByCid = async () => {
       try {
         setLoadingCustomer(true)
-        const url = `${API_BASE}/order/customers/search?q=${encodeURIComponent(cid)}`
+        const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(cid)}`
         const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const arr = (await res.json()) || []
@@ -471,7 +464,7 @@ const Sales = () => {
     const searchByName = async () => {
       try {
         setLoadingCustomer(true)
-        const url = `${API_BASE}/order/customers/search?q=${encodeURIComponent(q)}`
+        const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(q)}`
         const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const items = (await res.json()) || []
@@ -710,9 +703,11 @@ const Sales = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
+    // 1) แสดง hint แดงทุกช่องที่ยังว่าง
     const hints = computeMissingHints()
     setMissingHints(hints)
 
+    // 2) วาลิเดตตามกฎเดิม
     const eObj = validateAll()
     if (Object.keys(eObj).length > 0) {
       scrollToFirstError(eObj)
@@ -722,13 +717,45 @@ const Sales = () => {
     const [firstName, ...rest] = customer.fullName.trim().split(" ")
     const lastName = rest.join(" ")
 
-    const riceId   = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
+    const riceId  = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
     const branchId = order.branchId ?? null
     const klangId  = order.klangId ?? null
 
     if (!riceId)   { setErrors((prev) => ({ ...prev, riceType: "ไม่พบรหัสชนิดข้าว โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, riceType:true })); scrollToFirstError({ riceType: true }); return }
     if (!branchId) { setErrors((prev) => ({ ...prev, branchName: "ไม่พบรหัสสาขา โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, branchName:true })); scrollToFirstError({ branchName: true }); return }
     if (!klangId)  { setErrors((prev) => ({ ...prev, klangName: "ไม่พบรหัสคลัง โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, klangName:true })); scrollToFirstError({ klangName: true }); return }
+
+    const baseHeaders = authHeader()
+    let customer_id = memberMeta.memberPk ?? null
+
+    if (!customer_id) {
+      try {
+        const upsertRes = await fetch(`${API_BASE}/order/customer/upsert`, {
+          method: "POST",
+          headers: baseHeaders,
+          body: JSON.stringify({
+            first_name: firstName || "",
+            last_name: lastName || "",
+            citizen_id: onlyDigits(customer.citizenId),
+            address: customer.houseNo.trim(),
+            mhoo: customer.moo.trim(),
+            sub_district: customer.subdistrict.trim(),
+            district: customer.district.trim(),
+            province: customer.province.trim(),
+            postal_code: customer.postalCode?.toString().trim() || "",
+          }),
+        })
+        if (upsertRes.ok) {
+          const u = await upsertRes.json()
+          customer_id = u?.id ?? u?.customer_id ?? null
+        }
+      } catch {}
+    }
+
+    if (!customer_id) {
+      alert("ไม่พบ/ไม่สามารถสร้างรหัสลูกค้า (customer_id) โปรดเลือกจากรายชื่อสมาชิกหรือให้หลังบ้านเปิด endpoint upsert ลูกค้า")
+      return
+    }
 
     const netW = toNumber(order.grossWeightKg) - toNumber(
       order.manualDeduct
@@ -749,7 +776,7 @@ const Sales = () => {
         postal_code: customer.postalCode?.toString().trim() || "",
       },
       order: {
-        customer_id: null,
+        customer_id,
         rice_id: riceId,
         branch_location: branchId,
         klang_location: klangId,
@@ -759,14 +786,10 @@ const Sales = () => {
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim(),
         date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
-        // optional fields
-        gram: null,
-        season: null,
-        field_type: null,
       },
-      rice:   { rice_type: order.riceType, id: riceId },
+      rice: { rice_type: order.riceType, id: riceId },
       branch: { branch_name: order.branchName, id: branchId },
-      klang:  { klang_name: order.klangName, id: klangId },
+      klang: { klang_name: order.klangName, id: klangId },
       customerMeta: {
         type: memberMeta.type === "unknown" ? "guest" : memberMeta.type,
         memberId: memberMeta.memberId,
@@ -777,7 +800,7 @@ const Sales = () => {
     try {
       const res = await fetch(`${API_BASE}/order/customers/save`, {
         method: "POST",
-        headers: authHeader(),
+        headers: baseHeaders,
         body: JSON.stringify(payload),
       })
       if (!res.ok) {
@@ -862,7 +885,7 @@ const Sales = () => {
           <div className="grid gap-4 md:grid-cols-3">
             {/* เลขบัตร (ไม่บังคับ) */}
             <div className="md:col-span-1">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">เลขที่บัตรประชาชน (13 หลัก)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขที่บัตรประชาชน (13 หลัก)</label>
               <input
                 ref={refs.citizenId}
                 inputMode="numeric"
@@ -888,9 +911,9 @@ const Sales = () => {
               </div>
             </div>
 
-            {/* ชื่อ–สกุล + รายการค้นหา */}
+            {/* ชื่อ–สกุล + รายการค้นหา (ปรับกันทับสี) */}
             <div className="md:col-span-2" ref={nameBoxRef}>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
               <input
                 ref={(el) => { refs.fullName.current = el; nameInputRef.current = el }}
                 className={cx(baseField, redFieldCls("fullName"))}
@@ -969,7 +992,7 @@ const Sales = () => {
               ["province", "จังหวัด", "เช่น ขอนแก่น"],
             ].map(([k, label, ph]) => (
               <div key={k}>
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">{label}</label>
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">{label}</label>
                 <input
                   ref={refs[k]}
                   className={cx(baseField, errors.address && "border-amber-400 focus:ring-amber-200/80", redHintCls(k))}
@@ -983,7 +1006,7 @@ const Sales = () => {
             ))}
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">รหัสไปรษณีย์ (ไม่บังคับ)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รหัสไปรษณีย์ (ไม่บังคับ)</label>
               <input
                 ref={refs.postalCode}
                 inputMode="numeric"
@@ -1008,7 +1031,7 @@ const Sales = () => {
           <div className="grid gap-4 md:grid-cols-3">
             {/* ชนิดข้าว */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">ชนิดข้าวเปลือก</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชนิดข้าวเปลือก</label>
               <ComboBox
                 options={riceOptions}
                 value={order.riceId}
@@ -1026,7 +1049,7 @@ const Sales = () => {
 
             {/* สาขา */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">สาขา</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
               <ComboBox
                 options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
                 value={order.branchName}
@@ -1045,7 +1068,7 @@ const Sales = () => {
 
             {/* คลัง */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">คลัง</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
               <ComboBox
                 options={klangOptions.map((k) => ({ id: k.id, label: k.klang_name }))}
                 value={order.klangName}
@@ -1065,7 +1088,7 @@ const Sales = () => {
 
             {/* ความชื้น/สิ่งเจือปน/น้ำหนัก */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">ความชื้น (%)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ความชื้น (%)</label>
               <input
                 ref={refs.moisturePct}
                 inputMode="decimal"
@@ -1078,7 +1101,7 @@ const Sales = () => {
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
             </div>
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">สิ่งเจือปน (%)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สิ่งเจือปน (%)</label>
               <input
                 ref={refs.impurityPct}
                 inputMode="decimal"
@@ -1090,9 +1113,9 @@ const Sales = () => {
               />
             </div>
 
-            {/* น้ำหนักตามใบชั่ง */}
+            {/* น้ำหนักตามใบชั่ง (ปรับกันทับสี) */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">น้ำหนักตามใบชั่ง (กก.)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">น้ำหนักตามใบชั่ง (กก.)</label>
               <input
                 ref={refs.grossWeightKg}
                 inputMode="decimal"
@@ -1109,10 +1132,10 @@ const Sales = () => {
             {/* หักน้ำหนัก */}
             <div className="md:col-span-2">
               <div className="flex items-center justify-between">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
                   หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)
                 </label>
-                <label className="flex cursor-pointer items-center gap-2 text-sm dark:text-slate-100">
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={order.manualDeduct}
@@ -1146,7 +1169,7 @@ const Sales = () => {
 
             {/* สุทธิ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">น้ำหนักสุทธิ (กก.)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">น้ำหนักสุทธิ (กก.)</label>
               <input
                 disabled
                 className={cx(baseField, fieldDisabled)}
@@ -1156,7 +1179,7 @@ const Sales = () => {
 
             {/* ราคา/เป็นเงิน/เลขอ้างอิง/ลงวันที่ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
               <input
                 ref={refs.unitPrice}
                 inputMode="decimal"
@@ -1169,9 +1192,9 @@ const Sales = () => {
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
             </div>
 
-            {/* เป็นเงิน */}
+            {/* เป็นเงิน (ปรับกันทับสี) */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">เป็นเงิน (บาท)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เป็นเงิน (บาท)</label>
               <input
                 ref={refs.amountTHB}
                 inputMode="decimal"
@@ -1189,7 +1212,7 @@ const Sales = () => {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">เลขที่ใบสำคัญจ่ายเงิน</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขที่ใบสำคัญจ่ายเงิน</label>
               <input
                 ref={refs.paymentRefNo}
                 className={baseField}
@@ -1201,7 +1224,7 @@ const Sales = () => {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-100">ลงวันที่</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ลงวันที่</label>
               <input
                 ref={refs.issueDate}
                 type="date"
@@ -1233,7 +1256,7 @@ const Sales = () => {
             ].map((c) => (
               <div
                 key={c.label}
-                className="rounded-2xl bg-gradient-to-b from-white to-slate-50 p-4 text-black shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-slate-200 dark:from-slate-800 dark:to-slate-900 dark:text-white dark:ring-slate-700 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)]"
+                className="rounded-2xl bg-gradient-to-b from-white to-slate-50 p-4 text-black shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-slate-200 dark:from-slate-800 dark:to-slate-900 dark:text-white dark:ring-slate-700 dark:shadow-[inset_0_1px_0_rgба(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)]"
               >
                 <div className="text-slate-500 dark:text-slate-400">{c.label}</div>
                 <div className="text-lg font-semibold">{c.value}</div>

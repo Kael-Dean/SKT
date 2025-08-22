@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 
-/** ---------- ENV: API BASE ---------- */
-const API_BASE = import.meta.env.VITE_API_BASE // ต้องมีใน .env เช่น VITE_API_BASE=http://18.142.48.127
+/** ---------- ENV ---------- */
+const API_BASE = import.meta.env.VITE_API_BASE || ""
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -27,53 +27,41 @@ const clampWa = (v) => {
   return Math.max(0, Math.min(99, n)) // 0–99
 }
 
-/** ---------- Button styles (light + dark) ---------- */
-const BTN_BASE =
-  "inline-flex items-center justify-center rounded-xl px-5 py-2.5 font-medium select-none " +
-  "transition-[transform,box-shadow,background] focus-visible:outline-none " +
-  "focus-visible:ring-2 ring-emerald-400/40 dark:ring-emerald-300/30 " +
-  "focus-visible:ring-offset-2 ring-offset-white dark:ring-offset-slate-900 " +
-  "active:translate-y-[1px] disabled:opacity-60";
+/** ---------- class helpers ---------- */
+const cx = (...a) => a.filter(Boolean).join(" ")
 
-const BTN_PRIMARY =
-  BTN_BASE +
-  " text-white border shadow-md " +
-  // light
-  " bg-emerald-600 hover:bg-emerald-700 border-emerald-700/50 " +
-  " shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_2px_6px_rgba(0,0,0,0.2)] " +
-  // dark
-  " dark:bg-gradient-to-b dark:from-emerald-600 dark:to-emerald-700 " +
-  " dark:hover:from-emerald-500 dark:hover:to-emerald-600 " +
-  " dark:border-emerald-400/30 " +
-  " dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_12px_rgba(0,0,0,0.45)] " +
-  " active:shadow-inner";
+/** ---------- สไตล์เดียวกับหน้า Sales ---------- */
+// Input พื้นฐาน: ใหญ่ขึ้น คอนทราสต์ดีขึ้น โค้งมากขึ้น
+const baseField =
+  "w-full rounded-2xl border border-slate-300 bg-white p-3 text-[15px] md:text-base " +
+  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
+  "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-const BTN_SECONDARY =
-  BTN_BASE +
-  " border text-slate-700 bg-white hover:bg-slate-50 " +
-  " border-slate-300 shadow-sm active:shadow-inner " +
-  // dark
-  " dark:text-slate-100 dark:bg-gradient-to-b dark:from-slate-700 dark:to-slate-800 " +
-  " dark:hover:from-slate-600 dark:hover:to-slate-700 " +
-  " dark:border-slate-500/60 " +
-  " dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_2px_8px_rgba(0,0,0,0.45)]";
+const fieldError = "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500"
+const fieldDisabled = "bg-slate-100 text-slate-600 cursor-not-allowed opacity-95 dark:bg-slate-700/70 dark:text-slate-300"
 
-/** ---------- Reusable ComboBox (สไตล์เดียวกับหน้า Sales) ---------- */
+const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
+const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
+const errorTextCls = "mt-1 text-sm text-red-500"
+
+/** ---------- Reusable ComboBox (โคลนจาก Sales) ---------- */
 function ComboBox({
   options = [],
   value,
-  onChange, // (newValue, optionObj) => void
+  onChange,
   placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "",
   getValue = (o) => o?.value ?? o?.id ?? "",
   disabled = false,
   error = false,
+  buttonRef = null,
 }) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
   const boxRef = useRef(null)
   const listRef = useRef(null)
-  const btnRef = useRef(null)
+  const internalBtnRef = useRef(null)
+  const controlRef = buttonRef || internalBtnRef
 
   const selectedLabel = useMemo(() => {
     const found = options.find((o) => String(getValue(o)) === String(value))
@@ -97,7 +85,7 @@ function ComboBox({
     onChange?.(v, opt)
     setOpen(false)
     setHighlight(-1)
-    requestAnimationFrame(() => btnRef.current?.focus())
+    requestAnimationFrame(() => controlRef.current?.focus())
   }
 
   const scrollHighlightedIntoView = (index) => {
@@ -150,29 +138,39 @@ function ComboBox({
 
   return (
     <div className="relative" ref={boxRef}>
+      {/* ปุ่มเหมือน Sales */}
       <button
         type="button"
-        ref={btnRef}
+        ref={controlRef}
         disabled={disabled}
-        onClick={() => !disabled && setOpen((o) => !o)}
+        onClick={() => {
+          if (!disabled) setOpen((o) => !o)
+        }}
         onKeyDown={onKeyDown}
-        className={`w-full rounded-xl border p-2 text-left outline-none transition ${
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-white hover:bg-slate-50"
-        } ${error ? "border-red-400" : "border-slate-300 focus:border-emerald-500"} dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600/60`}
+        className={cx(
+          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
+          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-white hover:bg-slate-50",
+          error
+            ? "border-red-400 ring-2 ring-red-300/70"
+            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
+          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80"
+        )}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-invalid={error ? true : undefined}
       >
-        {selectedLabel || <span className="text-slate-400">{placeholder}</span>}
+        {selectedLabel || <span className="text-slate-500">{placeholder}</span>}
       </button>
 
+      {/* รายการ */}
       {open && (
         <div
           ref={listRef}
           role="listbox"
-          className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white text-black shadow dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
           {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-300">ไม่มีตัวเลือก</div>
+            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
           )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
@@ -186,13 +184,15 @@ function ComboBox({
                 aria-selected={isChosen}
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => commit(opt)}
-                className={`relative flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition
-                  ${isActive
+                className={cx(
+                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl",
+                  isActive
                     ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"}`}
+                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                )}
               >
                 {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-500 dark:bg-emerald-400/60 rounded-l-xl" />
+                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
                 )}
                 <span className="flex-1">{label}</span>
                 {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
@@ -205,34 +205,13 @@ function ComboBox({
   )
 }
 
-/** ---------- สไตล์อินพุต + ระบบเลื่อนหา error (ไม่แตะ validate เดิม) ---------- */
-const baseField =
-  "w-full rounded-xl border p-2 outline-none transition " +
-  // Light
-  "bg-gradient-to-b from-white to-slate-50 " +
-  "focus:ring-2 focus:ring-emerald-500/60 " +
-  "placeholder:text-slate-400 " +
-  "border-slate-300 focus:border-emerald-500 " +
-  // Dark
-  "dark:bg-gradient-to-b dark:from-slate-700 dark:to-slate-700 " +
-  "dark:text-white dark:border-slate-700 dark:placeholder:text-slate-400 " +
-  "dark:focus:ring-emerald-400/60 dark:focus:border-emerald-400"
-// (ตัด shadow inner ออกให้ไม่เกิดกรอบซ้อน)
-
-const fieldError = "border-red-400 ring-2 ring-red-300 focus:ring-red-300 focus:border-red-400"
-const fieldDisabled = "bg-slate-100 dark:bg-slate-800/70 dark:text-slate-300 cursor-not-allowed opacity-90"
-
 /** ---------- Component ---------- */
 const MemberSignup = () => {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
-
-  // เพิ่ม state เพื่อ “สั่งเลื่อน” หลัง validate ตั้ง errors แล้ว
   const [shouldScrollError, setShouldScrollError] = useState(false)
 
-  /**
-   * ฟอร์มนี้ถูก “ทำให้ตรง” กับ RequestMember ของเพื่อน และเพิ่มฟิลด์ที่ดินถือครอง
-   */
+  // ฟอร์ม (ไม่เปลี่ยน logic)
   const [form, setForm] = useState({
     regis_date: new Date().toISOString().slice(0, 10),
     member_id: "",
@@ -252,7 +231,7 @@ const MemberSignup = () => {
     salary: "",
     tgs_group: "",
     share_per_month: "",
-    transfer_date: "", // optional1
+    transfer_date: "", // optional
     ar_limit: "",
     normal_share: "",
     last_bought_date: new Date().toISOString().slice(0, 10),
@@ -267,7 +246,7 @@ const MemberSignup = () => {
     other_rai: "", other_ngan: "", other_wa: "",
   })
 
-  // ---- Refs สำหรับเลื่อนไปยังช่องที่พลาด (เรียงตามความสำคัญ) ----
+  // Refs สำหรับเลื่อนไปช่องแรกที่ผิด
   const refs = {
     member_id: useRef(null),
     precode: useRef(null),
@@ -280,6 +259,7 @@ const MemberSignup = () => {
     sub_district: useRef(null),
     district: useRef(null),
     province: useRef(null),
+    subprov: useRef(null),
     postal_code: useRef(null),
     phone_number: useRef(null),
     sex: useRef(null),
@@ -302,7 +282,6 @@ const MemberSignup = () => {
 
   const update = (k, v) => setForm((prev) => ({ ...prev, [k]: v }))
 
-  // ล้าง error รายช่องเมื่อผู้ใช้แก้/โฟกัส
   const clearError = (key) =>
     setErrors((prev) => {
       if (!(key in prev)) return prev
@@ -310,7 +289,7 @@ const MemberSignup = () => {
       return rest
     })
 
-  // -------------------- validate เดิม (ไม่แก้ logic) --------------------
+  // ---------- validate เดิม (คง logic) ----------
   const validateAll = () => {
     const e = {}
     if (!form.member_id) e.member_id = "กรอกเลขสมาชิก"
@@ -367,9 +346,9 @@ const MemberSignup = () => {
     setErrors(e)
     return Object.keys(e).length === 0
   }
-  // ---------------------------------------------------------------------
+  // ---------------------------------------------
 
-  // เมื่อ errors เปลี่ยนและมีธง shouldScrollError ให้เลื่อนไปยังช่องแรกที่มี error
+  // เลื่อนสู่ช่อง error แรก (เหมือน Sales behavior)
   useEffect(() => {
     if (!shouldScrollError) return
     const keysOrder = [
@@ -392,7 +371,6 @@ const MemberSignup = () => {
     setShouldScrollError(false)
   }, [errors]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Preview เล็ก ๆ
   const landPreview = useMemo(() => {
     const ns = toNumber(form.normal_share)
     return ns ? `${ns.toLocaleString()} หุ้นปกติ` : ""
@@ -505,116 +483,115 @@ const MemberSignup = () => {
 
   /** ---------- UI (ธีม/สไตล์เหมือนหน้า Sales) ---------- */
   return (
-    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
-      <div className="mx-auto max-w-7xl p-4 md:p-6">
-        {/* หัวข้อ */}
-        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">👤 สมัครสมาชิก</h1>
+    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
+      <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
+        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">👤 สมัครสมาชิก</h1>
 
         {/* การ์ดหลักของฟอร์ม */}
         <form
           onSubmit={handleSubmit}
-          className="rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
-          <h2 className="mb-3 text-lg font-semibold">ข้อมูลหลัก</h2>
+          <h2 className="mb-3 text-xl font-semibold">ข้อมูลหลัก</h2>
 
           <div className="grid gap-4 md:grid-cols-4">
             {/* เลขสมาชิก */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขสมาชิก (member_id)</label>
+              <label className={labelCls}>เลขสมาชิก (member_id)</label>
               <input
                 ref={refs.member_id}
                 inputMode="numeric"
-                className={`${baseField} ${errors.member_id ? fieldError : ""}`}
+                className={cx(baseField, errors.member_id && fieldError)}
                 value={form.member_id}
                 onChange={(e) => { clearError("member_id"); update("member_id", onlyDigits(e.target.value)) }}
                 onFocus={() => clearError("member_id")}
                 placeholder="เช่น 11263"
                 aria-invalid={errors.member_id ? true : undefined}
               />
-              {errors.member_id && <p className="mt-1 text-sm text-red-500">{errors.member_id}</p>}
+              {errors.member_id && <p className={errorTextCls}>{errors.member_id}</p>}
             </div>
 
             {/* คำนำหน้า */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คำนำหน้า (precode)</label>
+              <label className={labelCls}>คำนำหน้า (precode)</label>
               <input
                 ref={refs.precode}
                 inputMode="numeric"
-                className={`${baseField} ${errors.precode ? fieldError : ""}`}
+                className={cx(baseField, errors.precode && fieldError)}
                 value={form.precode}
                 onChange={(e) => { clearError("precode"); update("precode", onlyDigits(e.target.value)) }}
                 onFocus={() => clearError("precode")}
                 placeholder="เช่น 1"
                 aria-invalid={errors.precode ? true : undefined}
               />
-              {errors.precode && <p className="mt-1 text-sm text-red-500">{errors.precode}</p>}
+              {errors.precode && <p className={errorTextCls}>{errors.precode}</p>}
             </div>
 
             {/* วันที่สมัคร */}
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่สมัคร (regis_date)</label>
+              <label className={labelCls}>วันที่สมัคร (regis_date)</label>
               <input
                 ref={refs.regis_date}
                 type="date"
-                className={`${baseField} ${errors.regis_date ? fieldError : ""}`}
+                className={cx(baseField, errors.regis_date && fieldError)}
                 value={form.regis_date}
                 onChange={(e) => { clearError("regis_date"); update("regis_date", e.target.value) }}
                 onFocus={() => clearError("regis_date")}
                 aria-invalid={errors.regis_date ? true : undefined}
               />
-              {errors.regis_date && <p className="mt-1 text-sm text-red-500">{errors.regis_date}</p>}
+              {errors.regis_date && <p className={errorTextCls}>{errors.regis_date}</p>}
             </div>
 
             {/* ชื่อ */}
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชื่อ</label>
+              <label className={labelCls}>ชื่อ</label>
               <input
                 ref={refs.first_name}
-                className={`${baseField} ${errors.first_name ? fieldError : ""}`}
+                className={cx(baseField, errors.first_name && fieldError)}
                 value={form.first_name}
                 onChange={(e) => { clearError("first_name"); update("first_name", e.target.value) }}
                 onFocus={() => clearError("first_name")}
                 placeholder="สมชาย"
                 aria-invalid={errors.first_name ? true : undefined}
               />
-              {errors.first_name && <p className="mt-1 text-sm text-red-500">{errors.first_name}</p>}
+              {errors.first_name && <p className={errorTextCls}>{errors.first_name}</p>}
             </div>
 
             {/* นามสกุล */}
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">นามสกุล</label>
+              <label className={labelCls}>นามสกุล</label>
               <input
                 ref={refs.last_name}
-                className={`${baseField} ${errors.last_name ? fieldError : ""}`}
+                className={cx(baseField, errors.last_name && fieldError)}
                 value={form.last_name}
                 onChange={(e) => { clearError("last_name"); update("last_name", e.target.value) }}
                 onFocus={() => clearError("last_name")}
                 placeholder="ใจดี"
                 aria-invalid={errors.last_name ? true : undefined}
               />
-              {errors.last_name && <p className="mt-1 text-sm text-red-500">{errors.last_name}</p>}
+              {errors.last_name && <p className={errorTextCls}>{errors.last_name}</p>}
             </div>
 
             {/* บัตรประชาชน */}
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขบัตรประชาชน (13 หลัก)</label>
+              <label className={labelCls}>เลขบัตรประชาชน (13 หลัก)</label>
               <input
                 ref={refs.citizen_id}
                 inputMode="numeric"
                 maxLength={13}
-                className={`${baseField} ${errors.citizen_id ? fieldError : ""}`}
+                className={cx(baseField, errors.citizen_id && fieldError)}
                 value={form.citizen_id}
                 onChange={(e) => { clearError("citizen_id"); update("citizen_id", onlyDigits(e.target.value)) }}
                 onFocus={() => clearError("citizen_id")}
                 placeholder="1234567890123"
                 aria-invalid={errors.citizen_id ? true : undefined}
               />
-              {errors.citizen_id && <p className="mt-1 text-sm text-red-500">{errors.citizen_id}</p>}
+              {errors.citizen_id && <p className={errorTextCls}>{errors.citizen_id}</p>}
             </div>
 
             {/* เพศ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เพศ (M/F)</label>
+              <label className={labelCls}>เพศ (M/F)</label>
               <div ref={refs.sex}>
                 <ComboBox
                   options={[
@@ -627,27 +604,27 @@ const MemberSignup = () => {
                   error={!!errors.sex}
                 />
               </div>
-              {errors.sex && <p className="mt-1 text-sm text-red-500">{errors.sex}</p>}
+              {errors.sex && <p className={errorTextCls}>{errors.sex}</p>}
             </div>
 
             {/* ที่อยู่ */}
             <div className="md:col-span-3">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ที่อยู่ (address)</label>
+              <label className={labelCls}>ที่อยู่ (address)</label>
               <input
                 ref={refs.address}
-                className={`${baseField} ${errors.address ? fieldError : ""}`}
+                className={cx(baseField, errors.address && fieldError)}
                 value={form.address}
                 onChange={(e) => { clearError("address"); update("address", e.target.value) }}
                 onFocus={() => clearError("address")}
                 placeholder="บ้านเลขที่ หมู่ ตำบล อำเภอ จังหวัด"
                 aria-invalid={errors.address ? true : undefined}
               />
-              {errors.address && <p className="mt-1 text-sm text-red-500">{errors.address}</p>}
+              {errors.address && <p className={errorTextCls}>{errors.address}</p>}
             </div>
 
             {/* หมู่ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">หมู่ (mhoo)</label>
+              <label className={labelCls}>หมู่ (mhoo)</label>
               <input
                 ref={refs.mhoo}
                 className={baseField}
@@ -659,49 +636,49 @@ const MemberSignup = () => {
 
             {/* ตำบล */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ตำบล (sub_district)</label>
+              <label className={labelCls}>ตำบล (sub_district)</label>
               <input
                 ref={refs.sub_district}
-                className={`${baseField} ${errors.sub_district ? fieldError : ""}`}
+                className={cx(baseField, errors.sub_district && fieldError)}
                 value={form.sub_district}
                 onChange={(e) => { clearError("sub_district"); update("sub_district", e.target.value) }}
                 onFocus={() => clearError("sub_district")}
                 aria-invalid={errors.sub_district ? true : undefined}
               />
-              {errors.sub_district && <p className="mt-1 text-sm text-red-500">{errors.sub_district}</p>}
+              {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
             </div>
 
             {/* อำเภอ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">อำเภอ (district)</label>
+              <label className={labelCls}>อำเภอ (district)</label>
               <input
                 ref={refs.district}
-                className={`${baseField} ${errors.district ? fieldError : ""}`}
+                className={cx(baseField, errors.district && fieldError)}
                 value={form.district}
                 onChange={(e) => { clearError("district"); update("district", e.target.value) }}
                 onFocus={() => clearError("district")}
                 aria-invalid={errors.district ? true : undefined}
               />
-              {errors.district && <p className="mt-1 text-sm text-red-500">{errors.district}</p>}
+              {errors.district && <p className={errorTextCls}>{errors.district}</p>}
             </div>
 
             {/* จังหวัด */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">จังหวัด (province)</label>
+              <label className={labelCls}>จังหวัด (province)</label>
               <input
                 ref={refs.province}
-                className={`${baseField} ${errors.province ? fieldError : ""}`}
+                className={cx(baseField, errors.province && fieldError)}
                 value={form.province}
                 onChange={(e) => { clearError("province"); update("province", e.target.value) }}
                 onFocus={() => clearError("province")}
                 aria-invalid={errors.province ? true : undefined}
               />
-              {errors.province && <p className="mt-1 text-sm text-red-500">{errors.province}</p>}
+              {errors.province && <p className={errorTextCls}>{errors.province}</p>}
             </div>
 
             {/* subprov */}
             <div>
-              <label className="mb-1 block text_sm text-slate-700 dark:text-slate-300">อำเภอย่อย/รหัสอำเภอ (subprov)</label>
+              <label className={labelCls}>อำเภอย่อย/รหัสอำเภอ (subprov)</label>
               <input
                 ref={refs.subprov}
                 inputMode="numeric"
@@ -714,137 +691,135 @@ const MemberSignup = () => {
 
             {/* รหัสไปรษณีย์ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รหัสไปรษณีย์</label>
+              <label className={labelCls}>รหัสไปรษณีย์</label>
               <input
                 ref={refs.postal_code}
                 inputMode="numeric"
                 maxLength={5}
-                className={`${baseField} ${errors.postal_code ? fieldError : ""}`}
+                className={cx(baseField, errors.postal_code && fieldError)}
                 value={form.postal_code}
                 onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value)) }}
                 onFocus={() => clearError("postal_code")}
                 aria-invalid={errors.postal_code ? true : undefined}
               />
-              {errors.postal_code && <p className="mt-1 text-sm text-red-500">{errors.postal_code}</p>}
+              {errors.postal_code && <p className={errorTextCls}>{errors.postal_code}</p>}
             </div>
 
             {/* โทรศัพท์ */}
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">โทรศัพท์ (phone_number)</label>
+              <label className={labelCls}>โทรศัพท์ (phone_number)</label>
               <input
                 ref={refs.phone_number}
                 inputMode="tel"
-                className={`${baseField} ${errors.phone_number ? fieldError : ""}`}
+                className={cx(baseField, errors.phone_number && fieldError)}
                 value={form.phone_number}
                 onChange={(e) => { clearError("phone_number"); update("phone_number", e.target.value) }}
                 onFocus={() => clearError("phone_number")}
                 placeholder="08x-xxx-xxxx"
                 aria-invalid={errors.phone_number ? true : undefined}
               />
-              {errors.phone_number && <p className="mt-1 text-sm text-red-500">{errors.phone_number}</p>}
+              {errors.phone_number && <p className={errorTextCls}>{errors.phone_number}</p>}
             </div>
 
             {/* เงินเดือน */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เงินเดือน (salary)</label>
+              <label className={labelCls}>เงินเดือน (salary)</label>
               <input
                 ref={refs.salary}
                 inputMode="decimal"
-                className={`${baseField} ${errors.salary ? fieldError : ""}`}
+                className={cx(baseField, errors.salary && fieldError)}
                 value={form.salary}
                 onChange={(e) => { clearError("salary"); update("salary", e.target.value.replace(/[^\d.]/g, "")) }}
                 onFocus={() => clearError("salary")}
                 placeholder="15000"
                 aria-invalid={errors.salary ? true : undefined}
               />
-              {errors.salary && <p className="mt-1 text-sm text-red-500">{errors.salary}</p>}
+              {errors.salary && <p className={errorTextCls}>{errors.salary}</p>}
             </div>
 
             {/* กลุ่ม */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">กลุ่ม (tgs_group)</label>
+              <label className={labelCls}>กลุ่ม (tgs_group)</label>
               <input
                 ref={refs.tgs_group}
                 inputMode="numeric"
-                className={`${baseField} ${errors.tgs_group ? fieldError : ""}`}
+                className={cx(baseField, errors.tgs_group && fieldError)}
                 value={form.tgs_group}
                 onChange={(e) => { clearError("tgs_group"); update("tgs_group", onlyDigits(e.target.value)) }}
                 onFocus={() => clearError("tgs_group")}
                 placeholder="16"
                 aria-invalid={errors.tgs_group ? true : undefined}
               />
-              {errors.tgs_group && <p className="mt-1 text-sm text-red-500">{errors.tgs_group}</p>}
+              {errors.tgs_group && <p className={errorTextCls}>{errors.tgs_group}</p>}
             </div>
 
             {/* ส่งหุ้น/เดือน */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ส่งหุ้น/เดือน (share_per_month)</label>
+              <label className={labelCls}>ส่งหุ้น/เดือน (share_per_month)</label>
               <input
                 ref={refs.share_per_month}
                 inputMode="decimal"
-                className={`${baseField} ${errors.share_per_month ? fieldError : ""}`}
+                className={cx(baseField, errors.share_per_month && fieldError)}
                 value={form.share_per_month}
                 onChange={(e) => { clearError("share_per_month"); update("share_per_month", e.target.value.replace(/[^\d.]/g, "")) }}
                 onFocus={() => clearError("share_per_month")}
                 placeholder="500"
                 aria-invalid={errors.share_per_month ? true : undefined}
               />
-              {errors.share_per_month && <p className="mt-1 text-sm text-red-500">{errors.share_per_month}</p>}
+              {errors.share_per_month && <p className={errorTextCls}>{errors.share_per_month}</p>}
             </div>
 
             {/* วงเงินสินเชื่อ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วงเงินสินเชื่อ (ar_limit)</label>
+              <label className={labelCls}>วงเงินสินเชื่อ (ar_limit)</label>
               <input
                 ref={refs.ar_limit}
                 inputMode="numeric"
-                className={`${baseField} ${errors.ar_limit ? fieldError : ""}`}
+                className={cx(baseField, errors.ar_limit && fieldError)}
                 value={form.ar_limit}
                 onChange={(e) => { clearError("ar_limit"); update("ar_limit", onlyDigits(e.target.value)) }}
                 onFocus={() => clearError("ar_limit")}
                 placeholder="100000"
                 aria-invalid={errors.ar_limit ? true : undefined}
               />
-              {errors.ar_limit && <p className="mt-1 text-sm text-red-500">{errors.ar_limit}</p>}
+              {errors.ar_limit && <p className={errorTextCls}>{errors.ar_limit}</p>}
             </div>
 
             {/* หุ้นปกติ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">หุ้นปกติ (normal_share)</label>
+              <label className={labelCls}>หุ้นปกติ (normal_share)</label>
               <input
                 ref={refs.normal_share}
                 inputMode="decimal"
-                className={`${baseField} ${errors.normal_share ? fieldError : ""}`}
+                className={cx(baseField, errors.normal_share && fieldError)}
                 value={form.normal_share}
                 onChange={(e) => { clearError("normal_share"); update("normal_share", e.target.value.replace(/[^\d.]/g, "")) }}
                 onFocus={() => clearError("normal_share")}
                 placeholder="214"
                 aria-invalid={errors.normal_share ? true : undefined}
               />
-              {errors.normal_share && <p className="mt-1 text-sm text-red-500">{errors.normal_share}</p>}
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{landPreview}</p>
+              {errors.normal_share && <p className={errorTextCls}>{errors.normal_share}</p>}
+              {!!landPreview && <p className={helpTextCls}>{landPreview}</p>}
             </div>
 
             {/* วันที่ซื้อครั้งล่าสุด */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่ซื้อครั้งล่าสุด (last_bought_date)</label>
+              <label className={labelCls}>วันที่ซื้อครั้งล่าสุด (last_bought_date)</label>
               <input
                 ref={refs.last_bought_date}
                 type="date"
-                className={`${baseField} ${errors.last_bought_date ? fieldError : ""}`}
+                className={cx(baseField, errors.last_bought_date && fieldError)}
                 value={form.last_bought_date}
                 onChange={(e) => { clearError("last_bought_date"); update("last_bought_date", e.target.value) }}
                 onFocus={() => clearError("last_bought_date")}
                 aria-invalid={errors.last_bought_date ? true : undefined}
               />
-              {errors.last_bought_date && <p className="mt-1 text-sm text-red-500">{errors.last_bought_date}</p>}
+              {errors.last_bought_date && <p className={errorTextCls}>{errors.last_bought_date}</p>}
             </div>
 
-            {/* วันที่โอน */}
+            {/* วันที่โอน (optional) */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
-                วันที่โอน (transfer_date - ไม่ระบุก็ได้)
-              </label>
+              <label className={labelCls}>วันที่โอน (transfer_date - ไม่ระบุก็ได้)</label>
               <input
                 ref={refs.transfer_date}
                 type="date"
@@ -856,7 +831,7 @@ const MemberSignup = () => {
 
             {/* บัญชีธนาคาร */}
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">บัญชีธนาคาร (bank_account)</label>
+              <label className={labelCls}>บัญชีธนาคาร (bank_account)</label>
               <input
                 ref={refs.bank_account}
                 className={baseField}
@@ -868,7 +843,7 @@ const MemberSignup = () => {
 
             {/* รหัสสมาชิกระบบ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รหัสสมาชิกในระบบ (tgs_id)</label>
+              <label className={labelCls}>รหัสสมาชิกในระบบ (tgs_id)</label>
               <input
                 ref={refs.tgs_id}
                 className={baseField}
@@ -880,7 +855,7 @@ const MemberSignup = () => {
 
             {/* คู่สมรส */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชื่อคู่สมรส (spouce_name)</label>
+              <label className={labelCls}>ชื่อคู่สมรส (spouce_name)</label>
               <input
                 ref={refs.spouce_name}
                 className={baseField}
@@ -891,25 +866,25 @@ const MemberSignup = () => {
 
             {/* จำนวนครั้งที่ซื้อ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">จำนวนครั้งที่ซื้อ (orders_placed)</label>
+              <label className={labelCls}>จำนวนครั้งที่ซื้อ (orders_placed)</label>
               <input
                 ref={refs.orders_placed}
                 inputMode="numeric"
-                className={`${baseField} ${errors.orders_placed ? fieldError : ""}`}
+                className={cx(baseField, errors.orders_placed && fieldError)}
                 value={form.orders_placed}
                 onChange={(e) => { clearError("orders_placed"); update("orders_placed", onlyDigits(e.target.value)) }}
                 onFocus={() => clearError("orders_placed")}
                 placeholder="เช่น 4"
                 aria-invalid={errors.orders_placed ? true : undefined}
               />
-              {errors.orders_placed && <p className="mt-1 text-sm text-red-500">{errors.orders_placed}</p>}
+              {errors.orders_placed && <p className={errorTextCls}>{errors.orders_placed}</p>}
             </div>
           </div>
 
           {/* ---------- ที่ดินถือครอง ---------- */}
-          <h2 className="mt-6 mb-3 text-lg font-semibold">ที่ดินถือครอง</h2>
+          <h2 className="mt-6 mb-3 text-xl font-semibold">ที่ดินถือครอง</h2>
           <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-            <table className="min-w-full text-left text-sm">
+            <table className="min-w-full text-left text-[15px] md:text-base">
               <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
                 <tr>
                   <th className="px-3 py-2">ประเภท</th>
@@ -930,40 +905,40 @@ const MemberSignup = () => {
                       <input
                         ref={refs[`${key}_rai`]}
                         inputMode="numeric"
-                        className={`${baseField} text-center ${errors[`${key}_rai`] ? fieldError : ""}`}
+                        className={cx(baseField, "text-center", errors[`${key}_rai`] && fieldError)}
                         value={form[`${key}_rai`]}
                         onChange={(e)=>{ clearError(`${key}_rai`); update(`${key}_rai`, onlyDigits(e.target.value)) }}
                         onFocus={() => clearError(`${key}_rai`)}
                         placeholder="0"
                         aria-invalid={errors[`${key}_rai`] ? true : undefined}
                       />
-                      {errors[`${key}_rai`] && <p className="mt-1 text-xs text-red-500">{errors[`${key}_rai`]}</p>}
+                      {errors[`${key}_rai`] && <p className={cx(errorTextCls, "text-xs")}>{errors[`${key}_rai`]}</p>}
                     </td>
                     <td className="px-3 py-2">
                       <input
                         ref={refs[`${key}_ngan`]}
                         inputMode="numeric"
-                        className={`${baseField} text-center ${errors[`${key}_ngan`] ? fieldError : ""}`}
+                        className={cx(baseField, "text-center", errors[`${key}_ngan`] && fieldError)}
                         value={form[`${key}_ngan`]}
                         onChange={(e)=>{ clearError(`${key}_ngan`); update(`${key}_ngan`, String(clampNgan(e.target.value))) }}
                         onFocus={() => clearError(`${key}_ngan`)}
                         placeholder="0–3"
                         aria-invalid={errors[`${key}_ngan`] ? true : undefined}
                       />
-                      {errors[`${key}_ngan`] && <p className="mt-1 text-xs text-red-500">{errors[`${key}_ngan`]}</p>}
+                      {errors[`${key}_ngan`] && <p className={cx(errorTextCls, "text-xs")}>{errors[`${key}_ngan`]}</p>}
                     </td>
                     <td className="px-3 py-2">
                       <input
                         ref={refs[`${key}_wa`]}
                         inputMode="numeric"
-                        className={`${baseField} text-center ${errors[`${key}_wa`] ? fieldError : ""}`}
+                        className={cx(baseField, "text-center", errors[`${key}_wa`] && fieldError)}
                         value={form[`${key}_wa`]}
                         onChange={(e)=>{ clearError(`${key}_wa`); update(`${key}_wa`, String(clampWa(e.target.value))) }}
                         onFocus={() => clearError(`${key}_wa`)}
                         placeholder="0–99"
                         aria-invalid={errors[`${key}_wa`] ? true : undefined}
                       />
-                      {errors[`${key}_wa`] && <p className="mt-1 text-xs text-red-500">{errors[`${key}_wa`]}</p>}
+                      {errors[`${key}_wa`] && <p className={cx(errorTextCls, "text-xs")}>{errors[`${key}_wa`]}</p>}
                     </td>
                   </tr>
                 ))}
@@ -976,7 +951,7 @@ const MemberSignup = () => {
             <button
               type="submit"
               disabled={submitting}
-              className={BTN_PRIMARY}
+              className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-base font-semibold text-white shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 active:scale-[.98] disabled:opacity-60"
               aria-busy={submitting ? "true" : "false"}
             >
               {submitting ? "กำลังบันทึก..." : "บันทึกการสมัครสมาชิก"}
@@ -984,7 +959,7 @@ const MemberSignup = () => {
             <button
               type="button"
               onClick={handleReset}
-              className={BTN_SECONDARY}
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 hover:bg-slate-50 active:scale-[.98] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 shadow-none"
             >
               รีเซ็ต
             </button>

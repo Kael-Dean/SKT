@@ -64,7 +64,7 @@ const baseField =
 const fieldDisabled =
   "bg-slate-100 dark:bg-slate-800/70 dark:text-slate-300 cursor-not-allowed opacity-90"
 
-/** ---------- Reusable ComboBox ---------- */
+/** ---------- Reusable ComboBox (ตกแต่งให้เหมือน Order) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -162,19 +162,27 @@ function ComboBox({
 
   return (
     <div className="relative" ref={boxRef}>
+      {/* ปุ่ม: ใช้คลาสเดียวกับหน้า Order */}
       <button
         type="button"
         ref={controlRef}
         disabled={disabled}
-        onClick={() => { if (!disabled) { setOpen((o) => !o); clearHint?.() } }}
+        onClick={() => {
+          if (!disabled) {
+            setOpen((o) => !o)
+            clearHint?.()
+          }
+        }}
         onKeyDown={onKeyDown}
         onFocus={() => clearHint?.()}
         className={cx(
-          baseField,
-          "text-left",
-          disabled && fieldDisabled,
-          (error || hintRed) && "border-red-400 ring-2 ring-red-300 focus:ring-red-300 focus:border-red-400",
-          hintRed && "animate-pulse"
+          // ===== จากหน้า Order =====
+          "w-full rounded-xl border p-2 text-left outline-none transition shadow-none",
+          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-white hover:bg-slate-50",
+          error ? "border-red-400" : "border-slate-300 focus:border-emerald-500",
+          "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-700/70",
+          // เสริม hintRed ให้ยังแสดงผลได้ แต่ไม่เปลี่ยน structure
+          hintRed && "ring-2 ring-red-300 animate-pulse"
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -183,18 +191,12 @@ function ComboBox({
         {selectedLabel || <span className="text-slate-400">{placeholder}</span>}
       </button>
 
+      {/* รายการ: ใช้คลาสเดียวกับหน้า Order */}
       {open && (
         <div
           ref={listRef}
           role="listbox"
-          className={
-            "absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-2xl border " +
-            "bg-gradient-to-b from-white to-slate-50 text-black " +
-            "shadow-[inset_0_1px_2px_rgba(0,0,0,0.06),0_6px_18px_rgba(0,0,0,0.08)] " +
-            "border-slate-200 " +
-            "dark:from-slate-800 dark:to-slate-900 dark:text-white dark:border-slate-700 " +
-            "dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55),_0_10px_24px_rgba(0,0,0,0.5)]"
-          }
+          className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white text-black shadow dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
           {options.length === 0 && (
             <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-300">ไม่มีตัวเลือก</div>
@@ -212,14 +214,14 @@ function ComboBox({
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => commit(opt)}
                 className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition rounded-xl",
+                  "relative flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition",
                   isActive
-                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/15 dark:ring-emerald-500/60"
-                    : "hover:bg-emerald-50/60 dark:hover:bg-emerald-900/25"
+                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
                 )}
               >
                 {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-emerald-500/80 dark:bg-emerald-400/70" />
+                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-500 dark:bg-emerald-400/60 rounded-l-xl" />
                 )}
                 <span className="flex-1">{label}</span>
                 {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
@@ -362,7 +364,7 @@ const Sales = () => {
         ])
 
         // rice
-        if (riceRes.status === "fulfilled" && riceRes.value.ok) {
+        if (riceRes.status === "fulfilled" && riceRes.value.ok) { 
           const riceRaw = await riceRes.value.json()
           const rice = (riceRaw || []).map((x) => ({
             id: String(x.id ?? x.rice_id ?? x.riceId ?? ""),
@@ -953,7 +955,7 @@ const Sales = () => {
             ) : memberMeta.type === "guest" ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600">
                 <span className="h-2 w-2 rounded-full bg-slate-500" />
-                ลูกค้าทั่วไป (ไม่พบในฐานสมาชิก)
+                ลูกค้าทั่วไป (ไม่พบในระบบสมาชิก)
               </span>
             ) : (
               <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60">
@@ -1303,8 +1305,6 @@ const Sales = () => {
               <ComboBox
                 options={fieldTypeOptions}
                 value={
-                  // เก็บ value เป็น label เพื่อส่งไปหลังบ้านเป็น string
-                  // หา option ที่ label เท่ากับ order.fieldType เพื่อไฮไลต์
                   fieldTypeOptions.find((o) => o.label === order.fieldType)?.id ?? ""
                 }
                 getValue={(o) => o.id}

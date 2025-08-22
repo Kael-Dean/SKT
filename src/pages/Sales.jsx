@@ -1358,18 +1358,34 @@ const Sales = () => {
             </div>
           </div>
 
-          {/* สรุป */}
+          {/* --- สรุป --- */}
           <div className="mt-6 grid gap-4 md:grid-cols-5">
             {[
               { label: "ชนิดข้าว", value: order.riceType || "—" },
-              { label: "สาขา / คลัง", value: `${order.branchName || "—"}${order.klangName ? ` • ${order.klangName}` : ""}` },
+
+              // ⬇️ เปลี่ยนอันนี้ ให้คั่นด้วย \n
+              {
+                label: "สาขา / คลัง",
+                value:
+                  `${order.branchName || "—"}${
+                    order.klangName ? `\n${order.klangName}` : ""
+                  }`,
+              },
+
               {
                 label: "น้ำหนักสุทธิ",
                 value:
                   (Math.round(
                     (toNumber(order.grossWeightKg) -
-                      toNumber(order.manualDeduct ? order.deductWeightKg : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct))) *
-                      100
+                      toNumber(
+                        order.manualDeduct
+                          ? order.deductWeightKg
+                          : suggestDeductionWeight(
+                              order.grossWeightKg,
+                              order.moisturePct,
+                              order.impurityPct
+                            )
+                      )) * 100
                   ) / 100) + " กก.",
               },
               { label: "คุณภาพ (gram)", value: order.gram || "—" },
@@ -1380,10 +1396,15 @@ const Sales = () => {
                 className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
               >
                 <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
-                <div className="text-lg md:text-xl font-semibold">{c.value}</div>
+
+                {/* ⬇️ เพิ่ม whitespace-pre-line เพื่อให้ \n แสดงผลขึ้นบรรทัดใหม่ */}
+                <div className="text-lg md:text-xl font-semibold whitespace-pre-line">
+                  {c.value}
+                </div>
               </div>
             ))}
           </div>
+
 
           {/* ปุ่ม */}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">

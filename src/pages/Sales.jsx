@@ -44,25 +44,15 @@ function suggestDeductionWeight(grossKg, moisturePct, impurityPct) {
 /** ---------- class helpers ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/** พื้นฐานอินพุต (ทั้งโหมด) */
+/** พื้นฐานอินพุต (ปรับให้ตรงกับหน้า Order) */
 const baseField =
-  "w-full rounded-2xl border p-2 outline-none transition " +
-  // Light
-  "bg-gradient-to-b from-white to-slate-50 " +
-  "shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] " +
-  "focus:shadow-[inset_0_2px_6px_rgba(0,0,0,0.12)] " +
-  "focus:ring-2 focus:ring-emerald-500/60 " +
-  "placeholder:text-slate-400 " +
-  "border-slate-300 focus:border-emerald-500 " +
-  // Dark
-  "dark:bg-gradient-to-b dark:from-slate-700 dark:to-slate-700 " +
-  "dark:text-white dark:border-slate-700 dark:placeholder:text-slate-400 " +
-  "dark:focus:ring-emerald-400/60 dark:focus:border-emerald-400 " +
-  "dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),_inset_0_-1px_2px_rgba(0,0,0,0.5)]"
+  "w-full rounded-xl border border-slate-300 bg-white p-2 text-black outline-none " +
+  "placeholder:text-slate-400 focus:border-emerald-500 shadow-none " +
+  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-400"
 
-/** ช่อง disabled */
+/** ช่อง disabled (สอดคล้องหน้า Order) */
 const fieldDisabled =
-  "bg-slate-100 dark:bg-slate-800/70 dark:text-slate-300 cursor-not-allowed opacity-90"
+  "bg-slate-100 cursor-not-allowed opacity-90 dark:bg-slate-700/60 dark:text-slate-300"
 
 /** ---------- Reusable ComboBox (ตกแต่งให้เหมือน Order) ---------- */
 function ComboBox({
@@ -162,7 +152,7 @@ function ComboBox({
 
   return (
     <div className="relative" ref={boxRef}>
-      {/* ปุ่ม: ใช้คลาสเดียวกับหน้า Order */}
+      {/* ปุ่ม: สไตล์เดียวกับหน้า Order */}
       <button
         type="button"
         ref={controlRef}
@@ -176,12 +166,10 @@ function ComboBox({
         onKeyDown={onKeyDown}
         onFocus={() => clearHint?.()}
         className={cx(
-          // ===== จากหน้า Order =====
           "w-full rounded-xl border p-2 text-left outline-none transition shadow-none",
           disabled ? "bg-slate-100 cursor-not-allowed" : "bg-white hover:bg-slate-50",
           error ? "border-red-400" : "border-slate-300 focus:border-emerald-500",
           "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-700/70",
-          // เสริม hintRed ให้ยังแสดงผลได้ แต่ไม่เปลี่ยน structure
           hintRed && "ring-2 ring-red-300 animate-pulse"
         )}
         aria-haspopup="listbox"
@@ -191,7 +179,7 @@ function ComboBox({
         {selectedLabel || <span className="text-slate-400">{placeholder}</span>}
       </button>
 
-      {/* รายการ: ใช้คลาสเดียวกับหน้า Order */}
+      {/* รายการ */}
       {open && (
         <div
           ref={listRef}
@@ -385,7 +373,7 @@ const Sales = () => {
           setBranchOptions([])
         }
 
-        // field types (ลองหลายรูปแบบ endpoint + field ชื่อแตกต่าง)
+        // field types
         const ftRaw = await fetchFirstOkJson([
           "/order/field-type/list",
           "/order/field_type/list",
@@ -397,16 +385,8 @@ const Sales = () => {
           "/order/field_types",
         ])
         const ftMapped = (ftRaw || []).map((x, i) => {
-          const id =
-            x.id ??
-            x.field_type_id ??
-            x.value ??
-            i // ให้มี id เสมอ (fallback index)
-          const label =
-            x.field_type ??
-            x.name ??
-            x.label ??
-            (typeof x === "string" ? x : "")
+          const id = x.id ?? x.field_type_id ?? x.value ?? i
+          const label = x.field_type ?? x.name ?? x.label ?? (typeof x === "string" ? x : "")
           return { id: String(id), label: String(label).trim() }
         }).filter((o) => o.label)
         setFieldTypeOptions(ftMapped)
@@ -613,7 +593,7 @@ const Sales = () => {
   const hasRed = (key) => !!errors[key] || !!missingHints[key]
   const redFieldCls = (key) =>
     hasRed(key)
-      ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500 focus:shadow-none"
+      ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500"
       : ""
   const clearError = (key) =>
     setErrors((prev) => {
@@ -675,7 +655,7 @@ const Sales = () => {
     }
   }, [computedAmount])
 
-  /** auto-fill ราคา (ถ้าฝั่ง rice มีราคาแนบมา) */
+  /** auto-fill ราคา เฉพาะกรณี rice มี price แนบมา */
   useEffect(() => {
     if (!order.riceId) return
     const found = riceOptions.find((r) => r.id === order.riceId)
@@ -687,7 +667,7 @@ const Sales = () => {
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) =>
     missingHints[key]
-      ? "border-red-400 ring-2 ring-red-300 focus:ring-red-300 focus:border-red-400 animate-pulse"
+      ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse"
       : ""
 
   const clearHint = (key) =>
@@ -710,8 +690,7 @@ const Sales = () => {
     if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0)) m.deductWeightKg = true
     if (!order.amountTHB || Number(order.amountTHB) < 0) m.amountTHB = true
     if (!order.issueDate) m.issueDate = true
-    // fieldType ไม่บังคับ แต่ถ้าต้องการบังคับให้ uncomment บรรทัดต่อไป
-    // if (!order.fieldType) m.fieldType = true
+    // if (!order.fieldType) m.fieldType = true  // ถ้าต้องการบังคับ
     return m
   }
 
@@ -740,7 +719,6 @@ const Sales = () => {
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
     if (!order.amountTHB || Number(order.amountTHB) < 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
-    // ถ้าจะบังคับ fieldType:
     // if (!order.fieldType) e.fieldType = "เลือกประเภทนา"
     setErrors(e)
     return e
@@ -757,7 +735,7 @@ const Sales = () => {
       "deductWeightKg",
       "amountTHB",
       "issueDate",
-      // "fieldType", // ถ้าบังคับให้เลือก
+      // "fieldType",
     ]
     const firstKey = orderKeys.find((k) => k in eObj)
     if (!firstKey) return
@@ -782,7 +760,7 @@ const Sales = () => {
     const hints = computeMissingHints()
     setMissingHints(hints)
 
-    // 2) วาลิเดตตามกฎเดิม
+    // 2) วาลิเดต
     const eObj = validateAll()
     if (Object.keys(eObj).length > 0) {
       scrollToFirstError(eObj)
@@ -857,15 +835,15 @@ const Sales = () => {
         klang_location: klangId,
         humidity: Number(order.moisturePct || 0),
         weight: netW > 0 ? netW : 0,
-        price: Number(order.amountTHB),                // เป็นเงิน (ไว้โชว์หน้า Order)
+        price: Number(order.amountTHB),
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim(),
         date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
         // >>> ฟิลด์ใหม่
         gram: Number(order.gram || 0),
         season: Number(order.season || 0),
-        field_type: (order.fieldType || "").trim(),    // ส่งเป็น string
-        price_per_kilo: Number(order.unitPrice || 0),  // สำหรับหลังบ้านคำนวณ/เก็บ
+        field_type: (order.fieldType || "").trim(),
+        price_per_kilo: Number(order.unitPrice || 0),
       },
       rice:   { rice_type: order.riceType, id: riceId },
       branch: { branch_name: order.branchName, id: branchId },
@@ -944,7 +922,7 @@ const Sales = () => {
         <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
 
         {/* กล่องข้อมูลลูกค้า */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-md dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold">ข้อมูลลูกค้า</h2>
             {memberMeta.type === "member" ? (
@@ -973,7 +951,7 @@ const Sales = () => {
                 ref={refs.citizenId}
                 inputMode="numeric"
                 maxLength={13}
-                className={cx(baseField, errors.citizenId && "border-amber-400 focus:ring-amber-200/80")}
+                className={cx(baseField, errors.citizenId && "border-amber-400")}
                 value={customer.citizenId}
                 onChange={(e) => updateCustomer("citizenId", onlyDigits(e.target.value))}
                 onFocus={() => clearHint("citizenId")}
@@ -1022,12 +1000,8 @@ const Sales = () => {
                   id="name-results"
                   ref={listContainerRef}
                   className={
-                    "mt-1 max-h-60 w-full overflow-auto rounded-2xl border " +
-                    "bg-gradient-to-b from-white to-slate-50 text-black " +
-                    "shadow-[inset_0_1px_2px_rgba(0,0,0,0.06),_0_10px_24px_rgba(0,0,0,0.08)] " +
-                    "border-slate-200 " +
-                    "dark:from-slate-800 dark:to-slate-900 dark:text-white dark:border-slate-700 " +
-                    "dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55),_0_12px_28px_rgba(0,0,0,0.55)]"
+                    "mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white text-black shadow-sm " +
+                    "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   }
                   role="listbox"
                 >
@@ -1078,7 +1052,7 @@ const Sales = () => {
                 <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">{label}</label>
                 <input
                   ref={refs[k]}
-                  className={cx(baseField, errors.address && "border-amber-400 focus:ring-amber-200/80", redHintCls(k))}
+                  className={cx(baseField, errors.address && "border-amber-400", redHintCls(k))}
                   value={customer[k]}
                   onChange={(e) => updateCustomer(k, e.target.value)}
                   onFocus={() => clearHint(k)}
@@ -1107,7 +1081,7 @@ const Sales = () => {
         {/* ฟอร์มออเดอร์ */}
         <form
           onSubmit={handleSubmit}
-          className="rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-md dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
           <h2 className="mb-3 text-lg font-semibold">รายละเอียดการซื้อ</h2>
 
@@ -1248,7 +1222,7 @@ const Sales = () => {
                 className={cx(
                   baseField,
                   !order.manualDeduct && fieldDisabled,
-                  errors.deductWeightKg && "border-red-400 focus:ring-red-200/80",
+                  errors.deductWeightKg && "border-red-400",
                   order.manualDeduct && redHintCls("deductWeightKg")
                 )}
                 value={
@@ -1312,13 +1286,9 @@ const Sales = () => {
                   setOrder((p) => ({ ...p, fieldType: found?.label ?? "" }))
                 }}
                 placeholder="— เลือกประเภทนา —"
-                // ถ้าบังคับให้เลือก ให้เปิด error/hint ต่อไปนี้
-                // error={!!errors.fieldType}
-                // hintRed={!!missingHints.fieldType}
                 clearHint={() => clearHint("fieldType")}
                 buttonRef={refs.fieldType}
               />
-              {/* {errors.fieldType && <p className="mt-1 text-sm text-red-500">{errors.fieldType}</p>} */}
             </div>
 
             {/* ราคา/เป็นเงิน/เลขอ้างอิง/ลงวันที่ */}
@@ -1371,7 +1341,7 @@ const Sales = () => {
               <input
                 ref={refs.issueDate}
                 type="date"
-                className={cx(baseField, errors.issueDate && "border-red-400 focus:ring-red-200/80", redHintCls("issueDate"))}
+                className={cx(baseField, errors.issueDate && "border-red-400", redHintCls("issueDate"))}
                 value={order.issueDate}
                 onChange={(e) => updateOrder("issueDate", e.target.value)}
                 onFocus={() => clearHint("issueDate")}
@@ -1400,7 +1370,7 @@ const Sales = () => {
             ].map((c) => (
               <div
                 key={c.label}
-                className="rounded-2xl bg-gradient-to-b from-white to-slate-50 p-4 text-black shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-slate-200 dark:from-slate-800 dark:to-slate-900 dark:text-white dark:ring-slate-700 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)]"
+                className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
               >
                 <div className="text-slate-500 dark:text-slate-400">{c.label}</div>
                 <div className="text-lg font-semibold">{c.value}</div>
@@ -1419,7 +1389,7 @@ const Sales = () => {
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-gradient-to-b from-white to-slate-50 px-5 py-2.5 font-medium text-slate-700 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)] hover:from-white hover:to-slate-100 active:scale-[.98] dark:border-slate-600 dark:from-slate-800 dark:to-slate-900 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_inset_0_-3px_10px_rgba(0,0,0,0.55)]"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50 active:scale-[.98] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 shadow-none"
             >
               รีเซ็ต
             </button>

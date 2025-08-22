@@ -44,17 +44,24 @@ function suggestDeductionWeight(grossKg, moisturePct, impurityPct) {
 /** ---------- class helpers ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/** พื้นฐานอินพุต (ปรับให้ตรงกับหน้า Order) */
+/** ---------- สไตล์ใหม่นุ่มตา/ชัดขึ้น ---------- */
+/** พื้นฐานอินพุต: ใหญ่ขึ้น, คอนทราสต์ดีขึ้น, โค้งมากขึ้น */
 const baseField =
-  "w-full rounded-xl border border-slate-300 bg-white p-2 text-black outline-none " +
-  "placeholder:text-slate-400 focus:border-emerald-500 shadow-none " +
-  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-400"
+  "w-full rounded-2xl border border-slate-300 bg-white p-3 text-[15px] md:text-base " +
+  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
+  "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-/** ช่อง disabled (สอดคล้องหน้า Order) */
+/** ช่อง disabled: สีสว่าง อ่านง่าย */
 const fieldDisabled =
-  "bg-slate-100 cursor-not-allowed opacity-90 dark:bg-slate-700/60 dark:text-slate-300"
+  "bg-slate-100 text-slate-600 cursor-not-allowed opacity-95 dark:bg-slate-700/70 dark:text-slate-300"
 
-/** ---------- Reusable ComboBox (ตกแต่งให้เหมือน Order) ---------- */
+/** ป้ายกำกับ & ข้อความช่วย */
+const labelCls =
+  "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
+const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
+const errorTextCls = "mt-1 text-sm text-red-500"
+
+/** ---------- Reusable ComboBox (ตกแต่งให้เหมือน Order + อ่านง่ายขึ้น) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -152,7 +159,7 @@ function ComboBox({
 
   return (
     <div className="relative" ref={boxRef}>
-      {/* ปุ่ม: สไตล์เดียวกับหน้า Order */}
+      {/* ปุ่ม: ใหญ่ขึ้น คอนทราสต์ดีขึ้น */}
       <button
         type="button"
         ref={controlRef}
@@ -166,17 +173,19 @@ function ComboBox({
         onKeyDown={onKeyDown}
         onFocus={() => clearHint?.()}
         className={cx(
-          "w-full rounded-xl border p-2 text-left outline-none transition shadow-none",
+          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
           disabled ? "bg-slate-100 cursor-not-allowed" : "bg-white hover:bg-slate-50",
-          error ? "border-red-400" : "border-slate-300 focus:border-emerald-500",
-          "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-700/70",
+          error
+            ? "border-red-400 ring-2 ring-red-300/70"
+            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
+          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80",
           hintRed && "ring-2 ring-red-300 animate-pulse"
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-invalid={error || hintRed ? true : undefined}
       >
-        {selectedLabel || <span className="text-slate-400">{placeholder}</span>}
+        {selectedLabel || <span className="text-slate-500">{placeholder}</span>}
       </button>
 
       {/* รายการ */}
@@ -184,10 +193,10 @@ function ComboBox({
         <div
           ref={listRef}
           role="listbox"
-          className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white text-black shadow dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
           {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-300">ไม่มีตัวเลือก</div>
+            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
           )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
@@ -202,14 +211,14 @@ function ComboBox({
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => commit(opt)}
                 className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition",
+                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl",
                   isActive
                     ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
                     : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
                 )}
               >
                 {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-500 dark:bg-emerald-400/60 rounded-l-xl" />
+                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
                 )}
                 <span className="flex-1">{label}</span>
                 {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
@@ -917,26 +926,26 @@ const Sales = () => {
 
   /** ---------- UI ---------- */
   return (
-    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
-      <div className="mx-auto max-w-7xl p-4 md:p-6">
-        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
+    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
+      <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
+        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
 
         {/* กล่องข้อมูลลูกค้า */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">ข้อมูลลูกค้า</h2>
+            <h2 className="text-xl font-semibold">ข้อมูลลูกค้า</h2>
             {memberMeta.type === "member" ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
+              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 สมาชิก • รหัสสมาชิก {memberMeta.memberId ?? "-"}
               </span>
             ) : memberMeta.type === "guest" ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600">
+              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600">
                 <span className="h-2 w-2 rounded-full bg-slate-500" />
                 ลูกค้าทั่วไป (ไม่พบในระบบสมาชิก)
               </span>
             ) : (
-              <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60">
+              <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60">
                 <span className="h-2 w-2 rounded-full bg-amber-500" />
                 โปรดกรอกชื่อหรือเลขบัตรประชาชนเพื่อระบุสถานะ
               </span>
@@ -946,7 +955,7 @@ const Sales = () => {
           <div className="grid gap-4 md:grid-cols-3">
             {/* เลขบัตร (ไม่บังคับ) */}
             <div className="md:col-span-1">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขที่บัตรประชาชน (13 หลัก)</label>
+              <label className={labelCls}>เลขที่บัตรประชาชน (13 หลัก)</label>
               <input
                 ref={refs.citizenId}
                 inputMode="numeric"
@@ -958,7 +967,7 @@ const Sales = () => {
                 placeholder="เช่น 1234567890123"
                 aria-invalid={errors.citizenId ? true : undefined}
               />
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              <div className={helpTextCls}>
                 {loadingCustomer && "กำลังค้นหาลูกค้า..."}
                 {customer.citizenId.length === 13 && !validateThaiCitizenId(customer.citizenId) && (
                   <span className="text-amber-600 dark:text-amber-300"> เลขบัตรอาจไม่ถูกต้อง</span>
@@ -974,7 +983,7 @@ const Sales = () => {
 
             {/* ชื่อ–สกุล + รายการค้นหา */}
             <div className="md:col-span-2" ref={nameBoxRef}>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
+              <label className={labelCls}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
               <input
                 ref={(el) => { refs.fullName.current = el; nameInputRef.current = el }}
                 className={cx(baseField, redFieldCls("fullName"))}
@@ -993,14 +1002,14 @@ const Sales = () => {
                 aria-autocomplete="list"
                 aria-invalid={errors.fullName ? true : undefined}
               />
-              {errors.fullName && <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>}
+              {errors.fullName && <p className={errorTextCls}>{errors.fullName}</p>}
 
               {showNameList && nameResults.length > 0 && (
                 <div
                   id="name-results"
                   ref={listContainerRef}
                   className={
-                    "mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white text-black shadow-sm " +
+                    "mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm " +
                     "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   }
                   role="listbox"
@@ -1017,7 +1026,7 @@ const Sales = () => {
                         role="option"
                         aria-selected={isActive}
                         className={cx(
-                          "relative flex w-full items-start gap-3 px-3 py-2 text-left transition rounded-xl",
+                          "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl",
                           isActive
                             ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
                             : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
@@ -1028,7 +1037,7 @@ const Sales = () => {
                         )}
                         <div className="flex-1">
                           <div className="font-medium">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-300">
+                          <div className="text-sm text-slate-600 dark:text-slate-300">
                             ปชช. {r.citizenId} • {r.address ? `บ้าน ${r.address}` : ""} {r.mhoo ? `หมู่ ${r.mhoo}` : ""}
                             {r.sub_district ? ` • ต.${r.sub_district}` : ""}{r.district ? ` อ.${r.district}` : ""} {r.province ? ` จ.${r.province}` : ""} {r.postal_code ? ` ${r.postal_code}` : ""}{r.member_id ? " • สมาชิก" : ""}
                           </div>
@@ -1049,7 +1058,7 @@ const Sales = () => {
               ["province", "จังหวัด", "เช่น ขอนแก่น"],
             ].map(([k, label, ph]) => (
               <div key={k}>
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">{label}</label>
+                <label className={labelCls}>{label}</label>
                 <input
                   ref={refs[k]}
                   className={cx(baseField, errors.address && "border-amber-400", redHintCls(k))}
@@ -1063,7 +1072,7 @@ const Sales = () => {
             ))}
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รหัสไปรษณีย์ (ไม่บังคับ)</label>
+              <label className={labelCls}>รหัสไปรษณีย์ (ไม่บังคับ)</label>
               <input
                 ref={refs.postalCode}
                 inputMode="numeric"
@@ -1081,14 +1090,14 @@ const Sales = () => {
         {/* ฟอร์มออเดอร์ */}
         <form
           onSubmit={handleSubmit}
-          className="rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
-          <h2 className="mb-3 text-lg font-semibold">รายละเอียดการซื้อ</h2>
+          <h2 className="mb-3 text-xl font-semibold">รายละเอียดการซื้อ</h2>
 
           <div className="grid gap-4 md:grid-cols-3">
             {/* ชนิดข้าว */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชนิดข้าวเปลือก</label>
+              <label className={labelCls}>ชนิดข้าวเปลือก</label>
               <ComboBox
                 options={riceOptions}
                 value={order.riceId}
@@ -1105,12 +1114,12 @@ const Sales = () => {
                 clearHint={() => clearHint("riceType")}
                 buttonRef={refs.riceType}
               />
-              {errors.riceType && <p className="mt-1 text-sm text-red-500">{errors.riceType}</p>}
+              {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
             </div>
 
             {/* สาขา */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
+              <label className={labelCls}>สาขา</label>
               <ComboBox
                 options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
                 value={order.branchId}
@@ -1130,12 +1139,12 @@ const Sales = () => {
                 clearHint={() => clearHint("branchName")}
                 buttonRef={refs.branchName}
               />
-              {errors.branchName && <p className="mt-1 text-sm text-red-500">{errors.branchName}</p>}
+              {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
             </div>
 
             {/* คลัง */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
+              <label className={labelCls}>คลัง</label>
               <ComboBox
                 options={klangOptions.map((k) => ({ id: k.id, label: k.klang_name }))}
                 value={order.klangId}
@@ -1154,12 +1163,12 @@ const Sales = () => {
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
               />
-              {errors.klangName && <p className="mt-1 text-sm text-red-500">{errors.klangName}</p>}
+              {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>
 
             {/* ความชื้น/สิ่งเจือปน/น้ำหนัก */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ความชื้น (%)</label>
+              <label className={labelCls}>ความชื้น (%)</label>
               <input
                 ref={refs.moisturePct}
                 inputMode="decimal"
@@ -1169,10 +1178,10 @@ const Sales = () => {
                 onFocus={() => clearHint("moisturePct")}
                 placeholder="เช่น 18"
               />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
+              <p className={helpTextCls}>มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
             </div>
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สิ่งเจือปน (%)</label>
+              <label className={labelCls}>สิ่งเจือปน (%)</label>
               <input
                 ref={refs.impurityPct}
                 inputMode="decimal"
@@ -1186,7 +1195,7 @@ const Sales = () => {
 
             {/* น้ำหนักตามใบชั่ง */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">น้ำหนักตามใบชั่ง (กก.)</label>
+              <label className={labelCls}>น้ำหนักตามใบชั่ง (กก.)</label>
               <input
                 ref={refs.grossWeightKg}
                 inputMode="decimal"
@@ -1197,15 +1206,13 @@ const Sales = () => {
                 placeholder="เช่น 5000"
                 aria-invalid={errors.grossWeightKg ? true : undefined}
               />
-              {errors.grossWeightKg && <p className="mt-1 text-sm text-red-500">{errors.grossWeightKg}</p>}
+              {errors.grossWeightKg && <p className={errorTextCls}>{errors.grossWeightKg}</p>}
             </div>
 
             {/* หักน้ำหนัก */}
             <div className="md:col-span-2">
               <div className="flex items-center justify-between">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
-                  หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)
-                </label>
+                <label className={labelCls}>หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)</label>
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -1235,12 +1242,12 @@ const Sales = () => {
                 placeholder="ระบบคำนวณให้ หรือกำหนดเอง"
                 aria-invalid={errors.deductWeightKg ? true : undefined}
               />
-              {errors.deductWeightKg && <p className="mt-1 text-sm text-red-500">{errors.deductWeightKg}</p>}
+              {errors.deductWeightKg && <p className={errorTextCls}>{errors.deductWeightKg}</p>}
             </div>
 
             {/* สุทธิ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">น้ำหนักสุทธิ (กก.)</label>
+              <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
               <input
                 disabled
                 className={cx(baseField, fieldDisabled)}
@@ -1250,7 +1257,7 @@ const Sales = () => {
 
             {/* --- ฟิลด์ใหม่: gram/season/field_type --- */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คุณภาพข้าว (gram)</label>
+              <label className={labelCls}>คุณภาพข้าว (gram)</label>
               <input
                 ref={refs.gram}
                 inputMode="numeric"
@@ -1262,7 +1269,7 @@ const Sales = () => {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ฤดูกาล/ปี (season)</label>
+              <label className={labelCls}>ฤดูกาล/ปี (season)</label>
               <input
                 ref={refs.season}
                 inputMode="numeric"
@@ -1275,7 +1282,7 @@ const Sales = () => {
 
             {/* เปลี่ยนเป็น ComboBox */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ประเภทนา (field_type)</label>
+              <label className={labelCls}>ประเภทนา (field_type)</label>
               <ComboBox
                 options={fieldTypeOptions}
                 value={
@@ -1293,7 +1300,7 @@ const Sales = () => {
 
             {/* ราคา/เป็นเงิน/เลขอ้างอิง/ลงวันที่ */}
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
+              <label className={labelCls}>ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
               <input
                 ref={refs.unitPrice}
                 inputMode="decimal"
@@ -1303,11 +1310,11 @@ const Sales = () => {
                 onFocus={() => clearHint("unitPrice")}
                 placeholder="เช่น 12.50"
               />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
+              <p className={helpTextCls}>ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เป็นเงิน (บาท)</label>
+              <label className={labelCls}>เป็นเงิน (บาท)</label>
               <input
                 ref={refs.amountTHB}
                 inputMode="decimal"
@@ -1319,13 +1326,13 @@ const Sales = () => {
                 aria-invalid={errors.amountTHB ? true : undefined}
               />
               {!!order.amountTHB && (
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">≈ {thb(Number(order.amountTHB))}</p>
+                <p className={helpTextCls}>≈ {thb(Number(order.amountTHB))}</p>
               )}
-              {errors.amountTHB && <p className="mt-1 text-sm text-red-500">{errors.amountTHB}</p>}
+              {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลขที่ใบสำคัญจ่ายเงิน</label>
+              <label className={labelCls}>เลขที่ใบสำคัญจ่ายเงิน</label>
               <input
                 ref={refs.paymentRefNo}
                 className={baseField}
@@ -1337,7 +1344,7 @@ const Sales = () => {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ลงวันที่</label>
+              <label className={labelCls}>ลงวันที่</label>
               <input
                 ref={refs.issueDate}
                 type="date"
@@ -1347,12 +1354,12 @@ const Sales = () => {
                 onFocus={() => clearHint("issueDate")}
                 aria-invalid={errors.issueDate ? true : undefined}
               />
-              {errors.issueDate && <p className="mt-1 text-sm text-red-500">{errors.issueDate}</p>}
+              {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
             </div>
           </div>
 
           {/* สรุป */}
-          <div className="mt-6 grid gap-3 md:grid-cols-5">
+          <div className="mt-6 grid gap-4 md:grid-cols-5">
             {[
               { label: "ชนิดข้าว", value: order.riceType || "—" },
               { label: "สาขา / คลัง", value: `${order.branchName || "—"}${order.klangName ? ` • ${order.klangName}` : ""}` },
@@ -1372,8 +1379,8 @@ const Sales = () => {
                 key={c.label}
                 className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
               >
-                <div className="text-slate-500 dark:text-slate-400">{c.label}</div>
-                <div className="text-lg font-semibold">{c.value}</div>
+                <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
+                <div className="text-lg md:text-xl font-semibold">{c.value}</div>
               </div>
             ))}
           </div>
@@ -1382,14 +1389,14 @@ const Sales = () => {
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
               type="submit"
-              className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-2.5 font-medium text-white shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 active:scale-[.98]"
+              className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-base font-semibold text-white shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 active:scale-[.98]"
             >
               บันทึกออเดอร์
             </button>
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50 active:scale-[.98] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 shadow-none"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 hover:bg-slate-50 active:scale-[.98] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 shadow-none"
             >
               รีเซ็ต
             </button>

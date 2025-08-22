@@ -1363,13 +1363,15 @@ const Sales = () => {
             {[
               { label: "ชนิดข้าว", value: order.riceType || "—" },
 
-              // ⬇️ เปลี่ยนอันนี้ ให้คั่นด้วย \n
+              // ⬇️ แก้ให้สาขา/คลังเป็น list มีจุดนำหน้า
               {
                 label: "สาขา / คลัง",
-                value:
-                  `${order.branchName || "—"}${
-                    order.klangName ? `\n${order.klangName}` : ""
-                  }`,
+                value: (
+                  <ul className="list-disc pl-5">
+                    <li>{order.branchName || "—"}</li>
+                    {order.klangName && <li>{order.klangName}</li>}
+                  </ul>
+                ),
               },
 
               {
@@ -1397,14 +1399,17 @@ const Sales = () => {
               >
                 <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
 
-                {/* ⬇️ เพิ่ม whitespace-pre-line เพื่อให้ \n แสดงผลขึ้นบรรทัดใหม่ */}
-                <div className="text-lg md:text-xl font-semibold whitespace-pre-line">
-                  {c.value}
-                </div>
+                {/* ✅ รองรับทั้ง string และ JSX */}
+                {typeof c.value === "string" ? (
+                  <div className="text-lg md:text-xl font-semibold whitespace-pre-line">
+                    {c.value}
+                  </div>
+                ) : (
+                  <div className="text-lg md:text-xl font-semibold">{c.value}</div>
+                )}
               </div>
             ))}
           </div>
-
 
           {/* ปุ่ม */}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">

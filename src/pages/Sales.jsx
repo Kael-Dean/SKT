@@ -290,9 +290,11 @@ const Sales = () => {
     // คุณภาพ/ปี/สภาพ/ประเภทนา/โปรแกรม/ชำระเงิน
     gram: "",
     riceYear: "",     // label เพื่อแสดงผล
-    riceYearId: "",   // <-- ใช้ส่ง backend (id)
-    condition: "",
-    fieldType: "",
+    riceYearId: "",   // id สำหรับส่ง backend
+    condition: "",    // label เพื่อโชว์
+    conditionId: "",  // id สำหรับส่ง backend
+    fieldType: "",    // label เพื่อโชว์
+    fieldTypeId: "",  // id สำหรับส่ง backend
     program: "",
     paymentMethod: "",
 
@@ -412,7 +414,7 @@ const Sales = () => {
           (conditions || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
             label: String(x.condition ?? x.year ?? x.name ?? x.label ?? "").trim(),
-          })).filter((o) => o.label)
+          })).filter((o) => o.id && o.label)
         )
 
         // field type
@@ -420,7 +422,7 @@ const Sales = () => {
           (fields || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
             label: String(x.field_type ?? x.name ?? x.year ?? x.label ?? (typeof x === "string" ? x : "")).trim(),
-          })).filter((o) => o.label)
+          })).filter((o) => o.id && o.label)
         )
 
         // year (id + label)
@@ -436,7 +438,7 @@ const Sales = () => {
           (programs || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
             label: String(x.program ?? x.year ?? x.name ?? x.label ?? "").trim(),
-          })).filter((o) => o.label)
+          })).filter((o) => o.id && o.label)
         )
 
         // payment
@@ -444,7 +446,7 @@ const Sales = () => {
           (payments || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
             label: String(x.method ?? x.year ?? x.name ?? x.label ?? "").trim(),
-          })).filter((o) => o.label)
+          })).filter((o) => o.id && o.label)
         )
 
         setBranchOptions((branches || []).map((b) => ({ id: b.id, label: b.branch_name })))
@@ -780,9 +782,9 @@ const Sales = () => {
     if (!order.productId) m.product = true
     if (!order.riceId) m.riceType = true
     if (!order.subriceId) m.subrice = true
-    if (!order.condition) m.condition = true
-    if (!order.fieldType) m.fieldType = true
-    if (!order.riceYearId) m.riceYear = true   // ใช้ id เป็นตัวตัดสิน
+    if (!order.conditionId) m.condition = true        // ใช้ id
+    if (!order.fieldTypeId) m.fieldType = true        // ใช้ id
+    if (!order.riceYearId) m.riceYear = true          // ใช้ id
     if (!order.program) m.program = true
     if (!order.paymentMethod) m.payment = true
     if (!order.branchName) m.branchName = true
@@ -814,9 +816,9 @@ const Sales = () => {
     if (!order.productId) e.product = "เลือกประเภทสินค้า"
     if (!order.riceId) e.riceType = "เลือกชนิดข้าว"
     if (!order.subriceId) e.subrice = "เลือกชั้นย่อย"
-    if (!order.condition) e.condition = "เลือกสภาพ/เงื่อนไข"
-    if (!order.fieldType) e.fieldType = "เลือกประเภทนา"
-    if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"   // ใช้ id
+    if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข"   // ใช้ id
+    if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"        // ใช้ id
+    if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"          // ใช้ id
     if (!order.program) e.program = "เลือกโปรแกรม"
     if (!order.paymentMethod) e.payment = "เลือกวิธีชำระเงิน"
 
@@ -881,19 +883,23 @@ const Sales = () => {
     const [firstName, ...rest] = customer.fullName.trim().split(" ")
     const lastName = rest.join(" ")
 
-    const productId = /^\d+$/.test(order.productId) ? Number(order.productId) : null
-    const riceId    = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
-    const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null
-    const branchId  = order.branchId ?? null
-    const klangId   = order.klangId ?? null
-    const riceYearId = /^\d+$/.test(order.riceYearId) ? Number(order.riceYearId) : null
+    const productId  = /^\d+$/.test(order.productId)   ? Number(order.productId)   : null
+    const riceId     = /^\d+$/.test(order.riceId)      ? Number(order.riceId)      : null
+    const subriceId  = /^\d+$/.test(order.subriceId)   ? Number(order.subriceId)   : null
+    const branchId   = order.branchId ?? null
+    const klangId    = order.klangId ?? null
+    const riceYearId = /^\d+$/.test(order.riceYearId)  ? Number(order.riceYearId)  : null
+    const conditionId= /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
+    const fieldTypeId= /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
 
-    if (!productId) { setErrors((p)=>({ ...p, product:"ไม่พบรหัสสินค้า" })); scrollToFirstError({product:true}); return }
-    if (!riceId)    { setErrors((p)=>({ ...p, riceType:"ไม่พบรหัสชนิดข้าว" })); scrollToFirstError({riceType:true}); return }
-    if (!subriceId) { setErrors((p)=>({ ...p, subrice:"ไม่พบรหัสชั้นย่อย" })); scrollToFirstError({subrice:true}); return }
-    if (!riceYearId){ setErrors((p)=>({ ...p, riceYear:"ไม่พบรหัสปี/ฤดูกาล" })); scrollToFirstError({riceYear:true}); return }
-    if (!branchId)  { setErrors((p)=>({ ...p, branchName:"ไม่พบรหัสสาขา" })); scrollToFirstError({branchName:true}); return }
-    if (!klangId)   { setErrors((p)=>({ ...p, klangName:"ไม่พบรหัสคลัง" })); scrollToFirstError({klangName:true}); return }
+    if (!productId)  { setErrors((p)=>({ ...p, product:"ไม่พบรหัสสินค้า" }));       scrollToFirstError({product:true}); return }
+    if (!riceId)     { setErrors((p)=>({ ...p, riceType:"ไม่พบรหัสชนิดข้าว" }));    scrollToFirstError({riceType:true}); return }
+    if (!subriceId)  { setErrors((p)=>({ ...p, subrice:"ไม่พบรหัสชั้นย่อย" }));     scrollToFirstError({subrice:true}); return }
+    if (!riceYearId) { setErrors((p)=>({ ...p, riceYear:"ไม่พบรหัสปี/ฤดูกาล" }));   scrollToFirstError({riceYear:true}); return }
+    if (!conditionId){ setErrors((p)=>({ ...p, condition:"ไม่พบรหัสสภาพ/เงื่อนไข" })); scrollToFirstError({condition:true}); return }
+    if (!fieldTypeId){ setErrors((p)=>({ ...p, fieldType:"ไม่พบรหัสประเภทนา" }));   scrollToFirstError({fieldType:true}); return }
+    if (!branchId)   { setErrors((p)=>({ ...p, branchName:"ไม่พบรหัสสาขา" }));      scrollToFirstError({branchName:true}); return }
+    if (!klangId)    { setErrors((p)=>({ ...p, klangName:"ไม่พบรหัสคลัง" }));       scrollToFirstError({klangName:true}); return }
 
     const baseHeaders = authHeader()
     let customer_id = memberMeta.memberPk ?? null
@@ -950,9 +956,9 @@ const Sales = () => {
         product_id: productId,
         rice_id: riceId,
         subrice_id: subriceId,
-        rice_year: riceYearId,                // <-- ส่งเป็น id
-        field_type: (order.fieldType || "").trim(),
-        condition: (order.condition || "").trim(),
+        rice_year: riceYearId,                 // ส่งเป็น id
+        field_type: fieldTypeId,               // ⬅️ ส่งเป็น id
+        condition: conditionId,                // ⬅️ ส่งเป็น id
         humidity: Number(order.moisturePct || 0),
         weight: netW > 0 ? netW : 0,
         price_per_kilo: Number(order.unitPrice || 0),
@@ -1022,8 +1028,10 @@ const Sales = () => {
       gram: "",
       riceYear: "",     // label
       riceYearId: "",   // id
-      condition: "",
-      fieldType: "",
+      condition: "",    // label
+      conditionId: "",  // id
+      fieldType: "",    // label
+      fieldTypeId: "",  // id
       program: "",
       paymentMethod: "",
       moisturePct: "",
@@ -1284,15 +1292,20 @@ const Sales = () => {
               {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
             </div>
 
-            {/* Condition */}
+            {/* Condition (ใช้ id) */}
             <div>
               <label className={labelCls}>สภาพ/เงื่อนไข</label>
               <ComboBox
                 options={conditionOptions}
-                value={
-                  conditionOptions.find((o) => o.label === order.condition)?.id ?? ""
+                value={order.conditionId}                // เก็บ id
+                getValue={(o) => o.id}
+                onChange={(_id, found) =>
+                  setOrder((p) => ({
+                    ...p,
+                    conditionId: found?.id ?? "",
+                    condition: found?.label ?? "",       // เก็บ label ไว้โชว์
+                  }))
                 }
-                onChange={(_id, found) => setOrder((p) => ({ ...p, condition: found?.label ?? "" }))}
                 placeholder="— เลือกสภาพ/เงื่อนไข —"
                 error={!!errors.condition}
                 hintRed={!!missingHints.condition}
@@ -1302,13 +1315,20 @@ const Sales = () => {
               {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
             </div>
 
-            {/* Field type */}
+            {/* Field type (ใช้ id) */}
             <div>
               <label className={labelCls}>ประเภทนา</label>
               <ComboBox
                 options={fieldTypeOptions}
-                value={fieldTypeOptions.find((o) => o.label === order.fieldType)?.id ?? ""}
-                onChange={(_id, found) => setOrder((p) => ({ ...p, fieldType: found?.label ?? "" }))}
+                value={order.fieldTypeId}               // เก็บ id
+                getValue={(o) => o.id}
+                onChange={(_id, found) =>
+                  setOrder((p) => ({
+                    ...p,
+                    fieldTypeId: found?.id ?? "",
+                    fieldType: found?.label ?? "",       // เก็บ label ไว้โชว์
+                  }))
+                }
                 placeholder="— เลือกประเภทนา —"
                 error={!!errors.fieldType}
                 hintRed={!!missingHints.fieldType}
@@ -1318,18 +1338,18 @@ const Sales = () => {
               {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
             </div>
 
-            {/* Year (ส่ง id แต่โชว์ label) */}
+            {/* Year (id + label) */}
             <div>
               <label className={labelCls}>ปี/ฤดูกาล</label>
               <ComboBox
                 options={yearOptions}
-                value={order.riceYearId}                // เก็บ id
+                value={order.riceYearId}
                 getValue={(o) => o.id}
                 onChange={(_id, found) =>
                   setOrder((p) => ({
                     ...p,
                     riceYearId: found?.id ?? "",
-                    riceYear: found?.label ?? "",       // เก็บ label ไว้โชว์/สรุป
+                    riceYear: found?.label ?? "",
                   }))
                 }
                 placeholder="— เลือกปี/ฤดูกาล —"
@@ -1404,22 +1424,6 @@ const Sales = () => {
                 buttonRef={refs.klangName}
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
-            </div>
-
-            {/* ✅ วิธีชำระเงิน */}
-            <div>
-              <label className={labelCls}>วิธีชำระเงิน</label>
-              <ComboBox
-                options={paymentOptions}
-                value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
-                onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
-                placeholder="— เลือกวิธีชำระเงิน —"
-                error={!!errors.payment}
-                hintRed={!!missingHints.payment}
-                clearHint={() => clearHint("payment")}
-                buttonRef={refs.payment}
-              />
-              {errors.payment && <p className={errorTextCls}>{errors.payment}</p>}
             </div>
 
             {/* ความชื้น/สิ่งเจือปน/น้ำหนัก */}
@@ -1616,9 +1620,9 @@ const Sales = () => {
                   ) / 100) + " กก.",
               },
               { label: "คุณภาพ (gram)", value: order.gram || "—" },
-              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },   // โชว์ label
-              { label: "ประเภทนา", value: order.fieldType || "—" },
-              { label: "เงื่อนไข", value: order.condition || "—" },
+              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },     // label
+              { label: "ประเภทนา", value: order.fieldType || "—" },      // label
+              { label: "เงื่อนไข", value: order.condition || "—" },       // label
               { label: "โปรแกรม", value: order.program || "—" },
             ].map((c) => (
               <div

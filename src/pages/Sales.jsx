@@ -289,7 +289,8 @@ const Sales = () => {
 
     // คุณภาพ/ปี/สภาพ/ประเภทนา/โปรแกรม/ชำระเงิน
     gram: "",
-    riceYear: "",
+    riceYear: "",     // label เพื่อแสดงผล
+    riceYearId: "",   // <-- ใช้ส่ง backend (id)
     condition: "",
     fieldType: "",
     program: "",
@@ -406,7 +407,7 @@ const Sales = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        // condition (บาง API ใส่ key เป็น year)
+        // condition
         setConditionOptions(
           (conditions || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -414,7 +415,7 @@ const Sales = () => {
           })).filter((o) => o.label)
         )
 
-        // field type (บาง API ใส่ key เป็น year)
+        // field type
         setFieldTypeOptions(
           (fields || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -422,15 +423,15 @@ const Sales = () => {
           })).filter((o) => o.label)
         )
 
-        // year
+        // year (id + label)
         setYearOptions(
           (years || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
             label: String(x.year ?? x.name ?? x.label ?? "").trim(),
-          })).filter((o) => o.label)
+          })).filter((o) => o.id && o.label)
         )
 
-        // program (บาง API ใส่ key เป็น year)
+        // program
         setProgramOptions(
           (programs || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -438,7 +439,7 @@ const Sales = () => {
           })).filter((o) => o.label)
         )
 
-        // payment (บาง API ใส่ key เป็น year)
+        // payment
         setPaymentOptions(
           (payments || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -781,7 +782,7 @@ const Sales = () => {
     if (!order.subriceId) m.subrice = true
     if (!order.condition) m.condition = true
     if (!order.fieldType) m.fieldType = true
-    if (!order.riceYear) m.riceYear = true
+    if (!order.riceYearId) m.riceYear = true   // ใช้ id เป็นตัวตัดสิน
     if (!order.program) m.program = true
     if (!order.paymentMethod) m.payment = true
     if (!order.branchName) m.branchName = true
@@ -815,7 +816,7 @@ const Sales = () => {
     if (!order.subriceId) e.subrice = "เลือกชั้นย่อย"
     if (!order.condition) e.condition = "เลือกสภาพ/เงื่อนไข"
     if (!order.fieldType) e.fieldType = "เลือกประเภทนา"
-    if (!order.riceYear) e.riceYear = "เลือกปี/ฤดูกาล"
+    if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"   // ใช้ id
     if (!order.program) e.program = "เลือกโปรแกรม"
     if (!order.paymentMethod) e.payment = "เลือกวิธีชำระเงิน"
 
@@ -885,10 +886,12 @@ const Sales = () => {
     const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null
     const branchId  = order.branchId ?? null
     const klangId   = order.klangId ?? null
+    const riceYearId = /^\d+$/.test(order.riceYearId) ? Number(order.riceYearId) : null
 
     if (!productId) { setErrors((p)=>({ ...p, product:"ไม่พบรหัสสินค้า" })); scrollToFirstError({product:true}); return }
     if (!riceId)    { setErrors((p)=>({ ...p, riceType:"ไม่พบรหัสชนิดข้าว" })); scrollToFirstError({riceType:true}); return }
     if (!subriceId) { setErrors((p)=>({ ...p, subrice:"ไม่พบรหัสชั้นย่อย" })); scrollToFirstError({subrice:true}); return }
+    if (!riceYearId){ setErrors((p)=>({ ...p, riceYear:"ไม่พบรหัสปี/ฤดูกาล" })); scrollToFirstError({riceYear:true}); return }
     if (!branchId)  { setErrors((p)=>({ ...p, branchName:"ไม่พบรหัสสาขา" })); scrollToFirstError({branchName:true}); return }
     if (!klangId)   { setErrors((p)=>({ ...p, klangName:"ไม่พบรหัสคลัง" })); scrollToFirstError({klangName:true}); return }
 
@@ -947,7 +950,7 @@ const Sales = () => {
         product_id: productId,
         rice_id: riceId,
         subrice_id: subriceId,
-        rice_year: Number(order.riceYear || 0),
+        rice_year: riceYearId,                // <-- ส่งเป็น id
         field_type: (order.fieldType || "").trim(),
         condition: (order.condition || "").trim(),
         humidity: Number(order.moisturePct || 0),
@@ -960,7 +963,7 @@ const Sales = () => {
         branch_location: branchId,
         klang_location: klangId,
         gram: Number(order.gram || 0),
-        // program / paymentMethod ไม่อยู่ใน OrderCreate ตอนนี้ ถ้าหลังบ้านจะเก็บ ให้เพิ่ม field ใน model และที่นี่ส่งเพิ่ม
+        // ถ้าหลังบ้านต้องเก็บ program / paymentMethod ให้เพิ่มใน model แล้วส่งเพิ่ม
       },
       rice:   { rice_type: order.riceType, id: riceId },
       branch: { branch_name: order.branchName, id: branchId },
@@ -1017,7 +1020,8 @@ const Sales = () => {
       subriceId: "",
       subriceName: "",
       gram: "",
-      riceYear: "",
+      riceYear: "",     // label
+      riceYearId: "",   // id
       condition: "",
       fieldType: "",
       program: "",
@@ -1314,13 +1318,20 @@ const Sales = () => {
               {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
             </div>
 
-            {/* Year */}
+            {/* Year (ส่ง id แต่โชว์ label) */}
             <div>
               <label className={labelCls}>ปี/ฤดูกาล</label>
               <ComboBox
                 options={yearOptions}
-                value={yearOptions.find((o) => o.label === order.riceYear)?.id ?? ""}
-                onChange={(_id, found) => setOrder((p) => ({ ...p, riceYear: found?.label ?? "" }))}
+                value={order.riceYearId}                // เก็บ id
+                getValue={(o) => o.id}
+                onChange={(_id, found) =>
+                  setOrder((p) => ({
+                    ...p,
+                    riceYearId: found?.id ?? "",
+                    riceYear: found?.label ?? "",       // เก็บ label ไว้โชว์/สรุป
+                  }))
+                }
                 placeholder="— เลือกปี/ฤดูกาล —"
                 error={!!errors.riceYear}
                 hintRed={!!missingHints.riceYear}
@@ -1346,7 +1357,7 @@ const Sales = () => {
               {errors.program && <p className={errorTextCls}>{errors.program}</p>}
             </div>
 
-            {/* ✅ สาขา (ย้ายมาแทนตำแหน่งของวิธีชำระเงินเดิม) */}
+            {/* ✅ สาขา */}
             <div>
               <label className={labelCls}>สาขา</label>
               <ComboBox
@@ -1371,7 +1382,7 @@ const Sales = () => {
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
             </div>
 
-            {/* ✅ คลัง (ย้ายมาแทนตำแหน่งเดิมของสาขา) */}
+            {/* ✅ คลัง */}
             <div>
               <label className={labelCls}>คลัง</label>
               <ComboBox
@@ -1395,7 +1406,7 @@ const Sales = () => {
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>
 
-            {/* ✅ วิธีชำระเงิน (ย้ายมาต่อหลังคลัง) */}
+            {/* ✅ วิธีชำระเงิน */}
             <div>
               <label className={labelCls}>วิธีชำระเงิน</label>
               <ComboBox
@@ -1411,7 +1422,6 @@ const Sales = () => {
               {errors.payment && <p className={errorTextCls}>{errors.payment}</p>}
             </div>
 
-                
             {/* ความชื้น/สิ่งเจือปน/น้ำหนัก */}
             <div>
               <label className={labelCls}>ความชื้น (%)</label>
@@ -1606,7 +1616,7 @@ const Sales = () => {
                   ) / 100) + " กก.",
               },
               { label: "คุณภาพ (gram)", value: order.gram || "—" },
-              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
+              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },   // โชว์ label
               { label: "ประเภทนา", value: order.fieldType || "—" },
               { label: "เงื่อนไข", value: order.condition || "—" },
               { label: "โปรแกรม", value: order.program || "—" },

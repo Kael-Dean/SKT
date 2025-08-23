@@ -61,7 +61,7 @@ const labelCls =
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- Reusable ComboBox (ตกแต่งให้เหมือน Order + อ่านง่ายขึ้น) ---------- */
+/** ---------- Reusable ComboBox ---------- */
 function ComboBox({
   options = [],
   value,
@@ -159,7 +159,6 @@ function ComboBox({
 
   return (
     <div className="relative" ref={boxRef}>
-      {/* ปุ่ม: ใหญ่ขึ้น คอนทราสต์ดีขึ้น */}
       <button
         type="button"
         ref={controlRef}
@@ -188,7 +187,6 @@ function ComboBox({
         {selectedLabel || <span className="text-slate-500">{placeholder}</span>}
       </button>
 
-      {/* รายการ */}
       {open && (
         <div
           ref={listRef}
@@ -249,10 +247,16 @@ const Sales = () => {
   const itemRefs = useRef([])
 
   /** dropdown opts */
+  const [productOptions, setProductOptions] = useState([])
   const [riceOptions, setRiceOptions] = useState([])
+  const [subriceOptions, setSubriceOptions] = useState([])
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
-  const [fieldTypeOptions, setFieldTypeOptions] = useState([]) // <<<< ใหม่: ประเภทนา
+  const [conditionOptions, setConditionOptions] = useState([])
+  const [fieldTypeOptions, setFieldTypeOptions] = useState([])
+  const [yearOptions, setYearOptions] = useState([])
+  const [programOptions, setProgramOptions] = useState([])
+  const [paymentOptions, setPaymentOptions] = useState([])
 
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
@@ -275,26 +279,43 @@ const Sales = () => {
 
   /** ฟอร์มออเดอร์ */
   const [order, setOrder] = useState({
-    riceType: "",
+    // product / rice
+    productId: "",
+    productName: "",
     riceId: "",
+    riceType: "",
+    subriceId: "",
+    subriceName: "",
+
+    // คุณภาพ/ปี/สภาพ/ประเภทนา/โปรแกรม/ชำระเงิน
+    gram: "",
+    riceYear: "",
+    condition: "",
+    fieldType: "",
+    program: "",
+    paymentMethod: "",
+
+    // ชั่ง/คำนวณ
     moisturePct: "",
     impurityPct: "",
     grossWeightKg: "",
     manualDeduct: false,
     deductWeightKg: "",
+
+    // ราคา
     unitPrice: "",
     amountTHB: "",
+
+    // เอกสาร
     paymentRefNo: "",
     issueDate: new Date().toISOString().slice(0, 10),
+
+    // ที่ตั้ง
     branchName: "",
     branchId: null,
     klangName: "",
     klangId: null,
     registeredPlace: "",
-    // >>> ฟิลด์ใหม่
-    gram: "",        // คุณภาพข้าว
-    season: "",      // ปี
-    fieldType: "",   // นา (string)
   })
 
   /** ---------- Refs ---------- */
@@ -307,7 +328,14 @@ const Sales = () => {
     district: useRef(null),
     province: useRef(null),
     postalCode: useRef(null),
+    product: useRef(null),
     riceType: useRef(null),
+    subrice: useRef(null),
+    condition: useRef(null),
+    fieldType: useRef(null),
+    riceYear: useRef(null),
+    program: useRef(null),
+    payment: useRef(null),
     branchName: useRef(null),
     klangName: useRef(null),
     moisturePct: useRef(null),
@@ -319,8 +347,6 @@ const Sales = () => {
     paymentRefNo: useRef(null),
     issueDate: useRef(null),
     gram: useRef(null),
-    season: useRef(null),
-    fieldType: useRef(null),
   }
 
   /** debounce */
@@ -350,66 +376,133 @@ const Sales = () => {
     return []
   }
 
-  /** โหลด dropdown */
+  /** โหลด dropdown ชุดแรก (ที่ไม่ผูกกัน) + branch */
   useEffect(() => {
-    const loadDD = async () => {
+    const loadStaticDD = async () => {
       try {
-        const [riceRes, branchRes] = await Promise.allSettled([
-          fetch(`${API_BASE}/order/rice/search`,   { headers: authHeader() }),
-          fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
-          fetch(`${API_BASE}/order/field_type/list`, { headers: authHeader() }),  
+        const [
+          products,
+          conditions,
+          fields,
+          years,
+          programs,
+          payments,
+          branches,
+        ] = await Promise.all([
+          fetchFirstOkJson(["/order/product/search"]),
+          fetchFirstOkJson(["/order/condition/search"]),
+          fetchFirstOkJson(["/order/field/search", "/order/field_type/list", "/order/field-type/list"]),
+          fetchFirstOkJson(["/order/year/search"]),
+          fetchFirstOkJson(["/order/program/search"]),
+          fetchFirstOkJson(["/order/payment/search"]),
+          fetchFirstOkJson(["/order/branch/search"]),
         ])
 
-        // rice
-        if (riceRes.status === "fulfilled" && riceRes.value.ok) { 
-          const riceRaw = await riceRes.value.json()
-          const rice = (riceRaw || []).map((x) => ({
-            id: String(x.id ?? x.rice_id ?? x.riceId ?? ""),
-            label: x.rice_type ?? x.rice_name ?? x.name ?? "",
-          }))
-          setRiceOptions(rice)
-        } else {
-          console.error("rice/search failed:", riceRes)
-          setRiceOptions([])
-        }
+        // product
+        setProductOptions(
+          (products || []).map((x) => ({
+            id: String(x.id ?? x.product_id ?? x.value ?? ""),
+            label: String(x.product_type ?? x.name ?? x.label ?? "").trim(),
+          })).filter((o) => o.id && o.label)
+        )
 
-        // branch
-        if (branchRes.status === "fulfilled" && branchRes.value.ok) {
-          const branch = await branchRes.value.json()
-          setBranchOptions(branch || [])
-        } else {
-          console.error("branch/search failed:", branchRes)
-          setBranchOptions([])
-        }
+        // condition (บาง API ใส่ key เป็น year)
+        setConditionOptions(
+          (conditions || []).map((x, i) => ({
+            id: String(x.id ?? x.value ?? i),
+            label: String(x.condition ?? x.year ?? x.name ?? x.label ?? "").trim(),
+          })).filter((o) => o.label)
+        )
 
-        // field types
-        const ftRaw = await fetchFirstOkJson([
-          "/order/field-type/list",
-          "/order/field_type/list",
-          "/order/field-types",
-          "/order/field_type/search",
-          "/order/fieldtype/search",
-          "/order/fieldtype/list",
-          "/order/fieldTypes",
-          "/order/field_types",
-        ])
-        const ftMapped = (ftRaw || []).map((x, i) => {
-          const id = x.id ?? x.field_type_id ?? x.value ?? i
-          const label = x.field_type ?? x.name ?? x.label ?? (typeof x === "string" ? x : "")
-          return { id: String(id), label: String(label).trim() }
-        }).filter((o) => o.label)
-        setFieldTypeOptions(ftMapped)
+        // field type (บาง API ใส่ key เป็น year)
+        setFieldTypeOptions(
+          (fields || []).map((x, i) => ({
+            id: String(x.id ?? x.value ?? i),
+            label: String(x.field_type ?? x.name ?? x.year ?? x.label ?? (typeof x === "string" ? x : "")).trim(),
+          })).filter((o) => o.label)
+        )
+
+        // year
+        setYearOptions(
+          (years || []).map((x, i) => ({
+            id: String(x.id ?? x.value ?? i),
+            label: String(x.year ?? x.name ?? x.label ?? "").trim(),
+          })).filter((o) => o.label)
+        )
+
+        // program (บาง API ใส่ key เป็น year)
+        setProgramOptions(
+          (programs || []).map((x, i) => ({
+            id: String(x.id ?? x.value ?? i),
+            label: String(x.program ?? x.year ?? x.name ?? x.label ?? "").trim(),
+          })).filter((o) => o.label)
+        )
+
+        // payment (บาง API ใส่ key เป็น year)
+        setPaymentOptions(
+          (payments || []).map((x, i) => ({
+            id: String(x.id ?? x.value ?? i),
+            label: String(x.method ?? x.year ?? x.name ?? x.label ?? "").trim(),
+          })).filter((o) => o.label)
+        )
+
+        setBranchOptions((branches || []).map((b) => ({ id: b.id, label: b.branch_name })))
       } catch (err) {
-        console.error("loadDD fatal:", err)
-        setRiceOptions([])
+        console.error("loadStaticDD fatal:", err)
+        setProductOptions([]); setConditionOptions([]); setFieldTypeOptions([]); setYearOptions([]); setProgramOptions([]); setPaymentOptions([])
         setBranchOptions([])
-        setFieldTypeOptions([])
       }
     }
-    loadDD()
+    loadStaticDD()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /** เมื่อเลือก product → โหลด rice */
+  useEffect(() => {
+    const pid = order.productId
+    if (!pid) { setRiceOptions([]); setOrder((p) => ({ ...p, riceId: "", riceType: "", subriceId: "", subriceName: "" })); return }
+
+    const loadRice = async () => {
+      try {
+        const url = `${API_BASE}/order/rice/search?product_id=${encodeURIComponent(pid)}`
+        const r = await fetch(url, { headers: authHeader() })
+        if (!r.ok) throw new Error(await r.text())
+        const arr = (await r.json()) || []
+        const mapped = arr.map((x) => ({
+          id: String(x.id ?? x.rice_id ?? x.value ?? ""),
+          label: String(x.rice_type ?? x.name ?? x.label ?? "").trim(),
+        })).filter((o) => o.id && o.label)
+        setRiceOptions(mapped)
+      } catch (e) {
+        console.error("load rice error:", e)
+        setRiceOptions([])
+      }
+    }
+    loadRice()
+  }, [order.productId])
+
+  /** เมื่อเลือก rice → โหลด sub-rice */
+  useEffect(() => {
+    const rid = order.riceId
+    if (!rid) { setSubriceOptions([]); setOrder((p) => ({ ...p, subriceId: "", subriceName: "" })); return }
+    const loadSub = async () => {
+      try {
+        const url = `${API_BASE}/order/sub-rice/search?rice_id=${encodeURIComponent(rid)}`
+        const r = await fetch(url, { headers: authHeader() })
+        if (!r.ok) throw new Error(await r.text())
+        const arr = (await r.json()) || []
+        const mapped = arr.map((x) => ({
+          id: String(x.id ?? x.subrice_id ?? x.value ?? ""),
+          label: String(x.sub_class ?? x.name ?? x.label ?? "").trim(),
+        })).filter((o) => o.id && o.label)
+        setSubriceOptions(mapped)
+      } catch (e) {
+        console.error("load subrice error:", e)
+        setSubriceOptions([])
+      }
+    }
+    loadSub()
+  }, [order.riceId])
 
   /** โหลดคลังตามสาขา */
   useEffect(() => {
@@ -426,7 +519,7 @@ const Sales = () => {
         const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
         if (!r.ok) { console.error("Load klang failed:", r.status, await r.text()); setKlangOptions([]); return }
         const data = await r.json()
-        setKlangOptions(data || [])
+        setKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
       } catch (e) { console.error("Load klang error:", e); setKlangOptions([]) }
     }
     loadKlang()
@@ -611,7 +704,7 @@ const Sales = () => {
       return rest
     })
 
-  /** คีย์บอร์ดนำทาง dropdown */
+  /** คีย์บอร์ดนำทาง dropdown ชื่อ */
   const handleNameKeyDown = (e) => {
     if (!showNameList || nameResults.length === 0) return
     if (e.key === "ArrowDown") {
@@ -664,15 +757,6 @@ const Sales = () => {
     }
   }, [computedAmount])
 
-  /** auto-fill ราคา เฉพาะกรณี rice มี price แนบมา */
-  useEffect(() => {
-    if (!order.riceId) return
-    const found = riceOptions.find((r) => r.id === order.riceId)
-    if (found?.price != null) {
-      setOrder((p) => ({ ...p, unitPrice: String(found.price) }))
-    }
-  }, [order.riceId, riceOptions])
-
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) =>
     missingHints[key]
@@ -691,15 +775,21 @@ const Sales = () => {
     if (!customer.subdistrict.trim()) m.subdistrict = true
     if (!customer.district.trim()) m.district = true
     if (!customer.province.trim()) m.province = true
-    // ออเดอร์
+    // ออเดอร์ (จำเป็น)
+    if (!order.productId) m.product = true
     if (!order.riceId) m.riceType = true
+    if (!order.subriceId) m.subrice = true
+    if (!order.condition) m.condition = true
+    if (!order.fieldType) m.fieldType = true
+    if (!order.riceYear) m.riceYear = true
+    if (!order.program) m.program = true
+    if (!order.paymentMethod) m.payment = true
     if (!order.branchName) m.branchName = true
     if (!order.klangName) m.klangName = true
     if (!order.grossWeightKg || Number(order.grossWeightKg) <= 0) m.grossWeightKg = true
     if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0)) m.deductWeightKg = true
-    if (!order.amountTHB || Number(order.amountTHB) < 0) m.amountTHB = true
+    if (!order.amountTHB || Number(order.amountTHB) <= 0) m.amountTHB = true
     if (!order.issueDate) m.issueDate = true
-    // if (!order.fieldType) m.fieldType = true  // ถ้าต้องการบังคับ
     return m
   }
 
@@ -720,15 +810,22 @@ const Sales = () => {
     if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
     if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
 
-    if (!order.riceId) e.riceType = "เลือกชนิดข้าวเปลือก"
+    if (!order.productId) e.product = "เลือกประเภทสินค้า"
+    if (!order.riceId) e.riceType = "เลือกชนิดข้าว"
+    if (!order.subriceId) e.subrice = "เลือกชั้นย่อย"
+    if (!order.condition) e.condition = "เลือกสภาพ/เงื่อนไข"
+    if (!order.fieldType) e.fieldType = "เลือกประเภทนา"
+    if (!order.riceYear) e.riceYear = "เลือกปี/ฤดูกาล"
+    if (!order.program) e.program = "เลือกโปรแกรม"
+    if (!order.paymentMethod) e.payment = "เลือกวิธีชำระเงิน"
+
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
     if (!order.grossWeightKg || Number(order.grossWeightKg) <= 0) e.grossWeightKg = "กรอกน้ำหนักตามใบชั่ง"
     if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0))
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
-    if (!order.amountTHB || Number(order.amountTHB) < 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
+    if (!order.amountTHB || Number(order.amountTHB) <= 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
-    // if (!order.fieldType) e.fieldType = "เลือกประเภทนา"
     setErrors(e)
     return e
   }
@@ -737,14 +834,20 @@ const Sales = () => {
     const orderKeys = [
       "fullName",
       "address",
+      "product",
       "riceType",
+      "subrice",
+      "condition",
+      "fieldType",
+      "riceYear",
+      "program",
+      "payment",
       "branchName",
       "klangName",
       "grossWeightKg",
       "deductWeightKg",
       "amountTHB",
       "issueDate",
-      // "fieldType",
     ]
     const firstKey = orderKeys.find((k) => k in eObj)
     if (!firstKey) return
@@ -765,11 +868,9 @@ const Sales = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    // 1) แสดง hint แดงทุกช่องที่ยังว่าง
     const hints = computeMissingHints()
     setMissingHints(hints)
 
-    // 2) วาลิเดต
     const eObj = validateAll()
     if (Object.keys(eObj).length > 0) {
       scrollToFirstError(eObj)
@@ -779,13 +880,17 @@ const Sales = () => {
     const [firstName, ...rest] = customer.fullName.trim().split(" ")
     const lastName = rest.join(" ")
 
-    const riceId  = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
-    const branchId = order.branchId ?? null
-    const klangId  = order.klangId ?? null
+    const productId = /^\d+$/.test(order.productId) ? Number(order.productId) : null
+    const riceId    = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
+    const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null
+    const branchId  = order.branchId ?? null
+    const klangId   = order.klangId ?? null
 
-    if (!riceId)   { setErrors((prev) => ({ ...prev, riceType: "ไม่พบรหัสชนิดข้าว โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, riceType:true })); scrollToFirstError({ riceType: true }); return }
-    if (!branchId) { setErrors((prev) => ({ ...prev, branchName: "ไม่พบรหัสสาขา โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, branchName:true })); scrollToFirstError({ branchName: true }); return }
-    if (!klangId)  { setErrors((prev) => ({ ...prev, klangName: "ไม่พบรหัสคลัง โปรดเลือกใหม่" })); setMissingHints((p)=>({ ...p, klangName:true })); scrollToFirstError({ klangName: true }); return }
+    if (!productId) { setErrors((p)=>({ ...p, product:"ไม่พบรหัสสินค้า" })); scrollToFirstError({product:true}); return }
+    if (!riceId)    { setErrors((p)=>({ ...p, riceType:"ไม่พบรหัสชนิดข้าว" })); scrollToFirstError({riceType:true}); return }
+    if (!subriceId) { setErrors((p)=>({ ...p, subrice:"ไม่พบรหัสชั้นย่อย" })); scrollToFirstError({subrice:true}); return }
+    if (!branchId)  { setErrors((p)=>({ ...p, branchName:"ไม่พบรหัสสาขา" })); scrollToFirstError({branchName:true}); return }
+    if (!klangId)   { setErrors((p)=>({ ...p, klangName:"ไม่พบรหัสคลัง" })); scrollToFirstError({klangName:true}); return }
 
     const baseHeaders = authHeader()
     let customer_id = memberMeta.memberPk ?? null
@@ -839,20 +944,23 @@ const Sales = () => {
       },
       order: {
         customer_id,
+        product_id: productId,
         rice_id: riceId,
-        branch_location: branchId,
-        klang_location: klangId,
+        subrice_id: subriceId,
+        rice_year: Number(order.riceYear || 0),
+        field_type: (order.fieldType || "").trim(),
+        condition: (order.condition || "").trim(),
         humidity: Number(order.moisturePct || 0),
         weight: netW > 0 ? netW : 0,
+        price_per_kilo: Number(order.unitPrice || 0),
         price: Number(order.amountTHB),
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim(),
         date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
-        // >>> ฟิลด์ใหม่
+        branch_location: branchId,
+        klang_location: klangId,
         gram: Number(order.gram || 0),
-        season: Number(order.season || 0),
-        field_type: (order.fieldType || "").trim(),
-        price_per_kilo: Number(order.unitPrice || 0),
+        // program / paymentMethod ไม่อยู่ใน OrderCreate ตอนนี้ ถ้าหลังบ้านจะเก็บ ให้เพิ่ม field ใน model และที่นี่ส่งเพิ่ม
       },
       rice:   { rice_type: order.riceType, id: riceId },
       branch: { branch_name: order.branchName, id: branchId },
@@ -902,8 +1010,18 @@ const Sales = () => {
       postalCode: "",
     })
     setOrder({
-      riceType: "",
+      productId: "",
+      productName: "",
       riceId: "",
+      riceType: "",
+      subriceId: "",
+      subriceName: "",
+      gram: "",
+      riceYear: "",
+      condition: "",
+      fieldType: "",
+      program: "",
+      paymentMethod: "",
       moisturePct: "",
       impurityPct: "",
       grossWeightKg: "",
@@ -918,10 +1036,8 @@ const Sales = () => {
       klangName: "",
       klangId: null,
       registeredPlace: "",
-      gram: "",
-      season: "",
-      fieldType: "",
     })
+    setRiceOptions([]); setSubriceOptions([]); setKlangOptions([])
   }
 
   /** ---------- UI ---------- */
@@ -1095,9 +1211,34 @@ const Sales = () => {
           <h2 className="mb-3 text-xl font-semibold">รายละเอียดการซื้อ</h2>
 
           <div className="grid gap-4 md:grid-cols-3">
-            {/* ชนิดข้าว */}
+            {/* Product */}
             <div>
-              <label className={labelCls}>ชนิดข้าวเปลือก</label>
+              <label className={labelCls}>ประเภทสินค้า</label>
+              <ComboBox
+                options={productOptions}
+                value={order.productId}
+                onChange={(id, found) => {
+                  setOrder((p) => ({
+                    ...p,
+                    productId: id,
+                    productName: found?.label ?? "",
+                    // reset chain
+                    riceId: "", riceType: "",
+                    subriceId: "", subriceName: "",
+                  }))
+                }}
+                placeholder="— เลือกประเภทสินค้า —"
+                error={!!errors.product}
+                hintRed={!!missingHints.product}
+                clearHint={() => clearHint("product")}
+                buttonRef={refs.product}
+              />
+              {errors.product && <p className={errorTextCls}>{errors.product}</p>}
+            </div>
+
+            {/* Rice */}
+            <div>
+              <label className={labelCls}>ชนิดข้าว</label>
               <ComboBox
                 options={riceOptions}
                 value={order.riceId}
@@ -1106,9 +1247,12 @@ const Sales = () => {
                     ...p,
                     riceId: id,
                     riceType: found?.label ?? "",
+                    // reset dependent
+                    subriceId: "", subriceName: "",
                   }))
                 }}
-                placeholder="— เลือกชนิด —"
+                placeholder="— เลือกชนิดข้าว —"
+                disabled={!order.productId}
                 error={!!errors.riceType}
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
@@ -1117,11 +1261,96 @@ const Sales = () => {
               {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
             </div>
 
-            {/* สาขา */}
+            {/* Sub-rice */}
+            <div>
+              <label className={labelCls}>ชั้นย่อย (Sub‑class)</label>
+              <ComboBox
+                options={subriceOptions}
+                value={order.subriceId}
+                onChange={(id, found) => {
+                  setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))
+                }}
+                placeholder="— เลือกชั้นย่อย —"
+                disabled={!order.riceId}
+                error={!!errors.subrice}
+                hintRed={!!missingHints.subrice}
+                clearHint={() => clearHint("subrice")}
+                buttonRef={refs.subrice}
+              />
+              {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
+            </div>
+
+            {/* Condition */}
+            <div>
+              <label className={labelCls}>สภาพ/เงื่อนไข</label>
+              <ComboBox
+                options={conditionOptions}
+                value={
+                  conditionOptions.find((o) => o.label === order.condition)?.id ?? ""
+                }
+                onChange={(_id, found) => setOrder((p) => ({ ...p, condition: found?.label ?? "" }))}
+                placeholder="— เลือกสภาพ/เงื่อนไข —"
+                error={!!errors.condition}
+                hintRed={!!missingHints.condition}
+                clearHint={() => clearHint("condition")}
+                buttonRef={refs.condition}
+              />
+              {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
+            </div>
+
+            {/* Field type */}
+            <div>
+              <label className={labelCls}>ประเภทนา</label>
+              <ComboBox
+                options={fieldTypeOptions}
+                value={fieldTypeOptions.find((o) => o.label === order.fieldType)?.id ?? ""}
+                onChange={(_id, found) => setOrder((p) => ({ ...p, fieldType: found?.label ?? "" }))}
+                placeholder="— เลือกประเภทนา —"
+                error={!!errors.fieldType}
+                hintRed={!!missingHints.fieldType}
+                clearHint={() => clearHint("fieldType")}
+                buttonRef={refs.fieldType}
+              />
+              {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
+            </div>
+
+            {/* Year */}
+            <div>
+              <label className={labelCls}>ปี/ฤดูกาล</label>
+              <ComboBox
+                options={yearOptions}
+                value={yearOptions.find((o) => o.label === order.riceYear)?.id ?? ""}
+                onChange={(_id, found) => setOrder((p) => ({ ...p, riceYear: found?.label ?? "" }))}
+                placeholder="— เลือกปี/ฤดูกาล —"
+                error={!!errors.riceYear}
+                hintRed={!!missingHints.riceYear}
+                clearHint={() => clearHint("riceYear")}
+                buttonRef={refs.riceYear}
+              />
+              {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
+            </div>
+
+            {/* Program */}
+            <div>
+              <label className={labelCls}>โปรแกรม</label>
+              <ComboBox
+                options={programOptions}
+                value={programOptions.find((o) => o.label === order.program)?.id ?? ""}
+                onChange={(_id, found) => setOrder((p) => ({ ...p, program: found?.label ?? "" }))}
+                placeholder="— เลือกโปรแกรม —"
+                error={!!errors.program}
+                hintRed={!!missingHints.program}
+                clearHint={() => clearHint("program")}
+                buttonRef={refs.program}
+              />
+              {errors.program && <p className={errorTextCls}>{errors.program}</p>}
+            </div>
+
+            {/* ✅ สาขา (ย้ายมาแทนตำแหน่งของวิธีชำระเงินเดิม) */}
             <div>
               <label className={labelCls}>สาขา</label>
               <ComboBox
-                options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
+                options={branchOptions}
                 value={order.branchId}
                 getValue={(o) => o.id}
                 onChange={(_val, found) => {
@@ -1142,11 +1371,11 @@ const Sales = () => {
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
             </div>
 
-            {/* คลัง */}
+            {/* ✅ คลัง (ย้ายมาแทนตำแหน่งเดิมของสาขา) */}
             <div>
               <label className={labelCls}>คลัง</label>
               <ComboBox
-                options={klangOptions.map((k) => ({ id: k.id, label: k.klang_name }))}
+                options={klangOptions}
                 value={order.klangId}
                 getValue={(o) => o.id}
                 onChange={(_val, found) => {
@@ -1166,6 +1395,23 @@ const Sales = () => {
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>
 
+            {/* ✅ วิธีชำระเงิน (ย้ายมาต่อหลังคลัง) */}
+            <div>
+              <label className={labelCls}>วิธีชำระเงิน</label>
+              <ComboBox
+                options={paymentOptions}
+                value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
+                onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
+                placeholder="— เลือกวิธีชำระเงิน —"
+                error={!!errors.payment}
+                hintRed={!!missingHints.payment}
+                clearHint={() => clearHint("payment")}
+                buttonRef={refs.payment}
+              />
+              {errors.payment && <p className={errorTextCls}>{errors.payment}</p>}
+            </div>
+
+                
             {/* ความชื้น/สิ่งเจือปน/น้ำหนัก */}
             <div>
               <label className={labelCls}>ความชื้น (%)</label>
@@ -1255,7 +1501,7 @@ const Sales = () => {
               />
             </div>
 
-            {/* --- ฟิลด์ใหม่: gram/season/field_type --- */}
+            {/* ฟิลด์คุณภาพ/อื่นๆ */}
             <div>
               <label className={labelCls}>คุณภาพข้าว (gram)</label>
               <input
@@ -1265,36 +1511,6 @@ const Sales = () => {
                 value={order.gram}
                 onChange={(e) => updateOrder("gram", onlyDigits(e.target.value))}
                 placeholder="เช่น 85"
-              />
-            </div>
-
-            <div>
-              <label className={labelCls}>ฤดูกาล/ปี (season)</label>
-              <input
-                ref={refs.season}
-                inputMode="numeric"
-                className={baseField}
-                value={order.season}
-                onChange={(e) => updateOrder("season", onlyDigits(e.target.value))}
-                placeholder="เช่น 2025"
-              />
-            </div>
-
-            {/* เปลี่ยนเป็น ComboBox */}
-            <div>
-              <label className={labelCls}>ประเภทนา (field_type)</label>
-              <ComboBox
-                options={fieldTypeOptions}
-                value={
-                  fieldTypeOptions.find((o) => o.label === order.fieldType)?.id ?? ""
-                }
-                getValue={(o) => o.id}
-                onChange={(_id, found) => {
-                  setOrder((p) => ({ ...p, fieldType: found?.label ?? "" }))
-                }}
-                placeholder="— เลือกประเภทนา —"
-                clearHint={() => clearHint("fieldType")}
-                buttonRef={refs.fieldType}
               />
             </div>
 
@@ -1361,9 +1577,9 @@ const Sales = () => {
           {/* --- สรุป --- */}
           <div className="mt-6 grid gap-4 md:grid-cols-5">
             {[
+              { label: "สินค้า", value: order.productName || "—" },
               { label: "ชนิดข้าว", value: order.riceType || "—" },
-
-              // ⬇️ แก้ให้สาขา/คลังเป็น list มีจุดนำหน้า
+              { label: "ชั้นย่อย", value: order.subriceName || "—" },
               {
                 label: "สาขา / คลัง",
                 value: (
@@ -1373,7 +1589,6 @@ const Sales = () => {
                   </ul>
                 ),
               },
-
               {
                 label: "น้ำหนักสุทธิ",
                 value:
@@ -1391,15 +1606,16 @@ const Sales = () => {
                   ) / 100) + " กก.",
               },
               { label: "คุณภาพ (gram)", value: order.gram || "—" },
-              { label: "ฤดูกาล/ปี", value: order.season || "—" },
+              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
+              { label: "ประเภทนา", value: order.fieldType || "—" },
+              { label: "เงื่อนไข", value: order.condition || "—" },
+              { label: "โปรแกรม", value: order.program || "—" },
             ].map((c) => (
               <div
                 key={c.label}
                 className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
               >
                 <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
-
-                {/* ✅ รองรับทั้ง string และ JSX */}
                 {typeof c.value === "string" ? (
                   <div className="text-lg md:text-xl font-semibold whitespace-pre-line">
                     {c.value}

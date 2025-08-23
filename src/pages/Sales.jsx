@@ -1377,6 +1377,25 @@ const Sales = () => {
               {errors.program && <p className={errorTextCls}>{errors.program}</p>}
             </div>
 
+            {/* Payment method */}
+            <div>
+              <label className={labelCls}>วิธีชำระเงิน</label>
+              <ComboBox
+                options={paymentOptions}
+                value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
+                onChange={(_id, found) =>
+                  setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))
+                }
+                placeholder="— เลือกวิธีชำระเงิน —"
+                error={!!errors.payment}
+                hintRed={!!missingHints.payment}
+                clearHint={() => clearHint("payment")}
+                buttonRef={refs.payment}
+              />
+              {errors.payment && <p className={errorTextCls}>{errors.payment}</p>}
+            </div>
+
+
             {/* ✅ สาขา */}
             <div>
               <label className={labelCls}>สาขา</label>

@@ -44,18 +44,13 @@ function suggestDeductionWeight(grossKg, moisturePct, impurityPct) {
 /** ---------- class helpers ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/** ---------- สไตล์ใหม่นุ่มตา/ชัดขึ้น ---------- */
-/** พื้นฐานอินพุต: ใหญ่ขึ้น, คอนทราสต์ดีขึ้น, โค้งมากขึ้น */
+/** ---------- สไตล์ ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-white p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
-
-/** ช่อง disabled: สีสว่าง อ่านง่าย */
 const fieldDisabled =
   "bg-slate-100 text-slate-600 cursor-not-allowed opacity-95 dark:bg-slate-700/70 dark:text-slate-300"
-
-/** ป้ายกำกับ & ข้อความช่วย */
 const labelCls =
   "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
@@ -299,9 +294,10 @@ const Sales = () => {
     paymentMethod: "",
 
     // ชั่ง/คำนวณ
+    entryWeightKg: "",   // ⬅️ ใหม่
+    exitWeightKg: "",    // ⬅️ ใหม่
     moisturePct: "",
     impurityPct: "",
-    grossWeightKg: "",
     manualDeduct: false,
     deductWeightKg: "",
 
@@ -341,9 +337,10 @@ const Sales = () => {
     payment: useRef(null),
     branchName: useRef(null),
     klangName: useRef(null),
+    entryWeightKg: useRef(null),
+    exitWeightKg: useRef(null),
     moisturePct: useRef(null),
     impurityPct: useRef(null),
-    grossWeightKg: useRef(null),
     deductWeightKg: useRef(null),
     unitPrice: useRef(null),
     amountTHB: useRef(null),
@@ -694,7 +691,7 @@ const Sales = () => {
     }
   }
 
-  /** ---- ช่วยจัดการสีแดงเฉพาะ 3 ช่อง ---- */
+  /** ---- ช่วยจัดการสีแดงเฉพาะบางช่อง ---- */
   const hasRed = (key) => !!errors[key] || !!missingHints[key]
   const redFieldCls = (key) =>
     hasRed(key)
@@ -738,16 +735,25 @@ const Sales = () => {
     requestAnimationFrame(() => scrollHighlightedIntoView2(highlightedIndex))
   }, [highlightedIndex, showNameList])
 
+  /** ---------- น้ำหนักจากตาชั่ง (ใหม่) ---------- */
+  const grossFromScale = useMemo(() => {
+    const entry = toNumber(order.entryWeightKg)
+    const exit  = toNumber(order.exitWeightKg)
+    const g = Math.abs(exit - entry)
+    return g > 0 ? g : 0
+  }, [order.entryWeightKg, order.exitWeightKg])
+
   /** ---------- Auto calc ---------- */
   const autoDeduct = useMemo(() => {
+    const baseGross = grossFromScale
     if (order.manualDeduct) return toNumber(order.deductWeightKg)
-    return suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct)
-  }, [order.manualDeduct, order.deductWeightKg, order.grossWeightKg, order.moisturePct, order.impurityPct])
+    return suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
+  }, [order.manualDeduct, order.deductWeightKg, grossFromScale, order.moisturePct, order.impurityPct])
 
   const netWeight = useMemo(() => {
-    const n = toNumber(order.grossWeightKg) - toNumber(autoDeduct)
+    const n = grossFromScale - toNumber(autoDeduct)
     return n > 0 ? n : 0
-  }, [order.grossWeightKg, autoDeduct])
+  }, [grossFromScale, autoDeduct])
 
   const computedAmount = useMemo(() => {
     if (order.unitPrice === "" || isNaN(Number(order.unitPrice))) return null
@@ -782,15 +788,15 @@ const Sales = () => {
     if (!order.productId) m.product = true
     if (!order.riceId) m.riceType = true
     if (!order.subriceId) m.subrice = true
-    if (!order.conditionId) m.condition = true        // ใช้ id
-    if (!order.fieldTypeId) m.fieldType = true        // ใช้ id
-    if (!order.riceYearId) m.riceYear = true          // ใช้ id
+    if (!order.conditionId) m.condition = true
+    if (!order.fieldTypeId) m.fieldType = true
+    if (!order.riceYearId) m.riceYear = true
     if (!order.program) m.program = true
     if (!order.paymentMethod) m.payment = true
     if (!order.branchName) m.branchName = true
     if (!order.klangName) m.klangName = true
-    if (!order.grossWeightKg || Number(order.grossWeightKg) <= 0) m.grossWeightKg = true
-    if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0)) m.deductWeightKg = true
+    if (!order.entryWeightKg || Number(order.entryWeightKg) < 0) m.entryWeightKg = true
+    if (!order.exitWeightKg  || Number(order.exitWeightKg)  <= 0) m.exitWeightKg = true
     if (!order.amountTHB || Number(order.amountTHB) <= 0) m.amountTHB = true
     if (!order.issueDate) m.issueDate = true
     return m
@@ -816,15 +822,21 @@ const Sales = () => {
     if (!order.productId) e.product = "เลือกประเภทสินค้า"
     if (!order.riceId) e.riceType = "เลือกชนิดข้าว"
     if (!order.subriceId) e.subrice = "เลือกชั้นย่อย"
-    if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข"   // ใช้ id
-    if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"        // ใช้ id
-    if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"          // ใช้ id
+    if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข"
+    if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"
+    if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"
     if (!order.program) e.program = "เลือกโปรแกรม"
     if (!order.paymentMethod) e.payment = "เลือกวิธีชำระเงิน"
 
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
-    if (!order.grossWeightKg || Number(order.grossWeightKg) <= 0) e.grossWeightKg = "กรอกน้ำหนักตามใบชั่ง"
+
+    if (order.entryWeightKg === "" || Number(order.entryWeightKg) < 0) e.entryWeightKg = "กรอกน้ำหนักก่อนชั่ง"
+    if (order.exitWeightKg === "" || Number(order.exitWeightKg) <= 0) e.exitWeightKg = "กรอกน้ำหนักหลังชั่ง"
+    if (grossFromScale <= 0) {
+      e.exitWeightKg = "ค่าน้ำหนักจากตาชั่งต้องมากกว่า 0"
+    }
+
     if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0))
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
     if (!order.amountTHB || Number(order.amountTHB) <= 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
@@ -847,7 +859,8 @@ const Sales = () => {
       "payment",
       "branchName",
       "klangName",
-      "grossWeightKg",
+      "entryWeightKg",
+      "exitWeightKg",
       "deductWeightKg",
       "amountTHB",
       "issueDate",
@@ -933,11 +946,12 @@ const Sales = () => {
       return
     }
 
-    const netW = toNumber(order.grossWeightKg) - toNumber(
-      order.manualDeduct
-        ? order.deductWeightKg
-        : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct)
-    )
+    const baseGross = grossFromScale
+    const deduction = order.manualDeduct
+      ? toNumber(order.deductWeightKg)
+      : suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
+
+    const netW = Math.max(0, baseGross - deduction)
 
     const payload = {
       customer: {
@@ -956,11 +970,13 @@ const Sales = () => {
         product_id: productId,
         rice_id: riceId,
         subrice_id: subriceId,
-        rice_year: riceYearId,                 // ส่งเป็น id
-        field_type: fieldTypeId,               // ⬅️ ส่งเป็น id
-        condition: conditionId,                // ⬅️ ส่งเป็น id
+        rice_year: riceYearId,
+        field_type: fieldTypeId,
+        condition: conditionId,
         humidity: Number(order.moisturePct || 0),
-        weight: netW > 0 ? netW : 0,
+        entry_weight: Number(order.entryWeightKg || 0),   // ⬅️ ส่งเพิ่ม
+        exit_weight:  Number(order.exitWeightKg  || 0),   // ⬅️ ส่งเพิ่ม
+        weight: netW,                                     // ⬅️ น้ำหนักสุทธิหลังหัก
         price_per_kilo: Number(order.unitPrice || 0),
         price: Number(order.amountTHB),
         impurity: Number(order.impurityPct || 0),
@@ -969,7 +985,6 @@ const Sales = () => {
         branch_location: branchId,
         klang_location: klangId,
         gram: Number(order.gram || 0),
-        // ถ้าหลังบ้านต้องเก็บ program / paymentMethod ให้เพิ่มใน model แล้วส่งเพิ่ม
       },
       rice:   { rice_type: order.riceType, id: riceId },
       branch: { branch_name: order.branchName, id: branchId },
@@ -1026,17 +1041,18 @@ const Sales = () => {
       subriceId: "",
       subriceName: "",
       gram: "",
-      riceYear: "",     // label
-      riceYearId: "",   // id
-      condition: "",    // label
-      conditionId: "",  // id
-      fieldType: "",    // label
-      fieldTypeId: "",  // id
+      riceYear: "",
+      riceYearId: "",
+      condition: "",
+      conditionId: "",
+      fieldType: "",
+      fieldTypeId: "",
       program: "",
       paymentMethod: "",
+      entryWeightKg: "",     // reset ใหม่
+      exitWeightKg: "",      // reset ใหม่
       moisturePct: "",
       impurityPct: "",
-      grossWeightKg: "",
       manualDeduct: false,
       deductWeightKg: "",
       unitPrice: "",
@@ -1259,7 +1275,6 @@ const Sales = () => {
                     ...p,
                     riceId: id,
                     riceType: found?.label ?? "",
-                    // reset dependent
                     subriceId: "", subriceName: "",
                   }))
                 }}
@@ -1292,18 +1307,18 @@ const Sales = () => {
               {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
             </div>
 
-            {/* Condition (ใช้ id) */}
+            {/* Condition */}
             <div>
               <label className={labelCls}>สภาพ/เงื่อนไข</label>
               <ComboBox
                 options={conditionOptions}
-                value={order.conditionId}                // เก็บ id
+                value={order.conditionId}
                 getValue={(o) => o.id}
                 onChange={(_id, found) =>
                   setOrder((p) => ({
                     ...p,
                     conditionId: found?.id ?? "",
-                    condition: found?.label ?? "",       // เก็บ label ไว้โชว์
+                    condition: found?.label ?? "",
                   }))
                 }
                 placeholder="— เลือกสภาพ/เงื่อนไข —"
@@ -1315,18 +1330,18 @@ const Sales = () => {
               {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
             </div>
 
-            {/* Field type (ใช้ id) */}
+            {/* Field type */}
             <div>
               <label className={labelCls}>ประเภทนา</label>
               <ComboBox
                 options={fieldTypeOptions}
-                value={order.fieldTypeId}               // เก็บ id
+                value={order.fieldTypeId}
                 getValue={(o) => o.id}
                 onChange={(_id, found) =>
                   setOrder((p) => ({
                     ...p,
                     fieldTypeId: found?.id ?? "",
-                    fieldType: found?.label ?? "",       // เก็บ label ไว้โชว์
+                    fieldType: found?.label ?? "",
                   }))
                 }
                 placeholder="— เลือกประเภทนา —"
@@ -1338,7 +1353,7 @@ const Sales = () => {
               {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
             </div>
 
-            {/* Year (id + label) */}
+            {/* Year */}
             <div>
               <label className={labelCls}>ปี/ฤดูกาล</label>
               <ComboBox
@@ -1395,7 +1410,6 @@ const Sales = () => {
               {errors.payment && <p className={errorTextCls}>{errors.payment}</p>}
             </div>
 
-
             {/* ✅ สาขา */}
             <div>
               <label className={labelCls}>สาขา</label>
@@ -1445,7 +1459,49 @@ const Sales = () => {
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>
 
-            {/* ความชื้น/สิ่งเจือปน/น้ำหนัก */}
+            {/* น้ำหนักก่อน/หลังชั่ง */}
+            <div>
+              <label className={labelCls}>น้ำหนักก่อนชั่ง (กก.)</label>
+              <input
+                ref={refs.entryWeightKg}
+                inputMode="decimal"
+                className={cx(baseField, redFieldCls("entryWeightKg"))}
+                value={order.entryWeightKg}
+                onChange={(e) => updateOrder("entryWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                onFocus={() => { clearHint("entryWeightKg"); clearError("entryWeightKg") }}
+                placeholder="เช่น 12000"
+                aria-invalid={errors.entryWeightKg ? true : undefined}
+              />
+              {errors.entryWeightKg && <p className={errorTextCls}>{errors.entryWeightKg}</p>}
+            </div>
+
+            <div>
+              <label className={labelCls}>น้ำหนักหลังชั่ง (กก.)</label>
+              <input
+                ref={refs.exitWeightKg}
+                inputMode="decimal"
+                className={cx(baseField, redFieldCls("exitWeightKg"))}
+                value={order.exitWeightKg}
+                onChange={(e) => updateOrder("exitWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                onFocus={() => { clearHint("exitWeightKg"); clearError("exitWeightKg") }}
+                placeholder="เช่น 7000"
+                aria-invalid={errors.exitWeightKg ? true : undefined}
+              />
+              {errors.exitWeightKg && <p className={errorTextCls}>{errors.exitWeightKg}</p>}
+            </div>
+
+            {/* น้ำหนักจากตาชั่ง (คำนวณ) */}
+            <div>
+              <label className={labelCls}>น้ำหนักจากตาชั่ง (กก.)</label>
+              <input
+                disabled
+                className={cx(baseField, fieldDisabled)}
+                value={Math.round(grossFromScale * 100) / 100}
+              />
+              <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
+            </div>
+
+            {/* ความชื้น/สิ่งเจือปน */}
             <div>
               <label className={labelCls}>ความชื้น (%)</label>
               <input
@@ -1470,22 +1526,6 @@ const Sales = () => {
                 onFocus={() => clearHint("impurityPct")}
                 placeholder="เช่น 2"
               />
-            </div>
-
-            {/* น้ำหนักตามใบชั่ง */}
-            <div>
-              <label className={labelCls}>น้ำหนักตามใบชั่ง (กก.)</label>
-              <input
-                ref={refs.grossWeightKg}
-                inputMode="decimal"
-                className={cx(baseField, redFieldCls("grossWeightKg"))}
-                value={order.grossWeightKg}
-                onChange={(e) => updateOrder("grossWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                onFocus={() => { clearHint("grossWeightKg"); clearError("grossWeightKg") }}
-                placeholder="เช่น 5000"
-                aria-invalid={errors.grossWeightKg ? true : undefined}
-              />
-              {errors.grossWeightKg && <p className={errorTextCls}>{errors.grossWeightKg}</p>}
             </div>
 
             {/* หักน้ำหนัก */}
@@ -1514,7 +1554,7 @@ const Sales = () => {
                 value={
                   order.manualDeduct
                     ? order.deductWeightKg
-                    : String(Math.round(suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct) * 100) / 100)
+                    : String(Math.round(suggestDeductionWeight(grossFromScale, order.moisturePct, order.impurityPct) * 100) / 100)
                 }
                 onChange={(e) => updateOrder("deductWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
                 onFocus={() => clearHint("deductWeightKg")}
@@ -1524,17 +1564,17 @@ const Sales = () => {
               {errors.deductWeightKg && <p className={errorTextCls}>{errors.deductWeightKg}</p>}
             </div>
 
-            {/* สุทธิ */}
+            {/* สุทธิ (หลังหัก) */}
             <div>
               <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
               <input
                 disabled
                 className={cx(baseField, fieldDisabled)}
-                value={Math.round((toNumber(order.grossWeightKg) - toNumber(order.manualDeduct ? order.deductWeightKg : suggestDeductionWeight(order.grossWeightKg, order.moisturePct, order.impurityPct))) * 100) / 100}
+                value={Math.round(netWeight * 100) / 100}
               />
             </div>
 
-            {/* ฟิลด์คุณภาพ/อื่นๆ */}
+            {/* ฟิลด์คุณภาพ/ราคา/เลขอ้างอิง/ลงวันที่ */}
             <div>
               <label className={labelCls}>คุณภาพข้าว (gram)</label>
               <input
@@ -1547,7 +1587,6 @@ const Sales = () => {
               />
             </div>
 
-            {/* ราคา/เป็นเงิน/เลขอ้างอิง/ลงวันที่ */}
             <div>
               <label className={labelCls}>ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
               <input
@@ -1622,26 +1661,15 @@ const Sales = () => {
                   </ul>
                 ),
               },
-              {
-                label: "น้ำหนักสุทธิ",
-                value:
-                  (Math.round(
-                    (toNumber(order.grossWeightKg) -
-                      toNumber(
-                        order.manualDeduct
-                          ? order.deductWeightKg
-                          : suggestDeductionWeight(
-                              order.grossWeightKg,
-                              order.moisturePct,
-                              order.impurityPct
-                            )
-                      )) * 100
-                  ) / 100) + " กก.",
-              },
+              { label: "ก่อนชั่ง", value: (Math.round(toNumber(order.entryWeightKg) * 100) / 100) + " กก." },
+              { label: "หลังชั่ง", value: (Math.round(toNumber(order.exitWeightKg) * 100) / 100) + " กก." },
+              { label: "จากตาชั่ง", value: (Math.round(grossFromScale * 100) / 100) + " กก." },
+              { label: "หัก (ความชื้น+สิ่งเจือปน)", value: (Math.round(toNumber(autoDeduct) * 100) / 100) + " กก." },
+              { label: "สุทธิ", value: (Math.round(netWeight * 100) / 100) + " กก." },
               { label: "คุณภาพ (gram)", value: order.gram || "—" },
-              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },     // label
-              { label: "ประเภทนา", value: order.fieldType || "—" },      // label
-              { label: "เงื่อนไข", value: order.condition || "—" },       // label
+              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
+              { label: "ประเภทนา", value: order.fieldType || "—" },
+              { label: "เงื่อนไข", value: order.condition || "—" },
               { label: "โปรแกรม", value: order.program || "—" },
             ].map((c) => (
               <div

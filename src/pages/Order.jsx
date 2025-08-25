@@ -222,14 +222,18 @@ const Order = () => {
     loadBranch()
   }, [])
 
-  /** ---------- Dropdown: Rice (load all) ---------- */
+  /** ---------- Dropdown: Rice (โหลด “ทั้งหมด”) ---------- */
   useEffect(() => {
     const loadRice = async () => {
       try {
+        // ดึงทุกชนิดจาก backend (ไม่ผูก product)
         const r = await fetch(`${API_BASE}/order/rice/search`, { headers: authHeader() })
         const data = r.ok ? await r.json() : []
-        setRiceOptions(Array.isArray(data) ? data : []
-        )
+        const mapped = (Array.isArray(data) ? data : []).map((x, i) => ({
+          id: String(x.id ?? x.rice_id ?? x.value ?? i),
+          label: String(x.rice_type ?? x.name ?? x.label ?? "").trim(),
+        })).filter(o => o.id && o.label)
+        setRiceOptions(mapped)
       } catch (e) {
         console.error("load rice failed:", e)
         setRiceOptions([])
@@ -393,18 +397,18 @@ const Order = () => {
               />
             </div>
 
-            {/* ประเภทข้าว */}
+            {/* ประเภทข้าว (✅ โหลด “ทั้งหมดจาก backend”) */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ประเภทข้าว</label>
               <ComboBox
-                options={riceOptions.map((r) => ({ id: r.id, label: r.rice_type }))}
-                value={filters.riceName}
-                getValue={(o) => o.label}
-                onChange={(_val, found) =>
+                options={riceOptions}
+                value={filters.riceId}
+                getValue={(o) => o.id}
+                onChange={(_id, found) =>
                   setFilters((p) => ({
                     ...p,
-                    riceName: found?.label ?? "",
                     riceId: found?.id ?? "",
+                    riceName: found?.label ?? "",
                   }))
                 }
                 placeholder="— เลือกประเภทข้าว —"
@@ -481,10 +485,8 @@ const Order = () => {
                 <tr><td className="px-3 py-3" colSpan={10}>ไม่พบข้อมูล</td></tr>
               ) : (
                 rows.map((r) => {
-                  // รองรับหลายชื่อฟิลด์จาก API/ฝั่ง Sales
                   const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
                   const exit  = toNumber(r.exit_weight  ?? r.exitWeight  ?? r.exit  ?? 0)
-                  // น้ำหนักสุทธิ: ใช้ r.weight ถ้ามี (จาก backend), ถ้าไม่มีก็ใช้ |exit - entry|
                   const net   = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry))
                   const price = toNumber(r.price ?? r.amountTHB ?? 0)
 

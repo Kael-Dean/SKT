@@ -465,44 +465,49 @@ const Order = () => {
                 <th className="px-3 py-2">วันที่</th>
                 <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
                 <th className="px-3 py-2">ลูกค้า</th>
-                <th className="px-3 py-2">ปชช.</th>
                 <th className="px-3 py-2">ชนิดข้าว</th>
                 <th className="px-3 py-2">สาขา</th>
                 <th className="px-3 py-2">คลัง</th>
-                <th className="px-3 py-2">คุณภาพ (gram)</th>
-                <th className="px-3 py-2">ฤดูกาล (season)</th>
-                <th className="px-3 py-2">ประเภทนา</th>
-                <th className="px-3 py-2 text-right">น้ำหนัก (กก.)</th>
+                <th className="px-3 py-2 text-right">น้ำหนักขาเข้า</th>
+                <th className="px-3 py-2 text-right">น้ำหนักขาออก</th>
+                <th className="px-3 py-2 text-right">น้ำหนักสุทธิ</th>
                 <th className="px-3 py-2 text-right">เป็นเงิน</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td className="px-3 py-3" colSpan={12}>กำลังโหลด...</td></tr>
+                <tr><td className="px-3 py-3" colSpan={10}>กำลังโหลด...</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td className="px-3 py-3" colSpan={12}>ไม่พบข้อมูล</td></tr>
+                <tr><td className="px-3 py-3" colSpan={10}>ไม่พบข้อมูล</td></tr>
               ) : (
-                rows.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
-                  >
-                    <td className="px-3 py-2">
-                      {r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}
-                    </td>
-                    <td className="px-3 py-2">{r.order_serial || "—"}</td>
-                    <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</td>
-                    <td className="px-3 py-2">{r.citizen_id || r.citizenId || "—"}</td>
-                    <td className="px-3 py-2">{r.rice_type || "—"}</td>
-                    <td className="px-3 py-2">{r.branch_name || "—"}</td>
-                    <td className="px-3 py-2">{r.klang_name || "—"}</td>
-                    <td className="px-3 py-2">{r.gram ?? "—"}</td>
-                    <td className="px-3 py-2">{r.season ?? "—"}</td>
-                    <td className="px-3 py-2">{r.field_type ?? "—"}</td>
-                    <td className="px-3 py-2 text-right">{toNumber(r.weight).toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right">{thb(toNumber(r.price))}</td>
-                  </tr>
-                ))
+                rows.map((r) => {
+                  // รองรับหลายชื่อฟิลด์จาก API/ฝั่ง Sales
+                  const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
+                  const exit  = toNumber(r.exit_weight  ?? r.exitWeight  ?? r.exit  ?? 0)
+                  // น้ำหนักสุทธิ: ใช้ r.weight ถ้ามี (จาก backend), ถ้าไม่มีก็ใช้ |exit - entry|
+                  const net   = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry))
+                  const price = toNumber(r.price ?? r.amountTHB ?? 0)
+
+                  return (
+                    <tr
+                      key={r.id ?? `${r.order_serial}-${r.date}-${r.first_name ?? ""}-${r.last_name ?? ""}`}
+                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
+                    >
+                      <td className="px-3 py-2">
+                        {r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}
+                      </td>
+                      <td className="px-3 py-2">{r.order_serial || r.paymentRefNo || "—"}</td>
+                      <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.customer_name || "—"}</td>
+                      <td className="px-3 py-2">{r.rice_type || r.riceType || "—"}</td>
+                      <td className="px-3 py-2">{r.branch_name || r.branchName || "—"}</td>
+                      <td className="px-3 py-2">{r.klang_name || r.klangName || "—"}</td>
+                      <td className="px-3 py-2 text-right">{entry.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{exit.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{net.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{thb(price)}</td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>

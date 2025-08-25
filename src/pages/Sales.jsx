@@ -55,6 +55,8 @@ const labelCls =
   "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
+const compactInput = "!py-2 !px-4 !text-[16px] !leading-normal"
+
 
 /** ---------- Reusable ComboBox ---------- */
 function ComboBox({
@@ -1205,7 +1207,7 @@ const Sales = () => {
                 <label className={labelCls}>{label}</label>
                 <input
                   ref={refs[k]}
-                  className={cx(baseField, errors.address && "border-amber-400", redHintCls(k))}
+                  className={cx(baseField, compactInput, errors.address && "border-amber-400", redHintCls(k))}
                   value={customer[k]}
                   onChange={(e) => updateCustomer(k, e.target.value)}
                   onFocus={() => clearHint(k)}
@@ -1221,7 +1223,7 @@ const Sales = () => {
                 ref={refs.postalCode}
                 inputMode="numeric"
                 maxLength={5}
-                className={baseField}
+                className={cx(baseField, compactInput)}
                 value={customer.postalCode}
                 onChange={(e) => updateCustomer("postalCode", onlyDigits(e.target.value))}
                 onFocus={() => clearHint("postalCode")}

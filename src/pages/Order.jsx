@@ -29,7 +29,7 @@ const authHeader = () => {
   }
 }
 
-/** ---------- Reusable ComboBox (เหมือนหน้า Sales) ---------- */
+/** ---------- Reusable ComboBox ---------- */
 function ComboBox({
   options = [],
   value,
@@ -189,60 +189,81 @@ const Order = () => {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
 
+  // Options
   const [branchOptions, setBranchOptions] = useState([]) // [{id, branch_name}]
   const [klangOptions, setKlangOptions] = useState([])   // [{id, klang_name}]
+  const [productOptions, setProductOptions] = useState([]) // [{id, product_type}]
   const [riceOptions, setRiceOptions]   = useState([])   // [{id, rice_type}]
+  const [subriceOptions, setSubriceOptions] = useState([]) // [{id, sub_class}]
+  const [yearOptions, setYearOptions] = useState([])     // [{id, year}]
+  const [conditionOptions, setConditionOptions] = useState([]) // [{id, condition}]
+  const [fieldOptions, setFieldOptions] = useState([])   // [{id, field_type}]
 
+  // Filters (เก็บ id จริงทั้งหมด + label เพื่อแสดงผล)
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
-    branchId: "",     // เก็บ id จริง
-    branchName: "",   // แสดงใน ComboBox
+
+    branchId: "",
+    branchName: "",
+
     klangId: "",
     klangName: "",
+
+    productId: "",
+    productName: "",
+
     riceId: "",
     riceName: "",
+
+    subriceId: "",
+    subriceName: "",
+
+    yearId: "",
+    yearName: "",
+
+    conditionId: "",
+    conditionName: "",
+
+    fieldTypeId: "",
+    fieldTypeName: "",
+
     q: "",
   })
 
   const debouncedQ = useDebounce(filters.q, 500)
 
-  /** ---------- Dropdown: Branch ---------- */
+  /** ---------- Load static dropdowns ---------- */
   useEffect(() => {
-    const loadBranch = async () => {
+    const loadInitial = async () => {
       try {
-        const r = await fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() })
-        const data = r.ok ? await r.json() : []
-        setBranchOptions(Array.isArray(data) ? data : [])
+        const [b, p, y, c, f] = await Promise.all([
+          fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
+          fetch(`${API_BASE}/order/product/search`, { headers: authHeader() }),
+          fetch(`${API_BASE}/order/year/search`, { headers: authHeader() }),
+          fetch(`${API_BASE}/order/condition/search`, { headers: authHeader() }),
+          fetch(`${API_BASE}/order/field/search`, { headers: authHeader() }),
+        ])
+
+        const branches = (b.ok ? await b.json() : []).map(x => ({ id: String(x.id), label: x.branch_name }))
+        const products = (p.ok ? await p.json() : []).map(x => ({ id: String(x.id), label: x.product_type }))
+        const years    = (y.ok ? await y.json() : []).map(x => ({ id: String(x.id), label: String(x.year) }))
+        const conds    = (c.ok ? await c.json() : []).map(x => ({ id: String(x.id), label: String(x.year ?? x.condition ?? x.label ?? "") }))
+        const fields   = (f.ok ? await f.json() : []).map(x => ({ id: String(x.id), label: String(x.year ?? x.field_type ?? x.label ?? "") }))
+
+        setBranchOptions(branches)
+        setProductOptions(products)
+        setYearOptions(years)
+        setConditionOptions(conds)
+        setFieldOptions(fields)
       } catch (e) {
-        console.error("load branch failed:", e)
-        setBranchOptions([])
+        console.error("load initial options failed:", e)
       }
     }
-    loadBranch()
+    loadInitial()
   }, [])
 
-  /** ---------- Dropdown: Rice (โหลด “ทั้งหมด”) ---------- */
-  useEffect(() => {
-    const loadRice = async () => {
-      try {
-        // ดึงทุกชนิดจาก backend (ไม่ผูก product)
-        const r = await fetch(`${API_BASE}/order/rice/search`, { headers: authHeader() })
-        const data = r.ok ? await r.json() : []
-        const mapped = (Array.isArray(data) ? data : []).map((x, i) => ({
-          id: String(x.id ?? x.rice_id ?? x.value ?? i),
-          label: String(x.rice_type ?? x.name ?? x.label ?? "").trim(),
-        })).filter(o => o.id && o.label)
-        setRiceOptions(mapped)
-      } catch (e) {
-        console.error("load rice failed:", e)
-        setRiceOptions([])
-      }
-    }
-    loadRice()
-  }, [])
-
-  /** ---------- Dropdown: Klang (depends on branch) ---------- */
+  /** ---------- Load Klang by branch ---------- */
   useEffect(() => {
     const loadKlang = async () => {
       if (!filters.branchId) {
@@ -255,26 +276,83 @@ const Order = () => {
           headers: authHeader(),
         })
         const data = r.ok ? await r.json() : []
-        setKlangOptions(Array.isArray(data) ? data : [])
+        setKlangOptions((Array.isArray(data) ? data : []).map(x => ({ id: String(x.id), label: x.klang_name })))
       } catch (e) {
         console.error("load klang failed:", e)
         setKlangOptions([])
       }
     }
     loadKlang()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId])
 
-  /** ---------- Fetch orders (support rice_id) ---------- */
+  /** ---------- Load Rice by product ---------- */
+  useEffect(() => {
+    const loadRice = async () => {
+      if (!filters.productId) {
+        setRiceOptions([])
+        setFilters((p) => ({ ...p, riceId: "", riceName: "", subriceId: "", subriceName: "" }))
+        return
+      }
+      try {
+        const r = await fetch(`${API_BASE}/order/rice/search?product_id=${filters.productId}`, { headers: authHeader() })
+        const data = r.ok ? await r.json() : []
+        const mapped = (Array.isArray(data) ? data : []).map(x => ({
+          id: String(x.id),
+          label: String(x.rice_type ?? "").trim(),
+        })).filter(o => o.id && o.label)
+        setRiceOptions(mapped)
+      } catch (e) {
+        console.error("load rice failed:", e)
+        setRiceOptions([])
+      }
+    }
+    loadRice()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.productId])
+
+  /** ---------- Load Subrice by rice ---------- */
+  useEffect(() => {
+    const loadSubrice = async () => {
+      if (!filters.riceId) {
+        setSubriceOptions([])
+        setFilters((p) => ({ ...p, subriceId: "", subriceName: "" }))
+        return
+      }
+      try {
+        const r = await fetch(`${API_BASE}/order/sub-rice/search?rice_id=${filters.riceId}`, { headers: authHeader() })
+        const data = r.ok ? await r.json() : []
+        const mapped = (Array.isArray(data) ? data : []).map(x => ({
+          id: String(x.id),
+          label: String(x.sub_class ?? "").trim(),
+        })).filter(o => o.id && o.label)
+        setSubriceOptions(mapped)
+      } catch (e) {
+        console.error("load subrice failed:", e)
+        setSubriceOptions([])
+      }
+    }
+    loadSubrice()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.riceId])
+
+  /** ---------- Fetch orders (ส่งทุก filter ที่มี) ---------- */
   const fetchOrders = async () => {
     try {
       setLoading(true)
       const params = new URLSearchParams()
       params.set("start_date", filters.startDate)
       params.set("end_date", filters.endDate)
-      if (filters.branchId) params.set("branch_id", filters.branchId)
-      if (filters.klangId) params.set("klang_id", filters.klangId)
-      if (filters.riceId)  params.set("rice_id", filters.riceId)
-      if (filters.q?.trim()) params.set("q", filters.q.trim())
+
+      if (filters.branchId)   params.set("branch_id", filters.branchId)
+      if (filters.klangId)    params.set("klang_id", filters.klangId)
+      if (filters.productId)  params.set("product_id", filters.productId)
+      if (filters.riceId)     params.set("rice_id", filters.riceId)
+      if (filters.subriceId)  params.set("subrice_id", filters.subriceId)
+      if (filters.yearId)     params.set("rice_year", filters.yearId)
+      if (filters.conditionId)params.set("condition_id", filters.conditionId)
+      if (filters.fieldTypeId)params.set("field_type", filters.fieldTypeId)
+      if (filters.q?.trim())  params.set("q", filters.q.trim())
 
       const r = await fetch(`${API_BASE}/order/orders/report?${params.toString()}`, { headers: authHeader() })
       const data = r.ok ? await r.json() : []
@@ -316,14 +394,36 @@ const Order = () => {
     setFilters({
       startDate: firstDayThisMonth,
       endDate: today,
+
       branchId: "",
       branchName: "",
+
       klangId: "",
       klangName: "",
+
+      productId: "",
+      productName: "",
+
       riceId: "",
       riceName: "",
+
+      subriceId: "",
+      subriceName: "",
+
+      yearId: "",
+      yearName: "",
+
+      conditionId: "",
+      conditionName: "",
+
+      fieldTypeId: "",
+      fieldTypeName: "",
+
       q: "",
     })
+    setKlangOptions([])
+    setRiceOptions([])
+    setSubriceOptions([])
   }
 
   /** ----------- UI ----------- */
@@ -362,14 +462,14 @@ const Order = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
               <ComboBox
-                options={branchOptions.map((b) => ({ id: b.id, label: b.branch_name }))}
-                value={filters.branchName}
-                getValue={(o) => o.label}
-                onChange={(_val, found) =>
+                options={branchOptions}
+                value={filters.branchId}
+                getValue={(o) => o.id}
+                onChange={(id, found) =>
                   setFilters((p) => ({
                     ...p,
+                    branchId: id || "",
                     branchName: found?.label ?? "",
-                    branchId: found?.id ?? "",
                     klangId: "",
                     klangName: "",
                   }))
@@ -382,14 +482,14 @@ const Order = () => {
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
               <ComboBox
-                options={klangOptions.map((k) => ({ id: k.id, label: k.klang_name }))}
-                value={filters.klangName}
-                getValue={(o) => o.label}
-                onChange={(_val, found) =>
+                options={klangOptions}
+                value={filters.klangId}
+                getValue={(o) => o.id}
+                onChange={(id, found) =>
                   setFilters((p) => ({
                     ...p,
+                    klangId: id || "",
                     klangName: found?.label ?? "",
-                    klangId: found?.id ?? "",
                   }))
                 }
                 placeholder="— เลือกคลัง —"
@@ -397,24 +497,123 @@ const Order = () => {
               />
             </div>
 
-            {/* ประเภทข้าว (✅ โหลด “ทั้งหมดจาก backend”) */}
+            {/* Product */}
+            <div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สินค้า (Product)</label>
+              <ComboBox
+                options={productOptions}
+                value={filters.productId}
+                getValue={(o) => o.id}
+                onChange={(id, found) =>
+                  setFilters((p) => ({
+                    ...p,
+                    productId: id || "",
+                    productName: found?.label ?? "",
+                    riceId: "",
+                    riceName: "",
+                    subriceId: "",
+                    subriceName: "",
+                  }))
+                }
+                placeholder="— เลือกสินค้า —"
+              />
+            </div>
+
+            {/* Rice */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ประเภทข้าว</label>
               <ComboBox
                 options={riceOptions}
                 value={filters.riceId}
                 getValue={(o) => o.id}
-                onChange={(_id, found) =>
+                onChange={(id, found) =>
                   setFilters((p) => ({
                     ...p,
-                    riceId: found?.id ?? "",
+                    riceId: id || "",
                     riceName: found?.label ?? "",
+                    subriceId: "",
+                    subriceName: "",
                   }))
                 }
                 placeholder="— เลือกประเภทข้าว —"
+                disabled={!filters.productId}
               />
             </div>
 
+            {/* Sub-rice */}
+            <div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชนิดย่อย (Sub-rice)</label>
+              <ComboBox
+                options={subriceOptions}
+                value={filters.subriceId}
+                getValue={(o) => o.id}
+                onChange={(id, found) =>
+                  setFilters((p) => ({
+                    ...p,
+                    subriceId: id || "",
+                    subriceName: found?.label ?? "",
+                  }))
+                }
+                placeholder="— เลือกชนิดย่อย —"
+                disabled={!filters.riceId}
+              />
+            </div>
+
+            {/* Year */}
+            <div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ฤดูกาล/ปี</label>
+              <ComboBox
+                options={yearOptions}
+                value={filters.yearId}
+                getValue={(o) => o.id}
+                onChange={(id, found) =>
+                  setFilters((p) => ({
+                    ...p,
+                    yearId: id || "",
+                    yearName: found?.label ?? "",
+                  }))
+                }
+                placeholder="— เลือกปี —"
+              />
+            </div>
+
+            {/* Condition */}
+            <div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สภาพ (Condition)</label>
+              <ComboBox
+                options={conditionOptions}
+                value={filters.conditionId}
+                getValue={(o) => o.id}
+                onChange={(id, found) =>
+                  setFilters((p) => ({
+                    ...p,
+                    conditionId: id || "",
+                    conditionName: found?.label ?? "",
+                  }))
+                }
+                placeholder="— เลือกสภาพ —"
+              />
+            </div>
+
+            {/* Field Type */}
+            <div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ประเภทนา (Field Type)</label>
+              <ComboBox
+                options={fieldOptions}
+                value={filters.fieldTypeId}
+                getValue={(o) => o.id}
+                onChange={(id, found) =>
+                  setFilters((p) => ({
+                    ...p,
+                    fieldTypeId: id || "",
+                    fieldTypeName: found?.label ?? "",
+                  }))
+                }
+                placeholder="— เลือกประเภทนา —"
+              />
+            </div>
+
+            {/* Search */}
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)</label>
               <input

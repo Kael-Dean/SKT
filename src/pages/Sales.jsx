@@ -171,7 +171,8 @@ function ComboBox({
         onFocus={() => clearHint?.()}
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200",
+          // ⬇️ เพิ่ม cursor-pointer ตอนที่ปุ่มใช้งานได้
+          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
           error
             ? "border-red-400 ring-2 ring-red-300/70"
             : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
@@ -207,7 +208,8 @@ function ComboBox({
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => commit(opt)}
                 className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl",
+                  // ⬇️ เพิ่ม cursor-pointer ให้รายการตัวเลือก
+                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
                   isActive
                     ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
                     : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
@@ -1173,7 +1175,8 @@ const Sales = () => {
                         role="option"
                         aria-selected={isActive}
                         className={cx(
-                          "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl",
+                          // ⬇️ เพิ่ม cursor-pointer ให้รายการค้นหา
+                          "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
                           isActive
                             ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
                             : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
@@ -1293,7 +1296,7 @@ const Sales = () => {
 
             {/* Sub-rice */}
             <div>
-              <label className={labelCls}>ชั้นย่อย (Sub‑class)</label>
+              <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
               <ComboBox
                 options={subriceOptions}
                 value={order.subriceId}
@@ -1692,34 +1695,34 @@ const Sales = () => {
           </div>
 
           {/* ปุ่ม */}
-<div className="mt-6 flex flex-col gap-3 sm:flex-row">
-  <button
-    type="submit"
-    className="inline-flex items-center justify-center rounded-2xl 
-               bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-               shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-               transition-all duration-300 ease-out
-               hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-               hover:scale-[1.05] active:scale-[.97]"
-  >
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-2xl 
+                         bg-emerald-600 px-6 py-3 text-base font-semibold text-white
+                         shadow-[0_6px_16px_rgba(16,185,129,0.35)]
+                         transition-all duration-300 ease-out
+                         hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
+                         hover:scale-[1.05] active:scale-[.97] cursor-pointer"
+            >
               บันทึกออเดอร์
-              </button>
+            </button>
 
-              <button
-                type="button"
-                onClick={handleReset}
-                className="inline-flex items-center justify-center rounded-2xl 
-                          border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                          shadow-sm
-                          transition-all duration-300 ease-out
-                          hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                          active:scale-[.97]
-                          dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                          dark:hover:bg-slate-700/50 dark:hover:shadow-lg"
-              >
-                รีเซ็ต
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="inline-flex items-center justify-center rounded-2xl 
+                        border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
+                        shadow-sm
+                        transition-all duration-300 ease-out
+                        hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
+                        active:scale-[.97]
+                        dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
+                        dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+            >
+              รีเซ็ต
+            </button>
+          </div>
         </form>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 
 /** ---------- ENV ---------- */
 const API_BASE = import.meta.env.VITE_API_BASE || ""
@@ -31,7 +31,6 @@ const clampWa = (v) => {
 const cx = (...a) => a.filter(Boolean).join(" ")
 
 /** ---------- สไตล์เดียวกับหน้า Sales ---------- */
-// Input พื้นฐาน: Light mode เป็นสีเทา, Dark mode เหมือนเดิม
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -139,7 +138,6 @@ function ComboBox({
 
   return (
     <div className="relative" ref={boxRef}>
-      {/* ปุ่มเหมือน Sales */}
       <button
         type="button"
         ref={controlRef}
@@ -163,7 +161,6 @@ function ComboBox({
         {selectedLabel || <span className="text-slate-500">{placeholder}</span>}
       </button>
 
-      {/* รายการ */}
       {open && (
         <div
           ref={listRef}
@@ -205,6 +202,62 @@ function ComboBox({
     </div>
   )
 }
+
+/** ---------- DateInput: ไอคอนปฏิทินขยายเมื่อโฮเวอร์ ---------- */
+const DateInput = forwardRef(function DateInput(
+  { error = false, className = "", ...props },
+  ref
+) {
+  const inputRef = useRef(null)
+  useImperativeHandle(ref, () => inputRef.current)
+
+  return (
+    <div className="relative">
+      {/* ซ่อนไอคอน native ของ Chromium เพื่อใช้ไอคอน custom */}
+      <style>{`
+        /* ซ่อนเฉพาะไอคอน แต่ยังคลิกได้ผ่านปุ่ม custom */
+        input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }
+      `}</style>
+
+      <input
+        type="date"
+        ref={inputRef}
+        className={cx(
+          baseField,
+          "pr-12 cursor-pointer", // เผื่อพื้นที่ไอคอน + ให้ตัวช่องเป็นนิ้วชี้ด้วย
+          error && fieldError,
+          className
+        )}
+        {...props}
+      />
+
+      {/* ปุ่มไอคอนปฏิทิน (ขยายเมื่อโฮเวอร์) */}
+      <button
+        type="button"
+        onClick={() => {
+          const el = inputRef.current
+          if (!el) return
+          // เรียก native picker ถ้ามี (Chromium)
+          if (typeof el.showPicker === "function") {
+            el.showPicker()
+          } else {
+            el.focus()
+            el.click?.()
+          }
+        }}
+        aria-label="เปิดตัวเลือกวันที่"
+        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
+                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer
+                   bg-transparent"
+      >
+        {/* ไอคอนปฏิทิน (SVG) */}
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
+          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
+        </svg>
+      </button>
+    </div>
+  )
+})
 
 /** ---------- Component ---------- */
 const MemberSignup = () => {
@@ -485,12 +538,6 @@ const MemberSignup = () => {
   /** ---------- UI (ธีม/สไตล์เหมือนหน้า Sales) ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      {/* ทำให้ไอคอนปฏิทิน (รวมถึงช่อง date) เป็นนิ้วชี้ */}
-      <style>{`
-        input[type="date"] { cursor: pointer; }
-        input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
-      `}</style>
-
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">👤 สมัครสมาชิก</h1>
 
@@ -537,13 +584,12 @@ const MemberSignup = () => {
             {/* วันที่สมัคร */}
             <div className="md:col-span-2">
               <label className={labelCls}>วันที่สมัคร (regis_date)</label>
-              <input
+              <DateInput
                 ref={refs.regis_date}
-                type="date"
-                className={cx(baseField, "cursor-pointer", errors.regis_date && fieldError)}
                 value={form.regis_date}
                 onChange={(e) => { clearError("regis_date"); update("regis_date", e.target.value) }}
                 onFocus={() => clearError("regis_date")}
+                error={!!errors.regis_date}
                 aria-invalid={errors.regis_date ? true : undefined}
               />
               {errors.regis_date && <p className={errorTextCls}>{errors.regis_date}</p>}
@@ -812,13 +858,12 @@ const MemberSignup = () => {
             {/* วันที่ซื้อครั้งล่าสุด */}
             <div>
               <label className={labelCls}>วันที่ซื้อครั้งล่าสุด (last_bought_date)</label>
-              <input
+              <DateInput
                 ref={refs.last_bought_date}
-                type="date"
-                className={cx(baseField, "cursor-pointer", errors.last_bought_date && fieldError)}
                 value={form.last_bought_date}
                 onChange={(e) => { clearError("last_bought_date"); update("last_bought_date", e.target.value) }}
                 onFocus={() => clearError("last_bought_date")}
+                error={!!errors.last_bought_date}
                 aria-invalid={errors.last_bought_date ? true : undefined}
               />
               {errors.last_bought_date && <p className={errorTextCls}>{errors.last_bought_date}</p>}
@@ -827,10 +872,8 @@ const MemberSignup = () => {
             {/* วันที่โอน (optional) */}
             <div>
               <label className={labelCls}>วันที่โอน (transfer_date - ไม่ระบุก็ได้)</label>
-              <input
+              <DateInput
                 ref={refs.transfer_date}
-                type="date"
-                className={cx(baseField, "cursor-pointer")}
                 value={form.transfer_date}
                 onChange={(e) => update("transfer_date", e.target.value)}
               />

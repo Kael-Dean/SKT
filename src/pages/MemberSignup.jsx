@@ -150,7 +150,7 @@ function ComboBox({
         onKeyDown={onKeyDown}
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-200 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200",
+          disabled ? "bg-slate-200 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
           error
             ? "border-red-400 ring-2 ring-red-300/70"
             : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
@@ -186,7 +186,7 @@ function ComboBox({
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => commit(opt)}
                 className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl",
+                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
                   isActive
                     ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
                     : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
@@ -485,6 +485,12 @@ const MemberSignup = () => {
   /** ---------- UI (ธีม/สไตล์เหมือนหน้า Sales) ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
+      {/* ทำให้ไอคอนปฏิทิน (รวมถึงช่อง date) เป็นนิ้วชี้ */}
+      <style>{`
+        input[type="date"] { cursor: pointer; }
+        input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
+      `}</style>
+
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">👤 สมัครสมาชิก</h1>
 
@@ -534,7 +540,7 @@ const MemberSignup = () => {
               <input
                 ref={refs.regis_date}
                 type="date"
-                className={cx(baseField, errors.regis_date && fieldError)}
+                className={cx(baseField, "cursor-pointer", errors.regis_date && fieldError)}
                 value={form.regis_date}
                 onChange={(e) => { clearError("regis_date"); update("regis_date", e.target.value) }}
                 onFocus={() => clearError("regis_date")}
@@ -809,7 +815,7 @@ const MemberSignup = () => {
               <input
                 ref={refs.last_bought_date}
                 type="date"
-                className={cx(baseField, errors.last_bought_date && fieldError)}
+                className={cx(baseField, "cursor-pointer", errors.last_bought_date && fieldError)}
                 value={form.last_bought_date}
                 onChange={(e) => { clearError("last_bought_date"); update("last_bought_date", e.target.value) }}
                 onFocus={() => clearError("last_bought_date")}
@@ -824,7 +830,7 @@ const MemberSignup = () => {
               <input
                 ref={refs.transfer_date}
                 type="date"
-                className={baseField}
+                className={cx(baseField, "cursor-pointer")}
                 value={form.transfer_date}
                 onChange={(e) => update("transfer_date", e.target.value)}
               />
@@ -958,7 +964,7 @@ const MemberSignup = () => {
                         transition-all duration-300 ease-out
                         hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
                         hover:scale-[1.05] active:scale-[.97]
-                        disabled:opacity-60 disabled:cursor-not-allowed"
+                        disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
               aria-busy={submitting ? "true" : "false"}
             >
               {submitting ? "กำลังบันทึก..." : "บันทึกการสมัครสมาชิก"}
@@ -974,7 +980,7 @@ const MemberSignup = () => {
                         hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
                         active:scale-[.97]
                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                        dark:hover:bg-slate-700/50 dark:hover:shadow-lg"
+                        dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
             >
               รีเซ็ต
             </button>

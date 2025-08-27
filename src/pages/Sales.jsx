@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 
 /** ---------- ENV ---------- */
 const API_BASE = import.meta.env.VITE_API_BASE || ""
@@ -171,7 +171,6 @@ function ComboBox({
         onFocus={() => clearHint?.()}
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          // ⬇️ เพิ่ม cursor-pointer ตอนที่ปุ่มใช้งานได้
           disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
           error
             ? "border-red-400 ring-2 ring-red-300/70"
@@ -208,7 +207,6 @@ function ComboBox({
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => commit(opt)}
                 className={cx(
-                  // ⬇️ เพิ่ม cursor-pointer ให้รายการตัวเลือก
                   "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
                   isActive
                     ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
@@ -228,6 +226,54 @@ function ComboBox({
     </div>
   )
 }
+
+/** ---------- DateInput: ปฏิทินซูมเมื่อโฮเวอร์ ---------- */
+const DateInput = forwardRef(function DateInput(
+  { error = false, className = "", ...props },
+  ref
+) {
+  const inputRef = useRef(null)
+  useImperativeHandle(ref, () => inputRef.current)
+
+  return (
+    <div className="relative">
+      {/* ซ่อนไอคอน native ของ Chromium เพื่อใช้ไอคอน custom */}
+      <style>{`
+        input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }
+      `}</style>
+
+      <input
+        type="date"
+        ref={inputRef}
+        className={cx(
+          baseField,
+          "pr-12 cursor-pointer",
+          error && "border-red-400 ring-2 ring-red-300/70",
+          className
+        )}
+        {...props}
+      />
+
+      <button
+        type="button"
+        onClick={() => {
+          const el = inputRef.current
+          if (!el) return
+          if (typeof el.showPicker === "function") el.showPicker()
+          else { el.focus(); el.click?.() }
+        }}
+        aria-label="เปิดตัวเลือกวันที่"
+        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
+                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer
+                   bg-transparent"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
+          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
+        </svg>
+      </button>
+    </div>
+  )
+})
 
 /** ---------- Component ---------- */
 const Sales = () => {
@@ -299,8 +345,8 @@ const Sales = () => {
     paymentMethod: "",
 
     // ชั่ง/คำนวณ
-    entryWeightKg: "",   // ⬅️ ใหม่
-    exitWeightKg: "",    // ⬅️ ใหม่
+    entryWeightKg: "",
+    exitWeightKg: "",
     moisturePct: "",
     impurityPct: "",
     manualDeduct: false,
@@ -427,7 +473,7 @@ const Sales = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        // year (id + label)
+        // year
         setYearOptions(
           (years || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -979,9 +1025,9 @@ const Sales = () => {
         field_type: fieldTypeId,
         condition: conditionId,
         humidity: Number(order.moisturePct || 0),
-        entry_weight: Number(order.entryWeightKg || 0),   // ⬅️ ส่งเพิ่ม
-        exit_weight:  Number(order.exitWeightKg  || 0),   // ⬅️ ส่งเพิ่ม
-        weight: netW,                                     // ⬅️ น้ำหนักสุทธิหลังหัก
+        entry_weight: Number(order.entryWeightKg || 0),
+        exit_weight:  Number(order.exitWeightKg  || 0),
+        weight: netW,
         price_per_kilo: Number(order.unitPrice || 0),
         price: Number(order.amountTHB),
         impurity: Number(order.impurityPct || 0),
@@ -1054,8 +1100,8 @@ const Sales = () => {
       fieldTypeId: "",
       program: "",
       paymentMethod: "",
-      entryWeightKg: "",     // reset ใหม่
-      exitWeightKg: "",      // reset ใหม่
+      entryWeightKg: "",
+      exitWeightKg: "",
       moisturePct: "",
       impurityPct: "",
       manualDeduct: false,
@@ -1175,7 +1221,6 @@ const Sales = () => {
                         role="option"
                         aria-selected={isActive}
                         className={cx(
-                          // ⬇️ เพิ่ม cursor-pointer ให้รายการค้นหา
                           "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
                           isActive
                             ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
@@ -1639,13 +1684,13 @@ const Sales = () => {
 
             <div>
               <label className={labelCls}>ลงวันที่</label>
-              <input
+              <DateInput
                 ref={refs.issueDate}
-                type="date"
-                className={cx(baseField, errors.issueDate && "border-red-400", redHintCls("issueDate"))}
                 value={order.issueDate}
                 onChange={(e) => updateOrder("issueDate", e.target.value)}
                 onFocus={() => clearHint("issueDate")}
+                error={!!errors.issueDate}
+                className={redHintCls("issueDate")}
                 aria-invalid={errors.issueDate ? true : undefined}
               />
               {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}

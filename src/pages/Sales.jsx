@@ -182,7 +182,7 @@ function ComboBox({
         aria-expanded={open}
         aria-invalid={error || hintRed ? true : undefined}
       >
-        {selectedLabel || <span className="text-slate-500">{placeholder}</span>}
+        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
       </button>
 
       {open && (

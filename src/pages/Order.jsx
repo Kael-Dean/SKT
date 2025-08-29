@@ -145,7 +145,7 @@ function ComboBox({
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        {selectedLabel || <span className="text-slate-500">{placeholder}</span>}
+        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
       </button>
 
       {open && (

@@ -135,7 +135,7 @@ function ComboBox({
         onKeyDown={onKeyDown}
         className={[
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200",
+          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
           error
             ? "border-red-400 ring-2 ring-red-300/70"
             : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
@@ -170,7 +170,7 @@ function ComboBox({
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => commit(opt)}
                 className={[
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl",
+                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
                   isActive
                     ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
                     : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30",

@@ -265,9 +265,16 @@ const MemberSignup = () => {
   const [submitting, setSubmitting] = useState(false)
   const [shouldScrollError, setShouldScrollError] = useState(false)
 
-  // ฟอร์ม (ไม่เปลี่ยน logic)
+  // ฟอร์ม
   const [form, setForm] = useState({
     regis_date: new Date().toISOString().slice(0, 10),
+
+    // โครงการ (ใหม่)
+    seedling_prog: false,
+    slowdown_rice: false,
+    organic_prog: false,
+    product_loan: false,
+
     member_id: "",
     precode: "",
     first_name: "",
@@ -343,7 +350,7 @@ const MemberSignup = () => {
       return rest
     })
 
-  // ---------- validate เดิม (คง logic) ----------
+  // ---------- validate ----------
   const validateAll = () => {
     const e = {}
     if (!form.member_id) e.member_id = "กรอกเลขสมาชิก"
@@ -402,7 +409,7 @@ const MemberSignup = () => {
   }
   // ---------------------------------------------
 
-  // เลื่อนสู่ช่อง error แรก (เหมือน Sales behavior)
+  // เลื่อนสู่ช่อง error แรก
   useEffect(() => {
     if (!shouldScrollError) return
     const keysOrder = [
@@ -440,6 +447,13 @@ const MemberSignup = () => {
 
     const payload = {
       regis_date: toISODate(form.regis_date),
+
+      // โครงการ (ต้องส่งขึ้น API)
+      seedling_prog: !!form.seedling_prog,
+      slowdown_rice: !!form.slowdown_rice,
+      organic_prog: !!form.organic_prog,
+      product_loan: !!form.product_loan,
+
       member_id: Number(form.member_id),
       precode: Number(form.precode),
       first_name: form.first_name.trim(),
@@ -504,6 +518,13 @@ const MemberSignup = () => {
     setErrors({})
     setForm({
       regis_date: new Date().toISOString().slice(0, 10),
+
+      // โครงการ (รีเซ็ต)
+      seedling_prog: false,
+      slowdown_rice: false,
+      organic_prog: false,
+      product_loan: false,
+
       member_id: "",
       precode: "",
       first_name: "",
@@ -546,6 +567,50 @@ const MemberSignup = () => {
           onSubmit={handleSubmit}
           className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
+          {/* ---------- โครงการที่เข้าร่วม (ใหม่) ---------- */}
+          <h2 className="mb-3 text-xl font-semibold">โครงการที่เข้าร่วม</h2>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 mb-6">
+            {[
+              { key: "seedling_prog",  label: "โครงการกล้า (Seedling)" },
+              { key: "slowdown_rice",  label: "โครงการชะลอข้าว (Slowdown Rice)" },
+              { key: "organic_prog",   label: "โครงการข้าวอินทรีย์ (Organic)" },
+              { key: "product_loan",   label: "สินเชื่อปัจจัยการผลิต (Product Loan)" },
+            ].map(({ key, label }) => (
+              <label
+                key={key}
+                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-[15px] md:text-base
+                           dark:border-slate-700 dark:bg-slate-700/40 cursor-pointer"
+              >
+                {/* สวิตช์แบบ custom */}
+                <span
+                  className={[
+                    "relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition",
+                    form[key] ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-600",
+                  ].join(" ")}
+                  role="switch"
+                  aria-checked={form[key] ? "true" : "false"}
+                  onClick={() => update(key, !form[key])}
+                >
+                  <span
+                    className={[
+                      "inline-block h-5 w-5 transform rounded-full bg-white transition",
+                      form[key] ? "translate-x-6" : "translate-x-1",
+                    ].join(" ")}
+                  />
+                </span>
+
+                {/* เช็กบ็อกซ์จริง (ซ่อนไว้เพื่อการเข้าถึง/ฟอร์ม) */}
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={!!form[key]}
+                  onChange={(e) => update(key, e.target.checked)}
+                />
+                <span className="text-slate-800 dark:text-slate-100">{label}</span>
+              </label>
+            ))}
+          </div>
+
           <h2 className="mb-3 text-xl font-semibold">ข้อมูลหลัก</h2>
 
           <div className="grid gap-4 md:grid-cols-4">

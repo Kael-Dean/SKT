@@ -578,24 +578,35 @@
               ].map(({ key, label }) => (
                 <label
                   key={key}
-                  className="flex items-center gap-4 rounded-2xl border border-slate-200
-                            bg-white/70 p-4 min-h-[72px]
-                            hover:border-emerald-400 transition
-                            dark:border-slate-700 dark:bg-slate-700/40 cursor-pointer"
+                  className={cx(
+                    "group relative flex items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all",
+                    // พื้นฐาน (สว่างขึ้นนิด + มีเงา)
+                    "border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-700/40",
+                    "shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
+                    // เอฟเฟกต์ตอนโฮเวอร์
+                    "hover:border-emerald-300/70 dark:hover:border-emerald-400/40",
+                    // ถ้าเลือกแล้ว (form[key] = true) ใส่ ring + เงาเขียว
+                    form[key]
+                      ? "ring-2 ring-emerald-400 shadow-[0_12px_30px_rgba(16,185,129,0.25)]"
+                      : "ring-0"
+                  )}
                 >
-                  {/* สวิตช์กลาง ๆ */}
+                  {/* สวิตช์ */}
                   <span
-                    className={[
-                      "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition",
-                      form[key] ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-600",
-                    ].join(" ")}
+                    className={cx(
+                      "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors",
+                      form[key] ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-600"
+                    )}
                     aria-hidden="true"
                   >
                     <span
-                      className={[
-                        "inline-block h-6 w-6 transform rounded-full bg-white shadow transition pointer-events-none",
+                      className={cx(
+                        "inline-block h-6 w-6 transform rounded-full bg-white shadow transition",
+                        // ดุมกลมมีเงาเพิ่ม + ขยับไวขึ้นนิด
+                        "shadow-[0_3px_10px_rgba(0,0,0,0.25)]",
                         form[key] ? "translate-x-6" : "translate-x-1",
-                      ].join(" ")}
+                        "group-hover:scale-105"
+                      )}
                     />
                   </span>
 
@@ -607,13 +618,23 @@
                     onChange={(e) => update(key, e.target.checked)}
                   />
 
+                  {/* ชื่อโครงการ */}
                   <span className="text-slate-800 dark:text-slate-100 text-[15px] md:text-base font-medium">
                     {label}
                   </span>
+
+                  {/* แสงไฮไลต์ด้านหลังเบา ๆ (แสดงตอนโฮเวอร์/เลือก) */}
+                  <span
+                    className={cx(
+                      "pointer-events-none absolute inset-0 rounded-2xl transition-opacity",
+                      "bg-emerald-100/30 dark:bg-emerald-400/10",
+                      form[key] ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    )}
+                    aria-hidden="true"
+                  />
                 </label>
               ))}
             </div>
-
 
             <h2 className="mb-3 text-xl font-semibold">ข้อมูลหลัก</h2>
 

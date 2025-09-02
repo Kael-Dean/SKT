@@ -173,7 +173,7 @@ function normalizeRecord(raw = {}) {
     other_rai: raw.other_rai ?? 0,
     other_ngan: raw.other_ngan ?? 0,
     other_wa: raw.other_wa ?? 0,
-    // โครงการ (force เป็น boolean)
+    // โครงการ (force เป็น boolean) — ถ้า backend ไม่ส่งมาก็จะเป็น false ทั้งหมดและแสดง “ไม่มี”
     seedling_prog: toBool(raw.seedling_prog ?? false),
     slowdown_rice: toBool(raw.slowdown_rice ?? false),
     organic_prog: toBool(raw.organic_prog ?? false),
@@ -307,6 +307,7 @@ const MemberSearch = () => {
       const idForPatch = active.member_id ?? active.id
       if (!idForPatch) throw new Error("ไม่พบรหัสสมาชิกสำหรับบันทึก")
 
+      // optimistic update
       const prev = rows
       setRows((cur) => cur.map((x) => (x.member_id === active.member_id ? { ...x, ...diff } : x)))
 
@@ -356,7 +357,7 @@ const MemberSearch = () => {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="ค้นหาตามชื่อหรือนามสกุล"
+              placeholder="ค้นหาตามชื่อหรือนามสกุล หรือเลขบัตรประชาชน"
               className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3 pr-12 text-base outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 dark:border-white/10 dark:bg-slate-800 dark:placeholder:text-slate-400 dark:focus:border-emerald-500 dark:focus:ring-emerald-500/20"
             />
             <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
@@ -368,6 +369,11 @@ const MemberSearch = () => {
           </div>
           {hint && !loading && dq && (
             <div className="mt-1 text-xs md:text-sm text-slate-500">{hint}</div>
+          )}
+          {error && (
+            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-400 dark:bg-red-900/20 dark:text-red-200">
+              {error}
+            </div>
           )}
         </div>
 

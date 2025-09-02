@@ -264,6 +264,9 @@ const MemberSignup = () => {
   const [submitting, setSubmitting] = useState(false)
   const [shouldScrollError, setShouldScrollError] = useState(false)
 
+  // 🔝 ref สำหรับเลื่อนกลับไปบนสุดเมื่อรีเซ็ต
+  const topRef = useRef(null)
+
   const [form, setForm] = useState({
     regis_date: new Date().toISOString().slice(0, 10),
     seedling_prog: false,
@@ -526,13 +529,37 @@ const MemberSignup = () => {
       rent_rai:"", rent_ngan:"", rent_wa:"",
       other_rai:"", other_ngan:"", other_wa:"",
     })
+
+    // 🔝 เลื่อนขึ้นบนสุดอย่างนุ่มนวล + โฟกัสหัวข้อ
+    requestAnimationFrame(() => {
+      const target = topRef.current
+      try {
+        if (target && typeof target.scrollIntoView === "function") {
+          target.scrollIntoView({ behavior: "smooth", block: "start" })
+          // ให้หัวข้อรับโฟกัสชั่วคราวเพื่อ A11y
+          target.focus?.()
+        } else {
+          // fallback
+          window.scrollTo({ top: 0, behavior: "smooth" })
+        }
+      } catch {
+        // fallback สุดท้าย
+        window.scrollTo(0, 0)
+      }
+    })
   }
 
   /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">👤 สมัครสมาชิก</h1>
+        <h1
+          ref={topRef}
+          tabIndex={-1} // ให้ focus ได้เพื่อการเข้าถึง
+          className="mb-4 text-3xl font-bold text-gray-900 dark:text-white"
+        >
+          👤 สมัครสมาชิก
+        </h1>
 
         <form onSubmit={handleSubmit}>
           {/* โครงการที่เข้าร่วม */}

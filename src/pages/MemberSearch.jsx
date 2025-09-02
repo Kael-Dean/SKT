@@ -45,6 +45,17 @@ function formatDate(v) {
   }
 }
 
+/** ---------- โครงการ (แสดงอย่างเดียว) ---------- */
+const PROGRAMS = [
+  { key: "seedling_prog", label: "โครงการปั้นกล้า", emoji: "🌱" },
+  { key: "slowdown_rice", label: "ชะลอข้าว", emoji: "🐢" },
+  { key: "organic_prog", label: "เกษตรอินทรีย์", emoji: "🌿" },
+  { key: "product_loan", label: "สินเชื่อสินค้า", emoji: "💳" },
+]
+
+const PROG_KEYS = PROGRAMS.map((p) => p.key)
+const toBool = (v) => v === true || v === 1 || v === "1" || String(v).toLowerCase() === "true"
+
 /** ---------- ฟิลด์ทั้งหมด ---------- */
 const FIELD_CONFIG = [
   { key: "member_id", label: "เลขสมาชิก", type: "number" },
@@ -91,14 +102,37 @@ const LAND_KEYS = [
   "other_rai","other_ngan","other_wa",
 ]
 
+/** สร้าง badge แสดงโครงการจากแถวข้อมูล */
+function ProgramBadges({ row }) {
+  const active = PROGRAMS.filter(p => toBool(row?.[p.key]))
+  if (active.length === 0) {
+    return <span className="inline-flex items-center rounded-lg border border-slate-300 px-2.5 py-1 text-xs text-slate-600 dark:border-slate-600 dark:text-slate-300">ไม่มี</span>
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {active.map(p => (
+        <span
+          key={p.key}
+          className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/40"
+          title={p.label}
+        >
+          <span>{p.emoji}</span>
+          <span className="whitespace-nowrap">{p.label}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 /** คอลัมน์ตาราง */
 const TABLE_COLUMNS = [
-  { key: "first_name", label: "ชื่อ" },
-  { key: "last_name", label: "นามสกุล" },
-  { key: "citizen_id", label: "เลขบัตรประชาชน" },
-  { key: "phone_number", label: "โทรศัพท์" },
-  { key: "province", label: "จังหวัด" },
-  { key: "regis_date", label: "วันที่สมัคร", render: (v) => formatDate(v) },
+  { key: "first_name", label: "ชื่อ", render: (row) => row.first_name ?? "-" },
+  { key: "last_name", label: "นามสกุล", render: (row) => row.last_name ?? "-" },
+  { key: "citizen_id", label: "เลขบัตรประชาชน", render: (row) => row.citizen_id ?? "-" },
+  { key: "phone_number", label: "โทรศัพท์", render: (row) => row.phone_number ?? "-" },
+  { key: "province", label: "จังหวัด", render: (row) => row.province ?? "-" },
+  { key: "regis_date", label: "วันที่สมัคร", render: (row) => formatDate(row.regis_date) },
+  { key: "__programs", label: "โครงการ", render: (row) => <ProgramBadges row={row} /> },
 ]
 
 /** ทำให้เรคคอร์ด “ครบคีย์” + แก้ชื่อคีย์ที่ต่างกัน + ทำความสะอาดเบื้องต้น */
@@ -139,10 +173,19 @@ function normalizeRecord(raw = {}) {
     other_rai: raw.other_rai ?? 0,
     other_ngan: raw.other_ngan ?? 0,
     other_wa: raw.other_wa ?? 0,
+    // โครงการ (force เป็น boolean)
+    seedling_prog: toBool(raw.seedling_prog ?? false),
+    slowdown_rice: toBool(raw.slowdown_rice ?? false),
+    organic_prog: toBool(raw.organic_prog ?? false),
+    product_loan: toBool(raw.product_loan ?? false),
   }
   // ให้ครบตาม FIELD_CONFIG (กัน field หาย)
   FIELD_CONFIG.forEach(({ key }) => {
     if (!(key in out)) out[key] = LAND_KEYS.includes(key) ? 0 : ""
+  })
+  // กัน key โครงการให้ครบ
+  PROG_KEYS.forEach((k) => {
+    if (!(k in out)) out[k] = false
   })
   return out
 }
@@ -216,6 +259,7 @@ const MemberSearch = () => {
       else v = v ?? ""
       d[key] = v
     })
+    // ไม่ให้แก้ไขโครงการใน frontend (แสดงอย่างเดียว) – เลยไม่ใส่ลง draft
     setDraft(d)
     setRowError("")
     setEditing(false)
@@ -241,7 +285,7 @@ const MemberSearch = () => {
     setDraft((p) => ({ ...p, [key]: val }))
   }
 
-  // (ตัวอย่าง) บันทึกแบบ PATCH — คุณอาจต้องเปลี่ยน path/id ให้ตรง backend จริง
+  // บันทึกเฉพาะฟิลด์ใน FIELD_CONFIG (ไม่รวมโครงการ)
   const save = async () => {
     if (!active) return
     setRowError("")
@@ -260,7 +304,6 @@ const MemberSearch = () => {
         if (oldV !== newV) diff[key] = newV
       })
 
-      // อัพเดต optimistically
       const idForPatch = active.member_id ?? active.id
       if (!idForPatch) throw new Error("ไม่พบรหัสสมาชิกสำหรับบันทึก")
 
@@ -298,6 +341,8 @@ const MemberSearch = () => {
       setSaving(false)
     }
   }
+
+  const loaderCols = TABLE_COLUMNS.length + 1 // + Actions column
 
   return (
     <div className="min-h-screen rounded-2xl bg-white text-black dark:bg-slate-900 dark:text-white">
@@ -344,7 +389,7 @@ const MemberSearch = () => {
                 {loading &&
                   Array.from({ length: 8 }).map((_, i) => (
                     <tr key={`sk-${i}`} className="animate-pulse dark:odd:bg-slate-800/30 dark:even:bg-slate-800/20">
-                      {Array.from({ length: 7 }).map((__, j) => (
+                      {Array.from({ length: loaderCols }).map((__, j) => (
                         <td key={j} className="px-5 py-4">
                           <div className="h-4 w-28 rounded bg-slate-200/70 dark:bg-slate-700/60" />
                         </td>
@@ -354,7 +399,7 @@ const MemberSearch = () => {
 
                 {!loading && dq && rows.length === 0 && (
                   <tr className="odd:bg-white/90 even:bg-slate-50/70 dark:odd:bg-slate-800/40 dark:even:bg-slate-800/25">
-                    <td className="px-5 py-8 text-center text-slate-500 dark:text-slate-300" colSpan={7}>
+                    <td className="px-5 py-8 text-center text-slate-500 dark:text-slate-300" colSpan={loaderCols}>
                       ไม่พบข้อมูลที่ตรงกับ “{dq}”
                     </td>
                   </tr>
@@ -368,7 +413,7 @@ const MemberSearch = () => {
                     >
                       {TABLE_COLUMNS.map((c) => (
                         <td key={c.key} className="px-5 py-4">
-                          {c.render ? c.render(r[c.key]) : (r[c.key] ?? "-")}
+                          {c.render ? c.render(r) : (r[c.key] ?? "-")}
                         </td>
                       ))}
                       <td className="px-5 py-4 text-right">
@@ -411,10 +456,11 @@ const MemberSearch = () => {
                 <div className="text-slate-600 dark:text-slate-300">ไม่มีข้อมูล</div>
               ) : (
                 <>
-                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-sm md:text-base text-slate-600 dark:text-slate-300">
                       สร้างเมื่อ: {formatDate(active.regis_date)} • ซื้อครั้งล่าสุด: {formatDate(active.last_bought_date)}
                     </div>
+
                     {!editing ? (
                       <button
                         type="button"
@@ -445,6 +491,12 @@ const MemberSearch = () => {
                         </button>
                       </div>
                     )}
+                  </div>
+
+                  {/* โครงการที่เข้าร่วม (แสดงอย่างเดียว) */}
+                  <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-400 dark:bg-emerald-900/10">
+                    <div className="mb-2 text-base font-semibold text-emerald-800 dark:text-emerald-200">🎯 โครงการที่เข้าร่วม</div>
+                    <ProgramBadges row={active} />
                   </div>
 
                   {rowError && (

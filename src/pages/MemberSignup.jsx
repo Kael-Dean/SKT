@@ -27,6 +27,16 @@ const clampWa = (v) => {
   return Math.max(0, Math.min(99, n)) // 0–99
 }
 
+// debounce (เหมือนหน้า Buy)
+function useDebounce(value, delay = 400) {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return debounced
+}
+
 /** ---------- class helpers ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
@@ -267,6 +277,12 @@ const MemberSignup = () => {
   // 🔝 ref สำหรับเลื่อนกลับไปบนสุดเมื่อรีเซ็ต
   const topRef = useRef(null)
 
+  // 🧠 สถานะค้นหา/เติมอัตโนมัติ
+  const [lookupStatus, setLookupStatus] = useState({ searching: false, message: "", tone: "muted" }) // tone: muted|ok|warn
+
+  // สำหรับ debounce
+  const debouncedCitizenId = useDebounce(useMemo(() => "", [])) // placeholder init
+  // state หลักของฟอร์ม
   const [form, setForm] = useState({
     regis_date: new Date().toISOString().slice(0, 10),
     seedling_prog: false,
@@ -305,6 +321,138 @@ const MemberSignup = () => {
     rent_rai: "",  rent_ngan: "",  rent_wa: "",
     other_rai: "", other_ngan: "", other_wa: "",
   })
+
+  // 👉 debounce ที่อิงกับค่าจริง
+  const debCid = useDebounce(form.citizen_id, 400)
+  const debFirst = useDebounce(form.first_name, 400)
+  const debLast = useDebounce(form.last_name, 400)
+
+  // header auth แบบเดียวกับหน้า Buy
+  const authHeader = () => {
+    const token = localStorage.getItem("token")
+    return {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    }
+  }
+
+  // ช่วย map ผลลัพธ์ (รองรับทั้งสมาชิก/ลูกค้าทั่วไป)
+  const mapToCustomerShape = (r) => ({
+    type: r.type ?? (r.member_id ? "member" : "customer"),
+    first_name: r.first_name ?? "",
+    last_name: r.last_name ?? "",
+    citizen_id: r.citizen_id ?? r.citizenId ?? "",
+    address: r.address ?? "",
+    mhoo: r.mhoo ?? "",
+    sub_district: r.sub_district ?? "",
+    district: r.district ?? "",
+    province: r.province ?? "",
+    postal_code: r.postal_code ?? "",
+    phone_number: r.phone_number ?? "",
+    member_id: r.member_id ?? null,
+  })
+
+  // เติมค่าเฉพาะช่องที่ยังว่าง (ไม่ทับที่ผู้ใช้กรอกเองแล้ว)
+  const prefillFromCustomer = (rec) => {
+    const c = mapToCustomerShape(rec)
+    setForm((prev) => ({
+      ...prev,
+      first_name:     prev.first_name     || c.first_name,
+      last_name:      prev.last_name      || c.last_name,
+      citizen_id:     prev.citizen_id     || onlyDigits(c.citizen_id),
+      address:        prev.address        || c.address,
+      mhoo:           prev.mhoo           || c.mhoo,
+      sub_district:   prev.sub_district   || c.sub_district,
+      district:       prev.district       || c.district,
+      province:       prev.province       || c.province,
+      postal_code:    prev.postal_code    || String(c.postal_code || ""),
+      phone_number:   prev.phone_number   || c.phone_number,
+      // sex ไม่มีใน CustomerData อยู่แล้ว — ไม่เติม
+    }))
+  }
+
+  // เรียกค้นหาแบบยืดหยุ่น (citizen_id หรือชื่อ–นามสกุล)
+  const searchCustomerAny = async (q) => {
+    // 1) พยายามใช้ /member/members/search ก่อน (ได้ข้อมูลที่อยู่ง่ายกว่า)
+    try {
+      const r1 = await fetch(`${API_BASE}/member/members/search?q=${encodeURIComponent(q)}`, { headers: authHeader() })
+      if (r1.ok) {
+        const arr = await r1.json()
+        if (Array.isArray(arr) && arr.length) return arr
+      }
+    } catch (_) {}
+    // 2) fallback /order/customers/search (อย่างน้อยได้ชื่อ/ปชช.)
+    try {
+      const r2 = await fetch(`${API_BASE}/order/customers/search?q=${encodeURIComponent(q)}`, { headers: authHeader() })
+      if (r2.ok) {
+        const arr = await r2.json()
+        if (Array.isArray(arr) && arr.length) return arr
+      }
+    } catch (_) {}
+    return []
+  }
+
+  // เลือกเรคคอร์ดที่เหมาะสุด: ให้ลูกค้าทั่วไป (ไม่มี member_id) มาก่อน
+  const pickBestRecord = (items, matcher) => {
+    const filtered = items.filter(matcher)
+    if (filtered.length === 0) return null
+    const customers = filtered.filter((x) => !x.member_id && (x.type ? x.type !== "member" : true))
+    return (customers[0] || filtered[0]) ?? null
+  }
+
+  // เมื่อกรอกเลขบัตรครบและ valid => ค้นหา+เติม
+  useEffect(() => {
+    const cid = onlyDigits(debCid || "")
+    if (cid.length !== 13 || !validateThaiCitizenId(cid)) return
+
+    let cancelled = false
+    ;(async () => {
+      setLookupStatus({ searching: true, message: "กำลังค้นหาจากข้อมูลลูกค้าทั่วไป...", tone: "muted" })
+      const items = await searchCustomerAny(cid)
+      if (cancelled) return
+
+      const found = pickBestRecord(items, (r) => onlyDigits(r.citizen_id ?? r.citizenId ?? "") === cid)
+      if (found) {
+        prefillFromCustomer(found)
+        setLookupStatus({ searching: false, message: "พบข้อมูลลูกค้าทั่วไปและเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
+      } else {
+        setLookupStatus({ searching: false, message: "ไม่พบบุคคลนี้ในฐานลูกค้าทั่วไป", tone: "warn" })
+      }
+    })()
+
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debCid])
+
+  // เมื่อกรอกชื่อ–นามสกุลครบ (≥2 ตัวอักษร) => ค้นหา+เติม
+  useEffect(() => {
+    const first = (debFirst || "").trim()
+    const last  = (debLast  || "").trim()
+    if (first.length < 2 || last.length < 2) return
+
+    let cancelled = false
+    const q = `${first} ${last}`
+    ;(async () => {
+      setLookupStatus({ searching: true, message: "กำลังค้นหาจากชื่อ–นามสกุล...", tone: "muted" })
+      const items = await searchCustomerAny(q)
+      if (cancelled) return
+
+      const found = pickBestRecord(
+        items,
+        (r) => (r.first_name ?? "").toLowerCase().includes(first.toLowerCase())
+           && (r.last_name ?? "").toLowerCase().includes(last.toLowerCase())
+      )
+      if (found) {
+        prefillFromCustomer(found)
+        setLookupStatus({ searching: false, message: "พบข้อมูลลูกค้าทั่วไปและเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
+      } else {
+        setLookupStatus({ searching: false, message: "ไม่พบชื่อ–นามสกุลนี้ในฐานลูกค้าทั่วไป", tone: "warn" })
+      }
+    })()
+
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debFirst, debLast])
 
   const refs = {
     member_id: useRef(null),
@@ -456,7 +604,7 @@ const MemberSignup = () => {
       last_bought_date: toISODate(form.last_bought_date),
       bank_account: form.bank_account.trim(),
       tgs_id: form.tgs_id.trim(),
-      spouce_name: form.spouce_name.trim(), // เหมือนเดิม
+      spouce_name: form.spouce_name.trim(),
       orders_placed: form.orders_placed === "" ? 0 : Number(form.orders_placed),
 
       // Land
@@ -529,6 +677,7 @@ const MemberSignup = () => {
       rent_rai:"", rent_ngan:"", rent_wa:"",
       other_rai:"", other_ngan:"", other_wa:"",
     })
+    setLookupStatus({ searching: false, message: "", tone: "muted" })
 
     // 🔝 เลื่อนขึ้นบนสุดอย่างนุ่มนวล + โฟกัสหัวข้อ
     requestAnimationFrame(() => {
@@ -536,14 +685,11 @@ const MemberSignup = () => {
       try {
         if (target && typeof target.scrollIntoView === "function") {
           target.scrollIntoView({ behavior: "smooth", block: "start" })
-          // ให้หัวข้อรับโฟกัสชั่วคราวเพื่อ A11y
           target.focus?.()
         } else {
-          // fallback
           window.scrollTo({ top: 0, behavior: "smooth" })
         }
       } catch {
-        // fallback สุดท้าย
         window.scrollTo(0, 0)
       }
     })
@@ -555,11 +701,26 @@ const MemberSignup = () => {
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
         <h1
           ref={topRef}
-          tabIndex={-1} // ให้ focus ได้เพื่อการเข้าถึง
-          className="mb-4 text-3xl font-bold text-gray-900 dark:text-white"
+          tabIndex={-1}
+          className="mb-1 text-3xl font-bold text-gray-900 dark:text-white"
         >
           👤 สมัครสมาชิก
         </h1>
+
+        {/* แถบสถานะค้นหา/เติมอัตโนมัติ */}
+        {lookupStatus.message && (
+          <div
+            className={cx(
+              "mb-4 rounded-xl px-4 py-2 text-sm",
+              lookupStatus.tone === "ok"   && "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200",
+              lookupStatus.tone === "warn" && "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-200",
+              lookupStatus.tone === "muted"&& "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-200"
+            )}
+            aria-live="polite"
+          >
+            {lookupStatus.searching ? "⏳ " : ""}{lookupStatus.message}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           {/* โครงการที่เข้าร่วม */}
@@ -578,7 +739,6 @@ const MemberSignup = () => {
                     "border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-700/40",
                     "shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
                     "hover:border-emerald-300/70 dark:hover:border-emerald-400/40",
-                    // active state
                     form[key] ? "ring-2 ring-emerald-400 shadow-[0_12px_30px_rgba(16,185,129,0.25)]" : "ring-0"
                   )}
                 >
@@ -701,6 +861,9 @@ const MemberSignup = () => {
                   aria-invalid={errors.citizen_id ? true : undefined}
                 />
                 {errors.citizen_id && <p className={errorTextCls}>{errors.citizen_id}</p>}
+                {form.citizen_id.length === 13 && !validateThaiCitizenId(form.citizen_id) && (
+                  <p className={helpTextCls}>เลขบัตรอาจไม่ถูกต้อง</p>
+                )}
               </div>
 
               {/* เพศ */}
@@ -721,7 +884,7 @@ const MemberSignup = () => {
                 {errors.sex && <p className={errorTextCls}>{errors.sex}</p>}
               </div>
 
-              {/* คู่สมรส — ย้ายมาอยู่กรอบแรก */}
+              {/* คู่สมรส */}
               <div className="md:col-span-2">
                 <label className={labelCls}>ชื่อคู่สมรส (spouce_name)</label>
                 <input
@@ -939,7 +1102,6 @@ const MemberSignup = () => {
                 <input ref={refs.tgs_id} className={baseField} value={form.tgs_id} onChange={(e) => update("tgs_id", e.target.value)} placeholder="TGS-001" />
               </div>
 
-              {/* เอา 'คู่สมรส' ออกไปแล้วจากกรอบนี้ */}
               <div>
                 <label className={labelCls}>จำนวนครั้งที่ซื้อ (orders_placed)</label>
                 <input

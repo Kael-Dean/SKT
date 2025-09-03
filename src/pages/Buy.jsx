@@ -58,7 +58,6 @@ const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 const compactInput = "!py-2 !px-4 !text-[16px] !leading-normal"
 
-
 /** ---------- Reusable ComboBox ---------- */
 function ComboBox({
   options = [],
@@ -316,11 +315,10 @@ const Buy = () => {
     postalCode: "",
   })
 
-  /** เมตาสมาชิก */
+  /** เมตาสมาชิก/ลูกค้า */
   const [memberMeta, setMemberMeta] = useState({
     type: "unknown",
-    memberId: null,
-    memberPk: null,
+    assoId: null, // แสดงผลได้ ถ้าค้นเจอ
   })
 
   /** ฟอร์มออเดอร์ */
@@ -333,14 +331,16 @@ const Buy = () => {
     subriceId: "",
     subriceName: "",
 
-    // คุณภาพ/ปี/สภาพ/ประเภทนา/โปรแกรม/ชำระเงิน
+    // คุณภาพ/ปี/สภาพ/ประเภทนา (ตาม backend)
     gram: "",
-    riceYear: "",     // label เพื่อแสดงผล
-    riceYearId: "",   // id สำหรับส่ง backend
-    condition: "",    // label เพื่อโชว์
-    conditionId: "",  // id สำหรับส่ง backend
-    fieldType: "",    // label เพื่อโชว์
-    fieldTypeId: "",  // id สำหรับส่ง backend
+    riceYear: "",
+    riceYearId: "",
+    condition: "",
+    conditionId: "",
+    fieldType: "",
+    fieldTypeId: "",
+
+    // (โปรแกรม/วิธีชำระเงิน — optional UI เท่านั้น)
     program: "",
     paymentMethod: "",
 
@@ -481,7 +481,7 @@ const Buy = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        // program
+        // (optional UI)
         setProgramOptions(
           (programs || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -489,7 +489,6 @@ const Buy = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        // payment
         setPaymentOptions(
           (payments || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -576,67 +575,51 @@ const Buy = () => {
     loadKlang()
   }, [order.branchId, order.branchName])
 
-  /** map member -> UI */
-  const mapMemberToUI = (m = {}) => ({
-    citizenId: (m.citizen_id ?? m.citizenId ?? "").toString(),
-    fullName: `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || m.fullName || "",
-    houseNo: m.address ?? m.houseNo ?? "",
-    moo: m.mhoo ?? m.moo ?? "",
-    subdistrict: m.sub_district ?? m.subdistrict ?? "",
-    district: m.district ?? "",
-    province: m.province ?? "",
-    postalCode: m.postal_code ?? m.postalCode ?? "",
-    memberId: m.member_id ?? null,
-    memberPk: m.id ?? null,
+  /** map record -> UI (endpoint ใหม่นี้ให้มาเฉพาะชื่อ/เลขบัตร/ชนิด) */
+  const mapSimplePersonToUI = (r = {}) => ({
+    citizenId: (r.citizen_id ?? "").toString(),
+    fullName: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim(),
+    assoId: r.asso_id ?? null,
+    type: r.type ?? "unknown",
   })
 
-  const fillFromMemberRecord = (raw = {}) => {
-    const data = mapMemberToUI(raw)
+  const fillFromRecord = (raw = {}) => {
+    const data = mapSimplePersonToUI(raw)
     setCustomer((prev) => ({
       ...prev,
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
       fullName: data.fullName || prev.fullName,
-      houseNo: data.houseNo || "",
-      moo: data.moo || "",
-      subdistrict: data.subdistrict || "",
-      district: data.district || "",
-      province: data.province || "",
-      postalCode: data.postalCode || "",
+      // ที่อยู่ต้องกรอกเอง เพราะ API นี้ไม่ได้ส่งที่อยู่มา
     }))
-    if (data.memberId) {
-      setMemberMeta({ type: "member", memberId: data.memberId, memberPk: data.memberPk })
-      setCustomerFound(true)
-    } else {
-      setMemberMeta({ type: "guest", memberId: null, memberPk: null })
-      setCustomerFound(true)
-    }
+    setMemberMeta({ type: data.type, assoId: data.assoId })
+    setCustomerFound(true)
   }
 
-  /** ค้นหาด้วยเลขบัตร */
+  /** ค้นหาด้วยเลขบัตร (ใช้ endpoint ใหม่ /order/customers/search) */
   useEffect(() => {
     const cid = onlyDigits(debouncedCitizenId)
     if (cid.length !== 13) {
       setCustomerFound(null)
-      setMemberMeta((m) => (m.type === "member" ? m : { type: "unknown", memberId: null, memberPk: null }))
+      setMemberMeta({ type: "unknown", assoId: null })
       return
     }
     const fetchByCid = async () => {
       try {
         setLoadingCustomer(true)
-        const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(cid)}`
+        const url = `${API_BASE}/order/customers/search?q=${encodeURIComponent(cid)}`
         const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const arr = (await res.json()) || []
-        const exact = arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
-        if (exact) fillFromMemberRecord(exact)
+        const exact = arr.find((r) => onlyDigits(r.citizen_id || "") === cid) || arr[0]
+        if (exact) fillFromRecord(exact)
         else {
           setCustomerFound(false)
-          setMemberMeta({ type: "guest", memberId: null, memberPk: null })
+          setMemberMeta({ type: "customer", assoId: null }) // ลูกค้าทั่วไป
         }
       } catch (e) {
         console.error(e)
         setCustomerFound(false)
-        setMemberMeta({ type: "guest", memberId: null, memberPk: null })
+        setMemberMeta({ type: "customer", assoId: null })
       } finally {
         setLoadingCustomer(false)
       }
@@ -645,7 +628,7 @@ const Buy = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedCitizenId])
 
-  /** ค้นหาด้วยชื่อ */
+  /** ค้นหาด้วยชื่อ (ใช้ /order/customers/search) */
   useEffect(() => {
     const q = (debouncedFullName || "").trim()
 
@@ -660,29 +643,23 @@ const Buy = () => {
       setNameResults([])
       setShowNameList(false)
       setHighlightedIndex(-1)
-      setMemberMeta((m) => (m.type === "member" ? m : { type: "unknown", memberId: null, memberPk: null }))
+      setMemberMeta({ type: "unknown", assoId: null })
       return
     }
 
     const searchByName = async () => {
       try {
         setLoadingCustomer(true)
-        const url = `${API_BASE}/member/members/search?q=${encodeURIComponent(q)}`
+        const url = `${API_BASE}/order/customers/search?q=${encodeURIComponent(q)}`
         const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const items = (await res.json()) || []
         const mapped = items.map((r) => ({
-          id: r.id,
-          citizenId: r.citizen_id || r.citizenId,
+          type: r.type,
+          asso_id: r.asso_id,
+          citizen_id: r.citizen_id,
           first_name: r.first_name,
           last_name: r.last_name,
-          address: r.address,
-          mhoo: r.mhoo,
-          sub_district: r.sub_district,
-          district: r.district,
-          province: r.province,
-          postal_code: r.postal_code,
-          member_id: r.member_id,
         }))
         setNameResults(mapped)
         if (document.activeElement === nameInputRef.current) {
@@ -717,7 +694,7 @@ const Buy = () => {
 
   const pickNameResult = (rec) => {
     suppressNameSearchRef.current = true
-    fillFromMemberRecord(rec)
+    fillFromRecord(rec)
     setShowNameList(false)
     setNameResults([])
     setHighlightedIndex(-1)
@@ -835,15 +812,13 @@ const Buy = () => {
     if (!customer.subdistrict.trim()) m.subdistrict = true
     if (!customer.district.trim()) m.district = true
     if (!customer.province.trim()) m.province = true
-    // ออเดอร์ (จำเป็น)
+    // ออเดอร์ (จำเป็นตาม backend)
     if (!order.productId) m.product = true
     if (!order.riceId) m.riceType = true
     if (!order.subriceId) m.subrice = true
     if (!order.conditionId) m.condition = true
     if (!order.fieldTypeId) m.fieldType = true
     if (!order.riceYearId) m.riceYear = true
-    if (!order.program) m.program = true
-    if (!order.paymentMethod) m.payment = true
     if (!order.branchName) m.branchName = true
     if (!order.klangName) m.klangName = true
     if (!order.entryWeightKg || Number(order.entryWeightKg) < 0) m.entryWeightKg = true
@@ -876,9 +851,8 @@ const Buy = () => {
     if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข"
     if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"
     if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"
-    if (!order.program) e.program = "เลือกโปรแกรม"
-    if (!order.paymentMethod) e.payment = "เลือกวิธีชำระเงิน"
 
+    // branch/klang จำเป็น
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
 
@@ -906,8 +880,6 @@ const Buy = () => {
       "condition",
       "fieldType",
       "riceYear",
-      "program",
-      "payment",
       "branchName",
       "klangName",
       "entryWeightKg",
@@ -966,36 +938,6 @@ const Buy = () => {
     if (!klangId)    { setErrors((p)=>({ ...p, klangName:"ไม่พบรหัสคลัง" }));       scrollToFirstError({klangName:true}); return }
 
     const baseHeaders = authHeader()
-    let customer_id = memberMeta.memberPk ?? null
-
-    if (!customer_id) {
-      try {
-        const upsertRes = await fetch(`${API_BASE}/order/customer/upsert`, {
-          method: "POST",
-          headers: baseHeaders,
-          body: JSON.stringify({
-            first_name: firstName || "",
-            last_name: lastName || "",
-            citizen_id: onlyDigits(customer.citizenId),
-            address: customer.houseNo.trim(),
-            mhoo: customer.moo.trim(),
-            sub_district: customer.subdistrict.trim(),
-            district: customer.district.trim(),
-            province: customer.province.trim(),
-            postal_code: customer.postalCode?.toString().trim() || "",
-          }),
-        })
-        if (upsertRes.ok) {
-          const u = await upsertRes.json()
-          customer_id = u?.id ?? u?.customer_id ?? null
-        }
-      } catch {}
-    }
-
-    if (!customer_id) {
-      alert("ไม่พบ/ไม่สามารถสร้างรหัสลูกค้า (customer_id) โปรดเลือกจากรายชื่อสมาชิกหรือให้หลังบ้านเปิด endpoint upsert ลูกค้า")
-      return
-    }
 
     const baseGross = grossFromScale
     const deduction = order.manualDeduct
@@ -1004,6 +946,7 @@ const Buy = () => {
 
     const netW = Math.max(0, baseGross - deduction)
 
+    // --- สร้าง payload ตาม OrderRequest ของ backend ---
     const payload = {
       customer: {
         first_name: firstName || "",
@@ -1017,7 +960,8 @@ const Buy = () => {
         postal_code: customer.postalCode?.toString().trim() || "",
       },
       order: {
-        customer_id,
+        // asso_id จำเป็นใน Pydantic แต่ backend จะคำนวณจริงอีกทีจาก ensure_person_and_customer
+        asso_id: "",
         product_id: productId,
         rice_id: riceId,
         subrice_id: subriceId,
@@ -1037,14 +981,9 @@ const Buy = () => {
         klang_location: klangId,
         gram: Number(order.gram || 0),
       },
-      rice:   { rice_type: order.riceType, id: riceId },
-      branch: { branch_name: order.branchName, id: branchId },
-      klang:  { klang_name: order.klangName,  id: klangId },
-      customerMeta: {
-        type: memberMeta.type === "unknown" ? "guest" : memberMeta.type,
-        memberId: memberMeta.memberId,
-        memberPk: memberMeta.memberPk,
-      },
+      rice:   { rice_type: order.riceType },
+      branch: { branch_name: order.branchName },
+      klang:  { klang_name: order.klangName },
     }
 
     try {
@@ -1073,7 +1012,7 @@ const Buy = () => {
     setNameResults([])
     setShowNameList(false)
     setHighlightedIndex(-1)
-    setMemberMeta({ type: "unknown", memberId: null, memberPk: null })
+    setMemberMeta({ type: "unknown", assoId: null })
     setCustomer({
       citizenId: "",
       fullName: "",
@@ -1132,12 +1071,17 @@ const Buy = () => {
             {memberMeta.type === "member" ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                สมาชิก • รหัสสมาชิก {memberMeta.memberId ?? "-"}
+                สมาชิก • asso {memberMeta.assoId ?? "-"}
               </span>
-            ) : memberMeta.type === "guest" ? (
+            ) : customerFound === true && memberMeta.type === "customer" ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60">
+                <span className="h-2 w-2 rounded-full bg-sky-500" />
+                ลูกค้าทั่วไป • asso {memberMeta.assoId ?? "-"}
+              </span>
+            ) : memberMeta.type === "customer" ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600">
                 <span className="h-2 w-2 rounded-full bg-slate-500" />
-                ลูกค้าทั่วไป (ไม่พบในระบบสมาชิก)
+                ลูกค้าทั่วไป (จะสร้างอัตโนมัติเมื่อบันทึก)
               </span>
             ) : (
               <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60">
@@ -1168,10 +1112,10 @@ const Buy = () => {
                   <span className="text-amber-600 dark:text-amber-300"> เลขบัตรอาจไม่ถูกต้อง</span>
                 )}
                 {customer.citizenId.length === 13 && customerFound === true && (
-                  <span className="ml-1 text-emerald-600 dark:text-emerald-300">พบข้อมูลลูกค้าแล้ว ✅</span>
+                  <span className="ml-1 text-emerald-600 dark:text-emerald-300">พบข้อมูลแล้ว ✅</span>
                 )}
                 {customer.citizenId.length === 13 && customerFound === false && (
-                  <span className="ml-1 text-amber-600 dark:text-amber-300">ไม่พบบุคคลนี้ในระบบ (ลูกค้าทั่วไป)</span>
+                  <span className="ml-1 text-amber-600 dark:text-amber-300">ไม่พบบุคคลนี้ (จะบันทึกเป็นลูกค้าทั่วไป)</span>
                 )}
               </div>
             </div>
@@ -1211,11 +1155,12 @@ const Buy = () => {
                 >
                   {nameResults.map((r, idx) => {
                     const isActive = idx === highlightedIndex
+                    const full = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()
                     return (
                       <button
                         type="button"
                         ref={(el) => (itemRefs.current[idx] = el)}
-                        key={r.id || `${r.citizenId}-${r.first_name}-${r.last_name}`}
+                        key={`${r.type}-${r.asso_id}-${r.citizen_id}-${idx}`}
                         onClick={() => pickNameResult(r)}
                         onMouseEnter={() => { setHighlightedIndex(idx); requestAnimationFrame(() => scrollHighlightedIntoView2(idx)) }}
                         role="option"
@@ -1231,10 +1176,9 @@ const Buy = () => {
                           <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
                         )}
                         <div className="flex-1">
-                          <div className="font-medium">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()}</div>
+                          <div className="font-medium">{full || "(ไม่มีชื่อ)"}</div>
                           <div className="text-sm text-slate-600 dark:text-slate-300">
-                            ปชช. {r.citizenId} • {r.address ? `บ้าน ${r.address}` : ""} {r.mhoo ? `หมู่ ${r.mhoo}` : ""}
-                            {r.sub_district ? ` • ต.${r.sub_district}` : ""}{r.district ? ` อ.${r.district}` : ""} {r.province ? ` จ.${r.province}` : ""} {r.postal_code ? ` ${r.postal_code}` : ""}{r.member_id ? " • สมาชิก" : ""}
+                            {r.type === "member" ? "สมาชิก" : "ลูกค้าทั่วไป"} • ปชช. {r.citizen_id ?? "-"}
                           </div>
                         </div>
                       </button>
@@ -1301,7 +1245,6 @@ const Buy = () => {
                     ...p,
                     productId: id,
                     productName: found?.label ?? "",
-                    // reset chain
                     riceId: "", riceType: "",
                     subriceId: "", subriceName: "",
                   }))
@@ -1427,25 +1370,21 @@ const Buy = () => {
               {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
             </div>
 
-            {/* Program */}
+            {/* (Optional) Program */}
             <div>
-              <label className={labelCls}>โปรแกรม</label>
+              <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
               <ComboBox
                 options={programOptions}
                 value={programOptions.find((o) => o.label === order.program)?.id ?? ""}
                 onChange={(_id, found) => setOrder((p) => ({ ...p, program: found?.label ?? "" }))}
                 placeholder="— เลือกโปรแกรม —"
-                error={!!errors.program}
-                hintRed={!!missingHints.program}
-                clearHint={() => clearHint("program")}
                 buttonRef={refs.program}
               />
-              {errors.program && <p className={errorTextCls}>{errors.program}</p>}
             </div>
 
-            {/* Payment method */}
+            {/* (Optional) Payment method */}
             <div>
-              <label className={labelCls}>วิธีชำระเงิน</label>
+              <label className={labelCls}>วิธีชำระเงิน (ไม่บังคับ)</label>
               <ComboBox
                 options={paymentOptions}
                 value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
@@ -1453,12 +1392,8 @@ const Buy = () => {
                   setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))
                 }
                 placeholder="— เลือกวิธีชำระเงิน —"
-                error={!!errors.payment}
-                hintRed={!!missingHints.payment}
-                clearHint={() => clearHint("payment")}
                 buttonRef={refs.payment}
               />
-              {errors.payment && <p className={errorTextCls}>{errors.payment}</p>}
             </div>
 
             {/* ✅ สาขา */}
@@ -1721,7 +1656,8 @@ const Buy = () => {
               { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
               { label: "ประเภทนา", value: order.fieldType || "—" },
               { label: "เงื่อนไข", value: order.condition || "—" },
-              { label: "โปรแกรม", value: order.program || "—" },
+              { label: "โปรแกรม (UI)", value: order.program || "—" },
+              { label: "วิธีชำระเงิน (UI)", value: order.paymentMethod || "—" },
             ].map((c) => (
               <div
                 key={c.label}

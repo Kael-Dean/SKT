@@ -128,42 +128,54 @@ function ProgramBadges({ row }) {
 const TABLE_COLUMNS = [
   { key: "first_name", label: "ชื่อ", render: (row) => row.first_name ?? "-" },
   { key: "last_name", label: "นามสกุล", render: (row) => row.last_name ?? "-" },
-  { key: "citizen_id", label: "เลขบัตรประชาชน", render: (row) => row.citizen_id ?? "-" },
+  { key: "citizen_id", label: "เลขบัตรประชาชน", render: (row) => row.citizen_id || "-" },
   { key: "phone_number", label: "โทรศัพท์", render: (row) => row.phone_number ?? "-" },
   { key: "province", label: "จังหวัด", render: (row) => row.province ?? "-" },
   { key: "regis_date", label: "วันที่สมัคร", render: (row) => formatDate(row.regis_date) },
   { key: "__programs", label: "โครงการ", render: (row) => <ProgramBadges row={row} /> },
 ]
 
-/** ทำให้เรคคอร์ด “ครบคีย์” + แก้ชื่อคีย์ที่ต่างกัน + ทำความสะอาดเบื้องต้น */
+/** ทำให้เรคคอร์ด “ครบคีย์” + แก้ชื่อคีย์ที่ต่างกัน + ทำความสะอาดเบื้องต้น
+ *  รองรับสคีมา MemberOut จากหลังบ้าน (มี asso_id: UUID)
+ */
 function normalizeRecord(raw = {}) {
   const out = {
-    id: raw.id ?? raw.member_pk ?? null,
-    member_id: raw.member_id ?? raw.memberId ?? raw.id ?? null,
+    // ตัวระบุหลักจากหลังบ้าน
+    asso_id: raw.asso_id ?? raw.assoId ?? raw.id ?? null,
+
+    // ค่าอ้างอิง/แสดงผล
+    member_id: raw.member_id ?? raw.memberId ?? null,
+
+    // ฟิลด์บุคคล
     first_name: raw.first_name ?? raw.firstname ?? "",
     last_name: raw.last_name ?? raw.lastname ?? "",
-    citizen_id: onlyDigits(raw.citizen_id ?? raw.citizenId ?? ""),
-    phone_number: raw.phone_number ?? raw.phone ?? "-",
+    citizen_id: onlyDigits(raw.citizen_id ?? raw.citizenId ?? "") || null, // อนุญาต null
+
+    phone_number: raw.phone_number ?? raw.phone ?? null,
     address: raw.address ?? "",
     mhoo: raw.mhoo ?? raw.moo ?? "",
     sub_district: raw.sub_district ?? raw.subdistrict ?? "",
     district: raw.district ?? "",
     province: raw.province ?? "",
-    postal_code: raw.postal_code ?? raw.postalCode ?? "",
-    subprov: raw.subprov ?? "",
+    postal_code: raw.postal_code ?? raw.postalCode ?? null,
+    subprov: raw.subprov ?? null,
     sex: raw.sex ?? "",
-    salary: raw.salary ?? "",
-    tgs_group: raw.tgs_group ?? "",
-    share_per_month: raw.share_per_month ?? "",
-    ar_limit: raw.ar_limit ?? "",
-    normal_share: raw.normal_share ?? "",
+    salary: raw.salary ?? null,
+    tgs_group: raw.tgs_group ?? null,
+    share_per_month: raw.share_per_month ?? null,
+    ar_limit: raw.ar_limit ?? null,
+    normal_share: raw.normal_share ?? null,
     bank_account: raw.bank_account ?? "",
     tgs_id: raw.tgs_id ?? "",
     spouce_name: raw.spouce_name ?? "",
-    orders_placed: raw.orders_placed ?? "",
-    regis_date: raw.regis_date ?? raw.created_at ?? raw.registered_at ?? "",
-    last_bought_date: raw.last_bought_date ?? "",
-    transfer_date: raw.transfer_date ?? "",
+    orders_placed: raw.orders_placed ?? null,
+
+    // วันเวลา
+    regis_date: raw.regis_date ?? raw.created_at ?? raw.registered_at ?? null,
+    last_bought_date: raw.last_bought_date ?? null,
+    transfer_date: raw.transfer_date ?? null,
+
+    // ที่ดิน
     own_rai: raw.own_rai ?? 0,
     own_ngan: raw.own_ngan ?? 0,
     own_wa: raw.own_wa ?? 0,
@@ -173,12 +185,14 @@ function normalizeRecord(raw = {}) {
     other_rai: raw.other_rai ?? 0,
     other_ngan: raw.other_ngan ?? 0,
     other_wa: raw.other_wa ?? 0,
-    // โครงการ (force เป็น boolean) — ถ้า backend ไม่ส่งมาก็จะเป็น false ทั้งหมดและแสดง “ไม่มี”
+
+    // โครงการ (boolean ทั้งหมด)
     seedling_prog: toBool(raw.seedling_prog ?? false),
     slowdown_rice: toBool(raw.slowdown_rice ?? false),
     organic_prog: toBool(raw.organic_prog ?? false),
     product_loan: toBool(raw.product_loan ?? false),
   }
+
   // ให้ครบตาม FIELD_CONFIG (กัน field หาย)
   FIELD_CONFIG.forEach(({ key }) => {
     if (!(key in out)) out[key] = LAND_KEYS.includes(key) ? 0 : ""
@@ -246,7 +260,7 @@ const MemberSearch = () => {
   }, [dq])
 
   const openModal = (row) => {
-    const r = normalizeRecord(row) // กัน key หาย/ชื่อไม่ตรง
+    const r = normalizeRecord(row) // กัน key หาย/ชื่อไม่ตรง รวม asso_id
     setActive(r)
 
     // เตรียม draft สำหรับแก้ไข (date -> yyyy-mm-dd แบบปลอดภัย)
@@ -255,7 +269,7 @@ const MemberSearch = () => {
       let v = r[key]
       if (LAND_KEYS.includes(key)) v = typeof v === "number" ? v : 0
       else if (type === "date" || type === "date-optional") v = toInputDateSafely(v)
-      else if (type === "cid") v = onlyDigits(String(v)).slice(0, 13)
+      else if (type === "cid") v = onlyDigits(String(v || "")).slice(0, 13)
       else v = v ?? ""
       d[key] = v
     })
@@ -304,12 +318,16 @@ const MemberSearch = () => {
         if (oldV !== newV) diff[key] = newV
       })
 
-      const idForPatch = active.member_id ?? active.id
-      if (!idForPatch) throw new Error("ไม่พบรหัสสมาชิกสำหรับบันทึก")
+      const idForPatch = active.member_id // Backend ใช้ member_id ใน path param
+      if (!idForPatch && idForPatch !== 0) throw new Error("ไม่พบเลขสมาชิก (member_id) สำหรับบันทึก")
 
       // optimistic update
       const prev = rows
-      setRows((cur) => cur.map((x) => (x.member_id === active.member_id ? { ...x, ...diff } : x)))
+      setRows((cur) =>
+        cur.map((x) =>
+          x.member_id === active.member_id ? { ...x, ...diff } : x
+        )
+      )
 
       const res = await fetch(`${API_BASE}/member/members/${idForPatch}`, {
         method: "PATCH",
@@ -414,7 +432,7 @@ const MemberSearch = () => {
                 {!loading &&
                   rows.map((r) => (
                     <tr
-                      key={r.member_id ?? r.id ?? r.citizen_id}
+                      key={r.asso_id ?? r.member_id ?? r.citizen_id ?? Math.random()}
                       className="odd:bg-white/90 even:bg-slate-50/70 hover:bg-emerald-50/70 dark:odd:bg-slate-800/40 dark:even:bg-slate-800/25 dark:hover:bg-emerald-400/10 transition-colors"
                     >
                       {TABLE_COLUMNS.map((c) => (
@@ -446,7 +464,9 @@ const MemberSearch = () => {
           <div className={`h-[88vh] w-[96vw] max-w-[1280px] transform overflow-hidden rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-slate-800 dark:text-white ${open ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
               <div className="text-xl md:text-2xl font-semibold">
-                {active ? `รายละเอียดสมาชิก #${active.member_id ?? active.id ?? "-"}` : "รายละเอียดสมาชิก"}
+                {active
+                  ? `รายละเอียดสมาชิก #${active.member_id ?? (active.asso_id ? String(active.asso_id).slice(0, 8) : "-")}`
+                  : "รายละเอียดสมาชิก"}
               </div>
               <button
                 type="button"

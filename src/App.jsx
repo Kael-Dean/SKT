@@ -3,11 +3,12 @@ import AppLayout from './components/AppLayout'
 import Home from './pages/Home'
 import Documents from './pages/Documents'
 import Order from './pages/Order'
-import AddEmployee from './pages/AddEmployee'
-import Login from './pages/Login'
 import Sales from './pages/Sales'
+import Login from './pages/Login'
+import Buy from './pages/Buy'
 import MemberSignup from './pages/MemberSignup'
 import MemberSearch from './pages/MemberSearch'
+
 
 function App() {
   return (
@@ -23,8 +24,8 @@ function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/documents" element={<Documents />} />
         <Route path="/order" element={<Order />} />
-        <Route path="/add-employee" element={<AddEmployee />} />
         <Route path="/sales" element={<Sales />} />
+        <Route path="/Buy" element={<Buy />} />
         <Route path="/member-signup" element={<MemberSignup />} />
         <Route path="/search" element={<MemberSearch />} />
       </Route>

@@ -261,7 +261,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
                    transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
-          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
+          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
         </svg>
       </button>
     </div>
@@ -280,8 +280,6 @@ const MemberSignup = () => {
   // 🧠 สถานะค้นหา/เติมอัตโนมัติ
   const [lookupStatus, setLookupStatus] = useState({ searching: false, message: "", tone: "muted" }) // tone: muted|ok|warn
 
-  // สำหรับ debounce
-  const debouncedCitizenId = useDebounce(useMemo(() => "", [])) // placeholder init
   // state หลักของฟอร์ม
   const [form, setForm] = useState({
     regis_date: new Date().toISOString().slice(0, 10),
@@ -352,47 +350,48 @@ const MemberSignup = () => {
     member_id: r.member_id ?? null,
   })
 
-  // เติมค่าเฉพาะช่องที่ยังว่าง (ไม่ทับที่ผู้ใช้กรอกเองแล้ว)
+  // เติมเฉพาะช่องที่ “ยังว่างอยู่” (จะไม่ทับค่าที่ผู้ใช้กรอกเองแล้ว)
   const prefillFromCustomer = (rec) => {
     const c = mapToCustomerShape(rec)
     setForm((prev) => ({
       ...prev,
-      first_name:     prev.first_name     || c.first_name,
-      last_name:      prev.last_name      || c.last_name,
-      citizen_id:     prev.citizen_id     || onlyDigits(c.citizen_id),
-      address:        prev.address        || c.address,
-      mhoo:           prev.mhoo           || c.mhoo,
-      sub_district:   prev.sub_district   || c.sub_district,
-      district:       prev.district       || c.district,
-      province:       prev.province       || c.province,
-      postal_code:    prev.postal_code    || String(c.postal_code || ""),
-      phone_number:   prev.phone_number   || c.phone_number,
-      // sex ไม่มีใน CustomerData อยู่แล้ว — ไม่เติม
+      first_name:   prev.first_name   || c.first_name,
+      last_name:    prev.last_name    || c.last_name,
+      citizen_id:   prev.citizen_id   || onlyDigits(c.citizen_id),
+      address:      prev.address      || c.address,       // บ้านเลขที่
+      mhoo:         prev.mhoo         || c.mhoo,          // หมู่
+      sub_district: prev.sub_district || c.sub_district,  // ตำบล
+      district:     prev.district     || c.district,      // อำเภอ
+      province:     prev.province     || c.province,      // จังหวัด (เช่น ขอนแก่น)
+      postal_code:  prev.postal_code  || String(c.postal_code || ""), // ไม่บังคับ
+      phone_number: prev.phone_number || c.phone_number,
     }))
   }
 
-  // เรียกค้นหาแบบยืดหยุ่น (citizen_id หรือชื่อ–นามสกุล)
+  // ค้นหา “สมาชิกทั่วไป” ก่อน แล้วค่อย fallback ไป “สมาชิก”
   const searchCustomerAny = async (q) => {
-    // 1) พยายามใช้ /member/members/search ก่อน (ได้ข้อมูลที่อยู่ง่ายกว่า)
-    try {
-      const r1 = await fetch(`${API_BASE}/member/members/search?q=${encodeURIComponent(q)}`, { headers: authHeader() })
-      if (r1.ok) {
-        const arr = await r1.json()
-        if (Array.isArray(arr) && arr.length) return arr
-      }
-    } catch (_) {}
-    // 2) fallback /order/customers/search (อย่างน้อยได้ชื่อ/ปชช.)
+    // 1) ฐานสมาชิกทั่วไป (CustomerData)
     try {
       const r2 = await fetch(`${API_BASE}/order/customers/search?q=${encodeURIComponent(q)}`, { headers: authHeader() })
       if (r2.ok) {
         const arr = await r2.json()
-        if (Array.isArray(arr) && arr.length) return arr
+        if (Array.isArray(arr) && arr.length) return { from: "customer", items: arr }
       }
     } catch (_) {}
-    return []
+
+    // 2) fallback ไปฐานสมาชิก (MemberData)
+    try {
+      const r1 = await fetch(`${API_BASE}/member/members/search?q=${encodeURIComponent(q)}`, { headers: authHeader() })
+      if (r1.ok) {
+        const arr = await r1.json()
+        if (Array.isArray(arr) && arr.length) return { from: "member", items: arr }
+      }
+    } catch (_) {}
+
+    return { from: null, items: [] }
   }
 
-  // เลือกเรคคอร์ดที่เหมาะสุด: ให้ลูกค้าทั่วไป (ไม่มี member_id) มาก่อน
+  // เลือกเรคคอร์ดที่เหมาะสุด: ให้ “ลูกค้าทั่วไป (ไม่มี member_id)” มาก่อนเสมอ
   const pickBestRecord = (items, matcher) => {
     const filtered = items.filter(matcher)
     if (filtered.length === 0) return null
@@ -400,23 +399,29 @@ const MemberSignup = () => {
     return (customers[0] || filtered[0]) ?? null
   }
 
-  // เมื่อกรอกเลขบัตรครบและ valid => ค้นหา+เติม
+  // เมื่อกรอกเลขบัตรครบและ valid => ค้นหา+เติม (โฟกัส สมาชิกทั่วไป ก่อน)
   useEffect(() => {
     const cid = onlyDigits(debCid || "")
     if (cid.length !== 13 || !validateThaiCitizenId(cid)) return
 
     let cancelled = false
     ;(async () => {
-      setLookupStatus({ searching: true, message: "กำลังค้นหาจากข้อมูลลูกค้าทั่วไป...", tone: "muted" })
-      const items = await searchCustomerAny(cid)
+      setLookupStatus({ searching: true, message: "กำลังค้นหาจากฐานสมาชิกทั่วไป...", tone: "muted" })
+      const res = await searchCustomerAny(cid)
       if (cancelled) return
 
-      const found = pickBestRecord(items, (r) => onlyDigits(r.citizen_id ?? r.citizenId ?? "") === cid)
+      const found = pickBestRecord(res.items, (r) => onlyDigits(r.citizen_id ?? r.citizenId ?? "") === cid)
       if (found) {
         prefillFromCustomer(found)
-        setLookupStatus({ searching: false, message: "พบข้อมูลลูกค้าทั่วไปและเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
+        setLookupStatus({
+          searching: false,
+          message: res.from === "customer"
+            ? "พบข้อมูล ‘สมาชิกทั่วไป’ และเติมให้อัตโนมัติแล้ว ✅"
+            : "ไม่พบในสมาชิกทั่วไป แต่พบใน ‘สมาชิก’ และเติมให้อัตโนมัติแล้ว ✅",
+          tone: "ok"
+        })
       } else {
-        setLookupStatus({ searching: false, message: "ไม่พบบุคคลนี้ในฐานลูกค้าทั่วไป", tone: "warn" })
+        setLookupStatus({ searching: false, message: "ไม่พบบุคคลนี้ในฐานสมาชิกทั่วไป/สมาชิก", tone: "warn" })
       }
     })()
 
@@ -424,7 +429,7 @@ const MemberSignup = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debCid])
 
-  // เมื่อกรอกชื่อ–นามสกุลครบ (≥2 ตัวอักษร) => ค้นหา+เติม
+  // เมื่อกรอกชื่อ–นามสกุลครบ (≥2 ตัวอักษร) => ค้นหา+เติม (โฟกัส สมาชิกทั่วไป ก่อน)
   useEffect(() => {
     const first = (debFirst || "").trim()
     const last  = (debLast  || "").trim()
@@ -433,20 +438,26 @@ const MemberSignup = () => {
     let cancelled = false
     const q = `${first} ${last}`
     ;(async () => {
-      setLookupStatus({ searching: true, message: "กำลังค้นหาจากชื่อ–นามสกุล...", tone: "muted" })
-      const items = await searchCustomerAny(q)
+      setLookupStatus({ searching: true, message: "กำลังค้นหาจากชื่อ–นามสกุลในฐานสมาชิกทั่วไป...", tone: "muted" })
+      const res = await searchCustomerAny(q)
       if (cancelled) return
 
       const found = pickBestRecord(
-        items,
+        res.items,
         (r) => (r.first_name ?? "").toLowerCase().includes(first.toLowerCase())
            && (r.last_name ?? "").toLowerCase().includes(last.toLowerCase())
       )
       if (found) {
         prefillFromCustomer(found)
-        setLookupStatus({ searching: false, message: "พบข้อมูลลูกค้าทั่วไปและเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
+        setLookupStatus({
+          searching: false,
+          message: res.from === "customer"
+            ? "พบข้อมูล ‘สมาชิกทั่วไป’ และเติมให้อัตโนมัติแล้ว ✅"
+            : "ไม่พบในสมาชิกทั่วไป แต่พบใน ‘สมาชิก’ และเติมให้อัตโนมัติแล้ว ✅",
+          tone: "ok"
+        })
       } else {
-        setLookupStatus({ searching: false, message: "ไม่พบชื่อ–นามสกุลนี้ในฐานลูกค้าทั่วไป", tone: "warn" })
+        setLookupStatus({ searching: false, message: "ไม่พบชื่อ–นามสกุลนี้ในฐานสมาชิกทั่วไป/สมาชิก", tone: "warn" })
       }
     })()
 
@@ -506,7 +517,10 @@ const MemberSignup = () => {
     if (!form.sub_district) e.sub_district = "กรอกตำบล"
     if (!form.district) e.district = "กรอกอำเภอ"
     if (!form.province) e.province = "กรอกจังหวัด"
-    if (!form.postal_code) e.postal_code = "กรอกรหัสไปรษณีย์"
+    if (!form.postal_code) {
+      // ไม่บังคับ — ถ้าอยากบังคับให้ลบคอมเมนต์ด้านล่าง
+      // e.postal_code = "กรอกรหัสไปรษณีย์"
+    }
 
     if (!form.phone_number) e.phone_number = "กรอกเบอร์โทร"
     if (!form.sex) e.sex = "เลือกเพศ (M/F)"
@@ -592,7 +606,7 @@ const MemberSignup = () => {
       district: form.district.trim(),
       province: form.province.trim(),
       subprov: form.subprov === "" ? null : Number(form.subprov),
-      postal_code: Number(form.postal_code),
+      postal_code: form.postal_code === "" ? 0 : Number(form.postal_code),
       phone_number: form.phone_number.trim(),
       sex: form.sex,
       salary: form.salary === "" ? 0 : Number(form.salary),
@@ -900,15 +914,15 @@ const MemberSignup = () => {
           {/* กรอบที่ 2 */}
           <SectionCard title="ที่อยู่และการติดต่อ" className="mt-6">
             <div className="grid gap-4 md:grid-cols-4">
-              <div className="md:col-span-3">
-                <label className={labelCls}>ที่อยู่ (address)</label>
+              <div>
+                <label className={labelCls}>บ้านเลขที่ (address)</label>
                 <input
                   ref={refs.address}
                   className={cx(baseField, errors.address && fieldError)}
                   value={form.address}
                   onChange={(e) => { clearError("address"); update("address", e.target.value) }}
                   onFocus={() => clearError("address")}
-                  placeholder="บ้านเลขที่ หมู่ ตำบล อำเภอ จังหวัด"
+                  placeholder="เช่น 123/4"
                   aria-invalid={errors.address ? true : undefined}
                 />
                 {errors.address && <p className={errorTextCls}>{errors.address}</p>}
@@ -964,7 +978,7 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>รหัสไปรษณีย์</label>
+                <label className={labelCls}>รหัสไปรษณีย์ (ไม่บังคับ)</label>
                 <input
                   ref={refs.postal_code}
                   inputMode="numeric"

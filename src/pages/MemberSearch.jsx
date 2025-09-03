@@ -45,18 +45,18 @@ function formatDate(v) {
   }
 }
 
-/** ---------- โครงการ (แสดงอย่างเดียว) ---------- */
+/** ---------- โครงการ ---------- */
+/** ใช้ชื่อ “เหมือนหน้า สมัครสมาชิก” ให้ตรงกันทุกที่ */
 const PROGRAMS = [
-  { key: "seedling_prog", label: "โครงการปั้นกล้า", emoji: "🌱" },
-  { key: "slowdown_rice", label: "ชะลอข้าว", emoji: "🐢" },
-  { key: "organic_prog", label: "เกษตรอินทรีย์", emoji: "🌿" },
-  { key: "product_loan", label: "สินเชื่อสินค้า", emoji: "💳" },
+  { key: "seedling_prog", label: "โครงผลิตเมล็ดพันธ์", emoji: "🌱" },
+  { key: "slowdown_rice", label: "โครงการชะลอข้าวเปลือก", emoji: "🐢" },
+  { key: "organic_prog", label: "โครงการอินทรีย์", emoji: "🌿" },
+  { key: "product_loan", label: "โครงการสินค้าเป็นเงินเชื่อ", emoji: "💳" },
 ]
-
 const PROG_KEYS = PROGRAMS.map((p) => p.key)
 const toBool = (v) => v === true || v === 1 || v === "1" || String(v).toLowerCase() === "true"
 
-/** ---------- ฟิลด์ทั้งหมด ---------- */
+/** ---------- ฟิลด์ทั้งหมด (ยกเว้นโครงการ) ---------- */
 const FIELD_CONFIG = [
   { key: "member_id", label: "เลขสมาชิก", type: "number" },
   { key: "precode", label: "คำนำหน้า (รหัส)", type: "number" },
@@ -95,14 +95,13 @@ const FIELD_CONFIG = [
   { key: "other_ngan", label: "อื่นๆ (งาน)", type: "number" },
   { key: "other_wa", label: "อื่นๆ (ตารางวา)", type: "number" },
 ]
-
 const LAND_KEYS = [
   "own_rai","own_ngan","own_wa",
   "rent_rai","rent_ngan","rent_wa",
   "other_rai","other_ngan","other_wa",
 ]
 
-/** สร้าง badge แสดงโครงการจากแถวข้อมูล */
+/** Badge แสดงโครงการ (โหมดดู) */
 function ProgramBadges({ row }) {
   const active = PROGRAMS.filter(p => toBool(row?.[p.key]))
   if (active.length === 0) {
@@ -124,6 +123,58 @@ function ProgramBadges({ row }) {
   )
 }
 
+/** Toggle โครงการ (โหมดแก้ไข) — สไตล์เดียวกับหน้าสมัครสมาชิก */
+function ProgramToggles({ value, onChange }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+      {PROGRAMS.map(({ key, label }) => (
+        <label
+          key={key}
+          className={[
+            "group relative flex items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all",
+            "border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-700/40",
+            "shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
+            "hover:border-emerald-300/70 dark:hover:border-emerald-400/40",
+            value?.[key] ? "ring-2 ring-emerald-400 shadow-[0_12px_30px_rgba(16,185,129,0.25)]" : "ring-0",
+          ].join(" ")}
+        >
+          <span
+            className={[
+              "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors",
+              value?.[key] ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-600",
+            ].join(" ")}
+            aria-hidden="true"
+          >
+            <span
+              className={[
+                "inline-block h-6 w-6 transform rounded-full bg-white shadow transition",
+                "shadow-[0_3px_10px_rgba(0,0,0,0.25)]",
+                value?.[key] ? "translate-x-6" : "translate-x-1",
+                "group-hover:scale-105",
+              ].join(" ")}
+            />
+          </span>
+          <input
+            type="checkbox"
+            className="sr-only"
+            checked={!!value?.[key]}
+            onChange={(e) => onChange(key, e.target.checked)}
+          />
+          <span className="text-slate-800 dark:text-slate-100 text-[15px] md:text-base font-medium">{label}</span>
+          <span
+            className={[
+              "pointer-events-none absolute inset-0 rounded-2xl transition-opacity",
+              "bg-emerald-100/30 dark:bg-emerald-400/10",
+              value?.[key] ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+            ].join(" ")}
+            aria-hidden="true"
+          />
+        </label>
+      ))}
+    </div>
+  )
+}
+
 /** คอลัมน์ตาราง */
 const TABLE_COLUMNS = [
   { key: "first_name", label: "ชื่อ", render: (row) => row.first_name ?? "-" },
@@ -135,9 +186,7 @@ const TABLE_COLUMNS = [
   { key: "__programs", label: "โครงการ", render: (row) => <ProgramBadges row={row} /> },
 ]
 
-/** ทำให้เรคคอร์ด “ครบคีย์” + แก้ชื่อคีย์ที่ต่างกัน + ทำความสะอาดเบื้องต้น
- *  รองรับสคีมา MemberOut จากหลังบ้าน (มี asso_id: UUID)
- */
+/** ทำให้เรคคอร์ด “ครบคีย์” + ทำความสะอาดเบื้องต้น (รองรับ asso_id) */
 function normalizeRecord(raw = {}) {
   const out = {
     // ตัวระบุหลักจากหลังบ้าน
@@ -149,7 +198,7 @@ function normalizeRecord(raw = {}) {
     // ฟิลด์บุคคล
     first_name: raw.first_name ?? raw.firstname ?? "",
     last_name: raw.last_name ?? raw.lastname ?? "",
-    citizen_id: onlyDigits(raw.citizen_id ?? raw.citizenId ?? "") || null, // อนุญาต null
+    citizen_id: onlyDigits(raw.citizen_id ?? raw.citizenId ?? "") || null,
 
     phone_number: raw.phone_number ?? raw.phone ?? null,
     address: raw.address ?? "",
@@ -186,7 +235,7 @@ function normalizeRecord(raw = {}) {
     other_ngan: raw.other_ngan ?? 0,
     other_wa: raw.other_wa ?? 0,
 
-    // โครงการ (boolean ทั้งหมด)
+    // โครงการ (boolean)
     seedling_prog: toBool(raw.seedling_prog ?? false),
     slowdown_rice: toBool(raw.slowdown_rice ?? false),
     organic_prog: toBool(raw.organic_prog ?? false),
@@ -260,10 +309,10 @@ const MemberSearch = () => {
   }, [dq])
 
   const openModal = (row) => {
-    const r = normalizeRecord(row) // กัน key หาย/ชื่อไม่ตรง รวม asso_id
+    const r = normalizeRecord(row)
     setActive(r)
 
-    // เตรียม draft สำหรับแก้ไข (date -> yyyy-mm-dd แบบปลอดภัย)
+    // เตรียม draft (รวมฟิลด์โครงการด้วย)
     const d = {}
     FIELD_CONFIG.forEach(({ key, type }) => {
       let v = r[key]
@@ -273,8 +322,9 @@ const MemberSearch = () => {
       else v = v ?? ""
       d[key] = v
     })
-    // ไม่ให้แก้ไขโครงการใน frontend (แสดงอย่างเดียว) – เลยไม่ใส่ลง draft
+    PROG_KEYS.forEach((k) => { d[k] = !!r[k] })
     setDraft(d)
+
     setRowError("")
     setEditing(false)
     setOpen(true)
@@ -299,22 +349,40 @@ const MemberSearch = () => {
     setDraft((p) => ({ ...p, [key]: val }))
   }
 
-  // บันทึกเฉพาะฟิลด์ใน FIELD_CONFIG (ไม่รวมโครงการ)
+  const onToggleProgram = (key, checked) => {
+    if (!PROG_KEYS.includes(key)) return
+    setDraft((p) => ({ ...p, [key]: !!checked }))
+  }
+
+  // บันทึก: รวมฟิลด์โครงการไปด้วย (สมาชิก 1 คน อยู่ได้หลายโครงการ)
   const save = async () => {
     if (!active) return
     setRowError("")
     setSaving(true)
     try {
-      // สร้าง diff แบบง่าย
+      // diff ทั้งฟิลด์ข้อมูล + โครงการ
       const diff = {}
-      FIELD_CONFIG.forEach(({ key, type }) => {
+      const keysToCheck = [
+        ...FIELD_CONFIG.map((f) => f.key),
+        ...PROG_KEYS,
+      ]
+
+      keysToCheck.forEach((key) => {
+        const cfg = FIELD_CONFIG.find((f) => f.key === key)
         const oldV = active[key]
         let newV = draft[key]
-        if (type === "date" || type === "date-optional") {
-          newV = newV ? new Date(newV).toISOString() : null
-        } else if (type === "number" || type === "decimal" || LAND_KEYS.includes(key)) {
-          newV = newV === "" || newV == null ? 0 : Number(newV)
+
+        if (cfg) {
+          // แปลงชนิดตามชนิดฟิลด์
+          if (cfg.type === "date" || cfg.type === "date-optional") {
+            newV = newV ? new Date(newV).toISOString() : null
+          } else if (cfg.type === "number" || cfg.type === "decimal" || LAND_KEYS.includes(key)) {
+            newV = newV === "" || newV == null ? 0 : Number(newV)
+          }
+        } else if (PROG_KEYS.includes(key)) {
+          newV = !!newV // boolean
         }
+
         if (oldV !== newV) diff[key] = newV
       })
 
@@ -323,11 +391,7 @@ const MemberSearch = () => {
 
       // optimistic update
       const prev = rows
-      setRows((cur) =>
-        cur.map((x) =>
-          x.member_id === active.member_id ? { ...x, ...diff } : x
-        )
-      )
+      setRows((cur) => cur.map((x) => (x.member_id === active.member_id ? { ...x, ...diff } : x)))
 
       const res = await fetch(`${API_BASE}/member/members/${idForPatch}`, {
         method: "PATCH",
@@ -343,7 +407,7 @@ const MemberSearch = () => {
       setRows((cur) => cur.map((x) => (x.member_id === updated.member_id ? updated : x)))
       setActive(updated)
 
-      // refresh draft
+      // refresh draft (รวมโครงการ)
       const nd = {}
       FIELD_CONFIG.forEach(({ key, type }) => {
         let v = updated[key]
@@ -352,7 +416,9 @@ const MemberSearch = () => {
         else v = v ?? ""
         nd[key] = v
       })
+      PROG_KEYS.forEach((k) => { nd[k] = !!updated[k] })
       setDraft(nd)
+
       setEditing(false)
     } catch (e) {
       setRowError(e?.message || "บันทึกไม่สำเร็จ")
@@ -519,10 +585,14 @@ const MemberSearch = () => {
                     )}
                   </div>
 
-                  {/* โครงการที่เข้าร่วม (แสดงอย่างเดียว) */}
+                  {/* โครงการที่เข้าร่วม (แก้ไขได้) */}
                   <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-400 dark:bg-emerald-900/10">
                     <div className="mb-2 text-base font-semibold text-emerald-800 dark:text-emerald-200">🎯 โครงการที่เข้าร่วม</div>
-                    <ProgramBadges row={active} />
+                    {!editing ? (
+                      <ProgramBadges row={active} />
+                    ) : (
+                      <ProgramToggles value={draft} onChange={onToggleProgram} />
+                    )}
                   </div>
 
                   {rowError && (
@@ -598,7 +668,15 @@ const MemberSearch = () => {
                                     inputMode="numeric"
                                     className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                                     value={val}
-                                    onChange={(e) => onChangeField(k, e.target.value)}
+                                    onChange={(e) => {
+                                      const newVal = e.target.value
+                                      const n = Number(onlyDigits(String(newVal ?? "")))
+                                      const clamped =
+                                        k.endsWith("_ngan") ? Math.min(Math.max(n, 0), 3) :
+                                        k.endsWith("_wa") ? Math.min(Math.max(n, 0), 99) :
+                                        Math.max(n, 0)
+                                      setDraft((p) => ({ ...p, [k]: clamped }))
+                                    }}
                                     placeholder={label}
                                   />
                                 )}

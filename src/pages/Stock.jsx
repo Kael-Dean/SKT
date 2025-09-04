@@ -6,8 +6,8 @@ const API_BASE = import.meta.env.VITE_API_BASE || ""
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
-const kg = (n) => (isFinite(n) ? Number(n) : 0)
-const fmtKg = (n) => (kg(n).toLocaleString(undefined, { maximumFractionDigits: 2 }))
+const kg = (n) =>
+  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(isFinite(n) ? n : 0)
 
 /** ---------- Auth header ---------- */
 const authHeader = () => {
@@ -24,11 +24,11 @@ const baseField =
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-/** ---------- Reusable ComboBox ---------- */
+/** ---------- Reusable ComboBox (เหมือนหน้าอื่น ๆ) ---------- */
 function ComboBox({
   options = [],
   value,
-  onChange, // (newValue, optionObj) => void
+  onChange, // (id, optionObj) => void
   placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "",
   getValue = (o) => o?.id ?? o?.value ?? "",
@@ -41,10 +41,10 @@ function ComboBox({
   const listRef = useRef(null)
   const btnRef = useRef(null)
 
-  const selectedLabel = (() => {
+  const selectedLabel = useMemo(() => {
     const found = options.find((o) => String(getValue(o)) === String(value))
     return found ? getLabel(found) : ""
-  })()
+  }, [options, value, getLabel, getValue])
 
   useEffect(() => {
     const onClick = (e) => {
@@ -148,12 +148,11 @@ function ComboBox({
           )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
-            const val = String(getValue(opt))
             const isActive = idx === highlight
-            const isChosen = String(value) === val
+            const isChosen = String(getValue(opt)) === String(value)
             return (
               <button
-                key={val || label || idx}
+                key={String(getValue(opt)) || label || idx}
                 type="button"
                 role="option"
                 aria-selected={isChosen}
@@ -180,36 +179,65 @@ function ComboBox({
   )
 }
 
+/** ---------- Collapsible item ---------- */
+function Collapse({ title, right, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between bg-slate-50 px-3 py-2 text-left hover:bg-emerald-50/60 dark:bg-slate-800 dark:hover:bg-slate-700/60"
+      >
+        <div className="flex items-center gap-2">
+          <span
+            className={[
+              "inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs",
+              "border-emerald-300 text-emerald-700 bg-emerald-50 dark:border-emerald-700 dark:text-emerald-200 dark:bg-emerald-900/30",
+            ].join(" ")}
+          >
+            {open ? "−" : "+"}
+          </span>
+          <span className="font-medium">{title}</span>
+        </div>
+        {right}
+      </button>
+      {open && <div className="bg-white dark:bg-slate-900/40">{children}</div>}
+    </div>
+  )
+}
+
 /** ---------- Stock Page ---------- */
 const Stock = () => {
-  /** ---------- Options ---------- */
-  const [branchOptions, setBranchOptions] = useState([])    // [{id,label}]
-  const [klangOptions, setKlangOptions] = useState([])      // [{id,label}]
-  const [productOptions, setProductOptions] = useState([])  // [{id,label}]
-  const [riceOptions, setRiceOptions] = useState([])        // [{id,label}]
-  const [subriceOptions, setSubriceOptions] = useState([])  // [{id,label}]
-  const [yearOptions, setYearOptions] = useState([])        // [{id,label}]
-  const [condOptions, setCondOptions] = useState([])        // [{id,label}]
+  // options
+  const [branchOptions, setBranchOptions] = useState([])
+  const [klangOptions, setKlangOptions] = useState([])
+  const [productOptions, setProductOptions] = useState([])
+  const [riceOptions, setRiceOptions] = useState([])
+  const [subriceOptions, setSubriceOptions] = useState([])
+  const [yearOptions, setYearOptions] = useState([])
+  const [conditionOptions, setConditionOptions] = useState([])
 
-  /** ---------- Filters ---------- */
+  // filters
   const [filters, setFilters] = useState({
-    productId: "",
     branchId: "",
     klangId: "",
+    productId: "",
+
     riceId: "",
     subriceId: "",
     yearId: "",
     conditionId: "",
-    detail: "rice_subrice_year_condition", // "rice_subrice" | "rice_subrice_year" | "rice_subrice_year_condition"
+
+    detail: "rice_subrice_year_condition", // default ให้ลึกสุด
   })
 
-  /** ---------- Data ---------- */
+  // data
+  const [tree, setTree] = useState([]) // payload from /stock/tree
   const [loading, setLoading] = useState(false)
-  const [tree, setTree] = useState([]) // [{ rice_id, rice_type, total, items: [...] }]
 
-  /** ---------- Load static options ---------- */
+  /** ---------- Load static dropdowns ---------- */
   useEffect(() => {
-    const loadOpts = async () => {
+    const loadInitial = async () => {
       try {
         const [b, p, y, c] = await Promise.all([
           fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
@@ -217,87 +245,98 @@ const Stock = () => {
           fetch(`${API_BASE}/order/year/search`, { headers: authHeader() }),
           fetch(`${API_BASE}/order/condition/search`, { headers: authHeader() }),
         ])
+
         const branches = (b.ok ? await b.json() : []).map((x) => ({ id: String(x.id), label: x.branch_name }))
         const products = (p.ok ? await p.json() : []).map((x) => ({ id: String(x.id), label: x.product_type }))
-        const years    = (y.ok ? await y.json() : []).map((x) => ({ id: String(x.id), label: String(x.year) }))
-        const conds    = (c.ok ? await c.json() : []).map((x) => ({ id: String(x.id), label: String(x.year ?? x.condition) }))
+        const years = (y.ok ? await y.json() : []).map((x) => ({ id: String(x.id), label: String(x.year) }))
+        const conds = (c.ok ? await c.json() : []).map((x) => ({
+          id: String(x.id),
+          label: String(x.condition ?? x.label ?? ""),
+        }))
 
         setBranchOptions(branches)
         setProductOptions(products)
         setYearOptions(years)
-        setCondOptions(conds)
-      } catch (err) {
-        console.error("load options failed:", err)
+        setConditionOptions(conds)
+      } catch (e) {
+        console.error("load initial options failed:", e)
       }
     }
-    loadOpts()
+    loadInitial()
   }, [])
 
-  /** ---------- Dependent options ---------- */
-  // Klang by branch
+  /** ---------- Load Klang by branch ---------- */
   useEffect(() => {
-    const run = async () => {
-      setKlangOptions([])
-      setFilters((p) => ({ ...p, klangId: "" }))
-      if (!filters.branchId) return
+    const loadKlang = async () => {
+      if (!filters.branchId) {
+        setKlangOptions([])
+        setFilters((p) => ({ ...p, klangId: "" }))
+        return
+      }
       try {
-        const r = await fetch(`${API_BASE}/order/klang/search?branch_id=${filters.branchId}`, { headers: authHeader() })
+        const r = await fetch(`${API_BASE}/order/klang/search?branch_id=${filters.branchId}`, {
+          headers: authHeader(),
+        })
         const data = r.ok ? await r.json() : []
         setKlangOptions((Array.isArray(data) ? data : []).map((x) => ({ id: String(x.id), label: x.klang_name })))
       } catch (e) {
         console.error("load klang failed:", e)
+        setKlangOptions([])
       }
     }
-    run()
+    loadKlang()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId])
 
-  // Rice by product
+  /** ---------- Load Rice by product ---------- */
   useEffect(() => {
-    const run = async () => {
-      setRiceOptions([])
-      setSubriceOptions([])
-      setFilters((p) => ({ ...p, riceId: "", subriceId: "" }))
-      if (!filters.productId) return
+    const loadRice = async () => {
+      if (!filters.productId) {
+        setRiceOptions([])
+        setFilters((p) => ({ ...p, riceId: "", subriceId: "" }))
+        return
+      }
       try {
         const r = await fetch(`${API_BASE}/order/rice/search?product_id=${filters.productId}`, { headers: authHeader() })
         const data = r.ok ? await r.json() : []
-        const mapped = (Array.isArray(data) ? data : []).map((x) => ({
-          id: String(x.id),
-          label: String(x.rice_type ?? "").trim(),
-        })).filter((o) => o.id && o.label)
+        const mapped = (Array.isArray(data) ? data : [])
+          .map((x) => ({ id: String(x.id), label: String(x.rice_type ?? "").trim() }))
+          .filter((o) => o.id && o.label)
         setRiceOptions(mapped)
       } catch (e) {
         console.error("load rice failed:", e)
+        setRiceOptions([])
       }
     }
-    run()
+    loadRice()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.productId])
 
-  // Sub-rice by rice
+  /** ---------- Load Subrice by rice ---------- */
   useEffect(() => {
-    const run = async () => {
-      setSubriceOptions([])
-      setFilters((p) => ({ ...p, subriceId: "" }))
-      if (!filters.riceId) return
+    const loadSubrice = async () => {
+      if (!filters.riceId) {
+        setSubriceOptions([])
+        setFilters((p) => ({ ...p, subriceId: "" }))
+        return
+      }
       try {
         const r = await fetch(`${API_BASE}/order/sub-rice/search?rice_id=${filters.riceId}`, { headers: authHeader() })
         const data = r.ok ? await r.json() : []
-        const mapped = (Array.isArray(data) ? data : []).map((x) => ({
-          id: String(x.id),
-          label: String(x.sub_class ?? "").trim(),
-        })).filter((o) => o.id && o.label)
+        const mapped = (Array.isArray(data) ? data : [])
+          .map((x) => ({ id: String(x.id), label: String(x.sub_class ?? "").trim() }))
+          .filter((o) => o.id && o.label)
         setSubriceOptions(mapped)
       } catch (e) {
         console.error("load subrice failed:", e)
+        setSubriceOptions([])
       }
     }
-    run()
+    loadSubrice()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.riceId])
 
-  /** ---------- Fetch tree ---------- */
+  /** ---------- Fetch stock tree ---------- */
   const fetchTree = async () => {
     if (!filters.productId || !filters.branchId) {
       setTree([])
@@ -308,127 +347,75 @@ const Stock = () => {
       const params = new URLSearchParams()
       params.set("product_id", filters.productId)
       params.set("branch_id", filters.branchId)
-      params.set("detail", filters.detail)
-
-      if (filters.klangId)     params.set("klang_id", filters.klangId)
-      if (filters.riceId)      params.set("rice_id", filters.riceId)
-      if (filters.subriceId)   params.set("subrice_id", filters.subriceId)
-      if (filters.yearId)      params.set("year_id", filters.yearId)
+      if (filters.klangId) params.set("klang_id", filters.klangId)
+      if (filters.riceId) params.set("rice_id", filters.riceId)
+      if (filters.subriceId) params.set("subrice_id", filters.subriceId)
+      if (filters.yearId) params.set("year_id", filters.yearId)
       if (filters.conditionId) params.set("condition_id", filters.conditionId)
+      if (filters.detail) params.set("detail", filters.detail)
 
-      const r = await fetch(`${API_BASE}/order/stock/tree?${params.toString()}`, { headers: authHeader() })
+      const r = await fetch(`${API_BASE}/stock/tree?${params.toString()}`, { headers: authHeader() })
       const data = r.ok ? await r.json() : []
       setTree(Array.isArray(data) ? data : [])
     } catch (e) {
-      console.error("fetch tree failed:", e)
+      console.error(e)
       setTree([])
     } finally {
       setLoading(false)
     }
   }
 
+  // auto fetch when required fields change
+  useEffect(() => {
+    fetchTree()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.productId, filters.branchId, filters.klangId, filters.riceId, filters.subriceId, filters.yearId, filters.conditionId, filters.detail])
+
   /** ---------- Totals ---------- */
-  const grandTotal = useMemo(() => {
-    return tree.reduce((acc, r) => acc + kg(r.total ?? 0), 0)
+  const grandTotalKg = useMemo(() => {
+    // รองรับทั้งโครงสร้าง 3 แบบ โดย sum ที่ "total" ถ้าไม่มีให้ sum ที่ "available"
+    const sumNode = (node) => {
+      if (!node) return 0
+      if (typeof node.total === "number") return toNumber(node.total)
+      if (typeof node.available === "number") return toNumber(node.available)
+      return 0
+    }
+    let total = 0
+    tree.forEach((rice) => {
+      total += sumNode(rice)
+    })
+    return total
   }, [tree])
 
-  /** ---------- Expand/Collapse ---------- */
-  const [openKeys, setOpenKeys] = useState(() => new Set())
-  const keyOf = (...parts) => parts.map((p) => (p ?? "null")).join("|")
+  const disabledFetch = !filters.productId || !filters.branchId
 
-  const toggleKey = (k) => {
-    setOpenKeys((s) => {
-      const next = new Set(s)
-      if (next.has(k)) next.delete(k)
-      else next.add(k)
-      return next
-    })
-  }
-
-  const expandAll = () => {
-    const allKeys = new Set()
-    tree.forEach((rice) => {
-      const rKey = keyOf("r", rice.rice_id)
-      allKeys.add(rKey)
-      rice.items?.forEach((sub) => {
-        const sKey = keyOf("s", rice.rice_id, sub.subrice_id)
-        allKeys.add(sKey)
-        sub.items?.forEach((yr) => {
-          const yKey = keyOf("y", rice.rice_id, sub.subrice_id, yr.year_id)
-          allKeys.add(yKey)
-        })
-      })
-    })
-    setOpenKeys(allKeys)
-  }
-
-  const collapseAll = () => setOpenKeys(new Set())
-
-  /** ---------- Reset ---------- */
-  const resetFilters = () => {
-    setFilters({
-      productId: "",
-      branchId: "",
-      klangId: "",
-      riceId: "",
-      subriceId: "",
-      yearId: "",
-      conditionId: "",
-      detail: "rice_subrice_year_condition",
-    })
-    setKlangOptions([])
-    setRiceOptions([])
-    setSubriceOptions([])
-    setTree([])
-    setOpenKeys(new Set())
-  }
-
-  /** ---------- Auto-fetch when product & branch chosen ---------- */
-  useEffect(() => {
-    if (filters.productId && filters.branchId) {
-      fetchTree()
-    } else {
-      setTree([])
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.productId, filters.branchId, filters.detail])
-
-  /** ---------- UI helpers ---------- */
-  const Label = ({ text }) => (
-    <span className="inline-flex items-center rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-100">
-      {text || "—"}
-    </span>
-  )
-
-  /** ---------- Render ---------- */
+  /** ----------- UI ----------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
-        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">
-          🏷️ คลังสินค้า (Stock)
-        </h1>
+        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🏷️ คลังสินค้า</h1>
 
         {/* Filters */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="grid gap-3 md:grid-cols-6">
             {/* Branch */}
             <div>
-              <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">สาขา (จำเป็น)</div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
               <ComboBox
                 options={branchOptions}
                 value={filters.branchId}
-                getValue={(o) => o.id}
-                onChange={(id) => setFilters((p) => ({ ...p, branchId: id || "", klangId: "" }))}
+                onChange={(id) =>
+                  setFilters((p) => ({ ...p, branchId: id || "", klangId: "" }))
+                }
                 placeholder="— เลือกสาขา —"
               />
             </div>
             {/* Klang */}
             <div>
-              <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">คลัง (ถ้ามี)</div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
               <ComboBox
                 options={klangOptions}
                 value={filters.klangId}
-                getValue={(o) => o.id}
                 onChange={(id) => setFilters((p) => ({ ...p, klangId: id || "" }))}
                 placeholder="— เลือกคลัง —"
                 disabled={!filters.branchId}
@@ -436,22 +423,20 @@ const Stock = () => {
             </div>
             {/* Product */}
             <div>
-              <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">สินค้า (จำเป็น)</div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สินค้า (Product)</label>
               <ComboBox
                 options={productOptions}
                 value={filters.productId}
-                getValue={(o) => o.id}
                 onChange={(id) => setFilters((p) => ({ ...p, productId: id || "", riceId: "", subriceId: "" }))}
                 placeholder="— เลือกสินค้า —"
               />
             </div>
             {/* Rice */}
             <div>
-              <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">ประเภทข้าว</div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ประเภทข้าว</label>
               <ComboBox
                 options={riceOptions}
                 value={filters.riceId}
-                getValue={(o) => o.id}
                 onChange={(id) => setFilters((p) => ({ ...p, riceId: id || "", subriceId: "" }))}
                 placeholder="— เลือกประเภทข้าว —"
                 disabled={!filters.productId}
@@ -459,11 +444,10 @@ const Stock = () => {
             </div>
             {/* Subrice */}
             <div>
-              <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">ชนิดย่อย</div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชนิดย่อย</label>
               <ComboBox
                 options={subriceOptions}
                 value={filters.subriceId}
-                getValue={(o) => o.id}
                 onChange={(id) => setFilters((p) => ({ ...p, subriceId: id || "" }))}
                 placeholder="— เลือกชนิดย่อย —"
                 disabled={!filters.riceId}
@@ -471,258 +455,207 @@ const Stock = () => {
             </div>
             {/* Year */}
             <div>
-              <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">ฤดูกาล/ปี</div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ฤดูกาล/ปี</label>
               <ComboBox
                 options={yearOptions}
                 value={filters.yearId}
-                getValue={(o) => o.id}
                 onChange={(id) => setFilters((p) => ({ ...p, yearId: id || "" }))}
                 placeholder="— เลือกปี —"
               />
             </div>
             {/* Condition */}
             <div>
-              <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">สภาพ</div>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สภาพ (Condition)</label>
               <ComboBox
-                options={condOptions}
+                options={conditionOptions}
                 value={filters.conditionId}
-                getValue={(o) => o.id}
                 onChange={(id) => setFilters((p) => ({ ...p, conditionId: id || "" }))}
                 placeholder="— เลือกสภาพ —"
               />
             </div>
-            {/* Detail level */}
+            {/* Detail */}
             <div>
-              <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">ระดับรายละเอียด</div>
-              <ComboBox
-                options={[
-                  { id: "rice_subrice", label: "ข้าว → ชนิดย่อย" },
-                  { id: "rice_subrice_year", label: "ข้าว → ชนิดย่อย → ปี" },
-                  { id: "rice_subrice_year_condition", label: "ข้าว → ชนิดย่อย → ปี → สภาพ" },
-                ]}
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ระดับรายละเอียด</label>
+              <select
+                className={baseField}
                 value={filters.detail}
-                getValue={(o) => o.id}
-                onChange={(id) => setFilters((p) => ({ ...p, detail: id || "rice_subrice_year_condition" }))}
-              />
+                onChange={(e) => setFilters((p) => ({ ...p, detail: e.target.value }))}
+              >
+                <option value="rice_subrice">ข้าว ➜ ชนิดย่อย</option>
+                <option value="rice_subrice_year">ข้าว ➜ ชนิดย่อย ➜ ปี</option>
+                <option value="rice_subrice_year_condition">ข้าว ➜ ชนิดย่อย ➜ ปี ➜ สภาพ</option>
+              </select>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-end gap-2 md:col-span-6">
+            <div className="flex items-end gap-2 md:col-span-2">
               <button
                 onClick={fetchTree}
                 type="button"
-                className="inline-flex items-center justify-center rounded-2xl 
-                           bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                           shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                           transition-all duration-300 ease-out
-                           hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                           hover:scale-[1.05] active:scale-[.97] cursor-pointer disabled:opacity-60"
-                disabled={!filters.productId || !filters.branchId}
-                aria-busy={loading ? "true" : "false"}
+                disabled={disabledFetch}
+                className={[
+                  "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-base font-semibold text-white shadow-[0_6px_16px_rgba(16,185,129,0.35)] transition-all duration-300",
+                  disabledFetch
+                    ? "bg-emerald-400/60 cursor-not-allowed"
+                    : "bg-emerald-600 hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.03] active:scale-[.98]",
+                ].join(" ")}
               >
-                {loading ? "กำลังดึงข้อมูล..." : "ค้นหา"}
+                แสดงสต๊อก
               </button>
               <button
                 type="button"
-                onClick={resetFilters}
+                onClick={() => {
+                  setFilters({
+                    branchId: "",
+                    klangId: "",
+                    productId: "",
+                    riceId: "",
+                    subriceId: "",
+                    yearId: "",
+                    conditionId: "",
+                    detail: "rice_subrice_year_condition",
+                  })
+                  setKlangOptions([])
+                  setRiceOptions([])
+                  setSubriceOptions([])
+                  setTree([])
+                }}
                 className="inline-flex items-center justify-center rounded-2xl 
                            border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                           shadow-sm
-                           transition-all duration-300 ease-out
-                           hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                           active:scale-[.97]
-                           dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                           dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                           shadow-sm hover:bg-slate-100 hover:shadow-md hover:scale-[1.02] active:scale-[.98]
+                           dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50"
               >
                 รีเซ็ต
               </button>
-              <div className="ml-auto flex gap-2">
-                <button
-                  type="button"
-                  onClick={expandAll}
-                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700/60"
-                >
-                  กางทั้งหมด
-                </button>
-                <button
-                  type="button"
-                  onClick={collapseAll}
-                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700/60"
-                >
-                  พับทั้งหมด
-                </button>
-              </div>
             </div>
-          </div>
-
-          {/* Hints */}
-          <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-            ต้องเลือก <b>สาขา</b> และ <b>สินค้า</b> อย่างน้อย จากนั้นเลือกตัวกรองอื่น ๆ ได้ตามต้องการ
           </div>
         </div>
 
         {/* Summary cards */}
         <div className="mb-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-            <div className="text-slate-500 dark:text-slate-400">จำนวนประเภทข้าว (ระดับบนสุด)</div>
+            <div className="text-slate-500 dark:text-slate-400">จำนวนกลุ่มข้าว (ระดับบนสุด)</div>
             <div className="text-2xl font-semibold">{tree.length.toLocaleString()}</div>
           </div>
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-            <div className="text-slate-500 dark:text-slate-400">น้ำหนักรวม (กก.)</div>
-            <div className="text-2xl font-semibold">{fmtKg(grandTotal)}</div>
+            <div className="text-slate-500 dark:text-slate-400">น้ำหนักคงเหลือรวม (กก.)</div>
+            <div className="text-2xl font-semibold">{kg(toNumber(grandTotalKg))}</div>
           </div>
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
             <div className="text-slate-500 dark:text-slate-400">ระดับรายละเอียด</div>
             <div className="text-2xl font-semibold">
               {filters.detail === "rice_subrice"
-                ? "ข้าว → ชนิดย่อย"
+                ? "ข้าว > ชนิดย่อย"
                 : filters.detail === "rice_subrice_year"
-                ? "ข้าว → ชนิดย่อย → ปี"
-                : "ข้าว → ชนิดย่อย → ปี → สภาพ"}
+                ? "ข้าว > ชนิดย่อย > ปี"
+                : "ข้าว > ชนิดย่อย > ปี > สภาพ"}
             </div>
           </div>
         </div>
 
-        {/* Tree table */}
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-              <tr>
-                <th className="px-3 py-2 w-[44px]"></th>
-                <th className="px-3 py-2">ระดับ</th>
-                <th className="px-3 py-2">ชื่อ</th>
-                <th className="px-3 py-2 text-right">คงเหลือ (กก.)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td className="px-3 py-3" colSpan={4}>กำลังโหลด...</td></tr>
-              ) : !filters.productId || !filters.branchId ? (
-                <tr><td className="px-3 py-3" colSpan={4}>โปรดเลือก <b>สินค้า</b> และ <b>สาขา</b> ก่อน</td></tr>
-              ) : tree.length === 0 ? (
-                <tr><td className="px-3 py-3" colSpan={4}>ไม่พบบันทึกคลังตามเงื่อนไข</td></tr>
-              ) : (
-                tree.map((r) => {
-                  const rKey = keyOf("r", r.rice_id)
-                  const rOpen = openKeys.has(rKey)
-                  return (
-                    <>
-                      <tr key={rKey} className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-800 dark:even:bg-slate-700">
-                        <td className="px-3 py-2">
-                          <button
-                            type="button"
-                            className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
-                            onClick={() => toggleKey(rKey)}
-                            aria-label={rOpen ? "ยุบ" : "ขยาย"}
-                          >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              {rOpen ? (
-                                <path d="M7 14l5-5 5 5H7z" />
-                              ) : (
-                                <path d="M7 10l5 5 5-5H7z" />
-                              )}
-                            </svg>
-                          </button>
-                        </td>
-                        <td className="px-3 py-2"><Label text="ข้าว" /></td>
-                        <td className="px-3 py-2 font-medium">{r.rice_type || "—"}</td>
-                        <td className="px-3 py-2 text-right font-semibold">{fmtKg(r.total)}</td>
-                      </tr>
-
-                      {/* Subrice level */}
-                      {rOpen && (r.items || []).map((s) => {
-                        const sKey = keyOf("s", r.rice_id, s.subrice_id)
-                        const sOpen = openKeys.has(sKey)
-                        return (
-                          <>
-                            <tr key={sKey} className="bg-white/70 dark:bg-slate-800/70">
-                              <td className="px-3 py-2 pl-8">
-                                {filters.detail !== "rice_subrice" && (
-                                  <button
-                                    type="button"
-                                    className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
-                                    onClick={() => toggleKey(sKey)}
-                                    aria-label={sOpen ? "ยุบ" : "ขยาย"}
+        {/* Tree */}
+        <div className="space-y-3">
+          {loading ? (
+            <div className="rounded-2xl border border-slate-200 p-6 dark:border-slate-700">
+              กำลังโหลดสต๊อก...
+            </div>
+          ) : tree.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 p-6 text-slate-600 dark:border-slate-700 dark:text-slate-300">
+              {!filters.productId || !filters.branchId
+                ? "กรุณาเลือกสินค้าและสาขา เพื่อแสดงสต๊อก"
+                : "ไม่พบข้อมูลสต๊อกตามตัวกรองที่เลือก"}
+            </div>
+          ) : (
+            tree.map((rice) => {
+              const riceTitle = `${rice.rice_type ?? "ไม่ระบุ"} • รวม ${kg(toNumber(rice.total ?? rice.available))} กก.`
+              return (
+                <Collapse
+                  key={`rice-${rice.rice_id}`}
+                  title={riceTitle}
+                  right={<span className="text-sm text-slate-500 dark:text-slate-400 pr-2">rice_id: {rice.rice_id ?? "-"}</span>}
+                  defaultOpen={true}
+                >
+                  {/* Subrice level */}
+                  <div className="p-2 md:p-3 space-y-2">
+                    {(rice.items ?? []).map((sub) => {
+                      const subTitle = `${sub.sub_class ?? "—"} • รวม ${kg(toNumber(sub.total ?? sub.available))} กก.`
+                      return (
+                        <Collapse
+                          key={`sub-${rice.rice_id}-${sub.subrice_id}`}
+                          title={subTitle}
+                          right={
+                            <span className="text-sm text-slate-500 dark:text-slate-400 pr-2">
+                              subrice_id: {sub.subrice_id ?? "-"}
+                            </span>
+                          }
+                          defaultOpen={false}
+                        >
+                          {/* Next levels depend on detail */}
+                          <div className="p-2 md:p-3 space-y-2">
+                            {filters.detail === "rice_subrice" ? (
+                              <div className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
+                                ไม่มีระดับถัดไป (หยุดที่ชนิดย่อย)
+                              </div>
+                            ) : (
+                              (sub.items ?? []).map((year) => {
+                                const yTitle =
+                                  filters.detail === "rice_subrice_year"
+                                    ? `ปี ${year.year ?? "—"} • เหลือ ${kg(toNumber(year.available))} กก.`
+                                    : `ปี ${year.year ?? "—"} • รวม ${kg(toNumber(year.total ?? year.available))} กก.`
+                                return (
+                                  <Collapse
+                                    key={`year-${rice.rice_id}-${sub.subrice_id}-${year.year_id}`}
+                                    title={yTitle}
+                                    right={
+                                      <span className="text-sm text-slate-500 dark:text-slate-400 pr-2">
+                                        year_id: {year.year_id ?? "-"}
+                                      </span>
+                                    }
+                                    defaultOpen={false}
                                   >
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                      {sOpen ? (
-                                        <path d="M7 14l5-5 5 5H7z" />
-                                      ) : (
-                                        <path d="M7 10l5 5 5-5H7z" />
-                                      )}
-                                    </svg>
-                                  </button>
-                                )}
-                              </td>
-                              <td className="px-3 py-2"><Label text="ชนิดย่อย" /></td>
-                              <td className="px-3 py-2">{s.sub_class || "—"}</td>
-                              <td className="px-3 py-2 text-right">{fmtKg(s.total)}</td>
-                            </tr>
-
-                            {/* Year level */}
-                            {sOpen && filters.detail !== "rice_subrice" && (s.items || []).map((y) => {
-                              const yKey = keyOf("y", r.rice_id, s.subrice_id, y.year_id)
-                              const yOpen = openKeys.has(yKey)
-                              const yTotal = (filters.detail === "rice_subrice_year") ? y.available : y.total
-                              return (
-                                <>
-                                  <tr key={yKey} className="bg-white/50 dark:bg-slate-800/50">
-                                    <td className="px-3 py-2 pl-12">
-                                      {filters.detail === "rice_subrice_year_condition" && (
-                                        <button
-                                          type="button"
-                                          className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
-                                          onClick={() => toggleKey(yKey)}
-                                          aria-label={yOpen ? "ยุบ" : "ขยาย"}
-                                        >
-                                          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                            {yOpen ? (
-                                              <path d="M7 14l5-5 5 5H7z" />
-                                            ) : (
-                                              <path d="M7 10l5 5 5-5H7z" />
-                                            )}
-                                          </svg>
-                                        </button>
-                                      )}
-                                    </td>
-                                    <td className="px-3 py-2"><Label text="ปี" /></td>
-                                    <td className="px-3 py-2">{y.year ?? "—"}</td>
-                                    <td className="px-3 py-2 text-right">{fmtKg(yTotal)}</td>
-                                  </tr>
-
-                                  {/* Condition level */}
-                                  {yOpen && filters.detail === "rice_subrice_year_condition" && (y.items || []).map((c) => {
-                                    const cKey = keyOf("c", r.rice_id, s.subrice_id, y.year_id, c.condition_id)
-                                    return (
-                                      <tr key={cKey} className="bg-white/30 dark:bg-slate-800/30">
-                                        <td className="px-3 py-2 pl-16"></td>
-                                        <td className="px-3 py-2"><Label text="สภาพ" /></td>
-                                        <td className="px-3 py-2">{c.condition ?? "—"}</td>
-                                        <td className="px-3 py-2 text-right">{fmtKg(c.available)}</td>
-                                      </tr>
-                                    )
-                                  })}
-                                </>
-                              )
-                            })}
-                          </>
-                        )
-                      })}
-                    </>
-                  )
-                })
-              )}
-            </tbody>
-            {/* Grand total footer */}
-            {!loading && tree.length > 0 && (
-              <tfoot className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-                <tr>
-                  <td className="px-3 py-2" colSpan={3}><b>รวมทั้งหมด</b></td>
-                  <td className="px-3 py-2 text-right font-bold">{fmtKg(grandTotal)}</td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
+                                    {filters.detail === "rice_subrice_year" ? (
+                                      <div className="p-3 text-sm text-slate-600 dark:text-slate-300">
+                                        ไม่แยกสภาพ (condition) ในระดับนี้
+                                      </div>
+                                    ) : (
+                                      <div className="p-2 md:p-3">
+                                        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+                                          <table className="min-w-full text-sm">
+                                            <thead className="bg-slate-50 dark:bg-slate-800">
+                                              <tr>
+                                                <th className="px-3 py-2 text-left">สภาพ</th>
+                                                <th className="px-3 py-2 text-right">คงเหลือ (กก.)</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {(year.items ?? []).map((cond) => (
+                                                <tr
+                                                  key={`cond-${cond.condition_id}`}
+                                                  className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-900 dark:even:bg-slate-800/70"
+                                                >
+                                                  <td className="px-3 py-2">{cond.condition ?? "—"}</td>
+                                                  <td className="px-3 py-2 text-right">
+                                                    {kg(toNumber(cond.available))}
+                                                  </td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </Collapse>
+                                )
+                              })
+                            )}
+                          </div>
+                        </Collapse>
+                      )
+                    })}
+                  </div>
+                </Collapse>
+              )
+            })
+          )}
         </div>
       </div>
     </div>

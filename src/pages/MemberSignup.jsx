@@ -27,7 +27,7 @@ const clampWa = (v) => {
   return Math.max(0, Math.min(99, n)) // 0–99
 }
 
-// debounce (เหมือนหน้า Buy)
+// debounce
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -40,7 +40,7 @@ function useDebounce(value, delay = 400) {
 /** ---------- class helpers ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/** ---------- สไตล์เดียวกับหน้า Sales ---------- */
+/** ---------- สไตล์ ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -311,7 +311,7 @@ const MemberSignup = () => {
     last_bought_date: new Date().toISOString().slice(0, 10),
     bank_account: "",
     tgs_id: "",
-    spouce_name: "",   // <— อยู่ในกรอบแรกแล้ว
+    spouce_name: "",
     orders_placed: "",
 
     // Land
@@ -321,9 +321,9 @@ const MemberSignup = () => {
   })
 
   // 👉 debounce ที่อิงกับค่าจริง
-  const debCid = useDebounce(form.citizen_id, 400)
+  const debCid   = useDebounce(form.citizen_id, 400)
   const debFirst = useDebounce(form.first_name, 400)
-  const debLast = useDebounce(form.last_name, 400)
+  const debLast  = useDebounce(form.last_name, 400)
 
   // header auth แบบเดียวกับหน้า Buy
   const authHeader = () => {
@@ -331,6 +331,66 @@ const MemberSignup = () => {
     return {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    }
+  }
+
+  /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอที่ใช้ได้ (array หรือ object ก็รับ) */
+  const fetchFirstOkJson = async (paths = []) => {
+    for (const p of paths) {
+      try {
+        const r = await fetch(`${API_BASE}${p}`, { headers: authHeader() })
+        if (r.ok) {
+          const data = await r.json()
+          if (Array.isArray(data)) return data
+          if (data && typeof data === "object") return data
+        }
+      } catch (_) {}
+    }
+    return Array.isArray(paths) ? [] : {}
+  }
+
+  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id (เหมือนหน้า Buy) */
+  const loadAddressByCitizenId = async (cid) => {
+    const q = encodeURIComponent(onlyDigits(cid))
+    const candidates = [
+      `/order/customer/detail?citizen_id=${q}`,
+      `/order/customers/detail?citizen_id=${q}`,
+      `/customer/detail?citizen_id=${q}`,
+      `/customers/detail?citizen_id=${q}`,
+      `/member/detail?citizen_id=${q}`,
+      `/order/customers/search?q=${q}`, // เผื่อ API นี้ส่ง address มาด้วย (ในโปรเจกต์นี้ส่งมาอยู่แล้ว)
+    ]
+    const data = await fetchFirstOkJson(candidates)
+
+    const toStr = (v) => (v == null ? "" : String(v))
+    const addr = {
+      address: toStr(data.address ?? data.house_no ?? data.houseNo ?? ""),
+      mhoo: toStr(data.mhoo ?? data.moo ?? ""),
+      sub_district: toStr(data.sub_district ?? data.subdistrict ?? data.subDistrict ?? ""),
+      district: toStr(data.district ?? ""),
+      province: toStr(data.province ?? ""),
+      postal_code: onlyDigits(toStr(data.postal_code ?? data.postalCode ?? "")),
+      first_name: toStr(data.first_name ?? data.firstName ?? ""),
+      last_name: toStr(data.last_name ?? data.lastName ?? ""),
+      phone_number: toStr(data.phone_number ?? data.phone ?? ""),
+    }
+
+    const hasAnyAddress =
+      addr.address || addr.mhoo || addr.sub_district || addr.district || addr.province || addr.postal_code
+
+    if (addr.first_name || addr.last_name || hasAnyAddress) {
+      setForm((prev) => ({
+        ...prev,
+        first_name:   prev.first_name   || addr.first_name,
+        last_name:    prev.last_name    || addr.last_name,
+        address:      prev.address      || addr.address,
+        mhoo:         prev.mhoo         || addr.mhoo,
+        sub_district: prev.sub_district || addr.sub_district,
+        district:     prev.district     || addr.district,
+        province:     prev.province     || addr.province,
+        postal_code:  prev.postal_code  || addr.postal_code,
+        phone_number: prev.phone_number || addr.phone_number,
+      }))
     }
   }
 
@@ -350,7 +410,7 @@ const MemberSignup = () => {
     member_id: r.member_id ?? null,
   })
 
-  // เติมเฉพาะช่องที่ “ยังว่างอยู่” (จะไม่ทับค่าที่ผู้ใช้กรอกเองแล้ว)
+  // เติมเฉพาะช่องที่ “ยังว่างอยู่”
   const prefillFromCustomer = (rec) => {
     const c = mapToCustomerShape(rec)
     setForm((prev) => ({
@@ -358,12 +418,12 @@ const MemberSignup = () => {
       first_name:   prev.first_name   || c.first_name,
       last_name:    prev.last_name    || c.last_name,
       citizen_id:   prev.citizen_id   || onlyDigits(c.citizen_id),
-      address:      prev.address      || c.address,       // บ้านเลขที่
-      mhoo:         prev.mhoo         || c.mhoo,          // หมู่
-      sub_district: prev.sub_district || c.sub_district,  // ตำบล
-      district:     prev.district     || c.district,      // อำเภอ
-      province:     prev.province     || c.province,      // จังหวัด (เช่น ขอนแก่น)
-      postal_code:  prev.postal_code  || String(c.postal_code || ""), // ไม่บังคับ
+      address:      prev.address      || c.address,
+      mhoo:         prev.mhoo         || c.mhoo,
+      sub_district: prev.sub_district || c.sub_district,
+      district:     prev.district     || c.district,
+      province:     prev.province     || c.province,
+      postal_code:  prev.postal_code  || String(c.postal_code || ""),
       phone_number: prev.phone_number || c.phone_number,
     }))
   }
@@ -379,7 +439,7 @@ const MemberSignup = () => {
       }
     } catch (_) {}
 
-    // 2) fallback ไปฐานสมาชิก (MemberData)
+    // 2) fallback ไปฐานสมาชิก (MemberData) — ใช้ endpoint ของโมดูลสมาชิก
     try {
       const r1 = await fetch(`${API_BASE}/member/members/search?q=${encodeURIComponent(q)}`, { headers: authHeader() })
       if (r1.ok) {
@@ -399,7 +459,7 @@ const MemberSignup = () => {
     return (customers[0] || filtered[0]) ?? null
   }
 
-  // เมื่อกรอกเลขบัตรครบและ valid => ค้นหา+เติม (โฟกัส สมาชิกทั่วไป ก่อน)
+  // เมื่อกรอกเลขบัตรครบและ valid => ค้นหา+เติม (โฟกัส สมาชิกทั่วไป ก่อน) + ดึงที่อยู่ฉบับเต็ม
   useEffect(() => {
     const cid = onlyDigits(debCid || "")
     if (cid.length !== 13 || !validateThaiCitizenId(cid)) return
@@ -413,10 +473,12 @@ const MemberSignup = () => {
       const found = pickBestRecord(res.items, (r) => onlyDigits(r.citizen_id ?? r.citizenId ?? "") === cid)
       if (found) {
         prefillFromCustomer(found)
+        // เติมที่อยู่ละเอียด (เหมือนหน้า Buy)
+        await loadAddressByCitizenId(cid)
         setLookupStatus({
           searching: false,
           message: res.from === "customer"
-            ? "พบข้อมูล ‘สมาชิกทั่วไป’ และเติมให้อัตโนมัติแล้ว ✅"
+            ? "พบ ‘สมาชิกทั่วไป’ และเติมให้อัตโนมัติแล้ว ✅"
             : "ไม่พบในสมาชิกทั่วไป แต่พบใน ‘สมาชิก’ และเติมให้อัตโนมัติแล้ว ✅",
           tone: "ok"
         })
@@ -429,7 +491,7 @@ const MemberSignup = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debCid])
 
-  // เมื่อกรอกชื่อ–นามสกุลครบ (≥2 ตัวอักษร) => ค้นหา+เติม (โฟกัส สมาชิกทั่วไป ก่อน)
+  // เมื่อกรอกชื่อ–นามสกุลครบ (≥2 ตัวอักษร) => ค้นหา+เติม (โฟกัส สมาชิกทั่วไป ก่อน) + ดึงที่อยู่ฉบับเต็มถ้ามี citizen_id
   useEffect(() => {
     const first = (debFirst || "").trim()
     const last  = (debLast  || "").trim()
@@ -449,10 +511,14 @@ const MemberSignup = () => {
       )
       if (found) {
         prefillFromCustomer(found)
+        const cid = onlyDigits(found.citizen_id ?? found.citizenId ?? "")
+        if (cid.length === 13 && validateThaiCitizenId(cid)) {
+          await loadAddressByCitizenId(cid)
+        }
         setLookupStatus({
           searching: false,
           message: res.from === "customer"
-            ? "พบข้อมูล ‘สมาชิกทั่วไป’ และเติมให้อัตโนมัติแล้ว ✅"
+            ? "พบ ‘สมาชิกทั่วไป’ และเติมให้อัตโนมัติแล้ว ✅"
             : "ไม่พบในสมาชิกทั่วไป แต่พบใน ‘สมาชิก’ และเติมให้อัตโนมัติแล้ว ✅",
           tone: "ok"
         })
@@ -517,10 +583,7 @@ const MemberSignup = () => {
     if (!form.sub_district) e.sub_district = "กรอกตำบล"
     if (!form.district) e.district = "กรอกอำเภอ"
     if (!form.province) e.province = "กรอกจังหวัด"
-    if (!form.postal_code) {
-      // ไม่บังคับ — ถ้าอยากบังคับให้ลบคอมเมนต์ด้านล่าง
-      // e.postal_code = "กรอกรหัสไปรษณีย์"
-    }
+    // postal_code ไม่บังคับ
 
     if (!form.phone_number) e.phone_number = "กรอกเบอร์โทร"
     if (!form.sex) e.sex = "เลือกเพศ (M/F)"

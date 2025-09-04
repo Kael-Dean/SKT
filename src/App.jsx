@@ -8,7 +8,7 @@ import Login from './pages/Login'
 import Buy from './pages/Buy'
 import MemberSignup from './pages/MemberSignup'
 import MemberSearch from './pages/MemberSearch'
-
+import Stock from './pages/Stock'
 
 function App() {
   return (
@@ -28,6 +28,7 @@ function App() {
         <Route path="/Buy" element={<Buy />} />
         <Route path="/member-signup" element={<MemberSignup />} />
         <Route path="/search" element={<MemberSearch />} />
+        <Route path="/stock" element={<Stock />} />
       </Route>
 
       {/* กันพิมพ์พาธมั่ว */}

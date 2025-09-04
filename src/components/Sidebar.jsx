@@ -16,6 +16,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { label: 'สมัครสมาชิก', path: '/member-signup' },
     { label: 'ค้นหาสมาชิก', path: '/search' },
     { label: 'ขายข้าว', path: '/sales' },         // ✅ ใส่ตรงนี้ให้ทุกคนเห็น
+    { label: 'คลังสินค้า', path: '/stock' },   
   ]
 
   const handleLogout = () => {

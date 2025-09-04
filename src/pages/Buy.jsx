@@ -262,7 +262,7 @@ const DateInput = forwardRef(function DateInput(
                    bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
-          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
+          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
         </svg>
       </button>
     </div>
@@ -313,7 +313,7 @@ const Buy = () => {
   /** เมตาสมาชิก/ลูกค้า */
   const [memberMeta, setMemberMeta] = useState({
     type: "unknown",
-    assoId: null, // แสดงผลได้ ถ้าค้นเจอ
+    assoId: null,
   })
 
   /** ฟอร์มออเดอร์ */
@@ -415,7 +415,6 @@ const Buy = () => {
         const r = await fetch(`${API_BASE}${p}`, { headers: authHeader() })
         if (r.ok) {
           const data = await r.json()
-          // รองรับทั้ง array และ object
           if (Array.isArray(data)) return data
           if (data && typeof data === "object") return data
         }
@@ -424,21 +423,19 @@ const Buy = () => {
     return Array.isArray(paths) ? [] : {}
   }
 
-  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id (ลองหลายแบบ) */
+  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id (fallback) */
   const loadAddressByCitizenId = async (cid) => {
     const q = encodeURIComponent(onlyDigits(cid))
-    // รองรับหลายชื่อ path ที่อาจมีใน backend อื่น
     const candidates = [
       `/order/customer/detail?citizen_id=${q}`,
       `/order/customers/detail?citizen_id=${q}`,
       `/customer/detail?citizen_id=${q}`,
       `/customers/detail?citizen_id=${q}`,
       `/member/detail?citizen_id=${q}`,
-      `/order/customers/search?q=${q}` // เผื่อ API นี้ส่ง address มาด้วยในอนาคต
+      `/order/customers/search?q=${q}` // เผื่อ API นี้ส่ง address มาด้วย
     ]
     const data = await fetchFirstOkJson(candidates)
 
-    // map ให้ครอบคลุมชื่อฟิลด์ที่เป็นไปได้
     const toStr = (v) => (v == null ? "" : String(v))
     const addr = {
       houseNo: toStr(data.address ?? data.house_no ?? data.houseNo ?? ""),
@@ -494,7 +491,6 @@ const Buy = () => {
           fetchFirstOkJson(["/order/branch/search"]),
         ])
 
-        // product
         setProductOptions(
           (products || []).map((x) => ({
             id: String(x.id ?? x.product_id ?? x.value ?? ""),
@@ -502,7 +498,6 @@ const Buy = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        // condition
         setConditionOptions(
           (conditions || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -510,7 +505,6 @@ const Buy = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        // field type
         setFieldTypeOptions(
           (fields || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -518,7 +512,6 @@ const Buy = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        // year
         setYearOptions(
           (years || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -526,7 +519,6 @@ const Buy = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        // (optional UI)
         setProgramOptions(
           (programs || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -620,17 +612,32 @@ const Buy = () => {
     loadKlang()
   }, [order.branchId, order.branchName])
 
-  /** map record -> UI (endpoint ใหม่นี้ให้มาเฉพาะชื่อ/เลขบัตร/ชนิด) */
-  const mapSimplePersonToUI = (r = {}) => ({
-    citizenId: (r.citizen_id ?? "").toString(),
-    fullName: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim(),
-    assoId: r.asso_id ?? null,
-    type: r.type ?? "unknown",
-  })
+  /** map record -> UI (ครอบคลุมฟิลด์ที่อยู่ด้วย) */
+  const mapSimplePersonToUI = (r = {}) => {
+    const toStr = (v) => (v == null ? "" : String(v))
+    return {
+      citizenId: toStr(r.citizen_id ?? r.citizenId ?? ""),
+      firstName: toStr(r.first_name ?? r.firstName ?? ""),
+      lastName:  toStr(r.last_name ?? r.lastName ?? ""),
+      fullName:  `${toStr(r.first_name ?? r.firstName ?? "")} ${toStr(r.last_name ?? r.lastName ?? "")}`.trim(),
+      assoId:    r.asso_id ?? r.assoId ?? null,
+      type:      r.type ?? "unknown",
 
-  /** เติมจากเรคอร์ด + (ใหม่) ลองโหลดที่อยู่เต็มโดยอิง citizen_id */
+      // address fields (ถ้ามีมากับผลลัพธ์ search)
+      houseNo:     toStr(r.address ?? r.house_no ?? r.houseNo ?? ""),
+      moo:         toStr(r.mhoo ?? r.moo ?? ""),
+      subdistrict: toStr(r.sub_district ?? r.subdistrict ?? r.subDistrict ?? ""),
+      district:    toStr(r.district ?? ""),
+      province:    toStr(r.province ?? ""),
+      postalCode:  onlyDigits(toStr(r.postal_code ?? r.postalCode ?? "")),
+    }
+  }
+
+  /** เติมจากเรคอร์ด + ถ้าไม่ครบค่อย fallback ไปหา address ด้วย citizen_id */
   const fillFromRecord = async (raw = {}) => {
     const data = mapSimplePersonToUI(raw)
+
+    // อัปเดตชื่อและเลขบัตรก่อน
     setCustomer((prev) => ({
       ...prev,
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
@@ -639,9 +646,27 @@ const Buy = () => {
     setMemberMeta({ type: data.type, assoId: data.assoId })
     setCustomerFound(true)
 
-    // ดึงที่อยู่เต็ม (ถ้ามี) แล้วอัปเดต UI
-    if (onlyDigits(data.citizenId).length === 13) {
-      await loadAddressByCitizenId(data.citizenId)
+    // ถ้ามีที่อยู่ในเรคอร์ด (จาก /order/customers/search) ก็เติมเลย
+    const hasAnyAddr =
+      data.houseNo || data.moo || data.subdistrict || data.district || data.province || data.postalCode
+
+    if (hasAnyAddr) {
+      setCustomer((prev) => ({
+        ...prev,
+        houseNo: data.houseNo || prev.houseNo,
+        moo: data.moo || prev.moo,
+        subdistrict: data.subdistrict || prev.subdistrict,
+        district: data.district || prev.district,
+        province: data.province || prev.province,
+        postalCode: data.postalCode || prev.postalCode,
+      }))
+      return
+    }
+
+    // ถ้าไม่มีที่อยู่ แต่มี citizenId ครบ 13 หลัก → ไปโหลดที่อยู่เต็ม
+    const cid = onlyDigits(data.citizenId)
+    if (cid.length === 13) {
+      await loadAddressByCitizenId(cid)
     }
   }
 
@@ -660,12 +685,13 @@ const Buy = () => {
         const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const arr = (await res.json()) || []
-        const exact = arr.find((r) => onlyDigits(r.citizen_id || "") === cid) || arr[0]
+        const exact =
+          arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
         if (exact) {
-          await fillFromRecord(exact) // << รวมโหลดที่อยู่ด้วย
+          await fillFromRecord(exact)
         } else {
           setCustomerFound(false)
-          setMemberMeta({ type: "customer", assoId: null }) // ลูกค้าทั่วไป
+          setMemberMeta({ type: "customer", assoId: null })
         }
       } catch (e) {
         console.error(e)
@@ -705,12 +731,19 @@ const Buy = () => {
         const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const items = (await res.json()) || []
+        // เก็บฟิลด์ที่อยู่มาด้วย เพื่อ auto-fill ได้เลยตอนเลือกชื่อ
         const mapped = items.map((r) => ({
           type: r.type,
           asso_id: r.asso_id,
           citizen_id: r.citizen_id,
           first_name: r.first_name,
           last_name: r.last_name,
+          address: r.address ?? r.house_no ?? r.houseNo ?? "",
+          mhoo: r.mhoo ?? r.moo ?? "",
+          sub_district: r.sub_district ?? r.subdistrict ?? r.subDistrict ?? "",
+          district: r.district ?? "",
+          province: r.province ?? "",
+          postal_code: r.postal_code ?? r.postalCode ?? "",
         }))
         setNameResults(mapped)
         if (document.activeElement === nameInputRef.current) {
@@ -745,7 +778,7 @@ const Buy = () => {
 
   const pickNameResult = async (rec) => {
     suppressNameSearchRef.current = true
-    await fillFromRecord(rec) // << รวมโหลดที่อยู่ด้วย
+    await fillFromRecord(rec)
     setShowNameList(false)
     setNameResults([])
     setHighlightedIndex(-1)
@@ -903,7 +936,6 @@ const Buy = () => {
     if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"
     if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"
 
-    // branch/klang จำเป็น
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
 
@@ -997,7 +1029,6 @@ const Buy = () => {
 
     const netW = Math.max(0, baseGross - deduction)
 
-    // --- สร้าง payload ตาม OrderRequest ของ backend (ยืนยัน: ส่ง address/mhoo/sub_district/district/province/postal_code) ---
     const payload = {
       customer: {
         first_name: firstName || "",

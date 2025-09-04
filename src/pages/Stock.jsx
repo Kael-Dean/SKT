@@ -1,3 +1,4 @@
+// src/pages/Stock.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
 
 /** ---------- ENV ---------- */
@@ -20,21 +21,17 @@ const thb = (n) =>
     isFinite(n) ? Number(n) : 0
   )
 
-/** รวม “กิโล” จาก tree ของ /stock/tree */
+/** รวม “กิโล” จาก tree ของ /report/stock/tree */
 function sumWeight(payload = []) {
   let total = 0
   for (const rice of payload || []) total += Number(rice.total || 0)
   return total
 }
 
-/** พยายามคำนวณ “มูลค่ารวม” ถ้า API มีข้อมูลราคา/มูลค่าให้
- *  รองรับกุญแจที่อาจพบ: value, price_total, total_value, avg_price_per_kg, price_per_kg, unit_price
- *  ถ้าไม่มีข้อมูลราคาพอ -> คืน null (ไปแสดง “—” ที่ UI)
- */
+/** พยายามคำนวณ “มูลค่ารวม” ถ้า API มีข้อมูลราคา/มูลค่าให้ */
 function sumValue(payload = []) {
   let total = 0
   let foundAnyPrice = false
-
   const add = (amt) => {
     const v = Number(amt)
     if (isFinite(v)) {
@@ -42,16 +39,11 @@ function sumValue(payload = []) {
       foundAnyPrice = true
     }
   }
-
   for (const r of payload || []) {
-    // มูลค่าที่ระดับ rice (ถ้ามี)
     add(r.value ?? r.price_total ?? r.total_value)
-
     for (const s of r.items || []) {
       add(s.value ?? s.price_total ?? s.total_value)
-
       for (const y of s.items || []) {
-        // ระดับปี: อาจเป็น leaf (available) หรือมี condition แยก
         if (Array.isArray(y.items) && y.items.length > 0) {
           for (const c of y.items) {
             if (c.value ?? c.price_total ?? c.total_value) {
@@ -61,7 +53,6 @@ function sumValue(payload = []) {
             }
           }
         } else {
-          // leaf กรณี detail=rice_subrice_year (ไม่มี condition)
           if (y.value ?? y.price_total ?? y.total_value) {
             add(y.value ?? y.price_total ?? y.total_value)
           } else if (y.available && (y.avg_price_per_kg ?? y.price_per_kg ?? y.unit_price)) {
@@ -71,11 +62,10 @@ function sumValue(payload = []) {
       }
     }
   }
-
   return foundAnyPrice ? total : null
 }
 
-/** ---------- ComboBox (เหมือนหน้า Order) ---------- */
+/** ---------- ComboBox (reusable) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -88,7 +78,6 @@ function ComboBox({
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
   const boxRef = useRef(null)
-  const listRef = useRef(null)
   const btnRef = useRef(null)
 
   const selectedLabel = useMemo(() => {
@@ -138,7 +127,6 @@ function ComboBox({
 
       {open && (
         <div
-          ref={listRef}
           role="listbox"
           className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
@@ -186,7 +174,7 @@ function Pill({ children }) {
   )
 }
 
-/** ---------- Tree Rows (เหมือนเดิม) ---------- */
+/** ---------- Tree Rows ---------- */
 function RiceRow({ node }) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm">
@@ -275,7 +263,7 @@ const Stock = () => {
   /** dropdown options */
   const [branchOptions, setBranchOptions] = useState([]) // [{id,label}]
   const [klangOptions, setKlangOptions] = useState([])   // [{id,label}]
-  const [defaultProductId, setDefaultProductId] = useState("") // ต้องส่งให้ /stock/tree
+  const [defaultProductId, setDefaultProductId] = useState("") // ต้องส่งให้ /report/stock/tree
 
   /** selections */
   const [branchId, setBranchId] = useState("")
@@ -286,7 +274,8 @@ const Stock = () => {
   /** data */
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [data, setData] = useState([])
+  const [dataByKlang, setDataByKlang] = useState({}) // { [klangId]: payload[] }
+  const [dataSingle, setDataSingle] = useState([])   // payload เมื่อเลือกคลังเดียว
 
   /** load branches + pick default product (อัตโนมัติ) */
   useEffect(() => {
@@ -303,7 +292,6 @@ const Stock = () => {
         )
 
         const products = pRes.ok ? await pRes.json() : []
-        // เลือก product ที่ชื่อมีคำว่า "ข้าว" ก่อน ถ้าไม่เจอใช้ตัวแรก
         let chosen = products.find((x) => (x.product_type || "").includes("ข้าว")) || products[0]
         if (chosen?.id) setDefaultProductId(String(chosen.id))
       } catch (e) {
@@ -319,6 +307,8 @@ const Stock = () => {
       setKlangOptions([])
       setKlangId("")
       setKlangName("")
+      setDataByKlang({})
+      setDataSingle([])
       if (!branchId) return
       try {
         const r = await fetch(`${API_BASE}/order/klang/search?branch_id=${branchId}`, { headers: authHeader() })
@@ -331,45 +321,78 @@ const Stock = () => {
     loadKlangs()
   }, [branchId])
 
-  /** fetch stock tree (เรียกเมื่อมี branchId และรู้ defaultProductId; ถ้าเลือกคลังจะส่ง klang_id ด้วย) */
-  useEffect(() => {
-    const fetchTree = async () => {
-      setError("")
-      setData([])
-      if (!branchId || !defaultProductId) return
+  /** helper: fetch tree (ถูกต้องคือ /report/stock/tree) */
+  async function fetchTreeOnce({ branchId, klangId, productId }) {
+    const params = new URLSearchParams()
+    params.set("product_id", String(productId))
+    params.set("branch_id", String(branchId))
+    params.set("detail", "rice_subrice_year_condition")
+    if (klangId) params.set("klang_id", String(klangId))
+    const res = await fetch(`${API_BASE}/report/stock/tree?` + params.toString(), { headers: authHeader() })
+    if (!res.ok) {
+      const t = await res.text()
+      throw new Error(t || `HTTP ${res.status}`)
+    }
+    const json = await res.json()
+    return Array.isArray(json) ? json : []
+  }
 
+  /** fetch ตามเงื่อนไข:
+   * - ถ้าเลือกคลัง -> ดึงแค่คลังเดียว
+   * - ถ้าไม่เลือกคลัง -> ดึงทุกคลังของสาขามาแสดง “เห็นชนิดข้าวและกิโลในแต่ละคลัง”
+   */
+  useEffect(() => {
+    const run = async () => {
+      setError("")
+      setDataByKlang({})
+      setDataSingle([])
+      if (!branchId || !defaultProductId) return
       setLoading(true)
       try {
-        const params = new URLSearchParams()
-        params.set("product_id", String(defaultProductId))
-        params.set("branch_id", String(branchId))
-        params.set("detail", "rice_subrice_year_condition")
-        if (klangId) params.set("klang_id", String(klangId))
-
-        const res = await fetch(`${API_BASE}/stock/tree?` + params.toString(), { headers: authHeader() })
-        if (!res.ok) {
-          const t = await res.text()
-          throw new Error(t || `HTTP ${res.status}`)
+        if (klangId) {
+          // โหมด “เลือกคลังเดียว”
+          const payload = await fetchTreeOnce({ branchId, klangId, productId: defaultProductId })
+          setDataSingle(payload)
+        } else {
+          // โหมด “แสดงทุกคลังในสาขา”
+          const map = {}
+          for (const k of klangOptions) {
+            try {
+              const payload = await fetchTreeOnce({ branchId, klangId: k.id, productId: defaultProductId })
+              map[k.id] = payload
+            } catch (e) {
+              console.error("fetch klang failed:", k, e)
+              map[k.id] = []
+            }
+          }
+          setDataByKlang(map)
         }
-        const json = await res.json()
-        setData(Array.isArray(json) ? json : [])
       } catch (e) {
         setError(e?.message || "โหลดข้อมูลไม่สำเร็จ")
       } finally {
         setLoading(false)
       }
     }
-    fetchTree()
-  }, [API_BASE, branchId, klangId, defaultProductId])
+    run()
+  }, [API_BASE, branchId, klangId, defaultProductId, klangOptions])
 
   /** totals */
-  const totals = useMemo(() => {
-    const weight = sumWeight(data)
-    const value = sumValue(data) // อาจเป็น null ถ้า API ไม่มีราคาพอ
+  const totalSingle = useMemo(() => {
+    const weight = sumWeight(dataSingle)
+    const value = sumValue(dataSingle)
     return { weight, value }
-  }, [data])
+  }, [dataSingle])
 
-  /** UI */
+  const totalsByKlang = useMemo(() => {
+    const out = {}
+    for (const k of klangOptions) {
+      const payload = dataByKlang[k.id] || []
+      out[k.id] = { weight: sumWeight(payload), value: sumValue(payload) }
+    }
+    return out
+  }, [dataByKlang, klangOptions])
+
+  /** ---------- UI ---------- */
   return (
     <div className="p-4 sm:p-6">
       {/* Header */}
@@ -377,16 +400,16 @@ const Stock = () => {
         <h1 className="text-2xl sm:text-3xl font-bold">
           คลังสินค้า
           <span className="block text-sm font-normal text-gray-500">
-            สรุปรวมตาม <span className="font-medium">สาขา</span> และ <span className="font-medium">คลัง</span> (ถ้าเลือก)
+            สรุปตาม <span className="font-medium">สาขา</span> และ <span className="font-medium">คลัง</span>
           </span>
         </h1>
         <div className="hidden sm:flex items-center gap-2">
-          <Pill>API: /stock/tree</Pill>
+          <Pill>API: /report/stock/tree</Pill>
           <Pill>Method: GET</Pill>
         </div>
       </div>
 
-      {/* Controls: มีแค่ สาขา / คลัง */}
+      {/* Controls */}
       <div className="grid lg:grid-cols-12 gap-4 mb-4">
         <div className="lg:col-span-9">
           <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
@@ -436,26 +459,30 @@ const Stock = () => {
         {/* Summary */}
         <div className="lg:col-span-3">
           <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-3">
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
-              <div className="text-sm text-gray-500">
-                ปริมาณรวม {klangId ? "(คลังที่เลือก)" : "(ทุกคลังในสาขา)"}
-              </div>
-              <div className="text-2xl font-bold mt-1 tabular-nums">{nf(totals.weight)} กก.</div>
-            </div>
-
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
-              <div className="text-sm text-gray-500">
-                มูลค่ารวม {klangId ? "(คลังที่เลือก)" : "(ทุกคลังในสาขา)"}
-              </div>
-              <div className="text-2xl font-bold mt-1 tabular-nums">
-                {totals.value === null ? "—" : thb(totals.value)}
-              </div>
-              {totals.value === null && (
-                <div className="text-xs text-gray-400 mt-1">
-                  ไม่พบข้อมูลราคาจาก API (value/price_per_kg) — จะแสดงเมื่อ backend ส่งราคามา
+            {klangId ? (
+              <>
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
+                  <div className="text-sm text-gray-500">ปริมาณรวม (คลังที่เลือก)</div>
+                  <div className="text-2xl font-bold mt-1 tabular-nums">{nf(totalSingle.weight)} กก.</div>
                 </div>
-              )}
-            </div>
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
+                  <div className="text-sm text-gray-500">มูลค่ารวม (คลังที่เลือก)</div>
+                  <div className="text-2xl font-bold mt-1 tabular-nums">
+                    {totalSingle.value === null ? "—" : thb(totalSingle.value)}
+                  </div>
+                  {totalSingle.value === null && (
+                    <div className="text-xs text-gray-400 mt-1">
+                      ไม่พบข้อมูลราคาจาก API (value/price_per_kg)
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
+                <div className="text-sm text-gray-500">เลือกรายการด้านล่างเพื่อดูรวมรายคลัง</div>
+                <div className="text-xs text-gray-400 mt-1">ตอนนี้จะแสดงแยก “แต่ละคลัง” ด้านล่าง</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -468,15 +495,64 @@ const Stock = () => {
           </div>
         )}
 
-        {!loading && (!data || data.length === 0) && (
+        {!loading && !branchId && (
           <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 p-6 text-gray-500">
-            {branchId ? "ไม่พบข้อมูลสต็อกสำหรับเงื่อนไขปัจจุบัน" : "กรุณาเลือกสาขา"}
+            กรุณาเลือกสาขา
           </div>
         )}
 
-        {!loading && data && data.length > 0 && data.map((r) => (
-          <RiceRow key={`${r.rice_id}-${r.rice_type}`} node={r} />
-        ))}
+        {!loading && branchId && klangId && dataSingle.length === 0 && (
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 p-6 text-gray-500">
+            ไม่พบข้อมูลสต็อกสำหรับเงื่อนไขปัจจุบัน
+          </div>
+        )}
+
+        {/* โหมดเลือกคลังเดียว */}
+        {!loading && branchId && klangId && dataSingle.length > 0 && (
+          <>
+            <h2 className="text-lg font-semibold mb-1">คลัง: {klangName || klangId}</h2>
+            {dataSingle.map((r) => (
+              <RiceRow key={`${r.rice_id}-${r.rice_type}`} node={r} />
+            ))}
+          </>
+        )}
+
+        {/* โหมดแสดงทุกคลังในสาขา (แบ่งหัวข้อรายคลัง) */}
+        {!loading && branchId && !klangId && (
+          <>
+            {klangOptions.length === 0 && (
+              <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 p-6 text-gray-500">
+                สาขานี้ยังไม่มีคลัง
+              </div>
+            )}
+            {klangOptions.map((k) => {
+              const payload = dataByKlang[k.id] || []
+              const totals = totalsByKlang[k.id] || { weight: 0, value: null }
+              return (
+                <div key={k.id} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-base sm:text-lg font-semibold">คลัง: {k.label}</h3>
+                    <div className="flex gap-3 text-sm">
+                      <Pill>รวม: {nf(totals.weight)} กก.</Pill>
+                      <Pill>{totals.value === null ? "มูลค่า: —" : `มูลค่า: ${thb(totals.value)}`}</Pill>
+                    </div>
+                  </div>
+                  {payload.length === 0 ? (
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-4 text-gray-500">
+                      ไม่มีสต็อกในคลังนี้
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {payload.map((r) => (
+                        <RiceRow key={`${k.id}-${r.rice_id}-${r.rice_type}`} node={r} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </>
+        )}
       </div>
     </div>
   )

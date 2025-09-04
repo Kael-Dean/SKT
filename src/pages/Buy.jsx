@@ -236,11 +236,7 @@ const DateInput = forwardRef(function DateInput(
 
   return (
     <div className="relative">
-      {/* ซ่อนไอคอน native ของ Chromium เพื่อใช้ไอคอน custom */}
-      <style>{`
-        input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }
-      `}</style>
-
+      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
       <input
         type="date"
         ref={inputRef}
@@ -252,7 +248,6 @@ const DateInput = forwardRef(function DateInput(
         )}
         {...props}
       />
-
       <button
         type="button"
         onClick={() => {
@@ -413,18 +408,68 @@ const Buy = () => {
     }
   }
 
-  /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอที่ใช้ได้ */
+  /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอที่ใช้ได้ (array หรือ object ก็รับ) */
   const fetchFirstOkJson = async (paths = []) => {
     for (const p of paths) {
       try {
         const r = await fetch(`${API_BASE}${p}`, { headers: authHeader() })
         if (r.ok) {
           const data = await r.json()
+          // รองรับทั้ง array และ object
           if (Array.isArray(data)) return data
+          if (data && typeof data === "object") return data
         }
       } catch (_) {}
     }
-    return []
+    return Array.isArray(paths) ? [] : {}
+  }
+
+  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id (ลองหลายแบบ) */
+  const loadAddressByCitizenId = async (cid) => {
+    const q = encodeURIComponent(onlyDigits(cid))
+    // รองรับหลายชื่อ path ที่อาจมีใน backend อื่น
+    const candidates = [
+      `/order/customer/detail?citizen_id=${q}`,
+      `/order/customers/detail?citizen_id=${q}`,
+      `/customer/detail?citizen_id=${q}`,
+      `/customers/detail?citizen_id=${q}`,
+      `/member/detail?citizen_id=${q}`,
+      `/order/customers/search?q=${q}` // เผื่อ API นี้ส่ง address มาด้วยในอนาคต
+    ]
+    const data = await fetchFirstOkJson(candidates)
+
+    // map ให้ครอบคลุมชื่อฟิลด์ที่เป็นไปได้
+    const toStr = (v) => (v == null ? "" : String(v))
+    const addr = {
+      houseNo: toStr(data.address ?? data.house_no ?? data.houseNo ?? ""),
+      moo: toStr(data.mhoo ?? data.moo ?? ""),
+      subdistrict: toStr(data.sub_district ?? data.subdistrict ?? data.subDistrict ?? ""),
+      district: toStr(data.district ?? ""),
+      province: toStr(data.province ?? ""),
+      postalCode: onlyDigits(toStr(data.postal_code ?? data.postalCode ?? "")),
+      firstName: toStr(data.first_name ?? data.firstName ?? ""),
+      lastName: toStr(data.last_name ?? data.lastName ?? ""),
+      type: data.type ?? undefined,
+      asso_id: data.asso_id ?? data.assoId ?? undefined,
+    }
+
+    const hasAnyAddress =
+      addr.houseNo || addr.moo || addr.subdistrict || addr.district || addr.province || addr.postalCode
+
+    if (addr.firstName || addr.lastName || hasAnyAddress) {
+      setCustomer((prev) => ({
+        ...prev,
+        fullName: (addr.firstName || addr.lastName) ? `${addr.firstName} ${addr.lastName}`.trim() || prev.fullName : prev.fullName,
+        houseNo: addr.houseNo || prev.houseNo,
+        moo: addr.moo || prev.moo,
+        subdistrict: addr.subdistrict || prev.subdistrict,
+        district: addr.district || prev.district,
+        province: addr.province || prev.province,
+        postalCode: addr.postalCode || prev.postalCode,
+      }))
+      if (addr.type) setMemberMeta((m) => ({ ...m, type: addr.type }))
+      if (addr.asso_id) setMemberMeta((m) => ({ ...m, assoId: addr.asso_id }))
+    }
   }
 
   /** โหลด dropdown ชุดแรก (ที่ไม่ผูกกัน) + branch */
@@ -583,16 +628,21 @@ const Buy = () => {
     type: r.type ?? "unknown",
   })
 
-  const fillFromRecord = (raw = {}) => {
+  /** เติมจากเรคอร์ด + (ใหม่) ลองโหลดที่อยู่เต็มโดยอิง citizen_id */
+  const fillFromRecord = async (raw = {}) => {
     const data = mapSimplePersonToUI(raw)
     setCustomer((prev) => ({
       ...prev,
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
       fullName: data.fullName || prev.fullName,
-      // ที่อยู่ต้องกรอกเอง เพราะ API นี้ไม่ได้ส่งที่อยู่มา
     }))
     setMemberMeta({ type: data.type, assoId: data.assoId })
     setCustomerFound(true)
+
+    // ดึงที่อยู่เต็ม (ถ้ามี) แล้วอัปเดต UI
+    if (onlyDigits(data.citizenId).length === 13) {
+      await loadAddressByCitizenId(data.citizenId)
+    }
   }
 
   /** ค้นหาด้วยเลขบัตร (ใช้ endpoint ใหม่ /order/customers/search) */
@@ -611,8 +661,9 @@ const Buy = () => {
         if (!res.ok) throw new Error("search failed")
         const arr = (await res.json()) || []
         const exact = arr.find((r) => onlyDigits(r.citizen_id || "") === cid) || arr[0]
-        if (exact) fillFromRecord(exact)
-        else {
+        if (exact) {
+          await fillFromRecord(exact) // << รวมโหลดที่อยู่ด้วย
+        } else {
           setCustomerFound(false)
           setMemberMeta({ type: "customer", assoId: null }) // ลูกค้าทั่วไป
         }
@@ -692,9 +743,9 @@ const Buy = () => {
     return () => document.removeEventListener("click", onClick)
   }, [])
 
-  const pickNameResult = (rec) => {
+  const pickNameResult = async (rec) => {
     suppressNameSearchRef.current = true
-    fillFromRecord(rec)
+    await fillFromRecord(rec) // << รวมโหลดที่อยู่ด้วย
     setShowNameList(false)
     setNameResults([])
     setHighlightedIndex(-1)
@@ -733,7 +784,7 @@ const Buy = () => {
     })
 
   /** คีย์บอร์ดนำทาง dropdown ชื่อ */
-  const handleNameKeyDown = (e) => {
+  const handleNameKeyDown = async (e) => {
     if (!showNameList || nameResults.length === 0) return
     if (e.key === "ArrowDown") {
       e.preventDefault()
@@ -748,7 +799,7 @@ const Buy = () => {
     } else if (e.key === "Enter") {
       e.preventDefault()
       if (highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
-        pickNameResult(nameResults[highlightedIndex])
+        await pickNameResult(nameResults[highlightedIndex])
       }
     } else if (e.key === "Escape") {
       e.preventDefault()
@@ -946,7 +997,7 @@ const Buy = () => {
 
     const netW = Math.max(0, baseGross - deduction)
 
-    // --- สร้าง payload ตาม OrderRequest ของ backend ---
+    // --- สร้าง payload ตาม OrderRequest ของ backend (ยืนยัน: ส่ง address/mhoo/sub_district/district/province/postal_code) ---
     const payload = {
       customer: {
         first_name: firstName || "",
@@ -960,7 +1011,6 @@ const Buy = () => {
         postal_code: customer.postalCode?.toString().trim() || "",
       },
       order: {
-        // asso_id จำเป็นใน Pydantic แต่ backend จะคำนวณจริงอีกทีจาก ensure_person_and_customer
         asso_id: "",
         product_id: productId,
         rice_id: riceId,
@@ -1161,7 +1211,7 @@ const Buy = () => {
                         type="button"
                         ref={(el) => (itemRefs.current[idx] = el)}
                         key={`${r.type}-${r.asso_id}-${r.citizen_id}-${idx}`}
-                        onClick={() => pickNameResult(r)}
+                        onClick={async () => await pickNameResult(r)}
                         onMouseEnter={() => { setHighlightedIndex(idx); requestAnimationFrame(() => scrollHighlightedIntoView2(idx)) }}
                         role="option"
                         aria-selected={isActive}

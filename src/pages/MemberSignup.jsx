@@ -906,6 +906,7 @@ const MemberSignup = () => {
                   className={baseField}
                   value={form.spouce_name}
                   onChange={(e) => update("spouce_name", e.target.value)}
+                  placeholder="ชื่อคุ๋สมรส"
                 />
               </div>
             </div>
@@ -941,6 +942,7 @@ const MemberSignup = () => {
                   value={form.sub_district}
                   onChange={(e) => { clearError("sub_district"); update("sub_district", e.target.value) }}
                   onFocus={() => clearError("sub_district")}
+                  placeholder="ตำบลนอกเมือง"
                   aria-invalid={errors.sub_district ? true : undefined}
                 />
                 {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
@@ -954,6 +956,7 @@ const MemberSignup = () => {
                   value={form.district}
                   onChange={(e) => { clearError("district"); update("district", e.target.value) }}
                   onFocus={() => clearError("district")}
+                  placeholder="อำเภอเมือง"
                   aria-invalid={errors.district ? true : undefined}
                 />
                 {errors.district && <p className={errorTextCls}>{errors.district}</p>}
@@ -967,6 +970,7 @@ const MemberSignup = () => {
                   value={form.province}
                   onChange={(e) => { clearError("province"); update("province", e.target.value) }}
                   onFocus={() => clearError("province")}
+                  placeholder="สุรินทร์"
                   aria-invalid={errors.province ? true : undefined}
                 />
                 {errors.province && <p className={errorTextCls}>{errors.province}</p>}
@@ -987,6 +991,7 @@ const MemberSignup = () => {
                   value={form.postal_code}
                   onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("postal_code")}
+                  placeholder="32000"
                   aria-invalid={errors.postal_code ? true : undefined}
                 />
                 {errors.postal_code && <p className={errorTextCls}>{errors.postal_code}</p>}

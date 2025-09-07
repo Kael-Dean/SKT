@@ -491,7 +491,7 @@ const Buy = () => {
           fetchFirstOkJson(["/order/year/search"]),
           fetchFirstOkJson(["/order/program/search"]),
           // ✅ เปลี่ยนเป็น endpoint ใหม่สำหรับ “วิธีชำระเงิน”
-          fetchFirstOkJson(["/payment/search/buy"]),
+          fetchFirstOkJson(["/order/payment/search/buy"]),
           fetchFirstOkJson(["/order/branch/search"]),
         ])
 

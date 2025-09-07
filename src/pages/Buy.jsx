@@ -1639,7 +1639,7 @@ const Buy = () => {
             </div>
 
             {/* หักน้ำหนัก */}
-            <div className="md:col-span-2">
+            <div className="">
               <div className="flex items-center justify-between">
                 <label className={labelCls}>หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)</label>
                 <label className="flex cursor-pointer items-center gap-2 text-sm">

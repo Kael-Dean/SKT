@@ -253,12 +253,15 @@ const DateInput = forwardRef(function DateInput(
           const el = inputRef.current
           if (!el) return
           if (typeof el.showPicker === "function") el.showPicker()
-          else { el.focus(); el.click?.() }
+          else {
+            el.focus()
+            el.click?.()
+          }
         }}
         aria-label="เปิดตัวเลือกวันที่"
         className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer
-                   bg-transparent"
+transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer
+bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
@@ -296,6 +299,7 @@ const Buy = () => {
   const [yearOptions, setYearOptions] = useState([])
   const [programOptions, setProgramOptions] = useState([])
   const [paymentOptions, setPaymentOptions] = useState([])
+  const [businessOptions, setBusinessOptions] = useState([]) // ✅ ใหม่: ประเภทธุรกิจ
 
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
@@ -307,7 +311,7 @@ const Buy = () => {
     district: "",
     province: "",
     postalCode: "",
-    phone: "", // ✅ เบอร์โทร
+    phone: "",
   })
 
   /** เมตาสมาชิก/ลูกค้า */
@@ -326,7 +330,7 @@ const Buy = () => {
     subriceId: "",
     subriceName: "",
 
-    // คุณภาพ/ปี/สภาพ/ประเภทนา (ตาม backend)
+    // คุณภาพ/ปี/สภาพ/ประเภทนา
     gram: "",
     riceYear: "",
     riceYearId: "",
@@ -338,6 +342,10 @@ const Buy = () => {
     // (โปรแกรม/วิธีชำระเงิน — UI เท่านั้น)
     program: "",
     paymentMethod: "",
+
+    // ✅ ใหม่: ประเภทธุรกิจ
+    businessType: "",
+    businessTypeId: "",
 
     // ชั่ง/คำนวณ
     entryWeightKg: "",
@@ -362,7 +370,7 @@ const Buy = () => {
     klangId: null,
     registeredPlace: "",
 
-    // ✅ ใหม่: คอมเมนต์/หมายเหตุ
+    // หมายเหตุ
     comment: "",
   })
 
@@ -397,13 +405,13 @@ const Buy = () => {
     paymentRefNo: useRef(null),
     issueDate: useRef(null),
     gram: useRef(null),
-    // ✅ ใหม่
     comment: useRef(null),
+    businessType: useRef(null), // ✅ ใหม่
   }
 
   /** debounce */
   const debouncedCitizenId = useDebounce(customer.citizenId)
-  const debouncedFullName  = useDebounce(customer.fullName)
+  const debouncedFullName = useDebounce(customer.fullName)
 
   /** API header */
   const authHeader = () => {
@@ -414,7 +422,7 @@ const Buy = () => {
     }
   }
 
-  /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอที่ใช้ได้ (array หรือ object ก็รับ) */
+  /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอ */
   const fetchFirstOkJson = async (paths = []) => {
     for (const p of paths) {
       try {
@@ -429,7 +437,7 @@ const Buy = () => {
     return Array.isArray(paths) ? [] : {}
   }
 
-  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id (fallback) */
+  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id */
   const loadAddressByCitizenId = async (cid) => {
     const q = encodeURIComponent(onlyDigits(cid))
     const candidates = [
@@ -438,7 +446,7 @@ const Buy = () => {
       `/customer/detail?citizen_id=${q}`,
       `/customers/detail?citizen_id=${q}`,
       `/member/detail?citizen_id=${q}`,
-      `/order/customers/search?q=${q}`
+      `/order/customers/search?q=${q}`,
     ]
     const data = await fetchFirstOkJson(candidates)
 
@@ -463,7 +471,10 @@ const Buy = () => {
     if (addr.firstName || addr.lastName || hasAnyAddress || addr.phone) {
       setCustomer((prev) => ({
         ...prev,
-        fullName: (addr.firstName || addr.lastName) ? `${addr.firstName} ${addr.lastName}`.trim() || prev.fullName : prev.fullName,
+        fullName:
+          (addr.firstName || addr.lastName)
+            ? `${addr.firstName} ${addr.lastName}`.trim() || prev.fullName
+            : prev.fullName,
         houseNo: addr.houseNo || prev.houseNo,
         moo: addr.moo || prev.moo,
         subdistrict: addr.subdistrict || prev.subdistrict,
@@ -477,7 +488,7 @@ const Buy = () => {
     }
   }
 
-  /** โหลด dropdown ชุดแรก (ที่ไม่ผูกกัน) + branch */
+  /** โหลด dropdown ชุดแรก + branch */
   useEffect(() => {
     const loadStaticDD = async () => {
       try {
@@ -489,6 +500,7 @@ const Buy = () => {
           programs,
           payments,
           branches,
+          businesses, // ✅ ใหม่
         ] = await Promise.all([
           fetchFirstOkJson(["/order/product/search"]),
           fetchFirstOkJson(["/order/condition/search"]),
@@ -497,55 +509,84 @@ const Buy = () => {
           fetchFirstOkJson(["/order/program/search"]),
           fetchFirstOkJson(["/order/payment/search/buy"]),
           fetchFirstOkJson(["/order/branch/search"]),
+          fetchFirstOkJson(["/order/business/search"]), // ✅ โหลดประเภทธุรกิจ
         ])
 
         setProductOptions(
-          (products || []).map((x) => ({
-            id: String(x.id ?? x.product_id ?? x.value ?? ""),
-            label: String(x.product_type ?? x.name ?? x.label ?? "").trim(),
-          })).filter((o) => o.id && o.label)
+          (products || [])
+            .map((x) => ({
+              id: String(x.id ?? x.product_id ?? x.value ?? ""),
+              label: String(x.product_type ?? x.name ?? x.label ?? "").trim(),
+            }))
+            .filter((o) => o.id && o.label)
         )
 
         setConditionOptions(
-          (conditions || []).map((x, i) => ({
-            id: String(x.id ?? x.value ?? i),
-            label: String(x.condition ?? x.year ?? x.name ?? x.label ?? "").trim(),
-          })).filter((o) => o.id && o.label)
+          (conditions || [])
+            .map((x, i) => ({
+              id: String(x.id ?? x.value ?? i),
+              label: String(x.condition ?? x.year ?? x.name ?? x.label ?? "").trim(),
+            }))
+            .filter((o) => o.id && o.label)
         )
 
         setFieldTypeOptions(
-          (fields || []).map((x, i) => ({
-            id: String(x.id ?? x.value ?? i),
-            label: String(x.field_type ?? x.name ?? x.year ?? x.label ?? (typeof x === "string" ? x : "")).trim(),
-          })).filter((o) => o.id && o.label)
+          (fields || [])
+            .map((x, i) => ({
+              id: String(x.id ?? x.value ?? i),
+              label: String(x.field_type ?? x.name ?? x.year ?? x.label ?? (typeof x === "string" ? x : "")).trim(),
+            }))
+            .filter((o) => o.id && o.label)
         )
 
         setYearOptions(
-          (years || []).map((x, i) => ({
-            id: String(x.id ?? x.value ?? i),
-            label: String(x.year ?? x.name ?? x.label ?? "").trim(),
-          })).filter((o) => o.id && o.label)
+          (years || [])
+            .map((x, i) => ({
+              id: String(x.id ?? x.value ?? i),
+              label: String(x.year ?? x.name ?? x.label ?? "").trim(),
+            }))
+            .filter((o) => o.id && o.label)
         )
 
         setProgramOptions(
-          (programs || []).map((x, i) => ({
-            id: String(x.id ?? x.value ?? i),
-            label: String(x.program ?? x.year ?? x.name ?? x.label ?? "").trim(),
-          })).filter((o) => o.id && o.label)
+          (programs || [])
+            .map((x, i) => ({
+              id: String(x.id ?? x.value ?? i),
+              label: String(x.program ?? x.year ?? x.name ?? x.label ?? "").trim(),
+            }))
+            .filter((o) => o.id && o.label)
         )
 
         setPaymentOptions(
-          (payments || []).map((x, i) => ({
-            id: String(x.id ?? x.value ?? i),
-            label: String(x.payment ?? x.name ?? x.label ?? "").trim(),
-          })).filter((o) => o.id && o.label)
+          (payments || [])
+            .map((x, i) => ({
+              id: String(x.id ?? x.value ?? i),
+              label: String(x.payment ?? x.name ?? x.label ?? "").trim(),
+            }))
+            .filter((o) => o.id && o.label)
         )
 
         setBranchOptions((branches || []).map((b) => ({ id: b.id, label: b.branch_name })))
+
+        // ✅ map ประเภทธุรกิจ (backend ส่ง { id, business })
+        setBusinessOptions(
+          (businesses || [])
+            .map((x, i) => ({
+              id: String(x.id ?? x.value ?? i),
+              label: String(x.business ?? x.name ?? x.label ?? "").trim(),
+            }))
+            .filter((o) => o.id && o.label)
+        )
       } catch (err) {
         console.error("loadStaticDD fatal:", err)
-        setProductOptions([]); setConditionOptions([]); setFieldTypeOptions([]); setYearOptions([]); setProgramOptions([]); setPaymentOptions([])
+        setProductOptions([])
+        setConditionOptions([])
+        setFieldTypeOptions([])
+        setYearOptions([])
+        setProgramOptions([])
+        setPaymentOptions([])
         setBranchOptions([])
+        setBusinessOptions([])
       }
     }
     loadStaticDD()
@@ -555,7 +596,11 @@ const Buy = () => {
   /** เมื่อเลือก product → โหลด rice */
   useEffect(() => {
     const pid = order.productId
-    if (!pid) { setRiceOptions([]); setOrder((p) => ({ ...p, riceId: "", riceType: "", subriceId: "", subriceName: "" })); return }
+    if (!pid) {
+      setRiceOptions([])
+      setOrder((p) => ({ ...p, riceId: "", riceType: "", subriceId: "", subriceName: "" }))
+      return
+    }
 
     const loadRice = async () => {
       try {
@@ -563,10 +608,12 @@ const Buy = () => {
         const r = await fetch(url, { headers: authHeader() })
         if (!r.ok) throw new Error(await r.text())
         const arr = (await r.json()) || []
-        const mapped = arr.map((x) => ({
-          id: String(x.id ?? x.rice_id ?? x.value ?? ""),
-          label: String(x.rice_type ?? x.name ?? x.label ?? "").trim(),
-        })).filter((o) => o.id && o.label)
+        const mapped = arr
+          .map((x) => ({
+            id: String(x.id ?? x.rice_id ?? x.value ?? ""),
+            label: String(x.rice_type ?? x.name ?? x.label ?? "").trim(),
+          }))
+          .filter((o) => o.id && o.label)
         setRiceOptions(mapped)
       } catch (e) {
         console.error("load rice error:", e)
@@ -579,17 +626,23 @@ const Buy = () => {
   /** เมื่อเลือก rice → โหลด sub-rice */
   useEffect(() => {
     const rid = order.riceId
-    if (!rid) { setSubriceOptions([]); setOrder((p) => ({ ...p, subriceId: "", subriceName: "" })); return }
+    if (!rid) {
+      setSubriceOptions([])
+      setOrder((p) => ({ ...p, subriceId: "", subriceName: "" }))
+      return
+    }
     const loadSub = async () => {
       try {
         const url = `${API_BASE}/order/sub-rice/search?rice_id=${encodeURIComponent(rid)}`
         const r = await fetch(url, { headers: authHeader() })
         if (!r.ok) throw new Error(await r.text())
         const arr = (await r.json()) || []
-        const mapped = arr.map((x) => ({
-          id: String(x.id ?? x.subrice_id ?? x.value ?? ""),
-          label: String(x.sub_class ?? x.name ?? x.label ?? "").trim(),
-        })).filter((o) => o.id && o.label)
+        const mapped = arr
+          .map((x) => ({
+            id: String(x.id ?? x.subrice_id ?? x.value ?? ""),
+            label: String(x.sub_class ?? x.name ?? x.label ?? "").trim(),
+          }))
+          .filter((o) => o.id && o.label)
         setSubriceOptions(mapped)
       } catch (e) {
         console.error("load subrice error:", e)
@@ -612,41 +665,48 @@ const Buy = () => {
       try {
         const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
         const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
-        if (!r.ok) { console.error("Load klang failed:", r.status, await r.text()); setKlangOptions([]); return }
+        if (!r.ok) {
+          console.error("Load klang failed:", r.status, await r.text())
+          setKlangOptions([])
+          return
+        }
         const data = await r.json()
         setKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
-      } catch (e) { console.error("Load klang error:", e); setKlangOptions([]) }
+      } catch (e) {
+        console.error("Load klang error:", e)
+        setKlangOptions([])
+      }
     }
     loadKlang()
   }, [order.branchId, order.branchName])
 
-  /** map record -> UI (ครอบคลุมฟิลด์ที่อยู่ด้วย) */
+  /** map record -> UI */
   const mapSimplePersonToUI = (r = {}) => {
     const toStr = (v) => (v == null ? "" : String(v))
     return {
       citizenId: toStr(r.citizen_id ?? r.citizenId ?? ""),
       firstName: toStr(r.first_name ?? r.firstName ?? ""),
-      lastName:  toStr(r.last_name ?? r.lastName ?? ""),
-      fullName:  `${toStr(r.first_name ?? r.firstName ?? "")} ${toStr(r.last_name ?? r.lastName ?? "")}`.trim(),
-      assoId:    r.asso_id ?? r.assoId ?? null,
-      type:      r.type ?? "unknown",
+      lastName: toStr(r.last_name ?? r.lastName ?? ""),
+      fullName: `${toStr(r.first_name ?? r.firstName ?? "")} ${toStr(r.last_name ?? r.lastName ?? "")}`.trim(),
+      assoId: r.asso_id ?? r.assoId ?? null,
+      type: r.type ?? "unknown",
 
-      // address fields
-      houseNo:     toStr(r.address ?? r.house_no ?? r.houseNo ?? ""),
-      moo:         toStr(r.mhoo ?? r.moo ?? ""),
+      // address
+      houseNo: toStr(r.address ?? r.house_no ?? r.houseNo ?? ""),
+      moo: toStr(r.mhoo ?? r.moo ?? ""),
       subdistrict: toStr(r.sub_district ?? r.subdistrict ?? r.subDistrict ?? ""),
-      district:    toStr(r.district ?? ""),
-      province:    toStr(r.province ?? ""),
-      postalCode:  onlyDigits(toStr(r.postal_code ?? r.postalCode ?? "")),
-      phone:       toStr(r.phone ?? r.tel ?? r.mobile ?? ""),
+      district: toStr(r.district ?? ""),
+      province: toStr(r.province ?? ""),
+      postalCode: onlyDigits(toStr(r.postal_code ?? r.postalCode ?? "")),
+      phone: toStr(r.phone ?? r.tel ?? r.mobile ?? ""),
     }
   }
 
-  /** เติมจากเรคอร์ด + ถ้าไม่ครบค่อย fallback ไปหา address ด้วย citizen_id */
+  /** เติมจากเรคอร์ด */
   const fillFromRecord = async (raw = {}) => {
     const data = mapSimplePersonToUI(raw)
 
-    // อัปเดตชื่อและเลขบัตรก่อน
+    // อัปเดตชื่อ/เลขบัตร
     setCustomer((prev) => ({
       ...prev,
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
@@ -656,7 +716,6 @@ const Buy = () => {
     setMemberMeta({ type: data.type, assoId: data.assoId })
     setCustomerFound(true)
 
-    // ถ้ามีที่อยู่ในเรคอร์ด ก็เติมเลย
     const hasAnyAddr =
       data.houseNo || data.moo || data.subdistrict || data.district || data.province || data.postalCode
 
@@ -673,14 +732,13 @@ const Buy = () => {
       return
     }
 
-    // ถ้าไม่มีที่อยู่ แต่มี citizenId ครบ 13 หลัก → ไปโหลดที่อยู่เต็ม
     const cid = onlyDigits(data.citizenId)
     if (cid.length === 13) {
       await loadAddressByCitizenId(cid)
     }
   }
 
-  /** ค้นหาด้วยเลขบัตร (ใช้ endpoint ใหม่ /order/customers/search) */
+  /** ค้นหาด้วยเลขบัตร */
   useEffect(() => {
     const cid = onlyDigits(debouncedCitizenId)
     if (cid.length !== 13) {
@@ -695,8 +753,7 @@ const Buy = () => {
         const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const arr = (await res.json()) || []
-        const exact =
-          arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
+        const exact = arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
         if (exact) {
           await fillFromRecord(exact)
         } else {
@@ -715,7 +772,7 @@ const Buy = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedCitizenId])
 
-  /** ค้นหาด้วยชื่อ (ใช้ /order/customers/search) */
+  /** ค้นหาด้วยชื่อ */
   useEffect(() => {
     const q = (debouncedFullName || "").trim()
 
@@ -741,7 +798,6 @@ const Buy = () => {
         const res = await fetch(url, { headers: authHeader() })
         if (!res.ok) throw new Error("search failed")
         const items = (await res.json()) || []
-        // เก็บฟิลด์ที่อยู่มาด้วย เพื่อ auto-fill ได้เลยตอนเลือกชื่อ
         const mapped = items.map((r) => ({
           type: r.type,
           asso_id: r.asso_id,
@@ -774,7 +830,7 @@ const Buy = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedFullName])
 
-  /** ปิด dropdown เมื่อคลิกนอกกล่อง */
+  /** ปิด dropdown ชื่อเมื่อคลิกนอกกล่อง */
   useEffect(() => {
     const onClick = (e) => {
       if (!nameBoxRef.current) return
@@ -817,9 +873,7 @@ const Buy = () => {
   /** ---- ช่วยจัดการสีแดงเฉพาะบางช่อง ---- */
   const hasRed = (key) => !!errors[key] || !!missingHints[key]
   const redFieldCls = (key) =>
-    hasRed(key)
-      ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500"
-      : ""
+    hasRed(key) ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : ""
   const clearError = (key) =>
     setErrors((prev) => {
       if (!(key in prev)) return prev
@@ -858,10 +912,10 @@ const Buy = () => {
     requestAnimationFrame(() => scrollHighlightedIntoView2(highlightedIndex))
   }, [highlightedIndex, showNameList])
 
-  /** ---------- น้ำหนักจากตาชั่ง (ใหม่) ---------- */
+  /** ---------- น้ำหนักจากตาชั่ง ---------- */
   const grossFromScale = useMemo(() => {
     const entry = toNumber(order.entryWeightKg)
-    const exit  = toNumber(order.exitWeightKg)
+    const exit = toNumber(order.exitWeightKg)
     const g = Math.abs(exit - entry)
     return g > 0 ? g : 0
   }, [order.entryWeightKg, order.exitWeightKg])
@@ -890,13 +944,8 @@ const Buy = () => {
   }, [computedAmount])
 
   /** ---------- Missing hints ---------- */
-  const redHintCls = (key) =>
-    missingHints[key]
-      ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse"
-      : ""
-
-  const clearHint = (key) =>
-    setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
+  const redHintCls = (key) => (missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : "")
+  const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
 
   const computeMissingHints = () => {
     const m = {}
@@ -914,10 +963,11 @@ const Buy = () => {
     if (!order.conditionId) m.condition = true
     if (!order.fieldTypeId) m.fieldType = true
     if (!order.riceYearId) m.riceYear = true
+    if (!order.businessTypeId) m.businessType = true // ✅ ใหม่
     if (!order.branchName) m.branchName = true
     if (!order.klangName) m.klangName = true
     if (!order.entryWeightKg || Number(order.entryWeightKg) < 0) m.entryWeightKg = true
-    if (!order.exitWeightKg  || Number(order.exitWeightKg)  <= 0) m.exitWeightKg = true
+    if (!order.exitWeightKg || Number(order.exitWeightKg) <= 0) m.exitWeightKg = true
     if (!order.amountTHB || Number(order.amountTHB) <= 0) m.amountTHB = true
     if (!order.issueDate) m.issueDate = true
     return m
@@ -936,7 +986,8 @@ const Buy = () => {
   /** ---------- Validation ---------- */
   const validateAll = () => {
     const e = {}
-    if (customer.citizenId && !validateThaiCitizenId(customer.citizenId)) e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
+    if (customer.citizenId && !validateThaiCitizenId(customer.citizenId))
+      e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
     if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
     if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
 
@@ -946,6 +997,7 @@ const Buy = () => {
     if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข"
     if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"
     if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"
+    if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ" // ✅ ใหม่
 
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
@@ -960,6 +1012,7 @@ const Buy = () => {
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
     if (!order.amountTHB || Number(order.amountTHB) <= 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
+
     setErrors(e)
     return e
   }
@@ -974,6 +1027,7 @@ const Buy = () => {
       "condition",
       "fieldType",
       "riceYear",
+      "businessType", // ✅ ใหม่
       "branchName",
       "klangName",
       "entryWeightKg",
@@ -987,12 +1041,22 @@ const Buy = () => {
 
     const keyToFocus =
       firstKey === "address"
-        ? (customer.houseNo ? (customer.moo ? (customer.subdistrict ? (customer.district ? "province" : "district") : "subdistrict") : "moo") : "houseNo")
+        ? customer.houseNo
+          ? customer.moo
+            ? customer.subdistrict
+              ? customer.district
+                ? "province"
+                : "district"
+              : "subdistrict"
+            : "moo"
+          : "houseNo"
         : firstKey
 
     const el = refs[keyToFocus]?.current
     if (el && typeof el.focus === "function") {
-      try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
+      try {
+        el.scrollIntoView({ behavior: "smooth", block: "center" })
+      } catch {}
       el.focus()
     }
   }
@@ -1013,23 +1077,61 @@ const Buy = () => {
     const [firstName, ...rest] = customer.fullName.trim().split(" ")
     const lastName = rest.join(" ")
 
-    const productId  = /^\d+$/.test(order.productId)   ? Number(order.productId)   : null
-    const riceId     = /^\d+$/.test(order.riceId)      ? Number(order.riceId)      : null
-    const subriceId  = /^\d+$/.test(order.subriceId)   ? Number(order.subriceId)   : null
-    const branchId   = order.branchId ?? null
-    const klangId    = order.klangId ?? null
-    const riceYearId = /^\d+$/.test(order.riceYearId)  ? Number(order.riceYearId)  : null
-    const conditionId= /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
-    const fieldTypeId= /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
+    const productId = /^\d+$/.test(order.productId) ? Number(order.productId) : null
+    const riceId = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
+    const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null
+    const branchId = order.branchId ?? null
+    const klangId = order.klangId ?? null
+    const riceYearId = /^\d+$/.test(order.riceYearId) ? Number(order.riceYearId) : null
+    const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
+    const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
+    const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null // ✅ ใหม่
 
-    if (!productId)  { setErrors((p)=>({ ...p, product:"ไม่พบรหัสสินค้า" }));       scrollToFirstError({product:true}); return }
-    if (!riceId)     { setErrors((p)=>({ ...p, riceType:"ไม่พบรหัสชนิดข้าว" }));    scrollToFirstError({riceType:true}); return }
-    if (!subriceId)  { setErrors((p)=>({ ...p, subrice:"ไม่พบรหัสชั้นย่อย" }));     scrollToFirstError({subrice:true}); return }
-    if (!riceYearId) { setErrors((p)=>({ ...p, riceYear:"ไม่พบรหัสปี/ฤดูกาล" }));   scrollToFirstError({riceYear:true}); return }
-    if (!conditionId){ setErrors((p)=>({ ...p, condition:"ไม่พบรหัสสภาพ/เงื่อนไข" })); scrollToFirstError({condition:true}); return }
-    if (!fieldTypeId){ setErrors((p)=>({ ...p, fieldType:"ไม่พบรหัสประเภทนา" }));   scrollToFirstError({fieldType:true}); return }
-    if (!branchId)   { setErrors((p)=>({ ...p, branchName:"ไม่พบรหัสสาขา" }));      scrollToFirstError({branchName:true}); return }
-    if (!klangId)    { setErrors((p)=>({ ...p, klangName:"ไม่พบรหัสคลัง" }));       scrollToFirstError({klangName:true}); return }
+    if (!productId) {
+      setErrors((p) => ({ ...p, product: "ไม่พบรหัสสินค้า" }))
+      scrollToFirstError({ product: true })
+      return
+    }
+    if (!riceId) {
+      setErrors((p) => ({ ...p, riceType: "ไม่พบรหัสชนิดข้าว" }))
+      scrollToFirstError({ riceType: true })
+      return
+    }
+    if (!subriceId) {
+      setErrors((p) => ({ ...p, subrice: "ไม่พบรหัสชั้นย่อย" }))
+      scrollToFirstError({ subrice: true })
+      return
+    }
+    if (!riceYearId) {
+      setErrors((p) => ({ ...p, riceYear: "ไม่พบรหัสปี/ฤดูกาล" }))
+      scrollToFirstError({ riceYear: true })
+      return
+    }
+    if (!conditionId) {
+      setErrors((p) => ({ ...p, condition: "ไม่พบรหัสสภาพ/เงื่อนไข" }))
+      scrollToFirstError({ condition: true })
+      return
+    }
+    if (!fieldTypeId) {
+      setErrors((p) => ({ ...p, fieldType: "ไม่พบรหัสประเภทนา" }))
+      scrollToFirstError({ fieldType: true })
+      return
+    }
+    if (!businessTypeId) {
+      setErrors((p) => ({ ...p, businessType: "ไม่พบรหัสประเภทธุรกิจ" }))
+      scrollToFirstError({ businessType: true })
+      return
+    }
+    if (!branchId) {
+      setErrors((p) => ({ ...p, branchName: "ไม่พบรหัสสาขา" }))
+      scrollToFirstError({ branchName: true })
+      return
+    }
+    if (!klangId) {
+      setErrors((p) => ({ ...p, klangName: "ไม่พบรหัสคลัง" }))
+      scrollToFirstError({ klangName: true })
+      return
+    }
 
     const baseHeaders = authHeader()
 
@@ -1051,7 +1153,6 @@ const Buy = () => {
         district: customer.district.trim(),
         province: customer.province.trim(),
         postal_code: customer.postalCode?.toString().trim() || "",
-        // หมายเหตุ: phone ยังไม่ส่งเพราะสคีม่า backend เดิมไม่รองรับ
       },
       order: {
         asso_id: "",
@@ -1063,7 +1164,7 @@ const Buy = () => {
         condition: conditionId,
         humidity: Number(order.moisturePct || 0),
         entry_weight: Number(order.entryWeightKg || 0),
-        exit_weight:  Number(order.exitWeightKg  || 0),
+        exit_weight: Number(order.exitWeightKg || 0),
         weight: netW,
         price_per_kilo: Number(order.unitPrice || 0),
         price: Number(order.amountTHB),
@@ -1073,17 +1174,17 @@ const Buy = () => {
         branch_location: branchId,
         klang_location: klangId,
         gram: Number(order.gram || 0),
-        // ✅ ส่งคอมเมนต์ไป backend
         comment: order.comment?.trim() || "",
-        // ✅ ถ้า backend buy endpoint รองรับ business_type สามารถเติมได้ที่นี่ในอนาคต
+        business_type: businessTypeId, // ✅ ส่งขึ้น backend
       },
-      rice:   { rice_type: order.riceType },
+      rice: { rice_type: order.riceType },
       branch: { branch_name: order.branchName },
-      klang:  { klang_name: order.klangName },
+      klang: { klang_name: order.klangName },
     }
 
     try {
-      const res = await fetch(`${API_BASE}/order/customers/save`, {
+      // หมายเหตุ: จุดปลาย POST ให้ใช้ตามของจริง (เช่น /order/customers/save/buy)
+      const res = await fetch(`${API_BASE}/order/customers/save/buy`, {
         method: "POST",
         headers: baseHeaders,
         body: JSON.stringify(payload),
@@ -1136,6 +1237,8 @@ const Buy = () => {
       fieldTypeId: "",
       program: "",
       paymentMethod: "",
+      businessType: "",     // ✅ reset
+      businessTypeId: "",   // ✅ reset
       entryWeightKg: "",
       exitWeightKg: "",
       moisturePct: "",
@@ -1151,10 +1254,11 @@ const Buy = () => {
       klangName: "",
       klangId: null,
       registeredPlace: "",
-      // ✅ reset คอมเมนต์
       comment: "",
     })
-    setRiceOptions([]); setSubriceOptions([]); setKlangOptions([])
+    setRiceOptions([])
+    setSubriceOptions([])
+    setKlangOptions([])
   }
 
   /** ---------- UI ---------- */
@@ -1197,9 +1301,7 @@ const Buy = () => {
               <ComboBox
                 options={paymentOptions}
                 value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
-                onChange={(_id, found) =>
-                  setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))
-                }
+                onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
                 placeholder="— เลือกวิธีชำระเงิน —"
                 buttonRef={refs.payment}
               />
@@ -1220,7 +1322,7 @@ const Buy = () => {
             </div>
           </div>
 
-          {/* ฟิลด์ลูกค้าเดิม */}
+          {/* ฟิลด์ลูกค้า */}
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div className="md:col-span-1">
               <label className={labelCls}>เลขที่บัตรประชาชน (13 หลัก)</label>
@@ -1244,7 +1346,9 @@ const Buy = () => {
                   <span className="ml-1 text-emerald-600 dark:text-emerald-300">พบข้อมูลแล้ว ✅</span>
                 )}
                 {customer.citizenId.length === 13 && customerFound === false && (
-                  <span className="ml-1 text-amber-600 dark:text-amber-300">ไม่พบบุคคลนี้ (จะบันทึกเป็นลูกค้าทั่วไป)</span>
+                  <span className="ml-1 text-amber-600 dark:text-amber-300">
+                    ไม่พบบุคคลนี้ (จะบันทึกเป็นลูกค้าทั่วไป)
+                  </span>
                 )}
               </div>
             </div>
@@ -1252,15 +1356,24 @@ const Buy = () => {
             <div className="md:col-span-2" ref={nameBoxRef}>
               <label className={labelCls}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
               <input
-                ref={(el) => { refs.fullName.current = el; nameInputRef.current = el }}
+                ref={(el) => {
+                  refs.fullName.current = el
+                  nameInputRef.current = el
+                }}
                 className={cx(baseField, redFieldCls("fullName"))}
                 value={customer.fullName}
                 onChange={(e) => {
                   updateCustomer("fullName", e.target.value)
                   if (e.target.value.trim().length >= 2) setShowNameList(true)
-                  else { setShowNameList(false); setHighlightedIndex(-1) }
+                  else {
+                    setShowNameList(false)
+                    setHighlightedIndex(-1)
+                  }
                 }}
-                onFocus={() => { clearHint("fullName"); clearError("fullName") }}
+                onFocus={() => {
+                  clearHint("fullName")
+                  clearError("fullName")
+                }}
                 onKeyDown={handleNameKeyDown}
                 placeholder="เช่น นายสมชาย ใจดี"
                 aria-expanded={showNameList}
@@ -1290,7 +1403,10 @@ const Buy = () => {
                         ref={(el) => (itemRefs.current[idx] = el)}
                         key={`${r.type}-${r.asso_id}-${r.citizen_id}-${idx}`}
                         onClick={async () => await pickNameResult(r)}
-                        onMouseEnter={() => { setHighlightedIndex(idx); requestAnimationFrame(() => scrollHighlightedIntoView2(idx)) }}
+                        onMouseEnter={() => {
+                          setHighlightedIndex(idx)
+                          requestAnimationFrame(() => scrollHighlightedIntoView2(idx))
+                        }}
                         role="option"
                         aria-selected={isActive}
                         className={cx(
@@ -1385,8 +1501,10 @@ const Buy = () => {
                     ...p,
                     productId: id,
                     productName: found?.label ?? "",
-                    riceId: "", riceType: "",
-                    subriceId: "", subriceName: "",
+                    riceId: "",
+                    riceType: "",
+                    subriceId: "",
+                    subriceName: "",
                   }))
                 }}
                 placeholder="— เลือกประเภทสินค้า —"
@@ -1408,7 +1526,8 @@ const Buy = () => {
                     ...p,
                     riceId: id,
                     riceType: found?.label ?? "",
-                    subriceId: "", subriceName: "",
+                    subriceId: "",
+                    subriceName: "",
                   }))
                 }}
                 placeholder="— เลือกชนิดข้าว —"
@@ -1505,6 +1624,29 @@ const Buy = () => {
               {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
             </div>
 
+            {/* ✅ ใหม่: ประเภทธุรกิจ */}
+            <div>
+              <label className={labelCls}>ประเภทธุรกิจ</label>
+              <ComboBox
+                options={businessOptions}
+                value={order.businessTypeId}
+                getValue={(o) => o.id}
+                onChange={(_id, found) =>
+                  setOrder((p) => ({
+                    ...p,
+                    businessTypeId: found?.id ?? "",
+                    businessType: found?.label ?? "",
+                  }))
+                }
+                placeholder="— เลือกประเภทธุรกิจ —"
+                error={!!errors.businessType}
+                hintRed={!!missingHints.businessType}
+                clearHint={() => clearHint("businessType")}
+                buttonRef={refs.businessType}
+              />
+              {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
+            </div>
+
             <div>
               <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
               <ComboBox
@@ -1571,7 +1713,10 @@ const Buy = () => {
                 className={cx(baseField, redFieldCls("entryWeightKg"))}
                 value={order.entryWeightKg}
                 onChange={(e) => updateOrder("entryWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                onFocus={() => { clearHint("entryWeightKg"); clearError("entryWeightKg") }}
+                onFocus={() => {
+                  clearHint("entryWeightKg")
+                  clearError("entryWeightKg")
+                }}
                 placeholder="เช่น 12000"
                 aria-invalid={errors.entryWeightKg ? true : undefined}
               />
@@ -1586,7 +1731,10 @@ const Buy = () => {
                 className={cx(baseField, redFieldCls("exitWeightKg"))}
                 value={order.exitWeightKg}
                 onChange={(e) => updateOrder("exitWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                onFocus={() => { clearHint("exitWeightKg"); clearError("exitWeightKg") }}
+                onFocus={() => {
+                  clearHint("exitWeightKg")
+                  clearError("exitWeightKg")
+                }}
                 placeholder="เช่น 7000"
                 aria-invalid={errors.exitWeightKg ? true : undefined}
               />
@@ -1595,11 +1743,7 @@ const Buy = () => {
 
             <div>
               <label className={labelCls}>น้ำหนักจากตาชั่ง (กก.)</label>
-              <input
-                disabled
-                className={cx(baseField, fieldDisabled)}
-                value={Math.round(grossFromScale * 100) / 100}
-              />
+              <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(grossFromScale * 100) / 100} />
               <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
             </div>
 
@@ -1616,6 +1760,7 @@ const Buy = () => {
               />
               <p className={helpTextCls}>มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
             </div>
+
             <div>
               <label className={labelCls}>สิ่งเจือปน (%)</label>
               <input
@@ -1654,7 +1799,11 @@ const Buy = () => {
                 value={
                   order.manualDeduct
                     ? order.deductWeightKg
-                    : String(Math.round(suggestDeductionWeight(grossFromScale, order.moisturePct, order.impurityPct) * 100) / 100)
+                    : String(
+                        Math.round(
+                          suggestDeductionWeight(grossFromScale, order.moisturePct, order.impurityPct) * 100
+                        ) / 100
+                      )
                 }
                 onChange={(e) => updateOrder("deductWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
                 onFocus={() => clearHint("deductWeightKg")}
@@ -1666,11 +1815,7 @@ const Buy = () => {
 
             <div>
               <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
-              <input
-                disabled
-                className={cx(baseField, fieldDisabled)}
-                value={Math.round(netWeight * 100) / 100}
-              />
+              <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(netWeight * 100) / 100} />
             </div>
 
             <div>
@@ -1707,13 +1852,14 @@ const Buy = () => {
                 className={cx(baseField, redFieldCls("amountTHB"))}
                 value={order.amountTHB}
                 onChange={(e) => updateOrder("amountTHB", e.target.value.replace(/[^\d.]/g, ""))}
-                onFocus={() => { clearHint("amountTHB"); clearError("amountTHB") }}
+                onFocus={() => {
+                  clearHint("amountTHB")
+                  clearError("amountTHB")
+                }}
                 placeholder="เช่น 60000"
                 aria-invalid={errors.amountTHB ? true : undefined}
               />
-              {!!order.amountTHB && (
-                <p className={helpTextCls}>≈ {thb(Number(order.amountTHB))}</p>
-              )}
+              {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(Number(order.amountTHB))}</p>}
               {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
             </div>
 
@@ -1729,7 +1875,7 @@ const Buy = () => {
               />
             </div>
 
-            {/* ✅ ใหม่: คอมเมนต์/หมายเหตุ */}
+            {/* หมายเหตุ / คอมเมนต์ */}
             <div className="md:col-span-3">
               <label className={labelCls}>หมายเหตุ / คอมเมนต์ (ไม่บังคับ)</label>
               <textarea
@@ -1753,9 +1899,9 @@ const Buy = () => {
               { label: "ชนิดข้าว", value: order.riceType || "—" },
               { label: "ชั้นย่อย", value: order.subriceName || "—" },
               { label: "เงื่อนไข", value: order.condition || "—" },
-              { label: "โปรแกรม", value: order.program || "—" },
               { label: "ประเภทนา", value: order.fieldType || "—" },
               { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
+              { label: "ประเภทธุรกิจ", value: order.businessType || "—" }, // ✅ สรุปฟิลด์ใหม่
               {
                 label: "สาขา / คลัง",
                 value: (
@@ -1765,20 +1911,16 @@ const Buy = () => {
                   </ul>
                 ),
               },
-              { label: "ก่อนชั่ง", value: (Math.round(toNumber(order.entryWeightKg) * 100) / 100) + " กก." },
-              { label: "หลังชั่ง", value: (Math.round(toNumber(order.exitWeightKg) * 100) / 100) + " กก." },
-              { label: "จากตาชั่ง", value: (Math.round(grossFromScale * 100) / 100) + " กก." },
-              { label: "หัก (ความชื้น+สิ่งเจือปน)", value: (Math.round(toNumber(autoDeduct) * 100) / 100) + " กก." },
-              { label: "สุทธิ", value: (Math.round(netWeight * 100) / 100) + " กก." },
+              { label: "ก่อนชั่ง", value: Math.round(toNumber(order.entryWeightKg) * 100) / 100 + " กก." },
+              { label: "หลังชั่ง", value: Math.round(toNumber(order.exitWeightKg) * 100) / 100 + " กก." },
+              { label: "จากตาชั่ง", value: Math.round(grossFromScale * 100) / 100 + " กก." },
+              { label: "หัก (ความชื้น+สิ่งเจือปน)", value: Math.round(toNumber(autoDeduct) * 100) / 100 + " กก." },
+              { label: "สุทธิ", value: Math.round(netWeight * 100) / 100 + " กก." },
               {
                 label: "ราคาต่อหน่วย",
                 value: order.unitPrice ? `${Number(order.unitPrice).toFixed(2)} บาท/กก.` : "—",
               },
-              {
-                label: "ยอดเงิน",
-                value: order.amountTHB ? thb(Number(order.amountTHB)) : "—",
-              },
-              // ✅ สรุปคอมเมนต์
+              { label: "ยอดเงิน", value: order.amountTHB ? thb(Number(order.amountTHB)) : "—" },
               { label: "หมายเหตุ / คอมเมนต์", value: order.comment || "—" },
             ].map((c) => (
               <div
@@ -1787,9 +1929,7 @@ const Buy = () => {
               >
                 <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
                 {typeof c.value === "string" ? (
-                  <div className="text-lg md:text-xl font-semibold whitespace-pre-line">
-                    {c.value}
-                  </div>
+                  <div className="text-lg md:text-xl font-semibold whitespace-pre-line">{c.value}</div>
                 ) : (
                   <div className="text-lg md:text-xl font-semibold">{c.value}</div>
                 )}
@@ -1801,11 +1941,11 @@ const Buy = () => {
             <button
               type="submit"
               className="inline-flex items-center justify-center rounded-2xl 
-                         bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                         shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                         transition-all duration-300 ease-out
-                         hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                         hover:scale-[1.05] active:scale-[.97] cursor-pointer"
+                     bg-emerald-600 px-6 py-3 text-base font-semibold text-white
+                     shadow-[0_6px_16px_rgba(16,185,129,0.35)]
+                     transition-all duration-300 ease-out
+                     hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
+                     hover:scale-[1.05] active:scale-[.97] cursor-pointer"
             >
               บันทึกออเดอร์
             </button>
@@ -1814,13 +1954,13 @@ const Buy = () => {
               type="button"
               onClick={handleReset}
               className="inline-flex items-center justify-center rounded-2xl 
-                        border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                        shadow-sm
-                        transition-all duration-300 ease-out
-                        hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                        active:scale-[.97]
-                        dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                        dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                    border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
+                    shadow-sm
+                    transition-all duration-300 ease-out
+                    hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
+                    active:scale-[.97]
+                    dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
+                    dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
             >
               รีเซ็ต
             </button>

@@ -1520,8 +1520,6 @@ const Buy = () => {
               />
             </div>
 
-            {/* ✅ ลบวิธีชำระเงินออกจากส่วนนี้แล้ว (ย้ายไปกล่องลูกค้า) */}
-
             {/* ✅ สาขา */}
             <div>
               <label className={labelCls}>สาขา</label>
@@ -1746,13 +1744,19 @@ const Buy = () => {
             {/* วันที่ถูกย้ายไปกรอบข้อมูลลูกค้าแล้ว */}
           </div>
 
-          {/* --- สรุป --- */}
+          {/* --- สรุป (เรียงใหม่ 1–17) --- */}
           <div className="mt-6 grid gap-4 md:grid-cols-5">
             {[
-              { label: "สินค้า", value: order.productName || "—" },
-              { label: "ชนิดข้าว", value: order.riceType || "—" },
-              { label: "ชั้นย่อย", value: order.subriceName || "—" },
-              {
+              { label: "ลงวันที่", value: order.issueDate || "—" },                                            // 1
+              { label: "วิธีชำระเงิน", value: order.paymentMethod || "—" },                                    // 2
+              { label: "สินค้า", value: order.productName || "—" },                                             // 3
+              { label: "ชนิดข้าว", value: order.riceType || "—" },                                             // 4
+              { label: "ชั้นย่อย", value: order.subriceName || "—" },                                          // 5
+              { label: "เงื่อนไข", value: order.condition || "—" },                                            // 6
+              { label: "โปรแกรม", value: order.program || "—" },                                               // 7
+              { label: "ประเภทนา", value: order.fieldType || "—" },                                            // 8
+              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },                                            // 9
+              {                                                                                                 // 10
                 label: "สาขา / คลัง",
                 value: (
                   <ul className="list-disc pl-5">
@@ -1761,18 +1765,19 @@ const Buy = () => {
                   </ul>
                 ),
               },
-              { label: "ก่อนชั่ง", value: (Math.round(toNumber(order.entryWeightKg) * 100) / 100) + " กก." },
-              { label: "หลังชั่ง", value: (Math.round(toNumber(order.exitWeightKg) * 100) / 100) + " กก." },
-              { label: "จากตาชั่ง", value: (Math.round(grossFromScale * 100) / 100) + " กก." },
-              { label: "หัก (ความชื้น+สิ่งเจือปน)", value: (Math.round(toNumber(autoDeduct) * 100) / 100) + " กก." },
-              { label: "สุทธิ", value: (Math.round(netWeight * 100) / 100) + " กก." },
-              { label: "คุณภาพ (gram)", value: order.gram || "—" },
-              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
-              { label: "ประเภทนา", value: order.fieldType || "—" },
-              { label: "เงื่อนไข", value: order.condition || "—" },
-              { label: "โปรแกรม (UI)", value: order.program || "—" },
-              { label: "วิธีชำระเงิน (UI)", value: order.paymentMethod || "—" },
-              { label: "ลงวันที่", value: order.issueDate || "—" },
+              { label: "ก่อนชั่ง", value: (Math.round(toNumber(order.entryWeightKg) * 100) / 100) + " กก." }, // 11
+              { label: "หลังชั่ง", value: (Math.round(toNumber(order.exitWeightKg) * 100) / 100) + " กก." },  // 12
+              { label: "จากตาชั่ง", value: (Math.round(grossFromScale * 100) / 100) + " กก." },               // 13
+              { label: "หัก (ความชื้น+สิ่งเจือปน)", value: (Math.round(toNumber(autoDeduct) * 100) / 100) + " กก." }, // 14
+              { label: "สุทธิ", value: (Math.round(netWeight * 100) / 100) + " กก." },                         // 15
+              {                                                                                                 // 16
+                label: "ราคาต่อหน่วย",
+                value: order.unitPrice ? `${Number(order.unitPrice).toFixed(2)} บาท/กก.` : "—",
+              },
+              {                                                                                                 // 17
+                label: "ยอดเงิน",
+                value: order.amountTHB ? thb(Number(order.amountTHB)) : "—",
+              },
             ].map((c) => (
               <div
                 key={c.label}

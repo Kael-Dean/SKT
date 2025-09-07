@@ -307,7 +307,7 @@ const Buy = () => {
     district: "",
     province: "",
     postalCode: "",
-    phone: "", // ✅ ใหม่: เบอร์โทร
+    phone: "", // ✅ เบอร์โทร
   })
 
   /** เมตาสมาชิก/ลูกค้า */
@@ -361,6 +361,9 @@ const Buy = () => {
     klangName: "",
     klangId: null,
     registeredPlace: "",
+
+    // ✅ ใหม่: คอมเมนต์/หมายเหตุ
+    comment: "",
   })
 
   /** ---------- Refs ---------- */
@@ -373,7 +376,7 @@ const Buy = () => {
     district: useRef(null),
     province: useRef(null),
     postalCode: useRef(null),
-    phone: useRef(null), // ✅ ใหม่
+    phone: useRef(null),
     product: useRef(null),
     riceType: useRef(null),
     subrice: useRef(null),
@@ -394,6 +397,8 @@ const Buy = () => {
     paymentRefNo: useRef(null),
     issueDate: useRef(null),
     gram: useRef(null),
+    // ✅ ใหม่
+    comment: useRef(null),
   }
 
   /** debounce */
@@ -449,7 +454,7 @@ const Buy = () => {
       lastName: toStr(data.last_name ?? data.lastName ?? ""),
       type: data.type ?? undefined,
       asso_id: data.asso_id ?? data.assoId ?? undefined,
-      phone: toStr(data.phone ?? data.tel ?? data.mobile ?? ""), // เผื่อ API ใดส่งมา
+      phone: toStr(data.phone ?? data.tel ?? data.mobile ?? ""),
     }
 
     const hasAnyAddress =
@@ -490,7 +495,6 @@ const Buy = () => {
           fetchFirstOkJson(["/order/field/search", "/order/field_type/list", "/order/field-type/list"]),
           fetchFirstOkJson(["/order/year/search"]),
           fetchFirstOkJson(["/order/program/search"]),
-          // ✅ เปลี่ยนเป็น endpoint ใหม่สำหรับ “วิธีชำระเงิน”
           fetchFirstOkJson(["/order/payment/search/buy"]),
           fetchFirstOkJson(["/order/branch/search"]),
         ])
@@ -530,7 +534,6 @@ const Buy = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        // ✅ ปรับแมปเป็น x.payment (payload จาก /payment/search/buy คือ {id, payment})
         setPaymentOptions(
           (payments || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -1070,6 +1073,9 @@ const Buy = () => {
         branch_location: branchId,
         klang_location: klangId,
         gram: Number(order.gram || 0),
+        // ✅ ส่งคอมเมนต์ไป backend
+        comment: order.comment?.trim() || "",
+        // ✅ ถ้า backend buy endpoint รองรับ business_type สามารถเติมได้ที่นี่ในอนาคต
       },
       rice:   { rice_type: order.riceType },
       branch: { branch_name: order.branchName },
@@ -1145,6 +1151,8 @@ const Buy = () => {
       klangName: "",
       klangId: null,
       registeredPlace: "",
+      // ✅ reset คอมเมนต์
+      comment: "",
     })
     setRiceOptions([]); setSubriceOptions([]); setKlangOptions([])
   }
@@ -1720,6 +1728,20 @@ const Buy = () => {
                 placeholder="เช่น A-2025-000123"
               />
             </div>
+
+            {/* ✅ ใหม่: คอมเมนต์/หมายเหตุ */}
+            <div className="md:col-span-3">
+              <label className={labelCls}>หมายเหตุ / คอมเมนต์ (ไม่บังคับ)</label>
+              <textarea
+                ref={refs.comment}
+                rows={3}
+                className={cx(baseField)}
+                value={order.comment}
+                onChange={(e) => updateOrder("comment", e.target.value)}
+                placeholder="เช่น ลูกค้าขอรับเงินโอนพรุ่งนี้, ความชื้นวัดซ้ำรอบบ่าย, ฯลฯ"
+              />
+              <p className={helpTextCls}>ข้อความนี้จะถูกส่งไปเก็บในออเดอร์ด้วย</p>
+            </div>
           </div>
 
           {/* --- สรุป --- */}
@@ -1756,6 +1778,8 @@ const Buy = () => {
                 label: "ยอดเงิน",
                 value: order.amountTHB ? thb(Number(order.amountTHB)) : "—",
               },
+              // ✅ สรุปคอมเมนต์
+              { label: "หมายเหตุ / คอมเมนต์", value: order.comment || "—" },
             ].map((c) => (
               <div
                 key={c.label}

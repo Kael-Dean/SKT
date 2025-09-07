@@ -44,7 +44,6 @@ function suggestDeductionWeight(grossKg, moisturePct, impurityPct) {
 /** ---------- class helpers ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/** ---------- สไตล์ ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -226,7 +225,7 @@ function ComboBox({
   )
 }
 
-/** ---------- DateInput: ปฏิทินซูมเมื่อโฮเวอร์ ---------- */
+/** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput(
   { error = false, className = "", ...props },
   ref
@@ -491,7 +490,8 @@ const Buy = () => {
           fetchFirstOkJson(["/order/field/search", "/order/field_type/list", "/order/field-type/list"]),
           fetchFirstOkJson(["/order/year/search"]),
           fetchFirstOkJson(["/order/program/search"]),
-          fetchFirstOkJson(["/order/payment/search"]),
+          // ✅ เปลี่ยนเป็น endpoint ใหม่สำหรับ “วิธีชำระเงิน”
+          fetchFirstOkJson(["/payment/search/buy"]),
           fetchFirstOkJson(["/order/branch/search"]),
         ])
 
@@ -530,10 +530,11 @@ const Buy = () => {
           })).filter((o) => o.id && o.label)
         )
 
+        // ✅ ปรับแมปเป็น x.payment (payload จาก /payment/search/buy คือ {id, payment})
         setPaymentOptions(
           (payments || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
-            label: String(x.method ?? x.year ?? x.name ?? x.label ?? "").trim(),
+            label: String(x.payment ?? x.name ?? x.label ?? "").trim(),
           })).filter((o) => o.id && o.label)
         )
 
@@ -1181,9 +1182,8 @@ const Buy = () => {
             )}
           </div>
 
-          {/* ✅ ย้ายวิธีชำระเงิน + วันที่ มาไว้หัวกล่องลูกค้า */}
+          {/* ✅ วิธีชำระเงิน + วันที่ */}
           <div className="grid gap-4 md:grid-cols-3">
-            {/* วิธีชำระเงิน (ไม่บังคับ) */}
             <div>
               <label className={labelCls}>วิธีชำระเงิน (ไม่บังคับ)</label>
               <ComboBox
@@ -1197,7 +1197,6 @@ const Buy = () => {
               />
             </div>
 
-            {/* ลงวันที่ (ย้ายมาอยู่ถัดจากวิธีชำระเงิน) */}
             <div>
               <label className={labelCls}>ลงวันที่</label>
               <DateInput
@@ -1213,9 +1212,8 @@ const Buy = () => {
             </div>
           </div>
 
-          {/* ตามด้วยฟิลด์เดิมทั้งหมด */}
+          {/* ฟิลด์ลูกค้าเดิม */}
           <div className="mt-4 grid gap-4 md:grid-cols-3">
-            {/* เลขบัตร (ไม่บังคับ) */}
             <div className="md:col-span-1">
               <label className={labelCls}>เลขที่บัตรประชาชน (13 หลัก)</label>
               <input
@@ -1243,7 +1241,6 @@ const Buy = () => {
               </div>
             </div>
 
-            {/* ชื่อ–สกุล + รายการค้นหา */}
             <div className="md:col-span-2" ref={nameBoxRef}>
               <label className={labelCls}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
               <input
@@ -1311,7 +1308,6 @@ const Buy = () => {
               )}
             </div>
 
-            {/* ที่อยู่ */}
             {[
               ["houseNo", "บ้านเลขที่", "เช่น 99/1"],
               ["moo", "หมู่", "เช่น 4"],
@@ -1347,7 +1343,6 @@ const Buy = () => {
               />
             </div>
 
-            {/* ✅ ใหม่: เบอร์โทรศัพท์ */}
             <div>
               <label className={labelCls}>เบอร์โทรศัพท์ (ไม่บังคับ)</label>
               <input
@@ -1372,7 +1367,6 @@ const Buy = () => {
           <h2 className="mb-3 text-xl font-semibold">รายละเอียดการซื้อ</h2>
 
           <div className="grid gap-4 md:grid-cols-3">
-            {/* Product */}
             <div>
               <label className={labelCls}>ประเภทสินค้า</label>
               <ComboBox
@@ -1396,7 +1390,6 @@ const Buy = () => {
               {errors.product && <p className={errorTextCls}>{errors.product}</p>}
             </div>
 
-            {/* Rice */}
             <div>
               <label className={labelCls}>ชนิดข้าว</label>
               <ComboBox
@@ -1420,7 +1413,6 @@ const Buy = () => {
               {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
             </div>
 
-            {/* Sub-rice */}
             <div>
               <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
               <ComboBox
@@ -1439,7 +1431,6 @@ const Buy = () => {
               {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
             </div>
 
-            {/* Condition */}
             <div>
               <label className={labelCls}>สภาพ/เงื่อนไข</label>
               <ComboBox
@@ -1462,7 +1453,6 @@ const Buy = () => {
               {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
             </div>
 
-            {/* Field type */}
             <div>
               <label className={labelCls}>ประเภทนา</label>
               <ComboBox
@@ -1485,7 +1475,6 @@ const Buy = () => {
               {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
             </div>
 
-            {/* Year */}
             <div>
               <label className={labelCls}>ปี/ฤดูกาล</label>
               <ComboBox
@@ -1508,7 +1497,6 @@ const Buy = () => {
               {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
             </div>
 
-            {/* (Optional) Program */}
             <div>
               <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
               <ComboBox
@@ -1520,7 +1508,6 @@ const Buy = () => {
               />
             </div>
 
-            {/* ✅ สาขา */}
             <div>
               <label className={labelCls}>สาขา</label>
               <ComboBox
@@ -1545,7 +1532,6 @@ const Buy = () => {
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
             </div>
 
-            {/* ✅ คลัง */}
             <div>
               <label className={labelCls}>คลัง</label>
               <ComboBox
@@ -1569,7 +1555,6 @@ const Buy = () => {
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>
 
-            {/* น้ำหนักก่อน/หลังชั่ง */}
             <div>
               <label className={labelCls}>น้ำหนักก่อนชั่ง (กก.)</label>
               <input
@@ -1600,7 +1585,6 @@ const Buy = () => {
               {errors.exitWeightKg && <p className={errorTextCls}>{errors.exitWeightKg}</p>}
             </div>
 
-            {/* น้ำหนักจากตาชั่ง (คำนวณ) */}
             <div>
               <label className={labelCls}>น้ำหนักจากตาชั่ง (กก.)</label>
               <input
@@ -1611,7 +1595,6 @@ const Buy = () => {
               <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
             </div>
 
-            {/* ความชื้น/สิ่งเจือปน */}
             <div>
               <label className={labelCls}>ความชื้น (%)</label>
               <input
@@ -1638,7 +1621,6 @@ const Buy = () => {
               />
             </div>
 
-            {/* หักน้ำหนัก */}
             <div className="">
               <div className="flex items-center justify-between">
                 <label className={labelCls}>หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)</label>
@@ -1674,7 +1656,6 @@ const Buy = () => {
               {errors.deductWeightKg && <p className={errorTextCls}>{errors.deductWeightKg}</p>}
             </div>
 
-            {/* สุทธิ (หลังหัก) */}
             <div>
               <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
               <input
@@ -1684,7 +1665,6 @@ const Buy = () => {
               />
             </div>
 
-            {/* ฟิลด์คุณภาพ/ราคา/เลขอ้างอิง */}
             <div>
               <label className={labelCls}>คุณภาพข้าว (gram)</label>
               <input
@@ -1740,23 +1720,21 @@ const Buy = () => {
                 placeholder="เช่น A-2025-000123"
               />
             </div>
-
-            {/* วันที่ถูกย้ายไปกรอบข้อมูลลูกค้าแล้ว */}
           </div>
 
-          {/* --- สรุป (เรียงใหม่ 1–17) --- */}
+          {/* --- สรุป --- */}
           <div className="mt-6 grid gap-4 md:grid-cols-5">
             {[
-              { label: "ลงวันที่", value: order.issueDate || "—" },                                            // 1
-              { label: "วิธีชำระเงิน", value: order.paymentMethod || "—" },                                    // 2
-              { label: "สินค้า", value: order.productName || "—" },                                             // 3
-              { label: "ชนิดข้าว", value: order.riceType || "—" },                                             // 4
-              { label: "ชั้นย่อย", value: order.subriceName || "—" },                                          // 5
-              { label: "เงื่อนไข", value: order.condition || "—" },                                            // 6
-              { label: "โปรแกรม", value: order.program || "—" },                                               // 7
-              { label: "ประเภทนา", value: order.fieldType || "—" },                                            // 8
-              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },                                            // 9
-              {                                                                                                 // 10
+              { label: "ลงวันที่", value: order.issueDate || "—" },
+              { label: "วิธีชำระเงิน", value: order.paymentMethod || "—" },
+              { label: "สินค้า", value: order.productName || "—" },
+              { label: "ชนิดข้าว", value: order.riceType || "—" },
+              { label: "ชั้นย่อย", value: order.subriceName || "—" },
+              { label: "เงื่อนไข", value: order.condition || "—" },
+              { label: "โปรแกรม", value: order.program || "—" },
+              { label: "ประเภทนา", value: order.fieldType || "—" },
+              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
+              {
                 label: "สาขา / คลัง",
                 value: (
                   <ul className="list-disc pl-5">
@@ -1765,16 +1743,16 @@ const Buy = () => {
                   </ul>
                 ),
               },
-              { label: "ก่อนชั่ง", value: (Math.round(toNumber(order.entryWeightKg) * 100) / 100) + " กก." }, // 11
-              { label: "หลังชั่ง", value: (Math.round(toNumber(order.exitWeightKg) * 100) / 100) + " กก." },  // 12
-              { label: "จากตาชั่ง", value: (Math.round(grossFromScale * 100) / 100) + " กก." },               // 13
-              { label: "หัก (ความชื้น+สิ่งเจือปน)", value: (Math.round(toNumber(autoDeduct) * 100) / 100) + " กก." }, // 14
-              { label: "สุทธิ", value: (Math.round(netWeight * 100) / 100) + " กก." },                         // 15
-              {                                                                                                 // 16
+              { label: "ก่อนชั่ง", value: (Math.round(toNumber(order.entryWeightKg) * 100) / 100) + " กก." },
+              { label: "หลังชั่ง", value: (Math.round(toNumber(order.exitWeightKg) * 100) / 100) + " กก." },
+              { label: "จากตาชั่ง", value: (Math.round(grossFromScale * 100) / 100) + " กก." },
+              { label: "หัก (ความชื้น+สิ่งเจือปน)", value: (Math.round(toNumber(autoDeduct) * 100) / 100) + " กก." },
+              { label: "สุทธิ", value: (Math.round(netWeight * 100) / 100) + " กก." },
+              {
                 label: "ราคาต่อหน่วย",
                 value: order.unitPrice ? `${Number(order.unitPrice).toFixed(2)} บาท/กก.` : "—",
               },
-              {                                                                                                 // 17
+              {
                 label: "ยอดเงิน",
                 value: order.amountTHB ? thb(Number(order.amountTHB)) : "—",
               },
@@ -1795,7 +1773,6 @@ const Buy = () => {
             ))}
           </div>
 
-          {/* ปุ่ม */}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
               type="submit"

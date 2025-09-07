@@ -308,6 +308,7 @@ const Buy = () => {
     district: "",
     province: "",
     postalCode: "",
+    phone: "", // ✅ ใหม่: เบอร์โทร
   })
 
   /** เมตาสมาชิก/ลูกค้า */
@@ -335,7 +336,7 @@ const Buy = () => {
     fieldType: "",
     fieldTypeId: "",
 
-    // (โปรแกรม/วิธีชำระเงิน — optional UI เท่านั้น)
+    // (โปรแกรม/วิธีชำระเงิน — UI เท่านั้น)
     program: "",
     paymentMethod: "",
 
@@ -373,6 +374,7 @@ const Buy = () => {
     district: useRef(null),
     province: useRef(null),
     postalCode: useRef(null),
+    phone: useRef(null), // ✅ ใหม่
     product: useRef(null),
     riceType: useRef(null),
     subrice: useRef(null),
@@ -432,7 +434,7 @@ const Buy = () => {
       `/customer/detail?citizen_id=${q}`,
       `/customers/detail?citizen_id=${q}`,
       `/member/detail?citizen_id=${q}`,
-      `/order/customers/search?q=${q}` // เผื่อ API นี้ส่ง address มาด้วย
+      `/order/customers/search?q=${q}`
     ]
     const data = await fetchFirstOkJson(candidates)
 
@@ -448,12 +450,13 @@ const Buy = () => {
       lastName: toStr(data.last_name ?? data.lastName ?? ""),
       type: data.type ?? undefined,
       asso_id: data.asso_id ?? data.assoId ?? undefined,
+      phone: toStr(data.phone ?? data.tel ?? data.mobile ?? ""), // เผื่อ API ใดส่งมา
     }
 
     const hasAnyAddress =
       addr.houseNo || addr.moo || addr.subdistrict || addr.district || addr.province || addr.postalCode
 
-    if (addr.firstName || addr.lastName || hasAnyAddress) {
+    if (addr.firstName || addr.lastName || hasAnyAddress || addr.phone) {
       setCustomer((prev) => ({
         ...prev,
         fullName: (addr.firstName || addr.lastName) ? `${addr.firstName} ${addr.lastName}`.trim() || prev.fullName : prev.fullName,
@@ -463,6 +466,7 @@ const Buy = () => {
         district: addr.district || prev.district,
         province: addr.province || prev.province,
         postalCode: addr.postalCode || prev.postalCode,
+        phone: addr.phone || prev.phone,
       }))
       if (addr.type) setMemberMeta((m) => ({ ...m, type: addr.type }))
       if (addr.asso_id) setMemberMeta((m) => ({ ...m, assoId: addr.asso_id }))
@@ -623,13 +627,14 @@ const Buy = () => {
       assoId:    r.asso_id ?? r.assoId ?? null,
       type:      r.type ?? "unknown",
 
-      // address fields (ถ้ามีมากับผลลัพธ์ search)
+      // address fields
       houseNo:     toStr(r.address ?? r.house_no ?? r.houseNo ?? ""),
       moo:         toStr(r.mhoo ?? r.moo ?? ""),
       subdistrict: toStr(r.sub_district ?? r.subdistrict ?? r.subDistrict ?? ""),
       district:    toStr(r.district ?? ""),
       province:    toStr(r.province ?? ""),
       postalCode:  onlyDigits(toStr(r.postal_code ?? r.postalCode ?? "")),
+      phone:       toStr(r.phone ?? r.tel ?? r.mobile ?? ""),
     }
   }
 
@@ -642,11 +647,12 @@ const Buy = () => {
       ...prev,
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
       fullName: data.fullName || prev.fullName,
+      phone: data.phone || prev.phone,
     }))
     setMemberMeta({ type: data.type, assoId: data.assoId })
     setCustomerFound(true)
 
-    // ถ้ามีที่อยู่ในเรคอร์ด (จาก /order/customers/search) ก็เติมเลย
+    // ถ้ามีที่อยู่ในเรคอร์ด ก็เติมเลย
     const hasAnyAddr =
       data.houseNo || data.moo || data.subdistrict || data.district || data.province || data.postalCode
 
@@ -744,6 +750,7 @@ const Buy = () => {
           district: r.district ?? "",
           province: r.province ?? "",
           postal_code: r.postal_code ?? r.postalCode ?? "",
+          phone: r.phone ?? r.tel ?? r.mobile ?? "",
         }))
         setNameResults(mapped)
         if (document.activeElement === nameInputRef.current) {
@@ -1040,6 +1047,7 @@ const Buy = () => {
         district: customer.district.trim(),
         province: customer.province.trim(),
         postal_code: customer.postalCode?.toString().trim() || "",
+        // หมายเหตุ: phone ยังไม่ส่งเพราะสคีม่า backend เดิมไม่รองรับ
       },
       order: {
         asso_id: "",
@@ -1103,6 +1111,7 @@ const Buy = () => {
       district: "",
       province: "",
       postalCode: "",
+      phone: "",
     })
     setOrder({
       productId: "",
@@ -1172,7 +1181,40 @@ const Buy = () => {
             )}
           </div>
 
+          {/* ✅ ย้ายวิธีชำระเงิน + วันที่ มาไว้หัวกล่องลูกค้า */}
           <div className="grid gap-4 md:grid-cols-3">
+            {/* วิธีชำระเงิน (ไม่บังคับ) */}
+            <div>
+              <label className={labelCls}>วิธีชำระเงิน (ไม่บังคับ)</label>
+              <ComboBox
+                options={paymentOptions}
+                value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
+                onChange={(_id, found) =>
+                  setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))
+                }
+                placeholder="— เลือกวิธีชำระเงิน —"
+                buttonRef={refs.payment}
+              />
+            </div>
+
+            {/* ลงวันที่ (ย้ายมาอยู่ถัดจากวิธีชำระเงิน) */}
+            <div>
+              <label className={labelCls}>ลงวันที่</label>
+              <DateInput
+                ref={refs.issueDate}
+                value={order.issueDate}
+                onChange={(e) => setOrder((p) => ({ ...p, issueDate: e.target.value }))}
+                onFocus={() => clearHint("issueDate")}
+                error={!!errors.issueDate}
+                className={redHintCls("issueDate")}
+                aria-invalid={errors.issueDate ? true : undefined}
+              />
+              {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
+            </div>
+          </div>
+
+          {/* ตามด้วยฟิลด์เดิมทั้งหมด */}
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
             {/* เลขบัตร (ไม่บังคับ) */}
             <div className="md:col-span-1">
               <label className={labelCls}>เลขที่บัตรประชาชน (13 หลัก)</label>
@@ -1303,6 +1345,21 @@ const Buy = () => {
                 onFocus={() => clearHint("postalCode")}
                 placeholder="เช่น 40000"
               />
+            </div>
+
+            {/* ✅ ใหม่: เบอร์โทรศัพท์ */}
+            <div>
+              <label className={labelCls}>เบอร์โทรศัพท์ (ไม่บังคับ)</label>
+              <input
+                ref={refs.phone}
+                inputMode="tel"
+                maxLength={20}
+                className={cx(baseField, compactInput)}
+                value={customer.phone}
+                onChange={(e) => updateCustomer("phone", e.target.value.replace(/[^\d+]/g, ""))}
+                placeholder="เช่น 0812345678"
+              />
+              <p className={helpTextCls}>เก็บไว้ติดต่อภายหลัง (ยังไม่ส่งเข้า backend)</p>
             </div>
           </div>
         </div>
@@ -1463,19 +1520,7 @@ const Buy = () => {
               />
             </div>
 
-            {/* (Optional) Payment method */}
-            <div>
-              <label className={labelCls}>วิธีชำระเงิน (ไม่บังคับ)</label>
-              <ComboBox
-                options={paymentOptions}
-                value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
-                onChange={(_id, found) =>
-                  setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))
-                }
-                placeholder="— เลือกวิธีชำระเงิน —"
-                buttonRef={refs.payment}
-              />
-            </div>
+            {/* ✅ ลบวิธีชำระเงินออกจากส่วนนี้แล้ว (ย้ายไปกล่องลูกค้า) */}
 
             {/* ✅ สาขา */}
             <div>
@@ -1641,7 +1686,7 @@ const Buy = () => {
               />
             </div>
 
-            {/* ฟิลด์คุณภาพ/ราคา/เลขอ้างอิง/ลงวันที่ */}
+            {/* ฟิลด์คุณภาพ/ราคา/เลขอ้างอิง */}
             <div>
               <label className={labelCls}>คุณภาพข้าว (gram)</label>
               <input
@@ -1698,19 +1743,7 @@ const Buy = () => {
               />
             </div>
 
-            <div>
-              <label className={labelCls}>ลงวันที่</label>
-              <DateInput
-                ref={refs.issueDate}
-                value={order.issueDate}
-                onChange={(e) => updateOrder("issueDate", e.target.value)}
-                onFocus={() => clearHint("issueDate")}
-                error={!!errors.issueDate}
-                className={redHintCls("issueDate")}
-                aria-invalid={errors.issueDate ? true : undefined}
-              />
-              {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
-            </div>
+            {/* วันที่ถูกย้ายไปกรอบข้อมูลลูกค้าแล้ว */}
           </div>
 
           {/* --- สรุป --- */}
@@ -1739,6 +1772,7 @@ const Buy = () => {
               { label: "เงื่อนไข", value: order.condition || "—" },
               { label: "โปรแกรม (UI)", value: order.program || "—" },
               { label: "วิธีชำระเงิน (UI)", value: order.paymentMethod || "—" },
+              { label: "ลงวันที่", value: order.issueDate || "—" },
             ].map((c) => (
               <div
                 key={c.label}

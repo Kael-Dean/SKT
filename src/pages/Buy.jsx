@@ -30,6 +30,32 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
+/** ▶︎ เงิน: ช่วยให้พิมพ์แล้วขึ้นคอมม่า และแปลงกลับเป็นตัวเลข */
+const moneyToNumber = (v) => {
+  if (v === "" || v == null) return 0
+  const n = Number(String(v).replace(/,/g, ""))
+  return isFinite(n) ? n : 0
+}
+const formatMoneyInput = (val) => {
+  // เก็บเฉพาะตัวเลขกับจุด ทิ้งสัญลักษณ์อื่น
+  let s = String(val).replace(/[^0-9.]/g, "")
+  if (s === "") return ""
+  // ให้มีจุดทศนิยมแค่ตำแหน่งเดียว
+  const parts = s.split(".")
+  const intRaw = parts[0] || "0"
+  const decRaw = parts[1] ?? null
+
+  // ตัดศูนย์นำหน้าเว้นแต่ว่ามีแค่ "0"
+  const intClean = intRaw.replace(/^0+(?=\d)/, "")
+  const intWithCommas = intClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+
+  if (decRaw != null) {
+    const dec = decRaw.replace(/[^0-9]/g, "").slice(0, 2) // จำกัด 2 ตำแหน่ง
+    return dec.length > 0 ? `${intWithCommas}.${dec}` : intWithCommas
+  }
+  return intWithCommas
+}
+
 /** กฎคำนวณหักน้ำหนัก */
 const MOISTURE_STD = 15
 function suggestDeductionWeight(grossKg, moisturePct, impurityPct) {
@@ -939,7 +965,9 @@ const Buy = () => {
 
   useEffect(() => {
     if (computedAmount !== null) {
-      setOrder((prev) => ({ ...prev, amountTHB: String(Math.round(computedAmount * 100) / 100) }))
+      const rounded = Math.round(computedAmount * 100) / 100
+      const formatted = formatMoneyInput(String(rounded))
+      setOrder((prev) => ({ ...prev, amountTHB: formatted }))
     }
   }, [computedAmount])
 
@@ -968,7 +996,7 @@ const Buy = () => {
     if (!order.klangName) m.klangName = true
     if (!order.entryWeightKg || Number(order.entryWeightKg) < 0) m.entryWeightKg = true
     if (!order.exitWeightKg || Number(order.exitWeightKg) <= 0) m.exitWeightKg = true
-    if (!order.amountTHB || Number(order.amountTHB) <= 0) m.amountTHB = true
+    if (!order.amountTHB || moneyToNumber(order.amountTHB) <= 0) m.amountTHB = true
     if (!order.issueDate) m.issueDate = true
     return m
   }
@@ -1010,7 +1038,10 @@ const Buy = () => {
 
     if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0))
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
-    if (!order.amountTHB || Number(order.amountTHB) <= 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
+
+    const amt = moneyToNumber(order.amountTHB)
+    if (!amt || amt <= 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
+
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
 
     setErrors(e)
@@ -1167,7 +1198,7 @@ const Buy = () => {
         exit_weight: Number(order.exitWeightKg || 0),
         weight: netW,
         price_per_kilo: Number(order.unitPrice || 0),
-        price: Number(order.amountTHB),
+        price: moneyToNumber(order.amountTHB), // ✅ รองรับคอมม่า
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim(),
         date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
@@ -1865,15 +1896,15 @@ const Buy = () => {
                   inputMode="decimal"
                   className={cx(baseField, redFieldCls("amountTHB"))}
                   value={order.amountTHB}
-                  onChange={(e) => updateOrder("amountTHB", e.target.value.replace(/[^\d.]/g, ""))}
+                  onChange={(e) => updateOrder("amountTHB", formatMoneyInput(e.target.value))}
                   onFocus={() => {
                     clearHint("amountTHB")
                     clearError("amountTHB")
                   }}
-                  placeholder="เช่น 60000"
+                  placeholder="เช่น 60,000"
                   aria-invalid={errors.amountTHB ? true : undefined}
                 />
-                {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(Number(order.amountTHB))}</p>}
+                {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(moneyToNumber(order.amountTHB))}</p>}
                 {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
               </div>
 
@@ -1921,7 +1952,8 @@ const Buy = () => {
                 label: "ราคาต่อหน่วย",
                 value: order.unitPrice ? `${Number(order.unitPrice).toFixed(2)} บาท/กก.` : "—",
               },
-              { label: "ยอดเงิน", value: order.amountTHB ? thb(Number(order.amountTHB)) : "—" },
+              // ✅ ใช้ thb กับ moneyToNumber เพื่อขึ้นคอมม่าแน่นอน
+              { label: "ยอดเงิน", value: order.amountTHB ? thb(moneyToNumber(order.amountTHB)) : "—" },
               { label: "หมายเหตุ / คอมเมนต์", value: order.comment || "—" },
             ].map((c) => (
               <div

@@ -280,7 +280,7 @@ const MemberSignup = () => {
   // 🧠 สถานะค้นหา/เติมอัตโนมัติ
   const [lookupStatus, setLookupStatus] = useState({ searching: false, message: "", tone: "muted" }) // tone: muted|ok|warn
 
-  // state หลักของฟอร์ม
+  // state หลักของฟอร์ม (เพิ่มฟิลด์ข้อมูลเกษตร)
   const [form, setForm] = useState({
     regis_date: new Date().toISOString().slice(0, 10),
     seedling_prog: false,
@@ -318,6 +318,13 @@ const MemberSignup = () => {
     own_rai: "",   own_ngan: "",   own_wa: "",
     rent_rai: "",  rent_ngan: "",  rent_wa: "",
     other_rai: "", other_ngan: "", other_wa: "",
+
+    // 🌾 ข้อมูลเกษตร (ใหม่)
+    fid: "",
+    fid_owner: "",
+    agri_type: "",
+    fertilizing_period: "",
+    fertilizer_type: "",
   })
 
   // 👉 debounce ที่อิงกับค่าจริง
@@ -358,7 +365,7 @@ const MemberSignup = () => {
       `/customer/detail?citizen_id=${q}`,
       `/customers/detail?citizen_id=${q}`,
       `/member/detail?citizen_id=${q}`,
-      `/order/customers/search?q=${q}`, // เผื่อ API นี้ส่ง address มาด้วย (ในโปรเจกต์นี้ส่งมาอยู่แล้ว)
+      `/order/customers/search?q=${q}`,
     ]
     const data = await fetchFirstOkJson(candidates)
 
@@ -430,7 +437,6 @@ const MemberSignup = () => {
 
   // ค้นหา “สมาชิกทั่วไป” ก่อน แล้วค่อย fallback ไป “สมาชิก”
   const searchCustomerAny = async (q) => {
-    // 1) ฐานสมาชิกทั่วไป (CustomerData)
     try {
       const r2 = await fetch(`${API_BASE}/order/customers/search?q=${encodeURIComponent(q)}`, { headers: authHeader() })
       if (r2.ok) {
@@ -439,7 +445,6 @@ const MemberSignup = () => {
       }
     } catch (_) {}
 
-    // 2) fallback ไปฐานสมาชิก (MemberData) — ใช้ endpoint ของโมดูลสมาชิก
     try {
       const r1 = await fetch(`${API_BASE}/member/members/search?q=${encodeURIComponent(q)}`, { headers: authHeader() })
       if (r1.ok) {
@@ -451,7 +456,6 @@ const MemberSignup = () => {
     return { from: null, items: [] }
   }
 
-  // เลือกเรคคอร์ดที่เหมาะสุด: ให้ “ลูกค้าทั่วไป (ไม่มี member_id)” มาก่อนเสมอ
   const pickBestRecord = (items, matcher) => {
     const filtered = items.filter(matcher)
     if (filtered.length === 0) return null
@@ -459,7 +463,7 @@ const MemberSignup = () => {
     return (customers[0] || filtered[0]) ?? null
   }
 
-  // เมื่อกรอกเลขบัตรครบและ valid => ค้นหา+เติม (โฟกัส สมาชิกทั่วไป ก่อน) + ดึงที่อยู่ฉบับเต็ม
+  // เมื่อกรอกเลขบัตรครบและ valid => ค้นหา+เติม + ดึงที่อยู่
   useEffect(() => {
     const cid = onlyDigits(debCid || "")
     if (cid.length !== 13 || !validateThaiCitizenId(cid)) return
@@ -473,7 +477,6 @@ const MemberSignup = () => {
       const found = pickBestRecord(res.items, (r) => onlyDigits(r.citizen_id ?? r.citizenId ?? "") === cid)
       if (found) {
         prefillFromCustomer(found)
-        // เติมที่อยู่ละเอียด (เหมือนหน้า Buy)
         await loadAddressByCitizenId(cid)
         setLookupStatus({
           searching: false,
@@ -491,7 +494,7 @@ const MemberSignup = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debCid])
 
-  // เมื่อกรอกชื่อ–นามสกุลครบ (≥2 ตัวอักษร) => ค้นหา+เติม (โฟกัส สมาชิกทั่วไป ก่อน) + ดึงที่อยู่ฉบับเต็มถ้ามี citizen_id
+  // เมื่อกรอกชื่อ–นามสกุลครบ (≥2) => ค้นหา+เติม (+ที่อยู่ถ้ามี citizen_id)
   useEffect(() => {
     const first = (debFirst || "").trim()
     const last  = (debLast  || "").trim()
@@ -531,6 +534,7 @@ const MemberSignup = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debFirst, debLast])
 
+  // refs (เพิ่มของใหม่)
   const refs = {
     member_id: useRef(null),
     precode: useRef(null),
@@ -561,6 +565,13 @@ const MemberSignup = () => {
     own_rai: useRef(null),  own_ngan: useRef(null),  own_wa: useRef(null),
     rent_rai: useRef(null), rent_ngan: useRef(null), rent_wa: useRef(null),
     other_rai: useRef(null),other_ngan: useRef(null),other_wa: useRef(null),
+
+    // ใหม่
+    fid: useRef(null),
+    fid_owner: useRef(null),
+    agri_type: useRef(null),
+    fertilizing_period: useRef(null),
+    fertilizer_type: useRef(null),
   }
 
   const update = (k, v) => setForm((prev) => ({ ...prev, [k]: v }))
@@ -592,6 +603,8 @@ const MemberSignup = () => {
       "member_id","precode","subprov","postal_code","salary","tgs_group","share_per_month",
       "ar_limit","normal_share","orders_placed",
       "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
+      // ✅ ใหม่: ต้องเป็นตัวเลขหากมีค่า
+      "fid","agri_type","fertilizing_period","fertilizer_type",
     ].forEach((k) => {
       const v = form[k]
       if (v !== "" && isNaN(Number(v))) e[k] = "ตัวเลขเท่านั้น"
@@ -626,6 +639,8 @@ const MemberSignup = () => {
       "salary","tgs_group","share_per_month","transfer_date","ar_limit","normal_share",
       "last_bought_date","bank_account","tgs_id","spouce_name","orders_placed",
       "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
+      // ✅ ใหม่
+      "fid","fid_owner","agri_type","fertilizing_period","fertilizer_type",
     ]
     const firstKey = keysOrder.find((k) => k in errors)
     if (firstKey) {
@@ -694,6 +709,13 @@ const MemberSignup = () => {
       other_rai:  form.other_rai === "" ? 0 : Number(form.other_rai),
       other_ngan: form.other_ngan === "" ? 0 : Number(form.other_ngan),
       other_wa:   form.other_wa === "" ? 0 : Number(form.other_wa),
+
+      // 🌾 ข้อมูลเกษตร (ใหม่)
+      fid: form.fid === "" ? null : Number(form.fid),
+      fid_owner: form.fid_owner.trim(),
+      agri_type: form.agri_type === "" ? null : Number(form.agri_type),
+      fertilizing_period: form.fertilizing_period === "" ? null : Number(form.fertilizing_period),
+      fertilizer_type: form.fertilizer_type === "" ? null : Number(form.fertilizer_type),
     }
 
     try {
@@ -753,6 +775,13 @@ const MemberSignup = () => {
       own_rai:"", own_ngan:"", own_wa:"",
       rent_rai:"", rent_ngan:"", rent_wa:"",
       other_rai:"", other_ngan:"", other_wa:"",
+
+      // 🌾 ใหม่
+      fid: "",
+      fid_owner: "",
+      agri_type: "",
+      fertilizing_period: "",
+      fertilizer_type: "",
     })
     setLookupStatus({ searching: false, message: "", tone: "muted" })
 
@@ -1263,6 +1292,87 @@ const MemberSignup = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </SectionCard>
+
+          {/* กรอบที่ 4: ข้อมูลเกษตร (ใหม่) */}
+          <SectionCard title="ข้อมูลเกษตร" className="mt-6">
+            <div className="grid gap-4 md:grid-cols-4">
+              <div>
+                <label className={labelCls}>เลขที่ทะเบียนเกษตรกร (fid)</label>
+                <input
+                  ref={refs.fid}
+                  inputMode="numeric"
+                  className={cx(baseField, errors.fid && fieldError)}
+                  value={form.fid}
+                  onChange={(e) => { clearError("fid"); update("fid", onlyDigits(e.target.value)) }}
+                  onFocus={() => clearError("fid")}
+                  placeholder="เช่น 123456"
+                  aria-invalid={errors.fid ? true : undefined}
+                />
+                {errors.fid && <p className={errorTextCls}>{errors.fid}</p>}
+              </div>
+
+              <div className="md:col-span-2">
+                <label className={labelCls}>ผู้ขึ้นทะเบียนเกษตรกร (fid_owner)</label>
+                <input
+                  ref={refs.fid_owner}
+                  className={cx(baseField, errors.fid_owner && fieldError)}
+                  value={form.fid_owner}
+                  onChange={(e) => { clearError("fid_owner"); update("fid_owner", e.target.value) }}
+                  onFocus={() => clearError("fid_owner")}
+                  placeholder="เช่น นายสมชาย ใจดี"
+                  aria-invalid={errors.fid_owner ? true : undefined}
+                />
+                {errors.fid_owner && <p className={errorTextCls}>{errors.fid_owner}</p>}
+              </div>
+
+              <div>
+                <label className={labelCls}>ประเภทการเกษตร (agri_type)</label>
+                <input
+                  ref={refs.agri_type}
+                  inputMode="numeric"
+                  className={cx(baseField, errors.agri_type && fieldError)}
+                  value={form.agri_type}
+                  onChange={(e) => { clearError("agri_type"); update("agri_type", onlyDigits(e.target.value)) }}
+                  onFocus={() => clearError("agri_type")}
+                  placeholder="เช่น 1"
+                  aria-invalid={errors.agri_type ? true : undefined}
+                />
+                {errors.agri_type && <p className={errorTextCls}>{errors.agri_type}</p>}
+                <p className={helpTextCls}>หมายเหตุ: ใช้รหัสตัวเลขตามระบบ (ถ้ามี)</p>
+              </div>
+
+              <div>
+                <label className={labelCls}>ช่วงระยะเวลาการใช้ปุ๋ย (fertilizing_period)</label>
+                <input
+                  ref={refs.fertilizing_period}
+                  inputMode="numeric"
+                  className={cx(baseField, errors.fertilizing_period && fieldError)}
+                  value={form.fertilizing_period}
+                  onChange={(e) => { clearError("fertilizing_period"); update("fertilizing_period", onlyDigits(e.target.value)) }}
+                  onFocus={() => clearError("fertilizing_period")}
+                  placeholder="เช่น 30"
+                  aria-invalid={errors.fertilizing_period ? true : undefined}
+                />
+                {errors.fertilizing_period && <p className={errorTextCls}>{errors.fertilizing_period}</p>}
+                <p className={helpTextCls}>เป็นจำนวนวัน / รหัสช่วง ตามนิยามระบบ</p>
+              </div>
+
+              <div>
+                <label className={labelCls}>สูตรที่ใช้ปุ๋ย (fertilizer_type)</label>
+                <input
+                  ref={refs.fertilizer_type}
+                  inputMode="numeric"
+                  className={cx(baseField, errors.fertilizer_type && fieldError)}
+                  value={form.fertilizer_type}
+                  onChange={(e) => { clearError("fertilizer_type"); update("fertilizer_type", onlyDigits(e.target.value)) }}
+                  onFocus={() => clearError("fertilizer_type")}
+                  placeholder="เช่น 16160 (แทน 16-16-0)"
+                  aria-invalid={errors.fertilizer_type ? true : undefined}
+                />
+                {errors.fertilizer_type && <p className={errorTextCls}>{errors.fertilizer_type}</p>}
+              </div>
             </div>
 
             {/* ปุ่ม */}

@@ -473,7 +473,10 @@ const MemberSearch = () => {
                       {c.label}
                     </th>
                   ))}
-                  <th className="px-5 py-4 text-right text-[15px] md:text-base font-semibold">การกระทำ</th>
+                  <th className="px-5 py-4 text-right text-[15px] md:text-base font-semibold whitespace-nowrap min-w-[132px]">
+                    การกระทำ
+                  </th>
+
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 dark:divide-white/8">
@@ -511,10 +514,11 @@ const MemberSearch = () => {
                         <button
                           type="button"
                           onClick={() => openModal(r)}
-                          className="rounded-2xl bg-emerald-600/90 px-4 py-2 text-base font-semibold text-white shadow-sm ring-1 ring-emerald-700/50 hover:bg-emerald-600 active:scale-[.98] dark:bg-emerald-500/85 dark:hover:bg-emerald-500"
+                          className="whitespace-nowrap rounded-2xl bg-emerald-600/90 px-4 py-2 text-sm md:text-base font-semibold text-white shadow-sm ring-1 ring-emerald-700/50 hover:bg-emerald-600 active:scale-[.98] dark:bg-emerald-500/85 dark:hover:bg-emerald-500"
                         >
                           ดูรายละเอียด
                         </button>
+
                       </td>
                     </tr>
                   ))}

@@ -294,7 +294,7 @@ const MemberSearch = () => {
       if (!term) return
       setLoading(true)
       try {
-        const res = await fetch(`${API_BASE}/member/customers/search?q=${encodeURIComponent(term)}`)
+        const res = await fetch(`${API_BASE}/order/customers/search?q=${encodeURIComponent(term)}`)
 
         if (!res.ok) throw new Error(await res.text())
         const data = await res.json()

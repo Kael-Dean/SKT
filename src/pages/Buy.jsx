@@ -1696,8 +1696,8 @@
               </div>
             </div>
 
-            {/* ✅ สาขา + คลัง บรรทัดเดียวกัน */}
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {/* ✅ สาขา + คลัง: ปรับให้เท่าช่องอื่น (1/3 ของแถว) */}
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
                 <label className={labelCls}>สาขา</label>
                 <ComboBox
@@ -1745,6 +1745,7 @@
                 {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
               </div>
             </div>
+
 
             {/* ✅ กรอบรวม "ช่องตัวเลข" ทั้งหมด */}
             <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-transparent dark:border-slate-700 dark:bg-slate-800">

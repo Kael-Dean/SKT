@@ -34,7 +34,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const subActive =
     'bg-black/90 text-white dark:bg-white/90 dark:text-black font-semibold'
 
-  // แยกเมนู: ตัวแรก (หน้าหลัก) + เมนูที่เหลือ
+  // ลดระยะห่างให้แน่นขึ้น
+  const cardWrapper = 'px-3 py-1'
+  const cardBox =
+    'rounded-2xl ring-1 ring-gray-200/90 dark:ring-gray-700/80 bg-white/70 dark:bg-gray-800/60 shadow-sm'
+
+  // แยกเมนู
   const firstMenu = { label: 'หน้าหลัก', path: '/home' }
   const otherMenus = [
     { label: 'คลังเอกสาร', path: '/documents' },
@@ -48,62 +53,86 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   return (
     <div
-      className={`fixed z-40 top-0 left-0 h-full w-64 transform transition-transform duration-300 ease-in-out ${
+      className={`fixed z-40 top-0 left-0 h-full w-72 transform transition-transform duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       } bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-lg`}
     >
       <div className="flex h-full flex-col">
+        {/* Header */}
         <div className="p-4">
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">🏢 องค์กร</h1>
         </div>
 
-        <nav className="space-y-2 px-3">
+        {/* NAV */}
+        <nav className="flex-1 space-y-1">
           {/* 1) เมนู: หน้าหลัก */}
-          <button
-            onClick={() => { navigate(firstMenu.path); setIsOpen(false) }}
-            aria-current={isActive(firstMenu.path) ? 'page' : undefined}
-            className={`${baseBtn} ${isActive(firstMenu.path) ? activeBtn : idleBtn} border-b border-gray-300/40 dark:border-gray-600/30 text-center`}
-          >
-            {firstMenu.label}
-          </button>
+          <div className={cardWrapper}>
+            <div className={cardBox}>
+              <button
+                onClick={() => { navigate(firstMenu.path); setIsOpen(false) }}
+                aria-current={isActive(firstMenu.path) ? 'page' : undefined}
+                className={`${baseBtn} ${isActive(firstMenu.path) ? activeBtn : idleBtn} rounded-2xl`}
+              >
+                {firstMenu.label}
+              </button>
+            </div>
+          </div>
 
-          {/* 2) กลุ่ม: ธุรกิจรวบรวมผลผลิต (อยู่ถัดจากหน้าหลัก) */}
-          <div className="pt-1">
-            <button
-              type="button"
-              aria-expanded={businessOpen}
-              aria-controls="business-submenu"
-              onClick={() => setBusinessOpen((v) => !v)}
-              className={`${baseBtn} ${inBusiness ? activeBtn : idleBtn} border-b border-gray-300/40 dark:border-gray-600/30`}
-            >
-              <span className="flex items-center gap-2">
-                ธุรกิจรวบรวมผลผลิต
-                <span className={`transition-transform ${businessOpen ? 'rotate-180' : ''}`}>▾</span>
-              </span>
-            </button>
+          {/* 2) กลุ่ม: ธุรกิจรวบรวมผลผลิต */}
+          <div className={cardWrapper}>
+            <div className={cardBox}>
+              <button
+                type="button"
+                aria-expanded={businessOpen}
+                aria-controls="business-submenu"
+                onClick={() => setBusinessOpen((v) => !v)}
+                className={`${baseBtn} ${inBusiness ? activeBtn : idleBtn} rounded-2xl`}
+              >
+                <span className="flex items-center gap-2">
+                  ธุรกิจรวบรวมผลผลิต
+                  <span className={`transition-transform ${businessOpen ? 'rotate-180' : ''}`}>▾</span>
+                </span>
+              </button>
 
-            {/* เมนูย่อย */}
-            <div
-              id="business-submenu"
-              className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${
-                businessOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
-              }`}
-            >
-              <div className="mt-2 space-y-2">
-                <button
-                  onClick={() => { navigate('/Buy'); setIsOpen(false) }}
-                  aria-current={isActive('/Buy') ? 'page' : undefined}
-                  className={`${subBtnBase} ${isActive('/Buy') ? subActive : subIdle}`}
-                >
-                  ซื้อข้าว
-                </button>
-                <button
-                  onClick={() => { navigate('/sales'); setIsOpen(false) }}
-                  aria-current={isActive('/sales') ? 'page' : undefined}
-                  className={`${subBtnBase} ${isActive('/sales') ? subActive : subIdle}`}
-                >
-                  ขายข้าว
-                </button>
+              {/* เส้นแบ่งหัวกล่องกับเมนูย่อย */}
+              <div className="px-3">
+                <div
+                  className={`mx-1 h-px transition-all duration-300 ${
+                    businessOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'
+                  }`}
+                />
+              </div>
+
+              {/* เมนูย่อยในกล่องเดียวกัน */}
+              <div
+                id="business-submenu"
+                className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${
+                  businessOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="px-3 pb-3 pt-2 space-y-2">
+                  <button
+                    onClick={() => {
+                      navigate('/Buy')
+                      setIsOpen(false)
+                    }}
+                    aria-current={isActive('/Buy') ? 'page' : undefined}
+                    className={`${subBtnBase} ${isActive('/Buy') ? subActive : subIdle}`}
+                  >
+                    ซื้อข้าว
+                  </button>
+                  <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
+                  <button
+                    onClick={() => {
+                      navigate('/sales')
+                      setIsOpen(false)
+                    }}
+                    aria-current={isActive('/sales') ? 'page' : undefined}
+                    className={`${subBtnBase} ${isActive('/sales') ? subActive : subIdle}`}
+                  >
+                    ขายข้าว
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -112,19 +141,26 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           {otherMenus.map((item) => {
             const active = isActive(item.path)
             return (
-              <button
-                key={item.path}
-                onClick={() => { navigate(item.path); setIsOpen(false) }}
-                aria-current={active ? 'page' : undefined}
-                className={`${baseBtn} ${active ? activeBtn : idleBtn} border-b border-gray-300/40 dark:border-gray-600/30 text-center`}
-              >
-                {item.label}
-              </button>
+              <div className={cardWrapper} key={item.path}>
+                <div className={cardBox}>
+                  <button
+                    onClick={() => {
+                      navigate(item.path)
+                      setIsOpen(false)
+                    }}
+                    aria-current={active ? 'page' : undefined}
+                    className={`${baseBtn} ${active ? activeBtn : idleBtn} rounded-2xl`}
+                  >
+                    {item.label}
+                  </button>
+                </div>
+              </div>
             )
           })}
         </nav>
 
-        <div className="mt-auto p-4 border-t border-gray-300/40 dark:border-gray-600/30">
+        {/* Footer */}
+        <div className="mt-auto p-4">
           <button
             onClick={handleLogout}
             className="w-full h-12 flex items-center justify-center rounded-xl font-semibold text-white bg-red-600 hover:bg-red-500 active:bg-red-700 hover:scale-[1.02] hover:shadow-lg shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 transition-all duration-200 ease-out"

@@ -1,3 +1,4 @@
+// src/App.jsx
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import Home from './pages/Home'
@@ -19,7 +20,7 @@ function App() {
       {/* หน้าแรก (Login) */}
       <Route path="/" element={<Login />} />
 
-      {/* กลุ่มหน้าภายใต้ Layout (อย่าลืม <Outlet /> ใน AppLayout) */}
+      {/* กลุ่มหน้าภายใต้ Layout */}
       <Route element={<AppLayout />}>
         <Route path="/home" element={<Home />} />
         <Route path="/documents" element={<Documents />} />

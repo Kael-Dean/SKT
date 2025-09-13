@@ -6,9 +6,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // เปิด dropdown อัตโนมัติเมื่ออยู่ใน /Buy หรือ /sales
+  // เปิด dropdown อัตโนมัติเมื่ออยู่ใน /Buy, /sales หรือ /transfer-out
   const inBusiness = useMemo(
-    () => location.pathname.startsWith('/Buy') || location.pathname.startsWith('/sales'),
+    () =>
+      location.pathname.startsWith('/Buy') ||
+      location.pathname.startsWith('/sales') ||
+      location.pathname.startsWith('/transfer-out'),
     [location.pathname]
   )
   const [businessOpen, setBusinessOpen] = useState(inBusiness)
@@ -107,30 +110,37 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               <div
                 id="business-submenu"
                 className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${
-                  businessOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
+                  businessOpen ? 'max-h-60 opacity-100' : 'max-h-0 opacity-0'
                 }`}
               >
                 <div className="px-3 pb-3 pt-2 space-y-2">
                   <button
-                    onClick={() => {
-                      navigate('/Buy')
-                      setIsOpen(false)
-                    }}
+                    onClick={() => { navigate('/Buy'); setIsOpen(false) }}
                     aria-current={isActive('/Buy') ? 'page' : undefined}
                     className={`${subBtnBase} ${isActive('/Buy') ? subActive : subIdle}`}
                   >
                     ซื้อข้าว
                   </button>
+
                   <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
+
                   <button
-                    onClick={() => {
-                      navigate('/sales')
-                      setIsOpen(false)
-                    }}
+                    onClick={() => { navigate('/sales'); setIsOpen(false) }}
                     aria-current={isActive('/sales') ? 'page' : undefined}
                     className={`${subBtnBase} ${isActive('/sales') ? subActive : subIdle}`}
                   >
                     ขายข้าว
+                  </button>
+
+                  <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
+
+                  {/* ✅ เมนูใหม่: โอนออก */}
+                  <button
+                    onClick={() => { navigate('/transfer-out'); setIsOpen(false) }}
+                    aria-current={isActive('/transfer-out') ? 'page' : undefined}
+                    className={`${subBtnBase} ${isActive('/transfer-out') ? subActive : subIdle}`}
+                  >
+                    โอนออก
                   </button>
                 </div>
               </div>
@@ -144,10 +154,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               <div className={cardWrapper} key={item.path}>
                 <div className={cardBox}>
                   <button
-                    onClick={() => {
-                      navigate(item.path)
-                      setIsOpen(false)
-                    }}
+                    onClick={() => { navigate(item.path); setIsOpen(false) }}
                     aria-current={active ? 'page' : undefined}
                     className={`${baseBtn} ${active ? activeBtn : idleBtn} rounded-2xl`}
                   >

@@ -11,6 +11,9 @@ import MemberSignup from './pages/MemberSignup'
 import MemberSearch from './pages/MemberSearch'
 import Stock from './pages/Stock'
 
+// ✅ นำเข้าหน้าใหม่
+import StockTransferOut from './pages/StockTransferOut'
+
 function App() {
   return (
     <Routes>
@@ -30,6 +33,9 @@ function App() {
         <Route path="/member-signup" element={<MemberSignup />} />
         <Route path="/search" element={<MemberSearch />} />
         <Route path="/stock" element={<Stock />} />
+
+        {/* ✅ Route ใหม่: โอนออก */}
+        <Route path="/transfer-out" element={<StockTransferOut />} />
       </Route>
 
       {/* กันพิมพ์พาธมั่ว */}

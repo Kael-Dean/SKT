@@ -1,4 +1,3 @@
-// src/App.jsx
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import Home from './pages/Home'
@@ -13,6 +12,7 @@ import Stock from './pages/Stock'
 
 // ✅ นำเข้าหน้าใหม่
 import StockTransferOut from './pages/StockTransferOut'
+import StockTransferIn from './pages/StockTransferIn'
 
 function App() {
   return (
@@ -34,8 +34,9 @@ function App() {
         <Route path="/search" element={<MemberSearch />} />
         <Route path="/stock" element={<Stock />} />
 
-        {/* ✅ Route ใหม่: โอนออก */}
+        {/* ✅ Routes ใหม่: โอนออก / รับเข้า */}
         <Route path="/transfer-out" element={<StockTransferOut />} />
+        <Route path="/transfer-in" element={<StockTransferIn />} />
       </Route>
 
       {/* กันพิมพ์พาธมั่ว */}

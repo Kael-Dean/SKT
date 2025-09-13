@@ -1,4 +1,3 @@
-// src/components/Sidebar.jsx
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -6,12 +5,13 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // เปิด dropdown อัตโนมัติเมื่ออยู่ใน /Buy, /sales หรือ /transfer-out
+  // เปิด dropdown อัตโนมัติเมื่ออยู่ใน /Buy, /sales, /transfer-out, /transfer-in
   const inBusiness = useMemo(
     () =>
       location.pathname.startsWith('/Buy') ||
       location.pathname.startsWith('/sales') ||
-      location.pathname.startsWith('/transfer-out'),
+      location.pathname.startsWith('/transfer-out') ||
+      location.pathname.startsWith('/transfer-in'),
     [location.pathname]
   )
   const [businessOpen, setBusinessOpen] = useState(inBusiness)
@@ -134,13 +134,24 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
                   <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
 
-                  {/* ✅ เมนูใหม่: โอนออก */}
+                  {/* โอนออก */}
                   <button
                     onClick={() => { navigate('/transfer-out'); setIsOpen(false) }}
                     aria-current={isActive('/transfer-out') ? 'page' : undefined}
                     className={`${subBtnBase} ${isActive('/transfer-out') ? subActive : subIdle}`}
                   >
                     โอนออก
+                  </button>
+
+                  <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
+
+                  {/* ✅ เมนูใหม่: รับเข้า */}
+                  <button
+                    onClick={() => { navigate('/transfer-in'); setIsOpen(false) }}
+                    aria-current={isActive('/transfer-in') ? 'page' : undefined}
+                    className={`${subBtnBase} ${isActive('/transfer-in') ? subActive : subIdle}`}
+                  >
+                    รับเข้า
                   </button>
                 </div>
               </div>

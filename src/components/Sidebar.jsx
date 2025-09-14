@@ -107,11 +107,13 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 />
               </div>
 
-              {/* เมนูย่อย (ลำดับตามต้องการ; "ตัดเสียหาย" อยู่ล่างสุด) */}
+              {/* เมนูย่อย (เพิ่มความสูงและเลื่อนภายในได้) */}
               <div
                 id="business-submenu"
-                className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${
-                  businessOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                className={`transition-[max-height,opacity] duration-300 ease-out ${
+                  businessOpen
+                    ? 'max-h-[70vh] opacity-100 overflow-y-auto pr-1'
+                    : 'max-h-0 opacity-0 overflow-hidden'
                 }`}
               >
                 <div className="px-3 pb-3 pt-2 space-y-2">

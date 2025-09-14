@@ -291,6 +291,9 @@ function StockTransferIn() {
     weight_out: "",
     cost_per_kg: "",
     quality_note: "",
+
+    // ✅ ใหม่: สิ่งเจือปน (%)
+    impurity_percent: "",
   })
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
@@ -519,6 +522,7 @@ function StockTransferIn() {
     update("cost_per_kg", req.cost_per_kg != null ? String(req.cost_per_kg) : "")
 
     update("quality_note", "")
+    update("impurity_percent", "") // เริ่มว่าง
     setErrors({})
     setMissingHints({})
 
@@ -549,6 +553,7 @@ function StockTransferIn() {
     if (form.weight_out === "" || Number(form.weight_out) < 0) m.weight_out = true
     if (netWeight <= 0) m.net_weight = true
 
+    // impurity_percent ไม่บังคับกรอก
     return m
   }
 
@@ -569,6 +574,12 @@ function StockTransferIn() {
     if (weightIn <= 0) e.weight_in = "น้ำหนักชั่งเข้า ต้องมากกว่า 0"
     if (weightOut < 0) e.weight_out = "น้ำหนักชั่งออก ต้องไม่ติดลบ"
     if (netWeight <= 0) e.net_weight = "น้ำหนักสุทธิต้องมากกว่า 0 (ตรวจค่าชั่งเข้า/ออก)"
+
+    // ✅ ตรวจสิ่งเจือปนถ้ากรอก: ต้องอยู่ 0–100
+    if (form.impurity_percent !== "") {
+      const ip = toNumber(form.impurity_percent)
+      if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "กรุณากรอก 0–100"
+    }
 
     setErrors(e)
     return Object.keys(e).length === 0
@@ -609,6 +620,9 @@ function StockTransferIn() {
         cost_per_kg: form.cost_per_kg === "" ? null : Number(form.cost_per_kg),
         total_cost: totalCost,
         quality_note: form.quality_note?.trim() || null,
+
+        // ✅ ส่งค่าใหม่: สิ่งเจือปน (%)
+        impurity_percent: form.impurity_percent === "" ? null : toNumber(form.impurity_percent),
       }
 
       await post(`/api/stock/transfer/${encodeURIComponent(form.transfer_id)}/receive`, payload)
@@ -628,6 +642,7 @@ function StockTransferIn() {
         weight_out: "",
         cost_per_kg: "",
         quality_note: "",
+        impurity_percent: "", // ✅ ล้างค่าใหม่ด้วย
         from_branch_id: null,
         from_branch_name: "",
         from_klang_id: null,
@@ -977,8 +992,24 @@ function StockTransferIn() {
                   className={baseField}
                   value={form.quality_note}
                   onChange={(e) => update("quality_note", e.target.value)}
-                  placeholder="เช่น 15"
+                  placeholder="เช่น ความชื้นสูง แกลบเยอะ"
                 />
+              </div>
+
+              {/* ✅ ใหม่: สิ่งเจือปน (%) — ถัดจากคุณภาพ */}
+              <div>
+                <label className={labelCls}>สิ่งเจือปน (%)</label>
+                <input
+                  inputMode="decimal"
+                  className={cx(baseField, errors.impurity_percent && "border-red-400")}
+                  value={form.impurity_percent}
+                  onChange={(e) => update("impurity_percent", e.target.value.replace(/[^\d.]/g, ""))}
+                  onFocus={() => clearError("impurity_percent")}
+                  placeholder="เช่น 2.5"
+                  aria-invalid={errors.impurity_percent ? true : undefined}
+                />
+                {errors.impurity_percent && <p className={errorTextCls}>{errors.impurity_percent}</p>}
+                <p className={helpTextCls}>กรอกเป็นตัวเลข 0–100 (เว้นว่างได้)</p>
               </div>
             </div>
           </div>
@@ -1016,6 +1047,7 @@ function StockTransferIn() {
                   weight_out: "",
                   cost_per_kg: "",
                   quality_note: "",
+                  impurity_percent: "", // ✅ ล้างด้วย
                   from_branch_id: null,
                   from_branch_name: "",
                   from_klang_id: null,

@@ -238,7 +238,7 @@ function StockTransferMill() {
 
         {/* Milling fee */}
         <div>
-          <label className={labelCls}>ค่าบริการสี (บาท/กก.)</label>
+          <label className={labelCls}>ค่าบริการสีข้าว (บาท/กก.)</label>
           <input
             inputMode="decimal"
             className={baseField}

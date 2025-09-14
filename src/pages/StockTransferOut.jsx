@@ -271,6 +271,9 @@ function StockTransferOut() {
     weight_out: "",
     cost_per_kg: "",
     quality_note: "",
+
+    // ✅ ใหม่: สิ่งเจือปน (%)
+    impurity_percent: "",
   })
 
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
@@ -457,6 +460,7 @@ function StockTransferOut() {
 
     if (form.cost_per_kg !== "" && Number(form.cost_per_kg) < 0) m.cost_per_kg = true
 
+    // impurity_percent ไม่บังคับกรอก เลยไม่ใส่ missing hint
     return m
   }
 
@@ -481,6 +485,12 @@ function StockTransferOut() {
     if (netWeight <= 0) e.net_weight = "น้ำหนักสุทธิต้องมากกว่า 0 (ตรวจค่าชั่งเข้า/ออก)"
 
     if (form.cost_per_kg !== "" && costPerKg < 0) e.cost_per_kg = "ราคาต้นทุนต้องไม่ติดลบ"
+
+    // ✅ ตรวจสิ่งเจือปนถ้ากรอก: ต้องอยู่ 0–100
+    if (form.impurity_percent !== "") {
+      const ip = toNumber(form.impurity_percent)
+      if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "กรุณากรอก 0–100"
+    }
 
     setErrors(e)
     return Object.keys(e).length === 0
@@ -510,6 +520,8 @@ function StockTransferOut() {
         cost_per_kg: costPerKg || 0,
         total_cost: totalCost || 0,
         quality_note: form.quality_note?.trim() || null,
+        // ✅ ส่งค่าไปด้วย (ถ้าเว้นว่างจะเป็น null)
+        impurity_percent: form.impurity_percent === "" ? null : toNumber(form.impurity_percent),
       }
 
       await post("/api/stock/transfer-out", payload)
@@ -521,6 +533,7 @@ function StockTransferOut() {
         weight_out: "",
         cost_per_kg: "",
         quality_note: "",
+        impurity_percent: "", // ✅ ล้างหลังบันทึก
       }))
     } catch (err) {
       console.error(err)
@@ -791,8 +804,24 @@ function StockTransferOut() {
                   className={baseField}
                   value={form.quality_note}
                   onChange={(e) => update("quality_note", e.target.value)}
-                  placeholder="เช่น ความชื้น 14.5%, สิ่งเจือปน 2%, เกรด A"
+                  placeholder="เช่น ความชื้นสูง แกลบเยอะ"
                 />
+              </div>
+
+              {/* ✅ ใหม่: สิ่งเจือปน (%) — วางถัดจากช่องคุณภาพ */}
+              <div>
+                <label className={labelCls}>สิ่งเจือปน (%)</label>
+                <input
+                  inputMode="decimal"
+                  className={cx(baseField, errors.impurity_percent && "border-red-400")}
+                  value={form.impurity_percent}
+                  onChange={(e) => update("impurity_percent", e.target.value.replace(/[^\d.]/g, ""))}
+                  onFocus={() => clearError("impurity_percent")}
+                  placeholder="เช่น 2.5"
+                  aria-invalid={errors.impurity_percent ? true : undefined}
+                />
+                {errors.impurity_percent && <p className={errorTextCls}>{errors.impurity_percent}</p>}
+                <p className={helpTextCls}>กรอกเป็นตัวเลข 0–100 (เว้นว่างได้)</p>
               </div>
             </div>
           </div>
@@ -823,6 +852,7 @@ function StockTransferOut() {
                   weight_out: "",
                   cost_per_kg: "",
                   quality_note: "",
+                  // ไม่ล้าง impurity_percent เพราะปุ่มนี้ตั้งใจล้างเฉพาะชั่ง/ราคา
                 }))
               }
               className="inline-flex items-center justify-center rounded-2xl 

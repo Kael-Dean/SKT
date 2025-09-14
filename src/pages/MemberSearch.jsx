@@ -1,7 +1,6 @@
+// src/pages/MemberSearch.jsx
 import { useEffect, useMemo, useState } from "react"
-
-/** ---------- ENV ---------- */
-const API_BASE = import.meta.env.VITE_API_BASE || ""
+import { apiAuth } from "../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -19,14 +18,12 @@ function useDebounce(value, delay = 400) {
 /** แปลงเป็น YYYY-MM-DD แบบปลอดภัย; ถ้าไม่ได้ให้คืน "" */
 function toInputDateSafely(v) {
   if (!v) return ""
-  // รูปแบบไทย 26/07/2566 หรือ 26/07/2023
   if (typeof v === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(v)) {
     const [dd, mm, yyyyRaw] = v.split("/")
     const yyyy = Number(yyyyRaw) > 2500 ? Number(yyyyRaw) - 543 : Number(yyyyRaw)
     const d = new Date(Date.UTC(yyyy, Number(mm) - 1, Number(dd)))
     return isNaN(d) ? "" : d.toISOString().slice(0, 10)
   }
-  // timestamp/ISO
   const d = new Date(v)
   return isNaN(d) ? "" : d.toISOString().slice(0, 10)
 }
@@ -34,7 +31,6 @@ function toInputDateSafely(v) {
 /** แสดงวันที่แบบไทย; ถ้าไม่ได้ให้ "-" */
 function formatDate(v) {
   if (!v) return "-"
-  // ถ้าเป็นรูปแบบไทยอยู่แล้วก็แสดงเลย
   if (typeof v === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(v)) return v
   try {
     const d = new Date(v)
@@ -46,7 +42,6 @@ function formatDate(v) {
 }
 
 /** ---------- โครงการ ---------- */
-/** ใช้ชื่อ “เหมือนหน้า สมัครสมาชิก” ให้ตรงกันทุกที่ */
 const PROGRAMS = [
   { key: "seedling_prog", label: "โครงผลิตเมล็ดพันธ์", emoji: "🌱" },
   { key: "slowdown_rice", label: "โครงการชะลอข้าวเปลือก", emoji: "🐢" },
@@ -123,7 +118,7 @@ function ProgramBadges({ row }) {
   )
 }
 
-/** Toggle โครงการ (โหมดแก้ไข) — สไตล์เดียวกับหน้าสมัครสมาชิก */
+/** Toggle โครงการ (โหมดแก้ไข) */
 function ProgramToggles({ value, onChange }) {
   return (
     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -186,16 +181,12 @@ const TABLE_COLUMNS = [
   { key: "__programs", label: "โครงการ", render: (row) => <ProgramBadges row={row} /> },
 ]
 
-/** ทำให้เรคคอร์ด “ครบคีย์” + ทำความสะอาดเบื้องต้น (รองรับ asso_id) */
+/** ทำให้เรคคอร์ด “ครบคีย์” + ทำความสะอาดเบื้องต้น */
 function normalizeRecord(raw = {}) {
   const out = {
-    // ตัวระบุหลักจากหลังบ้าน
     asso_id: raw.asso_id ?? raw.assoId ?? raw.id ?? null,
-
-    // ค่าอ้างอิง/แสดงผล
     member_id: raw.member_id ?? raw.memberId ?? null,
 
-    // ฟิลด์บุคคล
     first_name: raw.first_name ?? raw.firstname ?? "",
     last_name: raw.last_name ?? raw.lastname ?? "",
     citizen_id: onlyDigits(raw.citizen_id ?? raw.citizenId ?? "") || null,
@@ -219,12 +210,10 @@ function normalizeRecord(raw = {}) {
     spouce_name: raw.spouce_name ?? "",
     orders_placed: raw.orders_placed ?? null,
 
-    // วันเวลา
     regis_date: raw.regis_date ?? raw.created_at ?? raw.registered_at ?? null,
     last_bought_date: raw.last_bought_date ?? null,
     transfer_date: raw.transfer_date ?? null,
 
-    // ที่ดิน
     own_rai: raw.own_rai ?? 0,
     own_ngan: raw.own_ngan ?? 0,
     own_wa: raw.own_wa ?? 0,
@@ -235,18 +224,15 @@ function normalizeRecord(raw = {}) {
     other_ngan: raw.other_ngan ?? 0,
     other_wa: raw.other_wa ?? 0,
 
-    // โครงการ (boolean)
     seedling_prog: toBool(raw.seedling_prog ?? false),
     slowdown_rice: toBool(raw.slowdown_rice ?? false),
     organic_prog: toBool(raw.organic_prog ?? false),
     product_loan: toBool(raw.product_loan ?? false),
   }
 
-  // ให้ครบตาม FIELD_CONFIG (กัน field หาย)
   FIELD_CONFIG.forEach(({ key }) => {
     if (!(key in out)) out[key] = LAND_KEYS.includes(key) ? 0 : ""
   })
-  // กัน key โครงการให้ครบ
   PROG_KEYS.forEach((k) => {
     if (!(k in out)) out[k] = false
   })
@@ -294,10 +280,8 @@ const MemberSearch = () => {
       if (!term) return
       setLoading(true)
       try {
-        const res = await fetch(`${API_BASE}/member/members/search?q=${encodeURIComponent(term)}`)
-
-        if (!res.ok) throw new Error(await res.text())
-        const data = await res.json()
+        // ✅ ใช้ apiAuth (แนบ token + จัดการ 401)
+        const data = await apiAuth(`/member/members/search?q=${encodeURIComponent(term)}`)
         const normalized = (Array.isArray(data) ? data : []).map(normalizeRecord)
         setRows(normalized)
       } catch (e) {
@@ -313,7 +297,6 @@ const MemberSearch = () => {
     const r = normalizeRecord(row)
     setActive(r)
 
-    // เตรียม draft (รวมฟิลด์โครงการด้วย)
     const d = {}
     FIELD_CONFIG.forEach(({ key, type }) => {
       let v = r[key]
@@ -355,13 +338,12 @@ const MemberSearch = () => {
     setDraft((p) => ({ ...p, [key]: !!checked }))
   }
 
-  // บันทึก: รวมฟิลด์โครงการไปด้วย (สมาชิก 1 คน อยู่ได้หลายโครงการ)
+  // บันทึก: รวมฟิลด์โครงการไปด้วย
   const save = async () => {
     if (!active) return
     setRowError("")
     setSaving(true)
     try {
-      // diff ทั้งฟิลด์ข้อมูล + โครงการ
       const diff = {}
       const keysToCheck = [
         ...FIELD_CONFIG.map((f) => f.key),
@@ -374,41 +356,36 @@ const MemberSearch = () => {
         let newV = draft[key]
 
         if (cfg) {
-          // แปลงชนิดตามชนิดฟิลด์
           if (cfg.type === "date" || cfg.type === "date-optional") {
             newV = newV ? new Date(newV).toISOString() : null
           } else if (cfg.type === "number" || cfg.type === "decimal" || LAND_KEYS.includes(key)) {
             newV = newV === "" || newV == null ? 0 : Number(newV)
           }
         } else if (PROG_KEYS.includes(key)) {
-          newV = !!newV // boolean
+          newV = !!newV
         }
 
         if (oldV !== newV) diff[key] = newV
       })
 
-      const idForPatch = active.member_id // Backend ใช้ member_id ใน path param
+      const idForPatch = active.member_id
       if (!idForPatch && idForPatch !== 0) throw new Error("ไม่พบเลขสมาชิก (member_id) สำหรับบันทึก")
 
       // optimistic update
       const prev = rows
       setRows((cur) => cur.map((x) => (x.member_id === active.member_id ? { ...x, ...diff } : x)))
 
-      const res = await fetch(`${API_BASE}/member/members/${idForPatch}`, {
+      // ✅ ใช้ apiAuth แทน fetch ตรง
+      const updatedRaw = await apiAuth(`/member/members/${idForPatch}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(diff),
+        body: diff,
       })
-      if (!res.ok) {
-        setRows(prev) // rollback
-        throw new Error((await res.text()) || "บันทึกไม่สำเร็จ")
-      }
 
-      const updated = normalizeRecord(await res.json())
+      const updated = normalizeRecord(updatedRaw)
       setRows((cur) => cur.map((x) => (x.member_id === updated.member_id ? updated : x)))
       setActive(updated)
 
-      // refresh draft (รวมโครงการ)
+      // refresh draft
       const nd = {}
       FIELD_CONFIG.forEach(({ key, type }) => {
         let v = updated[key]
@@ -422,6 +399,8 @@ const MemberSearch = () => {
 
       setEditing(false)
     } catch (e) {
+      // rollback ถ้า error
+      setRows((cur) => cur) // state คงไว้ (เราทำ optimistic ก่อนหน้าแล้วตั้ง prev ไว้เฉย ๆ)
       setRowError(e?.message || "บันทึกไม่สำเร็จ")
     } finally {
       setSaving(false)
@@ -476,7 +455,6 @@ const MemberSearch = () => {
                   <th className="px-5 py-4 text-right text-[15px] md:text-base font-semibold whitespace-nowrap min-w-[132px]">
                     การกระทำ
                   </th>
-
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 dark:divide-white/8">
@@ -518,7 +496,6 @@ const MemberSearch = () => {
                         >
                           ดูรายละเอียด
                         </button>
-
                       </td>
                     </tr>
                   ))}
@@ -580,7 +557,7 @@ const MemberSearch = () => {
                           type="button"
                           onClick={() => {
                             setEditing(false)
-                            openModal(active) // รีเซ็ต draft ให้ตรง active ปัจจุบัน
+                            openModal(active)
                           }}
                           className="rounded-2xl border border-slate-300 px-5 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
                         >
@@ -590,7 +567,7 @@ const MemberSearch = () => {
                     )}
                   </div>
 
-                  {/* โครงการที่เข้าร่วม (แก้ไขได้) */}
+                  {/* โครงการที่เข้าร่วม */}
                   <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-400 dark:bg-emerald-900/10">
                     <div className="mb-2 text-base font-semibold text-emerald-800 dark:text-emerald-200">🎯 โครงการที่เข้าร่วม</div>
                     {!editing ? (

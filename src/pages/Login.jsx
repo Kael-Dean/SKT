@@ -1,71 +1,91 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+// src/pages/Login.jsx
+import { useState } from "react"
+import { useNavigate, Navigate } from "react-router-dom"
+import { api } from "../lib/api"
+import { saveAuth, getToken, isTokenExpired } from "../lib/auth"
 
 const Login = () => {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  // แบ็กเอนด์ใช้ "username" ไม่ใช่ "email"
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
   const navigate = useNavigate()
 
-  const handleLogin = (e) => {
+  // ถ้ามีโทเคนและยังไม่หมดอายุ เด้งเข้าหน้าหลัก
+  const token = getToken()
+  if (token && !isTokenExpired()) {
+    return <Navigate to="/home" replace />
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
-
-    if (email && password) {
-      // 🔐 Mock role ตาม email
-      let role = 'user'
-      if (email === 'admin@example.com') {
-        role = 'admin'
-      }
-
-      const mockUser = {
-        email,
-        role,
-        id: email === 'admin@example.com' ? 1 : 2, // mock ID
-      }
-
-      localStorage.setItem('token', 'mock-token')
-      localStorage.setItem('user', JSON.stringify(mockUser))
-      navigate('/home')
-    } else {
-      alert('กรุณากรอกอีเมลและรหัสผ่าน')
+    setError("")
+    setLoading(true)
+    try {
+      const resp = await api("/login", {
+        method: "POST",
+        body: { username, password },
+      })
+      // resp = { access_token, token_type }
+      const user = saveAuth(resp.access_token)
+      // ไปหน้าแรก/หน้าเดิมที่ตั้งใจ
+      navigate("/home", { replace: true, state: { user } })
+    } catch (err) {
+      setError(err?.message || "เข้าสู่ระบบไม่สำเร็จ")
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-md dark:bg-gray-800">
+        <h2 className="mb-6 text-center text-2xl font-bold text-gray-800 dark:text-gray-100">
           เข้าสู่ระบบ
         </h2>
-        <form onSubmit={handleLogin} className="space-y-4">
+
+        {error ? (
+          <div className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200">
+            {error}
+          </div>
+        ) : null}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              อีเมล
+              ชื่อผู้ใช้
             </label>
             <input
-              type="email"
-              className="mt-1 w-full px-4 py-2 border rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              className="mt-1 w-full rounded-md border px-4 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
               required
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               รหัสผ่าน
             </label>
             <input
               type="password"
-              className="mt-1 w-full px-4 py-2 border rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600"
+              className="mt-1 w-full rounded-md border px-4 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
               required
             />
           </div>
+
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
+            disabled={loading}
+            className="w-full rounded-md bg-emerald-600 py-2 font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
           >
-            เข้าสู่ระบบ
+            {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
           </button>
         </form>
       </div>

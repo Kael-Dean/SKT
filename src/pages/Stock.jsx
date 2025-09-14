@@ -1,17 +1,6 @@
 // src/pages/Stock.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
-
-/** ---------- ENV ---------- */
-const API_BASE = import.meta.env.VITE_API_BASE || ""
-
-/** ---------- Auth header ---------- */
-const authHeader = () => {
-  const token = localStorage.getItem("token")
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  }
-}
+import { apiAuth } from "../lib/api" // ← รวม base URL + token + JSON ให้แล้ว
 
 /** ---------- Utils ---------- */
 const nf = (n) =>
@@ -281,18 +270,17 @@ const Stock = () => {
   useEffect(() => {
     const loadInitial = async () => {
       try {
-        const [bRes, pRes] = await Promise.all([
-          fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
-          fetch(`${API_BASE}/order/product/search`, { headers: authHeader() }),
+        const [branches, products] = await Promise.all([
+          apiAuth(`/order/branch/search`),
+          apiAuth(`/order/product/search`),
         ])
 
-        const branches = bRes.ok ? await bRes.json() : []
         setBranchOptions(
           (Array.isArray(branches) ? branches : []).map((x) => ({ id: String(x.id), label: x.branch_name }))
         )
 
-        const products = pRes.ok ? await pRes.json() : []
-        let chosen = products.find((x) => (x.product_type || "").includes("ข้าว")) || products[0]
+        const list = Array.isArray(products) ? products : []
+        let chosen = list.find((x) => (x.product_type || "").includes("ข้าว")) || list[0]
         if (chosen?.id) setDefaultProductId(String(chosen.id))
       } catch (e) {
         console.error(e)
@@ -311,8 +299,7 @@ const Stock = () => {
       setDataSingle([])
       if (!branchId) return
       try {
-        const r = await fetch(`${API_BASE}/order/klang/search?branch_id=${branchId}`, { headers: authHeader() })
-        const arr = r.ok ? await r.json() : []
+        const arr = await apiAuth(`/order/klang/search?branch_id=${branchId}`)
         setKlangOptions((Array.isArray(arr) ? arr : []).map((x) => ({ id: String(x.id), label: x.klang_name })))
       } catch (e) {
         console.error("load klang failed:", e)
@@ -328,12 +315,7 @@ const Stock = () => {
     params.set("branch_id", String(branchId))
     params.set("detail", "rice_subrice_year_condition")
     if (klangId) params.set("klang_id", String(klangId))
-    const res = await fetch(`${API_BASE}/report/stock/tree?` + params.toString(), { headers: authHeader() })
-    if (!res.ok) {
-      const t = await res.text()
-      throw new Error(t || `HTTP ${res.status}`)
-    }
-    const json = await res.json()
+    const json = await apiAuth(`/report/stock/tree?` + params.toString())
     return Array.isArray(json) ? json : []
   }
 
@@ -374,7 +356,7 @@ const Stock = () => {
       }
     }
     run()
-  }, [API_BASE, branchId, klangId, defaultProductId, klangOptions])
+  }, [branchId, klangId, defaultProductId, klangOptions])
 
   /** totals */
   const totalSingle = useMemo(() => {

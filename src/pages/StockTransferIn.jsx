@@ -1,8 +1,6 @@
 // src/pages/StockTransferIn.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-
-/** ---------- ENV ---------- */
-const API_BASE = import.meta.env.VITE_API_BASE || ""
+import { get, post } from "../lib/api" // ใช้ get/post จาก api.js
 
 /** ---------- Utils ---------- */
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
@@ -23,25 +21,13 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- Auth + helpers ---------- */
-const authHeader = () => {
-  const token = localStorage.getItem("token")
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  }
-}
-
-// ยิง path แรกที่ ok แล้วคืน json
-const fetchFirstOkJson = async (paths = []) => {
+/** ---------- ยิง path แรกที่ ok แล้วคืน json (ด้วย get จาก lib/api) ---------- */
+const getFirstOkJson = async (paths = []) => {
   for (const p of paths) {
     try {
-      const r = await fetch(`${API_BASE}${p}`, { headers: authHeader() })
-      if (r.ok) {
-        const data = await r.json()
-        if (Array.isArray(data)) return data
-        if (data && typeof data === "object") return data
-      }
+      const data = await get(p)
+      if (Array.isArray(data)) return data
+      if (data && typeof data === "object") return data
     } catch (_) {}
   }
   return Array.isArray(paths) ? [] : {}
@@ -332,8 +318,8 @@ function StockTransferIn() {
     const loadStatic = async () => {
       try {
         const [branches, products] = await Promise.all([
-          fetchFirstOkJson(["/order/branch/search"]),
-          fetchFirstOkJson(["/order/product/search"]),
+          get("/order/branch/search"),
+          get("/order/product/search"),
         ])
         const brs = (branches || []).map((b) => ({ id: b.id, label: b.branch_name }))
         setBranchOptions(brs) // สำหรับ viewBranch
@@ -372,7 +358,7 @@ function StockTransferIn() {
         setLoadingRequests(true)
         const q1 = `/api/stock/transfer/requests?to_branch_id=${encodeURIComponent(viewBranchId)}`
         const q2 = `/api/stock/transfer/list?to_branch_id=${encodeURIComponent(viewBranchId)}&status=REQUESTED`
-        const data = await fetchFirstOkJson([q1, q2])
+        const data = await getFirstOkJson([q1, q2])
         const list = Array.isArray(data) ? data : data?.data || []
         if (alive) setRequests(list)
       } catch (e) {
@@ -402,10 +388,8 @@ function StockTransferIn() {
     }
     const loadRice = async () => {
       try {
-        const url = `${API_BASE}/order/rice/search?product_id=${encodeURIComponent(pid)}`
-        const r = await fetch(url, { headers: authHeader() })
-        if (!r.ok) throw new Error(await r.text())
-        const arr = (await r.json()) || []
+        const url = `/order/rice/search?product_id=${encodeURIComponent(pid)}`
+        const arr = (await get(url)) || []
         const mapped = arr
           .map((x) => ({
             id: String(x.id ?? x.rice_id ?? x.value ?? ""),
@@ -432,10 +416,8 @@ function StockTransferIn() {
     }
     const loadSub = async () => {
       try {
-        const url = `${API_BASE}/order/sub-rice/search?rice_id=${encodeURIComponent(rid)}`
-        const r = await fetch(url, { headers: authHeader() })
-        if (!r.ok) throw new Error(await r.text())
-        const arr = (await r.json()) || []
+        const url = `/order/sub-rice/search?rice_id=${encodeURIComponent(rid)}`
+        const arr = (await get(url)) || []
         const mapped = arr
           .map((x) => ({
             id: String(x.id ?? x.subrice_id ?? x.value ?? ""),
@@ -465,12 +447,7 @@ function StockTransferIn() {
     const loadKlang = async () => {
       try {
         const qs = bid != null ? `branch_id=${bid}` : `branch_name=${encodeURIComponent(bname)}`
-        const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
-        if (!r.ok) {
-          setFromKlangOptions([])
-          return
-        }
-        const data = await r.json()
+        const data = await get(`/order/klang/search?${qs}`)
         setFromKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
       } catch (e) {
         setFromKlangOptions([])
@@ -492,12 +469,7 @@ function StockTransferIn() {
     const loadKlang = async () => {
       try {
         const qs = bid != null ? `branch_id=${bid}` : `branch_name=${encodeURIComponent(bname)}`
-        const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
-        if (!r.ok) {
-          setToKlangOptions([])
-          return
-        }
-        const data = await r.json()
+        const data = await get(`/order/klang/search?${qs}`)
         setToKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
       } catch (e) {
         setToKlangOptions([])
@@ -511,11 +483,7 @@ function StockTransferIn() {
   const resolveKlangName = async (branchId, klangId, which /* 'from' | 'to' */) => {
     if (!branchId || !klangId) return
     try {
-      const res = await fetch(`${API_BASE}/order/klang/search?branch_id=${encodeURIComponent(branchId)}`, {
-        headers: authHeader(),
-      })
-      if (!res.ok) return
-      const arr = (await res.json()) || []
+      const arr = (await get(`/order/klang/search?branch_id=${encodeURIComponent(branchId)}`)) || []
       const found = (arr || []).find((k) => String(k.id) === String(klangId))
       if (found) update(`${which}_klang_name`, found.klang_name || "")
     } catch {}
@@ -554,7 +522,6 @@ function StockTransferIn() {
     setErrors({})
     setMissingHints({})
 
-    // ถ้าไม่มีชื่อคลัง ให้ resolve จาก API
     if (!req.from_klang_name && req.from_branch_id && req.from_klang_id) {
       resolveKlangName(req.from_branch_id, req.from_klang_id, "from")
     }
@@ -644,12 +611,7 @@ function StockTransferIn() {
         quality_note: form.quality_note?.trim() || null,
       }
 
-      const r = await fetch(`${API_BASE}/api/stock/transfer/${encodeURIComponent(form.transfer_id)}/receive`, {
-        method: "POST",
-        headers: authHeader(),
-        body: JSON.stringify(payload),
-      })
-      if (!r.ok) throw new Error(await r.text())
+      await post(`/api/stock/transfer/${encodeURIComponent(form.transfer_id)}/receive`, payload)
 
       alert("บันทึกรับเข้าสำเร็จ ✅")
 
@@ -680,7 +642,7 @@ function StockTransferIn() {
       try {
         const q1 = `/api/stock/transfer/requests?to_branch_id=${encodeURIComponent(viewBranchId)}`
         const q2 = `/api/stock/transfer/list?to_branch_id=${encodeURIComponent(viewBranchId)}&status=REQUESTED`
-        const data = await fetchFirstOkJson([q1, q2])
+        const data = await getFirstOkJson([q1, q2])
         const list = Array.isArray(data) ? data : data?.data || []
         setRequests(list)
       } catch {}
@@ -787,7 +749,7 @@ function StockTransferIn() {
                 {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
               </div>
 
-              {/* ตัวเว้นแบบเดียวกับหน้าโอนออก */}
+              {/* ตัวเว้น */}
               <div className="hidden md:block" />
               <div className="hidden md:block" />
 

@@ -1,13 +1,12 @@
+// src/pages/MemberSignup.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-
-/** ---------- ENV ---------- */
-const API_BASE = import.meta.env.VITE_API_BASE || ""
+import { apiAuth } from "../lib/api"   // ✅ แนบ token อัตโนมัติ + จัดการ 401
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
 
-// ตรวจเลขบัตร ปชช.ไทย (13 หลัก) แบบมี checksum
+// ตรวจเลขบัตร ปชช.ไทย (13 หลัก)
 function validateThaiCitizenId(id) {
   const cid = onlyDigits(id)
   if (cid.length !== 13) return false
@@ -20,11 +19,11 @@ function validateThaiCitizenId(id) {
 // จำกัดช่วงค่า งาน/วา
 const clampNgan = (v) => {
   const n = toNumber(onlyDigits(v))
-  return Math.max(0, Math.min(3, n)) // 0–3
+  return Math.max(0, Math.min(3, n))
 }
 const clampWa = (v) => {
   const n = toNumber(onlyDigits(v))
-  return Math.max(0, Math.min(99, n)) // 0–99
+  return Math.max(0, Math.min(99, n))
 }
 
 // debounce
@@ -237,17 +236,13 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 
   return (
     <div className="relative">
-      <style>{`
-        input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }
-      `}</style>
-
+      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
       <input
         type="date"
         ref={inputRef}
         className={cx(baseField, "pr-12 cursor-pointer", error && fieldError, className)}
         {...props}
       />
-
       <button
         type="button"
         onClick={() => {
@@ -301,11 +296,11 @@ const MemberSignup = () => {
     subprov: "",
     postal_code: "",
     phone_number: "",
-    sex: "", // M | F
+    sex: "",
     salary: "",
     tgs_group: "",
     share_per_month: "",
-    transfer_date: "", // optional
+    transfer_date: "",
     ar_limit: "",
     normal_share: "",
     last_bought_date: new Date().toISOString().slice(0, 10),
@@ -332,31 +327,19 @@ const MemberSignup = () => {
   const debFirst = useDebounce(form.first_name, 400)
   const debLast  = useDebounce(form.last_name, 400)
 
-  // header auth แบบเดียวกับหน้า Buy
-  const authHeader = () => {
-    const token = localStorage.getItem("token")
-    return {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    }
-  }
-
-  /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอที่ใช้ได้ (array หรือ object ก็รับ) */
-  const fetchFirstOkJson = async (paths = []) => {
+  /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอที่ใช้ได้ (array/object ก็รับ) */
+  const apiAuthFirstOkJson = async (paths = []) => {
     for (const p of paths) {
       try {
-        const r = await fetch(`${API_BASE}${p}`, { headers: authHeader() })
-        if (r.ok) {
-          const data = await r.json()
-          if (Array.isArray(data)) return data
-          if (data && typeof data === "object") return data
-        }
+        const data = await apiAuth(p)
+        if (Array.isArray(data)) return data
+        if (data && typeof data === "object") return data
       } catch (_) {}
     }
     return Array.isArray(paths) ? [] : {}
   }
 
-  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id (เหมือนหน้า Buy) */
+  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id */
   const loadAddressByCitizenId = async (cid) => {
     const q = encodeURIComponent(onlyDigits(cid))
     const candidates = [
@@ -367,7 +350,7 @@ const MemberSignup = () => {
       `/member/detail?citizen_id=${q}`,
       `/order/customers/search?q=${q}`,
     ]
-    const data = await fetchFirstOkJson(candidates)
+    const data = await apiAuthFirstOkJson(candidates)
 
     const toStr = (v) => (v == null ? "" : String(v))
     const addr = {
@@ -401,7 +384,7 @@ const MemberSignup = () => {
     }
   }
 
-  // ช่วย map ผลลัพธ์ (รองรับทั้งสมาชิก/ลูกค้าทั่วไป)
+  // ช่วย map ผลลัพธ์
   const mapToCustomerShape = (r) => ({
     type: r.type ?? (r.member_id ? "member" : "customer"),
     first_name: r.first_name ?? "",
@@ -417,7 +400,6 @@ const MemberSignup = () => {
     member_id: r.member_id ?? null,
   })
 
-  // เติมเฉพาะช่องที่ “ยังว่างอยู่”
   const prefillFromCustomer = (rec) => {
     const c = mapToCustomerShape(rec)
     setForm((prev) => ({
@@ -438,19 +420,13 @@ const MemberSignup = () => {
   // ค้นหา “สมาชิกทั่วไป” ก่อน แล้วค่อย fallback ไป “สมาชิก”
   const searchCustomerAny = async (q) => {
     try {
-      const r2 = await fetch(`${API_BASE}/order/customers/search?q=${encodeURIComponent(q)}`, { headers: authHeader() })
-      if (r2.ok) {
-        const arr = await r2.json()
-        if (Array.isArray(arr) && arr.length) return { from: "customer", items: arr }
-      }
+      const arr = await apiAuth(`/order/customers/search?q=${encodeURIComponent(q)}`)
+      if (Array.isArray(arr) && arr.length) return { from: "customer", items: arr }
     } catch (_) {}
 
     try {
-      const r1 = await fetch(`${API_BASE}/member/members/search?q=${encodeURIComponent(q)}`, { headers: authHeader() })
-      if (r1.ok) {
-        const arr = await r1.json()
-        if (Array.isArray(arr) && arr.length) return { from: "member", items: arr }
-      }
+      const arr2 = await apiAuth(`/member/members/search?q=${encodeURIComponent(q)}`)
+      if (Array.isArray(arr2) && arr2.length) return { from: "member", items: arr2 }
     } catch (_) {}
 
     return { from: null, items: [] }
@@ -534,7 +510,7 @@ const MemberSignup = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debFirst, debLast])
 
-  // refs (เพิ่มของใหม่)
+  // refs
   const refs = {
     member_id: useRef(null),
     precode: useRef(null),
@@ -594,7 +570,6 @@ const MemberSignup = () => {
     if (!form.sub_district) e.sub_district = "กรอกตำบล"
     if (!form.district) e.district = "กรอกอำเภอ"
     if (!form.province) e.province = "กรอกจังหวัด"
-    // postal_code ไม่บังคับ
 
     if (!form.phone_number) e.phone_number = "กรอกเบอร์โทร"
     if (!form.sex) e.sex = "เลือกเพศ (M/F)"
@@ -603,7 +578,6 @@ const MemberSignup = () => {
       "member_id","precode","subprov","postal_code","salary","tgs_group","share_per_month",
       "ar_limit","normal_share","orders_placed",
       "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
-      // ✅ ใหม่: ต้องเป็นตัวเลขหากมีค่า
       "fid","agri_type","fertilizing_period","fertilizer_type",
     ].forEach((k) => {
       const v = form[k]
@@ -639,7 +613,6 @@ const MemberSignup = () => {
       "salary","tgs_group","share_per_month","transfer_date","ar_limit","normal_share",
       "last_bought_date","bank_account","tgs_id","spouce_name","orders_placed",
       "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
-      // ✅ ใหม่
       "fid","fid_owner","agri_type","fertilizing_period","fertilizer_type",
     ]
     const firstKey = keysOrder.find((k) => k in errors)
@@ -719,15 +692,8 @@ const MemberSignup = () => {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/member/members/save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        const text = await res.text()
-        throw new Error(text || "สมัครสมาชิกไม่สำเร็จ")
-      }
+      // ✅ ใช้ apiAuth แทน fetch ตรง
+      await apiAuth(`/member/members/save`, { method: "POST", body: payload })
       alert("บันทึกสมาชิกเรียบร้อย ✅")
       handleReset()
     } catch (err) {
@@ -785,7 +751,6 @@ const MemberSignup = () => {
     })
     setLookupStatus({ searching: false, message: "", tone: "muted" })
 
-    // 🔝 เลื่อนขึ้นบนสุดอย่างนุ่มนวล + โฟกัสหัวข้อ
     requestAnimationFrame(() => {
       const target = topRef.current
       try {

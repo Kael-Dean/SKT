@@ -33,6 +33,7 @@ const authHeader = () => {
   }
 }
 
+// ยิง path แรกที่ ok แล้วคืน json
 const fetchFirstOkJson = async (paths = []) => {
   for (const p of paths) {
     try {
@@ -316,6 +317,7 @@ function StockTransferIn() {
       return rest
     })
 
+  /** ---------- Static dropdowns ---------- */
   useEffect(() => {
     const loadStatic = async () => {
       try {
@@ -324,7 +326,6 @@ function StockTransferIn() {
           fetchFirstOkJson(["/order/product/search"]),
         ])
         setBranchOptions((branches || []).map((b) => ({ id: b.id, label: b.branch_name })))
-
         setProductOptions(
           (products || [])
             .map((x) => ({
@@ -342,6 +343,7 @@ function StockTransferIn() {
     loadStatic()
   }, [])
 
+  /** ---------- Requests (inbox) ---------- */
   useEffect(() => {
     let timer = null
     let alive = true
@@ -371,6 +373,7 @@ function StockTransferIn() {
     }
   }, [viewBranchId])
 
+  /** ---------- Rice/Subrice dependent ---------- */
   useEffect(() => {
     const pid = form.product_id
     if (!pid) {
@@ -388,7 +391,10 @@ function StockTransferIn() {
         if (!r.ok) throw new Error(await r.text())
         const arr = (await r.json()) || []
         const mapped = arr
-          .map((x) => ({ id: String(x.id ?? x.rice_id ?? x.value ?? ""), label: String(x.rice_type ?? x.name ?? x.label ?? "").trim() }))
+          .map((x) => ({
+            id: String(x.id ?? x.rice_id ?? x.value ?? ""),
+            label: String(x.rice_type ?? x.name ?? x.label ?? "").trim(),
+          }))
           .filter((o) => o.id && o.label)
         setRiceOptions(mapped)
       } catch (e) {
@@ -415,7 +421,10 @@ function StockTransferIn() {
         if (!r.ok) throw new Error(await r.text())
         const arr = (await r.json()) || []
         const mapped = arr
-          .map((x) => ({ id: String(x.id ?? x.subrice_id ?? x.value ?? ""), label: String(x.sub_class ?? x.name ?? x.label ?? "").trim() }))
+          .map((x) => ({
+            id: String(x.id ?? x.subrice_id ?? x.value ?? ""),
+            label: String(x.sub_class ?? x.name ?? x.label ?? "").trim(),
+          }))
           .filter((o) => o.id && o.label)
         setSubriceOptions(mapped)
       } catch (e) {
@@ -427,6 +436,23 @@ function StockTransferIn() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.rice_id])
 
+  /** ---------- Helper: resolve klang name by id (if request lacks name) ---------- */
+  const resolveKlangName = async (branchId, klangId, which /* 'from' | 'to' */) => {
+    if (!branchId || !klangId) return
+    try {
+      const res = await fetch(`${API_BASE}/order/klang/search?branch_id=${encodeURIComponent(branchId)}`, {
+        headers: authHeader(),
+      })
+      if (!res.ok) return
+      const arr = (await res.json()) || []
+      const found = (arr || []).find((k) => String(k.id) === String(klangId))
+      if (found) {
+        update(`${which}_klang_name`, found.klang_name || "")
+      }
+    } catch {}
+  }
+
+  /** ---------- Fill form from selected request ---------- */
   const pickRequest = (req) => {
     update("transfer_id", req.id ?? req.transfer_id ?? null)
     update("transfer_date", new Date().toISOString().slice(0, 10))
@@ -455,8 +481,17 @@ function StockTransferIn() {
     update("quality_note", "")
     setErrors({})
     setMissingHints({})
+
+    // ถ้าไม่มีชื่อคลัง ให้ลอง resolve จาก API
+    if (!req.from_klang_name && req.from_branch_id && req.from_klang_id) {
+      resolveKlangName(req.from_branch_id, req.from_klang_id, "from")
+    }
+    if (!req.to_klang_name && req.to_branch_id && req.to_klang_id) {
+      resolveKlangName(req.to_branch_id, req.to_klang_id, "to")
+    }
   }
 
+  /** ---------- Validate ---------- */
   const computeMissingHints = () => {
     const m = {}
     if (!form.transfer_date) m.transfer_date = true
@@ -490,6 +525,7 @@ function StockTransferIn() {
     return Object.keys(e).length === 0
   }
 
+  /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault()
     const hints = computeMissingHints()
@@ -574,7 +610,7 @@ function StockTransferIn() {
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <h2 className="mb-3 text-xl font-semibold">เลือกสาขาเพื่อรับเข้า</h2>
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="max-w-md">
+            <div>
               <label className={labelCls}>สาขาที่กำลังดู</label>
               <ComboBox
                 options={branchOptions}
@@ -640,9 +676,10 @@ function StockTransferIn() {
         <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <h2 className="mb-3 text-xl font-semibold">บันทึกรับเข้า</h2>
 
-          {/* วันที่ */}
+          {/* วันที่ + สาขา/คลัง (กว้างเท่า 1 คอลัมน์ของกริด 3 คอลัมน์) */}
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="max-w-md">
+            {/* แถว 1: วันที่ (กว้าง 1/3) */}
+            <div>
               <label className={labelCls}>วันที่รับเข้า</label>
               <DateInput
                 value={form.transfer_date}
@@ -657,35 +694,41 @@ function StockTransferIn() {
               />
               {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
             </div>
-          </div>
+            {/* เติมคอลัมน์ว่างให้วันที่อยู่บรรทัดเดียว */}
+            <div className="hidden md:block" />
+            <div className="hidden md:block" />
 
-          {/* สาขาต้นทาง / คลังต้นทาง */}
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="max-w-md">
+            {/* แถว 2: สาขาต้นทาง • คลังต้นทาง */}
+            <div>
               <label className={labelCls}>สาขาต้นทาง</label>
-              <input disabled className={cx(baseField, fieldDisabled, "max-w-md")} value={form.from_branch_name || form.from_branch_id || "—"} />
+              <input disabled className={cx(baseField, fieldDisabled)}
+                    value={form.from_branch_name || form.from_branch_id || "—"} />
             </div>
-            <div className="max-w-md">
+            <div>
               <label className={labelCls}>คลังต้นทาง</label>
-              <input disabled className={cx(baseField, fieldDisabled, "max-w-md")} value={form.from_klang_name || form.from_klang_id || "—"} />
+              <input disabled className={cx(baseField, fieldDisabled)}
+                    value={form.from_klang_name || form.from_klang_id || "—"} />
             </div>
+            <div className="hidden md:block" />
+
+            {/* แถว 3: สาขาปลายทาง • คลังปลายทาง */}
+            <div>
+              <label className={labelCls}>สาขาปลายทาง</label>
+              <input disabled className={cx(baseField, fieldDisabled)}
+                    value={form.to_branch_name || form.to_branch_id || "—"} />
+            </div>
+            <div>
+              <label className={labelCls}>คลังปลายทาง</label>
+              <input disabled className={cx(baseField, fieldDisabled)}
+                    value={form.to_klang_name || form.to_klang_id || "—"} />
+            </div>
+            <div className="hidden md:block" />
           </div>
 
-          {/* คลังปลายทาง / สาขาปลายทาง */}
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="max-w-md">
-              <label className={labelCls}>คลังปลายทาง</label>
-              <input disabled className={cx(baseField, fieldDisabled, "max-w-md")} value={form.to_klang_name || form.to_klang_id || "—"} />
-            </div>
-            <div className="max-w-md">
-              <label className={labelCls}>สาขาปลายทาง</label>
-              <input disabled className={cx(baseField, fieldDisabled, "max-w-md")} value={form.to_branch_name || form.to_branch_id || "—"} />
-            </div>
-          </div>
 
           {/* สินค้า */}
           <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <div className="max-w-md">
+            <div>
               <label className={labelCls}>ประเภทสินค้า</label>
               <ComboBox
                 options={productOptions}
@@ -707,7 +750,7 @@ function StockTransferIn() {
               {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
             </div>
 
-            <div className="max-w-md">
+            <div>
               <label className={labelCls}>ชนิดข้าว</label>
               <ComboBox
                 options={riceOptions}
@@ -728,7 +771,7 @@ function StockTransferIn() {
               {errors.rice_id && <p className={errorTextCls}>{errors.rice_id}</p>}
             </div>
 
-            <div className="max-w-md">
+            <div>
               <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
               <ComboBox
                 options={subriceOptions}
@@ -756,11 +799,11 @@ function StockTransferIn() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-4">
-              <div className="max-w-md">
+              <div>
                 <label className={labelCls}>น้ำหนักชั่งเข้า (กก.)</label>
                 <input
                   inputMode="decimal"
-                  className={cx(baseField, redFieldCls("weight_in"), "max-w-md")}
+                  className={cx(baseField, redFieldCls("weight_in"))}
                   value={form.weight_in}
                   onChange={(e) => update("weight_in", e.target.value.replace(/[^\d.]/g, ""))}
                   onFocus={() => {
@@ -773,11 +816,11 @@ function StockTransferIn() {
                 {errors.weight_in && <p className={errorTextCls}>{errors.weight_in}</p>}
               </div>
 
-              <div className="max-w-md">
+              <div>
                 <label className={labelCls}>น้ำหนักชั่งออก (กก.)</label>
                 <input
                   inputMode="decimal"
-                  className={cx(baseField, redFieldCls("weight_out"), "max-w-md")}
+                  className={cx(baseField, redFieldCls("weight_out"))}
                   value={form.weight_out}
                   onChange={(e) => update("weight_out", e.target.value.replace(/[^\d.]/g, ""))}
                   onFocus={() => {
@@ -790,40 +833,40 @@ function StockTransferIn() {
                 {errors.weight_out && <p className={errorTextCls}>{errors.weight_out}</p>}
               </div>
 
-              <div className="max-w-md">
+              <div>
                 <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
                 <input
                   disabled
-                  className={cx(baseField, fieldDisabled, "max-w-md")}
+                  className={cx(baseField, fieldDisabled)}
                   value={Math.round(Math.max(weightIn - weightOut, 0) * 100) / 100}
                 />
                 {errors.net_weight && <p className={errorTextCls}>{errors.net_weight}</p>}
                 <p className={helpTextCls}>คำนวณ = ชั่งเข้า − ชั่งออก</p>
               </div>
 
-              <div className="max-w-md">
+              <div>
                 <label className={labelCls}>ราคาต้นทุน (บาท/กก.)</label>
                 <input
                   disabled
-                  className={cx(baseField, fieldDisabled, "max-w-md")}
+                  className={cx(baseField, fieldDisabled)}
                   value={form.cost_per_kg}
                   placeholder="ออโต้จากคำขอโอน"
                 />
               </div>
 
-              <div className="md:col-span-2 max-w-md">
+              <div>
                 <label className={labelCls}>ราคาสุทธิ (บาท)</label>
-                <input disabled className={cx(baseField, fieldDisabled, "max-w-md")} value={thb(totalCost)} />
+                <input disabled className={cx(baseField, fieldDisabled)} value={thb(totalCost)} />
                 <p className={helpTextCls}>= ราคาต้นทุน × น้ำหนักสุทธิ</p>
               </div>
 
-              <div className="md:col-span-2 max-w-2xl">
+              <div>
                 <label className={labelCls}>คุณภาพ (บันทึกเพิ่มเติม)</label>
                 <input
                   className={baseField}
                   value={form.quality_note}
                   onChange={(e) => update("quality_note", e.target.value)}
-                  placeholder="เช่น ความชื้น 14.5%, สิ่งเจือปน 2%, เกรด A"
+                  placeholder="เช่น 15"
                 />
               </div>
             </div>

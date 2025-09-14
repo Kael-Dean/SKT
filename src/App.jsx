@@ -10,9 +10,12 @@ import MemberSignup from './pages/MemberSignup'
 import MemberSearch from './pages/MemberSearch'
 import Stock from './pages/Stock'
 
-// ✅ นำเข้าหน้าใหม่
+// ✅ นำเข้าหน้า Stock ที่เพิ่มใหม่
 import StockTransferOut from './pages/StockTransferOut'
 import StockTransferIn from './pages/StockTransferIn'
+import StockBringIn from './pages/StockBringIn'
+import StockTransferMill from './pages/StockTransferMill'
+import StockDamageOut from './pages/StockDamageOut'
 
 function App() {
   return (
@@ -34,9 +37,12 @@ function App() {
         <Route path="/search" element={<MemberSearch />} />
         <Route path="/stock" element={<Stock />} />
 
-        {/* ✅ Routes ใหม่: โอนออก / รับเข้า */}
-        <Route path="/transfer-out" element={<StockTransferOut />} />
-        <Route path="/transfer-in" element={<StockTransferIn />} />
+        {/* ✅ Routes กลุ่มธุรกิจรวบรวมผลผลิต */}
+        <Route path="/bring-in" element={<StockBringIn />} />         {/* 1) ยกมา */}
+        <Route path="/transfer-in" element={<StockTransferIn />} />   {/* 4) รับเข้า */}
+        <Route path="/transfer-out" element={<StockTransferOut />} /> {/* 5) โอนออก */}
+        <Route path="/transfer-mill" element={<StockTransferMill />} /> {/* 6) ส่งสี */}
+        <Route path="/damage-out" element={<StockDamageOut />} />     {/* 7) ตัดเสียหาย */}
       </Route>
 
       {/* กันพิมพ์พาธมั่ว */}

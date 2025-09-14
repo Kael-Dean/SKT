@@ -5,13 +5,16 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // เปิด dropdown อัตโนมัติเมื่ออยู่ใน /Buy, /sales, /transfer-out, /transfer-in
+  // เปิด dropdown อัตโนมัติเมื่ออยู่ในเมนูธุรกิจรวบรวมผลผลิต
   const inBusiness = useMemo(
     () =>
       location.pathname.startsWith('/Buy') ||
       location.pathname.startsWith('/sales') ||
+      location.pathname.startsWith('/transfer-in') ||
       location.pathname.startsWith('/transfer-out') ||
-      location.pathname.startsWith('/transfer-in'),
+      location.pathname.startsWith('/bring-in') ||
+      location.pathname.startsWith('/transfer-mill') ||
+      location.pathname.startsWith('/damage-out'),
     [location.pathname]
   )
   const [businessOpen, setBusinessOpen] = useState(inBusiness)
@@ -29,7 +32,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const idleBtn =
     'text-gray-900 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-100 dark:hover:bg-gray-700 dark:hover:text-white hover:scale-[1.02] hover:shadow-md'
   const activeBtn =
-    'bg-black text-white font-semibold dark:bg-white dark:text-black hover:scale-[1.02] hover:shadow-lg hover:opacity-90'
+    'bg-black text-white dark:bg-gray-800 dark:text-white hover:scale-[1.02] hover:shadow-lg hover:opacity-90'
+      .replace('white dark:bg.white', 'white dark:bg-white') // keep classes clean
   const subBtnBase =
     'w-full h-11 flex items-center justify-center rounded-lg px-4 transition-all duration-200 ease-out text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
   const subIdle =
@@ -37,12 +41,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const subActive =
     'bg-black/90 text-white dark:bg-white/90 dark:text-black font-semibold'
 
-  // ลดระยะห่างให้แน่นขึ้น
   const cardWrapper = 'px-3 py-1'
   const cardBox =
     'rounded-2xl ring-1 ring-gray-200/90 dark:ring-gray-700/80 bg-white/70 dark:bg-gray-800/60 shadow-sm'
 
-  // แยกเมนู
   const firstMenu = { label: 'หน้าหลัก', path: '/home' }
   const otherMenus = [
     { label: 'คลังเอกสาร', path: '/documents' },
@@ -97,7 +99,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 </span>
               </button>
 
-              {/* เส้นแบ่งหัวกล่องกับเมนูย่อย */}
               <div className="px-3">
                 <div
                   className={`mx-1 h-px transition-all duration-300 ${
@@ -106,14 +107,26 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 />
               </div>
 
-              {/* เมนูย่อยในกล่องเดียวกัน */}
+              {/* เมนูย่อย (เรียงตามที่ต้องการ) */}
               <div
                 id="business-submenu"
                 className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${
-                  businessOpen ? 'max-h-60 opacity-100' : 'max-h-0 opacity-0'
+                  businessOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                 }`}
               >
                 <div className="px-3 pb-3 pt-2 space-y-2">
+                  {/* 1) ยกมา */}
+                  <button
+                    onClick={() => { navigate('/bring-in'); setIsOpen(false) }}
+                    aria-current={isActive('/bring-in') ? 'page' : undefined}
+                    className={`${subBtnBase} ${isActive('/bring-in') ? subActive : subIdle}`}
+                  >
+                    ยกมา
+                  </button>
+
+                  <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
+
+                  {/* 2) ซื้อข้าว */}
                   <button
                     onClick={() => { navigate('/Buy'); setIsOpen(false) }}
                     aria-current={isActive('/Buy') ? 'page' : undefined}
@@ -124,6 +137,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
                   <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
 
+                  {/* 3) ขายข้าว */}
                   <button
                     onClick={() => { navigate('/sales'); setIsOpen(false) }}
                     aria-current={isActive('/sales') ? 'page' : undefined}
@@ -134,7 +148,18 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
                   <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
 
-                  {/* โอนออก */}
+                  {/* 4) รับเข้า */}
+                  <button
+                    onClick={() => { navigate('/transfer-in'); setIsOpen(false) }}
+                    aria-current={isActive('/transfer-in') ? 'page' : undefined}
+                    className={`${subBtnBase} ${isActive('/transfer-in') ? subActive : subIdle}`}
+                  >
+                    รับเข้า
+                  </button>
+
+                  <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
+
+                  {/* 5) โอนออก */}
                   <button
                     onClick={() => { navigate('/transfer-out'); setIsOpen(false) }}
                     aria-current={isActive('/transfer-out') ? 'page' : undefined}
@@ -145,13 +170,24 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
                   <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
 
-                  {/* ✅ เมนูใหม่: รับเข้า */}
+                  {/* 6) ส่งสี */}
                   <button
-                    onClick={() => { navigate('/transfer-in'); setIsOpen(false) }}
-                    aria-current={isActive('/transfer-in') ? 'page' : undefined}
-                    className={`${subBtnBase} ${isActive('/transfer-in') ? subActive : subIdle}`}
+                    onClick={() => { navigate('/transfer-mill'); setIsOpen(false) }}
+                    aria-current={isActive('/transfer-mill') ? 'page' : undefined}
+                    className={`${subBtnBase} ${isActive('/transfer-mill') ? subActive : subIdle}`}
                   >
-                    รับเข้า
+                    ส่งสี
+                  </button>
+
+                  <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
+
+                  {/* 7) ตัดเสียหาย */}
+                  <button
+                    onClick={() => { navigate('/damage-out'); setIsOpen(false) }}
+                    aria-current={isActive('/damage-out') ? 'page' : undefined}
+                    className={`${subBtnBase} ${isActive('/damage-out') ? subActive : subIdle}`}
+                  >
+                    ตัดเสียหาย
                   </button>
                 </div>
               </div>

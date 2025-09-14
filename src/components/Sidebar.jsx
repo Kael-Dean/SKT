@@ -1,3 +1,4 @@
+// src/components/Sidebar.jsx
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -33,7 +34,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     'text-gray-900 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-100 dark:hover:bg-gray-700 dark:hover:text-white hover:scale-[1.02] hover:shadow-md'
   const activeBtn =
     'bg-black text-white dark:bg-gray-800 dark:text-white hover:scale-[1.02] hover:shadow-lg hover:opacity-90'
-      .replace('white dark:bg.white', 'white dark:bg-white') // keep classes clean
   const subBtnBase =
     'w-full h-11 flex items-center justify-center rounded-lg px-4 transition-all duration-200 ease-out text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
   const subIdle =
@@ -107,7 +107,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 />
               </div>
 
-              {/* เมนูย่อย (เรียงตามที่ต้องการ) */}
+              {/* เมนูย่อย (ลำดับตามต้องการ; "ตัดเสียหาย" อยู่ล่างสุด) */}
               <div
                 id="business-submenu"
                 className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${
@@ -181,7 +181,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
                   <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
 
-                  {/* 7) ตัดเสียหาย */}
+                  {/* 7) ตัดเสียหาย (ล่างสุด) */}
                   <button
                     onClick={() => { navigate('/damage-out'); setIsOpen(false) }}
                     aria-current={isActive('/damage-out') ? 'page' : undefined}

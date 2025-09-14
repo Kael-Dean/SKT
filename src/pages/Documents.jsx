@@ -1,12 +1,12 @@
 // src/pages/Documents.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { apiAuth } from "../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ
+import { apiAuth, apiDownload } from "../lib/api"   // ✅ helper แนบ token + รวม BASE URL
 
 /** ---------- Utils ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
 
-/** ---------- Styles (ให้เหมือนหน้า Sales) ---------- */
+/** ---------- Styles ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -15,7 +15,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- DateInput: ปฏิทินซูมเมื่อโฮเวอร์ (เหมือน Sales) ---------- */
+/** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput(
   { error = false, className = "", ...props },
   ref
@@ -47,8 +47,7 @@ const DateInput = forwardRef(function DateInput(
         }}
         aria-label="เปิดตัวเลือกวันที่"
         className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer
-                   bg-transparent"
+                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
@@ -191,29 +190,10 @@ function Documents() {
 
     try {
       setDownloading(true)
-      // ใช้ apiAuth เพื่อให้แนบ token อัตโนมัติ
-      const res = await apiAuth(`/report/orders/purchase-excel?${params.toString()}`, { method: "GET" })
-      // apiAuth จะ parse JSON อัตโนมัติ ซึ่งไม่เหมาะกับไฟล์ binary → ใช้ fetch ตรงแต่ดึง token จาก localStorage ดีกว่า
-    } catch {
-      // 👉 สำหรับไฟล์ Excel ต้องใช้ fetch + blob ตรง ๆ
-    }
-
-    try {
-      setDownloading(true)
-      const token = localStorage.getItem("token")
-      const res = await fetch(`/api/report/orders/purchase-excel?${params.toString()}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!res.ok) throw new Error(await res.text())
-      const blob = await res.blob()
-      const cd = res.headers.get("content-disposition")
-      let filename = `purchase_report_${filters.startDate}_${filters.endDate}.xlsx`
-      if (cd && /filename="?([^"]+)"?/.test(cd)) {
-        filename = decodeURIComponent(cd.match(/filename="?([^"]+)"?/)[1])
-      }
+      const { blob, filename } = await apiDownload(`/report/orders/purchase-excel?${params.toString()}`)
       const link = document.createElement("a")
       link.href = URL.createObjectURL(blob)
-      link.download = filename
+      link.download = filename || `purchase_report_${filters.startDate}_${filters.endDate}.xlsx`
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -237,10 +217,166 @@ function Documents() {
       carryForwardKg: "",
     })
 
-  /** ---------- UI (เหมือนเดิม) ---------- */
+  /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      {/* ... UI เดิมทั้งหมด ... */}
+      <div className="mx-auto max-w-6xl p-5 md:p-6 lg:p-8">
+        <div className="mb-6 flex items-center gap-3">
+          <h1 className="text-3xl font-bold">📚 คลังเอกสาร & รายงาน</h1>
+          {!loadingOptions && (
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
+              พร้อมใช้งาน
+            </span>
+          )}
+        </div>
+
+        {/* ฟอร์มรายงานซื้อ-ขาย */}
+        <form
+          onSubmit={onSubmit}
+          className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        >
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold">รายงานซื้อ-ขาย (Excel)</h2>
+            <p className={helpTextCls}>เลือกตัวกรอง แล้วกด “ดาวน์โหลด Excel” เพื่อสร้างไฟล์รายงาน</p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* วันที่ */}
+            <div>
+              <label className={labelCls}>วันที่เริ่มต้น</label>
+              <DateInput
+                value={filters.startDate}
+                onChange={(e) => setFilter("startDate", e.target.value)}
+                error={!!errors.startDate}
+                aria-invalid={errors.startDate ? true : undefined}
+              />
+              {errors.startDate && <div className={errorTextCls}>{errors.startDate}</div>}
+            </div>
+            <div>
+              <label className={labelCls}>วันที่สิ้นสุด</label>
+              <DateInput
+                value={filters.endDate}
+                onChange={(e) => setFilter("endDate", e.target.value)}
+                error={!!errors.endDate}
+                aria-invalid={errors.endDate ? true : undefined}
+              />
+              {errors.endDate && <div className={errorTextCls}>{errors.endDate}</div>}
+            </div>
+
+            {/* ยอดยกมา */}
+            <div>
+              <label className={labelCls}>ยอดมาจากที่แล้ว (กก.)</label>
+              <input
+                inputMode="decimal"
+                className={baseField}
+                value={filters.carryForwardKg}
+                onChange={(e) => setFilter("carryForwardKg", e.target.value.replace(/[^\d.]/g, ""))}
+                placeholder="เช่น 500"
+              />
+            </div>
+
+            {/* Product */}
+            <div>
+              <label className={labelCls}>ประเภทสินค้า (ไม่บังคับ)</label>
+              <select
+                className={baseField}
+                value={filters.productId}
+                onChange={(e) => setFilter("productId", e.target.value)}
+              >
+                <option value="">— ทั้งหมด —</option>
+                {productOptions.map((o) => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Rice */}
+            <div>
+              <label className={labelCls}>ชนิดข้าว (ไม่บังคับ)</label>
+              <select
+                className={baseField}
+                value={filters.riceId}
+                onChange={(e) => setFilter("riceId", e.target.value)}
+                disabled={!filters.productId || riceOptions.length === 0}
+              >
+                <option value="">— ทั้งหมด —</option>
+                {riceOptions.map((o) => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Branch */}
+            <div>
+              <label className={labelCls}>สาขา (ไม่บังคับ)</label>
+              <select
+                className={baseField}
+                value={filters.branchId}
+                onChange={(e) => setFilter("branchId", e.target.value)}
+              >
+                <option value="">— ทั้งหมด —</option>
+                {branchOptions.map((o) => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Klang */}
+            <div>
+              <label className={labelCls}>คลัง (ไม่บังคับ)</label>
+              <select
+                className={baseField}
+                value={filters.klangId}
+                onChange={(e) => setFilter("klangId", e.target.value)}
+                disabled={!filters.branchId || klangOptions.length === 0}
+              >
+                <option value="">— ทั้งหมด —</option>
+                {klangOptions.map((o) => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={downloading}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-base font-semibold text-white " +
+                "shadow-[0_6px_16px_rgba(16,185,129,0.35)] transition-all duration-300 ease-out " +
+                "hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97] cursor-pointer",
+                downloading && "opacity-70 cursor-wait hover:scale-100 hover:shadow-none"
+              )}
+            >
+              {downloading ? "กำลังเตรียมไฟล์..." : "⬇️ ดาวน์โหลด Excel"}
+            </button>
+
+            <button
+              type="button"
+              onClick={resetForm}
+              className={
+                "inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-6 py-3 text-base " +
+                "font-medium text-slate-700 shadow-sm transition-all duration-300 ease-out hover:bg-slate-100 hover:shadow-md " +
+                "hover:scale-[1.03] active:scale-[.97] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white " +
+                "dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+              }
+            >
+              รีเซ็ตตัวกรอง
+            </button>
+          </div>
+        </form>
+
+        {/* เผื่อรายงานอื่นในอนาคต */}
+        <div className="mt-6 rounded-2xl border border-dashed border-slate-300 p-5 text-slate-600 dark:border-slate-600 dark:text-slate-300">
+          <div className="font-medium">รายงานอื่น ๆ (เพิ่มได้ภายหลัง)</div>
+          <div className="mt-1 text-sm">
+            ถ้าจะเพิ่มรายงานใหม่ ให้หลังบ้านเปิด endpoint ใต้{" "}
+            <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/report/…</code>{" "}
+            แล้วจะนำฟอร์มกรองเดียวกันนี้ไปใช้ต่อได้
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

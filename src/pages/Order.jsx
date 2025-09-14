@@ -1,7 +1,6 @@
+// src/pages/Order.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-
-/** ---------- ENV ---------- */
-const API_BASE = import.meta.env.VITE_API_BASE || ""
+import { apiAuth } from "../lib/api"  // ✅ ใช้ call รวม token/JSON
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -20,26 +19,17 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
-/** ---------- Auth header ---------- */
-const authHeader = () => {
-  const token = localStorage.getItem("token")
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  }
-}
-
-/** ---------- Base field style (เหมือนหน้า Sales) ---------- */
+/** ---------- Base field style ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-/** ---------- Reusable ComboBox (สไตล์เทาให้แมทช์ baseField) ---------- */
+/** ---------- Reusable ComboBox ---------- */
 function ComboBox({
   options = [],
   value,
-  onChange, // (newValue, optionObj) => void
+  onChange,
   placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "",
   getValue = (o) => o?.value ?? o?.id ?? "",
@@ -190,33 +180,20 @@ function ComboBox({
   )
 }
 
-/** ---------- DateInput: ปฏิทินซูมเมื่อโฮเวอร์ (เหมือนหน้า Sales) ---------- */
-const DateInput = forwardRef(function DateInput(
-  { error = false, className = "", ...props },
-  ref
-) {
+/** ---------- DateInput ---------- */
+const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
 
   return (
     <div className="relative">
-      {/* ซ่อนไอคอน native ของ Chromium เพื่อใช้ไอคอน custom */}
-      <style>{`
-        input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }
-      `}</style>
-
+      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
       <input
         type="date"
         ref={inputRef}
-        className={[
-          baseField,
-          "pr-12 cursor-pointer",
-          error ? "border-red-400 ring-2 ring-red-300/70" : "",
-          className,
-        ].join(" ")}
+        className={[baseField, "pr-12 cursor-pointer", error ? "border-red-400 ring-2 ring-red-300/70" : "", className].join(" ")}
         {...props}
       />
-
       <button
         type="button"
         onClick={() => {
@@ -227,8 +204,7 @@ const DateInput = forwardRef(function DateInput(
         }}
         aria-label="เปิดตัวเลือกวันที่"
         className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer
-                   bg-transparent"
+                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
@@ -240,55 +216,36 @@ const DateInput = forwardRef(function DateInput(
 
 /** ---------- Page: Order ---------- */
 const Order = () => {
-  /** ---------- Dates (default: this month) ---------- */
   const today = new Date().toISOString().slice(0, 10)
-  const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    .toISOString()
-    .slice(0, 10)
+  const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
 
   /** ---------- State ---------- */
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
 
   // Options
-  const [branchOptions, setBranchOptions] = useState([]) // [{id, branch_name}]
-  const [klangOptions, setKlangOptions] = useState([])   // [{id, klang_name}]
-  const [productOptions, setProductOptions] = useState([]) // [{id, product_type}]
-  const [riceOptions, setRiceOptions]   = useState([])   // [{id, rice_type}]
-  const [subriceOptions, setSubriceOptions] = useState([]) // [{id, sub_class}]
-  const [yearOptions, setYearOptions] = useState([])     // [{id, year}]
-  const [conditionOptions, setConditionOptions] = useState([]) // [{id, condition}]
-  const [fieldOptions, setFieldOptions] = useState([])   // [{id, field_type}]
+  const [branchOptions, setBranchOptions] = useState([])
+  const [klangOptions, setKlangOptions] = useState([])
+  const [productOptions, setProductOptions] = useState([])
+  const [riceOptions, setRiceOptions] = useState([])
+  const [subriceOptions, setSubriceOptions] = useState([])
+  const [yearOptions, setYearOptions] = useState([])
+  const [conditionOptions, setConditionOptions] = useState([])
+  const [fieldOptions, setFieldOptions] = useState([])
 
-  // Filters (เก็บ id จริงทั้งหมด + label เพื่อแสดงผล)
+  // Filters
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
 
-    branchId: "",
-    branchName: "",
-
-    klangId: "",
-    klangName: "",
-
-    productId: "",
-    productName: "",
-
-    riceId: "",
-    riceName: "",
-
-    subriceId: "",
-    subriceName: "",
-
-    yearId: "",
-    yearName: "",
-
-    conditionId: "",
-    conditionName: "",
-
-    fieldTypeId: "",
-    fieldTypeName: "",
-
+    branchId: "", branchName: "",
+    klangId: "", klangName: "",
+    productId: "", productName: "",
+    riceId: "", riceName: "",
+    subriceId: "", subriceName: "",
+    yearId: "", yearName: "",
+    conditionId: "", conditionName: "",
+    fieldTypeId: "", fieldTypeName: "",
     q: "",
   })
 
@@ -298,25 +255,19 @@ const Order = () => {
   useEffect(() => {
     const loadInitial = async () => {
       try {
-        const [b, p, y, c, f] = await Promise.all([
-          fetch(`${API_BASE}/order/branch/search`, { headers: authHeader() }),
-          fetch(`${API_BASE}/order/product/search`, { headers: authHeader() }),
-          fetch(`${API_BASE}/order/year/search`, { headers: authHeader() }),
-          fetch(`${API_BASE}/order/condition/search`, { headers: authHeader() }),
-          fetch(`${API_BASE}/order/field/search`, { headers: authHeader() }),
+        const [branches, products, years, conds, fields] = await Promise.all([
+          apiAuth(`/order/branch/search`),
+          apiAuth(`/order/product/search`),
+          apiAuth(`/order/year/search`),
+          apiAuth(`/order/condition/search`),
+          apiAuth(`/order/field/search`),
         ])
 
-        const branches = (b.ok ? await b.json() : []).map(x => ({ id: String(x.id), label: x.branch_name }))
-        const products = (p.ok ? await p.json() : []).map(x => ({ id: String(x.id), label: x.product_type }))
-        const years    = (y.ok ? await y.json() : []).map(x => ({ id: String(x.id), label: String(x.year) }))
-        const conds    = (c.ok ? await c.json() : []).map(x => ({ id: String(x.id), label: String(x.year ?? x.condition ?? x.label ?? "") }))
-        const fields   = (f.ok ? await f.json() : []).map(x => ({ id: String(x.id), label: String(x.year ?? x.field_type ?? x.label ?? "") }))
-
-        setBranchOptions(branches)
-        setProductOptions(products)
-        setYearOptions(years)
-        setConditionOptions(conds)
-        setFieldOptions(fields)
+        setBranchOptions((Array.isArray(branches) ? branches : []).map(x => ({ id: String(x.id), label: x.branch_name })))
+        setProductOptions((Array.isArray(products) ? products : []).map(x => ({ id: String(x.id), label: x.product_type })))
+        setYearOptions((Array.isArray(years) ? years : []).map(x => ({ id: String(x.id), label: String(x.year) })))
+        setConditionOptions((Array.isArray(conds) ? conds : []).map(x => ({ id: String(x.id), label: String(x.year ?? x.condition ?? x.label ?? "") })))
+        setFieldOptions((Array.isArray(fields) ? fields : []).map(x => ({ id: String(x.id), label: String(x.year ?? x.field_type ?? x.label ?? "") })))
       } catch (e) {
         console.error("load initial options failed:", e)
       }
@@ -333,10 +284,7 @@ const Order = () => {
         return
       }
       try {
-        const r = await fetch(`${API_BASE}/order/klang/search?branch_id=${filters.branchId}`, {
-          headers: authHeader(),
-        })
-        const data = r.ok ? await r.json() : []
+        const data = await apiAuth(`/order/klang/search?branch_id=${filters.branchId}`)
         setKlangOptions((Array.isArray(data) ? data : []).map(x => ({ id: String(x.id), label: x.klang_name })))
       } catch (e) {
         console.error("load klang failed:", e)
@@ -356,12 +304,10 @@ const Order = () => {
         return
       }
       try {
-        const r = await fetch(`${API_BASE}/order/rice/search?product_id=${filters.productId}`, { headers: authHeader() })
-        const data = r.ok ? await r.json() : []
-        const mapped = (Array.isArray(data) ? data : []).map(x => ({
-          id: String(x.id),
-          label: String(x.rice_type ?? "").trim(),
-        })).filter(o => o.id && o.label)
+        const data = await apiAuth(`/order/rice/search?product_id=${filters.productId}`)
+        const mapped = (Array.isArray(data) ? data : [])
+          .map(x => ({ id: String(x.id), label: String(x.rice_type ?? "").trim() }))
+          .filter(o => o.id && o.label)
         setRiceOptions(mapped)
       } catch (e) {
         console.error("load rice failed:", e)
@@ -381,12 +327,10 @@ const Order = () => {
         return
       }
       try {
-        const r = await fetch(`${API_BASE}/order/sub-rice/search?rice_id=${filters.riceId}`, { headers: authHeader() })
-        const data = r.ok ? await r.json() : []
-        const mapped = (Array.isArray(data) ? data : []).map(x => ({
-          id: String(x.id),
-          label: String(x.sub_class ?? "").trim(),
-        })).filter(o => o.id && o.label)
+        const data = await apiAuth(`/order/sub-rice/search?rice_id=${filters.riceId}`)
+        const mapped = (Array.isArray(data) ? data : [])
+          .map(x => ({ id: String(x.id), label: String(x.sub_class ?? "").trim() }))
+          .filter(o => o.id && o.label)
         setSubriceOptions(mapped)
       } catch (e) {
         console.error("load subrice failed:", e)
@@ -404,19 +348,17 @@ const Order = () => {
       const params = new URLSearchParams()
       params.set("start_date", filters.startDate)
       params.set("end_date", filters.endDate)
+      if (filters.branchId)    params.set("branch_id", filters.branchId)
+      if (filters.klangId)     params.set("klang_id", filters.klangId)
+      if (filters.productId)   params.set("product_id", filters.productId)
+      if (filters.riceId)      params.set("rice_id", filters.riceId)
+      if (filters.subriceId)   params.set("subrice_id", filters.subriceId)
+      if (filters.yearId)      params.set("rice_year", filters.yearId)
+      if (filters.conditionId) params.set("condition_id", filters.conditionId)
+      if (filters.fieldTypeId) params.set("field_type", filters.fieldTypeId)
+      if (filters.q?.trim())   params.set("q", filters.q.trim())
 
-      if (filters.branchId)   params.set("branch_id", filters.branchId)
-      if (filters.klangId)    params.set("klang_id", filters.klangId)
-      if (filters.productId)  params.set("product_id", filters.productId)
-      if (filters.riceId)     params.set("rice_id", filters.riceId)
-      if (filters.subriceId)  params.set("subrice_id", filters.subriceId)
-      if (filters.yearId)     params.set("rice_year", filters.yearId)
-      if (filters.conditionId)params.set("condition_id", filters.conditionId)
-      if (filters.fieldTypeId)params.set("field_type", filters.fieldTypeId)
-      if (filters.q?.trim())  params.set("q", filters.q.trim())
-
-      const r = await fetch(`${API_BASE}/order/orders/report?${params.toString()}`, { headers: authHeader() })
-      const data = r.ok ? await r.json() : []
+      const data = await apiAuth(`/order/orders/report?${params.toString()}`)
       setRows(Array.isArray(data) ? data : [])
     } catch (e) {
       console.error(e)
@@ -426,16 +368,11 @@ const Order = () => {
     }
   }
 
-  useEffect(() => {
-    fetchOrders()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  useEffect(() => { fetchOrders() }, []) // init
 
   /** ---------- Auto-refresh on debounced search ---------- */
   useEffect(() => {
-    if (filters.q.length >= 2 || filters.q.length === 0) {
-      fetchOrders()
-    }
+    if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQ])
 
@@ -456,30 +393,14 @@ const Order = () => {
       startDate: firstDayThisMonth,
       endDate: today,
 
-      branchId: "",
-      branchName: "",
-
-      klangId: "",
-      klangName: "",
-
-      productId: "",
-      productName: "",
-
-      riceId: "",
-      riceName: "",
-
-      subriceId: "",
-      subriceName: "",
-
-      yearId: "",
-      yearName: "",
-
-      conditionId: "",
-      conditionName: "",
-
-      fieldTypeId: "",
-      fieldTypeName: "",
-
+      branchId: "", branchName: "",
+      klangId: "", klangName: "",
+      productId: "", productName: "",
+      riceId: "", riceName: "",
+      subriceId: "", subriceName: "",
+      yearId: "", yearName: "",
+      conditionId: "", conditionName: "",
+      fieldTypeId: "", fieldTypeName: "",
       q: "",
     })
     setKlangOptions([])
@@ -491,26 +412,18 @@ const Order = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
-        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">
-          📦 รายการออเดอร์ซื้อข้าวเปลือก
-        </h1>
+        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">📦 รายการออเดอร์ซื้อข้าวเปลือก</h1>
 
         {/* Filters */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="grid gap-3 md:grid-cols-6">
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่เริ่ม</label>
-              <DateInput
-                value={filters.startDate}
-                onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
-              />
+              <DateInput value={filters.startDate} onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))} />
             </div>
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่สิ้นสุด</label>
-              <DateInput
-                value={filters.endDate}
-                onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
-              />
+              <DateInput value={filters.endDate} onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))} />
             </div>
 
             {/* สาขา */}
@@ -521,13 +434,7 @@ const Order = () => {
                 value={filters.branchId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({
-                    ...p,
-                    branchId: id || "",
-                    branchName: found?.label ?? "",
-                    klangId: "",
-                    klangName: "",
-                  }))
+                  setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" }))
                 }
                 placeholder="— เลือกสาขา —"
               />
@@ -541,11 +448,7 @@ const Order = () => {
                 value={filters.klangId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({
-                    ...p,
-                    klangId: id || "",
-                    klangName: found?.label ?? "",
-                  }))
+                  setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" }))
                 }
                 placeholder="— เลือกคลัง —"
                 disabled={!filters.branchId}
@@ -560,15 +463,7 @@ const Order = () => {
                 value={filters.productId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({
-                    ...p,
-                    productId: id || "",
-                    productName: found?.label ?? "",
-                    riceId: "",
-                    riceName: "",
-                    subriceId: "",
-                    subriceName: "",
-                  }))
+                  setFilters((p) => ({ ...p, productId: id || "", productName: found?.label ?? "", riceId: "", riceName: "", subriceId: "", subriceName: "" }))
                 }
                 placeholder="— เลือกสินค้า —"
               />
@@ -582,13 +477,7 @@ const Order = () => {
                 value={filters.riceId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({
-                    ...p,
-                    riceId: id || "",
-                    riceName: found?.label ?? "",
-                    subriceId: "",
-                    subriceName: "",
-                  }))
+                  setFilters((p) => ({ ...p, riceId: id || "", riceName: found?.label ?? "", subriceId: "", subriceName: "" }))
                 }
                 placeholder="— เลือกประเภทข้าว —"
                 disabled={!filters.productId}
@@ -603,11 +492,7 @@ const Order = () => {
                 value={filters.subriceId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({
-                    ...p,
-                    subriceId: id || "",
-                    subriceName: found?.label ?? "",
-                  }))
+                  setFilters((p) => ({ ...p, subriceId: id || "", subriceName: found?.label ?? "" }))
                 }
                 placeholder="— เลือกชนิดย่อย —"
                 disabled={!filters.riceId}
@@ -621,13 +506,7 @@ const Order = () => {
                 options={yearOptions}
                 value={filters.yearId}
                 getValue={(o) => o.id}
-                onChange={(id, found) =>
-                  setFilters((p) => ({
-                    ...p,
-                    yearId: id || "",
-                    yearName: found?.label ?? "",
-                  }))
-                }
+                onChange={(id, found) => setFilters((p) => ({ ...p, yearId: id || "", yearName: found?.label ?? "" }))}
                 placeholder="— เลือกปี —"
               />
             </div>
@@ -639,13 +518,7 @@ const Order = () => {
                 options={conditionOptions}
                 value={filters.conditionId}
                 getValue={(o) => o.id}
-                onChange={(id, found) =>
-                  setFilters((p) => ({
-                    ...p,
-                    conditionId: id || "",
-                    conditionName: found?.label ?? "",
-                  }))
-                }
+                onChange={(id, found) => setFilters((p) => ({ ...p, conditionId: id || "", conditionName: found?.label ?? "" }))}
                 placeholder="— เลือกสภาพ —"
               />
             </div>
@@ -657,13 +530,7 @@ const Order = () => {
                 options={fieldOptions}
                 value={filters.fieldTypeId}
                 getValue={(o) => o.id}
-                onChange={(id, found) =>
-                  setFilters((p) => ({
-                    ...p,
-                    fieldTypeId: id || "",
-                    fieldTypeName: found?.label ?? "",
-                  }))
-                }
+                onChange={(id, found) => setFilters((p) => ({ ...p, fieldTypeId: id || "", fieldTypeName: found?.label ?? "" }))}
                 placeholder="— เลือกประเภทนา —"
               />
             </div>
@@ -718,9 +585,7 @@ const Order = () => {
           </div>
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
             <div className="text-slate-500 dark:text-slate-400">น้ำหนักรวม (กก.)</div>
-            <div className="text-2xl font-semibold">
-              {Math.round(toNumber(totals.weight) * 100) / 100}
-            </div>
+            <div className="text-2xl font-semibold">{Math.round(toNumber(totals.weight) * 100) / 100}</div>
           </div>
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
             <div className="text-slate-500 dark:text-slate-400">มูลค่ารวม</div>
@@ -762,9 +627,7 @@ const Order = () => {
                       key={r.id ?? `${r.order_serial}-${r.date}-${r.first_name ?? ""}-${r.last_name ?? ""}`}
                       className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
                     >
-                      <td className="px-3 py-2">
-                        {r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}
-                      </td>
+                      <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
                       <td className="px-3 py-2">{r.order_serial || r.paymentRefNo || "—"}</td>
                       <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.customer_name || "—"}</td>
                       <td className="px-3 py-2">{r.rice_type || r.riceType || "—"}</td>

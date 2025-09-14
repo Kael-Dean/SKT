@@ -1,8 +1,6 @@
-// ✅ Sales.jsx
+// ✅ src/pages/Sales.jsx (ใช้ apiAuth แล้ว)
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-
-/** ---------- ENV ---------- */
-const API_BASE = import.meta.env.VITE_API_BASE || ""
+import { apiAuth } from "../lib/api" // ← รวม Base URL, token, และ JSON ให้แล้ว
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -353,8 +351,8 @@ const Sales = () => {
 
     // เอกสาร (ขาย)
     weighSlipNo: "",
-    taxInvoiceNo: "",      // เลขที่ใบกำกับสินค้า (ขายเชื่อ)
-    salesReceiptNo: "",    // ใบรับเงินขายสินค้า (ขายสด)
+    taxInvoiceNo: "",
+    salesReceiptNo: "",
     issueDate: new Date().toISOString().slice(0, 10),
 
     // ที่ตั้ง
@@ -403,25 +401,13 @@ const Sales = () => {
   const debouncedCitizenId = useDebounce(customer.citizenId)
   const debouncedFullName  = useDebounce(customer.fullName)
 
-  /** API header */
-  const authHeader = () => {
-    const token = localStorage.getItem("token")
-    return {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    }
-  }
-
   /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอที่ใช้ได้ (array หรือ object ก็รับ) */
   const fetchFirstOkJson = async (paths = []) => {
     for (const p of paths) {
       try {
-        const r = await fetch(`${API_BASE}${p}`, { headers: authHeader() })
-        if (r.ok) {
-          const data = await r.json()
-          if (Array.isArray(data)) return data
-          if (data && typeof data === "object") return data
-        }
+        const data = await apiAuth(p) // GET + auto JSON
+        if (Array.isArray(data)) return data
+        if (data && typeof data === "object") return data
       } catch (_) {}
     }
     return Array.isArray(paths) ? [] : {}
@@ -436,7 +422,7 @@ const Sales = () => {
       `/customer/detail?citizen_id=${q}`,
       `/customers/detail?citizen_id=${q}`,
       `/member/detail?citizen_id=${q}`,
-      `/order/customers/search?q=${q}` // เผื่อ API นี้ส่ง address มาด้วย
+      `/order/customers/search?q=${q}`,
     ]
     const data = await fetchFirstOkJson(candidates)
 
@@ -555,11 +541,8 @@ const Sales = () => {
 
     const loadRice = async () => {
       try {
-        const url = `${API_BASE}/order/rice/search?product_id=${encodeURIComponent(pid)}`
-        const r = await fetch(url, { headers: authHeader() })
-        if (!r.ok) throw new Error(await r.text())
-        const arr = (await r.json()) || []
-        const mapped = arr.map((x) => ({
+        const arr = await apiAuth(`/order/rice/search?product_id=${encodeURIComponent(pid)}`)
+        const mapped = (arr || []).map((x) => ({
           id: String(x.id ?? x.rice_id ?? x.value ?? ""),
           label: String(x.rice_type ?? x.name ?? x.label ?? "").trim(),
         })).filter((o) => o.id && o.label)
@@ -578,11 +561,8 @@ const Sales = () => {
     if (!rid) { setSubriceOptions([]); setOrder((p) => ({ ...p, subriceId: "", subriceName: "" })); return }
     const loadSub = async () => {
       try {
-        const url = `${API_BASE}/order/sub-rice/search?rice_id=${encodeURIComponent(rid)}`
-        const r = await fetch(url, { headers: authHeader() })
-        if (!r.ok) throw new Error(await r.text())
-        const arr = (await r.json()) || []
-        const mapped = arr.map((x) => ({
+        const arr = await apiAuth(`/order/sub-rice/search?rice_id=${encodeURIComponent(rid)}`)
+        const mapped = (arr || []).map((x) => ({
           id: String(x.id ?? x.subrice_id ?? x.value ?? ""),
           label: String(x.sub_class ?? x.name ?? x.label ?? "").trim(),
         })).filter((o) => o.id && o.label)
@@ -607,9 +587,7 @@ const Sales = () => {
     const loadKlang = async () => {
       try {
         const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
-        const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
-        if (!r.ok) { console.error("Load klang failed:", r.status, await r.text()); setKlangOptions([]); return }
-        const data = await r.json()
+        const data = await apiAuth(`/order/klang/search?${qs}`)
         setKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
       } catch (e) { console.error("Load klang error:", e); setKlangOptions([]) }
     }
@@ -641,7 +619,6 @@ const Sales = () => {
   const fillFromRecord = async (raw = {}) => {
     const data = mapSimplePersonToUI(raw)
 
-    // อัปเดตชื่อและเลขบัตรก่อน
     setCustomer((prev) => ({
       ...prev,
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
@@ -650,7 +627,6 @@ const Sales = () => {
     setMemberMeta({ type: data.type, assoId: data.assoId })
     setCustomerFound(true)
 
-    // ถ้ามีที่อยู่ในเรคอร์ด (จาก /order/customers/search) ก็เติมเลย
     const hasAnyAddr =
       data.houseNo || data.moo || data.subdistrict || data.district || data.province || data.postalCode
 
@@ -667,7 +643,6 @@ const Sales = () => {
       return
     }
 
-    // ถ้าไม่มีที่อยู่ แต่มี citizenId ครบ 13 หลัก → ไปโหลดที่อยู่เต็ม
     const cid = onlyDigits(data.citizenId)
     if (cid.length === 13) {
       await loadAddressByCitizenId(cid)
@@ -685,12 +660,10 @@ const Sales = () => {
     const fetchByCid = async () => {
       try {
         setLoadingCustomer(true)
-        const url = `${API_BASE}/order/customers/search?q=${encodeURIComponent(cid)}`
-        const res = await fetch(url, { headers: authHeader() })
-        if (!res.ok) throw new Error("search failed")
-        const arr = (await res.json()) || []
+        const arr = await apiAuth(`/order/customers/search?q=${encodeURIComponent(cid)}`)
+        const list = Array.isArray(arr) ? arr : []
         const exact =
-          arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
+          list.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || list[0]
         if (exact) {
           await fillFromRecord(exact)
         } else {
@@ -731,12 +704,8 @@ const Sales = () => {
     const searchByName = async () => {
       try {
         setLoadingCustomer(true)
-        const url = `${API_BASE}/order/customers/search?q=${encodeURIComponent(q)}`
-        const res = await fetch(url, { headers: authHeader() })
-        if (!res.ok) throw new Error("search failed")
-        const items = (await res.json()) || []
-        // เก็บฟิลด์ที่อยู่มาด้วย เพื่อ auto-fill ได้เลยตอนเลือกชื่อ
-        const mapped = items.map((r) => ({
+        const items = await apiAuth(`/order/customers/search?q=${encodeURIComponent(q)}`)
+        const mapped = (items || []).map((r) => ({
           type: r.type,
           asso_id: r.asso_id,
           citizen_id: r.citizen_id,
@@ -1024,8 +993,6 @@ const Sales = () => {
     if (!branchId)   { setErrors((p)=>({ ...p, branchName:"ไม่พบรหัสสาขา" }));      scrollToFirstError({branchName:true}); return }
     if (!klangId)    { setErrors((p)=>({ ...p, klangName:"ไม่พบรหัสคลัง" }));       scrollToFirstError({klangName:true}); return }
 
-    const baseHeaders = authHeader()
-
     const baseGross = grossFromScale
     const deduction = order.manualDeduct
       ? toNumber(order.deductWeightKg)
@@ -1074,15 +1041,7 @@ const Sales = () => {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/order/customers/save`, {
-        method: "POST",
-        headers: baseHeaders,
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        const t = await res.text()
-        throw new Error(t || "ไม่สามารถบันทึกออเดอร์ได้")
-      }
+      await apiAuth(`/order/customers/save`, { method: "POST", body: payload }) // ← apiAuth จะจัดการ JSON ให้
       alert("บันทึกออเดอร์ขายเรียบร้อย ✅")
       handleReset()
     } catch (err) {

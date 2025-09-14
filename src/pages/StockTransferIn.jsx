@@ -12,7 +12,6 @@ const thb = (n) =>
   )
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/** ---------- Styles ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -261,16 +260,26 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 /** ---------- Main Page ---------- */
 function StockTransferIn() {
   const [submitting, setSubmitting] = useState(false)
+
+  /** ---------- View branch (ใช้กรองกล่องคำขอ) ---------- */
   const [viewBranchId, setViewBranchId] = useState(null)
 
-  const [branchOptions, setBranchOptions] = useState([])
+  /** ---------- Dropdown options (เหมือนหน้าโอนออก) ---------- */
   const [productOptions, setProductOptions] = useState([])
   const [riceOptions, setRiceOptions] = useState([])
   const [subriceOptions, setSubriceOptions] = useState([])
 
+  const [branchOptions, setBranchOptions] = useState([]) // สำหรับ “สาขาที่กำลังดู”
+  const [fromBranchOptions, setFromBranchOptions] = useState([])
+  const [toBranchOptions, setToBranchOptions] = useState([])
+  const [fromKlangOptions, setFromKlangOptions] = useState([])
+  const [toKlangOptions, setToKlangOptions] = useState([])
+
+  /** ---------- Requests (inbox) ---------- */
   const [loadingRequests, setLoadingRequests] = useState(false)
   const [requests, setRequests] = useState([])
 
+  /** ---------- Form ---------- */
   const [form, setForm] = useState({
     transfer_id: null,
     transfer_date: new Date().toISOString().slice(0, 10),
@@ -306,9 +315,10 @@ function StockTransferIn() {
 
   const [errors, setErrors] = useState({})
   const [missingHints, setMissingHints] = useState({})
-  const hasRed = (key) => !!errors[key] || !!missingHints[key]
-  const redFieldCls = (key) => (hasRed(key) ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : "")
-  const redHintCls = (key) => (missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : "")
+  const redFieldCls = (key) =>
+    errors[key] || missingHints[key] ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : ""
+  const redHintCls = (key) =>
+    missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : ""
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
   const clearError = (key) =>
     setErrors((prev) => {
@@ -325,7 +335,11 @@ function StockTransferIn() {
           fetchFirstOkJson(["/order/branch/search"]),
           fetchFirstOkJson(["/order/product/search"]),
         ])
-        setBranchOptions((branches || []).map((b) => ({ id: b.id, label: b.branch_name })))
+        const brs = (branches || []).map((b) => ({ id: b.id, label: b.branch_name }))
+        setBranchOptions(brs) // สำหรับ viewBranch
+        setFromBranchOptions(brs) // สำหรับฟอร์ม
+        setToBranchOptions(brs)
+
         setProductOptions(
           (products || [])
             .map((x) => ({
@@ -338,6 +352,8 @@ function StockTransferIn() {
         console.error("loadStatic error:", e)
         setBranchOptions([])
         setProductOptions([])
+        setFromBranchOptions([])
+        setToBranchOptions([])
       }
     }
     loadStatic()
@@ -436,7 +452,62 @@ function StockTransferIn() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.rice_id])
 
-  /** ---------- Helper: resolve klang name by id (if request lacks name) ---------- */
+  /** ---------- โหลดคลังตามสาขา (ต้นทาง/ปลายทาง) ---------- */
+  useEffect(() => {
+    const bid = form.from_branch_id
+    const bname = form.from_branch_name?.trim()
+    if (bid == null && !bname) {
+      setFromKlangOptions([])
+      update("from_klang_id", null)
+      update("from_klang_name", "")
+      return
+    }
+    const loadKlang = async () => {
+      try {
+        const qs = bid != null ? `branch_id=${bid}` : `branch_name=${encodeURIComponent(bname)}`
+        const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
+        if (!r.ok) {
+          setFromKlangOptions([])
+          return
+        }
+        const data = await r.json()
+        setFromKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
+      } catch (e) {
+        setFromKlangOptions([])
+      }
+    }
+    loadKlang()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.from_branch_id, form.from_branch_name])
+
+  useEffect(() => {
+    const bid = form.to_branch_id
+    const bname = form.to_branch_name?.trim()
+    if (bid == null && !bname) {
+      setToKlangOptions([])
+      update("to_klang_id", null)
+      update("to_klang_name", "")
+      return
+    }
+    const loadKlang = async () => {
+      try {
+        const qs = bid != null ? `branch_id=${bid}` : `branch_name=${encodeURIComponent(bname)}`
+        const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
+        if (!r.ok) {
+          setToKlangOptions([])
+          return
+        }
+        const data = await r.json()
+        setToKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
+      } catch (e) {
+        setToKlangOptions([])
+      }
+    }
+    loadKlang()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.to_branch_id, form.to_branch_name])
+
+  /** ---------- Helper: resolve klang name by id (ถ้าคำขอไม่มีชื่อ) ---------- */
   const resolveKlangName = async (branchId, klangId, which /* 'from' | 'to' */) => {
     if (!branchId || !klangId) return
     try {
@@ -446,9 +517,7 @@ function StockTransferIn() {
       if (!res.ok) return
       const arr = (await res.json()) || []
       const found = (arr || []).find((k) => String(k.id) === String(klangId))
-      if (found) {
-        update(`${which}_klang_name`, found.klang_name || "")
-      }
+      if (found) update(`${which}_klang_name`, found.klang_name || "")
     } catch {}
   }
 
@@ -467,6 +536,9 @@ function StockTransferIn() {
     update("to_klang_id", req.to_klang_id ?? null)
     update("to_klang_name", req.to_klang_name ?? "")
 
+    // ผูก viewBranchId ให้เป็นสาขาปลายทางโดยอัตโนมัติ
+    if (req.to_branch_id) setViewBranchId(req.to_branch_id)
+
     update("product_id", String(req.product_id ?? ""))
     update("product_name", req.product_name ?? "")
     update("rice_id", String(req.rice_id ?? ""))
@@ -482,7 +554,7 @@ function StockTransferIn() {
     setErrors({})
     setMissingHints({})
 
-    // ถ้าไม่มีชื่อคลัง ให้ลอง resolve จาก API
+    // ถ้าไม่มีชื่อคลัง ให้ resolve จาก API
     if (!req.from_klang_name && req.from_branch_id && req.from_klang_id) {
       resolveKlangName(req.from_branch_id, req.from_klang_id, "from")
     }
@@ -496,6 +568,11 @@ function StockTransferIn() {
     const m = {}
     if (!form.transfer_date) m.transfer_date = true
     if (!viewBranchId) m.view_branch = true
+
+    if (!form.from_branch_id) m.from_branch_id = true
+    if (!form.from_klang_id) m.from_klang_id = true
+    if (!form.to_branch_id) m.to_branch_id = true
+    if (!form.to_klang_id) m.to_klang_id = true
 
     if (!form.product_id) m.product_id = true
     if (!form.rice_id) m.rice_id = true
@@ -512,6 +589,11 @@ function StockTransferIn() {
     const e = {}
     if (!form.transfer_date) e.transfer_date = "กรุณาเลือกวันที่รับเข้า"
     if (!viewBranchId) e.view_branch = "กรุณาเลือกสาขาที่กำลังดู"
+
+    if (!form.from_branch_id) e.from_branch_id = "กรุณาเลือกสาขาต้นทาง"
+    if (!form.from_klang_id) e.from_klang_id = "กรุณาเลือกคลังต้นทาง"
+    if (!form.to_branch_id) e.to_branch_id = "กรุณาเลือกสาขาปลายทาง"
+    if (!form.to_klang_id) e.to_klang_id = "กรุณาเลือกคลังปลายทาง"
 
     if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
     if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
@@ -541,11 +623,19 @@ function StockTransferIn() {
     try {
       const payload = {
         transfer_date: form.transfer_date,
+
+        // สาขาปลายทางต้องถูกต้อง (ฝั่งรับ)
         to_branch_id: form.to_branch_id,
         to_klang_id: form.to_klang_id,
+
+        // เก็บ info ต้นทางไว้ด้วย เผื่อ backend ตรวจสอบตรงกัน
+        from_branch_id: form.from_branch_id,
+        from_klang_id: form.from_klang_id,
+
         product_id: /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id,
         rice_id: /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id,
         subrice_id: /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id,
+
         weight_in: toNumber(form.weight_in),
         weight_out: toNumber(form.weight_out),
         net_weight: netWeight,
@@ -586,6 +676,7 @@ function StockTransferIn() {
         to_klang_name: "",
       }))
 
+      // refresh กล่องคำขอ
       try {
         const q1 = `/api/stock/transfer/requests?to_branch_id=${encodeURIComponent(viewBranchId)}`
         const q2 = `/api/stock/transfer/list?to_branch_id=${encodeURIComponent(viewBranchId)}&status=REQUESTED`
@@ -606,9 +697,9 @@ function StockTransferIn() {
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">📦 รับเข้าข้าวเปลือก</h1>
 
-        {/* เลือกสาขา */}
+        {/* เลือกสาขาที่กำลังดู */}
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <h2 className="mb-3 text-xl font-semibold">เลือกสาขาเพื่อรับเข้า</h2>
+          <h2 className="mb-3 text-xl font-semibold">เลือกสาขาเพื่อดูคำขอโอนเข้า</h2>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>สาขาที่กำลังดู</label>
@@ -648,9 +739,7 @@ function StockTransferIn() {
                   className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="font-semibold">
-                      จากสาขา: {req.from_branch_name ?? req.from_branch_id}
-                    </div>
+                    <div className="font-semibold">จากสาขา: {req.from_branch_name ?? req.from_branch_id}</div>
                     <button
                       type="button"
                       onClick={() => pickRequest(req)}
@@ -663,7 +752,9 @@ function StockTransferIn() {
                     <div>สินค้า: {req.product_name ?? req.product_id}</div>
                     <div>ชนิด/ชั้น: {(req.rice_type ?? req.rice_id) + (req.subrice_name ? " • " + req.subrice_name : "")}</div>
                     <div>สุทธิ (ที่แจ้ง): {req.net_weight ?? "-"} กก.</div>
-                    {req.cost_per_kg != null && <div>ต้นทุนที่เสนอ: {Number(req.cost_per_kg).toFixed(2)} บาท/กก.</div>}
+                    {req.cost_per_kg != null && (
+                      <div>ต้นทุนที่เสนอ: {Number(req.cost_per_kg).toFixed(2)} บาท/กก.</div>
+                    )}
                     <div className="text-slate-500">เลขคำขอ: {req.id}</div>
                   </div>
                 </div>
@@ -672,132 +763,195 @@ function StockTransferIn() {
           )}
         </div>
 
-        {/* ฟอร์มรับเข้า */}
-        <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <h2 className="mb-3 text-xl font-semibold">บันทึกรับเข้า</h2>
+        {/* ฟอร์มรับเข้า—แยกเป็น 3 กรอบเหมือนหน้าโอนออก */}
+        <form onSubmit={handleSubmit}>
+          {/* กรอบที่ 1: ข้อมูลการรับเข้า */}
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h2 className="mb-3 text-xl font-semibold">ข้อมูลการรับเข้า</h2>
 
-          {/* วันที่ + สาขา/คลัง (กว้างเท่า 1 คอลัมน์ของกริด 3 คอลัมน์) */}
-          <div className="grid gap-4 md:grid-cols-3">
-            {/* แถว 1: วันที่ (กว้าง 1/3) */}
-            <div>
-              <label className={labelCls}>วันที่รับเข้า</label>
-              <DateInput
-                value={form.transfer_date}
-                onChange={(e) => {
-                  clearError("transfer_date")
-                  clearHint("transfer_date")
-                  update("transfer_date", e.target.value)
-                }}
-                error={!!errors.transfer_date}
-                className={redHintCls("transfer_date")}
-                aria-invalid={errors.transfer_date ? true : undefined}
-              />
-              {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
-            </div>
-            {/* เติมคอลัมน์ว่างให้วันที่อยู่บรรทัดเดียว */}
-            <div className="hidden md:block" />
-            <div className="hidden md:block" />
+            <div className="grid gap-4 md:grid-cols-3">
+              {/* วันที่รับเข้า */}
+              <div>
+                <label className={labelCls}>วันที่รับเข้า</label>
+                <DateInput
+                  value={form.transfer_date}
+                  onChange={(e) => {
+                    clearError("transfer_date")
+                    clearHint("transfer_date")
+                    update("transfer_date", e.target.value)
+                  }}
+                  error={!!errors.transfer_date}
+                  className={redHintCls("transfer_date")}
+                  aria-invalid={errors.transfer_date ? true : undefined}
+                />
+                {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
+              </div>
 
-            {/* แถว 2: สาขาต้นทาง • คลังต้นทาง */}
-            <div>
-              <label className={labelCls}>สาขาต้นทาง</label>
-              <input disabled className={cx(baseField, fieldDisabled)}
-                    value={form.from_branch_name || form.from_branch_id || "—"} />
-            </div>
-            <div>
-              <label className={labelCls}>คลังต้นทาง</label>
-              <input disabled className={cx(baseField, fieldDisabled)}
-                    value={form.from_klang_name || form.from_klang_id || "—"} />
-            </div>
-            <div className="hidden md:block" />
+              {/* ตัวเว้นแบบเดียวกับหน้าโอนออก */}
+              <div className="hidden md:block" />
+              <div className="hidden md:block" />
 
-            {/* แถว 3: สาขาปลายทาง • คลังปลายทาง */}
-            <div>
-              <label className={labelCls}>สาขาปลายทาง</label>
-              <input disabled className={cx(baseField, fieldDisabled)}
-                    value={form.to_branch_name || form.to_branch_id || "—"} />
+              {/* ต้นทาง */}
+              <div>
+                <label className={labelCls}>สาขาต้นทาง</label>
+                <ComboBox
+                  options={fromBranchOptions}
+                  value={form.from_branch_id}
+                  getValue={(o) => o.id}
+                  onChange={(_v, found) => {
+                    clearError("from_branch_id")
+                    clearHint("from_branch_id")
+                    update("from_branch_id", found?.id ?? null)
+                    update("from_branch_name", found?.label ?? "")
+                    update("from_klang_id", null)
+                    update("from_klang_name", "")
+                  }}
+                  placeholder="— เลือกสาขาต้นทาง —"
+                  error={!!errors.from_branch_id}
+                  hintRed={!!missingHints.from_branch_id}
+                />
+                {errors.from_branch_id && <p className={errorTextCls}>{errors.from_branch_id}</p>}
+              </div>
+
+              <div>
+                <label className={labelCls}>คลังต้นทาง</label>
+                <ComboBox
+                  options={fromKlangOptions}
+                  value={form.from_klang_id}
+                  getValue={(o) => o.id}
+                  onChange={(_v, found) => {
+                    clearError("from_klang_id")
+                    clearHint("from_klang_id")
+                    update("from_klang_id", found?.id ?? null)
+                    update("from_klang_name", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกคลังต้นทาง —"
+                  disabled={!form.from_branch_id}
+                  error={!!errors.from_klang_id}
+                  hintRed={!!missingHints.from_klang_id}
+                />
+                {errors.from_klang_id && <p className={errorTextCls}>{errors.from_klang_id}</p>}
+              </div>
+
+              <div className="hidden md:block" />
+
+              {/* ปลายทาง */}
+              <div>
+                <label className={labelCls}>สาขาปลายทาง</label>
+                <ComboBox
+                  options={toBranchOptions}
+                  value={form.to_branch_id}
+                  getValue={(o) => o.id}
+                  onChange={(_v, found) => {
+                    clearError("to_branch_id")
+                    clearHint("to_branch_id")
+                    update("to_branch_id", found?.id ?? null)
+                    update("to_branch_name", found?.label ?? "")
+                    update("to_klang_id", null)
+                    update("to_klang_name", "")
+                  }}
+                  placeholder="— เลือกสาขาปลายทาง —"
+                  error={!!errors.to_branch_id}
+                  hintRed={!!missingHints.to_branch_id}
+                />
+                {errors.to_branch_id && <p className={errorTextCls}>{errors.to_branch_id}</p>}
+              </div>
+
+              <div>
+                <label className={labelCls}>คลังปลายทาง</label>
+                <ComboBox
+                  options={toKlangOptions}
+                  value={form.to_klang_id}
+                  getValue={(o) => o.id}
+                  onChange={(_v, found) => {
+                    clearError("to_klang_id")
+                    clearHint("to_klang_id")
+                    update("to_klang_id", found?.id ?? null)
+                    update("to_klang_name", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกคลังปลายทาง —"
+                  disabled={!form.to_branch_id}
+                  error={!!errors.to_klang_id}
+                  hintRed={!!missingHints.to_klang_id}
+                />
+                {errors.to_klang_id && <p className={errorTextCls}>{errors.to_klang_id}</p>}
+              </div>
+
+              <div className="hidden md:block" />
             </div>
-            <div>
-              <label className={labelCls}>คลังปลายทาง</label>
-              <input disabled className={cx(baseField, fieldDisabled)}
-                    value={form.to_klang_name || form.to_klang_id || "—"} />
-            </div>
-            <div className="hidden md:block" />
           </div>
 
+          {/* กรอบที่ 2: สินค้า / ข้าวเปลือก */}
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h2 className="mb-3 text-xl font-semibold">สินค้า / ข้าวเปลือก</h2>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelCls}>ประเภทสินค้า</label>
+                <ComboBox
+                  options={productOptions}
+                  value={form.product_id}
+                  onChange={(id, found) => {
+                    clearError("product_id")
+                    clearHint("product_id")
+                    update("product_id", id)
+                    update("product_name", found?.label ?? "")
+                    update("rice_id", "")
+                    update("rice_type", "")
+                    update("subrice_id", "")
+                    update("subrice_name", "")
+                  }}
+                  placeholder="— เลือกประเภทสินค้า —"
+                  error={!!errors.product_id}
+                  hintRed={!!missingHints.product_id}
+                />
+                {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
+              </div>
 
-          {/* สินค้า */}
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <div>
-              <label className={labelCls}>ประเภทสินค้า</label>
-              <ComboBox
-                options={productOptions}
-                value={form.product_id}
-                onChange={(id, found) => {
-                  clearError("product_id")
-                  clearHint("product_id")
-                  update("product_id", id)
-                  update("product_name", found?.label ?? "")
-                  update("rice_id", "")
-                  update("rice_type", "")
-                  update("subrice_id", "")
-                  update("subrice_name", "")
-                }}
-                placeholder="— เลือกประเภทสินค้า —"
-                error={!!errors.product_id}
-                hintRed={!!missingHints.product_id}
-              />
-              {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
-            </div>
+              <div>
+                <label className={labelCls}>ชนิดข้าว</label>
+                <ComboBox
+                  options={riceOptions}
+                  value={form.rice_id}
+                  onChange={(id, found) => {
+                    clearError("rice_id")
+                    clearHint("rice_id")
+                    update("rice_id", id)
+                    update("rice_type", found?.label ?? "")
+                    update("subrice_id", "")
+                    update("subrice_name", "")
+                  }}
+                  placeholder="— เลือกชนิดข้าว —"
+                  disabled={!form.product_id}
+                  error={!!errors.rice_id}
+                  hintRed={!!missingHints.rice_id}
+                />
+                {errors.rice_id && <p className={errorTextCls}>{errors.rice_id}</p>}
+              </div>
 
-            <div>
-              <label className={labelCls}>ชนิดข้าว</label>
-              <ComboBox
-                options={riceOptions}
-                value={form.rice_id}
-                onChange={(id, found) => {
-                  clearError("rice_id")
-                  clearHint("rice_id")
-                  update("rice_id", id)
-                  update("rice_type", found?.label ?? "")
-                  update("subrice_id", "")
-                  update("subrice_name", "")
-                }}
-                placeholder="— เลือกชนิดข้าว —"
-                disabled={!form.product_id}
-                error={!!errors.rice_id}
-                hintRed={!!missingHints.rice_id}
-              />
-              {errors.rice_id && <p className={errorTextCls}>{errors.rice_id}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
-              <ComboBox
-                options={subriceOptions}
-                value={form.subrice_id}
-                onChange={(id, found) => {
-                  clearError("subrice_id")
-                  clearHint("subrice_id")
-                  update("subrice_id", id)
-                  update("subrice_name", found?.label ?? "")
-                }}
-                placeholder="— เลือกชั้นย่อย —"
-                disabled={!form.rice_id}
-                error={!!errors.subrice_id}
-                hintRed={!!missingHints.subrice_id}
-              />
-              {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
+              <div>
+                <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
+                <ComboBox
+                  options={subriceOptions}
+                  value={form.subrice_id}
+                  onChange={(id, found) => {
+                    clearError("subrice_id")
+                    clearHint("subrice_id")
+                    update("subrice_id", id)
+                    update("subrice_name", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกชั้นย่อย —"
+                  disabled={!form.rice_id}
+                  error={!!errors.subrice_id}
+                  hintRed={!!missingHints.subrice_id}
+                />
+                {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
+              </div>
             </div>
           </div>
 
-          {/* ชั่ง/ต้นทุน */}
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-transparent dark:border-slate-700 dark:bg-slate-800">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              <h3 className="text-lg font-semibold">ตัวเลขและการคำนวณ</h3>
-            </div>
-
+          {/* กรอบที่ 3: ชั่งน้ำหนักและต้นทุน */}
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h2 className="mb-3 text-xl font-semibold">ชั่งน้ำหนักและต้นทุน</h2>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
                 <label className={labelCls}>น้ำหนักชั่งเข้า (กก.)</label>
@@ -846,12 +1000,7 @@ function StockTransferIn() {
 
               <div>
                 <label className={labelCls}>ราคาต้นทุน (บาท/กก.)</label>
-                <input
-                  disabled
-                  className={cx(baseField, fieldDisabled)}
-                  value={form.cost_per_kg}
-                  placeholder="ออโต้จากคำขอโอน"
-                />
+                <input disabled className={cx(baseField, fieldDisabled)} value={form.cost_per_kg} placeholder="ออโต้จากคำขอโอน" />
               </div>
 
               <div>

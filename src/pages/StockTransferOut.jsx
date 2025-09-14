@@ -14,7 +14,7 @@ const thb = (n) =>
 
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/** ---------- Styles (match Buy) ---------- */
+/** ---------- Styles ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -25,10 +25,8 @@ const fieldDisabled =
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
-// ลบ compactInput ออก ไม่ใช้แล้ว
-// const compactInput = "!py-2 !px-4 !text-[16px] !leading-normal"
 
-/** ---------- Auth + helpers (match Buy) ---------- */
+/** ---------- Auth + helpers ---------- */
 const authHeader = () => {
   const token = localStorage.getItem("token")
   return {
@@ -37,7 +35,7 @@ const authHeader = () => {
   }
 }
 
-// ลองยิงหลาย endpoint จนเจอ (โครงเดียวกับหน้า Buy)
+// ยิงหลาย endpoint แล้วเอาอันที่ ok
 const fetchFirstOkJson = async (paths = []) => {
   for (const p of paths) {
     try {
@@ -52,7 +50,7 @@ const fetchFirstOkJson = async (paths = []) => {
   return Array.isArray(paths) ? [] : {}
 }
 
-/** ---------- ComboBox (เหมือนหน้า Buy) ---------- */
+/** ---------- ComboBox ---------- */
 function ComboBox({
   options = [],
   value,
@@ -220,7 +218,7 @@ function ComboBox({
   )
 }
 
-/** ---------- DateInput (เหมือนหน้า Buy) ---------- */
+/** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
@@ -266,12 +264,11 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 function StockTransferOut() {
   const [submitting, setSubmitting] = useState(false)
 
-  /** ---------- Dropdown states (เหมือน Buy) ---------- */
+  /** ---------- Dropdown states ---------- */
   const [productOptions, setProductOptions] = useState([])
   const [riceOptions, setRiceOptions] = useState([])
   const [subriceOptions, setSubriceOptions] = useState([])
 
-  // สาขา/คลัง แยกต้นทาง-ปลายทาง
   const [fromBranchOptions, setFromBranchOptions] = useState([])
   const [toBranchOptions, setToBranchOptions] = useState([])
   const [fromKlangOptions, setFromKlangOptions] = useState([])
@@ -281,7 +278,6 @@ function StockTransferOut() {
   const [form, setForm] = useState({
     transfer_date: new Date().toISOString().slice(0, 10),
 
-    // สาขา/คลัง
     from_branch_id: null,
     from_branch_name: "",
     from_klang_id: null,
@@ -292,7 +288,6 @@ function StockTransferOut() {
     to_klang_id: null,
     to_klang_name: "",
 
-    // สินค้า/ข้าว
     product_id: "",
     product_name: "",
     rice_id: "",
@@ -300,10 +295,9 @@ function StockTransferOut() {
     subrice_id: "",
     subrice_name: "",
 
-    // น้ำหนัก/ราคา
-    weight_in: "", // กก. - ชั่งเข้า
-    weight_out: "", // กก. - ชั่งออก
-    cost_per_kg: "", // บาท/กก.
+    weight_in: "",
+    weight_out: "",
+    cost_per_kg: "",
     quality_note: "",
   })
 
@@ -331,7 +325,7 @@ function StockTransferOut() {
       return rest
     })
 
-  /** ---------- Load dropdowns (match Buy endpoints) ---------- */
+  /** ---------- Load dropdowns ---------- */
   useEffect(() => {
     const loadStatic = async () => {
       try {
@@ -362,7 +356,7 @@ function StockTransferOut() {
     loadStatic()
   }, [])
 
-  /** เมื่อเลือก product -> โหลด rice */
+  // product -> rice
   useEffect(() => {
     const pid = form.product_id
     if (!pid) {
@@ -395,7 +389,7 @@ function StockTransferOut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.product_id])
 
-  /** เมื่อเลือก rice -> โหลด sub-rice */
+  // rice -> subrice
   useEffect(() => {
     const rid = form.rice_id
     if (!rid) {
@@ -426,7 +420,7 @@ function StockTransferOut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.rice_id])
 
-  /** โหลดคลังตามสาขา (ต้นทาง/ปลายทาง) */
+  // โหลดคลังตามสาขา (ต้นทาง)
   useEffect(() => {
     const bid = form.from_branch_id
     const bname = form.from_branch_name?.trim()
@@ -456,6 +450,7 @@ function StockTransferOut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.from_branch_id, form.from_branch_name])
 
+  // โหลดคลังตามสาขา (ปลายทาง)
   useEffect(() => {
     const bid = form.to_branch_id
     const bname = form.to_branch_name?.trim()
@@ -602,7 +597,10 @@ function StockTransferOut() {
           {/* กล่องข้อมูลการโอน */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ข้อมูลการโอน</h2>
+
+            {/* จัดเลย์เอาต์ให้เหมือนหน้าโอนเข้า */}
             <div className="grid gap-4 md:grid-cols-3">
+              {/* วันที่ */}
               <div>
                 <label className={labelCls}>วันที่โอน</label>
                 <DateInput
@@ -619,6 +617,11 @@ function StockTransferOut() {
                 {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
               </div>
 
+              {/* ตัวเว้นให้ขึ้นแถวใหม่แบบเดียวกับหน้าโอนเข้า */}
+              <div className="hidden md:block" />
+              <div className="hidden md:block" />
+
+              {/* แถว: ต้นทาง */}
               <div>
                 <label className={labelCls}>สาขาต้นทาง</label>
                 <ComboBox
@@ -660,6 +663,9 @@ function StockTransferOut() {
                 {errors.from_klang_id && <p className={errorTextCls}>{errors.from_klang_id}</p>}
               </div>
 
+              <div className="hidden md:block" />
+
+              {/* แถว: ปลายทาง */}
               <div>
                 <label className={labelCls}>สาขาปลายทาง</label>
                 <ComboBox
@@ -679,11 +685,6 @@ function StockTransferOut() {
                   hintRed={!!missingHints.to_branch_id}
                 />
                 {errors.to_branch_id && <p className={errorTextCls}>{errors.to_branch_id}</p>}
-                {form.from_branch_id &&
-                  form.to_branch_id &&
-                  String(form.from_branch_id) === String(form.to_branch_id) && (
-                    <p className={helpTextCls}>สาขาต้นทาง-ปลายทางต้องไม่ซ้ำกัน</p>
-                  )}
               </div>
 
               <div>
@@ -705,6 +706,8 @@ function StockTransferOut() {
                 />
                 {errors.to_klang_id && <p className={errorTextCls}>{errors.to_klang_id}</p>}
               </div>
+
+              <div className="hidden md:block" />
             </div>
           </div>
 
@@ -835,14 +838,12 @@ function StockTransferOut() {
                 {errors.cost_per_kg && <p className={errorTextCls}>{errors.cost_per_kg}</p>}
               </div>
 
-              {/* เอา md:col-span-2 ออกให้สั้นเท่าช่องอื่น */}
               <div>
                 <label className={labelCls}>ราคาสุทธิ (บาท)</label>
                 <input disabled className={cx(baseField, fieldDisabled)} value={thb(totalCost)} />
                 <p className={helpTextCls}>คำนวณ = ราคาต้นทุน × น้ำหนักสุทธิ</p>
               </div>
 
-              {/* เอา md:col-span-2 ออกให้สั้นเท่าช่องอื่น */}
               <div>
                 <label className={labelCls}>คุณภาพ (บันทึกเพิ่มเติม)</label>
                 <input

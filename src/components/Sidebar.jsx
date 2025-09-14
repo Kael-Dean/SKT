@@ -62,14 +62,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         isOpen ? 'translate-x-0' : '-translate-x-full'
       } bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-lg`}
     >
+      {/* ใช้ flex-col และ overflow-y-auto ที่ nav */}
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="p-4">
+        <div className="p-4 shrink-0">
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">🏢 องค์กร</h1>
         </div>
 
-        {/* NAV */}
-        <nav className="flex-1 space-y-1">
+        {/* NAV (เลื่อนได้) */}
+        <nav className="flex-1 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
           {/* 1) เมนู: หน้าหลัก */}
           <div className={cardWrapper}>
             <div className={cardBox}>
@@ -107,90 +108,36 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 />
               </div>
 
-              {/* เมนูย่อย (เพิ่มความสูงและเลื่อนภายในได้) */}
+              {/* เมนูย่อย */}
               <div
                 id="business-submenu"
                 className={`transition-[max-height,opacity] duration-300 ease-out ${
                   businessOpen
-                    ? 'max-h-[70vh] opacity-100 overflow-y-auto pr-1'
+                    ? 'max-h-[70vh] opacity-100'
                     : 'max-h-0 opacity-0 overflow-hidden'
                 }`}
               >
                 <div className="px-3 pb-3 pt-2 space-y-2">
-                  {/* 1) ยกมา */}
-                  <button
-                    onClick={() => { navigate('/bring-in'); setIsOpen(false) }}
-                    aria-current={isActive('/bring-in') ? 'page' : undefined}
-                    className={`${subBtnBase} ${isActive('/bring-in') ? subActive : subIdle}`}
-                  >
-                    ยกมา
-                  </button>
-
-                  <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
-
-                  {/* 2) ซื้อข้าว */}
-                  <button
-                    onClick={() => { navigate('/Buy'); setIsOpen(false) }}
-                    aria-current={isActive('/Buy') ? 'page' : undefined}
-                    className={`${subBtnBase} ${isActive('/Buy') ? subActive : subIdle}`}
-                  >
-                    ซื้อข้าว
-                  </button>
-
-                  <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
-
-                  {/* 3) ขายข้าว */}
-                  <button
-                    onClick={() => { navigate('/sales'); setIsOpen(false) }}
-                    aria-current={isActive('/sales') ? 'page' : undefined}
-                    className={`${subBtnBase} ${isActive('/sales') ? subActive : subIdle}`}
-                  >
-                    ขายข้าว
-                  </button>
-
-                  <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
-
-                  {/* 4) รับเข้า */}
-                  <button
-                    onClick={() => { navigate('/transfer-in'); setIsOpen(false) }}
-                    aria-current={isActive('/transfer-in') ? 'page' : undefined}
-                    className={`${subBtnBase} ${isActive('/transfer-in') ? subActive : subIdle}`}
-                  >
-                    รับเข้า
-                  </button>
-
-                  <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
-
-                  {/* 5) โอนออก */}
-                  <button
-                    onClick={() => { navigate('/transfer-out'); setIsOpen(false) }}
-                    aria-current={isActive('/transfer-out') ? 'page' : undefined}
-                    className={`${subBtnBase} ${isActive('/transfer-out') ? subActive : subIdle}`}
-                  >
-                    โอนออก
-                  </button>
-
-                  <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
-
-                  {/* 6) ส่งสี */}
-                  <button
-                    onClick={() => { navigate('/transfer-mill'); setIsOpen(false) }}
-                    aria-current={isActive('/transfer-mill') ? 'page' : undefined}
-                    className={`${subBtnBase} ${isActive('/transfer-mill') ? subActive : subIdle}`}
-                  >
-                    ส่งสี
-                  </button>
-
-                  <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
-
-                  {/* 7) ตัดเสียหาย (ล่างสุด) */}
-                  <button
-                    onClick={() => { navigate('/damage-out'); setIsOpen(false) }}
-                    aria-current={isActive('/damage-out') ? 'page' : undefined}
-                    className={`${subBtnBase} ${isActive('/damage-out') ? subActive : subIdle}`}
-                  >
-                    ตัดเสียหาย
-                  </button>
+                  {[
+                    { label: 'ยกมา', path: '/bring-in' },
+                    { label: 'ซื้อข้าว', path: '/Buy' },
+                    { label: 'ขายข้าว', path: '/sales' },
+                    { label: 'รับเข้า', path: '/transfer-in' },
+                    { label: 'โอนออก', path: '/transfer-out' },
+                    { label: 'ส่งสี', path: '/transfer-mill' },
+                    { label: 'ตัดเสียหาย', path: '/damage-out' },
+                  ].map((item) => (
+                    <div key={item.path}>
+                      <button
+                        onClick={() => { navigate(item.path); setIsOpen(false) }}
+                        aria-current={isActive(item.path) ? 'page' : undefined}
+                        className={`${subBtnBase} ${isActive(item.path) ? subActive : subIdle}`}
+                      >
+                        {item.label}
+                      </button>
+                      <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -216,7 +163,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         </nav>
 
         {/* Footer */}
-        <div className="mt-auto p-4">
+        <div className="mt-auto p-4 shrink-0">
           <button
             onClick={handleLogout}
             className="w-full h-12 flex items-center justify-center rounded-xl font-semibold text-white bg-red-600 hover:bg-red-500 active:bg-red-700 hover:scale-[1.02] hover:shadow-lg shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 transition-all duration-200 ease-out"

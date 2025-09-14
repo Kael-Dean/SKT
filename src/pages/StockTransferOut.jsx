@@ -1,17 +1,13 @@
 // src/pages/StockTransferOut.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-
-/** ---------- ENV ---------- */
-const API_BASE = import.meta.env.VITE_API_BASE || ""
+import { get, post } from "../lib/api" // ✅ ใช้ helper API กลาง
 
 /** ---------- Utils ---------- */
-const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
 const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
   )
-
 const cx = (...a) => a.filter(Boolean).join(" ")
 
 /** ---------- Styles ---------- */
@@ -25,30 +21,6 @@ const fieldDisabled =
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
-
-/** ---------- Auth + helpers ---------- */
-const authHeader = () => {
-  const token = localStorage.getItem("token")
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  }
-}
-
-// ยิงหลาย endpoint แล้วเอาอันที่ ok
-const fetchFirstOkJson = async (paths = []) => {
-  for (const p of paths) {
-    try {
-      const r = await fetch(`${API_BASE}${p}`, { headers: authHeader() })
-      if (r.ok) {
-        const data = await r.json()
-        if (Array.isArray(data)) return data
-        if (data && typeof data === "object") return data
-      }
-    } catch (_) {}
-  }
-  return Array.isArray(paths) ? [] : {}
-}
 
 /** ---------- ComboBox ---------- */
 function ComboBox({
@@ -330,8 +302,8 @@ function StockTransferOut() {
     const loadStatic = async () => {
       try {
         const [products, branches] = await Promise.all([
-          fetchFirstOkJson(["/order/product/search"]),
-          fetchFirstOkJson(["/order/branch/search"]),
+          get("/order/product/search"),
+          get("/order/branch/search"),
         ])
 
         setProductOptions(
@@ -369,11 +341,8 @@ function StockTransferOut() {
     }
     const loadRice = async () => {
       try {
-        const url = `${API_BASE}/order/rice/search?product_id=${encodeURIComponent(pid)}`
-        const r = await fetch(url, { headers: authHeader() })
-        if (!r.ok) throw new Error(await r.text())
-        const arr = (await r.json()) || []
-        const mapped = arr
+        const arr = await get(`/order/rice/search?product_id=${encodeURIComponent(pid)}`)
+        const mapped = (arr || [])
           .map((x) => ({
             id: String(x.id ?? x.rice_id ?? x.value ?? ""),
             label: String(x.rice_type ?? x.name ?? x.label ?? "").trim(),
@@ -400,11 +369,8 @@ function StockTransferOut() {
     }
     const loadSub = async () => {
       try {
-        const url = `${API_BASE}/order/sub-rice/search?rice_id=${encodeURIComponent(rid)}`
-        const r = await fetch(url, { headers: authHeader() })
-        if (!r.ok) throw new Error(await r.text())
-        const arr = (await r.json()) || []
-        const mapped = arr
+        const arr = await get(`/order/sub-rice/search?rice_id=${encodeURIComponent(rid)}`)
+        const mapped = (arr || [])
           .map((x) => ({
             id: String(x.id ?? x.subrice_id ?? x.value ?? ""),
             label: String(x.sub_class ?? x.name ?? x.label ?? "").trim(),
@@ -433,14 +399,8 @@ function StockTransferOut() {
     const loadKlang = async () => {
       try {
         const qs = bid != null ? `branch_id=${bid}` : `branch_name=${encodeURIComponent(bname)}`
-        const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
-        if (!r.ok) {
-          console.error("Load from klang failed:", r.status, await r.text())
-          setFromKlangOptions([])
-          return
-        }
-        const data = await r.json()
-        setFromKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
+        const arr = await get(`/order/klang/search?${qs}`)
+        setFromKlangOptions((arr || []).map((k) => ({ id: k.id, label: k.klang_name })))
       } catch (e) {
         console.error("Load from klang error:", e)
         setFromKlangOptions([])
@@ -463,14 +423,8 @@ function StockTransferOut() {
     const loadKlang = async () => {
       try {
         const qs = bid != null ? `branch_id=${bid}` : `branch_name=${encodeURIComponent(bname)}`
-        const r = await fetch(`${API_BASE}/order/klang/search?${qs}`, { headers: authHeader() })
-        if (!r.ok) {
-          console.error("Load to klang failed:", r.status, await r.text())
-          setToKlangOptions([])
-          return
-        }
-        const data = await r.json()
-        setToKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
+        const arr = await get(`/order/klang/search?${qs}`)
+        setToKlangOptions((arr || []).map((k) => ({ id: k.id, label: k.klang_name })))
       } catch (e) {
         console.error("Load to klang error:", e)
         setToKlangOptions([])
@@ -522,8 +476,8 @@ function StockTransferOut() {
     if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
     if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
 
-    if (weightIn <= 0) e.weight_in = "น้ำหนักชั่งเข้า ต้องมากกว่า 0"
-    if (weightOut < 0) e.weight_out = "น้ำหนักชั่งออก ต้องไม่ติดลบ"
+    if (toNumber(form.weight_in) <= 0) e.weight_in = "น้ำหนักชั่งเข้า ต้องมากกว่า 0"
+    if (toNumber(form.weight_out) < 0) e.weight_out = "น้ำหนักชั่งออก ต้องไม่ติดลบ"
     if (netWeight <= 0) e.net_weight = "น้ำหนักสุทธิต้องมากกว่า 0 (ตรวจค่าชั่งเข้า/ออก)"
 
     if (form.cost_per_kg !== "" && costPerKg < 0) e.cost_per_kg = "ราคาต้นทุนต้องไม่ติดลบ"
@@ -543,33 +497,22 @@ function StockTransferOut() {
     try {
       const payload = {
         transfer_date: form.transfer_date,
-
         from_branch_id: form.from_branch_id ?? null,
         from_klang_id: form.from_klang_id ?? null,
-
         to_branch_id: form.to_branch_id ?? null,
         to_klang_id: form.to_klang_id ?? null,
-
         product_id: /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id,
         rice_id: /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id,
         subrice_id: /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id,
-
-        weight_in: weightIn,
-        weight_out: weightOut,
+        weight_in: toNumber(form.weight_in),
+        weight_out: toNumber(form.weight_out),
         net_weight: netWeight,
-
         cost_per_kg: costPerKg || 0,
         total_cost: totalCost || 0,
-
         quality_note: form.quality_note?.trim() || null,
       }
 
-      const r = await fetch(`${API_BASE}/api/stock/transfer-out`, {
-        method: "POST",
-        headers: authHeader(),
-        body: JSON.stringify(payload),
-      })
-      if (!r.ok) throw new Error(await r.text())
+      await post("/api/stock/transfer-out", payload)
 
       alert("บันทึกการโอนออกสำเร็จ ✅")
       setForm((f) => ({
@@ -598,7 +541,6 @@ function StockTransferOut() {
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ข้อมูลการโอน</h2>
 
-            {/* จัดเลย์เอาต์ให้เหมือนหน้าโอนเข้า */}
             <div className="grid gap-4 md:grid-cols-3">
               {/* วันที่ */}
               <div>
@@ -617,11 +559,10 @@ function StockTransferOut() {
                 {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
               </div>
 
-              {/* ตัวเว้นให้ขึ้นแถวใหม่แบบเดียวกับหน้าโอนเข้า */}
               <div className="hidden md:block" />
               <div className="hidden md:block" />
 
-              {/* แถว: ต้นทาง */}
+              {/* ต้นทาง */}
               <div>
                 <label className={labelCls}>สาขาต้นทาง</label>
                 <ComboBox
@@ -665,7 +606,7 @@ function StockTransferOut() {
 
               <div className="hidden md:block" />
 
-              {/* แถว: ปลายทาง */}
+              {/* ปลายทาง */}
               <div>
                 <label className={labelCls}>สาขาปลายทาง</label>
                 <ComboBox
@@ -711,7 +652,7 @@ function StockTransferOut() {
             </div>
           </div>
 
-          {/* กล่องสินค้า */}
+          {/* สินค้า */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">สินค้า / ข้าวเปลือก</h2>
             <div className="grid gap-4 md:grid-cols-3">
@@ -779,7 +720,7 @@ function StockTransferOut() {
             </div>
           </div>
 
-          {/* กล่องชั่ง/ราคา */}
+          {/* ชั่ง/ราคา */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ชั่งน้ำหนักและต้นทุน</h2>
             <div className="grid gap-4 md:grid-cols-4">

@@ -23,7 +23,7 @@ const Login = () => {
     setError("")
     setLoading(true)
     try {
-      const resp = await api("/login", {
+      const resp = await api("/auth/login_json", {
         method: "POST",
         body: { username, password },
       })

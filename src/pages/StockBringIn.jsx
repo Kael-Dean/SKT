@@ -269,8 +269,6 @@ const StockBringIn = () => {
 
     weight: "",
     cost_per_kg: "",
-    quality_note: "",
-    impurity_percent: "",
   })
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
@@ -459,11 +457,6 @@ const StockBringIn = () => {
     if (toNumber(form.weight) <= 0) e.weight = "น้ำหนักต้องมากกว่า 0"
     if (form.cost_per_kg === "" || toNumber(form.cost_per_kg) < 0) e.cost_per_kg = "ราคาต่อกก. ต้องไม่ติดลบ"
 
-    if (form.impurity_percent !== "") {
-      const ip = toNumber(form.impurity_percent)
-      if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "กรุณากรอก 0–100"
-    }
-
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -490,26 +483,20 @@ const StockBringIn = () => {
         cost_per_kg: toNumber(form.cost_per_kg),
         total_cost: totalCost || 0,
 
-        quality_note: form.quality_note?.trim() || null,
-        impurity_percent: form.impurity_percent === "" ? null : toNumber(form.impurity_percent),
-
-        // ------------------------------
         // หาก backend พร้อมรับ metadata เพิ่ม เติมได้:
         // condition_id: form.condition_id ? Number(form.condition_id) : null,
         // field_type_id: form.field_type_id ? Number(form.field_type_id) : null,
         // rice_year_id: form.rice_year_id ? Number(form.rice_year_id) : null,
         // program_id: form.program_id ? Number(form.program_id) : null,
         // business_type_id: form.business_type_id ? Number(form.business_type_id) : null,
-        // ------------------------------
       }
 
-      // ปรับ endpoint ตรงนี้ให้ตรงกับหลังบ้านถ้าจำเป็น
       await post("/api/stock/bring-in", payload)
 
       alert("บันทึกยกเข้าสำเร็จ ✅")
       setForm((f) => ({
         ...f,
-        // คงค่าเลือกสาขา/คลังไว้ เผื่อยกเข้าต่อเนื่อง
+        // คงสาขา/คลังไว้ เผื่อยกเข้าต่อเนื่อง
         product_id: "",
         product_name: "",
         rice_id: "",
@@ -528,8 +515,6 @@ const StockBringIn = () => {
         business_type_label: "",
         weight: "",
         cost_per_kg: "",
-        quality_note: "",
-        impurity_percent: "",
       }))
     } catch (err) {
       console.error(err)
@@ -747,7 +732,7 @@ const StockBringIn = () => {
           </div>
 
           {/* กรอบที่ 3: น้ำหนักและต้นทุน */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadowสม dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">น้ำหนักและต้นทุน</h2>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
@@ -788,31 +773,6 @@ const StockBringIn = () => {
                 <label className={labelCls}>ราคาสุทธิ (บาท)</label>
                 <input disabled className={cx(baseField, fieldDisabled)} value={thb(totalCost)} />
                 <p className={helpTextCls}>คำนวณ = น้ำหนัก × ราคาต่อกก.</p>
-              </div>
-
-              <div>
-                <label className={labelCls}>คุณภาพ (บันทึกเพิ่มเติม)</label>
-                <input
-                  className={baseField}
-                  value={form.quality_note}
-                  onChange={(e) => update("quality_note", e.target.value)}
-                  placeholder="เช่น ความชื้นสูง แกลบเยอะ"
-                />
-              </div>
-
-              <div>
-                <label className={labelCls}>สิ่งเจือปน (%)</label>
-                <input
-                  inputMode="decimal"
-                  className={cx(baseField, errors.impurity_percent && "border-red-400")}
-                  value={form.impurity_percent}
-                  onChange={(e) => update("impurity_percent", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => clearError("impurity_percent")}
-                  placeholder="เช่น 2.5"
-                  aria-invalid={errors.impurity_percent ? true : undefined}
-                />
-                {errors.impurity_percent && <p className={errorTextCls}>{errors.impurity_percent}</p>}
-                <p className={helpTextCls}>กรอกเป็นตัวเลข 0–100 (เว้นว่างได้)</p>
               </div>
             </div>
           </div>
@@ -858,8 +818,6 @@ const StockBringIn = () => {
                   business_type_label: "",
                   weight: "",
                   cost_per_kg: "",
-                  quality_note: "",
-                  impurity_percent: "",
                 }))
               }
               className="inline-flex items-center justify-center rounded-2xl 

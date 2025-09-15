@@ -1,6 +1,6 @@
 // src/pages/StockTransferOut.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { get, post } from "../lib/api" // ✅ ใช้ helper API กลาง
+import { get, post } from "../lib/api" // ✅ helper API กลาง
 
 /** ---------- Utils ---------- */
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
@@ -247,11 +247,11 @@ function StockTransferOut() {
   const [toKlangOptions, setToKlangOptions] = useState([])
 
   // ✅ เมตาดาต้า
-  const [conditionOptions, setConditionOptions] = useState([]) // สภาพ/เงื่อนไข
-  const [fieldOptions, setFieldOptions] = useState([])         // ประเภทนา
-  const [yearOptions, setYearOptions] = useState([])           // ปี/ฤดูกาล
-  const [programOptions, setProgramOptions] = useState([])     // โปรแกรม (ไม่บังคับ)
-  const [businessOptions, setBusinessOptions] = useState([])   // ประเภทธุรกิจ
+  const [conditionOptions, setConditionOptions] = useState([]) // สภาพ/เงื่อนไข (optional)
+  const [fieldOptions, setFieldOptions] = useState([])         // ประเภทนา (required ↔ backend)
+  const [yearOptions, setYearOptions] = useState([])           // ปี/ฤดูกาล (optional)
+  const [programOptions, setProgramOptions] = useState([])     // โปรแกรม (optional แต่ backend รองรับ)
+  const [businessOptions, setBusinessOptions] = useState([])   // ประเภทธุรกิจ (required ↔ backend)
 
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
@@ -274,16 +274,16 @@ function StockTransferOut() {
     subrice_id: "",
     subrice_name: "",
 
-    // เมตาดาต้า (ค่าเป็น id)
+    // เมตาดาต้า (id)
     condition_id: "",
     condition_label: "",
-    field_type_id: "",
+    field_type_id: "",     // ✅ จำเป็น
     field_type_label: "",
     rice_year_id: "",
     rice_year_label: "",
     program_id: "",
     program_label: "",
-    business_type_id: "",
+    business_type_id: "",  // ✅ จำเป็น
     business_type_label: "",
 
     weight_in: "",
@@ -291,7 +291,6 @@ function StockTransferOut() {
     cost_per_kg: "",
     quality_note: "",
 
-    // สิ่งเจือปน (%)
     impurity_percent: "",
   })
 
@@ -348,7 +347,7 @@ function StockTransferOut() {
 
         setConditionOptions((conditions || []).map((c) => ({ id: c.id, label: c.condition })))
 
-        // ✅ แก้ประเภทนา: รองรับทั้ง field และ field_type
+        // ✅ รองรับ field / field_type
         setFieldOptions(
           (fields || [])
             .map((f) => ({ id: f.id, label: f.field ?? f.field_type ?? "" }))
@@ -496,13 +495,16 @@ function StockTransferOut() {
     if (!form.rice_id) m.rice_id = true
     if (!form.subrice_id) m.subrice_id = true
 
+    // ✅ เพิ่มตาม backend
+    if (!form.field_type_id) m.field_type_id = true
+    if (!form.business_type_id) m.business_type_id = true
+
     if (!form.weight_in || Number(form.weight_in) <= 0) m.weight_in = true
     if (form.weight_out === "" || Number(form.weight_out) < 0) m.weight_out = true
     if (netWeight <= 0) m.net_weight = true
 
     if (form.cost_per_kg !== "" && Number(form.cost_per_kg) < 0) m.cost_per_kg = true
 
-    // เมตาดาต้าไม่บังคับ
     return m
   }
 
@@ -522,13 +524,17 @@ function StockTransferOut() {
     if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
     if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
 
+    // ✅ required by backend
+    if (!form.field_type_id) e.field_type_id = "กรุณาเลือกประเภทนา"
+    if (!form.business_type_id) e.business_type_id = "กรุณาเลือกประเภทธุรกิจ"
+
     if (toNumber(form.weight_in) <= 0) e.weight_in = "น้ำหนักชั่งเข้า ต้องมากกว่า 0"
     if (toNumber(form.weight_out) < 0) e.weight_out = "น้ำหนักชั่งออก ต้องไม่ติดลบ"
     if (netWeight <= 0) e.net_weight = "น้ำหนักสุทธิต้องมากกว่า 0 (ตรวจค่าชั่งเข้า/ออก)"
 
     if (form.cost_per_kg !== "" && costPerKg < 0) e.cost_per_kg = "ราคาต้นทุนต้องไม่ติดลบ"
 
-    // ✅ ตรวจสิ่งเจือปนถ้ากรอก: ต้องอยู่ 0–100
+    // ✅ สิ่งเจือปน 0–100 ถ้ามีกรอก
     if (form.impurity_percent !== "") {
       const ip = toNumber(form.impurity_percent)
       if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "กรุณากรอก 0–100"
@@ -547,38 +553,50 @@ function StockTransferOut() {
 
     setSubmitting(true)
     try {
+      // 🔁 แมปฟิลด์ให้ตรง backend /transfer/request
+      // Backend model (Transfer) ต้องการ: date, from_branch, from_klang, to_branch, to_klang,
+      // product_id, rice_id, subrice_id, field_type, year_id?, condition_id?, program?, business_type,
+      // entry_weight, exit_weight, weight, impurity, price_per_kilo, price, quality
       const payload = {
-        transfer_date: form.transfer_date,
-        from_branch_id: form.from_branch_id ?? null,
-        from_klang_id: form.from_klang_id ?? null,
-        to_branch_id: form.to_branch_id ?? null,
-        to_klang_id: form.to_klang_id ?? null,
+        date: form.transfer_date,
+
+        from_branch: form.from_branch_id != null ? Number(form.from_branch_id) : null,
+        // ใส่ไปด้วยเพื่อกัน 422 (แม้ backend จะ override ตาม user’s branch_location)
+        from_klang: form.from_klang_id != null ? Number(form.from_klang_id) : 0,
+
+        to_branch: form.to_branch_id != null ? Number(form.to_branch_id) : null,
+        to_klang: form.to_klang_id != null ? Number(form.to_klang_id) : null,
+
         product_id: /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id,
         rice_id: /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id,
         subrice_id: /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id,
-        weight_in: toNumber(form.weight_in),
-        weight_out: toNumber(form.weight_out),
-        net_weight: netWeight,
-        cost_per_kg: costPerKg || 0,
-        total_cost: totalCost || 0,
-        quality_note: form.quality_note?.trim() || null,
-        impurity_percent: form.impurity_percent === "" ? null : toNumber(form.impurity_percent),
 
-        // --------------------------------------------
-        // ถ้าพร้อมให้ backend รับค่าเหล่านี้ ค่อยเปิดบรรทัดด้านล่าง
-        // condition_id: form.condition_id ? Number(form.condition_id) : null,
-        // field_type_id: form.field_type_id ? Number(form.field_type_id) : null,
-        // rice_year_id: form.rice_year_id ? Number(form.rice_year_id) : null,
-        // program_id: form.program_id ? Number(form.program_id) : null,
-        // business_type_id: form.business_type_id ? Number(form.business_type_id) : null,
-        // --------------------------------------------
+        field_type: form.field_type_id ? Number(form.field_type_id) : null,
+        year_id: form.rice_year_id ? Number(form.rice_year_id) : null,
+        condition_id: form.condition_id ? Number(form.condition_id) : null,
+        program: form.program_id ? Number(form.program_id) : null,
+        business_type: form.business_type_id ? Number(form.business_type_id) : null,
+
+        entry_weight: toNumber(form.weight_in),
+        exit_weight: toNumber(form.weight_out),
+        weight: netWeight,
+
+        impurity: form.impurity_percent === "" ? 0 : toNumber(form.impurity_percent),
+
+        price_per_kilo: costPerKg || 0,
+        price: totalCost || 0,
+
+        // backend ต้องเป็นตัวเลข (ยังไม่มี input แยก เลยส่ง 0 ไปก่อน)
+        quality: 0,
       }
 
-      await post("/api/stock/transfer-out", payload)
+      // ✅ ยิงไปที่ backend ใหม่
+      await post("/transfer/request", payload)
 
-      alert("บันทึกการโอนออกสำเร็จ ✅")
+      alert("บันทึกคำขอโอนออกสำเร็จ ✅")
       setForm((f) => ({
         ...f,
+        // reset เฉพาะฟิลด์ชั่ง/ราคา/บันทึก
         weight_in: "",
         weight_out: "",
         cost_per_kg: "",
@@ -715,7 +733,7 @@ function StockTransferOut() {
             </div>
           </div>
 
-          {/* ✅ รวม: สินค้า + คุณสมบัติ/เมตาดาต้า */}
+          {/* ✅ สินค้า + เมตาดาต้า */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
 
@@ -785,7 +803,7 @@ function StockTransferOut() {
                 {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
               </div>
 
-              {/* สภาพ/เงื่อนไข */}
+              {/* สภาพ/เงื่อนไข (optional) */}
               <div>
                 <label className={labelCls}>สภาพ/เงื่อนไข</label>
                 <ComboBox
@@ -799,21 +817,26 @@ function StockTransferOut() {
                 />
               </div>
 
-              {/* ประเภทนา */}
+              {/* ประเภทนา (required) */}
               <div>
                 <label className={labelCls}>ประเภทนา</label>
                 <ComboBox
                   options={fieldOptions}
                   value={form.field_type_id}
                   onChange={(id, found) => {
+                    clearError("field_type_id")
+                    clearHint("field_type_id")
                     update("field_type_id", id)
                     update("field_type_label", found?.label ?? "")
                   }}
                   placeholder="— เลือกประเภทนา —"
+                  error={!!errors.field_type_id}
+                  hintRed={!!missingHints.field_type_id}
                 />
+                {errors.field_type_id && <p className={errorTextCls}>{errors.field_type_id}</p>}
               </div>
 
-              {/* ปี/ฤดูกาล */}
+              {/* ปี/ฤดูกาล (optional) */}
               <div>
                 <label className={labelCls}>ปี/ฤดูกาล</label>
                 <ComboBox
@@ -827,7 +850,7 @@ function StockTransferOut() {
                 />
               </div>
 
-              {/* โปรแกรม */}
+              {/* โปรแกรม (optional) */}
               <div>
                 <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
                 <ComboBox
@@ -841,18 +864,23 @@ function StockTransferOut() {
                 />
               </div>
 
-              {/* ประเภทธุรกิจ */}
+              {/* ประเภทธุรกิจ (required) */}
               <div>
                 <label className={labelCls}>ประเภทธุรกิจ</label>
                 <ComboBox
                   options={businessOptions}
                   value={form.business_type_id}
                   onChange={(id, found) => {
+                    clearError("business_type_id")
+                    clearHint("business_type_id")
                     update("business_type_id", id)
                     update("business_type_label", found?.label ?? "")
                   }}
                   placeholder="— เลือกประเภทธุรกิจ —"
+                  error={!!errors.business_type_id}
+                  hintRed={!!missingHints.business_type_id}
                 />
+                {errors.business_type_id && <p className={errorTextCls}>{errors.business_type_id}</p>}
               </div>
             </div>
           </div>

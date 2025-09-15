@@ -246,6 +246,13 @@ function StockTransferOut() {
   const [fromKlangOptions, setFromKlangOptions] = useState([])
   const [toKlangOptions, setToKlangOptions] = useState([])
 
+  // ✅ ใหม่: เมตาดาต้า
+  const [conditionOptions, setConditionOptions] = useState([]) // สภาพ/เงื่อนไข
+  const [fieldOptions, setFieldOptions] = useState([])         // ประเภทนา
+  const [yearOptions, setYearOptions] = useState([])           // ปี/ฤดูกาล
+  const [programOptions, setProgramOptions] = useState([])     // โปรแกรม (ไม่บังคับ)
+  const [businessOptions, setBusinessOptions] = useState([])   // ประเภทธุรกิจ
+
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
     transfer_date: new Date().toISOString().slice(0, 10),
@@ -267,12 +274,24 @@ function StockTransferOut() {
     subrice_id: "",
     subrice_name: "",
 
+    // ✅ ใหม่: เมตาดาต้า (ค่าเป็น id)
+    condition_id: "",
+    condition_label: "",
+    field_type_id: "",
+    field_type_label: "",
+    rice_year_id: "",
+    rice_year_label: "",
+    program_id: "",
+    program_label: "",
+    business_type_id: "",
+    business_type_label: "",
+
     weight_in: "",
     weight_out: "",
     cost_per_kg: "",
     quality_note: "",
 
-    // ✅ ใหม่: สิ่งเจือปน (%)
+    // ✅ สิ่งเจือปน (%)
     impurity_percent: "",
   })
 
@@ -304,9 +323,14 @@ function StockTransferOut() {
   useEffect(() => {
     const loadStatic = async () => {
       try {
-        const [products, branches] = await Promise.all([
+        const [products, branches, conditions, fields, years, programs, businesses] = await Promise.all([
           get("/order/product/search"),
           get("/order/branch/search"),
+          get("/order/condition/search"),
+          get("/order/field/search"),
+          get("/order/year/search"),
+          get("/order/program/search"),
+          get("/order/business/search"),
         ])
 
         setProductOptions(
@@ -321,11 +345,22 @@ function StockTransferOut() {
         const brs = (branches || []).map((b) => ({ id: b.id, label: b.branch_name }))
         setFromBranchOptions(brs)
         setToBranchOptions(brs)
+
+        setConditionOptions((conditions || []).map((c) => ({ id: c.id, label: c.condition })))
+        setFieldOptions((fields || []).map((f) => ({ id: f.id, label: f.field_type })))
+        setYearOptions((years || []).map((y) => ({ id: y.id, label: y.year })))
+        setProgramOptions((programs || []).map((p) => ({ id: p.id, label: p.program })))
+        setBusinessOptions((businesses || []).map((b) => ({ id: b.id, label: b.business })))
       } catch (e) {
         console.error("load static error:", e)
         setProductOptions([])
         setFromBranchOptions([])
         setToBranchOptions([])
+        setConditionOptions([])
+        setFieldOptions([])
+        setYearOptions([])
+        setProgramOptions([])
+        setBusinessOptions([])
       }
     }
     loadStatic()
@@ -460,7 +495,7 @@ function StockTransferOut() {
 
     if (form.cost_per_kg !== "" && Number(form.cost_per_kg) < 0) m.cost_per_kg = true
 
-    // impurity_percent ไม่บังคับกรอก เลยไม่ใส่ missing hint
+    // เมตาดาต้าไม่บังคับ
     return m
   }
 
@@ -520,8 +555,16 @@ function StockTransferOut() {
         cost_per_kg: costPerKg || 0,
         total_cost: totalCost || 0,
         quality_note: form.quality_note?.trim() || null,
-        // ✅ ส่งค่าไปด้วย (ถ้าเว้นว่างจะเป็น null)
         impurity_percent: form.impurity_percent === "" ? null : toNumber(form.impurity_percent),
+
+        // --------------------------------------------
+        // ถ้าพร้อมให้ backend รับค่าเหล่านี้ ค่อยเปิดบรรทัดด้านล่าง
+        // condition_id: form.condition_id ? Number(form.condition_id) : null,
+        // field_type_id: form.field_type_id ? Number(form.field_type_id) : null,
+        // rice_year_id: form.rice_year_id ? Number(form.rice_year_id) : null,
+        // program_id: form.program_id ? Number(form.program_id) : null,
+        // business_type_id: form.business_type_id ? Number(form.business_type_id) : null,
+        // --------------------------------------------
       }
 
       await post("/api/stock/transfer-out", payload)
@@ -533,7 +576,7 @@ function StockTransferOut() {
         weight_out: "",
         cost_per_kg: "",
         quality_note: "",
-        impurity_percent: "", // ✅ ล้างหลังบันทึก
+        impurity_percent: "",
       }))
     } catch (err) {
       console.error(err)
@@ -733,6 +776,77 @@ function StockTransferOut() {
             </div>
           </div>
 
+          {/* ✅ ใหม่: คุณสมบัติ/เมตาดาต้า */}
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h2 className="mb-3 text-xl font-semibold">คุณสมบัติ/เมตาดาต้า</h2>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelCls}>สภาพ/เงื่อนไข</label>
+                <ComboBox
+                  options={conditionOptions}
+                  value={form.condition_id}
+                  onChange={(id, found) => {
+                    update("condition_id", id)
+                    update("condition_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกสภาพ/เงื่อนไข —"
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>ประเภทนา</label>
+                <ComboBox
+                  options={fieldOptions}
+                  value={form.field_type_id}
+                  onChange={(id, found) => {
+                    update("field_type_id", id)
+                    update("field_type_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกประเภทนา —"
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>ปี/ฤดูกาล</label>
+                <ComboBox
+                  options={yearOptions}
+                  value={form.rice_year_id}
+                  onChange={(id, found) => {
+                    update("rice_year_id", id)
+                    update("rice_year_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกปี/ฤดูกาล —"
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
+                <ComboBox
+                  options={programOptions}
+                  value={form.program_id}
+                  onChange={(id, found) => {
+                    update("program_id", id)
+                    update("program_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกโปรแกรม —"
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>ประเภทธุรกิจ</label>
+                <ComboBox
+                  options={businessOptions}
+                  value={form.business_type_id}
+                  onChange={(id, found) => {
+                    update("business_type_id", id)
+                    update("business_type_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกประเภทธุรกิจ —"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* ชั่ง/ราคา */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ชั่งน้ำหนักและต้นทุน</h2>
@@ -808,7 +922,7 @@ function StockTransferOut() {
                 />
               </div>
 
-              {/* ✅ ใหม่: สิ่งเจือปน (%) — วางถัดจากช่องคุณภาพ */}
+              {/* สิ่งเจือปน (%) */}
               <div>
                 <label className={labelCls}>สิ่งเจือปน (%)</label>
                 <input
@@ -852,7 +966,6 @@ function StockTransferOut() {
                   weight_out: "",
                   cost_per_kg: "",
                   quality_note: "",
-                  // ไม่ล้าง impurity_percent เพราะปุ่มนี้ตั้งใจล้างเฉพาะชั่ง/ราคา
                 }))
               }
               className="inline-flex items-center justify-center rounded-2xl 

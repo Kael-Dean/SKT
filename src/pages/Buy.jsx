@@ -1052,14 +1052,15 @@ const Buy = () => {
       customer: {
         first_name: firstName || "",
         last_name: lastName || "",
-        citizen_id: onlyDigits(customer.citizenId) || null,
-        address: customer.houseNo.trim() || null,
-        mhoo: customer.moo.trim() || null,
-        sub_district: customer.subdistrict.trim() || null,
-        district: customer.district.trim() || null,
-        province: customer.province.trim() || null,
-        postal_code: customer.postalCode ? customer.postalCode.toString().trim() : null,
+        citizen_id: onlyDigits(customer.citizenId) || "",  // <-- เปลี่ยน null -> ""
+        address: customer.houseNo.trim() || "",
+        mhoo: customer.moo.trim() || "",
+        sub_district: customer.subdistrict.trim() || "",
+        district: customer.district.trim() || "",
+        province: customer.province.trim() || "",
+        postal_code: customer.postalCode ? String(customer.postalCode).trim() : "",
       },
+
       order: {
         asso_id: memberMeta.assoId ?? null,              // ❗ อย่าส่งเป็น "" 
         product_id: productId,

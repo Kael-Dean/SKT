@@ -246,7 +246,7 @@ function StockTransferOut() {
   const [fromKlangOptions, setFromKlangOptions] = useState([])
   const [toKlangOptions, setToKlangOptions] = useState([])
 
-  // ✅ ใหม่: เมตาดาต้า
+  // ✅ เมตาดาต้า
   const [conditionOptions, setConditionOptions] = useState([]) // สภาพ/เงื่อนไข
   const [fieldOptions, setFieldOptions] = useState([])         // ประเภทนา
   const [yearOptions, setYearOptions] = useState([])           // ปี/ฤดูกาล
@@ -274,7 +274,7 @@ function StockTransferOut() {
     subrice_id: "",
     subrice_name: "",
 
-    // ✅ ใหม่: เมตาดาต้า (ค่าเป็น id)
+    // เมตาดาต้า (ค่าเป็น id)
     condition_id: "",
     condition_label: "",
     field_type_id: "",
@@ -291,7 +291,7 @@ function StockTransferOut() {
     cost_per_kg: "",
     quality_note: "",
 
-    // ✅ สิ่งเจือปน (%)
+    // สิ่งเจือปน (%)
     impurity_percent: "",
   })
 
@@ -347,7 +347,14 @@ function StockTransferOut() {
         setToBranchOptions(brs)
 
         setConditionOptions((conditions || []).map((c) => ({ id: c.id, label: c.condition })))
-        setFieldOptions((fields || []).map((f) => ({ id: f.id, label: f.field_type })))
+
+        // ✅ แก้ประเภทนา: รองรับทั้ง field และ field_type
+        setFieldOptions(
+          (fields || [])
+            .map((f) => ({ id: f.id, label: f.field ?? f.field_type ?? "" }))
+            .filter((o) => o.id && o.label)
+        )
+
         setYearOptions((years || []).map((y) => ({ id: y.id, label: y.year })))
         setProgramOptions((programs || []).map((p) => ({ id: p.id, label: p.program })))
         setBusinessOptions((businesses || []).map((b) => ({ id: b.id, label: b.business })))
@@ -708,10 +715,12 @@ function StockTransferOut() {
             </div>
           </div>
 
-          {/* สินค้า */}
+          {/* ✅ รวม: สินค้า + คุณสมบัติ/เมตาดาต้า */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">สินค้า / ข้าวเปลือก</h2>
+            <h2 className="mb-3 text-xl font-semibold">สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
+
             <div className="grid gap-4 md:grid-cols-3">
+              {/* ประเภทสินค้า */}
               <div>
                 <label className={labelCls}>ประเภทสินค้า</label>
                 <ComboBox
@@ -734,6 +743,7 @@ function StockTransferOut() {
                 {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
               </div>
 
+              {/* ชนิดข้าว */}
               <div>
                 <label className={labelCls}>ชนิดข้าว</label>
                 <ComboBox
@@ -755,6 +765,7 @@ function StockTransferOut() {
                 {errors.rice_id && <p className={errorTextCls}>{errors.rice_id}</p>}
               </div>
 
+              {/* ชั้นย่อย */}
               <div>
                 <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
                 <ComboBox
@@ -773,13 +784,8 @@ function StockTransferOut() {
                 />
                 {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
               </div>
-            </div>
-          </div>
 
-          {/* ✅ ใหม่: คุณสมบัติ/เมตาดาต้า */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">คุณสมบัติ/เมตาดาต้า</h2>
-            <div className="grid gap-4 md:grid-cols-3">
+              {/* สภาพ/เงื่อนไข */}
               <div>
                 <label className={labelCls}>สภาพ/เงื่อนไข</label>
                 <ComboBox
@@ -793,6 +799,7 @@ function StockTransferOut() {
                 />
               </div>
 
+              {/* ประเภทนา */}
               <div>
                 <label className={labelCls}>ประเภทนา</label>
                 <ComboBox
@@ -806,6 +813,7 @@ function StockTransferOut() {
                 />
               </div>
 
+              {/* ปี/ฤดูกาล */}
               <div>
                 <label className={labelCls}>ปี/ฤดูกาล</label>
                 <ComboBox
@@ -819,6 +827,7 @@ function StockTransferOut() {
                 />
               </div>
 
+              {/* โปรแกรม */}
               <div>
                 <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
                 <ComboBox
@@ -832,6 +841,7 @@ function StockTransferOut() {
                 />
               </div>
 
+              {/* ประเภทธุรกิจ */}
               <div>
                 <label className={labelCls}>ประเภทธุรกิจ</label>
                 <ComboBox

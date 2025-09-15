@@ -10,6 +10,7 @@ const thb = (n) =>
   )
 const cx = (...a) => a.filter(Boolean).join(" ")
 
+/** ---------- Styles ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -250,7 +251,7 @@ function StockTransferIn() {
   /** ---------- View branch (ใช้กรองกล่องคำขอ) ---------- */
   const [viewBranchId, setViewBranchId] = useState(null)
 
-  /** ---------- Dropdown options (เหมือนหน้าโอนออก) ---------- */
+  /** ---------- Dropdown options ---------- */
   const [productOptions, setProductOptions] = useState([])
   const [riceOptions, setRiceOptions] = useState([])
   const [subriceOptions, setSubriceOptions] = useState([])
@@ -260,6 +261,13 @@ function StockTransferIn() {
   const [toBranchOptions, setToBranchOptions] = useState([])
   const [fromKlangOptions, setFromKlangOptions] = useState([])
   const [toKlangOptions, setToKlangOptions] = useState([])
+
+  // ✅ เมตาดาต้า (เหมือนหน้าโอนออก)
+  const [conditionOptions, setConditionOptions] = useState([]) // สภาพ/เงื่อนไข
+  const [fieldOptions, setFieldOptions] = useState([])         // ประเภทนา
+  const [yearOptions, setYearOptions] = useState([])           // ปี/ฤดูกาล
+  const [programOptions, setProgramOptions] = useState([])     // โปรแกรม (ไม่บังคับ)
+  const [businessOptions, setBusinessOptions] = useState([])   // ประเภทธุรกิจ
 
   /** ---------- Requests (inbox) ---------- */
   const [loadingRequests, setLoadingRequests] = useState(false)
@@ -286,6 +294,18 @@ function StockTransferIn() {
     rice_type: "",
     subrice_id: "",
     subrice_name: "",
+
+    // ✅ เมตาดาต้า (ค่าเป็น id) — เหมือนหน้าโอนออก
+    condition_id: "",
+    condition_label: "",
+    field_type_id: "",
+    field_type_label: "",
+    rice_year_id: "",
+    rice_year_label: "",
+    program_id: "",
+    program_label: "",
+    business_type_id: "",
+    business_type_label: "",
 
     weight_in: "",
     weight_out: "",
@@ -320,10 +340,16 @@ function StockTransferIn() {
   useEffect(() => {
     const loadStatic = async () => {
       try {
-        const [branches, products] = await Promise.all([
+        const [branches, products, conditions, fields, years, programs, businesses] = await Promise.all([
           get("/order/branch/search"),
           get("/order/product/search"),
+          get("/order/condition/search"),
+          get("/order/field/search"),
+          get("/order/year/search"),
+          get("/order/program/search"),
+          get("/order/business/search"),
         ])
+
         const brs = (branches || []).map((b) => ({ id: b.id, label: b.branch_name }))
         setBranchOptions(brs) // สำหรับ viewBranch
         setFromBranchOptions(brs) // สำหรับฟอร์ม
@@ -337,12 +363,30 @@ function StockTransferIn() {
             }))
             .filter((o) => o.id && o.label)
         )
+
+        setConditionOptions((conditions || []).map((c) => ({ id: c.id, label: c.condition })))
+
+        // ✅ ประเภทนา: รองรับทั้ง field และ field_type
+        setFieldOptions(
+          (fields || [])
+            .map((f) => ({ id: f.id, label: f.field ?? f.field_type ?? "" }))
+            .filter((o) => o.id && o.label)
+        )
+
+        setYearOptions((years || []).map((y) => ({ id: y.id, label: y.year })))
+        setProgramOptions((programs || []).map((p) => ({ id: p.id, label: p.program })))
+        setBusinessOptions((businesses || []).map((b) => ({ id: b.id, label: b.business })))
       } catch (e) {
         console.error("loadStatic error:", e)
         setBranchOptions([])
         setProductOptions([])
         setFromBranchOptions([])
         setToBranchOptions([])
+        setConditionOptions([])
+        setFieldOptions([])
+        setYearOptions([])
+        setProgramOptions([])
+        setBusinessOptions([])
       }
     }
     loadStatic()
@@ -510,12 +554,24 @@ function StockTransferIn() {
     // ผูก viewBranchId ให้เป็นสาขาปลายทางโดยอัตโนมัติ
     if (req.to_branch_id) setViewBranchId(req.to_branch_id)
 
-    update("product_id", String(req.product_id ?? ""))
+    update("product_id", String(req.product_id ?? ""))   // string id
     update("product_name", req.product_name ?? "")
     update("rice_id", String(req.rice_id ?? ""))
     update("rice_type", req.rice_type ?? "")
     update("subrice_id", String(req.subrice_id ?? ""))
     update("subrice_name", req.subrice_name ?? "")
+
+    // เมตาดาต้า (หาก backend ส่งมาภายหลังจะเติมได้)
+    update("condition_id", req.condition_id ? String(req.condition_id) : "")
+    update("condition_label", req.condition_label ?? "")
+    update("field_type_id", req.field_type_id ? String(req.field_type_id) : "")
+    update("field_type_label", req.field_type_label ?? "")
+    update("rice_year_id", req.rice_year_id ? String(req.rice_year_id) : "")
+    update("rice_year_label", req.rice_year_label ?? "")
+    update("program_id", req.program_id ? String(req.program_id) : "")
+    update("program_label", req.program_label ?? "")
+    update("business_type_id", req.business_type_id ? String(req.business_type_id) : "")
+    update("business_type_label", req.business_type_label ?? "")
 
     update("weight_in", req.weight_in != null ? String(req.weight_in) : "")
     update("weight_out", req.weight_out != null ? String(req.weight_out) : "")
@@ -553,7 +609,7 @@ function StockTransferIn() {
     if (form.weight_out === "" || Number(form.weight_out) < 0) m.weight_out = true
     if (netWeight <= 0) m.net_weight = true
 
-    // impurity_percent ไม่บังคับกรอก
+    // เมตาดาต้าไม่บังคับกรอก
     return m
   }
 
@@ -623,6 +679,15 @@ function StockTransferIn() {
 
         // ✅ ส่งค่าใหม่: สิ่งเจือปน (%)
         impurity_percent: form.impurity_percent === "" ? null : toNumber(form.impurity_percent),
+
+        // --------------------------------------------
+        // หาก backend พร้อมรับ metadata เพิ่ม สามารถเปิดส่งได้เหมือนหน้าโอนออก:
+        // condition_id: form.condition_id ? Number(form.condition_id) : null,
+        // field_type_id: form.field_type_id ? Number(form.field_type_id) : null,
+        // rice_year_id: form.rice_year_id ? Number(form.rice_year_id) : null,
+        // program_id: form.program_id ? Number(form.program_id) : null,
+        // business_type_id: form.business_type_id ? Number(form.business_type_id) : null,
+        // --------------------------------------------
       }
 
       await post(`/api/stock/transfer/${encodeURIComponent(form.transfer_id)}/receive`, payload)
@@ -638,11 +703,24 @@ function StockTransferIn() {
         rice_type: "",
         subrice_id: "",
         subrice_name: "",
+        // เมตาดาต้า
+        condition_id: "",
+        condition_label: "",
+        field_type_id: "",
+        field_type_label: "",
+        rice_year_id: "",
+        rice_year_label: "",
+        program_id: "",
+        program_label: "",
+        business_type_id: "",
+        business_type_label: "",
+        // ชั่ง/ราคา/หมายเหตุ
         weight_in: "",
         weight_out: "",
         cost_per_kg: "",
         quality_note: "",
-        impurity_percent: "", // ✅ ล้างค่าใหม่ด้วย
+        impurity_percent: "",
+        // ที่ตั้ง
         from_branch_id: null,
         from_branch_name: "",
         from_klang_id: null,
@@ -740,7 +818,7 @@ function StockTransferIn() {
           )}
         </div>
 
-        {/* ฟอร์มรับเข้า—แยกเป็น 3 กรอบเหมือนหน้าโอนออก */}
+        {/* ฟอร์มรับเข้า */}
         <form onSubmit={handleSubmit}>
           {/* กรอบที่ 1: ข้อมูลการรับเข้า */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -858,9 +936,9 @@ function StockTransferIn() {
             </div>
           </div>
 
-          {/* กรอบที่ 2: สินค้า / ข้าวเปลือก */}
+          {/* กรอบที่ 2: สินค้า / คุณสมบัติ (ข้าวเปลือก) */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">สินค้า / ข้าวเปลือก</h2>
+            <h2 className="mb-3 text-xl font-semibold">สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <label className={labelCls}>ประเภทสินค้า</label>
@@ -922,6 +1000,76 @@ function StockTransferIn() {
                   hintRed={!!missingHints.subrice_id}
                 />
                 {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
+              </div>
+
+              {/* ✅ สภาพ/เงื่อนไข */}
+              <div>
+                <label className={labelCls}>สภาพ/เงื่อนไข</label>
+                <ComboBox
+                  options={conditionOptions}
+                  value={form.condition_id}
+                  onChange={(id, found) => {
+                    update("condition_id", id)
+                    update("condition_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกสภาพ/เงื่อนไข —"
+                />
+              </div>
+
+              {/* ✅ ประเภทนา (รองรับ field / field_type) */}
+              <div>
+                <label className={labelCls}>ประเภทนา</label>
+                <ComboBox
+                  options={fieldOptions}
+                  value={form.field_type_id}
+                  onChange={(id, found) => {
+                    update("field_type_id", id)
+                    update("field_type_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกประเภทนา —"
+                />
+              </div>
+
+              {/* ✅ ปี/ฤดูกาล */}
+              <div>
+                <label className={labelCls}>ปี/ฤดูกาล</label>
+                <ComboBox
+                  options={yearOptions}
+                  value={form.rice_year_id}
+                  onChange={(id, found) => {
+                    update("rice_year_id", id)
+                    update("rice_year_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกปี/ฤดูกาล —"
+                />
+              </div>
+
+              {/* ✅ โปรแกรม (ไม่บังคับ) */}
+              <div>
+                <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
+                <ComboBox
+                  options={programOptions}
+                  value={form.program_id}
+                  onChange={(id, found) => {
+                    update("program_id", id)
+                    update("program_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกโปรแกรม —"
+                />
+              </div>
+
+              {/* ✅ ประเภทธุรกิจ */}
+              <div>
+                <label className={labelCls}>ประเภทธุรกิจ</label>
+                <ComboBox
+                  options={businessOptions}
+                  value={form.business_type_id}
+                  onChange={(id, found) => {
+                    update("business_type_id", id)
+                    update("business_type_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกประเภทธุรกิจ —"
+                />
               </div>
             </div>
           </div>
@@ -996,7 +1144,7 @@ function StockTransferIn() {
                 />
               </div>
 
-              {/* ✅ ใหม่: สิ่งเจือปน (%) — ถัดจากคุณภาพ */}
+              {/* ✅ ใหม่: สิ่งเจือปน (%) */}
               <div>
                 <label className={labelCls}>สิ่งเจือปน (%)</label>
                 <input
@@ -1043,11 +1191,24 @@ function StockTransferIn() {
                   rice_type: "",
                   subrice_id: "",
                   subrice_name: "",
+                  // เมตาดาต้า
+                  condition_id: "",
+                  condition_label: "",
+                  field_type_id: "",
+                  field_type_label: "",
+                  rice_year_id: "",
+                  rice_year_label: "",
+                  program_id: "",
+                  program_label: "",
+                  business_type_id: "",
+                  business_type_label: "",
+                  // ชั่ง/ราคา/หมายเหตุ
                   weight_in: "",
                   weight_out: "",
                   cost_per_kg: "",
                   quality_note: "",
-                  impurity_percent: "", // ✅ ล้างด้วย
+                  impurity_percent: "",
+                  // ที่ตั้ง
                   from_branch_id: null,
                   from_branch_name: "",
                   from_klang_id: null,

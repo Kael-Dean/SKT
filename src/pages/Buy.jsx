@@ -351,7 +351,9 @@ const Buy = () => {
     conditionId: "",
     fieldType: "",
     fieldTypeId: "",
-    program: "",
+    // 🔁 เปลี่ยนโปรแกรมให้ใช้ id/label แยกกัน
+    programId: "",
+    programName: "",
     paymentMethod: "",
     businessType: "",
     businessTypeId: "",
@@ -1028,6 +1030,7 @@ const Buy = () => {
     const conditionId    = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
     const fieldTypeId    = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
     const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
+    const programId      = /^\d+$/.test(order.programId) ? Number(order.programId) : null
 
     if (!productId) return scrollToFirstError({ product: true })
     if (!riceId) return scrollToFirstError({ riceType: true })
@@ -1062,13 +1065,14 @@ const Buy = () => {
       },
 
       order: {
-        asso_id: memberMeta.assoId ?? null,              // ❗ อย่าส่งเป็น "" 
+        asso_id: memberMeta.assoId ?? null,              // ❗ อย่าส่งเป็น ""
         product_id: productId,
         rice_id: riceId,
         subrice_id: subriceId,
         rice_year: riceYearId,
         field_type: fieldTypeId,
         condition: conditionId,
+        program: programId ?? null,                      // ✅ ส่งเป็น id หรือ null
         humidity: Number(order.moisturePct || 0),
         entry_weight: Number(order.entryWeightKg || 0),
         exit_weight: Number(order.exitWeightKg || 0),
@@ -1084,10 +1088,6 @@ const Buy = () => {
         comment: order.comment?.trim() || null,
         business_type: businessTypeId,
       },
-      // ❌ ตัด object ที่ backend ไม่รู้จักออก
-      // rice: { rice_type: order.riceType },
-      // branch: { branch_name: order.branchName },
-      // klang: { klang_name: order.klangName },
     }
 
     try {
@@ -1137,7 +1137,8 @@ const Buy = () => {
       conditionId: "",
       fieldType: "",
       fieldTypeId: "",
-      program: "",
+      programId: "",
+      programName: "",
       paymentMethod: "",
       businessType: "",
       businessTypeId: "",

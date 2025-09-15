@@ -17,10 +17,18 @@ async function _call(path, { method = "GET", body, headers } = {}) {
   })
 
   const ct = res.headers.get("content-type") || ""
-  const data = ct.includes("application/json") ? await res.json() : await res.text()
+  const data = ct.includes("application/json") ? await res.json().catch(() => ({})) : await res.text().catch(() => "")
 
   if (!res.ok) {
-    const msg = typeof data === "string" ? data : (data?.detail || "Request failed")
+    // สกัดข้อความ error ให้เข้าใจง่าย (รองรับ FastAPI 422 detail)
+    let msg = "Request failed"
+    if (typeof data === "string" && data) msg = data
+    else if (data?.detail) {
+      msg = Array.isArray(data.detail)
+        ? data.detail.map((d) => (d.msg ? d.msg : JSON.stringify(d))).join(" | ")
+        : (data.detail?.message || data.detail || msg)
+    } else if (data?.message) msg = data.message
+
     const error = new Error(msg)
     error.status = res.status
     error.data = data
@@ -41,7 +49,7 @@ import { getToken, logout } from "./auth"
 
 export async function apiAuth(path, opts = {}) {
   const token = getToken()
-  const { redirectOn401 = false, ...rest } = opts   // <-- ค่าเริ่มต้น: ไม่ redirect
+  const { redirectOn401 = false, ...rest } = opts
   try {
     return await _call(path, {
       ...rest,
@@ -50,8 +58,10 @@ export async function apiAuth(path, opts = {}) {
   } catch (err) {
     if (err.status === 401 && redirectOn401) {
       logout()
-      window.location.hash = "#/login"  // ถ้าใช้ HashRouter
-      // window.location.replace("/login") // ถ้าใช้ BrowserRouter
+      // HashRouter:
+      window.location.hash = "#/login"
+      // BrowserRouter:
+      // window.location.replace("/login")
     }
     throw err
   }
@@ -86,7 +96,7 @@ export async function apiDownload(path, opts = {}) {
   return { blob, filename }
 }
 
-// shorthand helpers (ไม่ redirect 401 โดยอัตโนมัติ)
+// shorthand helpers
 export const get  = (p, opts)       => apiAuth(p, opts)
 export const post = (p, body, opts) => apiAuth(p, { method: "POST", body, ...(opts || {}) })
 export const put  = (p, body, opts) => apiAuth(p, { method: "PUT",  body, ...(opts || {}) })

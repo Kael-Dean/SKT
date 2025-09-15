@@ -1018,14 +1018,15 @@ const Buy = () => {
     const [firstName, ...rest] = customer.fullName.trim().split(" ")
     const lastName = rest.join(" ")
 
-    const productId = /^\d+$/.test(order.productId) ? Number(order.productId) : null
-    const riceId = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
-    const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null
-    const branchId = order.branchId ?? null
-    const klangId = order.klangId ?? null
-    const riceYearId = /^\d+$/.test(order.riceYearId) ? Number(order.riceYearId) : null
-    const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
-    const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
+    // แปลงเป็นตัวเลขให้ชัดเจน
+    const productId      = /^\d+$/.test(order.productId) ? Number(order.productId) : null
+    const riceId         = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
+    const subriceId      = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null
+    const branchId       = order.branchId != null ? Number(order.branchId) : null
+    const klangId        = order.klangId != null ? Number(order.klangId) : null
+    const riceYearId     = /^\d+$/.test(order.riceYearId) ? Number(order.riceYearId) : null
+    const conditionId    = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
+    const fieldTypeId    = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
     const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
 
     if (!productId) return scrollToFirstError({ product: true })
@@ -1044,20 +1045,23 @@ const Buy = () => {
       : suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
     const netW = Math.max(0, baseGross - deduction)
 
+    // ส่ง date เป็น YYYY-MM-DD ตามหน้า UI
+    const dateStr = order.issueDate
+
     const payload = {
       customer: {
         first_name: firstName || "",
         last_name: lastName || "",
-        citizen_id: onlyDigits(customer.citizenId),
-        address: customer.houseNo.trim(),
-        mhoo: customer.moo.trim(),
-        sub_district: customer.subdistrict.trim(),
-        district: customer.district.trim(),
-        province: customer.province.trim(),
-        postal_code: customer.postalCode?.toString().trim() || "",
+        citizen_id: onlyDigits(customer.citizenId) || null,
+        address: customer.houseNo.trim() || null,
+        mhoo: customer.moo.trim() || null,
+        sub_district: customer.subdistrict.trim() || null,
+        district: customer.district.trim() || null,
+        province: customer.province.trim() || null,
+        postal_code: customer.postalCode ? customer.postalCode.toString().trim() : null,
       },
       order: {
-        asso_id: "",
+        asso_id: memberMeta.assoId ?? null,              // ❗ อย่าส่งเป็น "" 
         product_id: productId,
         rice_id: riceId,
         subrice_id: subriceId,
@@ -1067,21 +1071,22 @@ const Buy = () => {
         humidity: Number(order.moisturePct || 0),
         entry_weight: Number(order.entryWeightKg || 0),
         exit_weight: Number(order.exitWeightKg || 0),
-        weight: netW,
+        weight: Number(netW),
         price_per_kilo: Number(order.unitPrice || 0),
-        price: moneyToNumber(order.amountTHB),
+        price: Number(moneyToNumber(order.amountTHB) || 0),
         impurity: Number(order.impurityPct || 0),
-        order_serial: order.paymentRefNo.trim(),
-        date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
+        order_serial: order.paymentRefNo.trim() || null,
+        date: dateStr,                                   // ✅ ไม่แปลงเป็น ISO
         branch_location: branchId,
         klang_location: klangId,
         gram: Number(order.gram || 0),
-        comment: order.comment?.trim() || "",
+        comment: order.comment?.trim() || null,
         business_type: businessTypeId,
       },
-      rice: { rice_type: order.riceType },
-      branch: { branch_name: order.branchName },
-      klang: { klang_name: order.klangName },
+      // ❌ ตัด object ที่ backend ไม่รู้จักออก
+      // rice: { rice_type: order.riceType },
+      // branch: { branch_name: order.branchName },
+      // klang: { klang_name: order.klangName },
     }
 
     try {
@@ -1089,8 +1094,11 @@ const Buy = () => {
       alert("บันทึกออเดอร์เรียบร้อย ✅")
       handleReset()
     } catch (err) {
-      console.error(err)
-      alert("บันทึกล้มเหลว กรุณาลองใหม่")
+      console.error("SAVE ERROR:", err?.data || err)
+      const detail = err?.data?.detail
+        ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}`
+        : ""
+      alert(`บันทึกล้มเหลว: ${err.message || "เกิดข้อผิดพลาด"}${detail}`)
     }
   }
 

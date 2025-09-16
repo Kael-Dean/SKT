@@ -300,11 +300,7 @@ function StockTransferIn() {
   /** ---------- เลือกคำขอ ---------- */
   const pickRequest = (req) => {
     update("transfer_id", req.id ?? null)
-
-    // ออโต้ฟิลราคาต้นทุน/กก. จากคำขอฝั่งโอนออก
     update("price_per_kilo", req?.price_per_kilo != null ? String(req.price_per_kilo) : "")
-
-    // reset ช่องผู้รับ
     update("weight_in", "")
     update("weight_out", "")
     update("impurity_percent", "")
@@ -331,7 +327,7 @@ function StockTransferIn() {
     if (!form.transfer_id) e.transfer_id = "กรุณาเลือกคำขอโอนจากรายการด้านบนก่อน"
     if (weightIn <= 0) e.weight_in = "น้ำหนักชั่งเข้า ต้องมากกว่า 0"
     if (weightOut < 0) e.weight_out = "น้ำหนักชั่งออก ต้องไม่ติดลบ"
-    if (netWeight <= 0) e.net_weight = "น้ำหนักสุทธิต้องมากกว่า 0 (ตรวจค่าชั่งเข้า/ออก)"
+    if (netWeight <= 0) e.net_weight = "น้ำหนักสุทธ้องมากกว่า 0 (ตรวจค่าชั่งเข้า/ออก)"
     if (form.impurity_percent !== "") {
       const ip = toNumber(form.impurity_percent)
       if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "กรุณากรอก 0–100"
@@ -361,14 +357,12 @@ function StockTransferIn() {
         dest_impurity: form.impurity_percent === "" ? null : toNumber(form.impurity_percent),
         dest_quality: form.dest_quality === "" ? null : toNumber(form.dest_quality),
         receiver_note: form.quality_note?.trim() || null,
-        // ไม่ส่ง price ไป เพราะ backend ยังไม่รับฟิลด์นี้ใน TransferConfirm
       }
 
       await post(`/transfer/confirm/${encodeURIComponent(form.transfer_id)}`, payload)
 
       alert("บันทึกรับเข้าสำเร็จ ✅")
 
-      // เคลียร์ฟอร์ม
       setForm((f) => ({
         ...f,
         transfer_id: null,
@@ -380,7 +374,6 @@ function StockTransferIn() {
         dest_quality: "",
       }))
 
-      // refresh กล่องคำขอ
       try {
         const data = await get(`/transfer/pending/incoming`)
         setRequests(Array.isArray(data) ? data : [])
@@ -474,7 +467,6 @@ function StockTransferIn() {
             <h2 className="mb-3 text-xl font-semibold">ข้อมูลการรับเข้า</h2>
 
             <div className="grid gap-4 md:grid-cols-3">
-              {/* วันที่รับเข้า */}
               <div>
                 <label className={labelCls}>วันที่รับเข้า</label>
                 <DateInput
@@ -491,7 +483,6 @@ function StockTransferIn() {
                 {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
               </div>
 
-              {/* แสดงเลขคำขอที่เลือก */}
               <div>
                 <label className={labelCls}>เลขคำขอที่เลือก</label>
                 <input
@@ -558,7 +549,7 @@ function StockTransferIn() {
             </div>
 
             {/* แถวที่ 2: คุณภาพ & สิ่งเจือปน */}
-            <div className="mt-4 grid gap-4 md:grid-cols-4">
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
                 <label className={labelCls}>คุณภาพ</label>
                 <input
@@ -588,23 +579,12 @@ function StockTransferIn() {
                 <p className={helpTextCls}>กรอกเป็นตัวเลข 0–100 (เว้นว่างได้)</p>
               </div>
             </div>
-
-            {/* แถวสุดท้าย: บันทึกเพิ่มเติม */}
-            <div className="mt-4">
-              <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
-              <input
-                className={baseField}
-                value={form.quality_note}
-                onChange={(e) => update("quality_note", e.target.value)}
-                placeholder="เช่น ความชื้นสูง แกลบเยอะ หรือเหตุผลกรณีปฏิเสธ"
-              />
-            </div>
           </div>
 
           {/* กล่อง: ต้นทุนและคุณภาพ (เลย์เอาต์เหมือน transferout) */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ต้นทุนและคุณภาพ</h2>
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <label className={labelCls}>ราคาต้นทุน/กก. (บาท)</label>
                 <input
@@ -622,6 +602,21 @@ function StockTransferIn() {
                 <label className={labelCls}>รวมต้นทุน (ประมาณ)</label>
                 <input disabled className={cx(baseField, fieldDisabled)} value={thb(totalCost)} placeholder="—" />
                 <p className={helpTextCls}>คำนวณ = ราคาต้นทุน/กก. × น้ำหนักสุทธิ</p>
+              </div>
+            </div>
+          </div>
+
+          {/* แถวสุดท้าย: บันทึกเพิ่มเติม — ย้ายลงมาหลังกล่องต้นทุน */}
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="md:col-span-3">
+                <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
+                <input
+                  className={baseField}
+                  value={form.quality_note}
+                  onChange={(e) => update("quality_note", e.target.value)}
+                  placeholder="เช่น ความชื้นสูง แกลบเยอะ หรือเหตุผลกรณีปฏิเสธ"
+                />
               </div>
             </div>
           </div>

@@ -249,7 +249,7 @@ function StockTransferIn() {
 
     // เพิ่มตาม transferout
     price_per_kilo: "", // ราคาต้นทุน/กก. — ออโต้ฟิลจากคำขอ
-    dest_quality: "",   // คุณภาพปลายทาง (ตัวเลข/คะแนนหรือ %)
+    dest_quality: "",   // คุณภาพ (ตัวเลข/คะแนนหรือ %)
   })
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
@@ -505,10 +505,12 @@ function StockTransferIn() {
             </div>
           </div>
 
-          {/* กล่อง: ชั่งน้ำหนักและบันทึก (เหมือนเดิม) */}
+          {/* กล่อง: ชั่งน้ำหนักและบันทึก */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ชั่งน้ำหนักและบันทึก</h2>
-            <div className="grid gap-4 md:grid-cols-4">
+
+            {/* แถวที่ 1: น้ำหนักเข้า/ออก/สุทธิ */}
+            <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <label className={labelCls}>น้ำหนักชั่งเข้า (กก.)</label>
                 <input
@@ -553,6 +555,23 @@ function StockTransferIn() {
                 {errors.net_weight && <p className={errorTextCls}>{errors.net_weight}</p>}
                 <p className={helpTextCls}>คำนวณ = ชั่งเข้า − ชั่งออก</p>
               </div>
+            </div>
+
+            {/* แถวที่ 2: คุณภาพ & สิ่งเจือปน */}
+            <div className="mt-4 grid gap-4 md:grid-cols-4">
+              <div>
+                <label className={labelCls}>คุณภาพ</label>
+                <input
+                  inputMode="decimal"
+                  className={cx(baseField, errors.dest_quality && "border-red-400")}
+                  value={form.dest_quality}
+                  onChange={(e) => update("dest_quality", e.target.value.replace(/[^\d.]/g, ""))}
+                  onFocus={() => clearError("dest_quality")}
+                  placeholder="กรอกตัวเลข เช่น 95"
+                  aria-invalid={errors.dest_quality ? true : undefined}
+                />
+                {errors.dest_quality && <p className={errorTextCls}>{errors.dest_quality}</p>}
+              </div>
 
               <div>
                 <label className={labelCls}>สิ่งเจือปน (%)</label>
@@ -570,31 +589,15 @@ function StockTransferIn() {
               </div>
             </div>
 
-            {/* แถวคุณภาพและบันทึก */}
-            <div className="mt-4 grid gap-4 md:grid-cols-4">
-              <div>
-                <label className={labelCls}>คุณภาพปลายทาง (คะแนน/%)</label>
-                <input
-                  inputMode="decimal"
-                  className={cx(baseField, errors.dest_quality && "border-red-400")}
-                  value={form.dest_quality}
-                  onChange={(e) => update("dest_quality", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => clearError("dest_quality")}
-                  placeholder="กรอกตัวเลข เช่น 95"
-                  aria-invalid={errors.dest_quality ? true : undefined}
-                />
-                {errors.dest_quality && <p className={errorTextCls}>{errors.dest_quality}</p>}
-              </div>
-
-              <div className="md:col-span-2">
-                <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
-                <input
-                  className={baseField}
-                  value={form.quality_note}
-                  onChange={(e) => update("quality_note", e.target.value)}
-                  placeholder="เช่น ความชื้นสูง แกลบเยอะ หรือเหตุผลกรณีปฏิเสธ"
-                />
-              </div>
+            {/* แถวสุดท้าย: บันทึกเพิ่มเติม */}
+            <div className="mt-4">
+              <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
+              <input
+                className={baseField}
+                value={form.quality_note}
+                onChange={(e) => update("quality_note", e.target.value)}
+                placeholder="เช่น ความชื้นสูง แกลบเยอะ หรือเหตุผลกรณีปฏิเสธ"
+              />
             </div>
           </div>
 

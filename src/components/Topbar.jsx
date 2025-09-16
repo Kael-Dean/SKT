@@ -132,7 +132,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             </div>
             <div className="hidden text-left md:block">
               <div className="text-sm font-semibold leading-4">
-                {displayName}{userInfo.id != null ? ` (ID: ${userInfo.id})` : ""}
+                {displayName}
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400">{displayRole}</div>
             </div>

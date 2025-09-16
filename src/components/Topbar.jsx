@@ -53,10 +53,10 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
 
   return (
     <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70">
-      <div className="mx-4 flex w-auto items-center justify-between gap-3 px-4 py-3 md:mx-8 md:px-6">
-        {/* Left */}
-        <div className="flex items-center gap-6">
-          {/* ปุ่มสามขีด: h-12 w-12 + SVG */}
+      <div className="mx-4 flex w-auto items-center justify-between gap-6 px-4 py-3 md:mx-8 md:px-6">
+        {/* Left: ปุ่มเมนู + โลโก้/ชื่อสหกรณ์ */}
+        <div className="flex items-center gap-4 flex-shrink-0">
+          {/* ปุ่มสามขีด */}
           <button
             onClick={onToggleSidebar}
             className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-2xl text-gray-700 shadow-sm transition active:scale-95 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
@@ -77,8 +77,8 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             )}
           </button>
 
-          {/* โลโก้ + ชื่อสหกรณ์ (เพิ่มช่องไฟจากปุ่มด้วย gap-6 ด้านบน, และระหว่างโลโก้/ชื่อใช้ gap-4) */}
-          <div className="hidden select-none items-center gap-4 md:flex">
+          {/* โลโก้ + ชื่อสหกรณ์ */}
+          <div className="hidden select-none items-center gap-3 md:flex">
             <img
               src={darkMode ? asset("/logo/skt-logo-dark.png") : asset("/logo/skt-logo.png")}
               onError={(e) => {
@@ -100,7 +100,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
           </div>
         </div>
 
-        {/* Center search */}
+        {/* Center search: flex-1 ให้บาลานซ์กับซ้าย */}
         <div className="flex min-w-0 flex-1 justify-center px-2">
           <div className="relative w-full max-w-[22rem] md:max-w-[26rem] lg:max-w-[30rem]">
             <input
@@ -117,7 +117,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
         </div>
 
         {/* Right: theme + profile */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={() => setDarkMode((v) => !v)}
             aria-label={toggleLabel}

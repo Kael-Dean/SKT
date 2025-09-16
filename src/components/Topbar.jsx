@@ -42,7 +42,6 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
     [darkMode]
   )
   const sidebarBtnLabel = isSidebarOpen ? "ซ่อนเมนู" : "แสดงเมนู"
-  const sidebarBtnIcon = isSidebarOpen ? "⟨" : "☰"
   const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
 
   const displayName = userInfo.username || "ไม่พบผู้ใช้"
@@ -56,15 +55,26 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
     <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6">
         {/* Left */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          {/* 🔥 ปุ่มสามขีด: h-12 w-12 + SVG */}
           <button
             onClick={onToggleSidebar}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm transition active:scale-95 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-2xl text-gray-700 shadow-sm transition active:scale-95 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
             aria-label={sidebarBtnLabel}
             title={sidebarBtnLabel}
             type="button"
           >
-            {sidebarBtnIcon}
+            {isSidebarOpen ? (
+              /* Chevron Left */
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            ) : (
+              /* Hamburger */
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
           </button>
 
           <div className="hidden select-none items-center gap-2 md:flex">
@@ -83,14 +93,13 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
               decoding="async"
               fetchpriority="high"
             />
-            {/* ชื่อองค์กรยาวขึ้น + ไม่ตัดบรรทัด */}
             <span className="whitespace-nowrap text-[15px] font-bold tracking-tight md:text-lg">
               สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.สุรินทร์
             </span>
           </div>
         </div>
 
-        {/* Center search: ทำให้สั้นลงแบบ responsive */}
+        {/* Center search */}
         <div className="flex min-w-0 flex-1 justify-center px-2">
           <div className="relative w-full max-w-[22rem] md:max-w-[26rem] lg:max-w-[30rem]">
             <input

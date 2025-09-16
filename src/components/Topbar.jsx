@@ -55,8 +55,8 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
     <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70">
       <div className="mx-4 flex w-auto items-center justify-between gap-3 px-4 py-3 md:mx-8 md:px-6">
         {/* Left */}
-        <div className="flex items-center gap-6">
-          {/* ปุ่มสามขีด: h-12 w-12 + SVG */}
+        <div className="flex items-center gap-8">
+          {/* ปุ่มสามขีด */}
           <button
             onClick={onToggleSidebar}
             className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-2xl text-gray-700 shadow-sm transition active:scale-95 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
@@ -77,7 +77,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             )}
           </button>
 
-          {/* โลโก้ + ชื่อสหกรณ์ (เพิ่มช่องไฟจากปุ่มด้วย gap-6 ด้านบน, และระหว่างโลโก้/ชื่อใช้ gap-4) */}
+          {/* โลโก้ + ชื่อสหกรณ์ */}
           <div className="hidden select-none items-center gap-4 md:flex">
             <img
               src={darkMode ? asset("/logo/skt-logo-dark.png") : asset("/logo/skt-logo.png")}

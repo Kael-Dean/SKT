@@ -77,8 +77,8 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             )}
           </button>
 
-          {/* โลโก้ + ชื่อสหกรณ์ */}
-          <div className="hidden select-none items-center gap-4 md:flex">
+          {/* โลโก้ + ชื่อสหกรณ์ (เพิ่มช่องไฟโลโก้-ข้อความเป็น gap-6) */}
+          <div className="hidden select-none items-center gap-6 md:flex">
             <img
               src={darkMode ? asset("/logo/skt-logo-dark.png") : asset("/logo/skt-logo.png")}
               onError={(e) => {

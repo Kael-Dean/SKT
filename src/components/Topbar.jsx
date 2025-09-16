@@ -53,7 +53,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
 
   return (
     <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70">
-       <div className="mx-2 flex w-auto items-center justify-between gap-3 px-3 py-3 md:mx-4 md:px-4">
+       <div className="mx-4 flex w-auto items-center justify-between gap-3 px-4 py-3 md:mx-8 md:px-6">
         {/* Left */}
         <div className="flex items-center gap-4">
           {/* 🔥 ปุ่มสามขีด: h-12 w-12 + SVG */}

@@ -32,7 +32,6 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
       })
     }
     readToken()
-    // เผื่อมีแท็บอื่น login/logout
     const onStorage = (e) => e.key === "token" && readToken()
     window.addEventListener("storage", onStorage)
     return () => window.removeEventListener("storage", onStorage)
@@ -84,13 +83,16 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
               decoding="async"
               fetchpriority="high"
             />
-            <span className="text-lg font-bold tracking-tight">สหกรณ์การเกษตร</span>
+            {/* ชื่อองค์กรยาวขึ้น + ไม่ตัดบรรทัด */}
+            <span className="whitespace-nowrap text-[15px] font-bold tracking-tight md:text-lg">
+              สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.สุรินทร์
+            </span>
           </div>
         </div>
 
-        {/* Center search */}
+        {/* Center search: ทำให้สั้นลงแบบ responsive */}
         <div className="flex min-w-0 flex-1 justify-center px-2">
-          <div className="relative w-full max-w-xl">
+          <div className="relative w-full max-w-[22rem] md:max-w-[26rem] lg:max-w-[30rem]">
             <input
               type="text"
               placeholder="ค้นหา ( / )"
@@ -124,7 +126,6 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             type="button"
           >
             <div className="relative">
-              {/* ใช้ตัวอักษรแทนรูป เพื่อไม่ต้องยิง request อวาตาร์ */}
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500 text-white">
                 {avatarLetter}
               </div>

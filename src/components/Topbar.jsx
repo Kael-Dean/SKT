@@ -77,7 +77,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             )}
           </button>
 
-          <div className="hidden select-none items-center gap-2 md:flex">
+          <div className="hidden select-none items-center gap-4 md:flex">
             <img
               src={darkMode ? asset("/logo/skt-logo-dark.png") : asset("/logo/skt-logo.png")}
               onError={(e) => {
@@ -97,6 +97,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
               สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.สุรินทร์
             </span>
           </div>
+
         </div>
 
         {/* Center search */}

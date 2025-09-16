@@ -53,10 +53,10 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
 
   return (
     <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70">
-       <div className="mx-4 flex w-auto items-center justify-between gap-3 px-4 py-3 md:mx-8 md:px-6">
+      <div className="mx-4 flex w-auto items-center justify-between gap-3 px-4 py-3 md:mx-8 md:px-6">
         {/* Left */}
-        <div className="flex items-center gap-4">
-          {/* 🔥 ปุ่มสามขีด: h-12 w-12 + SVG */}
+        <div className="flex items-center gap-6">
+          {/* ปุ่มสามขีด: h-12 w-12 + SVG */}
           <button
             onClick={onToggleSidebar}
             className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-2xl text-gray-700 shadow-sm transition active:scale-95 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
@@ -65,18 +65,19 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             type="button"
           >
             {isSidebarOpen ? (
-              /* Chevron Left */
+              // Chevron Left
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             ) : (
-              /* Hamburger */
+              // Hamburger
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             )}
           </button>
 
+          {/* โลโก้ + ชื่อสหกรณ์ (เพิ่มช่องไฟจากปุ่มด้วย gap-6 ด้านบน, และระหว่างโลโก้/ชื่อใช้ gap-4) */}
           <div className="hidden select-none items-center gap-4 md:flex">
             <img
               src={darkMode ? asset("/logo/skt-logo-dark.png") : asset("/logo/skt-logo.png")}
@@ -97,7 +98,6 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
               สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.สุรินทร์
             </span>
           </div>
-
         </div>
 
         {/* Center search */}

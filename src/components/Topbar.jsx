@@ -1,20 +1,62 @@
-import { useMemo } from "react"
+// src/components/Topbar.jsx
+import { useEffect, useMemo, useState } from "react"
+
+function safeDecodeJwt(token) {
+  try {
+    const base64Url = token.split(".")[1]
+    if (!base64Url) return null
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
+    const json = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    )
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
 
 const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
+  const [userInfo, setUserInfo] = useState({ username: "", id: null, role: null })
+
+  useEffect(() => {
+    const readToken = () => {
+      const token = localStorage.getItem("token")
+      const payload = token ? safeDecodeJwt(token) : null
+      setUserInfo({
+        username: payload?.sub || "",
+        id: payload?.id ?? null,
+        role: payload?.role ?? null,
+      })
+    }
+    readToken()
+    // เผื่อมีแท็บอื่น login/logout
+    const onStorage = (e) => e.key === "token" && readToken()
+    window.addEventListener("storage", onStorage)
+    return () => window.removeEventListener("storage", onStorage)
+  }, [])
+
   const toggleLabel = useMemo(
     () => (darkMode ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด"),
     [darkMode]
   )
   const sidebarBtnLabel = isSidebarOpen ? "ซ่อนเมนู" : "แสดงเมนู"
   const sidebarBtnIcon = isSidebarOpen ? "⟨" : "☰"
-
-  // สร้างพาธ asset ให้ปลอดภัยตอน deploy ใต้ sub-path
   const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
+
+  const displayName = userInfo.username || "ไม่พบผู้ใช้"
+  const displayRole =
+    userInfo.role === "1" ? "Admin" :
+    userInfo.role === "2" ? "Manager" :
+    userInfo.role ? `Role ${userInfo.role}` : "—"
+  const avatarLetter = (displayName[0] || "U").toUpperCase()
 
   return (
     <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6">
-        {/* Left: toggle sidebar + logo */}
+        {/* Left */}
         <div className="flex items-center gap-3">
           <button
             onClick={onToggleSidebar}
@@ -28,13 +70,8 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
 
           <div className="hidden select-none items-center gap-2 md:flex">
             <img
-              src={
-                darkMode
-                  ? asset("/logo/skt-logo-dark.png")
-                  : asset("/logo/skt-logo.png")
-              }
+              src={darkMode ? asset("/logo/skt-logo-dark.png") : asset("/logo/skt-logo.png")}
               onError={(e) => {
-                // ถ้ารูป dark หาย ให้สลับไป light และกลับกัน
                 const cur = e.currentTarget.src
                 const alt = cur.includes("skt-logo-dark")
                   ? asset("/logo/skt-logo.png")
@@ -47,22 +84,18 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
               decoding="async"
               fetchpriority="high"
             />
-            <span className="text-lg font-bold tracking-tight">
-              สหกรณ์การเกษตร
-            </span>
+            <span className="text-lg font-bold tracking-tight">สหกรณ์การเกษตร</span>
           </div>
         </div>
 
-        {/* Center: search */}
+        {/* Center search */}
         <div className="flex min-w-0 flex-1 justify-center px-2">
           <div className="relative w-full max-w-xl">
             <input
               type="text"
               placeholder="ค้นหา ( / )"
               className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm shadow-sm outline-none ring-0 transition placeholder:text-gray-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 dark:border-gray-800 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-indigo-500 dark:focus:ring-indigo-500/20"
-              onKeyDown={(e) => {
-                if (e.key === "Escape") e.currentTarget.blur()
-              }}
+              onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
               aria-label="ค้นหา"
             />
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
@@ -71,7 +104,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
           </div>
         </div>
 
-        {/* Right: theme toggle + profile */}
+        {/* Right: theme + profile */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setDarkMode((v) => !v)}
@@ -91,18 +124,17 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             type="button"
           >
             <div className="relative">
-              <img
-                src="https://ui-avatars.com/api/?name=U&background=random"
-                alt="avatar"
-                className="h-8 w-8 rounded-full"
-                loading="lazy"
-                decoding="async"
-              />
+              {/* ใช้ตัวอักษรแทนรูป เพื่อไม่ต้องยิง request อวาตาร์ */}
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500 text-white">
+                {avatarLetter}
+              </div>
               <span className="absolute -right-0.5 -top-0.5 block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900" />
             </div>
             <div className="hidden text-left md:block">
-              <div className="text-sm font-semibold leading-4">คุณผู้ใช้</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Admin</div>
+              <div className="text-sm font-semibold leading-4">
+                {displayName}{userInfo.id != null ? ` (ID: ${userInfo.id})` : ""}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{displayRole}</div>
             </div>
             <span className="ml-1 hidden text-gray-400 group-hover:text-gray-600 dark:text-gray-500 md:block">
               ▼

@@ -1,4 +1,4 @@
-// ✅ src/pages/Sales.jsx (จัดลำดับอินพุตให้เหมือนหน้า Buy แล้ว)
+// ✅ src/pages/Sales.jsx (เพิ่ม fid/fidOwner/fidRelationship + ปรับ payment ให้ถูกต้องทั้งไฟล์)
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api" // รวม Base URL, token, JSON ให้แล้ว
 
@@ -304,6 +304,10 @@ const Sales = () => {
     district: "",
     province: "",
     postalCode: "",
+    // ✅ เพิ่มชุด fid
+    fid: "",
+    fidOwner: "",
+    fidRelationship: "",
   })
 
   /** เมตาสมาชิก/ลูกค้า */
@@ -329,6 +333,8 @@ const Sales = () => {
     fieldTypeId: "",
 
     program: "",
+    // ✅ ปรับ payment ให้เก็บทั้ง id + label
+    paymentMethodId: "",
     paymentMethod: "",
 
     entryWeightKg: "",
@@ -366,6 +372,11 @@ const Sales = () => {
     district: useRef(null),
     province: useRef(null),
     postalCode: useRef(null),
+    // ✅ เพิ่ม refs ของ fid
+    fid: useRef(null),
+    fidOwner: useRef(null),
+    fidRelationship: useRef(null),
+
     product: useRef(null),
     riceType: useRef(null),
     subrice: useRef(null),
@@ -430,6 +441,10 @@ const Sales = () => {
       lastName: toStr(data.last_name ?? data.lastName ?? ""),
       type: data.type ?? undefined,
       asso_id: data.asso_id ?? data.assoId ?? undefined,
+      // ✅ ดึงค่า fid*
+      fid: data.fid ?? data.fid_id ?? "",
+      fidOwner: toStr(data.fid_owner ?? data.fidOwner ?? ""),
+      fidRelationship: data.fid_relationship ?? data.fidRelationship ?? "",
     }
 
     const hasAnyAddress =
@@ -445,6 +460,10 @@ const Sales = () => {
         district: addr.district || prev.district,
         province: addr.province || prev.province,
         postalCode: addr.postalCode || prev.postalCode,
+        // ✅ เติม fid*
+        fid: addr.fid || prev.fid,
+        fidOwner: addr.fidOwner || prev.fidOwner,
+        fidRelationship: String(addr.fidRelationship ?? prev.fidRelationship ?? ""),
       }))
       if (addr.type) setMemberMeta((m) => ({ ...m, type: addr.type }))
       if (addr.asso_id) setMemberMeta((m) => ({ ...m, assoId: addr.asso_id }))
@@ -480,7 +499,6 @@ const Sales = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        // ✅ conditionOptions (เดิมลืม set)
         setConditionOptions(
           (conditions || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -488,7 +506,6 @@ const Sales = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        // ✅ fieldTypeOptions: รองรับทั้ง field / field_type
         setFieldTypeOptions(
           (fields || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -510,6 +527,7 @@ const Sales = () => {
           })).filter((o) => o.id && o.label)
         )
 
+        // ✅ เก็บ id และ label ให้ชัดเจน
         setPaymentOptions(
           (payments || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
@@ -588,7 +606,7 @@ const Sales = () => {
     loadKlang()
   }, [order.branchId, order.branchName])
 
-  /** map record -> UI (ครอบคลุมฟิลด์ที่อยู่ด้วย) */
+  /** map record -> UI (ครอบคลุมฟิลด์ที่อยู่ด้วย + fid*) */
   const mapSimplePersonToUI = (r = {}) => {
     const toStr = (v) => (v == null ? "" : String(v))
     return {
@@ -605,6 +623,11 @@ const Sales = () => {
       district:    toStr(r.district ?? ""),
       province:    toStr(r.province ?? ""),
       postalCode:  onlyDigits(toStr(r.postal_code ?? r.postalCode ?? "")),
+
+      // ✅ ดึงค่า fid*
+      fid: r.fid ?? r.fid_id ?? "",
+      fidOwner: toStr(r.fid_owner ?? r.fidOwner ?? ""),
+      fidRelationship: r.fid_relationship ?? r.fidRelationship ?? "",
     }
   }
 
@@ -616,6 +639,11 @@ const Sales = () => {
       ...prev,
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
       fullName: data.fullName || prev.fullName,
+
+      // ✅ เซ็ตชุด fid*
+      fid: String(data.fid ?? prev.fid ?? ""),
+      fidOwner: data.fidOwner || prev.fidOwner,
+      fidRelationship: String(data.fidRelationship ?? prev.fidRelationship ?? ""),
     }))
     setMemberMeta({ type: data.type, assoId: data.assoId })
     setCustomerFound(true)
@@ -710,6 +738,10 @@ const Sales = () => {
           district: r.district ?? "",
           province: r.province ?? "",
           postal_code: r.postal_code ?? r.postalCode ?? "",
+          // ✅ พก fid* มาด้วย
+          fid: r.fid ?? r.fid_id ?? "",
+          fid_owner: r.fid_owner ?? r.fidOwner ?? "",
+          fid_relationship: r.fid_relationship ?? r.fidRelationship ?? "",
         }))
         setNameResults(mapped)
         if (document.activeElement === nameInputRef.current) {
@@ -1004,6 +1036,10 @@ const Sales = () => {
         district: customer.district.trim(),
         province: customer.province.trim(),
         postal_code: customer.postalCode?.toString().trim() || "",
+        // ✅ แนบชุด fid* ไปให้ BE
+        fid: customer.fid === "" ? null : Number(customer.fid),
+        fid_owner: (customer.fidOwner || "").trim() || null,
+        fid_relationship: customer.fidRelationship === "" ? null : Number(customer.fidRelationship),
       },
       order: {
         // asso_id จะให้ BE จัดการจาก citizen_id อยู่แล้ว
@@ -1024,7 +1060,8 @@ const Sales = () => {
         date: order.issueDate,
         branch_location: branchId,
         klang_location: klangId,
-        // ❌ ไม่ส่ง weighSlipNo/taxInvoiceNo/salesReceiptNo ไป (BE ไม่มีฟิลด์นี้)
+        // ❌ paymentMethod* เป็น UI ไม่ส่ง (สกีมา Order ไม่มีฟิลด์)
+        // ❌ weighSlipNo/taxInvoiceNo/salesReceiptNo ก็เป็น UI เท่านั้น
       },
       rice:   { rice_type: order.riceType },
       branch: { branch_name: order.branchName },
@@ -1060,6 +1097,10 @@ const Sales = () => {
       district: "",
       province: "",
       postalCode: "",
+      // ✅ reset fid*
+      fid: "",
+      fidOwner: "",
+      fidRelationship: "",
     })
     setOrder({
       productId: "",
@@ -1075,6 +1116,7 @@ const Sales = () => {
       fieldType: "",
       fieldTypeId: "",
       program: "",
+      paymentMethodId: "",
       paymentMethod: "",
       entryWeightKg: "",
       exitWeightKg: "",
@@ -1136,9 +1178,10 @@ const Sales = () => {
               <label className={labelCls}>วิธีชำระเงิน (ไม่บังคับ)</label>
               <ComboBox
                 options={paymentOptions}
-                value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
-                onChange={(_id, found) =>
-                  setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))
+                value={order.paymentMethodId}
+                getValue={(o) => o.id}
+                onChange={(id, found) =>
+                  setOrder((p) => ({ ...p, paymentMethodId: id, paymentMethod: found?.label ?? "" }))
                 }
                 placeholder="— เลือกวิธีชำระเงิน —"
                 buttonRef={refs.payment}
@@ -1290,6 +1333,26 @@ const Sales = () => {
                 placeholder="เช่น 40000"
               />
             </div>
+
+            {/* ✅ ฟิลด์ชุด FID (ซ่อน/ไม่บังคับ — แต่เก็บ/auto-fill และส่งไป BE) */}
+            <input
+              ref={refs.fid}
+              type="hidden"
+              value={customer.fid}
+              onChange={(e) => updateCustomer("fid", onlyDigits(e.target.value))}
+            />
+            <input
+              ref={refs.fidOwner}
+              type="hidden"
+              value={customer.fidOwner}
+              onChange={(e) => updateCustomer("fidOwner", e.target.value)}
+            />
+            <input
+              ref={refs.fidRelationship}
+              type="hidden"
+              value={customer.fidRelationship}
+              onChange={(e) => updateCustomer("fidRelationship", onlyDigits(e.target.value))}
+            />
           </div>
         </div>
 
@@ -1719,6 +1782,10 @@ const Sales = () => {
               { label: "เลขที่ใบชั่ง", value: order.weighSlipNo || "—" },
               { label: "ใบกำกับสินค้า(เชื่อ)", value: order.taxInvoiceNo || "—" },
               { label: "ใบรับเงิน(สด)", value: order.salesReceiptNo || "—" },
+              // ✅ แสดงค่า FID เพื่อดีบัก (ถ้าอยากซ่อนไว้ก็ลบสามบรรทัดนี้ได้)
+              { label: "FID (UI)", value: customer.fid || "—" },
+              { label: "FID Owner (UI)", value: customer.fidOwner || "—" },
+              { label: "FID Relationship (UI)", value: customer.fidRelationship || "—" },
             ].map((c) => (
               <div
                 key={c.label}

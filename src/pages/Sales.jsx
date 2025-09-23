@@ -1,6 +1,6 @@
 // ✅ src/pages/Sales.jsx (จัดลำดับอินพุตให้เหมือนหน้า Buy แล้ว)
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { apiAuth } from "../lib/api" // ← รวม Base URL, token, และ JSON ให้แล้ว
+import { apiAuth } from "../lib/api" // รวม Base URL, token, JSON ให้แล้ว
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -51,8 +51,7 @@ const baseField =
 
 const fieldDisabled =
   "bg-slate-100 text-slate-600 cursor-not-allowed opacity-95 dark:bg-slate-700/70 dark:text-slate-300"
-const labelCls =
-  "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
+const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 const compactInput = "!py-2 !px-4 !text-[16px] !leading-normal"
@@ -256,9 +255,7 @@ const DateInput = forwardRef(function DateInput(
           else { el.focus(); el.click?.() }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-                 transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer
-                 bg-transparent"
+        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
@@ -317,7 +314,6 @@ const Sales = () => {
 
   /** ฟอร์มออเดอร์ (สำหรับขาย) */
   const [order, setOrder] = useState({
-    // product / rice
     productId: "",
     productName: "",
     riceId: "",
@@ -325,7 +321,6 @@ const Sales = () => {
     subriceId: "",
     subriceName: "",
 
-    // ปี/สภาพ/ประเภทนา (ตาม backend)
     riceYear: "",
     riceYearId: "",
     condition: "",
@@ -333,11 +328,9 @@ const Sales = () => {
     fieldType: "",
     fieldTypeId: "",
 
-    // (โปรแกรม/วิธีชำระเงิน — optional UI เท่านั้น)
     program: "",
     paymentMethod: "",
 
-    // ชั่ง/คำนวณ
     entryWeightKg: "",
     exitWeightKg: "",
     moisturePct: "",
@@ -345,22 +338,22 @@ const Sales = () => {
     manualDeduct: false,
     deductWeightKg: "",
 
-    // ราคา
     unitPrice: "",
     amountTHB: "",
 
-    // เอกสาร (ขาย)
-    weighSlipNo: "",
-    taxInvoiceNo: "",
-    salesReceiptNo: "",
     issueDate: new Date().toISOString().slice(0, 10),
 
-    // ที่ตั้ง
     branchName: "",
     branchId: null,
     klangName: "",
     klangId: null,
+
     registeredPlace: "",
+
+    // เอกสารขาย (UI อย่างเดียว—ไม่ส่งไป BE)
+    weighSlipNo: "",
+    taxInvoiceNo: "",
+    salesReceiptNo: "",
   })
 
   /** ---------- Refs ---------- */
@@ -391,7 +384,6 @@ const Sales = () => {
     unitPrice: useRef(null),
     amountTHB: useRef(null),
     issueDate: useRef(null),
-    // เอกสารขาย
     weighSlipNo: useRef(null),
     taxInvoiceNo: useRef(null),
     salesReceiptNo: useRef(null),
@@ -474,10 +466,10 @@ const Sales = () => {
         ] = await Promise.all([
           fetchFirstOkJson(["/order/product/search"]),
           fetchFirstOkJson(["/order/condition/search"]),
-          fetchFirstOkJson(["/order/field/search", "/order/field_type/list", "/order/field-type/list"]),
+          fetchFirstOkJson(["/order/field/search"]),
           fetchFirstOkJson(["/order/year/search"]),
           fetchFirstOkJson(["/order/program/search"]),
-          fetchFirstOkJson(["/order/payment/search"]), // sales ใช้แบบรวม
+          fetchFirstOkJson(["/order/payment/search/sell"]), // ← sales ใช้ SELL
           fetchFirstOkJson(["/order/branch/search"]),
         ])
 
@@ -488,20 +480,19 @@ const Sales = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        setFieldTypeOptions(
-          (fields || []).map((x, i) => ({
+        // ✅ conditionOptions (เดิมลืม set)
+        setConditionOptions(
+          (conditions || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
-            label: String(
-              x.field ?? x.field_type ?? x.name ?? x.year ?? x.label ?? (typeof x === "string" ? x : "")
-            ).trim(),
+            label: String(x.condition ?? x.name ?? x.label ?? (typeof x === "string" ? x : "")).trim(),
           })).filter((o) => o.id && o.label)
         )
 
-
+        // ✅ fieldTypeOptions: รองรับทั้ง field / field_type
         setFieldTypeOptions(
           (fields || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
-            label: String(x.field_type ?? x.name ?? x.year ?? x.label ?? (typeof x === "string" ? x : "")).trim(),
+            label: String(x.field ?? x.field_type ?? x.name ?? x.label ?? (typeof x === "string" ? x : "")).trim(),
           })).filter((o) => o.id && o.label)
         )
 
@@ -522,7 +513,7 @@ const Sales = () => {
         setPaymentOptions(
           (payments || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
-            label: String(x.method ?? x.year ?? x.name ?? x.label ?? "").trim(),
+            label: String(x.method ?? x.name ?? x.label ?? "").trim(),
           })).filter((o) => o.id && o.label)
         )
 
@@ -608,7 +599,6 @@ const Sales = () => {
       assoId:    r.asso_id ?? r.assoId ?? null,
       type:      r.type ?? "unknown",
 
-      // address fields (ถ้ามีมากับผลลัพธ์ search)
       houseNo:     toStr(r.address ?? r.house_no ?? r.houseNo ?? ""),
       moo:         toStr(r.mhoo ?? r.moo ?? ""),
       subdistrict: toStr(r.sub_district ?? r.subdistrict ?? r.subDistrict ?? ""),
@@ -652,7 +642,7 @@ const Sales = () => {
     }
   }
 
-  /** ค้นหาด้วยเลขบัตร (ใช้ endpoint ใหม่ /order/customers/search) */
+  /** ค้นหาด้วยเลขบัตร */
   useEffect(() => {
     const cid = onlyDigits(debouncedCitizenId)
     if (cid.length !== 13) {
@@ -685,7 +675,7 @@ const Sales = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedCitizenId])
 
-  /** ค้นหาด้วยชื่อ (ใช้ /order/customers/search) */
+  /** ค้นหาด้วยชื่อ */
   useEffect(() => {
     const q = (debouncedFullName || "").trim()
 
@@ -1016,7 +1006,7 @@ const Sales = () => {
         postal_code: customer.postalCode?.toString().trim() || "",
       },
       order: {
-        asso_id: "",
+        // asso_id จะให้ BE จัดการจาก citizen_id อยู่แล้ว
         product_id: productId,
         rice_id: riceId,
         subrice_id: subriceId,
@@ -1030,14 +1020,11 @@ const Sales = () => {
         price_per_kilo: Number(order.unitPrice || 0),
         price: Number(order.amountTHB),
         impurity: Number(order.impurityPct || 0),
-        // ⛳️ Sales endpoint เดิมใช้ ISO — คงไว้ตามเดิม
-        date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
+        // ✅ ส่งเป็น YYYY-MM-DD ให้ตรง pydantic.date
+        date: order.issueDate,
         branch_location: branchId,
         klang_location: klangId,
-        // เอกสารขาย
-        weight_slip_no: order.weighSlipNo.trim(),
-        tax_invoice_no: order.taxInvoiceNo.trim(),
-        sales_receipt_no: order.salesReceiptNo.trim(),
+        // ❌ ไม่ส่ง weighSlipNo/taxInvoiceNo/salesReceiptNo ไป (BE ไม่มีฟิลด์นี้)
       },
       rice:   { rice_type: order.riceType },
       branch: { branch_name: order.branchName },
@@ -1045,7 +1032,8 @@ const Sales = () => {
     }
 
     try {
-      await apiAuth(`/order/customers/save`, { method: "POST", body: payload }) // ← apiAuth จะจัดการ JSON ให้
+      // ✅ ใช้ endpoint ที่ตรงกับ “ขาย”
+      await apiAuth(`/order/customers/save/sell`, { method: "POST", body: payload })
       alert("บันทึกออเดอร์ขายเรียบร้อย ✅")
       handleReset()
     } catch (err) {

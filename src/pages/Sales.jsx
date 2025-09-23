@@ -1,4 +1,4 @@
-// ✅ src/pages/Sales.jsx (ใช้ apiAuth แล้ว)
+// ✅ src/pages/Sales.jsx (จัดลำดับอินพุตให้เหมือนหน้า Buy แล้ว)
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api" // ← รวม Base URL, token, และ JSON ให้แล้ว
 
@@ -256,7 +256,7 @@ const DateInput = forwardRef(function DateInput(
           else { el.focus(); el.click?.() }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
+        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
                  transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer
                  bg-transparent"
       >
@@ -477,7 +477,7 @@ const Sales = () => {
           fetchFirstOkJson(["/order/field/search", "/order/field_type/list", "/order/field-type/list"]),
           fetchFirstOkJson(["/order/year/search"]),
           fetchFirstOkJson(["/order/program/search"]),
-          fetchFirstOkJson(["/order/payment/search"]),
+          fetchFirstOkJson(["/order/payment/search"]), // sales ใช้แบบรวม
           fetchFirstOkJson(["/order/branch/search"]),
         ])
 
@@ -1027,6 +1027,7 @@ const Sales = () => {
         price_per_kilo: Number(order.unitPrice || 0),
         price: Number(order.amountTHB),
         impurity: Number(order.impurityPct || 0),
+        // ⛳️ Sales endpoint เดิมใช้ ISO — คงไว้ตามเดิม
         date: new Date(`${order.issueDate}T00:00:00.000Z`).toISOString(),
         branch_location: branchId,
         klang_location: klangId,
@@ -1138,8 +1139,38 @@ const Sales = () => {
             )}
           </div>
 
+          {/* วิธีชำระเงิน + วันที่ (ย้ายขึ้นมาด้านบนให้เหมือนหน้า Buy) */}
           <div className="grid gap-4 md:grid-cols-3">
-            {/* เลขบัตร (ไม่บังคับ) */}
+            <div>
+              <label className={labelCls}>วิธีชำระเงิน (ไม่บังคับ)</label>
+              <ComboBox
+                options={paymentOptions}
+                value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
+                onChange={(_id, found) =>
+                  setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))
+                }
+                placeholder="— เลือกวิธีชำระเงิน —"
+                buttonRef={refs.payment}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>ลงวันที่</label>
+              <DateInput
+                ref={refs.issueDate}
+                value={order.issueDate}
+                onChange={(e) => updateOrder("issueDate", e.target.value)}
+                onFocus={() => clearHint("issueDate")}
+                error={!!errors.issueDate}
+                className={redHintCls("issueDate")}
+                aria-invalid={errors.issueDate ? true : undefined}
+              />
+              {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
+            </div>
+          </div>
+
+          {/* เลขบัตร + ชื่อค้นหา + ที่อยู่ */}
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div className="md:col-span-1">
               <label className={labelCls}>เลขที่บัตรประชาชน (13 หลัก)</label>
               <input
@@ -1167,7 +1198,6 @@ const Sales = () => {
               </div>
             </div>
 
-            {/* ชื่อ–สกุล + รายการค้นหา */}
             <div className="md:col-span-2" ref={nameBoxRef}>
               <label className={labelCls}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
               <input
@@ -1235,8 +1265,7 @@ const Sales = () => {
               )}
             </div>
 
-            {/* ที่อยู่ */}
-            {[
+            {[ // ที่อยู่
               ["houseNo", "บ้านเลขที่", "เช่น 99/1"],
               ["moo", "หมู่", "เช่น 4"],
               ["subdistrict", "ตำบล", "เช่น หนองปลาไหล"],
@@ -1280,6 +1309,7 @@ const Sales = () => {
         >
           <h2 className="mb-3 text-xl font-semibold">รายละเอียดการขาย</h2>
 
+          {/* เลือกประเภท/ปี/โปรแกรม */}
           <div className="grid gap-4 md:grid-cols-3">
             {/* Product */}
             <div>
@@ -1428,22 +1458,10 @@ const Sales = () => {
                 buttonRef={refs.program}
               />
             </div>
+          </div>
 
-            {/* (Optional) Payment method */}
-            <div>
-              <label className={labelCls}>วิธีชำระเงิน (ไม่บังคับ)</label>
-              <ComboBox
-                options={paymentOptions}
-                value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
-                onChange={(_id, found) =>
-                  setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))
-                }
-                placeholder="— เลือกวิธีชำระเงิน —"
-                buttonRef={refs.payment}
-              />
-            </div>
-
-            {/* ✅ สาขา */}
+          {/* สาขา + คลัง */}
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>สาขา</label>
               <ComboBox
@@ -1468,7 +1486,6 @@ const Sales = () => {
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
             </div>
 
-            {/* ✅ คลัง */}
             <div>
               <label className={labelCls}>คลัง</label>
               <ComboBox
@@ -1491,170 +1508,163 @@ const Sales = () => {
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>
+          </div>
 
-            {/* น้ำหนักก่อน/หลังชั่ง */}
-            <div>
-              <label className={labelCls}>น้ำหนักก่อนชั่ง (กก.)</label>
-              <input
-                ref={refs.entryWeightKg}
-                inputMode="decimal"
-                className={cx(baseField, redFieldCls("entryWeightKg"))}
-                value={order.entryWeightKg}
-                onChange={(e) => updateOrder("entryWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                onFocus={() => { clearHint("entryWeightKg"); clearError("entryWeightKg") }}
-                placeholder="เช่น 12000"
-                aria-invalid={errors.entryWeightKg ? true : undefined}
-              />
-              {errors.entryWeightKg && <p className={errorTextCls}>{errors.entryWeightKg}</p>}
+          {/* กรอบตัวเลขเหมือนหน้า Buy */}
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-transparent dark:border-slate-700 dark:bg-slate-800">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              <h3 className="text-lg font-semibold">ตัวเลขและการคำนวณ</h3>
             </div>
 
-            <div>
-              <label className={labelCls}>น้ำหนักหลังชั่ง (กก.)</label>
-              <input
-                ref={refs.exitWeightKg}
-                inputMode="decimal"
-                className={cx(baseField, redFieldCls("exitWeightKg"))}
-                value={order.exitWeightKg}
-                onChange={(e) => updateOrder("exitWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                onFocus={() => { clearHint("exitWeightKg"); clearError("exitWeightKg") }}
-                placeholder="เช่น 7000"
-                aria-invalid={errors.exitWeightKg ? true : undefined}
-              />
-              {errors.exitWeightKg && <p className={errorTextCls}>{errors.exitWeightKg}</p>}
-            </div>
-
-            {/* น้ำหนักจากตาชั่ง (คำนวณ) */}
-            <div>
-              <label className={labelCls}>น้ำหนักจากตาชั่ง (กก.)</label>
-              <input
-                disabled
-                className={cx(baseField, fieldDisabled)}
-                value={Math.round(grossFromScale * 100) / 100}
-              />
-              <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
-            </div>
-
-            {/* ความชื้น/สิ่งเจือปน */}
-            <div>
-              <label className={labelCls}>ความชื้น (%)</label>
-              <input
-                ref={refs.moisturePct}
-                inputMode="decimal"
-                className={cx(baseField)}
-                value={order.moisturePct}
-                onChange={(e) => updateOrder("moisturePct", onlyDigits(e.target.value))}
-                onFocus={() => clearHint("moisturePct")}
-                placeholder="เช่น 18"
-              />
-              <p className={helpTextCls}>มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
-            </div>
-            <div>
-              <label className={labelCls}>สิ่งเจือปน (%)</label>
-              <input
-                ref={refs.impurityPct}
-                inputMode="decimal"
-                className={cx(baseField)}
-                value={order.impurityPct}
-                onChange={(e) => updateOrder("impurityPct", onlyDigits(e.target.value))}
-                onFocus={() => clearHint("impurityPct")}
-                placeholder="เช่น 2"
-              />
-            </div>
-
-            {/* หักน้ำหนัก */}
-            <div className="md:col-span-2">
-              <div className="flex items-center justify-between">
-                <label className={labelCls}>หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)</label>
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={order.manualDeduct}
-                    onChange={(e) => updateOrder("manualDeduct", e.target.checked)}
-                  />
-                  กำหนดเอง
-                </label>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelCls}>น้ำหนักก่อนชั่ง (กก.)</label>
+                <input
+                  ref={refs.entryWeightKg}
+                  inputMode="decimal"
+                  className={cx(baseField, redFieldCls("entryWeightKg"))}
+                  value={order.entryWeightKg}
+                  onChange={(e) => updateOrder("entryWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                  onFocus={() => { clearHint("entryWeightKg"); clearError("entryWeightKg") }}
+                  placeholder="เช่น 12000"
+                  aria-invalid={errors.entryWeightKg ? true : undefined}
+                />
+                {errors.entryWeightKg && <p className={errorTextCls}>{errors.entryWeightKg}</p>}
               </div>
-              <input
-                ref={refs.deductWeightKg}
-                inputMode="decimal"
-                disabled={!order.manualDeduct}
-                className={cx(
-                  baseField,
-                  !order.manualDeduct && fieldDisabled,
-                  errors.deductWeightKg && "border-red-400",
-                  order.manualDeduct && redHintCls("deductWeightKg")
+
+              <div>
+                <label className={labelCls}>น้ำหนักหลังชั่ง (กก.)</label>
+                <input
+                  ref={refs.exitWeightKg}
+                  inputMode="decimal"
+                  className={cx(baseField, redFieldCls("exitWeightKg"))}
+                  value={order.exitWeightKg}
+                  onChange={(e) => updateOrder("exitWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                  onFocus={() => { clearHint("exitWeightKg"); clearError("exitWeightKg") }}
+                  placeholder="เช่น 7000"
+                  aria-invalid={errors.exitWeightKg ? true : undefined}
+                />
+                {errors.exitWeightKg && <p className={errorTextCls}>{errors.exitWeightKg}</p>}
+              </div>
+
+              <div>
+                <label className={labelCls}>น้ำหนักจากตาชั่ง (กก.)</label>
+                <input
+                  disabled
+                  className={cx(baseField, fieldDisabled)}
+                  value={Math.round(grossFromScale * 100) / 100}
+                />
+                <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
+              </div>
+
+              <div>
+                <label className={labelCls}>ความชื้น (%)</label>
+                <input
+                  ref={refs.moisturePct}
+                  inputMode="decimal"
+                  className={cx(baseField)}
+                  value={order.moisturePct}
+                  onChange={(e) => updateOrder("moisturePct", onlyDigits(e.target.value))}
+                  onFocus={() => clearHint("moisturePct")}
+                  placeholder="เช่น 18"
+                />
+                <p className={helpTextCls}>มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
+              </div>
+
+              <div>
+                <label className={labelCls}>สิ่งเจือปน (%)</label>
+                <input
+                  ref={refs.impurityPct}
+                  inputMode="decimal"
+                  className={cx(baseField)}
+                  value={order.impurityPct}
+                  onChange={(e) => updateOrder("impurityPct", onlyDigits(e.target.value))}
+                  onFocus={() => clearHint("impurityPct")}
+                  placeholder="เช่น 2"
+                />
+              </div>
+
+              <div className="">
+                <div className="flex items-center justify-between">
+                  <label className={labelCls}>หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)</label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={order.manualDeduct}
+                      onChange={(e) => updateOrder("manualDeduct", e.target.checked)}
+                    />
+                    กำหนดเอง
+                  </label>
+                </div>
+                <input
+                  ref={refs.deductWeightKg}
+                  inputMode="decimal"
+                  disabled={!order.manualDeduct}
+                  className={cx(
+                    baseField,
+                    !order.manualDeduct && fieldDisabled,
+                    errors.deductWeightKg && "border-red-400",
+                    order.manualDeduct && redHintCls("deductWeightKg")
+                  )}
+                  value={
+                    order.manualDeduct
+                      ? order.deductWeightKg
+                      : String(Math.round(suggestDeductionWeight(grossFromScale, order.moisturePct, order.impurityPct) * 100) / 100)
+                  }
+                  onChange={(e) => updateOrder("deductWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                  onFocus={() => clearHint("deductWeightKg")}
+                  placeholder="ระบบคำนวณให้ หรือกำหนดเอง"
+                  aria-invalid={errors.deductWeightKg ? true : undefined}
+                />
+                {errors.deductWeightKg && <p className={errorTextCls}>{errors.deductWeightKg}</p>}
+              </div>
+
+              <div>
+                <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
+                <input
+                  disabled
+                  className={cx(baseField, fieldDisabled)}
+                  value={Math.round(netWeight * 100) / 100}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
+                <input
+                  ref={refs.unitPrice}
+                  inputMode="decimal"
+                  className={baseField}
+                  value={order.unitPrice}
+                  onChange={(e) => updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
+                  onFocus={() => clearHint("unitPrice")}
+                  placeholder="เช่น 12.50"
+                />
+                <p className={helpTextCls}>ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
+              </div>
+
+              <div>
+                <label className={labelCls}>เป็นเงิน (บาท)</label>
+                <input
+                  ref={refs.amountTHB}
+                  inputMode="decimal"
+                  className={cx(baseField, redFieldCls("amountTHB"))}
+                  value={order.amountTHB}
+                  onChange={(e) => updateOrder("amountTHB", e.target.value.replace(/[^\d.]/g, ""))}
+                  onFocus={() => { clearHint("amountTHB"); clearError("amountTHB") }}
+                  placeholder="เช่น 60000"
+                  aria-invalid={errors.amountTHB ? true : undefined}
+                />
+                {!!order.amountTHB && (
+                  <p className={helpTextCls}>≈ {thb(Number(order.amountTHB))}</p>
                 )}
-                value={
-                  order.manualDeduct
-                    ? order.deductWeightKg
-                    : String(Math.round(suggestDeductionWeight(grossFromScale, order.moisturePct, order.impurityPct) * 100) / 100)
-                }
-                onChange={(e) => updateOrder("deductWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                onFocus={() => clearHint("deductWeightKg")}
-                placeholder="ระบบคำนวณให้ หรือกำหนดเอง"
-                aria-invalid={errors.deductWeightKg ? true : undefined}
-              />
-              {errors.deductWeightKg && <p className={errorTextCls}>{errors.deductWeightKg}</p>}
+                {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
+              </div>
             </div>
+          </div>
 
-            {/* สุทธิ (หลังหัก) */}
-            <div>
-              <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
-              <input
-                disabled
-                className={cx(baseField, fieldDisabled)}
-                value={Math.round(netWeight * 100) / 100}
-              />
-            </div>
-
-            {/* ราคา/เลขเอกสาร/ลงวันที่ */}
-            <div>
-              <label className={labelCls}>ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
-              <input
-                ref={refs.unitPrice}
-                inputMode="decimal"
-                className={baseField}
-                value={order.unitPrice}
-                onChange={(e) => updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
-                onFocus={() => clearHint("unitPrice")}
-                placeholder="เช่น 12.50"
-              />
-              <p className={helpTextCls}>ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
-            </div>
-
-            <div>
-              <label className={labelCls}>เป็นเงิน (บาท)</label>
-              <input
-                ref={refs.amountTHB}
-                inputMode="decimal"
-                className={cx(baseField, redFieldCls("amountTHB"))}
-                value={order.amountTHB}
-                onChange={(e) => updateOrder("amountTHB", e.target.value.replace(/[^\d.]/g, ""))}
-                onFocus={() => { clearHint("amountTHB"); clearError("amountTHB") }}
-                placeholder="เช่น 60000"
-                aria-invalid={errors.amountTHB ? true : undefined}
-              />
-              {!!order.amountTHB && (
-                <p className={helpTextCls}>≈ {thb(Number(order.amountTHB))}</p>
-              )}
-              {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>ลงวันที่</label>
-              <DateInput
-                ref={refs.issueDate}
-                value={order.issueDate}
-                onChange={(e) => updateOrder("issueDate", e.target.value)}
-                onFocus={() => clearHint("issueDate")}
-                error={!!errors.issueDate}
-                className={redHintCls("issueDate")}
-                aria-invalid={errors.issueDate ? true : undefined}
-              />
-              {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
-            </div>
-
-            {/* เอกสารการขาย (ใหม่) */}
+          {/* เอกสารการขาย */}
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>เลขที่ใบชั่ง</label>
               <input
@@ -1692,6 +1702,8 @@ const Sales = () => {
           {/* --- สรุป --- */}
           <div className="mt-6 grid gap-4 md:grid-cols-5">
             {[
+              { label: "ลงวันที่", value: order.issueDate || "—" },
+              { label: "วิธีชำระเงิน (UI)", value: order.paymentMethod || "—" },
               { label: "สินค้า", value: order.productName || "—" },
               { label: "ชนิดข้าว", value: order.riceType || "—" },
               { label: "ชั้นย่อย", value: order.subriceName || "—" },
@@ -1713,7 +1725,6 @@ const Sales = () => {
               { label: "ประเภทนา", value: order.fieldType || "—" },
               { label: "เงื่อนไข", value: order.condition || "—" },
               { label: "โปรแกรม (UI)", value: order.program || "—" },
-              { label: "วิธีชำระเงิน (UI)", value: order.paymentMethod || "—" },
               { label: "เลขที่ใบชั่ง", value: order.weighSlipNo || "—" },
               { label: "ใบกำกับสินค้า(เชื่อ)", value: order.taxInvoiceNo || "—" },
               { label: "ใบรับเงิน(สด)", value: order.salesReceiptNo || "—" },

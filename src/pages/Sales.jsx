@@ -529,10 +529,11 @@ const Sales = () => {
 
         // ✅ เก็บ id และ label ให้ชัดเจน
         setPaymentOptions(
-          (payments || []).map((x, i) => ({
-            id: String(x.id ?? x.value ?? i),
-            label: String(x.method ?? x.name ?? x.label ?? "").trim(),
-          })).filter((o) => o.id && o.label)
+          (payments || []).map((x, i) => ({ 
+            id: String(x.id ?? x.value ?? i), 
+            // backend ส่ง { id, payment: <string> } 
+            label: String(x.payment ?? x.method ?? x.name ?? x.label ?? "").trim(),
+          })).filter((o) => o.id && o.label) 
         )
 
         setBranchOptions((branches || []).map((b) => ({ id: b.id, label: b.branch_name })))

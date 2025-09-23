@@ -488,12 +488,15 @@ const Sales = () => {
           })).filter((o) => o.id && o.label)
         )
 
-        setConditionOptions(
-          (conditions || []).map((x, i) => ({
+        setFieldTypeOptions(
+          (fields || []).map((x, i) => ({
             id: String(x.id ?? x.value ?? i),
-            label: String(x.condition ?? x.year ?? x.name ?? x.label ?? "").trim(),
+            label: String(
+              x.field ?? x.field_type ?? x.name ?? x.year ?? x.label ?? (typeof x === "string" ? x : "")
+            ).trim(),
           })).filter((o) => o.id && o.label)
         )
+
 
         setFieldTypeOptions(
           (fields || []).map((x, i) => ({

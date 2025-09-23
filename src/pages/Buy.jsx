@@ -1,3 +1,4 @@
+// src/pages/Buy.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth, get, post } from "../lib/api"   // ✅ helper แนบโทเคนอัตโนมัติ
 
@@ -328,6 +329,10 @@ const Buy = () => {
     province: "",
     postalCode: "",
     phone: "",
+    // ⭐ เพิ่มตามแบ็กเอนด์ CCD
+    fid: "",
+    fidOwner: "",
+    fidRelationship: "",
   })
 
   /** เมตาสมาชิก/ลูกค้า */
@@ -386,6 +391,11 @@ const Buy = () => {
     province: useRef(null),
     postalCode: useRef(null),
     phone: useRef(null),
+    // ⭐ ใหม่
+    fid: useRef(null),
+    fidOwner: useRef(null),
+    fidRelationship: useRef(null),
+
     product: useRef(null),
     riceType: useRef(null),
     subrice: useRef(null),
@@ -452,12 +462,16 @@ const Buy = () => {
       type: data.type ?? undefined,
       asso_id: data.asso_id ?? data.assoId ?? undefined,
       phone: toStr(data.phone ?? data.tel ?? data.mobile ?? ""),
+      // ⭐ ใหม่
+      fid: toStr(data.fid ?? ""),
+      fidOwner: toStr(data.fid_owner ?? data.fidowner ?? ""),
+      fidRelationship: toStr(data.fid_relationship ?? data.fidreationship ?? data.fid_rel ?? ""),
     }
 
     const hasAnyAddress =
       addr.houseNo || addr.moo || addr.subdistrict || addr.district || addr.province || addr.postalCode
 
-    if (addr.firstName || addr.lastName || hasAnyAddress || addr.phone) {
+    if (addr.firstName || addr.lastName || hasAnyAddress || addr.phone || addr.fid || addr.fidOwner || addr.fidRelationship) {
       setCustomer((prev) => ({
         ...prev,
         fullName:
@@ -471,6 +485,10 @@ const Buy = () => {
         province: addr.province || prev.province,
         postalCode: addr.postalCode || prev.postalCode,
         phone: addr.phone || prev.phone,
+        // ⭐ เติมค่าที่ได้
+        fid: addr.fid || prev.fid,
+        fidOwner: addr.fidOwner || prev.fidOwner,
+        fidRelationship: addr.fidRelationship || prev.fidRelationship,
       }))
       if (addr.type) setMemberMeta((m) => ({ ...m, type: addr.type }))
       if (addr.asso_id) setMemberMeta((m) => ({ ...m, assoId: addr.asso_id }))
@@ -675,6 +693,10 @@ const Buy = () => {
       province: toStr(r.province ?? ""),
       postalCode: onlyDigits(toStr(r.postal_code ?? r.postalCode ?? "")),
       phone: toStr(r.phone ?? r.tel ?? r.mobile ?? ""),
+      // ⭐ ใหม่
+      fid: toStr(r.fid ?? ""),
+      fidOwner: toStr(r.fid_owner ?? r.fidowner ?? ""),
+      fidRelationship: toStr(r.fid_relationship ?? r.fidreationship ?? r.fid_rel ?? ""),
     }
   }
 
@@ -686,6 +708,10 @@ const Buy = () => {
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
       fullName: data.fullName || prev.fullName,
       phone: data.phone || prev.phone,
+      // ⭐ เติมค่า FID
+      fid: data.fid || prev.fid,
+      fidOwner: data.fidOwner || prev.fidOwner,
+      fidRelationship: data.fidRelationship || prev.fidRelationship,
     }))
     setMemberMeta({ type: data.type, assoId: data.assoId })
     setCustomerFound(true)
@@ -779,6 +805,10 @@ const Buy = () => {
           province: r.province ?? "",
           postal_code: r.postal_code ?? r.postalCode ?? "",
           phone: r.phone ?? r.tel ?? r.mobile ?? "",
+          // ⭐ ใส่ FID เข้ารายการแนะนำ
+          fid: r.fid ?? null,
+          fid_owner: r.fid_owner ?? r.fidowner ?? "",
+          fid_relationship: r.fid_relationship ?? r.fidreationship ?? null,
         }))
         setNameResults(mapped)
         if (document.activeElement === nameInputRef.current) {
@@ -1051,28 +1081,36 @@ const Buy = () => {
     // ส่ง date เป็น YYYY-MM-DD ตามหน้า UI
     const dateStr = order.issueDate
 
+    // ⭐ เตรียม FID
+    const fidNum = /^\d+$/.test(customer.fid) ? Number(customer.fid) : null
+    const fidRelNum = /^\d+$/.test(customer.fidRelationship) ? Number(customer.fidRelationship) : null
+
     const payload = {
       customer: {
         first_name: firstName || "",
         last_name: lastName || "",
-        citizen_id: onlyDigits(customer.citizenId) || "",  // <-- เปลี่ยน null -> ""
+        citizen_id: onlyDigits(customer.citizenId) || "",
         address: customer.houseNo.trim() || "",
         mhoo: customer.moo.trim() || "",
         sub_district: customer.subdistrict.trim() || "",
         district: customer.district.trim() || "",
         province: customer.province.trim() || "",
         postal_code: customer.postalCode ? String(customer.postalCode).trim() : "",
+        // ⭐ ส่งฟิลด์ใหม่เข้ากับแบ็กเอนด์ CCD
+        fid: fidNum,                                   // Optional[int]
+        fid_owner: customer.fidOwner?.trim() || "",    // Optional[str]
+        fid_relationship: fidRelNum,                   // Optional[int]
       },
 
       order: {
-        asso_id: memberMeta.assoId ?? null,              // ❗ อย่าส่งเป็น ""
+        asso_id: memberMeta.assoId ?? null,
         product_id: productId,
         rice_id: riceId,
         subrice_id: subriceId,
         rice_year: riceYearId,
         field_type: fieldTypeId,
         condition: conditionId,
-        program: programId ?? null,                      // ✅ ส่งเป็น id หรือ null
+        program: programId ?? null,
         humidity: Number(order.moisturePct || 0),
         entry_weight: Number(order.entryWeightKg || 0),
         exit_weight: Number(order.exitWeightKg || 0),
@@ -1081,7 +1119,7 @@ const Buy = () => {
         price: Number(moneyToNumber(order.amountTHB) || 0),
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim() || null,
-        date: dateStr,                                   // ✅ ไม่แปลงเป็น ISO
+        date: dateStr,
         branch_location: branchId,
         klang_location: klangId,
         gram: Number(order.gram || 0),
@@ -1122,6 +1160,10 @@ const Buy = () => {
       province: "",
       postalCode: "",
       phone: "",
+      // ⭐ reset ฟิลด์ใหม่
+      fid: "",
+      fidOwner: "",
+      fidRelationship: "",
     })
     setOrder({
       productId: "",
@@ -1382,6 +1424,45 @@ const Buy = () => {
                 placeholder="เช่น 0812345678"
               />
               <p className={helpTextCls}>เก็บไว้ติดต่อภายหลัง (ยังไม่ส่งเข้า backend)</p>
+            </div>
+
+            {/* ⭐ FID fields */}
+            <div>
+              <label className={labelCls}>เลขที่ทะเบียนเกษตรกร (FID)</label>
+              <input
+                ref={refs.fid}
+                inputMode="numeric"
+                className={cx(baseField, compactInput)}
+                value={customer.fid}
+                onChange={(e) => updateCustomer("fid", onlyDigits(e.target.value))}
+                placeholder="ตัวเลข เช่น 123456"
+              />
+              <p className={helpTextCls}>ถ้ามี จะส่งไปเก็บที่ฟิลด์ <code>fid</code></p>
+            </div>
+
+            <div>
+              <label className={labelCls}>ชื่อทะเบียนเกษตรกร (FID Owner)</label>
+              <input
+                ref={refs.fidOwner}
+                className={cx(baseField, compactInput)}
+                value={customer.fidOwner}
+                onChange={(e) => updateCustomer("fidOwner", e.target.value)}
+                placeholder="เช่น นายสมหมาย นามดี"
+              />
+              <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_owner</code></p>
+            </div>
+
+            <div>
+              <label className={labelCls}>ความสัมพันธ์ (FID Relationship)</label>
+              <input
+                ref={refs.fidRelationship}
+                inputMode="numeric"
+                className={cx(baseField, compactInput)}
+                value={customer.fidRelationship}
+                onChange={(e) => updateCustomer("fidRelationship", onlyDigits(e.target.value))}
+                placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
+              />
+              <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_relationship</code> (ตัวเลข)</p>
             </div>
           </div>
         </div>

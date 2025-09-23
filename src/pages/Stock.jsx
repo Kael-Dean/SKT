@@ -10,48 +10,99 @@ const thb = (n) =>
     isFinite(n) ? Number(n) : 0
   )
 
-/** รวม “กิโล” จาก tree ของ /report/stock/tree */
-function sumWeight(payload = []) {
+/** คำนวณรวมจาก tree ที่ได้จาก /report/stock/tree (แบบ StockTreeResponse) */
+function sumLeafQty(items = []) {
+  let s = 0
+  for (const it of items) s += Number(it?.qty_kg ?? 0)
+  return s
+}
+function sumProgramList(programs = []) {
+  let s = 0
+  for (const p of programs) s += sumLeafQty(p?.items)
+  return s
+}
+function sumFieldList(fields = []) {
+  let s = 0
+  for (const f of fields) s += sumProgramList(f?.programs)
+  return s
+}
+function sumConditionList(conditions = []) {
+  let s = 0
+  for (const c of conditions) s += sumFieldList(c?.fields)
+  return s
+}
+function sumYearList(years = []) {
+  let s = 0
+  for (const y of years) s += sumConditionList(y?.conditions)
+  return s
+}
+function sumSubriceList(subrices = []) {
+  let s = 0
+  for (const srx of subrices) s += sumYearList(srx?.years)
+  return s
+}
+
+/** สร้าง array ของ {condition_id, condition, available} ต่อปี เพื่อโชว์แถวเล็กๆ */
+function aggregateConditions(yearNode) {
+  const out = []
+  for (const c of yearNode?.conditions ?? []) {
+    const available = sumFieldList(c?.fields)
+    out.push({
+      condition_id: c?.condition_id,
+      condition: c?.condition,
+      available,
+    })
+  }
+  return out
+}
+
+/** แปลง StockTreeResponse → โครงสร้างสำหรับ UI (array ของ rice) พร้อม total */
+function transformTree(resp) {
+  const rices = resp?.product?.rices ?? []
+  return rices.map((r) => {
+    const subrices = r?.subrices ?? []
+    const tRice = sumSubriceList(subrices)
+
+    const uiSub = subrices.map((s) => {
+      const years = s?.years ?? []
+      const tSub = sumYearList(years)
+      const uiYears = years.map((y) => {
+        const tYear = sumConditionList(y?.conditions ?? [])
+        return {
+          year_id: y?.year_id,
+          year: y?.year,
+          total: tYear,
+          // สำหรับ YearRow: list เงื่อนไขที่รวมแล้ว
+          items: aggregateConditions(y),
+        }
+      })
+      return {
+        subrice_id: s?.subrice_id,
+        subrice: s?.subrice,
+        total: tSub,
+        items: uiYears,
+      }
+    })
+
+    return {
+      rice_id: r?.rice_id,
+      rice: r?.rice,
+      total: tRice,
+      items: uiSub,
+    }
+  })
+}
+
+/** รวม “กิโล” จาก tree หลัง transform */
+function sumWeightFromUI(riceArray = []) {
   let total = 0
-  for (const rice of payload || []) total += Number(rice.total || 0)
+  for (const r of riceArray) total += Number(r?.total ?? 0)
   return total
 }
 
-/** พยายามคำนวณ “มูลค่ารวม” ถ้า API มีข้อมูลราคา/มูลค่าให้ */
-function sumValue(payload = []) {
-  let total = 0
-  let foundAnyPrice = false
-  const add = (amt) => {
-    const v = Number(amt)
-    if (isFinite(v)) {
-      total += v
-      foundAnyPrice = true
-    }
-  }
-  for (const r of payload || []) {
-    add(r.value ?? r.price_total ?? r.total_value)
-    for (const s of r.items || []) {
-      add(s.value ?? s.price_total ?? s.total_value)
-      for (const y of s.items || []) {
-        if (Array.isArray(y.items) && y.items.length > 0) {
-          for (const c of y.items) {
-            if (c.value ?? c.price_total ?? c.total_value) {
-              add(c.value ?? c.price_total ?? c.total_value)
-            } else if (c.available && (c.avg_price_per_kg ?? c.price_per_kg ?? c.unit_price)) {
-              add(Number(c.available) * Number(c.avg_price_per_kg ?? c.price_per_kg ?? c.unit_price))
-            }
-          }
-        } else {
-          if (y.value ?? y.price_total ?? y.total_value) {
-            add(y.value ?? y.price_total ?? y.total_value)
-          } else if (y.available && (y.avg_price_per_kg ?? y.price_per_kg ?? y.unit_price)) {
-            add(Number(y.available) * Number(y.avg_price_per_kg ?? y.price_per_kg ?? y.unit_price))
-          }
-        }
-      }
-    }
-  }
-  return foundAnyPrice ? total : null
+/** พยายามคำนวณ “มูลค่ารวม” (ตอนนี้ API สต็อกไม่ส่งราคา จึงมักเป็น null) */
+function sumValueFromUI(/* riceArray */) {
+  return null
 }
 
 /** ---------- ComboBox (reusable) ---------- */
@@ -69,10 +120,10 @@ function ComboBox({
   const boxRef = useRef(null)
   const btnRef = useRef(null)
 
-  const selectedLabel = useMemo(() => {
+  const selectedLabel = (() => {
     const found = options.find((o) => String(getValue(o)) === String(value))
     return found ? getLabel(found) : ""
-  }, [options, value, getLabel, getValue])
+  })()
 
   useEffect(() => {
     const onClick = (e) => {
@@ -163,7 +214,7 @@ function Pill({ children }) {
   )
 }
 
-/** ---------- Tree Rows ---------- */
+/** ---------- Tree Rows (ใช้ field ชื่อใหม่: rice, subrice, year) ---------- */
 function RiceRow({ node }) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm">
@@ -172,7 +223,7 @@ function RiceRow({ node }) {
           <div className="flex items-center gap-3">
             <div className="size-2.5 rounded-full bg-emerald-500/80"></div>
             <div className="font-semibold">
-              {node.rice_type ?? "—"}{" "}
+              {node.rice ?? "—"}{" "}
               <span className="text-gray-400 text-sm ml-2">#{node.rice_id ?? "-"}</span>
             </div>
           </div>
@@ -180,7 +231,7 @@ function RiceRow({ node }) {
         </summary>
         <div className="px-4 pb-3">
           {(node.items || []).map((sub) => (
-            <SubriceRow key={`${sub.subrice_id}-${sub.sub_class}`} node={sub} />
+            <SubriceRow key={`${sub.subrice_id}-${sub.subrice}`} node={sub} />
           ))}
         </div>
       </details>
@@ -196,7 +247,7 @@ function SubriceRow({ node }) {
           <div className="flex items-center gap-2">
             <div className="size-2 rounded-full bg-teal-400/80"></div>
             <div className="font-medium">
-              {node.sub_class ?? "—"}{" "}
+              {node.subrice ?? "—"}{" "}
               <span className="text-gray-400 text-xs ml-2">#{node.subrice_id ?? "-"}</span>
             </div>
           </div>
@@ -222,7 +273,7 @@ function YearRow({ node }) {
           <div className="font-medium">ปี {node.year ?? "—"}</div>
         </div>
         <div className="text-right tabular-nums text-sm font-medium">
-          {nf(node.total ?? node.available ?? 0)} กก.
+          {nf(node.total ?? 0)} กก.
         </div>
       </div>
       {hasCondition && (
@@ -263,8 +314,8 @@ const Stock = () => {
   /** data */
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [dataByKlang, setDataByKlang] = useState({}) // { [klangId]: payload[] }
-  const [dataSingle, setDataSingle] = useState([])   // payload เมื่อเลือกคลังเดียว
+  const [dataByKlang, setDataByKlang] = useState({}) // { [klangId]: riceArrayUI }
+  const [dataSingle, setDataSingle] = useState([])   // riceArrayUI เมื่อเลือกคลังเดียว
 
   /** load branches + pick default product (อัตโนมัติ) */
   useEffect(() => {
@@ -308,15 +359,15 @@ const Stock = () => {
     loadKlangs()
   }, [branchId])
 
-  /** helper: fetch tree (ถูกต้องคือ /report/stock/tree) */
+  /** helper: fetch tree จาก /report/stock/tree แล้ว transform */
   async function fetchTreeOnce({ branchId, klangId, productId }) {
     const params = new URLSearchParams()
     params.set("product_id", String(productId))
     params.set("branch_id", String(branchId))
-    params.set("detail", "rice_subrice_year_condition")
     if (klangId) params.set("klang_id", String(klangId))
     const json = await apiAuth(`/report/stock/tree?` + params.toString())
-    return Array.isArray(json) ? json : []
+    // json เป็น StockTreeResponse (object) → แปลงเป็น array ของ rice สำหรับ UI
+    return transformTree(json)
   }
 
   /** fetch ตามเงื่อนไข:
@@ -333,15 +384,15 @@ const Stock = () => {
       try {
         if (klangId) {
           // โหมด “เลือกคลังเดียว”
-          const payload = await fetchTreeOnce({ branchId, klangId, productId: defaultProductId })
-          setDataSingle(payload)
+          const riceArrayUI = await fetchTreeOnce({ branchId, klangId, productId: defaultProductId })
+          setDataSingle(riceArrayUI)
         } else {
           // โหมด “แสดงทุกคลังในสาขา”
           const map = {}
           for (const k of klangOptions) {
             try {
-              const payload = await fetchTreeOnce({ branchId, klangId: k.id, productId: defaultProductId })
-              map[k.id] = payload
+              const riceArrayUI = await fetchTreeOnce({ branchId, klangId: k.id, productId: defaultProductId })
+              map[k.id] = riceArrayUI
             } catch (e) {
               console.error("fetch klang failed:", k, e)
               map[k.id] = []
@@ -360,8 +411,8 @@ const Stock = () => {
 
   /** totals */
   const totalSingle = useMemo(() => {
-    const weight = sumWeight(dataSingle)
-    const value = sumValue(dataSingle)
+    const weight = sumWeightFromUI(dataSingle)
+    const value = sumValueFromUI(dataSingle)
     return { weight, value }
   }, [dataSingle])
 
@@ -369,7 +420,7 @@ const Stock = () => {
     const out = {}
     for (const k of klangOptions) {
       const payload = dataByKlang[k.id] || []
-      out[k.id] = { weight: sumWeight(payload), value: sumValue(payload) }
+      out[k.id] = { weight: sumWeightFromUI(payload), value: sumValueFromUI(payload) }
     }
     return out
   }, [dataByKlang, klangOptions])
@@ -494,7 +545,7 @@ const Stock = () => {
           <>
             <h2 className="text-lg font-semibold mb-1">คลัง: {klangName || klangId}</h2>
             {dataSingle.map((r) => (
-              <RiceRow key={`${r.rice_id}-${r.rice_type}`} node={r} />
+              <RiceRow key={`${r.rice_id}-${r.rice}`} node={r} />
             ))}
           </>
         )}
@@ -526,7 +577,7 @@ const Stock = () => {
                   ) : (
                     <div className="space-y-3">
                       {payload.map((r) => (
-                        <RiceRow key={`${k.id}-${r.rice_id}-${r.rice_type}`} node={r} />
+                        <RiceRow key={`${k.id}-${r.rice_id}-${r.rice}`} node={r} />
                       ))}
                     </div>
                   )}

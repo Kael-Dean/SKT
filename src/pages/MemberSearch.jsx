@@ -585,32 +585,47 @@ const MemberSearch = () => {
 
                   {/* ข้อมูลทั่วไป */}
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                    {/* ✅ กลุ่มชื่อ-นามสกุล (อยู่บรรทัดเดียวกัน) */}
+                    {/* ✅ แถวแรกมีเฉพาะ "ชื่อ" และ "นามสกุล" อยู่บรรทัดเดียวกัน */}
                     <div className="md:col-span-2 xl:col-span-3">
-                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
-                        ชื่อ-นามสกุล
-                      </label>
+                      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                        {/* ชื่อ */}
+                        <div>
+                          <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
+                            ชื่อ
+                          </label>
+                          {!editing ? (
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                              {active?.first_name ?? "-"}
+                            </div>
+                          ) : (
+                            <input
+                              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                              value={draft?.first_name ?? ""}
+                              onChange={(e) => onChangeField("first_name", e.target.value)}
+                              placeholder="ชื่อ"
+                            />
+                          )}
+                        </div>
 
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {`${active?.first_name ?? ""} ${active?.last_name ?? ""}`.trim() || "-"}
+                        {/* นามสกุล */}
+                        <div>
+                          <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
+                            นามสกุล
+                          </label>
+                          {!editing ? (
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                              {active?.last_name ?? "-"}
+                            </div>
+                          ) : (
+                            <input
+                              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                              value={draft?.last_name ?? ""}
+                              onChange={(e) => onChangeField("last_name", e.target.value)}
+                              placeholder="นามสกุล"
+                            />
+                          )}
                         </div>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                          <input
-                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                            value={draft?.first_name ?? ""}
-                            onChange={(e) => onChangeField("first_name", e.target.value)}
-                            placeholder="ชื่อ"
-                          />
-                          <input
-                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                            value={draft?.last_name ?? ""}
-                            onChange={(e) => onChangeField("last_name", e.target.value)}
-                            placeholder="นามสกุล"
-                          />
-                        </div>
-                      )}
+                      </div>
                     </div>
 
                     {/* ฟิลด์อื่น ๆ (ยกเว้น first_name/last_name และ LAND_KEYS) */}
@@ -654,6 +669,7 @@ const MemberSearch = () => {
                         )
                       })}
                   </div>
+
 
 
                   {/* ข้อมูลที่ดิน */}

@@ -585,44 +585,76 @@ const MemberSearch = () => {
 
                   {/* ข้อมูลทั่วไป */}
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                    {FIELD_CONFIG.filter(f => !LAND_KEYS.includes(f.key)).map((f) => {
-                      const val = editing ? draft?.[f.key] ?? "" : active?.[f.key]
-                      return (
-                        <div key={f.key}>
-                          <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">{f.label}</label>
-                          {!editing ? (
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                              {f.type === "date" || f.type === "date-optional" ? formatDate(val) : (val ?? "-")}
-                            </div>
-                          ) : f.type === "select" ? (
-                            <select
-                              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                              value={val ?? ""}
-                              onChange={(e) => onChangeField(f.key, e.target.value)}
-                            >
-                              {f.options.map((op) => (
-                                <option key={op} value={op}>{op === "" ? "— เลือก —" : op}</option>
-                              ))}
-                            </select>
-                          ) : f.type === "date" || f.type === "date-optional" ? (
-                            <input
-                              type="date"
-                              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                              value={val ?? ""}
-                              onChange={(e) => onChangeField(f.key, e.target.value)}
-                            />
-                          ) : (
-                            <input
-                              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                              value={val ?? ""}
-                              onChange={(e) => onChangeField(f.key, e.target.value)}
-                              placeholder={f.type === "cid" ? "13 หลัก" : ""}
-                            />
-                          )}
+                    {/* ✅ กลุ่มชื่อ-นามสกุล (อยู่บรรทัดเดียวกัน) */}
+                    <div className="md:col-span-2 xl:col-span-3">
+                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
+                        ชื่อ-นามสกุล
+                      </label>
+
+                      {!editing ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                          {`${active?.first_name ?? ""} ${active?.last_name ?? ""}`.trim() || "-"}
                         </div>
-                      )
-                    })}
+                      ) : (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          <input
+                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                            value={draft?.first_name ?? ""}
+                            onChange={(e) => onChangeField("first_name", e.target.value)}
+                            placeholder="ชื่อ"
+                          />
+                          <input
+                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                            value={draft?.last_name ?? ""}
+                            onChange={(e) => onChangeField("last_name", e.target.value)}
+                            placeholder="นามสกุล"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ฟิลด์อื่น ๆ (ยกเว้น first_name/last_name และ LAND_KEYS) */}
+                    {FIELD_CONFIG
+                      .filter(f => !LAND_KEYS.includes(f.key) && f.key !== "first_name" && f.key !== "last_name")
+                      .map((f) => {
+                        const val = editing ? draft?.[f.key] ?? "" : active?.[f.key]
+                        return (
+                          <div key={f.key}>
+                            <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">{f.label}</label>
+                            {!editing ? (
+                              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                                {f.type === "date" || f.type === "date-optional" ? formatDate(val) : (val ?? "-")}
+                              </div>
+                            ) : f.type === "select" ? (
+                              <select
+                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                                value={val ?? ""}
+                                onChange={(e) => onChangeField(f.key, e.target.value)}
+                              >
+                                {f.options.map((op) => (
+                                  <option key={op} value={op}>{op === "" ? "— เลือก —" : op}</option>
+                                ))}
+                              </select>
+                            ) : f.type === "date" || f.type === "date-optional" ? (
+                              <input
+                                type="date"
+                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                                value={val ?? ""}
+                                onChange={(e) => onChangeField(f.key, e.target.value)}
+                              />
+                            ) : (
+                              <input
+                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                                value={val ?? ""}
+                                onChange={(e) => onChangeField(f.key, e.target.value)}
+                                placeholder={f.type === "cid" ? "13 หลัก" : ""}
+                              />
+                            )}
+                          </div>
+                        )
+                      })}
                   </div>
+
 
                   {/* ข้อมูลที่ดิน */}
                   <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-400 dark:bg-emerald-900/10">

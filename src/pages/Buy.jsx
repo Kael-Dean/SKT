@@ -318,6 +318,15 @@ const Buy = () => {
   const [paymentOptions, setPaymentOptions] = useState([])
   const [businessOptions, setBusinessOptions] = useState([])
 
+  /** ▶︎ ฟอร์มสำเร็จรูป (Template) */
+  const templateOptions = [
+    { id: "0", label: "— ฟอร์มปกติ —" },
+    { id: "1", label: "รหัส 1 • ข้าวหอมมะลิ" },
+    { id: "2", label: "รหัส 2 • ข้าวเหนียว" },
+    { id: "3", label: "รหัส 3 • เมล็ดพันธุ์" },
+  ]
+  const [formTemplate, setFormTemplate] = useState("0") // "0" = ไม่ล็อก
+
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
     citizenId: "",
@@ -418,7 +427,17 @@ const Buy = () => {
     gram: useRef(null),
     comment: useRef(null),
     businessType: useRef(null),
+    /** ตำแหน่งดรอปดาวฟอร์มสำเร็จรูป (มุมขวาบน) */
+    formTemplate: useRef(null),
   }
+
+  /** โหลดค่า Template ล่าสุดจาก localStorage */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("buy.formTemplate")
+      if (saved && ["0", "1", "2", "3"].includes(saved)) setFormTemplate(saved)
+    } catch {}
+  }, [])
 
   /** debounce */
   const debouncedCitizenId = useDebounce(customer.citizenId)
@@ -981,6 +1000,49 @@ const Buy = () => {
     setOrder((prev) => ({ ...prev, [k]: v }))
   }
 
+  /** ---------- Template effects: ล็อกค่าอัตโนมัติ ---------- */
+  const isTemplateActive = formTemplate !== "0"
+
+  // เมื่อเปลี่ยน Template → บังคับเลือก "ประเภทสินค้า: ข้าวเปลือก"
+  useEffect(() => {
+    if (!isTemplateActive) return
+    if (productOptions.length === 0) return
+    const paddy = productOptions.find((o) => o.label.includes("ข้าวเปลือก"))
+    if (paddy && order.productId !== paddy.id) {
+      setOrder((p) => ({
+        ...p,
+        productId: paddy.id,
+        productName: paddy.label,
+        riceId: "",
+        riceType: "",
+        subriceId: "",
+        subriceName: "",
+      }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formTemplate, productOptions])
+
+  // เมื่อ riceOptions โหลดแล้ว → เลือกชนิดข้าวตาม Template
+  useEffect(() => {
+    if (!isTemplateActive) return
+    if (riceOptions.length === 0) return
+    const want =
+      formTemplate === "1" ? "หอมมะลิ"
+      : formTemplate === "2" ? "เหนียว"
+      : "พันธุ์" // รองรับทั้ง "เมล็ดพันธุ์/เมล็ดพันธ์"
+    const target = riceOptions.find((r) => r.label.includes(want))
+    if (target && order.riceId !== target.id) {
+      setOrder((p) => ({
+        ...p,
+        riceId: target.id,
+        riceType: target.label,
+        subriceId: "",
+        subriceName: "",
+      }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formTemplate, riceOptions])
+
   /** ---------- Validation ---------- */
   const validateAll = () => {
     const e = {}
@@ -1130,6 +1192,8 @@ const Buy = () => {
 
     try {
       await post("/order/customers/save/buy", payload)
+      // 💾 จำ Template ที่ผู้ใช้เลือกไว้
+      try { localStorage.setItem("buy.formTemplate", formTemplate) } catch {}
       alert("บันทึกออเดอร์เรียบร้อย ✅")
       handleReset()
     } catch (err) {
@@ -1216,6 +1280,8 @@ const Buy = () => {
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-semibold">ข้อมูลลูกค้า</h2>
+
+            {/* ชิปสถานะสมาชิก */}
             {memberMeta.type === "member" ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
@@ -1237,6 +1303,26 @@ const Buy = () => {
                 โปรดกรอกชื่อหรือเลขบัตรประชาชนเพื่อระบุสถานะ
               </span>
             )}
+
+            {/* ▼ ดรอปดาวฟอร์มสำเร็จรูป (ตำแหน่งมุมขวาบนตามภาพ) */}
+            <div className="ml-auto w-full sm:w-72">
+              <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
+              <ComboBox
+                options={templateOptions}
+                value={formTemplate}
+                onChange={(id) => setFormTemplate(String(id))}
+                buttonRef={refs.formTemplate}
+              />
+              {isTemplateActive && (
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                  ระบบล็อก <b>ประเภทสินค้า: ข้าวเปลือก</b> และ{" "}
+                  <b>
+                    ชนิดข้าว:
+                    {formTemplate === "1" ? " ข้าวหอมมะลิ" : formTemplate === "2" ? " ข้าวเหนียว" : " เมล็ดพันธุ์"}
+                  </b>
+                </p>
+              )}
+            </div>
           </div>
 
           {/* วิธีชำระเงิน + วันที่ */}
@@ -1497,6 +1583,7 @@ const Buy = () => {
                 hintRed={!!missingHints.product}
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
+                disabled={isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
               />
               {errors.product && <p className={errorTextCls}>{errors.product}</p>}
             </div>
@@ -1516,7 +1603,7 @@ const Buy = () => {
                   }))
                 }}
                 placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId}
+                disabled={!order.productId || isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
                 error={!!errors.riceType}
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}

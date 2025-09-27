@@ -247,11 +247,11 @@ function StockTransferOut() {
   const [toKlangOptions, setToKlangOptions] = useState([])
 
   // ✅ เมตาดาต้า
-  const [conditionOptions, setConditionOptions] = useState([]) // สภาพ/เงื่อนไข (optional)
-  const [fieldOptions, setFieldOptions] = useState([])         // ประเภทนา (required ↔ backend)
-  const [yearOptions, setYearOptions] = useState([])           // ปี/ฤดูกาล (optional)
-  const [programOptions, setProgramOptions] = useState([])     // โปรแกรม (optional แต่ backend รองรับ)
-  const [businessOptions, setBusinessOptions] = useState([])   // ประเภทธุรกิจ (required ↔ backend)
+  const [conditionOptions, setConditionOptions] = useState([]) // สภาพ/เงื่อนไข (locked → แห้ง)
+  const [fieldOptions, setFieldOptions] = useState([])         // ประเภทนา
+  const [yearOptions, setYearOptions] = useState([])           // ปี/ฤดูกาล
+  const [programOptions, setProgramOptions] = useState([])     // โปรแกรม
+  const [businessOptions, setBusinessOptions] = useState([])   // ประเภทธุรกิจ (locked → ซื้อมาขายไป)
 
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
@@ -345,7 +345,12 @@ function StockTransferOut() {
         setFromBranchOptions(brs)
         setToBranchOptions(brs)
 
-        setConditionOptions((conditions || []).map((c) => ({ id: c.id, label: c.condition })))
+        // 🔒 ล็อก "สภาพ/เงื่อนไข" ให้เหลือเฉพาะ "แห้ง"
+        const allConds = (conditions || []).map((c) => ({ id: c.id, label: c.condition }))
+        const dryCond = allConds.find((c) => c.label === "แห้ง")
+        setConditionOptions(dryCond ? [dryCond] : [])
+        update("condition_id", dryCond?.id ?? "")
+        update("condition_label", dryCond?.label ?? "")
 
         // ✅ รองรับ field / field_type
         setFieldOptions(
@@ -356,7 +361,13 @@ function StockTransferOut() {
 
         setYearOptions((years || []).map((y) => ({ id: y.id, label: y.year })))
         setProgramOptions((programs || []).map((p) => ({ id: p.id, label: p.program })))
-        setBusinessOptions((businesses || []).map((b) => ({ id: b.id, label: b.business })))
+
+        // 🔒 ล็อก "ประเภทธุรกิจ" ให้เหลือเฉพาะ "ซื้อมาขายไป"
+        const allBiz = (businesses || []).map((b) => ({ id: b.id, label: b.business }))
+        const buySell = allBiz.find((b) => b.label === "ซื้อมาขายไป")
+        setBusinessOptions(buySell ? [buySell] : [])
+        update("business_type_id", buySell?.id ?? "")
+        update("business_type_label", buySell?.label ?? "")
       } catch (e) {
         console.error("load static error:", e)
         setProductOptions([])
@@ -370,6 +381,7 @@ function StockTransferOut() {
       }
     }
     loadStatic()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // product -> rice
@@ -554,14 +566,11 @@ function StockTransferOut() {
     setSubmitting(true)
     try {
       // 🔁 แมปฟิลด์ให้ตรง backend /transfer/request
-      // Backend model (Transfer) ต้องการ: date, from_branch, from_klang, to_branch, to_klang,
-      // product_id, rice_id, subrice_id, field_type, year_id?, condition_id?, program?, business_type,
-      // entry_weight, exit_weight, weight, impurity, price_per_kilo, price, quality
       const payload = {
         date: form.transfer_date,
 
         from_branch: form.from_branch_id != null ? Number(form.from_branch_id) : null,
-        // ใส่ไปด้วยเพื่อกัน 422 (แม้ backend จะ override ตาม user’s branch_location)
+        // ใส่ไปด้วยเพื่อกัน 422
         from_klang: form.from_klang_id != null ? Number(form.from_klang_id) : 0,
 
         to_branch: form.to_branch_id != null ? Number(form.to_branch_id) : null,
@@ -586,17 +595,14 @@ function StockTransferOut() {
         price_per_kilo: costPerKg || 0,
         price: totalCost || 0,
 
-        // backend ต้องเป็นตัวเลข (ยังไม่มี input แยก เลยส่ง 0 ไปก่อน)
         quality: 0,
       }
 
-      // ✅ ยิงไปที่ backend ใหม่
       await post("/transfer/request", payload)
 
       alert("บันทึกคำขอโอนออกสำเร็จ ✅")
       setForm((f) => ({
         ...f,
-        // reset เฉพาะฟิลด์ชั่ง/ราคา/บันทึก
         weight_in: "",
         weight_out: "",
         cost_per_kg: "",
@@ -803,7 +809,7 @@ function StockTransferOut() {
                 {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
               </div>
 
-              {/* สภาพ/เงื่อนไข (optional) */}
+              {/* สภาพ/เงื่อนไข (locked → แห้ง) */}
               <div>
                 <label className={labelCls}>สภาพ/เงื่อนไข</label>
                 <ComboBox
@@ -814,10 +820,11 @@ function StockTransferOut() {
                     update("condition_label", found?.label ?? "")
                   }}
                   placeholder="— เลือกสภาพ/เงื่อนไข —"
+                  disabled
                 />
               </div>
 
-              {/* ประเภทนา (required) */}
+              {/* ประเภทนา */}
               <div>
                 <label className={labelCls}>ประเภทนา</label>
                 <ComboBox
@@ -836,7 +843,7 @@ function StockTransferOut() {
                 {errors.field_type_id && <p className={errorTextCls}>{errors.field_type_id}</p>}
               </div>
 
-              {/* ปี/ฤดูกาล (optional) */}
+              {/* ปี/ฤดูกาล */}
               <div>
                 <label className={labelCls}>ปี/ฤดูกาล</label>
                 <ComboBox
@@ -850,7 +857,7 @@ function StockTransferOut() {
                 />
               </div>
 
-              {/* โปรแกรม (optional) */}
+              {/* โปรแกรม */}
               <div>
                 <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
                 <ComboBox
@@ -864,7 +871,7 @@ function StockTransferOut() {
                 />
               </div>
 
-              {/* ประเภทธุรกิจ (required) */}
+              {/* ประเภทธุรกิจ (locked → ซื้อมาขายไป) */}
               <div>
                 <label className={labelCls}>ประเภทธุรกิจ</label>
                 <ComboBox
@@ -879,6 +886,7 @@ function StockTransferOut() {
                   placeholder="— เลือกประเภทธุรกิจ —"
                   error={!!errors.business_type_id}
                   hintRed={!!missingHints.business_type_id}
+                  disabled
                 />
                 {errors.business_type_id && <p className={errorTextCls}>{errors.business_type_id}</p>}
               </div>

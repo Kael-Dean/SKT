@@ -1278,52 +1278,50 @@ const Buy = () => {
 
         {/* กล่องข้อมูลลูกค้า */}
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h2 className="text-xl font-semibold">ข้อมูลลูกค้า</h2>
+            {/* แถบหัวข้อ + สถานะ + ดรอปดาวฟอร์ม */}
+            <div className="mb-3 flex flex-wrap items-start gap-2">
+              <h2 className="text-xl font-semibold">ข้อมูลลูกค้า</h2>
 
-            {/* ชิปสถานะสมาชิก */}
-            {memberMeta.type === "member" ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                สมาชิก • asso {memberMeta.assoId ?? "-"}
-              </span>
-            ) : customerFound === true && memberMeta.type === "customer" ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60">
-                <span className="h-2 w-2 rounded-full bg-sky-500" />
-                ลูกค้าทั่วไป • asso {memberMeta.assoId ?? "-"}
-              </span>
-            ) : memberMeta.type === "customer" ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600">
-                <span className="h-2 w-2 rounded-full bg-slate-500" />
-                ลูกค้าทั่วไป (จะสร้างอัตโนมัติเมื่อบันทึก)
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60">
-                <span className="h-2 w-2 rounded-full bg-amber-500" />
-                โปรดกรอกชื่อหรือเลขบัตรประชาชนเพื่อระบุสถานะ
-              </span>
-            )}
-
-            {/* ▼ ดรอปดาวฟอร์มสำเร็จรูป (ตำแหน่งมุมขวาบนตามภาพ) */}
-            <div className="ml-auto w-full sm:w-72">
-              <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
-              <ComboBox
-                options={templateOptions}
-                value={formTemplate}
-                onChange={(id) => setFormTemplate(String(id))}
-                buttonRef={refs.formTemplate}
-              />
-              {isTemplateActive && (
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  ระบบล็อก <b>ประเภทสินค้า: ข้าวเปลือก</b> และ{" "}
-                  <b>
-                    ชนิดข้าว:
-                    {formTemplate === "1" ? " ข้าวหอมมะลิ" : formTemplate === "2" ? " ข้าวเหนียว" : " เมล็ดพันธุ์"}
-                  </b>
-                </p>
+              {memberMeta.type === "member" ? (
+                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60 self-start">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  สมาชิก • asso {memberMeta.assoId ?? "-"}
+                </span>
+              ) : customerFound === true && memberMeta.type === "customer" ? (
+                <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60 self-start">
+                  <span className="h-2 w-2 rounded-full bg-sky-500" />
+                  ลูกค้าทั่วไป • asso {memberMeta.assoId ?? "-"}
+                </span>
+              ) : memberMeta.type === "customer" ? (
+                <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600 self-start">
+                  <span className="h-2 w-2 rounded-full bg-slate-500" />
+                  ลูกค้าทั่วไป (จะสร้างอัตโนมัติเมื่อบันทึก)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60 self-start">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  โปรดกรอกชื่อหรือเลขบัตรประชาชนเพื่อระบุสถานะ
+                </span>
               )}
+
+              {/* ดรอปดาวฟอร์มสำเร็จรูป (มุมขวา) */}
+              <div className="ml-auto w-full sm:w-72 self-start">
+                <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
+                <ComboBox
+                  options={templateOptions}
+                  value={formTemplate}
+                  onChange={(id) => setFormTemplate(String(id))}
+                  buttonRef={refs.formTemplate}
+                />
+                {isTemplateActive && (
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                    ระบบล็อก <b>ประเภทสินค้า: ข้าวเปลือก</b> และ
+                    <b>{formTemplate === "1" ? " ข้าวหอมมะลิ" : formTemplate === "2" ? " ข้าวเหนียว" : " เมล็ดพันธุ์"}</b>
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+
 
           {/* วิธีชำระเงิน + วันที่ */}
           <div className="grid gap-4 md:grid-cols-3">

@@ -1,4 +1,4 @@
-// ✅ src/pages/Sales.jsx (เพิ่ม fid/fidOwner/fidRelationship + ปรับ payment ให้ถูกต้องทั้งไฟล์)
+// ✅ src/pages/Sales.jsx (เพิ่ม fid/fidOwner/fidRelationship + ปรับ payment + ใส่ฟอร์มสำเร็จรูปเหมือนหน้า Buy)
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api" // รวม Base URL, token, JSON ให้แล้ว
 
@@ -294,6 +294,15 @@ const Sales = () => {
   const [programOptions, setProgramOptions] = useState([])
   const [paymentOptions, setPaymentOptions] = useState([])
 
+  /** ▶︎ ฟอร์มสำเร็จรูป (Template) */
+  const templateOptions = [
+    { id: "0", label: "— ฟอร์มปกติ —" },
+    { id: "1", label: "รหัส 1 • ข้าวหอมมะลิ" },
+    { id: "2", label: "รหัส 2 • ข้าวเหนียว" },
+    { id: "3", label: "รหัส 3 • เมล็ดพันธุ์" },
+  ]
+  const [formTemplate, setFormTemplate] = useState("0") // "0" = ไม่ล็อก
+
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
     citizenId: "",
@@ -398,7 +407,17 @@ const Sales = () => {
     weighSlipNo: useRef(null),
     taxInvoiceNo: useRef(null),
     salesReceiptNo: useRef(null),
+    /** ตำแหน่งดรอปดาวฟอร์มสำเร็จรูป (มุมขวาบน) */
+    formTemplate: useRef(null),
   }
+
+  /** โหลดค่า Template ล่าสุดจาก localStorage */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("sales.formTemplate")
+      if (saved && ["0", "1", "2", "3"].includes(saved)) setFormTemplate(saved)
+    } catch {}
+  }, [])
 
   /** debounce */
   const debouncedCitizenId = useDebounce(customer.citizenId)
@@ -921,6 +940,49 @@ const Sales = () => {
     setOrder((prev) => ({ ...prev, [k]: v }))
   }
 
+  /** ---------- Template effects: ล็อกค่าอัตโนมัติ (เหมือนหน้า Buy) ---------- */
+  const isTemplateActive = formTemplate !== "0"
+
+  // เมื่อเปลี่ยน Template → บังคับเลือก "ประเภทสินค้า: ข้าวเปลือก"
+  useEffect(() => {
+    if (!isTemplateActive) return
+    if (productOptions.length === 0) return
+    const paddy = productOptions.find((o) => o.label.includes("ข้าวเปลือก"))
+    if (paddy && order.productId !== paddy.id) {
+      setOrder((p) => ({
+        ...p,
+        productId: paddy.id,
+        productName: paddy.label,
+        riceId: "",
+        riceType: "",
+        subriceId: "",
+        subriceName: "",
+      }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formTemplate, productOptions])
+
+  // เมื่อ riceOptions โหลดแล้ว → เลือกชนิดข้าวตาม Template
+  useEffect(() => {
+    if (!isTemplateActive) return
+    if (riceOptions.length === 0) return
+    const want =
+      formTemplate === "1" ? "หอมมะลิ"
+      : formTemplate === "2" ? "เหนียว"
+      : "พันธุ์" // รองรับทั้ง "เมล็ดพันธุ์/เมล็ดพันธ์"
+    const target = riceOptions.find((r) => r.label.includes(want))
+    if (target && order.riceId !== target.id) {
+      setOrder((p) => ({
+        ...p,
+        riceId: target.id,
+        riceType: target.label,
+        subriceId: "",
+        subriceName: "",
+      }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formTemplate, riceOptions])
+
   /** ---------- Validation ---------- */
   const validateAll = () => {
     const e = {}
@@ -1070,6 +1132,8 @@ const Sales = () => {
     }
 
     try {
+      // 💾 จำ Template ที่ผู้ใช้เลือกไว้
+      try { localStorage.setItem("sales.formTemplate", formTemplate) } catch {}
       // ✅ ใช้ endpoint ที่ตรงกับ “ขาย”
       await apiAuth(`/order/customers/save/sell`, { method: "POST", body: payload })
       alert("บันทึกออเดอร์ขายเรียบร้อย ✅")
@@ -1148,29 +1212,47 @@ const Sales = () => {
 
         {/* กล่องข้อมูลลูกค้า */}
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="mb-3 flex flex-wrap items-start gap-2">
             <h2 className="text-xl font-semibold">ข้อมูลลูกค้า</h2>
+
             {memberMeta.type === "member" ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
+              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60 self-start">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 สมาชิก • asso {memberMeta.assoId ?? "-"}
               </span>
             ) : customerFound === true && memberMeta.type === "customer" ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60">
+              <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60 self-start">
                 <span className="h-2 w-2 rounded-full bg-sky-500" />
                 ลูกค้าทั่วไป • asso {memberMeta.assoId ?? "-"}
               </span>
             ) : memberMeta.type === "customer" ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600">
+              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600 self-start">
                 <span className="h-2 w-2 rounded-full bg-slate-500" />
                 ลูกค้าทั่วไป (จะสร้างอัตโนมัติเมื่อบันทึก)
               </span>
             ) : (
-              <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60">
+              <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60 self-start">
                 <span className="h-2 w-2 rounded-full bg-amber-500" />
                 โปรดกรอกชื่อหรือเลขบัตรประชาชนเพื่อระบุสถานะ
               </span>
             )}
+
+            {/* ดรอปดาวฟอร์มสำเร็จรูป (มุมขวา) */}
+            <div className="ml-auto w-full sm:w-72 self-start">
+              <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
+              <ComboBox
+                options={templateOptions}
+                value={formTemplate}
+                onChange={(id) => setFormTemplate(String(id))}
+                buttonRef={refs.formTemplate}
+              />
+              {isTemplateActive && (
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                  ระบบล็อก <b>ประเภทสินค้า: ข้าวเปลือก</b> และ
+                  <b>{formTemplate === "1" ? " ข้าวหอมมะลิ" : formTemplate === "2" ? " ข้าวเหนียว" : " เมล็ดพันธุ์"}</b>
+                </p>
+              )}
+            </div>
           </div>
 
           {/* วิธีชำระเงิน + วันที่ (ย้ายขึ้นมาด้านบนให้เหมือนหน้า Buy) */}
@@ -1386,6 +1468,7 @@ const Sales = () => {
                 hintRed={!!missingHints.product}
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
+                disabled={isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
               />
               {errors.product && <p className={errorTextCls}>{errors.product}</p>}
             </div>
@@ -1405,7 +1488,7 @@ const Sales = () => {
                   }))
                 }}
                 placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId}
+                disabled={!order.productId || isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
                 error={!!errors.riceType}
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
@@ -1783,7 +1866,7 @@ const Sales = () => {
               { label: "เลขที่ใบชั่ง", value: order.weighSlipNo || "—" },
               { label: "ใบกำกับสินค้า(เชื่อ)", value: order.taxInvoiceNo || "—" },
               { label: "ใบรับเงิน(สด)", value: order.salesReceiptNo || "—" },
-              // ✅ แสดงค่า FID เพื่อดีบัก (ถ้าอยากซ่อนไว้ก็ลบสามบรรทัดนี้ได้)
+              // ✅ แสดงค่า FID เพื่อดีบัก (ลบสามบรรทัดนี้ได้ถ้าไม่อยากโชว์)
               { label: "FID (UI)", value: customer.fid || "—" },
               { label: "FID Owner (UI)", value: customer.fidOwner || "—" },
               { label: "FID Relationship (UI)", value: customer.fidRelationship || "—" },

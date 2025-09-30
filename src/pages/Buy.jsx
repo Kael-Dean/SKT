@@ -1475,7 +1475,7 @@ return (
 
           {/* ดรอปดาว: ประเภทผู้ซื้อ */}
           <div className="ml-auto w-full sm:w-64 self-start">
-            <label className={labelCls}>ประเภทธุซื้อ</label>
+            <label className={labelCls}>ประเภทผู้ซื้อ</label>
             <ComboBox
               options={buyerTypeOptions}
               value={buyerType}

@@ -1288,9 +1288,9 @@ const Sales = () => {
               </span>
             )}
 
-            {/* ประเภทผู้ซื้อ */}
+            {/* ประเภทผู้ขาย */}
             <div className="ml-auto w-full sm:w-64 self-start">
-              <label className={labelCls}>ประเภทผู้ซื้อ</label>
+              <label className={labelCls}>ประเภทผู้ขาย</label>
               <ComboBox
                 options={buyerTypeOptions}
                 value={buyerType}

@@ -19,6 +19,12 @@ function validateThaiCitizenId(id) {
   return check === Number(cid[12])
 }
 
+// ⭐ ใหม่: ตรวจความยาวเลขผู้เสียภาษี (ทั่วไป 13 หลัก)
+function validateThaiTaxId(tax) {
+  const tid = onlyDigits(tax)
+  return tid.length === 13
+}
+
 // debounce
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value)
@@ -327,8 +333,16 @@ const Buy = () => {
   ]
   const [formTemplate, setFormTemplate] = useState("0") // "0" = ไม่ล็อก
 
+  /** ⭐ ใหม่: ประเภทผู้ซื้อ */
+  const buyerTypeOptions = [
+    { id: "person", label: "บุคคลธรรมดา" },
+    { id: "company", label: "บริษัท / นิติบุคคล" },
+  ]
+  const [buyerType, setBuyerType] = useState("person")
+
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
+    // บุคคลธรรมดา
     citizenId: "",
     fullName: "",
     houseNo: "",
@@ -338,10 +352,29 @@ const Buy = () => {
     province: "",
     postalCode: "",
     phone: "",
-    // ⭐ เพิ่มตามแบ็กเอนด์ CCD
+    // CCD เพิ่ม
     fid: "",
     fidOwner: "",
     fidRelationship: "",
+
+    // ⭐ ใหม่: บริษัท / นิติบุคคล
+    companyName: "",
+    taxId: "",
+    companyPhone: "",
+    // HQ
+    hqHouseNo: "",
+    hqMoo: "",
+    hqSubdistrict: "",
+    hqDistrict: "",
+    hqProvince: "",
+    hqPostalCode: "",
+    // Branch (ถ้ามี)
+    brHouseNo: "",
+    brMoo: "",
+    brSubdistrict: "",
+    brDistrict: "",
+    brProvince: "",
+    brPostalCode: "",
   })
 
   /** เมตาสมาชิก/ลูกค้า */
@@ -391,6 +424,7 @@ const Buy = () => {
 
   /** ---------- Refs สำหรับ focus ---------- */
   const refs = {
+    // บุคคล
     citizenId: useRef(null),
     fullName: useRef(null),
     houseNo: useRef(null),
@@ -400,11 +434,29 @@ const Buy = () => {
     province: useRef(null),
     postalCode: useRef(null),
     phone: useRef(null),
-    // ⭐ ใหม่
+    // CCD
     fid: useRef(null),
     fidOwner: useRef(null),
     fidRelationship: useRef(null),
 
+    // ⭐ ใหม่: บริษัท
+    companyName: useRef(null),
+    taxId: useRef(null),
+    companyPhone: useRef(null),
+    hqHouseNo: useRef(null),
+    hqMoo: useRef(null),
+    hqSubdistrict: useRef(null),
+    hqDistrict: useRef(null),
+    hqProvince: useRef(null),
+    hqPostalCode: useRef(null),
+    brHouseNo: useRef(null),
+    brMoo: useRef(null),
+    brSubdistrict: useRef(null),
+    brDistrict: useRef(null),
+    brProvince: useRef(null),
+    brPostalCode: useRef(null),
+
+    // ออเดอร์
     product: useRef(null),
     riceType: useRef(null),
     subrice: useRef(null),
@@ -427,8 +479,12 @@ const Buy = () => {
     gram: useRef(null),
     comment: useRef(null),
     businessType: useRef(null),
+
     /** ตำแหน่งดรอปดาวฟอร์มสำเร็จรูป (มุมขวาบน) */
     formTemplate: useRef(null),
+
+    /** ⭐ ใหม่: ประเภทผู้ซื้อ */
+    buyerType: useRef(null),
   }
 
   /** โหลดค่า Template ล่าสุดจาก localStorage */
@@ -455,7 +511,7 @@ const Buy = () => {
     return Array.isArray(paths) ? [] : {}
   }
 
-  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id */
+  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id (เฉพาะบุคคลธรรมดา) */
   const loadAddressByCitizenId = async (cid) => {
     const q = encodeURIComponent(onlyDigits(cid))
     const candidates = [
@@ -481,7 +537,7 @@ const Buy = () => {
       type: data.type ?? undefined,
       asso_id: data.asso_id ?? data.assoId ?? undefined,
       phone: toStr(data.phone ?? data.tel ?? data.mobile ?? ""),
-      // ⭐ ใหม่
+      // CCD ใหม่
       fid: toStr(data.fid ?? ""),
       fidOwner: toStr(data.fid_owner ?? data.fidowner ?? ""),
       fidRelationship: toStr(data.fid_relationship ?? data.fidreationship ?? data.fid_rel ?? ""),
@@ -504,7 +560,7 @@ const Buy = () => {
         province: addr.province || prev.province,
         postalCode: addr.postalCode || prev.postalCode,
         phone: addr.phone || prev.phone,
-        // ⭐ เติมค่าที่ได้
+        // เติมค่า FID
         fid: addr.fid || prev.fid,
         fidOwner: addr.fidOwner || prev.fidOwner,
         fidRelationship: addr.fidRelationship || prev.fidRelationship,
@@ -695,7 +751,7 @@ const Buy = () => {
     loadKlang()
   }, [order.branchId, order.branchName])
 
-  /** map record -> UI */
+  /** map record -> UI (เฉพาะบุคคล) */
   const mapSimplePersonToUI = (r = {}) => {
     const toStr = (v) => (v == null ? "" : String(v))
     return {
@@ -712,14 +768,14 @@ const Buy = () => {
       province: toStr(r.province ?? ""),
       postalCode: onlyDigits(toStr(r.postal_code ?? r.postalCode ?? "")),
       phone: toStr(r.phone ?? r.tel ?? r.mobile ?? ""),
-      // ⭐ ใหม่
+      // CCD ใหม่
       fid: toStr(r.fid ?? ""),
       fidOwner: toStr(r.fid_owner ?? r.fidowner ?? ""),
       fidRelationship: toStr(r.fid_relationship ?? r.fidreationship ?? r.fid_rel ?? ""),
     }
   }
 
-  /** เติมจากเรคอร์ด */
+  /** เติมจากเรคอร์ด (เฉพาะบุคคล) */
   const fillFromRecord = async (raw = {}) => {
     const data = mapSimplePersonToUI(raw)
     setCustomer((prev) => ({
@@ -727,7 +783,7 @@ const Buy = () => {
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
       fullName: data.fullName || prev.fullName,
       phone: data.phone || prev.phone,
-      // ⭐ เติมค่า FID
+      // เติมค่า FID
       fid: data.fid || prev.fid,
       fidOwner: data.fidOwner || prev.fidOwner,
       fidRelationship: data.fidRelationship || prev.fidRelationship,
@@ -757,8 +813,13 @@ const Buy = () => {
     }
   }
 
-  /** ค้นหาด้วยเลขบัตร */
+  /** ค้นหาด้วยเลขบัตร — ข้ามเมื่อเป็นบริษัท */
   useEffect(() => {
+    if (buyerType !== "person") {
+      setCustomerFound(null)
+      setMemberMeta({ type: "unknown", assoId: null })
+      return
+    }
     const cid = onlyDigits(debouncedCitizenId)
     if (cid.length !== 13) {
       setCustomerFound(null)
@@ -786,10 +847,18 @@ const Buy = () => {
     }
     fetchByCid()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedCitizenId])
+  }, [debouncedCitizenId, buyerType])
 
-  /** ค้นหาด้วยชื่อ */
+  /** ค้นหาด้วยชื่อ — ข้ามเมื่อเป็นบริษัท */
   useEffect(() => {
+    if (buyerType !== "person") {
+      setShowNameList(false)
+      setNameResults([])
+      setHighlightedIndex(-1)
+      setMemberMeta({ type: "unknown", assoId: null })
+      return
+    }
+
     const q = (debouncedFullName || "").trim()
 
     if (suppressNameSearchRef.current) {
@@ -845,7 +914,7 @@ const Buy = () => {
     }
     searchByName()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedFullName])
+  }, [debouncedFullName, buyerType])
 
   /** ปิด dropdown ชื่อเมื่อคลิกนอกกล่อง */
   useEffect(() => {
@@ -966,14 +1035,27 @@ const Buy = () => {
   const redHintCls = (key) => (missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : "")
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
 
+  // ⭐ ปรับให้ตรวจตามประเภทผู้ซื้อ
   const computeMissingHints = () => {
     const m = {}
-    if (!customer.fullName.trim()) m.fullName = true
-    if (!customer.houseNo.trim()) m.houseNo = true
-    if (!customer.moo.trim()) m.moo = true
-    if (!customer.subdistrict.trim()) m.subdistrict = true
-    if (!customer.district.trim()) m.district = true
-    if (!customer.province.trim()) m.province = true
+
+    if (buyerType === "person") {
+      if (!customer.fullName.trim()) m.fullName = true
+      if (!customer.houseNo.trim()) m.houseNo = true
+      if (!customer.moo.trim()) m.moo = true
+      if (!customer.subdistrict.trim()) m.subdistrict = true
+      if (!customer.district.trim()) m.district = true
+      if (!customer.province.trim()) m.province = true
+    } else {
+      if (!customer.companyName.trim()) m.companyName = true
+      if (!customer.taxId.trim()) m.taxId = true
+      if (!customer.hqHouseNo.trim()) m.hqHouseNo = true
+      if (!customer.hqSubdistrict.trim()) m.hqSubdistrict = true
+      if (!customer.hqDistrict.trim()) m.hqDistrict = true
+      if (!customer.hqProvince.trim()) m.hqProvince = true
+      // ที่อยู่สาขาเป็นออปชัน — ไม่บังคับ
+    }
+
     if (!order.productId) m.product = true
     if (!order.riceId) m.riceType = true
     if (!order.subriceId) m.subrice = true
@@ -1029,7 +1111,7 @@ const Buy = () => {
     const want =
       formTemplate === "1" ? "หอมมะลิ"
       : formTemplate === "2" ? "เหนียว"
-      : "พันธุ์" // รองรับทั้ง "เมล็ดพันธุ์/เมล็ดพันธ์"
+      : "พันธุ์"
     const target = riceOptions.find((r) => r.label.includes(want))
     if (target && order.riceId !== target.id) {
       setOrder((p) => ({
@@ -1046,10 +1128,18 @@ const Buy = () => {
   /** ---------- Validation ---------- */
   const validateAll = () => {
     const e = {}
-    if (customer.citizenId && !validateThaiCitizenId(customer.citizenId))
-      e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
-    if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
-    if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
+
+    if (buyerType === "person") {
+      if (customer.citizenId && !validateThaiCitizenId(customer.citizenId))
+        e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
+      if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
+      if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
+    } else {
+      if (!customer.companyName.trim()) e.companyName = "กรุณากรอกชื่อบริษัท"
+      if (!customer.taxId.trim() || !validateThaiTaxId(customer.taxId)) e.taxId = "กรุณากรอกเลขผู้เสียภาษี (13 หลัก)"
+      if (!customer.hqSubdistrict || !customer.hqDistrict || !customer.hqProvince) e.hqAddress = "กรุณากรอกที่อยู่สำนักงานใหญ่ให้ครบ"
+    }
+
     if (!order.productId) e.product = "เลือกประเภทสินค้า"
     if (!order.riceId) e.riceType = "เลือกชนิดข้าว"
     if (!order.subriceId) e.subrice = "เลือกชั้นย่อย"
@@ -1067,16 +1157,25 @@ const Buy = () => {
     const amt = moneyToNumber(order.amountTHB)
     if (!amt || amt <= 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
+
     setErrors(e)
     return e
   }
 
   const scrollToFirstError = (eObj) => {
-    const orderKeys = [
-      "fullName","address","product","riceType","subrice","condition","fieldType","riceYear","businessType",
+    const personKeys = [
+      "fullName","address"
+    ]
+    const companyKeys = [
+      "companyName","taxId","hqAddress"
+    ]
+    const commonOrderKeys = [
+      "product","riceType","subrice","condition","fieldType","riceYear","businessType",
       "branchName","klangName","entryWeightKg","exitWeightKg","deductWeightKg","amountTHB","issueDate",
     ]
-    const firstKey = orderKeys.find((k) => k in eObj)
+
+    const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
+    const firstKey = keys.find((k) => k in eObj)
     if (!firstKey) return
     const keyToFocus =
       firstKey === "address"
@@ -1089,7 +1188,16 @@ const Buy = () => {
               : "subdistrict"
             : "moo"
           : "houseNo"
+      : firstKey === "hqAddress"
+        ? customer.hqHouseNo
+          ? customer.hqSubdistrict
+            ? customer.hqDistrict
+              ? "hqProvince"
+              : "hqDistrict"
+            : "hqSubdistrict"
+          : "hqHouseNo"
         : firstKey
+
     const el = refs[keyToFocus]?.current
     if (el && typeof el.focus === "function") {
       try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
@@ -1109,7 +1217,8 @@ const Buy = () => {
       return
     }
 
-    const [firstName, ...rest] = customer.fullName.trim().split(" ")
+    // แยกชื่อ (เฉพาะบุคคล)
+    const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
     const lastName = rest.join(" ")
 
     // แปลงเป็นตัวเลขให้ชัดเจน
@@ -1143,12 +1252,15 @@ const Buy = () => {
     // ส่ง date เป็น YYYY-MM-DD ตามหน้า UI
     const dateStr = order.issueDate
 
-    // ⭐ เตรียม FID
+    // CCD: FID
     const fidNum = /^\d+$/.test(customer.fid) ? Number(customer.fid) : null
     const fidRelNum = /^\d+$/.test(customer.fidRelationship) ? Number(customer.fidRelationship) : null
 
-    const payload = {
-      customer: {
+    // ⭐ สร้าง payload.customer ตามประเภทผู้ซื้อ
+    let customerPayload
+    if (buyerType === "person") {
+      customerPayload = {
+        type: "person",
         first_name: firstName || "",
         last_name: lastName || "",
         citizen_id: onlyDigits(customer.citizenId) || "",
@@ -1158,12 +1270,37 @@ const Buy = () => {
         district: customer.district.trim() || "",
         province: customer.province.trim() || "",
         postal_code: customer.postalCode ? String(customer.postalCode).trim() : "",
-        // ⭐ ส่งฟิลด์ใหม่เข้ากับแบ็กเอนด์ CCD
+        // CCD ฟิลด์ใหม่
         fid: fidNum,                                   // Optional[int]
         fid_owner: customer.fidOwner?.trim() || "",    // Optional[str]
         fid_relationship: fidRelNum,                   // Optional[int]
-      },
+        phone: customer.phone?.trim() || "",
+      }
+    } else {
+      customerPayload = {
+        type: "company",
+        company_name: customer.companyName.trim(),
+        tax_id: onlyDigits(customer.taxId),
+        phone: customer.companyPhone?.trim() || "",
+        // HQ
+        hq_address: customer.hqHouseNo.trim() || "",
+        hq_mhoo: customer.hqMoo.trim() || "",
+        hq_sub_district: customer.hqSubdistrict.trim() || "",
+        hq_district: customer.hqDistrict.trim() || "",
+        hq_province: customer.hqProvince.trim() || "",
+        hq_postal_code: customer.hqPostalCode ? String(customer.hqPostalCode).trim() : "",
+        // Branch (ถ้ามี)
+        br_address: customer.brHouseNo.trim() || "",
+        br_mhoo: customer.brMoo.trim() || "",
+        br_sub_district: customer.brSubdistrict.trim() || "",
+        br_district: customer.brDistrict.trim() || "",
+        br_province: customer.brProvince.trim() || "",
+        br_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
+      }
+    }
 
+    const payload = {
+      customer: customerPayload,
       order: {
         asso_id: memberMeta.assoId ?? null,
         product_id: productId,
@@ -1214,7 +1351,9 @@ const Buy = () => {
     setShowNameList(false)
     setHighlightedIndex(-1)
     setMemberMeta({ type: "unknown", assoId: null })
+
     setCustomer({
+      // บุคคล
       citizenId: "",
       fullName: "",
       houseNo: "",
@@ -1224,11 +1363,28 @@ const Buy = () => {
       province: "",
       postalCode: "",
       phone: "",
-      // ⭐ reset ฟิลด์ใหม่
+      // CCD reset
       fid: "",
       fidOwner: "",
       fidRelationship: "",
+      // บริษัท
+      companyName: "",
+      taxId: "",
+      companyPhone: "",
+      hqHouseNo: "",
+      hqMoo: "",
+      hqSubdistrict: "",
+      hqDistrict: "",
+      hqProvince: "",
+      hqPostalCode: "",
+      brHouseNo: "",
+      brMoo: "",
+      brSubdistrict: "",
+      brDistrict: "",
+      brProvince: "",
+      brPostalCode: "",
     })
+
     setOrder({
       productId: "",
       productName: "",
@@ -1265,93 +1421,117 @@ const Buy = () => {
       registeredPlace: "",
       comment: "",
     })
+
     setRiceOptions([])
     setSubriceOptions([])
     setKlangOptions([])
+
+    // ⭐ รีเซ็ตประเภทผู้ซื้อกลับเป็นบุคคล
+    setBuyerType("person")
   }
 
+
   /** ---------- UI ---------- */
-  return (
-    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
+return (
+  <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
+    <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
+      <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
 
-        {/* กล่องข้อมูลลูกค้า */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-            {/* แถบหัวข้อ + สถานะ + ดรอปดาวฟอร์ม */}
-            <div className="mb-3 flex flex-wrap items-start gap-2">
-              <h2 className="text-xl font-semibold">ข้อมูลลูกค้า</h2>
+      {/* กล่องข้อมูลลูกค้า */}
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+        {/* แถบหัวข้อ + สถานะ + ดรอปดาวฟอร์ม + ประเภทผู้ซื้อ */}
+        <div className="mb-3 flex flex-wrap items-start gap-2">
+          <h2 className="text-xl font-semibold">ข้อมูลลูกค้า</h2>
 
-              {memberMeta.type === "member" ? (
-                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60 self-start">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  สมาชิก • asso {memberMeta.assoId ?? "-"}
-                </span>
-              ) : customerFound === true && memberMeta.type === "customer" ? (
-                <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60 self-start">
-                  <span className="h-2 w-2 rounded-full bg-sky-500" />
-                  ลูกค้าทั่วไป • asso {memberMeta.assoId ?? "-"}
-                </span>
-              ) : memberMeta.type === "customer" ? (
-                <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600 self-start">
-                  <span className="h-2 w-2 rounded-full bg-slate-500" />
-                  ลูกค้าทั่วไป (จะสร้างอัตโนมัติเมื่อบันทึก)
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60 self-start">
-                  <span className="h-2 w-2 rounded-full bg-amber-500" />
-                  โปรดกรอกชื่อหรือเลขบัตรประชาชนเพื่อระบุสถานะ
-                </span>
-              )}
+          {/* Badge สถานะ — แสดงเฉพาะโหมดบุคคล */}
+          {buyerType === "person" ? (
+            memberMeta.type === "member" ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60 self-start">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                สมาชิก • asso {memberMeta.assoId ?? "-"}
+              </span>
+            ) : customerFound === true && memberMeta.type === "customer" ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60 self-start">
+                <span className="h-2 w-2 rounded-full bg-sky-500" />
+                ลูกค้าทั่วไป • asso {memberMeta.assoId ?? "-"}
+              </span>
+            ) : memberMeta.type === "customer" ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600 self-start">
+                <span className="h-2 w-2 rounded-full bg-slate-500" />
+                ลูกค้าทั่วไป (จะสร้างอัตโนมัติเมื่อบันทึก)
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60 self-start">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                โปรดกรอกชื่อหรือเลขบัตรประชาชนเพื่อระบุสถานะ
+              </span>
+            )
+          ) : (
+            <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-indigo-700 ring-1 ring-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-200 dark:ring-indigo-700/60 self-start">
+              <span className="h-2 w-2 rounded-full bg-indigo-500" />
+              บริษัท / นิติบุคคล
+            </span>
+          )}
 
-              {/* ดรอปดาวฟอร์มสำเร็จรูป (มุมขวา) */}
-              <div className="ml-auto w-full sm:w-72 self-start">
-                <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
-                <ComboBox
-                  options={templateOptions}
-                  value={formTemplate}
-                  onChange={(id) => setFormTemplate(String(id))}
-                  buttonRef={refs.formTemplate}
-                />
-                {isTemplateActive && (
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                    ระบบล็อก <b>ประเภทสินค้า: ข้าวเปลือก</b> และ
-                    <b>{formTemplate === "1" ? " ข้าวหอมมะลิ" : formTemplate === "2" ? " ข้าวเหนียว" : " เมล็ดพันธุ์"}</b>
-                  </p>
-                )}
-              </div>
-            </div>
-
-
-          {/* วิธีชำระเงิน + วันที่ */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <label className={labelCls}>วิธีชำระเงิน (ไม่บังคับ)</label>
-              <ComboBox
-                options={paymentOptions}
-                value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
-                onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
-                placeholder="— เลือกวิธีชำระเงิน —"
-                buttonRef={refs.payment}
-              />
-            </div>
-
-            <div>
-              <label className={labelCls}>ลงวันที่</label>
-              <DateInput
-                ref={refs.issueDate}
-                value={order.issueDate}
-                onChange={(e) => setOrder((p) => ({ ...p, issueDate: e.target.value }))}
-                onFocus={() => clearHint("issueDate")}
-                error={!!errors.issueDate}
-                className={redHintCls("issueDate")}
-                aria-invalid={errors.issueDate ? true : undefined}
-              />
-              {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
-            </div>
+          {/* ดรอปดาว: ประเภทผู้ซื้อ */}
+          <div className="ml-auto w-full sm:w-64 self-start">
+            <label className={labelCls}>ประเภทธุซื้อ</label>
+            <ComboBox
+              options={buyerTypeOptions}
+              value={buyerType}
+              onChange={(id) => setBuyerType(String(id))}
+              buttonRef={refs.buyerType}
+            />
           </div>
 
-          {/* ฟิลด์ลูกค้า */}
+          {/* ดรอปดาวฟอร์มสำเร็จรูป (มุมขวา) */}
+          <div className="w-full sm:w-72 self-start">
+            <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
+            <ComboBox
+              options={templateOptions}
+              value={formTemplate}
+              onChange={(id) => setFormTemplate(String(id))}
+              buttonRef={refs.formTemplate}
+            />
+            {isTemplateActive && (
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                ระบบล็อก <b>ประเภทสินค้า: ข้าวเปลือก</b> และ
+                <b>{formTemplate === "1" ? " ข้าวหอมมะลิ" : formTemplate === "2" ? " ข้าวเหนียว" : " เมล็ดพันธุ์"}</b>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* วิธีชำระเงิน + วันที่ */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className={labelCls}>วิธีชำระเงิน (ไม่บังคับ)</label>
+            <ComboBox
+              options={paymentOptions}
+              value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
+              onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
+              placeholder="— เลือกวิธีชำระเงิน —"
+              buttonRef={refs.payment}
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>ลงวันที่</label>
+            <DateInput
+              ref={refs.issueDate}
+              value={order.issueDate}
+              onChange={(e) => setOrder((p) => ({ ...p, issueDate: e.target.value }))}
+              onFocus={() => clearHint("issueDate")}
+              error={!!errors.issueDate}
+              className={redHintCls("issueDate")}
+              aria-invalid={errors.issueDate ? true : undefined}
+            />
+            {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
+          </div>
+        </div>
+
+        {/* ฟิลด์ลูกค้า — แยกตามประเภทผู้ซื้อ */}
+        {buyerType === "person" ? (
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div className="md:col-span-1">
               <label className={labelCls}>เลขที่บัตรประชาชน (13 หลัก)</label>
@@ -1510,7 +1690,7 @@ const Buy = () => {
               <p className={helpTextCls}>เก็บไว้ติดต่อภายหลัง (ยังไม่ส่งเข้า backend)</p>
             </div>
 
-            {/* ⭐ FID fields */}
+            {/* FID fields */}
             <div>
               <label className={labelCls}>เลขที่ทะเบียนเกษตรกร (FID)</label>
               <input
@@ -1549,512 +1729,677 @@ const Buy = () => {
               <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_relationship</code> (ตัวเลข)</p>
             </div>
           </div>
+        ) : (
+          /* -------------------- โหมดบริษัท / นิติบุคคล -------------------- */
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <div className="md:col-span-2">
+              <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
+              <input
+                ref={refs.companyName}
+                className={cx(baseField, redFieldCls("companyName"))}
+                value={customer.companyName}
+                onChange={(e) => updateCustomer("companyName", e.target.value)}
+                onFocus={() => clearError("companyName")}
+                placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
+                aria-invalid={errors.companyName ? true : undefined}
+              />
+              {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
+            </div>
+
+            <div>
+              <label className={labelCls}>เลขที่ผู้เสียภาษี (13 หลัก)</label>
+              <input
+                ref={refs.taxId}
+                inputMode="numeric"
+                maxLength={13}
+                className={cx(baseField, redFieldCls("taxId"))}
+                value={customer.taxId}
+                onChange={(e) => updateCustomer("taxId", onlyDigits(e.target.value))}
+                onFocus={() => clearError("taxId")}
+                placeholder="เช่น 0123456789012"
+                aria-invalid={errors.taxId ? true : undefined}
+              />
+              {errors.taxId ? (
+                <p className={errorTextCls}>{errors.taxId}</p>
+              ) : (
+                <p className={helpTextCls}>ใช้สำหรับออกเอกสารภาษี</p>
+              )}
+            </div>
+
+            <div>
+              <label className={labelCls}>เบอร์โทรบริษัท (ไม่บังคับ)</label>
+              <input
+                ref={refs.companyPhone}
+                inputMode="tel"
+                maxLength={20}
+                className={cx(baseField, compactInput)}
+                value={customer.companyPhone}
+                onChange={(e) => updateCustomer("companyPhone", e.target.value.replace(/[^\d+]/g, ""))}
+                placeholder="เช่น 021234567"
+              />
+            </div>
+
+            {/* สำนักงานใหญ่ (HQ) */}
+            <div className="md:col-span-3 mt-2">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="inline-flex h-2 w-2 rounded-full bg-indigo-500" />
+                <h3 className="font-semibold">ที่อยู่สำนักงานใหญ่ (HQ)</h3>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                {[
+                  ["hqHouseNo", "บ้านเลขที่", "เช่น 99/1"],
+                  ["hqMoo", "หมู่", "เช่น 4"],
+                  ["hqSubdistrict", "ตำบล", "เช่น หนองปลาไหล"],
+                  ["hqDistrict", "อำเภอ", "เช่น เมือง"],
+                  ["hqProvince", "จังหวัด", "เช่น ขอนแก่น"],
+                ].map(([k, label, ph]) => (
+                  <div key={k}>
+                    <label className={labelCls}>{label}</label>
+                    <input
+                      ref={refs[k]}
+                      className={cx(baseField, compactInput, errors.hqAddress && "border-amber-400", redHintCls(k))}
+                      value={customer[k]}
+                      onChange={(e) => updateCustomer(k, e.target.value)}
+                      onFocus={() => clearHint(k)}
+                      placeholder={ph}
+                      aria-invalid={errors.hqAddress ? true : undefined}
+                    />
+                  </div>
+                ))}
+
+                <div>
+                  <label className={labelCls}>รหัสไปรษณีย์ (HQ)</label>
+                  <input
+                    ref={refs.hqPostalCode}
+                    inputMode="numeric"
+                    maxLength={5}
+                    className={cx(baseField, compactInput)}
+                    value={customer.hqPostalCode}
+                    onChange={(e) => updateCustomer("hqPostalCode", onlyDigits(e.target.value))}
+                    placeholder="เช่น 10110"
+                  />
+                </div>
+              </div>
+              {errors.hqAddress && <p className={errorTextCls}>{errors.hqAddress}</p>}
+            </div>
+
+            {/* สำนักงานสาขา (ออปชัน) */}
+            <div className="md:col-span-3 mt-2">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="inline-flex h-2 w-2 rounded-full bg-sky-500" />
+                <h3 className="font-semibold">ที่อยู่สำนักงานสาขา (ถ้ามี)</h3>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                {[
+                  ["brHouseNo", "บ้านเลขที่ (สาขา)", "เช่น 10/2"],
+                  ["brMoo", "หมู่ (สาขา)", "เช่น 5"],
+                  ["brSubdistrict", "ตำบล (สาขา)", "เช่น บึงเนียม"],
+                  ["brDistrict", "อำเภอ (สาขา)", "เช่น เมือง"],
+                  ["brProvince", "จังหวัด (สาขา)", "เช่น ขอนแก่น"],
+                ].map(([k, label, ph]) => (
+                  <div key={k}>
+                    <label className={labelCls}>{label}</label>
+                    <input
+                      ref={refs[k]}
+                      className={cx(baseField, compactInput)}
+                      value={customer[k]}
+                      onChange={(e) => updateCustomer(k, e.target.value)}
+                      placeholder={ph}
+                    />
+                  </div>
+                ))}
+
+                <div>
+                  <label className={labelCls}>รหัสไปรษณีย์ (สาขา)</label>
+                  <input
+                    ref={refs.brPostalCode}
+                    inputMode="numeric"
+                    maxLength={5}
+                    className={cx(baseField, compactInput)}
+                    value={customer.brPostalCode}
+                    onChange={(e) => updateCustomer("brPostalCode", onlyDigits(e.target.value))}
+                    placeholder="เช่น 10220"
+                  />
+                </div>
+              </div>
+              <p className={helpTextCls}>หากไม่กรอก จะถือว่าใช้ที่อยู่สำนักงานใหญ่ในการออกเอกสาร</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ฟอร์มออเดอร์ */}
+      <form
+        onSubmit={handleSubmit}
+        className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+      >
+        <h2 className="mb-3 text-xl font-semibold">รายละเอียดการซื้อ</h2>
+
+        {/* เลือกประเภท/ปี/โปรแกรม/ธุรกิจ */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className={labelCls}>ประเภทสินค้า</label>
+            <ComboBox
+              options={productOptions}
+              value={order.productId}
+              onChange={(id, found) => {
+                setOrder((p) => ({
+                  ...p,
+                  productId: id,
+                  productName: found?.label ?? "",
+                  riceId: "",
+                  riceType: "",
+                  subriceId: "",
+                  subriceName: "",
+                }))
+              }}
+              placeholder="— เลือกประเภทสินค้า —"
+              error={!!errors.product}
+              hintRed={!!missingHints.product}
+              clearHint={() => clearHint("product")}
+              buttonRef={refs.product}
+              disabled={isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
+            />
+            {errors.product && <p className={errorTextCls}>{errors.product}</p>}
+          </div>
+
+          <div>
+            <label className={labelCls}>ชนิดข้าว</label>
+            <ComboBox
+              options={riceOptions}
+              value={order.riceId}
+              onChange={(id, found) => {
+                setOrder((p) => ({
+                  ...p,
+                  riceId: id,
+                  riceType: found?.label ?? "",
+                  subriceId: "",
+                  subriceName: "",
+                }))
+              }}
+              placeholder="— เลือกชนิดข้าว —"
+              disabled={!order.productId || isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
+              error={!!errors.riceType}
+              hintRed={!!missingHints.riceType}
+              clearHint={() => clearHint("riceType")}
+              buttonRef={refs.riceType}
+            />
+            {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
+          </div>
+
+          <div>
+            <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
+            <ComboBox
+              options={subriceOptions}
+              value={order.subriceId}
+              onChange={(id, found) => {
+                setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))
+              }}
+              placeholder="— เลือกชั้นย่อย —"
+              disabled={!order.riceId}
+              error={!!errors.subrice}
+              hintRed={!!missingHints.subrice}
+              clearHint={() => clearHint("subrice")}
+              buttonRef={refs.subrice}
+            />
+            {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
+          </div>
+
+          <div>
+            <label className={labelCls}>สภาพ/เงื่อนไข</label>
+            <ComboBox
+              options={conditionOptions}
+              value={order.conditionId}
+              getValue={(o) => o.id}
+              onChange={(_id, found) =>
+                setOrder((p) => ({
+                  ...p,
+                  conditionId: found?.id ?? "",
+                  condition: found?.label ?? "",
+                }))
+              }
+              placeholder="— เลือกสภาพ/เงื่อนไข —"
+              error={!!errors.condition}
+              hintRed={!!missingHints.condition}
+              clearHint={() => clearHint("condition")}
+              buttonRef={refs.condition}
+            />
+            {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
+          </div>
+
+          <div>
+            <label className={labelCls}>ประเภทนา</label>
+            <ComboBox
+              options={fieldTypeOptions}
+              value={order.fieldTypeId}
+              getValue={(o) => o.id}
+              onChange={(_id, found) =>
+                setOrder((p) => ({
+                  ...p,
+                  fieldTypeId: found?.id ?? "",
+                  fieldType: found?.label ?? "",
+                }))
+              }
+              placeholder="— เลือกประเภทนา —"
+              error={!!errors.fieldType}
+              hintRed={!!missingHints.fieldType}
+              clearHint={() => clearHint("fieldType")}
+              buttonRef={refs.fieldType}
+            />
+            {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
+          </div>
+
+          <div>
+            <label className={labelCls}>ปี/ฤดูกาล</label>
+            <ComboBox
+              options={yearOptions}
+              value={order.riceYearId}
+              getValue={(o) => o.id}
+              onChange={(_id, found) =>
+                setOrder((p) => ({
+                  ...p,
+                  riceYearId: found?.id ?? "",
+                  riceYear: found?.label ?? "",
+                }))
+              }
+              placeholder="— เลือกปี/ฤดูกาล —"
+              error={!!errors.riceYear}
+              hintRed={!!missingHints.riceYear}
+              clearHint={() => clearHint("riceYear")}
+              buttonRef={refs.riceYear}
+            />
+            {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
+          </div>
+
+          {/* ประเภทธุรกิจ */}
+          <div>
+            <label className={labelCls}>ประเภทธุรกิจ</label>
+            <ComboBox
+              options={businessOptions}
+              value={order.businessTypeId}
+              getValue={(o) => o.id}
+              onChange={(_id, found) =>
+                setOrder((p) => ({
+                  ...p,
+                  businessTypeId: found?.id ?? "",
+                  businessType: found?.label ?? "",
+                }))
+              }
+              placeholder="— เลือกประเภทธุรกิจ —"
+              error={!!errors.businessType}
+              hintRed={!!missingHints.businessType}
+              clearHint={() => clearHint("businessType")}
+              buttonRef={refs.businessType}
+            />
+            {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
+          </div>
+
+          <div>
+            <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
+            <ComboBox
+              options={programOptions}
+              value={programOptions.find((o) => o.label === order.program)?.id ?? ""}
+              onChange={(_id, found) => setOrder((p) => ({ ...p, program: found?.label ?? "" }))}
+              placeholder="— เลือกโปรแกรม —"
+              buttonRef={refs.program}
+            />
+          </div>
         </div>
 
-        {/* ฟอร์มออเดอร์ */}
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          <h2 className="mb-3 text-xl font-semibold">รายละเอียดการซื้อ</h2>
+        {/* สาขา + คลัง */}
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div>
+            <label className={labelCls}>สาขา</label>
+            <ComboBox
+              options={branchOptions}
+              value={order.branchId}
+              getValue={(o) => o.id}
+              onChange={(_val, found) => {
+                setOrder((p) => ({
+                  ...p,
+                  branchId: found?.id ?? null,
+                  branchName: found?.label ?? "",
+                  klangName: "",
+                  klangId: null,
+                }))
+              }}
+              placeholder="— เลือกสาขา —"
+              error={!!errors.branchName}
+              hintRed={!!missingHints.branchName}
+              clearHint={() => clearHint("branchName")}
+              buttonRef={refs.branchName}
+            />
+            {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
+          </div>
 
-          {/* เลือกประเภท/ปี/โปรแกรม/ธุรกิจ */}
+          <div>
+            <label className={labelCls}>คลัง</label>
+            <ComboBox
+              options={klangOptions}
+              value={order.klangId}
+              getValue={(o) => o.id}
+              onChange={(_val, found) => {
+                setOrder((p) => ({
+                  ...p,
+                  klangId: found?.id ?? null,
+                  klangName: found?.label ?? "",
+                }))
+              }}
+              placeholder="— เลือกคลัง —"
+              disabled={!order.branchId}
+              error={!!errors.klangName}
+              hintRed={!!missingHints.klangName}
+              clearHint={() => clearHint("klangName")}
+              buttonRef={refs.klangName}
+            />
+            {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
+          </div>
+        </div>
+
+        {/* กรอบตัวเลข */}
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-transparent dark:border-slate-700 dark:bg-slate-800">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            <h3 className="text-lg font-semibold">ตัวเลขและการคำนวณ</h3>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <label className={labelCls}>ประเภทสินค้า</label>
-              <ComboBox
-                options={productOptions}
-                value={order.productId}
-                onChange={(id, found) => {
-                  setOrder((p) => ({
-                    ...p,
-                    productId: id,
-                    productName: found?.label ?? "",
-                    riceId: "",
-                    riceType: "",
-                    subriceId: "",
-                    subriceName: "",
-                  }))
+              <label className={labelCls}>น้ำหนักก่อนชั่ง (กก.)</label>
+              <input
+                ref={refs.entryWeightKg}
+                inputMode="decimal"
+                className={cx(baseField, redFieldCls("entryWeightKg"))}
+                value={order.entryWeightKg}
+                onChange={(e) => updateOrder("entryWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                onFocus={() => {
+                  clearHint("entryWeightKg")
+                  clearError("entryWeightKg")
                 }}
-                placeholder="— เลือกประเภทสินค้า —"
-                error={!!errors.product}
-                hintRed={!!missingHints.product}
-                clearHint={() => clearHint("product")}
-                buttonRef={refs.product}
-                disabled={isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
+                placeholder="เช่น 12000"
+                aria-invalid={errors.entryWeightKg ? true : undefined}
               />
-              {errors.product && <p className={errorTextCls}>{errors.product}</p>}
+              {errors.entryWeightKg && <p className={errorTextCls}>{errors.entryWeightKg}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>ชนิดข้าว</label>
-              <ComboBox
-                options={riceOptions}
-                value={order.riceId}
-                onChange={(id, found) => {
-                  setOrder((p) => ({
-                    ...p,
-                    riceId: id,
-                    riceType: found?.label ?? "",
-                    subriceId: "",
-                    subriceName: "",
-                  }))
+              <label className={labelCls}>น้ำหนักหลังชั่ง (กก.)</label>
+              <input
+                ref={refs.exitWeightKg}
+                inputMode="decimal"
+                className={cx(baseField, redFieldCls("exitWeightKg"))}
+                value={order.exitWeightKg}
+                onChange={(e) => updateOrder("exitWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                onFocus={() => {
+                  clearHint("exitWeightKg")
+                  clearError("exitWeightKg")
                 }}
-                placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId || isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
-                error={!!errors.riceType}
-                hintRed={!!missingHints.riceType}
-                clearHint={() => clearHint("riceType")}
-                buttonRef={refs.riceType}
+                placeholder="เช่น 7000"
+                aria-invalid={errors.exitWeightKg ? true : undefined}
               />
-              {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
+              {errors.exitWeightKg && <p className={errorTextCls}>{errors.exitWeightKg}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
-              <ComboBox
-                options={subriceOptions}
-                value={order.subriceId}
-                onChange={(id, found) => {
-                  setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))
-                }}
-                placeholder="— เลือกชั้นย่อย —"
-                disabled={!order.riceId}
-                error={!!errors.subrice}
-                hintRed={!!missingHints.subrice}
-                clearHint={() => clearHint("subrice")}
-                buttonRef={refs.subrice}
-              />
-              {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
+              <label className={labelCls}>น้ำหนักจากตาชั่ง (กก.)</label>
+              <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(grossFromScale * 100) / 100} />
+              <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
             </div>
 
             <div>
-              <label className={labelCls}>สภาพ/เงื่อนไข</label>
-              <ComboBox
-                options={conditionOptions}
-                value={order.conditionId}
-                getValue={(o) => o.id}
-                onChange={(_id, found) =>
-                  setOrder((p) => ({
-                    ...p,
-                    conditionId: found?.id ?? "",
-                    condition: found?.label ?? "",
-                  }))
-                }
-                placeholder="— เลือกสภาพ/เงื่อนไข —"
-                error={!!errors.condition}
-                hintRed={!!missingHints.condition}
-                clearHint={() => clearHint("condition")}
-                buttonRef={refs.condition}
+              <label className={labelCls}>ความชื้น (%)</label>
+              <input
+                ref={refs.moisturePct}
+                inputMode="decimal"
+                className={cx(baseField)}
+                value={order.moisturePct}
+                onChange={(e) => updateOrder("moisturePct", onlyDigits(e.target.value))}
+                onFocus={() => clearHint("moisturePct")}
+                placeholder="เช่น 18"
               />
-              {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
+              <p className={helpTextCls}>มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
             </div>
 
             <div>
-              <label className={labelCls}>ประเภทนา</label>
-              <ComboBox
-                options={fieldTypeOptions}
-                value={order.fieldTypeId}
-                getValue={(o) => o.id}
-                onChange={(_id, found) =>
-                  setOrder((p) => ({
-                    ...p,
-                    fieldTypeId: found?.id ?? "",
-                    fieldType: found?.label ?? "",
-                  }))
-                }
-                placeholder="— เลือกประเภทนา —"
-                error={!!errors.fieldType}
-                hintRed={!!missingHints.fieldType}
-                clearHint={() => clearHint("fieldType")}
-                buttonRef={refs.fieldType}
-              />
-              {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>ปี/ฤดูกาล</label>
-              <ComboBox
-                options={yearOptions}
-                value={order.riceYearId}
-                getValue={(o) => o.id}
-                onChange={(_id, found) =>
-                  setOrder((p) => ({
-                    ...p,
-                    riceYearId: found?.id ?? "",
-                    riceYear: found?.label ?? "",
-                  }))
-                }
-                placeholder="— เลือกปี/ฤดูกาล —"
-                error={!!errors.riceYear}
-                hintRed={!!missingHints.riceYear}
-                clearHint={() => clearHint("riceYear")}
-                buttonRef={refs.riceYear}
-              />
-              {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
-            </div>
-
-            {/* ประเภทธุรกิจ */}
-            <div>
-              <label className={labelCls}>ประเภทธุรกิจ</label>
-              <ComboBox
-                options={businessOptions}
-                value={order.businessTypeId}
-                getValue={(o) => o.id}
-                onChange={(_id, found) =>
-                  setOrder((p) => ({
-                    ...p,
-                    businessTypeId: found?.id ?? "",
-                    businessType: found?.label ?? "",
-                  }))
-                }
-                placeholder="— เลือกประเภทธุรกิจ —"
-                error={!!errors.businessType}
-                hintRed={!!missingHints.businessType}
-                clearHint={() => clearHint("businessType")}
-                buttonRef={refs.businessType}
-              />
-              {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
-              <ComboBox
-                options={programOptions}
-                value={programOptions.find((o) => o.label === order.program)?.id ?? ""}
-                onChange={(_id, found) => setOrder((p) => ({ ...p, program: found?.label ?? "" }))}
-                placeholder="— เลือกโปรแกรม —"
-                buttonRef={refs.program}
+              <label className={labelCls}>สิ่งเจือปน (%)</label>
+              <input
+                ref={refs.impurityPct}
+                inputMode="decimal"
+                className={cx(baseField)}
+                value={order.impurityPct}
+                onChange={(e) => updateOrder("impurityPct", onlyDigits(e.target.value))}
+                onFocus={() => clearHint("impurityPct")}
+                placeholder="เช่น 2"
               />
             </div>
-          </div>
 
-          {/* สาขา + คลัง */}
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <div>
-              <label className={labelCls}>สาขา</label>
-              <ComboBox
-                options={branchOptions}
-                value={order.branchId}
-                getValue={(o) => o.id}
-                onChange={(_val, found) => {
-                  setOrder((p) => ({
-                    ...p,
-                    branchId: found?.id ?? null,
-                    branchName: found?.label ?? "",
-                    klangName: "",
-                    klangId: null,
-                  }))
-                }}
-                placeholder="— เลือกสาขา —"
-                error={!!errors.branchName}
-                hintRed={!!missingHints.branchName}
-                clearHint={() => clearHint("branchName")}
-                buttonRef={refs.branchName}
-              />
-              {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>คลัง</label>
-              <ComboBox
-                options={klangOptions}
-                value={order.klangId}
-                getValue={(o) => o.id}
-                onChange={(_val, found) => {
-                  setOrder((p) => ({
-                    ...p,
-                    klangId: found?.id ?? null,
-                    klangName: found?.label ?? "",
-                  }))
-                }}
-                placeholder="— เลือกคลัง —"
-                disabled={!order.branchId}
-                error={!!errors.klangName}
-                hintRed={!!missingHints.klangName}
-                clearHint={() => clearHint("klangName")}
-                buttonRef={refs.klangName}
-              />
-              {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
-            </div>
-          </div>
-
-          {/* กรอบตัวเลข */}
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-transparent dark:border-slate-700 dark:bg-slate-800">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              <h3 className="text-lg font-semibold">ตัวเลขและการคำนวณ</h3>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <label className={labelCls}>น้ำหนักก่อนชั่ง (กก.)</label>
-                <input
-                  ref={refs.entryWeightKg}
-                  inputMode="decimal"
-                  className={cx(baseField, redFieldCls("entryWeightKg"))}
-                  value={order.entryWeightKg}
-                  onChange={(e) => updateOrder("entryWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => {
-                    clearHint("entryWeightKg")
-                    clearError("entryWeightKg")
-                  }}
-                  placeholder="เช่น 12000"
-                  aria-invalid={errors.entryWeightKg ? true : undefined}
-                />
-                {errors.entryWeightKg && <p className={errorTextCls}>{errors.entryWeightKg}</p>}
+            {/* หักน้ำหนัก */}
+            <div className="">
+              <div className="flex items-center justify-between">
+                <label className={labelCls}>หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)</label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={order.manualDeduct}
+                    onChange={(e) => updateOrder("manualDeduct", e.target.checked)}
+                  />
+                  กำหนดเอง
+                </label>
               </div>
-
-              <div>
-                <label className={labelCls}>น้ำหนักหลังชั่ง (กก.)</label>
-                <input
-                  ref={refs.exitWeightKg}
-                  inputMode="decimal"
-                  className={cx(baseField, redFieldCls("exitWeightKg"))}
-                  value={order.exitWeightKg}
-                  onChange={(e) => updateOrder("exitWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => {
-                    clearHint("exitWeightKg")
-                    clearError("exitWeightKg")
-                  }}
-                  placeholder="เช่น 7000"
-                  aria-invalid={errors.exitWeightKg ? true : undefined}
-                />
-                {errors.exitWeightKg && <p className={errorTextCls}>{errors.exitWeightKg}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>น้ำหนักจากตาชั่ง (กก.)</label>
-                <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(grossFromScale * 100) / 100} />
-                <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
-              </div>
-
-              <div>
-                <label className={labelCls}>ความชื้น (%)</label>
-                <input
-                  ref={refs.moisturePct}
-                  inputMode="decimal"
-                  className={cx(baseField)}
-                  value={order.moisturePct}
-                  onChange={(e) => updateOrder("moisturePct", onlyDigits(e.target.value))}
-                  onFocus={() => clearHint("moisturePct")}
-                  placeholder="เช่น 18"
-                />
-                <p className={helpTextCls}>มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
-              </div>
-
-              <div>
-                <label className={labelCls}>สิ่งเจือปน (%)</label>
-                <input
-                  ref={refs.impurityPct}
-                  inputMode="decimal"
-                  className={cx(baseField)}
-                  value={order.impurityPct}
-                  onChange={(e) => updateOrder("impurityPct", onlyDigits(e.target.value))}
-                  onFocus={() => clearHint("impurityPct")}
-                  placeholder="เช่น 2"
-                />
-              </div>
-
-              {/* หักน้ำหนัก */}
-              <div className="">
-                <div className="flex items-center justify-between">
-                  <label className={labelCls}>หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)</label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={order.manualDeduct}
-                      onChange={(e) => updateOrder("manualDeduct", e.target.checked)}
-                    />
-                    กำหนดเอง
-                  </label>
-                </div>
-                <input
-                  ref={refs.deductWeightKg}
-                  inputMode="decimal"
-                  disabled={!order.manualDeduct}
-                  className={cx(
-                    baseField,
-                    !order.manualDeduct && fieldDisabled,
-                    errors.deductWeightKg && "border-red-400",
-                    order.manualDeduct && redHintCls("deductWeightKg")
-                  )}
-                  value={
-                    order.manualDeduct
-                      ? order.deductWeightKg
-                      : String(
-                          Math.round(
-                            suggestDeductionWeight(grossFromScale, order.moisturePct, order.impurityPct) * 100
-                          ) / 100
-                        )
-                  }
-                  onChange={(e) => updateOrder("deductWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => clearHint("deductWeightKg")}
-                  placeholder="ระบบคำนวณให้ หรือกำหนดเอง"
-                  aria-invalid={errors.deductWeightKg ? true : undefined}
-                />
-                {errors.deductWeightKg && <p className={errorTextCls}>{errors.deductWeightKg}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
-                <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(netWeight * 100) / 100} />
-              </div>
-
-              <div>
-                <label className={labelCls}>คุณภาพข้าว (gram)</label>
-                <input
-                  ref={refs.gram}
-                  inputMode="numeric"
-                  className={baseField}
-                  value={order.gram}
-                  onChange={(e) => updateOrder("gram", onlyDigits(e.target.value))}
-                  placeholder="เช่น 85"
-                />
-              </div>
-
-              <div>
-                <label className={labelCls}>ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
-                <input
-                  ref={refs.unitPrice}
-                  inputMode="decimal"
-                  className={baseField}
-                  value={order.unitPrice}
-                  onChange={(e) => updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => clearHint("unitPrice")}
-                  placeholder="เช่น 12.50"
-                />
-                <p className={helpTextCls}>ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
-              </div>
-
-              <div>
-                <label className={labelCls}>เป็นเงิน (บาท)</label>
-                <input
-                  ref={refs.amountTHB}
-                  inputMode="decimal"
-                  className={cx(baseField, redFieldCls("amountTHB"))}
-                  value={order.amountTHB}
-                  onChange={(e) => updateOrder("amountTHB", formatMoneyInput(e.target.value))}
-                  onFocus={() => {
-                    clearHint("amountTHB")
-                    clearError("amountTHB")
-                  }}
-                  placeholder="เช่น 60,000"
-                  aria-invalid={errors.amountTHB ? true : undefined}
-                />
-                {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(moneyToNumber(order.amountTHB))}</p>}
-                {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>เลขที่ใบสำคัญจ่ายเงิน</label>
-                <input
-                  ref={refs.paymentRefNo}
-                  className={baseField}
-                  value={order.paymentRefNo}
-                  onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
-                  onFocus={() => clearHint("paymentRefNo")}
-                  placeholder="เช่น A-2025-000123"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* สรุป */}
-          <div className="mt-6 grid gap-4 md:grid-cols-5">
-            {[
-              { label: "ลงวันที่", value: order.issueDate || "—" },
-              { label: "วิธีชำระเงิน", value: order.paymentMethod || "—" },
-              { label: "สินค้า", value: order.productName || "—" },
-              { label: "ชนิดข้าว", value: order.riceType || "—" },
-              { label: "ชั้นย่อย", value: order.subriceName || "—" },
-              { label: "เงื่อนไข", value: order.condition || "—" },
-              { label: "ประเภทนา", value: order.fieldType || "—" },
-              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
-              { label: "ประเภทธุรกิจ", value: order.businessType || "—" },
-              {
-                label: "สาขา / คลัง",
-                value: (
-                  <ul className="list-disc pl-5">
-                    <li>{order.branchName || "—"}</li>
-                    {order.klangName && <li>{order.klangName}</li>}
-                  </ul>
-                ),
-              },
-              { label: "ก่อนชั่ง", value: Math.round(toNumber(order.entryWeightKg) * 100) / 100 + " กก." },
-              { label: "หลังชั่ง", value: Math.round(toNumber(order.exitWeightKg) * 100) / 100 + " กก." },
-              { label: "จากตาชั่ง", value: Math.round(grossFromScale * 100) / 100 + " กก." },
-              { label: "หัก (ความชื้น+สิ่งเจือปน)", value: Math.round(toNumber(autoDeduct) * 100) / 100 + " กก." },
-              { label: "สุทธิ", value: Math.round(netWeight * 100) / 100 + " กก." },
-              {
-                label: "ราคาต่อหน่วย",
-                value: order.unitPrice ? `${Number(order.unitPrice).toFixed(2)} บาท/กก.` : "—",
-              },
-              { label: "ยอดเงิน", value: order.amountTHB ? thb(moneyToNumber(order.amountTHB)) : "—" },
-              { label: "หมายเหตุ / คอมเมนต์", value: order.comment || "—" },
-            ].map((c) => (
-              <div
-                key={c.label}
-                className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
-              >
-                <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
-                {typeof c.value === "string" ? (
-                  <div className="text-lg md:text-xl font-semibold whitespace-pre-line">{c.value}</div>
-                ) : (
-                  <div className="text-lg md:text-xl font-semibold">{c.value}</div>
+              <input
+                ref={refs.deductWeightKg}
+                inputMode="decimal"
+                disabled={!order.manualDeduct}
+                className={cx(
+                  baseField,
+                  !order.manualDeduct && fieldDisabled,
+                  errors.deductWeightKg && "border-red-400",
+                  order.manualDeduct && redHintCls("deductWeightKg")
                 )}
+                value={
+                  order.manualDeduct
+                    ? order.deductWeightKg
+                    : String(
+                        Math.round(
+                          suggestDeductionWeight(grossFromScale, order.moisturePct, order.impurityPct) * 100
+                        ) / 100
+                      )
+                }
+                onChange={(e) => updateOrder("deductWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                onFocus={() => clearHint("deductWeightKg")}
+                placeholder="ระบบคำนวณให้ หรือกำหนดเอง"
+                aria-invalid={errors.deductWeightKg ? true : undefined}
+              />
+              {errors.deductWeightKg && <p className={errorTextCls}>{errors.deductWeightKg}</p>}
+            </div>
+
+            <div>
+              <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
+              <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(netWeight * 100) / 100} />
+            </div>
+
+            <div>
+              <label className={labelCls}>คุณภาพข้าว (gram)</label>
+              <input
+                ref={refs.gram}
+                inputMode="numeric"
+                className={baseField}
+                value={order.gram}
+                onChange={(e) => updateOrder("gram", onlyDigits(e.target.value))}
+                placeholder="เช่น 85"
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
+              <input
+                ref={refs.unitPrice}
+                inputMode="decimal"
+                className={baseField}
+                value={order.unitPrice}
+                onChange={(e) => updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
+                onFocus={() => clearHint("unitPrice")}
+                placeholder="เช่น 12.50"
+              />
+              <p className={helpTextCls}>ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
+            </div>
+
+            <div>
+              <label className={labelCls}>เป็นเงิน (บาท)</label>
+              <input
+                ref={refs.amountTHB}
+                inputMode="decimal"
+                className={cx(baseField, redFieldCls("amountTHB"))}
+                value={order.amountTHB}
+                onChange={(e) => updateOrder("amountTHB", formatMoneyInput(e.target.value))}
+                onFocus={() => {
+                  clearHint("amountTHB")
+                  clearError("amountTHB")
+                }}
+                placeholder="เช่น 60,000"
+                aria-invalid={errors.amountTHB ? true : undefined}
+              />
+              {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(moneyToNumber(order.amountTHB))}</p>}
+              {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
+            </div>
+
+            <div>
+              <label className={labelCls}>เลขที่ใบสำคัญจ่ายเงิน</label>
+              <input
+                ref={refs.paymentRefNo}
+                className={baseField}
+                value={order.paymentRefNo}
+                onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
+                onFocus={() => clearHint("paymentRefNo")}
+                placeholder="เช่น A-2025-000123"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* สรุป */}
+        <div className="mt-6 grid gap-4 md:grid-cols-5">
+          {/* ผู้ซื้อ */}
+          {buyerType === "person" ? (
+            <>
+              <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                <div className="text-slate-600 dark:text-slate-300">ผู้ซื้อ</div>
+                <div className="text-lg md:text-xl font-semibold whitespace-pre-line">
+                  {customer.fullName || "—"}
+                </div>
               </div>
-            ))}
-          </div>
+              <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                <div className="text-slate-600 dark:text-slate-300">เลขบัตรประชาชน</div>
+                <div className="text-lg md:text-xl font-semibold">{customer.citizenId || "—"}</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                <div className="text-slate-600 dark:text-slate-300">บริษัท/นิติบุคคล</div>
+                <div className="text-lg md:text-xl font-semibold">{customer.companyName || "—"}</div>
+              </div>
+              <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                <div className="text-slate-600 dark:text-slate-300">เลขที่ผู้เสียภาษี</div>
+                <div className="text-lg md:text-xl font-semibold">{customer.taxId || "—"}</div>
+              </div>
+            </>
+          )}
 
-          {/* หมายเหตุ */}
-          <div className="mt-6">
-            <label className={labelCls}>หมายเหตุ / คอมเมนต์ (ไม่บังคับ)</label>
-            <textarea
-              ref={refs.comment}
-              rows={3}
-              className={cx(baseField)}
-              value={order.comment}
-              onChange={(e) => updateOrder("comment", e.target.value)}
-              placeholder="เช่น ลูกค้าขอรับเงินโอนพรุ่งนี้, ความชื้นวัดซ้ำรอบบ่าย, ฯลฯ"
-            />
-            <p className={helpTextCls}>ข้อความนี้จะถูกส่งไปเก็บในออเดอร์ด้วย</p>
-          </div>
-
-          {/* ปุ่ม */}
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center rounded-2xl 
-                    bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                    shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                    transition-all duration-300 ease-out
-                    hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                    hover:scale-[1.05] active:scale-[.97] cursor-pointer"
+          {[
+            { label: "ลงวันที่", value: order.issueDate || "—" },
+            { label: "วิธีชำระเงิน", value: order.paymentMethod || "—" },
+            { label: "สินค้า", value: order.productName || "—" },
+            { label: "ชนิดข้าว", value: order.riceType || "—" },
+            { label: "ชั้นย่อย", value: order.subriceName || "—" },
+            { label: "เงื่อนไข", value: order.condition || "—" },
+            { label: "ประเภทนา", value: order.fieldType || "—" },
+            { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
+            { label: "ประเภทธุรกิจ", value: order.businessType || "—" },
+            {
+              label: "สาขา / คลัง",
+              value: (
+                <ul className="list-disc pl-5">
+                  <li>{order.branchName || "—"}</li>
+                  {order.klangName && <li>{order.klangName}</li>}
+                </ul>
+              ),
+            },
+            { label: "ก่อนชั่ง", value: Math.round(toNumber(order.entryWeightKg) * 100) / 100 + " กก." },
+            { label: "หลังชั่ง", value: Math.round(toNumber(order.exitWeightKg) * 100) / 100 + " กก." },
+            { label: "จากตาชั่ง", value: Math.round(grossFromScale * 100) / 100 + " กก." },
+            { label: "หัก (ความชื้น+สิ่งเจือปน)", value: Math.round(toNumber(autoDeduct) * 100) / 100 + " กก." },
+            { label: "สุทธิ", value: Math.round(netWeight * 100) / 100 + " กก." },
+            {
+              label: "ราคาต่อหน่วย",
+              value: order.unitPrice ? `${Number(order.unitPrice).toFixed(2)} บาท/กก.` : "—",
+            },
+            { label: "ยอดเงิน", value: order.amountTHB ? thb(moneyToNumber(order.amountTHB)) : "—" },
+            { label: "หมายเหตุ / คอมเมนต์", value: order.comment || "—" },
+          ].map((c) => (
+            <div
+              key={c.label}
+              className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
             >
-              บันทึกออเดอร์
-            </button>
+              <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
+              {typeof c.value === "string" ? (
+                <div className="text-lg md:text-xl font-semibold whitespace-pre-line">{c.value}</div>
+              ) : (
+                <div className="text-lg md:text-xl font-semibold">{c.value}</div>
+              )}
+            </div>
+          ))}
+        </div>
 
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center justify-center rounded-2xl 
-              border border-slate-300 bg-white px-6 py-3 text-base font-medium 
-              text-slate-700 dark:text-white
-              shadow-sm
-              transition-all duration-300 ease-out
-              hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-              active:scale-[.97]
-              dark:border-slate-600 dark:bg-slate-700/60 
-              dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
-            >
-              รีเซ็ต
-            </button>
-          </div>
-        </form>
-      </div>
+        {/* หมายเหตุ */}
+        <div className="mt-6">
+          <label className={labelCls}>หมายเหตุ / คอมเมนต์ (ไม่บังคับ)</label>
+          <textarea
+            ref={refs.comment}
+            rows={3}
+            className={cx(baseField)}
+            value={order.comment}
+            onChange={(e) => updateOrder("comment", e.target.value)}
+            placeholder="เช่น ลูกค้าขอรับเงินโอนพรุ่งนี้, ความชื้นวัดซ้ำรอบบ่าย, ฯลฯ"
+          />
+          <p className={helpTextCls}>ข้อความนี้จะถูกส่งไปเก็บในออเดอร์ด้วย</p>
+        </div>
+
+        {/* ปุ่ม */}
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center rounded-2xl 
+                  bg-emerald-600 px-6 py-3 text-base font-semibold text-white
+                  shadow-[0_6px_16px_rgba(16,185,129,0.35)]
+                  transition-all duration-300 ease-out
+                  hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
+                  hover:scale-[1.05] active:scale-[.97] cursor-pointer"
+          >
+            บันทึกออเดอร์
+          </button>
+
+          <button
+            type="button"
+            onClick={handleReset}
+            className="inline-flex items-center justify-center rounded-2xl 
+            border border-slate-300 bg-white px-6 py-3 text-base font-medium 
+            text-slate-700 dark:text-white
+            shadow-sm
+            transition-all duration-300 ease-out
+            hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
+            active:scale-[.97]
+            dark:border-slate-600 dark:bg-slate-700/60 
+            dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+          >
+            รีเซ็ต
+          </button>
+        </div>
+      </form>
     </div>
-  )
+  </div>
+)
+
 }
 
 export default Buy

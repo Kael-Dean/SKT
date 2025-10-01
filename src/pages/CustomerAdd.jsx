@@ -110,15 +110,12 @@ const CustomerAdd = () => {
   }
   const topRef = useRef(null)
 
-  // ฟอร์ม (ส่งเฉพาะฟิลด์ที่ Back รับใน /member/customers/signup)
+  // ฟอร์ม (ส่งทุกอินพุตที่ Backend รองรับใน /member/customers/signup)
   const [form, setForm] = useState({
-    // UI-only (ไม่ส่ง)
+    // UI-only (ยังเก็บไว้ได้ แต่อย่าส่งขึ้น Backend)
     slowdown_rice: false,
-    fid: "",
-    fid_owner: "",
-    fid_relationship: "",
 
-    // ลูกค้าทั่วไป (จะ map -> CustomerCreate)
+    // ลูกค้าทั่วไป (map -> CustomerCreate)
     citizen_id: "",
     full_name: "",
     address: "",
@@ -128,6 +125,11 @@ const CustomerAdd = () => {
     province: "",
     postal_code: "",
     phone_number: "",
+
+    // เพิ่ม: กลุ่ม FID ให้ส่งขึ้น Backend ด้วย
+    fid: "",
+    fid_owner: "",
+    fid_relationship: "",
   })
 
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
@@ -246,6 +248,7 @@ const CustomerAdd = () => {
     if (!form.district.trim()) e.district = "กรุณากรอกอำเภอ"
     if (!form.province.trim()) e.province = "กรุณากรอกจังหวัด"
 
+    // ถ้ามีค่า ให้เป็นตัวเลข
     ;["postal_code", "fid", "fid_relationship"].forEach((k) => {
       if (form[k] !== "" && isNaN(Number(form[k]))) e[k] = "ต้องเป็นตัวเลข"
     })
@@ -286,34 +289,31 @@ const CustomerAdd = () => {
 
     const { first_name, last_name } = splitName(form.full_name)
 
-    // payload ต้องตรง CustomerCreate ของ Back
+    // ส่งทุกอินพุตที่ Backend รองรับ (CustomerCreate)
     const payload = {
       first_name,
       last_name,
       citizen_id: onlyDigits(form.citizen_id),
       address: form.address.trim(),
-      mhoo: form.mhoo.trim() || null,
+      mhoo: (form.mhoo ?? "").toString().trim() || "",
       sub_district: form.sub_district.trim(),
       district: form.district.trim(),
       province: form.province.trim(),
-      subprov: null, // ไม่มีฟิลด์ในฟอร์ม
-      postal_code: form.postal_code ? Number(form.postal_code) : null,
+      postal_code: form.postal_code !== "" ? Number(form.postal_code) : null,
       phone_number: form.phone_number.trim() || null,
-      sex: null,
-      bank_account: null,
-      tgs_id: null,
-      spouce_name: null,
-      orders_placed: 0,
+
+      // ✅ เพิ่มกลุ่ม FID (optional ทั้งหมด)
+      fid: form.fid !== "" ? Number(form.fid) : null,
+      fid_owner: form.fid_owner.trim() || null,
+      fid_relationship: form.fid_relationship !== "" ? Number(form.fid_relationship) : null,
     }
 
     try {
-      const res = await apiAuth(`/member/customers/signup`, { method: "POST", body: payload })
-      // สำเร็จ
+      await apiAuth(`/member/customers/signup`, { method: "POST", body: payload })
       alert("บันทึกข้อมูลลูกค้าทั่วไปเรียบร้อย ✅")
       handleReset()
     } catch (err) {
       console.error(err)
-      // พยายามอ่านข้อความ error จากแบ็กเอนด์ (HTTPException.detail / IntegrityError)
       const msg =
         (err && err.detail) ||
         (typeof err?.message === "string" ? err.message : "") ||
@@ -562,7 +562,7 @@ const CustomerAdd = () => {
                 />
               </div>
 
-              {/* บล็อก FID (UI-only) */}
+              {/* บล็อก FID (ส่งขึ้น Back ได้) */}
               <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
                 {/* fid */}
                 <div>
@@ -578,7 +578,6 @@ const CustomerAdd = () => {
                     aria-invalid={errors.fid ? true : undefined}
                   />
                   {errors.fid && <p className={errorTextCls}>{errors.fid}</p>}
-                  <p className={helpTextCls}>* ช่องนี้ไม่ถูกส่งไปตอนสมัครลูกค้าใหม่</p>
                 </div>
 
                 {/* fid_owner */}
@@ -591,7 +590,6 @@ const CustomerAdd = () => {
                     onChange={(e) => update("fid_owner", e.target.value)}
                     placeholder="เช่น นายสมหมาย นามดี"
                   />
-                  <p className={helpTextCls}>* ช่องนี้ไม่ถูกส่งไปตอนสมัครลูกค้าใหม่</p>
                 </div>
 
                 {/* fid_relationship */}
@@ -608,7 +606,6 @@ const CustomerAdd = () => {
                     aria-invalid={errors.fid_relationship ? true : undefined}
                   />
                   {errors.fid_relationship && <p className={errorTextCls}>{errors.fid_relationship}</p>}
-                  <p className={helpTextCls}>* ช่องนี้ไม่ถูกส่งไปตอนสมัครลูกค้าใหม่</p>
                 </div>
               </div>
             </div>

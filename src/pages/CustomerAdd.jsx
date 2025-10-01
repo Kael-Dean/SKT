@@ -400,7 +400,7 @@ const CustomerAdd = () => {
             <div className="grid gap-3 md:grid-cols-3">
               <label
                 className={cx(
-                  "group relative flex items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all",
+                  "group relative flex w-full items-center justify-center gap-4 text-center cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all",
                   "border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-700/40",
                   "shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
                   "hover:border-emerald-300/70 dark:hover:border-emerald-400/40",
@@ -430,7 +430,7 @@ const CustomerAdd = () => {
                   checked={!!form.slowdown_rice}
                   onChange={(e) => update("slowdown_rice", e.target.checked)}
                 />
-                <span className="text-slate-800 dark:text-slate-100 text-[15px] md:text-base font-medium">
+                <span className="text-slate-800 dark:text-slate-100 text-[15px] md:text-base font-medium text-center">
                   โครงการชะลอข้าวเปลือก
                 </span>
                 <span
@@ -573,7 +573,7 @@ const CustomerAdd = () => {
                 {errors.postal_code && <p className={errorTextCls}>{errors.postal_code}</p>}
               </div>
 
-              {/* phone_number */}
+              {/* phone_number (อยู่ที่เดิม ขนาดเท่าเดิม) */}
               <div>
                 <label className={labelCls}>เบอร์โทรศัพท์</label>
                 <input
@@ -586,51 +586,54 @@ const CustomerAdd = () => {
                 />
               </div>
 
-              {/* fid */}
-              <div>
-                <label className={labelCls}>เลขที่ทะเบียนเกษตรกร (FID)</label>
-                <input
-                  ref={refs.fid}
-                  inputMode="numeric"
-                  className={cx(baseField, errors.fid && fieldError)}
-                  value={form.fid}
-                  onChange={(e) => { clearError("fid"); update("fid", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("fid")}
-                  placeholder="ตัวเลข เช่น 123456"
-                  aria-invalid={errors.fid ? true : undefined}
-                />
-                {errors.fid && <p className={errorTextCls}>{errors.fid}</p>}
-                <p className={helpTextCls}>ถ้ามี จะส่งไปเก็บที่ฟิลด์ <code>fid</code></p>
-              </div>
+              {/* ทำให้ FID ทั้งสามช่องย้ายไป “บรรทัดล่างสุด” โดยบังคับขึ้นแถวใหม่ */}
+              <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
+                {/* fid */}
+                <div>
+                  <label className={labelCls}>เลขที่ทะเบียนเกษตรกร (FID)</label>
+                  <input
+                    ref={refs.fid}
+                    inputMode="numeric"
+                    className={cx(baseField, errors.fid && fieldError)}
+                    value={form.fid}
+                    onChange={(e) => { clearError("fid"); update("fid", onlyDigits(e.target.value)) }}
+                    onFocus={() => clearError("fid")}
+                    placeholder="ตัวเลข เช่น 123456"
+                    aria-invalid={errors.fid ? true : undefined}
+                  />
+                  {errors.fid && <p className={errorTextCls}>{errors.fid}</p>}
+                  <p className={helpTextCls}>ถ้ามี จะส่งไปเก็บที่ฟิลด์ <code>fid</code></p>
+                </div>
 
-              {/* fid_owner */}
-              <div>
-                <label className={labelCls}>ชื่อทะเบียนเกษตรกร (FID Owner)</label>
-                <input
-                  ref={refs.fid_owner}
-                  className={baseField}
-                  value={form.fid_owner}
-                  onChange={(e) => update("fid_owner", e.target.value)}
-                  placeholder="เช่น นายสมหมาย นามดี"
-                />
-                <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_owner</code></p>
-              </div>
+                {/* fid_owner */}
+                <div>
+                  <label className={labelCls}>ชื่อทะเบียนเกษตรกร (FID Owner)</label>
+                  <input
+                    ref={refs.fid_owner}
+                    className={baseField}
+                    value={form.fid_owner}
+                    onChange={(e) => update("fid_owner", e.target.value)}
+                    placeholder="เช่น นายสมหมาย นามดี"
+                  />
+                  <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_owner</code></p>
+                </div>
 
-              {/* fid_relationship */}
-              <div>
-                <label className={labelCls}>ความสัมพันธ์ (FID Relationship)</label>
-                <input
-                  ref={refs.fid_relationship}
-                  inputMode="numeric"
-                  className={cx(baseField, errors.fid_relationship && fieldError)}
-                  value={form.fid_relationship}
-                  onChange={(e) => { clearError("fid_relationship"); update("fid_relationship", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("fid_relationship")}
-                  placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
-                  aria-invalid={errors.fid_relationship ? true : undefined}
-                />
-                {errors.fid_relationship && <p className={errorTextCls}>{errors.fid_relationship}</p>}
-                <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_relationship</code> (ตัวเลข)</p>
+                {/* fid_relationship */}
+                <div>
+                  <label className={labelCls}>ความสัมพันธ์ (FID Relationship)</label>
+                  <input
+                    ref={refs.fid_relationship}
+                    inputMode="numeric"
+                    className={cx(baseField, errors.fid_relationship && fieldError)}
+                    value={form.fid_relationship}
+                    onChange={(e) => { clearError("fid_relationship"); update("fid_relationship", onlyDigits(e.target.value)) }}
+                    onFocus={() => clearError("fid_relationship")}
+                    placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
+                    aria-invalid={errors.fid_relationship ? true : undefined}
+                  />
+                  {errors.fid_relationship && <p className={errorTextCls}>{errors.fid_relationship}</p>}
+                  <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_relationship</code> (ตัวเลข)</p>
+                </div>
               </div>
             </div>
 

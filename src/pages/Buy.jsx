@@ -303,6 +303,17 @@ const Buy = () => {
   const [nameResults, setNameResults] = useState([])
   const [showNameList, setShowNameList] = useState(false)
 
+  // ▼ ใส่ใกล้ ๆ nameResults/showNameList ของบุคคล
+  const [companyResults, setCompanyResults] = useState([])
+  const [showCompanyList, setShowCompanyList] = useState(false)
+  const companyBoxRef = useRef(null)
+  const companyInputRef = useRef(null)
+  const companySuppressSearchRef = useRef(false)
+  const [companyHighlighted, setCompanyHighlighted] = useState(-1)
+  const companyListRef = useRef(null)
+  const companyItemRefs = useRef([])
+
+
   const nameBoxRef = useRef(null)
   const nameInputRef = useRef(null)
   const suppressNameSearchRef = useRef(false)
@@ -499,6 +510,10 @@ const Buy = () => {
   const debouncedCitizenId = useDebounce(customer.citizenId)
   const debouncedFullName = useDebounce(customer.fullName)
 
+  const debouncedCompanyName = useDebounce(customer.companyName)
+  const debouncedTaxId = useDebounce(customer.taxId)
+
+
   /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอ (ใช้ apiAuth) */
   const fetchFirstOkJson = async (paths = []) => {
     for (const p of paths) {
@@ -569,6 +584,60 @@ const Buy = () => {
       if (addr.asso_id) setMemberMeta((m) => ({ ...m, assoId: addr.asso_id }))
     }
   }
+   
+      const mapCompanyToUI = (r = {}) => {
+      const S = (v) => (v == null ? "" : String(v))
+      return {
+        assoId: r.asso_id ?? r.assoId ?? null,
+        companyName: S(r.company_name ?? r.companyName ?? ""),
+        taxId: onlyDigits(S(r.tax_id ?? r.taxId ?? "")),
+        phone: S(r.phone_number ?? r.phone ?? ""),
+
+        // HQ
+        hqHouseNo: S(r.hq_address ?? r.hqAddress ?? ""),
+        hqMoo: S(r.hq_moo ?? r.hqMoo ?? ""),
+        hqSubdistrict: S(r.hq_tambon ?? r.hqSubdistrict ?? ""),
+        hqDistrict: S(r.hq_amphur ?? r.hqDistrict ?? ""),
+        hqProvince: S(r.hq_province ?? r.hqProvince ?? ""),
+        hqPostalCode: onlyDigits(S(r.hq_postal_code ?? r.hqPostalCode ?? "")),
+
+        // Branch (optional)
+        brHouseNo: S(r.branch_address ?? r.branchAddress ?? ""),
+        brMoo: S(r.branch_moo ?? r.branchMoo ?? ""),
+        brSubdistrict: S(r.branch_tambon ?? r.brSubdistrict ?? ""),
+        brDistrict: S(r.branch_amphur ?? r.brDistrict ?? ""),
+        brProvince: S(r.branch_province ?? r.brProvince ?? ""),
+        brPostalCode: onlyDigits(S(r.branch_postal_code ?? r.brPostalCode ?? "")),
+      }
+    }
+
+    const pickCompanyResult = async (rec) => {
+      companySuppressSearchRef.current = true
+      const data = mapCompanyToUI(rec)
+      setCustomer((prev) => ({
+        ...prev,
+        companyName: data.companyName || prev.companyName,
+        taxId: data.taxId || prev.taxId,
+        companyPhone: data.phone || prev.companyPhone,
+        hqHouseNo: data.hqHouseNo || prev.hqHouseNo,
+        hqMoo: data.hqMoo || prev.hqMoo,
+        hqSubdistrict: data.hqSubdistrict || prev.hqSubdistrict,
+        hqDistrict: data.hqDistrict || prev.hqDistrict,
+        hqProvince: data.hqProvince || prev.hqProvince,
+        hqPostalCode: data.hqPostalCode || prev.hqPostalCode,
+        brHouseNo: data.brHouseNo || prev.brHouseNo,
+        brMoo: data.brMoo || prev.brMoo,
+        brSubdistrict: data.brSubdistrict || prev.brSubdistrict,
+        brDistrict: data.brDistrict || prev.brDistrict,
+        brProvince: data.brProvince || prev.brProvince,
+        brPostalCode: data.brPostalCode || prev.brPostalCode,
+      }))
+      setMemberMeta({ type: "company", assoId: data.assoId ?? null })
+      setShowCompanyList(false)
+      setCompanyResults([])
+      setCompanyHighlighted(-1)
+    }
+
 
   /** โหลด dropdown ชุดแรก + branch */
   useEffect(() => {
@@ -675,6 +744,118 @@ const Buy = () => {
     loadStaticDD()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  
+  // ปิด dropdown เมื่อคลิกนอกกล่อง
+useEffect(() => {
+  const onClick = (e) => {
+    if (!companyBoxRef.current) return
+    if (!companyBoxRef.current.contains(e.target)) {
+      setShowCompanyList(false)
+      setCompanyHighlighted(-1)
+    }
+  }
+  document.addEventListener("click", onClick)
+  return () => document.removeEventListener("click", onClick)
+}, [])
+
+// trigger ค้นหาจากชื่อบริษัท (เฉพาะโหมด company)
+useEffect(() => {
+  if (buyerType !== "company") {
+    setShowCompanyList(false)
+    setCompanyResults([])
+    setCompanyHighlighted(-1)
+    return
+  }
+
+  const q = (debouncedCompanyName || "").trim()
+  if (companySuppressSearchRef.current) {
+    companySuppressSearchRef.current = false
+    setShowCompanyList(false)
+    setCompanyResults([])
+    setCompanyHighlighted(-1)
+    return
+  }
+  if (q.length < 2) {
+    setCompanyResults([])
+    setShowCompanyList(false)
+    setCompanyHighlighted(-1)
+    return
+  }
+
+  const searchCompany = async () => {
+    try {
+      setLoadingCustomer(true)
+      const items = (await apiAuth(`/order/companies/search?q=${encodeURIComponent(q)}`)) || []
+      // backend ส่งฟิลด์ตามสัญญาใหม่แล้ว (company_name, tax_id, phone_number, hq_*, branch_*)
+      setCompanyResults(items)
+      if (document.activeElement === companyInputRef.current) {
+        setShowCompanyList(true)
+        setCompanyHighlighted(items.length > 0 ? 0 : -1)
+      }
+    } catch (err) {
+      console.error(err)
+      setCompanyResults([])
+      setShowCompanyList(false)
+      setCompanyHighlighted(-1)
+    } finally {
+      setLoadingCustomer(false)
+    }
+  }
+  searchCompany()
+}, [debouncedCompanyName, buyerType])
+
+// ค้นหาจากเลขภาษี (ช่วยกรณีพิมพ์เลขอย่างเดียว)
+useEffect(() => {
+  if (buyerType !== "company") return
+  const tid = onlyDigits(debouncedTaxId)
+  if (tid.length !== 13) return
+  const searchByTax = async () => {
+    try {
+      setLoadingCustomer(true)
+      const items = (await apiAuth(`/order/companies/search?q=${encodeURIComponent(tid)}`)) || []
+      if (items.length > 0) {
+        await pickCompanyResult(items[0]) // auto-fill บริษัทเมื่อภาษีตรงเป๊ะ
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoadingCustomer(false)
+    }
+  }
+  searchByTax()
+}, [debouncedTaxId, buyerType])
+
+// คีย์บอร์ดนำทางลิสต์บริษัท
+const handleCompanyKeyDown = async (e) => {
+  if (!showCompanyList || companyResults.length === 0) return
+  if (e.key === "ArrowDown") {
+    e.preventDefault()
+    const next = companyHighlighted < companyResults.length - 1 ? companyHighlighted + 1 : 0
+    setCompanyHighlighted(next)
+    requestAnimationFrame(() => {
+      const el = companyItemRefs.current[next]
+      try { el?.scrollIntoView({ block: "nearest" }) } catch {}
+    })
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault()
+    const prev = companyHighlighted > 0 ? companyHighlighted - 1 : companyResults.length - 1
+    setCompanyHighlighted(prev)
+    requestAnimationFrame(() => {
+      const el = companyItemRefs.current[prev]
+      try { el?.scrollIntoView({ block: "nearest" }) } catch {}
+    })
+  } else if (e.key === "Enter") {
+    e.preventDefault()
+    if (companyHighlighted >= 0 && companyHighlighted < companyResults.length) {
+      await pickCompanyResult(companyResults[companyHighlighted])
+    }
+  } else if (e.key === "Escape") {
+    e.preventDefault()
+    setShowCompanyList(false)
+    setCompanyHighlighted(-1)
+  }
+}
+
 
   /** เมื่อเลือก product → โหลด rice */
   useEffect(() => {
@@ -812,6 +993,7 @@ const Buy = () => {
       await loadAddressByCitizenId(cid)
     }
   }
+
 
   /** ค้นหาด้วยเลขบัตร — ข้ามเมื่อเป็นบริษัท */
   useEffect(() => {
@@ -1256,11 +1438,11 @@ const Buy = () => {
     const fidNum = /^\d+$/.test(customer.fid) ? Number(customer.fid) : null
     const fidRelNum = /^\d+$/.test(customer.fidRelationship) ? Number(customer.fidRelationship) : null
 
-    // ⭐ สร้าง payload.customer ตามประเภทผู้ซื้อ
+    // ⭐ สร้าง payload.customer ตามประเภทผู้ซื้อ (ตรง backend)
     let customerPayload
     if (buyerType === "person") {
       customerPayload = {
-        type: "person",
+        party_type: "individual",
         first_name: firstName || "",
         last_name: lastName || "",
         citizen_id: onlyDigits(customer.citizenId) || "",
@@ -1270,62 +1452,63 @@ const Buy = () => {
         district: customer.district.trim() || "",
         province: customer.province.trim() || "",
         postal_code: customer.postalCode ? String(customer.postalCode).trim() : "",
-        // CCD ฟิลด์ใหม่
-        fid: fidNum,                                   // Optional[int]
-        fid_owner: customer.fidOwner?.trim() || "",    // Optional[str]
-        fid_relationship: fidRelNum,                   // Optional[int]
-        phone: customer.phone?.trim() || "",
+        phone_number: customer.phone?.trim() || "",
+        // CCD ใหม่
+        fid: fidNum,                                // Optional[int]
+        fid_owner: customer.fidOwner?.trim() || "", // Optional[str]
+        fid_relationship: fidRelNum,                // Optional[int]
       }
     } else {
       customerPayload = {
-        type: "company",
+        party_type: "company",
         company_name: customer.companyName.trim(),
         tax_id: onlyDigits(customer.taxId),
-        phone: customer.companyPhone?.trim() || "",
+        phone_number: customer.companyPhone?.trim() || "",
         // HQ
         hq_address: customer.hqHouseNo.trim() || "",
-        hq_mhoo: customer.hqMoo.trim() || "",
-        hq_sub_district: customer.hqSubdistrict.trim() || "",
-        hq_district: customer.hqDistrict.trim() || "",
+        hq_moo: customer.hqMoo.trim() || "",
+        hq_tambon: customer.hqSubdistrict.trim() || "",
+        hq_amphur: customer.hqDistrict.trim() || "",
         hq_province: customer.hqProvince.trim() || "",
         hq_postal_code: customer.hqPostalCode ? String(customer.hqPostalCode).trim() : "",
-        // Branch (ถ้ามี)
-        br_address: customer.brHouseNo.trim() || "",
-        br_mhoo: customer.brMoo.trim() || "",
-        br_sub_district: customer.brSubdistrict.trim() || "",
-        br_district: customer.brDistrict.trim() || "",
-        br_province: customer.brProvince.trim() || "",
-        br_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
+        // Branch (optional)
+        branch_address: customer.brHouseNo.trim() || "",
+        branch_moo: customer.brMoo.trim() || "",
+        branch_tambon: customer.brSubdistrict.trim() || "",
+        branch_amphur: customer.brDistrict.trim() || "",
+        branch_province: customer.brProvince.trim() || "",
+        branch_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
       }
     }
 
+
     const payload = {
-      customer: customerPayload,
-      order: {
-        asso_id: memberMeta.assoId ?? null,
-        product_id: productId,
-        rice_id: riceId,
-        subrice_id: subriceId,
-        rice_year: riceYearId,
-        field_type: fieldTypeId,
-        condition: conditionId,
-        program: programId ?? null,
-        humidity: Number(order.moisturePct || 0),
-        entry_weight: Number(order.entryWeightKg || 0),
-        exit_weight: Number(order.exitWeightKg || 0),
-        weight: Number(netW),
-        price_per_kilo: Number(order.unitPrice || 0),
-        price: Number(moneyToNumber(order.amountTHB) || 0),
-        impurity: Number(order.impurityPct || 0),
-        order_serial: order.paymentRefNo.trim() || null,
-        date: dateStr,
-        branch_location: branchId,
-        klang_location: klangId,
-        gram: Number(order.gram || 0),
-        comment: order.comment?.trim() || null,
-        business_type: businessTypeId,
-      },
-    }
+    customer: customerPayload,
+    order: {
+      asso_id: memberMeta.assoId ?? null,
+      product_id: productId,
+      rice_id: riceId,
+      subrice_id: subriceId,
+      rice_year: riceYearId,
+      field_type: fieldTypeId,
+      condition: conditionId,
+      program: programId ?? null,                       // << ใช้ id
+      humidity: Number(order.moisturePct || 0),
+      entry_weight: Number(order.entryWeightKg || 0),
+      exit_weight: Number(order.exitWeightKg || 0),
+      weight: Number(netW),
+      price_per_kilo: Number(order.unitPrice || 0),
+      price: Number(moneyToNumber(order.amountTHB) || 0),
+      impurity: Number(order.impurityPct || 0),
+      order_serial: order.paymentRefNo.trim() || null,
+      date: dateStr,
+      branch_location: branchId,
+      klang_location: klangId,
+      gram: Number(order.gram || 0),
+      comment: order.comment?.trim() || null,
+      business_type: businessTypeId,
+    },
+  }
 
     try {
       await post("/order/customers/save/buy", payload)
@@ -1731,140 +1914,87 @@ return (
           </div>
         ) : (
           /* -------------------- โหมดบริษัท / นิติบุคคล -------------------- */
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-2">
-              <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
-              <input
-                ref={refs.companyName}
-                className={cx(baseField, redFieldCls("companyName"))}
-                value={customer.companyName}
-                onChange={(e) => updateCustomer("companyName", e.target.value)}
-                onFocus={() => clearError("companyName")}
-                placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
-                aria-invalid={errors.companyName ? true : undefined}
-              />
-              {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
+          <div className="md:col-span-2" ref={companyBoxRef}>
+          <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
+          <input
+            ref={(el) => {
+              refs.companyName.current = el
+              companyInputRef.current = el
+            }}
+            className={cx(baseField, redFieldCls("companyName"))}
+            value={customer.companyName}
+            onChange={(e) => {
+              updateCustomer("companyName", e.target.value)
+              if (buyerType === "company") {
+                if (e.target.value.trim().length >= 2) setShowCompanyList(true)
+                else {
+                  setShowCompanyList(false)
+                  setCompanyHighlighted(-1)
+                }
+              }
+            }}
+            onFocus={() => clearError("companyName")}
+            onKeyDown={handleCompanyKeyDown}
+            placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
+            aria-expanded={showCompanyList}
+            aria-controls="company-results"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-invalid={errors.companyName ? true : undefined}
+          />
+          {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
+
+          {buyerType === "company" && showCompanyList && companyResults.length > 0 && (
+            <div
+              id="company-results"
+              ref={companyListRef}
+              className={
+                "mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm " +
+                "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              }
+              role="listbox"
+            >
+              {companyResults.map((r, idx) => {
+                const isActive = idx === companyHighlighted
+                const name = r.company_name ?? r.companyName ?? "(ไม่มีชื่อ)"
+                const tid = r.tax_id ?? "-"
+                return (
+                  <button
+                    type="button"
+                    ref={(el) => (companyItemRefs.current[idx] = el)}
+                    key={`${r.asso_id}-${tid}-${idx}`}
+                    onClick={async () => await pickCompanyResult(r)}
+                    onMouseEnter={() => {
+                      setCompanyHighlighted(idx)
+                      requestAnimationFrame(() => {
+                        try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch {}
+                      })
+                    }}
+                    role="option"
+                    aria-selected={isActive}
+                    className={cx(
+                      "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
+                      isActive
+                        ? "bg-indigo-100 ring-1 ring-indigo-300 dark:bg-indigo-400/20 dark:ring-indigo-500"
+                        : "hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                    )}
+                  >
+                    {isActive && (
+                      <span className="absolute left-0 top-0 h-full w-1 bg-indigo-600 dark:bg-indigo-400/70 rounded-l-xl" />
+                    )}
+                    <div className="flex-1">
+                      <div className="font-medium">{name}</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-300">
+                        ภาษี {tid} • โทร {r.phone_number ?? "-"}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
+          )}
+        </div>
 
-            <div>
-              <label className={labelCls}>เลขที่ผู้เสียภาษี (13 หลัก)</label>
-              <input
-                ref={refs.taxId}
-                inputMode="numeric"
-                maxLength={13}
-                className={cx(baseField, redFieldCls("taxId"))}
-                value={customer.taxId}
-                onChange={(e) => updateCustomer("taxId", onlyDigits(e.target.value))}
-                onFocus={() => clearError("taxId")}
-                placeholder="เช่น 0123456789012"
-                aria-invalid={errors.taxId ? true : undefined}
-              />
-              {errors.taxId ? (
-                <p className={errorTextCls}>{errors.taxId}</p>
-              ) : (
-                <p className={helpTextCls}>ใช้สำหรับออกเอกสารภาษี</p>
-              )}
-            </div>
-
-            <div>
-              <label className={labelCls}>เบอร์โทรบริษัท (ไม่บังคับ)</label>
-              <input
-                ref={refs.companyPhone}
-                inputMode="tel"
-                maxLength={20}
-                className={cx(baseField, compactInput)}
-                value={customer.companyPhone}
-                onChange={(e) => updateCustomer("companyPhone", e.target.value.replace(/[^\d+]/g, ""))}
-                placeholder="เช่น 021234567"
-              />
-            </div>
-
-            {/* สำนักงานใหญ่ (HQ) */}
-            <div className="md:col-span-3 mt-2">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="inline-flex h-2 w-2 rounded-full bg-indigo-500" />
-                <h3 className="font-semibold">ที่อยู่สำนักงานใหญ่ (HQ)</h3>
-              </div>
-              <div className="grid gap-4 md:grid-cols-3">
-                {[
-                  ["hqHouseNo", "บ้านเลขที่", "เช่น 99/1"],
-                  ["hqMoo", "หมู่", "เช่น 4"],
-                  ["hqSubdistrict", "ตำบล", "เช่น หนองปลาไหล"],
-                  ["hqDistrict", "อำเภอ", "เช่น เมือง"],
-                  ["hqProvince", "จังหวัด", "เช่น ขอนแก่น"],
-                ].map(([k, label, ph]) => (
-                  <div key={k}>
-                    <label className={labelCls}>{label}</label>
-                    <input
-                      ref={refs[k]}
-                      className={cx(baseField, compactInput, errors.hqAddress && "border-amber-400", redHintCls(k))}
-                      value={customer[k]}
-                      onChange={(e) => updateCustomer(k, e.target.value)}
-                      onFocus={() => clearHint(k)}
-                      placeholder={ph}
-                      aria-invalid={errors.hqAddress ? true : undefined}
-                    />
-                  </div>
-                ))}
-
-                <div>
-                  <label className={labelCls}>รหัสไปรษณีย์ (HQ)</label>
-                  <input
-                    ref={refs.hqPostalCode}
-                    inputMode="numeric"
-                    maxLength={5}
-                    className={cx(baseField, compactInput)}
-                    value={customer.hqPostalCode}
-                    onChange={(e) => updateCustomer("hqPostalCode", onlyDigits(e.target.value))}
-                    placeholder="เช่น 10110"
-                  />
-                </div>
-              </div>
-              {errors.hqAddress && <p className={errorTextCls}>{errors.hqAddress}</p>}
-            </div>
-
-            {/* สำนักงานสาขา (ออปชัน) */}
-            <div className="md:col-span-3 mt-2">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="inline-flex h-2 w-2 rounded-full bg-sky-500" />
-                <h3 className="font-semibold">ที่อยู่สำนักงานสาขา (ถ้ามี)</h3>
-              </div>
-              <div className="grid gap-4 md:grid-cols-3">
-                {[
-                  ["brHouseNo", "บ้านเลขที่ (สาขา)", "เช่น 10/2"],
-                  ["brMoo", "หมู่ (สาขา)", "เช่น 5"],
-                  ["brSubdistrict", "ตำบล (สาขา)", "เช่น บึงเนียม"],
-                  ["brDistrict", "อำเภอ (สาขา)", "เช่น เมือง"],
-                  ["brProvince", "จังหวัด (สาขา)", "เช่น ขอนแก่น"],
-                ].map(([k, label, ph]) => (
-                  <div key={k}>
-                    <label className={labelCls}>{label}</label>
-                    <input
-                      ref={refs[k]}
-                      className={cx(baseField, compactInput)}
-                      value={customer[k]}
-                      onChange={(e) => updateCustomer(k, e.target.value)}
-                      placeholder={ph}
-                    />
-                  </div>
-                ))}
-
-                <div>
-                  <label className={labelCls}>รหัสไปรษณีย์ (สาขา)</label>
-                  <input
-                    ref={refs.brPostalCode}
-                    inputMode="numeric"
-                    maxLength={5}
-                    className={cx(baseField, compactInput)}
-                    value={customer.brPostalCode}
-                    onChange={(e) => updateCustomer("brPostalCode", onlyDigits(e.target.value))}
-                    placeholder="เช่น 10220"
-                  />
-                </div>
-              </div>
-              <p className={helpTextCls}>หากไม่กรอก จะถือว่าใช้ที่อยู่สำนักงานใหญ่ในการออกเอกสาร</p>
-            </div>
-          </div>
         )}
       </div>
 
@@ -2036,13 +2166,22 @@ return (
 
           <div>
             <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
+            // ... ในฟอร์มออเดอร์ (ส่วน UI) แก้ block โปรแกรมเป็นแบบนี้:
             <ComboBox
               options={programOptions}
-              value={programOptions.find((o) => o.label === order.program)?.id ?? ""}
-              onChange={(_id, found) => setOrder((p) => ({ ...p, program: found?.label ?? "" }))}
+              value={order.programId}                 // << เดิมเทียบจาก label
+              getValue={(o) => o.id}
+              onChange={(_id, found) =>
+                setOrder((p) => ({
+                  ...p,
+                  programId: found?.id ?? "",
+                  programName: found?.label ?? "",
+                }))
+              }
               placeholder="— เลือกโปรแกรม —"
               buttonRef={refs.program}
             />
+
           </div>
         </div>
 

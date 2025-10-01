@@ -1,4 +1,3 @@
-// src/components/Sidebar.jsx
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -52,6 +51,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { label: 'สมัครสมาชิก', path: '/member-signup' },
     { label: 'ค้นหาสมาชิก', path: '/search' },
     { label: 'คลังสินค้า', path: '/stock' },
+    // ✅ เพิ่มเมนูเพิ่มลูกค้า
+    { label: 'เพิ่มลูกค้า', path: '/customer-add' },
   ]
 
   const isActive = (p) => location.pathname === p
@@ -62,14 +63,13 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         isOpen ? 'translate-x-0' : '-translate-x-full'
       } bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-lg`}
     >
-      {/* ใช้ flex-col และ overflow-y-auto ที่ nav */}
       <div className="flex h-full flex-col">
         {/* Header */}
         <div className="p-4 shrink-0">
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">🏢 องค์กร</h1>
         </div>
 
-        {/* NAV (เลื่อนได้) */}
+        {/* NAV */}
         <nav className="flex-1 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
           {/* 1) เมนู: หน้าหลัก */}
           <div className={cardWrapper}>

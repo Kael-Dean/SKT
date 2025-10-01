@@ -10,6 +10,9 @@ import MemberSignup from './pages/MemberSignup'
 import MemberSearch from './pages/MemberSearch'
 import Stock from './pages/Stock'
 
+// ✅ เพิ่ม import หน้า CustomerAdd
+import CustomerAdd from './pages/CustomerAdd'
+
 // ✅ นำเข้าหน้า Stock ที่เพิ่มใหม่
 import StockTransferOut from './pages/StockTransferOut'
 import StockTransferIn from './pages/StockTransferIn'
@@ -37,12 +40,15 @@ function App() {
         <Route path="/search" element={<MemberSearch />} />
         <Route path="/stock" element={<Stock />} />
 
+        {/* ✅ Route ใหม่: เพิ่มลูกค้า */}
+        <Route path="/customer-add" element={<CustomerAdd />} />
+
         {/* ✅ Routes กลุ่มธุรกิจรวบรวมผลผลิต */}
-        <Route path="/bring-in" element={<StockBringIn />} />         {/* 1) ยกมา */}
-        <Route path="/transfer-in" element={<StockTransferIn />} />   {/* 4) รับเข้า */}
-        <Route path="/transfer-out" element={<StockTransferOut />} /> {/* 5) โอนออก */}
-        <Route path="/transfer-mill" element={<StockTransferMill />} /> {/* 6) ส่งสี */}
-        <Route path="/damage-out" element={<StockDamageOut />} />     {/* 7) ตัดเสียหาย */}
+        <Route path="/bring-in" element={<StockBringIn />} />         
+        <Route path="/transfer-in" element={<StockTransferIn />} />   
+        <Route path="/transfer-out" element={<StockTransferOut />} /> 
+        <Route path="/transfer-mill" element={<StockTransferMill />} /> 
+        <Route path="/damage-out" element={<StockDamageOut />} />     
       </Route>
 
       {/* กันพิมพ์พาธมั่ว */}

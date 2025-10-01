@@ -6,8 +6,12 @@ import { apiAuth } from "../lib/api"
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const cx = (...a) => a.filter(Boolean).join(" ")
 const is13 = (s = "") => onlyDigits(s).length === 13
+const toNull = (s) => {
+  const v = (s ?? "").trim()
+  return v === "" ? null : v
+}
 
-/** ---------- Styles (เหมือน CustomerAdd) ---------- */
+/** ---------- Styles (เทียบให้ตรงกับ CustomerAdd) ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -34,7 +38,7 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- Component ---------- */
+/** ---------- Component: CompanyAdd ---------- */
 const CompanyAdd = () => {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
@@ -42,43 +46,44 @@ const CompanyAdd = () => {
   const refs = {
     company_name: useRef(null),
     tax_id: useRef(null),
-    company_phone: useRef(null),
+    phone_number: useRef(null),
 
-    hq_house_no: useRef(null),
+    hq_address: useRef(null),
     hq_moo: useRef(null),
-    hq_subdistrict: useRef(null),
-    hq_district: useRef(null),
+    hq_tambon: useRef(null),
+    hq_amphur: useRef(null),
     hq_province: useRef(null),
-    hq_postal: useRef(null),
+    hq_postal_code: useRef(null),
 
-    br_house_no: useRef(null),
-    br_moo: useRef(null),
-    br_subdistrict: useRef(null),
-    br_district: useRef(null),
-    br_province: useRef(null),
-    br_postal: useRef(null),
+    branch_address: useRef(null),
+    branch_moo: useRef(null),
+    branch_tambon: useRef(null),
+    branch_amphur: useRef(null),
+    branch_province: useRef(null),
+    branch_postal_code: useRef(null),
   }
 
+  // ฟอร์มตรงกับชื่อฟิลด์ฝั่ง Backend (CompanyCustomerCreate)
   const [form, setForm] = useState({
     company_name: "",
     tax_id: "",
-    company_phone: "",
+    phone_number: "",
 
     // HQ
-    hq_house_no: "",
+    hq_address: "",
     hq_moo: "",
-    hq_subdistrict: "",
-    hq_district: "",
+    hq_tambon: "",
+    hq_amphur: "",
     hq_province: "",
-    hq_postal: "",
+    hq_postal_code: "",
 
     // Branch (optional)
-    br_house_no: "",
-    br_moo: "",
-    br_subdistrict: "",
-    br_district: "",
-    br_province: "",
-    br_postal: "",
+    branch_address: "",
+    branch_moo: "",
+    branch_tambon: "",
+    branch_amphur: "",
+    branch_province: "",
+    branch_postal_code: "",
   })
 
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
@@ -92,41 +97,45 @@ const CompanyAdd = () => {
   /** ---------- Validate ---------- */
   const validateAll = () => {
     const e = {}
+
     if (!form.company_name.trim()) e.company_name = "กรุณากรอกชื่อบริษัท / นิติบุคคล"
     if (!is13(form.tax_id)) e.tax_id = "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก"
 
-    // HQ required
-    if (!form.hq_house_no.trim()) e.hq_house_no = "กรุณากรอกบ้านเลขที่ (HQ)"
-    if (!form.hq_subdistrict.trim()) e.hq_subdistrict = "กรุณากรอกตำบล (HQ)"
-    if (!form.hq_district.trim()) e.hq_district = "กรุณากรอกอำเภอ (HQ)"
+    // HQ minimal required (ตาม UI เราบังคับให้ครบเพื่อคุณภาพข้อมูล)
+    if (!form.hq_address.trim()) e.hq_address = "กรุณากรอกบ้านเลขที่/ที่อยู่ (HQ)"
+    if (!form.hq_tambon.trim()) e.hq_tambon = "กรุณากรอกตำบล (HQ)"
+    if (!form.hq_amphur.trim()) e.hq_amphur = "กรุณากรอกอำเภอ (HQ)"
     if (!form.hq_province.trim()) e.hq_province = "กรุณากรอกจังหวัด (HQ)"
-    if (form.hq_postal && onlyDigits(form.hq_postal).length !== 5) e.hq_postal = "รหัสไปรษณีย์ต้องมี 5 หลัก"
+    if (form.hq_postal_code && onlyDigits(form.hq_postal_code).length !== 5)
+      e.hq_postal_code = "รหัสไปรษณีย์ (HQ) ต้องมี 5 หลัก"
 
-    // Branch optional but if provided postal must be 5 digits
-    if (form.br_postal && onlyDigits(form.br_postal).length !== 5) e.br_postal = "รหัสไปรษณีย์ต้องมี 5 หลัก"
+    // Branch optional—but if filled, postal must be 5 digits
+    if (form.branch_postal_code && onlyDigits(form.branch_postal_code).length !== 5)
+      e.branch_postal_code = "รหัสไปรษณีย์ (สาขา) ต้องมี 5 หลัก"
 
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
+  // โฟกัสไป error ตัวแรก
   useEffect(() => {
     if (!Object.keys(errors).length) return
     const order = [
       "company_name",
       "tax_id",
-      "company_phone",
-      "hq_house_no",
+      "phone_number",
+      "hq_address",
       "hq_moo",
-      "hq_subdistrict",
-      "hq_district",
+      "hq_tambon",
+      "hq_amphur",
       "hq_province",
-      "hq_postal",
-      "br_house_no",
-      "br_moo",
-      "br_subdistrict",
-      "br_district",
-      "br_province",
-      "br_postal",
+      "hq_postal_code",
+      "branch_address",
+      "branch_moo",
+      "branch_tambon",
+      "branch_amphur",
+      "branch_province",
+      "branch_postal_code",
     ]
     const first = order.find((k) => k in errors)
     const el = first ? refs[first]?.current : null
@@ -144,37 +153,38 @@ const CompanyAdd = () => {
     if (!validateAll()) return
     setSubmitting(true)
 
+    // map -> CompanyCustomerCreate (ตรงชื่อฟิลด์)
     const payload = {
-      type: "company",
       company_name: form.company_name.trim(),
       tax_id: onlyDigits(form.tax_id),
-      company_phone: form.company_phone.trim(),
+      phone_number: toNull(form.phone_number),
 
-      hq: {
-        house_no: form.hq_house_no.trim(),
-        moo: form.hq_moo.trim(),
-        subdistrict: form.hq_subdistrict.trim(),
-        district: form.hq_district.trim(),
-        province: form.hq_province.trim(),
-        postal_code: form.hq_postal ? Number(onlyDigits(form.hq_postal)) : 0,
-      },
-      branch: {
-        house_no: form.br_house_no.trim(),
-        moo: form.br_moo.trim(),
-        subdistrict: form.br_subdistrict.trim(),
-        district: form.br_district.trim(),
-        province: form.br_province.trim(),
-        postal_code: form.br_postal ? Number(onlyDigits(form.br_postal)) : 0,
-      },
+      hq_address: toNull(form.hq_address),
+      hq_moo: toNull(form.hq_moo),
+      hq_tambon: toNull(form.hq_tambon),
+      hq_amphur: toNull(form.hq_amphur),
+      hq_province: toNull(form.hq_province),
+      hq_postal_code: form.hq_postal_code ? onlyDigits(form.hq_postal_code) : null, // ส่งเป็นสตริง
+
+      branch_address: toNull(form.branch_address),
+      branch_moo: toNull(form.branch_moo),
+      branch_tambon: toNull(form.branch_tambon),
+      branch_amphur: toNull(form.branch_amphur),
+      branch_province: toNull(form.branch_province),
+      branch_postal_code: form.branch_postal_code ? onlyDigits(form.branch_postal_code) : null, // ส่งเป็นสตริง
     }
 
     try {
-      await apiAuth("/order/companies/save", { method: "POST", body: payload })
+      await apiAuth("/member/customers/company-signup", { method: "POST", body: payload })
       alert("บันทึกข้อมูลบริษัทเรียบร้อย ✅")
       handleReset()
     } catch (err) {
       console.error(err)
-      alert("บันทึกล้มเหลว กรุณาลองใหม่")
+      const msg =
+        (err && err.detail) ||
+        (typeof err?.message === "string" ? err.message : "") ||
+        "บันทึกล้มเหลว กรุณาลองใหม่"
+      alert(msg)
     } finally {
       setSubmitting(false)
     }
@@ -185,19 +195,21 @@ const CompanyAdd = () => {
     setForm({
       company_name: "",
       tax_id: "",
-      company_phone: "",
-      hq_house_no: "",
+      phone_number: "",
+
+      hq_address: "",
       hq_moo: "",
-      hq_subdistrict: "",
-      hq_district: "",
+      hq_tambon: "",
+      hq_amphur: "",
       hq_province: "",
-      hq_postal: "",
-      br_house_no: "",
-      br_moo: "",
-      br_subdistrict: "",
-      br_district: "",
-      br_province: "",
-      br_postal: "",
+      hq_postal_code: "",
+
+      branch_address: "",
+      branch_moo: "",
+      branch_tambon: "",
+      branch_amphur: "",
+      branch_province: "",
+      branch_postal_code: "",
     })
   }
 
@@ -249,16 +261,16 @@ const CompanyAdd = () => {
               </div>
             </div>
 
-            {/* เบอร์โทรบริษัท (ทำให้กว้างเท่ากับ “บ้านเลขที่” คือ 1 ใน 3 คอลัมน์) */}
+            {/* เบอร์โทรบริษัท (ไม่บังคับ) */}
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
                 <label className={labelCls}>เบอร์โทรบริษัท (ไม่บังคับ)</label>
                 <input
-                  ref={refs.company_phone}
+                  ref={refs.phone_number}
                   inputMode="tel"
                   className={baseField}
-                  value={form.company_phone}
-                  onChange={(e) => update("company_phone", e.target.value)}
+                  value={form.phone_number}
+                  onChange={(e) => update("phone_number", e.target.value)}
                   placeholder="เช่น 021234567"
                 />
               </div>
@@ -273,24 +285,24 @@ const CompanyAdd = () => {
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
-                  <label className={labelCls}>บ้านเลขที่</label>
+                  <label className={labelCls}>บ้านเลขที่ / ที่อยู่ (HQ)</label>
                   <input
-                    ref={refs.hq_house_no}
-                    className={cx(baseField, errors.hq_house_no && fieldError)}
-                    value={form.hq_house_no}
+                    ref={refs.hq_address}
+                    className={cx(baseField, errors.hq_address && fieldError)}
+                    value={form.hq_address}
                     onChange={(e) => {
-                      clearError("hq_house_no")
-                      update("hq_house_no", e.target.value)
+                      clearError("hq_address")
+                      update("hq_address", e.target.value)
                     }}
-                    onFocus={() => clearError("hq_house_no")}
-                    placeholder="เช่น 99/1"
-                    aria-invalid={errors.hq_house_no ? true : undefined}
+                    onFocus={() => clearError("hq_address")}
+                    placeholder="เช่น 99/1 หมู่บ้านตัวอย่าง"
+                    aria-invalid={errors.hq_address ? true : undefined}
                   />
-                  {errors.hq_house_no && <p className={errorTextCls}>{errors.hq_house_no}</p>}
+                  {errors.hq_address && <p className={errorTextCls}>{errors.hq_address}</p>}
                 </div>
 
                 <div>
-                  <label className={labelCls}>หมู่</label>
+                  <label className={labelCls}>หมู่ (HQ)</label>
                   <input
                     ref={refs.hq_moo}
                     className={baseField}
@@ -301,41 +313,41 @@ const CompanyAdd = () => {
                 </div>
 
                 <div>
-                  <label className={labelCls}>ตำบล</label>
+                  <label className={labelCls}>ตำบล (HQ)</label>
                   <input
-                    ref={refs.hq_subdistrict}
-                    className={cx(baseField, errors.hq_subdistrict && fieldError)}
-                    value={form.hq_subdistrict}
+                    ref={refs.hq_tambon}
+                    className={cx(baseField, errors.hq_tambon && fieldError)}
+                    value={form.hq_tambon}
                     onChange={(e) => {
-                      clearError("hq_subdistrict")
-                      update("hq_subdistrict", e.target.value)
+                      clearError("hq_tambon")
+                      update("hq_tambon", e.target.value)
                     }}
-                    onFocus={() => clearError("hq_subdistrict")}
+                    onFocus={() => clearError("hq_tambon")}
                     placeholder="เช่น หนองปลาไหล"
-                    aria-invalid={errors.hq_subdistrict ? true : undefined}
+                    aria-invalid={errors.hq_tambon ? true : undefined}
                   />
-                  {errors.hq_subdistrict && <p className={errorTextCls}>{errors.hq_subdistrict}</p>}
+                  {errors.hq_tambon && <p className={errorTextCls}>{errors.hq_tambon}</p>}
                 </div>
 
                 <div>
-                  <label className={labelCls}>อำเภอ</label>
+                  <label className={labelCls}>อำเภอ (HQ)</label>
                   <input
-                    ref={refs.hq_district}
-                    className={cx(baseField, errors.hq_district && fieldError)}
-                    value={form.hq_district}
+                    ref={refs.hq_amphur}
+                    className={cx(baseField, errors.hq_amphur && fieldError)}
+                    value={form.hq_amphur}
                     onChange={(e) => {
-                      clearError("hq_district")
-                      update("hq_district", e.target.value)
+                      clearError("hq_amphur")
+                      update("hq_amphur", e.target.value)
                     }}
-                    onFocus={() => clearError("hq_district")}
+                    onFocus={() => clearError("hq_amphur")}
                     placeholder="เช่น เมือง"
-                    aria-invalid={errors.hq_district ? true : undefined}
+                    aria-invalid={errors.hq_amphur ? true : undefined}
                   />
-                  {errors.hq_district && <p className={errorTextCls}>{errors.hq_district}</p>}
+                  {errors.hq_amphur && <p className={errorTextCls}>{errors.hq_amphur}</p>}
                 </div>
 
                 <div>
-                  <label className={labelCls}>จังหวัด</label>
+                  <label className={labelCls}>จังหวัด (HQ)</label>
                   <input
                     ref={refs.hq_province}
                     className={cx(baseField, errors.hq_province && fieldError)}
@@ -354,20 +366,20 @@ const CompanyAdd = () => {
                 <div>
                   <label className={labelCls}>รหัสไปรษณีย์ (HQ)</label>
                   <input
-                    ref={refs.hq_postal}
+                    ref={refs.hq_postal_code}
                     inputMode="numeric"
                     maxLength={5}
-                    className={cx(baseField, errors.hq_postal && fieldError)}
-                    value={form.hq_postal}
+                    className={cx(baseField, errors.hq_postal_code && fieldError)}
+                    value={form.hq_postal_code}
                     onChange={(e) => {
-                      clearError("hq_postal")
-                      update("hq_postal", onlyDigits(e.target.value))
+                      clearError("hq_postal_code")
+                      update("hq_postal_code", onlyDigits(e.target.value))
                     }}
-                    onFocus={() => clearError("hq_postal")}
+                    onFocus={() => clearError("hq_postal_code")}
                     placeholder="เช่น 10110"
-                    aria-invalid={errors.hq_postal ? true : undefined}
+                    aria-invalid={errors.hq_postal_code ? true : undefined}
                   />
-                  {errors.hq_postal && <p className={errorTextCls}>{errors.hq_postal}</p>}
+                  {errors.hq_postal_code && <p className={errorTextCls}>{errors.hq_postal_code}</p>}
                 </div>
               </div>
             </div>
@@ -381,23 +393,23 @@ const CompanyAdd = () => {
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
-                  <label className={labelCls}>บ้านเลขที่ (สาขา)</label>
+                  <label className={labelCls}>บ้านเลขที่ / ที่อยู่ (สาขา)</label>
                   <input
-                    ref={refs.br_house_no}
+                    ref={refs.branch_address}
                     className={baseField}
-                    value={form.br_house_no}
-                    onChange={(e) => update("br_house_no", e.target.value)}
-                    placeholder="เช่น 10/2"
+                    value={form.branch_address}
+                    onChange={(e) => update("branch_address", e.target.value)}
+                    placeholder="เช่น 10/2 หมู่บ้านตัวอย่าง"
                   />
                 </div>
 
                 <div>
                   <label className={labelCls}>หมู่ (สาขา)</label>
                   <input
-                    ref={refs.br_moo}
+                    ref={refs.branch_moo}
                     className={baseField}
-                    value={form.br_moo}
-                    onChange={(e) => update("br_moo", e.target.value)}
+                    value={form.branch_moo}
+                    onChange={(e) => update("branch_moo", e.target.value)}
                     placeholder="เช่น 5"
                   />
                 </div>
@@ -405,10 +417,10 @@ const CompanyAdd = () => {
                 <div>
                   <label className={labelCls}>ตำบล (สาขา)</label>
                   <input
-                    ref={refs.br_subdistrict}
+                    ref={refs.branch_tambon}
                     className={baseField}
-                    value={form.br_subdistrict}
-                    onChange={(e) => update("br_subdistrict", e.target.value)}
+                    value={form.branch_tambon}
+                    onChange={(e) => update("branch_tambon", e.target.value)}
                     placeholder="เช่น บึงเนียม"
                   />
                 </div>
@@ -416,10 +428,10 @@ const CompanyAdd = () => {
                 <div>
                   <label className={labelCls}>อำเภอ (สาขา)</label>
                   <input
-                    ref={refs.br_district}
+                    ref={refs.branch_amphur}
                     className={baseField}
-                    value={form.br_district}
-                    onChange={(e) => update("br_district", e.target.value)}
+                    value={form.branch_amphur}
+                    onChange={(e) => update("branch_amphur", e.target.value)}
                     placeholder="เช่น เมือง"
                   />
                 </div>
@@ -427,10 +439,10 @@ const CompanyAdd = () => {
                 <div>
                   <label className={labelCls}>จังหวัด (สาขา)</label>
                   <input
-                    ref={refs.br_province}
+                    ref={refs.branch_province}
                     className={baseField}
-                    value={form.br_province}
-                    onChange={(e) => update("br_province", e.target.value)}
+                    value={form.branch_province}
+                    onChange={(e) => update("branch_province", e.target.value)}
                     placeholder="เช่น ขอนแก่น"
                   />
                 </div>
@@ -438,20 +450,20 @@ const CompanyAdd = () => {
                 <div>
                   <label className={labelCls}>รหัสไปรษณีย์ (สาขา)</label>
                   <input
-                    ref={refs.br_postal}
+                    ref={refs.branch_postal_code}
                     inputMode="numeric"
                     maxLength={5}
-                    className={cx(baseField, errors.br_postal && fieldError)}
-                    value={form.br_postal}
+                    className={cx(baseField, errors.branch_postal_code && fieldError)}
+                    value={form.branch_postal_code}
                     onChange={(e) => {
-                      clearError("br_postal")
-                      update("br_postal", onlyDigits(e.target.value))
+                      clearError("branch_postal_code")
+                      update("branch_postal_code", onlyDigits(e.target.value))
                     }}
-                    onFocus={() => clearError("br_postal")}
+                    onFocus={() => clearError("branch_postal_code")}
                     placeholder="เช่น 10220"
-                    aria-invalid={errors.br_postal ? true : undefined}
+                    aria-invalid={errors.branch_postal_code ? true : undefined}
                   />
-                  {errors.br_postal && <p className={errorTextCls}>{errors.br_postal}</p>}
+                  {errors.branch_postal_code && <p className={errorTextCls}>{errors.branch_postal_code}</p>}
                 </div>
               </div>
             </div>

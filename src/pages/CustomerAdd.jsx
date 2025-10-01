@@ -110,12 +110,15 @@ const CustomerAdd = () => {
   }
   const topRef = useRef(null)
 
-  // ฟอร์ม (คง UI เดิมไว้ แต่จะส่งเฉพาะฟิลด์ที่แบ็กเอนด์รับ)
+  // ฟอร์ม (ส่งเฉพาะฟิลด์ที่ Back รับใน /member/customers/signup)
   const [form, setForm] = useState({
-    // โครงการ (UI-only; ไม่ส่งไป signup)
+    // UI-only (ไม่ส่ง)
     slowdown_rice: false,
+    fid: "",
+    fid_owner: "",
+    fid_relationship: "",
 
-    // ลูกค้าทั่วไป
+    // ลูกค้าทั่วไป (จะ map -> CustomerCreate)
     citizen_id: "",
     full_name: "",
     address: "",
@@ -125,11 +128,6 @@ const CustomerAdd = () => {
     province: "",
     postal_code: "",
     phone_number: "",
-
-    // FID (UI-only; ไม่ส่งไป signup)
-    fid: "",
-    fid_owner: "",
-    fid_relationship: "",
   })
 
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
@@ -140,7 +138,7 @@ const CustomerAdd = () => {
       return rest
     })
 
-  // debounce เพื่อค้นหาอัตโนมัติ
+  // debounce เพื่อค้นหาอัตโนมัติ (ฝั่งสมาชิก)
   const debCid = useDebounce(form.citizen_id, 400)
   const debName = useDebounce(form.full_name, 400)
 
@@ -191,6 +189,7 @@ const CustomerAdd = () => {
   /** ค้นหาด้วย citizen_id กับฝั่งสมาชิก (เพื่อเติมอัตโนมัติ) */
   useEffect(() => {
     const cid = onlyDigits(debCid || "")
+    if (submitting) return
     if (cid.length !== 13 || !validateThaiCitizenId(cid)) return
     let cancelled = false
     ;(async () => {
@@ -207,18 +206,19 @@ const CustomerAdd = () => {
     })()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debCid])
+  }, [debCid, submitting])
 
   /** ค้นหาด้วยชื่อ–สกุล (ไปดูฝั่งสมาชิก) */
   useEffect(() => {
     const q = (debName || "").trim()
+    if (submitting) return
     if (q.length < 2) return
     let cancelled = false
     ;(async () => {
       setStatus({ searching: true, message: "กำลังค้นหาจากชื่อ–สกุลในฐานสมาชิก...", tone: "muted" })
       const list = await fetchMemberSearch(q)
       if (cancelled) return
-      // เอา record แรกที่มีชื่อใกล้เคียง
+      // เอา record แรกที่ชื่อใกล้เคียง
       const found = list.find((r) => {
         const f = `${(r.first_name ?? "").trim()} ${(r.last_name ?? "").trim()}`.trim()
         return f && f.includes(q)
@@ -234,9 +234,9 @@ const CustomerAdd = () => {
     })()
     return () => { cancelled = true }
     // eslint-disable-line react-hooks/exhaustive-deps
-  }, [debName])
+  }, [debName, submitting])
 
-  /** ตรวจความถูกต้อง */
+  /** ตรวจความถูกต้องก่อนส่งเข้า Back */
   const validateAll = () => {
     const e = {}
     if (!validateThaiCitizenId(form.citizen_id)) e.citizen_id = "เลขบัตรประชาชนไม่ถูกต้อง"
@@ -270,26 +270,39 @@ const CustomerAdd = () => {
     }
   }, [errors]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** แปลงชื่อเต็ม -> first_name / last_name */
+  const splitName = (full = "") => {
+    const parts = full.trim().split(/\s+/).filter(Boolean)
+    if (parts.length === 0) return { first_name: "", last_name: "" }
+    if (parts.length === 1) return { first_name: parts[0], last_name: "" }
+    return { first_name: parts[0], last_name: parts.slice(1).join(" ") }
+  }
+
   /** บันทึก (เชื่อมกับ POST /member/customers/signup) */
   const handleSubmit = async (ev) => {
     ev.preventDefault()
     if (!validateAll()) return
     setSubmitting(true)
 
-    const [firstName, ...rest] = (form.full_name || "").trim().split(" ")
+    const { first_name, last_name } = splitName(form.full_name)
+
+    // payload ต้องตรง CustomerCreate ของ Back
     const payload = {
-      first_name: firstName || "",
-      last_name: rest.join(" "),
+      first_name,
+      last_name,
       citizen_id: onlyDigits(form.citizen_id),
       address: form.address.trim(),
       mhoo: form.mhoo.trim() || null,
       sub_district: form.sub_district.trim(),
       district: form.district.trim(),
       province: form.province.trim(),
-      // subprov: null, // ไม่มีในฟอร์มนี้
+      subprov: null, // ไม่มีฟิลด์ในฟอร์ม
       postal_code: form.postal_code ? Number(form.postal_code) : null,
       phone_number: form.phone_number.trim() || null,
-      // sex/bank_account/tgs_id/spouce_name ไม่ได้ใส่ในฟอร์ม => ไม่ส่ง
+      sex: null,
+      bank_account: null,
+      tgs_id: null,
+      spouce_name: null,
       orders_placed: 0,
     }
 
@@ -300,7 +313,7 @@ const CustomerAdd = () => {
       handleReset()
     } catch (err) {
       console.error(err)
-      // พยายามอ่านข้อความ error จากแบ็กเอนด์ (409 duplicate ฯลฯ)
+      // พยายามอ่านข้อความ error จากแบ็กเอนด์ (HTTPException.detail / IntegrityError)
       const msg =
         (err && err.detail) ||
         (typeof err?.message === "string" ? err.message : "") ||

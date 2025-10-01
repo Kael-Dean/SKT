@@ -110,9 +110,9 @@ const CustomerAdd = () => {
   }
   const topRef = useRef(null)
 
-  // ฟอร์ม (เฉพาะฟิลด์ที่ผู้ใช้ต้องการ)
+  // ฟอร์ม (คง UI เดิมไว้ แต่จะส่งเฉพาะฟิลด์ที่แบ็กเอนด์รับ)
   const [form, setForm] = useState({
-    // โครงการ (เหลืออันเดียว)
+    // โครงการ (UI-only; ไม่ส่งไป signup)
     slowdown_rice: false,
 
     // ลูกค้าทั่วไป
@@ -126,7 +126,7 @@ const CustomerAdd = () => {
     postal_code: "",
     phone_number: "",
 
-    // FID
+    // FID (UI-only; ไม่ส่งไป signup)
     fid: "",
     fid_owner: "",
     fid_relationship: "",
@@ -144,133 +144,96 @@ const CustomerAdd = () => {
   const debCid = useDebounce(form.citizen_id, 400)
   const debName = useDebounce(form.full_name, 400)
 
-  /** helper: เรียกหลาย endpoint จนกว่าจะเจอ (array/object ก็รับได้) */
-  const apiAuthFirstOkJson = async (paths = []) => {
-    for (const p of paths) {
-      try {
-        const data = await apiAuth(p)
-        if (Array.isArray(data)) return data
-        if (data && typeof data === "object") return data
-      } catch {}
-    }
-    return Array.isArray(paths) ? [] : {}
-  }
-
-  /** โหลดที่อยู่เต็มจาก citizen_id */
-  const loadAddressByCitizenId = async (cid) => {
-    const q = encodeURIComponent(onlyDigits(cid))
-    theCandidates: {
-      const candidates = [
-        `/order/customer/detail?citizen_id=${q}`,
-        `/order/customers/detail?citizen_id=${q}`,
-        `/customer/detail?citizen_id=${q}`,
-        `/customers/detail?citizen_id=${q}`,
-        `/member/detail?citizen_id=${q}`,
-        `/order/customers/search?q=${q}`,
-      ]
-      const data = await apiAuthFirstOkJson(candidates)
-
-      const toStr = (v) => (v == null ? "" : String(v))
-      const addr = {
-        address: toStr(data.address ?? data.house_no ?? data.houseNo ?? ""),
-        mhoo: toStr(data.mhoo ?? data.moo ?? ""),
-        sub_district: toStr(data.sub_district ?? data.subdistrict ?? data.subDistrict ?? ""),
-        district: toStr(data.district ?? ""),
-        province: toStr(data.province ?? ""),
-        postal_code: onlyDigits(toStr(data.postal_code ?? data.postalCode ?? "")),
-        first_name: toStr(data.first_name ?? data.firstName ?? ""),
-        last_name: toStr(data.last_name ?? data.lastName ?? ""),
-        phone_number: toStr(data.phone_number ?? data.phone ?? ""),
-        fid: toStr(data.fid ?? data.fid_id ?? ""),
-        fid_owner: toStr(data.fid_owner ?? data.fidOwner ?? ""),
-        fid_relationship: toStr(data.fid_relationship ?? data.fidRelationship ?? ""),
-      }
-
-      const hasAny =
-        addr.address || addr.mhoo || addr.sub_district || addr.district || addr.province || addr.postal_code
-
-      if (addr.first_name || addr.last_name || hasAny) {
-        update("full_name", form.full_name || `${addr.first_name} ${addr.last_name}`.trim())
-        setForm((prev) => ({
-          ...prev,
-          address: prev.address || addr.address,
-          mhoo: prev.mhoo || addr.mhoo,
-          sub_district: prev.sub_district || addr.sub_district,
-          district: prev.district || addr.district,
-          province: prev.province || addr.province,
-          postal_code: prev.postal_code || addr.postal_code,
-          phone_number: prev.phone_number || addr.phone_number,
-          fid: prev.fid || addr.fid,
-          fid_owner: prev.fid_owner || addr.fid_owner,
-          fid_relationship: prev.fid_relationship || addr.fid_relationship,
-        }))
-      }
+  /** helper: ดึงข้อมูลจากสมาชิกเดิม (เพื่อเติมอัตโนมัติ) */
+  const fetchMemberSearch = async (q) => {
+    try {
+      const arr = await apiAuth(`/member/members/search?q=${encodeURIComponent(q)}`)
+      return Array.isArray(arr) ? arr : []
+    } catch {
+      return []
     }
   }
 
-  /** ค้นหาด้วย citizen_id */
+  /** เติมที่อยู่จากผลสมาชิก */
+  const hydrateFromMember = (rec) => {
+    const toStr = (v) => (v == null ? "" : String(v))
+    const addr = {
+      address: toStr(rec.address ?? ""),
+      mhoo: toStr(rec.mhoo ?? ""),
+      sub_district: toStr(rec.sub_district ?? ""),
+      district: toStr(rec.district ?? ""),
+      province: toStr(rec.province ?? ""),
+      postal_code: onlyDigits(toStr(rec.postal_code ?? "")),
+      first_name: toStr(rec.first_name ?? ""),
+      last_name: toStr(rec.last_name ?? ""),
+      phone_number: toStr(rec.phone_number ?? ""),
+      fid: toStr(rec.fid ?? ""),
+      fid_owner: toStr(rec.fid_owner ?? ""),
+      fid_relationship: toStr(rec.fid_relationship ?? ""),
+    }
+    const full = `${addr.first_name} ${addr.last_name}`.trim()
+    update("full_name", form.full_name || full)
+    setForm((prev) => ({
+      ...prev,
+      address: prev.address || addr.address,
+      mhoo: prev.mhoo || addr.mhoo,
+      sub_district: prev.sub_district || addr.sub_district,
+      district: prev.district || addr.district,
+      province: prev.province || addr.province,
+      postal_code: prev.postal_code || addr.postal_code,
+      phone_number: prev.phone_number || addr.phone_number,
+      fid: prev.fid || addr.fid,
+      fid_owner: prev.fid_owner || addr.fid_owner,
+      fid_relationship: prev.fid_relationship || addr.fid_relationship,
+    }))
+  }
+
+  /** ค้นหาด้วย citizen_id กับฝั่งสมาชิก (เพื่อเติมอัตโนมัติ) */
   useEffect(() => {
     const cid = onlyDigits(debCid || "")
     if (cid.length !== 13 || !validateThaiCitizenId(cid)) return
     let cancelled = false
     ;(async () => {
-      setStatus({ searching: true, message: "กำลังค้นหาจากเลขบัตรประชาชน...", tone: "muted" })
-      try {
-        const arr = await apiAuth(`/order/customers/search?q=${encodeURIComponent(cid)}`)
-        if (cancelled) return
-        const found = (Array.isArray(arr) ? arr : []).find(
-          (r) => onlyDigits(r.citizen_id ?? r.citizenId ?? "") === cid
-        )
-        if (found) {
-          const full =
-            `${found.first_name ?? ""} ${found.last_name ?? ""}`.trim() ||
-            form.full_name
-          update("full_name", full)
-          await loadAddressByCitizenId(cid)
-          setStatus({ searching: false, message: "พบข้อมูลลูกค้า และเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
-        } else {
-          setStatus({ searching: false, message: "ไม่พบในฐานลูกค้าทั่วไป จะสร้างใหม่เมื่อบันทึก", tone: "warn" })
-        }
-      } catch {
-        setStatus({ searching: false, message: "ค้นหาล้มเหลว", tone: "warn" })
+      setStatus({ searching: true, message: "กำลังค้นหาจากเลขบัตรประชาชนในฐานสมาชิก...", tone: "muted" })
+      const list = await fetchMemberSearch(cid)
+      if (cancelled) return
+      const found = list.find((r) => onlyDigits(r.citizen_id ?? "") === cid)
+      if (found) {
+        hydrateFromMember(found)
+        setStatus({ searching: false, message: "พบข้อมูลสมาชิกเดิม และเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
+      } else {
+        setStatus({ searching: false, message: "ไม่พบเลขนี้ในฐานสมาชิก จะสร้างลูกค้าใหม่เมื่อบันทึก", tone: "warn" })
       }
     })()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debCid])
 
-  /** ค้นหาด้วยชื่อ–สกุล (หากพิมพ์ ≥ 2 ตัวอักษร) */
+  /** ค้นหาด้วยชื่อ–สกุล (ไปดูฝั่งสมาชิก) */
   useEffect(() => {
     const q = (debName || "").trim()
     if (q.length < 2) return
     let cancelled = false
     ;(async () => {
-      setStatus({ searching: true, message: "กำลังค้นหาจากชื่อ–สกุล...", tone: "muted" })
-      try {
-        const arr = await apiAuth(`/order/customers/search?q=${encodeURIComponent(q)}`)
-        if (cancelled) return
-        const found = (Array.isArray(arr) ? arr : []).find((r) => {
-          const f = `${(r.first_name ?? "").trim()} ${(r.last_name ?? "").trim()}`.trim()
-          return f && f.includes(q)
-        })
-        if (found) {
-          const cid = onlyDigits(found.citizen_id ?? found.citizenId ?? "")
-          if (cid.length === 13 && validateThaiCitizenId(cid)) {
-            update("citizen_id", cid)
-            await loadAddressByCitizenId(cid)
-          } else {
-            await loadAddressByCitizenId(found.citizen_id ?? found.citizenId ?? "")
-          }
-          setStatus({ searching: false, message: "พบข้อมูล และเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
-        } else {
-          setStatus({ searching: false, message: "ไม่พบชื่อนี้ในฐานลูกค้าทั่วไป", tone: "warn" })
-        }
-      } catch {
-        setStatus({ searching: false, message: "ค้นหาล้มเหลว", tone: "warn" })
+      setStatus({ searching: true, message: "กำลังค้นหาจากชื่อ–สกุลในฐานสมาชิก...", tone: "muted" })
+      const list = await fetchMemberSearch(q)
+      if (cancelled) return
+      // เอา record แรกที่มีชื่อใกล้เคียง
+      const found = list.find((r) => {
+        const f = `${(r.first_name ?? "").trim()} ${(r.last_name ?? "").trim()}`.trim()
+        return f && f.includes(q)
+      })
+      if (found) {
+        const cid = onlyDigits(found.citizen_id ?? "")
+        if (cid.length === 13 && validateThaiCitizenId(cid)) update("citizen_id", cid)
+        hydrateFromMember(found)
+        setStatus({ searching: false, message: "พบข้อมูลสมาชิกเดิม และเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
+      } else {
+        setStatus({ searching: false, message: "ไม่พบชื่อนี้ในฐานสมาชิก", tone: "warn" })
       }
     })()
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-line react-hooks/exhaustive-deps
   }, [debName])
 
   /** ตรวจความถูกต้อง */
@@ -307,7 +270,7 @@ const CustomerAdd = () => {
     }
   }, [errors]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** บันทึก */
+  /** บันทึก (เชื่อมกับ POST /member/customers/signup) */
   const handleSubmit = async (ev) => {
     ev.preventDefault()
     if (!validateAll()) return
@@ -315,34 +278,34 @@ const CustomerAdd = () => {
 
     const [firstName, ...rest] = (form.full_name || "").trim().split(" ")
     const payload = {
-      type: "customer",
       first_name: firstName || "",
       last_name: rest.join(" "),
       citizen_id: onlyDigits(form.citizen_id),
       address: form.address.trim(),
-      mhoo: form.mhoo.trim(),
+      mhoo: form.mhoo.trim() || null,
       sub_district: form.sub_district.trim(),
       district: form.district.trim(),
       province: form.province.trim(),
-      postal_code: form.postal_code ? Number(form.postal_code) : 0,
-      phone_number: form.phone_number.trim(),
-
-      // FID
-      fid: form.fid === "" ? null : Number(form.fid),
-      fid_owner: form.fid_owner.trim() || null,
-      fid_relationship: form.fid_relationship === "" ? null : Number(form.fid_relationship),
-
-      // โครงการ (เหลือเฉพาะชะลอข้าวเปลือก)
-      slowdown_rice: !!form.slowdown_rice,
+      // subprov: null, // ไม่มีในฟอร์มนี้
+      postal_code: form.postal_code ? Number(form.postal_code) : null,
+      phone_number: form.phone_number.trim() || null,
+      // sex/bank_account/tgs_id/spouce_name ไม่ได้ใส่ในฟอร์ม => ไม่ส่ง
+      orders_placed: 0,
     }
 
     try {
-      await apiAuth(`/order/customers/save`, { method: "POST", body: payload })
+      const res = await apiAuth(`/member/customers/signup`, { method: "POST", body: payload })
+      // สำเร็จ
       alert("บันทึกข้อมูลลูกค้าทั่วไปเรียบร้อย ✅")
       handleReset()
     } catch (err) {
       console.error(err)
-      alert("บันทึกล้มเหลว กรุณาลองใหม่")
+      // พยายามอ่านข้อความ error จากแบ็กเอนด์ (409 duplicate ฯลฯ)
+      const msg =
+        (err && err.detail) ||
+        (typeof err?.message === "string" ? err.message : "") ||
+        "บันทึกล้มเหลว กรุณาลองใหม่"
+      alert(msg)
     } finally {
       setSubmitting(false)
     }
@@ -395,7 +358,7 @@ const CustomerAdd = () => {
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* โครงการ (เหลือแค่ โครงการชะลอข้าวเปลือก) */}
+          {/* โครงการ (UI-only) */}
           <SectionCard title="โครงการที่เข้าร่วม" className="mb-6">
             <div className="grid gap-3 md:grid-cols-3">
               <label
@@ -573,7 +536,7 @@ const CustomerAdd = () => {
                 {errors.postal_code && <p className={errorTextCls}>{errors.postal_code}</p>}
               </div>
 
-              {/* phone_number (อยู่ที่เดิม ขนาดเท่าเดิม) */}
+              {/* phone_number */}
               <div>
                 <label className={labelCls}>เบอร์โทรศัพท์</label>
                 <input
@@ -586,7 +549,7 @@ const CustomerAdd = () => {
                 />
               </div>
 
-              {/* ทำให้ FID ทั้งสามช่องย้ายไป “บรรทัดล่างสุด” โดยบังคับขึ้นแถวใหม่ */}
+              {/* บล็อก FID (UI-only) */}
               <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
                 {/* fid */}
                 <div>
@@ -602,7 +565,7 @@ const CustomerAdd = () => {
                     aria-invalid={errors.fid ? true : undefined}
                   />
                   {errors.fid && <p className={errorTextCls}>{errors.fid}</p>}
-                  <p className={helpTextCls}>ถ้ามี จะส่งไปเก็บที่ฟิลด์ <code>fid</code></p>
+                  <p className={helpTextCls}>* ช่องนี้ไม่ถูกส่งไปตอนสมัครลูกค้าใหม่</p>
                 </div>
 
                 {/* fid_owner */}
@@ -615,7 +578,7 @@ const CustomerAdd = () => {
                     onChange={(e) => update("fid_owner", e.target.value)}
                     placeholder="เช่น นายสมหมาย นามดี"
                   />
-                  <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_owner</code></p>
+                  <p className={helpTextCls}>* ช่องนี้ไม่ถูกส่งไปตอนสมัครลูกค้าใหม่</p>
                 </div>
 
                 {/* fid_relationship */}
@@ -632,7 +595,7 @@ const CustomerAdd = () => {
                     aria-invalid={errors.fid_relationship ? true : undefined}
                   />
                   {errors.fid_relationship && <p className={errorTextCls}>{errors.fid_relationship}</p>}
-                  <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_relationship</code> (ตัวเลข)</p>
+                  <p className={helpTextCls}>* ช่องนี้ไม่ถูกส่งไปตอนสมัครลูกค้าใหม่</p>
                 </div>
               </div>
             </div>

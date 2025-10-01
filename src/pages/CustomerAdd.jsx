@@ -159,50 +159,52 @@ const CustomerAdd = () => {
   /** โหลดที่อยู่เต็มจาก citizen_id */
   const loadAddressByCitizenId = async (cid) => {
     const q = encodeURIComponent(onlyDigits(cid))
-    const candidates = [
-      `/order/customer/detail?citizen_id=${q}`,
-      `/order/customers/detail?citizen_id=${q}`,
-      `/customer/detail?citizen_id=${q}`,
-      `/customers/detail?citizen_id=${q}`,
-      `/member/detail?citizen_id=${q}`,
-      `/order/customers/search?q=${q}`,
-    ]
-    const data = await apiAuthFirstOkJson(candidates)
+    theCandidates: {
+      const candidates = [
+        `/order/customer/detail?citizen_id=${q}`,
+        `/order/customers/detail?citizen_id=${q}`,
+        `/customer/detail?citizen_id=${q}`,
+        `/customers/detail?citizen_id=${q}`,
+        `/member/detail?citizen_id=${q}`,
+        `/order/customers/search?q=${q}`,
+      ]
+      const data = await apiAuthFirstOkJson(candidates)
 
-    const toStr = (v) => (v == null ? "" : String(v))
-    const addr = {
-      address: toStr(data.address ?? data.house_no ?? data.houseNo ?? ""),
-      mhoo: toStr(data.mhoo ?? data.moo ?? ""),
-      sub_district: toStr(data.sub_district ?? data.subdistrict ?? data.subDistrict ?? ""),
-      district: toStr(data.district ?? ""),
-      province: toStr(data.province ?? ""),
-      postal_code: onlyDigits(toStr(data.postal_code ?? data.postalCode ?? "")),
-      first_name: toStr(data.first_name ?? data.firstName ?? ""),
-      last_name: toStr(data.last_name ?? data.lastName ?? ""),
-      phone_number: toStr(data.phone_number ?? data.phone ?? ""),
-      fid: toStr(data.fid ?? data.fid_id ?? ""),
-      fid_owner: toStr(data.fid_owner ?? data.fidOwner ?? ""),
-      fid_relationship: toStr(data.fid_relationship ?? data.fidRelationship ?? ""),
-    }
+      const toStr = (v) => (v == null ? "" : String(v))
+      const addr = {
+        address: toStr(data.address ?? data.house_no ?? data.houseNo ?? ""),
+        mhoo: toStr(data.mhoo ?? data.moo ?? ""),
+        sub_district: toStr(data.sub_district ?? data.subdistrict ?? data.subDistrict ?? ""),
+        district: toStr(data.district ?? ""),
+        province: toStr(data.province ?? ""),
+        postal_code: onlyDigits(toStr(data.postal_code ?? data.postalCode ?? "")),
+        first_name: toStr(data.first_name ?? data.firstName ?? ""),
+        last_name: toStr(data.last_name ?? data.lastName ?? ""),
+        phone_number: toStr(data.phone_number ?? data.phone ?? ""),
+        fid: toStr(data.fid ?? data.fid_id ?? ""),
+        fid_owner: toStr(data.fid_owner ?? data.fidOwner ?? ""),
+        fid_relationship: toStr(data.fid_relationship ?? data.fidRelationship ?? ""),
+      }
 
-    const hasAny =
-      addr.address || addr.mhoo || addr.sub_district || addr.district || addr.province || addr.postal_code
+      const hasAny =
+        addr.address || addr.mhoo || addr.sub_district || addr.district || addr.province || addr.postal_code
 
-    if (addr.first_name || addr.last_name || hasAny) {
-      update("full_name", form.full_name || `${addr.first_name} ${addr.last_name}`.trim())
-      setForm((prev) => ({
-        ...prev,
-        address: prev.address || addr.address,
-        mhoo: prev.mhoo || addr.mhoo,
-        sub_district: prev.sub_district || addr.sub_district,
-        district: prev.district || addr.district,
-        province: prev.province || addr.province,
-        postal_code: prev.postal_code || addr.postal_code,
-        phone_number: prev.phone_number || addr.phone_number,
-        fid: prev.fid || addr.fid,
-        fid_owner: prev.fid_owner || addr.fid_owner,
-        fid_relationship: prev.fid_relationship || addr.fid_relationship,
-      }))
+      if (addr.first_name || addr.last_name || hasAny) {
+        update("full_name", form.full_name || `${addr.first_name} ${addr.last_name}`.trim())
+        setForm((prev) => ({
+          ...prev,
+          address: prev.address || addr.address,
+          mhoo: prev.mhoo || addr.mhoo,
+          sub_district: prev.sub_district || addr.sub_district,
+          district: prev.district || addr.district,
+          province: prev.province || addr.province,
+          postal_code: prev.postal_code || addr.postal_code,
+          phone_number: prev.phone_number || addr.phone_number,
+          fid: prev.fid || addr.fid,
+          fid_owner: prev.fid_owner || addr.fid_owner,
+          fid_relationship: prev.fid_relationship || addr.fid_relationship,
+        }))
+      }
     }
   }
 
@@ -220,7 +222,6 @@ const CustomerAdd = () => {
           (r) => onlyDigits(r.citizen_id ?? r.citizenId ?? "") === cid
         )
         if (found) {
-          // เติมชื่อเบื้องต้น
           const full =
             `${found.first_name ?? ""} ${found.last_name ?? ""}`.trim() ||
             form.full_name
@@ -258,7 +259,6 @@ const CustomerAdd = () => {
             update("citizen_id", cid)
             await loadAddressByCitizenId(cid)
           } else {
-            // เติมเฉพาะที่อยู่เท่าที่มี
             await loadAddressByCitizenId(found.citizen_id ?? found.citizenId ?? "")
           }
           setStatus({ searching: false, message: "พบข้อมูล และเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
@@ -283,7 +283,6 @@ const CustomerAdd = () => {
     if (!form.district.trim()) e.district = "กรุณากรอกอำเภอ"
     if (!form.province.trim()) e.province = "กรุณากรอกจังหวัด"
 
-    // ตัวเลขเท่านั้น (ออปชันก็ได้)
     ;["postal_code", "fid", "fid_relationship"].forEach((k) => {
       if (form[k] !== "" && isNaN(Number(form[k]))) e[k] = "ต้องเป็นตัวเลข"
     })
@@ -398,7 +397,7 @@ const CustomerAdd = () => {
         <form onSubmit={handleSubmit}>
           {/* โครงการ (เหลือแค่ โครงการชะลอข้าวเปลือก) */}
           <SectionCard title="โครงการที่เข้าร่วม" className="mb-6">
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-3">
               <label
                 className={cx(
                   "group relative flex items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all",
@@ -448,6 +447,7 @@ const CustomerAdd = () => {
 
           {/* ฟอร์มข้อมูลลูกค้า */}
           <SectionCard title="ข้อมูลลูกค้าทั่วไป">
+            {/* แถวบนสุด: 2 ช่อง */}
             <div className="grid gap-4 md:grid-cols-2">
               {/* citizen_id */}
               <div>
@@ -480,7 +480,10 @@ const CustomerAdd = () => {
                 />
                 {errors.full_name && <p className={errorTextCls}>{errors.full_name}</p>}
               </div>
+            </div>
 
+            {/* แถวถัด ๆ ไป: 3 คอลัมน์ทุกบรรทัด */}
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
               {/* address  */}
               <div>
                 <label className={labelCls}>บ้านเลขที่</label>

@@ -169,7 +169,6 @@ const CompanyAdd = () => {
     }
 
     try {
-      // ปรับ endpoint ให้ตรงกับ backend ของคุณหากต่างออกไป
       await apiAuth("/order/companies/save", { method: "POST", body: payload })
       alert("บันทึกข้อมูลบริษัทเรียบร้อย ✅")
       handleReset()
@@ -250,8 +249,8 @@ const CompanyAdd = () => {
               </div>
             </div>
 
-            {/* เบอร์โทรบริษัท */}
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {/* เบอร์โทรบริษัท (ทำให้กว้างเท่ากับ “บ้านเลขที่” คือ 1 ใน 3 คอลัมน์) */}
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
                 <label className={labelCls}>เบอร์โทรบริษัท (ไม่บังคับ)</label>
                 <input

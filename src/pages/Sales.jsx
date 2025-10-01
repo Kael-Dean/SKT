@@ -1585,217 +1585,139 @@ const Sales = () => {
           ) : (
             /* -------------------- โหมดบริษัท / นิติบุคคล (แบบละเอียดตามภาพ) -------------------- */
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-              {/* ชื่อบริษัท + ภาษี + โทร */}
-              <div className="md:col-span-2">
-                <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
-                <input
-                  ref={refs.companyName}
-                  className={cx(baseField, redFieldCls("companyName"))}
-                  value={customer.companyName}
-                  onChange={(e) => updateCustomer("companyName", e.target.value)}
-                  onFocus={() => clearError("companyName")}
-                  placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
-                  aria-invalid={errors.companyName ? true : undefined}
-                />
-                {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>เลขที่ผู้เสียภาษี (13 หลัก)</label>
-                <input
-                  ref={refs.taxId}
-                  inputMode="numeric"
-                  maxLength={13}
-                  className={cx(baseField, redFieldCls("taxId"))}
-                  value={customer.taxId}
-                  onChange={(e) => updateCustomer("taxId", onlyDigits(e.target.value))}
-                  onFocus={() => clearError("taxId")}
-                  placeholder="เช่น 0123456789012"
-                  aria-invalid={errors.taxId ? true : undefined}
-                />
-                {errors.taxId ? (
-                  <p className={errorTextCls}>{errors.taxId}</p>
-                ) : (
-                  <p className={helpTextCls}>ใช้สำหรับออกเอกสารภาษี</p>
-                )}
-              </div>
-
-              <div>
-                <label className={labelCls}>เบอร์โทรบริษัท (ไม่บังคับ)</label>
-                <input
-                  ref={refs.companyPhone}
-                  inputMode="tel"
-                  maxLength={20}
-                  className={cx(baseField, compactInput)}
-                  value={customer.companyPhone}
-                  onChange={(e) => updateCustomer("companyPhone", e.target.value.replace(/[^\d+]/g, ""))}
-                  placeholder="เช่น 021234567"
-                />
-              </div>
-
-              {/* ------ HQ Address ------ */}
-              <div className="md:col-span-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="inline-flex h-2 w-2 rounded-full bg-indigo-500" />
-                  <span className="font-semibold">ที่อยู่สำนักงานใหญ่ (HQ)</span>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-6">
-                  <div className="md:col-span-2">
-                    <label className={labelCls}>บ้านเลขที่</label>
-                    <input
-                      ref={refs.hqHouseNo}
-                      className={cx(baseField, compactInput, redHintCls("hqHouseNo"))}
-                      value={customer.hqHouseNo}
-                      onChange={(e) => updateCustomer("hqHouseNo", e.target.value)}
-                      onFocus={() => clearHint("hqHouseNo")}
-                      placeholder="เช่น 99/1"
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelCls}>หมู่</label>
-                    <input
-                      ref={refs.hqMoo}
-                      className={cx(baseField, compactInput)}
-                      value={customer.hqMoo}
-                      onChange={(e) => updateCustomer("hqMoo", e.target.value)}
-                      placeholder="เช่น 4"
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelCls}>ตำบล</label>
-                    <input
-                      ref={refs.hqSubdistrict}
-                      className={cx(baseField, compactInput, redHintCls("hqSubdistrict"))}
-                      value={customer.hqSubdistrict}
-                      onChange={(e) => updateCustomer("hqSubdistrict", e.target.value)}
-                      onFocus={() => clearHint("hqSubdistrict")}
-                      placeholder="เช่น หนองปลาไหล"
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelCls}>อำเภอ</label>
-                    <input
-                      ref={refs.hqDistrict}
-                      className={cx(baseField, compactInput, redHintCls("hqDistrict"))}
-                      value={customer.hqDistrict}
-                      onChange={(e) => updateCustomer("hqDistrict", e.target.value)}
-                      onFocus={() => clearHint("hqDistrict")}
-                      placeholder="เช่น เมือง"
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelCls}>จังหวัด</label>
-                    <input
-                      ref={refs.hqProvince}
-                      className={cx(baseField, compactInput, redHintCls("hqProvince"))}
-                      value={customer.hqProvince}
-                      onChange={(e) => updateCustomer("hqProvince", e.target.value)}
-                      onFocus={() => clearHint("hqProvince")}
-                      placeholder="เช่น ขอนแก่น"
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelCls}>รหัสไปรษณีย์ (ไม่บังคับ)</label>
-                    <input
-                      ref={refs.hqPostalCode}
-                      inputMode="numeric"
-                      maxLength={5}
-                      className={cx(baseField, compactInput)}
-                      value={customer.hqPostalCode}
-                      onChange={(e) => updateCustomer("hqPostalCode", onlyDigits(e.target.value))}
-                      placeholder="เช่น 40000"
-                    />
-                  </div>
-                </div>
-
-                {errors.hqAddress && <p className={errorTextCls}>{errors.hqAddress}</p>}
-              </div>
-
-              {/* ------ Branch Address (optional) ------ */}
-              <div className="md:col-span-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="inline-flex h-2 w-2 rounded-full bg-slate-400" />
-                  <span className="font-semibold">ที่อยู่สาขา (ถ้ามี)</span>
-                  <span className="text-sm text-slate-500">(ว่างได้หากใช้ที่อยู่สำนักงานใหญ่)</span>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-6">
-                  <div className="md:col-span-2">
-                    <label className={labelCls}>บ้านเลขที่ (สาขา)</label>
-                    <input
-                      ref={refs.brHouseNo}
-                      className={cx(baseField, compactInput)}
-                      value={customer.brHouseNo}
-                      onChange={(e) => updateCustomer("brHouseNo", e.target.value)}
-                      placeholder="เช่น 12/3"
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelCls}>หมู่ (สาขา)</label>
-                    <input
-                      ref={refs.brMoo}
-                      className={cx(baseField, compactInput)}
-                      value={customer.brMoo}
-                      onChange={(e) => updateCustomer("brMoo", e.target.value)}
-                      placeholder="เช่น 2"
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelCls}>ตำบล (สาขา)</label>
-                    <input
-                      ref={refs.brSubdistrict}
-                      className={cx(baseField, compactInput)}
-                      value={customer.brSubdistrict}
-                      onChange={(e) => updateCustomer("brSubdistrict", e.target.value)}
-                      placeholder="—"
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelCls}>อำเภอ (สาขา)</label>
-                    <input
-                      ref={refs.brDistrict}
-                      className={cx(baseField, compactInput)}
-                      value={customer.brDistrict}
-                      onChange={(e) => updateCustomer("brDistrict", e.target.value)}
-                      placeholder="—"
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelCls}>จังหวัด (สาขา)</label>
-                    <input
-                      ref={refs.brProvince}
-                      className={cx(baseField, compactInput)}
-                      value={customer.brProvince}
-                      onChange={(e) => updateCustomer("brProvince", e.target.value)}
-                      placeholder="—"
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelCls}>รหัสไปรษณีย์ (สาขา)</label>
-                    <input
-                      ref={refs.brPostalCode}
-                      inputMode="numeric"
-                      maxLength={5}
-                      className={cx(baseField, compactInput)}
-                      value={customer.brPostalCode}
-                      onChange={(e) => updateCustomer("brPostalCode", onlyDigits(e.target.value))}
-                      placeholder="—"
-                    />
-                  </div>
-                </div>
-              </div>
+            <div className="md:col-span-2">
+              <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
+              <input
+                ref={refs.companyName}
+                className={cx(baseField, redFieldCls("companyName"))}
+                value={customer.companyName}
+                onChange={(e) => updateCustomer("companyName", e.target.value)}
+                onFocus={() => clearError("companyName")}
+                placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
+                aria-invalid={errors.companyName ? true : undefined}
+              />
+              {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
             </div>
+
+            <div>
+              <label className={labelCls}>เลขที่ผู้เสียภาษี (13 หลัก)</label>
+              <input
+                ref={refs.taxId}
+                inputMode="numeric"
+                maxLength={13}
+                className={cx(baseField, redFieldCls("taxId"))}
+                value={customer.taxId}
+                onChange={(e) => updateCustomer("taxId", onlyDigits(e.target.value))}
+                onFocus={() => clearError("taxId")}
+                placeholder="เช่น 0123456789012"
+                aria-invalid={errors.taxId ? true : undefined}
+              />
+              {errors.taxId ? (
+                <p className={errorTextCls}>{errors.taxId}</p>
+              ) : (
+                <p className={helpTextCls}>ใช้สำหรับออกเอกสารภาษี</p>
+              )}
+            </div>
+
+            <div>
+              <label className={labelCls}>เบอร์โทรบริษัท (ไม่บังคับ)</label>
+              <input
+                ref={refs.companyPhone}
+                inputMode="tel"
+                maxLength={20}
+                className={cx(baseField, compactInput)}
+                value={customer.companyPhone}
+                onChange={(e) => updateCustomer("companyPhone", e.target.value.replace(/[^\d+]/g, ""))}
+                placeholder="เช่น 021234567"
+              />
+            </div>
+
+            {/* สำนักงานใหญ่ (HQ) */}
+            <div className="md:col-span-3 mt-2">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="inline-flex h-2 w-2 rounded-full bg-indigo-500" />
+                <h3 className="font-semibold">ที่อยู่สำนักงานใหญ่ (HQ)</h3>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                {[
+                  ["hqHouseNo", "บ้านเลขที่", "เช่น 99/1"],
+                  ["hqMoo", "หมู่", "เช่น 4"],
+                  ["hqSubdistrict", "ตำบล", "เช่น หนองปลาไหล"],
+                  ["hqDistrict", "อำเภอ", "เช่น เมือง"],
+                  ["hqProvince", "จังหวัด", "เช่น ขอนแก่น"],
+                ].map(([k, label, ph]) => (
+                  <div key={k}>
+                    <label className={labelCls}>{label}</label>
+                    <input
+                      ref={refs[k]}
+                      className={cx(baseField, compactInput, errors.hqAddress && "border-amber-400", redHintCls(k))}
+                      value={customer[k]}
+                      onChange={(e) => updateCustomer(k, e.target.value)}
+                      onFocus={() => clearHint(k)}
+                      placeholder={ph}
+                      aria-invalid={errors.hqAddress ? true : undefined}
+                    />
+                  </div>
+                ))}
+
+                <div>
+                  <label className={labelCls}>รหัสไปรษณีย์ (HQ)</label>
+                  <input
+                    ref={refs.hqPostalCode}
+                    inputMode="numeric"
+                    maxLength={5}
+                    className={cx(baseField, compactInput)}
+                    value={customer.hqPostalCode}
+                    onChange={(e) => updateCustomer("hqPostalCode", onlyDigits(e.target.value))}
+                    placeholder="เช่น 10110"
+                  />
+                </div>
+              </div>
+              {errors.hqAddress && <p className={errorTextCls}>{errors.hqAddress}</p>}
+            </div>
+
+            {/* สำนักงานสาขา (ออปชัน) */}
+            <div className="md:col-span-3 mt-2">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="inline-flex h-2 w-2 rounded-full bg-sky-500" />
+                <h3 className="font-semibold">ที่อยู่สำนักงานสาขา (ถ้ามี)</h3>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                {[
+                  ["brHouseNo", "บ้านเลขที่ (สาขา)", "เช่น 10/2"],
+                  ["brMoo", "หมู่ (สาขา)", "เช่น 5"],
+                  ["brSubdistrict", "ตำบล (สาขา)", "เช่น บึงเนียม"],
+                  ["brDistrict", "อำเภอ (สาขา)", "เช่น เมือง"],
+                  ["brProvince", "จังหวัด (สาขา)", "เช่น ขอนแก่น"],
+                ].map(([k, label, ph]) => (
+                  <div key={k}>
+                    <label className={labelCls}>{label}</label>
+                    <input
+                      ref={refs[k]}
+                      className={cx(baseField, compactInput)}
+                      value={customer[k]}
+                      onChange={(e) => updateCustomer(k, e.target.value)}
+                      placeholder={ph}
+                    />
+                  </div>
+                ))}
+
+                <div>
+                  <label className={labelCls}>รหัสไปรษณีย์ (สาขา)</label>
+                  <input
+                    ref={refs.brPostalCode}
+                    inputMode="numeric"
+                    maxLength={5}
+                    className={cx(baseField, compactInput)}
+                    value={customer.brPostalCode}
+                    onChange={(e) => updateCustomer("brPostalCode", onlyDigits(e.target.value))}
+                    placeholder="เช่น 10220"
+                  />
+                </div>
+              </div>
+              <p className={helpTextCls}>หากไม่กรอก จะถือว่าใช้ที่อยู่สำนักงานใหญ่ในการออกเอกสาร</p>
+            </div>
+          </div>
 
           )}
         </div>

@@ -46,15 +46,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     'rounded-2xl ring-1 ring-gray-200/90 dark:ring-gray-700/80 bg-white/70 dark:bg-gray-800/60 shadow-sm'
 
   const firstMenu = { label: 'หน้าหลัก', path: '/home' }
+
+  // ✅ จัดลำดับใหม่ให้ "คลังสินค้า" อยู่ถัดจาก "ออเดอร์" ทันที
   const otherMenus = [
     { label: 'คลังเอกสาร', path: '/documents' },
     { label: 'ออเดอร์', path: '/order' },
+    { label: 'คลังสินค้า', path: '/stock' },      // ← ย้ายขึ้นมาตรงนี้
     { label: 'สมัครสมาชิก', path: '/member-signup' },
     { label: 'ค้นหาสมาชิก', path: '/search' },
-    { label: 'คลังสินค้า', path: '/stock' },
-    // ✅ เพิ่มเมนูเพิ่มลูกค้า
     { label: 'เพิ่มลูกค้า', path: '/customer-add' },
-    // ✅ เพิ่มเมนูเพิ่มบริษัท
     { label: 'เพิ่มบริษัท', path: '/company-add' },
   ]
 

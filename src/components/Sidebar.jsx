@@ -1,3 +1,4 @@
+// components/Sidebar.jsx
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -53,6 +54,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { label: 'คลังสินค้า', path: '/stock' },
     // ✅ เพิ่มเมนูเพิ่มลูกค้า
     { label: 'เพิ่มลูกค้า', path: '/customer-add' },
+    // ✅ เพิ่มเมนูเพิ่มบริษัท
+    { label: 'เพิ่มบริษัท', path: '/company-add' },
   ]
 
   const isActive = (p) => location.pathname === p

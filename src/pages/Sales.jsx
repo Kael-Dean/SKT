@@ -290,9 +290,7 @@ const Sales = () => {
   const companyInputRef = useRef(null)
   const suppressCompanySearchRef = useRef(false)
 
-  // debounce company name
-  const debouncedCompanyName = useDebounce(customer.companyName)
-
+ 
 
   const nameBoxRef = useRef(null)
   const nameInputRef = useRef(null)
@@ -364,6 +362,10 @@ const Sales = () => {
     brProvince: "",
     brPostalCode: "",
   })
+
+   // debounce company name
+  const debouncedCompanyName = useDebounce(customer.companyName)
+
 
   /** เมตาสมาชิก/ลูกค้า */
   const [memberMeta, setMemberMeta] = useState({

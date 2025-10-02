@@ -311,6 +311,7 @@ const Sales = () => {
   const [yearOptions, setYearOptions]         = useState([])
   const [programOptions, setProgramOptions]   = useState([])
   const [paymentOptions, setPaymentOptions]   = useState([])
+  const [businessOptions, setBusinessOptions] = useState([])
 
   /** ▶︎ ฟอร์มสำเร็จรูป (Template) */
   const templateOptions = [
@@ -388,6 +389,7 @@ const Sales = () => {
     fieldType: "",
     fieldTypeId: "",
     program: "",
+    programId: "",
     // ✅ payment เก็บ id+label (UI เท่านั้น)
     paymentMethodId: "",
     paymentMethod: "",
@@ -405,6 +407,7 @@ const Sales = () => {
     klangName: "",
     klangId: null,
     registeredPlace: "",
+    businessTypeId: "",
     // เอกสารขาย (UI)
     weighSlipNo: "",
     taxInvoiceNo: "",
@@ -444,6 +447,7 @@ const Sales = () => {
 
     // order
     product: useRef(null),
+    businessType: useRef(null),
     riceType: useRef(null),
     subrice: useRef(null),
     condition: useRef(null),
@@ -559,6 +563,7 @@ const Sales = () => {
           programs,
           payments,
           branches,
+          businesses,
         ] = await Promise.all([
           fetchFirstOkJson(["/order/product/search"]),
           fetchFirstOkJson(["/order/condition/search"]),
@@ -567,6 +572,7 @@ const Sales = () => {
           fetchFirstOkJson(["/order/program/search"]),
           fetchFirstOkJson(["/order/payment/search/sell"]), // ← sales ใช้ SELL
           fetchFirstOkJson(["/order/branch/search"]),
+          fetchFirstOkJson(["/order/business/search"]),
         ])
 
         setProductOptions(
@@ -602,6 +608,10 @@ const Sales = () => {
             id: String(x.id ?? x.value ?? i),
             label: String(x.program ?? x.year ?? x.name ?? x.label ?? "").trim(),
           })).filter((o) => o.id && o.label)
+        )
+
+         setBusinessOptions( 
+          (businesses || []).map((x) => ({ id: String(x.id), label: String(x.business) })) 
         )
 
         setPaymentOptions(
@@ -897,7 +907,6 @@ useEffect(() => {
       setLoadingCustomer(true)
       // รองรับหลาย endpoint
       const results = await fetchFirstOkJson([
-        `/order/company/search?q=${encodeURIComponent(q)}`,
         `/order/companies/search?q=${encodeURIComponent(q)}`,
         `/order/customers/search?q=${encodeURIComponent(q)}`
       ])
@@ -1140,6 +1149,7 @@ useEffect(() => {
     if (!order.conditionId) m.condition = true
     if (!order.fieldTypeId) m.fieldType = true
     if (!order.riceYearId) m.riceYear = true
+    if (!order.businessTypeId) m.businessType = true
     if (!order.branchName) m.branchName = true
     if (!order.klangName) m.klangName = true
     if (!order.entryWeightKg || Number(order.entryWeightKg) < 0) m.entryWeightKg = true
@@ -1221,6 +1231,8 @@ useEffect(() => {
     if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข"
     if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"
     if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"
+    if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ"
+
 
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
@@ -1244,6 +1256,7 @@ useEffect(() => {
     const companyKeys = ["companyName"]
     const common = [
       "product","riceType","subrice","condition","fieldType","riceYear",
+      "businessType",
       "branchName","klangName","entryWeightKg","exitWeightKg","deductWeightKg","amountTHB","issueDate",
     ]
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(common)
@@ -1290,15 +1303,20 @@ const handleSubmit = async (e) => {
   const riceYearId  = /^\d+$/.test(order.riceYearId)  ? Number(order.riceYearId)  : null
   const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
   const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
+  const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
+
 
   if (!productId)  { setErrors(p => ({ ...p, product:"ไม่พบรหัสสินค้า" }));       scrollToFirstError({product:true}); return }
   if (!riceId)     { setErrors(p => ({ ...p, riceType:"ไม่พบรหัสชนิดข้าว" }));    scrollToFirstError({riceType:true}); return }
   if (!subriceId)  { setErrors(p => ({ ...p, subrice:"ไม่พบรหัสชั้นย่อย" }));     scrollToFirstError({subrice:true}); return }
   if (!riceYearId) { setErrors(p => ({ ...p, riceYear:"ไม่พบรหัสปี/ฤดูกาล" }));   scrollToFirstError({riceYear:true}); return }
+  
   if (!conditionId){ setErrors(p => ({ ...p, condition:"ไม่พบรหัสสภาพ/เงื่อนไข" })); scrollToFirstError({condition:true}); return }
   if (!fieldTypeId){ setErrors(p => ({ ...p, fieldType:"ไม่พบรหัสประเภทนา" }));   scrollToFirstError({fieldType:true}); return }
   if (!branchId)   { setErrors(p => ({ ...p, branchName:"ไม่พบรหัสสาขา" }));      scrollToFirstError({branchName:true}); return }
   if (!klangId)    { setErrors(p => ({ ...p, klangName:"ไม่พบรหัสคลัง" }));       scrollToFirstError({klangName:true}); return }
+  if (!businessTypeId){ setErrors(p => ({ ...p, businessType:"ไม่พบรหัสประเภทธุรกิจ" })); scrollToFirstError({businessType:true}); return }
+
 
   // ⬇⬇⬇ วางตรงนี้ ⬇⬇⬇
   const baseGross = grossFromScale
@@ -1359,6 +1377,8 @@ const handleSubmit = async (e) => {
       rice_year: riceYearId,           // ← backend ต้องการชื่อคีย์แบบนี้
       field_type: fieldTypeId,
       condition: conditionId,
+      business_type: businessTypeId,
+      program: order.programId ? Number(order.programId) : null,
       humidity: Number(order.moisturePct || 0),
       entry_weight: Number(order.entryWeightKg || 0),
       exit_weight:  Number(order.exitWeightKg  || 0),
@@ -1439,6 +1459,7 @@ const handleSubmit = async (e) => {
       fieldType: "",
       fieldTypeId: "",
       program: "",
+      programId: "",
       paymentMethodId: "",
       paymentMethod: "",
       entryWeightKg: "",
@@ -1455,6 +1476,7 @@ const handleSubmit = async (e) => {
       klangName: "",
       klangId: null,
       registeredPlace: "",
+      businessTypeId: "",
       weighSlipNo: "",
       taxInvoiceNo: "",
       salesReceiptNo: "",
@@ -1751,85 +1773,124 @@ const handleSubmit = async (e) => {
             </div>
           ) : (
             /* -------------------- โหมดบริษัท / นิติบุคคล: เลือกได้แค่ชื่อบริษัท -------------------- */
-<div className="mt-4 grid gap-4 md:grid-cols-3">
-  {/* ช่องค้นหา/เลือกชื่อบริษัท */}
-  <div className="md:col-span-3" ref={companyBoxRef}>
-    <label className={labelCls}>ชื่อบริษัท / นิติบุคคล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
-    <input
-      ref={(el) => {
-        refs.companyName.current = el
-        companyInputRef.current = el
-      }}
-      className={cx(baseField, redFieldCls("companyName"))}
-      value={customer.companyName}
-      onChange={(e) => {
-        updateCustomer("companyName", e.target.value)
-        if (e.target.value.trim().length >= 2) setShowCompanyList(true)
-        else {
-          setShowCompanyList(false)
-          setHighlightedCompanyIndex(-1)
-        }
-      }}
-      onFocus={() => clearError("companyName")}
-      onKeyDown={handleCompanyKeyDown}
-      placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
-      aria-expanded={showCompanyList}
-      aria-controls="company-results"
-      role="combobox"
-      aria-autocomplete="list"
-      aria-invalid={errors.companyName ? true : undefined}
-    />
-    {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            {/* ช่องค้นหา/เลือกชื่อบริษัท */}
+            <div className="md:col-span-3" ref={companyBoxRef}>
+              <label className={labelCls}>ชื่อบริษัท / นิติบุคคล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
+              <input
+                ref={(el) => {
+                  refs.companyName.current = el
+                  companyInputRef.current = el
+                }}
+                className={cx(baseField, redFieldCls("companyName"))}
+                value={customer.companyName}
+                onChange={(e) => {
+                  updateCustomer("companyName", e.target.value)
+                  if (e.target.value.trim().length >= 2) setShowCompanyList(true)
+                  else {
+                    setShowCompanyList(false)
+                    setHighlightedCompanyIndex(-1)
+                  }
+                }}
+                onFocus={() => clearError("companyName")}
+                onKeyDown={handleCompanyKeyDown}
+                placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
+                aria-expanded={showCompanyList}
+                aria-controls="company-results"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-invalid={errors.companyName ? true : undefined}
+              />
+              {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
 
-    {showCompanyList && companyResults.length > 0 && (
-      <div
-        id="company-results"
-        ref={companyListRef}
-        className={
-          "mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm " +
-          "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        }
-        role="listbox"
-      >
-        {companyResults.map((r, idx) => {
-          const isActive = idx === highlightedCompanyIndex
-          const name = r.company_name ?? r.name ?? r.company ?? "(ไม่มีชื่อ)"
-          const tax = r.tax_id ?? r.tin ?? "-"
-          return (
-            <button
-              type="button"
-              key={`${tax}-${name}-${idx}`}
-              ref={(el) => (companyItemRefs.current[idx] = el)}
-              onClick={async () => await pickCompanyResult(r)}
-              onMouseEnter={() => {
-                setHighlightedCompanyIndex(idx)
-                requestAnimationFrame(() => {
-                  try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch {}
-                })
-              }}
-              role="option"
-              aria-selected={isActive}
-              className={cx(
-                "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
-                isActive
-                  ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                  : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+              {showCompanyList && companyResults.length > 0 && (
+                <div
+                  id="company-results"
+                  ref={companyListRef}
+                  className={
+                    "mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm " +
+                    "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  }
+                  role="listbox"
+                >
+                  {companyResults.map((r, idx) => {
+                    const isActive = idx === highlightedCompanyIndex
+                    const name = r.company_name ?? r.name ?? r.company ?? "(ไม่มีชื่อ)"
+                    const tax = r.tax_id ?? r.tin ?? "-"
+                    return (
+                      <button
+                        type="button"
+                        key={`${tax}-${name}-${idx}`}
+                        ref={(el) => (companyItemRefs.current[idx] = el)}
+                        onClick={async () => await pickCompanyResult(r)}
+                        onMouseEnter={() => {
+                          setHighlightedCompanyIndex(idx)
+                          requestAnimationFrame(() => {
+                            try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch {}
+                          })
+                        }}
+                        role="option"
+                        aria-selected={isActive}
+                        className={cx(
+                          "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
+                          isActive
+                            ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                            : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                        )}
+                      >
+                        {isActive && (
+                          <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+                        )}
+                        <div className="flex-1">
+                          <div className="font-medium">{name}</div>
+                          <div className="text-sm text-slate-600 dark:text-slate-300">เลขผู้เสียภาษี: {tax || "-"}</div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
               )}
-            >
-              {isActive && (
-                <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-              )}
-              <div className="flex-1">
-                <div className="font-medium">{name}</div>
-                <div className="text-sm text-slate-600 dark:text-slate-300">เลขผู้เสียภาษี: {tax || "-"}</div>
-              </div>
-            </button>
-          )
-        })}
-      </div>
-    )}
-  </div>
-</div>
+            </div>
+
+            {/* สรุปบริษัทแบบอ่านอย่างเดียว (ออโต้ฟิลด์จากรายการที่เลือก) */}
+            {(() => {
+              const join = (...xs) => xs.filter(Boolean).join(" • ")
+              const hqAddr = join(
+                customer.hqHouseNo && `บ้านเลขที่ ${customer.hqHouseNo}`,
+                customer.hqMoo && `ม.${customer.hqMoo}`,
+                customer.hqSubdistrict && `ต.${customer.hqSubdistrict}`,
+                customer.hqDistrict && `อ.${customer.hqDistrict}`,
+                customer.hqProvince && `จ.${customer.hqProvince}`,
+              )
+              const brAddr = join(
+                customer.brHouseNo && `บ้านเลขที่ ${customer.brHouseNo}`,
+                customer.brMoo && `ม.${customer.brMoo}`,
+                customer.brSubdistrict && `ต.${customer.brSubdistrict}`,
+                customer.brDistrict && `อ.${customer.brDistrict}`,
+                customer.brProvince && `จ.${customer.brProvince}`,
+              )
+              return (
+                <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
+                  {[
+                    { label: "บริษัท / นิติบุคคล", value: customer.companyName || "—" },
+                    { label: "เลขผู้เสียภาษี", value: customer.taxId || "—" },
+                    { label: "สำนักงานใหญ่", value: hqAddr || "—" },
+                    { label: "ที่อยู่สาขา", value: brAddr || "—" },
+                    { label: "โทร", value: customer.companyPhone || "—" },
+                  ].map((c) => (
+                    <div
+                      key={c.label}
+                      className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
+                    >
+                      <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
+                      <div className="text-lg md:text-xl font-semibold break-words">{c.value}</div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+
 
           )}
         </div>
@@ -1842,137 +1903,162 @@ const handleSubmit = async (e) => {
           <h2 className="mb-3 text-xl font-semibold">รายละเอียดการขาย</h2>
 
           {/* เลือกประเภท/ปี/โปรแกรม */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <label className={labelCls}>ประเภทสินค้า</label>
-              <ComboBox
-                options={productOptions}
-                value={order.productId}
-                onChange={(id, found) => {
-                  setOrder((p) => ({
-                    ...p,
-                    productId: id,
-                    productName: found?.label ?? "",
-                    riceId: "",
-                    riceType: "",
-                    subriceId: "",
-                    subriceName: "",
-                  }))
-                }}
-                placeholder="— เลือกประเภทสินค้า —"
-                error={!!errors.product}
-                hintRed={!!missingHints.product}
-                clearHint={() => clearHint("product")}
-                buttonRef={refs.product}
-                disabled={isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
-              />
-              {errors.product && <p className={errorTextCls}>{errors.product}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>ชนิดข้าว</label>
-              <ComboBox
-                options={riceOptions}
-                value={order.riceId}
-                onChange={(id, found) => {
-                  setOrder((p) => ({
-                    ...p,
-                    riceId: id,
-                    riceType: found?.label ?? "",
-                    subriceId: "",
-                    subriceName: "",
-                  }))
-                }}
-                placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId || isTemplateActive}
-                error={!!errors.riceType}
-                hintRed={!!missingHints.riceType}
-                clearHint={() => clearHint("riceType")}
-                buttonRef={refs.riceType}
-              />
-              {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
-              <ComboBox
-                options={subriceOptions}
-                value={order.subriceId}
-                onChange={(id, found) => {
-                  setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))
-                }}
-                placeholder="— เลือกชั้นย่อย —"
-                disabled={!order.riceId}
-                error={!!errors.subrice}
-                hintRed={!!missingHints.subrice}
-                clearHint={() => clearHint("subrice")}
-                buttonRef={refs.subrice}
-              />
-              {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>สภาพ/เงื่อนไข</label>
-              <ComboBox
-                options={conditionOptions}
-                value={order.conditionId}
-                onChange={(_id, found) =>
-                  setOrder((p) => ({ ...p, conditionId: found?.id ?? "", condition: found?.label ?? "" }))
-                }
-                placeholder="— เลือกสภาพ/เงื่อนไข —"
-                error={!!errors.condition}
-                hintRed={!!missingHints.condition}
-                clearHint={() => clearHint("condition")}
-                buttonRef={refs.condition}
-              />
-              {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>ประเภทนา</label>
-              <ComboBox
-                options={fieldTypeOptions}
-                value={order.fieldTypeId}
-                onChange={(_id, found) =>
-                  setOrder((p) => ({ ...p, fieldTypeId: found?.id ?? "", fieldType: found?.label ?? "" }))
-                }
-                placeholder="— เลือกประเภทนา —"
-                error={!!errors.fieldType}
-                hintRed={!!missingHints.fieldType}
-                clearHint={() => clearHint("fieldType")}
-                buttonRef={refs.fieldType}
-              />
-              {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>ปี/ฤดูกาล</label>
-              <ComboBox
-                options={yearOptions}
-                value={order.riceYearId}
-                onChange={(_id, found) =>
-                  setOrder((p) => ({ ...p, riceYearId: found?.id ?? "", riceYear: found?.label ?? "" }))
-                }
-                placeholder="— เลือกปี/ฤดูกาล —"
-                error={!!errors.riceYear}
-                hintRed={!!missingHints.riceYear}
-                clearHint={() => clearHint("riceYear")}
-                buttonRef={refs.riceYear}
-              />
-              {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
-              <ComboBox
-                options={programOptions}
-                value={programOptions.find((o) => o.label === order.program)?.id ?? ""}
-                onChange={(_id, found) => setOrder((p) => ({ ...p, program: found?.label ?? "" }))}
-                placeholder="— เลือกโปรแกรม —"
-                buttonRef={refs.program}
-              />
-            </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className={labelCls}>ประเภทสินค้า</label>
+            <ComboBox
+              options={productOptions}
+              value={order.productId}
+              onChange={(id, found) => {
+                setOrder((p) => ({
+                  ...p,
+                  productId: id,
+                  productName: found?.label ?? "",
+                  riceId: "",
+                  riceType: "",
+                  subriceId: "",
+                  subriceName: "",
+                }))
+              }}
+              placeholder="— เลือกประเภทสินค้า —"
+              error={!!errors.product}
+              hintRed={!!missingHints.product}
+              clearHint={() => clearHint("product")}
+              buttonRef={refs.product}
+              disabled={isTemplateActive}
+            />
+            {errors.product && <p className={errorTextCls}>{errors.product}</p>}
           </div>
+
+          <div>
+            <label className={labelCls}>ชนิดข้าว</label>
+            <ComboBox
+              options={riceOptions}
+              value={order.riceId}
+              onChange={(id, found) => {
+                setOrder((p) => ({
+                  ...p,
+                  riceId: id,
+                  riceType: found?.label ?? "",
+                  subriceId: "",
+                  subriceName: "",
+                }))
+              }}
+              placeholder="— เลือกชนิดข้าว —"
+              disabled={!order.productId || isTemplateActive}
+              error={!!errors.riceType}
+              hintRed={!!missingHints.riceType}
+              clearHint={() => clearHint("riceType")}
+              buttonRef={refs.riceType}
+            />
+            {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
+          </div>
+
+          <div>
+            <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
+            <ComboBox
+              options={subriceOptions}
+              value={order.subriceId}
+              onChange={(id, found) => {
+                setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))
+              }}
+              placeholder="— เลือกชั้นย่อย —"
+              disabled={!order.riceId}
+              error={!!errors.subrice}
+              hintRed={!!missingHints.subrice}
+              clearHint={() => clearHint("subrice")}
+              buttonRef={refs.subrice}
+            />
+            {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
+          </div>
+
+          <div>
+            <label className={labelCls}>สภาพ/เงื่อนไข</label>
+            <ComboBox
+              options={conditionOptions}
+              value={order.conditionId}
+              onChange={(_id, found) =>
+                setOrder((p) => ({ ...p, conditionId: found?.id ?? "", condition: found?.label ?? "" }))
+              }
+              placeholder="— เลือกสภาพ/เงื่อนไข —"
+              error={!!errors.condition}
+              hintRed={!!missingHints.condition}
+              clearHint={() => clearHint("condition")}
+              buttonRef={refs.condition}
+            />
+            {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
+          </div>
+
+          <div>
+            <label className={labelCls}>ประเภทนา</label>
+            <ComboBox
+              options={fieldTypeOptions}
+              value={order.fieldTypeId}
+              onChange={(_id, found) =>
+                setOrder((p) => ({ ...p, fieldTypeId: found?.id ?? "", fieldType: found?.label ?? "" }))
+              }
+              placeholder="— เลือกประเภทนา —"
+              error={!!errors.fieldType}
+              hintRed={!!missingHints.fieldType}
+              clearHint={() => clearHint("fieldType")}
+              buttonRef={refs.fieldType}
+            />
+            {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
+          </div>
+
+          <div>
+            <label className={labelCls}>ปี/ฤดูกาล</label>
+            <ComboBox
+              options={yearOptions}
+              value={order.riceYearId}
+              onChange={(_id, found) =>
+                setOrder((p) => ({ ...p, riceYearId: found?.id ?? "", riceYear: found?.label ?? "" }))
+              }
+              placeholder="— เลือกปี/ฤดูกาล —"
+              error={!!errors.riceYear}
+              hintRed={!!missingHints.riceYear}
+              clearHint={() => clearHint("riceYear")}
+              buttonRef={refs.riceYear}
+            />
+            {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
+          </div>
+
+          {/* 🟩 ประเภทธุรกิจ (ใหม่) */}
+          <div>
+            <label className={labelCls}>ประเภทธุรกิจ</label>
+            <ComboBox
+              options={businessOptions}
+              value={order.businessTypeId}
+              onChange={(_id, found) =>
+                setOrder((p) => ({
+                  ...p,
+                  businessTypeId: found?.id ?? "",
+                }))
+              }
+              placeholder="— เลือกประเภทธุรกิจ —"
+              error={!!errors.businessType}
+              hintRed={!!missingHints.businessType}
+              clearHint={() => clearHint("businessType")}
+              buttonRef={refs.businessType}
+            />
+            {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
+          </div>
+
+          {/* โปรแกรม (ไม่บังคับ) */}
+          <div>
+            <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
+            <ComboBox
+              options={programOptions}
+              value={order.programId}
+              onChange={(_id, found) =>
+                setOrder((p) => ({ ...p, programId: found?.id ?? "", program: found?.label ?? "" }))
+              }
+              placeholder="— เลือกโปรแกรม —"
+              buttonRef={refs.program}
+            />
+          </div>
+        </div>
+
 
           {/* สาขา + คลัง */}
           <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -2224,6 +2310,8 @@ const handleSubmit = async (e) => {
                   { label: "บ้านเลขที่", value: customer.houseNo || "—" },
                   { label: "หมู่", value: customer.moo || "—" },
                   { label: "ที่อยู่", value: [customer.subdistrict, customer.district, customer.province].filter(Boolean).join(" • ") || "—" },
+                  { label: "ประเภทธุรกิจ", value: (businessOptions.find(b => String(b.id)===String(order.businessTypeId))?.label) || "—" },
+
                 ].map((c) => (
                   <div key={c.label} className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
                     <div className="text-slate-600 dark:text-slate-300">{c.label}</div>

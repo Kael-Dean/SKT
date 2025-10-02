@@ -1827,44 +1827,6 @@ const handleSubmit = async (e) => {
       </div>
     )}
   </div>
-
-  {/* สรุปบริษัทแบบอ่านอย่างเดียว (ออโต้ฟิลด์จากรายการที่เลือก) */}
-  {(() => {
-    const join = (...xs) => xs.filter(Boolean).join(" • ")
-    const hqAddr = join(
-      customer.hqHouseNo && `บ้านเลขที่ ${customer.hqHouseNo}`,
-      customer.hqMoo && `ม.${customer.hqMoo}`,
-      customer.hqSubdistrict && `ต.${customer.hqSubdistrict}`,
-      customer.hqDistrict && `อ.${customer.hqDistrict}`,
-      customer.hqProvince && `จ.${customer.hqProvince}`,
-    )
-    const brAddr = join(
-      customer.brHouseNo && `บ้านเลขที่ ${customer.brHouseNo}`,
-      customer.brMoo && `ม.${customer.brMoo}`,
-      customer.brSubdistrict && `ต.${customer.brSubdistrict}`,
-      customer.brDistrict && `อ.${customer.brDistrict}`,
-      customer.brProvince && `จ.${customer.brProvince}`,
-    )
-    return (
-      <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
-        {[
-          { label: "บริษัท / นิติบุคคล", value: customer.companyName || "—" },
-          { label: "เลขผู้เสียภาษี", value: customer.taxId || "—" },
-          { label: "สำนักงานใหญ่", value: hqAddr || "—" },
-          { label: "ที่อยู่สาขา", value: brAddr || "—" },
-          { label: "โทร", value: customer.companyPhone || "—" },
-        ].map((c) => (
-          <div
-            key={c.label}
-            className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
-          >
-            <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
-            <div className="text-lg md:text-xl font-semibold break-words">{c.value}</div>
-          </div>
-        ))}
-      </div>
-    )
-  })()}
 </div>
 
           )}

@@ -1129,13 +1129,9 @@ useEffect(() => {
       if (!customer.district.trim()) m.district = true
       if (!customer.province.trim()) m.province = true
     } else {
-      if (!customer.companyName.trim()) m.companyName = true
-      if (!customer.hqHouseNo.trim()) m.hqHouseNo = true
-      if (!customer.hqSubdistrict.trim()) m.hqSubdistrict = true
-      if (!customer.hqDistrict.trim()) m.hqDistrict = true
-      if (!customer.hqProvince.trim()) m.hqProvince = true
-      // ที่อยู่สาขาเป็นออปชัน
-    }
+  if (!customer.companyName.trim()) m.companyName = true
+}
+
 
     // ออเดอร์ (จำเป็นตาม backend)
     if (!order.productId) m.product = true
@@ -1214,10 +1210,10 @@ useEffect(() => {
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
       if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
     } else {
-      if (!customer.companyName.trim()) e.companyName = "กรุณากรอกชื่อบริษัท"
-      // taxId ไม่บังคับกรอกเอง — จะมาจากบริษัทที่เลือก 
-      if (!customer.hqSubdistrict || !customer.hqDistrict || !customer.hqProvince) e.hqAddress = "กรุณากรอกที่อยู่สำนักงานใหญ่ให้ครบ"
+  if (!customer.companyName.trim()) e.companyName = "กรุณาเลือกชื่อบริษัท"
+  // ไม่บังคับ HQ/Branch ใดๆ (ระบบจะเติมอัตโนมัติจากรายการที่เลือก)
     }
+
 
     if (!order.productId) e.product = "เลือกประเภทสินค้า"
     if (!order.riceId) e.riceType = "เลือกชนิดข้าว"
@@ -1245,7 +1241,7 @@ useEffect(() => {
 
   const scrollToFirstError = (eObj) => {
     const personKeys = ["fullName", "address"]
-    const companyKeys = ["companyName", "taxId", "hqAddress"]
+    const companyKeys = ["companyName"]
     const common = [
       "product","riceType","subrice","condition","fieldType","riceYear",
       "branchName","klangName","entryWeightKg","exitWeightKg","deductWeightKg","amountTHB","issueDate",
@@ -1752,173 +1748,124 @@ const handleSubmit = async (e) => {
               </div>
             </div>
           ) : (
-            /* -------------------- โหมดบริษัท / นิติบุคคล (แบบละเอียดตามภาพ) -------------------- */
-            <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-2" ref={companyBoxRef}>
-  <label className={labelCls}>ชื่อบริษัท / นิติบุคคล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
-  <input
-    ref={(el) => {
-      refs.companyName.current = el
-      companyInputRef.current = el
-    }}
-    className={cx(baseField, redFieldCls("companyName"))}
-    value={customer.companyName}
-    onChange={(e) => {
-      updateCustomer("companyName", e.target.value)
-      if (e.target.value.trim().length >= 2) setShowCompanyList(true)
-      else {
-        setShowCompanyList(false)
-        setHighlightedCompanyIndex(-1)
-      }
-    }}
-    onFocus={() => clearError("companyName")}
-    onKeyDown={handleCompanyKeyDown}
-    placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
-    aria-expanded={showCompanyList}
-    aria-controls="company-results"
-    role="combobox"
-    aria-autocomplete="list"
-    aria-invalid={errors.companyName ? true : undefined}
-  />
-  {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
+            /* -------------------- โหมดบริษัท / นิติบุคคล: เลือกได้แค่ชื่อบริษัท -------------------- */
+<div className="mt-4 grid gap-4 md:grid-cols-3">
+  {/* ช่องค้นหา/เลือกชื่อบริษัท */}
+  <div className="md:col-span-3" ref={companyBoxRef}>
+    <label className={labelCls}>ชื่อบริษัท / นิติบุคคล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
+    <input
+      ref={(el) => {
+        refs.companyName.current = el
+        companyInputRef.current = el
+      }}
+      className={cx(baseField, redFieldCls("companyName"))}
+      value={customer.companyName}
+      onChange={(e) => {
+        updateCustomer("companyName", e.target.value)
+        if (e.target.value.trim().length >= 2) setShowCompanyList(true)
+        else {
+          setShowCompanyList(false)
+          setHighlightedCompanyIndex(-1)
+        }
+      }}
+      onFocus={() => clearError("companyName")}
+      onKeyDown={handleCompanyKeyDown}
+      placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
+      aria-expanded={showCompanyList}
+      aria-controls="company-results"
+      role="combobox"
+      aria-autocomplete="list"
+      aria-invalid={errors.companyName ? true : undefined}
+    />
+    {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
 
-  {showCompanyList && companyResults.length > 0 && (
-    <div
-      id="company-results"
-      ref={companyListRef}
-      className={
-        "mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm " +
-        "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-      }
-      role="listbox"
-    >
-      {companyResults.map((r, idx) => {
-        const isActive = idx === highlightedCompanyIndex
-        const name = r.company_name ?? r.name ?? r.company ?? "(ไม่มีชื่อ)"
-        const tax = r.tax_id ?? r.tin ?? "-"
-        return (
-          <button
-            type="button"
-            key={`${tax}-${name}-${idx}`}
-            ref={(el) => (companyItemRefs.current[idx] = el)}
-            onClick={async () => await pickCompanyResult(r)}
-            onMouseEnter={() => {
-              setHighlightedCompanyIndex(idx)
-              requestAnimationFrame(() => {
-                try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch {}
-              })
-            }}
-            role="option"
-            aria-selected={isActive}
-            className={cx(
-              "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
-              isActive
-                ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-            )}
+    {showCompanyList && companyResults.length > 0 && (
+      <div
+        id="company-results"
+        ref={companyListRef}
+        className={
+          "mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm " +
+          "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        }
+        role="listbox"
+      >
+        {companyResults.map((r, idx) => {
+          const isActive = idx === highlightedCompanyIndex
+          const name = r.company_name ?? r.name ?? r.company ?? "(ไม่มีชื่อ)"
+          const tax = r.tax_id ?? r.tin ?? "-"
+          return (
+            <button
+              type="button"
+              key={`${tax}-${name}-${idx}`}
+              ref={(el) => (companyItemRefs.current[idx] = el)}
+              onClick={async () => await pickCompanyResult(r)}
+              onMouseEnter={() => {
+                setHighlightedCompanyIndex(idx)
+                requestAnimationFrame(() => {
+                  try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch {}
+                })
+              }}
+              role="option"
+              aria-selected={isActive}
+              className={cx(
+                "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
+                isActive
+                  ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                  : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+              )}
+            >
+              {isActive && (
+                <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+              )}
+              <div className="flex-1">
+                <div className="font-medium">{name}</div>
+                <div className="text-sm text-slate-600 dark:text-slate-300">เลขผู้เสียภาษี: {tax || "-"}</div>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    )}
+  </div>
+
+  {/* สรุปบริษัทแบบอ่านอย่างเดียว (ออโต้ฟิลด์จากรายการที่เลือก) */}
+  {(() => {
+    const join = (...xs) => xs.filter(Boolean).join(" • ")
+    const hqAddr = join(
+      customer.hqHouseNo && `บ้านเลขที่ ${customer.hqHouseNo}`,
+      customer.hqMoo && `ม.${customer.hqMoo}`,
+      customer.hqSubdistrict && `ต.${customer.hqSubdistrict}`,
+      customer.hqDistrict && `อ.${customer.hqDistrict}`,
+      customer.hqProvince && `จ.${customer.hqProvince}`,
+    )
+    const brAddr = join(
+      customer.brHouseNo && `บ้านเลขที่ ${customer.brHouseNo}`,
+      customer.brMoo && `ม.${customer.brMoo}`,
+      customer.brSubdistrict && `ต.${customer.brSubdistrict}`,
+      customer.brDistrict && `อ.${customer.brDistrict}`,
+      customer.brProvince && `จ.${customer.brProvince}`,
+    )
+    return (
+      <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
+        {[
+          { label: "บริษัท / นิติบุคคล", value: customer.companyName || "—" },
+          { label: "เลขผู้เสียภาษี", value: customer.taxId || "—" },
+          { label: "สำนักงานใหญ่", value: hqAddr || "—" },
+          { label: "ที่อยู่สาขา", value: brAddr || "—" },
+          { label: "โทร", value: customer.companyPhone || "—" },
+        ].map((c) => (
+          <div
+            key={c.label}
+            className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
           >
-            {isActive && (
-              <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-            )}
-            <div className="flex-1">
-              <div className="font-medium">{name}</div>
-              <div className="text-sm text-slate-600 dark:text-slate-300">
-                เลขผู้เสียภาษี: {tax || "-"}
-              </div>
-            </div>
-          </button>
-        )
-      })}
-    </div>
-  )}
-</div>
-
-            {/* สำนักงานใหญ่ (HQ) */}
-            <div className="md:col-span-3 mt-2">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="inline-flex h-2 w-2 rounded-full bg-indigo-500" />
-                <h3 className="font-semibold">ที่อยู่สำนักงานใหญ่ (HQ)</h3>
-              </div>
-              <div className="grid gap-4 md:grid-cols-3">
-                {[
-                  ["hqHouseNo", "บ้านเลขที่", "เช่น 99/1"],
-                  ["hqMoo", "หมู่", "เช่น 4"],
-                  ["hqSubdistrict", "ตำบล", "เช่น หนองปลาไหล"],
-                  ["hqDistrict", "อำเภอ", "เช่น เมือง"],
-                  ["hqProvince", "จังหวัด", "เช่น ขอนแก่น"],
-                ].map(([k, label, ph]) => (
-                  <div key={k}>
-                    <label className={labelCls}>{label}</label>
-                    <input
-                      ref={refs[k]}
-                      className={cx(baseField, compactInput, errors.hqAddress && "border-amber-400", redHintCls(k))}
-                      value={customer[k]}
-                      onChange={(e) => updateCustomer(k, e.target.value)}
-                      onFocus={() => clearHint(k)}
-                      placeholder={ph}
-                      aria-invalid={errors.hqAddress ? true : undefined}
-                    />
-                  </div>
-                ))}
-
-                <div>
-                  <label className={labelCls}>รหัสไปรษณีย์ (HQ)</label>
-                  <input
-                    ref={refs.hqPostalCode}
-                    inputMode="numeric"
-                    maxLength={5}
-                    className={cx(baseField, compactInput)}
-                    value={customer.hqPostalCode}
-                    onChange={(e) => updateCustomer("hqPostalCode", onlyDigits(e.target.value))}
-                    placeholder="เช่น 10110"
-                  />
-                </div>
-              </div>
-              {errors.hqAddress && <p className={errorTextCls}>{errors.hqAddress}</p>}
-            </div>
-
-            {/* สำนักงานสาขา (ออปชัน) */}
-            <div className="md:col-span-3 mt-2">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="inline-flex h-2 w-2 rounded-full bg-sky-500" />
-                <h3 className="font-semibold">ที่อยู่สำนักงานสาขา (ถ้ามี)</h3>
-              </div>
-              <div className="grid gap-4 md:grid-cols-3">
-                {[
-                  ["brHouseNo", "บ้านเลขที่ (สาขา)", "เช่น 10/2"],
-                  ["brMoo", "หมู่ (สาขา)", "เช่น 5"],
-                  ["brSubdistrict", "ตำบล (สาขา)", "เช่น บึงเนียม"],
-                  ["brDistrict", "อำเภอ (สาขา)", "เช่น เมือง"],
-                  ["brProvince", "จังหวัด (สาขา)", "เช่น ขอนแก่น"],
-                ].map(([k, label, ph]) => (
-                  <div key={k}>
-                    <label className={labelCls}>{label}</label>
-                    <input
-                      ref={refs[k]}
-                      className={cx(baseField, compactInput)}
-                      value={customer[k]}
-                      onChange={(e) => updateCustomer(k, e.target.value)}
-                      placeholder={ph}
-                    />
-                  </div>
-                ))}
-
-                <div>
-                  <label className={labelCls}>รหัสไปรษณีย์ (สาขา)</label>
-                  <input
-                    ref={refs.brPostalCode}
-                    inputMode="numeric"
-                    maxLength={5}
-                    className={cx(baseField, compactInput)}
-                    value={customer.brPostalCode}
-                    onChange={(e) => updateCustomer("brPostalCode", onlyDigits(e.target.value))}
-                    placeholder="เช่น 10220"
-                  />
-                </div>
-              </div>
-              <p className={helpTextCls}>หากไม่กรอก จะถือว่าใช้ที่อยู่สำนักงานใหญ่ในการออกเอกสาร</p>
-            </div>
+            <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
+            <div className="text-lg md:text-xl font-semibold break-words">{c.value}</div>
           </div>
+        ))}
+      </div>
+    )
+  })()}
+</div>
 
           )}
         </div>

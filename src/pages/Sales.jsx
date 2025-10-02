@@ -280,6 +280,20 @@ const Sales = () => {
   const [nameResults, setNameResults] = useState([])
   const [showNameList, setShowNameList] = useState(false)
 
+  /** -------- Company Autocomplete states/refs -------- */
+  const [companyResults, setCompanyResults] = useState([])
+  const [showCompanyList, setShowCompanyList] = useState(false)
+  const [highlightedCompanyIndex, setHighlightedCompanyIndex] = useState(-1)
+  const companyBoxRef = useRef(null)
+  const companyListRef = useRef(null)
+  const companyItemRefs = useRef([])
+  const companyInputRef = useRef(null)
+  const suppressCompanySearchRef = useRef(false)
+
+  // debounce company name
+  const debouncedCompanyName = useDebounce(customer.companyName)
+
+
   const nameBoxRef = useRef(null)
   const nameInputRef = useRef(null)
   const suppressNameSearchRef = useRef(false)
@@ -691,6 +705,34 @@ const Sales = () => {
     }
   }
 
+  /** map company record -> UI (HQ + Branch แยกรายช่อง) */
+  const mapCompanyToUI = (r = {}) => {
+    const S = (v) => (v == null ? "" : String(v))
+
+    return {
+      companyName: S(r.company_name ?? r.name ?? r.company ?? ""),
+      taxId: onlyDigits(S(r.tax_id ?? r.tin ?? "")),
+      companyPhone: S(r.phone ?? r.tel ?? ""),
+
+      // HQ
+      hqHouseNo: S(r.hq_address ?? r.hq_house_no ?? r.hqAddress ?? ""),
+      hqMoo: S(r.hq_mhoo ?? r.hq_moo ?? r.hqMoo ?? ""),
+      hqSubdistrict: S(r.hq_sub_district ?? r.hq_subdistrict ?? r.hqSubdistrict ?? ""),
+      hqDistrict: S(r.hq_district ?? r.hqDistrict ?? r.head_district ?? ""),
+      hqProvince: S(r.hq_province ?? r.hqProvince ?? r.head_province ?? ""),
+      hqPostalCode: onlyDigits(S(r.hq_postal_code ?? r.hq_postcode ?? r.hqPostalCode ?? "")),
+
+      // Branch (optional)
+      brHouseNo: S(r.br_address ?? r.branch_address ?? r.br_house_no ?? r.brAddress ?? ""),
+      brMoo: S(r.br_mhoo ?? r.br_moo ?? r.brMoo ?? ""),
+      brSubdistrict: S(r.br_sub_district ?? r.br_subdistrict ?? r.brSubdistrict ?? ""),
+      brDistrict: S(r.br_district ?? r.brDistrict ?? ""),
+      brProvince: S(r.br_province ?? r.brProvince ?? ""),
+      brPostalCode: onlyDigits(S(r.br_postal_code ?? r.br_postcode ?? r.brPostalCode ?? "")),
+    }
+  }
+
+
   /** เติมจากเรคอร์ด + ถ้าไม่ครบค่อย fallback ไปหา address ด้วย citizen_id */
   const fillFromRecord = async (raw = {}) => {
     const data = mapSimplePersonToUI(raw)
@@ -824,6 +866,62 @@ const Sales = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedFullName, buyerType])
 
+  /** ค้นหาบริษัทด้วยชื่อ (เฉพาะโหมด company) */
+useEffect(() => {
+  if (buyerType !== "company") {
+    setShowCompanyList(false)
+    setCompanyResults([])
+    setHighlightedCompanyIndex(-1)
+    return
+  }
+
+  const q = (debouncedCompanyName || "").trim()
+  if (suppressCompanySearchRef.current) {
+    suppressCompanySearchRef.current = false
+    setShowCompanyList(false)
+    setCompanyResults([])
+    setHighlightedCompanyIndex(-1)
+    return
+  }
+  if (q.length < 2) {
+    setShowCompanyList(false)
+    setCompanyResults([])
+    setHighlightedCompanyIndex(-1)
+    return
+  }
+
+  const searchCompanies = async () => {
+    try {
+      setLoadingCustomer(true)
+      // รองรับหลาย endpoint
+      const results = await fetchFirstOkJson([
+        `/order/company/search?q=${encodeURIComponent(q)}`,
+        `/order/companies/search?q=${encodeURIComponent(q)}`,
+        `/order/customers/search?q=${encodeURIComponent(q)}`
+      ])
+      const list = Array.isArray(results) ? results : (results?.items ?? [])
+      // กรองที่เป็นบริษัท (ถ้ามี type)
+      const companies = list.filter((r) => (r.type ? r.type === "company" : true))
+      setCompanyResults(companies)
+      if (document.activeElement === companyInputRef.current) {
+        setShowCompanyList(companies.length > 0)
+        setHighlightedCompanyIndex(companies.length > 0 ? 0 : -1)
+      }
+    } catch (err) {
+      console.error("company search error:", err)
+      setCompanyResults([])
+      setShowCompanyList(false)
+      setHighlightedCompanyIndex(-1)
+    } finally {
+      setLoadingCustomer(false)
+    }
+  }
+
+  searchCompanies()
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [debouncedCompanyName, buyerType])
+
+
   /** ปิด dropdown เมื่อคลิกนอกกล่อง */
   useEffect(() => {
     const onClick = (e) => {
@@ -837,13 +935,53 @@ const Sales = () => {
     return () => document.removeEventListener("click", onClick)
   }, [])
 
-  const pickNameResult = async (rec) => {
-    suppressNameSearchRef.current = true
-    await fillFromRecord(rec)
-    setShowNameList(false)
-    setNameResults([])
-    setHighlightedIndex(-1)
+  useEffect(() => {
+  const onClick = (e) => {
+    if (!companyBoxRef.current) return
+    if (!companyBoxRef.current.contains(e.target)) {
+      setShowCompanyList(false)
+      setHighlightedCompanyIndex(-1)
+    }
   }
+  document.addEventListener("click", onClick)
+  return () => document.removeEventListener("click", onClick)
+}, [])
+
+
+    const pickNameResult = async (rec) => {
+      suppressNameSearchRef.current = true
+      await fillFromRecord(rec)
+      setShowNameList(false)
+      setNameResults([])
+      setHighlightedIndex(-1)
+    }
+
+    const pickCompanyResult = async (rec) => {
+    suppressCompanySearchRef.current = true
+    const c = mapCompanyToUI(rec)
+    setCustomer((prev) => ({
+      ...prev,
+      companyName: c.companyName || prev.companyName,
+      taxId: c.taxId || prev.taxId,
+      companyPhone: c.companyPhone || prev.companyPhone,
+      hqHouseNo: c.hqHouseNo || prev.hqHouseNo,
+      hqMoo: c.hqMoo || prev.hqMoo,
+      hqSubdistrict: c.hqSubdistrict || prev.hqSubdistrict,
+      hqDistrict: c.hqDistrict || prev.hqDistrict,
+      hqProvince: c.hqProvince || prev.hqProvince,
+      hqPostalCode: c.hqPostalCode || prev.hqPostalCode,
+      brHouseNo: c.brHouseNo || prev.brHouseNo,
+      brMoo: c.brMoo || prev.brMoo,
+      brSubdistrict: c.brSubdistrict || prev.brSubdistrict,
+      brDistrict: c.brDistrict || prev.brDistrict,
+      brProvince: c.brProvince || prev.brProvince,
+      brPostalCode: c.brPostalCode || prev.brPostalCode,
+    }))
+    setShowCompanyList(false)
+    setHighlightedCompanyIndex(-1)
+    setCompanyResults([])
+  }
+
 
   /** scroll item ที่ไฮไลต์ */
   const scrollHighlightedIntoView2 = (index) => {
@@ -901,6 +1039,37 @@ const Sales = () => {
       setHighlightedIndex(-1)
     }
   }
+
+  const handleCompanyKeyDown = async (e) => {
+  if (!showCompanyList || companyResults.length === 0) return
+  if (e.key === "ArrowDown") {
+    e.preventDefault()
+    const next = highlightedCompanyIndex < companyResults.length - 1 ? highlightedCompanyIndex + 1 : 0
+    setHighlightedCompanyIndex(next)
+    requestAnimationFrame(() => {
+      const el = companyItemRefs.current[next]
+      try { el?.scrollIntoView({ block: "nearest" }) } catch {}
+    })
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault()
+    const prev = highlightedCompanyIndex > 0 ? highlightedCompanyIndex - 1 : companyResults.length - 1
+    setHighlightedCompanyIndex(prev)
+    requestAnimationFrame(() => {
+      const el = companyItemRefs.current[prev]
+      try { el?.scrollIntoView({ block: "nearest" }) } catch {}
+    })
+  } else if (e.key === "Enter") {
+    e.preventDefault()
+    if (highlightedCompanyIndex >= 0 && highlightedCompanyIndex < companyResults.length) {
+      await pickCompanyResult(companyResults[highlightedCompanyIndex])
+    }
+  } else if (e.key === "Escape") {
+    e.preventDefault()
+    setShowCompanyList(false)
+    setHighlightedCompanyIndex(-1)
+  }
+}
+
 
   useEffect(() => {
     if (!showNameList) return
@@ -1098,126 +1267,125 @@ const Sales = () => {
     }
   }
 
-  /** ---------- Submit ---------- */
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+ /** ---------- Submit ---------- */
+const handleSubmit = async (e) => {
+  e.preventDefault()
 
-    const hints = computeMissingHints()
-    setMissingHints(hints)
+  const hints = computeMissingHints()
+  setMissingHints(hints)
 
-    const eObj = validateAll()
-    if (Object.keys(eObj).length > 0) {
-      scrollToFirstError(eObj)
-      return
-    }
+  const eObj = validateAll()
+  if (Object.keys(eObj).length > 0) {
+    scrollToFirstError(eObj)
+    return
+  }
 
-    // แยกชื่อ (โหมดบุคคล)
-    const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
-    const lastName = rest.join(" ")
+  // แยกชื่อ (โหมดบุคคล)
+  const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
+  const lastName = rest.join(" ")
 
-    // แปลง id ให้เป็นตัวเลข
-    const productId   = /^\d+$/.test(order.productId)   ? Number(order.productId)   : null
-    const riceId      = /^\d+$/.test(order.riceId)      ? Number(order.riceId)      : null
-    const subriceId   = /^\d+$/.test(order.subriceId)   ? Number(order.subriceId)   : null
-    const branchId    = order.branchId ?? null
-    const klangId     = order.klangId ?? null
-    const riceYearId  = /^\d+$/.test(order.riceYearId)  ? Number(order.riceYearId)  : null
-    const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
-    const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
+  // แปลง id ให้เป็นตัวเลข
+  const productId   = /^\d+$/.test(order.productId)   ? Number(order.productId)   : null
+  const riceId      = /^\d+$/.test(order.riceId)      ? Number(order.riceId)      : null
+  const subriceId   = /^\d+$/.test(order.subriceId)   ? Number(order.subriceId)   : null
+  const branchId    = order.branchId ?? null
+  const klangId     = order.klangId ?? null
+  const riceYearId  = /^\d+$/.test(order.riceYearId)  ? Number(order.riceYearId)  : null
+  const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
+  const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
 
-    if (!productId)  { setErrors((p)=>({ ...p, product:"ไม่พบรหัสสินค้า" }));       scrollToFirstError({product:true}); return }
-    if (!riceId)     { setErrors((p)=>({ ...p, riceType:"ไม่พบรหัสชนิดข้าว" }));    scrollToFirstError({riceType:true}); return }
-    if (!subriceId)  { setErrors((p)=>({ ...p, subrice:"ไม่พบรหัสชั้นย่อย" }));     scrollToFirstError({subrice:true}); return }
-    if (!riceYearId) { setErrors((p)=>({ ...p, riceYear:"ไม่พบรหัสปี/ฤดูกาล" }));   scrollToFirstError({riceYear:true}); return }
-    if (!conditionId){ setErrors((p)=>({ ...p, condition:"ไม่พบรหัสสภาพ/เงื่อนไข" })); scrollToFirstError({condition:true}); return }
-    if (!fieldTypeId){ setErrors((p)=>({ ...p, fieldType:"ไม่พบรหัสประเภทนา" }));   scrollToFirstError({fieldType:true}); return }
-    if (!branchId)   { setErrors((p)=>({ ...p, branchName:"ไม่พบรหัสสาขา" }));      scrollToFirstError({branchName:true}); return }
-    if (!klangId)    { setErrors((p)=>({ ...p, klangName:"ไม่พบรหัสคลัง" }));       scrollToFirstError({klangName:true}); return }
+  if (!productId)  { setErrors(p => ({ ...p, product:"ไม่พบรหัสสินค้า" }));       scrollToFirstError({product:true}); return }
+  if (!riceId)     { setErrors(p => ({ ...p, riceType:"ไม่พบรหัสชนิดข้าว" }));    scrollToFirstError({riceType:true}); return }
+  if (!subriceId)  { setErrors(p => ({ ...p, subrice:"ไม่พบรหัสชั้นย่อย" }));     scrollToFirstError({subrice:true}); return }
+  if (!riceYearId) { setErrors(p => ({ ...p, riceYear:"ไม่พบรหัสปี/ฤดูกาล" }));   scrollToFirstError({riceYear:true}); return }
+  if (!conditionId){ setErrors(p => ({ ...p, condition:"ไม่พบรหัสสภาพ/เงื่อนไข" })); scrollToFirstError({condition:true}); return }
+  if (!fieldTypeId){ setErrors(p => ({ ...p, fieldType:"ไม่พบรหัสประเภทนา" }));   scrollToFirstError({fieldType:true}); return }
+  if (!branchId)   { setErrors(p => ({ ...p, branchName:"ไม่พบรหัสสาขา" }));      scrollToFirstError({branchName:true}); return }
+  if (!klangId)    { setErrors(p => ({ ...p, klangName:"ไม่พบรหัสคลัง" }));       scrollToFirstError({klangName:true}); return }
 
-    const baseGross = grossFromScale
-    const deduction = order.manualDeduct
-      ? toNumber(order.deductWeightKg)
-      : suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
+  // ⬇⬇⬇ วางตรงนี้ ⬇⬇⬇
+  const baseGross = grossFromScale
+  const deduction = order.manualDeduct
+    ? toNumber(order.deductWeightKg)
+    : suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
 
-    const netW = Math.max(0, baseGross - deduction)
+  const netW = Math.max(0, baseGross - deduction)
+  // ⬆⬆⬆ จบส่วนที่ต้องวาง ⬆⬆⬆
 
-    // ⭐ customer payload ตามประเภท — บริษัทใช้รูปแบบ field รายช่องเหมือนหน้า Buy
-    const customerPayload =
-      buyerType === "person"
-        ? {
-            type: "person",
-            first_name: firstName || "",
-            last_name: lastName || "",
-            citizen_id: onlyDigits(customer.citizenId),
-            address: customer.houseNo.trim(),
-            mhoo: customer.moo.trim(),
-            sub_district: customer.subdistrict.trim(),
-            district: customer.district.trim(),
-            province: customer.province.trim(),
-            postal_code: customer.postalCode?.toString().trim() || "",
-            fid: customer.fid === "" ? null : Number(customer.fid),
-            fid_owner: (customer.fidOwner || "").trim() || null,
-            fid_relationship: customer.fidRelationship === "" ? null : Number(customer.fidRelationship),
-          }
-        : {
-            type: "company",
-            company_name: customer.companyName.trim(),
-            tax_id: onlyDigits(customer.taxId),
-            phone: customer.companyPhone?.trim() || "",
-            // HQ
-            hq_address: customer.hqHouseNo.trim(),
-            hq_mhoo: customer.hqMoo.trim(),
-            hq_sub_district: customer.hqSubdistrict.trim(),
-            hq_district: customer.hqDistrict.trim(),
-            hq_province: customer.hqProvince.trim(),
-            hq_postal_code: customer.hqPostalCode ? String(customer.hqPostalCode).trim() : "",
-            // Branch (ถ้ามี)
-            br_address: customer.brHouseNo.trim() || "",
-            br_mhoo: customer.brMoo.trim() || "",
-            br_sub_district: customer.brSubdistrict.trim() || "",
-            br_district: customer.brDistrict.trim() || "",
-            br_province: customer.brProvince.trim() || "",
-            br_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
-          }
+  // payload ลูกค้า (ให้ตรง backend)
+  const customerPayload =
+    buyerType === "person"
+      ? {
+          type: "person",
+          first_name: firstName || "",
+          last_name: lastName || "",
+          citizen_id: onlyDigits(customer.citizenId),
+          address: customer.houseNo.trim(),
+          mhoo: customer.moo.trim(),
+          sub_district: customer.subdistrict.trim(),
+          district: customer.district.trim(),
+          province: customer.province.trim(),
+          postal_code: customer.postalCode?.toString().trim() || "",
+          fid: customer.fid === "" ? null : Number(customer.fid),
+          fid_owner: (customer.fidOwner || "").trim() || null,
+          fid_relationship: customer.fidRelationship === "" ? null : Number(customer.fidRelationship),
+        }
+      : {
+          type: "company",
+          company_name: customer.companyName.trim(),
+          tax_id: onlyDigits(customer.taxId),
+          phone: customer.companyPhone?.trim() || "",
+          // HQ
+          hq_address: customer.hqHouseNo.trim(),
+          hq_mhoo: customer.hqMoo.trim(),
+          hq_sub_district: customer.hqSubdistrict.trim(),
+          hq_district: customer.hqDistrict.trim(),
+          hq_province: customer.hqProvince.trim(),
+          hq_postal_code: customer.hqPostalCode ? String(customer.hqPostalCode).trim() : "",
+          // Branch (ถ้ามี)
+          br_address: customer.brHouseNo.trim() || "",
+          br_mhoo: customer.brMoo.trim() || "",
+          br_sub_district: customer.brSubdistrict.trim() || "",
+          br_district: customer.brDistrict.trim() || "",
+          br_province: customer.brProvince.trim() || "",
+          br_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
+        }
 
-    const payload = {
-      customer: customerPayload,
-      order: {
-        product_id: productId,
-        rice_id: riceId,
-        subrice_id: subriceId,
-        rice_year: riceYearId,
-        field_type: fieldTypeId,
-        condition: conditionId,
-        humidity: Number(order.moisturePct || 0),
-        entry_weight: Number(order.entryWeightKg || 0),
-        exit_weight:  Number(order.exitWeightKg  || 0),
-        weight: netW,
-        price_per_kilo: Number(order.unitPrice || 0),
-        price: Number(order.amountTHB),
-        impurity: Number(order.impurityPct || 0),
-        // ✅ ส่งเป็น YYYY-MM-DD ให้ตรง pydantic.date
-        date: order.issueDate,
-        branch_location: branchId,
-        klang_location: klangId,
-      },
-      rice:   { rice_type: order.riceType },
-      branch: { branch_name: order.branchName },
-      klang:  { klang_name: order.klangName },
-    }
+  const payload = {
+    customer: customerPayload,
+    order: {
+      product_id: productId,
+      rice_id: riceId,
+      subrice_id: subriceId,
+      rice_year: riceYearId,           // ← backend ต้องการชื่อคีย์แบบนี้
+      field_type: fieldTypeId,
+      condition: conditionId,
+      humidity: Number(order.moisturePct || 0),
+      entry_weight: Number(order.entryWeightKg || 0),
+      exit_weight:  Number(order.exitWeightKg  || 0),
+      weight: netW,                     // ← ส่งน้ำหนักสุทธิหลังหัก
+      price_per_kilo: Number(order.unitPrice || 0),
+      price: Number(order.amountTHB),
+      impurity: Number(order.impurityPct || 0),
+      date: order.issueDate,            // YYYY-MM-DD
+      branch_location: branchId,
+      klang_location: klangId,
+    },
+    rice:   { rice_type: order.riceType },
+    branch: { branch_name: order.branchName },
+    klang:  { klang_name: order.klangName },
+  }
 
   try {
-      // 💾 จำ Template ที่ผู้ใช้เลือกไว้
-      try { localStorage.setItem("sales.formTemplate", formTemplate) } catch {}
-      // ✅ ใช้ endpoint “ขาย”
-      await apiAuth(`/order/customers/save/sell`, { method: "POST", body: payload })
-      alert("บันทึกออเดอร์ขายเรียบร้อย ✅")
-      handleReset()
-    } catch (err) {
-      console.error(err)
-      alert("บันทึกล้มเหลว กรุณาลองใหม่")
-    }
+    try { localStorage.setItem("sales.formTemplate", formTemplate) } catch {}
+    await apiAuth(`/order/customers/save/sell`, { method: "POST", body: payload })
+    alert("บันทึกออเดอร์ขายเรียบร้อย ✅")
+    handleReset()
+  } catch (err) {
+    console.error(err)
+    alert("บันทึกล้มเหลว กรุณาลองใหม่")
   }
+}
 
   const handleReset = () => {
     setErrors({})
@@ -1585,19 +1753,85 @@ const Sales = () => {
           ) : (
             /* -------------------- โหมดบริษัท / นิติบุคคล (แบบละเอียดตามภาพ) -------------------- */
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-2">
-              <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
-              <input
-                ref={refs.companyName}
-                className={cx(baseField, redFieldCls("companyName"))}
-                value={customer.companyName}
-                onChange={(e) => updateCustomer("companyName", e.target.value)}
-                onFocus={() => clearError("companyName")}
-                placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
-                aria-invalid={errors.companyName ? true : undefined}
-              />
-              {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
+            <div className="md:col-span-2" ref={companyBoxRef}>
+  <label className={labelCls}>ชื่อบริษัท / นิติบุคคล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
+  <input
+    ref={(el) => {
+      refs.companyName.current = el
+      companyInputRef.current = el
+    }}
+    className={cx(baseField, redFieldCls("companyName"))}
+    value={customer.companyName}
+    onChange={(e) => {
+      updateCustomer("companyName", e.target.value)
+      if (e.target.value.trim().length >= 2) setShowCompanyList(true)
+      else {
+        setShowCompanyList(false)
+        setHighlightedCompanyIndex(-1)
+      }
+    }}
+    onFocus={() => clearError("companyName")}
+    onKeyDown={handleCompanyKeyDown}
+    placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
+    aria-expanded={showCompanyList}
+    aria-controls="company-results"
+    role="combobox"
+    aria-autocomplete="list"
+    aria-invalid={errors.companyName ? true : undefined}
+  />
+  {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
+
+  {showCompanyList && companyResults.length > 0 && (
+    <div
+      id="company-results"
+      ref={companyListRef}
+      className={
+        "mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm " +
+        "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+      }
+      role="listbox"
+    >
+      {companyResults.map((r, idx) => {
+        const isActive = idx === highlightedCompanyIndex
+        const name = r.company_name ?? r.name ?? r.company ?? "(ไม่มีชื่อ)"
+        const tax = r.tax_id ?? r.tin ?? "-"
+        return (
+          <button
+            type="button"
+            key={`${tax}-${name}-${idx}`}
+            ref={(el) => (companyItemRefs.current[idx] = el)}
+            onClick={async () => await pickCompanyResult(r)}
+            onMouseEnter={() => {
+              setHighlightedCompanyIndex(idx)
+              requestAnimationFrame(() => {
+                try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch {}
+              })
+            }}
+            role="option"
+            aria-selected={isActive}
+            className={cx(
+              "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
+              isActive
+                ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+            )}
+          >
+            {isActive && (
+              <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+            )}
+            <div className="flex-1">
+              <div className="font-medium">{name}</div>
+              <div className="text-sm text-slate-600 dark:text-slate-300">
+                เลขผู้เสียภาษี: {tax || "-"}
+              </div>
             </div>
+          </button>
+        )
+      })}
+    </div>
+  )}
+</div>
+
 
             <div>
               <label className={labelCls}>เลขที่ผู้เสียภาษี (13 หลัก)</label>
@@ -2119,20 +2353,41 @@ const Sales = () => {
                   </div>
                 ))}
               </>
-            ) : (
+            ) : ( 
               <>
-                {[
-                  { label: "บริษัท / นิติบุคคล", value: customer.companyName || "—" },
-                  { label: "เลขผู้เสียภาษี", value: customer.taxId || "—" },
-                  { label: "ที่อยู่สำนักงานใหญ่", value: customer.hqAddress || "—" },
-                  { label: "ที่อยู่สาขา", value: customer.branchAddress || "—" },
-                  { label: "โทร", value: customer.companyPhone || "—" },
-                ].map((c) => (
-                  <div key={c.label} className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-                    <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
-                    <div className="text-lg md:text-xl font-semibold break-words">{c.value}</div>
-                  </div>
-                ))}
+                {(() => {
+  const join = (...xs) => xs.filter(Boolean).join(" • ")
+
+  const hqAddr = join(
+    customer.hqHouseNo && `บ้านเลขที่ ${customer.hqHouseNo}`,
+    customer.hqMoo && `ม.${customer.hqMoo}`,
+    customer.hqSubdistrict && `ต.${customer.hqSubdistrict}`,
+    customer.hqDistrict && `อ.${customer.hqDistrict}`,
+    customer.hqProvince && `จ.${customer.hqProvince}`,
+  )
+
+  const brAddr = join(
+    customer.brHouseNo && `บ้านเลขที่ ${customer.brHouseNo}`,
+    customer.brMoo && `ม.${customer.brMoo}`,
+    customer.brSubdistrict && `ต.${customer.brSubdistrict}`,
+    customer.brDistrict && `อ.${customer.brDistrict}`,
+    customer.brProvince && `จ.${customer.brProvince}`,
+  )
+
+  return ([
+    { label: "บริษัท / นิติบุคคล", value: customer.companyName || "—" },
+    { label: "เลขผู้เสียภาษี", value: customer.taxId || "—" },
+    { label: "ที่อยู่สำนักงานใหญ่", value: hqAddr || "—" },
+    { label: "ที่อยู่สาขา", value: brAddr || "—" },
+    { label: "โทร", value: customer.companyPhone || "—" },
+  ])
+})().map((c) => (
+  <div key={c.label} className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+    <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
+    <div className="text-lg md:text-xl font-semibold break-words">{c.value}</div>
+  </div>
+))}
+
               </>
             )}
 

@@ -1130,7 +1130,6 @@ useEffect(() => {
       if (!customer.province.trim()) m.province = true
     } else {
       if (!customer.companyName.trim()) m.companyName = true
-      if (!customer.taxId.trim()) m.taxId = true
       if (!customer.hqHouseNo.trim()) m.hqHouseNo = true
       if (!customer.hqSubdistrict.trim()) m.hqSubdistrict = true
       if (!customer.hqDistrict.trim()) m.hqDistrict = true
@@ -1216,7 +1215,7 @@ useEffect(() => {
       if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
     } else {
       if (!customer.companyName.trim()) e.companyName = "กรุณากรอกชื่อบริษัท"
-      if (!customer.taxId.trim() || !validateThaiTaxId(customer.taxId)) e.taxId = "กรุณากรอกเลขผู้เสียภาษี (13 หลัก)"
+      // taxId ไม่บังคับกรอกเอง — จะมาจากบริษัทที่เลือก 
       if (!customer.hqSubdistrict || !customer.hqDistrict || !customer.hqProvince) e.hqAddress = "กรุณากรอกที่อยู่สำนักงานใหญ่ให้ครบ"
     }
 
@@ -1833,40 +1832,6 @@ const handleSubmit = async (e) => {
     </div>
   )}
 </div>
-
-
-            <div>
-              <label className={labelCls}>เลขที่ผู้เสียภาษี (13 หลัก)</label>
-              <input
-                ref={refs.taxId}
-                inputMode="numeric"
-                maxLength={13}
-                className={cx(baseField, redFieldCls("taxId"))}
-                value={customer.taxId}
-                onChange={(e) => updateCustomer("taxId", onlyDigits(e.target.value))}
-                onFocus={() => clearError("taxId")}
-                placeholder="เช่น 0123456789012"
-                aria-invalid={errors.taxId ? true : undefined}
-              />
-              {errors.taxId ? (
-                <p className={errorTextCls}>{errors.taxId}</p>
-              ) : (
-                <p className={helpTextCls}>ใช้สำหรับออกเอกสารภาษี</p>
-              )}
-            </div>
-
-            <div>
-              <label className={labelCls}>เบอร์โทรบริษัท (ไม่บังคับ)</label>
-              <input
-                ref={refs.companyPhone}
-                inputMode="tel"
-                maxLength={20}
-                className={cx(baseField, compactInput)}
-                value={customer.companyPhone}
-                onChange={(e) => updateCustomer("companyPhone", e.target.value.replace(/[^\d+]/g, ""))}
-                placeholder="เช่น 021234567"
-              />
-            </div>
 
             {/* สำนักงานใหญ่ (HQ) */}
             <div className="md:col-span-3 mt-2">

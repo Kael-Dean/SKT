@@ -1311,42 +1311,44 @@ const handleSubmit = async (e) => {
 
   // payload ลูกค้า (ให้ตรง backend)
   const customerPayload =
-    buyerType === "person"
-      ? {
-          type: "person",
-          first_name: firstName || "",
-          last_name: lastName || "",
-          citizen_id: onlyDigits(customer.citizenId),
-          address: customer.houseNo.trim(),
-          mhoo: customer.moo.trim(),
-          sub_district: customer.subdistrict.trim(),
-          district: customer.district.trim(),
-          province: customer.province.trim(),
-          postal_code: customer.postalCode?.toString().trim() || "",
-          fid: customer.fid === "" ? null : Number(customer.fid),
-          fid_owner: (customer.fidOwner || "").trim() || null,
-          fid_relationship: customer.fidRelationship === "" ? null : Number(customer.fidRelationship),
-        }
-      : {
-          type: "company",
-          company_name: customer.companyName.trim(),
-          tax_id: onlyDigits(customer.taxId),
-          phone: customer.companyPhone?.trim() || "",
-          // HQ
-          hq_address: customer.hqHouseNo.trim(),
-          hq_mhoo: customer.hqMoo.trim(),
-          hq_sub_district: customer.hqSubdistrict.trim(),
-          hq_district: customer.hqDistrict.trim(),
-          hq_province: customer.hqProvince.trim(),
-          hq_postal_code: customer.hqPostalCode ? String(customer.hqPostalCode).trim() : "",
-          // Branch (ถ้ามี)
-          br_address: customer.brHouseNo.trim() || "",
-          br_mhoo: customer.brMoo.trim() || "",
-          br_sub_district: customer.brSubdistrict.trim() || "",
-          br_district: customer.brDistrict.trim() || "",
-          br_province: customer.brProvince.trim() || "",
-          br_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
-        }
+  buyerType === "person"
+    ? {
+        party_type: "individual",   // ✅ ต้องใช้ "individual"
+        first_name: firstName || "",
+        last_name: lastName || "",
+        citizen_id: onlyDigits(customer.citizenId),
+        address: customer.houseNo.trim(),
+        mhoo: customer.moo.trim(),
+        sub_district: customer.subdistrict.trim(),
+        district: customer.district.trim(),
+        province: customer.province.trim(),
+        postal_code: customer.postalCode?.toString().trim() || "",
+        fid: customer.fid === "" ? null : Number(customer.fid),
+        fid_owner: (customer.fidOwner || "").trim() || null,
+        fid_relationship:
+          customer.fidRelationship === "" ? null : Number(customer.fidRelationship),
+      }
+    : {
+        party_type: "company",   // ✅ ต้องใช้ "company"
+        company_name: customer.companyName.trim(),
+        tax_id: onlyDigits(customer.taxId),
+        phone_number: customer.companyPhone?.trim() || "",
+        // HQ
+        hq_address: customer.hqHouseNo.trim(),
+        hq_mhoo: customer.hqMoo.trim(),
+        hq_tambon: customer.hqSubdistrict.trim(),
+        hq_amphur: customer.hqDistrict.trim(),
+        hq_province: customer.hqProvince.trim(),
+        hq_postal_code: customer.hqPostalCode ? String(customer.hqPostalCode).trim() : "",
+        // Branch (optional)
+        br_address: customer.brHouseNo.trim() || "",
+        br_mhoo: customer.brMoo.trim() || "",
+        br_tambon: customer.brSubdistrict.trim() || "",
+        br_amphur: customer.brDistrict.trim() || "",
+        br_province: customer.brProvince.trim() || "",
+        br_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
+      }
+
 
   const payload = {
     customer: customerPayload,

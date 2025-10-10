@@ -247,11 +247,11 @@ function StockTransferOut() {
   const [toKlangOptions, setToKlangOptions] = useState([])
 
   // ✅ เมตาดาต้า
-  const [conditionOptions, setConditionOptions] = useState([]) // สภาพ/เงื่อนไข (locked → แห้ง)
-  const [fieldOptions, setFieldOptions] = useState([])         // ประเภทนา
-  const [yearOptions, setYearOptions] = useState([])           // ปี/ฤดูกาล
-  const [programOptions, setProgramOptions] = useState([])     // โปรแกรม
-  const [businessOptions, setBusinessOptions] = useState([])   // ประเภทธุรกิจ (locked → ซื้อมาขายไป)
+  const [conditionOptions, setConditionOptions] = useState([])
+  const [fieldOptions, setFieldOptions] = useState([])
+  const [yearOptions, setYearOptions] = useState([])
+  const [programOptions, setProgramOptions] = useState([])
+  const [businessOptions, setBusinessOptions] = useState([])
 
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
@@ -267,6 +267,10 @@ function StockTransferOut() {
     to_klang_id: null,
     to_klang_name: "",
 
+    // ✅ ใหม่
+    driver_name: "",     // ชื่อผู้ขนส่ง
+    plate_number: "",    // ทะเบียนรถ
+
     product_id: "",
     product_name: "",
     rice_id: "",
@@ -274,16 +278,15 @@ function StockTransferOut() {
     subrice_id: "",
     subrice_name: "",
 
-    // เมตาดาต้า (id)
     condition_id: "",
     condition_label: "",
-    field_type_id: "",     // ✅ จำเป็น
+    field_type_id: "",
     field_type_label: "",
     rice_year_id: "",
     rice_year_label: "",
     program_id: "",
     program_label: "",
-    business_type_id: "",  // ✅ จำเป็น
+    business_type_id: "",
     business_type_label: "",
 
     weight_in: "",
@@ -345,14 +348,13 @@ function StockTransferOut() {
         setFromBranchOptions(brs)
         setToBranchOptions(brs)
 
-        // 🔒 ล็อก "สภาพ/เงื่อนไข" ให้เหลือเฉพาะ "แห้ง"
+        // 🔒 เงื่อนไข → แห้ง
         const allConds = (conditions || []).map((c) => ({ id: c.id, label: c.condition }))
         const dryCond = allConds.find((c) => c.label === "แห้ง")
         setConditionOptions(dryCond ? [dryCond] : [])
         update("condition_id", dryCond?.id ?? "")
         update("condition_label", dryCond?.label ?? "")
 
-        // ✅ รองรับ field / field_type
         setFieldOptions(
           (fields || [])
             .map((f) => ({ id: f.id, label: f.field ?? f.field_type ?? "" }))
@@ -362,7 +364,7 @@ function StockTransferOut() {
         setYearOptions((years || []).map((y) => ({ id: y.id, label: y.year })))
         setProgramOptions((programs || []).map((p) => ({ id: p.id, label: p.program })))
 
-        // 🔒 ล็อก "ประเภทธุรกิจ" ให้เหลือเฉพาะ "ซื้อมาขายไป"
+        // 🔒 ประเภทธุรกิจ → ซื้อมาขายไป
         const allBiz = (businesses || []).map((b) => ({ id: b.id, label: b.business }))
         const buySell = allBiz.find((b) => b.label === "ซื้อมาขายไป")
         setBusinessOptions(buySell ? [buySell] : [])
@@ -442,7 +444,7 @@ function StockTransferOut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.rice_id])
 
-  // โหลดคลังตามสาขา (ต้นทาง)
+  // โหลดคลัง (ต้นทาง)
   useEffect(() => {
     const bid = form.from_branch_id
     const bname = form.from_branch_name?.trim()
@@ -466,7 +468,7 @@ function StockTransferOut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.from_branch_id, form.from_branch_name])
 
-  // โหลดคลังตามสาขา (ปลายทาง)
+  // โหลดคลัง (ปลายทาง)
   useEffect(() => {
     const bid = form.to_branch_id
     const bname = form.to_branch_name?.trim()
@@ -503,11 +505,13 @@ function StockTransferOut() {
       m.to_branch_id = true
     }
 
+    if (!form.driver_name?.trim()) m.driver_name = true      // ✅ ใหม่
+    if (!form.plate_number?.trim()) m.plate_number = true    // ✅ ใหม่
+
     if (!form.product_id) m.product_id = true
     if (!form.rice_id) m.rice_id = true
     if (!form.subrice_id) m.subrice_id = true
 
-    // ✅ เพิ่มตาม backend
     if (!form.field_type_id) m.field_type_id = true
     if (!form.business_type_id) m.business_type_id = true
 
@@ -532,11 +536,14 @@ function StockTransferOut() {
       e.to_branch_id = "สาขาต้นทาง/ปลายทาง ต้องไม่ซ้ำกัน"
     }
 
+    // ✅ ใหม่
+    if (!form.driver_name?.trim()) e.driver_name = "กรุณากรอกชื่อผู้ขนส่ง"
+    if (!form.plate_number?.trim()) e.plate_number = "กรุณากรอกทะเบียนรถ"
+
     if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
     if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
     if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
 
-    // ✅ required by backend
     if (!form.field_type_id) e.field_type_id = "กรุณาเลือกประเภทนา"
     if (!form.business_type_id) e.business_type_id = "กรุณาเลือกประเภทธุรกิจ"
 
@@ -546,7 +553,6 @@ function StockTransferOut() {
 
     if (form.cost_per_kg !== "" && costPerKg < 0) e.cost_per_kg = "ราคาต้นทุนต้องไม่ติดลบ"
 
-    // ✅ สิ่งเจือปน 0–100 ถ้ามีกรอก
     if (form.impurity_percent !== "") {
       const ip = toNumber(form.impurity_percent)
       if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "กรุณากรอก 0–100"
@@ -565,16 +571,18 @@ function StockTransferOut() {
 
     setSubmitting(true)
     try {
-      // 🔁 แมปฟิลด์ให้ตรง backend /transfer/request
       const payload = {
         date: form.transfer_date,
 
         from_branch: form.from_branch_id != null ? Number(form.from_branch_id) : null,
-        // ใส่ไปด้วยเพื่อกัน 422
         from_klang: form.from_klang_id != null ? Number(form.from_klang_id) : 0,
 
         to_branch: form.to_branch_id != null ? Number(form.to_branch_id) : null,
         to_klang: form.to_klang_id != null ? Number(form.to_klang_id) : null,
+
+        // ✅ ใหม่ — ต้องส่งให้ BE
+        driver_name: form.driver_name.trim(),
+        plate_number: form.plate_number.trim(),
 
         product_id: /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id,
         rice_id: /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id,
@@ -603,11 +611,15 @@ function StockTransferOut() {
       alert("บันทึกคำขอโอนออกสำเร็จ ✅")
       setForm((f) => ({
         ...f,
+        // คงค่าที่เลือกไว้ ยกเว้นค่าชั่ง/ราคา และโน้ต
         weight_in: "",
         weight_out: "",
         cost_per_kg: "",
         quality_note: "",
         impurity_percent: "",
+        // ถ้าต้องการเคลียร์ชื่อ/ทะเบียนด้วย ให้ uncomment สองบรรทัดล่าง:
+        // driver_name: "",
+        // plate_number: "",
       }))
     } catch (err) {
       console.error(err)
@@ -619,7 +631,7 @@ function StockTransferOut() {
 
   /** ---------- UI ---------- */
   return (
-    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
+    <div className="min-h-screen bg-white text-black dark:bg-slate-9 00 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🚚 โอนออกข้าวเปลือก</h1>
 
@@ -646,8 +658,39 @@ function StockTransferOut() {
                 {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
               </div>
 
-              <div className="hidden md:block" />
-              <div className="hidden md:block" />
+              {/* ✅ ชื่อผู้ขนส่ง */}
+              <div>
+                <label className={labelCls}>ชื่อผู้ขนส่ง</label>
+                <input
+                  className={cx(baseField, redFieldCls("driver_name"))}
+                  value={form.driver_name}
+                  onChange={(e) => update("driver_name", e.target.value)}
+                  onFocus={() => {
+                    clearError("driver_name")
+                    clearHint("driver_name")
+                  }}
+                  placeholder="เช่น นายสมชาย ขยันงาน"
+                  aria-invalid={errors.driver_name ? true : undefined}
+                />
+                {errors.driver_name && <p className={errorTextCls}>{errors.driver_name}</p>}
+              </div>
+
+              {/* ✅ ทะเบียนรถ */}
+              <div>
+                <label className={labelCls}>ทะเบียนรถขนส่ง</label>
+                <input
+                  className={cx(baseField, redFieldCls("plate_number"))}
+                  value={form.plate_number}
+                  onChange={(e) => update("plate_number", e.target.value)}
+                  onFocus={() => {
+                    clearError("plate_number")
+                    clearHint("plate_number")
+                  }}
+                  placeholder="เช่น 1ขข-1234 กทม."
+                  aria-invalid={errors.plate_number ? true : undefined}
+                />
+                {errors.plate_number && <p className={errorTextCls}>{errors.plate_number}</p>}
+              </div>
 
               {/* ต้นทาง */}
               <div>
@@ -739,7 +782,7 @@ function StockTransferOut() {
             </div>
           </div>
 
-          {/* ✅ สินค้า + เมตาดาต้า */}
+          {/* สินค้า + เมตาดาต้า */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
 

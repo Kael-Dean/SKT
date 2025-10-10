@@ -1492,9 +1492,9 @@ const Buy = () => {
         asso_id: memberMeta.assoId ?? null,
         product_id: productId,
         // NOTE: backend ปัจจุบันยังอ่าน rice_id / subrice_id
-        rice_id: riceId,           // = species_id
-        subrice_id: subriceId,     // = variant_id
-        rice_year: riceYearId,
+        species_id: riceId,           // = species_id
+        variant_id: subriceId,     // = variant_id
+        product_year: riceYearId,
         field_type: fieldTypeId,
         condition: conditionId,
         program: programId ?? null,                       // << ใช้ id

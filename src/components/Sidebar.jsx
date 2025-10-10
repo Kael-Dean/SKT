@@ -21,6 +21,18 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const [businessOpen, setBusinessOpen] = useState(inBusiness)
   useEffect(() => setBusinessOpen(inBusiness), [inBusiness])
 
+  // ✅ กลุ่มใหม่: ทะเบียนสมาชิก (auto-open เมื่ออยู่ในเส้นทางที่เกี่ยวข้อง)
+  const inMembers = useMemo(
+    () =>
+      location.pathname.startsWith('/member-signup') ||
+      location.pathname.startsWith('/search') ||
+      location.pathname.startsWith('/customer-add') ||
+      location.pathname.startsWith('/company-add'),
+    [location.pathname]
+  )
+  const [membersOpen, setMembersOpen] = useState(inMembers)
+  useEffect(() => setMembersOpen(inMembers), [inMembers])
+
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
@@ -47,15 +59,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const firstMenu = { label: 'หน้าหลัก', path: '/home' }
 
-  // ✅ จัดลำดับใหม่ให้ "คลังสินค้า" อยู่ถัดจาก "ออเดอร์" ทันที
+  // ✅ เมนูอื่น ๆ (ย้าย 4 เมนูไปอยู่ใน "ทะเบียนสมาชิก" แล้ว)
   const otherMenus = [
     { label: 'คลังเอกสาร', path: '/documents' },
     { label: 'ออเดอร์', path: '/order' },
-    { label: 'คลังสินค้า', path: '/stock' },      // ← ย้ายขึ้นมาตรงนี้
-    { label: 'สมัครสมาชิก', path: '/member-signup' },
-    { label: 'ค้นหาสมาชิก', path: '/search' },
-    { label: 'เพิ่มลูกค้า', path: '/customer-add' },
-    { label: 'เพิ่มบริษัท', path: '/company-add' },
+    { label: 'คลังสินค้า', path: '/stock' }, // ← อยู่ถัดจากออเดอร์ตามที่กำหนด
   ]
 
   const isActive = (p) => location.pathname === p
@@ -146,7 +154,63 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             </div>
           </div>
 
-          {/* 3) เมนูที่เหลือ */}
+          {/* 3) กลุ่มใหม่: ทะเบียนสมาชิก */}
+          <div className={cardWrapper}>
+            <div className={cardBox}>
+              <button
+                type="button"
+                aria-expanded={membersOpen}
+                aria-controls="members-submenu"
+                onClick={() => setMembersOpen((v) => !v)}
+                className={`${baseBtn} ${inMembers ? activeBtn : idleBtn} rounded-2xl`}
+              >
+                <span className="flex items-center gap-2">
+                  ทะเบียนสมาชิก
+                  <span className={`transition-transform ${membersOpen ? 'rotate-180' : ''}`}>▾</span>
+                </span>
+              </button>
+
+              <div className="px-3">
+                <div
+                  className={`mx-1 h-px transition-all duration-300 ${
+                    membersOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'
+                  }`}
+                />
+              </div>
+
+              {/* เมนูย่อยของทะเบียนสมาชิก */}
+              <div
+                id="members-submenu"
+                className={`transition-[max-height,opacity] duration-300 ease-out ${
+                  membersOpen
+                    ? 'max-h-[60vh] opacity-100'
+                    : 'max-h-0 opacity-0 overflow-hidden'
+                }`}
+              >
+                <div className="px-3 pb-3 pt-2 space-y-2">
+                  {[
+                    { label: 'สมัครสมาชิก', path: '/member-signup' },
+                    { label: 'ค้นหาสมาชิก', path: '/search' },
+                    { label: 'เพิ่มลูกค้า', path: '/customer-add' },
+                    { label: 'เพิ่มบริษัท', path: '/company-add' },
+                  ].map((item) => (
+                    <div key={item.path}>
+                      <button
+                        onClick={() => { navigate(item.path); setIsOpen(false) }}
+                        aria-current={isActive(item.path) ? 'page' : undefined}
+                        className={`${subBtnBase} ${isActive(item.path) ? subActive : subIdle}`}
+                      >
+                        {item.label}
+                      </button>
+                      <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 4) เมนูที่เหลือ */}
           {otherMenus.map((item) => {
             const active = isActive(item.path)
             return (

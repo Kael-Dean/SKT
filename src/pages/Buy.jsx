@@ -2171,7 +2171,7 @@ return (
 
           <div>
             <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
-            // ... ในฟอร์มออเดอร์ (ส่วน UI) แก้ block โปรแกรมเป็นแบบนี้:
+          
             <ComboBox
               options={programOptions}
               value={order.programId}                 // << เดิมเทียบจาก label

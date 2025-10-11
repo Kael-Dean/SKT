@@ -1,4 +1,4 @@
-// ✅ src/pages/Sales.jsx (อัปเดต company fields ให้ละเอียดแบบหน้า Buy — ทั้งไฟล์จนถึงก่อน UI)
+// ✅ src/pages/Sales.jsx (อัปเดตให้ใช้ route แบบหน้า Buy + company fields รายช่อง)
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api" // รวม Base URL, token, JSON ให้แล้ว
 
@@ -290,8 +290,6 @@ const Sales = () => {
   const companyInputRef = useRef(null)
   const suppressCompanySearchRef = useRef(false)
 
- 
-
   const nameBoxRef = useRef(null)
   const nameInputRef = useRef(null)
   const suppressNameSearchRef = useRef(false)
@@ -302,8 +300,8 @@ const Sales = () => {
 
   /** dropdown opts */
   const [productOptions, setProductOptions]   = useState([])
-  const [riceOptions, setRiceOptions]         = useState([])
-  const [subriceOptions, setSubriceOptions]   = useState([])
+  const [riceOptions, setRiceOptions]         = useState([])      // species
+  const [subriceOptions, setSubriceOptions]   = useState([])      // variant
   const [branchOptions, setBranchOptions]     = useState([])
   const [klangOptions, setKlangOptions]       = useState([])
   const [conditionOptions, setConditionOptions] = useState([])
@@ -364,9 +362,9 @@ const Sales = () => {
     brPostalCode: "",
   })
 
-   // debounce company name
+  // debounce company & tax
   const debouncedCompanyName = useDebounce(customer.companyName)
-
+  const debouncedTaxId = useDebounce(customer.taxId)
 
   /** เมตาสมาชิก/ลูกค้า */
   const [memberMeta, setMemberMeta] = useState({
@@ -378,9 +376,9 @@ const Sales = () => {
   const [order, setOrder] = useState({
     productId: "",
     productName: "",
-    riceId: "",
+    riceId: "",       // = species_id
     riceType: "",
-    subriceId: "",
+    subriceId: "",    // = variant_id
     subriceName: "",
     riceYear: "",
     riceYearId: "",
@@ -567,7 +565,8 @@ const Sales = () => {
         ] = await Promise.all([
           fetchFirstOkJson(["/order/product/search"]),
           fetchFirstOkJson(["/order/condition/search"]),
-          fetchFirstOkJson(["/order/field/search"]),
+          // ฟอลแบ็กเหมือนหน้า Buy
+          fetchFirstOkJson(["/order/field/search", "/order/field_type/list", "/order/field-type/list"]),
           fetchFirstOkJson(["/order/year/search"]),
           fetchFirstOkJson(["/order/program/search"]),
           fetchFirstOkJson(["/order/payment/search/sell"]), // ← sales ใช้ SELL
@@ -610,8 +609,11 @@ const Sales = () => {
           })).filter((o) => o.id && o.label)
         )
 
-         setBusinessOptions( 
-          (businesses || []).map((x) => ({ id: String(x.id), label: String(x.business) })) 
+        setBusinessOptions(
+          (businesses || []).map((x, i) => ({
+            id: String(x.id ?? x.value ?? i),
+            label: String(x.business ?? x.name ?? x.label ?? "").trim(),
+          })).filter((o) => o.id && o.label)
         )
 
         setPaymentOptions(
@@ -625,52 +627,56 @@ const Sales = () => {
       } catch (err) {
         console.error("loadStaticDD fatal:", err)
         setProductOptions([]); setConditionOptions([]); setFieldTypeOptions([]); setYearOptions([]); setProgramOptions([]); setPaymentOptions([])
-        setBranchOptions([])
+        setBranchOptions([]); setBusinessOptions([])
       }
     }
     loadStaticDD()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** เมื่อเลือก product → โหลด rice */
+  /** เมื่อเลือก product → โหลด species (แทน rice) */
   useEffect(() => {
     const pid = order.productId
-    if (!pid) { setRiceOptions([]); setOrder((p) => ({ ...p, riceId: "", riceType: "", subriceId: "", subriceName: "" })); return }
+    if (!pid) {
+      setRiceOptions([])
+      setOrder((p) => ({ ...p, riceId: "", riceType: "", subriceId: "", subriceName: "" }))
+      return
+    }
 
-    const loadRice = async () => {
+    const loadSpecies = async () => {
       try {
-        const arr = await apiAuth(`/order/rice/search?product_id=${encodeURIComponent(pid)}`)
+        const arr = await apiAuth(`/order/species/search?product_id=${encodeURIComponent(pid)}`)
         const mapped = (arr || []).map((x) => ({
-          id: String(x.id ?? x.rice_id ?? x.value ?? ""),
-          label: String(x.rice_type ?? x.name ?? x.label ?? "").trim(),
+          id: String(x.id ?? x.species_id ?? x.value ?? ""),
+          label: String(x.species ?? x.name ?? x.label ?? "").trim(),
         })).filter((o) => o.id && o.label)
         setRiceOptions(mapped)
       } catch (e) {
-        console.error("load rice error:", e)
+        console.error("load species error:", e)
         setRiceOptions([])
       }
     }
-    loadRice()
+    loadSpecies()
   }, [order.productId])
 
-  /** เมื่อเลือก rice → โหลด sub-rice */
+  /** เมื่อเลือก species → โหลด variant (แทน sub-rice) */
   useEffect(() => {
     const rid = order.riceId
     if (!rid) { setSubriceOptions([]); setOrder((p) => ({ ...p, subriceId: "", subriceName: "" })); return }
-    const loadSub = async () => {
+    const loadVariant = async () => {
       try {
-        const arr = await apiAuth(`/order/sub-rice/search?rice_id=${encodeURIComponent(rid)}`)
+        const arr = await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(rid)}`)
         const mapped = (arr || []).map((x) => ({
-          id: String(x.id ?? x.subrice_id ?? x.value ?? ""),
-          label: String(x.sub_class ?? x.name ?? x.label ?? "").trim(),
+          id: String(x.id ?? x.variant_id ?? x.value ?? ""),
+          label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
         })).filter((o) => o.id && o.label)
         setSubriceOptions(mapped)
       } catch (e) {
-        console.error("load subrice error:", e)
+        console.error("load variant error:", e)
         setSubriceOptions([])
       }
     }
-    loadSub()
+    loadVariant()
   }, [order.riceId])
 
   /** โหลดคลังตามสาขา */
@@ -717,33 +723,32 @@ const Sales = () => {
     }
   }
 
-  /** map company record -> UI (HQ + Branch แยกรายช่อง) */
+  /** map company record -> UI (HQ + Branch แยกรายช่อง) — จูนให้ตรงกับคีย์แบบ Buy */
   const mapCompanyToUI = (r = {}) => {
     const S = (v) => (v == null ? "" : String(v))
-
     return {
-      companyName: S(r.company_name ?? r.name ?? r.company ?? ""),
-      taxId: onlyDigits(S(r.tax_id ?? r.tin ?? "")),
-      companyPhone: S(r.phone ?? r.tel ?? ""),
+      assoId: r.asso_id ?? r.assoId ?? null,
+      companyName: S(r.company_name ?? r.companyName ?? ""),
+      taxId: onlyDigits(S(r.tax_id ?? r.taxId ?? "")),
+      companyPhone: S(r.phone_number ?? r.phone ?? ""),
 
       // HQ
-      hqHouseNo: S(r.hq_address ?? r.hq_house_no ?? r.hqAddress ?? ""),
-      hqMoo: S(r.hq_mhoo ?? r.hq_moo ?? r.hqMoo ?? ""),
-      hqSubdistrict: S(r.hq_sub_district ?? r.hq_subdistrict ?? r.hqSubdistrict ?? ""),
-      hqDistrict: S(r.hq_district ?? r.hqDistrict ?? r.head_district ?? ""),
-      hqProvince: S(r.hq_province ?? r.hqProvince ?? r.head_province ?? ""),
-      hqPostalCode: onlyDigits(S(r.hq_postal_code ?? r.hq_postcode ?? r.hqPostalCode ?? "")),
+      hqHouseNo: S(r.hq_address ?? r.hqAddress ?? ""),
+      hqMoo: S(r.hq_moo ?? r.hqMoo ?? ""),
+      hqSubdistrict: S(r.hq_tambon ?? r.hqSubdistrict ?? ""),
+      hqDistrict: S(r.hq_amphur ?? r.hqDistrict ?? ""),
+      hqProvince: S(r.hq_province ?? r.hqProvince ?? ""),
+      hqPostalCode: onlyDigits(S(r.hq_postal_code ?? r.hqPostalCode ?? "")),
 
       // Branch (optional)
-      brHouseNo: S(r.br_address ?? r.branch_address ?? r.br_house_no ?? r.brAddress ?? ""),
-      brMoo: S(r.br_mhoo ?? r.br_moo ?? r.brMoo ?? ""),
-      brSubdistrict: S(r.br_sub_district ?? r.br_subdistrict ?? r.brSubdistrict ?? ""),
-      brDistrict: S(r.br_district ?? r.brDistrict ?? ""),
-      brProvince: S(r.br_province ?? r.brProvince ?? ""),
-      brPostalCode: onlyDigits(S(r.br_postal_code ?? r.br_postcode ?? r.brPostalCode ?? "")),
+      brHouseNo: S(r.branch_address ?? r.br_address ?? r.branchAddress ?? ""),
+      brMoo: S(r.branch_moo ?? r.br_moo ?? r.branchMoo ?? ""),
+      brSubdistrict: S(r.branch_tambon ?? r.br_tambon ?? r.brSubdistrict ?? ""),
+      brDistrict: S(r.branch_amphur ?? r.br_amphur ?? r.brDistrict ?? ""),
+      brProvince: S(r.branch_province ?? r.br_province ?? r.brProvince ?? ""),
+      brPostalCode: onlyDigits(S(r.branch_postal_code ?? r.br_postal_code ?? r.brPostalCode ?? "")),
     }
   }
-
 
   /** เติมจากเรคอร์ด + ถ้าไม่ครบค่อย fallback ไปหา address ด้วย citizen_id */
   const fillFromRecord = async (raw = {}) => {
@@ -879,59 +884,77 @@ const Sales = () => {
   }, [debouncedFullName, buyerType])
 
   /** ค้นหาบริษัทด้วยชื่อ (เฉพาะโหมด company) */
-useEffect(() => {
-  if (buyerType !== "company") {
-    setShowCompanyList(false)
-    setCompanyResults([])
-    setHighlightedCompanyIndex(-1)
-    return
-  }
-
-  const q = (debouncedCompanyName || "").trim()
-  if (suppressCompanySearchRef.current) {
-    suppressCompanySearchRef.current = false
-    setShowCompanyList(false)
-    setCompanyResults([])
-    setHighlightedCompanyIndex(-1)
-    return
-  }
-  if (q.length < 2) {
-    setShowCompanyList(false)
-    setCompanyResults([])
-    setHighlightedCompanyIndex(-1)
-    return
-  }
-
-  const searchCompanies = async () => {
-    try {
-      setLoadingCustomer(true)
-      // รองรับหลาย endpoint
-      const results = await fetchFirstOkJson([
-        `/order/companies/search?q=${encodeURIComponent(q)}`,
-        `/order/customers/search?q=${encodeURIComponent(q)}`
-      ])
-      const list = Array.isArray(results) ? results : (results?.items ?? [])
-      // กรองที่เป็นบริษัท (ถ้ามี type)
-      const companies = list.filter((r) => (r.type ? r.type === "company" : true))
-      setCompanyResults(companies)
-      if (document.activeElement === companyInputRef.current) {
-        setShowCompanyList(companies.length > 0)
-        setHighlightedCompanyIndex(companies.length > 0 ? 0 : -1)
-      }
-    } catch (err) {
-      console.error("company search error:", err)
-      setCompanyResults([])
+  useEffect(() => {
+    if (buyerType !== "company") {
       setShowCompanyList(false)
+      setCompanyResults([])
       setHighlightedCompanyIndex(-1)
-    } finally {
-      setLoadingCustomer(false)
+      return
     }
-  }
 
-  searchCompanies()
-// eslint-disable-next-line react-hooks/exhaustive-deps
-}, [debouncedCompanyName, buyerType])
+    const q = (debouncedCompanyName || "").trim()
+    if (suppressCompanySearchRef.current) {
+      suppressCompanySearchRef.current = false
+      setShowCompanyList(false)
+      setCompanyResults([])
+      setHighlightedCompanyIndex(-1)
+      return
+    }
+    if (q.length < 2) {
+      setShowCompanyList(false)
+      setCompanyResults([])
+      setHighlightedCompanyIndex(-1)
+      return
+    }
 
+    const searchCompanies = async () => {
+      try {
+        setLoadingCustomer(true)
+        // รองรับหลาย endpoint
+        const results = await fetchFirstOkJson([
+          `/order/companies/search?q=${encodeURIComponent(q)}`,
+          `/order/customers/search?q=${encodeURIComponent(q)}`
+        ])
+        const list = Array.isArray(results) ? results : (results?.items ?? [])
+        // กรองที่เป็นบริษัท (ถ้ามี type)
+        const companies = list.filter((r) => (r.type ? r.type === "company" : true))
+        setCompanyResults(companies)
+        if (document.activeElement === companyInputRef.current) {
+          setShowCompanyList(companies.length > 0)
+          setHighlightedCompanyIndex(companies.length > 0 ? 0 : -1)
+        }
+      } catch (err) {
+        console.error("company search error:", err)
+        setCompanyResults([])
+        setShowCompanyList(false)
+        setHighlightedCompanyIndex(-1)
+      } finally {
+        setLoadingCustomer(false)
+      }
+    }
+
+    searchCompanies()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedCompanyName, buyerType])
+
+  /** ค้นหาบริษัทด้วยเลขภาษี (13 หลัก) → auto pick */
+  useEffect(() => {
+    if (buyerType !== "company") return
+    const tid = onlyDigits(debouncedTaxId)
+    if (tid.length !== 13) return
+    const searchByTax = async () => {
+      try {
+        setLoadingCustomer(true)
+        const items = (await apiAuth(`/order/companies/search?q=${encodeURIComponent(tid)}`)) || []
+        if (items.length > 0) await pickCompanyResult(items[0])
+      } catch (e) {
+        console.error("searchByTax:", e)
+      } finally {
+        setLoadingCustomer(false)
+      }
+    }
+    searchByTax()
+  }, [debouncedTaxId, buyerType])
 
   /** ปิด dropdown เมื่อคลิกนอกกล่อง */
   useEffect(() => {
@@ -947,27 +970,26 @@ useEffect(() => {
   }, [])
 
   useEffect(() => {
-  const onClick = (e) => {
-    if (!companyBoxRef.current) return
-    if (!companyBoxRef.current.contains(e.target)) {
-      setShowCompanyList(false)
-      setHighlightedCompanyIndex(-1)
+    const onClick = (e) => {
+      if (!companyBoxRef.current) return
+      if (!companyBoxRef.current.contains(e.target)) {
+        setShowCompanyList(false)
+        setHighlightedCompanyIndex(-1)
+      }
     }
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [])
+
+  const pickNameResult = async (rec) => {
+    suppressNameSearchRef.current = true
+    await fillFromRecord(rec)
+    setShowNameList(false)
+    setNameResults([])
+    setHighlightedIndex(-1)
   }
-  document.addEventListener("click", onClick)
-  return () => document.removeEventListener("click", onClick)
-}, [])
 
-
-    const pickNameResult = async (rec) => {
-      suppressNameSearchRef.current = true
-      await fillFromRecord(rec)
-      setShowNameList(false)
-      setNameResults([])
-      setHighlightedIndex(-1)
-    }
-
-    const pickCompanyResult = async (rec) => {
+  const pickCompanyResult = async (rec) => {
     suppressCompanySearchRef.current = true
     const c = mapCompanyToUI(rec)
     setCustomer((prev) => ({
@@ -992,7 +1014,6 @@ useEffect(() => {
     setHighlightedCompanyIndex(-1)
     setCompanyResults([])
   }
-
 
   /** scroll item ที่ไฮไลต์ */
   const scrollHighlightedIntoView2 = (index) => {
@@ -1052,35 +1073,34 @@ useEffect(() => {
   }
 
   const handleCompanyKeyDown = async (e) => {
-  if (!showCompanyList || companyResults.length === 0) return
-  if (e.key === "ArrowDown") {
-    e.preventDefault()
-    const next = highlightedCompanyIndex < companyResults.length - 1 ? highlightedCompanyIndex + 1 : 0
-    setHighlightedCompanyIndex(next)
-    requestAnimationFrame(() => {
-      const el = companyItemRefs.current[next]
-      try { el?.scrollIntoView({ block: "nearest" }) } catch {}
-    })
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault()
-    const prev = highlightedCompanyIndex > 0 ? highlightedCompanyIndex - 1 : companyResults.length - 1
-    setHighlightedCompanyIndex(prev)
-    requestAnimationFrame(() => {
-      const el = companyItemRefs.current[prev]
-      try { el?.scrollIntoView({ block: "nearest" }) } catch {}
-    })
-  } else if (e.key === "Enter") {
-    e.preventDefault()
-    if (highlightedCompanyIndex >= 0 && highlightedCompanyIndex < companyResults.length) {
-      await pickCompanyResult(companyResults[highlightedCompanyIndex])
+    if (!showCompanyList || companyResults.length === 0) return
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      const next = highlightedCompanyIndex < companyResults.length - 1 ? highlightedCompanyIndex + 1 : 0
+      setHighlightedCompanyIndex(next)
+      requestAnimationFrame(() => {
+        const el = companyItemRefs.current[next]
+        try { el?.scrollIntoView({ block: "nearest" }) } catch {}
+      })
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      const prev = highlightedCompanyIndex > 0 ? highlightedCompanyIndex - 1 : companyResults.length - 1
+      setHighlightedCompanyIndex(prev)
+      requestAnimationFrame(() => {
+        const el = companyItemRefs.current[prev]
+        try { el?.scrollIntoView({ block: "nearest" }) } catch {}
+      })
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (highlightedCompanyIndex >= 0 && highlightedCompanyIndex < companyResults.length) {
+        await pickCompanyResult(companyResults[highlightedCompanyIndex])
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault()
+      setShowCompanyList(false)
+      setHighlightedCompanyIndex(-1)
     }
-  } else if (e.key === "Escape") {
-    e.preventDefault()
-    setShowCompanyList(false)
-    setHighlightedCompanyIndex(-1)
   }
-}
-
 
   useEffect(() => {
     if (!showNameList) return
@@ -1138,9 +1158,8 @@ useEffect(() => {
       if (!customer.district.trim()) m.district = true
       if (!customer.province.trim()) m.province = true
     } else {
-  if (!customer.companyName.trim()) m.companyName = true
-}
-
+      if (!customer.companyName.trim()) m.companyName = true
+    }
 
     // ออเดอร์ (จำเป็นตาม backend)
     if (!order.productId) m.product = true
@@ -1191,7 +1210,7 @@ useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formTemplate, productOptions])
 
-  // เมื่อ riceOptions โหลดแล้ว → เลือกชนิดข้าวตาม Template
+  // เมื่อ species list โหลดแล้ว → เลือกชนิดข้าวตาม Template
   useEffect(() => {
     if (!isTemplateActive) return
     if (riceOptions.length === 0) return
@@ -1220,28 +1239,24 @@ useEffect(() => {
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
       if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
     } else {
-  if (!customer.companyName.trim()) e.companyName = "กรุณาเลือกชื่อบริษัท"
-  // ไม่บังคับ HQ/Branch ใดๆ (ระบบจะเติมอัตโนมัติจากรายการที่เลือก)
+      if (!customer.companyName.trim()) e.companyName = "กรุณาเลือกชื่อบริษัท"
+      // ที่อยู่ HQ/Branch ไม่บังคับ (จะถูกเติมจากผลเลือกอัตโนมัติถ้ามี)
     }
 
-
     if (!order.productId) e.product = "เลือกประเภทสินค้า"
-    if (!order.riceId) e.riceType = "เลือกชนิดข้าว"
-    if (!order.subriceId) e.subrice = "เลือกชั้นย่อย"
+    if (!order.riceId) e.riceType = "เลือกชนิดข้าว (species)"
+    if (!order.subriceId) e.subrice = "เลือกชั้นย่อย (variant)"
     if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข"
     if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"
     if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"
     if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ"
-
 
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
 
     if (order.entryWeightKg === "" || Number(order.entryWeightKg) < 0) e.entryWeightKg = "กรอกน้ำหนักก่อนชั่ง"
     if (order.exitWeightKg === "" || Number(order.exitWeightKg) <= 0) e.exitWeightKg = "กรอกน้ำหนักหลังชั่ง"
-    if (grossFromScale <= 0) {
-      e.exitWeightKg = "ค่าน้ำหนักจากตาชั่งต้องมากกว่า 0"
-    }
+    if (grossFromScale <= 0) e.exitWeightKg = "ค่าน้ำหนักจากตาชั่งต้องมากกว่า 0"
 
     if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0))
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
@@ -1277,134 +1292,129 @@ useEffect(() => {
     }
   }
 
- /** ---------- Submit ---------- */
-const handleSubmit = async (e) => {
-  e.preventDefault()
+  /** ---------- Submit ---------- */
+  const handleSubmit = async (e) => {
+    e.preventDefault()
 
-  const hints = computeMissingHints()
-  setMissingHints(hints)
+    const hints = computeMissingHints()
+    setMissingHints(hints)
 
-  const eObj = validateAll()
-  if (Object.keys(eObj).length > 0) {
-    scrollToFirstError(eObj)
-    return
+    const eObj = validateAll()
+    if (Object.keys(eObj).length > 0) {
+      scrollToFirstError(eObj)
+      return
+    }
+
+    // แยกชื่อ (โหมดบุคคล)
+    const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
+    const lastName = rest.join(" ")
+
+    // แปลง id ให้เป็นตัวเลข
+    const productId      = /^\d+$/.test(order.productId)    ? Number(order.productId)    : null
+    const speciesId      = /^\d+$/.test(order.riceId)       ? Number(order.riceId)       : null  // species_id
+    const variantId      = /^\d+$/.test(order.subriceId)    ? Number(order.subriceId)    : null  // variant_id
+    const branchId       = order.branchId ?? null
+    const klangId        = order.klangId ?? null
+    const productYearId  = /^\d+$/.test(order.riceYearId)   ? Number(order.riceYearId)   : null  // product_year
+    const conditionId    = /^\d+$/.test(order.conditionId)  ? Number(order.conditionId)  : null
+    const fieldTypeId    = /^\d+$/.test(order.fieldTypeId)  ? Number(order.fieldTypeId)  : null
+    const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
+
+    if (!productId)      { setErrors(p => ({ ...p, product:"ไม่พบรหัสสินค้า" }));             scrollToFirstError({product:true}); return }
+    if (!speciesId)      { setErrors(p => ({ ...p, riceType:"ไม่พบรหัสชนิดข้าว (species)" })); scrollToFirstError({riceType:true}); return }
+    if (!variantId)      { setErrors(p => ({ ...p, subrice:"ไม่พบรหัสชั้นย่อย (variant)" }));  scrollToFirstError({subrice:true}); return }
+    if (!productYearId)  { setErrors(p => ({ ...p, riceYear:"ไม่พบรหัสปี/ฤดูกาล" }));         scrollToFirstError({riceYear:true}); return }
+    if (!conditionId)    { setErrors(p => ({ ...p, condition:"ไม่พบรหัสสภาพ/เงื่อนไข" }));    scrollToFirstError({condition:true}); return }
+    if (!fieldTypeId)    { setErrors(p => ({ ...p, fieldType:"ไม่พบรหัสประเภทนา" }));         scrollToFirstError({fieldType:true}); return }
+    if (!branchId)       { setErrors(p => ({ ...p, branchName:"ไม่พบรหัสสาขา" }));            scrollToFirstError({branchName:true}); return }
+    if (!klangId)        { setErrors(p => ({ ...p, klangName:"ไม่พบรหัสคลัง" }));             scrollToFirstError({klangName:true}); return }
+    if (!businessTypeId) { setErrors(p => ({ ...p, businessType:"ไม่พบรหัสประเภทธุรกิจ" }));  scrollToFirstError({businessType:true}); return }
+
+    // น้ำหนัก
+    const baseGross = grossFromScale
+    const deduction = order.manualDeduct
+      ? toNumber(order.deductWeightKg)
+      : suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
+    const netW = Math.max(0, baseGross - deduction)
+
+    // payload ลูกค้า (ให้ตรง backend แบบเดียวกับ Buy)
+    const customerPayload =
+      buyerType === "person"
+        ? {
+            party_type: "individual",
+            first_name: firstName || "",
+            last_name: lastName || "",
+            citizen_id: onlyDigits(customer.citizenId),
+            address: customer.houseNo.trim(),
+            mhoo: customer.moo.trim(),
+            sub_district: customer.subdistrict.trim(),
+            district: customer.district.trim(),
+            province: customer.province.trim(),
+            postal_code: customer.postalCode?.toString().trim() || "",
+            fid: customer.fid === "" ? null : Number(customer.fid),
+            fid_owner: (customer.fidOwner || "").trim() || null,
+            fid_relationship: customer.fidRelationship === "" ? null : Number(customer.fidRelationship),
+          }
+        : {
+            party_type: "company",
+            company_name: customer.companyName.trim(),
+            tax_id: onlyDigits(customer.taxId),
+            phone_number: customer.companyPhone?.trim() || "",
+            // HQ
+            hq_address: customer.hqHouseNo.trim(),
+            hq_mhoo: customer.hqMoo.trim(),
+            hq_tambon: customer.hqSubdistrict.trim(),
+            hq_amphur: customer.hqDistrict.trim(),
+            hq_province: customer.hqProvince.trim(),
+            hq_postal_code: customer.hqPostalCode ? String(customer.hqPostalCode).trim() : "",
+            // Branch (optional)
+            branch_address: customer.brHouseNo.trim() || "",
+            branch_moo: customer.brMoo.trim() || "",
+            branch_tambon: customer.brSubdistrict.trim() || "",
+            branch_amphur: customer.brDistrict.trim() || "",
+            branch_province: customer.brProvince.trim() || "",
+            branch_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
+          }
+
+    const payload = {
+      customer: customerPayload,
+      order: {
+        product_id: productId,
+        // ✅ ใช้คีย์ใหม่ให้ตรงกับหน้า Buy/Backend ปัจจุบัน
+        species_id: speciesId,
+        variant_id: variantId,
+        product_year: productYearId,
+        field_type: fieldTypeId,
+        condition: conditionId,
+        business_type: businessTypeId,
+        program: order.programId ? Number(order.programId) : null,
+        humidity: Number(order.moisturePct || 0),
+        entry_weight: Number(order.entryWeightKg || 0),
+        exit_weight:  Number(order.exitWeightKg  || 0),
+        weight: Number(netW),
+        price_per_kilo: Number(order.unitPrice || 0),
+        price: Number(order.amountTHB || 0),
+        impurity: Number(order.impurityPct || 0),
+        date: order.issueDate,            // YYYY-MM-DD
+        branch_location: branchId,
+        klang_location: klangId,
+      },
+      // meta สำหรับ UI/แปะชื่อ
+      rice:   { rice_type: order.riceType },
+      branch: { branch_name: order.branchName },
+      klang:  { klang_name: order.klangName },
+    }
+
+    try {
+      try { localStorage.setItem("sales.formTemplate", formTemplate) } catch {}
+      await apiAuth(`/order/customers/save/sell`, { method: "POST", body: payload })
+      alert("บันทึกออเดอร์ขายเรียบร้อย ✅")
+      handleReset()
+    } catch (err) {
+      console.error(err)
+      alert("บันทึกล้มเหลว กรุณาลองใหม่")
+    }
   }
-
-  // แยกชื่อ (โหมดบุคคล)
-  const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
-  const lastName = rest.join(" ")
-
-  // แปลง id ให้เป็นตัวเลข
-  const productId   = /^\d+$/.test(order.productId)   ? Number(order.productId)   : null
-  const riceId      = /^\d+$/.test(order.riceId)      ? Number(order.riceId)      : null
-  const subriceId   = /^\d+$/.test(order.subriceId)   ? Number(order.subriceId)   : null
-  const branchId    = order.branchId ?? null
-  const klangId     = order.klangId ?? null
-  const riceYearId  = /^\d+$/.test(order.riceYearId)  ? Number(order.riceYearId)  : null
-  const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
-  const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
-  const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
-
-
-  if (!productId)  { setErrors(p => ({ ...p, product:"ไม่พบรหัสสินค้า" }));       scrollToFirstError({product:true}); return }
-  if (!riceId)     { setErrors(p => ({ ...p, riceType:"ไม่พบรหัสชนิดข้าว" }));    scrollToFirstError({riceType:true}); return }
-  if (!subriceId)  { setErrors(p => ({ ...p, subrice:"ไม่พบรหัสชั้นย่อย" }));     scrollToFirstError({subrice:true}); return }
-  if (!riceYearId) { setErrors(p => ({ ...p, riceYear:"ไม่พบรหัสปี/ฤดูกาล" }));   scrollToFirstError({riceYear:true}); return }
-  
-  if (!conditionId){ setErrors(p => ({ ...p, condition:"ไม่พบรหัสสภาพ/เงื่อนไข" })); scrollToFirstError({condition:true}); return }
-  if (!fieldTypeId){ setErrors(p => ({ ...p, fieldType:"ไม่พบรหัสประเภทนา" }));   scrollToFirstError({fieldType:true}); return }
-  if (!branchId)   { setErrors(p => ({ ...p, branchName:"ไม่พบรหัสสาขา" }));      scrollToFirstError({branchName:true}); return }
-  if (!klangId)    { setErrors(p => ({ ...p, klangName:"ไม่พบรหัสคลัง" }));       scrollToFirstError({klangName:true}); return }
-  if (!businessTypeId){ setErrors(p => ({ ...p, businessType:"ไม่พบรหัสประเภทธุรกิจ" })); scrollToFirstError({businessType:true}); return }
-
-
-  // ⬇⬇⬇ วางตรงนี้ ⬇⬇⬇
-  const baseGross = grossFromScale
-  const deduction = order.manualDeduct
-    ? toNumber(order.deductWeightKg)
-    : suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
-
-  const netW = Math.max(0, baseGross - deduction)
-  // ⬆⬆⬆ จบส่วนที่ต้องวาง ⬆⬆⬆
-
-  // payload ลูกค้า (ให้ตรง backend)
-  const customerPayload =
-  buyerType === "person"
-    ? {
-        party_type: "individual",   // ✅ ต้องใช้ "individual"
-        first_name: firstName || "",
-        last_name: lastName || "",
-        citizen_id: onlyDigits(customer.citizenId),
-        address: customer.houseNo.trim(),
-        mhoo: customer.moo.trim(),
-        sub_district: customer.subdistrict.trim(),
-        district: customer.district.trim(),
-        province: customer.province.trim(),
-        postal_code: customer.postalCode?.toString().trim() || "",
-        fid: customer.fid === "" ? null : Number(customer.fid),
-        fid_owner: (customer.fidOwner || "").trim() || null,
-        fid_relationship:
-          customer.fidRelationship === "" ? null : Number(customer.fidRelationship),
-      }
-    : {
-        party_type: "company",   // ✅ ต้องใช้ "company"
-        company_name: customer.companyName.trim(),
-        tax_id: onlyDigits(customer.taxId),
-        phone_number: customer.companyPhone?.trim() || "",
-        // HQ
-        hq_address: customer.hqHouseNo.trim(),
-        hq_mhoo: customer.hqMoo.trim(),
-        hq_tambon: customer.hqSubdistrict.trim(),
-        hq_amphur: customer.hqDistrict.trim(),
-        hq_province: customer.hqProvince.trim(),
-        hq_postal_code: customer.hqPostalCode ? String(customer.hqPostalCode).trim() : "",
-        // Branch (optional)
-        br_address: customer.brHouseNo.trim() || "",
-        br_mhoo: customer.brMoo.trim() || "",
-        br_tambon: customer.brSubdistrict.trim() || "",
-        br_amphur: customer.brDistrict.trim() || "",
-        br_province: customer.brProvince.trim() || "",
-        br_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
-      }
-
-
-  const payload = {
-    customer: customerPayload,
-    order: {
-      product_id: productId,
-      rice_id: riceId,
-      subrice_id: subriceId,
-      rice_year: riceYearId,           // ← backend ต้องการชื่อคีย์แบบนี้
-      field_type: fieldTypeId,
-      condition: conditionId,
-      business_type: businessTypeId,
-      program: order.programId ? Number(order.programId) : null,
-      humidity: Number(order.moisturePct || 0),
-      entry_weight: Number(order.entryWeightKg || 0),
-      exit_weight:  Number(order.exitWeightKg  || 0),
-      weight: netW,                     // ← ส่งน้ำหนักสุทธิหลังหัก
-      price_per_kilo: Number(order.unitPrice || 0),
-      price: Number(order.amountTHB),
-      impurity: Number(order.impurityPct || 0),
-      date: order.issueDate,            // YYYY-MM-DD
-      branch_location: branchId,
-      klang_location: klangId,
-    },
-    rice:   { rice_type: order.riceType },
-    branch: { branch_name: order.branchName },
-    klang:  { klang_name: order.klangName },
-  }
-
-  try {
-    try { localStorage.setItem("sales.formTemplate", formTemplate) } catch {}
-    await apiAuth(`/order/customers/save/sell`, { method: "POST", body: payload })
-    alert("บันทึกออเดอร์ขายเรียบร้อย ✅")
-    handleReset()
-  } catch (err) {
-    console.error(err)
-    alert("บันทึกล้มเหลว กรุณาลองใหม่")
-  }
-}
 
   const handleReset = () => {
     setErrors({})

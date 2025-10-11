@@ -313,7 +313,6 @@ const Buy = () => {
   const companyListRef = useRef(null)
   const companyItemRefs = useRef([])
 
-
   const nameBoxRef = useRef(null)
   const nameInputRef = useRef(null)
   const suppressNameSearchRef = useRef(false)
@@ -362,16 +361,17 @@ const Buy = () => {
     district: "",
     province: "",
     postalCode: "",
-    phone: "",
+    phone: "",              // ✅ autofill (บุคคล)
+
     // CCD เพิ่ม
-    fid: "",
-    fidOwner: "",
-    fidRelationship: "",
+    fid: "",                // ✅ autofill
+    fidOwner: "",           // ✅ autofill
+    fidRelationship: "",    // ✅ autofill
 
     // ⭐ ใหม่: บริษัท / นิติบุคคล
     companyName: "",
     taxId: "",
-    companyPhone: "",
+    companyPhone: "",       // (โหมดบริษัท)
     // HQ
     hqHouseNo: "",
     hqMoo: "",
@@ -444,11 +444,12 @@ const Buy = () => {
     district: useRef(null),
     province: useRef(null),
     postalCode: useRef(null),
-    phone: useRef(null),
+    phone: useRef(null),                 // ✅
+
     // CCD
-    fid: useRef(null),
-    fidOwner: useRef(null),
-    fidRelationship: useRef(null),
+    fid: useRef(null),                   // ✅
+    fidOwner: useRef(null),              // ✅
+    fidRelationship: useRef(null),       // ✅
 
     // ⭐ ใหม่: บริษัท
     companyName: useRef(null),
@@ -513,7 +514,6 @@ const Buy = () => {
   const debouncedCompanyName = useDebounce(customer.companyName)
   const debouncedTaxId = useDebounce(customer.taxId)
 
-
   /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอ (ใช้ apiAuth) */
   const fetchFirstOkJson = async (paths = []) => {
     for (const p of paths) {
@@ -526,7 +526,7 @@ const Buy = () => {
     return Array.isArray(paths) ? [] : {}
   }
 
-  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id (เฉพาะบุคคลธรรมดา) */
+  /** 🔎 helper: ดึงที่อยู่+ข้อมูลบุคคลจาก citizen_id (เฉพาะบุคคลธรรมดา) */
   const loadAddressByCitizenId = async (cid) => {
     const q = encodeURIComponent(onlyDigits(cid))
     const candidates = [
@@ -547,15 +547,17 @@ const Buy = () => {
       district: toStr(data.district ?? ""),
       province: toStr(data.province ?? ""),
       postalCode: onlyDigits(toStr(data.postal_code ?? data.postalCode ?? "")),
+
+      // ✅ เพิ่มเติมสำหรับ autofill
       firstName: toStr(data.first_name ?? data.firstName ?? ""),
       lastName: toStr(data.last_name ?? data.lastName ?? ""),
       type: data.type ?? undefined,
       asso_id: data.asso_id ?? data.assoId ?? undefined,
-      phone: toStr(data.phone ?? data.tel ?? data.mobile ?? ""),
-      // CCD ใหม่
-      fid: toStr(data.fid ?? ""),
-      fidOwner: toStr(data.fid_owner ?? data.fidowner ?? ""),
-      fidRelationship: toStr(data.fid_relationship ?? data.fidreationship ?? data.fid_rel ?? ""),
+
+      phone: toStr(data.phone ?? data.tel ?? data.mobile ?? ""),             // ✅ phone autofill
+      fid: toStr(data.fid ?? ""),                                            // ✅ FID autofill
+      fidOwner: toStr(data.fid_owner ?? data.fidowner ?? ""),                // ✅ FID Owner autofill
+      fidRelationship: toStr(data.fid_relationship ?? data.fidreationship ?? data.fid_rel ?? ""), // ✅ FID Rel autofill
     }
 
     const hasAnyAddress =
@@ -574,8 +576,9 @@ const Buy = () => {
         district: addr.district || prev.district,
         province: addr.province || prev.province,
         postalCode: addr.postalCode || prev.postalCode,
+
+        // ✅ autofill เพิ่ม
         phone: addr.phone || prev.phone,
-        // เติมค่า FID
         fid: addr.fid || prev.fid,
         fidOwner: addr.fidOwner || prev.fidOwner,
         fidRelationship: addr.fidRelationship || prev.fidRelationship,
@@ -584,7 +587,7 @@ const Buy = () => {
       if (addr.asso_id) setMemberMeta((m) => ({ ...m, assoId: addr.asso_id }))
     }
   }
-   
+
   const mapCompanyToUI = (r = {}) => {
     const S = (v) => (v == null ? "" : String(v))
     return {
@@ -637,7 +640,6 @@ const Buy = () => {
     setCompanyResults([])
     setCompanyHighlighted(-1)
   }
-
 
   /** โหลด dropdown ชุดแรก + branch */
   useEffect(() => {
@@ -744,7 +746,7 @@ const Buy = () => {
     loadStaticDD()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  
+
   // ปิด dropdown เมื่อคลิกนอกกล่อง
   useEffect(() => {
     const onClick = (e) => {
@@ -856,7 +858,6 @@ const Buy = () => {
     }
   }
 
-
   /** เมื่อเลือก product → โหลด species (แทน rice) */
   useEffect(() => {
     const pid = order.productId
@@ -950,8 +951,9 @@ const Buy = () => {
       district: toStr(r.district ?? ""),
       province: toStr(r.province ?? ""),
       postalCode: onlyDigits(toStr(r.postal_code ?? r.postalCode ?? "")),
+
+      // ✅ ช่องใหม่ที่ต้อง autofill
       phone: toStr(r.phone ?? r.tel ?? r.mobile ?? ""),
-      // CCD ใหม่
       fid: toStr(r.fid ?? ""),
       fidOwner: toStr(r.fid_owner ?? r.fidowner ?? ""),
       fidRelationship: toStr(r.fid_relationship ?? r.fidreationship ?? r.fid_rel ?? ""),
@@ -965,8 +967,9 @@ const Buy = () => {
       ...prev,
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
       fullName: data.fullName || prev.fullName,
+
+      // ✅ autofill เบอร์โทร + FID*
       phone: data.phone || prev.phone,
-      // เติมค่า FID
       fid: data.fid || prev.fid,
       fidOwner: data.fidOwner || prev.fidOwner,
       fidRelationship: data.fidRelationship || prev.fidRelationship,
@@ -992,10 +995,9 @@ const Buy = () => {
 
     const cid = onlyDigits(data.citizenId)
     if (cid.length === 13) {
-      await loadAddressByCitizenId(cid)
+      await loadAddressByCitizenId(cid) // ✅ ตรงนี้ก็เติม phone/FID* ได้
     }
   }
-
 
   /** ค้นหาด้วยเลขบัตร — ข้ามเมื่อเป็นบริษัท */
   useEffect(() => {
@@ -1065,6 +1067,8 @@ const Buy = () => {
       try {
         setLoadingCustomer(true)
         const items = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(q)}`)) || []
+
+        // ✅ map ให้รายการแนะนำมี phone/FID* มาด้วย
         const mapped = items.map((r) => ({
           type: r.type,
           asso_id: r.asso_id,
@@ -1077,11 +1081,11 @@ const Buy = () => {
           district: r.district ?? "",
           province: r.province ?? "",
           postal_code: r.postal_code ?? r.postalCode ?? "",
-          phone: r.phone ?? r.tel ?? r.mobile ?? "",
-          // ⭐ ใส่ FID เข้ารายการแนะนำ
-          fid: r.fid ?? null,
-          fid_owner: r.fid_owner ?? r.fidowner ?? "",
-          fid_relationship: r.fid_relationship ?? r.fidreationship ?? null,
+
+          phone: r.phone ?? r.tel ?? r.mobile ?? "",                   // ✅
+          fid: r.fid ?? null,                                          // ✅
+          fid_owner: r.fid_owner ?? r.fidowner ?? "",                  // ✅
+          fid_relationship: r.fid_relationship ?? r.fidreationship ?? null, // ✅
         }))
         setNameResults(mapped)
         if (document.activeElement === nameInputRef.current) {
@@ -1116,7 +1120,7 @@ const Buy = () => {
 
   const pickNameResult = async (rec) => {
     suppressNameSearchRef.current = true
-    await fillFromRecord(rec)
+    await fillFromRecord(rec) // ✅ จะเติม phone/FID* เข้าสตేట్
     setShowNameList(false)
     setNameResults([])
     setHighlightedIndex(-1)
@@ -1456,11 +1460,11 @@ const Buy = () => {
         district: customer.district.trim() || "",
         province: customer.province.trim() || "",
         postal_code: customer.postalCode ? String(customer.postalCode).trim() : "",
-        phone_number: customer.phone?.trim() || "",
+        phone_number: customer.phone?.trim() || "", // ✅ ส่งเบอร์ถ้ามี
         // CCD ใหม่
-        fid: fidNum,                                // Optional[int]
-        fid_owner: customer.fidOwner?.trim() || "", // Optional[str]
-        fid_relationship: fidRelNum,                // Optional[int]
+        fid: fidNum,                                // ✅ Optional[int]
+        fid_owner: customer.fidOwner?.trim() || "", // ✅ Optional[str]
+        fid_relationship: fidRelNum,                // ✅ Optional[int]
       }
     } else {
       customerPayload = {
@@ -1485,19 +1489,17 @@ const Buy = () => {
       }
     }
 
-
     const payload = {
       customer: customerPayload,
       order: {
         asso_id: memberMeta.assoId ?? null,
         product_id: productId,
-        // NOTE: backend ปัจจุบันยังอ่าน rice_id / subrice_id
         species_id: riceId,           // = species_id
-        variant_id: subriceId,     // = variant_id
+        variant_id: subriceId,        // = variant_id
         product_year: riceYearId,
         field_type: fieldTypeId,
         condition: conditionId,
-        program: programId ?? null,                       // << ใช้ id
+        program: programId ?? null,
         humidity: Number(order.moisturePct || 0),
         entry_weight: Number(order.entryWeightKg || 0),
         exit_weight: Number(order.exitWeightKg || 0),
@@ -1550,11 +1552,13 @@ const Buy = () => {
       district: "",
       province: "",
       postalCode: "",
-      phone: "",
+      phone: "",          // ✅ reset
+
       // CCD reset
-      fid: "",
-      fidOwner: "",
-      fidRelationship: "",
+      fid: "",            // ✅ reset
+      fidOwner: "",       // ✅ reset
+      fidRelationship: "",// ✅ reset
+
       // บริษัท
       companyName: "",
       taxId: "",

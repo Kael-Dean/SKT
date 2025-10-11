@@ -412,7 +412,9 @@ const Buy = () => {
     // 🔁 เปลี่ยนโปรแกรมให้ใช้ id/label แยกกัน
     programId: "",
     programName: "",
-    paymentMethod: "",
+    // 💳 วิธีชำระเงิน
+    paymentMethod: "",     // (label เก่า — คงไว้เพื่อไม่ให้ UI เดิมพัง)
+    paymentMethodId: "",   // (id ที่จะส่งเป็น payment_id)
     businessType: "",
     businessTypeId: "",
     entryWeightKg: "",
@@ -1220,6 +1222,21 @@ const Buy = () => {
     }
   }, [computedAmount])
 
+  /** ---------- Payment resolver ---------- */
+  const resolvePaymentId = () => {
+    // 1) ถ้า user เซ็ตเป็น id ไว้แล้ว ใช้เลย
+    if (/^\d+$/.test(String(order.paymentMethodId || ""))) return Number(order.paymentMethodId)
+    // 2) รองรับเคสเดิม: ผู้ใช้เซ็ตเป็น label (paymentMethod)
+    const label = (order.paymentMethod || "").trim()
+    if (label) {
+      const found = paymentOptions.find((o) => (o.label || "").trim() === label)
+      if (found && /^\d+$/.test(String(found.id))) return Number(found.id)
+    }
+    // 3) เผื่อ UI อื่นส่ง id เป็น string ไว้ใน paymentMethod
+    if (/^\d+$/.test(String(order.paymentMethod || ""))) return Number(order.paymentMethod)
+    return null
+  }
+
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) => (missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : "")
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
@@ -1254,6 +1271,11 @@ const Buy = () => {
     if (!order.businessTypeId) m.businessType = true
     if (!order.branchName) m.branchName = true
     if (!order.klangName) m.klangName = true
+
+    // 💳 ต้องมี payment_id
+    const pid = resolvePaymentId()
+    if (!pid) m.payment = true
+
     if (!order.entryWeightKg || Number(order.entryWeightKg) < 0) m.entryWeightKg = true
     if (!order.exitWeightKg || Number(order.exitWeightKg) <= 0) m.exitWeightKg = true
     if (grossFromScale <= 0) m.netFromScale = true
@@ -1339,6 +1361,11 @@ const Buy = () => {
     if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ"
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
+
+    // 💳 validate payment
+    const pid = resolvePaymentId()
+    if (!pid) e.payment = "เลือกวิธีชำระเงิน"
+
     if (order.entryWeightKg === "" || Number(order.entryWeightKg) < 0) e.entryWeightKg = "กรอกน้ำหนักก่อนชั่ง"
     if (order.exitWeightKg === "" || Number(order.exitWeightKg) <= 0) e.exitWeightKg = "กรอกน้ำหนักหลังชั่ง"
     if (grossFromScale <= 0) e.exitWeightKg = "ค่าน้ำหนักจากตาชั่งต้องมากกว่า 0"
@@ -1361,7 +1388,7 @@ const Buy = () => {
     ]
     const commonOrderKeys = [
       "product","riceType","subrice","condition","fieldType","riceYear","businessType",
-      "branchName","klangName","entryWeightKg","exitWeightKg","deductWeightKg","amountTHB","issueDate",
+      "branchName","klangName","payment","entryWeightKg","exitWeightKg","deductWeightKg","amountTHB","issueDate",
     ]
 
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
@@ -1388,7 +1415,7 @@ const Buy = () => {
           : "hqHouseNo"
         : firstKey
 
-    const el = refs[keyToFocus]?.current
+    const el = refs[keyToFocus]?.current || (firstKey === "payment" ? refs.payment?.current : null)
     if (el && typeof el.focus === "function") {
       try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
       el.focus()
@@ -1422,6 +1449,7 @@ const Buy = () => {
     const fieldTypeId    = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
     const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
     const programId      = /^\d+$/.test(order.programId) ? Number(order.programId) : null
+    const paymentId      = resolvePaymentId()
 
     if (!productId) return scrollToFirstError({ product: true })
     if (!riceId) return scrollToFirstError({ riceType: true })
@@ -1432,6 +1460,7 @@ const Buy = () => {
     if (!businessTypeId) return scrollToFirstError({ businessType: true })
     if (!branchId) return scrollToFirstError({ branchName: true })
     if (!klangId) return scrollToFirstError({ klangName: true })
+    if (!paymentId) return scrollToFirstError({ payment: true })
 
     const baseGross = grossFromScale
     const deduction = order.manualDeduct
@@ -1500,6 +1529,8 @@ const Buy = () => {
         field_type: fieldTypeId,
         condition: conditionId,
         program: programId ?? null,
+        // 💳 สำคัญ: ส่ง payment_id
+        payment_id: paymentId,
         humidity: Number(order.moisturePct || 0),
         entry_weight: Number(order.entryWeightKg || 0),
         exit_weight: Number(order.exitWeightKg || 0),
@@ -1593,7 +1624,9 @@ const Buy = () => {
       fieldTypeId: "",
       programId: "",
       programName: "",
+      // 💳 reset
       paymentMethod: "",
+      paymentMethodId: "",
       businessType: "",
       businessTypeId: "",
       entryWeightKg: "",

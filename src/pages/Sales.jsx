@@ -1,4 +1,4 @@
-// ✅ src/pages/Sales.jsx (อัปเดตให้ใช้ route แบบหน้า Buy + company fields รายช่อง)
+// ✅ src/pages/Sales.jsx (อัปเดตให้ใช้ route แบบหน้า Buy + company fields รายช่อง + autofill phone/FID*)
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api" // รวม Base URL, token, JSON ให้แล้ว
 
@@ -320,7 +320,7 @@ const Sales = () => {
   ]
   const [formTemplate, setFormTemplate] = useState("0") // "0" = ไม่ล็อก
 
-  /** ⭐ ประเภทผู้ซื้อ (ให้เหมือนหน้า Buy.jsx) */
+  /** ⭐ ประเภทผู้ซื้อ */
   const buyerTypeOptions = [
     { id: "person", label: "บุคคลธรรมดา" },
     { id: "company", label: "บริษัท / นิติบุคคล" },
@@ -338,11 +338,14 @@ const Sales = () => {
     district: "",
     province: "",
     postalCode: "",
-    // ✅ FID (คงไว้ตามเดิม)
+    phone: "",             // ✅ เพิ่ม phone (เหมือนหน้า Buy)
+
+    // ✅ FID
     fid: "",
     fidOwner: "",
     fidRelationship: "",
-    // ⭐ บริษัท — แยก HQ/Branch รายช่องแบบหน้า Buy
+
+    // บริษัท — แยก HQ/Branch รายช่องแบบหน้า Buy
     companyName: "",
     taxId: "",
     companyPhone: "",
@@ -423,6 +426,7 @@ const Sales = () => {
     district: useRef(null),
     province: useRef(null),
     postalCode: useRef(null),
+    phone: useRef(null),            // ✅
     fid: useRef(null),
     fidOwner: useRef(null),
     fidRelationship: useRef(null),
@@ -495,7 +499,7 @@ const Sales = () => {
     return Array.isArray(paths) ? [] : {}
   }
 
-  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id (บุคคลเท่านั้น) */
+  /** 🔎 helper: ดึงที่อยู่+ข้อมูลบุคคลจาก citizen_id (บุคคลเท่านั้น) */
   const loadAddressByCitizenId = async (cid) => {
     const q = encodeURIComponent(onlyDigits(cid))
     const candidates = [
@@ -516,20 +520,23 @@ const Sales = () => {
       district: toStr(data.district ?? ""),
       province: toStr(data.province ?? ""),
       postalCode: onlyDigits(toStr(data.postal_code ?? data.postalCode ?? "")),
+
       firstName: toStr(data.first_name ?? data.firstName ?? ""),
       lastName:  toStr(data.last_name ?? data.lastName ?? ""),
       type: data.type ?? undefined,
       asso_id: data.asso_id ?? data.assoId ?? undefined,
-      // ✅ ดึงค่า fid*
-      fid: data.fid ?? data.fid_id ?? "",
+
+      // ✅ เติม phone + FID*
+      phone: toStr(data.phone ?? data.tel ?? data.mobile ?? ""),
+      fid: toStr(data.fid ?? data.fid_id ?? ""),
       fidOwner: toStr(data.fid_owner ?? data.fidOwner ?? ""),
-      fidRelationship: data.fid_relationship ?? data.fidRelationship ?? "",
+      fidRelationship: toStr(data.fid_relationship ?? data.fidRelationship ?? data.fid_rel ?? ""),
     }
 
     const hasAnyAddress =
       addr.houseNo || addr.moo || addr.subdistrict || addr.district || addr.province || addr.postalCode
 
-    if (addr.firstName || addr.lastName || hasAnyAddress) {
+    if (addr.firstName || addr.lastName || hasAnyAddress || addr.phone || addr.fid || addr.fidOwner || addr.fidRelationship) {
       setCustomer((prev) => ({
         ...prev,
         fullName: (addr.firstName || addr.lastName) ? `${addr.firstName} ${addr.lastName}`.trim() || prev.fullName : prev.fullName,
@@ -539,10 +546,11 @@ const Sales = () => {
         district: addr.district || prev.district,
         province: addr.province || prev.province,
         postalCode: addr.postalCode || prev.postalCode,
-        // ✅ เติม fid*
+        // ✅ เติมชุด phone/FID*
+        phone: addr.phone || prev.phone,
         fid: addr.fid || prev.fid,
         fidOwner: addr.fidOwner || prev.fidOwner,
-        fidRelationship: String(addr.fidRelationship ?? prev.fidRelationship ?? ""),
+        fidRelationship: addr.fidRelationship || prev.fidRelationship,
       }))
       if (addr.type) setMemberMeta((m) => ({ ...m, type: addr.type }))
       if (addr.asso_id) setMemberMeta((m) => ({ ...m, assoId: addr.asso_id }))
@@ -698,7 +706,7 @@ const Sales = () => {
     loadKlang()
   }, [order.branchId, order.branchName])
 
-  /** map record -> UI (ครอบคลุมฟิลด์ที่อยู่ด้วย + fid*) */
+  /** map record -> UI (ครอบคลุมฟิลด์ที่อยู่ด้วย + phone + fid*) */
   const mapSimplePersonToUI = (r = {}) => {
     const toStr = (v) => (v == null ? "" : String(v))
     return {
@@ -716,10 +724,11 @@ const Sales = () => {
       province:    toStr(r.province ?? ""),
       postalCode:  onlyDigits(toStr(r.postal_code ?? r.postalCode ?? "")),
 
-      // ✅ ดึงค่า fid*
-      fid: r.fid ?? r.fid_id ?? "",
+      // ✅ เพิ่ม phone + FID*
+      phone: toStr(r.phone ?? r.tel ?? r.mobile ?? ""),
+      fid: toStr(r.fid ?? r.fid_id ?? ""),
       fidOwner: toStr(r.fid_owner ?? r.fidOwner ?? ""),
-      fidRelationship: r.fid_relationship ?? r.fidRelationship ?? "",
+      fidRelationship: toStr(r.fid_relationship ?? r.fidRelationship ?? r.fid_rel ?? ""),
     }
   }
 
@@ -759,7 +768,8 @@ const Sales = () => {
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
       fullName: data.fullName || prev.fullName,
 
-      // ✅ เซ็ตชุด fid*
+      // ✅ เซ็ต phone + ชุด fid*
+      phone: data.phone || prev.phone,
       fid: String(data.fid ?? prev.fid ?? ""),
       fidOwner: data.fidOwner || prev.fidOwner,
       fidRelationship: String(data.fidRelationship ?? prev.fidRelationship ?? ""),
@@ -858,12 +868,23 @@ const Sales = () => {
       try {
         setLoadingCustomer(true)
         const items = await apiAuth(`/order/customers/search?q=${encodeURIComponent(q)}`)
+        // ✅ map ให้รายการแนะนำมีข้อมูลพอสำหรับเติม phone/FID*
         const mapped = (items || []).map((r) => ({
           type: r.type,
           asso_id: r.asso_id,
           citizen_id: r.citizen_id,
           first_name: r.first_name,
           last_name: r.last_name,
+          address: r.address ?? r.house_no ?? r.houseNo ?? "",
+          mhoo: r.mhoo ?? r.moo ?? "",
+          sub_district: r.sub_district ?? r.subdistrict ?? r.subDistrict ?? "",
+          district: r.district ?? "",
+          province: r.province ?? "",
+          postal_code: r.postal_code ?? r.postalCode ?? "",
+          phone: r.phone ?? r.tel ?? r.mobile ?? "",
+          fid: r.fid ?? r.fid_id ?? "",
+          fid_owner: r.fid_owner ?? r.fidOwner ?? "",
+          fid_relationship: r.fid_relationship ?? r.fidRelationship ?? "",
         }))
         setNameResults(mapped)
         if (document.activeElement === nameInputRef.current) {
@@ -1337,7 +1358,7 @@ const Sales = () => {
       : suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
     const netW = Math.max(0, baseGross - deduction)
 
-    // payload ลูกค้า (ให้ตรง backend แบบเดียวกับ Buy)
+    // payload ลูกค้า (ตรง backend แบบเดียวกับ Buy)
     const customerPayload =
       buyerType === "person"
         ? {
@@ -1351,6 +1372,7 @@ const Sales = () => {
             district: customer.district.trim(),
             province: customer.province.trim(),
             postal_code: customer.postalCode?.toString().trim() || "",
+            phone_number: customer.phone?.trim() || "", // ✅ ส่งเบอร์ถ้ามี (optional)
             fid: customer.fid === "" ? null : Number(customer.fid),
             fid_owner: (customer.fidOwner || "").trim() || null,
             fid_relationship: customer.fidRelationship === "" ? null : Number(customer.fidRelationship),
@@ -1435,6 +1457,7 @@ const Sales = () => {
       district: "",
       province: "",
       postalCode: "",
+      phone: "",          // ✅ reset
       fid: "",
       fidOwner: "",
       fidRelationship: "",

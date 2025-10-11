@@ -1742,6 +1742,20 @@ const Sales = () => {
                 />
               </div>
 
+              <div>
+                <label className={labelCls}>เบอร์โทรศัพท์ (ไม่บังคับ)</label>
+                <input
+                  ref={refs.phone}
+                  inputMode="tel"
+                  maxLength={20}
+                  className={cx(baseField, compactInput)}
+                  value={customer.phone}
+                  onChange={(e) => updateCustomer("phone", e.target.value.replace(/[^\d+]/g, ""))}
+                  placeholder="เช่น 0812345678"
+                />
+              </div>
+
+
               {/* FID fields */}
               <div>
                 <label className={labelCls}>เลขที่ทะเบียนเกษตรกร (FID)</label>

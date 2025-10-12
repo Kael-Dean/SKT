@@ -435,6 +435,14 @@ const Buy = () => {
     comment: "",
   })
 
+  /** ───── Dept (ใหม่) ───── */
+  const [dept, setDept] = useState({
+    allowedPeriod: 30,     // จำนวนวันให้เครดิตเริ่มต้น (แก้ได้จากที่นี่หากจะผูก UI เพิ่มภายหลัง)
+    postpone: false,       // เลื่อนนัดจ่าย?
+    postponePeriod: 0,     // จำนวนวันที่เลื่อน
+  })
+  const updateDept = (k, v) => setDept((p) => ({ ...p, [k]: v }))
+
   /** ---------- Refs สำหรับ focus ---------- */
   const refs = {
     // บุคคล
@@ -746,7 +754,6 @@ const Buy = () => {
       }
     }
     loadStaticDD()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ปิด dropdown เมื่อคลิกนอกกล่อง
@@ -1034,7 +1041,6 @@ const Buy = () => {
       }
     }
     fetchByCid()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedCitizenId, buyerType])
 
   /** ค้นหาด้วยชื่อ — ข้ามเมื่อเป็นบริษัท */
@@ -1104,7 +1110,6 @@ const Buy = () => {
       }
     }
     searchByName()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedFullName, buyerType])
 
   /** ปิด dropdown ชื่อเมื่อคลิกนอกกล่อง */
@@ -1122,7 +1127,7 @@ const Buy = () => {
 
   const pickNameResult = async (rec) => {
     suppressNameSearchRef.current = true
-    await fillFromRecord(rec) // ✅ จะเติม phone/FID* เข้าสตేట్
+    await fillFromRecord(rec) // ✅ จะเติม phone/FID* เข้าสตേറ്റ്
     setShowNameList(false)
     setNameResults([])
     setHighlightedIndex(-1)
@@ -1237,6 +1242,17 @@ const Buy = () => {
     return null
   }
 
+  /** ตรวจว่าเป็น “ค้าง/เครดิต” ไหม (ใช้ label เป็นหลัก) */
+  const isCreditPayment = () => {
+    const pid = resolvePaymentId()
+    const label =
+      (order.paymentMethod || "").trim() ||
+      (paymentOptions.find((o) => Number(o.id) === Number(pid))?.label || "").trim()
+    const s = label.toLowerCase()
+    // คำที่พบบ่อย: ค้าง, เครดิต, credit, เชื่อ, ติด
+    return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
+  }
+
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) => (missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : "")
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
@@ -1313,7 +1329,6 @@ const Buy = () => {
         subriceName: "",
       }))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formTemplate, productOptions])
 
   // เมื่อ species (เดิม rice) โหลดแล้ว → เลือกชนิดข้าวตาม Template
@@ -1334,7 +1349,6 @@ const Buy = () => {
         subriceName: "",
       }))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formTemplate, riceOptions])
 
   /** ---------- Validation ---------- */
@@ -1518,6 +1532,22 @@ const Buy = () => {
       }
     }
 
+    /** Dept payload (แนบเสมอ — BE จะใช้เมื่อเป็นเครดิต) */
+    const makeDeptDate = (yyyyMmDd) => {
+      // แปลงเป็น ISO datetime (ต้นวัน) เพื่อให้ Pydantic รับเป็น datetime ได้แน่ ๆ
+      try {
+        return new Date(`${yyyyMmDd}T00:00:00Z`).toISOString()
+      } catch {
+        return new Date().toISOString()
+      }
+    }
+    const deptPayload = {
+      date_created: makeDeptDate(dateStr),
+      allowed_period: Number(dept.allowedPeriod || 0),
+      postpone: Boolean(dept.postpone),
+      postpone_period: Number(dept.postponePeriod || 0),
+    }
+
     const payload = {
       customer: customerPayload,
       order: {
@@ -1546,6 +1576,8 @@ const Buy = () => {
         comment: order.comment?.trim() || null,
         business_type: businessTypeId,
       },
+      // ⭐ แนบ dept ตามรูปแบบ BE (ใช้จริงเมื่อเป็นเครดิต)
+      dept: deptPayload,
     }
 
     try {
@@ -1650,6 +1682,12 @@ const Buy = () => {
     setRiceOptions([])
     setSubriceOptions([])
     setKlangOptions([])
+
+    setDept({
+      allowedPeriod: 30,
+      postpone: false,
+      postponePeriod: 0,
+    })
 
     // ⭐ รีเซ็ตประเภทผู้ซื้อกลับเป็นบุคคล
     setBuyerType("person")

@@ -722,14 +722,17 @@ const Buy = () => {
             .filter((o) => o.id && o.label)
         )
 
-        setPaymentOptions(
-          (payments || [])
-            .map((x, i) => ({
-              id: String(x.id ?? x.value ?? i),
-              label: String(x.payment ?? x.name ?? x.label ?? "").trim(),
-            }))
-            .filter((o) => o.id && o.label)
-        )
+        // 💳 สำคัญ: ฝั่งซื้อเติมตัวเลือก "ค้างชำระ / เครดิต" id=1 ให้เลือกเครดิตได้ (BE ใช้ id==1 สร้าง ToPay)
+        const basePayments = (payments || [])
+          .map((x, i) => ({
+            id: String(x.id ?? x.value ?? i),
+            label: String(x.payment ?? x.name ?? x.label ?? "").trim(),
+          }))
+          .filter((o) => o.id && o.label)
+
+        const creditOption = { id: "1", label: "ค้างชำระ / เครดิต" }
+        const hasCredit = basePayments.some((p) => String(p.id) === "1" || /เครดิต|ค้าง/i.test(p.label))
+        setPaymentOptions(hasCredit ? basePayments : [creditOption, ...basePayments])
 
         setBranchOptions((branches || []).map((b) => ({ id: b.id, label: b.branch_name })))
 
@@ -1245,11 +1248,11 @@ const Buy = () => {
   /** ตรวจว่าเป็น “ค้าง/เครดิต” ไหม (ใช้ label เป็นหลัก) */
   const isCreditPayment = () => {
     const pid = resolvePaymentId()
+    if (pid === 1) return true // id 1 = เครดิต/ค้าง → ToPay
     const label =
       (order.paymentMethod || "").trim() ||
       (paymentOptions.find((o) => Number(o.id) === Number(pid))?.label || "").trim()
     const s = label.toLowerCase()
-    // คำที่พบบ่อย: ค้าง, เครดิต, credit, เชื่อ, ติด
     return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
   }
 
@@ -1275,7 +1278,6 @@ const Buy = () => {
       if (!customer.hqSubdistrict.trim()) m.hqSubdistrict = true
       if (!customer.hqDistrict.trim()) m.hqDistrict = true
       if (!customer.hqProvince.trim()) m.hqProvince = true
-      // ที่อยู่สาขาเป็นออปชัน — ไม่บังคับ
     }
 
     if (!order.productId) m.product = true
@@ -1482,8 +1484,12 @@ const Buy = () => {
       : suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
     const netW = Math.max(0, baseGross - deduction)
 
-    // ส่ง date เป็น YYYY-MM-DD ตามหน้า UI
+    // ส่ง date เป็น ISO datetime (ต้นวัน UTC) ให้ Pydantic รับเป็น datetime
     const dateStr = order.issueDate
+    const isoDate = (() => {
+      try { return new Date(`${dateStr}T00:00:00Z`).toISOString() }
+      catch { return new Date().toISOString() }
+    })()
 
     // CCD: FID
     const fidNum = /^\d+$/.test(customer.fid) ? Number(customer.fid) : null
@@ -1503,11 +1509,11 @@ const Buy = () => {
         district: customer.district.trim() || "",
         province: customer.province.trim() || "",
         postal_code: customer.postalCode ? String(customer.postalCode).trim() : "",
-        phone_number: customer.phone?.trim() || "", // ✅ ส่งเบอร์ถ้ามี
+        phone_number: customer.phone?.trim() || "",
         // CCD ใหม่
-        fid: fidNum,                                // ✅ Optional[int]
-        fid_owner: customer.fidOwner?.trim() || "", // ✅ Optional[str]
-        fid_relationship: fidRelNum,                // ✅ Optional[int]
+        fid: fidNum,
+        fid_owner: customer.fidOwner?.trim() || "",
+        fid_relationship: fidRelNum,
       }
     } else {
       customerPayload = {
@@ -1532,17 +1538,9 @@ const Buy = () => {
       }
     }
 
-    /** Dept payload (แนบเสมอ — BE จะใช้เมื่อเป็นเครดิต) */
-    const makeDeptDate = (yyyyMmDd) => {
-      // แปลงเป็น ISO datetime (ต้นวัน) เพื่อให้ Pydantic รับเป็น datetime ได้แน่ ๆ
-      try {
-        return new Date(`${yyyyMmDd}T00:00:00Z`).toISOString()
-      } catch {
-        return new Date().toISOString()
-      }
-    }
+    /** Dept payload (แนบเสมอ — BE จะใช้เมื่อเป็นเครดิต: payment_id === 1) */
     const deptPayload = {
-      date_created: makeDeptDate(dateStr),
+      date_created: isoDate,
       allowed_period: Number(dept.allowedPeriod || 0),
       postpone: Boolean(dept.postpone),
       postpone_period: Number(dept.postponePeriod || 0),
@@ -1559,7 +1557,7 @@ const Buy = () => {
         field_type: fieldTypeId,
         condition: conditionId,
         program: programId ?? null,
-        // 💳 สำคัญ: ส่ง payment_id
+        // 💳 สำคัญ: ส่ง payment_id ให้ตรง (id 1 = เครดิต → ToPay)
         payment_id: paymentId,
         humidity: Number(order.moisturePct || 0),
         entry_weight: Number(order.entryWeightKg || 0),
@@ -1569,10 +1567,10 @@ const Buy = () => {
         price: Number(moneyToNumber(order.amountTHB) || 0),
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim() || null,
-        date: dateStr,
+        date: isoDate,
         branch_location: branchId,
         klang_location: klangId,
-        gram: Number(order.gram || 0),
+        gram: String(order.gram).trim() === "" ? null : Number(order.gram),
         comment: order.comment?.trim() || null,
         business_type: businessTypeId,
       },

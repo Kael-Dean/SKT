@@ -10,10 +10,6 @@ const toInt = (v) => {
   return Math.trunc(n)
 }
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
-const thb = (n) =>
-  new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
-    isFinite(n) ? n : 0
-  )
 const cx = (...a) => a.filter(Boolean).join(" ")
 
 /** ---------- Styles ---------- */
@@ -189,7 +185,7 @@ function ComboBox({
   )
 }
 
-/** ---------- DateInput (สำหรับกรณีอยากบันทึกวันที่ล็อต — ไม่บังคับฟีเจอร์) ---------- */
+/** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
@@ -225,29 +221,32 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
-/** ---------- Page: “ส่งสี (สร้างล็อตสี + ตัดสต็อกจาก TempStock)” ---------- */
+/** ---------- Page: ส่งสี ---------- */
 function StockTransferMill() {
   const [submitting, setSubmitting] = useState(false)
 
-  /** ---------- Dropdown options ---------- */
+  /** ---------- Dropdown options (ให้เหมือนหน้าขาย) ---------- */
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
 
   const [productOptions, setProductOptions] = useState([])
-  const [riceOptions, setRiceOptions] = useState([])     // species
+  const [riceOptions, setRiceOptions] = useState([]) // species
   const [subriceOptions, setSubriceOptions] = useState([]) // variant
 
   const [conditionOptions, setConditionOptions] = useState([])
+  const [fieldTypeOptions, setFieldTypeOptions] = useState([])
   const [yearOptions, setYearOptions] = useState([])
+  const [programOptions, setProgramOptions] = useState([])
+  const [businessOptions, setBusinessOptions] = useState([])
 
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
-    // optional สำหรับ metadata
+    // optional metadata
     lot_date: new Date().toISOString().slice(0, 10),
 
     // LOT
     lot_number: "",
-    total_weight: "", // จำนวนเต็มกก.
+    total_weight: "",
 
     // Location
     branch_id: null,
@@ -255,18 +254,24 @@ function StockTransferMill() {
     klang_id: null,
     klang_name: "",
 
-    // Spec
+    // Spec (ให้โครงเหมือนหน้าขาย)
     product_id: "",
     product_name: "",
-    rice_id: "",     // = species_id
+    rice_id: "",      // species_id
     rice_type: "",
-    subrice_id: "",  // = variant_id
+    subrice_id: "",   // variant_id
     subrice_name: "",
 
     // meta (optional)
-    condition_id: "",  // ส่งไปเป็น condition_id ได้
-    rice_year_id: "",  // UI เก็บ id/label; เวลาเรียกใช้จะพยายามส่งปีเป็นตัวเลข
+    condition_id: "",
+    field_type_id: "",
+    field_type_label: "",
+    rice_year_id: "",
     rice_year_label: "",
+    program_id: "",
+    program_label: "",
+    business_type_id: "",
+    business_type_label: "",
   })
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
@@ -292,22 +297,28 @@ function StockTransferMill() {
 
   /** ---------- Picks in this lot ---------- */
   const [picks, setPicks] = useState([]) // [{ tempstock_id, stock_id, amount_available, stock_branch, stock_klang, pick_weight }]
-  const totalPicked = useMemo(
-    () => picks.reduce((acc, it) => acc + toInt(it.pick_weight), 0),
-    [picks]
-  )
+  const totalPicked = useMemo(() => picks.reduce((acc, it) => acc + toInt(it.pick_weight), 0), [picks])
   const requiredTotal = useMemo(() => toInt(form.total_weight), [form.total_weight])
   const diff = requiredTotal - totalPicked
 
-  /** ---------- Load dropdowns ---------- */
+  /** ---------- Load dropdowns (เหมือนหน้าขาย) ---------- */
   useEffect(() => {
     const loadStatic = async () => {
       try {
-        const [branches, products, conditions, years] = await Promise.all([
+        const [branches, products, conditions, fields, years, programs, businesses] = await Promise.all([
           get("/order/branch/search"),
           get("/order/product/search"),
           get("/order/condition/search"),
+          // รองรับหลาย endpoint field type แบบหน้าขาย
+          (async () => {
+            try { return await get("/order/field/search") } catch {}
+            try { return await get("/order/field_type/list") } catch {}
+            try { return await get("/order/field-type/list") } catch {}
+            return []
+          })(),
           get("/order/year/search"),
+          get("/order/program/search"),
+          get("/order/business/search"),
         ])
 
         setBranchOptions((branches || []).map((b) => ({ id: b.id, label: b.branch_name })))
@@ -321,21 +332,57 @@ function StockTransferMill() {
             .filter((o) => o.id && o.label)
         )
 
-        setConditionOptions((conditions || []).map((c) => ({ id: c.id, label: c.condition })))
+        setConditionOptions(
+          (conditions || []).map((c, i) => ({
+            id: String(c.id ?? c.value ?? i),
+            label: String(c.condition ?? c.name ?? c.label ?? "").trim(),
+          }))
+        )
 
-        setYearOptions((years || []).map((y) => ({ id: y.id, label: String(y.year) })))
+        setFieldTypeOptions(
+          (fields || []).map((f, i) => ({
+            id: String(f.id ?? f.value ?? i),
+            label: String(
+              f.field ?? f.field_type ?? f.name ?? f.year ?? f.label ?? (typeof f === "string" ? f : "")
+            ).trim(),
+          }))
+        )
+
+        setYearOptions(
+          (years || []).map((y, i) => ({
+            id: String(y.id ?? y.value ?? i),
+            label: String(y.year ?? y.name ?? y.label ?? "").trim(),
+          }))
+        )
+
+        setProgramOptions(
+          (programs || []).map((p, i) => ({
+            id: String(p.id ?? p.value ?? i),
+            label: String(p.program ?? p.name ?? p.label ?? "").trim(),
+          }))
+        )
+
+        setBusinessOptions(
+          (businesses || []).map((b, i) => ({
+            id: String(b.id ?? b.value ?? i),
+            label: String(b.business ?? b.name ?? b.label ?? "").trim(),
+          }))
+        )
       } catch (e) {
         console.error("load static error:", e)
         setBranchOptions([])
         setProductOptions([])
         setConditionOptions([])
+        setFieldTypeOptions([])
         setYearOptions([])
+        setProgramOptions([])
+        setBusinessOptions([])
       }
     }
     loadStatic()
   }, [])
 
-  // branch -> klang
+  // branch -> klang (เคลียร์ค่าเมื่อเปลี่ยนสาขา)
   useEffect(() => {
     const bid = form.branch_id
     const bname = form.branch_name?.trim()
@@ -359,7 +406,7 @@ function StockTransferMill() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.branch_id, form.branch_name])
 
-  // product -> rice (species)
+  // product -> species (align หน้า “ขาย”: /order/species/search)
   useEffect(() => {
     const pid = form.product_id
     if (!pid) {
@@ -372,16 +419,16 @@ function StockTransferMill() {
     }
     const loadRice = async () => {
       try {
-        const arr = await get(`/order/rice/search?product_id=${encodeURIComponent(pid)}`)
+        const arr = await get(`/order/species/search?product_id=${encodeURIComponent(pid)}`)
         const mapped = (arr || [])
           .map((x) => ({
-            id: String(x.id ?? x.rice_id ?? x.value ?? ""),
-            label: String(x.rice_type ?? x.name ?? x.label ?? "").trim(),
+            id: String(x.id ?? x.species_id ?? x.value ?? ""),
+            label: String(x.species ?? x.name ?? x.label ?? "").trim(),
           }))
           .filter((o) => o.id && o.label)
         setRiceOptions(mapped)
       } catch (e) {
-        console.error("load rice error:", e)
+        console.error("load species error:", e)
         setRiceOptions([])
       }
     }
@@ -389,7 +436,7 @@ function StockTransferMill() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.product_id])
 
-  // rice -> subrice (variant)
+  // species -> variant (align หน้า “ขาย”: /order/variant/search)
   useEffect(() => {
     const rid = form.rice_id
     if (!rid) {
@@ -400,16 +447,16 @@ function StockTransferMill() {
     }
     const loadSub = async () => {
       try {
-        const arr = await get(`/order/sub-rice/search?rice_id=${encodeURIComponent(rid)}`)
+        const arr = await get(`/order/variant/search?species_id=${encodeURIComponent(rid)}`)
         const mapped = (arr || [])
           .map((x) => ({
-            id: String(x.id ?? x.subrice_id ?? x.value ?? ""),
-            label: String(x.sub_class ?? x.name ?? x.label ?? "").trim(),
+            id: String(x.id ?? x.variant_id ?? x.value ?? ""),
+            label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
           }))
           .filter((o) => o.id && o.label)
         setSubriceOptions(mapped)
       } catch (e) {
-        console.error("load subrice error:", e)
+        console.error("load variant error:", e)
         setSubriceOptions([])
       }
     }
@@ -422,13 +469,10 @@ function StockTransferMill() {
     const m = {}
     if (!form.lot_number?.trim()) m.lot_number = true
     if (!form.klang_id) m.klang_id = true
-
     if (!form.product_id) m.product_id = true
     if (!form.rice_id) m.rice_id = true
     if (!form.subrice_id) m.subrice_id = true
-
     if (!form.total_weight || toInt(form.total_weight) <= 0) m.total_weight = true
-
     return m
   }
 
@@ -446,15 +490,14 @@ function StockTransferMill() {
     const e = {}
     if (!form.lot_number?.trim()) e.lot_number = "กรุณาใส่เลข LOT"
     if (!form.klang_id) e.klang_id = "กรุณาเลือกคลัง"
-
     if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
     if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
     if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
 
     const tw = toInt(form.total_weight)
     if (tw <= 0) e.total_weight = "น้ำหนักรวมต้องมากกว่า 0 (กก.) และเป็นจำนวนเต็ม"
-    if (totalPicked !== tw) e.picks = `น้ำหนักที่เลือก (${totalPicked} กก.) ต้องเท่ากับน้ำหนักรวม (${tw} กก.)`
     if (picks.length === 0) e.picks = "กรุณาเพิ่มคลังอย่างน้อย 1 รายการ"
+    if (totalPicked !== tw) e.picks = `น้ำหนักที่เลือก (${totalPicked.toLocaleString()} กก.) ต้องเท่ากับน้ำหนักรวม (${tw.toLocaleString()} กก.)`
 
     setErrors(e)
     return Object.keys(e).length === 0
@@ -462,7 +505,7 @@ function StockTransferMill() {
 
   /** ---------- Eligible fetch ---------- */
   const buildSpecPayload = () => {
-    // product_year: พยายามแปลง label (เช่น "2567") เป็นตัวเลข ถ้าไม่ได้ค่อยลอง id
+    // product_year: แปลง label ถ้าเป็นตัวเลข มิฉะนั้นลองใช้ id
     const yearVal =
       form.rice_year_label && /^\d{3,4}$/.test(form.rice_year_label)
         ? Number(form.rice_year_label)
@@ -508,7 +551,7 @@ function StockTransferMill() {
       return
     }
     if (pickInt > row.amount_available) {
-      alert(`เกินคงเหลือในคลังนี้ (คงเหลือ ${row.amount_available} กก.)`)
+      alert(`เกินคงเหลือในคลังนี้ (คงเหลือ ${row.amount_available.toLocaleString()} กก.)`)
       return
     }
     setPicks((prev) => {
@@ -543,7 +586,7 @@ function StockTransferMill() {
       const payload = {
         lot_number: form.lot_number.trim(),
         spec: specPayload,
-        total_weight: toInt(form.total_weight), // จำนวนเต็มกก.
+        total_weight: toInt(form.total_weight),
         items: picks.map((p) => ({
           tempstock_id: p.tempstock_id,
           pick_weight: toInt(p.pick_weight),
@@ -553,7 +596,7 @@ function StockTransferMill() {
       const created = await post("/mill/records", payload)
       alert(`สร้างล็อตสีสำเร็จ ✅\nLOT: ${created?.lot_number || payload.lot_number}`)
 
-      // Reset โดยคงสาขา/คลังไว้เพื่อทำต่อเนื่องได้ไว
+      // Reset โดยคงสาขา/คลังไว้เพื่อทำต่อได้ไว
       setPicks([])
       setEligible([])
       setEligibleErr("")
@@ -561,7 +604,7 @@ function StockTransferMill() {
         ...f,
         lot_number: "",
         total_weight: "",
-        // เคลียร์เฉพาะสินค้า/ปี/สภาพ
+        // เคลียร์เฉพาะสินค้า/ปี/สภาพ/ตัวเลือกเสริม
         product_id: "",
         product_name: "",
         rice_id: "",
@@ -569,8 +612,14 @@ function StockTransferMill() {
         subrice_id: "",
         subrice_name: "",
         condition_id: "",
+        field_type_id: "",
+        field_type_label: "",
         rice_year_id: "",
         rice_year_label: "",
+        program_id: "",
+        program_label: "",
+        business_type_id: "",
+        business_type_label: "",
       }))
     } catch (err) {
       console.error(err)
@@ -634,10 +683,11 @@ function StockTransferMill() {
             </div>
           </div>
 
-          {/* กรอบที่ 2: ที่ตั้ง (สาขา/คลัง) & สเปคข้าว */}
+          {/* กรอบที่ 2: ที่ตั้ง & สเปคข้าว (ให้เหมือนหน้าขาย) */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ที่ตั้ง & สเปคข้าว</h2>
             <div className="grid gap-4 md:grid-cols-3">
+              {/* สาขา */}
               <div>
                 <label className={labelCls}>สาขา</label>
                 <ComboBox
@@ -648,6 +698,7 @@ function StockTransferMill() {
                     clearError("branch_id")
                     update("branch_id", found?.id ?? null)
                     update("branch_name", found?.label ?? "")
+                    // เคลียร์คลังเมื่อเปลี่ยนสาขา
                     update("klang_id", null)
                     update("klang_name", "")
                   }}
@@ -655,6 +706,7 @@ function StockTransferMill() {
                 />
               </div>
 
+              {/* คลัง */}
               <div>
                 <label className={labelCls}>คลัง</label>
                 <ComboBox
@@ -675,6 +727,7 @@ function StockTransferMill() {
                 {errors.klang_id && <p className={errorTextCls}>{errors.klang_id}</p>}
               </div>
 
+              {/* ประเภทสินค้า */}
               <div>
                 <label className={labelCls}>ประเภทสินค้า</label>
                 <ComboBox
@@ -697,6 +750,7 @@ function StockTransferMill() {
                 {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
               </div>
 
+              {/* ชนิดข้าว */}
               <div>
                 <label className={labelCls}>ชนิดข้าว (Species)</label>
                 <ComboBox
@@ -718,6 +772,7 @@ function StockTransferMill() {
                 {errors.rice_id && <p className={errorTextCls}>{errors.rice_id}</p>}
               </div>
 
+              {/* ชั้นย่อย */}
               <div>
                 <label className={labelCls}>ชั้นย่อย (Variant)</label>
                 <ComboBox
@@ -737,26 +792,70 @@ function StockTransferMill() {
                 {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
               </div>
 
+              {/* สภาพ/เงื่อนไข (ไม่บังคับ) */}
               <div>
                 <label className={labelCls}>สภาพ/เงื่อนไข (ไม่บังคับ)</label>
                 <ComboBox
                   options={conditionOptions}
                   value={form.condition_id}
-                  onChange={(id) => update("condition_id", id)}
+                  onChange={(id, found) => update("condition_id", found?.id ?? id)}
                   placeholder="— เลือกสภาพ/เงื่อนไข —"
                 />
               </div>
 
+              {/* ประเภทนา (ไม่บังคับ / UI ให้เหมือนหน้าขาย) */}
+              <div>
+                <label className={labelCls}>ประเภทนา (ไม่บังคับ)</label>
+                <ComboBox
+                  options={fieldTypeOptions}
+                  value={form.field_type_id}
+                  onChange={(id, found) => {
+                    update("field_type_id", found?.id ?? id)
+                    update("field_type_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกประเภทนา —"
+                />
+              </div>
+
+              {/* ปี/ฤดูกาล (ไม่บังคับ) */}
               <div>
                 <label className={labelCls}>ปี/ฤดูกาล (ไม่บังคับ)</label>
                 <ComboBox
                   options={yearOptions}
                   value={form.rice_year_id}
                   onChange={(id, found) => {
-                    update("rice_year_id", id)
+                    update("rice_year_id", found?.id ?? id)
                     update("rice_year_label", found?.label ?? "")
                   }}
                   placeholder="— เลือกปี/ฤดูกาล —"
+                />
+              </div>
+
+              {/* ประเภทธุรกิจ (ไม่บังคับ) */}
+              <div>
+                <label className={labelCls}>ประเภทธุรกิจ (ไม่บังคับ)</label>
+                <ComboBox
+                  options={businessOptions}
+                  value={form.business_type_id}
+                  onChange={(id, found) => {
+                    update("business_type_id", found?.id ?? id)
+                    update("business_type_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกประเภทธุรกิจ —"
+                />
+              </div>
+
+              {/* โปรแกรม (ไม่บังคับ) */}
+              <div>
+                <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
+                <ComboBox
+                  options={programOptions}
+                  value={form.program_id}
+                  onChange={(id, found) => {
+                    update("program_id", found?.id ?? id)
+                    update("program_label", found?.label ?? "")
+                  }}
+                  placeholder="— เลือกโปรแกรม —"
                 />
               </div>
             </div>
@@ -810,18 +909,14 @@ function StockTransferMill() {
                       </td>
                     </tr>
                   )}
-                  {eligible.map((row) => {
-                    const existing = picks.find((p) => p.tempstock_id === row.tempstock_id)
-                    const [localWeight, setLocalWeight] = [existing?.pick_weight ?? "", null]
-                    return (
-                      <RowEligible
-                        key={row.tempstock_id}
-                        row={row}
-                        defaultWeight={existing?.pick_weight ?? ""}
-                        onAdd={(w) => upsertPick(row, w)}
-                      />
-                    )
-                  })}
+                  {eligible.map((row) => (
+                    <RowEligible
+                      key={row.tempstock_id}
+                      row={row}
+                      defaultWeight={picks.find((p) => p.tempstock_id === row.tempstock_id)?.pick_weight ?? ""}
+                      onAdd={(w) => upsertPick(row, w)}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -864,11 +959,7 @@ function StockTransferMill() {
                             setPicks((prev) =>
                               prev.map((x) =>
                                 x.tempstock_id === p.tempstock_id
-                                  ? {
-                                      ...x,
-                                      pick_weight:
-                                        next > x.amount_available ? x.amount_available : next,
-                                    }
+                                  ? { ...x, pick_weight: next > x.amount_available ? x.amount_available : next }
                                   : x
                               )
                             )
@@ -907,14 +998,27 @@ function StockTransferMill() {
                 <div className="text-slate-600 dark:text-slate-300">
                   รวมที่เลือก: <b>{totalPicked.toLocaleString()}</b> / ต้องการ <b>{requiredTotal.toLocaleString()}</b> กก.
                 </div>
-                <div className={cx("font-semibold", diff === 0 ? "text-emerald-600" : diff > 0 ? "text-amber-600" : "text-red-600")}>
-                  {diff === 0 ? "ครบตามน้ำหนักรวม" : diff > 0 ? `ขาดอีก ${diff.toLocaleString()} กก.` : `เกิน ${Math.abs(diff).toLocaleString()} กก.`}
+                <div
+                  className={cx(
+                    "font-semibold",
+                    diff === 0 ? "text-emerald-600" : diff > 0 ? "text-amber-600" : "text-red-600"
+                  )}
+                >
+                  {diff === 0
+                    ? "ครบตามน้ำหนักรวม"
+                    : diff > 0
+                    ? `ขาดอีก ${diff.toLocaleString()} กก.`
+                    : `เกิน ${Math.abs(diff).toLocaleString()} กก.`}
                 </div>
               </div>
               <div className="mt-2 h-3 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                 <div
                   className={cx("h-3 rounded-full transition-all", diff === 0 ? "bg-emerald-500" : "bg-amber-500")}
-                  style={{ width: `${requiredTotal === 0 ? 0 : Math.min(100, Math.max(0, (totalPicked / requiredTotal) * 100))}%` }}
+                  style={{
+                    width: `${
+                      requiredTotal === 0 ? 0 : Math.min(100, Math.max(0, (totalPicked / requiredTotal) * 100))
+                    }%`,
+                  }}
                 />
               </div>
               {errors.picks && <p className={errorTextCls + " mt-2"}>{errors.picks}</p>}
@@ -955,8 +1059,14 @@ function StockTransferMill() {
                   subrice_id: "",
                   subrice_name: "",
                   condition_id: "",
+                  field_type_id: "",
+                  field_type_label: "",
                   rice_year_id: "",
                   rice_year_label: "",
+                  program_id: "",
+                  program_label: "",
+                  business_type_id: "",
+                  business_type_label: "",
                 }))
                 setErrors({})
                 setMissingHints({})

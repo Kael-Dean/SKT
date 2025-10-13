@@ -1677,7 +1677,7 @@ const Buy = () => {
   }
 
 
-  /** ---------- UI ---------- */
+/** ---------- UI ---------- */
 return (
   <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
     <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
@@ -1775,6 +1775,59 @@ return (
             {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
           </div>
         </div>
+
+        {/* เงื่อนไขเครดิต (โชว์เมื่อเป็น “ซื้อเชื่อ/เครดิต”) */}
+        {isCreditPayment() && (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-700/60 dark:bg-amber-900/20">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="inline-flex h-2 w-2 rounded-full bg-amber-500" />
+              <h3 className="text-base md:text-lg font-semibold text-amber-800 dark:text-amber-200">เงื่อนไขเครดิต</h3>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelCls}>จำนวนวันเครดิต (allowed_period)</label>
+                <input
+                  inputMode="numeric"
+                  className={cx(baseField, compactInput)}
+                  value={dept.allowedPeriod}
+                  onChange={(e) => updateDept("allowedPeriod", Number(onlyDigits(e.target.value)) || 0)}
+                  placeholder="เช่น 30"
+                />
+                <p className={helpTextCls}>นับจากวันที่เอกสารถูกลงวันที่</p>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className={labelCls}>ขอเลื่อนจ่ายไหม (postpone)</label>
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={!!dept.postpone}
+                      onChange={(e) => updateDept("postpone", e.target.checked)}
+                    />
+                    อนุญาตให้เลื่อนได้
+                  </label>
+                </div>
+                <p className={helpTextCls}>ติ๊กเมื่ออนุญาตให้ลูกค้าเลื่อนกำหนดชำระ</p>
+              </div>
+
+              {dept.postpone && (
+                <div>
+                  <label className={labelCls}>เลื่อนกี่วัน (postpone_period)</label>
+                  <input
+                    inputMode="numeric"
+                    className={cx(baseField, compactInput)}
+                    value={dept.postponePeriod}
+                    onChange={(e) => updateDept("postponePeriod", Number(onlyDigits(e.target.value)) || 0)}
+                    placeholder="เช่น 7"
+                  />
+                  <p className={helpTextCls}>จำนวนวันเลื่อนจากกำหนดเดิม</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ฟิลด์ลูกค้า — แยกตามประเภทผู้ซื้อ */}
         {buyerType === "person" ? (
@@ -1978,86 +2031,86 @@ return (
         ) : (
           /* -------------------- โหมดบริษัท / นิติบุคคล -------------------- */
           <div className="md:col-span-2" ref={companyBoxRef}>
-          <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
-          <input
-            ref={(el) => {
-              refs.companyName.current = el
-              companyInputRef.current = el
-            }}
-            className={cx(baseField, redFieldCls("companyName"))}
-            value={customer.companyName}
-            onChange={(e) => {
-              updateCustomer("companyName", e.target.value)
-              if (buyerType === "company") {
-                if (e.target.value.trim().length >= 2) setShowCompanyList(true)
-                else {
-                  setShowCompanyList(false)
-                  setCompanyHighlighted(-1)
+            <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
+            <input
+              ref={(el) => {
+                refs.companyName.current = el
+                companyInputRef.current = el
+              }}
+              className={cx(baseField, redFieldCls("companyName"))}
+              value={customer.companyName}
+              onChange={(e) => {
+                updateCustomer("companyName", e.target.value)
+                if (buyerType === "company") {
+                  if (e.target.value.trim().length >= 2) setShowCompanyList(true)
+                  else {
+                    setShowCompanyList(false)
+                    setCompanyHighlighted(-1)
+                  }
                 }
-              }
-            }}
-            onFocus={() => clearError("companyName")}
-            onKeyDown={handleCompanyKeyDown}
-            placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
-            aria-expanded={showCompanyList}
-            aria-controls="company-results"
-            role="combobox"
-            aria-autocomplete="list"
-            aria-invalid={errors.companyName ? true : undefined}
-          />
-          {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
+              }}
+              onFocus={() => clearError("companyName")}
+              onKeyDown={handleCompanyKeyDown}
+              placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
+              aria-expanded={showCompanyList}
+              aria-controls="company-results"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-invalid={errors.companyName ? true : undefined}
+            />
+            {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
 
-          {buyerType === "company" && showCompanyList && companyResults.length > 0 && (
-            <div
-              id="company-results"
-              ref={companyListRef}
-              className={
-                "mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm " +
-                "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-              }
-              role="listbox"
-            >
-              {companyResults.map((r, idx) => {
-                const isActive = idx === companyHighlighted
-                const name = r.company_name ?? r.companyName ?? "(ไม่มีชื่อ)"
-                const tid = r.tax_id ?? "-"
-                return (
-                  <button
-                    type="button"
-                    ref={(el) => (companyItemRefs.current[idx] = el)}
-                    key={`${r.asso_id}-${tid}-${idx}`}
-                    onClick={async () => await pickCompanyResult(r)}
-                    onMouseEnter={() => {
-                      setCompanyHighlighted(idx)
-                      requestAnimationFrame(() => {
-                        try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch {}
-                      })
-                    }}
-                    role="option"
-                    aria-selected={isActive}
-                    className={cx(
-                      "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
-                      isActive
-                        ? "bg-indigo-100 ring-1 ring-indigo-300 dark:bg-indigo-400/20 dark:ring-indigo-500"
-                        : "hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-                    )}
-                  >
-                    {isActive && (
-                      <span className="absolute left-0 top-0 h-full w-1 bg-indigo-600 dark:bg-indigo-400/70 rounded-l-xl" />
-                    )}
-                    <div className="flex-1">
-                      <div className="font-medium">{name}</div>
-                      <div className="text-sm text-slate-600 dark:text-slate-300">
-                        ภาษี {tid} • โทร {r.phone_number ?? "-"}
+            {buyerType === "company" && showCompanyList && companyResults.length > 0 && (
+              <div
+                id="company-results"
+                className={
+                  "mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm " +
+                  "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                }
+                role="listbox"
+              >
+                {companyResults.map((r, idx) => {
+                  const isActive = idx === companyHighlighted
+                  const name = r.company_name ?? r.companyName ?? "(ไม่มีชื่อ)"
+                  const tid = r.tax_id ?? "-"
+                  return (
+                    <button
+                      type="button"
+                      ref={(el) => (companyItemRefs.current[idx] = el)}
+                      key={`${r.asso_id}-${tid}-${idx}`}
+                      onClick={async () => await pickCompanyResult(r)}
+                      onMouseEnter={() => {
+                        setCompanyHighlighted(idx)
+                        requestAnimationFrame(() => {
+                          try {
+                            companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" })
+                          } catch {}
+                        })
+                      }}
+                      role="option"
+                      aria-selected={isActive}
+                      className={cx(
+                        "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
+                        isActive
+                          ? "bg-indigo-100 ring-1 ring-indigo-300 dark:bg-indigo-400/20 dark:ring-indigo-500"
+                          : "hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                      )}
+                    >
+                      {isActive && (
+                        <span className="absolute left-0 top-0 h-full w-1 bg-indigo-600 dark:bg-indigo-400/70 rounded-l-xl" />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-medium">{name}</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-300">
+                          ภาษี {tid} • โทร {r.phone_number ?? "-"}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -2229,10 +2282,9 @@ return (
 
           <div>
             <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
-          
             <ComboBox
               options={programOptions}
-              value={order.programId}                 // << เดิมเทียบจาก label
+              value={order.programId}
               getValue={(o) => o.id}
               onChange={(_id, found) =>
                 setOrder((p) => ({
@@ -2244,7 +2296,6 @@ return (
               placeholder="— เลือกโปรแกรม —"
               buttonRef={refs.program}
             />
-
           </div>
         </div>
 

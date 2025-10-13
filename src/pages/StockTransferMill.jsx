@@ -3,6 +3,12 @@ import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle }
 import { get, post } from "../lib/api"
 
 /** ---------- Utils ---------- */
+const onlyDigits = (s = "") => String(s ?? "").replace(/\D+/g, "")
+const toInt = (v) => {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return 0
+  return Math.trunc(n)
+}
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
 const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
@@ -22,7 +28,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- ComboBox (เหมือนหน้ายกเข้า) ---------- */
+/** ---------- ComboBox (เหมือนหน้าอื่น) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -183,11 +189,10 @@ function ComboBox({
   )
 }
 
-/** ---------- DateInput (เหมือนหน้ายกเข้า) ---------- */
+/** ---------- DateInput (สำหรับกรณีอยากบันทึกวันที่ล็อต — ไม่บังคับฟีเจอร์) ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
-
   return (
     <div className="relative">
       <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
@@ -220,7 +225,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
-/** ---------- Page: ส่งสี (ตัดสต็อก) ---------- */
+/** ---------- Page: “ส่งสี (สร้างล็อตสี + ตัดสต็อกจาก TempStock)” ---------- */
 function StockTransferMill() {
   const [submitting, setSubmitting] = useState(false)
 
@@ -229,54 +234,41 @@ function StockTransferMill() {
   const [klangOptions, setKlangOptions] = useState([])
 
   const [productOptions, setProductOptions] = useState([])
-  const [riceOptions, setRiceOptions] = useState([])
-  const [subriceOptions, setSubriceOptions] = useState([])
+  const [riceOptions, setRiceOptions] = useState([])     // species
+  const [subriceOptions, setSubriceOptions] = useState([]) // variant
 
-  // เมตาดาต้า (ตรงกับหน้ายกเข้า)
   const [conditionOptions, setConditionOptions] = useState([])
-  const [fieldOptions, setFieldOptions] = useState([])
   const [yearOptions, setYearOptions] = useState([])
-  const [programOptions, setProgramOptions] = useState([])
-  const [businessOptions, setBusinessOptions] = useState([])
 
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
-    transfer_date: new Date().toISOString().slice(0, 10),
+    // optional สำหรับ metadata
+    lot_date: new Date().toISOString().slice(0, 10),
 
+    // LOT
+    lot_number: "",
+    total_weight: "", // จำนวนเต็มกก.
+
+    // Location
     branch_id: null,
     branch_name: "",
     klang_id: null,
     klang_name: "",
 
+    // Spec
     product_id: "",
     product_name: "",
-    rice_id: "",
+    rice_id: "",     // = species_id
     rice_type: "",
-    subrice_id: "",
+    subrice_id: "",  // = variant_id
     subrice_name: "",
 
-    // เมตาดาต้า (id)
-    condition_id: "",
-    condition_label: "",
-    field_type_id: "",
-    field_type_label: "",
-    rice_year_id: "",
+    // meta (optional)
+    condition_id: "",  // ส่งไปเป็น condition_id ได้
+    rice_year_id: "",  // UI เก็บ id/label; เวลาเรียกใช้จะพยายามส่งปีเป็นตัวเลข
     rice_year_label: "",
-    program_id: "",
-    program_label: "",
-    business_type_id: "",
-    business_type_label: "",
-
-    weight_out: "",
-    milling_fee: "", // บาท/กก. (อาจไม่บังคับ)
-    note: "",
   })
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
-
-  /** ---------- Derived ---------- */
-  const weightOut = useMemo(() => toNumber(form.weight_out), [form.weight_out])
-  const feePerKg = useMemo(() => toNumber(form.milling_fee), [form.milling_fee])
-  const totalFee = useMemo(() => weightOut * feePerKg, [weightOut, feePerKg])
 
   /** ---------- Errors / hints ---------- */
   const [errors, setErrors] = useState({})
@@ -293,22 +285,32 @@ function StockTransferMill() {
       return rest
     })
 
-  /** ---------- Load dropdowns (เหมือนยกเข้า) ---------- */
+  /** ---------- Eligible TempStock ---------- */
+  const [eligible, setEligible] = useState([])
+  const [loadingEligible, setLoadingEligible] = useState(false)
+  const [eligibleErr, setEligibleErr] = useState("")
+
+  /** ---------- Picks in this lot ---------- */
+  const [picks, setPicks] = useState([]) // [{ tempstock_id, stock_id, amount_available, stock_branch, stock_klang, pick_weight }]
+  const totalPicked = useMemo(
+    () => picks.reduce((acc, it) => acc + toInt(it.pick_weight), 0),
+    [picks]
+  )
+  const requiredTotal = useMemo(() => toInt(form.total_weight), [form.total_weight])
+  const diff = requiredTotal - totalPicked
+
+  /** ---------- Load dropdowns ---------- */
   useEffect(() => {
     const loadStatic = async () => {
       try {
-        const [branches, products, conditions, fields, years, programs, businesses] = await Promise.all([
+        const [branches, products, conditions, years] = await Promise.all([
           get("/order/branch/search"),
           get("/order/product/search"),
           get("/order/condition/search"),
-          get("/order/field/search"),
           get("/order/year/search"),
-          get("/order/program/search"),
-          get("/order/business/search"),
         ])
 
-        const brs = (branches || []).map((b) => ({ id: b.id, label: b.branch_name }))
-        setBranchOptions(brs)
+        setBranchOptions((branches || []).map((b) => ({ id: b.id, label: b.branch_name })))
 
         setProductOptions(
           (products || [])
@@ -321,24 +323,13 @@ function StockTransferMill() {
 
         setConditionOptions((conditions || []).map((c) => ({ id: c.id, label: c.condition })))
 
-        setFieldOptions(
-          (fields || [])
-            .map((f) => ({ id: f.id, label: f.field ?? f.field_type ?? "" }))
-            .filter((o) => o.id && o.label)
-        )
-
-        setYearOptions((years || []).map((y) => ({ id: y.id, label: y.year })))
-        setProgramOptions((programs || []).map((p) => ({ id: p.id, label: p.program })))
-        setBusinessOptions((businesses || []).map((b) => ({ id: b.id, label: b.business })))
+        setYearOptions((years || []).map((y) => ({ id: y.id, label: String(y.year) })))
       } catch (e) {
         console.error("load static error:", e)
         setBranchOptions([])
         setProductOptions([])
         setConditionOptions([])
-        setFieldOptions([])
         setYearOptions([])
-        setProgramOptions([])
-        setBusinessOptions([])
       }
     }
     loadStatic()
@@ -368,7 +359,7 @@ function StockTransferMill() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.branch_id, form.branch_name])
 
-  // product -> rice
+  // product -> rice (species)
   useEffect(() => {
     const pid = form.product_id
     if (!pid) {
@@ -398,7 +389,7 @@ function StockTransferMill() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.product_id])
 
-  // rice -> subrice
+  // rice -> subrice (variant)
   useEffect(() => {
     const rid = form.rice_id
     if (!rid) {
@@ -429,81 +420,148 @@ function StockTransferMill() {
   /** ---------- Validate ---------- */
   const computeMissingHints = () => {
     const m = {}
-    if (!form.transfer_date) m.transfer_date = true
-
-    if (!form.branch_id) m.branch_id = true
+    if (!form.lot_number?.trim()) m.lot_number = true
     if (!form.klang_id) m.klang_id = true
 
     if (!form.product_id) m.product_id = true
     if (!form.rice_id) m.rice_id = true
     if (!form.subrice_id) m.subrice_id = true
 
-    if (!form.weight_out || Number(form.weight_out) <= 0) m.weight_out = true
-    // milling_fee ไม่บังคับ แต่ถ้าใส่ต้องไม่ติดลบ
-    if (form.milling_fee !== "" && Number(form.milling_fee) < 0) m.milling_fee = true
+    if (!form.total_weight || toInt(form.total_weight) <= 0) m.total_weight = true
 
     return m
   }
 
-  const validate = () => {
+  const validateBeforeSearch = () => {
     const e = {}
-    if (!form.transfer_date) e.transfer_date = "กรุณาเลือกวันที่ส่งสี"
+    if (!form.klang_id) e.klang_id = "กรุณาเลือกคลัง"
+    if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
+    if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
+    if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
 
-    if (!form.branch_id) e.branch_id = "กรุณาเลือกสาขา"
+  const validateBeforeSubmit = () => {
+    const e = {}
+    if (!form.lot_number?.trim()) e.lot_number = "กรุณาใส่เลข LOT"
     if (!form.klang_id) e.klang_id = "กรุณาเลือกคลัง"
 
     if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
     if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
     if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
 
-    if (toNumber(form.weight_out) <= 0) e.weight_out = "น้ำหนักต้องมากกว่า 0"
-    if (form.milling_fee !== "" && toNumber(form.milling_fee) < 0) e.milling_fee = "ค่าบริการต้องไม่ติดลบ"
+    const tw = toInt(form.total_weight)
+    if (tw <= 0) e.total_weight = "น้ำหนักรวมต้องมากกว่า 0 (กก.) และเป็นจำนวนเต็ม"
+    if (totalPicked !== tw) e.picks = `น้ำหนักที่เลือก (${totalPicked} กก.) ต้องเท่ากับน้ำหนักรวม (${tw} กก.)`
+    if (picks.length === 0) e.picks = "กรุณาเพิ่มคลังอย่างน้อย 1 รายการ"
 
     setErrors(e)
     return Object.keys(e).length === 0
   }
+
+  /** ---------- Eligible fetch ---------- */
+  const buildSpecPayload = () => {
+    // product_year: พยายามแปลง label (เช่น "2567") เป็นตัวเลข ถ้าไม่ได้ค่อยลอง id
+    const yearVal =
+      form.rice_year_label && /^\d{3,4}$/.test(form.rice_year_label)
+        ? Number(form.rice_year_label)
+        : form.rice_year_id
+        ? Number(form.rice_year_id)
+        : null
+
+    return {
+      spec: {
+        product_id: /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id,
+        species_id: /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id,
+        variant_id: /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id,
+        product_year: yearVal ?? null,
+        condition_id: form.condition_id ? Number(form.condition_id) : null,
+        klang_location: form.klang_id ?? null,
+      },
+    }
+  }
+
+  const fetchEligible = async () => {
+    setEligibleErr("")
+    if (!validateBeforeSearch()) return
+    setLoadingEligible(true)
+    try {
+      const payload = buildSpecPayload()
+      const rows = await post("/mill/eligible", payload)
+      setEligible(Array.isArray(rows) ? rows : [])
+      if (!rows || rows.length === 0) setEligibleErr("ไม่พบบัญชี TempStock ที่เข้าเกณฑ์")
+    } catch (err) {
+      console.error(err)
+      setEligible([])
+      setEligibleErr(err?.message || "ดึงคลังเข้าเกณฑ์ไม่สำเร็จ")
+    } finally {
+      setLoadingEligible(false)
+    }
+  }
+
+  /** ---------- Pick handlers ---------- */
+  const upsertPick = (row, weightStr) => {
+    const pickInt = toInt(weightStr)
+    if (pickInt <= 0) {
+      alert("น้ำหนักต้องเป็นจำนวนเต็มกิโล (> 0)")
+      return
+    }
+    if (pickInt > row.amount_available) {
+      alert(`เกินคงเหลือในคลังนี้ (คงเหลือ ${row.amount_available} กก.)`)
+      return
+    }
+    setPicks((prev) => {
+      const idx = prev.findIndex((p) => p.tempstock_id === row.tempstock_id)
+      const rec = {
+        tempstock_id: row.tempstock_id,
+        stock_id: row.stock_id,
+        amount_available: row.amount_available,
+        stock_branch: row.stock_branch ?? null,
+        stock_klang: row.stock_klang,
+        pick_weight: pickInt,
+      }
+      if (idx === -1) return [...prev, rec]
+      const clone = prev.slice()
+      clone[idx] = rec
+      return clone
+    })
+  }
+
+  const removePick = (tempstock_id) => setPicks((prev) => prev.filter((p) => p.tempstock_id !== tempstock_id))
 
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault()
     const hints = computeMissingHints()
     setMissingHints(hints)
-    if (!validate()) return
+    if (!validateBeforeSubmit()) return
 
     setSubmitting(true)
     try {
+      const specPayload = buildSpecPayload().spec
       const payload = {
-        transfer_date: form.transfer_date,
-        branch_id: form.branch_id ?? null,
-        klang_id: form.klang_id ?? null,
-
-        product_id: /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id,
-        rice_id: /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id,
-        subrice_id: /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id,
-
-        // ข้อมูลตัดสต็อกออก
-        weight_out: toNumber(form.weight_out),
-
-        // ค่าบริการสี (optional)
-        milling_fee: form.milling_fee === "" ? null : toNumber(form.milling_fee),
-        total_fee: form.milling_fee === "" ? null : toNumber(totalFee),
-
-        // เมตาดาต้า (ถ้า backend รองรับค่อยเปิดใช้)
-        // condition_id: form.condition_id ? Number(form.condition_id) : null,
-        // field_type_id: form.field_type_id ? Number(form.field_type_id) : null,
-        // rice_year_id: form.rice_year_id ? Number(form.rice_year_id) : null,
-        // program_id: form.program_id ? Number(form.program_id) : null,
-        // business_type_id: form.business_type_id ? Number(form.business_type_id) : null,
-
-        note: form.note?.trim() || null,
+        lot_number: form.lot_number.trim(),
+        spec: specPayload,
+        total_weight: toInt(form.total_weight), // จำนวนเต็มกก.
+        items: picks.map((p) => ({
+          tempstock_id: p.tempstock_id,
+          pick_weight: toInt(p.pick_weight),
+        })),
       }
 
-      await post("/api/stock/transfer/mill", payload)
+      const created = await post("/mill/records", payload)
+      alert(`สร้างล็อตสีสำเร็จ ✅\nLOT: ${created?.lot_number || payload.lot_number}`)
 
-      alert("บันทึกส่งสี (ตัดสต็อก) สำเร็จ ✅")
+      // Reset โดยคงสาขา/คลังไว้เพื่อทำต่อเนื่องได้ไว
+      setPicks([])
+      setEligible([])
+      setEligibleErr("")
       setForm((f) => ({
         ...f,
-        // คงสาขา/คลังไว้ เผื่อส่งสีต่อเนื่อง
+        lot_number: "",
+        total_weight: "",
+        // เคลียร์เฉพาะสินค้า/ปี/สภาพ
         product_id: "",
         product_name: "",
         rice_id: "",
@@ -511,22 +569,12 @@ function StockTransferMill() {
         subrice_id: "",
         subrice_name: "",
         condition_id: "",
-        condition_label: "",
-        field_type_id: "",
-        field_type_label: "",
         rice_year_id: "",
         rice_year_label: "",
-        program_id: "",
-        program_label: "",
-        business_type_id: "",
-        business_type_label: "",
-        weight_out: "",
-        milling_fee: "",
-        note: "",
       }))
     } catch (err) {
       console.error(err)
-      alert(err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก")
+      alert(err?.message || "สร้างล็อตสีไม่สำเร็จ")
     } finally {
       setSubmitting(false)
     }
@@ -535,29 +583,61 @@ function StockTransferMill() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🏭 ส่งสี (ตัดสต็อกออก)</h1>
+        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🏭 ส่งสี / สร้างล็อตสี (ตัดสต็อก TempStock)</h1>
 
         <form onSubmit={handleSubmit}>
-          {/* กรอบที่ 1: ที่ตั้ง (สาขา/คลัง) & วันที่ */}
+          {/* กรอบที่ 1: ข้อมูล LOT */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">ข้อมูลส่งสี</h2>
+            <h2 className="mb-3 text-xl font-semibold">ข้อมูล LOT</h2>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <label className={labelCls}>วันที่ส่งสี</label>
-                <DateInput
-                  value={form.transfer_date}
-                  onChange={(e) => {
-                    clearError("transfer_date")
-                    clearHint("transfer_date")
-                    update("transfer_date", e.target.value)
+                <label className={labelCls}>เลข LOT</label>
+                <input
+                  className={cx(baseField, redFieldCls("lot_number"))}
+                  value={form.lot_number}
+                  onChange={(e) => update("lot_number", e.target.value)}
+                  onFocus={() => {
+                    clearError("lot_number")
+                    clearHint("lot_number")
                   }}
-                  error={!!errors.transfer_date}
-                  className={redHintCls("transfer_date")}
-                  aria-invalid={errors.transfer_date ? true : undefined}
+                  placeholder="เช่น MILL-2025-001"
+                  aria-invalid={errors.lot_number ? true : undefined}
                 />
-                {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
+                {errors.lot_number && <p className={errorTextCls}>{errors.lot_number}</p>}
               </div>
 
+              <div>
+                <label className={labelCls}>น้ำหนักรวม LOT (กก.)</label>
+                <input
+                  inputMode="numeric"
+                  className={cx(baseField, redFieldCls("total_weight"))}
+                  value={form.total_weight}
+                  onChange={(e) => update("total_weight", onlyDigits(e.target.value))}
+                  onFocus={() => {
+                    clearError("total_weight")
+                    clearHint("total_weight")
+                  }}
+                  placeholder="เช่น 5000"
+                  aria-invalid={errors.total_weight ? true : undefined}
+                />
+                <p className={helpTextCls}>ต้องเป็นจำนวนเต็ม เพื่อให้ตรงกับสคีมาของ TempStock (Integer)</p>
+                {errors.total_weight && <p className={errorTextCls}>{errors.total_weight}</p>}
+              </div>
+
+              <div>
+                <label className={labelCls}>วันที่ล็อต (ไม่บังคับ)</label>
+                <DateInput
+                  value={form.lot_date}
+                  onChange={(e) => update("lot_date", e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* กรอบที่ 2: ที่ตั้ง (สาขา/คลัง) & สเปคข้าว */}
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h2 className="mb-3 text-xl font-semibold">ที่ตั้ง & สเปคข้าว</h2>
+            <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <label className={labelCls}>สาขา</label>
                 <ComboBox
@@ -566,17 +646,13 @@ function StockTransferMill() {
                   getValue={(o) => o.id}
                   onChange={(_v, found) => {
                     clearError("branch_id")
-                    clearHint("branch_id")
                     update("branch_id", found?.id ?? null)
                     update("branch_name", found?.label ?? "")
                     update("klang_id", null)
                     update("klang_name", "")
                   }}
                   placeholder="— เลือกสาขา —"
-                  error={!!errors.branch_id}
-                  hintRed={!!missingHints.branch_id}
                 />
-                {errors.branch_id && <p className={errorTextCls}>{errors.branch_id}</p>}
               </div>
 
               <div>
@@ -598,13 +674,7 @@ function StockTransferMill() {
                 />
                 {errors.klang_id && <p className={errorTextCls}>{errors.klang_id}</p>}
               </div>
-            </div>
-          </div>
 
-          {/* กรอบที่ 2: สินค้า / คุณสมบัติ */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
-            <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <label className={labelCls}>ประเภทสินค้า</label>
                 <ComboBox
@@ -628,7 +698,7 @@ function StockTransferMill() {
               </div>
 
               <div>
-                <label className={labelCls}>ชนิดข้าว</label>
+                <label className={labelCls}>ชนิดข้าว (Species)</label>
                 <ComboBox
                   options={riceOptions}
                   value={form.rice_id}
@@ -649,7 +719,7 @@ function StockTransferMill() {
               </div>
 
               <div>
-                <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
+                <label className={labelCls}>ชั้นย่อย (Variant)</label>
                 <ComboBox
                   options={subriceOptions}
                   value={form.subrice_id}
@@ -667,37 +737,18 @@ function StockTransferMill() {
                 {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
               </div>
 
-              {/* สภาพ/เงื่อนไข */}
               <div>
-                <label className={labelCls}>สภาพ/เงื่อนไข</label>
+                <label className={labelCls}>สภาพ/เงื่อนไข (ไม่บังคับ)</label>
                 <ComboBox
                   options={conditionOptions}
                   value={form.condition_id}
-                  onChange={(id, found) => {
-                    update("condition_id", id)
-                    update("condition_label", found?.label ?? "")
-                  }}
+                  onChange={(id) => update("condition_id", id)}
                   placeholder="— เลือกสภาพ/เงื่อนไข —"
                 />
               </div>
 
-              {/* ประเภทนา */}
               <div>
-                <label className={labelCls}>ประเภทนา</label>
-                <ComboBox
-                  options={fieldOptions}
-                  value={form.field_type_id}
-                  onChange={(id, found) => {
-                    update("field_type_id", id)
-                    update("field_type_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกประเภทนา —"
-                />
-              </div>
-
-              {/* ปี/ฤดูกาล */}
-              <div>
-                <label className={labelCls}>ปี/ฤดูกาล</label>
+                <label className={labelCls}>ปี/ฤดูกาล (ไม่บังคับ)</label>
                 <ComboBox
                   options={yearOptions}
                   value={form.rice_year_id}
@@ -708,92 +759,165 @@ function StockTransferMill() {
                   placeholder="— เลือกปี/ฤดูกาล —"
                 />
               </div>
+            </div>
 
-              {/* โปรแกรม */}
-              <div>
-                <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
-                <ComboBox
-                  options={programOptions}
-                  value={form.program_id}
-                  onChange={(id, found) => {
-                    update("program_id", id)
-                    update("program_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกโปรแกรม —"
-                />
-              </div>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={fetchEligible}
+                className="inline-flex items-center justify-center rounded-2xl 
+                  bg-indigo-600 px-6 py-3 text-base font-semibold text-white
+                  shadow-[0_6px_16px_rgba(79,70,229,0.35)]
+                  transition-all duration-300 ease-out
+                  hover:bg-indigo-700 hover:shadow-[0_8px_20px_rgba(79,70,229,0.45)]
+                  hover:scale-[1.05] active:scale-[.97]
+                  disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                aria-busy={loadingEligible ? "true" : "false"}
+                disabled={loadingEligible}
+              >
+                {loadingEligible ? "กำลังดึงคลังที่เข้าเกณฑ์..." : "ดึงคลังที่เข้าเกณฑ์"}
+              </button>
 
-              {/* ประเภทธุรกิจ */}
-              <div>
-                <label className={labelCls}>ประเภทธุรกิจ</label>
-                <ComboBox
-                  options={businessOptions}
-                  value={form.business_type_id}
-                  onChange={(id, found) => {
-                    update("business_type_id", id)
-                    update("business_type_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกประเภทธุรกิจ —"
-                />
+              <div className="text-sm text-slate-600 dark:text-slate-300 flex items-center">
+                {eligible.length > 0 && `พบ ${eligible.length} รายการที่เข้าเกณฑ์`}
+                {eligibleErr && <span className="text-red-500">{eligibleErr}</span>}
               </div>
             </div>
           </div>
 
-          {/* กรอบที่ 3: น้ำหนักและค่าบริการสี */}
+          {/* กรอบที่ 3: รายการคลังที่เข้าเกณฑ์ + เพิ่มเข้าลอต */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">น้ำหนักและค่าบริการสี</h2>
-            <div className="grid gap-4 md:grid-cols-4">
-              <div>
-                <label className={labelCls}>น้ำหนักที่ส่งสี (กก.)</label>
-                <input
-                  inputMode="decimal"
-                  className={cx(baseField, redFieldCls("weight_out"))}
-                  value={form.weight_out}
-                  onChange={(e) => update("weight_out", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => {
-                    clearError("weight_out")
-                    clearHint("weight_out")
-                  }}
-                  placeholder="เช่น 5000"
-                  aria-invalid={errors.weight_out ? true : undefined}
-                />
-                {errors.weight_out && <p className={errorTextCls}>{errors.weight_out}</p>}
-              </div>
+            <h2 className="mb-3 text-xl font-semibold">เลือกคลังเข้าลอต</h2>
 
-              <div>
-                <label className={labelCls}>ค่าบริการสี (บาท/กก.)</label>
-                <input
-                  inputMode="decimal"
-                  className={cx(baseField, redFieldCls("milling_fee"))}
-                  value={form.milling_fee}
-                  onChange={(e) => update("milling_fee", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => {
-                    clearError("milling_fee")
-                    clearHint("milling_fee")
-                  }}
-                  placeholder="เช่น 2.00"
-                  aria-invalid={errors.milling_fee ? true : undefined}
-                />
-                <p className={helpTextCls}>ว่างได้ ถ้าไม่ทราบ — ระบบจะคิดรวมอัตโนมัติถ้ากรอก</p>
-                {errors.milling_fee && <p className={errorTextCls}>{errors.milling_fee}</p>}
-              </div>
+            <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-700/40">
+                  <tr>
+                    <th className="px-3 py-2">TempStock ID</th>
+                    <th className="px-3 py-2">Stock ID</th>
+                    <th className="px-3 py-2">สาขา</th>
+                    <th className="px-3 py-2">คลัง</th>
+                    <th className="px-3 py-2">คงเหลือ (กก.)</th>
+                    <th className="px-3 py-2 w-48">ใส่กก.ที่จะใช้</th>
+                    <th className="px-3 py-2 w-32">เพิ่ม/อัปเดต</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eligible.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-3 py-4 text-center text-slate-500">
+                        — ไม่มีข้อมูล — กด “ดึงคลังที่เข้าเกณฑ์” หลังเลือกสเปคข้าวและคลัง —
+                      </td>
+                    </tr>
+                  )}
+                  {eligible.map((row) => {
+                    const existing = picks.find((p) => p.tempstock_id === row.tempstock_id)
+                    const [localWeight, setLocalWeight] = [existing?.pick_weight ?? "", null]
+                    return (
+                      <RowEligible
+                        key={row.tempstock_id}
+                        row={row}
+                        defaultWeight={existing?.pick_weight ?? ""}
+                        onAdd={(w) => upsertPick(row, w)}
+                      />
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-              <div>
-                <label className={labelCls}>ค่าบริการรวม (บาท)</label>
-                <input disabled className={cx(baseField, fieldDisabled)} value={form.milling_fee === "" ? "—" : thb(totalFee)} />
-                <p className={helpTextCls}>คำนวณ = น้ำหนัก × ค่าบริการ/กก.</p>
-              </div>
+          {/* กรอบที่ 4: สรุปรายการในลอต */}
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h2 className="mb-3 text-xl font-semibold">รายการในลอต</h2>
 
-              <div className="md:col-span-4">
-                <label className={labelCls}>บันทึกเพิ่มเติม</label>
-                <textarea
-                  className={baseField}
-                  rows={3}
-                  value={form.note}
-                  onChange={(e) => update("note", e.target.value)}
-                  placeholder="เช่น ส่งสีที่โรงสี A"
+            <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-700/40">
+                  <tr>
+                    <th className="px-3 py-2">TempStock ID</th>
+                    <th className="px-3 py-2">คลัง</th>
+                    <th className="px-3 py-2">คงเหลือ</th>
+                    <th className="px-3 py-2 w-40">กก. ที่ใช้</th>
+                    <th className="px-3 py-2 w-24">ลบ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {picks.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-4 text-center text-slate-500">— ยังไม่มีรายการ —</td>
+                    </tr>
+                  )}
+                  {picks.map((p) => (
+                    <tr key={p.tempstock_id} className="border-t border-slate-100 dark:border-slate-700/60">
+                      <td className="px-3 py-2">{p.tempstock_id}</td>
+                      <td className="px-3 py-2">{p.stock_klang}</td>
+                      <td className="px-3 py-2">{p.amount_available.toLocaleString()} กก.</td>
+                      <td className="px-3 py-2">
+                        <input
+                          inputMode="numeric"
+                          className={baseField}
+                          value={p.pick_weight}
+                          onChange={(e) => {
+                            const v = onlyDigits(e.target.value)
+                            const next = toInt(v)
+                            setPicks((prev) =>
+                              prev.map((x) =>
+                                x.tempstock_id === p.tempstock_id
+                                  ? {
+                                      ...x,
+                                      pick_weight:
+                                        next > x.amount_available ? x.amount_available : next,
+                                    }
+                                  : x
+                              )
+                            )
+                          }}
+                          onBlur={() => {
+                            // clamp >=1
+                            setPicks((prev) =>
+                              prev.map((x) =>
+                                x.tempstock_id === p.tempstock_id
+                                  ? { ...x, pick_weight: Math.max(1, toInt(x.pick_weight)) }
+                                  : x
+                              )
+                            )
+                          }}
+                          placeholder="เช่น 1200"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => removePick(p.tempstock_id)}
+                          className="rounded-xl border border-slate-300 px-3 py-2 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700/60"
+                        >
+                          ลบ
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Progress */}
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-sm">
+                <div className="text-slate-600 dark:text-slate-300">
+                  รวมที่เลือก: <b>{totalPicked.toLocaleString()}</b> / ต้องการ <b>{requiredTotal.toLocaleString()}</b> กก.
+                </div>
+                <div className={cx("font-semibold", diff === 0 ? "text-emerald-600" : diff > 0 ? "text-amber-600" : "text-red-600")}>
+                  {diff === 0 ? "ครบตามน้ำหนักรวม" : diff > 0 ? `ขาดอีก ${diff.toLocaleString()} กก.` : `เกิน ${Math.abs(diff).toLocaleString()} กก.`}
+                </div>
+              </div>
+              <div className="mt-2 h-3 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                <div
+                  className={cx("h-3 rounded-full transition-all", diff === 0 ? "bg-emerald-500" : "bg-amber-500")}
+                  style={{ width: `${requiredTotal === 0 ? 0 : Math.min(100, Math.max(0, (totalPicked / requiredTotal) * 100))}%` }}
                 />
               </div>
+              {errors.picks && <p className={errorTextCls + " mt-2"}>{errors.picks}</p>}
             </div>
           </div>
 
@@ -811,15 +935,19 @@ function StockTransferMill() {
                 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
               aria-busy={submitting ? "true" : "false"}
             >
-              {submitting ? "กำลังบันทึก..." : "บันทึกส่งสี (ตัดสต็อก)"}
+              {submitting ? "กำลังสร้างล็อตสี..." : "สร้างล็อตสี (บันทึก / ตัดสต็อก)"}
             </button>
 
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                setPicks([])
+                setEligible([])
+                setEligibleErr("")
                 setForm((f) => ({
                   ...f,
-                  // เคลียร์เฉพาะข้อมูลสินค้า/น้ำหนัก/ราคา
+                  lot_number: "",
+                  total_weight: "",
                   product_id: "",
                   product_name: "",
                   rice_id: "",
@@ -827,20 +955,12 @@ function StockTransferMill() {
                   subrice_id: "",
                   subrice_name: "",
                   condition_id: "",
-                  condition_label: "",
-                  field_type_id: "",
-                  field_type_label: "",
                   rice_year_id: "",
                   rice_year_label: "",
-                  program_id: "",
-                  program_label: "",
-                  business_type_id: "",
-                  business_type_label: "",
-                  weight_out: "",
-                  milling_fee: "",
-                  note: "",
                 }))
-              }
+                setErrors({})
+                setMissingHints({})
+              }}
               className="inline-flex items-center justify-center rounded-2xl 
                 border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
                 shadow-sm
@@ -850,12 +970,45 @@ function StockTransferMill() {
                 dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
                 dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
             >
-              ล้างฟอร์มสินค้า/บันทึก
+              ล้างฟอร์ม LOT/สินค้า
             </button>
           </div>
         </form>
       </div>
     </div>
+  )
+}
+
+/** แถวในตาราง Eligible พร้อมอินพุตน้ำหนักท้องถิ่น */
+function RowEligible({ row, defaultWeight, onAdd }) {
+  const [w, setW] = useState(defaultWeight ?? "")
+  useEffect(() => setW(defaultWeight ?? ""), [defaultWeight])
+  return (
+    <tr className="border-t border-slate-100 dark:border-slate-700/60">
+      <td className="px-3 py-2">{row.tempstock_id}</td>
+      <td className="px-3 py-2">{row.stock_id}</td>
+      <td className="px-3 py-2">{row.stock_branch ?? "—"}</td>
+      <td className="px-3 py-2">{row.stock_klang}</td>
+      <td className="px-3 py-2">{row.amount_available?.toLocaleString()} กก.</td>
+      <td className="px-3 py-2">
+        <input
+          inputMode="numeric"
+          className={baseField}
+          value={w}
+          onChange={(e) => setW(onlyDigits(e.target.value))}
+          placeholder="จำนวนเต็ม"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <button
+          type="button"
+          onClick={() => onAdd(w)}
+          className="rounded-xl bg-emerald-600 px-3 py-2 text-white hover:bg-emerald-700"
+        >
+          เพิ่ม/อัปเดต
+        </button>
+      </td>
+    </tr>
   )
 }
 

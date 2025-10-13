@@ -1706,6 +1706,59 @@ return (
           </div>
         </div>
 
+        {/* เงื่อนไขเครดิต (โชว์เมื่อเป็น “ขายเชื่อ/เครดิต”) */}
+        {isCreditPayment() && (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-700/60 dark:bg-amber-900/20">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="inline-flex h-2 w-2 rounded-full bg-amber-500" />
+              <h3 className="text-base md:text-lg font-semibold text-amber-800 dark:text-amber-200">เงื่อนไขเครดิต</h3>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelCls}>จำนวนวันเครดิต (allowed_period)</label>
+                <input
+                  inputMode="numeric"
+                  className={cx(baseField, compactInput)}
+                  value={dept.allowedPeriod}
+                  onChange={(e) => updateDept("allowedPeriod", Number(onlyDigits(e.target.value)) || 0)}
+                  placeholder="เช่น 30"
+                />
+                <p className={helpTextCls}>นับจากวันที่เอกสารถูกลงวันที่</p>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className={labelCls}>ขอเลื่อนจ่ายไหม (postpone)</label>
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={!!dept.postpone}
+                      onChange={(e) => updateDept("postpone", e.target.checked)}
+                    />
+                    อนุญาตให้เลื่อนได้
+                  </label>
+                </div>
+                <p className={helpTextCls}>ติ๊กเมื่ออนุญาตให้ลูกค้าเลื่อนกำหนดชำระ</p>
+              </div>
+
+              {dept.postpone && (
+                <div>
+                  <label className={labelCls}>เลื่อนกี่วัน (postpone_period)</label>
+                  <input
+                    inputMode="numeric"
+                    className={cx(baseField, compactInput)}
+                    value={dept.postponePeriod}
+                    onChange={(e) => updateDept("postponePeriod", Number(onlyDigits(e.target.value)) || 0)}
+                    placeholder="เช่น 7"
+                  />
+                  <p className={helpTextCls}>จำนวนวันเลื่อนจากกำหนดเดิม</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ฟิลด์ลูกค้า — แยกตามประเภท */}
         {buyerType === "person" ? (
           <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -2547,6 +2600,5 @@ return (
 )
 
 }
-
 
 export default Sales

@@ -1,4 +1,4 @@
-// ✅ src/pages/Sales.jsx (อัปเดตให้ใช้ route แบบหน้า Buy + company fields รายช่อง + autofill phone/FID*)
+// ✅ src/pages/Sales.jsx (อัปเดตให้ใช้ฟังก์ชัน/โครงเดียวกับหน้า Buy + dept + payment resolver + autofill phone/FID*)
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api" // รวม Base URL, token, JSON ให้แล้ว
 
@@ -33,6 +33,27 @@ function useDebounce(value, delay = 400) {
     return () => clearTimeout(t)
   }, [value, delay])
   return debounced
+}
+
+/** ▶︎ เงิน: ช่วยให้พิมพ์แล้วขึ้นคอมม่า และแปลงกลับเป็นตัวเลข (เหมือนหน้า Buy) */
+const moneyToNumber = (v) => {
+  if (v === "" || v == null) return 0
+  const n = Number(String(v).replace(/,/g, ""))
+  return isFinite(n) ? n : 0
+}
+const formatMoneyInput = (val) => {
+  let s = String(val).replace(/[^0-9.]/g, "")
+  if (s === "") return ""
+  const parts = s.split(".")
+  const intRaw = parts[0] || "0"
+  const decRaw = parts[1] ?? null
+  const intClean = intRaw.replace(/^0+(?=\d)/, "")
+  const intWithCommas = intClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+  if (decRaw != null) {
+    const dec = decRaw.replace(/[^0-9]/g, "").slice(0, 2)
+    return dec.length > 0 ? `${intWithCommas}.${dec}` : intWithCommas
+  }
+  return intWithCommas
 }
 
 /** กฎคำนวณหักน้ำหนัก */
@@ -272,7 +293,7 @@ const DateInput = forwardRef(function DateInput(
 })
 
 /** ---------- Component: Sales ---------- */
-const Sales = () => {
+function Sales() {
   const [loadingCustomer, setLoadingCustomer] = useState(false)
   const [customerFound, setCustomerFound] = useState(null)
   const [errors, setErrors] = useState({})
@@ -391,7 +412,7 @@ const Sales = () => {
     fieldTypeId: "",
     program: "",
     programId: "",
-    // ✅ payment เก็บ id+label (UI เท่านั้น)
+    // 💳 payment (UI เก็บทั้ง id/label)
     paymentMethodId: "",
     paymentMethod: "",
     entryWeightKg: "",
@@ -414,6 +435,14 @@ const Sales = () => {
     taxInvoiceNo: "",
     salesReceiptNo: "",
   })
+
+  /** ───── Dept (เหมือนหน้า Buy) ───── */
+  const [dept, setDept] = useState({
+    allowedPeriod: 30,
+    postpone: false,
+    postponePeriod: 0,
+  })
+  const updateDept = (k, v) => setDept((p) => ({ ...p, [k]: v }))
 
   /** ---------- Refs ---------- */
   const refs = {
@@ -1129,7 +1158,7 @@ const Sales = () => {
     requestAnimationFrame(() => scrollHighlightedIntoView2(highlightedIndex))
   }, [highlightedIndex, showNameList])
 
-  /** ---------- น้ำหนักจากตาชั่ง (ใหม่) ---------- */
+  /** ---------- น้ำหนักจากตาชั่ง ---------- */
   const grossFromScale = useMemo(() => {
     const entry = toNumber(order.entryWeightKg)
     const exit  = toNumber(order.exitWeightKg)
@@ -1156,9 +1185,33 @@ const Sales = () => {
 
   useEffect(() => {
     if (computedAmount !== null) {
-      setOrder((prev) => ({ ...prev, amountTHB: String(Math.round(computedAmount * 100) / 100) }))
+      const rounded = Math.round(computedAmount * 100) / 100
+      const formatted = formatMoneyInput(String(rounded))
+      setOrder((prev) => ({ ...prev, amountTHB: formatted }))
     }
   }, [computedAmount])
+
+  /** ---------- Payment resolver ---------- */
+  const resolvePaymentId = () => {
+    if (/^\d+$/.test(String(order.paymentMethodId || ""))) return Number(order.paymentMethodId)
+    const label = (order.paymentMethod || "").trim()
+    if (label) {
+      const found = paymentOptions.find((o) => (o.label || "").trim() === label)
+      if (found && /^\d+$/.test(String(found.id))) return Number(found.id)
+    }
+    if (/^\d+$/.test(String(order.paymentMethod || ""))) return Number(order.paymentMethod)
+    return null
+  }
+
+  /** ตรวจว่าเป็น “ค้าง/เครดิต” ไหม (เผื่อ UI) */
+  const isCreditPayment = () => {
+    const pid = resolvePaymentId()
+    const label =
+      (order.paymentMethod || "").trim() ||
+      (paymentOptions.find((o) => Number(o.id) === Number(pid))?.label || "").trim()
+    const s = label.toLowerCase()
+    return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
+  }
 
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) =>
@@ -1192,9 +1245,14 @@ const Sales = () => {
     if (!order.businessTypeId) m.businessType = true
     if (!order.branchName) m.branchName = true
     if (!order.klangName) m.klangName = true
+
+    const pid = resolvePaymentId()
+    if (!pid) m.payment = true
+
     if (!order.entryWeightKg || Number(order.entryWeightKg) < 0) m.entryWeightKg = true
     if (!order.exitWeightKg  || Number(order.exitWeightKg)  <= 0) m.exitWeightKg = true
-    if (!order.amountTHB || Number(order.amountTHB) <= 0) m.amountTHB = true
+    if (grossFromScale <= 0) m.netFromScale = true
+    if (!order.amountTHB || moneyToNumber(order.amountTHB) <= 0) m.amountTHB = true
     if (!order.issueDate) m.issueDate = true
     return m
   }
@@ -1238,7 +1296,7 @@ const Sales = () => {
     const want =
       formTemplate === "1" ? "หอมมะลิ"
       : formTemplate === "2" ? "เหนียว"
-      : "พันธุ์" // รองรับทั้ง "เมล็ดพันธุ์/เมล็ดพันธ์"
+      : "พันธุ์"
     const target = riceOptions.find((r) => r.label.includes(want))
     if (target && order.riceId !== target.id) {
       setOrder((p) => ({
@@ -1261,7 +1319,6 @@ const Sales = () => {
       if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
     } else {
       if (!customer.companyName.trim()) e.companyName = "กรุณาเลือกชื่อบริษัท"
-      // ที่อยู่ HQ/Branch ไม่บังคับ (จะถูกเติมจากผลเลือกอัตโนมัติถ้ามี)
     }
 
     if (!order.productId) e.product = "เลือกประเภทสินค้า"
@@ -1271,9 +1328,11 @@ const Sales = () => {
     if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"
     if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"
     if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ"
-
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
+
+    const pid = resolvePaymentId()
+    if (!pid) e.payment = "เลือกวิธีชำระเงิน"
 
     if (order.entryWeightKg === "" || Number(order.entryWeightKg) < 0) e.entryWeightKg = "กรอกน้ำหนักก่อนชั่ง"
     if (order.exitWeightKg === "" || Number(order.exitWeightKg) <= 0) e.exitWeightKg = "กรอกน้ำหนักหลังชั่ง"
@@ -1281,7 +1340,10 @@ const Sales = () => {
 
     if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0))
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
-    if (!order.amountTHB || Number(order.amountTHB) <= 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
+
+    const amt = moneyToNumber(order.amountTHB)
+    if (!amt || amt <= 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
+
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
     setErrors(e)
     return e
@@ -1292,7 +1354,7 @@ const Sales = () => {
     const companyKeys = ["companyName"]
     const common = [
       "product","riceType","subrice","condition","fieldType","riceYear",
-      "businessType",
+      "businessType","payment",
       "branchName","klangName","entryWeightKg","exitWeightKg","deductWeightKg","amountTHB","issueDate",
     ]
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(common)
@@ -1302,11 +1364,9 @@ const Sales = () => {
     const keyToFocus =
       firstKey === "address"
         ? (customer.houseNo ? (customer.moo ? (customer.subdistrict ? (customer.district ? "province" : "district") : "subdistrict") : "moo") : "houseNo")
-        : firstKey === "hqAddress"
-          ? (customer.hqHouseNo ? (customer.hqSubdistrict ? (customer.hqDistrict ? "hqProvince" : "hqDistrict") : "hqSubdistrict") : "hqHouseNo")
-          : firstKey
+        : firstKey
 
-    const el = refs[keyToFocus]?.current
+    const el = refs[keyToFocus]?.current || (firstKey === "payment" ? refs.payment?.current : null)
     if (el && typeof el.focus === "function") {
       try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
       el.focus()
@@ -1340,6 +1400,9 @@ const Sales = () => {
     const conditionId    = /^\d+$/.test(order.conditionId)  ? Number(order.conditionId)  : null
     const fieldTypeId    = /^\d+$/.test(order.fieldTypeId)  ? Number(order.fieldTypeId)  : null
     const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
+    const programId      = /^\d+$/.test(order.programId)    ? Number(order.programId)    : null
+
+    const paymentId = resolvePaymentId()
 
     if (!productId)      { setErrors(p => ({ ...p, product:"ไม่พบรหัสสินค้า" }));             scrollToFirstError({product:true}); return }
     if (!speciesId)      { setErrors(p => ({ ...p, riceType:"ไม่พบรหัสชนิดข้าว (species)" })); scrollToFirstError({riceType:true}); return }
@@ -1350,6 +1413,7 @@ const Sales = () => {
     if (!branchId)       { setErrors(p => ({ ...p, branchName:"ไม่พบรหัสสาขา" }));            scrollToFirstError({branchName:true}); return }
     if (!klangId)        { setErrors(p => ({ ...p, klangName:"ไม่พบรหัสคลัง" }));             scrollToFirstError({klangName:true}); return }
     if (!businessTypeId) { setErrors(p => ({ ...p, businessType:"ไม่พบรหัสประเภทธุรกิจ" }));  scrollToFirstError({businessType:true}); return }
+    if (!paymentId)      { setErrors(p => ({ ...p, payment:"ไม่พบรหัสวิธีชำระเงิน" }));       scrollToFirstError({payment:true}); return }
 
     // น้ำหนัก
     const baseGross = grossFromScale
@@ -1357,6 +1421,8 @@ const Sales = () => {
       ? toNumber(order.deductWeightKg)
       : suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
     const netW = Math.max(0, baseGross - deduction)
+
+    const dateStr = order.issueDate
 
     // payload ลูกค้า (ตรง backend แบบเดียวกับ Buy)
     const customerPayload =
@@ -1398,30 +1464,49 @@ const Sales = () => {
             branch_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
           }
 
+    /** Dept payload (แนบเสมอ — BE จะใช้เมื่อเป็นเครดิต เหมือนหน้า Buy) */
+    const makeDeptDate = (yyyyMmDd) => {
+      try {
+        return new Date(`${yyyyMmDd}T00:00:00Z`).toISOString()
+      } catch {
+        return new Date().toISOString()
+      }
+    }
+    const deptPayload = {
+      date_created: makeDeptDate(dateStr),
+      allowed_period: Number(dept.allowedPeriod || 0),
+      postpone: Boolean(dept.postpone),
+      postpone_period: Number(dept.postponePeriod || 0),
+    }
+
     const payload = {
       customer: customerPayload,
       order: {
         product_id: productId,
-        // ✅ ใช้คีย์ใหม่ให้ตรงกับหน้า Buy/Backend ปัจจุบัน
+        // ✅ คีย์ให้ตรงกับหน้า Buy/Backend ปัจจุบัน
         species_id: speciesId,
         variant_id: variantId,
         product_year: productYearId,
         field_type: fieldTypeId,
         condition: conditionId,
         business_type: businessTypeId,
-        program: order.programId ? Number(order.programId) : null,
+        program: programId ?? null,
+        // 💳 สำคัญ: ส่ง payment_id
+        payment_id: paymentId,
         humidity: Number(order.moisturePct || 0),
         entry_weight: Number(order.entryWeightKg || 0),
         exit_weight:  Number(order.exitWeightKg  || 0),
         weight: Number(netW),
         price_per_kilo: Number(order.unitPrice || 0),
-        price: Number(order.amountTHB || 0),
+        price: Number(moneyToNumber(order.amountTHB) || 0),
         impurity: Number(order.impurityPct || 0),
-        date: order.issueDate,            // YYYY-MM-DD
+        date: dateStr,            // YYYY-MM-DD
         branch_location: branchId,
         klang_location: klangId,
       },
-      // meta สำหรับ UI/แปะชื่อ
+      // ⭐ แนบ dept
+      dept: deptPayload,
+      // meta สำหรับ UI/แปะชื่อ (ไม่บังคับ)
       rice:   { rice_type: order.riceType },
       branch: { branch_name: order.branchName },
       klang:  { klang_name: order.klangName },
@@ -1434,7 +1519,8 @@ const Sales = () => {
       handleReset()
     } catch (err) {
       console.error(err)
-      alert("บันทึกล้มเหลว กรุณาลองใหม่")
+      const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
+      alert(`บันทึกล้มเหลว: ${err.message || "เกิดข้อผิดพลาด"}${detail}`)
     }
   }
 
@@ -1515,6 +1601,11 @@ const Sales = () => {
       salesReceiptNo: "",
     })
     setRiceOptions([]); setSubriceOptions([]); setKlangOptions([])
+    setDept({
+      allowedPeriod: 30,
+      postpone: false,
+      postponePeriod: 0,
+    })
     setBuyerType("person")
   }
 

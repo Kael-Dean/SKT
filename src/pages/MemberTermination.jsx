@@ -193,7 +193,10 @@ function MemberTermination() {
             <ModeButton value="passed" label="เสียชีวิต" icon="🕯️" />
           </div>
           {errors.mode && <p className={errorTextCls}>{errors.mode}</p>}
-          <p className={helpTextCls}>ระบบจะส่งค่า <code>status</code> = <code>{mode || "resigned|passed"}</code> ไปยัง API <code>PATCH /member/members/{{member_id}}/status</code></p>
+          <p className={helpTextCls}>
+              ระบบจะส่งค่า <code>status</code> = <code>{mode || "resigned|passed"}</code> ไปยัง API{" "}
+              <code>PATCH /member/members/:member_id/status</code>
+          </p>
         </SectionCard>
 
         {/* ค้นหา/เลือกสมาชิก */}

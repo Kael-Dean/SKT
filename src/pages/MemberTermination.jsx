@@ -258,21 +258,19 @@ function MemberTermination() {
           <div className="grid gap-3 sm:grid-cols-2">
             <ChoiceCard
               active={mode === "resigned"}
-              icon="📤"
+              icon=""
               label="ลาออก"
               onClick={() => { setMode("resigned"); setErrors((p) => ({ ...p, mode: undefined })) }}
             />
             <ChoiceCard
               active={mode === "passed"}
-              icon="🕯️"
+              icon=""
               label="เสียชีวิต"
               onClick={() => { setMode("passed"); setErrors((p) => ({ ...p, mode: undefined })) }}
             />
           </div>
           {errors.mode && <p className={errorTextCls}>{errors.mode}</p>}
-          <p className={helpTextCls}>
-            ระบบจะส่งค่า <code>status</code> = <code>{mode || "resigned|passed"}</code> ไปยัง API <code>PATCH /member/members/:member_id/status</code>
-          </p>
+          
         </SectionCard>
 
         {/* ค้นหา/เลือกสมาชิก (ดรอปดาวน์สไตล์เดียวกับหน้า “ซื้อ”) */}

@@ -70,6 +70,61 @@ function MemberRow({ item, onPick, isActive = false }) {
   )
 }
 
+/** ---------- ChoiceCard (สไตล์การ์ดสวิตช์สีเขียว) ---------- */
+function ChoiceCard({ active = false, icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cx(
+        "group relative flex items-center gap-4 rounded-3xl border p-4 sm:p-5 min-h-[78px] w-full text-left transition-all",
+        // พื้นฐานการ์ด
+        "border-slate-200 bg-white/85 shadow-[0_4px_14px_rgba(0,0,0,0.06)]",
+        "hover:border-emerald-300/70 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
+        "dark:border-slate-700 dark:bg-slate-700/40",
+        // สถานะ active
+        active
+          ? "ring-2 ring-emerald-400 shadow-[0_12px_30px_rgba(16,185,129,0.25)] bg-emerald-50/60 dark:ring-emerald-500 dark:bg-emerald-400/10"
+          : "ring-0"
+      )}
+    >
+      {/* สวิตช์วงรีทางซ้าย */}
+      <span
+        className={cx(
+          "relative inline-flex h-8 w-14 flex-shrink-0 items-center rounded-full transition-colors",
+          active ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-600"
+        )}
+        aria-hidden="true"
+      >
+        <span
+          className={cx(
+            "inline-block h-7 w-7 transform rounded-full bg-white shadow transition",
+            "shadow-[0_3px_10px_rgba(0,0,0,0.25)]",
+            active ? "translate-x-7" : "translate-x-1",
+            "group-hover:scale-105"
+          )}
+        />
+      </span>
+
+      {/* ไอคอน + ข้อความ */}
+      <div className="flex items-center gap-3">
+        <span className="text-xl">{icon}</span>
+        <span className="text-[15px] md:text-base font-semibold text-slate-800 dark:text-slate-100">{label}</span>
+      </div>
+
+      {/* ไฮไลต์พื้นหลังเวลาชี้/เลือก */}
+      <span
+        className={cx(
+          "pointer-events-none absolute inset-0 rounded-3xl transition-opacity",
+          "bg-emerald-100/30 dark:bg-emerald-400/10",
+          active ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        )}
+        aria-hidden="true"
+      />
+    </button>
+  )
+}
+
 /** ---------- หน้า MemberTermination ---------- */
 function MemberTermination() {
   const [mode, setMode] = useState("") // "resigned" | "passed"
@@ -97,7 +152,7 @@ function MemberTermination() {
         setLoading(true)
         const data = await apiAuth(`/member/members/search?q=${encodeURIComponent(q)}`)
         if (!aborted) setResults(Array.isArray(data) ? data.slice(0, 20) : [])
-      } catch (e) {
+      } catch {
         if (!aborted) setResults([])
       } finally {
         if (!aborted) setLoading(false)
@@ -148,27 +203,6 @@ function MemberTermination() {
 
   const actionLabel = mode === "passed" ? "บันทึกการเสียชีวิต" : "บันทึกการลาออก"
 
-  const ModeButton = ({ value, label, icon }) => {
-    const active = mode === value
-    return (
-      <button
-        type="button"
-        onClick={() => { setMode(value); setErrors((p) => ({ ...p, mode: undefined })) }}
-        className={cx(
-          "flex-1 min-h-[64px] rounded-2xl border px-4 py-3 text-left transition",
-          active
-            ? "border-emerald-400 ring-2 ring-emerald-300 bg-emerald-50 dark:ring-emerald-500 dark:bg-emerald-400/10"
-            : "border-slate-200 hover:border-emerald-300/70 hover:shadow-sm dark:border-slate-700"
-        )}
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-xl">{icon}</span>
-          <div className="font-semibold">{label}</div>
-        </div>
-      </button>
-    )
-  }
-
   const pickedPreview = useMemo(() => {
     if (!picked) return ""
     return `#${picked.member_id} • ${picked.first_name || "-"} ${picked.last_name || "-"} • ${picked.citizen_id || "-"}`
@@ -186,16 +220,26 @@ function MemberTermination() {
           แล้วค้นหาและเลือกสมาชิกเพื่อบันทึกสถานะไปยังระบบ
         </p>
 
-        {/* เลือกโหมด */}
+        {/* เลือกโหมด (การ์ดสวิตช์สไตล์เดียวกับที่ส่งมา) */}
         <SectionCard title="ประเภทการสิ้นสภาพ" className="mb-6">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <ModeButton value="resigned" label="ลาออก" icon="📤" />
-            <ModeButton value="passed" label="เสียชีวิต" icon="🕯️" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ChoiceCard
+              active={mode === "resigned"}
+              icon="🏫"
+              label="ลาออก"
+              onClick={() => { setMode("resigned"); setErrors((p) => ({ ...p, mode: undefined })) }}
+            />
+            <ChoiceCard
+              active={mode === "passed"}
+              icon="🕯️"
+              label="เสียชีวิต"
+              onClick={() => { setMode("passed"); setErrors((p) => ({ ...p, mode: undefined })) }}
+            />
           </div>
           {errors.mode && <p className={errorTextCls}>{errors.mode}</p>}
           <p className={helpTextCls}>
-              ระบบจะส่งค่า <code>status</code> = <code>{mode || "resigned|passed"}</code> ไปยัง API{" "}
-              <code>PATCH /member/members/:member_id/status</code>
+            ระบบจะส่งค่า <code>status</code> = <code>{mode || "resigned|passed"}</code> ไปยัง API{" "}
+            <code>PATCH /member/members/:member_id/status</code>
           </p>
         </SectionCard>
 
@@ -221,7 +265,12 @@ function MemberTermination() {
             </div>
             <div className="max-h-80 overflow-auto p-2 bg-white dark:bg-slate-800">
               {results.map((r) => (
-                <MemberRow key={`${r.member_id}-${r.citizen_id}`} item={r} onPick={setPicked} isActive={picked?.member_id === r.member_id} />
+                <MemberRow
+                  key={`${r.member_id}-${r.citizen_id}`}
+                  item={r}
+                  onPick={setPicked}
+                  isActive={picked?.member_id === r.member_id}
+                />
               ))}
             </div>
           </div>
@@ -232,7 +281,9 @@ function MemberTermination() {
             <div
               className={cx(
                 "mt-1 rounded-xl px-3 py-2 text-[15px]",
-                picked ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200" : "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-200"
+                picked
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200"
+                  : "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-200"
               )}
             >
               {picked ? pickedPreview : "— ยังไม่ได้เลือก —"}

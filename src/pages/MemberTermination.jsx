@@ -16,9 +16,9 @@ function useDebounce(value, delay = 350) {
 
 /** ---------- สไตล์พื้นฐาน ---------- */
 const baseField =
-  "w-full rounded-2xl border border-emerald-300 bg-slate-100 p-3 text-[15px] md:text-base " +
+  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-emerald-600/70 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
+  "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 const fieldError = "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500"
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
@@ -41,44 +41,7 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- แถวสมาชิก (สำหรับดรอปดาวน์) ---------- */
-function SuggestRow({ item, onPick, active = false }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onPick?.(item)}
-      className={cx(
-        "relative w-full text-left px-3 py-2.5 rounded-xl transition flex items-center gap-3",
-        active
-          ? "bg-emerald-50 ring-1 ring-emerald-300 dark:bg-emerald-400/10 dark:ring-emerald-500"
-          : "hover:bg-emerald-50/60 dark:hover:bg-slate-700/50"
-      )}
-    >
-      {/* แถบเขียวด้านซ้ายแบบในภาพ */}
-      <span
-        aria-hidden="true"
-        className={cx(
-          "absolute left-0 top-0 h-full w-1.5 rounded-l-xl",
-          active ? "bg-emerald-600" : "bg-emerald-500/80 group-hover:bg-emerald-600"
-        )}
-      />
-      <div className="flex-1">
-        <div className="font-medium">
-          {item.first_name || "-"} {item.last_name || "-"}{" "}
-          <span className="text-xs text-slate-500">#{item.member_id}</span>
-        </div>
-        <div className="text-xs text-slate-600 dark:text-slate-300">
-          บัตร: {item.citizen_id || "-"} • โทร: {item.phone_number || "-"}
-        </div>
-      </div>
-      <div className="text-xs px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700">
-        {item.province || item.district || "—"}
-      </div>
-    </button>
-  )
-}
-
-/** ---------- การ์ดตัวเลือก (ลาออก/เสียชีวิต) ---------- */
+/** ---------- การ์ดเลือกโหมด (toggle style) ---------- */
 function ChoiceCard({ active = false, icon, label, onClick }) {
   return (
     <button
@@ -86,7 +49,8 @@ function ChoiceCard({ active = false, icon, label, onClick }) {
       onClick={onClick}
       className={cx(
         "group relative flex items-center gap-4 rounded-3xl border p-4 sm:p-5 min-h-[78px] w-full text-left transition-all",
-        "border-slate-200 bg-white/85 shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:border-emerald-300/70 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
+        "border-slate-200 bg-white/85 shadow-[0_4px_14px_rgba(0,0,0,0.06)]",
+        "hover:border-emerald-300/70 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
         "dark:border-slate-700 dark:bg-slate-700/40",
         active
           ? "ring-2 ring-emerald-400 shadow-[0_12px_30px_rgba(16,185,129,0.25)] bg-emerald-50/60 dark:ring-emerald-500 dark:bg-emerald-400/10"
@@ -129,32 +93,31 @@ function ChoiceCard({ active = false, icon, label, onClick }) {
 function MemberTermination() {
   const [mode, setMode] = useState("") // "resigned" | "passed"
   const [query, setQuery] = useState("")
+  const debQ = useDebounce(query, 350)
+
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
+
+  const [showList, setShowList] = useState(false)
+  const [highlighted, setHighlighted] = useState(-1)
+  const listBoxRef = useRef(null)
+  const itemRefs = useRef([])
+  const inputRef = useRef(null)
+
   const [picked, setPicked] = useState(null)
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
-  const [openDrop, setOpenDrop] = useState(false)
   const topRef = useRef(null)
-  const inputWrapRef = useRef(null)
 
-  const debQ = useDebounce(query, 350)
-
-  // คลิกนอกดรอปดาวน์ให้ปิด
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (!inputWrapRef.current) return
-      if (!inputWrapRef.current.contains(e.target)) setOpenDrop(false)
-    }
-    document.addEventListener("mousedown", onDocClick)
-    return () => document.removeEventListener("mousedown", onDocClick)
-  }, [])
-
-  // ค้นหาสมาชิก
+  // ค้นหา
   useEffect(() => {
     const q = (debQ || "").trim()
-    if (!q || q.length < 1) {
+    itemRefs.current = []
+    setHighlighted(-1)
+
+    if (!q || q.length < 2) {
       setResults([])
+      setShowList(false)
       return
     }
 
@@ -163,15 +126,73 @@ function MemberTermination() {
       try {
         setLoading(true)
         const data = await apiAuth(`/member/members/search?q=${encodeURIComponent(q)}`)
-        if (!aborted) setResults(Array.isArray(data) ? data.slice(0, 20) : [])
+        if (!aborted) {
+          const arr = Array.isArray(data) ? data.slice(0, 50) : []
+          setResults(arr)
+          setShowList(arr.length > 0)
+        }
       } catch {
-        if (!aborted) setResults([])
+        if (!aborted) {
+          setResults([])
+          setShowList(false)
+        }
       } finally {
         if (!aborted) setLoading(false)
       }
     })()
     return () => { aborted = true }
   }, [debQ])
+
+  // ปิดดรอปดาวน์ถ้าคลิกนอก
+  useEffect(() => {
+    function onDocClick(e) {
+      if (!listBoxRef.current && !inputRef.current) return
+      if (
+        listBoxRef.current?.contains(e.target) ||
+        inputRef.current?.contains(e.target)
+      ) return
+      setShowList(false)
+    }
+    document.addEventListener("mousedown", onDocClick)
+    return () => document.removeEventListener("mousedown", onDocClick)
+  }, [])
+
+  // scroll ให้ item ที่ไฮไลต์โชว์เสมอ
+  const scrollIntoView = (idx) => {
+    try {
+      itemRefs.current[idx]?.scrollIntoView({ block: "nearest" })
+    } catch {}
+  }
+
+  // เลือกเรคคอร์ด
+  const pickResult = (r) => {
+    setPicked(r)
+    setQuery(`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.citizen_id || "")
+    setErrors((p) => ({ ...p, picked: undefined }))
+    setShowList(false)
+  }
+
+  // คีย์บอร์ดบนช่องค้นหา
+  const onKeyDown = (e) => {
+    if (!showList || results.length === 0) return
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      const next = (highlighted + 1) % results.length
+      setHighlighted(next)
+      requestAnimationFrame(() => scrollIntoView(next))
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      const next = (highlighted - 1 + results.length) % results.length
+      setHighlighted(next)
+      requestAnimationFrame(() => scrollIntoView(next))
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      const idx = highlighted >= 0 ? highlighted : 0
+      if (results[idx]) pickResult(results[idx])
+    } else if (e.key === "Escape") {
+      setShowList(false)
+    }
+  }
 
   // validator
   const validate = () => {
@@ -188,10 +209,10 @@ function MemberTermination() {
     setResults([])
     setPicked(null)
     setErrors({})
+    setShowList(false)
+    setHighlighted(-1)
     requestAnimationFrame(() => {
-      try {
-        topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-      } catch {}
+      try { topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) } catch {}
     })
   }
 
@@ -250,60 +271,91 @@ function MemberTermination() {
           </div>
           {errors.mode && <p className={errorTextCls}>{errors.mode}</p>}
           <p className={helpTextCls}>
-            ระบบจะส่งค่า <code>status</code> = <code>{mode || "resigned|passed"}</code> ไปยัง API{" "}
-            <code>PATCH /member/members/:member_id/status</code>
+            ระบบจะส่งค่า <code>status</code> = <code>{mode || "resigned|passed"}</code> ไปยัง API <code>PATCH /member/members/:member_id/status</code>
           </p>
         </SectionCard>
 
-        {/* ค้นหา/เลือกสมาชิก (ดรอปดาวน์) */}
+        {/* ค้นหา/เลือกสมาชิก (ดรอปดาวน์สไตล์เดียวกับหน้า “ซื้อ”) */}
         <SectionCard title="เลือกสมาชิก" className="mb-6">
           <label className={labelCls}>ค้นหาสมาชิกจากชื่อ-นามสกุล หรือเลขบัตรประชาชน</label>
-
-          <div ref={inputWrapRef} className="relative">
-            <input
-              className={cx(baseField, errors.picked && fieldError)}
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value)
-                setErrors((p) => ({ ...p, picked: undefined }))
-                setPicked(null)
-                setOpenDrop(true)
-              }}
-              onFocus={() => setOpenDrop(true)}
-              placeholder="ตัวอย่าง: สมชาย ใจดี หรือ 1234567890123"
-              aria-invalid={errors.picked ? true : undefined}
-            />
-
-            {/* ดรอปดาวน์ผลลัพธ์ */}
-            {openDrop && (loading || results.length > 0) && (
-              <div
-                className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
-                role="listbox"
-              >
-                <div className="px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700/60">
-                  {loading ? "กำลังค้นหา..." : `ผลลัพธ์ ${results.length} รายการ`}
-                </div>
-                <div className="max-h-80 overflow-auto p-2">
-                  {results.map((r) => (
-                    <SuggestRow
-                      key={`${r.member_id}-${r.citizen_id}`}
-                      item={r}
-                      onPick={(item) => {
-                        setPicked(item)
-                        setQuery(`${item.first_name || ""} ${item.last_name || ""}`.trim())
-                        setOpenDrop(false)
-                      }}
-                      active={picked?.member_id === r.member_id}
-                    />
-                  ))}
-                  {!loading && results.length === 0 && (
-                    <div className="px-3 py-3 text-sm text-slate-500">ไม่พบผลลัพธ์</div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          <input
+            ref={inputRef}
+            className={cx(baseField, errors.picked && fieldError)}
+            value={query}
+            onChange={(e) => {
+              const v = e.target.value
+              setQuery(v)
+              setErrors((p) => ({ ...p, picked: undefined }))
+              setPicked(null)
+              setShowList(v.trim().length >= 2 && results.length > 0)
+              setHighlighted(-1)
+            }}
+            onFocus={() => {
+              if (query.trim().length >= 2 && results.length > 0) setShowList(true)
+            }}
+            onKeyDown={onKeyDown}
+            placeholder="ตัวอย่าง: สมชาย ใจดี หรือ 1234567890123"
+            aria-expanded={showList}
+            aria-controls="member-results"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-invalid={errors.picked ? true : undefined}
+          />
           {errors.picked && <p className={errorTextCls}>{errors.picked}</p>}
+          <div className="mt-1 text-xs md:text-sm text-slate-500 dark:text-slate-400">
+            {query.trim()
+              ? (loading ? "กำลังค้นหา..." : `ผลลัพธ์ ${results.length} รายการ`)
+              : "พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อค้นหา"}
+          </div>
+
+          {showList && results.length > 0 && (
+            <div
+              id="member-results"
+              ref={listBoxRef}
+              className="mt-1 max-h-80 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              role="listbox"
+            >
+              {results.map((r, idx) => {
+                const isActive = idx === highlighted
+                const full = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "(ไม่มีชื่อ)"
+                return (
+                  <button
+                    type="button"
+                    ref={(el) => (itemRefs.current[idx] = el)}
+                    key={`${r.member_id}-${r.citizen_id}-${idx}`}
+                    onClick={() => pickResult(r)}
+                    onMouseEnter={() => {
+                      setHighlighted(idx)
+                      requestAnimationFrame(() => scrollIntoView(idx))
+                    }}
+                    role="option"
+                    aria-selected={isActive}
+                    className={cx(
+                      "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
+                      isActive
+                        ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                        : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                    )}
+                  >
+                    {isActive && (
+                      <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+                    )}
+                    <div className="flex-1">
+                      <div className="font-medium">
+                        {full} <span className="text-xs text-slate-500">#{r.member_id}</span>
+                      </div>
+                      <div className="text-sm text-slate-600 dark:text-slate-300">
+                        บัตร {r.citizen_id ?? "-"} • โทร {r.phone_number ?? "-"}
+                      </div>
+                    </div>
+                    <div className="text-xs px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700">
+                      {r.province || r.district || "—"}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           {/* แสดงรายการที่เลือก */}
           <div className="mt-4">
@@ -311,9 +363,7 @@ function MemberTermination() {
             <div
               className={cx(
                 "mt-1 rounded-xl px-3 py-2 text-[15px]",
-                picked
-                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200"
-                  : "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-200"
+                picked ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200" : "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-200"
               )}
             >
               {picked ? pickedPreview : "— ยังไม่ได้เลือก —"}

@@ -1240,6 +1240,13 @@ const Buy = () => {
     return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
   }
 
+  /** 👉 ใหม่: mapping payment_id ให้เข้ากับ BE (เครดิตต้องเป็น 1) */
+  const resolvePaymentIdForBE = () => {
+    if (isCreditPayment()) return 1 // ให้ BE สร้าง ToPay/ToCollect
+    const pid = resolvePaymentId()
+    return pid ?? 2 // กันพลาด
+  }
+
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) =>
     missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : ""
@@ -1429,6 +1436,11 @@ const Buy = () => {
     }
   }
 
+  /** ---------- Helpers สำหรับรูปแบบวันที่ (ISO datetime) ---------- */
+  const toIsoDateTime = (yyyyMmDd) => {
+    try { return new Date(`${yyyyMmDd}T12:00:00Z`).toISOString() } catch { return new Date().toISOString() }
+  }
+
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -1456,7 +1468,7 @@ const Buy = () => {
     const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
     const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
     const programId = /^\d+$/.test(order.programId) ? Number(order.programId) : null
-    const paymentId = resolvePaymentId()
+    const paymentId = resolvePaymentIdForBE() // ← ใช้ตัวใหม่ที่ map เครดิตเป็น 1
 
     if (!productId) return scrollToFirstError({ product: true })
     if (!riceId) return scrollToFirstError({ riceType: true })
@@ -1539,19 +1551,27 @@ const Buy = () => {
       postpone_period: Number(dept.postponePeriod || 0),
     }
 
+    // ✅ NEW: spec ตาม ProductSpecIn (nested)
+    const spec = {
+      product_id: productId,
+      species_id: riceId,
+      variant_id: subriceId,
+      product_year: riceYearId ?? null,
+      condition_id: conditionId ?? null,
+      field_type: fieldTypeId ?? null,
+      program: programId ?? null,
+      business_type: businessTypeId ?? null,
+    }
+
+    // ✅ NEW: date → ISO datetime
+    const dateISO = toIsoDateTime(dateStr)
+
     const payload = {
       customer: customerPayload,
       order: {
-        asso_id: memberMeta.assoId ?? null,
-        product_id: productId,
-        species_id: riceId, // species_id
-        variant_id: subriceId, // variant_id
-        product_year: riceYearId,
-        field_type: fieldTypeId,
-        condition: conditionId,
-        program: programId ?? null,
-        // 💳 สำคัญ: ส่ง payment_id
+        // asso_id: memberMeta.assoId ?? null, // BE resolve เอง ไม่จำเป็นต้องส่ง
         payment_id: paymentId,
+        spec, // <<<<<<<<<<<<<<<<<<<<<<<<<<<< ส่งเป็น nested spec
         humidity: Number(order.moisturePct || 0),
         entry_weight: Number(order.entryWeightKg || 0),
         exit_weight: Number(order.exitWeightKg || 0),
@@ -1560,12 +1580,12 @@ const Buy = () => {
         price: Number(moneyToNumber(order.amountTHB) || 0),
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim() || null,
-        date: dateStr,
+        date: dateISO, // <<<<<<<<<<<<<<<<<< ส่ง ISO datetime
         branch_location: branchId,
         klang_location: klangId,
         gram: Number(order.gram || 0),
         comment: order.comment?.trim() || null,
-        business_type: businessTypeId,
+        business_type: businessTypeId, // เก็บบน OrderData ด้วยตามคอมเมนต์ BE
       },
       // ⭐ แนบ dept
       dept: deptPayload,

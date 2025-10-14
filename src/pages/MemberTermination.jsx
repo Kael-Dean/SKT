@@ -14,11 +14,11 @@ function useDebounce(value, delay = 350) {
   return debounced
 }
 
-/** ---------- สไตล์พื้นฐาน (อิงจาก MemberSignup.jsx) ---------- */
+/** ---------- สไตล์พื้นฐาน ---------- */
 const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
+  "w-full rounded-2xl border border-emerald-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
+  "dark:border-emerald-600/70 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 const fieldError = "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500"
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
@@ -41,19 +41,27 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- Result Row (รายการสมาชิก) ---------- */
-function MemberRow({ item, onPick, isActive = false }) {
+/** ---------- แถวสมาชิก (สำหรับดรอปดาวน์) ---------- */
+function SuggestRow({ item, onPick, active = false }) {
   return (
     <button
       type="button"
       onClick={() => onPick?.(item)}
       className={cx(
-        "w-full text-left px-3 py-2.5 rounded-xl transition flex items-center gap-3",
-        isActive
-          ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-          : "hover:bg-emerald-50 dark:hover:bg-slate-700/60"
+        "relative w-full text-left px-3 py-2.5 rounded-xl transition flex items-center gap-3",
+        active
+          ? "bg-emerald-50 ring-1 ring-emerald-300 dark:bg-emerald-400/10 dark:ring-emerald-500"
+          : "hover:bg-emerald-50/60 dark:hover:bg-slate-700/50"
       )}
     >
+      {/* แถบเขียวด้านซ้ายแบบในภาพ */}
+      <span
+        aria-hidden="true"
+        className={cx(
+          "absolute left-0 top-0 h-full w-1.5 rounded-l-xl",
+          active ? "bg-emerald-600" : "bg-emerald-500/80 group-hover:bg-emerald-600"
+        )}
+      />
       <div className="flex-1">
         <div className="font-medium">
           {item.first_name || "-"} {item.last_name || "-"}{" "}
@@ -70,7 +78,7 @@ function MemberRow({ item, onPick, isActive = false }) {
   )
 }
 
-/** ---------- ChoiceCard (สไตล์การ์ดสวิตช์สีเขียว) ---------- */
+/** ---------- การ์ดตัวเลือก (ลาออก/เสียชีวิต) ---------- */
 function ChoiceCard({ active = false, icon, label, onClick }) {
   return (
     <button
@@ -78,17 +86,13 @@ function ChoiceCard({ active = false, icon, label, onClick }) {
       onClick={onClick}
       className={cx(
         "group relative flex items-center gap-4 rounded-3xl border p-4 sm:p-5 min-h-[78px] w-full text-left transition-all",
-        // พื้นฐานการ์ด
-        "border-slate-200 bg-white/85 shadow-[0_4px_14px_rgba(0,0,0,0.06)]",
-        "hover:border-emerald-300/70 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
+        "border-slate-200 bg-white/85 shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:border-emerald-300/70 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
         "dark:border-slate-700 dark:bg-slate-700/40",
-        // สถานะ active
         active
           ? "ring-2 ring-emerald-400 shadow-[0_12px_30px_rgba(16,185,129,0.25)] bg-emerald-50/60 dark:ring-emerald-500 dark:bg-emerald-400/10"
           : "ring-0"
       )}
     >
-      {/* สวิตช์วงรีทางซ้าย */}
       <span
         className={cx(
           "relative inline-flex h-8 w-14 flex-shrink-0 items-center rounded-full transition-colors",
@@ -105,14 +109,10 @@ function ChoiceCard({ active = false, icon, label, onClick }) {
           )}
         />
       </span>
-
-      {/* ไอคอน + ข้อความ */}
       <div className="flex items-center gap-3">
         <span className="text-xl">{icon}</span>
         <span className="text-[15px] md:text-base font-semibold text-slate-800 dark:text-slate-100">{label}</span>
       </div>
-
-      {/* ไฮไลต์พื้นหลังเวลาชี้/เลือก */}
       <span
         className={cx(
           "pointer-events-none absolute inset-0 rounded-3xl transition-opacity",
@@ -134,14 +134,26 @@ function MemberTermination() {
   const [picked, setPicked] = useState(null)
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [openDrop, setOpenDrop] = useState(false)
   const topRef = useRef(null)
+  const inputWrapRef = useRef(null)
 
   const debQ = useDebounce(query, 350)
+
+  // คลิกนอกดรอปดาวน์ให้ปิด
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!inputWrapRef.current) return
+      if (!inputWrapRef.current.contains(e.target)) setOpenDrop(false)
+    }
+    document.addEventListener("mousedown", onDocClick)
+    return () => document.removeEventListener("mousedown", onDocClick)
+  }, [])
 
   // ค้นหาสมาชิก
   useEffect(() => {
     const q = (debQ || "").trim()
-    if (!q || q.length < 2) {
+    if (!q || q.length < 1) {
       setResults([])
       return
     }
@@ -220,57 +232,78 @@ function MemberTermination() {
           แล้วค้นหาและเลือกสมาชิกเพื่อบันทึกสถานะไปยังระบบ
         </p>
 
-        {/* เลือกโหมด (การ์ดสวิตช์สไตล์เดียวกับที่ส่งมา) */}
+        {/* เลือกโหมด */}
         <SectionCard title="ประเภทการสิ้นสภาพ" className="mb-6">
           <div className="grid gap-3 sm:grid-cols-2">
             <ChoiceCard
               active={mode === "resigned"}
-              icon=""
+              icon="📤"
               label="ลาออก"
               onClick={() => { setMode("resigned"); setErrors((p) => ({ ...p, mode: undefined })) }}
             />
             <ChoiceCard
               active={mode === "passed"}
-              icon=""
+              icon="🕯️"
               label="เสียชีวิต"
               onClick={() => { setMode("passed"); setErrors((p) => ({ ...p, mode: undefined })) }}
             />
           </div>
           {errors.mode && <p className={errorTextCls}>{errors.mode}</p>}
-
+          <p className={helpTextCls}>
+            ระบบจะส่งค่า <code>status</code> = <code>{mode || "resigned|passed"}</code> ไปยัง API{" "}
+            <code>PATCH /member/members/:member_id/status</code>
+          </p>
         </SectionCard>
 
-        {/* ค้นหา/เลือกสมาชิก */}
+        {/* ค้นหา/เลือกสมาชิก (ดรอปดาวน์) */}
         <SectionCard title="เลือกสมาชิก" className="mb-6">
           <label className={labelCls}>ค้นหาสมาชิกจากชื่อ-นามสกุล หรือเลขบัตรประชาชน</label>
-          <input
-            className={cx(baseField, errors.picked && fieldError)}
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-              setErrors((p) => ({ ...p, picked: undefined }))
-              setPicked(null)
-            }}
-            placeholder="ตัวอย่าง: สมชาย ใจดี หรือ 1234567890123"
-            aria-invalid={errors.picked ? true : undefined}
-          />
-          {errors.picked && <p className={errorTextCls}>{errors.picked}</p>}
 
-          <div className="mt-3 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <div className="px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700/60">
-              {loading ? "กำลังค้นหา..." : results.length ? `ผลลัพธ์ ${results.length} รายการ` : "ยังไม่มีผลลัพธ์"}
-            </div>
-            <div className="max-h-80 overflow-auto p-2 bg-white dark:bg-slate-800">
-              {results.map((r) => (
-                <MemberRow
-                  key={`${r.member_id}-${r.citizen_id}`}
-                  item={r}
-                  onPick={setPicked}
-                  isActive={picked?.member_id === r.member_id}
-                />
-              ))}
-            </div>
+          <div ref={inputWrapRef} className="relative">
+            <input
+              className={cx(baseField, errors.picked && fieldError)}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setErrors((p) => ({ ...p, picked: undefined }))
+                setPicked(null)
+                setOpenDrop(true)
+              }}
+              onFocus={() => setOpenDrop(true)}
+              placeholder="ตัวอย่าง: สมชาย ใจดี หรือ 1234567890123"
+              aria-invalid={errors.picked ? true : undefined}
+            />
+
+            {/* ดรอปดาวน์ผลลัพธ์ */}
+            {openDrop && (loading || results.length > 0) && (
+              <div
+                className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
+                role="listbox"
+              >
+                <div className="px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700/60">
+                  {loading ? "กำลังค้นหา..." : `ผลลัพธ์ ${results.length} รายการ`}
+                </div>
+                <div className="max-h-80 overflow-auto p-2">
+                  {results.map((r) => (
+                    <SuggestRow
+                      key={`${r.member_id}-${r.citizen_id}`}
+                      item={r}
+                      onPick={(item) => {
+                        setPicked(item)
+                        setQuery(`${item.first_name || ""} ${item.last_name || ""}`.trim())
+                        setOpenDrop(false)
+                      }}
+                      active={picked?.member_id === r.member_id}
+                    />
+                  ))}
+                  {!loading && results.length === 0 && (
+                    <div className="px-3 py-3 text-sm text-slate-500">ไม่พบผลลัพธ์</div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
+          {errors.picked && <p className={errorTextCls}>{errors.picked}</p>}
 
           {/* แสดงรายการที่เลือก */}
           <div className="mt-4">

@@ -356,17 +356,24 @@ function MemberTermination() {
           )}
 
           {/* แสดงรายการที่เลือก */}
-          <div className="mt-4">
-            <div className="text-sm text-slate-600 dark:text-slate-300">สมาชิกที่เลือก</div>
-            <div
-              className={cx(
-                "mt-1 rounded-xl px-3 py-2 text-[15px]",
-                picked ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200" : "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-200"
-              )}
-            >
-              {picked ? pickedPreview : "— ยังไม่ได้เลือก —"}
-            </div>
+          {/* แสดงรายการที่เลือก */}
+        <div className="mt-5">
+          <div className="text-sm text-slate-600 dark:text-slate-300">สมาชิกที่เลือก</div>
+          <div
+            aria-live="polite"
+            className={cx(
+              // ขยายขนาด
+              "mt-2 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-base md:text-lg leading-relaxed",
+              "ring-1",
+              picked
+                ? "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60"
+                : "bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800/60 dark:text-slate-200 dark:ring-slate-700/60"
+            )}
+          >
+            {picked ? pickedPreview : "— ยังไม่ได้เลือก —"}
           </div>
+        </div>
+
         </SectionCard>
 
         {/* ปุ่มดำเนินการ */}

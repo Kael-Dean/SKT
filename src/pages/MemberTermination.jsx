@@ -14,6 +14,14 @@ function useDebounce(value, delay = 350) {
   return debounced
 }
 
+// ใช้เทียบว่าข้อความในช่องเท่ากับสมาชิกที่เลือกแล้วหรือไม่
+const norm = (s = "") => s.trim().replace(/\s+/g, " ")
+const isQueryEqualPicked = (q, picked) => {
+  if (!picked) return false
+  const full = norm(`${picked.first_name ?? ""} ${picked.last_name ?? ""}`)
+  return norm(q) === full || q === picked.citizen_id
+}
+
 /** ---------- สไตล์พื้นฐาน ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -129,7 +137,8 @@ function MemberTermination() {
         if (!aborted) {
           const arr = Array.isArray(data) ? data.slice(0, 50) : []
           setResults(arr)
-          setShowList(arr.length > 0)
+          // ❗️อย่าเปิดลิสต์ถ้า query เท่ากับสมาชิกที่เลือกอยู่แล้ว
+          setShowList(arr.length > 0 && !isQueryEqualPicked(q, picked))
         }
       } catch {
         if (!aborted) {
@@ -141,16 +150,13 @@ function MemberTermination() {
       }
     })()
     return () => { aborted = true }
-  }, [debQ])
+  }, [debQ, picked])
 
   // ปิดดรอปดาวน์ถ้าคลิกนอก
   useEffect(() => {
     function onDocClick(e) {
       if (!listBoxRef.current && !inputRef.current) return
-      if (
-        listBoxRef.current?.contains(e.target) ||
-        inputRef.current?.contains(e.target)
-      ) return
+      if (listBoxRef.current?.contains(e.target) || inputRef.current?.contains(e.target)) return
       setShowList(false)
     }
     document.addEventListener("mousedown", onDocClick)
@@ -270,7 +276,6 @@ function MemberTermination() {
             />
           </div>
           {errors.mode && <p className={errorTextCls}>{errors.mode}</p>}
-          
         </SectionCard>
 
         {/* ค้นหา/เลือกสมาชิก (ดรอปดาวน์สไตล์เดียวกับหน้า “ซื้อ”) */}
@@ -289,7 +294,9 @@ function MemberTermination() {
               setHighlighted(-1)
             }}
             onFocus={() => {
-              if (query.trim().length >= 2 && results.length > 0) setShowList(true)
+              if (query.trim().length >= 2 && results.length > 0 && !isQueryEqualPicked(query, picked)) {
+                setShowList(true)
+              }
             }}
             onKeyDown={onKeyDown}
             placeholder="ตัวอย่าง: สมชาย ใจดี หรือ 1234567890123"
@@ -356,24 +363,21 @@ function MemberTermination() {
           )}
 
           {/* แสดงรายการที่เลือก */}
-          {/* แสดงรายการที่เลือก */}
-        <div className="mt-5">
-          <div className="text-sm text-slate-600 dark:text-slate-300">สมาชิกที่เลือก</div>
-          <div
-            aria-live="polite"
-            className={cx(
-              // ขยายขนาด
-              "mt-2 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-base md:text-lg leading-relaxed",
-              "ring-1",
-              picked
-                ? "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60"
-                : "bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800/60 dark:text-slate-200 dark:ring-slate-700/60"
-            )}
-          >
-            {picked ? pickedPreview : "— ยังไม่ได้เลือก —"}
+          <div className="mt-5">
+            <div className="text-sm text-slate-600 dark:text-slate-300">สมาชิกที่เลือก</div>
+            <div
+              aria-live="polite"
+              className={cx(
+                "mt-2 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-base md:text-lg leading-relaxed",
+                "ring-1",
+                picked
+                  ? "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60"
+                  : "bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800/60 dark:text-slate-200 dark:ring-slate-700/60"
+              )}
+            >
+              {picked ? pickedPreview : "— ยังไม่ได้เลือก —"}
+            </div>
           </div>
-        </div>
-
         </SectionCard>
 
         {/* ปุ่มดำเนินการ */}

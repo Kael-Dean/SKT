@@ -1240,12 +1240,11 @@ const Buy = () => {
     return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
   }
 
-  /** 👉 ใหม่: mapping payment_id ให้เข้ากับ BE (เครดิตต้องเป็น 1) */
-  const resolvePaymentIdForBE = () => {
-    if (isCreditPayment()) return 1 // ให้ BE สร้าง ToPay/ToCollect
-    const pid = resolvePaymentId()
-    return pid ?? 2 // กันพลาด
-  }
+ /** 👉 Mapping ใหม่สำหรับฝั่งซื้อ: ซื้อเชื่อ = 4, ซื้อสด = 3 */
+const resolvePaymentIdForBE = () => {
+  return isCreditPayment() ? 4 : 3
+}
+
 
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) =>

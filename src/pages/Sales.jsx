@@ -1222,6 +1222,9 @@ function Sales() {
     return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
   }
 
+  /** 👉 ส่งเข้า BE ฝั่งขาย: ขายสด = 1, ขายเชื่อ = 2 */
+  const resolvePaymentIdForSell = () => (isCreditPayment() ? 2 : 1)
+
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) =>
     missingHints[key]
@@ -1485,7 +1488,8 @@ function Sales() {
     const payload = {
       customer: customerPayload,
       order: {
-        payment_id: paymentId,
+        // ส่งเข้า BE ตามสเปคฝั่งขาย: สด=1, เชื่อ=2
+        payment_id: resolvePaymentIdForSell(),
 
         spec: {
           product_id: productId,
@@ -1616,6 +1620,7 @@ function Sales() {
     })
     setBuyerType("person")
   }
+
 
 /** ---------- UI ---------- */
 return (

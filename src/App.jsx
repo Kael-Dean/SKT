@@ -15,12 +15,15 @@ import Stock from './pages/Stock'
 import CustomerAdd from './pages/CustomerAdd'
 import CompanyAdd from './pages/CompanyAdd'
 
-// ✅ นำเข้าหน้า Stock ที่เพิ่มใหม่
+// ✅ กลุ่มธุรกิจรวบรวมผลผลิต
 import StockTransferOut from './pages/StockTransferOut'
 import StockTransferIn from './pages/StockTransferIn'
 import StockBringIn from './pages/StockBringIn'
 import StockTransferMill from './pages/StockTransferMill'
 import StockDamageOut from './pages/StockDamageOut'
+
+// ✅ นำเข้าหน้าใหม่: สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)
+import MemberTermination from './pages/MemberTermination'
 
 function App() {
   return (
@@ -45,6 +48,9 @@ function App() {
         {/* ✅ Route ใหม่: เพิ่มลูกค้า / เพิ่มบริษัท */}
         <Route path="/customer-add" element={<CustomerAdd />} />
         <Route path="/company-add" element={<CompanyAdd />} />
+
+        {/* ✅ Route ใหม่: สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต) */}
+        <Route path="/member-termination" element={<MemberTermination />} />
 
         {/* ✅ Routes กลุ่มธุรกิจรวบรวมผลผลิต */}
         <Route path="/bring-in" element={<StockBringIn />} />

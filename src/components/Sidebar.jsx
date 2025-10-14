@@ -27,7 +27,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       location.pathname.startsWith('/member-signup') ||
       location.pathname.startsWith('/search') ||
       location.pathname.startsWith('/customer-add') ||
-      location.pathname.startsWith('/company-add'),
+      location.pathname.startsWith('/company-add') ||
+      location.pathname.startsWith('/member-termination'), // ← เพิ่มหน้าสมาชิกสิ้นสภาพ
     [location.pathname]
   )
   const [membersOpen, setMembersOpen] = useState(inMembers)
@@ -183,7 +184,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 id="members-submenu"
                 className={`transition-[max-height,opacity] duration-300 ease-out ${
                   membersOpen
-                    ? 'max-h-[60vh] opacity-100'
+                    ? 'max-h-[70vh] opacity-100'
                     : 'max-h-0 opacity-0 overflow-hidden'
                 }`}
               >
@@ -193,6 +194,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { label: 'ค้นหาสมาชิก', path: '/search' },
                     { label: 'เพิ่มลูกค้า', path: '/customer-add' },
                     { label: 'เพิ่มบริษัท', path: '/company-add' },
+                    // ✅ เพิ่มเมนูใหม่
+                    { label: 'สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)', path: '/member-termination' },
                   ].map((item) => (
                     <div key={item.path}>
                       <button

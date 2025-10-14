@@ -56,6 +56,15 @@ const formatMoneyInput = (val) => {
   return intWithCommas
 }
 
+/** วันที่ → ISO UTC (BE ใหม่ใช้ datetime) */
+const toIsoUtcDate = (yyyyMmDd) => {
+  try {
+    return new Date(`${yyyyMmDd}T00:00:00Z`).toISOString()
+  } catch {
+    return new Date().toISOString()
+  }
+}
+
 /** กฎคำนวณหักน้ำหนัก */
 const MOISTURE_STD = 15
 function suggestDeductionWeight(grossKg, moisturePct, impurityPct) {
@@ -1465,34 +1474,30 @@ function Sales() {
           }
 
     /** Dept payload (แนบเสมอ — BE จะใช้เมื่อเป็นเครดิต เหมือนหน้า Buy) */
-    const makeDeptDate = (yyyyMmDd) => {
-      try {
-        return new Date(`${yyyyMmDd}T00:00:00Z`).toISOString()
-      } catch {
-        return new Date().toISOString()
-      }
-    }
     const deptPayload = {
-      date_created: makeDeptDate(dateStr),
+      date_created: toIsoUtcDate(dateStr),
       allowed_period: Number(dept.allowedPeriod || 0),
       postpone: Boolean(dept.postpone),
       postpone_period: Number(dept.postponePeriod || 0),
     }
 
+    // ✅ BE ใหม่: ย้ายสเปคสินค้าเข้า order.spec และใช้ *_id ให้ครบ, date เป็น ISO datetime
     const payload = {
       customer: customerPayload,
       order: {
-        product_id: productId,
-        // ✅ คีย์ให้ตรงกับหน้า Buy/Backend ปัจจุบัน
-        species_id: speciesId,
-        variant_id: variantId,
-        product_year: productYearId,
-        field_type: fieldTypeId,
-        condition: conditionId,
-        business_type: businessTypeId,
-        program: programId ?? null,
-        // 💳 สำคัญ: ส่ง payment_id
         payment_id: paymentId,
+
+        spec: {
+          product_id: productId,
+          species_id: speciesId,
+          variant_id: variantId,
+          product_year: productYearId,
+          condition_id: conditionId,
+          field_type: fieldTypeId,
+          program: programId ?? null,
+          business_type: businessTypeId,
+        },
+
         humidity: Number(order.moisturePct || 0),
         entry_weight: Number(order.entryWeightKg || 0),
         exit_weight:  Number(order.exitWeightKg  || 0),
@@ -1500,12 +1505,15 @@ function Sales() {
         price_per_kilo: Number(order.unitPrice || 0),
         price: Number(moneyToNumber(order.amountTHB) || 0),
         impurity: Number(order.impurityPct || 0),
-        date: dateStr,            // YYYY-MM-DD
+
+        date: toIsoUtcDate(dateStr),
         branch_location: branchId,
         klang_location: klangId,
       },
+
       // ⭐ แนบ dept
       dept: deptPayload,
+
       // meta สำหรับ UI/แปะชื่อ (ไม่บังคับ)
       rice:   { rice_type: order.riceType },
       branch: { branch_name: order.branchName },

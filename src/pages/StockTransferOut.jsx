@@ -238,8 +238,8 @@ function StockTransferOut() {
 
   /** ---------- Dropdown states ---------- */
   const [productOptions, setProductOptions] = useState([])
-  const [riceOptions, setRiceOptions] = useState([])
-  const [subriceOptions, setSubriceOptions] = useState([])
+  const [riceOptions, setRiceOptions] = useState([])      // species
+  const [subriceOptions, setSubriceOptions] = useState([]) // variant
 
   const [fromBranchOptions, setFromBranchOptions] = useState([])
   const [toBranchOptions, setToBranchOptions] = useState([])
@@ -386,61 +386,64 @@ function StockTransferOut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // product -> rice
+  // product -> species (ชนิดข้าว)
   useEffect(() => {
     const pid = form.product_id
-    if (!pid) {
-      setRiceOptions([])
-      update("rice_id", "")
-      update("rice_type", "")
-      update("subrice_id", "")
-      update("subrice_name", "")
-      return
-    }
-    const loadRice = async () => {
+    // reset chain
+    setRiceOptions([])
+    setSubriceOptions([])
+    update("rice_id", "")
+    update("rice_type", "")
+    update("subrice_id", "")
+    update("subrice_name", "")
+    if (!pid) return
+
+    const loadSpecies = async () => {
       try {
-        const arr = await get(`/order/rice/search?product_id=${encodeURIComponent(pid)}`)
+        // ✅ ตรงสเปก BE
+        const arr = await get(`/order/species/search?product_id=${encodeURIComponent(pid)}`)
         const mapped = (arr || [])
           .map((x) => ({
-            id: String(x.id ?? x.rice_id ?? x.value ?? ""),
-            label: String(x.rice_type ?? x.name ?? x.label ?? "").trim(),
+            id: String(x.id ?? x.species_id ?? x.value ?? ""),
+            label: String(x.species ?? x.name ?? x.label ?? "").trim(),
           }))
           .filter((o) => o.id && o.label)
         setRiceOptions(mapped)
       } catch (e) {
-        console.error("load rice error:", e)
+        console.error("load species error:", e)
         setRiceOptions([])
       }
     }
-    loadRice()
+    loadSpecies()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.product_id])
 
-  // rice -> subrice
+  // species -> variant (ชั้นย่อย)
   useEffect(() => {
-    const rid = form.rice_id
-    if (!rid) {
-      setSubriceOptions([])
-      update("subrice_id", "")
-      update("subrice_name", "")
-      return
-    }
-    const loadSub = async () => {
+    const sid = form.rice_id
+    // reset sub
+    setSubriceOptions([])
+    update("subrice_id", "")
+    update("subrice_name", "")
+    if (!sid) return
+
+    const loadVariant = async () => {
       try {
-        const arr = await get(`/order/sub-rice/search?rice_id=${encodeURIComponent(rid)}`)
+        // ✅ ตรงสเปก BE
+        const arr = await get(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)
         const mapped = (arr || [])
           .map((x) => ({
-            id: String(x.id ?? x.subrice_id ?? x.value ?? ""),
-            label: String(x.sub_class ?? x.name ?? x.label ?? "").trim(),
+            id: String(x.id ?? x.variant_id ?? x.value ?? ""),
+            label: String(x.variant ?? x.sub_class ?? x.name ?? x.label ?? "").trim(),
           }))
           .filter((o) => o.id && o.label)
         setSubriceOptions(mapped)
       } catch (e) {
-        console.error("load subrice error:", e)
+        console.error("load variant error:", e)
         setSubriceOptions([])
       }
     }
-    loadSub()
+    loadVariant()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.rice_id])
 
@@ -505,8 +508,8 @@ function StockTransferOut() {
       m.to_branch_id = true
     }
 
-    if (!form.driver_name?.trim()) m.driver_name = true      // ✅ ใหม่
-    if (!form.plate_number?.trim()) m.plate_number = true    // ✅ ใหม่
+    if (!form.driver_name?.trim()) m.driver_name = true
+    if (!form.plate_number?.trim()) m.plate_number = true
 
     if (!form.product_id) m.product_id = true
     if (!form.rice_id) m.rice_id = true
@@ -536,7 +539,6 @@ function StockTransferOut() {
       e.to_branch_id = "สาขาต้นทาง/ปลายทาง ต้องไม่ซ้ำกัน"
     }
 
-    // ✅ ใหม่
     if (!form.driver_name?.trim()) e.driver_name = "กรุณากรอกชื่อผู้ขนส่ง"
     if (!form.plate_number?.trim()) e.plate_number = "กรุณากรอกทะเบียนรถ"
 
@@ -551,7 +553,7 @@ function StockTransferOut() {
     if (toNumber(form.weight_out) < 0) e.weight_out = "น้ำหนักชั่งออก ต้องไม่ติดลบ"
     if (netWeight <= 0) e.net_weight = "น้ำหนักสุทธิต้องมากกว่า 0 (ตรวจค่าชั่งเข้า/ออก)"
 
-    if (form.cost_per_kg !== "" && costPerKg < 0) e.cost_per_kg = "ราคาต้นทุนต้องไม่ติดลบ"
+    if (form.cost_per_kg !== "" && toNumber(form.cost_per_kg) < 0) e.cost_per_kg = "ราคาต้นทุนต้องไม่ติดลบ"
 
     if (form.impurity_percent !== "") {
       const ip = toNumber(form.impurity_percent)
@@ -573,7 +575,7 @@ function StockTransferOut() {
       product_id,
       species_id,
       variant_id,
-      product_year: form.rice_year_id ? Number(form.rice_year_id) : null, // ✅ map → product_year
+      product_year: form.rice_year_id ? Number(form.rice_year_id) : null,
       condition_id: form.condition_id ? Number(form.condition_id) : null,
       field_type: form.field_type_id ? Number(form.field_type_id) : null,
       program: form.program_id ? Number(form.program_id) : null,
@@ -582,7 +584,6 @@ function StockTransferOut() {
   }
 
   const lookupOriginStock = async (transferQty) => {
-    // ใช้ /transfer/stock/lookup เพื่อตรวจสต็อกต้นทางตาม spec + klang
     try {
       const body = {
         klang_id: Number(form.from_klang_id),
@@ -609,7 +610,7 @@ function StockTransferOut() {
     setMissingHints(hints)
     if (!validate()) return
 
-    const transferQty = Number(netWeight) // ✅ จะถูกใช้ตรวจคงเหลือ (Decimal ที่ BE รองรับ)
+    const transferQty = Number(netWeight)
     if (!(transferQty > 0)) {
       setErrors((prev) => ({ ...prev, net_weight: "น้ำหนักสุทธิไม่ถูกต้อง" }))
       return
@@ -629,24 +630,20 @@ function StockTransferOut() {
         to_branch: form.to_branch_id != null ? Number(form.to_branch_id) : null,
         to_klang: form.to_klang_id != null ? Number(form.to_klang_id) : null,
 
-        // ✅ ใหม่ — ต้องส่งให้ BE
         driver_name: form.driver_name.trim(),
         plate_number: form.plate_number.trim(),
 
-        // ✅ ส่งเป็น spec (ProductSpecIn)
         spec: buildSpec(),
 
-        // ✅ ค่าชั่ง/ราคา (optional ตาม BE)
         entry_weight: toNumber(form.weight_in),
         exit_weight: toNumber(form.weight_out),
         weight: transferQty, // net weight
         impurity: form.impurity_percent === "" ? 0 : toNumber(form.impurity_percent),
-        price_per_kilo: costPerKg || 0,
-        price: totalCost || 0,
+        price_per_kilo: toNumber(form.cost_per_kg) || 0,
+        price: toNumber(form.cost_per_kg) * transferQty || 0,
         quality: 0,
 
-        // ✅ สำคัญ: BE ใช้ตรวจสต็อก + บันทึกในเอกสาร
-        transfer_qty: transferQty, // Decimal บน BE
+        transfer_qty: transferQty,
       }
 
       await post("/transfer/request", payload)
@@ -654,15 +651,11 @@ function StockTransferOut() {
       alert("บันทึกคำขอโอนออกสำเร็จ ✅")
       setForm((f) => ({
         ...f,
-        // คงค่าที่เลือกไว้ ยกเว้นค่าชั่ง/ราคา และโน้ต
         weight_in: "",
         weight_out: "",
         cost_per_kg: "",
         quality_note: "",
         impurity_percent: "",
-        // ถ้าต้องการเคลียร์ชื่อ/ทะเบียนด้วย ให้ uncomment สองบรรทัดล่าง:
-        // driver_name: "",
-        // plate_number: "",
       }))
     } catch (err) {
       console.error(err)

@@ -22,7 +22,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- ComboBox (มาตรฐานโปรเจกต์) ---------- */
+/** ---------- ComboBox ---------- */
 function ComboBox({
   options = [],
   value,
@@ -229,10 +229,10 @@ const StockDamageOut = () => {
   const [klangOptions, setKlangOptions] = useState([])
 
   const [productOptions, setProductOptions] = useState([])
-  const [speciesOptions, setSpeciesOptions] = useState([])   // แทน rice
-  const [variantOptions, setVariantOptions] = useState([])   // แทน subrice
+  const [speciesOptions, setSpeciesOptions] = useState([])   // species = ชนิด
+  const [variantOptions, setVariantOptions] = useState([])   // variant = ชั้นย่อย
 
-  // เมตาดาต้า (เหมือนหน้ายกเข้า)
+  // เมตาดาต้า
   const [conditionOptions, setConditionOptions] = useState([])
   const [fieldOptions, setFieldOptions] = useState([])
   const [yearOptions, setYearOptions] = useState([])
@@ -307,8 +307,7 @@ const StockDamageOut = () => {
           get("/order/business/search"),
         ])
 
-        const brs = (branches || []).map((b) => ({ id: b.id, label: b.branch_name }))
-        setBranchOptions(brs)
+        setBranchOptions((branches || []).map((b) => ({ id: b.id, label: b.branch_name })))
 
         setProductOptions(
           (products || [])
@@ -382,13 +381,14 @@ const StockDamageOut = () => {
     const loadSpecies = async () => {
       try {
         const arr = await get(`/order/species/search?product_id=${encodeURIComponent(pid)}`)
-        const mapped = (arr || [])
-          .map((x) => ({
-            id: String(x.id ?? x.species_id ?? x.value ?? ""),
-            label: String(x.species ?? x.name ?? x.label ?? "").trim(),
-          }))
-          .filter((o) => o.id && o.label)
-        setSpeciesOptions(mapped)
+        setSpeciesOptions(
+          (arr || [])
+            .map((x) => ({
+              id: String(x.id ?? x.species_id ?? x.value ?? ""),
+              label: String(x.species ?? x.name ?? x.label ?? "").trim(),
+            }))
+            .filter((o) => o.id && o.label)
+        )
       } catch (e) {
         console.error("load species error:", e)
         setSpeciesOptions([])
@@ -410,13 +410,14 @@ const StockDamageOut = () => {
     const loadVariant = async () => {
       try {
         const arr = await get(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)
-        const mapped = (arr || [])
-          .map((x) => ({
-            id: String(x.id ?? x.variant_id ?? x.value ?? ""),
-            label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
-          }))
-          .filter((o) => o.id && o.label)
-        setVariantOptions(mapped)
+        setVariantOptions(
+          (arr || [])
+            .map((x) => ({
+              id: String(x.id ?? x.variant_id ?? x.value ?? ""),
+              label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
+            }))
+            .filter((o) => o.id && o.label)
+        )
       } catch (e) {
         console.error("load variant error:", e)
         setVariantOptions([])
@@ -471,6 +472,9 @@ const StockDamageOut = () => {
 
     setSubmitting(true)
     try {
+      const priceVal = toNumber(form.cost_per_kg)
+      const amountVal = toNumber(form.weight_out)
+
       // ให้ตรง ProductSpecIn
       const spec = {
         product_id: Number(form.product_id),
@@ -483,14 +487,23 @@ const StockDamageOut = () => {
         business_type: form.business_type_id ? Number(form.business_type_id) : null,
       }
 
-      // ส่งคีย์ co_branch / co_klang ตาม BE ที่แจ้งเตือนหา co_klang
+      // รองรับหลายสคีมาของ BE: ส่งทั้งชุด co_*, cl_* และทั้ง price/prices, amount/cl_amount
       const payload = {
         date: form.damage_date,
         spec,
+
+        // ที่ตั้ง
+        cl_branch: Number(form.branch_id),
+        cl_klang: Number(form.klang_id),
         co_branch: Number(form.branch_id),
         co_klang: Number(form.klang_id),
-        price: toNumber(form.cost_per_kg),
-        cl_amount: toNumber(form.weight_out),
+
+        // ราคา/จำนวน
+        price: priceVal,
+        prices: [priceVal],       // <-- BE ที่ฟ้องหา "prices"
+        amount: amountVal,
+        cl_amount: amountVal,
+
         comment: form.reason?.trim() || null,
       }
 
@@ -499,7 +512,7 @@ const StockDamageOut = () => {
       alert("บันทึกตัดเสียหาย (Damage Out) สำเร็จ ✅")
       setForm((f) => ({
         ...f,
-        // คงสาขา/คลังไว้ เผื่อตัดต่อเนื่อง
+        // คงสาขา/คลังไว้
         product_id: "",
         product_name: "",
         species_id: "",
@@ -522,11 +535,11 @@ const StockDamageOut = () => {
       }))
     } catch (err) {
       console.error(err)
-      const msg =
-        err?.response?.data?.detail ??
-        err?.message ??
-        "เกิดข้อผิดพลาดระหว่างบันทึก"
-      alert(Array.isArray(msg) ? msg.map((d) => d?.msg || d).join("\n") : msg)
+      const detail = err?.response?.data?.detail
+      const msg = Array.isArray(detail)
+        ? detail.map((d) => (d?.loc ? `${d.loc.join(" > ")}: ${d?.msg}` : d?.msg || String(d))).join("\n")
+        : (typeof detail === "string" ? detail : (err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก"))
+      alert(msg)
     } finally {
       setSubmitting(false)
     }

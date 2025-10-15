@@ -191,7 +191,7 @@ function StockBringIn() {
   const [errors, setErrors] = useState({})
   const [missingHints, setMissingHints] = useState({})
 
-  // lookups
+  // lookups (มาตรฐาน id/label เสมอ)
   const [productOptions, setProductOptions] = useState([])
   const [speciesOptions, setSpeciesOptions] = useState([])
   const [variantOptions, setVariantOptions] = useState([])
@@ -202,6 +202,7 @@ function StockBringIn() {
   const [businessOptions, setBusinessOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
 
+  // ฟอร์ม (ค่าเลือกเก็บเป็น string id)
   const [form, setForm] = useState({
     // ProductSpecIn
     product_id: "",
@@ -222,6 +223,157 @@ function StockBringIn() {
   })
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
+  /** ---------- helpers: ดึง JSON แรกที่ ok ---------- */
+  const fetchFirstOkJson = async (paths = []) => {
+    for (const p of paths) {
+      try {
+        const data = await get(p)
+        if (Array.isArray(data)) return data
+        if (data && typeof data === "object") return data
+      } catch (_) {}
+    }
+    return Array.isArray(paths) ? [] : {}
+  }
+
+  /** ---------- Load lookups (รอบแรก) ---------- */
+  useEffect(() => {
+    let alive = true
+    async function loadInitial() {
+      try {
+        // ตามกติกาโปรเจกต์
+        const [products, conditions, fields, years, programs, businesses, klangs] = await Promise.all([
+          fetchFirstOkJson(["/order/product/search"]),
+          fetchFirstOkJson(["/order/condition/search"]),
+          fetchFirstOkJson(["/order/field/search", "/order/field_type/list", "/order/field-type/list"]),
+          fetchFirstOkJson(["/order/year/search"]),
+          fetchFirstOkJson(["/order/program/search"]),
+          fetchFirstOkJson(["/order/business/search"]),
+          fetchFirstOkJson(["/order/klang/search"]), // ถ้าอยากจำกัดตามสาขา ให้เปลี่ยน qs เป็น branch_id/name
+        ])
+
+        if (!alive) return
+
+        setProductOptions(
+          (products || [])
+            .map((x) => ({
+              id: String(x.id ?? x.product_id ?? x.value ?? ""),
+              label: String(x.product_type ?? x.name ?? x.label ?? "").trim(),
+            }))
+            .filter((o) => o.id && o.label)
+        )
+
+        setConditionOptions(
+            (conditions || [])
+              .map((x, i) => ({
+                id: String(x.id ?? x.value ?? i),
+                label: String(x.condition ?? x.name ?? x.label ?? "").trim(),
+              }))
+              .filter((o) => o.id && o.label)
+        )
+
+        setFieldTypeOptions(
+          (fields || [])
+            .map((x, i) => ({
+              id: String(x.id ?? x.value ?? i),
+              label: String(x.field ?? x.field_type ?? x.name ?? x.label ?? (typeof x === "string" ? x : "")).trim(),
+            }))
+            .filter((o) => o.id && o.label)
+        )
+
+        setYearOptions(
+          (years || [])
+            .map((x, i) => ({ id: String(x.id ?? x.value ?? i), label: String(x.year ?? x.name ?? x.label ?? "").trim() }))
+            .filter((o) => o.id && o.label)
+        )
+
+        setProgramOptions(
+          (programs || [])
+            .map((x, i) => ({ id: String(x.id ?? x.value ?? i), label: String(x.program ?? x.name ?? x.label ?? "").trim() }))
+            .filter((o) => o.id && o.label)
+        )
+
+        setBusinessOptions(
+          (businesses || [])
+            .map((x, i) => ({ id: String(x.id ?? x.value ?? i), label: String(x.business ?? x.name ?? x.label ?? "").trim() }))
+            .filter((o) => o.id && o.label)
+        )
+
+        setKlangOptions(
+          (klangs || []).map((k) => ({
+            id: String(k.id ?? k.klang_id ?? ""),
+            label: String(k.klang_name ?? k.name ?? `คลัง #${k.id ?? k.klang_id}`),
+          }))
+        )
+      } catch (e) {
+        if (!alive) return
+        setProductOptions([]); setConditionOptions([]); setFieldTypeOptions([])
+        setYearOptions([]); setProgramOptions([]); setBusinessOptions([]); setKlangOptions([])
+      }
+    }
+    loadInitial()
+    return () => { alive = false }
+  }, [])
+
+  /** ---------- Cascades: product → species ---------- */
+  useEffect(() => {
+    const pid = form.product_id
+    if (!pid) {
+      setSpeciesOptions([])
+      setVariantOptions([])
+      setForm((p) => ({ ...p, species_id: "", variant_id: "" }))
+      return
+    }
+    let alive = true
+    const loadSpecies = async () => {
+      try {
+        const arr = (await get(`/order/species/search?product_id=${encodeURIComponent(pid)}`)) || []
+        const mapped = arr
+          .map((x) => ({ id: String(x.id ?? x.species_id ?? x.value ?? ""), label: String(x.species ?? x.name ?? x.label ?? "").trim() }))
+          .filter((o) => o.id && o.label)
+        if (!alive) return
+        setSpeciesOptions(mapped)
+        // reset variant เมื่อ species list เปลี่ยน
+        setVariantOptions([])
+        setForm((p) => ({ ...p, species_id: "", variant_id: "" }))
+      } catch (e) {
+        if (!alive) return
+        setSpeciesOptions([]); setVariantOptions([])
+        setForm((p) => ({ ...p, species_id: "", variant_id: "" }))
+      }
+    }
+    loadSpecies()
+    return () => { alive = false }
+  }, [form.product_id])
+
+  /** ---------- Cascades: species → variant ---------- */
+  useEffect(() => {
+    const sid = form.species_id
+    if (!sid) {
+      setVariantOptions([])
+      setForm((p) => ({ ...p, variant_id: "" }))
+      return
+    }
+    let alive = true
+    const loadVariant = async () => {
+      try {
+        const arr = (await get(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)) || []
+        const mapped = arr
+          .map((x) => ({ id: String(x.id ?? x.variant_id ?? x.value ?? ""), label: String(x.variant ?? x.name ?? x.label ?? "").trim() }))
+          .filter((o) => o.id && o.label)
+        if (!alive) return
+        setVariantOptions(mapped)
+        setForm((p) => ({ ...p, variant_id: "" }))
+      } catch (e) {
+        if (!alive) return
+        setVariantOptions([])
+        setForm((p) => ({ ...p, variant_id: "" }))
+      }
+    }
+    loadVariant()
+    return () => { alive = false }
+  }, [form.species_id])
+
+  /** ---------- Derived ---------- */
   const pricesArr = useMemo(() => {
     const a = []
     const p1 = toNumber(form.price1)
@@ -232,7 +384,6 @@ function StockBringIn() {
   }, [form.price1, form.price2])
 
   const totalValuation = useMemo(() => {
-    // ถ้ามีหลายราคา แสดงรวมประเมินจากราคาแรก
     const qty = toNumber(form.co_available)
     const price = pricesArr[0] ?? 0
     return qty > 0 && price > 0 ? qty * price : 0
@@ -249,56 +400,6 @@ function StockBringIn() {
       return rest
     })
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
-
-  /** ---------- Load lookups ---------- */
-  useEffect(() => {
-    let alive = true
-    async function fetchLookups() {
-      try {
-        // อิงตามสเปคที่บันทึกไว้ของโปรเจกต์
-        const [
-          specData,
-          klangData,
-        ] = await Promise.all([
-          get("/product/species/variant/business/condition/field/year/program"),
-          get("/klang/search"),
-        ])
-
-        if (!alive) return
-        // ปรับให้อยู่ในรูปแบบ options ที่ ComboBox ใช้
-        setProductOptions(specData?.products ?? [])
-        setSpeciesOptions(specData?.species ?? [])
-        setVariantOptions(specData?.variants ?? [])
-        setConditionOptions(specData?.conditions ?? [])
-        setFieldTypeOptions(specData?.field_types ?? [])
-        setYearOptions((specData?.years ?? []).map((y) => ({ id: String(y), label: String(y) })))
-        setProgramOptions(specData?.programs ?? [])
-        setBusinessOptions(specData?.business_types ?? [])
-        setKlangOptions(
-          (klangData ?? []).map((k) => ({
-            id: String(k.id ?? k.klang_id ?? ""),
-            label: k.name ? `${k.name} (#${k.id ?? k.klang_id})` : `คลัง #${k.id ?? k.klang_id}`,
-          }))
-        )
-      } catch (e) {
-        // fallback ว่าง
-        if (!alive) return
-        setProductOptions([])
-        setSpeciesOptions([])
-        setVariantOptions([])
-        setConditionOptions([])
-        setFieldTypeOptions([])
-        setYearOptions([])
-        setProgramOptions([])
-        setBusinessOptions([])
-        setKlangOptions([])
-      }
-    }
-    fetchLookups()
-    return () => {
-      alive = false
-    }
-  }, [])
 
   /** ---------- Validate ---------- */
   const computeMissingHints = () => {
@@ -344,7 +445,7 @@ function StockBringIn() {
         business_type: form.business_type === "" ? null : Number(form.business_type),
       },
       co_klang: Number(form.co_klang),
-      prices: pricesArr, // 1-2 รายการ ตาม BE
+      prices: pricesArr, // 1-2 รายการ, > 0 ตาม BE
       co_available: form.co_available === "" ? 0 : Number(form.co_available),
       comment: form.comment?.trim() || null,
     }
@@ -366,7 +467,8 @@ function StockBringIn() {
       setMissingHints({})
     } catch (err) {
       console.error(err)
-      alert(err?.message || "บันทึกยอดยกมาไม่สำเร็จ")
+      const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
+      alert((err?.message || "บันทึกยอดยกมาไม่สำเร็จ") + detail)
     } finally {
       setLoading(false)
     }
@@ -375,7 +477,7 @@ function StockBringIn() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">📥 ยอดยกเข้า (Carry Over)</h1>
+        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">📥 ยอดยกมา (Carry Over)</h1>
 
         {/* สเปคสินค้า */}
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -394,8 +496,6 @@ function StockBringIn() {
                 hintRed={!!missingHints.product_id}
                 clearHint={() => clearHint("product_id")}
                 placeholder="เลือกประเภท"
-                getLabel={(o) => o?.name ?? o?.label ?? ""}
-                getValue={(o) => o?.id}
               />
               {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
             </div>
@@ -410,8 +510,6 @@ function StockBringIn() {
                 hintRed={!!missingHints.species_id}
                 clearHint={() => clearHint("species_id")}
                 placeholder="เลือกชนิดข้าว"
-                getLabel={(o) => o?.name ?? o?.label ?? ""}
-                getValue={(o) => o?.id}
               />
               {errors.species_id && <p className={errorTextCls}>{errors.species_id}</p>}
             </div>
@@ -426,8 +524,6 @@ function StockBringIn() {
                 hintRed={!!missingHints.variant_id}
                 clearHint={() => clearHint("variant_id")}
                 placeholder="เลือกชั้นย่อย"
-                getLabel={(o) => o?.name ?? o?.label ?? ""}
-                getValue={(o) => o?.id}
               />
               {errors.variant_id && <p className={errorTextCls}>{errors.variant_id}</p>}
             </div>
@@ -450,8 +546,6 @@ function StockBringIn() {
                 value={form.condition_id}
                 onChange={(v) => update("condition_id", v)}
                 placeholder="(เว้นว่างได้)"
-                getLabel={(o) => o?.name ?? o?.label ?? ""}
-                getValue={(o) => o?.id}
               />
             </div>
 
@@ -462,8 +556,6 @@ function StockBringIn() {
                 value={form.field_type}
                 onChange={(v) => update("field_type", v)}
                 placeholder="(เว้นว่างได้)"
-                getLabel={(o) => o?.name ?? o?.label ?? ""}
-                getValue={(o) => o?.id}
               />
             </div>
 
@@ -474,8 +566,6 @@ function StockBringIn() {
                 value={form.program}
                 onChange={(v) => update("program", v)}
                 placeholder="(เว้นว่างได้)"
-                getLabel={(o) => o?.name ?? o?.label ?? ""}
-                getValue={(o) => o?.id}
               />
             </div>
 
@@ -486,8 +576,6 @@ function StockBringIn() {
                 value={form.business_type}
                 onChange={(v) => update("business_type", v)}
                 placeholder="(เว้นว่างได้)"
-                getLabel={(o) => o?.name ?? o?.label ?? ""}
-                getValue={(o) => o?.id}
               />
             </div>
           </div>

@@ -3,7 +3,11 @@ import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle }
 import { get, post } from "../lib/api" // ✅ helper API กลาง
 
 /** ---------- Utils ---------- */
-const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
+const onlyDigits = (s = "") => s.replace(/\D+/g, "")
+const toInt = (v) => {
+  const n = Number(onlyDigits(String(v ?? "")))
+  return Number.isFinite(n) ? n : 0
+}
 const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
@@ -289,8 +293,9 @@ function StockTransferOut() {
     business_type_id: "",
     business_type_label: "",
 
-    weight_in: "",
-    weight_out: "",
+    // ชั่งรถ
+    weight_in: "",   // รถเปล่า (ขาเข้าโรงชั่ง)
+    weight_out: "",  // รถ + ข้าว (ขาออก)
     cost_per_kg: "",
     quality_note: "",
 
@@ -300,12 +305,12 @@ function StockTransferOut() {
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
   /** ---------- Derived ---------- */
-  const weightIn = useMemo(() => toNumber(form.weight_in), [form.weight_in])
-  const weightOut = useMemo(() => toNumber(form.weight_out), [form.weight_out])
-  const netWeight = useMemo(() => Math.max(weightIn - weightOut, 0), [weightIn, weightOut])
+  const weightIn = useMemo(() => toInt(form.weight_in), [form.weight_in])     // รถเปล่า
+  const weightOut = useMemo(() => toInt(form.weight_out), [form.weight_out])  // รถ + ข้าว
+  const netWeightInt = useMemo(() => Math.max(weightOut - weightIn, 0), [weightIn, weightOut])
 
-  const costPerKg = useMemo(() => toNumber(form.cost_per_kg), [form.cost_per_kg])
-  const totalCost = useMemo(() => costPerKg * netWeight, [costPerKg, netWeight])
+  const costPerKg = useMemo(() => Number(form.cost_per_kg || 0), [form.cost_per_kg])
+  const totalCost = useMemo(() => costPerKg * netWeightInt, [costPerKg, netWeightInt])
 
   /** ---------- Errors / hints ---------- */
   const [errors, setErrors] = useState({})
@@ -386,10 +391,9 @@ function StockTransferOut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // product -> species (ชนิดข้าว)
+  // product -> species
   useEffect(() => {
     const pid = form.product_id
-    // reset chain
     setRiceOptions([])
     setSubriceOptions([])
     update("rice_id", "")
@@ -400,7 +404,6 @@ function StockTransferOut() {
 
     const loadSpecies = async () => {
       try {
-        // ✅ ตรงสเปก BE
         const arr = await get(`/order/species/search?product_id=${encodeURIComponent(pid)}`)
         const mapped = (arr || [])
           .map((x) => ({
@@ -418,10 +421,9 @@ function StockTransferOut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.product_id])
 
-  // species -> variant (ชั้นย่อย)
+  // species -> variant
   useEffect(() => {
     const sid = form.rice_id
-    // reset sub
     setSubriceOptions([])
     update("subrice_id", "")
     update("subrice_name", "")
@@ -429,7 +431,6 @@ function StockTransferOut() {
 
     const loadVariant = async () => {
       try {
-        // ✅ ตรงสเปก BE
         const arr = await get(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)
         const mapped = (arr || [])
           .map((x) => ({
@@ -518,9 +519,10 @@ function StockTransferOut() {
     if (!form.field_type_id) m.field_type_id = true
     if (!form.business_type_id) m.business_type_id = true
 
-    if (!form.weight_in || Number(form.weight_in) <= 0) m.weight_in = true
-    if (form.weight_out === "" || Number(form.weight_out) < 0) m.weight_out = true
-    if (netWeight <= 0) m.net_weight = true
+    if (form.weight_in === "" || toInt(form.weight_in) <= 0) m.weight_in = true
+    if (form.weight_out === "" || toInt(form.weight_out) <= 0) m.weight_out = true
+    if (toInt(form.weight_out) <= toInt(form.weight_in)) m.weight_out = true
+    if (netWeightInt <= 0) m.net_weight = true
 
     if (form.cost_per_kg !== "" && Number(form.cost_per_kg) < 0) m.cost_per_kg = true
 
@@ -549,14 +551,17 @@ function StockTransferOut() {
     if (!form.field_type_id) e.field_type_id = "กรุณาเลือกประเภทนา"
     if (!form.business_type_id) e.business_type_id = "กรุณาเลือกประเภทธุรกิจ"
 
-    if (toNumber(form.weight_in) <= 0) e.weight_in = "น้ำหนักชั่งเข้า ต้องมากกว่า 0"
-    if (toNumber(form.weight_out) < 0) e.weight_out = "น้ำหนักชั่งออก ต้องไม่ติดลบ"
-    if (netWeight <= 0) e.net_weight = "น้ำหนักสุทธิต้องมากกว่า 0 (ตรวจค่าชั่งเข้า/ออก)"
+    const tIn = toInt(form.weight_in)
+    const tOut = toInt(form.weight_out)
+    if (tIn <= 0) e.weight_in = "น้ำหนักขาเข้า (รถเปล่า) ต้องมากกว่า 0"
+    if (tOut <= 0) e.weight_out = "น้ำหนักขาออก (รถ+ข้าว) ต้องมากกว่า 0"
+    if (tOut <= tIn) e.weight_out = "น้ำหนักขาออก ต้องมากกว่า น้ำหนักขาเข้า"
+    if (netWeightInt <= 0) e.net_weight = "น้ำหนักสุทธิต้องมากกว่า 0 (ขาออก − ขาเข้า)"
 
-    if (form.cost_per_kg !== "" && toNumber(form.cost_per_kg) < 0) e.cost_per_kg = "ราคาต้นทุนต้องไม่ติดลบ"
+    if (form.cost_per_kg !== "" && Number(form.cost_per_kg) < 0) e.cost_per_kg = "ราคาต้นทุนต้องไม่ติดลบ"
 
     if (form.impurity_percent !== "") {
-      const ip = toNumber(form.impurity_percent)
+      const ip = Number(form.impurity_percent)
       if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "กรุณากรอก 0–100"
     }
 
@@ -566,7 +571,6 @@ function StockTransferOut() {
 
   /** ---------- Builders ---------- */
   const buildSpec = () => {
-    // แปลงค่า UI -> ProductSpecIn ของ BE
     const product_id = /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id
     const species_id = /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id
     const variant_id = /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id
@@ -585,14 +589,9 @@ function StockTransferOut() {
 
   const lookupOriginStock = async (transferQty) => {
     try {
-      const body = {
-        klang_id: Number(form.from_klang_id),
-        spec: buildSpec(),
-      }
+      const body = { klang_id: Number(form.from_klang_id), spec: buildSpec() }
       const rows = await post("/transfer/stock/lookup", body)
-      if (!rows || rows.length === 0) {
-        throw new Error("ไม่พบสต็อกต้นทางของสเปกนี้ในคลังที่เลือก")
-      }
+      if (!rows || rows.length === 0) throw new Error("ไม่พบสต็อกต้นทางของสเปกนี้ในคลังที่เลือก")
       const available = Number(rows[0].available ?? 0)
       if (available < transferQty) {
         throw new Error(`สต็อกคงเหลือต้นทางไม่พอ (คงเหลือ ${available.toLocaleString()} กก.)`)
@@ -610,7 +609,7 @@ function StockTransferOut() {
     setMissingHints(hints)
     if (!validate()) return
 
-    const transferQty = Number(netWeight)
+    const transferQty = netWeightInt // ✅ ต้องเป็นจำนวนเต็มกก.
     if (!(transferQty > 0)) {
       setErrors((prev) => ({ ...prev, net_weight: "น้ำหนักสุทธิไม่ถูกต้อง" }))
       return
@@ -635,14 +634,21 @@ function StockTransferOut() {
 
         spec: buildSpec(),
 
-        entry_weight: toNumber(form.weight_in),
-        exit_weight: toNumber(form.weight_out),
-        weight: transferQty, // net weight
-        impurity: form.impurity_percent === "" ? 0 : toNumber(form.impurity_percent),
-        price_per_kilo: toNumber(form.cost_per_kg) || 0,
-        price: toNumber(form.cost_per_kg) * transferQty || 0,
+        // ⚖️ บันทึกค่าชั่ง (รถเปล่า/รถ+ข้าว)
+        entry_weight: toInt(form.weight_in),   // รถเปล่า
+        exit_weight: toInt(form.weight_out),   // รถ + ข้าว
+
+        // ✅ น้ำหนักสุทธิ = ขาออก − ขาเข้า
+        weight: transferQty,
+        impurity: form.impurity_percent === "" ? 0 : Number(form.impurity_percent),
+
+        // ราคา (อาจว่างได้)
+        price_per_kilo: Number(form.cost_per_kg) || 0,
+        price: (Number(form.cost_per_kg) || 0) * transferQty,
+
         quality: 0,
 
+        // ใช้จำนวนย้ายตาม net เป็นจำนวนเต็ม
         transfer_qty: transferQty,
       }
 
@@ -977,44 +983,48 @@ function StockTransferOut() {
             <h2 className="mb-3 text-xl font-semibold">ชั่งน้ำหนักและต้นทุน</h2>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>น้ำหนักชั่งเข้า (กก.)</label>
+                <label className={labelCls}>น้ำหนักขาเข้า (รถเปล่า) กก.</label>
                 <input
-                  inputMode="decimal"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   className={cx(baseField, redFieldCls("weight_in"))}
                   value={form.weight_in}
-                  onChange={(e) => update("weight_in", e.target.value.replace(/[^\d.]/g, ""))}
+                  onChange={(e) => update("weight_in", onlyDigits(e.target.value))}
                   onFocus={() => {
                     clearError("weight_in")
                     clearHint("weight_in")
                   }}
-                  placeholder="เช่น 15000"
+                  placeholder="เช่น 9000"
                   aria-invalid={errors.weight_in ? true : undefined}
                 />
                 {errors.weight_in && <p className={errorTextCls}>{errors.weight_in}</p>}
+                <p className={helpTextCls}>* ต้องเป็นจำนวนเต็มกิโลกรัม</p>
               </div>
 
               <div>
-                <label className={labelCls}>น้ำหนักชั่งออก (กก.)</label>
+                <label className={labelCls}>น้ำหนักขาออก (รถ + ข้าว) กก.</label>
                 <input
-                  inputMode="decimal"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   className={cx(baseField, redFieldCls("weight_out"))}
                   value={form.weight_out}
-                  onChange={(e) => update("weight_out", e.target.value.replace(/[^\d.]/g, ""))}
+                  onChange={(e) => update("weight_out", onlyDigits(e.target.value))}
                   onFocus={() => {
                     clearError("weight_out")
                     clearHint("weight_out")
                   }}
-                  placeholder="เช่น 2000"
+                  placeholder="เช่น 24000"
                   aria-invalid={errors.weight_out ? true : undefined}
                 />
                 {errors.weight_out && <p className={errorTextCls}>{errors.weight_out}</p>}
+                <p className={helpTextCls}>* ต้องเป็นจำนวนเต็มกิโลกรัม และมากกว่า “ขาเข้า”</p>
               </div>
 
               <div>
                 <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
-                <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(netWeight * 100) / 100} />
+                <input disabled className={cx(baseField, fieldDisabled)} value={netWeightInt} />
                 {errors.net_weight && <p className={errorTextCls}>{errors.net_weight}</p>}
-                <p className={helpTextCls}>คำนวณ = ชั่งเข้า − ชั่งออก</p>
+                <p className={helpTextCls}>คำนวณ = น้ำหนักขาออก − น้ำหนักขาเข้า</p>
               </div>
 
               <div>
@@ -1037,8 +1047,8 @@ function StockTransferOut() {
                 <p className={helpTextCls}>คำนวณ = ราคาต้นทุน × น้ำหนักสุทธิ</p>
               </div>
 
-              <div>
-                <label className={labelCls}>คุณภาพ (บันทึกเพิ่มเติม)</label>
+              <div className="md:col-span-2">
+                <label className={labelCls}>บันทึกคุณภาพ/หมายเหตุ</label>
                 <input
                   className={baseField}
                   value={form.quality_note}

@@ -22,7 +22,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- ComboBox (มาตรฐานโปรเจ็กต์) ---------- */
+/** ---------- ComboBox (มาตรฐานโปรเจกต์) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -229,8 +229,8 @@ const StockDamageOut = () => {
   const [klangOptions, setKlangOptions] = useState([])
 
   const [productOptions, setProductOptions] = useState([])
-  const [speciesOptions, setSpeciesOptions] = useState([])  // แทน rice
-  const [variantOptions, setVariantOptions] = useState([])  // แทน subrice
+  const [speciesOptions, setSpeciesOptions] = useState([])   // แทน rice
+  const [variantOptions, setVariantOptions] = useState([])   // แทน subrice
 
   // เมตาดาต้า (เหมือนหน้ายกเข้า)
   const [conditionOptions, setConditionOptions] = useState([])
@@ -268,8 +268,8 @@ const StockDamageOut = () => {
     business_type_label: "",
 
     weight_out: "",
-    cost_per_kg: "", // ค่าเสียหาย/กก.
-    reason: "",      // เหตุผล/บันทึก
+    cost_per_kg: "",
+    reason: "",
   })
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
@@ -451,9 +451,9 @@ const StockDamageOut = () => {
     if (!form.branch_id) e.branch_id = "กรุณาเลือกสาขา"
     if (!form.klang_id) e.klang_id = "กรุณาเลือกคลัง"
 
-    if ( !form.product_id ) e.product_id = "กรุณาเลือกประเภทสินค้า"
-    if ( !form.species_id ) e.species_id = "กรุณาเลือกชนิดข้าว (Species)"
-    if ( !form.variant_id ) e.variant_id = "กรุณาเลือกชั้นย่อย (Variant)"
+    if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
+    if (!form.species_id) e.species_id = "กรุณาเลือกชนิดข้าว (Species)"
+    if (!form.variant_id) e.variant_id = "กรุณาเลือกชั้นย่อย (Variant)"
 
     if (toNumber(form.weight_out) <= 0) e.weight_out = "น้ำหนักต้องมากกว่า 0"
     if (form.cost_per_kg === "" || toNumber(form.cost_per_kg) < 0) e.cost_per_kg = "ค่าเสียหาย/กก. ต้องไม่ติดลบ"
@@ -471,11 +471,11 @@ const StockDamageOut = () => {
 
     setSubmitting(true)
     try {
-      // สร้าง spec ให้ตรงกับ ProductSpecIn ของ BE
+      // ให้ตรง ProductSpecIn
       const spec = {
-        product_id: /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id,
-        species_id: /^\d+$/.test(form.species_id) ? Number(form.species_id) : form.species_id,
-        variant_id: /^\d+$/.test(form.variant_id) ? Number(form.variant_id) : form.variant_id,
+        product_id: Number(form.product_id),
+        species_id: Number(form.species_id),
+        variant_id: Number(form.variant_id),
         product_year: form.rice_year_id ? Number(form.rice_year_id) : null,
         condition_id: form.condition_id ? Number(form.condition_id) : null,
         field_type: form.field_type_id ? Number(form.field_type_id) : null,
@@ -483,18 +483,17 @@ const StockDamageOut = () => {
         business_type: form.business_type_id ? Number(form.business_type_id) : null,
       }
 
-      // Payload ให้ตรงกับ CutLossCreateIn
+      // ส่งคีย์ co_branch / co_klang ตาม BE ที่แจ้งเตือนหา co_klang
       const payload = {
-        date: form.damage_date,                         // date
-        spec,                                           // ProductSpecIn
-        cl_branch: form.branch_id ?? null,              // int
-        cl_klang: form.klang_id ?? null,                // int
-        price: toNumber(form.cost_per_kg),              // Decimal >= 0
-        cl_amount: toNumber(form.weight_out),           // Decimal >= 0
-        comment: form.reason?.trim() || null,           // Optional[str]
+        date: form.damage_date,
+        spec,
+        co_branch: Number(form.branch_id),
+        co_klang: Number(form.klang_id),
+        price: toNumber(form.cost_per_kg),
+        cl_amount: toNumber(form.weight_out),
+        comment: form.reason?.trim() || null,
       }
 
-      // ยิงไปที่ BE route ใหม่
       await post("/carryover/create", payload)
 
       alert("บันทึกตัดเสียหาย (Damage Out) สำเร็จ ✅")
@@ -523,7 +522,11 @@ const StockDamageOut = () => {
       }))
     } catch (err) {
       console.error(err)
-      alert(err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก")
+      const msg =
+        err?.response?.data?.detail ??
+        err?.message ??
+        "เกิดข้อผิดพลาดระหว่างบันทึก"
+      alert(Array.isArray(msg) ? msg.map((d) => d?.msg || d).join("\n") : msg)
     } finally {
       setSubmitting(false)
     }

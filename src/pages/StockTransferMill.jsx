@@ -406,7 +406,7 @@ function StockTransferMill() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.branch_id, form.branch_name])
 
-  // product -> species (align หน้า “ขาย”: /order/species/search)
+  // product -> species
   useEffect(() => {
     const pid = form.product_id
     if (!pid) {
@@ -436,7 +436,7 @@ function StockTransferMill() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.product_id])
 
-  // species -> variant (align หน้า “ขาย”: /order/variant/search)
+  // species -> variant
   useEffect(() => {
     const rid = form.rice_id
     if (!rid) {
@@ -505,21 +505,26 @@ function StockTransferMill() {
 
   /** ---------- Eligible fetch ---------- */
   const buildSpecPayload = () => {
-    // product_year: แปลง label ถ้าเป็นตัวเลข มิฉะนั้นลองใช้ id
+    const toIntOrNull = (v) => (v === "" || v == null ? null : Number(v))
+    // product_year: ถ้า label เป็นตัวเลขให้ใช้ label, ไม่งั้นลองใช้ id
     const yearVal =
       form.rice_year_label && /^\d{3,4}$/.test(form.rice_year_label)
         ? Number(form.rice_year_label)
-        : form.rice_year_id
-        ? Number(form.rice_year_id)
-        : null
+        : toIntOrNull(form.rice_year_id)
 
+    // >>>> ส่งตาม MillSpecIn ของ BE: { spec: ProductSpecIn, klang_location }
     return {
       spec: {
-        product_id: /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id,
-        species_id: /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id,
-        variant_id: /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id,
-        product_year: yearVal ?? null,
-        condition_id: form.condition_id ? Number(form.condition_id) : null,
+        spec: {
+          product_id: Number(form.product_id),
+          species_id: Number(form.rice_id),
+          variant_id: Number(form.subrice_id),
+          product_year: yearVal,
+          condition_id: toIntOrNull(form.condition_id),
+          field_type: toIntOrNull(form.field_type_id),
+          program: toIntOrNull(form.program_id),
+          business_type: toIntOrNull(form.business_type_id),
+        },
         klang_location: form.klang_id ?? null,
       },
     }
@@ -582,7 +587,7 @@ function StockTransferMill() {
 
     setSubmitting(true)
     try {
-      const specPayload = buildSpecPayload().spec
+      const specPayload = buildSpecPayload().spec // << รูปทรงตรงตาม BE แล้ว (มี spec ซ้อน)
       const payload = {
         lot_number: form.lot_number.trim(),
         spec: specPayload,
@@ -683,7 +688,7 @@ function StockTransferMill() {
             </div>
           </div>
 
-          {/* กรอบที่ 2: ที่ตั้ง & สเปคข้าว (ให้เหมือนหน้าขาย) */}
+          {/* กรอบที่ 2: ที่ตั้ง & สเปคข้าว */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ที่ตั้ง & สเปคข้าว</h2>
             <div className="grid gap-4 md:grid-cols-3">
@@ -803,7 +808,7 @@ function StockTransferMill() {
                 />
               </div>
 
-              {/* ประเภทนา (ไม่บังคับ / UI ให้เหมือนหน้าขาย) */}
+              {/* ประเภทนา (ไม่บังคับ) */}
               <div>
                 <label className={labelCls}>ประเภทนา (ไม่บังคับ)</label>
                 <ComboBox

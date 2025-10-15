@@ -3,7 +3,11 @@ import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle }
 import { get, post } from "../lib/api"
 
 /** ---------- Utils ---------- */
-const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
+const onlyDigits = (s = "") => s.replace(/\D+/g, "")
+const toInt = (v) => {
+  const n = Number(onlyDigits(String(v ?? "")))
+  return Number.isFinite(n) ? n : 0
+}
 const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
@@ -21,168 +25,6 @@ const fieldDisabled =
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
-
-/** ---------- ComboBox (generic) ---------- */
-function ComboBox({
-  options = [],
-  value,
-  onChange,
-  placeholder = "— เลือก —",
-  getLabel = (o) => o?.label ?? "",
-  getValue = (o) => o?.id ?? o?.value ?? "",
-  disabled = false,
-  error = false,
-  buttonRef = null,
-  hintRed = false,
-  clearHint = () => {},
-}) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(-1)
-  const boxRef = useRef(null)
-  const listRef = useRef(null)
-  const internalBtnRef = useRef(null)
-  const controlRef = buttonRef || internalBtnRef
-
-  const selectedLabel = useMemo(() => {
-    const found = options.find((o) => String(getValue(o)) === String(value))
-    return found ? getLabel(found) : ""
-  }, [options, value, getLabel, getValue])
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (!boxRef.current) return
-      if (!boxRef.current.contains(e.target)) {
-        setOpen(false)
-        setHighlight(-1)
-      }
-    }
-    document.addEventListener("click", onClick)
-    return () => document.removeEventListener("click", onClick)
-  }, [])
-
-  const commit = (opt) => {
-    const v = String(getValue(opt))
-    onChange?.(v, opt)
-    setOpen(false)
-    setHighlight(-1)
-    clearHint?.()
-    requestAnimationFrame(() => controlRef.current?.focus())
-  }
-
-  const scrollHighlightedIntoView = (index) => {
-    const listEl = listRef.current
-    const itemEl = listEl?.children?.[index]
-    if (!listEl || !itemEl) return
-    const itemRect = itemEl.getBoundingClientRect()
-    const listRect = listEl.getBoundingClientRect()
-    const buffer = 6
-    if (itemRect.top < listRect.top + buffer) {
-      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
-    } else if (itemRect.bottom > listRect.bottom - buffer) {
-      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
-    }
-  }
-
-  const onKeyDown = (e) => {
-    if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault()
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
-      clearHint?.()
-      return
-    }
-    if (!open) return
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const next = h < options.length - 1 ? h + 1 : 0
-        requestAnimationFrame(() => scrollHighlightedIntoView(next))
-        return next
-      })
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const prev = h > 0 ? h - 1 : options.length - 1
-        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
-        return prev
-      })
-    } else if (e.key === "Enter") {
-      e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      setOpen(false)
-      setHighlight(-1)
-    }
-  }
-
-  return (
-    <div className="relative" ref={boxRef}>
-      <button
-        type="button"
-        ref={controlRef}
-        disabled={disabled}
-        onClick={() => !disabled && setOpen((o) => !o)}
-        onKeyDown={onKeyDown}
-        className={cx(
-          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          error
-            ? "border-red-400 ring-2 ring-red-300/70"
-            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80",
-          hintRed && "ring-2 ring-red-300 animate-pulse"
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-invalid={error || hintRed ? true : undefined}
-      >
-        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
-      </button>
-
-      {open && (
-        <div
-          ref={listRef}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
-          )}
-          {options.map((opt, idx) => {
-            const label = getLabel(opt)
-            const isActive = idx === highlight
-            const isChosen = String(getValue(opt)) === String(value)
-            return (
-              <button
-                key={String(getValue(opt)) || label || idx}
-                type="button"
-                role="option"
-                aria-selected={isChosen}
-                onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)}
-                className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
-                  isActive
-                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                )}
-              >
-                {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-                )}
-                <span className="flex-1">{label}</span>
-                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
 
 /** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
@@ -240,25 +82,25 @@ function StockTransferIn() {
     transfer_date: new Date().toISOString().slice(0, 10),
 
     // ชั่ง/หมายเหตุฝั่งผู้รับ
-    weight_in: "",
-    weight_out: "",
+    weight_in: "",   // กก. (จำนวนเต็ม)
+    weight_out: "",  // กก. (จำนวนเต็ม)
     quality_note: "",
 
     // สิ่งเจือปน (%)
     impurity_percent: "",
 
-    // เพิ่มตาม transferout
-    price_per_kilo: "", // ราคาต้นทุน/กก. — ออโต้ฟิลจากคำขอ
-    dest_quality: "",   // คุณภาพ (ตัวเลข/คะแนนหรือ %)
+    // จากคำขอ (แสดงอย่างเดียว)
+    price_per_kilo: "", // ราคาต้นทุน/กก. จากคำขอฝั่งโอนออก (ถ้ามี)
+    dest_quality: "",   // คุณภาพ (ตัวเลข)
   })
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
-  const weightIn = useMemo(() => toNumber(form.weight_in), [form.weight_in])
-  const weightOut = useMemo(() => toNumber(form.weight_out), [form.weight_out])
-  const netWeight = useMemo(() => Math.max(weightIn - weightOut, 0), [weightIn, weightOut])
+  const weightIn = useMemo(() => toInt(form.weight_in), [form.weight_in])
+  const weightOut = useMemo(() => toInt(form.weight_out), [form.weight_out])
+  const netWeightInt = useMemo(() => Math.max(weightIn - weightOut, 0), [weightIn, weightOut])
 
-  // รวมต้นทุน (เพื่อแสดงผลเหมือน transferout)
-  const totalCost = useMemo(() => toNumber(form.price_per_kilo) * netWeight, [form.price_per_kilo, netWeight])
+  const pricePerKilo = useMemo(() => Number(form.price_per_kilo || 0), [form.price_per_kilo])
+  const totalCost = useMemo(() => pricePerKilo * netWeightInt, [pricePerKilo, netWeightInt])
 
   const [errors, setErrors] = useState({})
   const [missingHints, setMissingHints] = useState({})
@@ -315,9 +157,9 @@ function StockTransferIn() {
     const m = {}
     if (!form.transfer_date) m.transfer_date = true
     if (!form.transfer_id) m.transfer_id = true
-    if (!form.weight_in || Number(form.weight_in) <= 0) m.weight_in = true
-    if (form.weight_out === "" || Number(form.weight_out) < 0) m.weight_out = true
-    if (netWeight <= 0) m.net_weight = true
+    if (form.weight_in === "" || weightIn <= 0) m.weight_in = true
+    if (form.weight_out === "" || weightOut < 0) m.weight_out = true
+    if (netWeightInt <= 0) m.net_weight = true
     return m
   }
 
@@ -325,15 +167,15 @@ function StockTransferIn() {
     const e = {}
     if (!form.transfer_date) e.transfer_date = "กรุณาเลือกวันที่รับเข้า"
     if (!form.transfer_id) e.transfer_id = "กรุณาเลือกคำขอโอนจากรายการด้านบนก่อน"
-    if (weightIn <= 0) e.weight_in = "น้ำหนักชั่งเข้า ต้องมากกว่า 0"
-    if (weightOut < 0) e.weight_out = "น้ำหนักชั่งออก ต้องไม่ติดลบ"
-    if (netWeight <= 0) e.net_weight = "น้ำหนักสุทธ้องมากกว่า 0 (ตรวจค่าชั่งเข้า/ออก)"
+    if (form.weight_in === "" || weightIn <= 0) e.weight_in = "น้ำหนักชั่งเข้า ต้องเป็นจำนวนเต็มมากกว่า 0"
+    if (form.weight_out === "" || weightOut < 0) e.weight_out = "น้ำหนักชั่งออก ต้องเป็นจำนวนเต็ม (≥ 0)"
+    if (netWeightInt <= 0) e.net_weight = "น้ำหนักสุทธ้องมากกว่า 0 (ชั่งเข้า − ชั่งออก)"
     if (form.impurity_percent !== "") {
-      const ip = toNumber(form.impurity_percent)
+      const ip = Number(form.impurity_percent)
       if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "กรุณากรอก 0–100"
     }
     if (form.dest_quality !== "") {
-      const q = toNumber(form.dest_quality)
+      const q = Number(form.dest_quality)
       if (!isFinite(q)) e.dest_quality = "กรุณากรอกตัวเลข"
     }
     setErrors(e)
@@ -347,22 +189,25 @@ function StockTransferIn() {
     setMissingHints(hints)
     if (!validate()) return
 
+    // สร้าง payload ตรงกับ TransferConfirm (ฝั่ง BE)
+    const payload = {
+      action: "ACCEPT",
+      dest_entry_weight: weightIn,                 // จำนวนเต็ม
+      dest_exit_weight: weightOut,                 // จำนวนเต็ม
+      dest_weight: netWeightInt,                   // จำนวนเต็ม (สำคัญ! TempStock เป็น Integer)
+      dest_impurity: form.impurity_percent === "" ? null : Number(form.impurity_percent),
+      dest_quality: form.dest_quality === "" ? null : Number(form.dest_quality),
+      receiver_note: form.quality_note?.trim() || null,
+      // ช่วยส่ง dest_price ให้ BE เก็บประกอบ ถ้ามี price_per_kilo
+      dest_price: pricePerKilo ? pricePerKilo * netWeightInt : null,
+    }
+
     setSubmitting(true)
     try {
-      const payload = {
-        action: "ACCEPT",
-        dest_entry_weight: toNumber(form.weight_in),
-        dest_exit_weight: toNumber(form.weight_out),
-        dest_weight: netWeight,
-        dest_impurity: form.impurity_percent === "" ? null : toNumber(form.impurity_percent),
-        dest_quality: form.dest_quality === "" ? null : toNumber(form.dest_quality),
-        receiver_note: form.quality_note?.trim() || null,
-      }
-
       await post(`/transfer/confirm/${encodeURIComponent(form.transfer_id)}`, payload)
-
       alert("บันทึกรับเข้าสำเร็จ ✅")
 
+      // ล้างฟอร์ม
       setForm((f) => ({
         ...f,
         transfer_id: null,
@@ -374,13 +219,22 @@ function StockTransferIn() {
         dest_quality: "",
       }))
 
+      // รีโหลดรายการรอรับเข้า
       try {
         const data = await get(`/transfer/pending/incoming`)
         setRequests(Array.isArray(data) ? data : [])
       } catch {}
     } catch (err) {
       console.error(err)
-      alert(err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก")
+      const msg = err?.message || ""
+      // กรณี BE โยนข้อความเรื่อง TempStock เป็น Integer
+      if (/Integer|จำนวนเต็ม|whole kg|move quantity/i.test(msg)) {
+        alert("ต้องกรอกน้ำหนักเป็น ‘จำนวนเต็มกก.’ เท่านั้น (TempStock เป็น Integer)")
+      } else if (/Insufficient stock|409/.test(msg)) {
+        alert("สต็อกต้นทางไม่พอ กรุณาติดต่อสาขาต้นทาง")
+      } else {
+        alert(msg || "เกิดข้อผิดพลาดระหว่างบันทึก")
+      }
     } finally {
       setSubmitting(false)
     }
@@ -409,7 +263,7 @@ function StockTransferIn() {
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">📦 รับเข้าข้าวเปลือก</h1>
 
-        {/* คำขอที่รอเข้าจาก backend ใหม่ */}
+        {/* คำขอที่รอเข้าจาก backend */}
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="mb-3 flex items-center gap-3">
             <h2 className="text-xl font-semibold">คำขอโอนเข้าที่รอดำเนินการ</h2>
@@ -460,7 +314,7 @@ function StockTransferIn() {
           )}
         </div>
 
-        {/* ฟอร์มรับเข้า (ผู้รับกรอกเฉพาะข้อมูลปลายทาง) */}
+        {/* ฟอร์มรับเข้า */}
         <form onSubmit={handleSubmit}>
           {/* กล่อง: ข้อมูลการรับเข้า */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -505,10 +359,11 @@ function StockTransferIn() {
               <div>
                 <label className={labelCls}>น้ำหนักชั่งเข้า (กก.)</label>
                 <input
-                  inputMode="decimal"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   className={cx(baseField, redFieldCls("weight_in"))}
                   value={form.weight_in}
-                  onChange={(e) => update("weight_in", e.target.value.replace(/[^\d.]/g, ""))}
+                  onChange={(e) => update("weight_in", onlyDigits(e.target.value))}
                   onFocus={() => {
                     clearError("weight_in")
                     clearHint("weight_in")
@@ -517,15 +372,17 @@ function StockTransferIn() {
                   aria-invalid={errors.weight_in ? true : undefined}
                 />
                 {errors.weight_in && <p className={errorTextCls}>{errors.weight_in}</p>}
+                <p className={helpTextCls}>* ต้องเป็นจำนวนเต็มกิโลกรัม</p>
               </div>
 
               <div>
                 <label className={labelCls}>น้ำหนักชั่งออก (กก.)</label>
                 <input
-                  inputMode="decimal"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   className={cx(baseField, redFieldCls("weight_out"))}
                   value={form.weight_out}
-                  onChange={(e) => update("weight_out", e.target.value.replace(/[^\d.]/g, ""))}
+                  onChange={(e) => update("weight_out", onlyDigits(e.target.value))}
                   onFocus={() => {
                     clearError("weight_out")
                     clearHint("weight_out")
@@ -534,6 +391,7 @@ function StockTransferIn() {
                   aria-invalid={errors.weight_out ? true : undefined}
                 />
                 {errors.weight_out && <p className={errorTextCls}>{errors.weight_out}</p>}
+                <p className={helpTextCls}>* ต้องเป็นจำนวนเต็มกิโลกรัม</p>
               </div>
 
               <div>
@@ -541,7 +399,7 @@ function StockTransferIn() {
                 <input
                   disabled
                   className={cx(baseField, fieldDisabled)}
-                  value={Math.round(Math.max(weightIn - weightOut, 0) * 100) / 100}
+                  value={netWeightInt}
                 />
                 {errors.net_weight && <p className={errorTextCls}>{errors.net_weight}</p>}
                 <p className={helpTextCls}>คำนวณ = ชั่งเข้า − ชั่งออก</p>
@@ -553,10 +411,11 @@ function StockTransferIn() {
               <div>
                 <label className={labelCls}>คุณภาพ</label>
                 <input
-                  inputMode="decimal"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   className={cx(baseField, errors.dest_quality && "border-red-400")}
                   value={form.dest_quality}
-                  onChange={(e) => update("dest_quality", e.target.value.replace(/[^\d.]/g, ""))}
+                  onChange={(e) => update("dest_quality", onlyDigits(e.target.value))}
                   onFocus={() => clearError("dest_quality")}
                   placeholder="กรอกตัวเลข เช่น 95"
                   aria-invalid={errors.dest_quality ? true : undefined}
@@ -570,7 +429,11 @@ function StockTransferIn() {
                   inputMode="decimal"
                   className={cx(baseField, errors.impurity_percent && "border-red-400")}
                   value={form.impurity_percent}
-                  onChange={(e) => update("impurity_percent", e.target.value.replace(/[^\d.]/g, ""))}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^\d.]/g, "")
+                    // อนุญาตทศนิยม แต่จะส่งเป็น Number (ไม่บังคับ)
+                    update("impurity_percent", v)
+                  }}
                   onFocus={() => clearError("impurity_percent")}
                   placeholder="เช่น 2.5"
                   aria-invalid={errors.impurity_percent ? true : undefined}
@@ -581,7 +444,7 @@ function StockTransferIn() {
             </div>
           </div>
 
-          {/* กล่อง: ต้นทุนและคุณภาพ (เลย์เอาต์เหมือน transferout) */}
+          {/* กล่อง: ต้นทุนและคุณภาพ */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ต้นทุนและคุณภาพ</h2>
             <div className="grid gap-4 md:grid-cols-3">
@@ -595,7 +458,7 @@ function StockTransferIn() {
                   placeholder="ออโต้จากคำขอ"
                   disabled
                 />
-                <p className={helpTextCls}>ออโต้ฟิลจากคำขอฝั่งโอนออก</p>
+                <p className={helpTextCls}>ออโต้ฟิลจากคำขอฝั่งโอนออก (ถ้ามี)</p>
               </div>
 
               <div>
@@ -606,7 +469,7 @@ function StockTransferIn() {
             </div>
           </div>
 
-          {/* แถวสุดท้าย: บันทึกเพิ่มเติม — ย้ายลงมาหลังกล่องต้นทุน */}
+          {/* บันทึกเพิ่มเติม */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="grid gap-4 md:grid-cols-3">
               <div className="md:col-span-3">

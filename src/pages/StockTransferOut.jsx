@@ -562,6 +562,46 @@ function StockTransferOut() {
     return Object.keys(e).length === 0
   }
 
+  /** ---------- Builders ---------- */
+  const buildSpec = () => {
+    // แปลงค่า UI -> ProductSpecIn ของ BE
+    const product_id = /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id
+    const species_id = /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id
+    const variant_id = /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id
+
+    return {
+      product_id,
+      species_id,
+      variant_id,
+      product_year: form.rice_year_id ? Number(form.rice_year_id) : null, // ✅ map → product_year
+      condition_id: form.condition_id ? Number(form.condition_id) : null,
+      field_type: form.field_type_id ? Number(form.field_type_id) : null,
+      program: form.program_id ? Number(form.program_id) : null,
+      business_type: form.business_type_id ? Number(form.business_type_id) : null,
+    }
+  }
+
+  const lookupOriginStock = async (transferQty) => {
+    // ใช้ /transfer/stock/lookup เพื่อตรวจสต็อกต้นทางตาม spec + klang
+    try {
+      const body = {
+        klang_id: Number(form.from_klang_id),
+        spec: buildSpec(),
+      }
+      const rows = await post("/transfer/stock/lookup", body)
+      if (!rows || rows.length === 0) {
+        throw new Error("ไม่พบสต็อกต้นทางของสเปกนี้ในคลังที่เลือก")
+      }
+      const available = Number(rows[0].available ?? 0)
+      if (available < transferQty) {
+        throw new Error(`สต็อกคงเหลือต้นทางไม่พอ (คงเหลือ ${available.toLocaleString()} กก.)`)
+      }
+      return true
+    } catch (err) {
+      throw err
+    }
+  }
+
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -569,8 +609,17 @@ function StockTransferOut() {
     setMissingHints(hints)
     if (!validate()) return
 
+    const transferQty = Number(netWeight) // ✅ จะถูกใช้ตรวจคงเหลือ (Decimal ที่ BE รองรับ)
+    if (!(transferQty > 0)) {
+      setErrors((prev) => ({ ...prev, net_weight: "น้ำหนักสุทธิไม่ถูกต้อง" }))
+      return
+    }
+
     setSubmitting(true)
     try {
+      // ✅ Pre-check: สต็อกต้นทาง
+      await lookupOriginStock(transferQty)
+
       const payload = {
         date: form.transfer_date,
 
@@ -584,26 +633,20 @@ function StockTransferOut() {
         driver_name: form.driver_name.trim(),
         plate_number: form.plate_number.trim(),
 
-        product_id: /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id,
-        rice_id: /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id,
-        subrice_id: /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id,
+        // ✅ ส่งเป็น spec (ProductSpecIn)
+        spec: buildSpec(),
 
-        field_type: form.field_type_id ? Number(form.field_type_id) : null,
-        year_id: form.rice_year_id ? Number(form.rice_year_id) : null,
-        condition_id: form.condition_id ? Number(form.condition_id) : null,
-        program: form.program_id ? Number(form.program_id) : null,
-        business_type: form.business_type_id ? Number(form.business_type_id) : null,
-
+        // ✅ ค่าชั่ง/ราคา (optional ตาม BE)
         entry_weight: toNumber(form.weight_in),
         exit_weight: toNumber(form.weight_out),
-        weight: netWeight,
-
+        weight: transferQty, // net weight
         impurity: form.impurity_percent === "" ? 0 : toNumber(form.impurity_percent),
-
         price_per_kilo: costPerKg || 0,
         price: totalCost || 0,
-
         quality: 0,
+
+        // ✅ สำคัญ: BE ใช้ตรวจสต็อก + บันทึกในเอกสาร
+        transfer_qty: transferQty, // Decimal บน BE
       }
 
       await post("/transfer/request", payload)
@@ -631,7 +674,7 @@ function StockTransferOut() {
 
   /** ---------- UI ---------- */
   return (
-    <div className="min-h-screen bg-white text-black dark:bg-slate-9 00 dark:text-white rounded-2xl text-[15px] md:text-base">
+    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🚚 โอนออกข้าวเปลือก</h1>
 

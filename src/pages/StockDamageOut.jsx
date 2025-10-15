@@ -22,7 +22,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- ComboBox (เหมือนหน้ายกเข้า) ---------- */
+/** ---------- ComboBox (มาตรฐานโปรเจ็กต์) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -183,7 +183,7 @@ function ComboBox({
   )
 }
 
-/** ---------- DateInput (เหมือนหน้ายกเข้า) ---------- */
+/** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
@@ -229,8 +229,8 @@ const StockDamageOut = () => {
   const [klangOptions, setKlangOptions] = useState([])
 
   const [productOptions, setProductOptions] = useState([])
-  const [riceOptions, setRiceOptions] = useState([])
-  const [subriceOptions, setSubriceOptions] = useState([])
+  const [speciesOptions, setSpeciesOptions] = useState([])  // แทน rice
+  const [variantOptions, setVariantOptions] = useState([])  // แทน subrice
 
   // เมตาดาต้า (เหมือนหน้ายกเข้า)
   const [conditionOptions, setConditionOptions] = useState([])
@@ -250,10 +250,10 @@ const StockDamageOut = () => {
 
     product_id: "",
     product_name: "",
-    rice_id: "",
-    rice_type: "",
-    subrice_id: "",
-    subrice_name: "",
+    species_id: "",
+    species_name: "",
+    variant_id: "",
+    variant_name: "",
 
     // เมตาดาต้า (id)
     condition_id: "",
@@ -319,17 +319,17 @@ const StockDamageOut = () => {
             .filter((o) => o.id && o.label)
         )
 
-        setConditionOptions((conditions || []).map((c) => ({ id: c.id, label: c.condition })))
+        setConditionOptions((conditions || []).map((c) => ({ id: String(c.id), label: c.condition })))
 
         setFieldOptions(
           (fields || [])
-            .map((f) => ({ id: f.id, label: f.field ?? f.field_type ?? "" }))
+            .map((f) => ({ id: String(f.id), label: String(f.field ?? f.field_type ?? "") }))
             .filter((o) => o.id && o.label)
         )
 
-        setYearOptions((years || []).map((y) => ({ id: y.id, label: y.year })))
-        setProgramOptions((programs || []).map((p) => ({ id: p.id, label: p.program })))
-        setBusinessOptions((businesses || []).map((b) => ({ id: b.id, label: b.business })))
+        setYearOptions((years || []).map((y) => ({ id: String(y.id), label: String(y.year) })))
+        setProgramOptions((programs || []).map((p) => ({ id: String(p.id), label: p.program })))
+        setBusinessOptions((businesses || []).map((b) => ({ id: String(b.id), label: b.business })))
       } catch (e) {
         console.error("load static error:", e)
         setBranchOptions([])
@@ -368,63 +368,63 @@ const StockDamageOut = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.branch_id, form.branch_name])
 
-  // product -> rice
+  // product -> species
   useEffect(() => {
     const pid = form.product_id
     if (!pid) {
-      setRiceOptions([])
-      update("rice_id", "")
-      update("rice_type", "")
-      update("subrice_id", "")
-      update("subrice_name", "")
+      setSpeciesOptions([])
+      update("species_id", "")
+      update("species_name", "")
+      update("variant_id", "")
+      update("variant_name", "")
       return
     }
-    const loadRice = async () => {
+    const loadSpecies = async () => {
       try {
-        const arr = await get(`/order/rice/search?product_id=${encodeURIComponent(pid)}`)
+        const arr = await get(`/order/species/search?product_id=${encodeURIComponent(pid)}`)
         const mapped = (arr || [])
           .map((x) => ({
-            id: String(x.id ?? x.rice_id ?? x.value ?? ""),
-            label: String(x.rice_type ?? x.name ?? x.label ?? "").trim(),
+            id: String(x.id ?? x.species_id ?? x.value ?? ""),
+            label: String(x.species ?? x.name ?? x.label ?? "").trim(),
           }))
           .filter((o) => o.id && o.label)
-        setRiceOptions(mapped)
+        setSpeciesOptions(mapped)
       } catch (e) {
-        console.error("load rice error:", e)
-        setRiceOptions([])
+        console.error("load species error:", e)
+        setSpeciesOptions([])
       }
     }
-    loadRice()
+    loadSpecies()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.product_id])
 
-  // rice -> subrice
+  // species -> variant
   useEffect(() => {
-    const rid = form.rice_id
-    if (!rid) {
-      setSubriceOptions([])
-      update("subrice_id", "")
-      update("subrice_name", "")
+    const sid = form.species_id
+    if (!sid) {
+      setVariantOptions([])
+      update("variant_id", "")
+      update("variant_name", "")
       return
     }
-    const loadSub = async () => {
+    const loadVariant = async () => {
       try {
-        const arr = await get(`/order/sub-rice/search?rice_id=${encodeURIComponent(rid)}`)
+        const arr = await get(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)
         const mapped = (arr || [])
           .map((x) => ({
-            id: String(x.id ?? x.subrice_id ?? x.value ?? ""),
-            label: String(x.sub_class ?? x.name ?? x.label ?? "").trim(),
+            id: String(x.id ?? x.variant_id ?? x.value ?? ""),
+            label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
           }))
           .filter((o) => o.id && o.label)
-        setSubriceOptions(mapped)
+        setVariantOptions(mapped)
       } catch (e) {
-        console.error("load subrice error:", e)
-        setSubriceOptions([])
+        console.error("load variant error:", e)
+        setVariantOptions([])
       }
     }
-    loadSub()
+    loadVariant()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.rice_id])
+  }, [form.species_id])
 
   /** ---------- Validate ---------- */
   const computeMissingHints = () => {
@@ -435,8 +435,8 @@ const StockDamageOut = () => {
     if (!form.klang_id) m.klang_id = true
 
     if (!form.product_id) m.product_id = true
-    if (!form.rice_id) m.rice_id = true
-    if (!form.subrice_id) m.subrice_id = true
+    if (!form.species_id) m.species_id = true
+    if (!form.variant_id) m.variant_id = true
 
     if (!form.weight_out || Number(form.weight_out) <= 0) m.weight_out = true
     if (form.cost_per_kg === "" || Number(form.cost_per_kg) < 0) m.cost_per_kg = true
@@ -451,9 +451,9 @@ const StockDamageOut = () => {
     if (!form.branch_id) e.branch_id = "กรุณาเลือกสาขา"
     if (!form.klang_id) e.klang_id = "กรุณาเลือกคลัง"
 
-    if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
-    if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
-    if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
+    if ( !form.product_id ) e.product_id = "กรุณาเลือกประเภทสินค้า"
+    if ( !form.species_id ) e.species_id = "กรุณาเลือกชนิดข้าว (Species)"
+    if ( !form.variant_id ) e.variant_id = "กรุณาเลือกชั้นย่อย (Variant)"
 
     if (toNumber(form.weight_out) <= 0) e.weight_out = "น้ำหนักต้องมากกว่า 0"
     if (form.cost_per_kg === "" || toNumber(form.cost_per_kg) < 0) e.cost_per_kg = "ค่าเสียหาย/กก. ต้องไม่ติดลบ"
@@ -471,44 +471,42 @@ const StockDamageOut = () => {
 
     setSubmitting(true)
     try {
-      const payload = {
-        damage_date: form.damage_date,
-        branch_id: form.branch_id ?? null,
-        klang_id: form.klang_id ?? null,
-
+      // สร้าง spec ให้ตรงกับ ProductSpecIn ของ BE
+      const spec = {
         product_id: /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id,
-        rice_id: /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id,
-        subrice_id: /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id,
-
-        // นำออกจากคลัง
-        weight_out: toNumber(form.weight_out),
-
-        // ค่าเสียหาย
-        damage_cost_per_kg: toNumber(form.cost_per_kg),
-        total_damage_cost: totalDamage || 0,
-
-        // เมตาดาต้า (ถ้า backend รองรับ ค่อยเปิดใช้งาน)
-        // condition_id: form.condition_id ? Number(form.condition_id) : null,
-        // field_type_id: form.field_type_id ? Number(form.field_type_id) : null,
-        // rice_year_id: form.rice_year_id ? Number(form.rice_year_id) : null,
-        // program_id: form.program_id ? Number(form.program_id) : null,
-        // business_type_id: form.business_type_id ? Number(form.business_type_id) : null,
-
-        reason: form.reason?.trim() || null,
+        species_id: /^\d+$/.test(form.species_id) ? Number(form.species_id) : form.species_id,
+        variant_id: /^\d+$/.test(form.variant_id) ? Number(form.variant_id) : form.variant_id,
+        product_year: form.rice_year_id ? Number(form.rice_year_id) : null,
+        condition_id: form.condition_id ? Number(form.condition_id) : null,
+        field_type: form.field_type_id ? Number(form.field_type_id) : null,
+        program: form.program_id ? Number(form.program_id) : null,
+        business_type: form.business_type_id ? Number(form.business_type_id) : null,
       }
 
-      await post("/api/stock/damage-out", payload)
+      // Payload ให้ตรงกับ CutLossCreateIn
+      const payload = {
+        date: form.damage_date,                         // date
+        spec,                                           // ProductSpecIn
+        cl_branch: form.branch_id ?? null,              // int
+        cl_klang: form.klang_id ?? null,                // int
+        price: toNumber(form.cost_per_kg),              // Decimal >= 0
+        cl_amount: toNumber(form.weight_out),           // Decimal >= 0
+        comment: form.reason?.trim() || null,           // Optional[str]
+      }
 
-      alert("บันทึกตัดเสียหาย (นำออกจากคลัง) สำเร็จ ✅")
+      // ยิงไปที่ BE route ใหม่
+      await post("/carryover/create", payload)
+
+      alert("บันทึกตัดเสียหาย (Damage Out) สำเร็จ ✅")
       setForm((f) => ({
         ...f,
         // คงสาขา/คลังไว้ เผื่อตัดต่อเนื่อง
         product_id: "",
         product_name: "",
-        rice_id: "",
-        rice_type: "",
-        subrice_id: "",
-        subrice_name: "",
+        species_id: "",
+        species_name: "",
+        variant_id: "",
+        variant_name: "",
         condition_id: "",
         condition_label: "",
         field_type_id: "",
@@ -614,10 +612,10 @@ const StockDamageOut = () => {
                     clearHint("product_id")
                     update("product_id", id)
                     update("product_name", found?.label ?? "")
-                    update("rice_id", "")
-                    update("rice_type", "")
-                    update("subrice_id", "")
-                    update("subrice_name", "")
+                    update("species_id", "")
+                    update("species_name", "")
+                    update("variant_id", "")
+                    update("variant_name", "")
                   }}
                   placeholder="— เลือกประเภทสินค้า —"
                   error={!!errors.product_id}
@@ -627,43 +625,43 @@ const StockDamageOut = () => {
               </div>
 
               <div>
-                <label className={labelCls}>ชนิดข้าว</label>
+                <label className={labelCls}>ชนิดข้าว (Species)</label>
                 <ComboBox
-                  options={riceOptions}
-                  value={form.rice_id}
+                  options={speciesOptions}
+                  value={form.species_id}
                   onChange={(id, found) => {
-                    clearError("rice_id")
-                    clearHint("rice_id")
-                    update("rice_id", id)
-                    update("rice_type", found?.label ?? "")
-                    update("subrice_id", "")
-                    update("subrice_name", "")
+                    clearError("species_id")
+                    clearHint("species_id")
+                    update("species_id", id)
+                    update("species_name", found?.label ?? "")
+                    update("variant_id", "")
+                    update("variant_name", "")
                   }}
                   placeholder="— เลือกชนิดข้าว —"
                   disabled={!form.product_id}
-                  error={!!errors.rice_id}
-                  hintRed={!!missingHints.rice_id}
+                  error={!!errors.species_id}
+                  hintRed={!!missingHints.species_id}
                 />
-                {errors.rice_id && <p className={errorTextCls}>{errors.rice_id}</p>}
+                {errors.species_id && <p className={errorTextCls}>{errors.species_id}</p>}
               </div>
 
               <div>
-                <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
+                <label className={labelCls}>ชั้นย่อย (Variant)</label>
                 <ComboBox
-                  options={subriceOptions}
-                  value={form.subrice_id}
+                  options={variantOptions}
+                  value={form.variant_id}
                   onChange={(id, found) => {
-                    clearError("subrice_id")
-                    clearHint("subrice_id")
-                    update("subrice_id", id)
-                    update("subrice_name", found?.label ?? "")
+                    clearError("variant_id")
+                    clearHint("variant_id")
+                    update("variant_id", id)
+                    update("variant_name", found?.label ?? "")
                   }}
                   placeholder="— เลือกชั้นย่อย —"
-                  disabled={!form.rice_id}
-                  error={!!errors.subrice_id}
-                  hintRed={!!missingHints.subrice_id}
+                  disabled={!form.species_id}
+                  error={!!errors.variant_id}
+                  hintRed={!!missingHints.variant_id}
                 />
-                {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
+                {errors.variant_id && <p className={errorTextCls}>{errors.variant_id}</p>}
               </div>
 
               {/* สภาพ/เงื่อนไข */}
@@ -820,10 +818,10 @@ const StockDamageOut = () => {
                   // เคลียร์เฉพาะข้อมูลสินค้า/น้ำหนัก/ราคา
                   product_id: "",
                   product_name: "",
-                  rice_id: "",
-                  rice_type: "",
-                  subrice_id: "",
-                  subrice_name: "",
+                  species_id: "",
+                  species_name: "",
+                  variant_id: "",
+                  variant_name: "",
                   condition_id: "",
                   condition_label: "",
                   field_type_id: "",

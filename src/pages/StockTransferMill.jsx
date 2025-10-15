@@ -1140,6 +1140,9 @@ function StockTransferMill() {
 function RowEligible({ row, defaultWeight, onAdd }) {
   const [w, setW] = useState(defaultWeight ?? "")
   useEffect(() => setW(defaultWeight ?? ""), [defaultWeight])
+
+  const canAdd = toInt(w) > 0
+
   return (
     <tr className="border-t border-slate-100 dark:border-slate-700/60">
       <td className="px-3 py-2">{row.tempstock_id}</td>
@@ -1153,6 +1156,13 @@ function RowEligible({ row, defaultWeight, onAdd }) {
           className={baseField}
           value={w}
           onChange={(e) => setW(onlyDigits(e.target.value))}
+          onKeyDown={(e) => {
+            // ป้องกัน Enter ส่งฟอร์มทั้งหน้า และใช้เป็นปุ่มลัดเพิ่มแถวนี้
+            if (e.key === "Enter") {
+              e.preventDefault()
+              if (canAdd) onAdd(w)
+            }
+          }}
           placeholder="จำนวนเต็ม"
         />
       </td>
@@ -1160,7 +1170,11 @@ function RowEligible({ row, defaultWeight, onAdd }) {
         <button
           type="button"
           onClick={() => onAdd(w)}
-          className="rounded-xl bg-emerald-600 px-3 py-2 text-white hover:bg-emerald-700"
+          disabled={!canAdd}
+          className={cx(
+            "rounded-xl px-3 py-2 text-white",
+            canAdd ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-400 cursor-not-allowed"
+          )}
         >
           เพิ่ม/อัปเดต
         </button>

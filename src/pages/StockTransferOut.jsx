@@ -650,6 +650,9 @@ function StockTransferOut() {
 
         // ใช้จำนวนย้ายตาม net เป็นจำนวนเต็ม
         transfer_qty: transferQty,
+
+        // บันทึกเพิ่มเติม/เหตุผล (ผู้โอน)
+        sender_note: form.quality_note?.trim() || null,
       }
 
       await post("/transfer/request", payload)
@@ -660,8 +663,8 @@ function StockTransferOut() {
         weight_in: "",
         weight_out: "",
         cost_per_kg: "",
-        quality_note: "",
         impurity_percent: "",
+        // คงค่า quality_note (บันทึกเพิ่มเติม) ไว้ ไม่ล้าง
       }))
     } catch (err) {
       console.error(err)
@@ -1047,16 +1050,6 @@ function StockTransferOut() {
                 <p className={helpTextCls}>คำนวณ = ราคาต้นทุน × น้ำหนักสุทธิ</p>
               </div>
 
-              <div className="md:col-span-2">
-                <label className={labelCls}>บันทึกคุณภาพ/หมายเหตุ</label>
-                <input
-                  className={baseField}
-                  value={form.quality_note}
-                  onChange={(e) => update("quality_note", e.target.value)}
-                  placeholder="เช่น ความชื้นสูง แกลบเยอะ"
-                />
-              </div>
-
               {/* สิ่งเจือปน (%) */}
               <div>
                 <label className={labelCls}>สิ่งเจือปน (%)</label>
@@ -1071,6 +1064,21 @@ function StockTransferOut() {
                 />
                 {errors.impurity_percent && <p className={errorTextCls}>{errors.impurity_percent}</p>}
                 <p className={helpTextCls}>กรอกเป็นตัวเลข 0–100 (เว้นว่างได้)</p>
+              </div>
+            </div>
+          </div>
+
+          {/* บันทึกเพิ่มเติม (ผู้โอน) — เหมือนหน้า 'รับเข้า' */}
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="md:col-span-3">
+                <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้โอน)</label>
+                <input
+                  className={baseField}
+                  value={form.quality_note}
+                  onChange={(e) => update("quality_note", e.target.value)}
+                  placeholder="เช่น โอนระบายสต็อกจากสาขา A ไปสาขา B เพื่อเตรียมขายโครงการ X"
+                />
               </div>
             </div>
           </div>
@@ -1100,7 +1108,8 @@ function StockTransferOut() {
                   weight_in: "",
                   weight_out: "",
                   cost_per_kg: "",
-                  quality_note: "",
+                  impurity_percent: "",
+                  // ไม่ล้าง quality_note เพื่อเก็บบันทึกเพิ่มเติมของผู้โอน
                 }))
               }
               className="inline-flex items-center justify-center rounded-2xl 

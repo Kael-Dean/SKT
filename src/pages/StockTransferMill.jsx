@@ -236,6 +236,10 @@ function StockTransferMill() {
   const [programOptions, setProgramOptions] = useState([])
   const [businessOptions, setBusinessOptions] = useState([])
 
+  /** ---------- All Klangs (ทุกสาขา) ---------- */
+  const [selectAllKlangs, setSelectAllKlangs] = useState(false)
+  const [allKlangsCache, setAllKlangsCache] = useState([]) // [{id,label,branch_id,branch_label}]
+
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
     lot_date: new Date().toISOString().slice(0, 10),
@@ -466,7 +470,7 @@ function StockTransferMill() {
   const computeMissingHints = () => {
     const m = {}
     if (!form.lot_number?.trim()) m.lot_number = true
-    // klang_id ไม่บังคับตอนส่งลอตแล้ว (เพราะลอตรวบได้หลายคลัง)
+    // klang_id ไม่บังคับ (รองรับ “ทุกคลัง”)
     if (!form.product_id) m.product_id = true
     if (!form.rice_id) m.rice_id = true
     if (!form.subrice_id) m.subrice_id = true
@@ -476,7 +480,8 @@ function StockTransferMill() {
 
   const validateBeforeSearch = () => {
     const e = {}
-    if (!form.klang_id) e.klang_id = "กรุณาเลือกคลังสำหรับดึงรายการ"
+    // ถ้าไม่ได้เลือก “ทุกคลัง” ต้องมี klang_id
+    if (!selectAllKlangs && !form.klang_id) e.klang_id = "กรุณาเลือกคลังสำหรับดึงรายการ หรือเปิดโหมด 'ดึงจากทุกคลัง'"
     if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
     if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
     if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
@@ -503,30 +508,56 @@ function StockTransferMill() {
   }
 
   /** ---------- Payload helpers ---------- */
-  const buildSpecPayload = (includeKlang = true) => {
+  const buildSpecPayload = (includeKlang = true, klangIdOverride = null) => {
     const toIntOrNull = (v) => (v === "" || v == null ? null : Number(v))
     const yearVal =
       form.rice_year_label && /^\d{3,4}$/.test(form.rice_year_label)
         ? Number(form.rice_year_label)
         : toIntOrNull(form.rice_year_id)
 
-    const base = {
-      spec: {
-        product_id: Number(form.product_id),
-        species_id: Number(form.rice_id),
-        variant_id: Number(form.subrice_id),
-        product_year: yearVal,
-        condition_id: toIntOrNull(form.condition_id),
-        field_type: toIntOrNull(form.field_type_id),
-        program: toIntOrNull(form.program_id),
-        business_type: toIntOrNull(form.business_type_id),
-      },
+    const baseSpec = {
+      product_id: Number(form.product_id),
+      species_id: Number(form.rice_id),
+      variant_id: Number(form.subrice_id),
+      product_year: yearVal,
+      condition_id: toIntOrNull(form.condition_id),
+      field_type: toIntOrNull(form.field_type_id),
+      program: toIntOrNull(form.program_id),
+      business_type: toIntOrNull(form.business_type_id),
     }
 
-    return includeKlang
-      ? { spec: { ...base, klang_location: form.klang_id ?? null } }
-      : { spec: base } // ไม่มี klang_location เวลาส่งบันทึก (รองรับหลายคลัง)
+    const specWrapper = { spec: baseSpec }
+    if (!includeKlang) return { spec: specWrapper } // สำหรับ submit (รองรับหลายคลัง)
+
+    const klangLoc = klangIdOverride != null ? klangIdOverride : form.klang_id ?? null
+    return { spec: { ...specWrapper, klang_location: klangLoc } }
   }
+
+  /** ---------- All Klangs helper (ทุกสาขา) ---------- */
+  const ensureAllKlangs = useCallback(async () => {
+    if (allKlangsCache.length > 0) return allKlangsCache
+    // ดึงคลังของทุกสาขา
+    const branchMap = new Map(branchOptions.map((b) => [String(b.id), b.label]))
+    const results = await Promise.allSettled(
+      branchOptions.map((b) => get(`/order/klang/search?branch_id=${b.id}`))
+    )
+    const merged = []
+    results.forEach((res, idx) => {
+      if (res.status === "fulfilled" && Array.isArray(res.value)) {
+        const b = branchOptions[idx]
+        res.value.forEach((k) => {
+          merged.push({
+            id: k.id,
+            label: k.klang_name,
+            branch_id: b.id,
+            branch_label: branchMap.get(String(b.id)) || "",
+          })
+        })
+      }
+    })
+    setAllKlangsCache(merged)
+    return merged
+  }, [allKlangsCache.length, branchOptions])
 
   /** ---------- Eligible fetch ---------- */
   const fetchEligible = async () => {
@@ -534,10 +565,41 @@ function StockTransferMill() {
     if (!validateBeforeSearch()) return
     setLoadingEligible(true)
     try {
-      const payload = buildSpecPayload(true) // รวม klang เพื่อกรอง
-      const rows = await post("/mill/eligible", payload)
-      setEligible(Array.isArray(rows) ? rows : [])
-      if (!rows || rows.length === 0) setEligibleErr("ไม่พบบัญชี TempStock ที่เข้าเกณฑ์")
+      if (selectAllKlangs) {
+        // ดึงจากทุกคลัง ทุกสาขา → รวมผล และ dedupe ตาม tempstock_id
+        const allKlangs = await ensureAllKlangs()
+        if (allKlangs.length === 0) {
+          setEligible([])
+          setEligibleErr("ไม่พบบัญชีคลังใด ๆ ในระบบ")
+          setLoadingEligible(false)
+          return
+        }
+
+        const payloads = allKlangs.map((k) => buildSpecPayload(true, k.id))
+        const calls = await Promise.allSettled(payloads.map((pl) => post("/mill/eligible", pl)))
+
+        const map = new Map() // tempstock_id -> row
+        let totalFound = 0
+        calls.forEach((c) => {
+          if (c.status === "fulfilled" && Array.isArray(c.value)) {
+            c.value.forEach((row) => {
+              totalFound += 1
+              // dedupe by tempstock_id (ล่าสุดทับเดิมไม่เป็นไร — ข้อมูลเหมือนกัน)
+              map.set(row.tempstock_id, row)
+            })
+          }
+        })
+        const merged = Array.from(map.values())
+        setEligible(merged)
+        if (merged.length === 0) {
+          setEligibleErr("ไม่พบบัญชี TempStock ที่เข้าเกณฑ์จากทุกคลัง")
+        }
+      } else {
+        const payload = buildSpecPayload(true) // รวม klang เฉพาะที่เลือก
+        const rows = await post("/mill/eligible", payload)
+        setEligible(Array.isArray(rows) ? rows : [])
+        if (!rows || rows.length === 0) setEligibleErr("ไม่พบบัญชี TempStock ที่เข้าเกณฑ์")
+      }
     } catch (err) {
       console.error(err)
       setEligible([])
@@ -600,7 +662,7 @@ function StockTransferMill() {
       const created = await post("/mill/records", payload)
       alert(`สร้างล็อตสีสำเร็จ ✅\nLOT: ${created?.lot_number || payload.lot_number}`)
 
-      // Reset เฉพาะส่วนสินค้า (คง branch/klang เผื่อดึงต่อ)
+      // Reset เฉพาะส่วนสินค้า (คง branch/klang/โหมดทุกคลัง เผื่อดึงต่อ)
       setPicks([])
       clearEligibleOnly()
       setForm((f) => ({
@@ -688,6 +750,32 @@ function StockTransferMill() {
           {/* กรอบที่ 2: ที่ตั้ง & สเปคข้าว */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ที่ตั้ง & สเปคข้าว</h2>
+
+            {/* แถบสวิตช์ “ดึงจากทุกคลัง (ทุกสาขา)” */}
+            <div className="mb-3 flex items-center gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700/60">
+              <input
+                id="allKlangs"
+                type="checkbox"
+                className="h-5 w-5 accent-emerald-600 cursor-pointer"
+                checked={selectAllKlangs}
+                onChange={(e) => {
+                  const on = e.target.checked
+                  setSelectAllKlangs(on)
+                  // เปิดโหมดทุกคลัง → ปิดการเลือกคลังเดียว / ล้างผลค้นหา
+                  if (on) {
+                    update("klang_id", null)
+                    update("klang_name", "")
+                  }
+                  clearEligibleOnly()
+                  clearError("klang_id")
+                  clearHint("klang_id")
+                }}
+              />
+              <label htmlFor="allKlangs" className="cursor-pointer select-none">
+                ดึงจาก <b>ทุกคลัง</b> ที่มีข้าวตามสเปค (ทุกสาขา)
+              </label>
+            </div>
+
             <div className="grid gap-4 md:grid-cols-3">
               {/* สาขา */}
               <div>
@@ -706,7 +794,11 @@ function StockTransferMill() {
                     clearEligibleOnly()
                   }}
                   placeholder="— เลือกสาขา —"
+                  disabled={selectAllKlangs} // โหมดทุกคลัง: ไม่ต้องเลือกสาขา
                 />
+                {selectAllKlangs && (
+                  <p className={helpTextCls}>โหมด “ทุกคลัง” จะค้นหาทุกสาขาให้อัตโนมัติ</p>
+                )}
               </div>
 
               {/* คลัง */}
@@ -721,16 +813,19 @@ function StockTransferMill() {
                     clearHint("klang_id")
                     update("klang_id", found?.id ?? null)
                     update("klang_name", found?.label ?? "")
-                    // เปลี่ยนคลัง: เคลียร์เฉพาะผลค้นหา เพื่อกดดึงชุดใหม่ (picks คงอยู่)
                     clearEligibleOnly()
                   }}
                   placeholder="— เลือกคลัง —"
-                  disabled={!form.branch_id}
-                  error={!!errors.klang_id}
-                  hintRed={!!missingHints.klang_id}
+                  disabled={!form.branch_id || selectAllKlangs}
+                  error={!selectAllKlangs && !!errors.klang_id}
+                  hintRed={!selectAllKlangs && !!missingHints.klang_id}
                 />
-                <p className={helpTextCls}>เลือกคลัง → ดึงรายการ → เพิ่มเข้า “ลอต” ได้หลายคลัง</p>
-                {errors.klang_id && <p className={errorTextCls}>{errors.klang_id}</p>}
+                <p className={helpTextCls}>
+                  {selectAllKlangs
+                    ? "กำลังใช้โหมดดึงจากทุกคลัง (ปิดการเลือกคลังเดี่ยว)"
+                    : "เลือกคลัง → ดึงรายการ → เพิ่มเข้า “ลอต” ได้หลายคลัง"}
+                </p>
+                {!selectAllKlangs && errors.klang_id && <p className={errorTextCls}>{errors.klang_id}</p>}
               </div>
 
               {/* ประเภทสินค้า */}
@@ -749,7 +844,6 @@ function StockTransferMill() {
                     update("rice_type", "")
                     update("subrice_id", "")
                     update("subrice_name", "")
-                    // เปลี่ยนสเปก: ล้าง picks และผลค้นหา
                     setPicks([])
                     clearEligibleOnly()
                   }}
@@ -899,7 +993,7 @@ function StockTransferMill() {
                 aria-busy={loadingEligible ? "true" : "false"}
                 disabled={loadingEligible}
               >
-                {loadingEligible ? "กำลังดึงคลังที่เข้าเกณฑ์..." : "ดึงคลังที่เข้าเกณฑ์"}
+                {loadingEligible ? (selectAllKlangs ? "กำลังดึงจากทุกคลัง..." : "กำลังดึงคลังที่เข้าเกณฑ์...") : (selectAllKlangs ? "ดึงจากทุกคลัง (ทุกสาขา)" : "ดึงคลังที่เข้าเกณฑ์")}
               </button>
 
               <div className="text-sm text-slate-600 dark:text-slate-300 flex items-center">
@@ -930,7 +1024,7 @@ function StockTransferMill() {
                   {eligible.length === 0 && (
                     <tr>
                       <td colSpan={7} className="px-3 py-4 text-center text-slate-500">
-                        — ไม่มีข้อมูล — กด “ดึงคลังที่เข้าเกณฑ์” หลังเลือกสเปคข้าวและคลัง —
+                        — ไม่มีข้อมูล — กด “{selectAllKlangs ? "ดึงจากทุกคลัง" : "ดึงคลังที่เข้าเกณฑ์"}” หลังเลือกสเปคข้าว —
                       </td>
                     </tr>
                   )}

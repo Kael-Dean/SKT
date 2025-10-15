@@ -9,7 +9,6 @@ const toInt = (v) => {
   if (!Number.isFinite(n)) return 0
   return Math.trunc(n)
 }
-const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
 const cx = (...a) => a.filter(Boolean).join(" ")
 
 /** ---------- Styles ---------- */
@@ -18,8 +17,6 @@ const baseField =
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-const fieldDisabled =
-  "bg-slate-100 text-slate-600 cursor-not-allowed opacity-95 dark:bg-slate-700/70 dark:text-slate-300"
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
@@ -225,7 +222,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 function StockTransferMill() {
   const [submitting, setSubmitting] = useState(false)
 
-  /** ---------- Dropdown options (ให้เหมือนหน้าขาย) ---------- */
+  /** ---------- Dropdown options ---------- */
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
 
@@ -241,28 +238,21 @@ function StockTransferMill() {
 
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
-    // optional metadata
     lot_date: new Date().toISOString().slice(0, 10),
-
-    // LOT
     lot_number: "",
     total_weight: "",
-
-    // Location
     branch_id: null,
     branch_name: "",
     klang_id: null,
     klang_name: "",
 
-    // Spec (ให้โครงเหมือนหน้าขาย)
     product_id: "",
     product_name: "",
-    rice_id: "",      // species_id
+    rice_id: "",
     rice_type: "",
-    subrice_id: "",   // variant_id
+    subrice_id: "",
     subrice_name: "",
 
-    // meta (optional)
     condition_id: "",
     field_type_id: "",
     field_type_label: "",
@@ -278,10 +268,7 @@ function StockTransferMill() {
   /** ---------- Errors / hints ---------- */
   const [errors, setErrors] = useState({})
   const [missingHints, setMissingHints] = useState({})
-  const redFieldCls = (key) =>
-    errors[key] || missingHints[key] ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : ""
-  const redHintCls = (key) =>
-    missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : ""
+  const redFieldCls = (key) => (errors[key] || missingHints[key] ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : "")
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
   const clearError = (key) =>
     setErrors((prev) => {
@@ -294,8 +281,6 @@ function StockTransferMill() {
   const [eligible, setEligible] = useState([])
   const [loadingEligible, setLoadingEligible] = useState(false)
   const [eligibleErr, setEligibleErr] = useState("")
-  // เก็บ key ของ spec/klang ที่ใช้ตอนดึง eligible เพื่อกัน mismatch ตอน submit
-  const [eligibleKey, setEligibleKey] = useState("")
 
   /** ---------- Picks in this lot ---------- */
   const [picks, setPicks] = useState([]) // [{ tempstock_id, stock_id, amount_available, stock_branch, stock_klang, pick_weight }]
@@ -303,22 +288,16 @@ function StockTransferMill() {
   const requiredTotal = useMemo(() => toInt(form.total_weight), [form.total_weight])
   const diff = requiredTotal - totalPicked
 
-  // helper: ยืนยันก่อนล้างรายการเมื่อสเปก/คลังจะเปลี่ยน
+  // ยืนยันก่อนล้างรายการเมื่อ "สเปกสินค้า" เปลี่ยน (ไม่ใช่สาขา/คลัง)
   const confirmClearIfNeeded = useCallback(() => {
     if (picks.length === 0) return true
-    return window.confirm("มีรายการอยู่ในลอตปัจจุบัน การเปลี่ยนตัวเลือกนี้จะล้างรายการทั้งหมดในลอต คุณต้องการทำต่อหรือไม่?")
+    return window.confirm("มีรายการอยู่ในลอต การเปลี่ยนสเปกสินค้าจะล้างรายการทั้งหมดในลอต ต้องการทำต่อหรือไม่?")
   }, [picks.length])
 
-  // ล้างผลค้นหา/รายการเลือก เมื่อสเปก/คลังเปลี่ยน (หลังได้รับการยืนยัน)
-  const clearEligibleAndPicks = useCallback(() => {
-    setPicks([])
+  // เคลียร์เฉพาะผลค้นหา (เก็บ picks ไว้) เวลาที่ตั้งเปลี่ยน
+  const clearEligibleOnly = useCallback(() => {
     setEligible([])
     setEligibleErr("")
-    setEligibleKey("")
-    setErrors((e) => {
-      const { picks: _omit, ...rest } = e
-      return rest
-    })
   }, [])
 
   /** ---------- Load dropdowns ---------- */
@@ -401,7 +380,7 @@ function StockTransferMill() {
     loadStatic()
   }, [])
 
-  // branch -> klang (เคลียร์ค่าเมื่อเปลี่ยนสาขา)
+  // branch -> klang
   useEffect(() => {
     const bid = form.branch_id
     const bname = form.branch_name?.trim()
@@ -487,7 +466,7 @@ function StockTransferMill() {
   const computeMissingHints = () => {
     const m = {}
     if (!form.lot_number?.trim()) m.lot_number = true
-    if (!form.klang_id) m.klang_id = true
+    // klang_id ไม่บังคับตอนส่งลอตแล้ว (เพราะลอตรวบได้หลายคลัง)
     if (!form.product_id) m.product_id = true
     if (!form.rice_id) m.rice_id = true
     if (!form.subrice_id) m.subrice_id = true
@@ -497,7 +476,7 @@ function StockTransferMill() {
 
   const validateBeforeSearch = () => {
     const e = {}
-    if (!form.klang_id) e.klang_id = "กรุณาเลือกคลัง"
+    if (!form.klang_id) e.klang_id = "กรุณาเลือกคลังสำหรับดึงรายการ"
     if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
     if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
     if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
@@ -505,10 +484,10 @@ function StockTransferMill() {
     return Object.keys(e).length === 0
   }
 
-  const validateBeforeSubmit = (currentSpecKey) => {
+  const validateBeforeSubmit = () => {
     const e = {}
     if (!form.lot_number?.trim()) e.lot_number = "กรุณาใส่เลข LOT"
-    if (!form.klang_id) e.klang_id = "กรุณาเลือกคลัง"
+    // ไม่บังคับ klang_id
     if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
     if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
     if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
@@ -516,57 +495,52 @@ function StockTransferMill() {
     const tw = toInt(form.total_weight)
     if (tw <= 0) e.total_weight = "น้ำหนักรวมต้องมากกว่า 0 (กก.) และเป็นจำนวนเต็ม"
     if (picks.length === 0) e.picks = "กรุณาเพิ่มคลังอย่างน้อย 1 รายการ"
+    const totalPicked = picks.reduce((acc, it) => acc + toInt(it.pick_weight), 0)
     if (totalPicked !== tw) e.picks = `น้ำหนักที่เลือก (${totalPicked.toLocaleString()} กก.) ต้องเท่ากับน้ำหนักรวม (${tw.toLocaleString()} กก.)`
-
-    // กันกรณี spec/klang เปลี่ยนหลังดึง eligible
-    if (!eligibleKey || eligibleKey !== currentSpecKey) {
-      e.picks = "มีการเปลี่ยนสเปคหรือคลังหลังจากดึงข้อมูล โปรดกด “ดึงคลังที่เข้าเกณฑ์” อีกครั้งและเลือกใหม่"
-    }
 
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
-  /** ---------- Eligible fetch ---------- */
-  const buildSpecPayload = () => {
+  /** ---------- Payload helpers ---------- */
+  const buildSpecPayload = (includeKlang = true) => {
     const toIntOrNull = (v) => (v === "" || v == null ? null : Number(v))
     const yearVal =
       form.rice_year_label && /^\d{3,4}$/.test(form.rice_year_label)
         ? Number(form.rice_year_label)
         : toIntOrNull(form.rice_year_id)
 
-    return {
+    const base = {
       spec: {
-        spec: {
-          product_id: Number(form.product_id),
-          species_id: Number(form.rice_id),
-          variant_id: Number(form.subrice_id),
-          product_year: yearVal,
-          condition_id: toIntOrNull(form.condition_id),
-          field_type: toIntOrNull(form.field_type_id),
-          program: toIntOrNull(form.program_id),
-          business_type: toIntOrNull(form.business_type_id),
-        },
-        klang_location: form.klang_id ?? null,
+        product_id: Number(form.product_id),
+        species_id: Number(form.rice_id),
+        variant_id: Number(form.subrice_id),
+        product_year: yearVal,
+        condition_id: toIntOrNull(form.condition_id),
+        field_type: toIntOrNull(form.field_type_id),
+        program: toIntOrNull(form.program_id),
+        business_type: toIntOrNull(form.business_type_id),
       },
     }
-  }
-  const specKeyOf = (millSpec) => JSON.stringify(millSpec)
 
+    return includeKlang
+      ? { spec: { ...base, klang_location: form.klang_id ?? null } }
+      : { spec: base } // ไม่มี klang_location เวลาส่งบันทึก (รองรับหลายคลัง)
+  }
+
+  /** ---------- Eligible fetch ---------- */
   const fetchEligible = async () => {
     setEligibleErr("")
     if (!validateBeforeSearch()) return
     setLoadingEligible(true)
     try {
-      const payload = buildSpecPayload()
+      const payload = buildSpecPayload(true) // รวม klang เพื่อกรอง
       const rows = await post("/mill/eligible", payload)
       setEligible(Array.isArray(rows) ? rows : [])
-      setEligibleKey(specKeyOf(payload.spec))
       if (!rows || rows.length === 0) setEligibleErr("ไม่พบบัญชี TempStock ที่เข้าเกณฑ์")
     } catch (err) {
       console.error(err)
       setEligible([])
-      setEligibleKey("")
       setEligibleErr(err?.message || "ดึงคลังเข้าเกณฑ์ไม่สำเร็จ")
     } finally {
       setLoadingEligible(false)
@@ -608,17 +582,14 @@ function StockTransferMill() {
     e.preventDefault()
     const hints = computeMissingHints()
     setMissingHints(hints)
-
-    const currentSpec = buildSpecPayload().spec
-    const currentSpecKey = specKeyOf(currentSpec)
-
-    if (!validateBeforeSubmit(currentSpecKey)) return
+    if (!validateBeforeSubmit()) return
 
     setSubmitting(true)
     try {
+      const specForSubmit = buildSpecPayload(false).spec // ไม่มี klang_location
       const payload = {
         lot_number: form.lot_number.trim(),
-        spec: currentSpec,
+        spec: specForSubmit,
         total_weight: toInt(form.total_weight),
         items: picks.map((p) => ({
           tempstock_id: p.tempstock_id,
@@ -629,11 +600,9 @@ function StockTransferMill() {
       const created = await post("/mill/records", payload)
       alert(`สร้างล็อตสีสำเร็จ ✅\nLOT: ${created?.lot_number || payload.lot_number}`)
 
-      // Reset แต่คงสาขา/คลังไว้
+      // Reset เฉพาะส่วนสินค้า (คง branch/klang เผื่อดึงต่อ)
       setPicks([])
-      setEligible([])
-      setEligibleErr("")
-      setEligibleKey("")
+      clearEligibleOnly()
       setForm((f) => ({
         ...f,
         lot_number: "",
@@ -661,9 +630,6 @@ function StockTransferMill() {
       setSubmitting(false)
     }
   }
-
-  /** ---------- เมื่อผู้ใช้เปลี่ยน “สาขา/คลัง/สเปก/ตัวเลือกเสริม” ---------- */
-  const onSpecChanged = () => clearEligibleAndPicks()
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
@@ -731,13 +697,13 @@ function StockTransferMill() {
                   value={form.branch_id}
                   getValue={(o) => o.id}
                   onChange={(_v, found) => {
-                    if (!confirmClearIfNeeded()) return
                     clearError("branch_id")
                     update("branch_id", found?.id ?? null)
                     update("branch_name", found?.label ?? "")
+                    // เปลี่ยนสาขา: เคลียร์คลังที่เลือก & เคลียร์ผลค้นหา (เก็บ picks ไว้)
                     update("klang_id", null)
                     update("klang_name", "")
-                    onSpecChanged()
+                    clearEligibleOnly()
                   }}
                   placeholder="— เลือกสาขา —"
                 />
@@ -751,19 +717,19 @@ function StockTransferMill() {
                   value={form.klang_id}
                   getValue={(o) => o.id}
                   onChange={(_v, found) => {
-                    if (!confirmClearIfNeeded()) return
                     clearError("klang_id")
                     clearHint("klang_id")
                     update("klang_id", found?.id ?? null)
                     update("klang_name", found?.label ?? "")
-                    onSpecChanged()
+                    // เปลี่ยนคลัง: เคลียร์เฉพาะผลค้นหา เพื่อกดดึงชุดใหม่ (picks คงอยู่)
+                    clearEligibleOnly()
                   }}
                   placeholder="— เลือกคลัง —"
                   disabled={!form.branch_id}
                   error={!!errors.klang_id}
                   hintRed={!!missingHints.klang_id}
                 />
-                <p className={helpTextCls}>หมายเหตุ: 1 ล็อตต้องอยู่ “คลังเดียวกัน” เท่านั้น</p>
+                <p className={helpTextCls}>เลือกคลัง → ดึงรายการ → เพิ่มเข้า “ลอต” ได้หลายคลัง</p>
                 {errors.klang_id && <p className={errorTextCls}>{errors.klang_id}</p>}
               </div>
 
@@ -783,11 +749,12 @@ function StockTransferMill() {
                     update("rice_type", "")
                     update("subrice_id", "")
                     update("subrice_name", "")
-                    onSpecChanged()
+                    // เปลี่ยนสเปก: ล้าง picks และผลค้นหา
+                    setPicks([])
+                    clearEligibleOnly()
                   }}
                   placeholder="— เลือกประเภทสินค้า —"
                   error={!!errors.product_id}
-                  hintRed={!!missingHints.product_id}
                 />
                 {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
               </div>
@@ -806,12 +773,12 @@ function StockTransferMill() {
                     update("rice_type", found?.label ?? "")
                     update("subrice_id", "")
                     update("subrice_name", "")
-                    onSpecChanged()
+                    setPicks([])
+                    clearEligibleOnly()
                   }}
                   placeholder="— เลือกชนิดข้าว —"
                   disabled={!form.product_id}
                   error={!!errors.rice_id}
-                  hintRed={!!missingHints.rice_id}
                 />
                 {errors.rice_id && <p className={errorTextCls}>{errors.rice_id}</p>}
               </div>
@@ -828,12 +795,12 @@ function StockTransferMill() {
                     clearHint("subrice_id")
                     update("subrice_id", id)
                     update("subrice_name", found?.label ?? "")
-                    onSpecChanged()
+                    setPicks([])
+                    clearEligibleOnly()
                   }}
                   placeholder="— เลือกชั้นย่อย —"
                   disabled={!form.rice_id}
                   error={!!errors.subrice_id}
-                  hintRed={!!missingHints.subrice_id}
                 />
                 {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
               </div>
@@ -845,9 +812,9 @@ function StockTransferMill() {
                   options={conditionOptions}
                   value={form.condition_id}
                   onChange={(id, found) => {
-                    if (!confirmClearIfNeeded()) return
                     update("condition_id", found?.id ?? id)
-                    onSpecChanged()
+                    setPicks([])
+                    clearEligibleOnly()
                   }}
                   placeholder="— เลือกสภาพ/เงื่อนไข —"
                 />
@@ -860,10 +827,10 @@ function StockTransferMill() {
                   options={fieldTypeOptions}
                   value={form.field_type_id}
                   onChange={(id, found) => {
-                    if (!confirmClearIfNeeded()) return
                     update("field_type_id", found?.id ?? id)
                     update("field_type_label", found?.label ?? "")
-                    onSpecChanged()
+                    setPicks([])
+                    clearEligibleOnly()
                   }}
                   placeholder="— เลือกประเภทนา —"
                 />
@@ -876,10 +843,10 @@ function StockTransferMill() {
                   options={yearOptions}
                   value={form.rice_year_id}
                   onChange={(id, found) => {
-                    if (!confirmClearIfNeeded()) return
                     update("rice_year_id", found?.id ?? id)
                     update("rice_year_label", found?.label ?? "")
-                    onSpecChanged()
+                    setPicks([])
+                    clearEligibleOnly()
                   }}
                   placeholder="— เลือกปี/ฤดูกาล —"
                 />
@@ -892,10 +859,10 @@ function StockTransferMill() {
                   options={businessOptions}
                   value={form.business_type_id}
                   onChange={(id, found) => {
-                    if (!confirmClearIfNeeded()) return
                     update("business_type_id", found?.id ?? id)
                     update("business_type_label", found?.label ?? "")
-                    onSpecChanged()
+                    setPicks([])
+                    clearEligibleOnly()
                   }}
                   placeholder="— เลือกประเภทธุรกิจ —"
                 />
@@ -908,10 +875,10 @@ function StockTransferMill() {
                   options={programOptions}
                   value={form.program_id}
                   onChange={(id, found) => {
-                    if (!confirmClearIfNeeded()) return
                     update("program_id", found?.id ?? id)
                     update("program_label", found?.label ?? "")
-                    onSpecChanged()
+                    setPicks([])
+                    clearEligibleOnly()
                   }}
                   placeholder="— เลือกโปรแกรม —"
                 />
@@ -1071,11 +1038,7 @@ function StockTransferMill() {
               <div className="mt-2 h-3 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                 <div
                   className={cx("h-3 rounded-full transition-all", diff === 0 ? "bg-emerald-500" : "bg-amber-500")}
-                  style={{
-                    width: `${
-                      requiredTotal === 0 ? 0 : Math.min(100, Math.max(0, (totalPicked / requiredTotal) * 100))
-                    }%`,
-                  }}
+                  style={{ width: `${requiredTotal === 0 ? 0 : Math.min(100, Math.max(0, (totalPicked / requiredTotal) * 100))}%` }}
                 />
               </div>
               {errors.picks && <p className={errorTextCls + " mt-2"}>{errors.picks}</p>}
@@ -1103,9 +1066,7 @@ function StockTransferMill() {
               type="button"
               onClick={() => {
                 setPicks([])
-                setEligible([])
-                setEligibleErr("")
-                setEligibleKey("")
+                clearEligibleOnly()
                 setForm((f) => ({
                   ...f,
                   lot_number: "",

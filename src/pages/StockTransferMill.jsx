@@ -11,6 +11,9 @@ const toInt = (v) => {
 }
 const cx = (...a) => a.filter(Boolean).join(" ")
 
+// id พิเศษสำหรับ “ทั้งหมด”
+const ALL_ID = "__ALL__"
+
 /** ---------- Styles ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -241,9 +244,9 @@ function StockTransferMill() {
     lot_date: new Date().toISOString().slice(0, 10),
     lot_number: "",
     total_weight: "",
-    branch_id: null,        // String|number|"ALL"
+    branch_id: null,
     branch_name: "",
-    klang_id: null,         // String|number|"ALL"
+    klang_id: null,
     klang_name: "",
 
     product_id: "",
@@ -264,6 +267,9 @@ function StockTransferMill() {
     business_type_label: "",
   })
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
+
+  /** helper: เลือกสาขาทั้งหมดไหม */
+  const isAllBranches = useMemo(() => form.branch_id === ALL_ID, [form.branch_id])
 
   /** ---------- Errors / hints ---------- */
   const [errors, setErrors] = useState({})
@@ -319,8 +325,12 @@ function StockTransferMill() {
           get("/order/business/search"),
         ])
 
-        const branchOpts = (branches || []).map((b) => ({ id: String(b.id), label: String(b.branch_name) }))
-        setBranchOptions([{ id: "ALL", label: "— ทุกสาขา —" }, ...branchOpts])
+        // เพิ่มตัวเลือก "สาขาทั้งหมด" ไว้บนสุด
+        const mappedBranches = [
+          { id: ALL_ID, label: "สาขาทั้งหมด" },
+          ...(branches || []).map((b) => ({ id: String(b.id), label: b.branch_name })),
+        ]
+        setBranchOptions(mappedBranches)
 
         setProductOptions(
           (products || [])
@@ -381,64 +391,32 @@ function StockTransferMill() {
     loadStatic()
   }, [])
 
-  // branch -> klang (รองรับโหมด ALL)
+  // branch -> klang
   useEffect(() => {
     const bid = form.branch_id
     const bname = form.branch_name?.trim()
 
-    // รีเซ็ตก่อน
-    setKlangOptions([])
-    update("klang_id", null)
-    update("klang_name", "")
+    // ถ้าเลือก "สาขาทั้งหมด" -> ล็อกคลังเป็น "คลังทั้งหมด" และปิดดรอปดาวน์
+    if (bid === ALL_ID) {
+      setKlangOptions([{ id: ALL_ID, label: "คลังทั้งหมด" }])
+      update("klang_id", ALL_ID)
+      update("klang_name", "คลังทั้งหมด")
+      return
+    }
 
-    // ไม่มีสาขา → รีเทิร์น
-    if (bid == null || bid === "") return
+    // ถ้าไม่ได้เลือกสาขา
+    if (bid == null && !bname) {
+      setKlangOptions([])
+      update("klang_id", null)
+      update("klang_name", "")
+      return
+    }
 
     const loadKlang = async () => {
       try {
-        // โหมดทุกสาขา: พยายามดึง "ทุกคลัง"
-        if (String(bid) === "ALL") {
-          let arr = []
-          // 1) พยายามดึงแบบรวม
-          try {
-            arr = await get(`/order/klang/search`) // ถ้าบีอีรองรับดึงทั้งหมด
-          } catch {}
-          // 2) ถ้าไม่ได้ ให้ fallback วนทุกสาขา
-          if (!Array.isArray(arr) || arr.length === 0) {
-            // โหลดรายการสาขา (ยกเว้น "ALL" ตัวแรก)
-            const branches = await get("/order/branch/search")
-            const every = await Promise.all(
-              (branches || []).map(async (b) => {
-                try {
-                  return await get(`/order/klang/search?branch_id=${encodeURIComponent(b.id)}`)
-                } catch {
-                  return []
-                }
-              })
-            )
-            arr = every.flat()
-          }
-
-          // ตั้ง options = ALL + รายการจริง
-          const klangs = (arr || []).map((k, i) => ({
-            id: String(k.id ?? k.value ?? i),
-            label: String(k.klang_name ?? k.name ?? k.label ?? "").trim(),
-          }))
-          setKlangOptions([{ id: "ALL", label: "— ทุกคลัง —" }, ...klangs])
-
-          // โหมดทุกสาขา: ล็อกคลัง = ALL และปิดแก้ไขใน UI (ดูใน ComboBox คลัง)
-          update("klang_id", "ALL")
-          update("klang_name", "— ทุกคลัง —")
-          return
-        }
-
-        // โหมดสาขาเดี่ยว
         const qs = bid != null ? `branch_id=${bid}` : `branch_name=${encodeURIComponent(bname)}`
         const arr = await get(`/order/klang/search?${qs}`)
-        const klangs = (arr || []).map((k) => ({ id: String(k.id), label: String(k.klang_name) }))
-
-        // เพิ่มตัวเลือก "ทุกคลัง" สำหรับสาขานี้
-        setKlangOptions([{ id: "ALL", label: "— ทุกคลัง (สาขานี้) —" }, ...klangs])
+        setKlangOptions((arr || []).map((k) => ({ id: String(k.id), label: k.klang_name })))
       } catch (e) {
         console.error("Load klang error:", e)
         setKlangOptions([])
@@ -514,20 +492,16 @@ function StockTransferMill() {
     if (!form.rice_id) m.rice_id = true
     if (!form.subrice_id) m.subrice_id = true
     if (!form.total_weight || toInt(form.total_weight) <= 0) m.total_weight = true
-    // ไม่บังคับ klang ในโหมด ALL
     return m
   }
 
-  const isAllBranches = String(form.branch_id) === "ALL"
-  const isAllKlangs = String(form.klang_id) === "ALL"
-
   const validateBeforeSearch = () => {
     const e = {}
+    // ถ้าไม่ได้เลือก "สาขาทั้งหมด" จึงจะต้องเลือกคลัง
+    if (!isAllBranches && !form.klang_id) e.klang_id = "กรุณาเลือกคลังสำหรับดึงรายการ"
     if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
     if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
     if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
-    // คลัง: บังคับเฉพาะกรณีที่ไม่ใช่ ALL
-    if (!isAllBranches && !isAllKlangs && !form.klang_id) e.klang_id = "กรุณาเลือกคลังสำหรับดึงรายการ"
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -550,14 +524,15 @@ function StockTransferMill() {
   }
 
   /** ---------- Payload helpers ---------- */
-  const buildSpec = () => {
+  // คืนค่าเป็น MillSpecIn เสมอ (spec: ProductSpecIn, klang_location?: int | null)
+  const buildSpecPayload = (includeKlang = true) => {
     const toIntOrNull = (v) => (v === "" || v == null ? null : Number(v))
     const yearVal =
       form.rice_year_label && /^\d{3,4}$/.test(form.rice_year_label)
         ? Number(form.rice_year_label)
         : toIntOrNull(form.rice_year_id)
 
-    return {
+    const productSpec = {
       product_id: Number(form.product_id),
       species_id: Number(form.rice_id),
       variant_id: Number(form.subrice_id),
@@ -567,62 +542,30 @@ function StockTransferMill() {
       program: toIntOrNull(form.program_id),
       business_type: toIntOrNull(form.business_type_id),
     }
-  }
 
-  // สำหรับ /mill/eligible → MillSpecIn { spec, klang_location }
-  const buildEligiblePayload = (klangId) => {
-    return {
-      spec: buildSpec(),
-      klang_location: Number(klangId), // ต้องเป็นเลข (ฝั่ง FE จะวนหลายคลังเองในโหมด ALL)
+    const millSpec = { spec: productSpec }
+    if (includeKlang) {
+      millSpec.klang_location = isAllBranches ? null : toIntOrNull(form.klang_id)
     }
+    return millSpec
   }
 
-  /** ---------- Eligible fetch (รวมหลายคลังได้เมื่อ ALL) ---------- */
+  /** ---------- Eligible fetch ---------- */
   const fetchEligible = async () => {
     setEligibleErr("")
     if (!validateBeforeSearch()) return
+    if (isAllBranches) {
+      setEligible([])
+      setEligibleErr("โหมดสาขาทั้งหมดไม่สามารถดึงคลังได้ กรุณาเลือกสาขาเฉพาะก่อน")
+      return
+    }
     setLoadingEligible(true)
     try {
-      // เตรียมรายการ klang targets
-      let targetKlangs = []
-
-      if (isAllBranches) {
-        // โหลด klang ทั้งหมดจาก state (ตั้งไว้ตอนเลือก ALL แล้ว)
-        targetKlangs = (klangOptions || []).filter((k) => k.id !== "ALL")
-      } else if (isAllKlangs) {
-        targetKlangs = (klangOptions || []).filter((k) => k.id !== "ALL")
-      } else if (form.klang_id) {
-        targetKlangs = [{ id: String(form.klang_id), label: form.klang_name }]
-      }
-
-      if (targetKlangs.length === 0) {
-        setEligible([])
-        setEligibleErr("ไม่พบคลังเป้าหมายสำหรับดึงรายการ")
-        setLoadingEligible(false)
-        return
-      }
-
-      // ยิงขนานหลายคลัง แล้วรวมผล (กันซ้ำ tempstock_id)
-      const results = await Promise.allSettled(
-        targetKlangs.map((k) => post("/mill/eligible", buildEligiblePayload(k.id)))
-      )
-
-      const rows = results
-        .filter((r) => r.status === "fulfilled" && Array.isArray(r.value))
-        .flatMap((r) => r.value)
-
-      const dedup = []
-      const seen = new Set()
-      for (const r of rows) {
-        const key = String(r.tempstock_id ?? "") // กันซ้ำด้วย tempstock_id
-        if (!seen.has(key)) {
-          seen.add(key)
-          dedup.push(r)
-        }
-      }
-
-      setEligible(dedup)
-      if (dedup.length === 0) setEligibleErr("ไม่พบบัญชี TempStock ที่เข้าเกณฑ์")
+      // ต้องห่อเป็น { spec: MillSpecIn } ตาม MillEligibleQuery
+      const payload = { spec: buildSpecPayload(true) }
+      const rows = await post("/mill/eligible", payload)
+      setEligible(Array.isArray(rows) ? rows : [])
+      if (!rows || rows.length === 0) setEligibleErr("ไม่พบบัญชี TempStock ที่เข้าเกณฑ์")
     } catch (err) {
       console.error(err)
       setEligible([])
@@ -671,9 +614,10 @@ function StockTransferMill() {
 
     setSubmitting(true)
     try {
+      // ส่ง MillSpecIn ตรง ๆ (ไม่ต้องห่อซ้ำอีกชั้น)
       const payload = {
         lot_number: form.lot_number.trim(),
-        spec: buildSpec(),
+        spec: buildSpecPayload(false),
         total_weight: toInt(form.total_weight),
         items: picks.map((p) => ({
           tempstock_id: p.tempstock_id,
@@ -780,20 +724,23 @@ function StockTransferMill() {
                   options={branchOptions}
                   value={form.branch_id}
                   getValue={(o) => o.id}
-                  onChange={(_v, found) => {
+                  onChange={(id, found) => {
                     clearError("branch_id")
-                    update("branch_id", found?.id ?? null)
+                    update("branch_id", id)
                     update("branch_name", found?.label ?? "")
-                    // เปลี่ยนสาขา: เคลียร์คลังที่เลือก & เคลียร์ผลค้นหา (picks คงอยู่)
-                    update("klang_id", null)
-                    update("klang_name", "")
+                    // เปลี่ยนสาขา: ปรับสถานะคลังให้เหมาะสม & เคลียร์ผลค้นหา
+                    if (id === ALL_ID) {
+                      setKlangOptions([{ id: ALL_ID, label: "คลังทั้งหมด" }])
+                      update("klang_id", ALL_ID)
+                      update("klang_name", "คลังทั้งหมด")
+                    } else {
+                      update("klang_id", null)
+                      update("klang_name", "")
+                    }
                     clearEligibleOnly()
                   }}
                   placeholder="— เลือกสาขา —"
                 />
-                {String(form.branch_id) === "ALL" && (
-                  <p className={helpTextCls}>โหมดทุกสาขา: ระบบจะล็อก “คลัง = ทุกคลัง” ให้อัตโนมัติ</p>
-                )}
               </div>
 
               {/* คลัง */}
@@ -810,17 +757,17 @@ function StockTransferMill() {
                     update("klang_name", found?.label ?? "")
                     clearEligibleOnly()
                   }}
-                  placeholder="— เลือกคลัง —"
-                  disabled={!form.branch_id || String(form.branch_id) === "ALL"} // ล็อกเมื่อทุกสาขา
-                  error={!!errors.klang_id}
-                  hintRed={!!missingHints.klang_id}
+                  placeholder={isAllBranches ? "คลังทั้งหมด" : "— เลือกคลัง —"}
+                  disabled={isAllBranches || !form.branch_id}
+                  error={!isAllBranches && !!errors.klang_id}
+                  hintRed={!isAllBranches && !!missingHints.klang_id}
                 />
                 <p className={helpTextCls}>
-                  {String(form.branch_id) === "ALL"
-                    ? "กำลังใช้งาน: ทุกคลัง (อัตโนมัติจากโหมดทุกสาขา)"
-                    : "เลือกคลัง → ดึงรายการ → เพิ่มเข้า “ลอต” ได้หลายคลัง หรือเลือก “ทุกคลัง (สาขานี้)” เพื่อดึงรวม"}
+                  {isAllBranches
+                    ? "โหมดสาขาทั้งหมด: คลังกำหนดเป็น ‘คลังทั้งหมด’ อัตโนมัติ"
+                    : "เลือกคลัง → ดึงรายการ → เพิ่มเข้า “ลอต” ได้หลายคลัง"}
                 </p>
-                {errors.klang_id && <p className={errorTextCls}>{errors.klang_id}</p>}
+                {!isAllBranches && errors.klang_id && <p className={errorTextCls}>{errors.klang_id}</p>}
               </div>
 
               {/* ประเภทสินค้า */}
@@ -839,7 +786,6 @@ function StockTransferMill() {
                     update("rice_type", "")
                     update("subrice_id", "")
                     update("subrice_name", "")
-                    // เปลี่ยนสเปก: ล้าง picks และผลค้นหา
                     setPicks([])
                     clearEligibleOnly()
                   }}
@@ -987,17 +933,15 @@ function StockTransferMill() {
                   hover:scale-[1.05] active:scale-[.97]
                   disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                 aria-busy={loadingEligible ? "true" : "false"}
-                disabled={loadingEligible}
+                disabled={loadingEligible || isAllBranches}
+                title={isAllBranches ? "โหมดสาขาทั้งหมดไม่รองรับการดึงคลัง — กรุณาเลือกสาขาเฉพาะก่อน" : undefined}
               >
                 {loadingEligible ? "กำลังดึงคลังที่เข้าเกณฑ์..." : "ดึงคลังที่เข้าเกณฑ์"}
               </button>
 
-              <div className="text-sm text-slate-600 dark:text-slate-300 flex items-center gap-2">
+              <div className="text-sm text-slate-600 dark:text-slate-300 flex items-center">
                 {eligible.length > 0 && `พบ ${eligible.length} รายการที่เข้าเกณฑ์`}
                 {eligibleErr && <span className="text-red-500">{eligibleErr}</span>}
-                {(isAllBranches || isAllKlangs) && (
-                  <span className="text-emerald-600">โหมดดึงรวม: ทุกคลัง{isAllBranches ? " (ทุกสาขา)" : ""}</span>
-                )}
               </div>
             </div>
           </div>

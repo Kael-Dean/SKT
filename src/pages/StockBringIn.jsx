@@ -453,7 +453,7 @@ function StockBringIn() {
     setLoading(true)
     try {
       await post("/carryover/create", payload)
-      alert("บันทึกยอดยกเข้าสำเร็จ ✅")
+      alert("บันทึกยอดยกมาสำเร็จ ✅")
 
       // reset เฉพาะค่าที่ควรล้าง
       setForm((f) => ({

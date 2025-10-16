@@ -561,7 +561,10 @@ const MemberSignup = () => {
   const validateAll = () => {
     const e = {}
     if (!form.member_id) e.member_id = "กรอกเลขสมาชิก"
-    if (!form.precode) e.precode = "กรอกคำนำหน้า (รหัส)"
+
+    // 🔸 precode: ต้องกรอก แต่ไม่บังคับให้เป็นตัวเลข
+    if (!form.precode || !String(form.precode).trim()) e.precode = "กรอกคำนำหน้า"
+
     if (!form.first_name) e.first_name = "กรอกชื่อ"
     if (!form.last_name) e.last_name = "กรอกนามสกุล"
     if (!validateThaiCitizenId(form.citizen_id)) e.citizen_id = "เลขบัตรประชาชนไม่ถูกต้อง"
@@ -575,7 +578,8 @@ const MemberSignup = () => {
     if (!form.sex) e.sex = "เลือกเพศ (M/F)"
 
     ;[
-      "member_id","precode","subprov","postal_code","salary","tgs_group","share_per_month",
+      // ❌ เอา "precode" ออกจากชุดตรวจตัวเลข
+      "member_id","subprov","postal_code","salary","tgs_group","share_per_month",
       "ar_limit","normal_share","orders_placed",
       "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
       "fid","agri_type","fertilizing_period","fertilizer_type",
@@ -639,6 +643,10 @@ const MemberSignup = () => {
 
     const toISODate = (d) => (d ? new Date(d).toISOString() : null)
 
+    // 🔸 ตัดช่องว่างเผื่อผู้ใช้ใส่ space
+    const precodeTrim = String(form.precode ?? "").trim()
+    const isDigitsOnly = /^\d+$/.test(precodeTrim)
+
     const payload = {
       regis_date: toISODate(form.regis_date),
       seedling_prog: !!form.seedling_prog,
@@ -647,7 +655,10 @@ const MemberSignup = () => {
       product_loan: !!form.product_loan,
 
       member_id: Number(form.member_id),
-      precode: Number(form.precode),
+
+      // 🔸 ถ้าเป็นตัวเลขล้วน → ส่งเป็น Number, ถ้าไม่ใช่ → ส่งเป็น String
+      precode: isDigitsOnly ? Number(precodeTrim) : precodeTrim,
+
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
       citizen_id: onlyDigits(form.citizen_id),
@@ -862,12 +873,18 @@ const MemberSignup = () => {
                 <label className={labelCls}>คำนำหน้า (precode)</label>
                 <input
                   ref={refs.precode}
-                  inputMode="numeric"
+                  // เดิม inputMode="numeric" → เอาออก เพื่อให้พิมพ์ตัวอักษรได้
                   className={cx(baseField, errors.precode && fieldError)}
                   value={form.precode}
-                  onChange={(e) => { clearError("precode"); update("precode", onlyDigits(e.target.value)) }}
+                  onChange={(e) => {
+                    clearError("precode")
+                    // อนุญาต ไทย/อังกฤษ/ตัวเลข/จุด/ขีด/เว้นวรรค
+                    const raw = e.target.value
+                    const sanitized = raw.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9 .\-]/g, "")
+                    update("precode", sanitized)
+                  }}
                   onFocus={() => clearError("precode")}
-                  placeholder="เช่น 1"
+                  placeholder="เช่น นาย, นาง, น.ส. หรือ 1"
                   aria-invalid={errors.precode ? true : undefined}
                 />
                 {errors.precode && <p className={errorTextCls}>{errors.precode}</p>}

@@ -2005,7 +2005,7 @@ return (
                 onChange={(e) => updateCustomer("phone", e.target.value.replace(/[^\d+]/g, ""))}
                 placeholder="เช่น 0812345678"
               />
-              <p className={helpTextCls}>เก็บไว้ติดต่อภายหลัง (ยังไม่ส่งเข้า backend)</p>
+              <p className={helpTextCls}></p>
             </div>
 
             {/* FID fields */}
@@ -2019,7 +2019,7 @@ return (
                 onChange={(e) => updateCustomer("fid", onlyDigits(e.target.value))}
                 placeholder="ตัวเลข เช่น 123456"
               />
-              <p className={helpTextCls}>ถ้ามี จะส่งไปเก็บที่ฟิลด์ <code>fid</code></p>
+              <p className={helpTextCls}><code>fid</code></p>
             </div>
 
             <div>
@@ -2031,7 +2031,7 @@ return (
                 onChange={(e) => updateCustomer("fidOwner", e.target.value)}
                 placeholder="เช่น นายสมหมาย นามดี"
               />
-              <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_owner</code></p>
+              <p className={helpTextCls}><code></code></p>
             </div>
 
             <div>
@@ -2044,7 +2044,7 @@ return (
                 onChange={(e) => updateCustomer("fidRelationship", onlyDigits(e.target.value))}
                 placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
               />
-              <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_relationship</code> (ตัวเลข)</p>
+              <p className={helpTextCls}><code></code> (ตัวเลข)</p>
             </div>
           </div>
         ) : (
@@ -2429,7 +2429,7 @@ return (
                 onFocus={() => clearHint("moisturePct")}
                 placeholder="เช่น 18"
               />
-              <p className={helpTextCls}>มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
+              <p className={helpTextCls}>{MOISTURE_STD}</p>
             </div>
 
             <div>

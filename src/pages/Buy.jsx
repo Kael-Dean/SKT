@@ -80,6 +80,7 @@ const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 const compactInput = "!py-2 !px-4 !text-[16px] !leading-normal"
 
+
 /** ---------- Enter-to-next helpers ---------- */
 const isEnabledInput = (el) => {
   if (!el) return false
@@ -124,6 +125,7 @@ const useEnterNavigation = (refs, buyerType, order) => {
   "payment","issueDate",
 ]
 
+
   // รวมทั้งหมดตามประเภทผู้ซื้อ
   let list = (buyerType === "person" ? personOrder : companyOrder).concat(orderOrder)
 
@@ -145,13 +147,19 @@ const useEnterNavigation = (refs, buyerType, order) => {
     if (!nextKey) return
     const el = refs[nextKey]?.current
     if (!el) return
-    try { el.scrollIntoView({ block: "center" }) } catch {}
+    try {
+      el.scrollIntoView({ block: "center" })
+    } catch {}
     el.focus?.()
-    try { if (el.select) el.select() } catch {}
+    // ถ้าเป็น input ให้ select ข้อความเพื่อพิมพ์ทับสบาย ๆ
+    try {
+      if (el.select) el.select()
+    } catch {}
   }
 
   const onEnter = (currentKey) => (e) => {
     if (e.key === "Enter" && !e.isComposing) {
+      // ข้อยกเว้น: textarea ใช้ Shift+Enter เพื่อขึ้นบรรทัดใหม่
       const isTextArea = e.currentTarget?.tagName?.toLowerCase() === "textarea"
       if (isTextArea && e.shiftKey) return
       e.preventDefault()
@@ -207,11 +215,10 @@ function ComboBox({
     setOpen(false)
     setHighlight(-1)
     clearHint?.()
-    requestAnimationFrame(() => {
-      // โฟกัสปุ่มไว้ก่อน เพื่อคีย์ Enter ครั้งถัดไปยังไปต่อ
-      controlRef.current?.focus()
-      // ถ้ามี onEnterNext ให้เรียกเพื่อเลื่อนไปฟิลด์ถัดไป
-      onEnterNext?.()
+    requestAnimationFrame(() => { 
+      // โฟกัสปุ่มไว้ก่อน เพื่อคีย์ Enter ครั้งถัดไปยังไปต่อ +      controlRef.current?.focus() 
+      // ถ้ามี onEnterNext ให้เรียกเพื่อเลื่อนไปฟิลด์ถัดไป 
+    onEnterNext?.() 
     })
   }
 
@@ -381,51 +388,6 @@ bg-transparent"
     </div>
   )
 })
-
-/** ===== User -> Branch rules (ล็อกสาขาตาม username) ===== */
-const USER_BRANCH_RULES = [
-  { re: /admin-sangkha-\d+/i,                  branchLabels: ["สาขาสังขะ"] },
-  { re: /admin-srikor-\d+/i,                   branchLabels: ["สาขาศรีขรภูมิ"] },
-  { re: /admin-tartoom-\d+/i,                  branchLabels: ["สาขาท่าตูม"] },
-  { re: /admin-chomphra-\d+/i,                 branchLabels: ["สาขาจอมพระ"] },
-  { re: /admin-(rarannaburi|ratanaburi)-\d+/i, branchLabels: ["สาขารัตนบุรี"] },
-  { re: /admin-prasat-\d+/i,                   branchLabels: ["สาขาปราสาท"] },
-  { re: /admin-chumpolburi-\d+/i,              branchLabels: ["สาขาชุมพลบุรี"] },
-  { re: /admin-surin-\d+/i,                    branchLabels: ["สาขาสุรินทร์"] },
-  { re: /admin-processing-\d+/i,               branchLabels: ["สาขาแปรรูปผลิตผล", "สาขาแปรรูป"] },
-]
-
-// คืน label สาขาที่ควรล็อกจาก username
-const inferBranchLabelFromUsername = (username = "") => {
-  const u = String(username).toLowerCase().trim()
-  const hit = USER_BRANCH_RULES.find((r) => r.re.test(u))
-  return hit ? hit.branchLabels[0] : null
-}
-
-// ดึง username จาก localStorage (หลาย key) + เผื่อ JWT access_token
-const getCurrentUsername = () => {
-  const tryJson = (k) => {
-    try { return JSON.parse(localStorage.getItem(k) || "null") } catch { return null }
-  }
-  const tryStr = (k) => {
-    try { const v = localStorage.getItem(k); return v ? String(v) : "" } catch { return "" }
-  }
-
-  const u1 = tryJson("user")?.username || tryJson("user")?.name
-  const u2 = tryJson("currentUser")?.username || tryJson("auth.user")?.username
-  const u3 = tryStr("username")
-
-  let u4 = ""
-  const token = tryStr("access_token") || tryStr("token")
-  if (token.split(".").length === 3) {
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]))
-      u4 = payload?.username || payload?.sub || ""
-    } catch {}
-  }
-
-  return u1 || u2 || u3 || u4 || ""
-}
 
 /** ---------- Component ---------- */
 const Buy = () => {
@@ -632,9 +594,10 @@ const Buy = () => {
     gram: useRef(null),
     comment: useRef(null),
     businessType: useRef(null),
-
+    
     formTemplate: useRef(null),
     buyerType: useRef(null),
+    
   }
 
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
@@ -883,30 +846,6 @@ const Buy = () => {
     loadStaticDD()
   }, [])
 
-  /** 🔒 เมื่อลิสต์สาขาพร้อม → ล็อกสาขาตาม username */
-  const [isBranchLocked, setIsBranchLocked] = useState(false)
-  const currentUsername = useMemo(() => getCurrentUsername(), [])
-  useEffect(() => {
-    if (!currentUsername || branchOptions.length === 0) return
-    const wantedLabel = inferBranchLabelFromUsername(currentUsername)
-    if (!wantedLabel) return
-
-    const matched =
-      branchOptions.find((b) => String(b.label).trim() === wantedLabel) ||
-      branchOptions.find((b) => String(b.label).includes(wantedLabel))
-
-    if (!matched) return
-
-    setOrder((prev) => ({
-      ...prev,
-      branchId: Number(matched.id),
-      branchName: matched.label,
-      klangId: null,
-      klangName: "",
-    }))
-    setIsBranchLocked(true)
-  }, [branchOptions, currentUsername])
-
   // ปิด dropdown บริษัทเมื่อคลิกนอก
   useEffect(() => {
     const onClick = (e) => {
@@ -995,7 +934,9 @@ const Buy = () => {
       setCompanyHighlighted(next)
       requestAnimationFrame(() => {
         const el = companyItemRefs.current[next]
-        try { el?.scrollIntoView({ block: "nearest" }) } catch {}
+        try {
+          el?.scrollIntoView({ block: "nearest" })
+        } catch {}
       })
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
@@ -1003,7 +944,9 @@ const Buy = () => {
       setCompanyHighlighted(prev)
       requestAnimationFrame(() => {
         const el = companyItemRefs.current[prev]
-        try { el?.scrollIntoView({ block: "nearest" }) } catch {}
+        try {
+          el?.scrollIntoView({ block: "nearest" })
+        } catch {}
       })
     } else if (e.key === "Enter") {
       e.preventDefault()
@@ -1395,10 +1338,11 @@ const Buy = () => {
     return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
   }
 
-  /** 👉 Mapping ใหม่สำหรับฝั่งซื้อ: ซื้อเชื่อ = 4, ซื้อสด = 3 */
-  const resolvePaymentIdForBE = () => {
-    return isCreditPayment() ? 4 : 3
-  }
+ /** 👉 Mapping ใหม่สำหรับฝั่งซื้อ: ซื้อเชื่อ = 4, ซื้อสด = 3 */
+const resolvePaymentIdForBE = () => {
+  return isCreditPayment() ? 4 : 3
+}
+
 
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) =>
@@ -1582,7 +1526,9 @@ const Buy = () => {
 
     const el = refs[keyToFocus]?.current || (firstKey === "payment" ? refs.payment?.current : null)
     if (el && typeof el.focus === "function") {
-      try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
+      try {
+        el.scrollIntoView({ behavior: "smooth", block: "center" })
+      } catch {}
       el.focus()
     }
   }
@@ -1619,7 +1565,7 @@ const Buy = () => {
     const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
     const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
     const programId = /^\d+$/.test(order.programId) ? Number(order.programId) : null
-    const paymentId = resolvePaymentIdForBE() // ← ใช้ตัวใหม่ที่ map เครดิตเป็น 4
+    const paymentId = resolvePaymentIdForBE() // ← ใช้ตัวใหม่ที่ map เครดิตเป็น 1
 
     if (!productId) return scrollToFirstError({ product: true })
     if (!riceId) return scrollToFirstError({ riceType: true })
@@ -1689,7 +1635,11 @@ const Buy = () => {
 
     /** Dept payload (แนบเสมอ — BE จะใช้เมื่อเป็นเครดิต) */
     const makeDeptDate = (yyyyMmDd) => {
-      try { return new Date(`${yyyyMmDd}T00:00:00Z`).toISOString() } catch { return new Date().toISOString() }
+      try {
+        return new Date(`${yyyyMmDd}T00:00:00Z`).toISOString()
+      } catch {
+        return new Date().toISOString()
+      }
     }
     const deptPayload = {
       date_created: makeDeptDate(dateStr),
@@ -1740,7 +1690,9 @@ const Buy = () => {
 
     try {
       await post("/order/customers/save/buy", payload)
-      try { localStorage.setItem("buy.formTemplate", formTemplate) } catch {}
+      try {
+        localStorage.setItem("buy.formTemplate", formTemplate)
+      } catch {}
       alert("บันทึกออเดอร์เรียบร้อย ✅")
       handleReset()
     } catch (err) {
@@ -1839,30 +1791,10 @@ const Buy = () => {
     })
 
     setBuyerType("person")
-
-    // 🔒 ตั้งสาขากลับตาม username หลังรีเซ็ต
-    try {
-      const wantedLabel = inferBranchLabelFromUsername(currentUsername)
-      if (wantedLabel && branchOptions.length > 0) {
-        const matched =
-          branchOptions.find((b) => String(b.label).trim() === wantedLabel) ||
-          branchOptions.find((b) => String(b.label).includes(wantedLabel))
-        if (matched) {
-          setOrder((prev) => ({
-            ...prev,
-            branchId: Number(matched.id),
-            branchName: matched.label,
-            klangId: null,
-            klangName: "",
-          }))
-          setIsBranchLocked(true)
-        }
-      }
-    } catch {}
   }
 
 
- /** ---------- UI ---------- */
+  /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
@@ -2348,72 +2280,74 @@ const Buy = () => {
                 buttonRef={refs.product}
                 disabled={isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
                 onEnterNext={() => {
-                  // พยายามไป "ชนิดข้าว" ถ้าไม่ได้ล็อกเทมเพลต
-                  // แต่ถ้าใช้เทมเพลต ให้ข้ามไป "ชั้นย่อย" (จะพร้อมหลัง species auto-select)
-                  const tryFocus = () => {
-                    if (!isTemplateActive && isEnabledInput(refs.riceType?.current)) {
-                      refs.riceType.current.focus()
-                      refs.riceType.current.scrollIntoView?.({ block: "center" })
-                      return true
-                    }
-                    if (isEnabledInput(refs.subrice?.current)) {
-                      refs.subrice.current.focus()
-                      refs.subrice.current.scrollIntoView?.({ block: "center" })
-                      return true
-                    }
-                    return false
+                // พยายามไป "ชนิดข้าว" ถ้าไม่ได้ล็อกเทมเพลต
+                // แต่ถ้าใช้เทมเพลต ให้ข้ามไป "ชั้นย่อย" (จะพร้อมหลัง species auto-select)
+                const tryFocus = () => {
+                  if (!isTemplateActive && isEnabledInput(refs.riceType?.current)) {
+                    refs.riceType.current.focus()
+                    refs.riceType.current.scrollIntoView?.({ block: "center" })
+                    return true
                   }
+                  if (isEnabledInput(refs.subrice?.current)) {
+                    refs.subrice.current.focus()
+                    refs.subrice.current.scrollIntoView?.({ block: "center" })
+                    return true
+                  }
+                  return false
+                }
 
-                  // ลองทันที แล้วรอข้อมูลโหลดอีกนิดถ้ายังไม่พร้อม
-                  if (tryFocus()) return
-                  setTimeout(tryFocus, 60)
-                  setTimeout(tryFocus, 180)
-                }}
+                // ลองทันที แล้วรอข้อมูลโหลดอีกนิดถ้ายังไม่พร้อม
+                if (tryFocus()) return
+                setTimeout(tryFocus, 60)
+                setTimeout(tryFocus, 180)
+              }}
+
               />
               {errors.product && <p className={errorTextCls}>{errors.product}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>ชนิดข้าว</label>
-              <ComboBox
-                options={riceOptions}
-                value={order.riceId}
-                onChange={(id, found) => {
-                  setOrder((p) => ({
-                    ...p,
-                    riceId: id,
-                    riceType: found?.label ?? "",
-                    subriceId: "",
-                    subriceName: "",
-                  }))
-                }}
-                placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId || isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
-                error={!!errors.riceType}
-                hintRed={!!missingHints.riceType}
-                clearHint={() => clearHint("riceType")}
-                buttonRef={refs.riceType}
-                onEnterNext={() => {
-                  // ✅ พยายามโฟกัสช่อง "ชั้นย่อย" (subrice)
-                  const tryFocus = () => {
-                    const el = refs.subrice?.current
-                    if (el && !el.disabled && el.offsetParent !== null) {
-                      el.focus()
-                      el.scrollIntoView?.({ block: "center" })
-                      return true
-                    }
-                    return false
-                  }
+  <label className={labelCls}>ชนิดข้าว</label>
+  <ComboBox
+    options={riceOptions}
+    value={order.riceId}
+    onChange={(id, found) => {
+      setOrder((p) => ({
+        ...p,
+        riceId: id,
+        riceType: found?.label ?? "",
+        subriceId: "",
+        subriceName: "",
+      }))
+    }}
+    placeholder="— เลือกชนิดข้าว —"
+    disabled={!order.productId || isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
+    error={!!errors.riceType}
+    hintRed={!!missingHints.riceType}
+    clearHint={() => clearHint("riceType")}
+    buttonRef={refs.riceType}
+    onEnterNext={() => {
+      // ✅ พยายามโฟกัสช่อง "ชั้นย่อย" (subrice)
+      const tryFocus = () => {
+        const el = refs.subrice?.current
+        if (el && !el.disabled && el.offsetParent !== null) {
+          el.focus()
+          el.scrollIntoView?.({ block: "center" })
+          return true
+        }
+        return false
+      }
 
-                  // 🔁 ลองหลายครั้ง เผื่อ subrice ยัง disabled ชั่วคราวตอนโหลดข้อมูล
-                  if (tryFocus()) return
-                  setTimeout(tryFocus, 60)
-                  setTimeout(tryFocus, 120)
-                  setTimeout(tryFocus, 200)
-                }}
-              />
-              {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
-            </div>
+      // 🔁 ลองหลายครั้ง เผื่อ subrice ยัง disabled ชั่วคราวตอนโหลดข้อมูล
+      if (tryFocus()) return
+      setTimeout(tryFocus, 60)
+      setTimeout(tryFocus, 120)
+      setTimeout(tryFocus, 200)
+    }}
+  />
+  {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
+</div>
+
 
             <div>
               <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
@@ -2550,14 +2484,7 @@ const Buy = () => {
           {/* สาขา + คลัง */}
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div>
-              <div className="flex items-center justify-between">
-                <label className={labelCls}>สาขา</label>
-                {isBranchLocked && (
-                  <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/50 dark:text-slate-200 dark:ring-slate-600">
-                    ล็อกตามผู้ใช้
-                  </span>
-                )}
-              </div>
+              <label className={labelCls}>สาขา</label>
               <ComboBox
                 options={branchOptions}
                 value={order.branchId}
@@ -2569,21 +2496,15 @@ const Buy = () => {
                     branchName: found?.label ?? "",
                     klangName: "",
                     klangId: null,
-                  }))}
-                }
+                  }))
+                }}
                 placeholder="— เลือกสาขา —"
                 error={!!errors.branchName}
                 hintRed={!!missingHints.branchName}
                 clearHint={() => clearHint("branchName")}
                 buttonRef={refs.branchName}
                 onEnterNext={() => focusNext("klangName")}
-                disabled={isBranchLocked}        
               />
-              {isBranchLocked && (
-                <p className={helpTextCls}>
-                  ระบบกำหนดสาขาเป็น <b>{order.branchName || "—"}</b> ตามผู้ใช้ปัจจุบัน
-                </p>
-              )}
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
             </div>
 
@@ -2665,6 +2586,7 @@ const Buy = () => {
                 <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
               </div>
               
+
               {/* ความชื้น */}
               <div>
                 <label className={labelCls}>ความชื้น (%)</label>

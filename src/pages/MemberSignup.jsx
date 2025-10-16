@@ -1233,7 +1233,7 @@ const MemberSignup = () => {
           <SectionCard title="ข้อมูลเพิ่มเติมและการเงิน" className="mt-6">
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>เงินเดือน (salary)</label>
+                <label className={labelCls}>ประมาณการรายได้ต่อปี (salary)</label>
                 <input
                   ref={refs.salary}
                   inputMode="decimal"
@@ -1422,7 +1422,7 @@ const MemberSignup = () => {
           <SectionCard title="ข้อมูลเกษตร" className="mt-6">
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>เลขที่ทะเบียนเกษตรกร (fid)</label>
+                <label className={labelCls}>รหัสทะเบียนเกษตรกร (fid)</label>
                 <input
                   ref={refs.fid}
                   inputMode="numeric"

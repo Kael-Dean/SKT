@@ -328,7 +328,7 @@ const MemberSignup = () => {
   const [amphoeOptions, setAmphoeOptions] = useState([])     // {value,label} ของอำเภอ
   const [tambonOptions, setTambonOptions] = useState([])     // {value,label} ของตำบล (ตามอำเภอที่เลือก)
 
-  // state หลักของฟอร์ม (เพิ่มฟิลด์ข้อมูลเกษตร)
+  // state หลักของฟอร์ม (เอา share_per_month ออก)
   const [form, setForm] = useState({
     regis_date: new Date().toISOString().slice(0, 10),
     seedling_prog: false,
@@ -352,7 +352,6 @@ const MemberSignup = () => {
     sex: "",
     salary: "",
     tgs_group: "",
-    share_per_month: "",
     transfer_date: "",
     ar_limit: "",
     normal_share: "",
@@ -665,7 +664,6 @@ const MemberSignup = () => {
     sex: useRef(null),
     salary: useRef(null),
     tgs_group: useRef(null),
-    share_per_month: useRef(null),
     transfer_date: useRef(null),
     ar_limit: useRef(null),
     normal_share: useRef(null),
@@ -727,7 +725,7 @@ const MemberSignup = () => {
     if (!form.sex) e.sex = "เลือกคำนำหน้าเพื่อกำหนดเพศอัตโนมัติ"
 
     ;[
-      "member_id","precode","subprov","postal_code","salary","tgs_group","share_per_month",
+      "member_id","precode","subprov","postal_code","salary","tgs_group",
       "ar_limit","normal_share","orders_placed",
       "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
       "fid","agri_type","fertilizing_period","fertilizer_type",
@@ -762,7 +760,7 @@ const MemberSignup = () => {
       "first_name","last_name","citizen_id",
       "address","mhoo","province","district","sub_district","postal_code",
       "phone_number","sex",
-      "salary","tgs_group","share_per_month","transfer_date","ar_limit","normal_share",
+      "salary","tgs_group","transfer_date","ar_limit","normal_share",
       "last_bought_date","bank_account","tgs_id","spouce_name","orders_placed",
       "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
       "fid","fid_owner","agri_type","fertilizing_period","fertilizer_type",
@@ -814,7 +812,8 @@ const MemberSignup = () => {
       sex: form.sex, // ✅ ส่งค่าเพศที่ถูกล็อกจากคำนำหน้า
       salary: form.salary === "" ? 0 : Number(form.salary),
       tgs_group: form.tgs_group === "" ? 0 : Number(form.tgs_group),
-      share_per_month: form.share_per_month === "" ? 0 : Number(form.share_per_month),
+      /** ⛳️ share_per_month: ส่ง 0 ให้ BE เสมอตาม requirement */
+      share_per_month: 0,
       transfer_date: form.transfer_date ? toISODate(form.transfer_date) : null,
       ar_limit: form.ar_limit === "" ? 0 : Number(form.ar_limit),
       normal_share: form.normal_share === "" ? 0 : Number(form.normal_share),
@@ -881,7 +880,6 @@ const MemberSignup = () => {
       sex: "",
       salary: "",
       tgs_group: "",
-      share_per_month: "",
       transfer_date: "",
       ar_limit: "",
       normal_share: "",
@@ -1260,21 +1258,6 @@ const MemberSignup = () => {
                   aria-invalid={errors.tgs_group ? true : undefined}
                 />
                 {errors.tgs_group && <p className={errorTextCls}>{errors.tgs_group}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>ส่งหุ้น/เดือน (share_per_month)</label>
-                <input
-                  ref={refs.share_per_month}
-                  inputMode="decimal"
-                  className={cx(baseField, errors.share_per_month && fieldError)}
-                  value={form.share_per_month}
-                  onChange={(e) => { clearError("share_per_month"); update("share_per_month", e.target.value.replace(/[^\d.]/g, "")) }}
-                  onFocus={() => clearError("share_per_month")}
-                  placeholder="500"
-                  aria-invalid={errors.share_per_month ? true : undefined}
-                />
-                {errors.share_per_month && <p className={errorTextCls}>{errors.share_per_month}</p>}
               </div>
 
               <div>

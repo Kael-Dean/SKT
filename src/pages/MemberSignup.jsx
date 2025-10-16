@@ -888,7 +888,7 @@ const MemberSignup = () => {
                   />
                 </div>
                 {errors.precode && <p className={errorTextCls}>{errors.precode}</p>}
-                <p className={helpTextCls}>นาย = 1, นาง = 2, นางสาว = 3 (ระบบจะกำหนดเพศอัตโนมัติ)</p>
+                
               </div>
 
               {/* วันที่สมัคร */}
@@ -972,7 +972,7 @@ const MemberSignup = () => {
                   />
                 </div>
                 {errors.sex && <p className={errorTextCls}>{errors.sex}</p>}
-                <p className={helpTextCls}>นาย ⇒ M, นาง/นางสาว ⇒ F (ฟิลด์นี้ถูกล็อกให้สอดคล้องกับคำนำหน้า)</p>
+                
               </div>
 
               {/* คู่สมรส */}

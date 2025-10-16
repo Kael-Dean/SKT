@@ -2279,28 +2279,7 @@ const resolvePaymentIdForBE = () => {
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
                 disabled={isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
-                onEnterNext={() => {
-                // พยายามไป "ชนิดข้าว" ถ้าไม่ได้ล็อกเทมเพลต
-                // แต่ถ้าใช้เทมเพลต ให้ข้ามไป "ชั้นย่อย" (จะพร้อมหลัง species auto-select)
-                const tryFocus = () => {
-                  if (!isTemplateActive && isEnabledInput(refs.riceType?.current)) {
-                    refs.riceType.current.focus()
-                    refs.riceType.current.scrollIntoView?.({ block: "center" })
-                    return true
-                  }
-                  if (isEnabledInput(refs.subrice?.current)) {
-                    refs.subrice.current.focus()
-                    refs.subrice.current.scrollIntoView?.({ block: "center" })
-                    return true
-                  }
-                  return false
-                }
-
-                // ลองทันที แล้วรอข้อมูลโหลดอีกนิดถ้ายังไม่พร้อม
-                if (tryFocus()) return
-                setTimeout(tryFocus, 60)
-                setTimeout(tryFocus, 180)
-              }}
+                onEnterNext={() => focusNext("product")}
 
               />
               {errors.product && <p className={errorTextCls}>{errors.product}</p>}

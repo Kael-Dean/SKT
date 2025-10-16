@@ -1696,7 +1696,7 @@ return (
         {/* วิธีชำระเงิน + วันที่ */}
         <div className="grid gap-4 md:grid-cols-3">
           <div>
-            <label className={labelCls}>วิธีชำระเงิน (ไม่บังคับ)</label>
+            <label className={labelCls}>วิธีชำระเงิน</label>
             <ComboBox
               options={paymentOptions}
               value={order.paymentMethodId}
@@ -1905,7 +1905,7 @@ return (
             ))}
 
             <div>
-              <label className={labelCls}>รหัสไปรษณีย์ (ไม่บังคับ)</label>
+              <label className={labelCls}>รหัสไปรษณีย์</label>
               <input
                 ref={refs.postalCode}
                 inputMode="numeric"
@@ -1919,7 +1919,7 @@ return (
             </div>
 
             <div>
-              <label className={labelCls}>เบอร์โทรศัพท์ (ไม่บังคับ)</label>
+              <label className={labelCls}>เบอร์โทรศัพท์</label>
               <input
                 ref={refs.phone}
                 inputMode="tel"
@@ -1942,7 +1942,7 @@ return (
                 onChange={(e) => updateCustomer("fid", onlyDigits(e.target.value))}
                 placeholder="ตัวเลข เช่น 123456"
               />
-              <p className={helpTextCls}>ถ้ามี จะส่งไปเก็บที่ฟิลด์ <code>fid</code></p>
+              <p className={helpTextCls}><code>fid</code></p>
             </div>
 
             <div>
@@ -1954,7 +1954,7 @@ return (
                 onChange={(e) => updateCustomer("fidOwner", e.target.value)}
                 placeholder="เช่น นายสมหมาย นามดี"
               />
-              <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_owner</code></p>
+              <p className={helpTextCls}><code></code></p>
             </div>
 
             <div>
@@ -1967,7 +1967,7 @@ return (
                 onChange={(e) => updateCustomer("fidRelationship", onlyDigits(e.target.value))}
                 placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
               />
-              <p className={helpTextCls}>ส่งไปเก็บที่ฟิลด์ <code>fid_relationship</code> (ตัวเลข)</p>
+              <p className={helpTextCls}><code></code> </p>
             </div>
           </div>
         ) : (
@@ -2244,7 +2244,7 @@ return (
 
           {/* โปรแกรม (ไม่บังคับ) */}
           <div>
-            <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
+            <label className={labelCls}>โปรแกรม</label>
             <ComboBox
               options={programOptions}
               value={order.programId}
@@ -2367,7 +2367,7 @@ return (
                 onFocus={() => clearHint("moisturePct")}
                 placeholder="เช่น 18"
               />
-              <p className={helpTextCls}>มาตรฐาน {MOISTURE_STD}% หากเกินจะถูกหักน้ำหนัก</p>
+              <p className={helpTextCls}>{MOISTURE_STD}</p>
             </div>
 
             <div>
@@ -2428,7 +2428,7 @@ return (
             </div>
 
             <div>
-              <label className={labelCls}>ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
+              <label className={labelCls}>ราคาต่อกก. (บาท)</label>
               <input
                 ref={refs.unitPrice}
                 inputMode="decimal"

@@ -2010,7 +2010,7 @@ return (
 
             {/* FID fields */}
             <div>
-              <label className={labelCls}>เลขที่ทะเบียนเกษตรกร (FID)</label>
+              <label className={labelCls}>เลขที่ทะเบียนเกษตรกร</label>
               <input
                 ref={refs.fid}
                 inputMode="numeric"
@@ -2035,7 +2035,7 @@ return (
             </div>
 
             <div>
-              <label className={labelCls}>ความสัมพันธ์ (FID Relationship)</label>
+              <label className={labelCls}>ความสัมพันธ์</label>
               <input
                 ref={refs.fidRelationship}
                 inputMode="numeric"

@@ -107,18 +107,24 @@ const useEnterNavigation = (refs, buyerType, order) => {
   ]
 
   // รายการฝั่งออเดอร์
-  const orderOrder = [
-    // 1) โซน product → klang ตามที่สั่ง
-  "product","riceType","subrice","condition","fieldType","riceYear",
-  "businessType","program","branchName","klangName",
+ const orderOrder = [
+  // ตามที่ต้องการ
+  "product",       // ประเภทสินค้า
+  "riceType",      // ชนิดข้าว
+  "subrice",       // ชั้นย่อย
+  "condition",     // สภาพ/เงื่อนไข
+  "fieldType",     // ประเภทนา
+  "riceYear",      // ปี/ฤดูกาล
+  "businessType",  // ประเภทธุรกิจ
+  "program",       // โปรแกรม
 
-  // 2) ต่อด้วยตัวเลขคำนวณ
+  // ของเดิมต่อท้าย
+  "branchName","klangName",
   "entryWeightKg","exitWeightKg","moisturePct","impurityPct","deductWeightKg","gram",
   "unitPrice","amountTHB","paymentRefNo","comment",
-
-  // 3) แล้วค่อย วิธีชำระ/ลงวันที่ (ถ้าอยากให้อยู่ก่อนตัวเลขก็ย้ายสองตัวนี้ขึ้นไปได้)
   "payment","issueDate",
-  ]
+]
+
 
   // รวมทั้งหมดตามประเภทผู้ซื้อ
   let list = (buyerType === "person" ? personOrder : companyOrder).concat(orderOrder)
@@ -2148,7 +2154,7 @@ const resolvePaymentIdForBE = () => {
                   value={customer.fidRelationship}
                   onChange={(e) => updateCustomer("fidRelationship", onlyDigits(e.target.value))}
                   onFocus={() => clearHint("fidRelationship")}
-                  
+                  onKeyDown={onEnter("fidRelationship")}
                   placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
                 />
                 <p className={helpTextCls}><code></code> (ตัวเลข)</p>

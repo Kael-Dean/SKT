@@ -2307,29 +2307,47 @@ const resolvePaymentIdForBE = () => {
             </div>
 
             <div>
-              <label className={labelCls}>ชนิดข้าว</label>
-              <ComboBox
-                options={riceOptions}
-                value={order.riceId}
-                onChange={(id, found) => {
-                  setOrder((p) => ({
-                    ...p,
-                    riceId: id,
-                    riceType: found?.label ?? "",
-                    subriceId: "",
-                    subriceName: "",
-                  }))
-                }}
-                placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
-                error={!!errors.riceType}
-                hintRed={!!missingHints.riceType}
-                clearHint={() => clearHint("riceType")}
-                buttonRef={refs.riceType}
-                onEnterNext={() => focusNext("riceType")}
-              />
-              {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
-            </div>
+  <label className={labelCls}>ชนิดข้าว</label>
+  <ComboBox
+    options={riceOptions}
+    value={order.riceId}
+    onChange={(id, found) => {
+      setOrder((p) => ({
+        ...p,
+        riceId: id,
+        riceType: found?.label ?? "",
+        subriceId: "",
+        subriceName: "",
+      }))
+    }}
+    placeholder="— เลือกชนิดข้าว —"
+    disabled={!order.productId || isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
+    error={!!errors.riceType}
+    hintRed={!!missingHints.riceType}
+    clearHint={() => clearHint("riceType")}
+    buttonRef={refs.riceType}
+    onEnterNext={() => {
+      // ✅ พยายามโฟกัสช่อง "ชั้นย่อย" (subrice)
+      const tryFocus = () => {
+        const el = refs.subrice?.current
+        if (el && !el.disabled && el.offsetParent !== null) {
+          el.focus()
+          el.scrollIntoView?.({ block: "center" })
+          return true
+        }
+        return false
+      }
+
+      // 🔁 ลองหลายครั้ง เผื่อ subrice ยัง disabled ชั่วคราวตอนโหลดข้อมูล
+      if (tryFocus()) return
+      setTimeout(tryFocus, 60)
+      setTimeout(tryFocus, 120)
+      setTimeout(tryFocus, 200)
+    }}
+  />
+  {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
+</div>
+
 
             <div>
               <label className={labelCls}>ชั้นย่อย (Sub-class)</label>

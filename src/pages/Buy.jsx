@@ -2145,11 +2145,12 @@ return (
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.isComposing) {
                     e.preventDefault()
-                    focusNext("product")     // ⭐ ข้ามตรงไป ComboBox "ประเภทสินค้า"
+                    focusNext("product") // จากความสัมพันธ์ -> ประเภทสินค้า
                   }
-                   }}
-                  placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
-                />
+                }}
+                placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
+              />
+
 
               <p className={helpTextCls}><code></code> (ตัวเลข)</p>
             </div>
@@ -2272,7 +2273,7 @@ return (
               clearHint={() => clearHint("product")}
               buttonRef={refs.product}
               disabled={isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
-              onEnterNext={() => focusNext("product")}
+              onEnterNext={() => focusNext("riceType")}
             />
             {errors.product && <p className={errorTextCls}>{errors.product}</p>}
           </div>
@@ -2297,7 +2298,7 @@ return (
               hintRed={!!missingHints.riceType}
               clearHint={() => clearHint("riceType")}
               buttonRef={refs.riceType}
-              onEnterNext={() => focusNext("riceType")}
+              onEnterNext={() => focusNext("subrice")}
             />
             {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
           </div>
@@ -2316,7 +2317,7 @@ return (
               hintRed={!!missingHints.subrice}
               clearHint={() => clearHint("subrice")}
               buttonRef={refs.subrice}
-              onEnterNext={() => focusNext("subrice")}
+              onEnterNext={() => focusNext("condition")}
             />
             {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
           </div>
@@ -2339,7 +2340,7 @@ return (
               hintRed={!!missingHints.condition}
               clearHint={() => clearHint("condition")}
               buttonRef={refs.condition}
-              onEnterNext={() => focusNext("condition")}
+              onEnterNext={() => focusNext("riceYear")}
             />
             {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
           </div>
@@ -2385,7 +2386,7 @@ return (
               hintRed={!!missingHints.riceYear}
               clearHint={() => clearHint("riceYear")}
               buttonRef={refs.riceYear}
-              onEnterNext={() => focusNext("riceYear")}
+              onEnterNext={() => focusNext("businessType")}
             />
             {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
           </div>
@@ -2409,7 +2410,7 @@ return (
               hintRed={!!missingHints.businessType}
               clearHint={() => clearHint("businessType")}
               buttonRef={refs.businessType}
-              onEnterNext={() => focusNext("businessType")}
+              onEnterNext={() => focusNext("program")}
             />
             {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
           </div>
@@ -2429,7 +2430,7 @@ return (
               }
               placeholder="— เลือกโปรแกรม —"
               buttonRef={refs.program}
-              onEnterNext={() => focusNext("program")}
+              onEnterNext={() => focusNext("branchName")}
             />
           </div>
         </div>
@@ -2456,7 +2457,7 @@ return (
               hintRed={!!missingHints.branchName}
               clearHint={() => clearHint("branchName")}
               buttonRef={refs.branchName}
-              onEnterNext={() => focusNext("branchName")}
+              onEnterNext={() => focusNext("klangName")}
             />
             {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
           </div>
@@ -2480,7 +2481,7 @@ return (
               hintRed={!!missingHints.klangName}
               clearHint={() => clearHint("klangName")}
               buttonRef={refs.klangName}
-              onEnterNext={() => focusNext("klangName")}
+              onEnterNext={() => focusNext("entryWeightKg")}
             />
             {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
           </div>

@@ -26,7 +26,7 @@ function Home() {
 
   return (
     <div className="text-center text-xl font-semibold text-green-600">
-      ✅ หน้าหลักใช้งานได้แล้ว  
+      ✅ หน้าหลักใช้งานได้แล้ว.
       {user && (
         <div className="mt-3 text-lg text-slate-700 dark:text-slate-200">
           สวัสดี, {user.name || "ผู้ใช้"}

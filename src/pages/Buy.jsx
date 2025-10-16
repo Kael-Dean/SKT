@@ -2326,7 +2326,20 @@ const resolvePaymentIdForBE = () => {
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
                 buttonRef={refs.riceType}
-                onEnterNext={() => focusNext("subrice")}
+                nEnterNext={() => {
+    // ⬇️ รอให้ state/variant พร้อมก่อน แล้วค่อยโฟกัส "ชั้นย่อย"
+    const tryFocus = () => {
+      if (isEnabledInput(refs.subrice?.current)) {
+        refs.subrice.current.focus()
+        refs.subrice.current.scrollIntoView?.({ block: "center" })
+        return true
+      }
+      return false
+    }
+    if (tryFocus()) return
+    setTimeout(tryFocus, 60)
+    setTimeout(tryFocus, 180)
+  }}
               />
               {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
             </div>

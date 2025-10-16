@@ -2132,7 +2132,7 @@ const resolvePaymentIdForBE = () => {
                   value={customer.fidOwner}
                   onChange={(e) => updateCustomer("fidOwner", e.target.value)}
                   onFocus={() => clearHint("fidOwner")}
-                  onKeyDown={onEnter("fidOwner")}
+                  onKeyDown={onEnter("product")}
                   placeholder="เช่น นายสมหมาย นามดี"
                 />
                 <p className={helpTextCls}><code></code></p>
@@ -2148,12 +2148,7 @@ const resolvePaymentIdForBE = () => {
                   value={customer.fidRelationship}
                   onChange={(e) => updateCustomer("fidRelationship", onlyDigits(e.target.value))}
                   onFocus={() => clearHint("fidRelationship")}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.isComposing) {
-                      e.preventDefault()
-                      focusNext("product") // จากความสัมพันธ์ -> ประเภทสินค้า
-                    }
-                  }}
+                  onKeyDown={onEnter("fidOwner")}
                   placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
                 />
                 <p className={helpTextCls}><code></code> (ตัวเลข)</p>

@@ -2368,7 +2368,7 @@ const resolvePaymentIdForBE = () => {
                 hintRed={!!missingHints.condition}
                 clearHint={() => clearHint("condition")}
                 buttonRef={refs.condition}
-                onEnterNext={() => focusNext("fieldType")}
+                onEnterNext={() => focusNext("condition")}
               />
               {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
             </div>

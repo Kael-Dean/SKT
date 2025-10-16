@@ -2142,9 +2142,15 @@ return (
                 value={customer.fidRelationship}
                 onChange={(e) => updateCustomer("fidRelationship", onlyDigits(e.target.value))}
                 onFocus={() => clearHint("fidRelationship")}
-                onKeyDown={onEnter("fidRelationship")}
-                placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
-              />
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.isComposing) {
+                    e.preventDefault()
+                    focusNext("product")     // ⭐ ข้ามตรงไป ComboBox "ประเภทสินค้า"
+                  }
+                   }}
+                  placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
+                />
+
               <p className={helpTextCls}><code></code> (ตัวเลข)</p>
             </div>
           </div>

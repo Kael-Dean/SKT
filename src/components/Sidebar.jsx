@@ -16,9 +16,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     }
   }, [])
   const uid = Number(user?.id ?? user?.user_id ?? 0)
-
-  // ✅ เฉพาะ user processing (id 17/18)
-  const isProcessingUser = uid === 17 || uid === 18
+  const canSeeBringInMill = uid === 17 || uid === 18
 
   // เปิด dropdown อัตโนมัติเมื่ออยู่ในเมนูธุรกิจรวบรวมผลผลิต
   const inBusiness = useMemo(
@@ -27,8 +25,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       location.pathname.startsWith('/sales') ||
       location.pathname.startsWith('/transfer-in') ||
       location.pathname.startsWith('/transfer-out') ||
-      location.pathname.startsWith('/bring-in') ||         // ← หน้ายกมา
-      location.pathname.startsWith('/bring-in-mill') ||    // ← ยกเข้าโรงสี
+      location.pathname.startsWith('/bring-in') ||
+      location.pathname.startsWith('/bring-in-mill') || // ✅ เพิ่มเส้นทางใหม่ให้ auto-open
       location.pathname.startsWith('/transfer-mill') ||
       location.pathname.startsWith('/damage-out'),
     [location.pathname]
@@ -43,7 +41,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       location.pathname.startsWith('/search') ||
       location.pathname.startsWith('/customer-add') ||
       location.pathname.startsWith('/company-add') ||
-      location.pathname.startsWith('/member-termination'),
+      location.pathname.startsWith('/member-termination'), // ← เพิ่มหน้าสมาชิกสิ้นสภาพ
     [location.pathname]
   )
   const [membersOpen, setMembersOpen] = useState(inMembers)
@@ -75,20 +73,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const firstMenu = { label: 'หน้าหลัก', path: '/home' }
 
-  // ✅ เมนูอื่น ๆ
+  // ✅ เมนูอื่น ๆ (ย้าย 4 เมนูไปอยู่ใน "ทะเบียนสมาชิก" แล้ว)
   const otherMenus = [
     { label: 'คลังเอกสาร', path: '/documents' },
     { label: 'ออเดอร์', path: '/order' },
-    { label: 'คลังสินค้า', path: '/stock' },
+    { label: 'คลังสินค้า', path: '/stock' }, // ← อยู่ถัดจากออเดอร์ตามที่กำหนด
   ]
 
   const isActive = (p) => location.pathname === p
 
-  // ✅ เมนูย่อยธุรกิจ (แสดง “ยกมา” & “ยกเข้าโรงสี” เฉพาะ 17/18)
+  // ✅ เมนูย่อยธุรกิจ (เพิ่ม "ยกเข้าโรงสี" แบบมีเงื่อนไข)
   const businessMenuItems = useMemo(() => {
     return [
-      ...(isProcessingUser ? [{ label: 'ยกมา', path: '/bring-in' }] : []),
-      ...(isProcessingUser ? [{ label: 'ยกเข้าโรงสี', path: '/bring-in-mill' }] : []),
+      { label: 'ยกมา', path: '/bring-in' },
+      ...(canSeeBringInMill ? [{ label: 'ยกเข้าโรงสี', path: '/bring-in-mill' }] : []),
       { label: 'ซื้อข้าว', path: '/Buy' },
       { label: 'ขายข้าว', path: '/sales' },
       { label: 'รับเข้า', path: '/transfer-in' },
@@ -96,7 +94,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       { label: 'ส่งสี', path: '/transfer-mill' },
       { label: 'ตัดเสียหาย', path: '/damage-out' },
     ]
-  }, [isProcessingUser])
+  }, [canSeeBringInMill])
 
   return (
     <div

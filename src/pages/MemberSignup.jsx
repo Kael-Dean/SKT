@@ -693,7 +693,7 @@ const MemberSignup = () => {
 
     try {
       // ✅ ใช้ apiAuth แทน fetch ตรง
-      await apiAuth(`/member/members/save`, { method: "POST", body: payload })
+      await apiAuth(`/member/members/signup`, { method: "POST", body: payload })
       alert("บันทึกสมาชิกเรียบร้อย ✅")
       handleReset()
     } catch (err) {

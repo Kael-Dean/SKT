@@ -253,7 +253,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
         }}
         aria-label="เปิดตัวเลือกวันที่"
         className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+                    transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
@@ -486,7 +486,7 @@ const MemberSignup = () => {
       const found = pickBestRecord(
         res.items,
         (r) => (r.first_name ?? "").toLowerCase().includes(first.toLowerCase())
-           && (r.last_name ?? "").toLowerCase().includes(last.toLowerCase())
+          && (r.last_name ?? "").toLowerCase().includes(last.toLowerCase())
       )
       if (found) {
         prefillFromCustomer(found)
@@ -558,10 +558,27 @@ const MemberSignup = () => {
       return rest
     })
 
+  // 🔁 mapping คำนำหน้า → เพศ (ล็อกเพศให้อัตโนมัติ)
+  const PREFIX_OPTIONS = [
+    { value: "1", label: "นาย" },
+    { value: "2", label: "นาง" },
+    { value: "3", label: "นางสาว" },
+  ]
+  const sexFromPrefix = (pre) => (pre === "1" ? "M" : pre === "2" || pre === "3" ? "F" : "")
+
+  // เมื่อเปลี่ยนคำนำหน้า ⇒ เซ็ตเพศตาม map และล้าง error
+  const onChangePrecode = (v) => {
+    clearError("precode")
+    const mappedSex = sexFromPrefix(v)
+    setForm((prev) => ({ ...prev, precode: v, sex: mappedSex }))
+    // ล้าง error เพศด้วย เพราะเพศถูกกำหนดอัตโนมัติ
+    if (mappedSex) clearError("sex")
+  }
+
   const validateAll = () => {
     const e = {}
     if (!form.member_id) e.member_id = "กรอกเลขสมาชิก"
-    if (!form.precode) e.precode = "กรอกคำนำหน้า (รหัส)"
+    if (!form.precode) e.precode = "เลือกคำนำหน้า"
     if (!form.first_name) e.first_name = "กรอกชื่อ"
     if (!form.last_name) e.last_name = "กรอกนามสกุล"
     if (!validateThaiCitizenId(form.citizen_id)) e.citizen_id = "เลขบัตรประชาชนไม่ถูกต้อง"
@@ -571,8 +588,8 @@ const MemberSignup = () => {
     if (!form.district) e.district = "กรอกอำเภอ"
     if (!form.province) e.province = "กรอกจังหวัด"
 
-    if (!form.phone_number) e.phone_number = "กรอกเบอร์โทร"
-    if (!form.sex) e.sex = "เลือกเพศ (M/F)"
+    // เพศถูกล็อกจากคำนำหน้า ถ้าไม่มีให้เตือนให้เลือกคำนำหน้า
+    if (!form.sex) e.sex = "เลือกคำนำหน้าเพื่อกำหนดเพศอัตโนมัติ"
 
     ;[
       "member_id","precode","subprov","postal_code","salary","tgs_group","share_per_month",
@@ -659,7 +676,7 @@ const MemberSignup = () => {
       subprov: form.subprov === "" ? null : Number(form.subprov),
       postal_code: form.postal_code === "" ? 0 : Number(form.postal_code),
       phone_number: form.phone_number.trim(),
-      sex: form.sex,
+      sex: form.sex, // ✅ ส่งค่าเพศที่ถูกล็อกจากคำนำหน้า
       salary: form.salary === "" ? 0 : Number(form.salary),
       tgs_group: form.tgs_group === "" ? 0 : Number(form.tgs_group),
       share_per_month: form.share_per_month === "" ? 0 : Number(form.share_per_month),
@@ -686,6 +703,7 @@ const MemberSignup = () => {
       // 🌾 ข้อมูลเกษตร (ใหม่)
       fid: form.fid === "" ? null : Number(form.fid),
       fid_owner: form.fid_owner.trim(),
+      fid_relationship: form.fid_relationship ?? null,
       agri_type: form.agri_type === "" ? null : Number(form.agri_type),
       fertilizing_period: form.fertilizing_period === "" ? null : Number(form.fertilizing_period),
       fertilizer_type: form.fertilizer_type === "" ? null : Number(form.fertilizer_type),
@@ -857,20 +875,20 @@ const MemberSignup = () => {
                 {errors.member_id && <p className={errorTextCls}>{errors.member_id}</p>}
               </div>
 
-              {/* คำนำหน้า */}
+              {/* คำนำหน้า (ดรอปดาว) */}
               <div>
                 <label className={labelCls}>คำนำหน้า (precode)</label>
-                <input
-                  ref={refs.precode}
-                  inputMode="numeric"
-                  className={cx(baseField, errors.precode && fieldError)}
-                  value={form.precode}
-                  onChange={(e) => { clearError("precode"); update("precode", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("precode")}
-                  placeholder="เช่น 1"
-                  aria-invalid={errors.precode ? true : undefined}
-                />
+                <div ref={refs.precode}>
+                  <ComboBox
+                    options={PREFIX_OPTIONS}
+                    value={form.precode}
+                    onChange={(v) => onChangePrecode(v)}
+                    placeholder="— เลือกคำนำหน้า —"
+                    error={!!errors.precode}
+                  />
+                </div>
                 {errors.precode && <p className={errorTextCls}>{errors.precode}</p>}
+                <p className={helpTextCls}>นาย = 1, นาง = 2, นางสาว = 3 (ระบบจะกำหนดเพศอัตโนมัติ)</p>
               </div>
 
               {/* วันที่สมัคร */}
@@ -937,9 +955,9 @@ const MemberSignup = () => {
                 )}
               </div>
 
-              {/* เพศ */}
+              {/* เพศ (ล็อกจากคำนำหน้า) */}
               <div>
-                <label className={labelCls}>เพศ (M/F)</label>
+                <label className={labelCls}>เพศ (กำหนดจากคำนำหน้า)</label>
                 <div ref={refs.sex}>
                   <ComboBox
                     options={[
@@ -947,12 +965,14 @@ const MemberSignup = () => {
                       { value: "F", label: "หญิง (F)" },
                     ]}
                     value={form.sex}
-                    onChange={(v) => { clearError("sex"); update("sex", v) }}
-                    placeholder="— เลือก —"
+                    onChange={() => { /* locked: no manual change */ }}
+                    placeholder="— เลือกคำนำหน้าเพื่อกำหนด —"
                     error={!!errors.sex}
+                    disabled
                   />
                 </div>
                 {errors.sex && <p className={errorTextCls}>{errors.sex}</p>}
+                <p className={helpTextCls}>นาย ⇒ M, นาง/นางสาว ⇒ F (ฟิลด์นี้ถูกล็อกให้สอดคล้องกับคำนำหน้า)</p>
               </div>
 
               {/* คู่สมรส */}
@@ -1346,12 +1366,12 @@ const MemberSignup = () => {
                 type="submit"
                 disabled={submitting}
                 className="inline-flex items-center justify-center rounded-2xl 
-                          bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                          shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                          transition-all duration-300 ease-out
-                          hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                          hover:scale-[1.05] active:scale-[.97]
-                          disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                            bg-emerald-600 px-6 py-3 text-base font-semibold text-white
+                            shadow-[0_6px_16px_rgba(16,185,129,0.35)]
+                            transition-all duration-300 ease-out
+                            hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
+                            hover:scale-[1.05] active:scale-[.97]
+                            disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                 aria-busy={submitting ? "true" : "false"}
               >
                 {submitting ? "กำลังบันทึก..." : "บันทึกการสมัครสมาชิก"}
@@ -1361,13 +1381,13 @@ const MemberSignup = () => {
                 type="button"
                 onClick={handleReset}
                 className="inline-flex items-center justify-center rounded-2xl 
-                          border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                          shadow-sm
-                          transition-all duration-300 ease-out
-                          hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                          active:scale-[.97]
-                          dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                          dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                            border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
+                            shadow-sm
+                            transition-all duration-300 ease-out
+                            hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
+                            active:scale-[.97]
+                            dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
+                            dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
               >
                 รีเซ็ต
               </button>

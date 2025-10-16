@@ -816,7 +816,7 @@ const MemberSignup = () => {
           <SectionCard title="โครงการที่เข้าร่วม" className="mb-6">
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               {[
-                { key: "seedling_prog",  label: "โครงผลิตเมล็ดพันธ์" },
+                { key: "seedling_prog",  label: "โครงการผลิตเมล็ดพันธ์" },
                 { key: "slowdown_rice",  label: "โครงการชะลอข้าวเปลือก" },
                 { key: "organic_prog",   label: "โครงการอินทรีย์" },
                 { key: "product_loan",   label: "โครงการสินค้าเป็นเงินเชื่อ" },

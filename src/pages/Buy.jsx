@@ -2345,7 +2345,21 @@ const resolvePaymentIdForBE = () => {
                 hintRed={!!missingHints.subrice}
                 clearHint={() => clearHint("subrice")}
                 buttonRef={refs.subrice}
-                onEnterNext={() => focusNext("subrice")}
+                onEnterNext={() => {
+    // รอให้ subrice พร้อม (หลังโหลดตัวเลือก) แล้วค่อยโฟกัส
+    const tryFocus = () => {
+      const el = refs.subrice?.current
+      if (isEnabledInput(el)) {
+        el.focus?.()
+        el.scrollIntoView?.({ block: "center" })
+        return true
+      }
+      return false
+    }
+    if (tryFocus()) return
+    setTimeout(tryFocus, 60)
+    setTimeout(tryFocus, 180)
+  }}
               />
               {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
             </div>

@@ -2148,7 +2148,7 @@ const resolvePaymentIdForBE = () => {
                   value={customer.fidRelationship}
                   onChange={(e) => updateCustomer("fidRelationship", onlyDigits(e.target.value))}
                   onFocus={() => clearHint("fidRelationship")}
-                  onKeyDown={onEnter("product")}
+                  
                   placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
                 />
                 <p className={helpTextCls}><code></code> (ตัวเลข)</p>

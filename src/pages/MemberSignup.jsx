@@ -53,6 +53,55 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
+/** **********************************************************************
+ * จังหวัดสุรินทร์: รายการอำเภอ (ครบ) และตำบล (fallback ขั้นต้น)
+ * - ระบบจะพยายามดึงจาก API ก่อน (เช่น /geo/*) ถ้ามี → ใช้ข้อมูลจริงทั้งหมด
+ * - ถ้าไม่มี API → ใช้ fallback นี้ (อำเภอครบ, ตำบลมีตัวอย่าง สามารถขยายเพิ่มภายหลัง)
+ *********************************************************************** */
+const PROV_SURIN = "สุรินทร์"
+
+// อำเภอ “สุรินทร์” ครบ 17 อำเภอ
+const AMPHOES_SURIN = [
+  "เมืองสุรินทร์",
+  "จอมพระ",
+  "ชุมพลบุรี",
+  "ท่าตูม",
+  "ปราสาท",
+  "กาบเชิง",
+  "รัตนบุรี",
+  "สนม",
+  "ศีขรภูมิ",
+  "สังขะ",
+  "ลำดวน",
+  "สำโรงทาบ",
+  "โนนนารายณ์",
+  "บัวเชด",
+  "พนมดงรัก",
+  "ศรีณรงค์",
+  "เขวาสินรินทร์",
+]
+
+// ตัวอย่างตำบล fallback ต่ออำเภอ (เติมเพิ่มได้ง่าย)
+const TAMBONS_FALLBACK = {
+  "เมืองสุรินทร์": ["ในเมือง", "สลักได", "เทนมีย์", "นาบัว", "เฉนียง", "ตระแสง", "เฉนียง", "คอโค"],
+  "จอมพระ": ["จอมพระ", "เมืองลีง", "กระหาด", "ชุมแสง", "บุแกรง"],
+  "ชุมพลบุรี": ["ชุมพลบุรี", "หนองเรือ", "กระเบื้อง", "ไพรขลา", "เป๊าะ"],
+  "ท่าตูม": ["ท่าตูม", "บะ", "หนองบัว", "กระโพ", "พรมเทพ"],
+  "ปราสาท": ["ปราสาท", "กังแอน", "ทมอ", "ไพล", "บ้านพลวง"],
+  "กาบเชิง": ["กาบเชิง", "คูตัน", "แนงมุด", "ด่าน", "บึง"],
+  "รัตนบุรี": ["รัตนบุรี", "ธาตุ", "กุดขาคีม", "บ้านแก", "ทับผึ้ง"],
+  "สนม": ["สนม", "โพนโก", "หนองระฆัง", "แคน", "หัวงัว"],
+  "ศีขรภูมิ": ["ศีขรภูมิ", "ตรึม", "ระแงง", "นาโพธิ์", "หนองเชียงทูน"],
+  "สังขะ": ["สังขะ", "ขอนแตก", "ดม", "กระเทียม", "ตาตุม"],
+  "ลำดวน": ["ลำดวน", "ตระเปียงเตีย", "ตรำดม", "อู่โลก", "โชคเหนือ"],
+  "สำโรงทาบ": ["สำโรงทาบ", "หนองไผ่ล้อม", "กระออม", "เสม็จ", "หมื่นศรี"],
+  "โนนนารายณ์": ["หนองหลวง", "คูตัน (โนนนารายณ์)", "บ้านยาง", "แจนแวน"],
+  "บัวเชด": ["บัวเชด", "สะเดา", "บัวโคก", "อาโพน", "โคกสะอาด"],
+  "พนมดงรัก": ["โคกกลาง", "โคกตะเคียน", "โชคนาสาม", "บ้านยาง", "ตาเมียง"],
+  "ศรีณรงค์": ["ณรงค์", "แจนแวน", "ตรวจ", "หนองแวง", "ตรวจ (ศรีณรงค์)"],
+  "เขวาสินรินทร์": ["เขวาสินรินทร์", "บึง", "ตากูก", "ปราสาททอง", "บ้านแร่"],
+}
+
 /** ---------- Reusable Section Card ---------- */
 function SectionCard({ title, subtitle, children, className = "" }) {
   return (
@@ -275,6 +324,10 @@ const MemberSignup = () => {
   // 🧠 สถานะค้นหา/เติมอัตโนมัติ
   const [lookupStatus, setLookupStatus] = useState({ searching: false, message: "", tone: "muted" }) // tone: muted|ok|warn
 
+  // ✅ สถานะสำหรับจังหวัด/อำเภอ/ตำบล (สุรินทร์เท่านั้น)
+  const [amphoeOptions, setAmphoeOptions] = useState([])     // {value,label} ของอำเภอ
+  const [tambonOptions, setTambonOptions] = useState([])     // {value,label} ของตำบล (ตามอำเภอที่เลือก)
+
   // state หลักของฟอร์ม (เพิ่มฟิลด์ข้อมูลเกษตร)
   const [form, setForm] = useState({
     regis_date: new Date().toISOString().slice(0, 10),
@@ -292,7 +345,7 @@ const MemberSignup = () => {
     mhoo: "",
     sub_district: "",
     district: "",
-    province: "",
+    province: PROV_SURIN, // ✅ ล็อกไว้เป็น “สุรินทร์”
     subprov: "",
     postal_code: "",
     phone_number: "",
@@ -339,7 +392,7 @@ const MemberSignup = () => {
     return Array.isArray(paths) ? [] : {}
   }
 
-  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id */
+  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id (แต่จะ “บังคับ province = สุรินทร์” เสมอ) */
   const loadAddressByCitizenId = async (cid) => {
     const q = encodeURIComponent(onlyDigits(cid))
     const candidates = [
@@ -358,7 +411,7 @@ const MemberSignup = () => {
       mhoo: toStr(data.mhoo ?? data.moo ?? ""),
       sub_district: toStr(data.sub_district ?? data.subdistrict ?? data.subDistrict ?? ""),
       district: toStr(data.district ?? ""),
-      province: toStr(data.province ?? ""),
+      province: PROV_SURIN, // ✅ บังคับเป็นสุรินทร์เสมอ
       postal_code: onlyDigits(toStr(data.postal_code ?? data.postalCode ?? "")),
       first_name: toStr(data.first_name ?? data.firstName ?? ""),
       last_name: toStr(data.last_name ?? data.lastName ?? ""),
@@ -375,10 +428,9 @@ const MemberSignup = () => {
         last_name:    prev.last_name    || addr.last_name,
         address:      prev.address      || addr.address,
         mhoo:         prev.mhoo         || addr.mhoo,
-        sub_district: prev.sub_district || addr.sub_district,
-        district:     prev.district     || addr.district,
-        province:     prev.province     || addr.province,
-        postal_code:  prev.postal_code  || addr.postal_code,
+        // ✅ province ล็อกสุรินทร์
+        province: PROV_SURIN,
+        // ส่วนของอำเภอ/ตำบล จะให้ผู้ใช้เลือกจากดรอปดาวใหม่อีกครั้ง (จึงไม่ auto-fill ตรง ๆ)
         phone_number: prev.phone_number || addr.phone_number,
       }))
     }
@@ -394,7 +446,7 @@ const MemberSignup = () => {
     mhoo: r.mhoo ?? "",
     sub_district: r.sub_district ?? "",
     district: r.district ?? "",
-    province: r.province ?? "",
+    province: PROV_SURIN, // ✅ บังคับสุรินทร์
     postal_code: r.postal_code ?? "",
     phone_number: r.phone_number ?? "",
     member_id: r.member_id ?? null,
@@ -409,9 +461,9 @@ const MemberSignup = () => {
       citizen_id:   prev.citizen_id   || onlyDigits(c.citizen_id),
       address:      prev.address      || c.address,
       mhoo:         prev.mhoo         || c.mhoo,
-      sub_district: prev.sub_district || c.sub_district,
-      district:     prev.district     || c.district,
-      province:     prev.province     || c.province,
+      // ✅ province ล็อกสุรินทร์
+      province: PROV_SURIN,
+      // district/sub_district ให้เลือกใหม่จากดรอปดาว
       postal_code:  prev.postal_code  || String(c.postal_code || ""),
       phone_number: prev.phone_number || c.phone_number,
     }))
@@ -510,6 +562,90 @@ const MemberSignup = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debFirst, debLast])
 
+  // ---------- จังหวัด/อำเภอ/ตำบล: โหลดอำเภอของสุรินทร์ (พยายามจาก API ก่อน) ----------
+  const shapeOptions = (arr = [], labelKey = "name", valueKey = "id") =>
+    arr.map((x, i) => {
+      const v = String(x?.[valueKey] ?? x?.value ?? x?.id ?? x?.[labelKey] ?? i)
+      const l = String(x?.[labelKey] ?? x?.label ?? x?.name ?? x)
+      return { value: v, label: l }
+    })
+
+  const loadAmphoesSurin = async () => {
+    // candidates API
+    const candidates = [
+      `/geo/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
+      `/geo/amphoes?province_name=${encodeURIComponent(PROV_SURIN)}`,
+      `/th/geo/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
+      `/address/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
+    ]
+    let options = []
+    for (const p of candidates) {
+      try {
+        const data = await apiAuth(p)
+        if (Array.isArray(data) && data.length) {
+          // ชื่อคีย์ที่พบบ่อย: name, amphoe_name, amphoe
+          const tryKeys = ["name", "amphoe_name", "amphoe", "label"]
+          const labelKey = tryKeys.find((k) => typeof data?.[0]?.[k] !== "undefined") || "name"
+          options = shapeOptions(data, labelKey)
+          break
+        }
+      } catch (_) {}
+    }
+    if (!options.length) {
+      // fallback: ใช้รายการอำเภอครบจากคงที่ด้านบน
+      options = AMPHOES_SURIN.map((n) => ({ value: n, label: n }))
+    }
+    setAmphoeOptions(options.sort((a, b) => a.label.localeCompare(b.label, "th")))
+  }
+
+  const loadTambonsByAmphoe = async (amphoeLabel) => {
+    if (!amphoeLabel) { setTambonOptions([]); return }
+
+    // candidates API
+    const candidates = [
+      `/geo/tambon?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
+      `/geo/tambons?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
+      `/th/geo/tambon?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
+      `/address/tambon?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
+    ]
+    let options = []
+    for (const p of candidates) {
+      try {
+        const data = await apiAuth(p)
+        if (Array.isArray(data) && data.length) {
+          const tryKeys = ["name", "tambon_name", "subdistrict", "label"]
+          const labelKey = tryKeys.find((k) => typeof data?.[0]?.[k] !== "undefined") || "name"
+          options = shapeOptions(data, labelKey)
+          break
+        }
+      } catch (_) {}
+    }
+    if (!options.length) {
+      const fall = TAMBONS_FALLBACK[amphoeLabel] || []
+      options = fall.map((n) => ({ value: n, label: n }))
+    }
+    setTambonOptions(options.sort((a, b) => a.label.localeCompare(b.label, "th")))
+  }
+
+  // โหลดอำเภอครั้งแรก + ล็อกจังหวัดเป็นสุรินทร์เสมอ
+  useEffect(() => {
+    if (form.province !== PROV_SURIN) {
+      setForm((prev) => ({ ...prev, province: PROV_SURIN }))
+    }
+    loadAmphoesSurin()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // เมื่อเปลี่ยนอำเภอ → โหลดตำบลใหม่ + ล้างค่าตำบลเดิม
+  useEffect(() => {
+    const amphoeLabel = form.district
+      ? (amphoeOptions.find((o) => String(o.value) === String(form.district))?.label ?? form.district)
+      : ""
+    setForm((prev) => ({ ...prev, sub_district: "" }))
+    loadTambonsByAmphoe(amphoeLabel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.district])
+
   // refs
   const refs = {
     member_id: useRef(null),
@@ -571,7 +707,6 @@ const MemberSignup = () => {
     clearError("precode")
     const mappedSex = sexFromPrefix(v)
     setForm((prev) => ({ ...prev, precode: v, sex: mappedSex }))
-    // ล้าง error เพศด้วย เพราะเพศถูกกำหนดอัตโนมัติ
     if (mappedSex) clearError("sex")
   }
 
@@ -584,9 +719,9 @@ const MemberSignup = () => {
     if (!validateThaiCitizenId(form.citizen_id)) e.citizen_id = "เลขบัตรประชาชนไม่ถูกต้อง"
 
     if (!form.address) e.address = "กรอกที่อยู่"
-    if (!form.sub_district) e.sub_district = "กรอกตำบล"
-    if (!form.district) e.district = "กรอกอำเภอ"
-    if (!form.province) e.province = "กรอกจังหวัด"
+    if (!form.sub_district) e.sub_district = "เลือกตำบล"
+    if (!form.district) e.district = "เลือกอำเภอ"
+    if (!form.province) e.province = "จังหวัดต้องเป็นสุรินทร์"
 
     // เพศถูกล็อกจากคำนำหน้า ถ้าไม่มีให้เตือนให้เลือกคำนำหน้า
     if (!form.sex) e.sex = "เลือกคำนำหน้าเพื่อกำหนดเพศอัตโนมัติ"
@@ -625,7 +760,7 @@ const MemberSignup = () => {
     const keysOrder = [
       "member_id","precode","regis_date",
       "first_name","last_name","citizen_id",
-      "address","mhoo","sub_district","district","province","postal_code",
+      "address","mhoo","province","district","sub_district","postal_code",
       "phone_number","sex",
       "salary","tgs_group","share_per_month","transfer_date","ar_limit","normal_share",
       "last_bought_date","bank_account","tgs_id","spouce_name","orders_placed",
@@ -672,7 +807,7 @@ const MemberSignup = () => {
       mhoo: form.mhoo.trim(),
       sub_district: form.sub_district.trim(),
       district: form.district.trim(),
-      province: form.province.trim(),
+      province: PROV_SURIN, // ✅ ส่งออกเป็นสุรินทร์
       subprov: form.subprov === "" ? null : Number(form.subprov),
       postal_code: form.postal_code === "" ? 0 : Number(form.postal_code),
       phone_number: form.phone_number.trim(),
@@ -710,7 +845,6 @@ const MemberSignup = () => {
     }
 
     try {
-      // ✅ ใช้ apiAuth แทน fetch ตรง
       await apiAuth(`/member/members/signup`, { method: "POST", body: payload })
       alert("บันทึกสมาชิกเรียบร้อย ✅")
       handleReset()
@@ -740,7 +874,7 @@ const MemberSignup = () => {
       mhoo: "",
       sub_district: "",
       district: "",
-      province: "",
+      province: PROV_SURIN, // ✅ คงเป็นสุรินทร์เมื่อรีเซ็ต
       subprov: "",
       postal_code: "",
       phone_number: "",
@@ -768,6 +902,7 @@ const MemberSignup = () => {
       fertilizer_type: "",
     })
     setLookupStatus({ searching: false, message: "", tone: "muted" })
+    setTambonOptions([])
 
     requestAnimationFrame(() => {
       const target = topRef.current
@@ -824,7 +959,7 @@ const MemberSignup = () => {
                 <label
                   key={key}
                   className={cx(
-                    "group relative flex items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all",
+                    "group relative flex items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h=[72px] transition-all",
                     "border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-700/40",
                     "shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
                     "hover:border-emerald-300/70 dark:hover:border-emerald-400/40",
@@ -888,7 +1023,6 @@ const MemberSignup = () => {
                   />
                 </div>
                 {errors.precode && <p className={errorTextCls}>{errors.precode}</p>}
-                
               </div>
 
               {/* วันที่สมัคร */}
@@ -972,7 +1106,6 @@ const MemberSignup = () => {
                   />
                 </div>
                 {errors.sex && <p className={errorTextCls}>{errors.sex}</p>}
-                
               </div>
 
               {/* คู่สมรส */}
@@ -1011,46 +1144,51 @@ const MemberSignup = () => {
                 <input ref={refs.mhoo} className={baseField} value={form.mhoo} onChange={(e) => update("mhoo", e.target.value)} placeholder="เช่น 1" />
               </div>
 
+              {/* ✅ จังหวัด (ล็อกสุรินทร์) */}
               <div>
-                <label className={labelCls}>ตำบล (sub_district)</label>
-                <input
-                  ref={refs.sub_district}
-                  className={cx(baseField, errors.sub_district && fieldError)}
-                  value={form.sub_district}
-                  onChange={(e) => { clearError("sub_district"); update("sub_district", e.target.value) }}
-                  onFocus={() => clearError("sub_district")}
-                  placeholder="ตำบลนอกเมือง"
-                  aria-invalid={errors.sub_district ? true : undefined}
-                />
-                {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
+                <label className={labelCls}>จังหวัด</label>
+                <div ref={refs.province}>
+                  <ComboBox
+                    options={[{ value: PROV_SURIN, label: PROV_SURIN }]}
+                    value={form.province}
+                    onChange={() => {}}
+                    placeholder={PROV_SURIN}
+                    disabled
+                    error={!!errors.province}
+                  />
+                </div>
+                {errors.province && <p className={errorTextCls}>{errors.province}</p>}
               </div>
 
+              {/* ✅ อำเภอ (ดรอปดาวทั้งหมดในสุรินทร์) */}
               <div>
                 <label className={labelCls}>อำเภอ (district)</label>
-                <input
-                  ref={refs.district}
-                  className={cx(baseField, errors.district && fieldError)}
-                  value={form.district}
-                  onChange={(e) => { clearError("district"); update("district", e.target.value) }}
-                  onFocus={() => clearError("district")}
-                  placeholder="อำเภอเมือง"
-                  aria-invalid={errors.district ? true : undefined}
-                />
+                <div ref={refs.district}>
+                  <ComboBox
+                    options={amphoeOptions}
+                    value={form.district}
+                    onChange={(v) => { clearError("district"); update("district", v) }}
+                    placeholder="— เลือกอำเภอ —"
+                    error={!!errors.district}
+                  />
+                </div>
                 {errors.district && <p className={errorTextCls}>{errors.district}</p>}
               </div>
 
+              {/* ✅ ตำบล (ดรอปดาวตามอำเภอที่เลือก) */}
               <div>
-                <label className={labelCls}>จังหวัด (province)</label>
-                <input
-                  ref={refs.province}
-                  className={cx(baseField, errors.province && fieldError)}
-                  value={form.province}
-                  onChange={(e) => { clearError("province"); update("province", e.target.value) }}
-                  onFocus={() => clearError("province")}
-                  placeholder="สุรินทร์"
-                  aria-invalid={errors.province ? true : undefined}
-                />
-                {errors.province && <p className={errorTextCls}>{errors.province}</p>}
+                <label className={labelCls}>ตำบล (sub_district)</label>
+                <div ref={refs.sub_district}>
+                  <ComboBox
+                    options={tambonOptions}
+                    value={form.sub_district}
+                    onChange={(v) => { clearError("sub_district"); update("sub_district", v) }}
+                    placeholder={form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}
+                    error={!!errors.sub_district}
+                    disabled={!form.district}
+                  />
+                </div>
+                {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
               </div>
 
               <div>

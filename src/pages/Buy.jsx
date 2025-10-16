@@ -2358,7 +2358,7 @@ const resolvePaymentIdForBE = () => {
                 hintRed={!!missingHints.subrice}
                 clearHint={() => clearHint("subrice")}
                 buttonRef={refs.subrice}
-                onEnterNext={() => focusNext("condition")}
+                onEnterNext={() => focusNext("subrice")}
               />
               {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
             </div>

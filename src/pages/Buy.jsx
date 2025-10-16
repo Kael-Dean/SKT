@@ -80,6 +80,84 @@ const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 const compactInput = "!py-2 !px-4 !text-[16px] !leading-normal"
 
+
+/** ---------- Enter-to-next helpers ---------- */
+const isEnabledInput = (el) => {
+  if (!el) return false
+  if (typeof el.disabled !== "undefined" && el.disabled) return false
+  // hidden / display:none
+  const style = window.getComputedStyle?.(el)
+  if (style && (style.display === "none" || style.visibility === "hidden")) return false
+  // detached
+  if (!el.offsetParent && el.type !== "hidden" && el.getAttribute("role") !== "combobox") return false
+  return true
+}
+
+/** ลำดับฟิลด์ที่จะโฟกัสต่อไป (ขึ้นกับ buyerType และสถานะ disable ของบางช่อง) */
+const useEnterNavigation = (refs, buyerType, order) => {
+  // รายการฝั่งลูกค้า (บุคคล/บริษัท)
+  const personOrder = [
+    "citizenId","fullName","houseNo","moo","subdistrict","district","province",
+    "postalCode","phone","fid","fidOwner","fidRelationship",
+  ]
+  const companyOrder = [
+    "companyName","taxId","companyPhone",
+    "hqHouseNo","hqMoo","hqSubdistrict","hqDistrict","hqProvince","hqPostalCode",
+    "brHouseNo","brMoo","brSubdistrict","brDistrict","brProvince","brPostalCode",
+  ]
+
+  // รายการฝั่งออเดอร์
+  const orderOrder = [
+    "payment","issueDate","product","riceType","subrice","condition","fieldType","riceYear",
+    "businessType","program","branchName","klangName",
+    "entryWeightKg","exitWeightKg","moisturePct","impurityPct","deductWeightKg",
+    "gram","unitPrice","amountTHB","paymentRefNo","comment",
+  ]
+
+  // รวมทั้งหมดตามประเภทผู้ซื้อ
+  let list = (buyerType === "person" ? personOrder : companyOrder).concat(orderOrder)
+
+  // ตัดช่องที่ตอนนี้ "ไม่พร้อมรับโฟกัส" ออก (เช่น subrice ยัง disabled, deductWeightKg ปิดเพราะไม่ได้ติ๊ก “กำหนดเอง”)
+  list = list.filter((key) => {
+    const el = refs?.[key]?.current
+    if (!el) return false
+    if (key === "subrice" && !order.riceId) return false
+    if (key === "riceType" && !order.productId) return false
+    if (key === "product" && order?.__templateLockedProduct) return true // กันไว้ ถ้าอยากล็อก product
+    if (key === "deductWeightKg" && !order.manualDeduct) return false
+    if (key === "klangName" && !order.branchId) return false
+    return isEnabledInput(el)
+  })
+
+  const focusNext = (currentKey) => {
+    const i = list.indexOf(currentKey)
+    const nextKey = i >= 0 && i < list.length - 1 ? list[i + 1] : null
+    if (!nextKey) return
+    const el = refs[nextKey]?.current
+    if (!el) return
+    try {
+      el.scrollIntoView({ block: "center" })
+    } catch {}
+    el.focus?.()
+    // ถ้าเป็น input ให้ select ข้อความเพื่อพิมพ์ทับสบาย ๆ
+    try {
+      if (el.select) el.select()
+    } catch {}
+  }
+
+  const onEnter = (currentKey) => (e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      // ข้อยกเว้น: textarea ใช้ Shift+Enter เพื่อขึ้นบรรทัดใหม่
+      const isTextArea = e.currentTarget?.tagName?.toLowerCase() === "textarea"
+      if (isTextArea && e.shiftKey) return
+      e.preventDefault()
+      focusNext(currentKey)
+    }
+  }
+
+  return { onEnter, focusNext }
+}
+
 /** ---------- Reusable ComboBox ---------- */
 function ComboBox({
   options = [],
@@ -93,6 +171,7 @@ function ComboBox({
   buttonRef = null,
   hintRed = false,
   clearHint = () => {},
+  onEnterNext,
 }) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
@@ -124,7 +203,11 @@ function ComboBox({
     setOpen(false)
     setHighlight(-1)
     clearHint?.()
-    requestAnimationFrame(() => controlRef.current?.focus())
+    requestAnimationFrame(() => { 
+      // โฟกัสปุ่มไว้ก่อน เพื่อคีย์ Enter ครั้งถัดไปยังไปต่อ +      controlRef.current?.focus() 
+      // ถ้ามี onEnterNext ให้เรียกเพื่อเลื่อนไปฟิลด์ถัดไป 
+    onEnterNext?.() 
+    })
   }
 
   const scrollHighlightedIntoView = (index) => {
@@ -499,10 +582,13 @@ const Buy = () => {
     gram: useRef(null),
     comment: useRef(null),
     businessType: useRef(null),
-
+    
     formTemplate: useRef(null),
     buyerType: useRef(null),
+    
   }
+
+  const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
   /** โหลดค่า Template ล่าสุดจาก localStorage */
   useEffect(() => {
@@ -1777,6 +1863,7 @@ return (
               onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
               placeholder="— เลือกวิธีชำระเงิน —"
               buttonRef={refs.payment}
+              onEnterNext={() => focusNext("payment")}
             />
           </div>
 
@@ -1789,6 +1876,7 @@ return (
               onFocus={() => clearHint("issueDate")}
               error={!!errors.issueDate}
               className={redHintCls("issueDate")}
+              onKeyDown={onEnter("issueDate")}
               aria-invalid={errors.issueDate ? true : undefined}
             />
             {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
@@ -1862,6 +1950,7 @@ return (
                 onChange={(e) => updateCustomer("citizenId", onlyDigits(e.target.value))}
                 onFocus={() => clearHint("citizenId")}
                 placeholder="เช่น 1234567890123"
+                onKeyDown={onEnter("citizenId")}
                 aria-invalid={errors.citizenId ? true : undefined}
               />
               <div className={helpTextCls}>
@@ -1902,6 +1991,7 @@ return (
                   clearError("fullName")
                 }}
                 onKeyDown={handleNameKeyDown}
+                onKeyDownCapture={onEnter("fullName")}  // ⭐ มี dropdown ใช้ capture กันกรณีรายการปิดอยู่
                 placeholder="เช่น นายสมชาย ใจดี"
                 aria-expanded={showNameList}
                 aria-controls="name-results"
@@ -2164,6 +2254,7 @@ return (
               clearHint={() => clearHint("product")}
               buttonRef={refs.product}
               disabled={isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
+              onEnterNext={() => focusNext("product")}
             />
             {errors.product && <p className={errorTextCls}>{errors.product}</p>}
           </div>
@@ -2188,6 +2279,7 @@ return (
               hintRed={!!missingHints.riceType}
               clearHint={() => clearHint("riceType")}
               buttonRef={refs.riceType}
+              onEnterNext={() => focusNext("riceType")}
             />
             {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
           </div>
@@ -2206,6 +2298,7 @@ return (
               hintRed={!!missingHints.subrice}
               clearHint={() => clearHint("subrice")}
               buttonRef={refs.subrice}
+              onEnterNext={() => focusNext("subrice")}
             />
             {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
           </div>
@@ -2228,6 +2321,7 @@ return (
               hintRed={!!missingHints.condition}
               clearHint={() => clearHint("condition")}
               buttonRef={refs.condition}
+              onEnterNext={() => focusNext("condition")}
             />
             {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
           </div>
@@ -2250,6 +2344,7 @@ return (
               hintRed={!!missingHints.fieldType}
               clearHint={() => clearHint("fieldType")}
               buttonRef={refs.fieldType}
+              onEnterNext={() => focusNext("fieldType")}
             />
             {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
           </div>
@@ -2272,6 +2367,7 @@ return (
               hintRed={!!missingHints.riceYear}
               clearHint={() => clearHint("riceYear")}
               buttonRef={refs.riceYear}
+              onEnterNext={() => focusNext("riceYear")}
             />
             {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
           </div>
@@ -2295,6 +2391,7 @@ return (
               hintRed={!!missingHints.businessType}
               clearHint={() => clearHint("businessType")}
               buttonRef={refs.businessType}
+              onEnterNext={() => focusNext("businessType")}
             />
             {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
           </div>
@@ -2314,6 +2411,7 @@ return (
               }
               placeholder="— เลือกโปรแกรม —"
               buttonRef={refs.program}
+              onEnterNext={() => focusNext("program")}
             />
           </div>
         </div>
@@ -2340,6 +2438,7 @@ return (
               hintRed={!!missingHints.branchName}
               clearHint={() => clearHint("branchName")}
               buttonRef={refs.branchName}
+              onEnterNext={() => focusNext("branchName")}
             />
             {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
           </div>
@@ -2363,6 +2462,7 @@ return (
               hintRed={!!missingHints.klangName}
               clearHint={() => clearHint("klangName")}
               buttonRef={refs.klangName}
+              onEnterNext={() => focusNext("klangName")}
             />
             {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
           </div>
@@ -2632,6 +2732,7 @@ return (
             className={cx(baseField)}
             value={order.comment}
             onChange={(e) => updateOrder("comment", e.target.value)}
+            onKeyDown={onEnter("comment")} // (กด Shift+Enter = เว้นบรรทัด, Enter = ไปช่องถัดไป)
             placeholder="เช่น ลูกค้าขอรับเงินโอนพรุ่งนี้, ความชื้นวัดซ้ำรอบบ่าย, ฯลฯ"
           />
           <p className={helpTextCls}>ข้อความนี้จะถูกส่งไปเก็บในออเดอร์ด้วย</p>

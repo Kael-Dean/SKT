@@ -2321,7 +2321,7 @@ const resolvePaymentIdForBE = () => {
                   }))
                 }}
                 placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId || isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
+                disabled={!order.productId} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
                 error={!!errors.riceType}
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}

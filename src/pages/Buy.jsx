@@ -2064,6 +2064,7 @@ return (
                   value={customer[k]}
                   onChange={(e) => updateCustomer(k, e.target.value)}
                   onFocus={() => clearHint(k)}
+                  onKeyDown={onEnter(k)}   
                   placeholder={ph}
                   aria-invalid={errors.address ? true : undefined}
                 />
@@ -2080,6 +2081,7 @@ return (
                 value={customer.postalCode}
                 onChange={(e) => updateCustomer("postalCode", onlyDigits(e.target.value))}
                 onFocus={() => clearHint("postalCode")}
+                onKeyDown={onEnter("postalCode")}
                 placeholder="เช่น 40000"
               />
             </div>
@@ -2093,6 +2095,7 @@ return (
                 className={cx(baseField, compactInput)}
                 value={customer.phone}
                 onChange={(e) => updateCustomer("phone", e.target.value.replace(/[^\d+]/g, ""))}
+                onKeyDown={onEnter("phone")}
                 placeholder="เช่น 0812345678"
               />
               <p className={helpTextCls}></p>
@@ -2107,11 +2110,14 @@ return (
                 className={cx(baseField, compactInput)}
                 value={customer.fid}
                 onChange={(e) => updateCustomer("fid", onlyDigits(e.target.value))}
+                onFocus={() => clearHint("fid")}
+                onKeyDown={onEnter("fid")}
                 placeholder="ตัวเลข เช่น 123456"
               />
               <p className={helpTextCls}><code>fid</code></p>
             </div>
 
+            {/* FID Owner */}
             <div>
               <label className={labelCls}>ชื่อทะเบียนเกษตรกร (FID Owner)</label>
               <input
@@ -2119,11 +2125,14 @@ return (
                 className={cx(baseField, compactInput)}
                 value={customer.fidOwner}
                 onChange={(e) => updateCustomer("fidOwner", e.target.value)}
+                onFocus={() => clearHint("fidOwner")}
+                onKeyDown={onEnter("fidOwner")}
                 placeholder="เช่น นายสมหมาย นามดี"
               />
               <p className={helpTextCls}><code></code></p>
             </div>
 
+            {/* FID Relationship */}
             <div>
               <label className={labelCls}>ความสัมพันธ์</label>
               <input
@@ -2132,6 +2141,8 @@ return (
                 className={cx(baseField, compactInput)}
                 value={customer.fidRelationship}
                 onChange={(e) => updateCustomer("fidRelationship", onlyDigits(e.target.value))}
+                onFocus={() => clearHint("fidRelationship")}
+                onKeyDown={onEnter("fidRelationship")}
                 placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
               />
               <p className={helpTextCls}><code></code> (ตัวเลข)</p>
@@ -2160,6 +2171,7 @@ return (
               }}
               onFocus={() => clearError("companyName")}
               onKeyDown={handleCompanyKeyDown}
+              onKeyDownCapture={onEnter("companyName")}
               placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
               aria-expanded={showCompanyList}
               aria-controls="company-results"
@@ -2475,6 +2487,7 @@ return (
             <h3 className="text-lg font-semibold">ตัวเลขและการคำนวณ</h3>
           </div>
 
+          {/* น้ำหนักก่อนชั่ง */}
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>น้ำหนักก่อนชั่ง (กก.)</label>
@@ -2488,6 +2501,7 @@ return (
                   clearHint("entryWeightKg")
                   clearError("entryWeightKg")
                 }}
+                onKeyDown={onEnter("entryWeightKg")}
                 placeholder="เช่น 12000"
                 aria-invalid={errors.entryWeightKg ? true : undefined}
               />
@@ -2506,6 +2520,7 @@ return (
                   clearHint("exitWeightKg")
                   clearError("exitWeightKg")
                 }}
+                onKeyDown={onEnter("exitWeightKg")}
                 placeholder="เช่น 7000"
                 aria-invalid={errors.exitWeightKg ? true : undefined}
               />
@@ -2517,7 +2532,9 @@ return (
               <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(grossFromScale * 100) / 100} />
               <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
             </div>
+            
 
+            {/* ความชื้น */}
             <div>
               <label className={labelCls}>ความชื้น (%)</label>
               <input
@@ -2527,11 +2544,13 @@ return (
                 value={order.moisturePct}
                 onChange={(e) => updateOrder("moisturePct", onlyDigits(e.target.value))}
                 onFocus={() => clearHint("moisturePct")}
+                onKeyDown={onEnter("moisturePct")}
                 placeholder="เช่น 18"
               />
               <p className={helpTextCls}>{MOISTURE_STD}</p>
             </div>
 
+            {/* สิ่งเจือปน */}
             <div>
               <label className={labelCls}>สิ่งเจือปน (%)</label>
               <input
@@ -2541,6 +2560,7 @@ return (
                 value={order.impurityPct}
                 onChange={(e) => updateOrder("impurityPct", onlyDigits(e.target.value))}
                 onFocus={() => clearHint("impurityPct")}
+                onKeyDown={onEnter("impurityPct")}
                 placeholder="เช่น 2"
               />
             </div>
@@ -2579,6 +2599,7 @@ return (
                 }
                 onChange={(e) => updateOrder("deductWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
                 onFocus={() => clearHint("deductWeightKg")}
+                onKeyDown={onEnter("deductWeightKg")}
                 placeholder="ระบบคำนวณให้ หรือกำหนดเอง"
                 aria-invalid={errors.deductWeightKg ? true : undefined}
               />
@@ -2590,6 +2611,7 @@ return (
               <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(netWeight * 100) / 100} />
             </div>
 
+            {/* gram */}      
             <div>
               <label className={labelCls}>คุณภาพข้าว (gram)</label>
               <input
@@ -2598,10 +2620,12 @@ return (
                 className={baseField}
                 value={order.gram}
                 onChange={(e) => updateOrder("gram", onlyDigits(e.target.value))}
+                onKeyDown={onEnter("gram")}
                 placeholder="เช่น 85"
               />
             </div>
-
+            
+            {/* ราคาต่อกก. */}
             <div>
               <label className={labelCls}>ราคาต่อกก. (บาท)</label>
               <input
@@ -2611,11 +2635,13 @@ return (
                 value={order.unitPrice}
                 onChange={(e) => updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
                 onFocus={() => clearHint("unitPrice")}
+                onKeyDown={onEnter("unitPrice")}
                 placeholder="เช่น 12.50"
               />
               <p className={helpTextCls}>ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
             </div>
 
+            {/* เป็นเงิน */}
             <div>
               <label className={labelCls}>เป็นเงิน (บาท)</label>
               <input
@@ -2628,13 +2654,15 @@ return (
                   clearHint("amountTHB")
                   clearError("amountTHB")
                 }}
+                onKeyDown={onEnter("amountTHB")}
                 placeholder="เช่น 60,000"
                 aria-invalid={errors.amountTHB ? true : undefined}
               />
               {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(moneyToNumber(order.amountTHB))}</p>}
               {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
             </div>
-
+            
+            {/* ใบชั่ง/ใบเบิกเงิน */}
             <div>
               <label className={labelCls}>เลขที่ใบชั่ง/ใบเบิกเงิน</label>
               <input
@@ -2643,6 +2671,7 @@ return (
                 value={order.paymentRefNo}
                 onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
                 onFocus={() => clearHint("paymentRefNo")}
+                onKeyDown={onEnter("paymentRefNo")}
                 placeholder="เช่น A-2025-000123"
               />
             </div>

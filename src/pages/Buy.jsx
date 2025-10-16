@@ -2326,20 +2326,7 @@ const resolvePaymentIdForBE = () => {
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
                 buttonRef={refs.riceType}
-                nEnterNext={() => {
-    // ⬇️ รอให้ state/variant พร้อมก่อน แล้วค่อยโฟกัส "ชั้นย่อย"
-    const tryFocus = () => {
-      if (isEnabledInput(refs.subrice?.current)) {
-        refs.subrice.current.focus()
-        refs.subrice.current.scrollIntoView?.({ block: "center" })
-        return true
-      }
-      return false
-    }
-    if (tryFocus()) return
-    setTimeout(tryFocus, 60)
-    setTimeout(tryFocus, 180)
-  }}
+                onEnterNext={() => focusNext("riceType")}
               />
               {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
             </div>
@@ -2404,7 +2391,7 @@ const resolvePaymentIdForBE = () => {
                 hintRed={!!missingHints.fieldType}
                 clearHint={() => clearHint("fieldType")}
                 buttonRef={refs.fieldType}
-                onEnterNext={() => focusNext("riceYear")}
+                onEnterNext={() => focusNext("fieldType")}
               />
               {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
             </div>
@@ -2427,7 +2414,7 @@ const resolvePaymentIdForBE = () => {
                 hintRed={!!missingHints.riceYear}
                 clearHint={() => clearHint("riceYear")}
                 buttonRef={refs.riceYear}
-                onEnterNext={() => focusNext("businessType")}
+                onEnterNext={() => focusNext("riceYear")}
               />
               {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
             </div>
@@ -2451,7 +2438,7 @@ const resolvePaymentIdForBE = () => {
                 hintRed={!!missingHints.businessType}
                 clearHint={() => clearHint("businessType")}
                 buttonRef={refs.businessType}
-                onEnterNext={() => focusNext("program")}
+                onEnterNext={() => focusNext("businessType")}
               />
               {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
             </div>

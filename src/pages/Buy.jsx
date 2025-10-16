@@ -1770,7 +1770,7 @@ return (
         {/* วิธีชำระเงิน + วันที่ */}
         <div className="grid gap-4 md:grid-cols-3">
           <div>
-            <label className={labelCls}>วิธีชำระเงิน (ไม่บังคับ)</label>
+            <label className={labelCls}>วิธีชำระเงิน</label>
             <ComboBox
               options={paymentOptions}
               value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
@@ -1981,7 +1981,7 @@ return (
             ))}
 
             <div>
-              <label className={labelCls}>รหัสไปรษณีย์ (ไม่บังคับ)</label>
+              <label className={labelCls}>รหัสไปรษณีย์</label>
               <input
                 ref={refs.postalCode}
                 inputMode="numeric"
@@ -1995,7 +1995,7 @@ return (
             </div>
 
             <div>
-              <label className={labelCls}>เบอร์โทรศัพท์ (ไม่บังคับ)</label>
+              <label className={labelCls}>เบอร์โทรศัพท์ </label>
               <input
                 ref={refs.phone}
                 inputMode="tel"
@@ -2300,7 +2300,7 @@ return (
           </div>
 
           <div>
-            <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
+            <label className={labelCls}>โปรแกรม</label>
             <ComboBox
               options={programOptions}
               value={order.programId}
@@ -2503,7 +2503,7 @@ return (
             </div>
 
             <div>
-              <label className={labelCls}>ราคาต่อกก. (บาท) (ไม่บังคับ)</label>
+              <label className={labelCls}>ราคาต่อกก. (บาท)</label>
               <input
                 ref={refs.unitPrice}
                 inputMode="decimal"
@@ -2625,7 +2625,7 @@ return (
 
         {/* หมายเหตุ */}
         <div className="mt-6">
-          <label className={labelCls}>หมายเหตุ / คอมเมนต์ (ไม่บังคับ)</label>
+          <label className={labelCls}>หมายเหตุ / คอมเมนต์ </label>
           <textarea
             ref={refs.comment}
             rows={3}

@@ -2132,7 +2132,7 @@ const resolvePaymentIdForBE = () => {
                   value={customer.fidOwner}
                   onChange={(e) => updateCustomer("fidOwner", e.target.value)}
                   onFocus={() => clearHint("fidOwner")}
-                  onKeyDown={onEnter("product")}
+                  onKeyDown={onEnter("fidOwner")}
                   placeholder="เช่น นายสมหมาย นามดี"
                 />
                 <p className={helpTextCls}><code></code></p>
@@ -2148,7 +2148,7 @@ const resolvePaymentIdForBE = () => {
                   value={customer.fidRelationship}
                   onChange={(e) => updateCustomer("fidRelationship", onlyDigits(e.target.value))}
                   onFocus={() => clearHint("fidRelationship")}
-                  onKeyDown={onEnter("fidOwner")}
+                  onKeyDown={onEnter("product")}
                   placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
                 />
                 <p className={helpTextCls}><code></code> (ตัวเลข)</p>

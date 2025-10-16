@@ -22,8 +22,31 @@ import StockBringIn from './pages/StockBringIn'
 import StockTransferMill from './pages/StockTransferMill'
 import StockDamageOut from './pages/StockDamageOut'
 
-// ✅ นำเข้าหน้าใหม่: สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)
+// ✅ นำเข้าเพจใหม่: ยกเข้าโรงสี
+import StockBringInMill from './pages/StockBringInMill'
+
+// ✅ นำเข้าหน้า: สมาชิกสิ้นสภาพ
 import MemberTermination from './pages/MemberTermination'
+
+/** ---------- Route Guard เฉพาะ user id 17/18 ---------- */
+const ALLOWED_USER_IDS = new Set([17, 18])
+const getCurrentUser = () => {
+  try {
+    const raw = localStorage.getItem('user')
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function RequireUserId17or18({ children }) {
+  const u = getCurrentUser()
+  const uid = Number(u?.id ?? u?.user_id ?? 0)
+  if (!ALLOWED_USER_IDS.has(uid)) {
+    return <Navigate to="/home" replace />
+  }
+  return children
+}
 
 function App() {
   return (
@@ -58,6 +81,16 @@ function App() {
         <Route path="/transfer-out" element={<StockTransferOut />} />
         <Route path="/transfer-mill" element={<StockTransferMill />} />
         <Route path="/damage-out" element={<StockDamageOut />} />
+
+        {/* ✅ ใหม่: ยกเข้าโรงสี — จำกัดเฉพาะ user id 17/18 */}
+        <Route
+          path="/bring-in-mill"
+          element={
+            <RequireUserId17or18>
+              <StockBringInMill />
+            </RequireUserId17or18>
+          }
+        />
       </Route>
 
       {/* กันพิมพ์พาธมั่ว */}

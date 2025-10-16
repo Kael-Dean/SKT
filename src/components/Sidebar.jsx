@@ -6,6 +6,18 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigate = useNavigate()
   const location = useLocation()
 
+  // 👉 ดึง user ปัจจุบันจาก localStorage
+  const user = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('user')
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  }, [])
+  const uid = Number(user?.id ?? user?.user_id ?? 0)
+  const canSeeBringInMill = uid === 17 || uid === 18
+
   // เปิด dropdown อัตโนมัติเมื่ออยู่ในเมนูธุรกิจรวบรวมผลผลิต
   const inBusiness = useMemo(
     () =>
@@ -14,6 +26,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       location.pathname.startsWith('/transfer-in') ||
       location.pathname.startsWith('/transfer-out') ||
       location.pathname.startsWith('/bring-in') ||
+      location.pathname.startsWith('/bring-in-mill') || // ✅ เพิ่มเส้นทางใหม่ให้ auto-open
       location.pathname.startsWith('/transfer-mill') ||
       location.pathname.startsWith('/damage-out'),
     [location.pathname]
@@ -68,6 +81,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   ]
 
   const isActive = (p) => location.pathname === p
+
+  // ✅ เมนูย่อยธุรกิจ (เพิ่ม "ยกเข้าโรงสี" แบบมีเงื่อนไข)
+  const businessMenuItems = useMemo(() => {
+    return [
+      { label: 'ยกมา', path: '/bring-in' },
+      ...(canSeeBringInMill ? [{ label: 'ยกเข้าโรงสี', path: '/bring-in-mill' }] : []),
+      { label: 'ซื้อข้าว', path: '/Buy' },
+      { label: 'ขายข้าว', path: '/sales' },
+      { label: 'รับเข้า', path: '/transfer-in' },
+      { label: 'โอนออก', path: '/transfer-out' },
+      { label: 'ส่งสี', path: '/transfer-mill' },
+      { label: 'ตัดเสียหาย', path: '/damage-out' },
+    ]
+  }, [canSeeBringInMill])
 
   return (
     <div
@@ -130,15 +157,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 }`}
               >
                 <div className="px-3 pb-3 pt-2 space-y-2">
-                  {[
-                    { label: 'ยกมา', path: '/bring-in' },
-                    { label: 'ซื้อข้าว', path: '/Buy' },
-                    { label: 'ขายข้าว', path: '/sales' },
-                    { label: 'รับเข้า', path: '/transfer-in' },
-                    { label: 'โอนออก', path: '/transfer-out' },
-                    { label: 'ส่งสี', path: '/transfer-mill' },
-                    { label: 'ตัดเสียหาย', path: '/damage-out' },
-                  ].map((item) => (
+                  {businessMenuItems.map((item) => (
                     <div key={item.path}>
                       <button
                         onClick={() => { navigate(item.path); setIsOpen(false) }}
@@ -194,7 +213,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { label: 'ค้นหาสมาชิก', path: '/search' },
                     { label: 'เพิ่มลูกค้า', path: '/customer-add' },
                     { label: 'เพิ่มบริษัท', path: '/company-add' },
-                    // ✅ เพิ่มเมนูใหม่
                     { label: 'สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)', path: '/member-termination' },
                   ].map((item) => (
                     <div key={item.path}>

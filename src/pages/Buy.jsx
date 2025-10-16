@@ -2340,7 +2340,7 @@ return (
               hintRed={!!missingHints.condition}
               clearHint={() => clearHint("condition")}
               buttonRef={refs.condition}
-              onEnterNext={() => focusNext("riceYear")}
+              onEnterNext={() => focusNext("fieldType")}
             />
             {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
           </div>
@@ -2363,7 +2363,7 @@ return (
               hintRed={!!missingHints.fieldType}
               clearHint={() => clearHint("fieldType")}
               buttonRef={refs.fieldType}
-              onEnterNext={() => focusNext("fieldType")}
+              onEnterNext={() => focusNext("riceYear")}
             />
             {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
           </div>

@@ -2536,7 +2536,7 @@ return (
             </div>
 
             <div>
-              <label className={labelCls}>เลขที่ใบสำคัญจ่ายเงิน</label>
+              <label className={labelCls}>เลขที่ใบชั่ง/ใบเบิกเงิน</label>
               <input
                 ref={refs.paymentRefNo}
                 className={baseField}

@@ -9,11 +9,7 @@ const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(
 // ตรวจเลขบัตร ปชช.ไทย (13 หลัก)
 function validateThaiCitizenId(id) {
   const cid = onlyDigits(id)
-  if (cid.length !== 13) return false
-  let sum = 0
-  for (let i = 0; i < 12; i++) sum += Number(cid[i]) * (13 - i)
-  const check = (11 - (sum % 11)) % 10
-  return check === Number(cid[12])
+  return cid.length === 13
 }
 
 // จำกัดช่วงค่า งาน/วา

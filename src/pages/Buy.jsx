@@ -10,6 +10,12 @@ const thb = (n) =>
     isFinite(n) ? n : 0
   )
 
+// แปลงเป็นเลขจำนวนเต็ม ถ้าไม่ใช่ตัวเลขให้คืน null
+const toIntOrNull = (v) => {
+  if (v === null || v === undefined) return null
+  const s = String(v).trim()
+  return /^-?\d+$/.test(s) ? parseInt(s, 10) : null
+}
 
 
 function validateThaiCitizenId(id) {
@@ -1542,166 +1548,167 @@ const resolvePaymentIdForBE = () => {
 
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
-  e.preventDefault()
+    e.preventDefault()
 
-  const hints = computeMissingHints()
-  setMissingHints(hints)
-  const eObj = validateAll()
-  if (Object.keys(eObj).length > 0) {
-    scrollToFirstError(eObj)
-    return
+    const hints = computeMissingHints()
+    setMissingHints(hints)
+    const eObj = validateAll()
+    if (Object.keys(eObj).length > 0) {
+      scrollToFirstError(eObj)
+      return
+    }
+
+    // แยกชื่อ (เฉพาะบุคคล)
+    const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
+    const lastName = rest.join(" ")
+
+    // แปลงเป็นตัวเลขให้ชัดเจน
+    const productId = /^\d+$/.test(order.productId) ? Number(order.productId) : null
+    const riceId = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null // species_id
+    const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null // variant_id
+    const branchId = order.branchId != null ? Number(order.branchId) : null
+    const klangId = order.klangId != null ? Number(order.klangId) : null
+    const riceYearId = /^\d+$/.test(order.riceYearId) ? Number(order.riceYearId) : null
+    const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
+    const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
+    const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
+    const programId = /^\d+$/.test(order.programId) ? Number(order.programId) : null
+    const paymentId = resolvePaymentIdForBE() // ← ใช้ตัวใหม่ที่ map เครดิตเป็น 1
+
+    if (!productId) return scrollToFirstError({ product: true })
+    if (!riceId) return scrollToFirstError({ riceType: true })
+    if (!subriceId) return scrollToFirstError({ subrice: true })
+    if (!riceYearId) return scrollToFirstError({ riceYear: true })
+    if (!conditionId) return scrollToFirstError({ condition: true })
+    if (!fieldTypeId) return scrollToFirstError({ fieldType: true })
+    if (!businessTypeId) return scrollToFirstError({ businessType: true })
+    if (!branchId) return scrollToFirstError({ branchName: true })
+    if (!klangId) return scrollToFirstError({ klangName: true })
+    if (!paymentId) return scrollToFirstError({ payment: true })
+
+    const baseGross = grossFromScale
+    const deduction = order.manualDeduct
+      ? toNumber(order.deductWeightKg)
+      : suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
+    const netW = Math.max(0, baseGross - deduction)
+
+    const dateStr = order.issueDate
+
+    // CCD: FID
+    const fidNum = /^\d+$/.test(customer.fid) ? Number(customer.fid) : null
+    const fidRelNum = /^\d+$/.test(customer.fidRelationship) ? Number(customer.fidRelationship) : null
+
+    // ⭐ payload.customer ตามประเภทผู้ซื้อ
+    let customerPayload
+    if (buyerType === "person") {
+      customerPayload = {
+        party_type: "individual",
+        first_name: firstName || "",
+        last_name: lastName || "",
+        citizen_id: onlyDigits(customer.citizenId) || "",
+        address: customer.houseNo.trim() || "",
+        mhoo: customer.moo.trim() || "",
+        sub_district: customer.subdistrict.trim() || "",
+        district: customer.district.trim() || "",
+        province: customer.province.trim() || "",
+        postal_code: customer.postalCode ? String(customer.postalCode).trim() : "",
+        phone_number: customer.phone?.trim() || "",
+        // CCD
+        fid: fidNum,
+        fid_owner: customer.fidOwner?.trim() || "",
+        fid_relationship: fidRelNum,
+      }
+    } else {
+      customerPayload = {
+        party_type: "company",
+        company_name: customer.companyName.trim(),
+        tax_id: onlyDigits(customer.taxId),
+        phone_number: customer.companyPhone?.trim() || "",
+        // HQ
+        hq_address: customer.hqHouseNo.trim() || "",
+        hq_moo: customer.hqMoo.trim() || "",
+        hq_tambon: customer.hqSubdistrict.trim() || "",
+        hq_amphur: customer.hqDistrict.trim() || "",
+        hq_province: customer.hqProvince.trim() || "",
+        hq_postal_code: customer.hqPostalCode ? String(customer.hqPostalCode).trim() : "",
+        // Branch (optional)
+        branch_address: customer.brHouseNo.trim() || "",
+        branch_moo: customer.brMoo.trim() || "",
+        branch_tambon: customer.brSubdistrict.trim() || "",
+        branch_amphur: customer.brDistrict.trim() || "",
+        branch_province: customer.brProvince.trim() || "",
+        branch_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
+      }
+    }
+
+    /** Dept payload (แนบเสมอ — BE จะใช้เมื่อเป็นเครดิต) */
+    const makeDeptDate = (yyyyMmDd) => {
+      try {
+        return new Date(`${yyyyMmDd}T00:00:00Z`).toISOString()
+      } catch {
+        return new Date().toISOString()
+      }
+    }
+    const deptPayload = {
+      date_created: makeDeptDate(dateStr),
+      allowed_period: Number(dept.allowedPeriod || 0),
+      postpone: Boolean(dept.postpone),
+      postpone_period: Number(dept.postponePeriod || 0),
+    }
+
+    // ✅ NEW: spec ตาม ProductSpecIn (nested)
+    const spec = {
+      product_id: productId,
+      species_id: riceId,
+      variant_id: subriceId,
+      product_year: riceYearId ?? null,
+      condition_id: conditionId ?? null,
+      field_type: fieldTypeId ?? null,
+      program: programId ?? null,
+      business_type: businessTypeId ?? null,
+    }
+
+    // ✅ NEW: date → ISO datetime
+    const dateISO = toIsoDateTime(dateStr)
+
+    const payload = {
+      customer: customerPayload,
+      order: {
+        // asso_id: memberMeta.assoId ?? null, // BE resolve เอง ไม่จำเป็นต้องส่ง
+        payment_id: paymentId,
+        spec, // <<<<<<<<<<<<<<<<<<<<<<<<<<<< ส่งเป็น nested spec
+        humidity: Number(order.moisturePct || 0),
+        entry_weight: Number(order.entryWeightKg || 0),
+        exit_weight: Number(order.exitWeightKg || 0),
+        weight: Number(netW),
+        price_per_kilo: Number(order.unitPrice || 0),
+        price: Number(moneyToNumber(order.amountTHB) || 0),
+        impurity: Number(order.impurityPct || 0),
+        order_serial: order.paymentRefNo.trim() || null,
+        date: dateISO, // <<<<<<<<<<<<<<<<<< ส่ง ISO datetime
+        branch_location: branchId,
+        klang_location: klangId,
+        gram: Number(order.gram || 0),
+        comment: order.comment?.trim() || null,
+        business_type: businessTypeId, // เก็บบน OrderData ด้วยตามคอมเมนต์ BE
+      },
+      // ⭐ แนบ dept
+      dept: deptPayload,
+    }
+
+    try {
+      await post("/order/customers/save/buy", payload)
+      try {
+        localStorage.setItem("buy.formTemplate", formTemplate)
+      } catch {}
+      alert("บันทึกออเดอร์เรียบร้อย ✅")
+      handleReset()
+    } catch (err) {
+      console.error("SAVE ERROR:", err?.data || err)
+      const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
+      alert(`บันทึกล้มเหลว: ${err.message || "เกิดข้อผิดพลาด"}${detail}`)
+    }
   }
-
-  // แยกชื่อ (เฉพาะบุคคล)
-  const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
-  const lastName = rest.join(" ")
-
-  // ids (บังคับเป็นตัวเลข หรือ null)
-  const productId     = toIntOrNull(order.productId)
-  const riceId        = toIntOrNull(order.riceId)       // species_id
-  const subriceId     = toIntOrNull(order.subriceId)    // variant_id
-  const branchId      = order.branchId != null ? Number(order.branchId) : null
-  const klangId       = order.klangId  != null ? Number(order.klangId)  : null
-  const riceYearId    = toIntOrNull(order.riceYearId)
-  const conditionId   = toIntOrNull(order.conditionId)
-  const fieldTypeId   = toIntOrNull(order.fieldTypeId)
-  const businessTypeId= toIntOrNull(order.businessTypeId)
-  const programId     = toIntOrNull(order.programId)
-  const paymentId     = resolvePaymentIdForBE() // 3=สด, 4=เชื่อ
-
-  if (!productId)  return scrollToFirstError({ product: true })
-  if (!riceId)     return scrollToFirstError({ riceType: true })
-  if (!subriceId)  return scrollToFirstError({ subrice: true })
-  if (!riceYearId) return scrollToFirstError({ riceYear: true })
-  if (!conditionId)return scrollToFirstError({ condition: true })
-  if (!fieldTypeId)return scrollToFirstError({ fieldType: true })
-  if (!businessTypeId) return scrollToFirstError({ businessType: true })
-  if (!branchId)   return scrollToFirstError({ branchName: true })
-  if (!klangId)    return scrollToFirstError({ klangName: true })
-  if (!paymentId)  return scrollToFirstError({ payment: true })
-
-  // ชั่งน้ำหนัก
-  const baseGross = grossFromScale
-  const deduction = order.manualDeduct
-    ? toFloat(order.deductWeightKg)
-    : suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
-  const netW = Math.max(0, baseGross - deduction)
-
-  // FID
-  const fidNum    = toIntOrNull(customer.fid)
-  const fidRelNum = toIntOrNull(customer.fidRelationship)
-
-  // วันที่ -> ISO (ใช้เที่ยงวัน UTC ลดปัญหา timezone เซิร์ฟเวอร์)
-  const toIsoDateTime = (yyyyMmDd) => {
-    try { return new Date(`${yyyyMmDd}T12:00:00Z`).toISOString() } catch { return new Date().toISOString() }
-  }
-  const dateISO = toIsoDateTime(order.issueDate)
-
-  // ---------- customer (เลือกโครงสร้างตามประเภทผู้ซื้อ) ----------
-  let customerPayload
-  if (buyerType === "person") {
-    customerPayload = cleanObject({
-      party_type: "individual",
-      first_name: firstName || "",
-      last_name: lastName || "",
-      citizen_id: onlyDigits(customer.citizenId) || "",
-      address: customer.houseNo?.trim(),
-      mhoo: customer.moo?.trim(),
-      sub_district: customer.subdistrict?.trim(),
-      district: customer.district?.trim(),
-      province: customer.province?.trim(),
-      postal_code: customer.postalCode ? String(customer.postalCode).trim() : undefined,
-      phone_number: customer.phone?.trim(),
-      fid: fidNum ?? undefined,
-      fid_owner: customer.fidOwner?.trim(),
-      fid_relationship: fidRelNum ?? undefined,
-    })
-  } else {
-    customerPayload = cleanObject({
-      party_type: "company",
-      company_name: customer.companyName?.trim(),
-      tax_id: onlyDigits(customer.taxId),
-      phone_number: customer.companyPhone?.trim(),
-      // HQ
-      hq_address: customer.hqHouseNo?.trim(),
-      hq_moo: customer.hqMoo?.trim(),
-      hq_tambon: customer.hqSubdistrict?.trim(),
-      hq_amphur: customer.hqDistrict?.trim(),
-      hq_province: customer.hqProvince?.trim(),
-      hq_postal_code: customer.hqPostalCode ? String(customer.hqPostalCode).trim() : undefined,
-      // Branch (optional)
-      branch_address: customer.brHouseNo?.trim(),
-      branch_moo: customer.brMoo?.trim(),
-      branch_tambon: customer.brSubdistrict?.trim(),
-      branch_amphur: customer.brDistrict?.trim(),
-      branch_province: customer.brProvince?.trim(),
-      branch_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : undefined,
-    })
-  }
-
-  // ---------- spec (ProductSpecIn) ----------
-  // ส่งเฉพาะ key ที่มีค่า จริง ๆ; Optional ใน BE จะ default เป็น None เอง
-  const spec = cleanObject({
-    product_id: productId,
-    species_id: riceId,
-    variant_id: subriceId,
-    product_year: riceYearId ?? undefined,
-    condition_id: conditionId ?? undefined,
-    field_type: fieldTypeId ?? undefined,
-    program: programId ?? undefined,
-    business_type: businessTypeId ?? undefined,
-  })
-
-  // ---------- dept (ให้ BE ตัดสินใจใช้ต่อเมื่อเป็นเครดิต) ----------
-  const deptPayload = cleanObject({
-    date_created: (() => {
-      try { return new Date(`${order.issueDate}T00:00:00Z`).toISOString() } catch { return new Date().toISOString() }
-    })(),
-    allowed_period: Number(dept.allowedPeriod || 0),
-    postpone: Boolean(dept.postpone),
-    postpone_period: Number(dept.postponePeriod || 0),
-  })
-
-  // ---------- order (OrderCreate) ----------
-  // ไม่ส่ง asso_id (BE resolve เอง), ไม่ต้องย้ำ business_type ซ้ำถ้าไม่จำเป็น
-  const orderPayload = cleanObject({
-    payment_id: paymentId,
-    spec, // nested spec ตาม BE
-    humidity: toFloat(order.moisturePct),
-    entry_weight: toFloat(order.entryWeightKg),
-    exit_weight: toFloat(order.exitWeightKg),
-    weight: toFloat(netW),
-    price_per_kilo: toFloat(order.unitPrice),
-    price: toFloat(moneyToNumber(order.amountTHB)),
-    impurity: toFloat(order.impurityPct),
-    order_serial: order.paymentRefNo?.trim(),
-    date: dateISO,
-    branch_location: branchId,
-    klang_location: klangId,
-    gram: toIntOrNull(order.gram) ?? undefined,
-    comment: order.comment?.trim(),
-    // ถ้าต้องการเก็บบน OrderData ด้วยจริง ๆ ให้ปลดบรรทัดล่างนี้ (ไม่จำเป็น BE มีใน spec แล้ว)
-    // business_type: businessTypeId ?? undefined,
-  })
-
-  const payload = cleanObject({
-    customer: customerPayload,
-    order: orderPayload,
-    dept: deptPayload,
-  })
-
-  try {
-    await post("/order/customers/save/buy", payload)
-    try { localStorage.setItem("buy.formTemplate", formTemplate) } catch {}
-    alert("บันทึกออเดอร์เรียบร้อย ✅")
-    handleReset()
-  } catch (err) {
-    console.error("SAVE ERROR:", err?.data || err)
-    const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
-    alert(`บันทึกล้มเหลว: ${err.message || "เกิดข้อผิดพลาด"}${detail}`)
-  }
-}
-
 
   const handleReset = () => {
     setErrors({})

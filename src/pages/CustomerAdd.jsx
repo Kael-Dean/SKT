@@ -93,6 +93,10 @@ const CustomerAdd = () => {
   const [submitting, setSubmitting] = useState(false)
   const [status, setStatus] = useState({ searching: false, message: "", tone: "muted" }) // tone: muted|ok|warn
 
+  // FID relationship options
+  const [relOpts, setRelOpts] = useState([])         // [{id, fid_relationship}]
+  const [relLoading, setRelLoading] = useState(false)
+
   // refs เพื่อเลื่อนโฟกัสไปยัง error ตัวแรก
   const refs = {
     citizen_id: useRef(null),
@@ -139,6 +143,25 @@ const CustomerAdd = () => {
       const { [k]: _omit, ...rest } = prev
       return rest
     })
+
+  // โหลดตัวเลือก FID Relationship จาก BE
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        setRelLoading(true)
+        const rows = await apiAuth(`/member/members/fid_relationship`)
+        if (!cancelled && Array.isArray(rows)) {
+          setRelOpts(rows) // rows: [{id, fid_relationship}]
+        }
+      } catch {
+        // เงียบไว้ก่อน
+      } finally {
+        if (!cancelled) setRelLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   // debounce เพื่อค้นหาอัตโนมัติ (ฝั่งสมาชิก)
   const debCid = useDebounce(form.citizen_id, 400)
@@ -189,8 +212,7 @@ const CustomerAdd = () => {
   }
 
   /** ค้นหาด้วย citizen_id กับฝั่งสมาชิก (เพื่อเติมอัตโนมัติ)
-   *  เดิม: ค้นหาเฉพาะกรอกครบ 13 หลักและผ่าน checksum
-   *  ตอนนี้ยังคงเงื่อนไขเดิมไว้ (เพื่อกันยิงค้นถี่ ๆ) แต่ช่องกรอก “ไม่บังคับเงื่อนไข” แล้ว
+   *  เงื่อนไข: กรอกครบ 13 หลัก และผ่าน checksum
    */
   useEffect(() => {
     const cid = onlyDigits(debCid || "")
@@ -244,8 +266,10 @@ const CustomerAdd = () => {
   /** ตรวจความถูกต้องก่อนส่งเข้า Back */
   const validateAll = () => {
     const e = {}
-    // ❌ ยกเลิกการบังคับตรวจเลขบัตรประชาชนให้เป็น 13 หลัก
-    // if (!validateThaiCitizenId(form.citizen_id)) e.citizen_id = "เลขบัตรประชาชนไม่ถูกต้อง"
+
+    // ✅ บังคับ citizen_id เป็นเลข 13 หลัก (ให้ตรงกับ BE)
+    const cid = onlyDigits(form.citizen_id)
+    if (cid.length !== 13) e.citizen_id = "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
 
     if (!form.full_name.trim()) e.full_name = "กรุณากรอกชื่อ–สกุล"
     if (!form.address.trim()) e.address = "กรุณากรอกบ้านเลขที่"
@@ -254,9 +278,10 @@ const CustomerAdd = () => {
     if (!form.province.trim()) e.province = "กรุณากรอกจังหวัด"
 
     // ถ้ามีค่า ให้เป็นตัวเลข
-    ;["postal_code", "fid", "fid_relationship"].forEach((k) => {
+    ;["postal_code", "fid"].forEach((k) => {
       if (form[k] !== "" && isNaN(Number(form[k]))) e[k] = "ต้องเป็นตัวเลข"
     })
+    // fid_relationship มาจากดรอปดาวเป็นตัวเลขอยู่แล้ว ไม่ต้องเช็คเพิ่ม
 
     setErrors(e)
     return Object.keys(e).length === 0
@@ -298,7 +323,7 @@ const CustomerAdd = () => {
     const payload = {
       first_name,
       last_name,
-      citizen_id: onlyDigits(form.citizen_id), // ✅ อนุญาตทุกความยาว (จะเป็น "" ได้ถ้าไม่ได้กรอก)
+      citizen_id: onlyDigits(form.citizen_id), // ✅ 13 หลักตาม validateAll
       address: form.address.trim(),
       mhoo: (form.mhoo ?? "").toString().trim() || "",
       sub_district: form.sub_district.trim(),
@@ -432,17 +457,24 @@ const CustomerAdd = () => {
             <div className="grid gap-4 md:grid-cols-2">
               {/* citizen_id */}
               <div>
-                <label className={labelCls}>เลขที่บัตรประชาชน (พิมพ์เลขได้ทุกความยาว)</label>
+                <label className={labelCls}>เลขที่บัตรประชาชน (13 หลัก)</label>
                 <input
                   ref={refs.citizen_id}
                   inputMode="numeric"
-                  className={cx(baseField /* ไม่มีการฟ้อง error citizen_id แล้ว */)}
+                  maxLength={13}
+                  className={cx(baseField, errors.citizen_id && fieldError)}
                   value={form.citizen_id}
-                  onChange={(e) => { clearError("citizen_id"); update("citizen_id", onlyDigits(e.target.value)) }}
+                  onChange={(e) => {
+                    clearError("citizen_id")
+                    // ล็อกเฉพาะเลข & ไม่เกิน 13 หลัก
+                    const digits = onlyDigits(e.target.value).slice(0, 13)
+                    update("citizen_id", digits)
+                  }}
                   onFocus={() => clearError("citizen_id")}
-                  placeholder="พิมพ์ตัวเลขได้อิสระ (ไม่บังคับ 13 หลัก)"
+                  placeholder="เช่น 1234567890123"
+                  aria-invalid={errors.citizen_id ? true : undefined}
                 />
-                {/* ไม่แสดง errors.citizen_id อีกต่อไป */}
+                {errors.citizen_id && <p className={errorTextCls}>{errors.citizen_id}</p>}
               </div>
 
               {/* full_name */}
@@ -544,7 +576,7 @@ const CustomerAdd = () => {
                   maxLength={5}
                   className={cx(baseField, errors.postal_code && fieldError)}
                   value={form.postal_code}
-                  onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value)) }}
+                  onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value).slice(0,5)) }}
                   onFocus={() => clearError("postal_code")}
                   placeholder="เช่น 40000"
                   aria-invalid={errors.postal_code ? true : undefined}
@@ -595,19 +627,27 @@ const CustomerAdd = () => {
                   />
                 </div>
 
-                {/* fid_relationship */}
+                {/* fid_relationship -> ดรอปดาวจาก BE */}
                 <div>
                   <label className={labelCls}>ความสัมพันธ์ (FID Relationship)</label>
-                  <input
+                  <select
                     ref={refs.fid_relationship}
-                    inputMode="numeric"
                     className={cx(baseField, errors.fid_relationship && fieldError)}
                     value={form.fid_relationship}
-                    onChange={(e) => { clearError("fid_relationship"); update("fid_relationship", onlyDigits(e.target.value)) }}
+                    onChange={(e) => {
+                      clearError("fid_relationship")
+                      update("fid_relationship", e.target.value) // เก็บเป็น string ของ id; แปลงตอนส่ง
+                    }}
                     onFocus={() => clearError("fid_relationship")}
-                    placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
-                    aria-invalid={errors.fid_relationship ? true : undefined}
-                  />
+                    disabled={relLoading}
+                  >
+                    <option value="">{relLoading ? "กำลังโหลด..." : "— เลือกความสัมพันธ์ —"}</option>
+                    {relOpts.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.fid_relationship}
+                      </option>
+                    ))}
+                  </select>
                   {errors.fid_relationship && <p className={errorTextCls}>{errors.fid_relationship}</p>}
                 </div>
               </div>

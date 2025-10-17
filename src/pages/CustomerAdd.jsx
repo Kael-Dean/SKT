@@ -1,7 +1,6 @@
 // src/pages/CustomerAdd.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api"
-import ComboBox from "../components/ComboBox" // ✅ ใช้ดรอปดาวสไตล์เดียวกับหน้า Carry Over
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -325,24 +324,16 @@ const CustomerAdd = () => {
     // eslint-disable-line react-hooks/exhaustive-deps
   }, [debName, submitting])
 
-  /** ตัวเลือกอำเภอ/ตำบลแบบพึ่งพา (สำหรับ ComboBox) */
+  /** ตัวเลือกอำเภอ/ตำบลแบบพึ่งพา */
   const districtOptions = useMemo(() => Object.keys(SURIN_MAP), [])
-  const districtCbOptions = useMemo(
-    () => districtOptions.map((d) => ({ label: d, value: d })),
-    [districtOptions]
-  )
   const tambonOptions = useMemo(
     () => (form.district && SURIN_MAP[form.district] ? SURIN_MAP[form.district] : []),
     [form.district]
   )
-  const tambonCbOptions = useMemo(
-    () => tambonOptions.map((t) => ({ label: t, value: t })),
-    [tambonOptions]
-  )
 
   // รีเซ็ตตำบลทุกครั้งที่เปลี่ยนอำเภอ
   useEffect(() => {
-    setForm((p) => ({ ...p, sub_district: "" }))
+    update("sub_district", "")
     clearError("sub_district")
     clearError("district")
   }, [form.district]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -375,7 +366,7 @@ const CustomerAdd = () => {
   // เลื่อนไป error แรก
   useEffect(() => {
     const order = [
-      "citizen_id","full_name","address","mhoo","district","sub_district","province","postal_code",
+      "citizen_id","full_name","address","mhoo","sub_district","district","province","postal_code",
       "phone_number","fid","fid_owner","fid_relationship"
     ]
     const first = order.find((k) => k in errors)
@@ -604,31 +595,43 @@ const CustomerAdd = () => {
                 />
               </div>
 
-              {/* ✅ อำเภอ (ก่อนตำบล) — ใช้ ComboBox */}
-              <div>
-                <label className={labelCls}>อำเภอ</label>
-                <ComboBox
-                  options={districtCbOptions}
-                  value={form.district}
-                  onChange={(v) => { clearError("district"); update("district", v) }}
-                  error={!!errors.district}
-                  placeholder="— เลือกอำเภอ —"
-                />
-                {errors.district && <p className={errorTextCls}>{errors.district}</p>}
-              </div>
-
-              {/* ✅ ตำบล (ตามอำเภอ) — ใช้ ComboBox */}
+              {/* sub_district (ตำบล) -> Dependent select */}
               <div>
                 <label className={labelCls}>ตำบล</label>
-                <ComboBox
-                  options={tambonCbOptions}
+                <select
+                  ref={refs.sub_district}
+                  className={cx(baseField, errors.sub_district && fieldError)}
                   value={form.sub_district}
-                  onChange={(v) => { clearError("sub_district"); update("sub_district", v) }}
-                  error={!!errors.sub_district}
-                  placeholder={form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}
+                  onChange={(e) => { clearError("sub_district"); update("sub_district", e.target.value) }}
+                  onFocus={() => clearError("sub_district")}
                   disabled={!form.district}
-                />
+                  aria-invalid={errors.sub_district ? true : undefined}
+                >
+                  <option value="">{form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}</option>
+                  {tambonOptions.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
                 {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
+              </div>
+
+              {/* district (อำเภอ) -> Select */}
+              <div>
+                <label className={labelCls}>อำเภอ</label>
+                <select
+                  ref={refs.district}
+                  className={cx(baseField, errors.district && fieldError)}
+                  value={form.district}
+                  onChange={(e) => { clearError("district"); update("district", e.target.value) }}
+                  onFocus={() => clearError("district")}
+                  aria-invalid={errors.district ? true : undefined}
+                >
+                  <option value="">— เลือกอำเภอ —</option>
+                  {districtOptions.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                {errors.district && <p className={errorTextCls}>{errors.district}</p>}
               </div>
 
               {/* province */}

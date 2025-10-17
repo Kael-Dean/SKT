@@ -26,6 +26,64 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
+/** ---------- Surin map: อำเภอ -> ตำบล (ตามที่ผู้ใช้ส่งมา) ---------- */
+const SURIN_MAP = {
+  "อำเภอเมืองสุรินทร์": [
+    "ในเมือง","สวาย","ตั้งใจ","เพี้ยราม","นาดี","ท่าสว่าง","สลักได","ตาอ็อง","สำโรง","แกใหญ่",
+    "นอกเมือง","คอโค","เฉนียง","เทนมีย์","นาบัว","เมืองที","ราม","บุฤๅษี","ตระแสง","แสลงพันธ์","กาเกาะ"
+  ],
+  "อำเภอสังขะ": [
+    "สังขะ","ขอนแตก","ดม","พระแก้ว","บ้านจารย์","กระเทียม","สะกาด","ตาตุม","ทับทัน","ตาคง","บ้านชบ","เทพรักษา"
+  ],
+  "อำเภอปราศาท": [ // (สะกดตามข้อความผู้ใช้)
+    "กังแอน","ทมอ","ทุ่งมน","ไพล","ตาเบา","หนองใหญ่","ปรือ","บ้านไทร","โคกยาง","โคกสะอาด",
+    "โชคนาสาม","เชื้อเพลิง","ปราสาททนง","ตานี","บ้านพลวง","กันตวจระมวล","สมุด","ประทัดบุ"
+  ],
+  "อำเภอรัตนบุรี": [
+    "รัตนบุรี","ธาตุ","แก","ดอนแรด","หนองบัวทอง","หนองบัวบาน","ไผ่","เบิด","น้ำเขียว","กุดขาคีม","ยางสว่าง","ทับใหญ่"
+  ],
+  "อำเภอท่าตูม": [
+    "ท่าตูม","กระโพ","พรมเทพ","โพนครก","เมืองแก","บะ","หนองบัว","บัวโคก","หนองเมธี","ทุ่งกุลา"
+  ],
+  "อำเภอจอมพระ": [
+    "จอมพระ","เมืองลีง","กระหาด","บุแกรง","หนองสนิท","บ้านผือ","ลุ่มระวี","ชุมแสง","เป็นสุข"
+  ],
+  "อำเภอสนม": [
+    "สนม","แคน","โพนโก","หนองระฆัง","นานวน","หัวงัว","หนองอียอ"
+  ],
+  "อำเภอศีขรภูมิ": [
+    "ระแงง","ตรึม","จารพัต","ยาง","แตล","หนองบัว","คาละแมะ","หนองเหล็ก","หนองขวาว",
+    "ช่างปี่","กุดหวาย","ขวาวใหญ่","นารุ่ง","ตรมไพร","ผักไหม"
+  ],
+  "อำเภอลำดวน": [
+    "ลำดวน","โชกเหนือ","ตรำดม","อู่โลก","ตระเปียงเตีย"
+  ],
+  "อำเภอบัวเชด": [
+    "บัวเชด","สะเดา","จรัส","ตาวัง","อาโพน","สำเภาลูน"
+  ],
+  "อำเภอชุมพล": [
+    "ชุมพลบุรี","ไพรขลา","นาหนองไผ่","ศรีณรงค์","ยะวึก","เมืองบัว"
+  ],
+  "อำเภอสำโรงทาบ": [
+    "ชุมพลบุรี","ไพรขลา","นาหนองไผ่","ศรีณรงค์","ยะวึก","เมืองบัว"
+  ],
+  "อำเภอเขวาสินรินทร์": [
+    "เขวาสินรินทร์","บึง","ตากูก","ปราสาททอง","นาดี"
+  ],
+  "อำเภอพนมดงรัก": [
+    "บักได","โคกกลาง","จีดแดก","ตาเมียง"
+  ],
+  "อำเภอศรีณรงค์": [
+    "ณรงค์","แจนแวน","ตรวจ","หนองแวง","ศรีสุข"
+  ],
+  "อำเภอโนนนารายณ์": [
+    "หนองหลวง","คำผง","โนน","ระเวียง","หนองเทพ"
+  ],
+  "อำเภอกาบเชิง": [
+    "กาบเชิง","คูตัน","ด่าน","แนงมุด","โคกตะเคียน","ตะเคียน"
+  ],
+}
+
 /** ---------- Styles ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -195,13 +253,19 @@ const CustomerAdd = () => {
       fid_relationship: toStr(rec.fid_relationship ?? ""),
     }
     const full = `${addr.first_name} ${addr.last_name}`.trim()
-    update("full_name", form.full_name || full)
+
+    // ถ้า district จากสมาชิกมีในแผนที่ ให้ตั้งค่าและรีเซ็ตตำบลตาม
+    const hasDistrict = addr.district && SURIN_MAP[addr.district]
     setForm((prev) => ({
       ...prev,
+      full_name: prev.full_name || full,
       address: prev.address || addr.address,
       mhoo: prev.mhoo || addr.mhoo,
-      sub_district: prev.sub_district || addr.sub_district,
-      district: prev.district || addr.district,
+      district: hasDistrict ? addr.district : prev.district,
+      sub_district:
+        hasDistrict && SURIN_MAP[addr.district].includes(addr.sub_district)
+          ? addr.sub_district
+          : prev.sub_district,
       province: prev.province || addr.province,
       postal_code: prev.postal_code || addr.postal_code,
       phone_number: prev.phone_number || addr.phone_number,
@@ -211,9 +275,7 @@ const CustomerAdd = () => {
     }))
   }
 
-  /** ค้นหาด้วย citizen_id กับฝั่งสมาชิก (เพื่อเติมอัตโนมัติ)
-   *  เงื่อนไข: กรอกครบ 13 หลัก และผ่าน checksum
-   */
+  /** ค้นหาด้วย citizen_id กับฝั่งสมาชิก (เพื่อเติมอัตโนมัติ) */
   useEffect(() => {
     const cid = onlyDigits(debCid || "")
     if (submitting) return
@@ -245,7 +307,6 @@ const CustomerAdd = () => {
       setStatus({ searching: true, message: "กำลังค้นหาจากชื่อ–สกุลในฐานสมาชิก...", tone: "muted" })
       const list = await fetchMemberSearch(q)
       if (cancelled) return
-      // เอา record แรกที่ชื่อใกล้เคียง
       const found = list.find((r) => {
         const f = `${(r.first_name ?? "").trim()} ${(r.last_name ?? "").trim()}`.trim()
         return f && f.includes(q)
@@ -263,6 +324,20 @@ const CustomerAdd = () => {
     // eslint-disable-line react-hooks/exhaustive-deps
   }, [debName, submitting])
 
+  /** ตัวเลือกอำเภอ/ตำบลแบบพึ่งพา */
+  const districtOptions = useMemo(() => Object.keys(SURIN_MAP), [])
+  const tambonOptions = useMemo(
+    () => (form.district && SURIN_MAP[form.district] ? SURIN_MAP[form.district] : []),
+    [form.district]
+  )
+
+  // รีเซ็ตตำบลทุกครั้งที่เปลี่ยนอำเภอ
+  useEffect(() => {
+    update("sub_district", "")
+    clearError("sub_district")
+    clearError("district")
+  }, [form.district]) // eslint-disable-line react-hooks/exhaustive-deps
+
   /** ตรวจความถูกต้องก่อนส่งเข้า Back */
   const validateAll = () => {
     const e = {}
@@ -273,15 +348,16 @@ const CustomerAdd = () => {
 
     if (!form.full_name.trim()) e.full_name = "กรุณากรอกชื่อ–สกุล"
     if (!form.address.trim()) e.address = "กรุณากรอกบ้านเลขที่"
-    if (!form.sub_district.trim()) e.sub_district = "กรุณากรอกตำบล"
-    if (!form.district.trim()) e.district = "กรุณากรอกอำเภอ"
+
+    if (!form.district) e.district = "กรุณาเลือกอำเภอ"
+    if (!form.sub_district) e.sub_district = "กรุณาเลือกตำบล"
+
     if (!form.province.trim()) e.province = "กรุณากรอกจังหวัด"
 
     // ถ้ามีค่า ให้เป็นตัวเลข
     ;["postal_code", "fid"].forEach((k) => {
       if (form[k] !== "" && isNaN(Number(form[k]))) e[k] = "ต้องเป็นตัวเลข"
     })
-    // fid_relationship มาจากดรอปดาวเป็นตัวเลขอยู่แล้ว ไม่ต้องเช็คเพิ่ม
 
     setErrors(e)
     return Object.keys(e).length === 0
@@ -319,7 +395,6 @@ const CustomerAdd = () => {
 
     const { first_name, last_name } = splitName(form.full_name)
 
-    // ส่งทุกอินพุตที่ Backend รองรับ (CustomerCreate)
     const payload = {
       first_name,
       last_name,
@@ -331,7 +406,6 @@ const CustomerAdd = () => {
       province: form.province.trim(),
       postal_code: form.postal_code !== "" ? Number(form.postal_code) : null,
       phone_number: form.phone_number.trim() || null,
-
       // ✅ เพิ่มกลุ่ม FID (optional ทั้งหมด)
       fid: form.fid !== "" ? Number(form.fid) : null,
       fid_owner: form.fid_owner.trim() || null,
@@ -466,7 +540,6 @@ const CustomerAdd = () => {
                   value={form.citizen_id}
                   onChange={(e) => {
                     clearError("citizen_id")
-                    // ล็อกเฉพาะเลข & ไม่เกิน 13 หลัก
                     const digits = onlyDigits(e.target.value).slice(0, 13)
                     update("citizen_id", digits)
                   }}
@@ -522,33 +595,42 @@ const CustomerAdd = () => {
                 />
               </div>
 
-              {/* sub_district */}
+              {/* sub_district (ตำบล) -> Dependent select */}
               <div>
                 <label className={labelCls}>ตำบล</label>
-                <input
+                <select
                   ref={refs.sub_district}
                   className={cx(baseField, errors.sub_district && fieldError)}
                   value={form.sub_district}
                   onChange={(e) => { clearError("sub_district"); update("sub_district", e.target.value) }}
                   onFocus={() => clearError("sub_district")}
-                  placeholder="เช่น หนองปลาไหล"
+                  disabled={!form.district}
                   aria-invalid={errors.sub_district ? true : undefined}
-                />
+                >
+                  <option value="">{form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}</option>
+                  {tambonOptions.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
                 {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
               </div>
 
-              {/* district */}
+              {/* district (อำเภอ) -> Select */}
               <div>
                 <label className={labelCls}>อำเภอ</label>
-                <input
+                <select
                   ref={refs.district}
                   className={cx(baseField, errors.district && fieldError)}
                   value={form.district}
                   onChange={(e) => { clearError("district"); update("district", e.target.value) }}
                   onFocus={() => clearError("district")}
-                  placeholder="เช่น เมือง"
                   aria-invalid={errors.district ? true : undefined}
-                />
+                >
+                  <option value="">— เลือกอำเภอ —</option>
+                  {districtOptions.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
                 {errors.district && <p className={errorTextCls}>{errors.district}</p>}
               </div>
 
@@ -561,7 +643,7 @@ const CustomerAdd = () => {
                   value={form.province}
                   onChange={(e) => { clearError("province"); update("province", e.target.value) }}
                   onFocus={() => clearError("province")}
-                  placeholder="เช่น ขอนแก่น"
+                  placeholder="เช่น สุรินทร์"
                   aria-invalid={errors.province ? true : undefined}
                 />
                 {errors.province && <p className={errorTextCls}>{errors.province}</p>}

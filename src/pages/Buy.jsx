@@ -1671,25 +1671,29 @@ const resolvePaymentIdForBE = () => {
     // ✅ NEW: date → ISO datetime
     const dateISO = toIsoDateTime(dateStr)
 
-    const cidRaw = onlyDigits(form.citizen_id || "") 
-    const payload = { 
-      first_name, 
-      last_name, 
-      // ❌ ไม่ยัด citizen_id ทันที เพราะ BE จะตรวจความยาว = 13 
-      address: form.address.trim(),
-      mhoo: (form.mhoo ?? "").toString().trim() || "", 
-      sub_district: form.sub_district.trim(), 
-      district: form.district.trim(), 
-      province: form.province.trim(), 
-      postal_code: form.postal_code !== "" ? Number(form.postal_code) : null, 
-      phone_number: form.phone_number.trim() || null, 
-      fid: form.fid !== "" ? Number(form.fid) : null, 
-      fid_owner: form.fid_owner.trim() || null, 
-      fid_relationship: form.fid_relationship !== "" ? Number(form.fid_relationship) : null, 
-    } 
-    // ✅ ส่ง citizen_id เฉพาะกรณีครบ 13 หลักเท่านั้น (กัน BE ตรวจแล้วเด้ง error) 
-    if (cidRaw.length === 13) { 
-      payload.citizen_id = cidRaw 
+    const payload = {
+      customer: customerPayload,
+      order: {
+        // asso_id: memberMeta.assoId ?? null, // BE resolve เอง ไม่จำเป็นต้องส่ง
+        payment_id: paymentId,
+        spec, // <<<<<<<<<<<<<<<<<<<<<<<<<<<< ส่งเป็น nested spec
+        humidity: Number(order.moisturePct || 0),
+        entry_weight: Number(order.entryWeightKg || 0),
+        exit_weight: Number(order.exitWeightKg || 0),
+        weight: Number(netW),
+        price_per_kilo: Number(order.unitPrice || 0),
+        price: Number(moneyToNumber(order.amountTHB) || 0),
+        impurity: Number(order.impurityPct || 0),
+        order_serial: order.paymentRefNo.trim() || null,
+        date: dateISO, // <<<<<<<<<<<<<<<<<< ส่ง ISO datetime
+        branch_location: branchId,
+        klang_location: klangId,
+        gram: Number(order.gram || 0),
+        comment: order.comment?.trim() || null,
+        business_type: businessTypeId, // เก็บบน OrderData ด้วยตามคอมเมนต์ BE
+      },
+      // ⭐ แนบ dept
+      dept: deptPayload,
     }
 
     try {

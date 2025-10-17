@@ -1,7 +1,7 @@
 // src/pages/CustomerAdd.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api"
-import ComboBox from "../components/ComboBox" // ✅ ใช้ดรอปดาวสไตล์เดียวกับ Carry Over
+import ComboBox from "../components/ComboBox" // ✅ ใช้ดรอปดาวสไตล์เดียวกับหน้า Carry Over
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -175,7 +175,7 @@ const CustomerAdd = () => {
 
   // ฟอร์ม (ส่งทุกอินพุตที่ Backend รองรับใน /member/customers/signup)
   const [form, setForm] = useState({
-    // UI-only
+    // UI-only (ยังเก็บไว้ได้ แต่อย่าส่งขึ้น Backend)
     slowdown_rice: false,
 
     // ลูกค้าทั่วไป (map -> CustomerCreate)
@@ -189,7 +189,7 @@ const CustomerAdd = () => {
     postal_code: "",
     phone_number: "",
 
-    // กลุ่ม FID
+    // เพิ่ม: กลุ่ม FID ให้ส่งขึ้น Backend ด้วย
     fid: "",
     fid_owner: "",
     fid_relationship: "",
@@ -210,8 +210,11 @@ const CustomerAdd = () => {
       try {
         setRelLoading(true)
         const rows = await apiAuth(`/member/members/fid_relationship`)
-        if (!cancelled && Array.isArray(rows)) setRelOpts(rows)
+        if (!cancelled && Array.isArray(rows)) {
+          setRelOpts(rows) // rows: [{id, fid_relationship}]
+        }
       } catch {
+        // เงียบไว้ก่อน
       } finally {
         if (!cancelled) setRelLoading(false)
       }
@@ -252,6 +255,7 @@ const CustomerAdd = () => {
     }
     const full = `${addr.first_name} ${addr.last_name}`.trim()
 
+    // ถ้า district จากสมาชิกมีในแผนที่ ให้ตั้งค่าและรีเซ็ตตำบลตาม
     const hasDistrict = addr.district && SURIN_MAP[addr.district]
     setForm((prev) => ({
       ...prev,
@@ -272,7 +276,7 @@ const CustomerAdd = () => {
     }))
   }
 
-  /** ค้นหาด้วย citizen_id */
+  /** ค้นหาด้วย citizen_id กับฝั่งสมาชิก (เพื่อเติมอัตโนมัติ) */
   useEffect(() => {
     const cid = onlyDigits(debCid || "")
     if (submitting) return
@@ -291,12 +295,14 @@ const CustomerAdd = () => {
       }
     })()
     return () => { cancelled = true }
-  }, [debCid, submitting]) // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debCid, submitting])
 
-  /** ค้นหาด้วยชื่อ–สกุล */
+  /** ค้นหาด้วยชื่อ–สกุล (ไปดูฝั่งสมาชิก) */
   useEffect(() => {
     const q = (debName || "").trim()
-    if (submitting || q.length < 2) return
+    if (submitting) return
+    if (q.length < 2) return
     let cancelled = false
     ;(async () => {
       setStatus({ searching: true, message: "กำลังค้นหาจากชื่อ–สกุลในฐานสมาชิก...", tone: "muted" })
@@ -316,9 +322,10 @@ const CustomerAdd = () => {
       }
     })()
     return () => { cancelled = true }
-  }, [debName, submitting]) // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debName, submitting])
 
-  /** ตัวเลือกอำเภอ/ตำบลแบบพึ่งพา + map เป็น options ของ ComboBox */
+  /** ตัวเลือกอำเภอ/ตำบลแบบพึ่งพา (สำหรับ ComboBox) */
   const districtOptions = useMemo(() => Object.keys(SURIN_MAP), [])
   const districtCbOptions = useMemo(
     () => districtOptions.map((d) => ({ label: d, value: d })),
@@ -344,7 +351,7 @@ const CustomerAdd = () => {
   const validateAll = () => {
     const e = {}
 
-    // ✅ citizen_id 13 หลัก
+    // ✅ บังคับ citizen_id เป็นเลข 13 หลัก (ให้ตรงกับ BE)
     const cid = onlyDigits(form.citizen_id)
     if (cid.length !== 13) e.citizen_id = "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
 
@@ -353,8 +360,10 @@ const CustomerAdd = () => {
 
     if (!form.district) e.district = "กรุณาเลือกอำเภอ"
     if (!form.sub_district) e.sub_district = "กรุณาเลือกตำบล"
+
     if (!form.province.trim()) e.province = "กรุณากรอกจังหวัด"
 
+    // ถ้ามีค่า ให้เป็นตัวเลข
     ;["postal_code", "fid"].forEach((k) => {
       if (form[k] !== "" && isNaN(Number(form[k]))) e[k] = "ต้องเป็นตัวเลข"
     })
@@ -387,7 +396,7 @@ const CustomerAdd = () => {
     return { first_name: parts[0], last_name: parts.slice(1).join(" ") }
   }
 
-  /** บันทึก */
+  /** บันทึก (เชื่อมกับ POST /member/customers/signup) */
   const handleSubmit = async (ev) => {
     ev.preventDefault()
     if (!validateAll()) return
@@ -398,7 +407,7 @@ const CustomerAdd = () => {
     const payload = {
       first_name,
       last_name,
-      citizen_id: onlyDigits(form.citizen_id),
+      citizen_id: onlyDigits(form.citizen_id), // ✅ 13 หลักตาม validateAll
       address: form.address.trim(),
       mhoo: (form.mhoo ?? "").toString().trim() || "",
       sub_district: form.sub_district.trim(),
@@ -406,6 +415,7 @@ const CustomerAdd = () => {
       province: form.province.trim(),
       postal_code: form.postal_code !== "" ? Number(form.postal_code) : null,
       phone_number: form.phone_number.trim() || null,
+      // ✅ เพิ่มกลุ่ม FID (optional ทั้งหมด)
       fid: form.fid !== "" ? Number(form.fid) : null,
       fid_owner: form.fid_owner.trim() || null,
       fid_relationship: form.fid_relationship !== "" ? Number(form.fid_relationship) : null,
@@ -567,7 +577,7 @@ const CustomerAdd = () => {
 
             {/* แถวถัด ๆ ไป: 3 คอลัมน์ทุกบรรทัด */}
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-              {/* address */}
+              {/* address  */}
               <div>
                 <label className={labelCls}>บ้านเลขที่</label>
                 <input
@@ -666,7 +676,7 @@ const CustomerAdd = () => {
                 />
               </div>
 
-              {/* บล็อก FID */}
+              {/* บล็อก FID (ส่งขึ้น Back ได้) */}
               <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
                 {/* fid */}
                 <div>
@@ -705,7 +715,7 @@ const CustomerAdd = () => {
                     value={form.fid_relationship}
                     onChange={(e) => {
                       clearError("fid_relationship")
-                      update("fid_relationship", e.target.value)
+                      update("fid_relationship", e.target.value) // เก็บเป็น string ของ id; แปลงตอนส่ง
                     }}
                     onFocus={() => clearError("fid_relationship")}
                     disabled={relLoading}

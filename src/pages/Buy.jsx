@@ -1456,8 +1456,7 @@ const resolvePaymentIdForBE = () => {
 
     if (buyerType === "person") {
       if (customer.citizenId &&
-        !isAllZeroCitizenId(customer.citizenId) &&
-        !validateThaiCitizenId(customer.citizenId)) {
+        !isAllZeroCitizenId(customer.citizenId) ) {
       e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
 }
 
@@ -1985,8 +1984,7 @@ const resolvePaymentIdForBE = () => {
                 <div className={helpTextCls}>
                   {loadingCustomer && "กำลังค้นหาลูกค้า..."}
                   {customer.citizenId.length === 13 &&
-                    !isAllZeroCitizenId(customer.citizenId) &&
-                    !validateThaiCitizenId(customer.citizenId) && (
+                    (
                       <span className="text-amber-600 dark:text-amber-300"> เลขบัตรอาจไม่ถูกต้อง</span>
                     )}
 

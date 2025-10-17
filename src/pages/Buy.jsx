@@ -1076,7 +1076,6 @@ const Buy = () => {
     setRiceOptions([]); setSubriceOptions([]); setKlangOptions([])
     setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
     setBuyerType("person")
-
     
   }
 
@@ -1646,7 +1645,7 @@ const Buy = () => {
                   setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))
                 }}
                 placeholder="— เลือกชั้นย่อย —"
-                disabled={isTemplateActive || !order.riceId}
+                disabled={!order.riceId}
                 error={!!errors.subrice}
                 hintRed={!!missingHints.subrice}
                 clearHint={() => clearHint("subrice")}
@@ -1670,7 +1669,6 @@ const Buy = () => {
                   }))
                 }
                 placeholder="— เลือกสภาพ/เงื่อนไข —"
-                disabled={isTemplateActive} 
                 error={!!errors.condition}
                 hintRed={!!missingHints.condition}
                 clearHint={() => clearHint("condition")}
@@ -1694,7 +1692,6 @@ const Buy = () => {
                   }))
                 }
                 placeholder="— เลือกประเภทนา —"
-                disabled={isTemplateActive}
                 error={!!errors.fieldType}
                 hintRed={!!missingHints.fieldType}
                 clearHint={() => clearHint("fieldType")}
@@ -1718,7 +1715,6 @@ const Buy = () => {
                   }))
                 }
                 placeholder="— เลือกปี/ฤดูกาล —"
-                disabled={isTemplateActive}
                 error={!!errors.riceYear}
                 hintRed={!!missingHints.riceYear}
                 clearHint={() => clearHint("riceYear")}
@@ -1743,7 +1739,6 @@ const Buy = () => {
                   }))
                 }
                 placeholder="— เลือกประเภทธุรกิจ —"
-                disabled={isTemplateActive}
                 error={!!errors.businessType}
                 hintRed={!!missingHints.businessType}
                 clearHint={() => clearHint("businessType")}
@@ -1767,7 +1762,6 @@ const Buy = () => {
                   }))
                 }
                 placeholder="— เลือกโปรแกรม —"
-                disabled={isTemplateActive}
                 buttonRef={refs.program}
                 onEnterNext={() => focusNext("branchName")}
               />

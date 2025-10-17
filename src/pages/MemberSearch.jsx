@@ -170,13 +170,14 @@ function ProgramToggles({ value, onChange }) {
   )
 }
 
-/** คอลัมน์ตาราง */
+/** คอลัมน์ตาราง — ✅ เพิ่ม “อำเภอ” ต่อจาก “จังหวัด” */
 const TABLE_COLUMNS = [
   { key: "first_name", label: "ชื่อ", render: (row) => row.first_name ?? "-" },
   { key: "last_name", label: "นามสกุล", render: (row) => row.last_name ?? "-" },
   { key: "citizen_id", label: "เลขบัตรประชาชน", render: (row) => row.citizen_id || "-" },
   { key: "phone_number", label: "โทรศัพท์", render: (row) => row.phone_number ?? "-" },
   { key: "province", label: "จังหวัด", render: (row) => row.province ?? "-" },
+  { key: "district", label: "อำเภอ", render: (row) => row.district ?? "-" },   // 👈 ใหม่
   { key: "regis_date", label: "วันที่สมัคร", render: (row) => formatDate(row.regis_date) },
   { key: "__programs", label: "โครงการ", render: (row) => <ProgramBadges row={row} /> },
 ]
@@ -400,7 +401,7 @@ const MemberSearch = () => {
       setEditing(false)
     } catch (e) {
       // rollback ถ้า error
-      setRows((cur) => cur) // state คงไว้ (เราทำ optimistic ก่อนหน้าแล้วตั้ง prev ไว้เฉย ๆ)
+      setRows((cur) => cur) // state คงไว้
       setRowError(e?.message || "บันทึกไม่สำเร็จ")
     } finally {
       setSaving(false)
@@ -669,8 +670,6 @@ const MemberSearch = () => {
                         )
                       })}
                   </div>
-
-
 
                   {/* ข้อมูลที่ดิน */}
                   <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-400 dark:bg-emerald-900/10">

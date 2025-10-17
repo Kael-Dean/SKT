@@ -6,7 +6,7 @@ import { apiAuth } from "../lib/api"
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-// ตรวจเลขบัตรประชาชนไทย (13 หลัก)
+// (ยังคงไว้ใช้สำหรับกรณีค้นหา/เติมอัตโนมัติจากชื่อ หากพบเลข 13 หลักจากฐานสมาชิก)
 function validateThaiCitizenId(id) {
   const cid = onlyDigits(id)
   if (cid.length !== 13) return false
@@ -188,7 +188,10 @@ const CustomerAdd = () => {
     }))
   }
 
-  /** ค้นหาด้วย citizen_id กับฝั่งสมาชิก (เพื่อเติมอัตโนมัติ) */
+  /** ค้นหาด้วย citizen_id กับฝั่งสมาชิก (เพื่อเติมอัตโนมัติ)
+   *  เดิม: ค้นหาเฉพาะกรอกครบ 13 หลักและผ่าน checksum
+   *  ตอนนี้ยังคงเงื่อนไขเดิมไว้ (เพื่อกันยิงค้นถี่ ๆ) แต่ช่องกรอก “ไม่บังคับเงื่อนไข” แล้ว
+   */
   useEffect(() => {
     const cid = onlyDigits(debCid || "")
     if (submitting) return
@@ -241,7 +244,9 @@ const CustomerAdd = () => {
   /** ตรวจความถูกต้องก่อนส่งเข้า Back */
   const validateAll = () => {
     const e = {}
-    if (!validateThaiCitizenId(form.citizen_id)) e.citizen_id = "เลขบัตรประชาชนไม่ถูกต้อง"
+    // ❌ ยกเลิกการบังคับตรวจเลขบัตรประชาชนให้เป็น 13 หลัก
+    // if (!validateThaiCitizenId(form.citizen_id)) e.citizen_id = "เลขบัตรประชาชนไม่ถูกต้อง"
+
     if (!form.full_name.trim()) e.full_name = "กรุณากรอกชื่อ–สกุล"
     if (!form.address.trim()) e.address = "กรุณากรอกบ้านเลขที่"
     if (!form.sub_district.trim()) e.sub_district = "กรุณากรอกตำบล"
@@ -293,7 +298,7 @@ const CustomerAdd = () => {
     const payload = {
       first_name,
       last_name,
-      citizen_id: onlyDigits(form.citizen_id),
+      citizen_id: onlyDigits(form.citizen_id), // ✅ อนุญาตทุกความยาว (จะเป็น "" ได้ถ้าไม่ได้กรอก)
       address: form.address.trim(),
       mhoo: (form.mhoo ?? "").toString().trim() || "",
       sub_district: form.sub_district.trim(),
@@ -376,7 +381,7 @@ const CustomerAdd = () => {
             <div className="grid gap-3 md:grid-cols-3">
               <label
                 className={cx(
-                  "group relative flex w-full items-center justify-center gap-4 text-center cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all",
+                  "group relative flex w-full items-center justify-center gap-4 text-center cursor-pointer rounded-2xl border p-4 min-h[72px] transition-all",
                   "border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-700/40",
                   "shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
                   "hover:border-emerald-300/70 dark:hover:border-emerald-400/40",
@@ -427,19 +432,17 @@ const CustomerAdd = () => {
             <div className="grid gap-4 md:grid-cols-2">
               {/* citizen_id */}
               <div>
-                <label className={labelCls}>เลขที่บัตรประชาชน (13 หลัก)</label>
+                <label className={labelCls}>เลขที่บัตรประชาชน (พิมพ์เลขได้ทุกความยาว)</label>
                 <input
                   ref={refs.citizen_id}
                   inputMode="numeric"
-                  maxLength={13}
-                  className={cx(baseField, errors.citizen_id && fieldError)}
+                  className={cx(baseField /* ไม่มีการฟ้อง error citizen_id แล้ว */)}
                   value={form.citizen_id}
                   onChange={(e) => { clearError("citizen_id"); update("citizen_id", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("citizen_id")}
-                  placeholder="เช่น 1234567890123"
-                  aria-invalid={errors.citizen_id ? true : undefined}
+                  placeholder="พิมพ์ตัวเลขได้อิสระ (ไม่บังคับ 13 หลัก)"
                 />
-                {errors.citizen_id && <p className={errorTextCls}>{errors.citizen_id}</p>}
+                {/* ไม่แสดง errors.citizen_id อีกต่อไป */}
               </div>
 
               {/* full_name */}

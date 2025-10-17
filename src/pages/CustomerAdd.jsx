@@ -7,14 +7,7 @@ const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const cx = (...a) => a.filter(Boolean).join(" ")
 
 // (ยังคงไว้ใช้สำหรับกรณีค้นหา/เติมอัตโนมัติจากชื่อ หากพบเลข 13 หลักจากฐานสมาชิก)
-function validateThaiCitizenId(id) {
-  const cid = onlyDigits(id)
-  if (cid.length !== 13) return false
-  let sum = 0
-  for (let i = 0; i < 12; i++) sum += Number(cid[i]) * (13 - i)
-  const check = (11 - (sum % 11)) % 10
-  return check === Number(cid[12])
-}
+
 
 // debounce
 function useDebounce(value, delay = 400) {

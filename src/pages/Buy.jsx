@@ -3,6 +3,9 @@ import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle }
 import { apiAuth, post } from "../lib/api" // ✅ helper แนบโทเคนอัตโนมัติ
 
 /** ----------- Utils ------------ */
+// ศูนย์ล้วน 13 หลัก (ยกเว้นการตรวจเลขและการค้นหา)
+const isAllZeroCitizenId = (id) => /^0{13}$/.test(onlyDigits(id))
+
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
 const thb = (n) =>
@@ -1114,11 +1117,12 @@ const Buy = () => {
       return
     }
     const cid = onlyDigits(debouncedCitizenId)
-    if (cid.length !== 13) {
-      setCustomerFound(null)
-      setMemberMeta({ type: "unknown", assoId: null })
-      return
-    }
+      if (cid.length !== 13 || /^0{13}$/.test(cid)) {
+        setCustomerFound(null)
+        setMemberMeta({ type: "unknown", assoId: null })
+        return
+      }
+
     const fetchByCid = async () => {
       try {
         setLoadingCustomer(true)
@@ -1451,7 +1455,12 @@ const resolvePaymentIdForBE = () => {
     const e = {}
 
     if (buyerType === "person") {
-      if (customer.citizenId && !validateThaiCitizenId(customer.citizenId)) e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
+      if (customer.citizenId &&
+        !isAllZeroCitizenId(customer.citizenId) &&
+        !validateThaiCitizenId(customer.citizenId)) {
+      e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
+}
+
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
       if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
     } else {
@@ -1975,9 +1984,12 @@ const resolvePaymentIdForBE = () => {
                 />
                 <div className={helpTextCls}>
                   {loadingCustomer && "กำลังค้นหาลูกค้า..."}
-                  {customer.citizenId.length === 13 && !validateThaiCitizenId(customer.citizenId) && (
-                    <span className="text-amber-600 dark:text-amber-300"> เลขบัตรอาจไม่ถูกต้อง</span>
-                  )}
+                  {customer.citizenId.length === 13 &&
+                    !isAllZeroCitizenId(customer.citizenId) &&
+                    !validateThaiCitizenId(customer.citizenId) && (
+                      <span className="text-amber-600 dark:text-amber-300"> เลขบัตรอาจไม่ถูกต้อง</span>
+                    )}
+
                   {customer.citizenId.length === 13 && customerFound === true && (
                     <span className="ml-1 text-emerald-600 dark:text-emerald-300">พบข้อมูลแล้ว ✅</span>
                   )}

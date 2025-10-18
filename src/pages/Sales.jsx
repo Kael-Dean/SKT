@@ -73,7 +73,7 @@ const useEnterNavigation = (refs, buyerType, order) => {
     "product", "riceType", "subrice", "condition", "fieldType", "riceYear", "businessType", "program",
     "branchName", "klangName", "entryWeightKg", "exitWeightKg", "unitPrice", "amountTHB",
     // เอกสารอ้างอิง
-    "scaleNo", "cashReceiptNo", "creditInvoiceNo",
+    "scaleNo", "cashReceiptNo", "creditInvoiceNo", "deptAllowed", "deptPostpone", "deptPostponePeriod",
     "comment", "payment", "issueDate"
   ]
   let list = (buyerType === "person" ? personOrder : companyOrder).concat(orderOrder)
@@ -396,6 +396,10 @@ function Sales() {
     __isCredit: false,
   })
 
+// ▼ เพิ่ม: ฟอร์มเครดิต (ขายเชื่อ) ให้เหมือนหน้า Buy
+const [dept, setDept] = useState({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
+
+
   /** ---------- Refs สำหรับนำทางด้วย Enter ---------- */
   const refs = {
     citizenId: useRef(null), memberId: useRef(null), fullName: useRef(null),
@@ -423,7 +427,13 @@ function Sales() {
 
     // template
     formTemplate: useRef(null),
-  }
+  
+
+// Dept (credit)
+deptAllowed: useRef(null),
+deptPostpone: useRef(null),
+deptPostponePeriod: useRef(null),
+}
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
   /** ---------- Debounce ---------- */
@@ -1018,14 +1028,18 @@ function Sales() {
         business_type: businessTypeId,
       },
       // dept แนบเสมอ (BE ใช้เมื่อ payment_id == 2) :contentReference[oaicite:8]{index=8}
-      dept: { date_created: dateISO, allowed_period: 30, postpone: false, postpone_period: 0 },
+      dept: { date_created: dateISO, allowed_period: Number(dept.allowedPeriod || 0), postpone: Boolean(dept.postpone), postpone_period: Number(dept.postpone ? (dept.postponePeriod || 0) : 0) },
     }
 
     try {
       await post("/order/customers/save/sell", payload) // :contentReference[oaicite:9]{index=9}
       alert("บันทึกออเดอร์ขายเรียบร้อย ✅")
 
-      // reset ฟอร์มแบบย่อ
+      
+
+// reset เครดิต
+setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
+// reset ฟอร์มแบบย่อ
       setErrors({}); setMissingHints({})
       setCustomer({
         citizenId: "", memberId: "", fullName: "", houseNo: "", moo: "", subdistrict: "", district: "", province: "", postalCode: "", phone: "",
@@ -1134,7 +1148,7 @@ function Sales() {
                 onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
                 placeholder="— เลือกวิธีชำระเงิน —"
                 buttonRef={refs.payment}
-                onEnterNext={() => focusNext("payment")}
+                onEnterNext={() => { if (isCreditPayment()) { refs.deptAllowed?.current?.focus() } else { focusNext("payment") } }}
               />
             </div>
             <div>
@@ -1152,6 +1166,86 @@ function Sales() {
               {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
             </div>
           </div>
+
+{/* ▼ เฉพาะกรณี "ขายเชื่อ/เครดิต" แสดงกรอบกรอกเงื่อนไขเครดิต */}
+{isCreditPayment() && (
+  <div className="md:col-span-3 mt-2">
+    <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-sm dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-100">
+      <div className="mb-2 flex items-center gap-2">
+        <svg viewBox="0 0 24 24" width="18" height="18" className="opacity-80" fill="currentColor">
+          <path d="M3 5a2 2 0 0 0-2 2v2h22V7a2 2 0 0 0-2-2H3zm20 6H1v6a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-6zM4 17h6v-2H4v2z"/>
+        </svg>
+        <div className="font-semibold">รายละเอียดเครดิต (ขายเชื่อ)</div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div>
+          <label className={labelCls}>กำหนดชำระ (วัน)</label>
+          <input
+            ref={refs.deptAllowed}
+            inputMode="numeric"
+            className={baseField}
+            value={String(dept.allowedPeriod ?? 0)}
+            onChange={(e) => setDept((p) => ({ ...p, allowedPeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.isComposing) {
+                e.preventDefault();
+                refs.deptPostpone?.current?.focus();
+              }
+            }}
+            placeholder="เช่น 30"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <label className={labelCls}>ตัวเลือก</label>
+          <div className="flex items-center gap-3">
+            <input
+              ref={refs.deptPostpone}
+              type="checkbox"
+              checked={!!dept.postpone}
+              onChange={(e) => setDept((p) => ({ ...p, postpone: e.target.checked }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.isComposing) {
+                  e.preventDefault();
+                  if (!!dept.postpone) refs.deptPostponePeriod?.current?.focus();
+                  else refs.issueDate?.current?.focus();
+                }
+              }}
+            />
+            <span>อนุญาตให้ปลอดดอกเบี้ยชั่วคราว</span>
+          </div>
+
+          {dept.postpone && (
+            <div className="mt-3">
+              <label className={labelCls}>ระยะเวลาปลอดดอกเบี้ย (วัน)</label>
+              <input
+                ref={refs.deptPostponePeriod}
+                inputMode="numeric"
+                className={baseField}
+                value={String(dept.postponePeriod ?? 0)}
+                onChange={(e) => setDept((p) => ({ ...p, postponePeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.isComposing) {
+                    e.preventDefault();
+                    refs.issueDate?.current?.focus();
+                  }
+                }}
+                placeholder="เช่น 15"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <p className="mt-2 text-sm opacity-80">
+        ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>allowed_period</code>, <code>postpone</code>, <code>postpone_period</code>
+        เพื่อใช้คำนวณวันครบกำหนดและวันเลื่อนครบกำหนด (ถ้ามี).
+      </p>
+    </div>
+  </div>
+)}
+
 
           {/* ส่วนฟอร์มลูกค้า (บุคคล / บริษัท) */}
           {buyerType === "person" ? (

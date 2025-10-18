@@ -1449,7 +1449,7 @@ const Buy = () => {
         subriceName: "",
       }))
     }
-  }, [formTemplate, productOptions])
+  }, [formTemplate, productOptions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // เมื่อ species โหลดแล้ว → เลือกชนิดข้าวตาม Template
   useEffect(() => {
@@ -1466,7 +1466,7 @@ const Buy = () => {
         subriceName: "",
       }))
     }
-  }, [formTemplate, riceOptions])
+  }, [formTemplate, riceOptions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** ---------- Validation ---------- */
   const validateAll = () => {
@@ -1858,10 +1858,21 @@ const Buy = () => {
                 onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
                 placeholder="— เลือกวิธีชำระเงิน —"
                 buttonRef={refs.payment}
-                // ⬇️ ปรับ: ไม่โฟกัสไปกรอบเครดิตอีกแล้ว
+                // ✅ เปลี่ยน flow: Enter ที่ "วิธีชำระเงิน" → โฟกัส "เลขที่ใบชั่ง/ใบเบิกเงิน"
                 onEnterNext={() => {
-                  // ไปช่อง "ลงวันที่"
-                  focusNext("payment")
+                  const tryFocus = () => {
+                    const el = refs.paymentRefNo?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.()
+                      try { el.select?.() } catch {}
+                      return true
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 180)
                 }}
               />
             </div>
@@ -1890,7 +1901,26 @@ const Buy = () => {
                 value={order.paymentRefNo}
                 onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
                 onFocus={() => clearHint("paymentRefNo")}
-                onKeyDown={onEnter("paymentRefNo")}
+                // ✅ เปลี่ยน flow: Enter ที่ "เลขที่ใบชั่ง/ใบเบิกเงิน" → โฟกัส "ชื่อ–สกุล" (ถ้าเป็นบุคคล) หรือ "ชื่อบริษัท" (ถ้าเป็นนิติบุคคล)
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.isComposing) {
+                    e.preventDefault()
+                    const targetKey = buyerType === "person" ? "fullName" : "companyName"
+                    const tryFocus = () => {
+                      const el = refs[targetKey]?.current
+                      if (el && isEnabledInput(el)) {
+                        try { el.scrollIntoView({ block: "center" }) } catch {}
+                        el.focus?.()
+                        try { el.select?.() } catch {}
+                        return true
+                      }
+                      return false
+                    }
+                    if (tryFocus()) return
+                    setTimeout(tryFocus, 60)
+                    setTimeout(tryFocus, 180)
+                  }
+                }}
                 placeholder="เช่น A-2025-000123"
               />
             </div>

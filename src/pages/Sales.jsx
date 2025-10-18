@@ -889,7 +889,7 @@ function Sales() {
     const e = {}
     if (buyerType === "person") {
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
-      // ต้องมี member_id หรือ asso_id ตาม BE
+      // ต้องมี member_id หรือ asso_id ตาม BE (อิงหน้า Buy) :contentReference[oaicite:6]{index=6}
       if (!toIntOrNull(memberMeta.memberId ?? customer.memberId) && !memberMeta.assoId) {
         e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id"
       }
@@ -963,7 +963,7 @@ function Sales() {
       (isCredit ? (order.creditInvoiceNo?.trim() || "") : (order.cashReceiptNo?.trim() || "")) ||
       (order.scaleNo?.trim() || null)
 
-    // สร้าง payload ให้ตรงกับ OrderRequest (BE)
+    // สร้าง payload ให้ตรงกับ OrderRequest (BE) :contentReference[oaicite:7]{index=7}
     let customerPayload
     if (buyerType === "person") {
       const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
@@ -1017,12 +1017,12 @@ function Sales() {
         comment: order.comment?.trim() || null,
         business_type: businessTypeId,
       },
-      // dept แนบเสมอ (BE ใช้เมื่อ payment_id == 2)
+      // dept แนบเสมอ (BE ใช้เมื่อ payment_id == 2) :contentReference[oaicite:8]{index=8}
       dept: { date_created: dateISO, allowed_period: 30, postpone: false, postpone_period: 0 },
     }
 
     try {
-      await post("/order/customers/save/sell", payload)
+      await post("/order/customers/save/sell", payload) // :contentReference[oaicite:9]{index=9}
       alert("บันทึกออเดอร์ขายเรียบร้อย ✅")
 
       // reset ฟอร์มแบบย่อ
@@ -1578,6 +1578,20 @@ function Sales() {
                 {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(moneyToNumber(order.amountTHB))}</p>}
                 {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
               </div>
+
+              {/* gram (optional) */}
+              <div>
+                <label className={labelCls}>คุณภาพข้าว (gram)</label>
+                <input
+                  ref={refs.gram}
+                  inputMode="numeric"
+                  className={baseField}
+                  value={order.gram}
+                  onChange={(e) => updateOrder("gram", onlyDigits(e.target.value))}
+                  onKeyDown={onEnter("gram")}
+                  placeholder="เช่น 85"
+                />
+              </div>
             </div>
           </div>
 
@@ -1622,6 +1636,20 @@ function Sales() {
                 />
               </div>
             )}
+          </div>
+
+          {/* หมายเหตุ */}
+          <div className="mt-4">
+            <label className={labelCls}>หมายเหตุ / คอมเมนต์</label>
+            <textarea
+              ref={refs.comment}
+              rows={3}
+              className={baseField}
+              value={order.comment}
+              onChange={(e) => updateOrder("comment", e.target.value)}
+              onKeyDown={onEnter("comment")}
+              placeholder="ระบุรายละเอียดเพิ่มเติม ถ้ามี"
+            />
           </div>
 
           {/* สรุปสั้น ๆ */}
@@ -1677,41 +1705,25 @@ function Sales() {
             ].map((c) => (
               <div key={c.label} className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
                 <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
-                {typeof c.value === "string" ? (
-                  <div className="text-lg md:text-xl font-semibold whitespace-pre-line">{c.value}</div>
-                ) : (
-                  <div className="text-lg md:text-xl font-semibold">{c.value}</div>
-                )}
+                <div className="text-lg md:text-xl font-semibold">{c.value}</div>
               </div>
             ))}
           </div>
 
-          {/* หมายเหตุ */}
-          <div className="mt-6">
-            <label className={labelCls}>หมายเหตุ / คอมเมนต์ </label>
-            <textarea
-              ref={refs.comment}
-              rows={3}
-              className={cx(baseField)}
-              value={order.comment}
-              onChange={(e) => updateOrder("comment", e.target.value)}
-              onKeyDown={onEnter("comment")}
-              placeholder="เช่น ส่วนลดพิเศษ, เงื่อนไขการส่งมอบ, ฯลฯ"
-            />
-          </div>
-
-          {/* ปุ่ม */}
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          {/* ปุ่มบันทึก */}
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <button
               type="submit"
-              className="inline-flex items-center justify-center rounded-2xl 
-                bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                transition-all duration-300 ease-out
-                hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                hover:scale-[1.05] active:scale-[.97] cursor-pointer"
+              className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 active:scale-[0.98]"
             >
-              บันทึกออเดอร์
+              บันทึกออเดอร์ขาย
+            </button>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
+            >
+              ล้างฟอร์ม
             </button>
           </div>
         </form>

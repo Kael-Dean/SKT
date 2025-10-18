@@ -1098,7 +1098,7 @@ const Buy = () => {
       return
     }
     const mid = toIntOrNull(debouncedMemberId)
-    if (mid == null) return
+    if (mid == null || mid <= 0) return
     const fetchByMemberId = async () => {
       try {
         setLoadingCustomer(true)
@@ -1129,6 +1129,9 @@ const Buy = () => {
       return
     }
     const cid = onlyDigits(debouncedCitizenId)
+  // NEW: avoid overriding if a person is already chosen or citizen_id is 000... (ambiguous shared value)
+      if (memberMeta.memberId || memberMeta.assoId) return
+      if (/^0{13}$/.test(cid)) { setCustomerFound(null); return }
     if (cid.length !== 13) {
       setCustomerFound(null)
       return
@@ -1154,7 +1157,7 @@ const Buy = () => {
       }
     }
     fetchByCid()
-  }, [debouncedCitizenId, buyerType])
+  }, [debouncedCitizenId, buyerType, memberMeta.memberId, memberMeta.assoId])
 
   /** ค้นหาด้วยชื่อ — ข้ามเมื่อเป็นบริษัท */
   useEffect(() => {
@@ -1464,7 +1467,7 @@ const Buy = () => {
     const e = {}
 
     if (buyerType === "person") {
-      if (customer.citizenId && !validateThaiCitizenId(customer.citizenId)) e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
+      // (allow invalid citizenId; warn only in UI) -- removed blocking validation
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
       if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
       // ⭐ แจ้งเตือนถ้าไม่พบทั้ง member_id และ asso_id (เพื่อให้สอดคล้อง BE)

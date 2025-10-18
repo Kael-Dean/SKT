@@ -1,4 +1,8 @@
-// ✅ src/pages/Sales.jsx (อัปเดตให้ใช้ฟังก์ชัน/โครงเดียวกับหน้า Buy + dept + payment resolver + autofill phone/FID*)
+// ✅ src/pages/Sales.jsx — Sales page parity with Buy + strictly matches BE schema for /order/customers/save/sell
+// - Combobox/DateInput/Styling เทียบหน้า Buy
+// - ค้นหา/เลือกบุคคล/บริษัท -> เก็บ asso_id / member_id / tax_id ให้ตรงสเป็ค BE
+// - ส่ง payload: OrderRequest { customer, order{spec,...}, dept }
+// - payment_id ใช้ค่าที่เลือกจาก /order/payment/search/sell (1=สด, 2=เชื่อ)
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api" // รวม Base URL, token, JSON ให้แล้ว
 
@@ -56,7 +60,7 @@ const formatMoneyInput = (val) => {
   return intWithCommas
 }
 
-/** วันที่ → ISO UTC (BE ใหม่ใช้ datetime) */
+/** วันที่ → ISO UTC (BE ใช้ datetime) */
 const toIsoUtcDate = (yyyyMmDd) => {
   try {
     return new Date(`${yyyyMmDd}T00:00:00Z`).toISOString()
@@ -357,7 +361,7 @@ function Sales() {
   ]
   const [buyerType, setBuyerType] = useState("person")
 
-  /** ฟอร์มลูกค้า */
+  /** ฟอร์มลูกค้า (UI เก็บไว้แสดง/ค้น) */
   const [customer, setCustomer] = useState({
     // บุคคล
     citizenId: "",
@@ -368,14 +372,14 @@ function Sales() {
     district: "",
     province: "",
     postalCode: "",
-    phone: "",             // ✅ เพิ่ม phone (เหมือนหน้า Buy)
+    phone: "",
 
     // ✅ FID
     fid: "",
     fidOwner: "",
     fidRelationship: "",
 
-    // บริษัท — แยก HQ/Branch รายช่องแบบหน้า Buy
+    // บริษัท — แยก HQ/Branch
     companyName: "",
     taxId: "",
     companyPhone: "",
@@ -399,10 +403,11 @@ function Sales() {
   const debouncedCompanyName = useDebounce(customer.companyName)
   const debouncedTaxId = useDebounce(customer.taxId)
 
-  /** เมตาสมาชิก/ลูกค้า */
+  /** เมตาสมาชิก/ลูกค้า — สำหรับ resolve ฝั่ง BE */
   const [memberMeta, setMemberMeta] = useState({
     type: "unknown",
-    assoId: null,
+    assoId: null,     // both member & company
+    memberId: null,   // member only
   })
 
   /** ฟอร์มออเดอร์ (สำหรับขาย) */
@@ -421,7 +426,7 @@ function Sales() {
     fieldTypeId: "",
     program: "",
     programId: "",
-    // 💳 payment (UI เก็บทั้ง id/label)
+    // 💳 payment
     paymentMethodId: "",
     paymentMethod: "",
     entryWeightKg: "",
@@ -464,7 +469,7 @@ function Sales() {
     district: useRef(null),
     province: useRef(null),
     postalCode: useRef(null),
-    phone: useRef(null),            // ✅
+    phone: useRef(null),
     fid: useRef(null),
     fidOwner: useRef(null),
     fidRelationship: useRef(null),
@@ -525,7 +530,7 @@ function Sales() {
   const debouncedCitizenId = useDebounce(customer.citizenId)
   const debouncedFullName  = useDebounce(customer.fullName)
 
-  /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอที่ใช้ได้ (array หรือ object ก็รับ) */
+  /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอที่ใช้ได้ */
   const fetchFirstOkJson = async (paths = []) => {
     for (const p of paths) {
       try {
@@ -537,7 +542,7 @@ function Sales() {
     return Array.isArray(paths) ? [] : {}
   }
 
-  /** 🔎 helper: ดึงที่อยู่+ข้อมูลบุคคลจาก citizen_id (บุคคลเท่านั้น) */
+  /** 🔎 helper: ดึงที่อยู่/ข้อมูลบุคคลจาก citizen_id (สำหรับ autofill เท่านั้น) */
   const loadAddressByCitizenId = async (cid) => {
     const q = encodeURIComponent(onlyDigits(cid))
     const candidates = [
@@ -563,6 +568,7 @@ function Sales() {
       lastName:  toStr(data.last_name ?? data.lastName ?? ""),
       type: data.type ?? undefined,
       asso_id: data.asso_id ?? data.assoId ?? undefined,
+      member_id: data.member_id ?? data.memberId ?? undefined,
 
       // ✅ เติม phone + FID*
       phone: toStr(data.phone ?? data.tel ?? data.mobile ?? ""),
@@ -584,7 +590,6 @@ function Sales() {
         district: addr.district || prev.district,
         province: addr.province || prev.province,
         postalCode: addr.postalCode || prev.postalCode,
-        // ✅ เติมชุด phone/FID*
         phone: addr.phone || prev.phone,
         fid: addr.fid || prev.fid,
         fidOwner: addr.fidOwner || prev.fidOwner,
@@ -592,6 +597,7 @@ function Sales() {
       }))
       if (addr.type) setMemberMeta((m) => ({ ...m, type: addr.type }))
       if (addr.asso_id) setMemberMeta((m) => ({ ...m, assoId: addr.asso_id }))
+      if (addr.member_id != null) setMemberMeta((m) => ({ ...m, memberId: Number(addr.member_id) }))
     }
   }
 
@@ -611,11 +617,10 @@ function Sales() {
         ] = await Promise.all([
           fetchFirstOkJson(["/order/product/search"]),
           fetchFirstOkJson(["/order/condition/search"]),
-          // ฟอลแบ็กเหมือนหน้า Buy
           fetchFirstOkJson(["/order/field/search", "/order/field_type/list", "/order/field-type/list"]),
           fetchFirstOkJson(["/order/year/search"]),
           fetchFirstOkJson(["/order/program/search"]),
-          fetchFirstOkJson(["/order/payment/search/sell"]), // ← sales ใช้ SELL
+          fetchFirstOkJson(["/order/payment/search/sell"]), // ← sales ใช้ SELL (1=สด,2=เชื่อ)
           fetchFirstOkJson(["/order/branch/search"]),
           fetchFirstOkJson(["/order/business/search"]),
         ])
@@ -680,7 +685,7 @@ function Sales() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** เมื่อเลือก product → โหลด species (แทน rice) */
+  /** เมื่อเลือก product → โหลด species */
   useEffect(() => {
     const pid = order.productId
     if (!pid) {
@@ -705,7 +710,7 @@ function Sales() {
     loadSpecies()
   }, [order.productId])
 
-  /** เมื่อเลือก species → โหลด variant (แทน sub-rice) */
+  /** เมื่อเลือก species → โหลด variant */
   useEffect(() => {
     const rid = order.riceId
     if (!rid) { setSubriceOptions([]); setOrder((p) => ({ ...p, subriceId: "", subriceName: "" })); return }
@@ -744,7 +749,7 @@ function Sales() {
     loadKlang()
   }, [order.branchId, order.branchName])
 
-  /** map record -> UI (ครอบคลุมฟิลด์ที่อยู่ด้วย + phone + fid*) */
+  /** map record -> UI (บุคคล) */
   const mapSimplePersonToUI = (r = {}) => {
     const toStr = (v) => (v == null ? "" : String(v))
     return {
@@ -753,6 +758,7 @@ function Sales() {
       lastName:  toStr(r.last_name ?? r.lastName ?? ""),
       fullName:  `${toStr(r.first_name ?? r.firstName ?? "")} ${toStr(r.last_name ?? r.lastName ?? "")}`.trim(),
       assoId:    r.asso_id ?? r.assoId ?? null,
+      memberId:  r.member_id ?? r.memberId ?? null,
       type:      r.type ?? "unknown",
 
       houseNo:     toStr(r.address ?? r.house_no ?? r.houseNo ?? ""),
@@ -770,7 +776,7 @@ function Sales() {
     }
   }
 
-  /** map company record -> UI (HQ + Branch แยกรายช่อง) — จูนให้ตรงกับคีย์แบบ Buy */
+  /** map company record -> UI */
   const mapCompanyToUI = (r = {}) => {
     const S = (v) => (v == null ? "" : String(v))
     return {
@@ -812,7 +818,12 @@ function Sales() {
       fidOwner: data.fidOwner || prev.fidOwner,
       fidRelationship: String(data.fidRelationship ?? prev.fidRelationship ?? ""),
     }))
-    setMemberMeta({ type: data.type, assoId: data.assoId })
+    setMemberMeta((m) => ({
+      ...m,
+      type: data.type,
+      assoId: data.assoId ?? m.assoId,
+      memberId: data.memberId != null ? Number(data.memberId) : m.memberId
+    }))
     setCustomerFound(true)
 
     const hasAnyAddr =
@@ -837,17 +848,17 @@ function Sales() {
     }
   }
 
-  /** ค้นหาด้วยเลขบัตร (ทำเฉพาะโหมดบุคคล) */
+  /** ค้นหาด้วยเลขบัตร (โหมดบุคคล) — ใช้แค่ช่วยเติมข้อมูล */
   useEffect(() => {
     if (buyerType !== "person") {
       setCustomerFound(null)
-      setMemberMeta({ type: "unknown", assoId: null })
+      setMemberMeta({ type: "unknown", assoId: null, memberId: null })
       return
     }
     const cid = onlyDigits(debouncedCitizenId)
     if (cid.length !== 13) {
       setCustomerFound(null)
-      setMemberMeta({ type: "unknown", assoId: null })
+      setMemberMeta({ type: "unknown", assoId: null, memberId: null })
       return
     }
     const fetchByCid = async () => {
@@ -861,12 +872,12 @@ function Sales() {
           await fillFromRecord(exact)
         } else {
           setCustomerFound(false)
-          setMemberMeta({ type: "customer", assoId: null })
+          setMemberMeta({ type: "customer", assoId: null, memberId: null })
         }
       } catch (e) {
         console.error(e)
         setCustomerFound(false)
-        setMemberMeta({ type: "customer", assoId: null })
+        setMemberMeta({ type: "customer", assoId: null, memberId: null })
       } finally {
         setLoadingCustomer(false)
       }
@@ -875,13 +886,13 @@ function Sales() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedCitizenId, buyerType])
 
-  /** ค้นหาด้วยชื่อ (ทำเฉพาะโหมดบุคคล) */
+  /** ค้นหาด้วยชื่อ (โหมดบุคคล) -> แสดงรายการ พร้อม member_id/asso_id */
   useEffect(() => {
     if (buyerType !== "person") {
       setShowNameList(false)
       setNameResults([])
       setHighlightedIndex(-1)
-      setMemberMeta({ type: "unknown", assoId: null })
+      setMemberMeta({ type: "unknown", assoId: null, memberId: null })
       return
     }
 
@@ -898,7 +909,7 @@ function Sales() {
       setNameResults([])
       setShowNameList(false)
       setHighlightedIndex(-1)
-      setMemberMeta({ type: "unknown", assoId: null })
+      setMemberMeta({ type: "unknown", assoId: null, memberId: null })
       return
     }
 
@@ -906,10 +917,11 @@ function Sales() {
       try {
         setLoadingCustomer(true)
         const items = await apiAuth(`/order/customers/search?q=${encodeURIComponent(q)}`)
-        // ✅ map ให้รายการแนะนำมีข้อมูลพอสำหรับเติม phone/FID*
+        // ✅ map พร้อม member_id / asso_id
         const mapped = (items || []).map((r) => ({
           type: r.type,
           asso_id: r.asso_id,
+          member_id: r.member_id,
           citizen_id: r.citizen_id,
           first_name: r.first_name,
           last_name: r.last_name,
@@ -942,7 +954,7 @@ function Sales() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedFullName, buyerType])
 
-  /** ค้นหาบริษัทด้วยชื่อ (เฉพาะโหมด company) */
+  /** ค้นหาบริษัทด้วยชื่อ (โหมด company) */
   useEffect(() => {
     if (buyerType !== "company") {
       setShowCompanyList(false)
@@ -969,13 +981,11 @@ function Sales() {
     const searchCompanies = async () => {
       try {
         setLoadingCustomer(true)
-        // รองรับหลาย endpoint
         const results = await fetchFirstOkJson([
           `/order/companies/search?q=${encodeURIComponent(q)}`,
           `/order/customers/search?q=${encodeURIComponent(q)}`
         ])
         const list = Array.isArray(results) ? results : (results?.items ?? [])
-        // กรองที่เป็นบริษัท (ถ้ามี type)
         const companies = list.filter((r) => (r.type ? r.type === "company" : true))
         setCompanyResults(companies)
         if (document.activeElement === companyInputRef.current) {
@@ -1042,6 +1052,13 @@ function Sales() {
 
   const pickNameResult = async (rec) => {
     suppressNameSearchRef.current = true
+    // ตั้ง memberMeta ก่อน
+    setMemberMeta((m) => ({
+      ...m,
+      assoId: rec.asso_id ?? m.assoId,
+      memberId: rec.member_id != null ? Number(rec.member_id) : m.memberId,
+      type: rec.type ?? m.type
+    }))
     await fillFromRecord(rec)
     setShowNameList(false)
     setNameResults([])
@@ -1069,6 +1086,7 @@ function Sales() {
       brProvince: c.brProvince || prev.brProvince,
       brPostalCode: c.brPostalCode || prev.brPostalCode,
     }))
+    setMemberMeta((m) => ({ ...m, assoId: c.assoId ?? m.assoId, type: "company" }))
     setShowCompanyList(false)
     setHighlightedCompanyIndex(-1)
     setCompanyResults([])
@@ -1200,8 +1218,9 @@ function Sales() {
     }
   }, [computedAmount])
 
-  /** ---------- Payment resolver ---------- */
+  /** ---------- Payment ---------- */
   const resolvePaymentId = () => {
+    // คืน id ที่เลือกจาก dropdown (ขาย: 1=สด, 2=เชื่อ) — ตาม /order/payment/search/sell
     if (/^\d+$/.test(String(order.paymentMethodId || ""))) return Number(order.paymentMethodId)
     const label = (order.paymentMethod || "").trim()
     if (label) {
@@ -1211,19 +1230,6 @@ function Sales() {
     if (/^\d+$/.test(String(order.paymentMethod || ""))) return Number(order.paymentMethod)
     return null
   }
-
-  /** ตรวจว่าเป็น “ค้าง/เครดิต” ไหม (เผื่อ UI) */
-  const isCreditPayment = () => {
-    const pid = resolvePaymentId()
-    const label =
-      (order.paymentMethod || "").trim() ||
-      (paymentOptions.find((o) => Number(o.id) === Number(pid))?.label || "").trim()
-    const s = label.toLowerCase()
-    return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
-  }
-
-  /** 👉 ส่งเข้า BE ฝั่งขาย: ขายสด = 1, ขายเชื่อ = 2 */
-  const resolvePaymentIdForSell = () => (isCreditPayment() ? 2 : 1)
 
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) =>
@@ -1329,8 +1335,12 @@ function Sales() {
       if (customer.citizenId && !validateThaiCitizenId(customer.citizenId)) e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
       if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
+      // ✅ ต้องได้ asso_id หรือ member_id เพื่อส่งเข้า BE
+      if (memberMeta.assoId == null && memberMeta.memberId == null) e.customerRef = "กรุณาเลือกบุคคลจากรายการค้นหา เพื่อยืนยันตัวตน (asso_id / member_id)"
     } else {
       if (!customer.companyName.trim()) e.companyName = "กรุณาเลือกชื่อบริษัท"
+      const tid = onlyDigits(customer.taxId)
+      if (!tid && !memberMeta.assoId) e.companyRef = "กรุณากรอกเลขผู้เสียภาษี หรือเลือกบริษัทจากรายการค้นหา (ต้องมี tax_id หรือ asso_id)"
     }
 
     if (!order.productId) e.product = "เลือกประเภทสินค้า"
@@ -1362,8 +1372,8 @@ function Sales() {
   }
 
   const scrollToFirstError = (eObj) => {
-    const personKeys = ["fullName", "address"]
-    const companyKeys = ["companyName"]
+    const personKeys = ["customerRef","fullName","address"]
+    const companyKeys = ["companyRef","companyName"]
     const common = [
       "product","riceType","subrice","condition","fieldType","riceYear",
       "businessType","payment",
@@ -1376,6 +1386,8 @@ function Sales() {
     const keyToFocus =
       firstKey === "address"
         ? (customer.houseNo ? (customer.moo ? (customer.subdistrict ? (customer.district ? "province" : "district") : "subdistrict") : "moo") : "houseNo")
+        : firstKey === "customerRef" ? "fullName"
+        : firstKey === "companyRef" ? "companyName"
         : firstKey
 
     const el = refs[keyToFocus]?.current || (firstKey === "payment" ? refs.payment?.current : null)
@@ -1398,7 +1410,7 @@ function Sales() {
       return
     }
 
-    // แยกชื่อ (โหมดบุคคล)
+    // แยกชื่อ (โหมดบุคคล) — ใช้แค่แสดงผลใน UI; ฝั่ง BE ไม่ต้องการ
     const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
     const lastName = rest.join(" ")
 
@@ -1416,16 +1428,11 @@ function Sales() {
 
     const paymentId = resolvePaymentId()
 
-    if (!productId)      { setErrors(p => ({ ...p, product:"ไม่พบรหัสสินค้า" }));             scrollToFirstError({product:true}); return }
-    if (!speciesId)      { setErrors(p => ({ ...p, riceType:"ไม่พบรหัสชนิดข้าว (species)" })); scrollToFirstError({riceType:true}); return }
-    if (!variantId)      { setErrors(p => ({ ...p, subrice:"ไม่พบรหัสชั้นย่อย (variant)" }));  scrollToFirstError({subrice:true}); return }
-    if (!productYearId)  { setErrors(p => ({ ...p, riceYear:"ไม่พบรหัสปี/ฤดูกาล" }));         scrollToFirstError({riceYear:true}); return }
-    if (!conditionId)    { setErrors(p => ({ ...p, condition:"ไม่พบรหัสสภาพ/เงื่อนไข" }));    scrollToFirstError({condition:true}); return }
-    if (!fieldTypeId)    { setErrors(p => ({ ...p, fieldType:"ไม่พบรหัสประเภทนา" }));         scrollToFirstError({fieldType:true}); return }
-    if (!branchId)       { setErrors(p => ({ ...p, branchName:"ไม่พบรหัสสาขา" }));            scrollToFirstError({branchName:true}); return }
-    if (!klangId)        { setErrors(p => ({ ...p, klangName:"ไม่พบรหัสคลัง" }));             scrollToFirstError({klangName:true}); return }
-    if (!businessTypeId) { setErrors(p => ({ ...p, businessType:"ไม่พบรหัสประเภทธุรกิจ" }));  scrollToFirstError({businessType:true}); return }
-    if (!paymentId)      { setErrors(p => ({ ...p, payment:"ไม่พบรหัสวิธีชำระเงิน" }));       scrollToFirstError({payment:true}); return }
+    // Safety guard
+    if (!productId || !speciesId || !variantId || !productYearId || !conditionId || !fieldTypeId || !branchId || !klangId || !businessTypeId || !paymentId) {
+      alert("ข้อมูลไม่ครบถ้วน โปรดตรวจสอบอีกครั้ง")
+      return
+    }
 
     // น้ำหนัก
     const baseGross = grossFromScale
@@ -1436,47 +1443,35 @@ function Sales() {
 
     const dateStr = order.issueDate
 
-    // payload ลูกค้า (ตรง backend แบบเดียวกับ Buy)
-    const customerPayload =
-      buyerType === "person"
-        ? {
-            party_type: "individual",
-            first_name: firstName || "",
-            last_name: lastName || "",
-            citizen_id: onlyDigits(customer.citizenId),
-            address: customer.houseNo.trim(),
-            mhoo: customer.moo.trim(),
-            sub_district: customer.subdistrict.trim(),
-            district: customer.district.trim(),
-            province: customer.province.trim(),
-            postal_code: customer.postalCode?.toString().trim() || "",
-            phone_number: customer.phone?.trim() || "", // ✅ ส่งเบอร์ถ้ามี (optional)
-            fid: customer.fid === "" ? null : Number(customer.fid),
-            fid_owner: (customer.fidOwner || "").trim() || null,
-            fid_relationship: customer.fidRelationship === "" ? null : Number(customer.fidRelationship),
-          }
-        : {
-            party_type: "company",
-            company_name: customer.companyName.trim(),
-            tax_id: onlyDigits(customer.taxId),
-            phone_number: customer.companyPhone?.trim() || "",
-            // HQ
-            hq_address: customer.hqHouseNo.trim(),
-            hq_mhoo: customer.hqMoo.trim(),
-            hq_tambon: customer.hqSubdistrict.trim(),
-            hq_amphur: customer.hqDistrict.trim(),
-            hq_province: customer.hqProvince.trim(),
-            hq_postal_code: customer.hqPostalCode ? String(customer.hqPostalCode).trim() : "",
-            // Branch (optional)
-            branch_address: customer.brHouseNo.trim() || "",
-            branch_moo: customer.brMoo.trim() || "",
-            branch_tambon: customer.brSubdistrict.trim() || "",
-            branch_amphur: customer.brDistrict.trim() || "",
-            branch_province: customer.brProvince.trim() || "",
-            branch_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
-          }
+    /** ⭐ สร้าง customer (ตรงสเป็ค BE):
+     *  - individual: ใช้ asso_id หรือ member_id อย่างใดอย่างหนึ่ง
+     *  - company: ใช้ asso_id หรือ tax_id อย่างใดอย่างหนึ่ง
+     */
+    let customerRef = null
+    if (buyerType === "person") {
+      if (memberMeta.assoId) {
+        customerRef = { party_type: "individual", asso_id: memberMeta.assoId }
+      } else if (memberMeta.memberId != null) {
+        customerRef = { party_type: "individual", member_id: Number(memberMeta.memberId) }
+      } else {
+        setErrors((p) => ({ ...p, customerRef: "กรุณาเลือกบุคคลจากรายการค้นหา (ต้องมี asso_id หรือ member_id)" }))
+        scrollToFirstError({ customerRef: true })
+        return
+      }
+    } else {
+      const tid = onlyDigits(customer.taxId)
+      if (memberMeta.assoId) {
+        customerRef = { party_type: "company", asso_id: memberMeta.assoId }
+      } else if (tid) {
+        customerRef = { party_type: "company", tax_id: tid, company_name: customer.companyName?.trim() || undefined }
+      } else {
+        setErrors((p) => ({ ...p, companyRef: "กรุณากรอกเลขผู้เสียภาษี หรือเลือกบริษัทจากรายการค้นหา" }))
+        scrollToFirstError({ companyRef: true })
+        return
+      }
+    }
 
-    /** Dept payload (แนบเสมอ — BE จะใช้เมื่อเป็นเครดิต เหมือนหน้า Buy) */
+    /** Dept payload (แนบเสมอ — BE จะใช้เมื่อเป็นเครดิต) */
     const deptPayload = {
       date_created: toIsoUtcDate(dateStr),
       allowed_period: Number(dept.allowedPeriod || 0),
@@ -1484,12 +1479,11 @@ function Sales() {
       postpone_period: Number(dept.postponePeriod || 0),
     }
 
-    // ✅ BE ใหม่: ย้ายสเปคสินค้าเข้า order.spec และใช้ *_id ให้ครบ, date เป็น ISO datetime
+    // ✅ BE: ย้ายสเปคสินค้าเข้า order.spec และใช้ *_id ให้ครบ, date เป็น ISO datetime
     const payload = {
-      customer: customerPayload,
+      customer: customerRef,
       order: {
-        // ส่งเข้า BE ตามสเปคฝั่งขาย: สด=1, เชื่อ=2
-        payment_id: resolvePaymentIdForSell(),
+        payment_id: Number(paymentId), // ← ใช้ id จาก /order/payment/search/sell (1=สด,2=เชื่อ) :contentReference[oaicite:3]{index=3}
 
         spec: {
           product_id: productId,
@@ -1515,10 +1509,10 @@ function Sales() {
         klang_location: klangId,
       },
 
-      // ⭐ แนบ dept
+      // แนบ dept (ใช้เฉพาะเครดิต)
       dept: deptPayload,
 
-      // meta สำหรับ UI/แปะชื่อ (ไม่บังคับ)
+      // meta สำหรับ UI/สรุป (ไม่บังคับ BE)
       rice:   { rice_type: order.riceType },
       branch: { branch_name: order.branchName },
       klang:  { klang_name: order.klangName },
@@ -1544,7 +1538,7 @@ function Sales() {
     setNameResults([])
     setShowNameList(false)
     setHighlightedIndex(-1)
-    setMemberMeta({ type: "unknown", assoId: null })
+    setMemberMeta({ type: "unknown", assoId: null, memberId: null })
     setCustomer({
       // person
       citizenId: "",
@@ -1555,11 +1549,11 @@ function Sales() {
       district: "",
       province: "",
       postalCode: "",
-      phone: "",          // ✅ reset
+      phone: "",
       fid: "",
       fidOwner: "",
       fidRelationship: "",
-      // company (ละเอียด)
+      // company
       companyName: "",
       taxId: "",
       companyPhone: "",
@@ -1649,12 +1643,12 @@ return (
             ) : memberMeta.type === "customer" ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600 self-start">
                 <span className="h-2 w-2 rounded-full bg-slate-500" />
-                ลูกค้าทั่วไป (จะสร้างอัตโนมัติเมื่อบันทึก)
+                ลูกค้าทั่วไป (ต้องเลือกจากรายชื่อ/ลงทะเบียนก่อนบันทึก)
               </span>
             ) : (
               <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60 self-start">
                 <span className="h-2 w-2 rounded-full bg-amber-500" />
-                โปรดกรอกชื่อหรือเลขบัตรประชาชนเพื่อระบุสถานะ
+                โปรดกรอกชื่อหรือเลือกจากรายการ เพื่อยืนยันตัวตน (asso_id / member_id)
               </span>
             )
           ) : (
@@ -1720,7 +1714,7 @@ return (
         </div>
 
         {/* เงื่อนไขเครดิต (โชว์เมื่อเป็น “ขายเชื่อ/เครดิต”) */}
-        {isCreditPayment() && (
+        {Number(resolvePaymentId()) === 2 && (
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-700/60 dark:bg-amber-900/20">
             <div className="mb-2 flex items-center gap-2">
               <span className="inline-flex h-2 w-2 rounded-full bg-amber-500" />
@@ -1798,7 +1792,7 @@ return (
                 )}
                 {customer.citizenId.length === 13 && customerFound === false && (
                   <span className="ml-1 text-amber-600 dark:text-amber-300">
-                    ไม่พบบุคคลนี้ (จะบันทึกเป็นลูกค้าทั่วไป)
+                    ไม่พบบุคคลนี้ (กรุณาเลือกจากรายการค้นหาชื่อ/ลงทะเบียนก่อน)
                   </span>
                 )}
               </div>
@@ -1874,6 +1868,7 @@ return (
                           <div className="font-medium">{full || "(ไม่มีชื่อ)"}</div>
                           <div className="text-sm text-slate-600 dark:text-slate-300">
                             {r.type === "member" ? "สมาชิก" : "ลูกค้าทั่วไป"} • ปชช. {r.citizen_id ?? "-"}
+                            {r.member_id != null && <> • member_id {r.member_id}</>}
                           </div>
                         </div>
                       </button>
@@ -1942,7 +1937,6 @@ return (
                 onChange={(e) => updateCustomer("fid", onlyDigits(e.target.value))}
                 placeholder="ตัวเลข เช่น 123456"
               />
-              <p className={helpTextCls}><code>fid</code></p>
             </div>
 
             <div>
@@ -1954,7 +1948,6 @@ return (
                 onChange={(e) => updateCustomer("fidOwner", e.target.value)}
                 placeholder="เช่น นายสมหมาย นามดี"
               />
-              <p className={helpTextCls}><code></code></p>
             </div>
 
             <div>
@@ -1967,7 +1960,6 @@ return (
                 onChange={(e) => updateCustomer("fidRelationship", onlyDigits(e.target.value))}
                 placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
               />
-              <p className={helpTextCls}><code></code> </p>
             </div>
           </div>
         ) : (
@@ -2051,7 +2043,7 @@ return (
               )}
             </div>
 
-            {/* สรุปบริษัทแบบอ่านอย่างเดียว (ออโต้จากรายการที่เลือก) */}
+            {/* สรุปบริษัทแบบอ่านอย่างเดียว */}
             {(() => {
               const join = (...xs) => xs.filter(Boolean).join(" • ")
               const hqAddr = join(
@@ -2115,8 +2107,8 @@ return (
                   riceType: "",
                   subriceId: "",
                   subriceName: "",
-                }))
-              }}
+                }))}
+              }
               placeholder="— เลือกประเภทสินค้า —"
               error={!!errors.product}
               hintRed={!!missingHints.product}
@@ -2139,8 +2131,8 @@ return (
                   riceType: found?.label ?? "",
                   subriceId: "",
                   subriceName: "",
-                }))
-              }}
+                }))}
+              }
               placeholder="— เลือกชนิดข้าว —"
               disabled={!order.productId || isTemplateActive}
               error={!!errors.riceType}
@@ -2367,7 +2359,7 @@ return (
                 onFocus={() => clearHint("moisturePct")}
                 placeholder="เช่น 18"
               />
-              <p className={helpTextCls}>{MOISTURE_STD}</p>
+              <p className={helpTextCls}>มาตรฐาน {MOISTURE_STD}%</p>
             </div>
 
             <div>
@@ -2497,7 +2489,7 @@ return (
 
         {/* --- สรุป --- */}
         <div className="mt-6 grid gap-4 md:grid-cols-5">
-          {/* Buyer Summary (แยกตามประเภท) */}
+          {/* Buyer Summary */}
           {buyerType === "person" ? (
             <>
               {[

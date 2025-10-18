@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth, post } from "../lib/api" // helper แนบโทเคนอัตโนมัติ
 
-/** ---------------- Utilities (ยกแบบเดียวกับหน้า Buy) ---------------- */
+/** ---------------- Utilities (ยึดสไตล์/แนวคิดจากหน้า Buy) ---------------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
 const toIntOrNull = (v) => {
@@ -15,6 +15,7 @@ const thb = (n) =>
     isFinite(n) ? n : 0
   )
 
+/** เงิน: ช่วยให้พิมพ์แล้วขึ้นคอมม่า และแปลงกลับเป็นตัวเลข */
 const moneyToNumber = (v) => {
   if (v === "" || v == null) return 0
   const n = Number(String(v).replace(/,/g, ""))
@@ -44,7 +45,7 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
-/** ---------------- Styles (ให้เหมือนหน้า Buy) ---------------- */
+/** ---------------- Styles (เหมือนหน้า Buy) ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -55,7 +56,6 @@ const fieldDisabled =
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
-const compactInput = "!py-2 !px-4 !text-[16px] !leading-normal"
 
 /** ---------------- Enter-to-next ---------------- */
 const isEnabledInput = (el) => {
@@ -71,8 +71,10 @@ const useEnterNavigation = (refs, buyerType, order) => {
   const companyOrder = ["companyName", "taxId", "companyPhone", "hqHouseNo", "hqMoo", "hqSubdistrict", "hqDistrict", "hqProvince", "hqPostalCode", "brHouseNo", "brMoo", "brSubdistrict", "brDistrict", "brProvince", "brPostalCode"]
   const orderOrder = [
     "product", "riceType", "subrice", "condition", "fieldType", "riceYear", "businessType", "program",
-    "branchName", "klangName", "entryWeightKg", "exitWeightKg", "unitPrice", "amountTHB", "paymentRefNo", "comment",
-    "payment", "issueDate"
+    "branchName", "klangName", "entryWeightKg", "exitWeightKg", "unitPrice", "amountTHB",
+    // เอกสารอ้างอิง
+    "scaleNo", "cashReceiptNo", "creditInvoiceNo",
+    "comment", "payment", "issueDate"
   ]
   let list = (buyerType === "person" ? personOrder : companyOrder).concat(orderOrder)
   list = list.filter((key) => {
@@ -81,6 +83,9 @@ const useEnterNavigation = (refs, buyerType, order) => {
     if (key === "subrice" && !order.riceId) return false
     if (key === "riceType" && !order.productId) return false
     if (key === "klangName" && !order.branchId) return false
+    // เงื่อนไขแสดงเอกสาร
+    if (key === "cashReceiptNo" && !order.__isCash) return false
+    if (key === "creditInvoiceNo" && !order.__isCredit) return false
     return isEnabledInput(el)
   })
   const focusNext = (currentKey) => {
@@ -104,7 +109,7 @@ const useEnterNavigation = (refs, buyerType, order) => {
   return { onEnter, focusNext }
 }
 
-/** ---------------- Reusable ComboBox (เหมือนหน้า Buy) ---------------- */
+/** ---------------- Reusable ComboBox ---------------- */
 function ComboBox({
   options = [], value, onChange, placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "", getValue = (o) => o?.value ?? o?.id ?? "",
@@ -278,7 +283,9 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 
 /** =====================================================================
  *                              Sales Page
- *  (ตกแต่งเหมือน Buy + เพิ่ม member_id เป็นตัวอ้างอิงฝั่งบุคคล)
+ *  - UI ให้เหมือน Buy + เพิ่มฟอร์มสำเร็จรูป
+ *  - เพิ่มเอกสารอ้างอิง 3 ช่อง (แสดงตามวิธีชำระเงิน)
+ *  - ส่งข้อมูลตาม BE (/order/customers/save/sell)
  * ===================================================================== */
 function Sales() {
   /** ---------- state พื้นฐาน ---------- */
@@ -319,6 +326,16 @@ function Sales() {
   const [klangOptions, setKlangOptions] = useState([])
   const [businessOptions, setBusinessOptions] = useState([])
 
+  /** ---------- ฟอร์มสำเร็จรูป (Template) แบบหน้า Buy ---------- */
+  const templateOptions = [
+    { id: "0", label: "— ฟอร์มปกติ —" },
+    { id: "1", label: "รหัส 1 • ข้าวหอมมะลิ" },
+    { id: "2", label: "รหัส 2 • ข้าวเหนียว" },
+    { id: "3", label: "รหัส 3 • เมล็ดพันธุ์" },
+  ]
+  const [formTemplate, setFormTemplate] = useState("0")
+  const isTemplateActive = formTemplate !== "0"
+
   /** ---------- ประเภทผู้ซื้อ ---------- */
   const buyerTypeOptions = [
     { id: "person", label: "บุคคลธรรมดา" },
@@ -343,7 +360,7 @@ function Sales() {
   const [memberMeta, setMemberMeta] = useState({
     type: "unknown",   // "member" | "customer" | "unknown"
     assoId: null,
-    memberId: null,    // เก็บเลขสมาชิกที่ได้จากผลค้นหา
+    memberId: null,
   })
 
   /** ---------- ฟอร์มออเดอร์ ---------- */
@@ -362,12 +379,21 @@ function Sales() {
 
     entryWeightKg: "", exitWeightKg: "",
     unitPrice: "", amountTHB: "",
-    paymentRefNo: "",
     issueDate: new Date().toISOString().slice(0, 10),
-
     gram: "", comment: "",
+
+    // วิธีชำระเงิน
     paymentMethod: "",    // label
     paymentMethodId: "",  // id
+
+    // เอกสารอ้างอิง (optional)
+    scaleNo: "",
+    cashReceiptNo: "",      // แสดงเมื่อขายสด
+    creditInvoiceNo: "",    // แสดงเมื่อขายเชื่อ
+
+    // internal flags
+    __isCash: false,
+    __isCredit: false,
   })
 
   /** ---------- Refs สำหรับนำทางด้วย Enter ---------- */
@@ -386,9 +412,17 @@ function Sales() {
     program: useRef(null), payment: useRef(null),
     branchName: useRef(null), klangName: useRef(null),
     entryWeightKg: useRef(null), exitWeightKg: useRef(null),
-    unitPrice: useRef(null), amountTHB: useRef(null), paymentRefNo: useRef(null),
+    unitPrice: useRef(null), amountTHB: useRef(null),
     issueDate: useRef(null), gram: useRef(null), comment: useRef(null),
     buyerType: useRef(null),
+
+    // docs
+    scaleNo: useRef(null),
+    cashReceiptNo: useRef(null),
+    creditInvoiceNo: useRef(null),
+
+    // template
+    formTemplate: useRef(null),
   }
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
@@ -433,7 +467,7 @@ function Sales() {
             fetchFirstOkJson(["/order/field/search"]),
             fetchFirstOkJson(["/order/year/search"]),
             fetchFirstOkJson(["/order/program/search"]),
-            fetchFirstOkJson(["/order/payment/search/sell"]),  // ⭐ หน้า Sales ใช้ sell (id=1,2)
+            fetchFirstOkJson(["/order/payment/search/sell"]),  // ⭐ Sales → sell (id=1,2)
             fetchFirstOkJson(["/order/branch/search"]),
             fetchFirstOkJson(["/order/business/search"]),
           ])
@@ -511,6 +545,49 @@ function Sales() {
     }
     loadKlang()
   }, [order.branchId, order.branchName])
+
+  /** ---------- ฟอร์มสำเร็จรูป: โหลด/บันทึกค่า ---------- */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("sales.formTemplate")
+      if (saved && ["0", "1", "2", "3"].includes(saved)) setFormTemplate(saved)
+    } catch {}
+  }, [])
+  useEffect(() => {
+    try { localStorage.setItem("sales.formTemplate", formTemplate) } catch {}
+  }, [formTemplate])
+
+  // เมื่อเปลี่ยน Template → บังคับเลือก "ประเภทสินค้า: ข้าวเปลือก"
+  useEffect(() => {
+    if (!isTemplateActive) return
+    if (productOptions.length === 0) return
+    const paddy = productOptions.find((o) => o.label.includes("ข้าวเปลือก"))
+    if (paddy && order.productId !== paddy.id) {
+      setOrder((p) => ({
+        ...p,
+        productId: paddy.id,
+        productName: paddy.label,
+        riceId: "", riceType: "",
+        subriceId: "", subriceName: "",
+      }))
+    }
+  }, [formTemplate, productOptions])
+
+  // เมื่อ species โหลดแล้ว → เลือกชนิดข้าวตาม Template
+  useEffect(() => {
+    if (!isTemplateActive) return
+    if (riceOptions.length === 0) return
+    const want = formTemplate === "1" ? "หอมมะลิ" : formTemplate === "2" ? "เหนียว" : "พันธุ์"
+    const target = riceOptions.find((r) => r.label.includes(want))
+    if (target && order.riceId !== target.id) {
+      setOrder((p) => ({
+        ...p,
+        riceId: target.id,
+        riceType: target.label,
+        subriceId: "", subriceName: "",
+      }))
+    }
+  }, [formTemplate, riceOptions])
 
   /** ---------- แผงค้นหาบุคคล (member_id, citizen_id, ชื่อ) ---------- */
   const mapSimplePersonToUI = (r = {}) => {
@@ -771,7 +848,13 @@ function Sales() {
     const s = label.toLowerCase()
     return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
   }
-  const resolvePaymentIdForBE = () => (isCreditPayment() ? 2 : 1) // ⭐ ตาม BE: sell(1,2)  :contentReference[oaicite:2]{index=2}
+  const resolvePaymentIdForBE = () => (isCreditPayment() ? 2 : 1)
+
+  // sync flags for conditional docs
+  useEffect(() => {
+    const credit = isCreditPayment()
+    setOrder((p) => ({ ...p, __isCredit: credit, __isCash: !credit }))
+  }, [order.paymentMethod, paymentOptions])
 
   /** ---------- Validate + hint ---------- */
   const computeMissingHints = () => {
@@ -872,7 +955,13 @@ function Sales() {
     const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
     const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
     const programId = /^\d+$/.test(order.programId) ? Number(order.programId) : null
-    const paymentId = resolvePaymentIdForBE() // ⭐ sell: 1/2  :contentReference[oaicite:3]{index=3}
+    const paymentId = resolvePaymentIdForBE() // ⭐ sell: 1/2
+
+    // เอกสารอ้างอิง (ตามชนิดการชำระเงิน; ถ้าเว้นว่างจะ fallback ที่ใบชั่ง)
+    const isCredit = isCreditPayment()
+    const orderSerial =
+      (isCredit ? (order.creditInvoiceNo?.trim() || "") : (order.cashReceiptNo?.trim() || "")) ||
+      (order.scaleNo?.trim() || null)
 
     // สร้าง payload ให้ตรงกับ OrderRequest (BE)
     let customerPayload
@@ -916,11 +1005,11 @@ function Sales() {
         humidity: 0,
         entry_weight: Number(order.entryWeightKg || 0),
         exit_weight: Number(order.exitWeightKg || 0),
-        weight: Number(grossFromScale),                 // ขาย: ใช้น้ำหนักจากตาชั่ง
+        weight: Number(grossFromScale),
         price_per_kilo: Number(order.unitPrice || 0),
         price: Number(moneyToNumber(order.amountTHB) || 0),
         impurity: 0,
-        order_serial: order.paymentRefNo.trim() || null,
+        order_serial: orderSerial,
         date: dateISO,
         branch_location: branchId,
         klang_location: klangId,
@@ -928,13 +1017,14 @@ function Sales() {
         comment: order.comment?.trim() || null,
         business_type: businessTypeId,
       },
-      // dept ไม่จำเป็นสำหรับขายสด/เชื่อ (BE จะใช้เมื่อ payment_id==2), ส่งค่า default ให้สม่ำเสมอ
+      // dept แนบเสมอ (BE ใช้เมื่อ payment_id == 2)
       dept: { date_created: dateISO, allowed_period: 30, postpone: false, postpone_period: 0 },
     }
 
     try {
-      await post("/order/customers/save/sell", payload) // ← endpoint ฝั่งขาย  :contentReference[oaicite:4]{index=4}
+      await post("/order/customers/save/sell", payload)
       alert("บันทึกออเดอร์ขายเรียบร้อย ✅")
+
       // reset ฟอร์มแบบย่อ
       setErrors({}); setMissingHints({})
       setCustomer({
@@ -949,9 +1039,11 @@ function Sales() {
         conditionId: "", condition: "", fieldTypeId: "", fieldType: "", riceYearId: "", riceYear: "",
         businessTypeId: "", businessType: "", programId: "", programName: "",
         branchName: "", branchId: null, klangName: "", klangId: null,
-        entryWeightKg: "", exitWeightKg: "", unitPrice: "", amountTHB: "", paymentRefNo: "",
+        entryWeightKg: "", exitWeightKg: "", unitPrice: "", amountTHB: "",
         issueDate: new Date().toISOString().slice(0, 10), gram: "", comment: "",
         paymentMethod: "", paymentMethodId: "",
+        scaleNo: "", cashReceiptNo: "", creditInvoiceNo: "",
+        __isCash: false, __isCredit: false,
       })
       setRiceOptions([]); setSubriceOptions([]); setKlangOptions([])
       setBuyerType("person")
@@ -1013,6 +1105,23 @@ function Sales() {
                 buttonRef={refs.buyerType}
               />
             </div>
+
+            {/* ดรอปดาวฟอร์มสำเร็จรูป */}
+            <div className="w-full sm:w-72 self-start">
+              <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
+              <ComboBox
+                options={templateOptions}
+                value={formTemplate}
+                onChange={(id) => setFormTemplate(String(id))}
+                buttonRef={refs.formTemplate}
+              />
+              {isTemplateActive && (
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                  ระบบล็อก <b>ประเภทสินค้า: ข้าวเปลือก</b> และ
+                  <b>{formTemplate === "1" ? " ข้าวหอมมะลิ" : formTemplate === "2" ? " ข้าวเหนียว" : " เมล็ดพันธุ์"}</b>
+                </p>
+              )}
+            </div>
           </div>
 
           {/* วิธีชำระเงิน + วันที่ */}
@@ -1044,7 +1153,7 @@ function Sales() {
             </div>
           </div>
 
-          {/* ส่วนฟอร์มลูกค้า */}
+          {/* ส่วนฟอร์มลูกค้า (บุคคล / บริษัท) */}
           {buyerType === "person" ? (
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
@@ -1119,7 +1228,7 @@ function Sales() {
                         <button
                           type="button"
                           ref={(el) => (itemRefs.current[idx] = el)}
-                          key={`${r.type}-${r.asso_id}-${idx}`} // ป้องกัน key ซ้ำตอน citizen_id เป็น 0 ทั้งหมด
+                          key={`${r.type}-${r.asso_id}-${idx}`}
                           onClick={async () => await pickNameResult(r)}
                           onMouseEnter={() => { setHighlightedIndex(idx); requestAnimationFrame(() => scrollHighlightedIntoView2(idx)) }}
                           role="option"
@@ -1233,6 +1342,7 @@ function Sales() {
                 hintRed={!!missingHints.product}
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
+                disabled={isTemplateActive}
                 onEnterNext={() => focusNext("riceType")}
               />
               {errors.product && <p className={errorTextCls}>{errors.product}</p>}
@@ -1247,7 +1357,7 @@ function Sales() {
                   setOrder((p) => ({ ...p, riceId: id, riceType: found?.label ?? "", subriceId: "", subriceName: "" }))
                 }}
                 placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId}
+                disabled={!order.productId || isTemplateActive}
                 error={!!errors.riceType}
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
@@ -1468,20 +1578,50 @@ function Sales() {
                 {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(moneyToNumber(order.amountTHB))}</p>}
                 {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
               </div>
+            </div>
+          </div>
 
+          {/* เอกสารอ้างอิง (ด้านล่างกรอบตัวเลข) */}
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <div>
+              <label className={labelCls}>เลขที่ใบชั่ง</label>
+              <input
+                ref={refs.scaleNo}
+                className={baseField}
+                value={order.scaleNo}
+                onChange={(e) => updateOrder("scaleNo", e.target.value)}
+                onKeyDown={onEnter("scaleNo")}
+                placeholder="เช่น SCL-2025-000123 (ไม่บังคับ)"
+              />
+            </div>
+
+            {order.__isCash && (
               <div>
-                <label className={labelCls}>เลขที่ใบเสร็จ/อ้างอิง</label>
+                <label className={labelCls}>ใบรับเงินขายสินค้า (ขายสด)</label>
                 <input
-                  ref={refs.paymentRefNo}
+                  ref={refs.cashReceiptNo}
                   className={baseField}
-                  value={order.paymentRefNo}
-                  onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
-                  onFocus={() => clearHint("paymentRefNo")}
-                  onKeyDown={onEnter("paymentRefNo")}
-                  placeholder="เช่น S-2025-000123"
+                  value={order.cashReceiptNo}
+                  onChange={(e) => updateOrder("cashReceiptNo", e.target.value)}
+                  onKeyDown={onEnter("cashReceiptNo")}
+                  placeholder="เช่น RC-2025-000789 (ไม่บังคับ)"
                 />
               </div>
-            </div>
+            )}
+
+            {order.__isCredit && (
+              <div>
+                <label className={labelCls}>เลขที่ใบกำกับสินค้า (ขายเชื่อ)</label>
+                <input
+                  ref={refs.creditInvoiceNo}
+                  className={baseField}
+                  value={order.creditInvoiceNo}
+                  onChange={(e) => updateOrder("creditInvoiceNo", e.target.value)}
+                  onKeyDown={onEnter("creditInvoiceNo")}
+                  placeholder="เช่น INV-2025-000456 (ไม่บังคับ)"
+                />
+              </div>
+            )}
           </div>
 
           {/* สรุปสั้น ๆ */}
@@ -1529,6 +1669,10 @@ function Sales() {
               { label: "จากตาชั่ง", value: Math.round(grossFromScale * 100) / 100 + " กก." },
               { label: "ราคาต่อหน่วย", value: order.unitPrice ? `${Number(order.unitPrice).toFixed(2)} บาท/กก.` : "—" },
               { label: "ยอดเงิน", value: order.amountTHB ? thb(moneyToNumber(order.amountTHB)) : "—" },
+              // เอกสารอ้างอิง
+              { label: "เลขที่ใบชั่ง", value: order.scaleNo || "—" },
+              ...(order.__isCash ? [{ label: "ใบรับเงิน (สด)", value: order.cashReceiptNo || "—" }] : []),
+              ...(order.__isCredit ? [{ label: "ใบกำกับ (เชื่อ)", value: order.creditInvoiceNo || "—" }] : []),
               { label: "หมายเหตุ / คอมเมนต์", value: order.comment || "—" },
             ].map((c) => (
               <div key={c.label} className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">

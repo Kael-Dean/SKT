@@ -1783,7 +1783,7 @@ const Buy = () => {
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
 
-        {/* กล่องข้อมูลลูกค้า */}
+        {/* กล่องข้อมูลลูกค้า (ครอบยาวถึงฟิลด์ จังหวัด/รหัสไปรษณีย์/เบอร์โทร) */}
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           {/* แถบหัวข้อ + สถานะ + ดรอปดาวฟอร์ม + ประเภทผู้ซื้อ */}
           <div className="mb-3 flex flex-wrap items-start gap-2">
@@ -1898,128 +1898,265 @@ const Buy = () => {
 
           {/* ⬇️ ลบกรอบเครดิตเมื่อเลือกซื้อเชื่อ (ไม่แสดงอีก) */}
           {/* (ลบ block isCreditPayment() ที่เคยอยู่ตรงนี้) */}
-        </div>
 
-        {/* ฟิลด์ลูกค้า — แยกตามประเภทผู้ซื้อ */}
-        {buyerType === "person" ? (
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <div>
-              <label className={labelCls}>เลขที่บัตรประชาชน (เพื่อค้นหาที่อยู่)</label>
-              <input
-                ref={refs.citizenId}
-                inputMode="numeric"
-                maxLength={13}
-                className={cx(baseField, errors.citizenId && "border-amber-400")}
-                value={customer.citizenId}
-                onChange={(e) => updateCustomer("citizenId", onlyDigits(e.target.value))}
-                onFocus={() => clearHint("citizenId")}
-                placeholder="เช่น 1234567890123"
-                onKeyDown={onEnter("citizenId")}
-                aria-invalid={errors.citizenId ? true : undefined}
-              />
-              <div className={helpTextCls}>
-                {loadingCustomer && "กำลังค้นหาลูกค้า..."}
-                {customer.citizenId.length === 13 && !validateThaiCitizenId(customer.citizenId) && (
-                  <span className="text-amber-600 dark:text-amber-300"> เลขบัตรอาจไม่ถูกต้อง</span>
+          {/* ============ ฟิลด์ลูกค้า — ย้ายเข้ามาในกรอบนี้ ============ */}
+          {buyerType === "person" ? (
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelCls}>เลขที่บัตรประชาชน (เพื่อค้นหาที่อยู่)</label>
+                <input
+                  ref={refs.citizenId}
+                  inputMode="numeric"
+                  maxLength={13}
+                  className={cx(baseField, errors.citizenId && "border-amber-400")}
+                  value={customer.citizenId}
+                  onChange={(e) => updateCustomer("citizenId", onlyDigits(e.target.value))}
+                  onFocus={() => clearHint("citizenId")}
+                  placeholder="เช่น 1234567890123"
+                  onKeyDown={onEnter("citizenId")}
+                  aria-invalid={errors.citizenId ? true : undefined}
+                />
+                <div className={helpTextCls}>
+                  {loadingCustomer && "กำลังค้นหาลูกค้า..."}
+                  {customer.citizenId.length === 13 && !validateThaiCitizenId(customer.citizenId) && (
+                    <span className="text-amber-600 dark:text-amber-300"> เลขบัตรอาจไม่ถูกต้อง</span>
+                  )}
+                </div>
+              </div>
+
+              {/* ⭐ ใหม่: member_id */}
+              <div>
+                <label className={labelCls}>รหัสสมาชิก (member_id)</label>
+                <input
+                  ref={refs.memberId}
+                  inputMode="numeric"
+                  className={cx(baseField, redFieldCls("memberId"))}
+                  value={customer.memberId}
+                  onChange={(e) => updateCustomer("memberId", onlyDigits(e.target.value))}
+                  onFocus={() => clearError("memberId")}
+                  onKeyDown={onEnter("memberId")}
+                  placeholder="เช่น 100234"
+                  aria-invalid={errors.memberId ? true : undefined}
+                />
+                {!!memberMeta.memberId && (
+                  <p className={helpTextCls}>พบสมาชิก: member_id {memberMeta.memberId}</p>
+                )}
+                {errors.memberId && <p className={errorTextCls}>{errors.memberId}</p>}
+              </div>
+
+              <div className="md:col-span-1" />
+
+              <div className="md:col-span-2" ref={nameBoxRef}>
+                <label className={labelCls}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
+                <input
+                  ref={(el) => {
+                    refs.fullName.current = el
+                    nameInputRef.current = el
+                  }}
+                  className={cx(baseField, redFieldCls("fullName"))}
+                  value={customer.fullName}
+                  onChange={(e) => {
+                    updateCustomer("fullName", e.target.value)
+                    if (e.target.value.trim().length >= 2) setShowNameList(true)
+                    else {
+                      setShowNameList(false)
+                      setHighlightedIndex(-1)
+                    }
+                  }}
+                  onFocus={() => {
+                    clearHint("fullName")
+                    clearError("fullName")
+                  }}
+                  onKeyDown={handleNameKeyDown}
+                  onKeyDownCapture={onEnter("fullName")}
+                  placeholder="เช่น นายสมชาย ใจดี"
+                  aria-expanded={showNameList}
+                  aria-controls="name-results"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-invalid={errors.fullName ? true : undefined}
+                />
+                {errors.fullName && <p className={errorTextCls}>{errors.fullName}</p>}
+
+                {showNameList && nameResults.length > 0 && (
+                  <div
+                    id="name-results"
+                    ref={listContainerRef}
+                    className={
+                      "mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm " +
+                      "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    }
+                    role="listbox"
+                  >
+                    {nameResults.map((r, idx) => {
+                      const isActive = idx === highlightedIndex
+                      const full = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()
+                      return (
+                        <button
+                          type="button"
+                          ref={(el) => (itemRefs.current[idx] = el)}
+                          key={`${r.type}-${r.asso_id}-${r.citizen_id}-${idx}`}
+                          onClick={async () => await pickNameResult(r)}
+                          onMouseEnter={() => {
+                            setHighlightedIndex(idx)
+                            requestAnimationFrame(() => scrollHighlightedIntoView2(idx))
+                          }}
+                          role="option"
+                          aria-selected={isActive}
+                          className={cx(
+                            "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
+                            isActive
+                              ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                              : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                          )}
+                        >
+                          {isActive && (
+                            <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+                          )}
+                          <div className="flex-1">
+                            <div className="font-medium">{full || "(ไม่มีชื่อ)"}</div>
+                            <div className="text-sm text-slate-600 dark:text-slate-300">
+                              {r.type === "member"
+                                ? `สมาชิก • member_id ${r.member_id ?? "-"}`
+                                : `ลูกค้าทั่วไป • ปชช. ${r.citizen_id ?? "-"}`}
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
                 )}
               </div>
+
+              {[
+                ["houseNo", "บ้านเลขที่", "เช่น 99/1"],
+                ["moo", "หมู่", "เช่น 4"],
+                ["subdistrict", "ตำบล", "เช่น หนองปลาไหล"],
+                ["district", "อำเภอ", "เช่น เมือง"],
+                ["province", "จังหวัด", "เช่น ขอนแก่น"],
+              ].map(([k, label, ph]) => (
+                <div key={k}>
+                  <label className={labelCls}>{label}</label>
+                  <input
+                    ref={refs[k]}
+                    className={cx(baseField, compactInput, errors.address && "border-amber-400", redHintCls(k))}
+                    value={customer[k]}
+                    onChange={(e) => updateCustomer(k, e.target.value)}
+                    onFocus={() => clearHint(k)}
+                    onKeyDown={onEnter(k)}
+                    placeholder={ph}
+                    aria-invalid={errors.address ? true : undefined}
+                  />
+                </div>
+              ))}
+
+              <div>
+                <label className={labelCls}>รหัสไปรษณีย์</label>
+                <input
+                  ref={refs.postalCode}
+                  inputMode="numeric"
+                  maxLength={5}
+                  className={cx(baseField, compactInput)}
+                  value={customer.postalCode}
+                  onChange={(e) => updateCustomer("postalCode", onlyDigits(e.target.value))}
+                  onFocus={() => clearHint("postalCode")}
+                  onKeyDown={onEnter("postalCode")}
+                  placeholder="เช่น 40000"
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>เบอร์โทรศัพท์ </label>
+                <input
+                  ref={refs.phone}
+                  inputMode="tel"
+                  maxLength={20}
+                  className={cx(baseField, compactInput)}
+                  value={customer.phone}
+                  onChange={(e) => updateCustomer("phone", e.target.value.replace(/[^\d+]/g, ""))}
+                  onKeyDown={onEnter("phone")}
+                  placeholder="เช่น 0812345678"
+                />
+                <p className={helpTextCls}></p>
+              </div>
+
+              {/* ⬇️ ลบ UI: FID/FID Owner/Relationship */}
+              {/* (ช่องเหล่านี้ถูกนำออกตามคำขอ) */}
             </div>
-
-            {/* ⭐ ใหม่: member_id */}
-            <div>
-              <label className={labelCls}>รหัสสมาชิก (member_id)</label>
-              <input
-                ref={refs.memberId}
-                inputMode="numeric"
-                className={cx(baseField, redFieldCls("memberId"))}
-                value={customer.memberId}
-                onChange={(e) => updateCustomer("memberId", onlyDigits(e.target.value))}
-                onFocus={() => clearError("memberId")}
-                onKeyDown={onEnter("memberId")}
-                placeholder="เช่น 100234"
-                aria-invalid={errors.memberId ? true : undefined}
-              />
-              {!!memberMeta.memberId && (
-                <p className={helpTextCls}>พบสมาชิก: member_id {memberMeta.memberId}</p>
-              )}
-              {errors.memberId && <p className={errorTextCls}>{errors.memberId}</p>}
-            </div>
-
-            <div className="md:col-span-1" />
-
-            <div className="md:col-span-2" ref={nameBoxRef}>
-              <label className={labelCls}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
+          ) : (
+            /* -------------------- โหมดบริษัท / นิติบุคคล -------------------- */
+            <div className="mt-4 md:col-span-2" ref={companyBoxRef}>
+              <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
               <input
                 ref={(el) => {
-                  refs.fullName.current = el
-                  nameInputRef.current = el
+                  refs.companyName.current = el
+                  companyInputRef.current = el
                 }}
-                className={cx(baseField, redFieldCls("fullName"))}
-                value={customer.fullName}
+                className={cx(baseField, redFieldCls("companyName"))}
+                value={customer.companyName}
                 onChange={(e) => {
-                  updateCustomer("fullName", e.target.value)
-                  if (e.target.value.trim().length >= 2) setShowNameList(true)
-                  else {
-                    setShowNameList(false)
-                    setHighlightedIndex(-1)
+                  updateCustomer("companyName", e.target.value)
+                  if (buyerType === "company") {
+                    if (e.target.value.trim().length >= 2) setShowCompanyList(true)
+                    else {
+                      setShowCompanyList(false)
+                      setCompanyHighlighted(-1)
+                    }
                   }
                 }}
-                onFocus={() => {
-                  clearHint("fullName")
-                  clearError("fullName")
-                }}
-                onKeyDown={handleNameKeyDown}
-                onKeyDownCapture={onEnter("fullName")}
-                placeholder="เช่น นายสมชาย ใจดี"
-                aria-expanded={showNameList}
-                aria-controls="name-results"
+                onFocus={() => clearError("companyName")}
+                onKeyDown={handleCompanyKeyDown}
+                onKeyDownCapture={onEnter("companyName")}
+                placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
+                aria-expanded={showCompanyList}
+                aria-controls="company-results"
                 role="combobox"
                 aria-autocomplete="list"
-                aria-invalid={errors.fullName ? true : undefined}
+                aria-invalid={errors.companyName ? true : undefined}
               />
-              {errors.fullName && <p className={errorTextCls}>{errors.fullName}</p>}
+              {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
 
-              {showNameList && nameResults.length > 0 && (
+              {buyerType === "company" && showCompanyList && companyResults.length > 0 && (
                 <div
-                  id="name-results"
-                  ref={listContainerRef}
+                  id="company-results"
                   className={
                     "mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm " +
                     "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   }
                   role="listbox"
                 >
-                  {nameResults.map((r, idx) => {
-                    const isActive = idx === highlightedIndex
-                    const full = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()
+                  {companyResults.map((r, idx) => {
+                    const isActive = idx === companyHighlighted
+                    const name = r.company_name ?? r.companyName ?? "(ไม่มีชื่อ)"
+                    const tid = r.tax_id ?? "-"
                     return (
                       <button
                         type="button"
-                        ref={(el) => (itemRefs.current[idx] = el)}
-                        key={`${r.type}-${r.asso_id}-${r.citizen_id}-${idx}`}
-                        onClick={async () => await pickNameResult(r)}
+                        ref={(el) => (companyItemRefs.current[idx] = el)}
+                        key={`${r.asso_id}-${tid}-${idx}`}
+                        onClick={async () => await pickCompanyResult(r)}
                         onMouseEnter={() => {
-                          setHighlightedIndex(idx)
-                          requestAnimationFrame(() => scrollHighlightedIntoView2(idx))
+                          setCompanyHighlighted(idx)
+                          requestAnimationFrame(() => {
+                            try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch {}
+                          })
                         }}
                         role="option"
                         aria-selected={isActive}
                         className={cx(
                           "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
                           isActive
-                            ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                            : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                            ? "bg-indigo-100 ring-1 ring-indigo-300 dark:bg-indigo-400/20 dark:ring-indigo-500"
+                            : "hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
                         )}
                       >
                         {isActive && (
-                          <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+                          <span className="absolute left-0 top-0 h-full w-1 bg-indigo-600 dark:bg-indigo-400/70 rounded-l-xl" />
                         )}
                         <div className="flex-1">
-                          <div className="font-medium">{full || "(ไม่มีชื่อ)"}</div>
+                          <div className="font-medium">{name}</div>
                           <div className="text-sm text-slate-600 dark:text-slate-300">
-                            {r.type === "member"
-                              ? `สมาชิก • member_id ${r.member_id ?? "-"}`
-                              : `ลูกค้าทั่วไป • ปชช. ${r.citizen_id ?? "-"}`}
+                            ภาษี {tid} • โทร {r.phone_number ?? "-"}
                           </div>
                         </div>
                       </button>
@@ -2028,145 +2165,9 @@ const Buy = () => {
                 </div>
               )}
             </div>
-
-            {[
-              ["houseNo", "บ้านเลขที่", "เช่น 99/1"],
-              ["moo", "หมู่", "เช่น 4"],
-              ["subdistrict", "ตำบล", "เช่น หนองปลาไหล"],
-              ["district", "อำเภอ", "เช่น เมือง"],
-              ["province", "จังหวัด", "เช่น ขอนแก่น"],
-            ].map(([k, label, ph]) => (
-              <div key={k}>
-                <label className={labelCls}>{label}</label>
-                <input
-                  ref={refs[k]}
-                  className={cx(baseField, compactInput, errors.address && "border-amber-400", redHintCls(k))}
-                  value={customer[k]}
-                  onChange={(e) => updateCustomer(k, e.target.value)}
-                  onFocus={() => clearHint(k)}
-                  onKeyDown={onEnter(k)}
-                  placeholder={ph}
-                  aria-invalid={errors.address ? true : undefined}
-                />
-              </div>
-            ))}
-
-            <div>
-              <label className={labelCls}>รหัสไปรษณีย์</label>
-              <input
-                ref={refs.postalCode}
-                inputMode="numeric"
-                maxLength={5}
-                className={cx(baseField, compactInput)}
-                value={customer.postalCode}
-                onChange={(e) => updateCustomer("postalCode", onlyDigits(e.target.value))}
-                onFocus={() => clearHint("postalCode")}
-                onKeyDown={onEnter("postalCode")}
-                placeholder="เช่น 40000"
-              />
-            </div>
-
-            <div>
-              <label className={labelCls}>เบอร์โทรศัพท์ </label>
-              <input
-                ref={refs.phone}
-                inputMode="tel"
-                maxLength={20}
-                className={cx(baseField, compactInput)}
-                value={customer.phone}
-                onChange={(e) => updateCustomer("phone", e.target.value.replace(/[^\d+]/g, ""))}
-                onKeyDown={onEnter("phone")}
-                placeholder="เช่น 0812345678"
-              />
-              <p className={helpTextCls}></p>
-            </div>
-
-            {/* ⬇️ ลบ UI: FID/FID Owner/Relationship */}
-            {/* (ช่องเหล่านี้ถูกนำออกตามคำขอ) */}
-          </div>
-        ) : (
-          /* -------------------- โหมดบริษัท / นิติบุคคล -------------------- */
-          <div className="md:col-span-2" ref={companyBoxRef}>
-            <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
-            <input
-              ref={(el) => {
-                refs.companyName.current = el
-                companyInputRef.current = el
-              }}
-              className={cx(baseField, redFieldCls("companyName"))}
-              value={customer.companyName}
-              onChange={(e) => {
-                updateCustomer("companyName", e.target.value)
-                if (buyerType === "company") {
-                  if (e.target.value.trim().length >= 2) setShowCompanyList(true)
-                  else {
-                    setShowCompanyList(false)
-                    setCompanyHighlighted(-1)
-                  }
-                }
-              }}
-              onFocus={() => clearError("companyName")}
-              onKeyDown={handleCompanyKeyDown}
-              onKeyDownCapture={onEnter("companyName")}
-              placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
-              aria-expanded={showCompanyList}
-              aria-controls="company-results"
-              role="combobox"
-              aria-autocomplete="list"
-              aria-invalid={errors.companyName ? true : undefined}
-            />
-            {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
-
-            {buyerType === "company" && showCompanyList && companyResults.length > 0 && (
-              <div
-                id="company-results"
-                className={
-                  "mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm " +
-                  "dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                }
-                role="listbox"
-              >
-                {companyResults.map((r, idx) => {
-                  const isActive = idx === companyHighlighted
-                  const name = r.company_name ?? r.companyName ?? "(ไม่มีชื่อ)"
-                  const tid = r.tax_id ?? "-"
-                  return (
-                    <button
-                      type="button"
-                      ref={(el) => (companyItemRefs.current[idx] = el)}
-                      key={`${r.asso_id}-${tid}-${idx}`}
-                      onClick={async () => await pickCompanyResult(r)}
-                      onMouseEnter={() => {
-                        setCompanyHighlighted(idx)
-                        requestAnimationFrame(() => {
-                          try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch {}
-                        })
-                      }}
-                      role="option"
-                      aria-selected={isActive}
-                      className={cx(
-                        "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
-                        isActive
-                          ? "bg-indigo-100 ring-1 ring-indigo-300 dark:bg-indigo-400/20 dark:ring-indigo-500"
-                          : "hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-                      )}
-                    >
-                      {isActive && (
-                        <span className="absolute left-0 top-0 h-full w-1 bg-indigo-600 dark:bg-indigo-400/70 rounded-l-xl" />
-                      )}
-                      <div className="flex-1">
-                        <div className="font-medium">{name}</div>
-                        <div className="text-sm text-slate-600 dark:text-slate-300">
-                          ภาษี {tid} • โทร {r.phone_number ?? "-"}
-                        </div>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
+          )}
+          {/* ========== จบฟิลด์ลูกค้าในกรอบเดียว ========== */}
+        </div>
 
         {/* ฟอร์มออเดอร์ */}
         <form
@@ -2728,11 +2729,11 @@ const Buy = () => {
             <button
               type="submit"
               className="inline-flex items-center justify-center rounded-2xl 
-                    bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                    shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                    transition-all duration-300 ease-out
-                    hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                    hover:scale-[1.05] active:scale-[.97] cursor-pointer"
+                bg-emerald-600 px-6 py-3 text-base font-semibold text-white
+                shadow-[0_6px_16px_rgba(16,185,129,0.35)]
+                transition-all duration-300 ease-out
+                hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
+                hover:scale-[1.05] active:scale-[.97] cursor-pointer"
             >
               บันทึกออเดอร์
             </button>
@@ -2741,14 +2742,14 @@ const Buy = () => {
               type="button"
               onClick={handleReset}
               className="inline-flex items-center justify-center rounded-2xl 
-              border border-slate-300 bg-white px-6 py-3 text-base font-medium 
-              text-slate-700 dark:text-white
-              shadow-sm
-              transition-all duration-300 ease-out
-              hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-              active:scale-[.97]
-              dark:border-slate-600 dark:bg-slate-700/60 
-              dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+          border border-slate-300 bg-white px-6 py-3 text-base font-medium 
+          text-slate-700 dark:text-white
+          shadow-sm
+          transition-all duration-300 ease-out
+          hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
+          active:scale-[.97]
+          dark:border-slate-600 dark:bg-slate-700/60 
+          dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
             >
               รีเซ็ต
             </button>

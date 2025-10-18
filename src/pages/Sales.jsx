@@ -813,11 +813,11 @@ function Sales() {
   const updateOrder = (k, v) => { if (String(v).trim() !== "") clearHint(k); setOrder((p) => ({ ...p, [k]: v })) }
 
   const grossFromScale = useMemo(() => {
-    const entry = toNumber(order.entryWeightKg)
-    const exit  = toNumber(order.exitWeightKg)
-    const g = Math.abs(exit - entry)
-    return g > 0 ? g : 0
-  }, [order.entryWeightKg, order.exitWeightKg])
+  const entry = toNumber(order.entryWeightKg)
+  const exit  = toNumber(order.exitWeightKg)
+  const g = exit - entry
+  return g > 0 ? g : 0
+}, [order.entryWeightKg, order.exitWeightKg])
 
   const computedAmount = useMemo(() => {
     if (order.unitPrice === "" || isNaN(Number(order.unitPrice))) return null

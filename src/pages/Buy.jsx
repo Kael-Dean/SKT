@@ -17,7 +17,6 @@ const toIntOrNull = (v) => {
   return /^-?\d+$/.test(s) ? parseInt(s, 10) : null
 }
 
-
 function validateThaiCitizenId(id) {
   const cid = onlyDigits(id)
   if (cid.length !== 13) return false
@@ -88,7 +87,6 @@ const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 const compactInput = "!py-2 !px-4 !text-[16px] !leading-normal"
 
-
 /** ---------- Enter-to-next helpers ---------- */
 const isEnabledInput = (el) => {
   if (!el) return false
@@ -105,7 +103,9 @@ const isEnabledInput = (el) => {
 const useEnterNavigation = (refs, buyerType, order) => {
   // รายการฝั่งลูกค้า (บุคคล/บริษัท)
   const personOrder = [
-    "citizenId","fullName","houseNo","moo","subdistrict","district","province",
+    "citizenId",        // คงไว้เพื่อค้นหาที่อยู่
+    "memberId",         // ⭐ ใหม่: member_id
+    "fullName","houseNo","moo","subdistrict","district","province",
     "postalCode","phone","fid","fidOwner","fidRelationship",
   ]
   const companyOrder = [
@@ -115,35 +115,22 @@ const useEnterNavigation = (refs, buyerType, order) => {
   ]
 
   // รายการฝั่งออเดอร์
- const orderOrder = [
-  // ตามที่ต้องการ
-  "product",       // ประเภทสินค้า
-  "riceType",      // ชนิดข้าว
-  "subrice",       // ชั้นย่อย
-  "condition",     // สภาพ/เงื่อนไข
-  "fieldType",     // ประเภทนา
-  "riceYear",      // ปี/ฤดูกาล
-  "businessType",  // ประเภทธุรกิจ
-  "program",       // โปรแกรม
+  const orderOrder = [
+    "product","riceType","subrice","condition","fieldType","riceYear","businessType","program",
+    "branchName","klangName",
+    "entryWeightKg","exitWeightKg","moisturePct","impurityPct","deductWeightKg","gram",
+    "unitPrice","amountTHB","paymentRefNo","comment",
+    "payment","issueDate",
+  ]
 
-  // ของเดิมต่อท้าย
-  "branchName","klangName",
-  "entryWeightKg","exitWeightKg","moisturePct","impurityPct","deductWeightKg","gram",
-  "unitPrice","amountTHB","paymentRefNo","comment",
-  "payment","issueDate",
-]
-
-
-  // รวมทั้งหมดตามประเภทผู้ซื้อ
   let list = (buyerType === "person" ? personOrder : companyOrder).concat(orderOrder)
 
-  // ตัดช่องที่ตอนนี้ "ไม่พร้อมรับโฟกัส" ออก (เช่น subrice ยัง disabled, deductWeightKg ปิดเพราะไม่ได้ติ๊ก “กำหนดเอง”)
   list = list.filter((key) => {
     const el = refs?.[key]?.current
     if (!el) return false
     if (key === "subrice" && !order.riceId) return false
     if (key === "riceType" && !order.productId) return false
-    if (key === "product" && order?.__templateLockedProduct) return true // กันไว้ ถ้าอยากล็อก product
+    if (key === "product" && order?.__templateLockedProduct) return true
     if (key === "deductWeightKg" && !order.manualDeduct) return false
     if (key === "klangName" && !order.branchId) return false
     return isEnabledInput(el)
@@ -155,19 +142,13 @@ const useEnterNavigation = (refs, buyerType, order) => {
     if (!nextKey) return
     const el = refs[nextKey]?.current
     if (!el) return
-    try {
-      el.scrollIntoView({ block: "center" })
-    } catch {}
+    try { el.scrollIntoView({ block: "center" }) } catch {}
     el.focus?.()
-    // ถ้าเป็น input ให้ select ข้อความเพื่อพิมพ์ทับสบาย ๆ
-    try {
-      if (el.select) el.select()
-    } catch {}
+    try { if (el.select) el.select() } catch {}
   }
 
   const onEnter = (currentKey) => (e) => {
     if (e.key === "Enter" && !e.isComposing) {
-      // ข้อยกเว้น: textarea ใช้ Shift+Enter เพื่อขึ้นบรรทัดใหม่
       const isTextArea = e.currentTarget?.tagName?.toLowerCase() === "textarea"
       if (isTextArea && e.shiftKey) return
       e.preventDefault()
@@ -223,10 +204,11 @@ function ComboBox({
     setOpen(false)
     setHighlight(-1)
     clearHint?.()
-    requestAnimationFrame(() => { 
-      // โฟกัสปุ่มไว้ก่อน เพื่อคีย์ Enter ครั้งถัดไปยังไปต่อ +      controlRef.current?.focus() 
-      // ถ้ามี onEnterNext ให้เรียกเพื่อเลื่อนไปฟิลด์ถัดไป 
-    onEnterNext?.() 
+    requestAnimationFrame(() => {
+      // โฟกัสปุ่มไว้ก่อน เพื่อคีย์ Enter ครั้งถัดไปยังไปต่อ
+      controlRef.current?.focus()
+      // ถ้ามี onEnterNext ให้เรียกเพื่อเลื่อนไปฟิลด์ถัดไป
+      onEnterNext?.()
     })
   }
 
@@ -287,7 +269,7 @@ function ComboBox({
         disabled={disabled}
         onClick={() => {
           if (!disabled) {
-            setOpen((o) => !o)
+            setOpen((o) => o || !o)
             clearHint?.()
           }
         }}
@@ -406,7 +388,7 @@ const Buy = () => {
   const [nameResults, setNameResults] = useState([])
   const [showNameList, setShowNameList] = useState(false)
 
-  // ▼ ใส่ใกล้ ๆ nameResults/showNameList ของบุคคล
+  // ▼ บริษัท
   const [companyResults, setCompanyResults] = useState([])
   const [showCompanyList, setShowCompanyList] = useState(false)
   const companyBoxRef = useRef(null)
@@ -445,7 +427,7 @@ const Buy = () => {
   ]
   const [formTemplate, setFormTemplate] = useState("0") // "0" = ไม่ล็อก
 
-  /** ⭐ ใหม่: ประเภทผู้ซื้อ */
+  /** ⭐ ประเภทผู้ซื้อ */
   const buyerTypeOptions = [
     { id: "person", label: "บุคคลธรรมดา" },
     { id: "company", label: "บริษัท / นิติบุคคล" },
@@ -456,6 +438,7 @@ const Buy = () => {
   const [customer, setCustomer] = useState({
     // บุคคลธรรมดา
     citizenId: "",
+    memberId: "", // ⭐ ใหม่: ช่องกรอก member_id
     fullName: "",
     houseNo: "",
     moo: "",
@@ -494,6 +477,7 @@ const Buy = () => {
   const [memberMeta, setMemberMeta] = useState({
     type: "unknown",
     assoId: null,
+    memberId: null, // ⭐ ใหม่: เก็บเลขสมาชิกจากผลค้นหา
   })
 
   /** ฟอร์มออเดอร์ */
@@ -548,6 +532,7 @@ const Buy = () => {
   const refs = {
     // บุคคล
     citizenId: useRef(null),
+    memberId: useRef(null), // ⭐
     fullName: useRef(null),
     houseNo: useRef(null),
     moo: useRef(null),
@@ -602,10 +587,9 @@ const Buy = () => {
     gram: useRef(null),
     comment: useRef(null),
     businessType: useRef(null),
-    
+
     formTemplate: useRef(null),
     buyerType: useRef(null),
-    
   }
 
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
@@ -620,6 +604,7 @@ const Buy = () => {
 
   /** debounce */
   const debouncedCitizenId = useDebounce(customer.citizenId)
+  const debouncedMemberId = useDebounce(customer.memberId) // ⭐
   const debouncedFullName = useDebounce(customer.fullName)
   const debouncedCompanyName = useDebounce(customer.companyName)
   const debouncedTaxId = useDebounce(customer.taxId)
@@ -667,6 +652,7 @@ const Buy = () => {
       fid: toStr(data.fid ?? ""),
       fidOwner: toStr(data.fid_owner ?? data.fidowner ?? ""),
       fidRelationship: toStr(data.fid_relationship ?? data.fidreationship ?? data.fid_rel ?? ""),
+      member_id: data.member_id ?? null,
     }
 
     const hasAnyAddress =
@@ -701,6 +687,7 @@ const Buy = () => {
       }))
       if (addr.type) setMemberMeta((m) => ({ ...m, type: addr.type }))
       if (addr.asso_id) setMemberMeta((m) => ({ ...m, assoId: addr.asso_id }))
+      if (addr.member_id != null) setMemberMeta((m) => ({ ...m, memberId: toIntOrNull(addr.member_id) }))
     }
   }
 
@@ -751,7 +738,7 @@ const Buy = () => {
       brProvince: data.brProvince || prev.brProvince,
       brPostalCode: data.brPostalCode || prev.brPostalCode,
     }))
-    setMemberMeta({ type: "company", assoId: data.assoId ?? null })
+    setMemberMeta({ type: "company", assoId: data.assoId ?? null, memberId: null })
     setShowCompanyList(false)
     setCompanyResults([])
     setCompanyHighlighted(-1)
@@ -942,9 +929,7 @@ const Buy = () => {
       setCompanyHighlighted(next)
       requestAnimationFrame(() => {
         const el = companyItemRefs.current[next]
-        try {
-          el?.scrollIntoView({ block: "nearest" })
-        } catch {}
+        try { el?.scrollIntoView({ block: "nearest" }) } catch {}
       })
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
@@ -952,9 +937,7 @@ const Buy = () => {
       setCompanyHighlighted(prev)
       requestAnimationFrame(() => {
         const el = companyItemRefs.current[prev]
-        try {
-          el?.scrollIntoView({ block: "nearest" })
-        } catch {}
+        try { el?.scrollIntoView({ block: "nearest" }) } catch {}
       })
     } else if (e.key === "Enter") {
       e.preventDefault()
@@ -1060,11 +1043,12 @@ const Buy = () => {
       province: toStr(r.province ?? ""),
       postalCode: onlyDigits(toStr(r.postal_code ?? r.postalCode ?? "")),
 
-      // ✅ ช่องใหม่ที่ต้อง autofill
+      // ใหม่:
       phone: toStr(r.phone ?? r.tel ?? r.mobile ?? ""),
       fid: toStr(r.fid ?? ""),
       fidOwner: toStr(r.fid_owner ?? r.fidowner ?? ""),
       fidRelationship: toStr(r.fid_relationship ?? r.fidreationship ?? r.fid_rel ?? ""),
+      memberId: r.member_id != null ? toIntOrNull(r.member_id) : null, // ⭐
     }
   }
 
@@ -1080,8 +1064,9 @@ const Buy = () => {
       fid: data.fid || prev.fid,
       fidOwner: data.fidOwner || prev.fidOwner,
       fidRelationship: data.fidRelationship || prev.fidRelationship,
+      memberId: data.memberId != null ? String(data.memberId) : prev.memberId, // ใส่ใน input ด้วย
     }))
-    setMemberMeta({ type: data.type, assoId: data.assoId })
+    setMemberMeta({ type: data.type, assoId: data.assoId, memberId: data.memberId })
     setCustomerFound(true)
 
     const hasAnyAddr =
@@ -1106,17 +1091,46 @@ const Buy = () => {
     }
   }
 
-  /** ค้นหาด้วยเลขบัตร — ข้ามเมื่อเป็นบริษัท */
+  /** ค้นหาด้วย member_id — ใช้เป็นหลักสำหรับบุคคล */
   useEffect(() => {
     if (buyerType !== "person") {
       setCustomerFound(null)
-      setMemberMeta({ type: "unknown", assoId: null })
+      return
+    }
+    const mid = toIntOrNull(debouncedMemberId)
+    if (mid == null) return
+    const fetchByMemberId = async () => {
+      try {
+        setLoadingCustomer(true)
+        const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(String(mid))}`)) || []
+        const exact = arr.find((r) => r.type === "member" && toIntOrNull(r.member_id) === mid) || arr[0]
+        if (exact) {
+          await fillFromRecord(exact)
+        } else {
+          setCustomerFound(false)
+          setMemberMeta({ type: "customer", assoId: null, memberId: null })
+        }
+      } catch (e) {
+        console.error(e)
+        setCustomerFound(false)
+        setMemberMeta({ type: "customer", assoId: null, memberId: null })
+      } finally {
+        setLoadingCustomer(false)
+      }
+    }
+    fetchByMemberId()
+  }, [debouncedMemberId, buyerType])
+
+  /** ค้นหาด้วยเลขบัตร — คงไว้เพื่อเติมข้อมูล/ที่อยู่ (แต่ไม่ใช้สำหรับอ้างอิงตอนบันทึก) */
+  useEffect(() => {
+    if (buyerType !== "person") {
+      setCustomerFound(null)
+      setMemberMeta({ type: "unknown", assoId: null, memberId: null })
       return
     }
     const cid = onlyDigits(debouncedCitizenId)
     if (cid.length !== 13) {
       setCustomerFound(null)
-      setMemberMeta({ type: "unknown", assoId: null })
       return
     }
     const fetchByCid = async () => {
@@ -1128,12 +1142,13 @@ const Buy = () => {
           await fillFromRecord(exact)
         } else {
           setCustomerFound(false)
-          setMemberMeta({ type: "customer", assoId: null })
+          // ถ้าค้นไม่เจอ เราไม่สร้างลูกค้าใหม่อัตโนมัติ เพราะ BE ต้องการ member_id/asso_id
+          setMemberMeta({ type: "customer", assoId: null, memberId: null })
         }
       } catch (e) {
         console.error(e)
         setCustomerFound(false)
-        setMemberMeta({ type: "customer", assoId: null })
+        setMemberMeta({ type: "customer", assoId: null, memberId: null })
       } finally {
         setLoadingCustomer(false)
       }
@@ -1147,7 +1162,7 @@ const Buy = () => {
       setShowNameList(false)
       setNameResults([])
       setHighlightedIndex(-1)
-      setMemberMeta({ type: "unknown", assoId: null })
+      setMemberMeta({ type: "unknown", assoId: null, memberId: null })
       return
     }
 
@@ -1158,14 +1173,12 @@ const Buy = () => {
       setShowNameList(false)
       setNameResults([])
       setHighlightedIndex(-1)
-      setMemberMeta({ type: "unknown", assoId: null })
       return
     }
     if (q.length < 2) {
       setNameResults([])
       setShowNameList(false)
       setHighlightedIndex(-1)
-      setMemberMeta({ type: "unknown", assoId: null })
       return
     }
 
@@ -1175,8 +1188,10 @@ const Buy = () => {
         const items = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(q)}`)) || []
 
         const mapped = items.map((r) => ({
+          ...r,
           type: r.type,
           asso_id: r.asso_id,
+          member_id: r.member_id,
           citizen_id: r.citizen_id,
           first_name: r.first_name,
           last_name: r.last_name,
@@ -1186,7 +1201,6 @@ const Buy = () => {
           district: r.district ?? "",
           province: r.province ?? "",
           postal_code: r.postal_code ?? r.postalCode ?? "",
-
           phone: r.phone ?? r.tel ?? r.mobile ?? "",
           fid: r.fid ?? null,
           fid_owner: r.fid_owner ?? r.fidowner ?? "",
@@ -1346,11 +1360,10 @@ const Buy = () => {
     return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
   }
 
- /** 👉 Mapping ใหม่สำหรับฝั่งซื้อ: ซื้อเชื่อ = 4, ซื้อสด = 3 */
-const resolvePaymentIdForBE = () => {
-  return isCreditPayment() ? 4 : 3
-}
-
+  /** 👉 Mapping ใหม่สำหรับฝั่งซื้อ: ซื้อเชื่อ = 4, ซื้อสด = 3 */
+  const resolvePaymentIdForBE = () => {
+    return isCreditPayment() ? 4 : 3
+  }
 
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) =>
@@ -1454,6 +1467,10 @@ const resolvePaymentIdForBE = () => {
       if (customer.citizenId && !validateThaiCitizenId(customer.citizenId)) e.citizenId = "เลขบัตรประชาชนอาจไม่ถูกต้อง"
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
       if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
+      // ⭐ แจ้งเตือนถ้าไม่พบทั้ง member_id และ asso_id (เพื่อให้สอดคล้อง BE)
+      if (!toIntOrNull(memberMeta.memberId ?? customer.memberId) && !memberMeta.assoId) {
+        e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกจากรายชื่อที่มี asso_id"
+      }
     } else {
       if (!customer.companyName.trim()) e.companyName = "กรุณากรอกชื่อบริษัท"
       if (!customer.taxId.trim() || !validateThaiTaxId(customer.taxId)) e.taxId = "กรุณากรอกเลขผู้เสียภาษี (13 หลัก)"
@@ -1488,24 +1505,11 @@ const resolvePaymentIdForBE = () => {
   }
 
   const scrollToFirstError = (eObj) => {
-    const personKeys = ["fullName", "address"]
+    const personKeys = ["memberId", "fullName", "address"]
     const companyKeys = ["companyName", "taxId", "hqAddress"]
     const commonOrderKeys = [
-      "product",
-      "riceType",
-      "subrice",
-      "condition",
-      "fieldType",
-      "riceYear",
-      "businessType",
-      "branchName",
-      "klangName",
-      "payment",
-      "entryWeightKg",
-      "exitWeightKg",
-      "deductWeightKg",
-      "amountTHB",
-      "issueDate",
+      "product","riceType","subrice","condition","fieldType","riceYear","businessType",
+      "branchName","klangName","payment","entryWeightKg","exitWeightKg","deductWeightKg","amountTHB","issueDate",
     ]
 
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
@@ -1513,30 +1517,14 @@ const resolvePaymentIdForBE = () => {
     if (!firstKey) return
     const keyToFocus =
       firstKey === "address"
-        ? customer.houseNo
-          ? customer.moo
-            ? customer.subdistrict
-              ? customer.district
-                ? "province"
-                : "district"
-              : "subdistrict"
-            : "moo"
-          : "houseNo"
+        ? customer.houseNo ? (customer.moo ? (customer.subdistrict ? (customer.district ? "province" : "district") : "subdistrict") : "moo") : "houseNo"
         : firstKey === "hqAddress"
-        ? customer.hqHouseNo
-          ? customer.hqSubdistrict
-            ? customer.hqDistrict
-              ? "hqProvince"
-              : "hqDistrict"
-            : "hqSubdistrict"
-          : "hqHouseNo"
+        ? customer.hqHouseNo ? (customer.hqSubdistrict ? (customer.hqDistrict ? "hqProvince" : "hqDistrict") : "hqSubdistrict") : "hqHouseNo"
         : firstKey
 
     const el = refs[keyToFocus]?.current || (firstKey === "payment" ? refs.payment?.current : null)
     if (el && typeof el.focus === "function") {
-      try {
-        el.scrollIntoView({ behavior: "smooth", block: "center" })
-      } catch {}
+      try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
       el.focus()
     }
   }
@@ -1573,7 +1561,7 @@ const resolvePaymentIdForBE = () => {
     const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
     const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
     const programId = /^\d+$/.test(order.programId) ? Number(order.programId) : null
-    const paymentId = resolvePaymentIdForBE() // ← ใช้ตัวใหม่ที่ map เครดิตเป็น 1
+    const paymentId = resolvePaymentIdForBE()
 
     if (!productId) return scrollToFirstError({ product: true })
     if (!riceId) return scrollToFirstError({ riceType: true })
@@ -1594,60 +1582,43 @@ const resolvePaymentIdForBE = () => {
 
     const dateStr = order.issueDate
 
-    // CCD: FID
-    const fidNum = /^\d+$/.test(customer.fid) ? Number(customer.fid) : null
-    const fidRelNum = /^\d+$/.test(customer.fidRelationship) ? Number(customer.fidRelationship) : null
-
-    // ⭐ payload.customer ตามประเภทผู้ซื้อ
+    // ⭐ customer discriminator (individual/company) — ส่งเฉพาะ field ที่ BE รับ
     let customerPayload
     if (buyerType === "person") {
-      customerPayload = {
-        party_type: "individual",
-        first_name: firstName || "",
-        last_name: lastName || "",
-        citizen_id: onlyDigits(customer.citizenId) || "",
-        address: customer.houseNo.trim() || "",
-        mhoo: customer.moo.trim() || "",
-        sub_district: customer.subdistrict.trim() || "",
-        district: customer.district.trim() || "",
-        province: customer.province.trim() || "",
-        postal_code: customer.postalCode ? String(customer.postalCode).trim() : "",
-        phone_number: customer.phone?.trim() || "",
-        // CCD
-        fid: fidNum,
-        fid_owner: customer.fidOwner?.trim() || "",
-        fid_relationship: fidRelNum,
+      const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
+      const assoIdVal = memberMeta.assoId || null
+
+      if (!memberIdNum && !assoIdVal) {
+        alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id จากผลค้นหา")
+        return
       }
+
+      customerPayload = memberIdNum
+        ? {
+            party_type: "individual",
+            member_id: memberIdNum,
+            // optional cosmetics (ignored for lookup)
+            first_name: firstName || "",
+            last_name: lastName || "",
+          }
+        : {
+            party_type: "individual",
+            asso_id: assoIdVal,
+            first_name: firstName || "",
+            last_name: lastName || "",
+          }
     } else {
-      customerPayload = {
-        party_type: "company",
-        company_name: customer.companyName.trim(),
-        tax_id: onlyDigits(customer.taxId),
-        phone_number: customer.companyPhone?.trim() || "",
-        // HQ
-        hq_address: customer.hqHouseNo.trim() || "",
-        hq_moo: customer.hqMoo.trim() || "",
-        hq_tambon: customer.hqSubdistrict.trim() || "",
-        hq_amphur: customer.hqDistrict.trim() || "",
-        hq_province: customer.hqProvince.trim() || "",
-        hq_postal_code: customer.hqPostalCode ? String(customer.hqPostalCode).trim() : "",
-        // Branch (optional)
-        branch_address: customer.brHouseNo.trim() || "",
-        branch_moo: customer.brMoo.trim() || "",
-        branch_tambon: customer.brSubdistrict.trim() || "",
-        branch_amphur: customer.brDistrict.trim() || "",
-        branch_province: customer.brProvince.trim() || "",
-        branch_postal_code: customer.brPostalCode ? String(customer.brPostalCode).trim() : "",
-      }
+      const taxId = onlyDigits(customer.taxId)
+      customerPayload = taxId
+        ? { party_type: "company", tax_id: taxId }
+        : memberMeta.assoId
+        ? { party_type: "company", asso_id: memberMeta.assoId }
+        : { party_type: "company", tax_id: "" } // จะให้ BE แจ้ง error เองถ้าไม่ครบ
     }
 
     /** Dept payload (แนบเสมอ — BE จะใช้เมื่อเป็นเครดิต) */
     const makeDeptDate = (yyyyMmDd) => {
-      try {
-        return new Date(`${yyyyMmDd}T00:00:00Z`).toISOString()
-      } catch {
-        return new Date().toISOString()
-      }
+      try { return new Date(`${yyyyMmDd}T00:00:00Z`).toISOString() } catch { return new Date().toISOString() }
     }
     const deptPayload = {
       date_created: makeDeptDate(dateStr),
@@ -1656,7 +1627,7 @@ const resolvePaymentIdForBE = () => {
       postpone_period: Number(dept.postponePeriod || 0),
     }
 
-    // ✅ NEW: spec ตาม ProductSpecIn (nested)
+    // ✅ spec ตาม ProductSpecIn
     const spec = {
       product_id: productId,
       species_id: riceId,
@@ -1668,15 +1639,13 @@ const resolvePaymentIdForBE = () => {
       business_type: businessTypeId ?? null,
     }
 
-    // ✅ NEW: date → ISO datetime
     const dateISO = toIsoDateTime(dateStr)
 
     const payload = {
       customer: customerPayload,
       order: {
-        // asso_id: memberMeta.assoId ?? null, // BE resolve เอง ไม่จำเป็นต้องส่ง
         payment_id: paymentId,
-        spec, // <<<<<<<<<<<<<<<<<<<<<<<<<<<< ส่งเป็น nested spec
+        spec,
         humidity: Number(order.moisturePct || 0),
         entry_weight: Number(order.entryWeightKg || 0),
         exit_weight: Number(order.exitWeightKg || 0),
@@ -1685,22 +1654,19 @@ const resolvePaymentIdForBE = () => {
         price: Number(moneyToNumber(order.amountTHB) || 0),
         impurity: Number(order.impurityPct || 0),
         order_serial: order.paymentRefNo.trim() || null,
-        date: dateISO, // <<<<<<<<<<<<<<<<<< ส่ง ISO datetime
+        date: dateISO,
         branch_location: branchId,
         klang_location: klangId,
         gram: Number(order.gram || 0),
         comment: order.comment?.trim() || null,
-        business_type: businessTypeId, // เก็บบน OrderData ด้วยตามคอมเมนต์ BE
+        business_type: businessTypeId,
       },
-      // ⭐ แนบ dept
       dept: deptPayload,
     }
 
     try {
       await post("/order/customers/save/buy", payload)
-      try {
-        localStorage.setItem("buy.formTemplate", formTemplate)
-      } catch {}
+      try { localStorage.setItem("buy.formTemplate", formTemplate) } catch {}
       alert("บันทึกออเดอร์เรียบร้อย ✅")
       handleReset()
     } catch (err) {
@@ -1718,10 +1684,11 @@ const resolvePaymentIdForBE = () => {
     setNameResults([])
     setShowNameList(false)
     setHighlightedIndex(-1)
-    setMemberMeta({ type: "unknown", assoId: null })
+    setMemberMeta({ type: "unknown", assoId: null, memberId: null })
 
     setCustomer({
       citizenId: "",
+      memberId: "",
       fullName: "",
       houseNo: "",
       moo: "",
@@ -1801,7 +1768,6 @@ const resolvePaymentIdForBE = () => {
     setBuyerType("person")
   }
 
-
   /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
@@ -1819,7 +1785,7 @@ const resolvePaymentIdForBE = () => {
               memberMeta.type === "member" ? (
                 <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60 self-start">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  สมาชิก • asso {memberMeta.assoId ?? "-"}
+                  สมาชิก • member_id {memberMeta.memberId ?? "-"}
                 </span>
               ) : customerFound === true && memberMeta.type === "customer" ? (
                 <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60 self-start">
@@ -1829,12 +1795,12 @@ const resolvePaymentIdForBE = () => {
               ) : memberMeta.type === "customer" ? (
                 <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600 self-start">
                   <span className="h-2 w-2 rounded-full bg-slate-500" />
-                  ลูกค้าทั่วไป (จะสร้างอัตโนมัติเมื่อบันทึก)
+                  ลูกค้าทั่วไป (เลือกจากรายชื่อเพื่อใช้ asso_id)
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60 self-start">
                   <span className="h-2 w-2 rounded-full bg-amber-500" />
-                  โปรดกรอกชื่อหรือเลขบัตรประชาชนเพื่อระบุสถานะ
+                  โปรดกรอก <b>member_id</b> หรือค้นหาชื่อเพื่อเลือกบุคคล
                 </span>
               )
             ) : (
@@ -1903,64 +1869,11 @@ const resolvePaymentIdForBE = () => {
             </div>
           </div>
 
-          {/* เงื่อนไขเครดิต (โชว์เมื่อเป็น “ซื้อเชื่อ/เครดิต”) */}
-          {isCreditPayment() && (
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-700/60 dark:bg-amber-900/20">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="inline-flex h-2 w-2 rounded-full bg-amber-500" />
-                <h3 className="text-base md:text-lg font-semibold text-amber-800 dark:text-amber-200">เงื่อนไขเครดิต</h3>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <label className={labelCls}>จำนวนวันเครดิต (allowed_period)</label>
-                  <input
-                    inputMode="numeric"
-                    className={cx(baseField, compactInput)}
-                    value={dept.allowedPeriod}
-                    onChange={(e) => updateDept("allowedPeriod", Number(onlyDigits(e.target.value)) || 0)}
-                    placeholder="เช่น 30"
-                  />
-                  <p className={helpTextCls}>นับจากวันที่เอกสารถูกลงวันที่</p>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className={labelCls}>ขอเลื่อนจ่ายไหม (postpone)</label>
-                  <div className="flex items-center gap-3">
-                    <label className="inline-flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={!!dept.postpone}
-                        onChange={(e) => updateDept("postpone", e.target.checked)}
-                      />
-                      อนุญาตให้เลื่อนได้
-                    </label>
-                  </div>
-                  <p className={helpTextCls}>ติ๊กเมื่ออนุญาตให้ลูกค้าเลื่อนกำหนดชำระ</p>
-                </div>
-
-                {dept.postpone && (
-                  <div>
-                    <label className={labelCls}>เลื่อนกี่วัน (postpone_period)</label>
-                    <input
-                      inputMode="numeric"
-                      className={cx(baseField, compactInput)}
-                      value={dept.postponePeriod}
-                      onChange={(e) => updateDept("postponePeriod", Number(onlyDigits(e.target.value)) || 0)}
-                      placeholder="เช่น 7"
-                    />
-                    <p className={helpTextCls}>จำนวนวันเลื่อนจากกำหนดเดิม</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* ฟิลด์ลูกค้า — แยกตามประเภทผู้ซื้อ */}
           {buyerType === "person" ? (
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <div className="md:col-span-1">
-                <label className={labelCls}>เลขที่บัตรประชาชน (13 หลัก)</label>
+              <div>
+                <label className={labelCls}>เลขที่บัตรประชาชน (เพื่อค้นหาที่อยู่)</label>
                 <input
                   ref={refs.citizenId}
                   inputMode="numeric"
@@ -1978,16 +1891,30 @@ const resolvePaymentIdForBE = () => {
                   {customer.citizenId.length === 13 && !validateThaiCitizenId(customer.citizenId) && (
                     <span className="text-amber-600 dark:text-amber-300"> เลขบัตรอาจไม่ถูกต้อง</span>
                   )}
-                  {customer.citizenId.length === 13 && customerFound === true && (
-                    <span className="ml-1 text-emerald-600 dark:text-emerald-300">พบข้อมูลแล้ว ✅</span>
-                  )}
-                  {customer.citizenId.length === 13 && customerFound === false && (
-                    <span className="ml-1 text-amber-600 dark:text-amber-300">
-                      ไม่พบบุคคลนี้ (จะบันทึกเป็นลูกค้าทั่วไป)
-                    </span>
-                  )}
                 </div>
               </div>
+
+              {/* ⭐ ใหม่: member_id */}
+              <div>
+                <label className={labelCls}>รหัสสมาชิก (member_id)</label>
+                <input
+                  ref={refs.memberId}
+                  inputMode="numeric"
+                  className={cx(baseField, redFieldCls("memberId"))}
+                  value={customer.memberId}
+                  onChange={(e) => updateCustomer("memberId", onlyDigits(e.target.value))}
+                  onFocus={() => clearError("memberId")}
+                  onKeyDown={onEnter("memberId")}
+                  placeholder="เช่น 100234"
+                  aria-invalid={errors.memberId ? true : undefined}
+                />
+                {!!memberMeta.memberId && (
+                  <p className={helpTextCls}>พบสมาชิก: member_id {memberMeta.memberId}</p>
+                )}
+                {errors.memberId && <p className={errorTextCls}>{errors.memberId}</p>}
+              </div>
+
+              <div className="md:col-span-1" />
 
               <div className="md:col-span-2" ref={nameBoxRef}>
                 <label className={labelCls}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
@@ -2011,7 +1938,7 @@ const resolvePaymentIdForBE = () => {
                     clearError("fullName")
                   }}
                   onKeyDown={handleNameKeyDown}
-                  onKeyDownCapture={onEnter("fullName")}  // ⭐ มี dropdown ใช้ capture กันกรณีรายการปิดอยู่
+                  onKeyDownCapture={onEnter("fullName")}
                   placeholder="เช่น นายสมชาย ใจดี"
                   aria-expanded={showNameList}
                   aria-controls="name-results"
@@ -2059,7 +1986,9 @@ const resolvePaymentIdForBE = () => {
                           <div className="flex-1">
                             <div className="font-medium">{full || "(ไม่มีชื่อ)"}</div>
                             <div className="text-sm text-slate-600 dark:text-slate-300">
-                              {r.type === "member" ? "สมาชิก" : "ลูกค้าทั่วไป"} • ปชช. {r.citizen_id ?? "-"}
+                              {r.type === "member"
+                                ? `สมาชิก • member_id ${r.member_id ?? "-"}`
+                                : `ลูกค้าทั่วไป • ปชช. ${r.citizen_id ?? "-"}`}
                             </div>
                           </div>
                         </button>
@@ -2084,7 +2013,7 @@ const resolvePaymentIdForBE = () => {
                     value={customer[k]}
                     onChange={(e) => updateCustomer(k, e.target.value)}
                     onFocus={() => clearHint(k)}
-                    onKeyDown={onEnter(k)}   
+                    onKeyDown={onEnter(k)}
                     placeholder={ph}
                     aria-invalid={errors.address ? true : undefined}
                   />
@@ -2149,7 +2078,6 @@ const resolvePaymentIdForBE = () => {
                   onKeyDown={onEnter("fidOwner")}
                   placeholder="เช่น นายสมหมาย นามดี"
                 />
-                <p className={helpTextCls}><code></code></p>
               </div>
 
               {/* FID Relationship */}
@@ -2165,9 +2093,8 @@ const resolvePaymentIdForBE = () => {
                   onKeyDown={onEnter("fidRelationship")}
                   placeholder="ตัวเลขรหัสความสัมพันธ์ (ถ้ามี)"
                 />
-                <p className={helpTextCls}><code></code> (ตัวเลข)</p>
+                <p className={helpTextCls}>(ตัวเลข)</p>
               </div>
-
             </div>
           ) : (
             /* -------------------- โหมดบริษัท / นิติบุคคล -------------------- */
@@ -2224,9 +2151,7 @@ const resolvePaymentIdForBE = () => {
                         onMouseEnter={() => {
                           setCompanyHighlighted(idx)
                           requestAnimationFrame(() => {
-                            try {
-                              companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" })
-                            } catch {}
+                            try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch {}
                           })
                         }}
                         role="option"
@@ -2286,76 +2211,67 @@ const resolvePaymentIdForBE = () => {
                 hintRed={!!missingHints.product}
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
-                disabled={isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
+                disabled={isTemplateActive}
                 onEnterNext={() => {
-                // พยายามไป "ชนิดข้าว" ถ้าไม่ได้ล็อกเทมเพลต
-                // แต่ถ้าใช้เทมเพลต ให้ข้ามไป "ชั้นย่อย" (จะพร้อมหลัง species auto-select)
-                const tryFocus = () => {
-                  if (!isTemplateActive && isEnabledInput(refs.riceType?.current)) {
-                    refs.riceType.current.focus()
-                    refs.riceType.current.scrollIntoView?.({ block: "center" })
-                    return true
+                  const tryFocus = () => {
+                    if (!isTemplateActive && isEnabledInput(refs.riceType?.current)) {
+                      refs.riceType.current.focus()
+                      refs.riceType.current.scrollIntoView?.({ block: "center" })
+                      return true
+                    }
+                    if (isEnabledInput(refs.subrice?.current)) {
+                      refs.subrice.current.focus()
+                      refs.subrice.current.scrollIntoView?.({ block: "center" })
+                      return true
+                    }
+                    return false
                   }
-                  if (isEnabledInput(refs.subrice?.current)) {
-                    refs.subrice.current.focus()
-                    refs.subrice.current.scrollIntoView?.({ block: "center" })
-                    return true
-                  }
-                  return false
-                }
-
-                // ลองทันที แล้วรอข้อมูลโหลดอีกนิดถ้ายังไม่พร้อม
-                if (tryFocus()) return
-                setTimeout(tryFocus, 60)
-                setTimeout(tryFocus, 180)
-              }}
-
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 180)
+                }}
               />
               {errors.product && <p className={errorTextCls}>{errors.product}</p>}
             </div>
 
             <div>
-  <label className={labelCls}>ชนิดข้าว</label>
-  <ComboBox
-    options={riceOptions}
-    value={order.riceId}
-    onChange={(id, found) => {
-      setOrder((p) => ({
-        ...p,
-        riceId: id,
-        riceType: found?.label ?? "",
-        subriceId: "",
-        subriceName: "",
-      }))
-    }}
-    placeholder="— เลือกชนิดข้าว —"
-    disabled={!order.productId || isTemplateActive} // 🔒 ถูกล็อกเมื่อเลือกฟอร์ม
-    error={!!errors.riceType}
-    hintRed={!!missingHints.riceType}
-    clearHint={() => clearHint("riceType")}
-    buttonRef={refs.riceType}
-    onEnterNext={() => {
-      // ✅ พยายามโฟกัสช่อง "ชั้นย่อย" (subrice)
-      const tryFocus = () => {
-        const el = refs.subrice?.current
-        if (el && !el.disabled && el.offsetParent !== null) {
-          el.focus()
-          el.scrollIntoView?.({ block: "center" })
-          return true
-        }
-        return false
-      }
-
-      // 🔁 ลองหลายครั้ง เผื่อ subrice ยัง disabled ชั่วคราวตอนโหลดข้อมูล
-      if (tryFocus()) return
-      setTimeout(tryFocus, 60)
-      setTimeout(tryFocus, 120)
-      setTimeout(tryFocus, 200)
-    }}
-  />
-  {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
-</div>
-
+              <label className={labelCls}>ชนิดข้าว</label>
+              <ComboBox
+                options={riceOptions}
+                value={order.riceId}
+                onChange={(id, found) => {
+                  setOrder((p) => ({
+                    ...p,
+                    riceId: id,
+                    riceType: found?.label ?? "",
+                    subriceId: "",
+                    subriceName: "",
+                  }))
+                }}
+                placeholder="— เลือกชนิดข้าว —"
+                disabled={!order.productId || isTemplateActive}
+                error={!!errors.riceType}
+                hintRed={!!missingHints.riceType}
+                clearHint={() => clearHint("riceType")}
+                buttonRef={refs.riceType}
+                onEnterNext={() => {
+                  const tryFocus = () => {
+                    const el = refs.subrice?.current
+                    if (el && !el.disabled && el.offsetParent !== null) {
+                      el.focus()
+                      el.scrollIntoView?.({ block: "center" })
+                      return true
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 120)
+                  setTimeout(tryFocus, 200)
+                }}
+              />
+              {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
+            </div>
 
             <div>
               <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
@@ -2593,7 +2509,6 @@ const resolvePaymentIdForBE = () => {
                 <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(grossFromScale * 100) / 100} />
                 <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
               </div>
-              
 
               {/* ความชื้น */}
               <div>
@@ -2652,11 +2567,7 @@ const resolvePaymentIdForBE = () => {
                   value={
                     order.manualDeduct
                       ? order.deductWeightKg
-                      : String(
-                          Math.round(
-                            suggestDeductionWeight(grossFromScale, order.moisturePct, order.impurityPct) * 100
-                          ) / 100
-                        )
+                      : String(Math.round(suggestDeductionWeight(grossFromScale, order.moisturePct, order.impurityPct) * 100) / 100)
                   }
                   onChange={(e) => updateOrder("deductWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
                   onFocus={() => clearHint("deductWeightKg")}
@@ -2672,7 +2583,7 @@ const resolvePaymentIdForBE = () => {
                 <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(netWeight * 100) / 100} />
               </div>
 
-              {/* gram */}      
+              {/* gram */}
               <div>
                 <label className={labelCls}>คุณภาพข้าว (gram)</label>
                 <input
@@ -2685,7 +2596,7 @@ const resolvePaymentIdForBE = () => {
                   placeholder="เช่น 85"
                 />
               </div>
-              
+
               {/* ราคาต่อกก. */}
               <div>
                 <label className={labelCls}>ราคาต่อกก. (บาท)</label>
@@ -2722,7 +2633,7 @@ const resolvePaymentIdForBE = () => {
                 {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(moneyToNumber(order.amountTHB))}</p>}
                 {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
               </div>
-              
+
               {/* ใบชั่ง/ใบเบิกเงิน */}
               <div>
                 <label className={labelCls}>เลขที่ใบชั่ง/ใบเบิกเงิน</label>
@@ -2751,8 +2662,9 @@ const resolvePaymentIdForBE = () => {
                   </div>
                 </div>
                 <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-                  <div className="text-slate-600 dark:text-slate-300">เลขบัตรประชาชน</div>
-                  <div className="text-lg md:text-xl font-semibold">{customer.citizenId || "—"}</div>
+                  <div className="text-slate-600 dark:text-slate-300">member_id</div>
+                  <div className="text-lg md:text-xl font-semibold">{memberMeta.memberId ?? (customer.memberId?.trim() || "-")}
+</div>
                 </div>
               </>
             ) : (
@@ -2862,7 +2774,6 @@ const resolvePaymentIdForBE = () => {
       </div>
     </div>
   )
+}
 
-  }
-
-  export default Buy
+export default Buy

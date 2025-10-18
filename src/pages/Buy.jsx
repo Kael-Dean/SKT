@@ -1896,10 +1896,7 @@ const Buy = () => {
             </div>
           </div>
 
-          {/* ⬇️ ลบกรอบเครดิตเมื่อเลือกซื้อเชื่อ (ไม่แสดงอีก) */}
-          {/* (ลบ block isCreditPayment() ที่เคยอยู่ตรงนี้) */}
-
-          {/* ============ ฟิลด์ลูกค้า — ย้ายเข้ามาในกรอบนี้ ============ */}
+          {/* ========== ฟิลด์ลูกค้าในกรอบเดียว ========== */}
           {buyerType === "person" ? (
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
@@ -2081,7 +2078,6 @@ const Buy = () => {
               </div>
 
               {/* ⬇️ ลบ UI: FID/FID Owner/Relationship */}
-              {/* (ช่องเหล่านี้ถูกนำออกตามคำขอ) */}
             </div>
           ) : (
             /* -------------------- โหมดบริษัท / นิติบุคคล -------------------- */
@@ -2388,7 +2384,21 @@ const Buy = () => {
                 }
                 placeholder="— เลือกโปรแกรม —"
                 buttonRef={refs.program}
-                onEnterNext={() => focusNext("branchName")} // โปรแกรม → สาขา (คงเดิม)
+                // ✅ โปรแกรม → โฟกัส "สาขา"
+                onEnterNext={() => {
+                  const tryFocus = () => {
+                    const el = refs.branchName?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.()
+                      return true
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 180)
+                }}
               />
             </div>
           </div>
@@ -2415,14 +2425,20 @@ const Buy = () => {
                 hintRed={!!missingHints.branchName}
                 clearHint={() => clearHint("branchName")}
                 buttonRef={refs.branchName}
-                // ⬇️ ปรับ: สาขา → น้ำหนักก่อนชั่ง
+                // ✅ สาขา → โฟกัส "คลัง"
                 onEnterNext={() => {
-                  const el = refs.entryWeightKg?.current
-                  if (el) {
-                    try { el.scrollIntoView({ block: "center" }) } catch {}
-                    el.focus?.()
-                    try { el.select?.() } catch {}
+                  const tryFocus = () => {
+                    const el = refs.klangName?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.()
+                      return true
+                    }
+                    return false
                   }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 180)
                 }}
               />
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
@@ -2447,7 +2463,22 @@ const Buy = () => {
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
-                onEnterNext={() => focusNext("entryWeightKg")}
+                // ✅ คลัง → โฟกัส "น้ำหนักก่อนชั่ง"
+                onEnterNext={() => {
+                  const tryFocus = () => {
+                    const el = refs.entryWeightKg?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.()
+                      try { el.select?.() } catch {}
+                      return true
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 180)
+                }}
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>

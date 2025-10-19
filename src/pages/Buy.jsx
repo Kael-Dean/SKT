@@ -457,7 +457,6 @@ const Buy = () => {
   /** ▶︎ ฟอร์มสำเร็จรูป (Template) */
   const templateOptions = [
     { id: "0", label: "— ฟอร์มปกติ —" },
-    // ⬇️ เปลี่ยนชื่อรหัส 1 ตามรีเควสต์
     { id: "1", label: "ฟอร์ม 17 ตค" },
     { id: "2", label: "รหัส 2 • ข้าวเหนียว" },
     { id: "3", label: "รหัส 3 • เมล็ดพันธุ์" },
@@ -535,8 +534,8 @@ const Buy = () => {
     programId: "",
     programName: "",
     // 💳 วิธีชำระเงิน
-    paymentMethod: "", // label เก่า (เผื่อ UI อื่น)
-    paymentMethodId: "", // id ที่ใช้จริง
+    paymentMethod: "", // label
+    paymentMethodId: "", // ⭐ เก็บ id ด้วยเพื่อความเสถียร
     businessType: "",
     businessTypeId: "",
     entryWeightKg: "",
@@ -1423,9 +1422,11 @@ const Buy = () => {
     return null
   }
 
-  /** ตรวจว่าเป็น “ค้าง/เครดิต” ไหม */
+  /** ตรวจว่าเป็น “ค้าง/เครดิต” ไหม (fallback) */
   const isCreditPayment = () => {
     const pid = resolvePaymentId()
+    if (pid === 4) return true
+    if (pid === 3) return false
     const label =
       (order.paymentMethod || "").trim() ||
       (paymentOptions.find((o) => Number(o.id) === Number(pid))?.label || "").trim()
@@ -1433,8 +1434,10 @@ const Buy = () => {
     return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
   }
 
-  /** 👉 Mapping ใหม่สำหรับฝั่งซื้อ: ซื้อเชื่อ = 4, ซื้อสด = 3 */
+  /** 👉 ซื้อเชื่อ = 4, ซื้อสด = 3 (เลือก id เป็นหลัก, ถ้าไม่ได้ให้ fallback ตามข้อความ) */
   const resolvePaymentIdForBE = () => {
+    const id = resolvePaymentId()
+    if (id != null) return id
     return isCreditPayment() ? 4 : 3
   }
 
@@ -1818,7 +1821,7 @@ const Buy = () => {
         klang_location: klangId,
         gram: Number(order.gram || 0),
         comment: order.comment?.trim() || null,
-        business_type: businessTypeId,
+        // ❌ ห้ามใส่ business_type ในระดับ order (อยู่ใน spec แล้วตาม BE)
       },
       dept: deptPayload,
     }
@@ -2013,8 +2016,10 @@ const Buy = () => {
               <label className={labelCls}>วิธีชำระเงิน</label>
               <ComboBox
                 options={paymentOptions}
-                value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
-                onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
+                value={order.paymentMethodId || ""}
+                onChange={(id, found) =>
+                  setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "", paymentMethodId: id }))
+                }
                 placeholder="— เลือกวิธีชำระเงิน —"
                 buttonRef={refs.payment}
                 onEnterNext={() => {
@@ -3059,7 +3064,7 @@ const Buy = () => {
               onClick={handleReset}
               className="inline-flex items-center justify-center rounded-2xl 
           border border-slate-300 bg-white px-6 py-3 text-base font-medium 
-          text-slate-700 dark:text-white
+          text-slate-700 dark:text:white
           shadow-sm
           transition-all duration-300 ease-out
           hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]

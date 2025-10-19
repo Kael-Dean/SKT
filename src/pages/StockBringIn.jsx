@@ -588,7 +588,7 @@ function StockBringIn() {
                 className={baseField}
                 value={form.price2}
                 onChange={(e) => update("price2", e.target.value.replace(/[^\d.]/g, ""))}
-                placeholder="(เว้นว่างได้)"
+                placeholder="เช่น 15"
               />
             </div>
 

@@ -596,6 +596,9 @@ const Buy = () => {
     deptAllowed: useRef(null),
     deptPostpone: useRef(null),
     deptPostponePeriod: useRef(null),
+
+    // ✅ ปุ่มบันทึกออเดอร์ (ใหม่ ใช้ให้ Enter ที่ "เป็นเงิน" โฟกัสมาที่นี่)
+    submitBtn: useRef(null),
   }
 
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
@@ -1399,6 +1402,10 @@ const Buy = () => {
       if (!customer.hqProvince.trim()) m.hqProvince = true
     }
 
+    // ✅ ฟิลด์ที่จำเป็นกับ BE
+    if (!order.paymentMethod && !resolvePaymentId()) m.payment = true
+    if (!order.issueDate) m.issueDate = true
+
     if (!order.productId) m.product = true
     if (!order.riceId) m.riceType = true
     if (!order.subriceId) m.subrice = true
@@ -1416,7 +1423,6 @@ const Buy = () => {
     if (!order.exitWeightKg || Number(order.exitWeightKg) <= 0) m.exitWeightKg = true
     if (grossFromScale <= 0) m.netFromScale = true
     if (!order.amountTHB || moneyToNumber(order.amountTHB) <= 0) m.amountTHB = true
-    if (!order.issueDate) m.issueDate = true
     return m
   }
 
@@ -1487,6 +1493,11 @@ const Buy = () => {
         e.hqAddress = "กรุณากรอกที่อยู่สำนักงานใหญ่ให้ครบ"
     }
 
+    // ✅ ให้ลำดับการเช็คตรงกับ "บนลงล่าง" ใน UI: วิธีชำระเงิน/ลงวันที่ มาก่อนรายละเอียดซื้อ
+    const pid = resolvePaymentId()
+    if (!pid) e.payment = "เลือกวิธีชำระเงิน"
+    if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
+
     if (!order.productId) e.product = "เลือกประเภทสินค้า"
     if (!order.riceId) e.riceType = "เลือกชนิดข้าว (species)"
     if (!order.subriceId) e.subrice = "เลือกชั้นย่อย (variant)"
@@ -1497,9 +1508,6 @@ const Buy = () => {
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
 
-    const pid = resolvePaymentId()
-    if (!pid) e.payment = "เลือกวิธีชำระเงิน"
-
     if (order.entryWeightKg === "" || Number(order.entryWeightKg) < 0) e.entryWeightKg = "กรอกน้ำหนักก่อนชั่ง"
     if (order.exitWeightKg === "" || Number(order.exitWeightKg) <= 0) e.exitWeightKg = "กรอกน้ำหนักหลังชั่ง"
     if (grossFromScale <= 0) e.exitWeightKg = "ค่าน้ำหนักจากตาชั่งต้องมากกว่า 0"
@@ -1507,18 +1515,21 @@ const Buy = () => {
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
     const amt = moneyToNumber(order.amountTHB)
     if (!amt || amt <= 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
-    if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
 
     setErrors(e)
     return e
   }
 
+  // ✅ เลื่อนโฟกัสไป "ช่องที่ขาดตัวบนสุด" ตามลำดับบนลงล่าง (รวม customer + order)
   const scrollToFirstError = (eObj) => {
     const personKeys = ["memberId", "fullName", "address"]
     const companyKeys = ["companyName", "taxId", "hqAddress"]
+
+    // ออเดอร์: จัดลำดับจาก "บนสุด" ของหน้า
     const commonOrderKeys = [
+      "payment", "issueDate", // อยู่แถวบนขวา
       "product","riceType","subrice","condition","fieldType","riceYear","businessType",
-      "branchName","klangName","payment","entryWeightKg","exitWeightKg","deductWeightKg","amountTHB","issueDate",
+      "branchName","klangName","entryWeightKg","exitWeightKg","deductWeightKg","amountTHB",
     ]
 
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
@@ -1535,6 +1546,27 @@ const Buy = () => {
     if (el && typeof el.focus === "function") {
       try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
       el.focus()
+      try { el.select?.() } catch {}
+    }
+  }
+
+  // ✅ กรณี error ไม่มี แต่ยังมี "ช่องจำเป็นของ BE" ใน missingHints → โฟกัสตัวแรกตามลำดับบนลงล่าง
+  const scrollToFirstMissing = (hintsObj) => {
+    const personKeys = ["memberId","fullName","houseNo","moo","subdistrict","district","province"]
+    const companyKeys = ["companyName","taxId","hqHouseNo","hqSubdistrict","hqDistrict","hqProvince"]
+    const commonOrderKeys = [
+      "payment","issueDate",
+      "product","riceType","subrice","condition","fieldType","riceYear","businessType",
+      "branchName","klangName","entryWeightKg","exitWeightKg","deductWeightKg","amountTHB",
+    ]
+    const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
+    const firstKey = keys.find((k) => hintsObj[k])
+    if (!firstKey) return
+    const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
+    if (el && typeof el.focus === "function") {
+      try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
+      el.focus()
+      try { el.select?.() } catch {}
     }
   }
 
@@ -1550,8 +1582,15 @@ const Buy = () => {
     const hints = computeMissingHints()
     setMissingHints(hints)
     const eObj = validateAll()
+
+    // ถ้าขาด → โฟกัสช่องบนสุดที่ขาด (เรียงบนลงล่าง)
     if (Object.keys(eObj).length > 0) {
       scrollToFirstError(eObj)
+      return
+    }
+    // เผื่อกรณี errors ว่าง แต่ hints ยังมี (เช่น case บางอันกำหนดเป็น hint)
+    if (Object.values(hints).some(Boolean)) {
+      scrollToFirstMissing(hints)
       return
     }
 
@@ -1901,7 +1940,7 @@ const Buy = () => {
                 value={order.paymentRefNo}
                 onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
                 onFocus={() => clearHint("paymentRefNo")}
-                // ✅ เปลี่ยน flow: Enter ที่ "เลขที่ใบชั่ง/ใบเบิกเงิน" → โฟกัส "ชื่อ–สกุล" (ถ้าเป็นบุคคล) หรือ "ชื่อบริษัท" (ถ้าเป็นนิติบุคคล)
+                // ✅ เปลี่ยน flow: Enter ที่ "เลขที่ใบชั่ง/ใบเบิกเงิน" → โฟกัส "ชื่อ–สกุล"/"ชื่อบริษัท"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.isComposing) {
                     e.preventDefault()
@@ -2683,7 +2722,17 @@ const Buy = () => {
                     clearHint("amountTHB")
                     clearError("amountTHB")
                   }}
-                  onKeyDown={onEnter("amountTHB")}
+                  // ✅ ใหม่: กด Enter ที่ "เป็นเงิน" → โฟกัสปุ่ม "บันทึกออเดอร์"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.isComposing) {
+                      e.preventDefault()
+                      const btn = refs.submitBtn?.current
+                      if (btn && isEnabledInput(btn)) {
+                        try { btn.scrollIntoView({ block: "center" }) } catch {}
+                        btn.focus?.()
+                      }
+                    }
+                  }}
                   placeholder="เช่น 60,000"
                   aria-invalid={errors.amountTHB ? true : undefined}
                 />
@@ -2788,6 +2837,7 @@ const Buy = () => {
           {/* ปุ่ม */}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
+              ref={refs.submitBtn} // ✅ ให้ Enter ในช่อง “เป็นเงิน” โฟกัสมาที่ปุ่มนี้
               type="submit"
               className="inline-flex items-center justify-center rounded-2xl 
                 bg-emerald-600 px-6 py-3 text-base font-semibold text-white

@@ -1,5 +1,5 @@
 // src/pages/MemberTermination.jsx
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api" // ✅ แนบ token อัตโนมัติ + JSON ให้แล้ว
 
 /** ---------- Utils ---------- */
@@ -48,6 +48,40 @@ function SectionCard({ title, subtitle, children, className = "" }) {
     </div>
   )
 }
+
+/** ---------- DateInput (สไตล์เดียวกับ MemberSignup.last_bought_date) ---------- */
+const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
+  const inputRef = useRef(null)
+  useImperativeHandle(ref, () => inputRef.current)
+
+  return (
+    <div className="relative">
+      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
+      <input
+        type="date"
+        ref={inputRef}
+        className={cx(baseField, "pr-12 cursor-pointer", error && fieldError, className)}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => {
+          const el = inputRef.current
+          if (!el) return
+          if (typeof el.showPicker === "function") el.showPicker()
+          else { el.focus(); el.click?.() }
+        }}
+        aria-label="เปิดตัวเลือกวันที่"
+        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
+                    transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
+          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
+        </svg>
+      </button>
+    </div>
+  )
+})
 
 /** ---------- การ์ดเลือกโหมด (toggle style) ---------- */
 function ChoiceCard({ active = false, icon, label, onClick }) {
@@ -204,6 +238,8 @@ function MemberTermination() {
     setQuery(`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.citizen_id || "")
     setErrors((p) => ({ ...p, picked: undefined }))
     setShowList(false)
+    // โฟกัสไปช่องถัดไปหลังเลือก
+    requestAnimationFrame(() => focusNextFromEl(inputRef.current))
   }
 
   // คีย์บอร์ดบนช่องค้นหา + Enter เลื่อนไปช่องถัดไป
@@ -228,8 +264,6 @@ function MemberTermination() {
         e.preventDefault()
         const idx = highlighted >= 0 ? highlighted : 0
         if (results[idx]) pickResult(results[idx])
-        // หลังเลือกแล้ว ให้โฟกัสไปช่องถัดไป
-        requestAnimationFrame(() => focusNextFromEl(e.currentTarget))
         return
       }
     }
@@ -262,7 +296,6 @@ function MemberTermination() {
     setShowList(false)
     setHighlighted(-1)
 
-    // reset fields ใหม่
     setDecisionDate("")
     setBoardSetNo("")
     setBoardMeetingNo("")
@@ -336,7 +369,7 @@ function MemberTermination() {
           {errors.mode && <p className={errorTextCls}>{errors.mode}</p>}
         </SectionCard>
 
-        {/* ค้นหา/เลือกสมาชิก (ดรอปดาวน์สไตล์เดียวกับหน้า “ซื้อ”) */}
+        {/* ค้นหา/เลือกสมาชิก */}
         <SectionCard title="เลือกสมาชิก" className="mb-6">
           <label className={labelCls}>ค้นหาสมาชิกจากชื่อ-นามสกุล หรือเลขบัตรประชาชน</label>
           <input
@@ -387,11 +420,7 @@ function MemberTermination() {
                     type="button"
                     ref={(el) => (itemRefs.current[idx] = el)}
                     key={`${r.member_id}-${r.citizen_id}-${idx}`}
-                    onClick={() => {
-                      pickResult(r)
-                      // หลังคลิกเลือก ให้เลื่อนไปช่องถัดไป
-                      setTimeout(() => focusNextFromEl(inputRef.current), 0)
-                    }}
+                    onClick={() => pickResult(r)}
                     onMouseEnter={() => {
                       setHighlighted(idx)
                       requestAnimationFrame(() => scrollIntoView(idx))
@@ -446,13 +475,11 @@ function MemberTermination() {
         {/* ข้อมูลการสิ้นสภาพเพิ่มเติม */}
         <SectionCard title="ข้อมูลมติคณะกรรมการ" className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* วันที่มติ */}
+            {/* วันที่มติ — ใช้ DateInput แบบเดียวกับ MemberSignup */}
             <div>
               <label className={labelCls}>วันที่</label>
-              <input
-                type="date"
+              <DateInput
                 ref={dateRef}
-                className={cx(baseField, errors.decisionDate && fieldError)}
                 value={decisionDate}
                 onChange={(e) => {
                   setDecisionDate(e.target.value)
@@ -461,6 +488,7 @@ function MemberTermination() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") { e.preventDefault(); focusNextFromEl(e.currentTarget) }
                 }}
+                error={!!errors.decisionDate}
                 aria-invalid={errors.decisionDate ? true : undefined}
               />
               {errors.decisionDate && <p className={errorTextCls}>{errors.decisionDate}</p>}

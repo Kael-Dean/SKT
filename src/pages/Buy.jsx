@@ -516,12 +516,6 @@ const Buy = () => {
     memberId: null, // ⭐ ใหม่: เก็บเลขสมาชิกจากผลค้นหา
   })
 
-  /** ⭐ FIX: helper สำหรับ “ล้างสมาชิกเดิมที่ค้างอยู่” */
-  const clearSelectedCustomer = () => {
-    setMemberMeta({ type: "unknown", assoId: null, memberId: null })
-    setCustomerFound(null)
-  }
-
   /** ฟอร์มออเดอร์ */
   const [order, setOrder] = useState({
     productId: "",
@@ -1003,7 +997,7 @@ const Buy = () => {
       } catch (e) {
         console.error(e)
       } finally {
-               setLoadingCustomer(false)
+        setLoadingCustomer(false)
       }
     }
     searchByTax()
@@ -2132,12 +2126,7 @@ const Buy = () => {
                   maxLength={13}
                   className={cx(baseField, errors.citizenId && "border-amber-400")}
                   value={customer.citizenId}
-                  // ⭐ FIX: ล้างสถานะสมาชิก + ล้าง memberId เดิม เมื่อแก้เลขบัตร
-                  onChange={(e) => {
-                    clearSelectedCustomer()
-                    updateCustomer("memberId", "")
-                    updateCustomer("citizenId", onlyDigits(e.target.value))
-                  }}
+                  onChange={(e) => updateCustomer("citizenId", onlyDigits(e.target.value))}
                   onFocus={() => clearHint("citizenId")}
                   placeholder="เช่น 1234567890123"
                   onKeyDown={onEnter("citizenId")}
@@ -2159,11 +2148,7 @@ const Buy = () => {
                   inputMode="numeric"
                   className={cx(baseField, redFieldCls("memberId"))}
                   value={customer.memberId}
-                  // ⭐ FIX: ล้างสถานะสมาชิกก่อนพิมพ์ member_id ใหม่
-                  onChange={(e) => {
-                    clearSelectedCustomer()
-                    updateCustomer("memberId", onlyDigits(e.target.value))
-                  }}
+                  onChange={(e) => updateCustomer("memberId", onlyDigits(e.target.value))}
                   onFocus={() => clearError("memberId")}
                   onKeyDown={onEnter("memberId")}
                   placeholder="เช่น 100234"
@@ -2186,10 +2171,7 @@ const Buy = () => {
                   }}
                   className={cx(baseField, redFieldCls("fullName"))}
                   value={customer.fullName}
-                  // ⭐ FIX: ล้างสถานะสมาชิก + ล้าง memberId เดิม เมื่อแก้ชื่อ
                   onChange={(e) => {
-                    clearSelectedCustomer()
-                    updateCustomer("memberId", "")
                     updateCustomer("fullName", e.target.value)
                     if (e.target.value.trim().length >= 2) setShowNameList(true)
                     else {
@@ -2238,7 +2220,7 @@ const Buy = () => {
                           role="option"
                           aria-selected={isActive}
                           className={cx(
-                            "relative flex w/full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
+                            "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
                             isActive
                               ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
                               : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"

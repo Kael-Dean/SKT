@@ -36,6 +36,9 @@ function ComboBox({
   buttonRef = null,
   hintRed = false,
   clearHint = () => {},
+  /** ===== เพิ่ม prop สำหรับโหมด Enter ข้ามช่อง ===== */
+  enterMovesFocus = false,
+  onEnterWhenClosed = null,
 }) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
@@ -83,15 +86,27 @@ function ComboBox({
 
   const onKeyDown = (e) => {
     if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault()
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
-      clearHint?.()
+
+    // ----- ปิดอยู่ -----
+    if (!open) {
+      // โหมด Enter ข้ามช่อง
+      if (enterMovesFocus && e.key === "Enter") {
+        e.preventDefault()
+        onEnterWhenClosed?.()
+        return
+      }
+      // เปิดรายการด้วย Space หรือ ArrowDown (และ Enter ถ้าไม่เปิดโหมด enterMovesFocus)
+      if (e.key === " " || e.key === "ArrowDown" || (!enterMovesFocus && e.key === "Enter")) {
+        e.preventDefault()
+        setOpen(true)
+        setHighlight((h) => (h >= 0 ? h : 0))
+        clearHint?.()
+        return
+      }
       return
     }
-    if (!open) return
 
+    // ----- เปิดอยู่ -----
     if (e.key === "ArrowDown") {
       e.preventDefault()
       setHighlight((h) => {
@@ -385,6 +400,62 @@ function StockBringIn() {
     return Object.keys(e).length === 0
   }
 
+  /** ---------- ===== Keyboard Flow: Enter ไล่โฟกัส ===== ---------- */
+  // สร้าง ref ให้ทุกช่องตามลำดับซ้าย -> ขวา
+  const productRef = useRef(null)
+  const speciesRef = useRef(null)
+  const variantRef = useRef(null)
+  const yearRef = useRef(null)
+  const conditionRef = useRef(null)
+  const fieldTypeRef = useRef(null)
+  const programRef = useRef(null)
+  const businessRef = useRef(null)
+  const klangRef = useRef(null)
+  const coAvailableRef = useRef(null)
+  const price1Ref = useRef(null)
+  const price2Ref = useRef(null)
+  const commentRef = useRef(null)
+  const submitBtnRef = useRef(null)
+
+  const orderedRefs = useMemo(
+    () => [
+      productRef,
+      speciesRef,
+      variantRef,
+      yearRef,
+      conditionRef,
+      fieldTypeRef,
+      programRef,
+      businessRef,
+      klangRef,
+      coAvailableRef,
+      price1Ref,
+      price2Ref,
+      commentRef,
+      submitBtnRef, // ปุ่ม
+    ],
+    []
+  )
+
+  const focusNextFromRef = (refObj) => {
+    const idx = orderedRefs.findIndex((r) => r === refObj)
+    if (idx === -1) return
+    for (let i = idx + 1; i < orderedRefs.length; i++) {
+      const el = orderedRefs[i]?.current
+      if (el && !el.disabled && typeof el.focus === "function") {
+        el.focus()
+        return
+      }
+    }
+  }
+
+  const onEnterKey = (e, currentRef) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      focusNextFromRef(currentRef)
+    }
+  }
+
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -444,6 +515,9 @@ function StockBringIn() {
                 hintRed={!!missingHints.product_id}
                 clearHint={() => clearHint("product_id")}
                 placeholder="— เลือกประเภทสินค้า —"
+                buttonRef={productRef}
+                enterMovesFocus
+                onEnterWhenClosed={() => focusNextFromRef(productRef)}
               />
               {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
             </div>
@@ -458,6 +532,9 @@ function StockBringIn() {
                 hintRed={!!missingHints.species_id}
                 clearHint={() => clearHint("species_id")}
                 placeholder="— เลือกชนิดข้าว —"
+                buttonRef={speciesRef}
+                enterMovesFocus
+                onEnterWhenClosed={() => focusNextFromRef(speciesRef)}
               />
               {errors.species_id && <p className={errorTextCls}>{errors.species_id}</p>}
             </div>
@@ -472,6 +549,9 @@ function StockBringIn() {
                 hintRed={!!missingHints.variant_id}
                 clearHint={() => clearHint("variant_id")}
                 placeholder="— เลือกชั้นย่อย —"
+                buttonRef={variantRef}
+                enterMovesFocus
+                onEnterWhenClosed={() => focusNextFromRef(variantRef)}
               />
               {errors.variant_id && <p className={errorTextCls}>{errors.variant_id}</p>}
             </div>
@@ -483,6 +563,9 @@ function StockBringIn() {
                 value={form.product_year}
                 onChange={(v) => update("product_year", v)}
                 placeholder="— เลือกปี/ฤดูกาล —"
+                buttonRef={yearRef}
+                enterMovesFocus
+                onEnterWhenClosed={() => focusNextFromRef(yearRef)}
               />
               <p className={helpTextCls}>ไม่ระบุก็ได้</p>
             </div>
@@ -494,6 +577,9 @@ function StockBringIn() {
                 value={form.condition_id}
                 onChange={(v) => update("condition_id", v)}
                 placeholder="— เลือกสภาพ/เงื่อนไข —"
+                buttonRef={conditionRef}
+                enterMovesFocus
+                onEnterWhenClosed={() => focusNextFromRef(conditionRef)}
               />
             </div>
 
@@ -504,6 +590,9 @@ function StockBringIn() {
                 value={form.field_type}
                 onChange={(v) => update("field_type", v)}
                 placeholder="— เลือกประเภทนา —"
+                buttonRef={fieldTypeRef}
+                enterMovesFocus
+                onEnterWhenClosed={() => focusNextFromRef(fieldTypeRef)}
               />
             </div>
 
@@ -514,6 +603,9 @@ function StockBringIn() {
                 value={form.program}
                 onChange={(v) => update("program", v)}
                 placeholder="— เลือกโปรแกรม —"
+                buttonRef={programRef}
+                enterMovesFocus
+                onEnterWhenClosed={() => focusNextFromRef(programRef)}
               />
             </div>
 
@@ -524,6 +616,9 @@ function StockBringIn() {
                 value={form.business_type}
                 onChange={(v) => update("business_type", v)}
                 placeholder="— เลือกประเภทธุรกิจ —"
+                buttonRef={businessRef}
+                enterMovesFocus
+                onEnterWhenClosed={() => focusNextFromRef(businessRef)}
               />
             </div>
           </div>
@@ -543,6 +638,9 @@ function StockBringIn() {
                 hintRed={!!missingHints.co_klang}
                 clearHint={() => clearHint("co_klang")}
                 placeholder="— เลือกคลัง —"
+                buttonRef={klangRef}
+                enterMovesFocus
+                onEnterWhenClosed={() => focusNextFromRef(klangRef)}
               />
               {errors.co_klang && <p className={errorTextCls}>{errors.co_klang}</p>}
             </div>
@@ -550,11 +648,13 @@ function StockBringIn() {
             <div>
               <label className={labelCls}>ปริมาณยกมา (กก.)</label>
               <input
+                ref={coAvailableRef}
                 inputMode="decimal"
                 className={cx(baseField, (errors.co_available || missingHints.co_available) && "border-red-500 ring-2 ring-red-300")}
                 value={form.co_available}
                 onChange={(e) => update("co_available", onlyDigits(e.target.value))}
                 onFocus={() => { setErrors((p)=>({ ...p, co_available: undefined })); clearHint("co_available") }}
+                onKeyDown={(e) => onEnterKey(e, coAvailableRef)}
                 placeholder="เช่น 12000"
                 aria-invalid={errors.co_available ? true : undefined}
               />
@@ -571,11 +671,13 @@ function StockBringIn() {
             <div>
               <label className={labelCls}>ราคา 1 (บาท/กก.)</label>
               <input
+                ref={price1Ref}
                 inputMode="decimal"
                 className={cx(baseField, errors.prices && "border-red-400 ring-2 ring-red-300/70")}
                 value={form.price1}
                 onChange={(e) => update("price1", e.target.value.replace(/[^\d.]/g, ""))}
                 onFocus={() => setErrors((p)=>({ ...p, prices: undefined }))}
+                onKeyDown={(e) => onEnterKey(e, price1Ref)}
                 placeholder="เช่น 9.50"
               />
               <p className={helpTextCls}>ต้องกรอกอย่างน้อย 1 ช่อง</p>
@@ -584,10 +686,12 @@ function StockBringIn() {
             <div>
               <label className={labelCls}>ราคา 2 (บาท/กก.)</label>
               <input
+                ref={price2Ref}
                 inputMode="decimal"
                 className={baseField}
                 value={form.price2}
                 onChange={(e) => update("price2", e.target.value.replace(/[^\d.]/g, ""))}
+                onKeyDown={(e) => onEnterKey(e, price2Ref)}
                 placeholder="เช่น 15"
               />
             </div>
@@ -607,9 +711,11 @@ function StockBringIn() {
             <div className="md:col-span-3">
               <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
               <input
+                ref={commentRef}
                 className={baseField}
                 value={form.comment}
                 onChange={(e) => update("comment", e.target.value)}
+                onKeyDown={(e) => onEnterKey(e, commentRef)}
                 placeholder="เช่น ความชื้นสูง แกลบเยอะ หรือเหตุผลการที่ปฏิเสธ"
               />
             </div>
@@ -619,8 +725,10 @@ function StockBringIn() {
         {/* ปุ่ม */}
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <button
+            ref={submitBtnRef}
             type="button"
             onClick={handleSubmit}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(e) } }}
             disabled={loading}
             className="inline-flex items-center justify-center rounded-2xl 
               bg-emerald-600 px-6 py-3 text-base font-semibold text-white

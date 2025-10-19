@@ -638,6 +638,9 @@ const Buy = () => {
 
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
+  /** ▼ จุดยึดบนสุดของหน้า (สำหรับ scroll ภายใน container) */
+  const pageTopRef = useRef(null)
+
   /** โหลดค่า Template ล่าสุดจาก localStorage */
   useEffect(() => {
     try {
@@ -646,13 +649,13 @@ const Buy = () => {
     } catch {}
   }, [])
 
-  /** ---------- เพิ่ม: helper เด้งไปบนสุดหลังบันทึกสำเร็จ/รีเซ็ต ---------- */
+  /** ---------- helper เด้งไปบนสุดหลังบันทึกสำเร็จ/รีเซ็ต (เวอร์ชันใหม่) ---------- */
   const scrollToPageTop = () => {
-    try {
-      window.scrollTo({ top: 0, behavior: "smooth" })
-    } catch {
-      try { window.scrollTo(0, 0) } catch {}
-    }
+    // 1) เลื่อน container (ถ้ามี) ด้วย anchor
+    try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch {}
+    // 2) เผื่อกรณีหน้าเลื่อนด้วย body/document
+    const root = document.scrollingElement || document.documentElement || document.body
+    try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
   }
 
   /** debounce */
@@ -1545,7 +1548,7 @@ const Buy = () => {
     }
   }, [formTemplate, riceOptions]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ⭐ ปรับให้ robust: ฟอร์ม 17 ตค → ตั้งชั้นย่อย = ดอกมะลิ105 (รองรับมี/ไม่มีช่องว่าง และชื่ออังกฤษ)
+  // ⭐ ฟอร์ม 17 ตค → ตั้งชั้นย่อย = ดอกมะลิ105 (รองรับชื่อแบบต่าง ๆ)
   useEffect(() => {
     if (formTemplate !== "1") return
     if (subriceOptions.length === 0) return
@@ -1841,9 +1844,8 @@ const Buy = () => {
       // เก็บ template ปัจจุบันเผื่อรีเฟรชหน้าในอนาคต
       try { localStorage.setItem("buy.formTemplate", formTemplate) } catch {}
       alert("บันทึกออเดอร์เรียบร้อย ✅")
-      // ⬇️ เคลียร์ฟอร์มทั้งหมด แต่คงค่า template เดิมไว้ + เด้งไปด้านบนสุด
+      // ⬇️ เคลียร์ฟอร์มทั้งหมด แต่คง template + **คงวันที่เดิม** + เด้งไปบนสุด
       handleReset()
-      // ใช้ RAF เพื่อให้ state รีเซ็ตเสร็จแล้วค่อยเลื่อน (รองรับเบราว์เซอร์ทั่วไป)
       requestAnimationFrame(() => scrollToPageTop())
     } catch (err) {
       console.error("SAVE ERROR:", err?.data || err)
@@ -1893,7 +1895,8 @@ const Buy = () => {
       brPostalCode: "",
     })
 
-    setOrder({
+    // ⭐ คงค่า issueDate เดิมไว้ ไม่ลบ/ไม่เปลี่ยน
+    setOrder((prev) => ({
       productId: "",
       productName: "",
       riceId: "",
@@ -1922,14 +1925,14 @@ const Buy = () => {
       unitPrice: "",
       amountTHB: "",
       paymentRefNo: "",
-      issueDate: new Date().toISOString().slice(0, 10),
+      issueDate: prev.issueDate, // ⬅️ คงวันที่เดิม
       branchName: "",
       branchId: null,
       klangName: "",
       klangId: null,
       registeredPlace: "",
       comment: "",
-    })
+    }))
 
     setRiceOptions([])
     setSubriceOptions([])
@@ -1957,6 +1960,10 @@ const Buy = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
+
+        {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด */}
+        <div ref={pageTopRef} />
+
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
 
         {/* กล่องข้อมูลลูกค้า */}
@@ -2040,7 +2047,7 @@ const Buy = () => {
                 options={paymentOptions}
                 value={order.paymentMethodId || ""}
                 onChange={(id, found) =>
-                  setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "", paymentMethodId: id }))}
+                  setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "", paymentMethodId: id }))} 
                 placeholder="— เลือกวิธีชำระเงิน —"
                 buttonRef={refs.payment}
                 onEnterNext={() => {

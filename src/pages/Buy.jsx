@@ -2827,7 +2827,7 @@ const Buy = () => {
 
           {/* สรุป */}
           <div className="mt-6 grid gap-4 md:grid-cols-5">
-            {/* ผู้ซื้อ */}
+            {/* ผู้ขาย */}
             {buyerType === "person" ? (
               <>
                 <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">

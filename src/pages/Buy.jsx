@@ -646,6 +646,15 @@ const Buy = () => {
     } catch {}
   }, [])
 
+  /** ---------- เพิ่ม: helper เด้งไปบนสุดหลังบันทึกสำเร็จ ---------- */
+  const scrollToPageTop = () => {
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    } catch {
+      try { window.scrollTo(0, 0) } catch {}
+    }
+  }
+
   /** debounce */
   const debouncedCitizenId = useDebounce(customer.citizenId)
   const debouncedMemberId = useDebounce(customer.memberId) // ⭐
@@ -1828,9 +1837,13 @@ const Buy = () => {
 
     try {
       await post("/order/customers/save/buy", payload)
+      // เก็บ template ปัจจุบันเผื่อรีเฟรชหน้าในอนาคต
       try { localStorage.setItem("buy.formTemplate", formTemplate) } catch {}
       alert("บันทึกออเดอร์เรียบร้อย ✅")
+      // ⬇️ เคลียร์ฟอร์มทั้งหมด แต่คงค่า template เดิมไว้ + เด้งไปด้านบนสุด
       handleReset()
+      // ใช้ RAF เพื่อให้ state รีเซ็ตเสร็จแล้วค่อยเลื่อน (รองรับเบราว์เซอร์ทั่วไป)
+      requestAnimationFrame(() => scrollToPageTop())
     } catch (err) {
       console.error("SAVE ERROR:", err?.data || err)
       const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
@@ -1929,6 +1942,7 @@ const Buy = () => {
 
     setBuyerType("person")
     setBranchLocked(false) // ปลดล็อกเมื่อรีเซ็ต
+    // หมายเหตุ: formTemplate "คงไว้" ตามที่เลือกก่อนหน้า (ไม่แตะต้อง)
   }
 
   /** ---------- UI ---------- */
@@ -2498,8 +2512,7 @@ const Buy = () => {
                     ...p,
                     conditionId: found?.id ?? "",
                     condition: found?.label ?? "",
-                  }))
-                }
+                  }))}
                 placeholder="— เลือกสภาพ/เงื่อนไข —"
                 error={!!errors.condition}
                 hintRed={!!missingHints.condition}
@@ -2522,8 +2535,7 @@ const Buy = () => {
                     ...p,
                     fieldTypeId: found?.id ?? "",
                     fieldType: found?.label ?? "",
-                  }))
-                }
+                  }))}
                 placeholder="— เลือกประเภทนา —"
                 error={!!errors.fieldType}
                 hintRed={!!missingHints.fieldType}
@@ -2546,8 +2558,7 @@ const Buy = () => {
                     ...p,
                     riceYearId: found?.id ?? "",
                     riceYear: found?.label ?? "",
-                  }))
-                }
+                  }))}
                 placeholder="— เลือกปี/ฤดูกาล —"
                 error={!!errors.riceYear}
                 hintRed={!!missingHints.riceYear}
@@ -2589,8 +2600,7 @@ const Buy = () => {
                     ...p,
                     businessTypeId: found?.id ?? "",
                     businessType: found?.label ?? "",
-                  }))
-                }
+                  }))}
                 placeholder="— เลือกประเภทธุรกิจ —"
                 error={!!errors.businessType}
                 hintRed={!!missingHints.businessType}
@@ -2638,8 +2648,7 @@ const Buy = () => {
                     ...p,
                     programId: found?.id ?? "",
                     programName: found?.label ?? "",
-                  }))
-                }
+                  }))}
                 placeholder="— เลือกโปรแกรม —"
                 buttonRef={refs.program}
                 error={!!errors.program}

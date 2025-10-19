@@ -2582,38 +2582,38 @@ const Buy = () => {
             <div>
               <label className={labelCls}>โปรแกรม</label>
               <ComboBox
-              options={programOptions}
-              value={order.programId}
-              getValue={(o) => o.id}
-              onChange={(_id, found) =>
-                setOrder((p) => ({
-                  ...p,
-                  programId: found?.id ?? "",
-                  programName: found?.label ?? "",
-                }))
-              }
-              placeholder="— เลือกโปรแกรม —"
-              buttonRef={refs.program}
-              error={!!errors.program}
-              hintRed={!!missingHints.program}
-              clearHint={() => { clearHint("program"); clearError("program") }}
-              disabled={formTemplate === "1"}
-              onEnterNext={() => {
-                const focusBranch = () => {
-                  const el = refs.branchName?.current
-                  if (el && isEnabledInput(el)) {
-                    try { el.scrollIntoView({ block: "center" }) } catch {}
-                    el.focus?.()
-                    try { el.select?.() } catch {}
-                    return true
-                  }
-                  return false
+            options={programOptions}
+            value={order.programId}
+            getValue={(o) => o.id}
+            onChange={(_id, found) =>
+              setOrder((p) => ({
+                ...p,
+                programId: found?.id ?? "",
+                programName: found?.label ?? "",
+              }))
+            }
+            placeholder="— เลือกโปรแกรม —"
+            buttonRef={refs.program}
+            error={!!errors.program}
+            hintRed={!!missingHints.program}
+            clearHint={() => { clearHint("program"); clearError("program") }}
+            disabled={formTemplate === "1"}
+            onEnterNext={() => {
+              const focusBranch = () => {
+                const el = refs.branchName?.current
+                if (el && isEnabledInput(el)) {
+                  try { el.scrollIntoView({ block: "center" }) } catch {}
+                  el.focus?.()
+                  try { el.select?.() } catch {}
+                  return true
                 }
-                if (focusBranch()) return
-                setTimeout(focusBranch, 100)
-                setTimeout(focusBranch, 250)
-              }}
-            />
+                return false
+              }
+              if (focusBranch()) return
+              setTimeout(focusBranch, 100)
+              setTimeout(focusBranch, 250)
+            }}
+          />
 
               {errors.program && <p className={errorTextCls}>{errors.program}</p>}
             </div>

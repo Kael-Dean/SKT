@@ -379,6 +379,42 @@ bg-transparent"
   )
 })
 
+/** ---------------- JWT + Branch lock (ใหม่) ---------------- */
+// อ่าน token จาก storage ต่าง ๆ
+const getToken = () =>
+  localStorage.getItem("access_token") ||
+  localStorage.getItem("token") ||
+  sessionStorage.getItem("access_token") ||
+  sessionStorage.getItem("token") ||
+  ""
+
+// ถอด payload ของ JWT เพื่อเอา sub = username
+const decodeJwtPayload = (token) => {
+  try {
+    const clean = String(token || "").replace(/^Bearer\s+/i, "")
+    const b64 = clean.split(".")[1]
+    if (!b64) return null
+    const json = atob(b64.replace(/-/g, "+").replace(/_/g, "/"))
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
+
+// map คีย์เวิร์ดจาก username -> ชื่อสาขาไทย
+const USER_BRANCH_MAP = {
+  tartoom: "ท่าตูม",
+  ratanaburi: "รัตนบุรี",
+  surin: "สุรินทร์",
+  sirin: "สุรินทร์", // กันกรณีสะกดแบบ sirin
+  processing: "ฝ่ายแปรรูปผลิตผล",
+  srikor: "ศีขรภูมิ",
+  prasat: "ปราสาท",
+  chumpolburi: "ชุมพลบุรี",
+  sangkha: "สังขะ",
+  chomphra: "จอมพระ",
+}
+
 /** ---------- Component ---------- */
 const Buy = () => {
   const [loadingCustomer, setLoadingCustomer] = useState(false)
@@ -849,6 +885,33 @@ const Buy = () => {
     }
     loadStaticDD()
   }, [])
+
+  /** 🔒 ล็อกสาขาตาม username ใน JWT (เช่น Admin-tartoom-02 => ท่าตูม) */
+  const [branchLocked, setBranchLocked] = useState(false)
+  useEffect(() => {
+    if (!branchOptions?.length) return
+    try {
+      const token = getToken()
+      const username = (decodeJwtPayload(token)?.sub || "").toLowerCase()
+      if (!username) return
+      const key = Object.keys(USER_BRANCH_MAP).find((k) => username.includes(k))
+      if (!key) return
+      const wantedLabelTH = USER_BRANCH_MAP[key]
+      const target = branchOptions.find((o) => String(o.label || "").includes(wantedLabelTH))
+      if (!target) return
+      setOrder((p) => ({
+        ...p,
+        branchId: target.id,
+        branchName: target.label,
+        klangName: "",
+        klangId: null,
+      }))
+      setBranchLocked(true)
+    } catch (e) {
+      console.error("lock branch by login failed:", e)
+      setBranchLocked(false)
+    }
+  }, [branchOptions])
 
   // ปิด dropdown บริษัทเมื่อคลิกนอก
   useEffect(() => {
@@ -1534,7 +1597,7 @@ const Buy = () => {
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
       if (!toIntOrNull(memberMeta.memberId ?? customer.memberId) && !memberMeta.assoId) {
         e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกจากรายชื่อที่มี asso_id"
-      }
+        }
     } else {
       if (!customer.companyName.trim()) e.companyName = "กรุณากรอกชื่อบริษัท"
       if (!customer.taxId.trim() || !validateThaiTaxId(customer.taxId)) e.taxId = "กรุณากรอกเลขผู้เสียภาษี (13 หลัก)"
@@ -1862,6 +1925,7 @@ const Buy = () => {
     })
 
     setBuyerType("person")
+    setBranchLocked(false) // ปลดล็อกเมื่อรีเซ็ต
   }
 
   /** ---------- UI ---------- */
@@ -2558,7 +2622,11 @@ const Buy = () => {
             <div>
               <label className={labelCls}>สาขา</label>
               <ComboBox
-                options={branchOptions}
+                options={
+                  branchLocked && order.branchId != null
+                    ? branchOptions.filter((o) => String(o.id) === String(order.branchId))
+                    : branchOptions
+                }
                 value={order.branchId}
                 getValue={(o) => o.id}
                 onChange={(_val, found) => {
@@ -2575,6 +2643,7 @@ const Buy = () => {
                 hintRed={!!missingHints.branchName}
                 clearHint={() => clearHint("branchName")}
                 buttonRef={refs.branchName}
+                disabled={branchLocked}
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.klangName?.current
@@ -2590,6 +2659,7 @@ const Buy = () => {
                   setTimeout(tryFocus, 180)
                 }}
               />
+              {branchLocked && <p className={helpTextCls}>สาขาถูกล็อกตามรหัสผู้ใช้</p>}
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
             </div>
 

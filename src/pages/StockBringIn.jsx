@@ -36,7 +36,7 @@ function ComboBox({
   buttonRef = null,
   hintRed = false,
   clearHint = () => {},
-  /** ===== เพิ่ม prop สำหรับโหมด Enter ข้ามช่อง ===== */
+  /** ===== โหมด Enter ข้ามช่อง ===== */
   enterMovesFocus = false,
   onEnterWhenClosed = null,
 }) {
@@ -89,13 +89,13 @@ function ComboBox({
 
     // ----- ปิดอยู่ -----
     if (!open) {
-      // โหมด Enter ข้ามช่อง
+      // กด Enter เพื่อ "ข้ามช่อง" (จะไปเปิด dropdown ของช่องถัดไปที่ parent จัดการ)
       if (enterMovesFocus && e.key === "Enter") {
         e.preventDefault()
         onEnterWhenClosed?.()
         return
       }
-      // เปิดรายการด้วย Space หรือ ArrowDown (และ Enter ถ้าไม่เปิดโหมด enterMovesFocus)
+      // เปิดรายการด้วย Space / ArrowDown (หรือ Enter ถ้าไม่ใช่โหมดข้ามช่อง)
       if (e.key === " " || e.key === "ArrowDown" || (!enterMovesFocus && e.key === "Enter")) {
         e.preventDefault()
         setOpen(true)
@@ -137,7 +137,16 @@ function ComboBox({
         type="button"
         ref={controlRef}
         disabled={disabled}
-        onClick={() => !disabled && setOpen((o) => !o)}
+        onClick={() => {
+          if (disabled) return
+          setOpen((prev) => {
+            const next = !prev
+            // เปิดด้วยการคลิก (รวมโปรแกรมคลิก) ให้ไฮไลต์ตัวแรกเสมอ
+            if (next) setHighlight((h) => (h >= 0 ? h : 0))
+            else setHighlight(-1)
+            return next
+          })
+        }}
         onKeyDown={onKeyDown}
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
@@ -400,8 +409,8 @@ function StockBringIn() {
     return Object.keys(e).length === 0
   }
 
-  /** ---------- ===== Keyboard Flow: Enter ไล่โฟกัส ===== ---------- */
-  // สร้าง ref ให้ทุกช่องตามลำดับซ้าย -> ขวา
+  /** ---------- ===== Keyboard Flow: Enter ไล่โฟกัส + เปิด dropdown ถัดไป ===== ---------- */
+  // refs เรียงซ้าย -> ขวา
   const productRef = useRef(null)
   const speciesRef = useRef(null)
   const variantRef = useRef(null)
@@ -437,13 +446,24 @@ function StockBringIn() {
     []
   )
 
-  const focusNextFromRef = (refObj) => {
+  const focusNextAndOpenIfCombo = (refObj) => {
     const idx = orderedRefs.findIndex((r) => r === refObj)
     if (idx === -1) return
     for (let i = idx + 1; i < orderedRefs.length; i++) {
       const el = orderedRefs[i]?.current
       if (el && !el.disabled && typeof el.focus === "function") {
         el.focus()
+        // ถ้าเป็นปุ่มของ ComboBox ให้เปิด dropdown ทันที (ถ้ายังไม่เปิด)
+        const hasPopup = el.getAttribute?.("aria-haspopup")
+        if (hasPopup === "listbox") {
+          const expanded = el.getAttribute("aria-expanded") === "true"
+          if (!expanded) {
+            // เปิดหลังจากโฟกัสแล้ว 1 เฟรม
+            requestAnimationFrame(() => {
+              if (el.getAttribute("aria-expanded") !== "true") el.click()
+            })
+          }
+        }
         return
       }
     }
@@ -452,7 +472,7 @@ function StockBringIn() {
   const onEnterKey = (e, currentRef) => {
     if (e.key === "Enter") {
       e.preventDefault()
-      focusNextFromRef(currentRef)
+      focusNextAndOpenIfCombo(currentRef)
     }
   }
 
@@ -517,7 +537,7 @@ function StockBringIn() {
                 placeholder="— เลือกประเภทสินค้า —"
                 buttonRef={productRef}
                 enterMovesFocus
-                onEnterWhenClosed={() => focusNextFromRef(productRef)}
+                onEnterWhenClosed={() => focusNextAndOpenIfCombo(productRef)}
               />
               {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
             </div>
@@ -534,7 +554,7 @@ function StockBringIn() {
                 placeholder="— เลือกชนิดข้าว —"
                 buttonRef={speciesRef}
                 enterMovesFocus
-                onEnterWhenClosed={() => focusNextFromRef(speciesRef)}
+                onEnterWhenClosed={() => focusNextAndOpenIfCombo(speciesRef)}
               />
               {errors.species_id && <p className={errorTextCls}>{errors.species_id}</p>}
             </div>
@@ -551,7 +571,7 @@ function StockBringIn() {
                 placeholder="— เลือกชั้นย่อย —"
                 buttonRef={variantRef}
                 enterMovesFocus
-                onEnterWhenClosed={() => focusNextFromRef(variantRef)}
+                onEnterWhenClosed={() => focusNextAndOpenIfCombo(variantRef)}
               />
               {errors.variant_id && <p className={errorTextCls}>{errors.variant_id}</p>}
             </div>
@@ -565,7 +585,7 @@ function StockBringIn() {
                 placeholder="— เลือกปี/ฤดูกาล —"
                 buttonRef={yearRef}
                 enterMovesFocus
-                onEnterWhenClosed={() => focusNextFromRef(yearRef)}
+                onEnterWhenClosed={() => focusNextAndOpenIfCombo(yearRef)}
               />
               <p className={helpTextCls}>ไม่ระบุก็ได้</p>
             </div>
@@ -579,7 +599,7 @@ function StockBringIn() {
                 placeholder="— เลือกสภาพ/เงื่อนไข —"
                 buttonRef={conditionRef}
                 enterMovesFocus
-                onEnterWhenClosed={() => focusNextFromRef(conditionRef)}
+                onEnterWhenClosed={() => focusNextAndOpenIfCombo(conditionRef)}
               />
             </div>
 
@@ -592,7 +612,7 @@ function StockBringIn() {
                 placeholder="— เลือกประเภทนา —"
                 buttonRef={fieldTypeRef}
                 enterMovesFocus
-                onEnterWhenClosed={() => focusNextFromRef(fieldTypeRef)}
+                onEnterWhenClosed={() => focusNextAndOpenIfCombo(fieldTypeRef)}
               />
             </div>
 
@@ -605,7 +625,7 @@ function StockBringIn() {
                 placeholder="— เลือกโปรแกรม —"
                 buttonRef={programRef}
                 enterMovesFocus
-                onEnterWhenClosed={() => focusNextFromRef(programRef)}
+                onEnterWhenClosed={() => focusNextAndOpenIfCombo(programRef)}
               />
             </div>
 
@@ -618,7 +638,7 @@ function StockBringIn() {
                 placeholder="— เลือกประเภทธุรกิจ —"
                 buttonRef={businessRef}
                 enterMovesFocus
-                onEnterWhenClosed={() => focusNextFromRef(businessRef)}
+                onEnterWhenClosed={() => focusNextAndOpenIfCombo(businessRef)}
               />
             </div>
           </div>
@@ -640,7 +660,7 @@ function StockBringIn() {
                 placeholder="— เลือกคลัง —"
                 buttonRef={klangRef}
                 enterMovesFocus
-                onEnterWhenClosed={() => focusNextFromRef(klangRef)}
+                onEnterWhenClosed={() => focusNextAndOpenIfCombo(klangRef)}
               />
               {errors.co_klang && <p className={errorTextCls}>{errors.co_klang}</p>}
             </div>

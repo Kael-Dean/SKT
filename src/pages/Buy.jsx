@@ -107,7 +107,6 @@ const useEnterNavigation = (refs, buyerType, order) => {
     "memberId",
     "fullName","houseNo","moo","subdistrict","district","province",
     "postalCode","phone",
-    // NOTE: ลบ UI ช่อง FID/FID Owner/Relationship แล้ว → ไม่รวมอยู่ในลิสต์โฟกัส
   ]
   const companyOrder = [
     "companyName","taxId","companyPhone",
@@ -598,7 +597,7 @@ const Buy = () => {
     deptPostpone: useRef(null),
     deptPostponePeriod: useRef(null),
 
-    // ✅ ปุ่มบันทึกออเดอร์ (ใหม่ ใช้ให้ Enter ที่ "เป็นเงิน" โฟกัสมาที่นี่)
+    // ✅ ปุ่มบันทึกออเดอร์
     submitBtn: useRef(null),
   }
 
@@ -1131,7 +1130,7 @@ const Buy = () => {
     fetchByMemberId()
   }, [debouncedMemberId, buyerType])
 
-  /** ค้นหาด้วยเลขบัตร — คงไว้เพื่อเติมข้อมูล/ที่อยู่ (แต่ไม่ใช้สำหรับอ้างอิงตอนบันทึก) */
+  /** ค้นหาด้วยเลขบัตร — คงไว้เพื่อเติมข้อมูล/ที่อยู่ */
   useEffect(() => {
     if (buyerType !== "person") {
       setCustomerFound(null)
@@ -1139,7 +1138,6 @@ const Buy = () => {
       return
     }
     const cid = onlyDigits(debouncedCitizenId)
-    // NEW: avoid overriding if a person is already chosen or citizen_id is 000... (ambiguous shared value)
     if (memberMeta.memberId || memberMeta.assoId) return
     if (/^0{13}$/.test(cid)) { setCustomerFound(null); return }
     if (cid.length !== 13) {
@@ -1155,7 +1153,6 @@ const Buy = () => {
           await fillFromRecord(exact)
         } else {
           setCustomerFound(false)
-          // ถ้าค้นไม่เจอ เราไม่สร้างลูกค้าใหม่อัตโนมัติ เพราะ BE ต้องการ member_id/asso_id
           setMemberMeta({ type: "customer", assoId: null, memberId: null })
         }
       } catch (e) {
@@ -1389,11 +1386,9 @@ const Buy = () => {
 
     if (buyerType === "person") {
       if (!customer.fullName.trim()) m.fullName = true
-      // ❌ ยกเลิกการบังคับที่อยู่/เบอร์: houseNo, moo, subdistrict, district, province, postalCode, phone
     } else {
       if (!customer.companyName.trim()) m.companyName = true
       if (!customer.taxId.trim()) m.taxId = true
-      // ❌ ไม่บังคับ HQ address
     }
 
     // ✅ ฟิลด์ที่จำเป็นกับ BE/รีเควสต์
@@ -1406,7 +1401,7 @@ const Buy = () => {
     if (!order.conditionId) m.condition = true
     if (!order.fieldTypeId) m.fieldType = true
     if (!order.riceYearId) m.riceYear = true
-    if (!order.programId) m.program = true                 // ⬅️ เพิ่มโปรแกรม
+    if (!order.programId) m.program = true
     if (!order.businessTypeId) m.businessType = true
     if (!order.branchName) m.branchName = true
     if (!order.klangName) m.klangName = true
@@ -1418,7 +1413,6 @@ const Buy = () => {
     if (!order.exitWeightKg || Number(order.exitWeightKg) <= 0) m.exitWeightKg = true
     if (grossFromScale <= 0) m.netFromScale = true
 
-    // ⬅️ เพิ่มตัวเลขที่ต้องกรอกตามรีเควสต์
     if (String(order.moisturePct).trim() === "") m.moisturePct = true
     if (String(order.impurityPct).trim() === "") m.impurityPct = true
     if (String(order.gram).trim() === "") m.gram = true
@@ -1476,17 +1470,27 @@ const Buy = () => {
     }
   }, [formTemplate, riceOptions]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ⭐ เพิ่ม: ฟอร์ม 17 ตค → ตั้งชั้นย่อย = ดอกมะลิ 105
+  // ⭐ ปรับให้ robust: ฟอร์ม 17 ตค → ตั้งชั้นย่อย = ดอกมะลิ105 (รองรับมี/ไม่มีช่องว่าง และชื่ออังกฤษ)
   useEffect(() => {
     if (formTemplate !== "1") return
     if (subriceOptions.length === 0) return
-    const target = subriceOptions.find((s) => s.label.includes("ดอกมะลิ 105"))
+    const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, "")
+    const isDokMali105 = (label) => {
+      const t = norm(label)
+      return (
+        t.includes("ดอกมะลิ105") ||
+        t.includes("หอมมะลิ105") ||
+        t.includes("kdml105") ||
+        t.includes("jasmine105")
+      )
+    }
+    const target = subriceOptions.find((s) => isDokMali105(s.label))
     if (target && order.subriceId !== target.id) {
       setOrder((p) => ({ ...p, subriceId: target.id, subriceName: target.label }))
     }
   }, [formTemplate, subriceOptions]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ⭐ เพิ่ม: ฟอร์ม 17 ตค → ตั้ง Condition/FieldType/Year/Program/Business
+  // ⭐ ฟอร์ม 17 ตค → ตั้ง Condition/FieldType/Year/Program/Business
   useEffect(() => {
     if (formTemplate !== "1") return
 
@@ -1520,27 +1524,22 @@ const Buy = () => {
     applyIfFound(programOptions, "ปกติ", (f) =>
       setOrder((p) => ({ ...p, programId: f.id, programName: f.label }))
     )
-  }, [formTemplate, conditionOptions, fieldTypeOptions, yearOptions, programOptions, businessOptions]) // eslint-disable-line
+  }, [formTemplate, conditionOptions, fieldTypeOptions, yearOptions, programOptions, businessOptions])
 
   /** ---------- Validation ---------- */
   const validateAll = () => {
     const e = {}
 
     if (buyerType === "person") {
-      // (allow invalid citizenId; warn only in UI) -- removed blocking validation
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
-      // ❌ ไม่บังคับกรอกที่อยู่แล้ว
-      // ⭐ แจ้งเตือนถ้าไม่พบทั้ง member_id และ asso_id (เพื่อให้สอดคล้อง BE)
       if (!toIntOrNull(memberMeta.memberId ?? customer.memberId) && !memberMeta.assoId) {
         e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกจากรายชื่อที่มี asso_id"
       }
     } else {
       if (!customer.companyName.trim()) e.companyName = "กรุณากรอกชื่อบริษัท"
       if (!customer.taxId.trim() || !validateThaiTaxId(customer.taxId)) e.taxId = "กรุณากรอกเลขผู้เสียภาษี (13 หลัก)"
-      // ❌ ไม่บังคับกรอกที่อยู่สำนักงานใหญ่แล้ว
     }
 
-    // ✅ ให้ลำดับการเช็คตรงกับ "บนลงล่าง" ใน UI: วิธีชำระเงิน/ลงวันที่ มาก่อนรายละเอียดซื้อ
     const pid = resolvePaymentId()
     if (!pid) e.payment = "เลือกวิธีชำระเงิน"
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
@@ -1551,7 +1550,7 @@ const Buy = () => {
     if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข"
     if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"
     if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"
-    if (!order.programId) e.program = "เลือกโปรแกรม"                  // ⬅️ บังคับโปรแกรม
+    if (!order.programId) e.program = "เลือกโปรแกรม"
     if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ"
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
@@ -1562,7 +1561,6 @@ const Buy = () => {
     if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0))
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
 
-    // ⬅️ เพิ่มตัวเลขที่ต้องกรอกตามรีเควสต์
     if (order.moisturePct === "" || isNaN(Number(order.moisturePct))) e.moisturePct = "กรอกความชื้น (%)"
     if (order.impurityPct === "" || isNaN(Number(order.impurityPct))) e.impurityPct = "กรอกสิ่งเจือปน (%)"
     if (order.gram === "" || isNaN(Number(order.gram))) e.gram = "กรอกคุณภาพข้าว (gram)"
@@ -1575,12 +1573,11 @@ const Buy = () => {
     return e
   }
 
-  // ✅ เลื่อนโฟกัสไป "ช่องที่ขาดตัวบนสุด" ตามลำดับบนลงล่าง (รวม customer + order)
+  // ✅ เลื่อนโฟกัสไป "ช่องที่ขาดตัวบนสุด"
   const scrollToFirstError = (eObj) => {
-    const personKeys = ["memberId", "fullName"] // ❌ ตัด address aggregator ออก
-    const companyKeys = ["companyName", "taxId"] // ❌ ตัด hqAddress ออก
+    const personKeys = ["memberId", "fullName"]
+    const companyKeys = ["companyName", "taxId"]
 
-    // ออเดอร์: จัดลำดับจาก "บนสุด" ของหน้า
     const commonOrderKeys = [
       "payment","issueDate",
       "product","riceType","subrice","condition","fieldType","riceYear","program","businessType",
@@ -1601,10 +1598,10 @@ const Buy = () => {
     }
   }
 
-  // ✅ กรณี error ไม่มี แต่ยังมี "ช่องจำเป็นของ BE" ใน missingHints → โฟกัสตัวแรกตามลำดับบนลงล่าง
+  // ✅ โฟกัสตัวแรกตาม missing hints
   const scrollToFirstMissing = (hintsObj) => {
-    const personKeys = ["memberId","fullName"] // ❌ เอาที่อยู่/เบอร์ออก
-    const companyKeys = ["companyName","taxId"] // ❌ เอา HQ address ออก
+    const personKeys = ["memberId","fullName"]
+    const companyKeys = ["companyName","taxId"]
     const commonOrderKeys = [
       "payment","issueDate",
       "product","riceType","subrice","condition","fieldType","riceYear","program","businessType",
@@ -1635,12 +1632,10 @@ const Buy = () => {
     setMissingHints(hints)
     const eObj = validateAll()
 
-    // ถ้าขาด → โฟกัสช่องบนสุดที่ขาด (เรียงบนลงล่าง)
     if (Object.keys(eObj).length > 0) {
       scrollToFirstError(eObj)
       return
     }
-    // เผื่อกรณี errors ว่าง แต่ hints ยังมี (เช่น case บางอันกำหนดเป็น hint)
     if (Object.values(hints).some(Boolean)) {
       scrollToFirstMissing(hints)
       return
@@ -1669,7 +1664,7 @@ const Buy = () => {
     if (!riceYearId) return scrollToFirstError({ riceYear: true })
     if (!conditionId) return scrollToFirstError({ condition: true })
     if (!fieldTypeId) return scrollToFirstError({ fieldType: true })
-    if (!programId) return scrollToFirstError({ program: true })              // ⬅️ บังคับโปรแกรม
+    if (!programId) return scrollToFirstError({ program: true })
     if (!businessTypeId) return scrollToFirstError({ businessType: true })
     if (!branchId) return scrollToFirstError({ branchName: true })
     if (!klangId) return scrollToFirstError({ klangName: true })
@@ -1875,13 +1870,13 @@ const Buy = () => {
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
 
-        {/* กล่องข้อมูลลูกค้า (ครอบยาวถึงฟิลด์ จังหวัด/รหัสไปรษณีย์/เบอร์โทร) */}
+        {/* กล่องข้อมูลลูกค้า */}
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           {/* แถบหัวข้อ + สถานะ + ดรอปดาวฟอร์ม + ประเภทผู้ซื้อ */}
           <div className="mb-3 flex flex-wrap items-start gap-2">
             <h2 className="text-xl font-semibold">ข้อมูลลูกค้า</h2>
 
-            {/* Badge สถานะ — แสดงเฉพาะโหมดบุคคล */}
+            {/* Badge สถานะ — เฉพาะโหมดบุคคล */}
             {buyerType === "person" ? (
               memberMeta.type === "member" ? (
                 <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60 self-start">
@@ -1948,7 +1943,7 @@ const Buy = () => {
             </div>
           </div>
 
-          {/* วิธีชำระเงิน + วันที่ + ใบชั่ง/ใบเบิกเงิน (ย้ายขึ้นมาด้านขวา) */}
+          {/* วิธีชำระเงิน + วันที่ + ใบชั่ง/ใบเบิกเงิน */}
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>วิธีชำระเงิน</label>
@@ -1958,7 +1953,6 @@ const Buy = () => {
                 onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
                 placeholder="— เลือกวิธีชำระเงิน —"
                 buttonRef={refs.payment}
-                // ✅ เปลี่ยน flow: Enter ที่ "วิธีชำระเงิน" → โฟกัส "เลขที่ใบชั่ง/ใบเบิกเงิน"
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.paymentRefNo?.current
@@ -1992,7 +1986,6 @@ const Buy = () => {
               {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
             </div>
 
-            {/* ⬆️ ย้ายขึ้นมาไว้ด้านขวาของวันที่ */}
             <div>
               <label className={labelCls}>เลขที่ใบชั่ง/ใบเบิกเงิน</label>
               <input
@@ -2001,7 +1994,6 @@ const Buy = () => {
                 value={order.paymentRefNo}
                 onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
                 onFocus={() => clearHint("paymentRefNo")}
-                // ✅ เปลี่ยน flow: Enter ที่ "เลขที่ใบชั่ง/ใบเบิกเงิน" → โฟกัส "ชื่อ–สกุล"/"ชื่อบริษัท"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.isComposing) {
                     e.preventDefault()
@@ -2051,7 +2043,7 @@ const Buy = () => {
                 </div>
               </div>
 
-              {/* ⭐ ใหม่: member_id */}
+              {/* ⭐ member_id */}
               <div>
                 <label className={labelCls}>รหัสสมาชิก (member_id)</label>
                 <input
@@ -2166,7 +2158,7 @@ const Buy = () => {
                   <label className={labelCls}>{label}</label>
                   <input
                     ref={refs[k]}
-                    className={cx(baseField, compactInput /* ไม่มีแดงแล้ว */)}
+                    className={cx(baseField, compactInput)}
                     value={customer[k]}
                     onChange={(e) => updateCustomer(k, e.target.value)}
                     onFocus={() => clearHint(k)}
@@ -2205,11 +2197,9 @@ const Buy = () => {
                 />
                 <p className={helpTextCls}></p>
               </div>
-
-              {/* ⬇️ ลบ UI: FID/FID Owner/Relationship */}
             </div>
           ) : (
-            /* -------------------- โหมดบริษัท / นิติบุคคล -------------------- */
+            /* -------------------- โหมดบริษัท -------------------- */
             <div className="mt-4 md:col-span-2" ref={companyBoxRef}>
               <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
               <input
@@ -2544,7 +2534,6 @@ const Buy = () => {
                 hintRed={!!missingHints.program}
                 clearHint={() => { clearHint("program"); clearError("program") }}
                 disabled={formTemplate === "1"} // ⬅️ ล็อก
-                // ✅ โปรแกรม → โฟกัส "สาขา"
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.branchName?.current
@@ -2586,7 +2575,6 @@ const Buy = () => {
                 hintRed={!!missingHints.branchName}
                 clearHint={() => clearHint("branchName")}
                 buttonRef={refs.branchName}
-                // ✅ สาขา → โฟกัส "คลัง"
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.klangName?.current
@@ -2624,7 +2612,6 @@ const Buy = () => {
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
-                // ✅ คลัง → โฟกัส "น้ำหนักก่อนชั่ง"
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.entryWeightKg?.current
@@ -2819,7 +2806,6 @@ const Buy = () => {
                     clearHint("amountTHB")
                     clearError("amountTHB")
                   }}
-                  // ✅ ใหม่: กด Enter ที่ "เป็นเงิน" → โฟกัสปุ่ม "บันทึกออเดอร์"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.isComposing) {
                       e.preventDefault()
@@ -2836,8 +2822,6 @@ const Buy = () => {
                 {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(moneyToNumber(order.amountTHB))}</p>}
                 {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
               </div>
-
-              {/* ⬇️ ย้าย “เลขที่ใบชั่ง/ใบเบิกเงิน” ออก (ไปอยู่ด้านบนแล้ว) */}
             </div>
           </div>
 
@@ -2925,7 +2909,7 @@ const Buy = () => {
               className={cx(baseField)}
               value={order.comment}
               onChange={(e) => updateOrder("comment", e.target.value)}
-              onKeyDown={onEnter("comment")} // (กด Shift+Enter = เว้นบรรทัด, Enter = ไปช่องถัดไป)
+              onKeyDown={onEnter("comment")}
               placeholder="เช่น ลูกค้าขอรับเงินโอนพรุ่งนี้, ความชื้นวัดซ้ำรอบบ่าย, ฯลฯ"
             />
             <p className={helpTextCls}>ข้อความนี้จะถูกส่งไปเก็บในออเดอร์ด้วย</p>
@@ -2934,7 +2918,7 @@ const Buy = () => {
           {/* ปุ่ม */}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
-              ref={refs.submitBtn} // ✅ ให้ Enter ในช่อง “เป็นเงิน” โฟกัสมาที่ปุ่มนี้
+              ref={refs.submitBtn}
               type="submit"
               className="inline-flex items-center justify-center rounded-2xl 
                 bg-emerald-600 px-6 py-3 text-base font-semibold text-white

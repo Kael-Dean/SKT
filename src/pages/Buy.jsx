@@ -640,6 +640,10 @@ const Buy = () => {
 
   /** ▼ จุดยึดบนสุดของหน้า (สำหรับ scroll ภายใน container) */
   const pageTopRef = useRef(null)
+  /** ========= ยกเลิกผลลัพธ์ async เก่าหลังบันทึก/รีเซ็ต (ป้องกันออโต้ฟิลย้อนกลับ) ========= */
+  const searchEpochRef = useRef(0)
+  const bumpSearchEpoch = () => { searchEpochRef.current += 1 }
+
 
   /** โหลดค่า Template ล่าสุดจาก localStorage */
   useEffect(() => {
@@ -679,6 +683,7 @@ const Buy = () => {
 
   /** 🔎 helper: ดึงที่อยู่+ข้อมูลบุคคลจาก citizen_id */
   const loadAddressByCitizenId = async (cid) => {
+    const __epoch = searchEpochRef.current
     const q = encodeURIComponent(onlyDigits(cid))
     const candidates = [
       `/order/customer/detail?citizen_id=${q}`,
@@ -689,6 +694,7 @@ const Buy = () => {
       `/order/customers/search?q=${q}`,
     ]
     const data = await fetchFirstOkJson(candidates)
+    if (__epoch !== searchEpochRef.current) return
 
     const toStr = (v) => (v == null ? "" : String(v))
     const addr = {
@@ -723,6 +729,7 @@ const Buy = () => {
       addr.fidOwner ||
       addr.fidRelationship
     ) {
+      if (__epoch !== searchEpochRef.current) return
       setCustomer((prev) => ({
         ...prev,
         fullName:
@@ -962,12 +969,16 @@ const Buy = () => {
     }
 
     const searchCompany = async () => {
+    const __epoch = searchEpochRef.current
       try {
         setLoadingCustomer(true)
         const items = (await apiAuth(`/order/companies/search?q=${encodeURIComponent(q)}`)) || []
+        if (__epoch !== searchEpochRef.current) return
         setCompanyResults(items)
         if (document.activeElement === companyInputRef.current) {
+          if (__epoch !== searchEpochRef.current) return
           setShowCompanyList(true)
+          if (__epoch !== searchEpochRef.current) return
           setCompanyHighlighted(items.length > 0 ? 0 : -1)
         }
       } catch (err) {
@@ -988,10 +999,12 @@ const Buy = () => {
     const tid = onlyDigits(debouncedTaxId)
     if (tid.length !== 13) return
     const searchByTax = async () => {
+    const __epoch = searchEpochRef.current
       try {
         setLoadingCustomer(true)
         const items = (await apiAuth(`/order/companies/search?q=${encodeURIComponent(tid)}`)) || []
         if (items.length > 0) {
+          if (__epoch !== searchEpochRef.current) return
           await pickCompanyResult(items[0]) // auto-fill เมื่อภาษีตรง
         }
       } catch (e) {
@@ -1137,7 +1150,9 @@ const Buy = () => {
 
   /** เติมจากเรคอร์ด (เฉพาะบุคคล) */
   const fillFromRecord = async (raw = {}) => {
+    const __epoch = searchEpochRef.current
     const data = mapSimplePersonToUI(raw)
+    if (__epoch !== searchEpochRef.current) return
     setCustomer((prev) => ({
       ...prev,
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
@@ -1149,6 +1164,7 @@ const Buy = () => {
       fidRelationship: data.fidRelationship || prev.fidRelationship,
       memberId: data.memberId != null ? String(data.memberId) : prev.memberId, // ใส่ใน input ด้วย
     }))
+    if (__epoch !== searchEpochRef.current) return
     setMemberMeta({ type: data.type, assoId: data.assoId, memberId: data.memberId })
     setCustomerFound(true)
 
@@ -1183,20 +1199,30 @@ const Buy = () => {
     const mid = toIntOrNull(debouncedMemberId)
     if (mid == null || mid <= 0) return
     const fetchByMemberId = async () => {
+    const __epoch = searchEpochRef.current
       try {
         setLoadingCustomer(true)
         const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(String(mid))}`)) || []
         const exact = arr.find((r) => r.type === "member" && toIntOrNull(r.member_id) === mid) || arr[0]
         if (exact) {
+          if (__epoch !== searchEpochRef.current) return
           await fillFromRecord(exact)
         } else {
+          if (__epoch !== searchEpochRef.current) return
+          if (__epoch !== searchEpochRef.current) return
           setCustomerFound(false)
+          if (__epoch !== searchEpochRef.current) return
+          if (__epoch !== searchEpochRef.current) return
           setMemberMeta({ type: "customer", assoId: null, memberId: null })
         }
       } catch (e) {
         console.error(e)
-        setCustomerFound(false)
-        setMemberMeta({ type: "customer", assoId: null, memberId: null })
+        if (__epoch !== searchEpochRef.current) return
+          if (__epoch !== searchEpochRef.current) return
+          setCustomerFound(false)
+        if (__epoch !== searchEpochRef.current) return
+          if (__epoch !== searchEpochRef.current) return
+          setMemberMeta({ type: "customer", assoId: null, memberId: null })
       } finally {
         setLoadingCustomer(false)
       }
@@ -1219,20 +1245,30 @@ const Buy = () => {
       return
     }
     const fetchByCid = async () => {
+    const __epoch = searchEpochRef.current
       try {
         setLoadingCustomer(true)
         const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(cid)}`)) || []
         const exact = arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
         if (exact) {
+          if (__epoch !== searchEpochRef.current) return
           await fillFromRecord(exact)
         } else {
+          if (__epoch !== searchEpochRef.current) return
+          if (__epoch !== searchEpochRef.current) return
           setCustomerFound(false)
+          if (__epoch !== searchEpochRef.current) return
+          if (__epoch !== searchEpochRef.current) return
           setMemberMeta({ type: "customer", assoId: null, memberId: null })
         }
       } catch (e) {
         console.error(e)
-        setCustomerFound(false)
-        setMemberMeta({ type: "customer", assoId: null, memberId: null })
+        if (__epoch !== searchEpochRef.current) return
+          if (__epoch !== searchEpochRef.current) return
+          setCustomerFound(false)
+        if (__epoch !== searchEpochRef.current) return
+          if (__epoch !== searchEpochRef.current) return
+          setMemberMeta({ type: "customer", assoId: null, memberId: null })
       } finally {
         setLoadingCustomer(false)
       }
@@ -1267,6 +1303,7 @@ const Buy = () => {
     }
 
     const searchByName = async () => {
+    const __epoch = searchEpochRef.current
       try {
         setLoadingCustomer(true)
         const items = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(q)}`)) || []
@@ -1290,9 +1327,12 @@ const Buy = () => {
           fid_owner: r.fid_owner ?? r.fidowner ?? "",
           fid_relationship: r.fid_relationship ?? r.fidreationship ?? null,
         }))
+        if (__epoch !== searchEpochRef.current) return
         setNameResults(mapped)
         if (document.activeElement === nameInputRef.current) {
+          if (__epoch !== searchEpochRef.current) return
           setShowNameList(true)
+          if (__epoch !== searchEpochRef.current) return
           setHighlightedIndex(mapped.length > 0 ? 0 : -1)
         }
       } catch (err) {
@@ -1702,6 +1742,8 @@ const Buy = () => {
 
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
+    // ยกเลิกผลลัพธ์ async เก่าที่อาจย้อนกลับมาหลังบันทึก
+    bumpSearchEpoch()
     e.preventDefault()
 
     // ⬆️ เด้งขึ้นบนสุด “ทันที” เมื่อกดบันทึก (ครอบคลุมกรณีกด Enter ด้วย)
@@ -1855,6 +1897,14 @@ const Buy = () => {
   }
 
   const handleReset = () => {
+    // ปิดระบบ auto-search ชั่วคราวระหว่างรีเซ็ตเพื่อไม่ให้มี auto-fill
+    try { suppressNameSearchRef.current = true; } catch {}
+    try { companySuppressSearchRef.current = true; } catch {}
+
+    // ปิดออโต้ฟิลและยกเลิกผล async เก่าทันที
+    bumpSearchEpoch()
+    try { suppressNameSearchRef.current = true } catch (__) {}
+    try { companySuppressSearchRef.current = true } catch (__) {}
     setErrors({})
     setMissingHints({})
     setCustomerFound(null)
@@ -2173,8 +2223,9 @@ const Buy = () => {
                   value={customer.fullName}
                   onChange={(e) => {
                     updateCustomer("fullName", e.target.value)
-                    if (e.target.value.trim().length >= 2) setShowNameList(true)
-                    else {
+                    if (e.target.value.trim().length >= 2) {
+                      setShowNameList(true)
+                    } else {
                       setShowNameList(false)
                       setHighlightedIndex(-1)
                     }
@@ -2309,8 +2360,9 @@ const Buy = () => {
                 onChange={(e) => {
                   updateCustomer("companyName", e.target.value)
                   if (buyerType === "company") {
-                    if (e.target.value.trim().length >= 2) setShowCompanyList(true)
-                    else {
+                    if (e.target.value.trim().length >= 2) {
+                      setShowCompanyList(true)
+                    } else {
                       setShowCompanyList(false)
                       setCompanyHighlighted(-1)
                     }
@@ -2988,7 +3040,7 @@ const Buy = () => {
                     {customer.fullName || "—"}
                   </div>
                 </div>
-                <div className="rounded-2xl bg-white p-4 text-black shadow_sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
                   <div className="text-slate-600 dark:text-slate-300">member_id</div>
                   <div className="text-lg md:text-xl font-semibold">{memberMeta.memberId ?? (customer.memberId?.trim() || "-")}</div>
                 </div>
@@ -2999,7 +3051,7 @@ const Buy = () => {
                   <div className="text-slate-600 dark:text-slate-300">บริษัท/นิติบุคคล</div>
                   <div className="text-lg md:text-xl font-semibold">{customer.companyName || "—"}</div>
                 </div>
-                <div className="rounded-2xl bg_white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
                   <div className="text-slate-600 dark:text-slate-300">เลขที่ผู้เสียภาษี</div>
                   <div className="text-lg md:text-xl font-semibold">{customer.taxId || "—"}</div>
                 </div>

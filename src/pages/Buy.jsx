@@ -116,7 +116,7 @@ const useEnterNavigation = (refs, buyerType, order) => {
 
   // รายการฝั่งออเดอร์
   const orderOrder = [
-    "product","riceType","subrice","condition","fieldType","riceYear","program",
+    "product","riceType","subrice","condition","fieldType","riceYear","businessType","program",
     "branchName","klangName",
     "entryWeightKg","exitWeightKg","moisturePct","impurityPct","deductWeightKg","gram",
     "unitPrice","amountTHB","paymentRefNo","comment",
@@ -2549,7 +2549,25 @@ const Buy = () => {
                 clearHint={() => clearHint("riceYear")}
                 buttonRef={refs.riceYear}
                 disabled={formTemplate === "1"} // ⬅️ ล็อก
-                onEnterNext={() => focusNext("riceYear")}
+                onEnterNext={() => {
+                  // ปี/ฤดูกาล -> ประเภทธุรกิจ (ถ้าใช้ไม่ได้ ข้ามไป โปรแกรม -> สาขา -> คลัง)
+                  const tryFocus = () => {
+                    const keys = ["businessType", "program", "branchName", "klangName"]
+                    for (const k of keys) {
+                      const el = refs[k]?.current
+                      if (el && isEnabledInput(el)) {
+                        try { el.scrollIntoView({ block: "center" }) } catch {}
+                        el.focus?.()
+                        try { el.select?.() } catch {}
+                        return true
+                      }
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 180)
+                }}
               />
               {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
             </div>
@@ -2574,7 +2592,32 @@ const Buy = () => {
                 clearHint={() => clearHint("businessType")}
                 buttonRef={refs.businessType}
                 disabled={formTemplate === "1"} // ⬅️ ล็อก
-                onEnterNext={() => focusNext("businessType")}
+                onEnterNext={() => {
+                  // ประเภทธุรกิจ -> โปรแกรม (fallback: สาขา/คลัง ถ้าโปรแกรมใช้ไม่ได้)
+                  const tryFocus = () => {
+                    const el = refs.program?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.()
+                      try { el.select?.() } catch {}
+                      return true
+                    }
+                    const fallback = ["branchName","klangName"]
+                    for (const k of fallback) {
+                      const e2 = refs[k]?.current
+                      if (e2 && isEnabledInput(e2)) {
+                        try { e2.scrollIntoView({ block: "center" }) } catch {}
+                        e2.focus?.()
+                        try { e2.select?.() } catch {}
+                        return true
+                      }
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 80)
+                  setTimeout(tryFocus, 200)
+                }}
               />
               {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
             </div>
@@ -2582,38 +2625,46 @@ const Buy = () => {
             <div>
               <label className={labelCls}>โปรแกรม</label>
               <ComboBox
-            options={programOptions}
-            value={order.programId}
-            getValue={(o) => o.id}
-            onChange={(_id, found) =>
-              setOrder((p) => ({
-                ...p,
-                programId: found?.id ?? "",
-                programName: found?.label ?? "",
-              }))
-            }
-            placeholder="— เลือกโปรแกรม —"
-            buttonRef={refs.program}
-            error={!!errors.program}
-            hintRed={!!missingHints.program}
-            clearHint={() => { clearHint("program"); clearError("program") }}
-            disabled={formTemplate === "1"}
-            onEnterNext={() => {
-              const focusBranch = () => {
-                const el = refs.branchName?.current
-                if (el && isEnabledInput(el)) {
-                  try { el.scrollIntoView({ block: "center" }) } catch {}
-                  el.focus?.()
-                  try { el.select?.() } catch {}
-                  return true
+                options={programOptions}
+                value={order.programId}
+                getValue={(o) => o.id}
+                onChange={(_id, found) =>
+                  setOrder((p) => ({
+                    ...p,
+                    programId: found?.id ?? "",
+                    programName: found?.label ?? "",
+                  }))
                 }
-                return false
-              }
-              if (focusBranch()) return
-              setTimeout(focusBranch, 100)
-              setTimeout(focusBranch, 250)
-            }}
-          />
+                placeholder="— เลือกโปรแกรม —"
+                buttonRef={refs.program}
+                error={!!errors.program}
+                hintRed={!!missingHints.program}
+                clearHint={() => { clearHint("program"); clearError("program") }}
+                disabled={formTemplate === "1"}
+                onEnterNext={() => {
+                  // โปรแกรม -> คลัง (ถ้าคลังยังใช้ไม่ได้ ให้ไปสาขาก่อน)
+                  const focusKlang = () => {
+                    const elK = refs.klangName?.current
+                    if (elK && isEnabledInput(elK)) {
+                      try { elK.scrollIntoView({ block: "center" }) } catch {}
+                      elK.focus?.()
+                      try { elK.select?.() } catch {}
+                      return true
+                    }
+                    const elB = refs.branchName?.current
+                    if (elB && isEnabledInput(elB)) {
+                      try { elB.scrollIntoView({ block: "center" }) } catch {}
+                      elB.focus?.()
+                      try { elB.select?.() } catch {}
+                      return true
+                    }
+                    return false
+                  }
+                  if (focusKlang()) return
+                  setTimeout(focusKlang, 100)
+                  setTimeout(focusKlang, 250)
+                }}
+              />
 
               {errors.program && <p className={errorTextCls}>{errors.program}</p>}
             </div>
@@ -2652,6 +2703,7 @@ const Buy = () => {
                     if (el && isEnabledInput(el)) {
                       try { el.scrollIntoView({ block: "center" }) } catch {}
                       el.focus?.()
+                      try { el.select?.() } catch {}
                       return true
                     }
                     return false

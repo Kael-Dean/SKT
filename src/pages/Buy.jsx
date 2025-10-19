@@ -1648,7 +1648,7 @@ const Buy = () => {
     return e
   }
 
-  // ✅ เลื่อนโฟกัสไป "ช่องที่ขาดตัวบนสุด"
+  // ✅ เลื่อนโฟกัสไป "ช่องที่ขาดตัวบนสุด" (โฟกัสโดย **ไม่เลื่อนจอ**)
   const scrollToFirstError = (eObj) => {
     const personKeys = ["memberId", "fullName"]
     const companyKeys = ["companyName", "taxId"]
@@ -1667,13 +1667,12 @@ const Buy = () => {
 
     const el = refs[keyToFocus]?.current || (firstKey === "payment" ? refs.payment?.current : null)
     if (el && typeof el.focus === "function") {
-      try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
-      el.focus()
+      try { el.focus({ preventScroll: true }) } catch { el.focus() }
       try { el.select?.() } catch {}
     }
   }
 
-  // ✅ โฟกัสตัวแรกตาม missing hints
+  // ✅ โฟกัสตัวแรกตาม missing hints (โฟกัสโดย **ไม่เลื่อนจอ**)
   const scrollToFirstMissing = (hintsObj) => {
     const personKeys = ["memberId","fullName"]
     const companyKeys = ["companyName","taxId"]
@@ -1688,8 +1687,7 @@ const Buy = () => {
     if (!firstKey) return
     const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
     if (el && typeof el.focus === "function") {
-      try { el.scrollIntoView({ block: "center" }) } catch {}
-      el.focus()
+      try { el.focus({ preventScroll: true }) } catch { el.focus() }
       try { el.select?.() } catch {}
     }
   }
@@ -1703,16 +1701,19 @@ const Buy = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
+    // ⬆️ เด้งขึ้นบนสุด “ทันที” เมื่อกดบันทึก (ครอบคลุมกรณีกด Enter ด้วย)
+    scrollToPageTop()
+
     const hints = computeMissingHints()
     setMissingHints(hints)
     const eObj = validateAll()
 
     if (Object.keys(eObj).length > 0) {
-      scrollToFirstError(eObj)
+      scrollToFirstError(eObj) // โฟกัสโดยไม่เลื่อนจอ
       return
     }
     if (Object.values(hints).some(Boolean)) {
-      scrollToFirstMissing(hints)
+      scrollToFirstMissing(hints) // โฟกัสโดยไม่เลื่อนจอ
       return
     }
 
@@ -2039,8 +2040,7 @@ const Buy = () => {
                 options={paymentOptions}
                 value={order.paymentMethodId || ""}
                 onChange={(id, found) =>
-                  setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "", paymentMethodId: id }))
-                }
+                  setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "", paymentMethodId: id }))}
                 placeholder="— เลือกวิธีชำระเงิน —"
                 buttonRef={refs.payment}
                 onEnterNext={() => {
@@ -3065,6 +3065,7 @@ const Buy = () => {
             <button
               ref={refs.submitBtn}
               type="submit"
+              onClick={scrollToPageTop} // ⬆️ เด้งขึ้นบนสุดทันทีเมื่อคลิกปุ่ม (เสริมจากใน handleSubmit)
               className="inline-flex items-center justify-center rounded-2xl 
                 bg-emerald-600 px-6 py-3 text-base font-semibold text-white
                 shadow-[0_6px_16px_rgba(16,185,129,0.35)]

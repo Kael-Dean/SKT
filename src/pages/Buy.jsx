@@ -117,7 +117,7 @@ const useEnterNavigation = (refs, buyerType, order) => {
 
   // รายการฝั่งออเดอร์
   const orderOrder = [
-    "product","riceType","subrice","condition","fieldType","riceYear","businessType","program",
+    "product","riceType","subrice","condition","fieldType","riceYear","program",
     "branchName","klangName",
     "entryWeightKg","exitWeightKg","moisturePct","impurityPct","deductWeightKg","gram",
     "unitPrice","amountTHB","paymentRefNo","comment",
@@ -422,7 +422,8 @@ const Buy = () => {
   /** ▶︎ ฟอร์มสำเร็จรูป (Template) */
   const templateOptions = [
     { id: "0", label: "— ฟอร์มปกติ —" },
-    { id: "1", label: "รหัส 1 • ข้าวหอมมะลิ" },
+    // ⬇️ เปลี่ยนชื่อรหัส 1 ตามรีเควสต์
+    { id: "1", label: "ฟอร์ม 17 ตค" },
     { id: "2", label: "รหัส 2 • ข้าวเหนียว" },
     { id: "3", label: "รหัส 3 • เมล็ดพันธุ์" },
   ]
@@ -1440,7 +1441,7 @@ const Buy = () => {
   /** ---------- Template effects ---------- */
   const isTemplateActive = formTemplate !== "0"
 
-  // เมื่อเปลี่ยน Template → บังคับเลือก "ประเภทสินค้า: ข้าวเปลือก"
+  // เมื่อเปลี่ยน Template (รหัส 1 = ฟอร์ม 17 ตค) → บังคับเลือก "ประเภทสินค้า: ข้าวเปลือก"
   useEffect(() => {
     if (!isTemplateActive) return
     if (productOptions.length === 0) return
@@ -1475,6 +1476,52 @@ const Buy = () => {
     }
   }, [formTemplate, riceOptions]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ⭐ เพิ่ม: ฟอร์ม 17 ตค → ตั้งชั้นย่อย = ดอกมะลิ 105
+  useEffect(() => {
+    if (formTemplate !== "1") return
+    if (subriceOptions.length === 0) return
+    const target = subriceOptions.find((s) => s.label.includes("ดอกมะลิ 105"))
+    if (target && order.subriceId !== target.id) {
+      setOrder((p) => ({ ...p, subriceId: target.id, subriceName: target.label }))
+    }
+  }, [formTemplate, subriceOptions]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ⭐ เพิ่ม: ฟอร์ม 17 ตค → ตั้ง Condition/FieldType/Year/Program/Business
+  useEffect(() => {
+    if (formTemplate !== "1") return
+
+    const applyIfFound = (opts, includesText, setter) => {
+      if (!Array.isArray(opts) || opts.length === 0) return
+      const found = opts.find((o) => (o.label || "").includes(includesText))
+      if (found) setter(found)
+    }
+
+    // condition = แห้ง
+    applyIfFound(conditionOptions, "แห้ง", (f) =>
+      setOrder((p) => ({ ...p, conditionId: f.id, condition: f.label }))
+    )
+
+    // field type = นาปี
+    applyIfFound(fieldTypeOptions, "นาปี", (f) =>
+      setOrder((p) => ({ ...p, fieldTypeId: f.id, fieldType: f.label }))
+    )
+
+    // year = 2566/2567
+    applyIfFound(yearOptions, "2566/2567", (f) =>
+      setOrder((p) => ({ ...p, riceYearId: f.id, riceYear: f.label }))
+    )
+
+    // business = ซื้อมาขายไป
+    applyIfFound(businessOptions, "ซื้อมาขายไป", (f) =>
+      setOrder((p) => ({ ...p, businessTypeId: f.id, businessType: f.label }))
+    )
+
+    // program = ปกติ
+    applyIfFound(programOptions, "ปกติ", (f) =>
+      setOrder((p) => ({ ...p, programId: f.id, programName: f.label }))
+    )
+  }, [formTemplate, conditionOptions, fieldTypeOptions, yearOptions, programOptions, businessOptions]) // eslint-disable-line
+
   /** ---------- Validation ---------- */
   const validateAll = () => {
     const e = {}
@@ -1504,7 +1551,7 @@ const Buy = () => {
     if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข"
     if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"
     if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"
-    if (!order.programId) e.program = "เลือกโปรแกรม"                  // ⬅️ เพิ่มโปรแกรม
+    if (!order.programId) e.program = "เลือกโปรแกรม"                  // ⬅️ บังคับโปรแกรม
     if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ"
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
@@ -1569,7 +1616,7 @@ const Buy = () => {
     if (!firstKey) return
     const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
     if (el && typeof el.focus === "function") {
-      try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
+      try { el.scrollIntoView({ block: "center" }) } catch {}
       el.focus()
       try { el.select?.() } catch {}
     }
@@ -1884,11 +1931,19 @@ const Buy = () => {
                 onChange={(id) => setFormTemplate(String(id))}
                 buttonRef={refs.formTemplate}
               />
-              {isTemplateActive && (
+              {formTemplate === "1" ? (
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  ระบบล็อก <b>ประเภทสินค้า: ข้าวเปลือก</b> และ
-                  <b>{formTemplate === "1" ? " ข้าวหอมมะลิ" : formTemplate === "2" ? " ข้าวเหนียว" : " เมล็ดพันธุ์"}</b>
+                  <b>ฟอร์ม 17 ตค</b> จะล็อกค่า:
+                  <br />
+                  ประเภทสินค้า=ข้าวเปลือก • ชนิดข้าว=ข้าวหอมมะลิ • ชั้นย่อย=ดอกมะลิ 105 • เงื่อนไข=แห้ง • ประเภทนา=นาปี • ปี/ฤดูกาล=2566/2567 • ประเภทธุรกิจ=ซื้อมาขายไป • โปรแกรม=ปกติ
                 </p>
+              ) : (
+                isTemplateActive && (
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                    ระบบล็อก <b>ประเภทสินค้า: ข้าวเปลือก</b> และ
+                    <b>{formTemplate === "2" ? " ข้าวเหนียว" : formTemplate === "3" ? " เมล็ดพันธุ์" : ""}</b>
+                  </p>
+                )
               )}
             </div>
           </div>
@@ -2269,18 +2324,22 @@ const Buy = () => {
                 hintRed={!!missingHints.product}
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
-                disabled={isTemplateActive}
+                disabled={formTemplate === "1"} // ⬅️ ล็อกเมื่อเป็นฟอร์ม 17 ตค
                 onEnterNext={() => {
                   const tryFocus = () => {
-                    if (!isTemplateActive && isEnabledInput(refs.riceType?.current)) {
+                    if (formTemplate !== "1" && isEnabledInput(refs.riceType?.current)) {
                       refs.riceType.current.focus()
                       refs.riceType.current.scrollIntoView?.({ block: "center" })
                       return true
                     }
-                    if (isEnabledInput(refs.subrice?.current)) {
-                      refs.subrice.current.focus()
-                      refs.subrice.current.scrollIntoView?.({ block: "center" })
-                      return true
+                    const keys = ["subrice","condition","fieldType","riceYear","program","businessType","branchName"]
+                    for (const k of keys) {
+                      const el = refs[k]?.current
+                      if (el && isEnabledInput(el)) {
+                        try { el.scrollIntoView({ block: "center" }) } catch {}
+                        el.focus?.()
+                        return true
+                      }
                     }
                     return false
                   }
@@ -2307,18 +2366,21 @@ const Buy = () => {
                   }))
                 }}
                 placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId || isTemplateActive}
+                disabled={!order.productId || formTemplate === "1"} // ⬅️ ล็อกเมื่อเป็นฟอร์ม 17 ตค
                 error={!!errors.riceType}
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
                 buttonRef={refs.riceType}
                 onEnterNext={() => {
                   const tryFocus = () => {
-                    const el = refs.subrice?.current
-                    if (el && !el.disabled && el.offsetParent !== null) {
-                      el.focus()
-                      el.scrollIntoView?.({ block: "center" })
-                      return true
+                    const keys = ["subrice","condition","fieldType","riceYear","program","businessType","branchName"]
+                    for (const k of keys) {
+                      const el = refs[k]?.current
+                      if (el && isEnabledInput(el)) {
+                        try { el.scrollIntoView({ block: "center" }) } catch {}
+                        el.focus?.()
+                        return true
+                      }
                     }
                     return false
                   }
@@ -2340,12 +2402,28 @@ const Buy = () => {
                   setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))
                 }}
                 placeholder="— เลือกชั้นย่อย —"
-                disabled={!order.riceId}
+                disabled={!order.riceId || formTemplate === "1"} // ⬅️ ล็อกเมื่อเป็นฟอร์ม 17 ตค
                 error={!!errors.subrice}
                 hintRed={!!missingHints.subrice}
                 clearHint={() => clearHint("subrice")}
                 buttonRef={refs.subrice}
-                onEnterNext={() => focusNext("subrice")}
+                onEnterNext={() => {
+                  const keys = ["condition","fieldType","riceYear","program","businessType","branchName"]
+                  const tryFocus = () => {
+                    for (const k of keys) {
+                      const el = refs[k]?.current
+                      if (el && isEnabledInput(el)) {
+                        try { el.scrollIntoView({ block: "center" }) } catch {}
+                        el.focus?.()
+                        return true
+                      }
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 180)
+                }}
               />
               {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
             </div>
@@ -2368,6 +2446,7 @@ const Buy = () => {
                 hintRed={!!missingHints.condition}
                 clearHint={() => clearHint("condition")}
                 buttonRef={refs.condition}
+                disabled={formTemplate === "1"} // ⬅️ ล็อก
                 onEnterNext={() => focusNext("condition")}
               />
               {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
@@ -2391,6 +2470,7 @@ const Buy = () => {
                 hintRed={!!missingHints.fieldType}
                 clearHint={() => clearHint("fieldType")}
                 buttonRef={refs.fieldType}
+                disabled={formTemplate === "1"} // ⬅️ ล็อก
                 onEnterNext={() => focusNext("fieldType")}
               />
               {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
@@ -2414,6 +2494,7 @@ const Buy = () => {
                 hintRed={!!missingHints.riceYear}
                 clearHint={() => clearHint("riceYear")}
                 buttonRef={refs.riceYear}
+                disabled={formTemplate === "1"} // ⬅️ ล็อก
                 onEnterNext={() => focusNext("riceYear")}
               />
               {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
@@ -2438,6 +2519,7 @@ const Buy = () => {
                 hintRed={!!missingHints.businessType}
                 clearHint={() => clearHint("businessType")}
                 buttonRef={refs.businessType}
+                disabled={formTemplate === "1"} // ⬅️ ล็อก
                 onEnterNext={() => focusNext("businessType")}
               />
               {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
@@ -2461,6 +2543,7 @@ const Buy = () => {
                 error={!!errors.program}
                 hintRed={!!missingHints.program}
                 clearHint={() => { clearHint("program"); clearError("program") }}
+                disabled={formTemplate === "1"} // ⬅️ ล็อก
                 // ✅ โปรแกรม → โฟกัส "สาขา"
                 onEnterNext={() => {
                   const tryFocus = () => {

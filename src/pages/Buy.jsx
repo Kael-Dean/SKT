@@ -1382,27 +1382,20 @@ const Buy = () => {
     missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : ""
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
 
-  // ⭐ ปรับให้ตรวจตามประเภทผู้ซื้อ
+  // ⭐ ปรับให้ตรวจตามประเภทผู้ซื้อ + ตามที่รีเควสต์
   const computeMissingHints = () => {
     const m = {}
 
     if (buyerType === "person") {
       if (!customer.fullName.trim()) m.fullName = true
-      if (!customer.houseNo.trim()) m.houseNo = true
-      if (!customer.moo.trim()) m.moo = true
-      if (!customer.subdistrict.trim()) m.subdistrict = true
-      if (!customer.district.trim()) m.district = true
-      if (!customer.province.trim()) m.province = true
+      // ❌ ยกเลิกการบังคับที่อยู่/เบอร์: houseNo, moo, subdistrict, district, province, postalCode, phone
     } else {
       if (!customer.companyName.trim()) m.companyName = true
       if (!customer.taxId.trim()) m.taxId = true
-      if (!customer.hqHouseNo.trim()) m.hqHouseNo = true
-      if (!customer.hqSubdistrict.trim()) m.hqSubdistrict = true
-      if (!customer.hqDistrict.trim()) m.hqDistrict = true
-      if (!customer.hqProvince.trim()) m.hqProvince = true
+      // ❌ ไม่บังคับ HQ address
     }
 
-    // ✅ ฟิลด์ที่จำเป็นกับ BE
+    // ✅ ฟิลด์ที่จำเป็นกับ BE/รีเควสต์
     if (!order.paymentMethod && !resolvePaymentId()) m.payment = true
     if (!order.issueDate) m.issueDate = true
 
@@ -1412,6 +1405,7 @@ const Buy = () => {
     if (!order.conditionId) m.condition = true
     if (!order.fieldTypeId) m.fieldType = true
     if (!order.riceYearId) m.riceYear = true
+    if (!order.programId) m.program = true                 // ⬅️ เพิ่มโปรแกรม
     if (!order.businessTypeId) m.businessType = true
     if (!order.branchName) m.branchName = true
     if (!order.klangName) m.klangName = true
@@ -1422,6 +1416,13 @@ const Buy = () => {
     if (!order.entryWeightKg || Number(order.entryWeightKg) < 0) m.entryWeightKg = true
     if (!order.exitWeightKg || Number(order.exitWeightKg) <= 0) m.exitWeightKg = true
     if (grossFromScale <= 0) m.netFromScale = true
+
+    // ⬅️ เพิ่มตัวเลขที่ต้องกรอกตามรีเควสต์
+    if (String(order.moisturePct).trim() === "") m.moisturePct = true
+    if (String(order.impurityPct).trim() === "") m.impurityPct = true
+    if (String(order.gram).trim() === "") m.gram = true
+    if (String(order.unitPrice).trim() === "") m.unitPrice = true
+
     if (!order.amountTHB || moneyToNumber(order.amountTHB) <= 0) m.amountTHB = true
     return m
   }
@@ -1481,7 +1482,7 @@ const Buy = () => {
     if (buyerType === "person") {
       // (allow invalid citizenId; warn only in UI) -- removed blocking validation
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
-      if (!customer.subdistrict || !customer.district || !customer.province) e.address = "กรุณากรอกที่อยู่ให้ครบ"
+      // ❌ ไม่บังคับกรอกที่อยู่แล้ว
       // ⭐ แจ้งเตือนถ้าไม่พบทั้ง member_id และ asso_id (เพื่อให้สอดคล้อง BE)
       if (!toIntOrNull(memberMeta.memberId ?? customer.memberId) && !memberMeta.assoId) {
         e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกจากรายชื่อที่มี asso_id"
@@ -1489,8 +1490,7 @@ const Buy = () => {
     } else {
       if (!customer.companyName.trim()) e.companyName = "กรุณากรอกชื่อบริษัท"
       if (!customer.taxId.trim() || !validateThaiTaxId(customer.taxId)) e.taxId = "กรุณากรอกเลขผู้เสียภาษี (13 หลัก)"
-      if (!customer.hqSubdistrict || !customer.hqDistrict || !customer.hqProvince)
-        e.hqAddress = "กรุณากรอกที่อยู่สำนักงานใหญ่ให้ครบ"
+      // ❌ ไม่บังคับกรอกที่อยู่สำนักงานใหญ่แล้ว
     }
 
     // ✅ ให้ลำดับการเช็คตรงกับ "บนลงล่าง" ใน UI: วิธีชำระเงิน/ลงวันที่ มาก่อนรายละเอียดซื้อ
@@ -1504,6 +1504,7 @@ const Buy = () => {
     if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข"
     if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"
     if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"
+    if (!order.programId) e.program = "เลือกโปรแกรม"                  // ⬅️ เพิ่มโปรแกรม
     if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ"
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
@@ -1513,6 +1514,13 @@ const Buy = () => {
     if (grossFromScale <= 0) e.exitWeightKg = "ค่าน้ำหนักจากตาชั่งต้องมากกว่า 0"
     if (order.manualDeduct && (order.deductWeightKg === "" || Number(order.deductWeightKg) < 0))
       e.deductWeightKg = "กรอกน้ำหนักหักให้ถูกต้อง"
+
+    // ⬅️ เพิ่มตัวเลขที่ต้องกรอกตามรีเควสต์
+    if (order.moisturePct === "" || isNaN(Number(order.moisturePct))) e.moisturePct = "กรอกความชื้น (%)"
+    if (order.impurityPct === "" || isNaN(Number(order.impurityPct))) e.impurityPct = "กรอกสิ่งเจือปน (%)"
+    if (order.gram === "" || isNaN(Number(order.gram))) e.gram = "กรอกคุณภาพข้าว (gram)"
+    if (order.unitPrice === "" || isNaN(Number(order.unitPrice))) e.unitPrice = "กรอกราคาต่อกก. (บาท)"
+
     const amt = moneyToNumber(order.amountTHB)
     if (!amt || amt <= 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
 
@@ -1522,25 +1530,21 @@ const Buy = () => {
 
   // ✅ เลื่อนโฟกัสไป "ช่องที่ขาดตัวบนสุด" ตามลำดับบนลงล่าง (รวม customer + order)
   const scrollToFirstError = (eObj) => {
-    const personKeys = ["memberId", "fullName", "address"]
-    const companyKeys = ["companyName", "taxId", "hqAddress"]
+    const personKeys = ["memberId", "fullName"] // ❌ ตัด address aggregator ออก
+    const companyKeys = ["companyName", "taxId"] // ❌ ตัด hqAddress ออก
 
     // ออเดอร์: จัดลำดับจาก "บนสุด" ของหน้า
     const commonOrderKeys = [
-      "payment", "issueDate", // อยู่แถวบนขวา
-      "product","riceType","subrice","condition","fieldType","riceYear","businessType",
-      "branchName","klangName","entryWeightKg","exitWeightKg","deductWeightKg","amountTHB",
+      "payment","issueDate",
+      "product","riceType","subrice","condition","fieldType","riceYear","program","businessType",
+      "branchName","klangName",
+      "entryWeightKg","exitWeightKg","moisturePct","impurityPct","deductWeightKg","gram","unitPrice","amountTHB",
     ]
 
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
     const firstKey = keys.find((k) => k in eObj)
     if (!firstKey) return
-    const keyToFocus =
-      firstKey === "address"
-        ? customer.houseNo ? (customer.moo ? (customer.subdistrict ? (customer.district ? "province" : "district") : "subdistrict") : "moo") : "houseNo"
-        : firstKey === "hqAddress"
-        ? customer.hqHouseNo ? (customer.hqSubdistrict ? (customer.hqDistrict ? "hqProvince" : "hqDistrict") : "hqSubdistrict") : "hqHouseNo"
-        : firstKey
+    const keyToFocus = firstKey
 
     const el = refs[keyToFocus]?.current || (firstKey === "payment" ? refs.payment?.current : null)
     if (el && typeof el.focus === "function") {
@@ -1552,12 +1556,13 @@ const Buy = () => {
 
   // ✅ กรณี error ไม่มี แต่ยังมี "ช่องจำเป็นของ BE" ใน missingHints → โฟกัสตัวแรกตามลำดับบนลงล่าง
   const scrollToFirstMissing = (hintsObj) => {
-    const personKeys = ["memberId","fullName","houseNo","moo","subdistrict","district","province"]
-    const companyKeys = ["companyName","taxId","hqHouseNo","hqSubdistrict","hqDistrict","hqProvince"]
+    const personKeys = ["memberId","fullName"] // ❌ เอาที่อยู่/เบอร์ออก
+    const companyKeys = ["companyName","taxId"] // ❌ เอา HQ address ออก
     const commonOrderKeys = [
       "payment","issueDate",
-      "product","riceType","subrice","condition","fieldType","riceYear","businessType",
-      "branchName","klangName","entryWeightKg","exitWeightKg","deductWeightKg","amountTHB",
+      "product","riceType","subrice","condition","fieldType","riceYear","program","businessType",
+      "branchName","klangName",
+      "entryWeightKg","exitWeightKg","moisturePct","impurityPct","deductWeightKg","gram","unitPrice","amountTHB",
     ]
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
     const firstKey = keys.find((k) => hintsObj[k])
@@ -1617,6 +1622,7 @@ const Buy = () => {
     if (!riceYearId) return scrollToFirstError({ riceYear: true })
     if (!conditionId) return scrollToFirstError({ condition: true })
     if (!fieldTypeId) return scrollToFirstError({ fieldType: true })
+    if (!programId) return scrollToFirstError({ program: true })              // ⬅️ บังคับโปรแกรม
     if (!businessTypeId) return scrollToFirstError({ businessType: true })
     if (!branchId) return scrollToFirstError({ branchName: true })
     if (!klangId) return scrollToFirstError({ klangName: true })
@@ -2105,13 +2111,12 @@ const Buy = () => {
                   <label className={labelCls}>{label}</label>
                   <input
                     ref={refs[k]}
-                    className={cx(baseField, compactInput, errors.address && "border-amber-400", redHintCls(k))}
+                    className={cx(baseField, compactInput /* ไม่มีแดงแล้ว */)}
                     value={customer[k]}
                     onChange={(e) => updateCustomer(k, e.target.value)}
                     onFocus={() => clearHint(k)}
                     onKeyDown={onEnter(k)}
                     placeholder={ph}
-                    aria-invalid={errors.address ? true : undefined}
                   />
                 </div>
               ))}
@@ -2453,6 +2458,9 @@ const Buy = () => {
                 }
                 placeholder="— เลือกโปรแกรม —"
                 buttonRef={refs.program}
+                error={!!errors.program}
+                hintRed={!!missingHints.program}
+                clearHint={() => { clearHint("program"); clearError("program") }}
                 // ✅ โปรแกรม → โฟกัส "สาขา"
                 onEnterNext={() => {
                   const tryFocus = () => {
@@ -2469,6 +2477,7 @@ const Buy = () => {
                   setTimeout(tryFocus, 180)
                 }}
               />
+              {errors.program && <p className={errorTextCls}>{errors.program}</p>}
             </div>
           </div>
 
@@ -2612,14 +2621,15 @@ const Buy = () => {
                 <input
                   ref={refs.moisturePct}
                   inputMode="decimal"
-                  className={cx(baseField)}
+                  className={cx(baseField, redFieldCls("moisturePct"))}
                   value={order.moisturePct}
                   onChange={(e) => updateOrder("moisturePct", onlyDigits(e.target.value))}
-                  onFocus={() => clearHint("moisturePct")}
+                  onFocus={() => { clearHint("moisturePct"); clearError("moisturePct") }}
                   onKeyDown={onEnter("moisturePct")}
                   placeholder="เช่น 18"
                 />
                 <p className={helpTextCls}>{MOISTURE_STD}</p>
+                {errors.moisturePct && <p className={errorTextCls}>{errors.moisturePct}</p>}
               </div>
 
               {/* สิ่งเจือปน */}
@@ -2628,13 +2638,14 @@ const Buy = () => {
                 <input
                   ref={refs.impurityPct}
                   inputMode="decimal"
-                  className={cx(baseField)}
+                  className={cx(baseField, redFieldCls("impurityPct"))}
                   value={order.impurityPct}
                   onChange={(e) => updateOrder("impurityPct", onlyDigits(e.target.value))}
-                  onFocus={() => clearHint("impurityPct")}
+                  onFocus={() => { clearHint("impurityPct"); clearError("impurityPct") }}
                   onKeyDown={onEnter("impurityPct")}
                   placeholder="เช่น 2"
                 />
+                {errors.impurityPct && <p className={errorTextCls}>{errors.impurityPct}</p>}
               </div>
 
               {/* หักน้ำหนัก */}
@@ -2685,12 +2696,14 @@ const Buy = () => {
                 <input
                   ref={refs.gram}
                   inputMode="numeric"
-                  className={baseField}
+                  className={cx(baseField, redFieldCls("gram"))}
                   value={order.gram}
                   onChange={(e) => updateOrder("gram", onlyDigits(e.target.value))}
+                  onFocus={() => { clearHint("gram"); clearError("gram") }}
                   onKeyDown={onEnter("gram")}
                   placeholder="เช่น 85"
                 />
+                {errors.gram && <p className={errorTextCls}>{errors.gram}</p>}
               </div>
 
               {/* ราคาต่อกก. */}
@@ -2699,14 +2712,15 @@ const Buy = () => {
                 <input
                   ref={refs.unitPrice}
                   inputMode="decimal"
-                  className={baseField}
+                  className={cx(baseField, redFieldCls("unitPrice"))}
                   value={order.unitPrice}
                   onChange={(e) => updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => clearHint("unitPrice")}
+                  onFocus={() => { clearHint("unitPrice"); clearError("unitPrice") }}
                   onKeyDown={onEnter("unitPrice")}
                   placeholder="เช่น 12.50"
                 />
                 <p className={helpTextCls}>ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
+                {errors.unitPrice && <p className={errorTextCls}>{errors.unitPrice}</p>}
               </div>
 
               {/* เป็นเงิน */}

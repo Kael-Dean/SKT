@@ -646,7 +646,7 @@ const Buy = () => {
     } catch {}
   }, [])
 
-  /** ---------- เพิ่ม: helper เด้งไปบนสุดหลังบันทึกสำเร็จ ---------- */
+  /** ---------- เพิ่ม: helper เด้งไปบนสุดหลังบันทึกสำเร็จ/รีเซ็ต ---------- */
   const scrollToPageTop = () => {
     try {
       window.scrollTo({ top: 0, behavior: "smooth" })
@@ -1943,6 +1943,13 @@ const Buy = () => {
     setBuyerType("person")
     setBranchLocked(false) // ปลดล็อกเมื่อรีเซ็ต
     // หมายเหตุ: formTemplate "คงไว้" ตามที่เลือกก่อนหน้า (ไม่แตะต้อง)
+
+    // ⬆️ เด้งขึ้นบนสุดทุกครั้งที่กดรีเซ็ต
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => scrollToPageTop())
+    } else {
+      scrollToPageTop()
+    }
   }
 
   /** ---------- UI ---------- */
@@ -2974,7 +2981,7 @@ const Buy = () => {
                     {customer.fullName || "—"}
                   </div>
                 </div>
-                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                <div className="rounded-2xl bg-white p-4 text-black shadow_sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
                   <div className="text-slate-600 dark:text-slate-300">member_id</div>
                   <div className="text-lg md:text-xl font-semibold">{memberMeta.memberId ?? (customer.memberId?.trim() || "-")}</div>
                 </div>
@@ -2985,7 +2992,7 @@ const Buy = () => {
                   <div className="text-slate-600 dark:text-slate-300">บริษัท/นิติบุคคล</div>
                   <div className="text-lg md:text-xl font-semibold">{customer.companyName || "—"}</div>
                 </div>
-                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                <div className="rounded-2xl bg_white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
                   <div className="text-slate-600 dark:text-slate-300">เลขที่ผู้เสียภาษี</div>
                   <div className="text-lg md:text-xl font-semibold">{customer.taxId || "—"}</div>
                 </div>

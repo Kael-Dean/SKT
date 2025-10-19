@@ -117,6 +117,34 @@ function MemberTermination() {
   const [submitting, setSubmitting] = useState(false)
   const topRef = useRef(null)
 
+  /** ---------- ฟิลด์ใหม่ตามที่ขอ ---------- */
+  const [decisionDate, setDecisionDate] = useState("")           // วันที่มติ
+  const [boardSetNo, setBoardSetNo] = useState("")               // ชุดที่
+  const [boardMeetingNo, setBoardMeetingNo] = useState("")       // ครั้งที่
+  const [recipient, setRecipient] = useState("")                 // ผู้รับเงิน/ผู้รับผลประโยชน์
+
+  /** ---------- Refs สำหรับการเลื่อนด้วย Enter ---------- */
+  const dateRef = useRef(null)
+  const setNoRef = useRef(null)
+  const meetingNoRef = useRef(null)
+  const recipientRef = useRef(null)
+  const submitBtnRef = useRef(null)
+
+  // สร้างลำดับการโฟกัส (บนลงล่าง ซ้ายไปขวา)
+  const focusOrder = [
+    inputRef,
+    dateRef,
+    setNoRef,
+    meetingNoRef,
+    recipientRef,
+    submitBtnRef,
+  ]
+  const focusNextFromEl = (el) => {
+    const i = focusOrder.findIndex((r) => r?.current === el)
+    const next = focusOrder[Math.min(i + 1, focusOrder.length - 1)]
+    try { next?.current?.focus() } catch {}
+  }
+
   // ค้นหา
   useEffect(() => {
     const q = (debQ || "").trim()
@@ -178,25 +206,36 @@ function MemberTermination() {
     setShowList(false)
   }
 
-  // คีย์บอร์ดบนช่องค้นหา
-  const onKeyDown = (e) => {
-    if (!showList || results.length === 0) return
-    if (e.key === "ArrowDown") {
+  // คีย์บอร์ดบนช่องค้นหา + Enter เลื่อนไปช่องถัดไป
+  const onSearchKeyDown = (e) => {
+    if (showList && results.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault()
+        const next = (highlighted + 1) % results.length
+        setHighlighted(next)
+        requestAnimationFrame(() => scrollIntoView(next))
+        return
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault()
+        const next = (highlighted - 1 + results.length) % results.length
+        setHighlighted(next)
+        requestAnimationFrame(() => scrollIntoView(next))
+        return
+      } else if (e.key === "Escape") {
+        setShowList(false)
+        return
+      } else if (e.key === "Enter") {
+        e.preventDefault()
+        const idx = highlighted >= 0 ? highlighted : 0
+        if (results[idx]) pickResult(results[idx])
+        // หลังเลือกแล้ว ให้โฟกัสไปช่องถัดไป
+        requestAnimationFrame(() => focusNextFromEl(e.currentTarget))
+        return
+      }
+    }
+    if (e.key === "Enter") {
       e.preventDefault()
-      const next = (highlighted + 1) % results.length
-      setHighlighted(next)
-      requestAnimationFrame(() => scrollIntoView(next))
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      const next = (highlighted - 1 + results.length) % results.length
-      setHighlighted(next)
-      requestAnimationFrame(() => scrollIntoView(next))
-    } else if (e.key === "Enter") {
-      e.preventDefault()
-      const idx = highlighted >= 0 ? highlighted : 0
-      if (results[idx]) pickResult(results[idx])
-    } else if (e.key === "Escape") {
-      setShowList(false)
+      requestAnimationFrame(() => focusNextFromEl(e.currentTarget))
     }
   }
 
@@ -205,6 +244,11 @@ function MemberTermination() {
     const e = {}
     if (!mode) e.mode = "เลือกประเภทการสิ้นสภาพสมาชิก"
     if (!picked) e.picked = "เลือกสมาชิก"
+    if (!decisionDate) e.decisionDate = "กรอกวันที่มติคณะกรรมการ"
+    if (!boardSetNo) e.boardSetNo = "กรอกชุดที่"
+    if (!boardMeetingNo) e.boardMeetingNo = "กรอกครั้งที่"
+    const recipientLabel = mode === "passed" ? "ผู้รับผลประโยชน์" : "ผู้รับเงิน"
+    if (!recipient) e.recipient = `กรอก${recipientLabel}`
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -217,6 +261,13 @@ function MemberTermination() {
     setErrors({})
     setShowList(false)
     setHighlighted(-1)
+
+    // reset fields ใหม่
+    setDecisionDate("")
+    setBoardSetNo("")
+    setBoardMeetingNo("")
+    setRecipient("")
+
     requestAnimationFrame(() => {
       try { topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) } catch {}
     })
@@ -228,7 +279,13 @@ function MemberTermination() {
       setSubmitting(true)
       await apiAuth(`/member/members/${picked.member_id}/status`, {
         method: "PATCH",
-        body: { status: mode }, // "resigned" | "passed"
+        body: {
+          status: mode, // "resigned" | "passed"
+          decision_date: decisionDate,          // YYYY-MM-DD
+          board_set_no: boardSetNo,             // string/number
+          board_meeting_no: boardMeetingNo,     // string/number
+          recipient_name: recipient,            // ผู้รับเงิน / ผู้รับผลประโยชน์
+        },
       })
       alert(mode === "resigned" ? "บันทึกการลาออกเรียบร้อย ✅" : "บันทึกการเสียชีวิตเรียบร้อย ✅")
       reset()
@@ -241,6 +298,7 @@ function MemberTermination() {
   }
 
   const actionLabel = mode === "passed" ? "บันทึกการเสียชีวิต" : "บันทึกการลาออก"
+  const dynamicRecipientLabel = mode === "passed" ? "ผู้รับผลประโยชน์" : (mode === "resigned" ? "ผู้รับเงิน" : "ผู้รับเงิน / ผู้รับผลประโยชน์")
 
   const pickedPreview = useMemo(() => {
     if (!picked) return ""
@@ -298,13 +356,14 @@ function MemberTermination() {
                 setShowList(true)
               }
             }}
-            onKeyDown={onKeyDown}
+            onKeyDown={onSearchKeyDown}
             placeholder="ตัวอย่าง: สมชาย ใจดี หรือ 1234567890123"
             aria-expanded={showList}
             aria-controls="member-results"
             role="combobox"
             aria-autocomplete="list"
             aria-invalid={errors.picked ? true : undefined}
+            autoComplete="off"
           />
           {errors.picked && <p className={errorTextCls}>{errors.picked}</p>}
           <div className="mt-1 text-xs md:text-sm text-slate-500 dark:text-slate-400">
@@ -328,7 +387,11 @@ function MemberTermination() {
                     type="button"
                     ref={(el) => (itemRefs.current[idx] = el)}
                     key={`${r.member_id}-${r.citizen_id}-${idx}`}
-                    onClick={() => pickResult(r)}
+                    onClick={() => {
+                      pickResult(r)
+                      // หลังคลิกเลือก ให้เลื่อนไปช่องถัดไป
+                      setTimeout(() => focusNextFromEl(inputRef.current), 0)
+                    }}
                     onMouseEnter={() => {
                       setHighlighted(idx)
                       requestAnimationFrame(() => scrollIntoView(idx))
@@ -380,10 +443,104 @@ function MemberTermination() {
           </div>
         </SectionCard>
 
+        {/* ข้อมูลการสิ้นสภาพเพิ่มเติม */}
+        <SectionCard title="ข้อมูลมติคณะกรรมการ" className="mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* วันที่มติ */}
+            <div>
+              <label className={labelCls}>วันที่</label>
+              <input
+                type="date"
+                ref={dateRef}
+                className={cx(baseField, errors.decisionDate && fieldError)}
+                value={decisionDate}
+                onChange={(e) => {
+                  setDecisionDate(e.target.value)
+                  setErrors((p) => ({ ...p, decisionDate: undefined }))
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); focusNextFromEl(e.currentTarget) }
+                }}
+                aria-invalid={errors.decisionDate ? true : undefined}
+              />
+              {errors.decisionDate && <p className={errorTextCls}>{errors.decisionDate}</p>}
+            </div>
+
+            {/* ชุดที่ */}
+            <div>
+              <label className={labelCls}>มติที่ประชุมคณะกรรมการดำเนินการ <span className="whitespace-nowrap">ชุดที่</span></label>
+              <input
+                inputMode="numeric"
+                pattern="[0-9]*"
+                ref={setNoRef}
+                className={cx(baseField, errors.boardSetNo && fieldError)}
+                value={boardSetNo}
+                onChange={(e) => {
+                  setBoardSetNo(onlyDigits(e.target.value))
+                  setErrors((p) => ({ ...p, boardSetNo: undefined }))
+                }}
+                placeholder="เช่น 3"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); focusNextFromEl(e.currentTarget) }
+                }}
+                aria-invalid={errors.boardSetNo ? true : undefined}
+              />
+              {errors.boardSetNo && <p className={errorTextCls}>{errors.boardSetNo}</p>}
+            </div>
+
+            {/* ครั้งที่ */}
+            <div>
+              <label className={labelCls}>มติที่ประชุมคณะกรรมการดำเนินการ <span className="whitespace-nowrap">ครั้งที่</span></label>
+              <input
+                inputMode="numeric"
+                pattern="[0-9]*"
+                ref={meetingNoRef}
+                className={cx(baseField, errors.boardMeetingNo && fieldError)}
+                value={boardMeetingNo}
+                onChange={(e) => {
+                  setBoardMeetingNo(onlyDigits(e.target.value))
+                  setErrors((p) => ({ ...p, boardMeetingNo: undefined }))
+                }}
+                placeholder="เช่น 12"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); focusNextFromEl(e.currentTarget) }
+                }}
+                aria-invalid={errors.boardMeetingNo ? true : undefined}
+              />
+              {errors.boardMeetingNo && <p className={errorTextCls}>{errors.boardMeetingNo}</p>}
+            </div>
+
+            {/* ผู้รับเงิน / ผู้รับผลประโยชน์ */}
+            <div>
+              <label className={labelCls}>{dynamicRecipientLabel}</label>
+              <input
+                ref={recipientRef}
+                className={cx(baseField, errors.recipient && fieldError)}
+                value={recipient}
+                onChange={(e) => {
+                  setRecipient(e.target.value)
+                  setErrors((p) => ({ ...p, recipient: undefined }))
+                }}
+                placeholder="ชื่อ-นามสกุล"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); focusNextFromEl(e.currentTarget) }
+                }}
+                aria-invalid={errors.recipient ? true : undefined}
+                autoComplete="off"
+              />
+              <p className={helpTextCls}>
+                ป้ายกำกับจะเปลี่ยนอัตโนมัติตามประเภท: ลาออก = ผู้รับเงิน, เสียชีวิต = ผู้รับผลประโยชน์
+              </p>
+              {errors.recipient && <p className={errorTextCls}>{errors.recipient}</p>}
+            </div>
+          </div>
+        </SectionCard>
+
         {/* ปุ่มดำเนินการ */}
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
+            ref={submitBtnRef}
             disabled={submitting}
             onClick={submit}
             className="inline-flex items-center justify-center rounded-2xl 
@@ -394,6 +551,9 @@ function MemberTermination() {
                       hover:scale-[1.05] active:scale-[.97]
                       disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
             aria-busy={submitting ? "true" : "false"}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); submit() }
+            }}
           >
             {submitting ? "กำลังบันทึก..." : actionLabel}
           </button>

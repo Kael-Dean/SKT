@@ -91,17 +91,14 @@ const compactInput = "!py-2 !px-4 !text-[16px] !leading-normal"
 const isEnabledInput = (el) => {
   if (!el) return false
   if (typeof el.disabled !== "undefined" && el.disabled) return false
-  // hidden / display:none
   const style = window.getComputedStyle?.(el)
   if (style && (style.display === "none" || style.visibility === "hidden")) return false
-  // detached
   if (!el.offsetParent && el.type !== "hidden" && el.getAttribute("role") !== "combobox") return false
   return true
 }
 
-/** ลำดับฟิลด์ที่จะโฟกัสต่อไป (ขึ้นกับ buyerType และสถานะ disable ของบางช่อง) */
+/** ลำดับฟิลด์ที่จะโฟกัสต่อไป */
 const useEnterNavigation = (refs, buyerType, order) => {
-  // รายการฝั่งลูกค้า (บุคคล/บริษัท)
   const personOrder = [
     "citizenId",
     "memberId",
@@ -114,7 +111,6 @@ const useEnterNavigation = (refs, buyerType, order) => {
     "brHouseNo","brMoo","brSubdistrict","brDistrict","brProvince","brPostalCode",
   ]
 
-  // รายการฝั่งออเดอร์
   const orderOrder = [
     "product","riceType","subrice","condition","fieldType","riceYear","businessType","program",
     "branchName","klangName",
@@ -205,9 +201,7 @@ function ComboBox({
     setHighlight(-1)
     clearHint?.()
     requestAnimationFrame(() => {
-      // โฟกัสปุ่มไว้ก่อน เพื่อคีย์ Enter ครั้งถัดไปยังไปต่อ
       controlRef.current?.focus()
-      // ถ้ามี onEnterNext ให้เรียกเพื่อเลื่อนไปฟิลด์ถัดไป
       onEnterNext?.()
     })
   }
@@ -380,7 +374,6 @@ bg-transparent"
 })
 
 /** ---------------- JWT + Branch lock (ใหม่) ---------------- */
-// อ่าน token จาก storage ต่าง ๆ
 const getToken = () =>
   localStorage.getItem("access_token") ||
   localStorage.getItem("token") ||
@@ -388,7 +381,6 @@ const getToken = () =>
   sessionStorage.getItem("token") ||
   ""
 
-// ถอด payload ของ JWT เพื่อเอา sub = username
 const decodeJwtPayload = (token) => {
   try {
     const clean = String(token || "").replace(/^Bearer\s+/i, "")
@@ -401,12 +393,11 @@ const decodeJwtPayload = (token) => {
   }
 }
 
-// map คีย์เวิร์ดจาก username -> ชื่อสาขาไทย
 const USER_BRANCH_MAP = {
   tartoom: "ท่าตูม",
   ratanaburi: "รัตนบุรี",
   surin: "สุรินทร์",
-  sirin: "สุรินทร์", // กันกรณีสะกดแบบ sirin
+  sirin: "สุรินทร์",
   processing: "ฝ่ายแปรรูปผลิตผล",
   srikor: "ศีขรภูมิ",
   prasat: "ปราสาท",
@@ -470,11 +461,14 @@ const Buy = () => {
   ]
   const [buyerType, setBuyerType] = useState("person")
 
+  /** ▼ Kill‑switch: ปิดการค้นหา/ออโต้ฟิลอัตโนมัติหลังบันทึก/รีเซ็ต จนกว่าจะพิมพ์ใหม่ */
+  const [autoSearchEnabled, setAutoSearchEnabled] = useState(true)
+
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
     // บุคคลธรรมดา
     citizenId: "",
-    memberId: "", // ⭐ ใหม่: ช่องกรอก member_id
+    memberId: "",
     fullName: "",
     houseNo: "",
     moo: "",
@@ -484,12 +478,12 @@ const Buy = () => {
     postalCode: "",
     phone: "",
 
-    // CCD เพิ่ม (ซ่อน UI แล้ว แต่เก็บใน state เผื่อหลังบ้าน)
+    // CCD (ซ่อน UI)
     fid: "",
     fidOwner: "",
     fidRelationship: "",
 
-    // ⭐ บริษัท / นิติบุคคล
+    // บริษัท / นิติบุคคล
     companyName: "",
     taxId: "",
     companyPhone: "",
@@ -513,16 +507,16 @@ const Buy = () => {
   const [memberMeta, setMemberMeta] = useState({
     type: "unknown",
     assoId: null,
-    memberId: null, // ⭐ ใหม่: เก็บเลขสมาชิกจากผลค้นหา
+    memberId: null,
   })
 
   /** ฟอร์มออเดอร์ */
   const [order, setOrder] = useState({
     productId: "",
     productName: "",
-    riceId: "", // species_id
+    riceId: "",
     riceType: "",
-    subriceId: "", // variant_id
+    subriceId: "",
     subriceName: "",
     gram: "",
     riceYear: "",
@@ -533,9 +527,8 @@ const Buy = () => {
     fieldTypeId: "",
     programId: "",
     programName: "",
-    // 💳 วิธีชำระเงิน
-    paymentMethod: "", // label
-    paymentMethodId: "", // ⭐ เก็บ id ด้วยเพื่อความเสถียร
+    paymentMethod: "",
+    paymentMethodId: "",
     businessType: "",
     businessTypeId: "",
     entryWeightKg: "",
@@ -568,7 +561,7 @@ const Buy = () => {
   const refs = {
     // บุคคล
     citizenId: useRef(null),
-    memberId: useRef(null), // ⭐
+    memberId: useRef(null),
     fullName: useRef(null),
     houseNo: useRef(null),
     moo: useRef(null),
@@ -638,14 +631,13 @@ const Buy = () => {
 
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
-  /** ▼ จุดยึดบนสุดของหน้า (สำหรับ scroll ภายใน container) */
+  /** ▼ จุดยึดบนสุด */
   const pageTopRef = useRef(null)
-  /** ========= ยกเลิกผลลัพธ์ async เก่าหลังบันทึก/รีเซ็ต (ป้องกันออโต้ฟิลย้อนกลับ) ========= */
+  /** ========= anti-race สำหรับผลลัพธ์ async ที่ค้าง ========= */
   const searchEpochRef = useRef(0)
   const bumpSearchEpoch = () => { searchEpochRef.current += 1 }
 
-
-  /** โหลดค่า Template ล่าสุดจาก localStorage */
+  /** โหลด Template ล่าสุด */
   useEffect(() => {
     try {
       const saved = localStorage.getItem("buy.formTemplate")
@@ -653,23 +645,21 @@ const Buy = () => {
     } catch {}
   }, [])
 
-  /** ---------- helper เด้งไปบนสุดหลังบันทึกสำเร็จ/รีเซ็ต (เวอร์ชันใหม่) ---------- */
+  /** scrollToTop */
   const scrollToPageTop = () => {
-    // 1) เลื่อน container (ถ้ามี) ด้วย anchor
     try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch {}
-    // 2) เผื่อกรณีหน้าเลื่อนด้วย body/document
     const root = document.scrollingElement || document.documentElement || document.body
     try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
   }
 
   /** debounce */
   const debouncedCitizenId = useDebounce(customer.citizenId)
-  const debouncedMemberId = useDebounce(customer.memberId) // ⭐
+  const debouncedMemberId = useDebounce(customer.memberId)
   const debouncedFullName = useDebounce(customer.fullName)
   const debouncedCompanyName = useDebounce(customer.companyName)
   const debouncedTaxId = useDebounce(customer.taxId)
 
-  /** helper: เรียกหลาย endpoint จนกว่าจะเจอ (ใช้ apiAuth) */
+  /** helper: เรียกหลาย endpoint จนกว่าจะเจอ */
   const fetchFirstOkJson = async (paths = []) => {
     for (const p of paths) {
       try {
@@ -681,8 +671,9 @@ const Buy = () => {
     return Array.isArray(paths) ? [] : {}
   }
 
-  /** 🔎 helper: ดึงที่อยู่+ข้อมูลบุคคลจาก citizen_id */
+  /** 🔎 ดึงที่อยู่+ข้อมูลบุคคลจาก citizen_id */
   const loadAddressByCitizenId = async (cid) => {
+    if (!autoSearchEnabled) return
     const __epoch = searchEpochRef.current
     const q = encodeURIComponent(onlyDigits(cid))
     const candidates = [
@@ -904,7 +895,7 @@ const Buy = () => {
     loadStaticDD()
   }, [])
 
-  /** 🔒 ล็อกสาขาตาม username ใน JWT (เช่น Admin-tartoom-02 => ท่าตูม) */
+  /** 🔒 ล็อกสาขาตาม username ใน JWT */
   const [branchLocked, setBranchLocked] = useState(false)
   useEffect(() => {
     if (!branchOptions?.length) return
@@ -946,6 +937,7 @@ const Buy = () => {
 
   // trigger ค้นหาจากชื่อบริษัท
   useEffect(() => {
+    if (!autoSearchEnabled) { setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1); return }
     if (buyerType !== "company") {
       setShowCompanyList(false)
       setCompanyResults([])
@@ -969,7 +961,7 @@ const Buy = () => {
     }
 
     const searchCompany = async () => {
-    const __epoch = searchEpochRef.current
+      const __epoch = searchEpochRef.current
       try {
         setLoadingCustomer(true)
         const items = (await apiAuth(`/order/companies/search?q=${encodeURIComponent(q)}`)) || []
@@ -991,15 +983,16 @@ const Buy = () => {
       }
     }
     searchCompany()
-  }, [debouncedCompanyName, buyerType])
+  }, [debouncedCompanyName, buyerType, autoSearchEnabled])
 
   // ค้นหาจากเลขภาษี
   useEffect(() => {
+    if (!autoSearchEnabled) return
     if (buyerType !== "company") return
     const tid = onlyDigits(debouncedTaxId)
     if (tid.length !== 13) return
     const searchByTax = async () => {
-    const __epoch = searchEpochRef.current
+      const __epoch = searchEpochRef.current
       try {
         setLoadingCustomer(true)
         const items = (await apiAuth(`/order/companies/search?q=${encodeURIComponent(tid)}`)) || []
@@ -1014,7 +1007,7 @@ const Buy = () => {
       }
     }
     searchByTax()
-  }, [debouncedTaxId, buyerType])
+  }, [debouncedTaxId, buyerType, autoSearchEnabled])
 
   // คีย์บอร์ดนำทางลิสต์บริษัท
   const handleCompanyKeyDown = async (e) => {
@@ -1139,17 +1132,17 @@ const Buy = () => {
       province: toStr(r.province ?? ""),
       postalCode: onlyDigits(toStr(r.postal_code ?? r.postalCode ?? "")),
 
-      // ใหม่:
       phone: toStr(r.phone ?? r.tel ?? r.mobile ?? ""),
       fid: toStr(r.fid ?? ""),
       fidOwner: toStr(r.fid_owner ?? r.fidowner ?? ""),
       fidRelationship: toStr(r.fid_relationship ?? r.fidreationship ?? r.fid_rel ?? ""),
-      memberId: r.member_id != null ? toIntOrNull(r.member_id) : null, // ⭐
+      memberId: r.member_id != null ? toIntOrNull(r.member_id) : null,
     }
   }
 
   /** เติมจากเรคอร์ด (เฉพาะบุคคล) */
   const fillFromRecord = async (raw = {}) => {
+    if (!autoSearchEnabled) return
     const __epoch = searchEpochRef.current
     const data = mapSimplePersonToUI(raw)
     if (__epoch !== searchEpochRef.current) return
@@ -1162,7 +1155,7 @@ const Buy = () => {
       fid: data.fid || prev.fid,
       fidOwner: data.fidOwner || prev.fidOwner,
       fidRelationship: data.fidRelationship || prev.fidRelationship,
-      memberId: data.memberId != null ? String(data.memberId) : prev.memberId, // ใส่ใน input ด้วย
+      memberId: data.memberId != null ? String(data.memberId) : prev.memberId,
     }))
     if (__epoch !== searchEpochRef.current) return
     setMemberMeta({ type: data.type, assoId: data.assoId, memberId: data.memberId })
@@ -1192,6 +1185,7 @@ const Buy = () => {
 
   /** ค้นหาด้วย member_id — ใช้เป็นหลักสำหรับบุคคล */
   useEffect(() => {
+    if (!autoSearchEnabled) return
     if (buyerType !== "person") {
       setCustomerFound(null)
       return
@@ -1199,7 +1193,7 @@ const Buy = () => {
     const mid = toIntOrNull(debouncedMemberId)
     if (mid == null || mid <= 0) return
     const fetchByMemberId = async () => {
-    const __epoch = searchEpochRef.current
+      const __epoch = searchEpochRef.current
       try {
         setLoadingCustomer(true)
         const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(String(mid))}`)) || []
@@ -1209,29 +1203,26 @@ const Buy = () => {
           await fillFromRecord(exact)
         } else {
           if (__epoch !== searchEpochRef.current) return
-          if (__epoch !== searchEpochRef.current) return
           setCustomerFound(false)
-          if (__epoch !== searchEpochRef.current) return
           if (__epoch !== searchEpochRef.current) return
           setMemberMeta({ type: "customer", assoId: null, memberId: null })
         }
       } catch (e) {
         console.error(e)
         if (__epoch !== searchEpochRef.current) return
-          if (__epoch !== searchEpochRef.current) return
-          setCustomerFound(false)
+        setCustomerFound(false)
         if (__epoch !== searchEpochRef.current) return
-          if (__epoch !== searchEpochRef.current) return
-          setMemberMeta({ type: "customer", assoId: null, memberId: null })
+        setMemberMeta({ type: "customer", assoId: null, memberId: null })
       } finally {
         setLoadingCustomer(false)
       }
     }
     fetchByMemberId()
-  }, [debouncedMemberId, buyerType])
+  }, [debouncedMemberId, buyerType, autoSearchEnabled])
 
   /** ค้นหาด้วยเลขบัตร — คงไว้เพื่อเติมข้อมูล/ที่อยู่ */
   useEffect(() => {
+    if (!autoSearchEnabled) return
     if (buyerType !== "person") {
       setCustomerFound(null)
       setMemberMeta({ type: "unknown", assoId: null, memberId: null })
@@ -1245,7 +1236,7 @@ const Buy = () => {
       return
     }
     const fetchByCid = async () => {
-    const __epoch = searchEpochRef.current
+      const __epoch = searchEpochRef.current
       try {
         setLoadingCustomer(true)
         const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(cid)}`)) || []
@@ -1255,29 +1246,26 @@ const Buy = () => {
           await fillFromRecord(exact)
         } else {
           if (__epoch !== searchEpochRef.current) return
-          if (__epoch !== searchEpochRef.current) return
           setCustomerFound(false)
-          if (__epoch !== searchEpochRef.current) return
           if (__epoch !== searchEpochRef.current) return
           setMemberMeta({ type: "customer", assoId: null, memberId: null })
         }
       } catch (e) {
         console.error(e)
         if (__epoch !== searchEpochRef.current) return
-          if (__epoch !== searchEpochRef.current) return
-          setCustomerFound(false)
+        setCustomerFound(false)
         if (__epoch !== searchEpochRef.current) return
-          if (__epoch !== searchEpochRef.current) return
-          setMemberMeta({ type: "customer", assoId: null, memberId: null })
+        setMemberMeta({ type: "customer", assoId: null, memberId: null })
       } finally {
         setLoadingCustomer(false)
       }
     }
     fetchByCid()
-  }, [debouncedCitizenId, buyerType, memberMeta.memberId, memberMeta.assoId])
+  }, [debouncedCitizenId, buyerType, memberMeta.memberId, memberMeta.assoId, autoSearchEnabled])
 
   /** ค้นหาด้วยชื่อ — ข้ามเมื่อเป็นบริษัท */
   useEffect(() => {
+    if (!autoSearchEnabled) { setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); return }
     if (buyerType !== "person") {
       setShowNameList(false)
       setNameResults([])
@@ -1303,7 +1291,7 @@ const Buy = () => {
     }
 
     const searchByName = async () => {
-    const __epoch = searchEpochRef.current
+      const __epoch = searchEpochRef.current
       try {
         setLoadingCustomer(true)
         const items = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(q)}`)) || []
@@ -1345,7 +1333,7 @@ const Buy = () => {
       }
     }
     searchByName()
-  }, [debouncedFullName, buyerType])
+  }, [debouncedFullName, buyerType, autoSearchEnabled])
 
   /** ปิด dropdown ชื่อเมื่อคลิกนอกกล่อง */
   useEffect(() => {
@@ -1387,7 +1375,7 @@ const Buy = () => {
     }
   }
 
-  /** ---- ช่วยจัดการสีแดงเฉพาะบางช่อง ---- */
+  /** ---- จัดการ error สีแดง ---- */
   const hasRed = (key) => !!errors[key] || !!missingHints[key]
   const redFieldCls = (key) =>
     hasRed(key) ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : ""
@@ -1486,7 +1474,7 @@ const Buy = () => {
     return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
   }
 
-  /** 👉 ซื้อเชื่อ = 4, ซื้อสด = 3 (เลือก id เป็นหลัก, ถ้าไม่ได้ให้ fallback ตามข้อความ) */
+  /** 👉 ซื้อเชื่อ = 4, ซื้อสด = 3 */
   const resolvePaymentIdForBE = () => {
     const id = resolvePaymentId()
     if (id != null) return id
@@ -1498,7 +1486,6 @@ const Buy = () => {
     missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : ""
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
 
-  // ⭐ ปรับให้ตรวจตามประเภทผู้ซื้อ + ตามที่รีเควสต์
   const computeMissingHints = () => {
     const m = {}
 
@@ -1509,7 +1496,6 @@ const Buy = () => {
       if (!customer.taxId.trim()) m.taxId = true
     }
 
-    // ✅ ฟิลด์ที่จำเป็นกับ BE/รีเควสต์
     if (!order.paymentMethod && !resolvePaymentId()) m.payment = true
     if (!order.issueDate) m.issueDate = true
 
@@ -1542,6 +1528,8 @@ const Buy = () => {
 
   /** ---------- Handlers ---------- */
   const updateCustomer = (k, v) => {
+    // ผู้ใช้เริ่มพิมพ์ใหม่ => อนุญาตให้ระบบค้นหาอีกครั้ง
+    setAutoSearchEnabled(true)
     if (String(v).trim() !== "") clearHint(k)
     setCustomer((prev) => ({ ...prev, [k]: v }))
   }
@@ -1553,7 +1541,7 @@ const Buy = () => {
   /** ---------- Template effects ---------- */
   const isTemplateActive = formTemplate !== "0"
 
-  // เมื่อเปลี่ยน Template (รหัส 1 = ฟอร์ม 17 ตค) → บังคับเลือก "ประเภทสินค้า: ข้าวเปลือก"
+  // ฟอร์ม 17 ตค => ล็อกประเภทสินค้า=ข้าวเปลือก
   useEffect(() => {
     if (!isTemplateActive) return
     if (productOptions.length === 0) return
@@ -1571,7 +1559,7 @@ const Buy = () => {
     }
   }, [formTemplate, productOptions]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // เมื่อ species โหลดแล้ว → เลือกชนิดข้าวตาม Template
+  // species ตาม Template
   useEffect(() => {
     if (!isTemplateActive) return
     if (riceOptions.length === 0) return
@@ -1588,7 +1576,7 @@ const Buy = () => {
     }
   }, [formTemplate, riceOptions]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ⭐ ฟอร์ม 17 ตค → ตั้งชั้นย่อย = ดอกมะลิ105 (รองรับชื่อแบบต่าง ๆ)
+  // ฟอร์ม 17 ตค => subrice = ดอกมะลิ105
   useEffect(() => {
     if (formTemplate !== "1") return
     if (subriceOptions.length === 0) return
@@ -1608,7 +1596,7 @@ const Buy = () => {
     }
   }, [formTemplate, subriceOptions]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ⭐ ฟอร์ม 17 ตค → ตั้ง Condition/FieldType/Year/Program/Business
+  // ฟอร์ม 17 ตค => ตั้ง Condition/FieldType/Year/Program/Business
   useEffect(() => {
     if (formTemplate !== "1") return
 
@@ -1618,27 +1606,22 @@ const Buy = () => {
       if (found) setter(found)
     }
 
-    // condition = แห้ง
     applyIfFound(conditionOptions, "แห้ง", (f) =>
       setOrder((p) => ({ ...p, conditionId: f.id, condition: f.label }))
     )
 
-    // field type = นาปี
     applyIfFound(fieldTypeOptions, "นาปี", (f) =>
       setOrder((p) => ({ ...p, fieldTypeId: f.id, fieldType: f.label }))
     )
 
-    // year = 2566/2567
     applyIfFound(yearOptions, "2566/2567", (f) =>
       setOrder((p) => ({ ...p, riceYearId: f.id, riceYear: f.label }))
     )
 
-    // business = ซื้อมาขายไป
     applyIfFound(businessOptions, "ซื้อมาขายไป", (f) =>
       setOrder((p) => ({ ...p, businessTypeId: f.id, businessType: f.label }))
     )
 
-    // program = ปกติ
     applyIfFound(programOptions, "ปกติ", (f) =>
       setOrder((p) => ({ ...p, programId: f.id, programName: f.label }))
     )
@@ -1652,7 +1635,7 @@ const Buy = () => {
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
       if (!toIntOrNull(memberMeta.memberId ?? customer.memberId) && !memberMeta.assoId) {
         e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกจากรายชื่อที่มี asso_id"
-        }
+      }
     } else {
       if (!customer.companyName.trim()) e.companyName = "กรุณากรอกชื่อบริษัท"
       if (!customer.taxId.trim() || !validateThaiTaxId(customer.taxId)) e.taxId = "กรุณากรอกเลขผู้เสียภาษี (13 หลัก)"
@@ -1691,7 +1674,7 @@ const Buy = () => {
     return e
   }
 
-  // ✅ เลื่อนโฟกัสไป "ช่องที่ขาดตัวบนสุด" (โฟกัสโดย **ไม่เลื่อนจอ**)
+  // ✅ เลื่อนโฟกัสไป "ช่องที่ขาดตัวบนสุด"
   const scrollToFirstError = (eObj) => {
     const personKeys = ["memberId", "fullName"]
     const companyKeys = ["companyName", "taxId"]
@@ -1715,7 +1698,7 @@ const Buy = () => {
     }
   }
 
-  // ✅ โฟกัสตัวแรกตาม missing hints (โฟกัสโดย **ไม่เลื่อนจอ**)
+  // ✅ โฟกัสตัวแรกตาม missing hints
   const scrollToFirstMissing = (hintsObj) => {
     const personKeys = ["memberId","fullName"]
     const companyKeys = ["companyName","taxId"]
@@ -1735,18 +1718,19 @@ const Buy = () => {
     }
   }
 
-  /** ---------- Helpers สำหรับรูปแบบวันที่ (ISO datetime) ---------- */
+  /** ---------- Helpers สำหรับรูปแบบวันที่ ---------- */
   const toIsoDateTime = (yyyyMmDd) => {
     try { return new Date(`${yyyyMmDd}T12:00:00Z`).toISOString() } catch { return new Date().toISOString() }
   }
 
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
-    // ยกเลิกผลลัพธ์ async เก่าที่อาจย้อนกลับมาหลังบันทึก
+    // ปิดออโต้ค้นหาทันทีที่เริ่มบันทึก + ยกเลิกผล async เก่า
+    setAutoSearchEnabled(false)
     bumpSearchEpoch()
     e.preventDefault()
 
-    // ⬆️ เด้งขึ้นบนสุด “ทันที” เมื่อกดบันทึก (ครอบคลุมกรณีกด Enter ด้วย)
+    // เด้งขึ้นบนสุด
     scrollToPageTop()
 
     const hints = computeMissingHints()
@@ -1754,11 +1738,11 @@ const Buy = () => {
     const eObj = validateAll()
 
     if (Object.keys(eObj).length > 0) {
-      scrollToFirstError(eObj) // โฟกัสโดยไม่เลื่อนจอ
+      scrollToFirstError(eObj)
       return
     }
     if (Object.values(hints).some(Boolean)) {
-      scrollToFirstMissing(hints) // โฟกัสโดยไม่เลื่อนจอ
+      scrollToFirstMissing(hints)
       return
     }
 
@@ -1799,7 +1783,7 @@ const Buy = () => {
 
     const dateStr = order.issueDate
 
-    // ⭐ customer discriminator (individual/company) — ส่งเฉพาะ field ที่ BE รับ
+    // customer payload
     let customerPayload
     if (buyerType === "person") {
       const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
@@ -1814,7 +1798,6 @@ const Buy = () => {
         ? {
             party_type: "individual",
             member_id: memberIdNum,
-            // optional cosmetics (ignored for lookup)
             first_name: firstName || "",
             last_name: lastName || "",
           }
@@ -1830,10 +1813,10 @@ const Buy = () => {
         ? { party_type: "company", tax_id: taxId }
         : memberMeta.assoId
         ? { party_type: "company", asso_id: memberMeta.assoId }
-        : { party_type: "company", tax_id: "" } // จะให้ BE แจ้ง error เองถ้าไม่ครบ
+        : { party_type: "company", tax_id: "" }
     }
 
-    /** Dept payload (แนบเสมอ — BE จะใช้เมื่อเป็นเครดิต) */
+    /** Dept payload */
     const makeDeptDate = (yyyyMmDd) => {
       try { return new Date(`${yyyyMmDd}T00:00:00Z`).toISOString() } catch { return new Date().toISOString() }
     }
@@ -1876,17 +1859,15 @@ const Buy = () => {
         klang_location: klangId,
         gram: Number(order.gram || 0),
         comment: order.comment?.trim() || null,
-        // ❌ ห้ามใส่ business_type ในระดับ order (อยู่ใน spec แล้วตาม BE)
       },
       dept: deptPayload,
     }
 
     try {
       await post("/order/customers/save/buy", payload)
-      // เก็บ template ปัจจุบันเผื่อรีเฟรชหน้าในอนาคต
       try { localStorage.setItem("buy.formTemplate", formTemplate) } catch {}
       alert("บันทึกออเดอร์เรียบร้อย ✅")
-      // ⬇️ เคลียร์ฟอร์มทั้งหมด แต่คง template + **คงวันที่เดิม** + เด้งไปบนสุด
+      // ⬇️ เคลียร์ฟอร์มทั้งหมด + ปิดออโต้ค้นหา จนกว่าจะพิมพ์ใหม่
       handleReset()
       requestAnimationFrame(() => scrollToPageTop())
     } catch (err) {
@@ -1898,6 +1879,7 @@ const Buy = () => {
 
   const handleReset = () => {
     // ปิดระบบ auto-search ชั่วคราวระหว่างรีเซ็ตเพื่อไม่ให้มี auto-fill
+    setAutoSearchEnabled(false)
     try { suppressNameSearchRef.current = true; } catch {}
     try { companySuppressSearchRef.current = true; } catch {}
 
@@ -1945,7 +1927,7 @@ const Buy = () => {
       brPostalCode: "",
     })
 
-    // ⭐ คงค่า issueDate เดิมไว้ ไม่ลบ/ไม่เปลี่ยน
+    // ⭐ คงค่า issueDate เดิมไว้
     setOrder((prev) => ({
       productId: "",
       productName: "",
@@ -1975,7 +1957,7 @@ const Buy = () => {
       unitPrice: "",
       amountTHB: "",
       paymentRefNo: "",
-      issueDate: prev.issueDate, // ⬅️ คงวันที่เดิม
+      issueDate: prev.issueDate,
       branchName: "",
       branchId: null,
       klangName: "",
@@ -1996,9 +1978,7 @@ const Buy = () => {
 
     setBuyerType("person")
     setBranchLocked(false) // ปลดล็อกเมื่อรีเซ็ต
-    // หมายเหตุ: formTemplate "คงไว้" ตามที่เลือกก่อนหน้า (ไม่แตะต้อง)
 
-    // ⬆️ เด้งขึ้นบนสุดทุกครั้งที่กดรีเซ็ต
     if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => scrollToPageTop())
     } else {
@@ -2505,7 +2485,7 @@ const Buy = () => {
                   }))
                 }}
                 placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId || formTemplate === "1"} // ⬅️ ล็อกเมื่อเป็นฟอร์ม 17 ตค
+                disabled={!order.productId || formTemplate === "1"}
                 error={!!errors.riceType}
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
@@ -2541,7 +2521,7 @@ const Buy = () => {
                   setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))
                 }}
                 placeholder="— เลือกชั้นย่อย —"
-                disabled={!order.riceId || formTemplate === "1"} // ⬅️ ล็อกเมื่อเป็นฟอร์ม 17 ตค
+                disabled={!order.riceId || formTemplate === "1"}
                 error={!!errors.subrice}
                 hintRed={!!missingHints.subrice}
                 clearHint={() => clearHint("subrice")}
@@ -2584,7 +2564,7 @@ const Buy = () => {
                 hintRed={!!missingHints.condition}
                 clearHint={() => clearHint("condition")}
                 buttonRef={refs.condition}
-                disabled={formTemplate === "1"} // ⬅️ ล็อก
+                disabled={formTemplate === "1"}
                 onEnterNext={() => focusNext("condition")}
               />
               {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
@@ -2607,7 +2587,7 @@ const Buy = () => {
                 hintRed={!!missingHints.fieldType}
                 clearHint={() => clearHint("fieldType")}
                 buttonRef={refs.fieldType}
-                disabled={formTemplate === "1"} // ⬅️ ล็อก
+                disabled={formTemplate === "1"}
                 onEnterNext={() => focusNext("fieldType")}
               />
               {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
@@ -2630,9 +2610,8 @@ const Buy = () => {
                 hintRed={!!missingHints.riceYear}
                 clearHint={() => clearHint("riceYear")}
                 buttonRef={refs.riceYear}
-                disabled={formTemplate === "1"} // ⬅️ ล็อก
+                disabled={formTemplate === "1"}
                 onEnterNext={() => {
-                  // ปี/ฤดูกาล -> ประเภทธุรกิจ (ถ้าใช้ไม่ได้ ข้ามไป โปรแกรม -> สาขา -> คลัง)
                   const tryFocus = () => {
                     const keys = ["businessType", "program", "branchName", "klangName"]
                     for (const k of keys) {
@@ -2672,9 +2651,8 @@ const Buy = () => {
                 hintRed={!!missingHints.businessType}
                 clearHint={() => clearHint("businessType")}
                 buttonRef={refs.businessType}
-                disabled={formTemplate === "1"} // ⬅️ ล็อก
+                disabled={formTemplate === "1"}
                 onEnterNext={() => {
-                  // ประเภทธุรกิจ -> โปรแกรม (fallback: สาขา/คลัง ถ้าโปรแกรมใช้ไม่ได้)
                   const tryFocus = () => {
                     const el = refs.program?.current
                     if (el && isEnabledInput(el)) {
@@ -2722,7 +2700,6 @@ const Buy = () => {
                 clearHint={() => { clearHint("program"); clearError("program") }}
                 disabled={formTemplate === "1"}
                 onEnterNext={() => {
-                  // โปรแกรม -> คลัง (ถ้าคลังยังใช้ไม่ได้ ให้ไปสาขาก่อน)
                   const focusKlang = () => {
                     const elK = refs.klangName?.current
                     if (elK && isEnabledInput(elK)) {
@@ -3031,7 +3008,7 @@ const Buy = () => {
 
           {/* สรุป */}
           <div className="mt-6 grid gap-4 md:grid-cols-5">
-            {/* ผู้ขาย */}
+            {/* ผู้ซื้อ */}
             {buyerType === "person" ? (
               <>
                 <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
@@ -3124,7 +3101,7 @@ const Buy = () => {
             <button
               ref={refs.submitBtn}
               type="submit"
-              onClick={scrollToPageTop} // ⬆️ เด้งขึ้นบนสุดทันทีเมื่อคลิกปุ่ม (เสริมจากใน handleSubmit)
+              onClick={scrollToPageTop}
               className="inline-flex items-center justify-center rounded-2xl 
                 bg-emerald-600 px-6 py-3 text-base font-semibold text-white
                 shadow-[0_6px_16px_rgba(16,185,129,0.35)]

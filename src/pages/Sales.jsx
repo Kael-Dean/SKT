@@ -83,7 +83,6 @@ const useEnterNavigation = (refs, buyerType, order) => {
     if (key === "subrice" && !order.riceId) return false
     if (key === "riceType" && !order.productId) return false
     if (key === "klangName" && !order.branchId) return false
-    // เงื่อนไขแสดงเอกสาร
     if (key === "cashReceiptNo" && !order.__isCash) return false
     if (key === "creditInvoiceNo" && !order.__isCredit) return false
     return isEnabledInput(el)
@@ -283,9 +282,9 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 
 /** =====================================================================
  *                              Sales Page
- *  - UI ให้เหมือน Buy + เพิ่มฟอร์มสำเร็จรูป
- *  - เพิ่มเอกสารอ้างอิง 3 ช่อง (แสดงตามวิธีชำระเงิน)
- *  - ส่งข้อมูลตาม BE (/order/customers/save/sell)
+ *  - UI ให้เหมือน Buy + ย้าย "ใบรับเงิน/ใบกำกับ" ขึ้นบน
+ *  - เพิ่ม enter-to-next ให้พฤติกรรมเหมือน Buy
+ *  - ปุ่มบันทึก/รีเซ็ต ใช้สไตล์เดียวกับ Buy
  * ===================================================================== */
 function Sales() {
   /** ---------- state พื้นฐาน ---------- */
@@ -396,9 +395,8 @@ function Sales() {
     __isCredit: false,
   })
 
-// ▼ เพิ่ม: ฟอร์มเครดิต (ขายเชื่อ) ให้เหมือนหน้า Buy
-const [dept, setDept] = useState({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
-
+  // ▼ เพิ่ม: ฟอร์มเครดิต (ขายเชื่อ) ให้เหมือนหน้า Buy
+  const [dept, setDept] = useState({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
 
   /** ---------- Refs สำหรับนำทางด้วย Enter ---------- */
   const refs = {
@@ -427,13 +425,15 @@ const [dept, setDept] = useState({ allowedPeriod: 30, postpone: false, postponeP
 
     // template
     formTemplate: useRef(null),
-  
 
-// Dept (credit)
-deptAllowed: useRef(null),
-deptPostpone: useRef(null),
-deptPostponePeriod: useRef(null),
-}
+    // Dept (credit)
+    deptAllowed: useRef(null),
+    deptPostpone: useRef(null),
+    deptPostponePeriod: useRef(null),
+
+    // ปุ่ม submit (ใช้เลื่อนโฟกัสจาก “เป็นเงิน”)
+    submitBtn: useRef(null),
+  }
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
   /** ---------- Debounce ---------- */
@@ -823,11 +823,11 @@ deptPostponePeriod: useRef(null),
   const updateOrder = (k, v) => { if (String(v).trim() !== "") clearHint(k); setOrder((p) => ({ ...p, [k]: v })) }
 
   const grossFromScale = useMemo(() => {
-  const entry = toNumber(order.entryWeightKg)
-  const exit  = toNumber(order.exitWeightKg)
-  const g = exit - entry
-  return g > 0 ? g : 0
-}, [order.entryWeightKg, order.exitWeightKg])
+    const entry = toNumber(order.entryWeightKg)
+    const exit  = toNumber(order.exitWeightKg)
+    const g = exit - entry
+    return g > 0 ? g : 0
+  }, [order.entryWeightKg, order.exitWeightKg])
 
   const computedAmount = useMemo(() => {
     if (order.unitPrice === "" || isNaN(Number(order.unitPrice))) return null
@@ -899,7 +899,7 @@ deptPostponePeriod: useRef(null),
     const e = {}
     if (buyerType === "person") {
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
-      // ต้องมี member_id หรือ asso_id ตาม BE (อิงหน้า Buy) :contentReference[oaicite:6]{index=6}
+      // ต้องมี member_id หรือ asso_id ตาม BE (อิงหน้า Buy)
       if (!toIntOrNull(memberMeta.memberId ?? customer.memberId) && !memberMeta.assoId) {
         e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id"
       }
@@ -943,6 +943,33 @@ deptPostponePeriod: useRef(null),
   const toIsoDateTime = (yyyyMmDd) => {
     try { return new Date(`${yyyyMmDd}T12:00:00Z`).toISOString() } catch { return new Date().toISOString() }
   }
+
+  const handleReset = () => {
+    setErrors({}); setMissingHints({})
+    setCustomer({
+      citizenId: "", memberId: "", fullName: "", houseNo: "", moo: "", subdistrict: "", district: "", province: "", postalCode: "", phone: "",
+      companyName: "", taxId: "", companyPhone: "",
+      hqHouseNo: "", hqMoo: "", hqSubdistrict: "", hqDistrict: "", hqProvince: "", hqPostalCode: "",
+      brHouseNo: "", brMoo: "", brSubdistrict: "", brDistrict: "", brProvince: "", brPostalCode: "",
+    })
+    setMemberMeta({ type: "unknown", assoId: null, memberId: null })
+    setOrder({
+      productId: "", productName: "", riceId: "", riceType: "", subriceId: "", subriceName: "",
+      conditionId: "", condition: "", fieldTypeId: "", fieldType: "", riceYearId: "", riceYear: "",
+      businessTypeId: "", businessType: "", programId: "", programName: "",
+      branchName: "", branchId: null, klangName: "", klangId: null,
+      entryWeightKg: "", exitWeightKg: "", unitPrice: "", amountTHB: "",
+      issueDate: new Date().toISOString().slice(0, 10), gram: "", comment: "",
+      paymentMethod: "", paymentMethodId: "",
+      scaleNo: "", cashReceiptNo: "", creditInvoiceNo: "",
+      __isCash: false, __isCredit: false,
+    })
+    setRiceOptions([]); setSubriceOptions([]); setKlangOptions([])
+    setBuyerType("person")
+    setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
+    try { refs.buyerType?.current?.focus() } catch {}
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     const hints = computeMissingHints()
@@ -973,7 +1000,7 @@ deptPostponePeriod: useRef(null),
       (isCredit ? (order.creditInvoiceNo?.trim() || "") : (order.cashReceiptNo?.trim() || "")) ||
       (order.scaleNo?.trim() || null)
 
-    // สร้าง payload ให้ตรงกับ OrderRequest (BE) :contentReference[oaicite:7]{index=7}
+    // สร้าง payload
     let customerPayload
     if (buyerType === "person") {
       const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
@@ -1027,40 +1054,16 @@ deptPostponePeriod: useRef(null),
         comment: order.comment?.trim() || null,
         business_type: businessTypeId,
       },
-      // dept แนบเสมอ (BE ใช้เมื่อ payment_id == 2) :contentReference[oaicite:8]{index=8}
+      // dept แนบเสมอ (BE ใช้เมื่อ payment_id == 2)
       dept: { date_created: dateISO, allowed_period: Number(dept.allowedPeriod || 0), postpone: Boolean(dept.postpone), postpone_period: Number(dept.postpone ? (dept.postponePeriod || 0) : 0) },
     }
 
     try {
-      await post("/order/customers/save/sell", payload) // :contentReference[oaicite:9]{index=9}
+      await post("/order/customers/save/sell", payload)
+      try { localStorage.setItem("sales.formTemplate", formTemplate) } catch {}
       alert("บันทึกออเดอร์ขายเรียบร้อย ✅")
-
-      
-
-// reset เครดิต
-setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
-// reset ฟอร์มแบบย่อ
-      setErrors({}); setMissingHints({})
-      setCustomer({
-        citizenId: "", memberId: "", fullName: "", houseNo: "", moo: "", subdistrict: "", district: "", province: "", postalCode: "", phone: "",
-        companyName: "", taxId: "", companyPhone: "",
-        hqHouseNo: "", hqMoo: "", hqSubdistrict: "", hqDistrict: "", hqProvince: "", hqPostalCode: "",
-        brHouseNo: "", brMoo: "", brSubdistrict: "", brDistrict: "", brProvince: "", brPostalCode: "",
-      })
-      setMemberMeta({ type: "unknown", assoId: null, memberId: null })
-      setOrder({
-        productId: "", productName: "", riceId: "", riceType: "", subriceId: "", subriceName: "",
-        conditionId: "", condition: "", fieldTypeId: "", fieldType: "", riceYearId: "", riceYear: "",
-        businessTypeId: "", businessType: "", programId: "", programName: "",
-        branchName: "", branchId: null, klangName: "", klangId: null,
-        entryWeightKg: "", exitWeightKg: "", unitPrice: "", amountTHB: "",
-        issueDate: new Date().toISOString().slice(0, 10), gram: "", comment: "",
-        paymentMethod: "", paymentMethodId: "",
-        scaleNo: "", cashReceiptNo: "", creditInvoiceNo: "",
-        __isCash: false, __isCredit: false,
-      })
-      setRiceOptions([]); setSubriceOptions([]); setKlangOptions([])
-      setBuyerType("person")
+      handleReset()
+      try { refs.submitBtn?.current?.blur?.() } catch {}
     } catch (err) {
       console.error("SAVE ERROR:", err?.data || err)
       const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
@@ -1138,7 +1141,7 @@ setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
             </div>
           </div>
 
-          {/* วิธีชำระเงิน + วันที่ */}
+          {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง (เหมือนหน้า Buy) */}
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>วิธีชำระเงิน</label>
@@ -1148,7 +1151,21 @@ setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
                 onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
                 placeholder="— เลือกวิธีชำระเงิน —"
                 buttonRef={refs.payment}
-                onEnterNext={() => { if (isCreditPayment()) { refs.deptAllowed?.current?.focus() } else { focusNext("payment") } }}
+                onEnterNext={() => {
+                  // กด Enter จากวิธีชำระเงิน → โฟกัสไปช่องเอกสารบนคอลัมน์ที่ 3 (เหมือนหน้า Buy)
+                  const tryFocusDoc = () => {
+                    const el = order.__isCredit ? refs.creditInvoiceNo?.current : refs.cashReceiptNo?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.(); try { el.select?.() } catch {}
+                      return true
+                    }
+                    return false
+                  }
+                  if (tryFocusDoc()) return
+                  setTimeout(tryFocusDoc, 60)
+                  setTimeout(tryFocusDoc, 160)
+                }}
               />
             </div>
             <div>
@@ -1165,87 +1182,135 @@ setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
               />
               {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
             </div>
-          </div>
 
-{/* ▼ เฉพาะกรณี "ขายเชื่อ/เครดิต" แสดงกรอบกรอกเงื่อนไขเครดิต */}
-{isCreditPayment() && (
-  <div className="md:col-span-3 mt-2">
-    <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-sm dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-100">
-      <div className="mb-2 flex items-center gap-2">
-        <svg viewBox="0 0 24 24" width="18" height="18" className="opacity-80" fill="currentColor">
-          <path d="M3 5a2 2 0 0 0-2 2v2h22V7a2 2 0 0 0-2-2H3zm20 6H1v6a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-6zM4 17h6v-2H4v2z"/>
-        </svg>
-        <div className="font-semibold">รายละเอียดเครดิต (ขายเชื่อ)</div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <div>
-          <label className={labelCls}>กำหนดชำระ (วัน)</label>
-          <input
-            ref={refs.deptAllowed}
-            inputMode="numeric"
-            className={baseField}
-            value={String(dept.allowedPeriod ?? 0)}
-            onChange={(e) => setDept((p) => ({ ...p, allowedPeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.isComposing) {
-                e.preventDefault();
-                refs.deptPostpone?.current?.focus();
-              }
-            }}
-            placeholder="เช่น 30"
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className={labelCls}>ตัวเลือก</label>
-          <div className="flex items-center gap-3">
-            <input
-              ref={refs.deptPostpone}
-              type="checkbox"
-              checked={!!dept.postpone}
-              onChange={(e) => setDept((p) => ({ ...p, postpone: e.target.checked }))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.isComposing) {
-                  e.preventDefault();
-                  if (!!dept.postpone) refs.deptPostponePeriod?.current?.focus();
-                  else refs.issueDate?.current?.focus();
+            {/* เอกสารอ้างอิง: ใบรับเงิน/ใบกำกับ (ย้ายขึ้นจากด้านล่าง) */}
+            <div>
+              <label className={labelCls}>
+                {order.__isCredit
+                  ? "เลขที่ใบกำกับสินค้า (ขายเชื่อ)"
+                  : order.__isCash
+                  ? "ใบรับเงินขายสินค้า (ขายสด)"
+                  : "เอกสารอ้างอิง (เลือกวิธีชำระเงินเพื่อกรอก)"
                 }
-              }}
-            />
-            <span>อนุญาตให้ปลอดดอกเบี้ยชั่วคราว</span>
+              </label>
+
+              {/* แสดงอินพุตตามประเภทการชำระเงิน */}
+              {order.__isCredit ? (
+                <input
+                  ref={refs.creditInvoiceNo}
+                  className={baseField}
+                  value={order.creditInvoiceNo}
+                  onChange={(e) => updateOrder("creditInvoiceNo", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.isComposing) {
+                      e.preventDefault()
+                      const targetKey = buyerType === "person" ? "fullName" : "companyName"
+                      const el = refs[targetKey]?.current
+                      if (el && isEnabledInput(el)) { try { el.scrollIntoView({ block: "center" }) } catch {} el.focus?.(); try { el.select?.() } catch {} }
+                    }
+                  }}
+                  placeholder="เช่น INV-2025-000456 (ไม่บังคับ)"
+                />
+              ) : order.__isCash ? (
+                <input
+                  ref={refs.cashReceiptNo}
+                  className={baseField}
+                  value={order.cashReceiptNo}
+                  onChange={(e) => updateOrder("cashReceiptNo", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.isComposing) {
+                      e.preventDefault()
+                      const targetKey = buyerType === "person" ? "fullName" : "companyName"
+                      const el = refs[targetKey]?.current
+                      if (el && isEnabledInput(el)) { try { el.scrollIntoView({ block: "center" }) } catch {} el.focus?.(); try { el.select?.() } catch {} }
+                    }
+                  }}
+                  placeholder="เช่น RC-2025-000789 (ไม่บังคับ)"
+                />
+              ) : (
+                <input className={cx(baseField, fieldDisabled)} disabled placeholder="โปรดเลือกวิธีชำระเงินก่อน" />
+              )}
+            </div>
           </div>
 
-          {dept.postpone && (
-            <div className="mt-3">
-              <label className={labelCls}>ระยะเวลาปลอดดอกเบี้ย (วัน)</label>
-              <input
-                ref={refs.deptPostponePeriod}
-                inputMode="numeric"
-                className={baseField}
-                value={String(dept.postponePeriod ?? 0)}
-                onChange={(e) => setDept((p) => ({ ...p, postponePeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.isComposing) {
-                    e.preventDefault();
-                    refs.issueDate?.current?.focus();
-                  }
-                }}
-                placeholder="เช่น 15"
-              />
+          {/* ▼ เฉพาะกรณี "ขายเชื่อ/เครดิต" แสดงกรอบกรอกเงื่อนไขเครดิต */}
+          {isCreditPayment() && (
+            <div className="md:col-span-3 mt-2">
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-sm dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-100">
+                <div className="mb-2 flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" width="18" height="18" className="opacity-80" fill="currentColor">
+                    <path d="M3 5a2 2 0 0 0-2 2v2h22V7a2 2 0 0 0-2-2H3zm20 6H1v6a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-6zM4 17h6v-2H4v2z"/>
+                  </svg>
+                  <div className="font-semibold">รายละเอียดเครดิต (ขายเชื่อ)</div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <label className={labelCls}>กำหนดชำระ (วัน)</label>
+                    <input
+                      ref={refs.deptAllowed}
+                      inputMode="numeric"
+                      className={baseField}
+                      value={String(dept.allowedPeriod ?? 0)}
+                      onChange={(e) => setDept((p) => ({ ...p, allowedPeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.isComposing) {
+                          e.preventDefault();
+                          refs.deptPostpone?.current?.focus();
+                        }
+                      }}
+                      placeholder="เช่น 30"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className={labelCls}>ตัวเลือก</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        ref={refs.deptPostpone}
+                        type="checkbox"
+                        checked={!!dept.postpone}
+                        onChange={(e) => setDept((p) => ({ ...p, postpone: e.target.checked }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.isComposing) {
+                            e.preventDefault();
+                            if (!!dept.postpone) refs.deptPostponePeriod?.current?.focus();
+                            else refs.issueDate?.current?.focus();
+                          }
+                        }}
+                      />
+                      <span>อนุญาตให้ปลอดดอกเบี้ยชั่วคราว</span>
+                    </div>
+
+                    {dept.postpone && (
+                      <div className="mt-3">
+                        <label className={labelCls}>ระยะเวลาปลอดดอกเบี้ย (วัน)</label>
+                        <input
+                          ref={refs.deptPostponePeriod}
+                          inputMode="numeric"
+                          className={baseField}
+                          value={String(dept.postponePeriod ?? 0)}
+                          onChange={(e) => setDept((p) => ({ ...p, postponePeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.isComposing) {
+                              e.preventDefault();
+                              refs.issueDate?.current?.focus();
+                            }
+                          }}
+                          placeholder="เช่น 15"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <p className="mt-2 text-sm opacity-80">
+                  ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>allowed_period</code>, <code>postpone</code>, <code>postpone_period</code>
+                  เพื่อใช้คำนวณวันครบกำหนดและวันเลื่อนครบกำหนด (ถ้ามี).
+                </p>
+              </div>
             </div>
           )}
-        </div>
-      </div>
-
-      <p className="mt-2 text-sm opacity-80">
-        ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>allowed_period</code>, <code>postpone</code>, <code>postpone_period</code>
-        เพื่อใช้คำนวณวันครบกำหนดและวันเลื่อนครบกำหนด (ถ้ามี).
-      </p>
-    </div>
-  </div>
-)}
-
 
           {/* ส่วนฟอร์มลูกค้า (บุคคล / บริษัท) */}
           {buyerType === "person" ? (
@@ -1666,7 +1731,16 @@ setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
                   value={order.amountTHB}
                   onChange={(e) => updateOrder("amountTHB", formatMoneyInput(e.target.value))}
                   onFocus={() => { clearHint("amountTHB"); clearError("amountTHB") }}
-                  onKeyDown={onEnter("amountTHB")}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.isComposing) {
+                      e.preventDefault()
+                      const btn = refs.submitBtn?.current
+                      if (btn && isEnabledInput(btn)) {
+                        try { btn.scrollIntoView({ block: "center" }) } catch {}
+                        btn.focus?.()
+                      }
+                    }
+                  }}
                   placeholder="เช่น 45,000"
                 />
                 {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(moneyToNumber(order.amountTHB))}</p>}
@@ -1689,7 +1763,7 @@ setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
             </div>
           </div>
 
-          {/* เอกสารอ้างอิง (ด้านล่างกรอบตัวเลข) */}
+          {/* เอกสารอ้างอิง (ด้านล่างกรอบตัวเลข) — คงไว้เฉพาะเลขที่ใบชั่ง */}
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>เลขที่ใบชั่ง</label>
@@ -1702,34 +1776,6 @@ setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
                 placeholder="เช่น SCL-2025-000123 (ไม่บังคับ)"
               />
             </div>
-
-            {order.__isCash && (
-              <div>
-                <label className={labelCls}>ใบรับเงินขายสินค้า (ขายสด)</label>
-                <input
-                  ref={refs.cashReceiptNo}
-                  className={baseField}
-                  value={order.cashReceiptNo}
-                  onChange={(e) => updateOrder("cashReceiptNo", e.target.value)}
-                  onKeyDown={onEnter("cashReceiptNo")}
-                  placeholder="เช่น RC-2025-000789 (ไม่บังคับ)"
-                />
-              </div>
-            )}
-
-            {order.__isCredit && (
-              <div>
-                <label className={labelCls}>เลขที่ใบกำกับสินค้า (ขายเชื่อ)</label>
-                <input
-                  ref={refs.creditInvoiceNo}
-                  className={baseField}
-                  value={order.creditInvoiceNo}
-                  onChange={(e) => updateOrder("creditInvoiceNo", e.target.value)}
-                  onKeyDown={onEnter("creditInvoiceNo")}
-                  placeholder="เช่น INV-2025-000456 (ไม่บังคับ)"
-                />
-              </div>
-            )}
           </div>
 
           {/* หมายเหตุ */}
@@ -1804,18 +1850,32 @@ setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
             ))}
           </div>
 
-          {/* ปุ่มบันทึก */}
+          {/* ปุ่มบันทึก/รีเซ็ต — สไตล์เดียวกับหน้า Buy */}
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <button
+              ref={refs.submitBtn}
               type="submit"
-              className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 active:scale-[0.98]"
+              className="inline-flex items-center justify-center rounded-2xl 
+                bg-emerald-600 px-6 py-3 text-base font-semibold text-white
+                shadow-[0_6px_16px_rgba(16,185,129,0.35)]
+                transition-all duration-300 ease-out
+                hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
+                hover:scale-[1.05] active:scale-[.97] cursor-pointer"
             >
               บันทึกออเดอร์ขาย
             </button>
             <button
               type="button"
-              onClick={() => window.location.reload()}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
+              onClick={handleReset}
+              className="inline-flex items-center justify-center rounded-2xl 
+                border border-slate-300 bg-white px-6 py-3 text-base font-medium 
+                text-slate-700 dark:text:white
+                shadow-sm
+                transition-all duration-300 ease-out
+                hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
+                active:scale-[.97]
+                dark:border-slate-600 dark:bg-slate-700/60 
+                dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
             >
               ล้างฟอร์ม
             </button>

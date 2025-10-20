@@ -445,14 +445,13 @@ const Buy = () => {
   const [paymentOptions, setPaymentOptions] = useState([])
   const [businessOptions, setBusinessOptions] = useState([])
 
-  /** ▶︎ ฟอร์มสำเร็จรูป (Template) */
-  const templateOptions = [
-    { id: "0", label: "— ฟอร์มปกติ —" },
-    { id: "1", label: "ฟอร์ม 17 ตค" },
-    { id: "2", label: "รหัส 2 • ข้าวเหนียว" },
-    { id: "3", label: "รหัส 3 • เมล็ดพันธุ์" },
-  ]
+  /** ▶︎ ฟอร์มสำเร็จรูป (Template) — โหลดจาก BE */
+  const [templateOptions, setTemplateOptions] = useState([
+    { id: "0", label: "— ไม่ล็อก (เลือกเอง) —" },
+  ])
   const [formTemplate, setFormTemplate] = useState("0") // "0" = ไม่ล็อก
+  const [selectedTemplateLabel, setSelectedTemplateLabel] = useState("") // เก็บ label ที่เลือกไว้
+  const [pendingTemplateLabel, setPendingTemplateLabel] = useState("") // ใช้ดักเติม species หลังโหลด riceOptions
 
   /** ⭐ ประเภทผู้ซื้อ */
   const buyerTypeOptions = [
@@ -637,11 +636,20 @@ const Buy = () => {
   const searchEpochRef = useRef(0)
   const bumpSearchEpoch = () => { searchEpochRef.current += 1 }
 
-  /** โหลด Template ล่าสุด */
+  /** โหลด Template ล่าสุด (จาก shared หรือของหน้า buy) */
   useEffect(() => {
     try {
+      const shared = localStorage.getItem("shared.formTemplate")
+      if (shared) {
+        const o = JSON.parse(shared)
+        if (o?.id) {
+          setFormTemplate(String(o.id))
+          setSelectedTemplateLabel(o.label || "")
+          return
+        }
+      }
       const saved = localStorage.getItem("buy.formTemplate")
-      if (saved && ["0", "1", "2", "3"].includes(saved)) setFormTemplate(saved)
+      if (saved) setFormTemplate(saved)
     } catch {}
   }, [])
 
@@ -893,6 +901,23 @@ const Buy = () => {
       }
     }
     loadStaticDD()
+  }, [])
+
+  /** 🔄 โหลดรายการฟอร์มสำเร็จรูปจาก BE */
+  useEffect(() => {
+    const loadForms = async () => {
+      try {
+        const arr = (await apiAuth("/order/form/search")) || []
+        const mapped = arr
+          .map((x) => ({ id: String(x.id ?? x.value ?? ""), label: String(x.prod_name ?? x.name ?? x.label ?? "").trim() }))
+          .filter((o) => o.id && o.label)
+        setTemplateOptions([{ id: "0", label: "— ไม่ล็อก (เลือกเอง) —" }, ...mapped])
+      } catch (e) {
+        console.error("load form templates error:", e)
+        setTemplateOptions([{ id: "0", label: "— ไม่ล็อก (เลือกเอง) —" }])
+      }
+    }
+    loadForms()
   }, [])
 
   /** 🔒 ล็อกสาขาตาม username ใน JWT */
@@ -1538,94 +1563,99 @@ const Buy = () => {
     setOrder((prev) => ({ ...prev, [k]: v }))
   }
 
-  /** ---------- Template effects ---------- */
+  /** ---------- Template mapping (ใหม่) ---------- */
   const isTemplateActive = formTemplate !== "0"
+  const chooseByIncludes = (opts, text) =>
+    (opts || []).find((o) => String(text || "").includes(String(o.label || "")))
 
-  // ฟอร์ม 17 ตค => ล็อกประเภทสินค้า=ข้าวเปลือก
-  useEffect(() => {
-    if (!isTemplateActive) return
-    if (productOptions.length === 0) return
-    const paddy = productOptions.find((o) => o.label.includes("ข้าวเปลือก"))
-    if (paddy && order.productId !== paddy.id) {
+  const applyTemplateByLabel = (label) => {
+    if (!label) return
+    // product
+    const prod = chooseByIncludes(productOptions, label)
+    if (prod && String(order.productId) !== String(prod.id)) {
       setOrder((p) => ({
         ...p,
-        productId: paddy.id,
-        productName: paddy.label,
+        productId: prod.id,
+        productName: prod.label,
         riceId: "",
         riceType: "",
         subriceId: "",
         subriceName: "",
       }))
+      // รอจนกว่าจะโหลด species แล้วค่อยจับคู่ species ตาม label
+      setPendingTemplateLabel(label)
     }
-  }, [formTemplate, productOptions]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // species ตาม Template
+    // condition
+    const cond = chooseByIncludes(conditionOptions, label)
+    if (cond) setOrder((p) => ({ ...p, conditionId: cond.id, condition: cond.label }))
+
+    // field type
+    const fld = chooseByIncludes(fieldTypeOptions, label)
+    if (fld) setOrder((p) => ({ ...p, fieldTypeId: fld.id, fieldType: fld.label }))
+
+    // year
+    const yr = chooseByIncludes(yearOptions, label)
+    if (yr) setOrder((p) => ({ ...p, riceYearId: yr.id, riceYear: yr.label }))
+
+    // program
+    const prog = chooseByIncludes(programOptions, label)
+    if (prog) setOrder((p) => ({ ...p, programId: prog.id, programName: prog.label }))
+
+    // หมายเหตุ: businessType และ subrice ไม่มีใน prod_name → ให้ผู้ใช้เลือกเอง
+  }
+
+  // เมื่อ template เปลี่ยนหรือ options พร้อม → ใช้ label เติมค่าที่หาเจอ
   useEffect(() => {
     if (!isTemplateActive) return
-    if (riceOptions.length === 0) return
-    const want = formTemplate === "1" ? "หอมมะลิ" : formTemplate === "2" ? "เหนียว" : "พันธุ์"
-    const target = riceOptions.find((r) => r.label.includes(want))
-    if (target && order.riceId !== target.id) {
+    const current = templateOptions.find((o) => String(o.id) === String(formTemplate))
+    const label = current?.label || selectedTemplateLabel
+    if (label) applyTemplateByLabel(label)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formTemplate, productOptions, conditionOptions, fieldTypeOptions, yearOptions, programOptions])
+
+  // หลังโหลด species แล้ว ค่อยเติม species จาก label ของ template
+  useEffect(() => {
+    if (!pendingTemplateLabel || riceOptions.length === 0) return
+    const sp = chooseByIncludes(riceOptions, pendingTemplateLabel)
+    if (sp) {
       setOrder((p) => ({
         ...p,
-        riceId: target.id,
-        riceType: target.label,
+        riceId: sp.id,
+        riceType: sp.label,
         subriceId: "",
         subriceName: "",
       }))
     }
-  }, [formTemplate, riceOptions]) // eslint-disable-line react-hooks/exhaustive-deps
+    setPendingTemplateLabel("")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [riceOptions, pendingTemplateLabel])
 
-  // ฟอร์ม 17 ตค => subrice = ดอกมะลิ105
+  /** แชร์สถานะสเปกไปยังหน้า Sell ผ่าน localStorage */
   useEffect(() => {
-    if (formTemplate !== "1") return
-    if (subriceOptions.length === 0) return
-    const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, "")
-    const isDokMali105 = (label) => {
-      const t = norm(label)
-      return (
-        t.includes("ดอกมะลิ105") ||
-        t.includes("หอมมะลิ105") ||
-        t.includes("kdml105") ||
-        t.includes("jasmine105")
-      )
-    }
-    const target = subriceOptions.find((s) => isDokMali105(s.label))
-    if (target && order.subriceId !== target.id) {
-      setOrder((p) => ({ ...p, subriceId: target.id, subriceName: target.label }))
-    }
-  }, [formTemplate, subriceOptions]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ฟอร์ม 17 ตค => ตั้ง Condition/FieldType/Year/Program/Business
-  useEffect(() => {
-    if (formTemplate !== "1") return
-
-    const applyIfFound = (opts, includesText, setter) => {
-      if (!Array.isArray(opts) || opts.length === 0) return
-      const found = opts.find((o) => (o.label || "").includes(includesText))
-      if (found) setter(found)
-    }
-
-    applyIfFound(conditionOptions, "แห้ง", (f) =>
-      setOrder((p) => ({ ...p, conditionId: f.id, condition: f.label }))
-    )
-
-    applyIfFound(fieldTypeOptions, "นาปี", (f) =>
-      setOrder((p) => ({ ...p, fieldTypeId: f.id, fieldType: f.label }))
-    )
-
-    applyIfFound(yearOptions, "2566/2567", (f) =>
-      setOrder((p) => ({ ...p, riceYearId: f.id, riceYear: f.label }))
-    )
-
-    applyIfFound(businessOptions, "ซื้อมาขายไป", (f) =>
-      setOrder((p) => ({ ...p, businessTypeId: f.id, businessType: f.label }))
-    )
-
-    applyIfFound(programOptions, "ปกติ", (f) =>
-      setOrder((p) => ({ ...p, programId: f.id, programName: f.label }))
-    )
-  }, [formTemplate, conditionOptions, fieldTypeOptions, yearOptions, programOptions, businessOptions])
+    try {
+      const sharedSpec = {
+        productId: order.productId || null,
+        riceId: order.riceId || null,
+        subriceId: order.subriceId || null,
+        riceYearId: order.riceYearId || null,
+        conditionId: order.conditionId || null,
+        fieldTypeId: order.fieldTypeId || null,
+        programId: order.programId || null,
+        businessTypeId: order.businessTypeId || null,
+      }
+      localStorage.setItem("shared.specPrefill", JSON.stringify(sharedSpec))
+    } catch {}
+  }, [
+    order.productId,
+    order.riceId,
+    order.subriceId,
+    order.riceYearId,
+    order.conditionId,
+    order.fieldTypeId,
+    order.programId,
+    order.businessTypeId,
+  ])
 
   /** ---------- Validation ---------- */
   const validateAll = () => {
@@ -1827,7 +1857,7 @@ const Buy = () => {
       postpone_period: Number(dept.postponePeriod || 0),
     }
 
-    // ✅ spec ตาม ProductSpecIn
+    // ✅ spec ตาม ProductSpecIn (ฝั่ง BE)
     const spec = {
       product_id: productId,
       species_id: riceId,
@@ -1865,7 +1895,13 @@ const Buy = () => {
 
     try {
       await post("/order/customers/save/buy", payload)
-      try { localStorage.setItem("buy.formTemplate", formTemplate) } catch {}
+      try {
+        // บันทึก template id และ label ให้หน้า Sell ใช้งานต่อ
+        const currentTpl = templateOptions.find((o) => String(o.id) === String(formTemplate))
+        const saveTpl = { id: String(formTemplate), label: currentTpl?.label || selectedTemplateLabel || "" }
+        localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl))
+        localStorage.setItem("buy.formTemplate", String(formTemplate))
+      } catch {}
       alert("บันทึกออเดอร์เรียบร้อย ✅")
       // ⬇️ เคลียร์ฟอร์มทั้งหมด + ปิดออโต้ค้นหา จนกว่าจะพิมพ์ใหม่
       handleReset()
@@ -1978,7 +2014,8 @@ const Buy = () => {
 
     setBuyerType("person")
     setBranchLocked(false) // ปลดล็อกเมื่อรีเซ็ต
-
+    setPendingTemplateLabel("")
+    // ไม่เปลี่ยน formTemplate เพื่อรักษาค่าเดิมที่ผู้ใช้ตั้งไว้
     if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => scrollToPageTop())
     } else {
@@ -2043,28 +2080,35 @@ const Buy = () => {
               />
             </div>
 
-            {/* ดรอปดาวฟอร์มสำเร็จรูป (มุมขวา) */}
+            {/* ดรอปดาวฟอร์มสำเร็จรูป (มุมขวา) — โหลดจาก BE */}
             <div className="w-full sm:w-72 self-start">
               <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
               <ComboBox
                 options={templateOptions}
                 value={formTemplate}
-                onChange={(id) => setFormTemplate(String(id))}
+                onChange={(id, found) => {
+                  const idStr = String(id)
+                  setFormTemplate(idStr)
+                  const label = found?.label ?? ""
+                  setSelectedTemplateLabel(label)
+                  // บันทึกให้หน้า Sell ใช้ต่อ
+                  try {
+                    localStorage.setItem("shared.formTemplate", JSON.stringify({ id: idStr, label }))
+                    localStorage.setItem("buy.formTemplate", idStr)
+                  } catch {}
+                  if (idStr !== "0" && label) applyTemplateByLabel(label)
+                }}
                 buttonRef={refs.formTemplate}
               />
-              {formTemplate === "1" ? (
+              {isTemplateActive ? (
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  <b>ฟอร์ม 17 ตค</b> จะล็อกค่า:
-                  <br />
-                  ประเภทสินค้า=ข้าวเปลือก • ชนิดข้าว=ข้าวหอมมะลิ • ชั้นย่อย=ดอกมะลิ 105 • เงื่อนไข=แห้ง • ประเภทนา=นาปี • ปี/ฤดูกาล=2566/2567 • ประเภทธุรกิจ=ซื้อมาขายไป • โปรแกรม=ปกติ
+                  เลือกจากรายการที่สร้างไว้ในระบบ (BE). ระบบจะพยายามเติม: <b>ประเภทสินค้า</b>, <b>ชนิดข้าว</b>, <b>เงื่อนไข</b>, <b>ประเภทนา</b>, <b>ปี/ฤดูกาล</b>, <b>โปรแกรม</b> อัตโนมัติจากชื่อฟอร์ม <br />
+                  <span className="italic">* โปรดเลือก <b>ชั้นย่อย (Sub-class)</b> และ <b>ประเภทธุรกิจ</b> ด้วยตนเอง</span>
                 </p>
               ) : (
-                isTemplateActive && (
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                    ระบบล็อก <b>ประเภทสินค้า: ข้าวเปลือก</b> และ
-                    <b>{formTemplate === "2" ? " ข้าวเหนียว" : formTemplate === "3" ? " เมล็ดพันธุ์" : ""}</b>
-                  </p>
-                )
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                  “ไม่ล็อก” — เลือกสเปกเองได้ทุกช่อง
+                </p>
               )}
             </div>
           </div>
@@ -2443,10 +2487,9 @@ const Buy = () => {
                 hintRed={!!missingHints.product}
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
-                disabled={formTemplate === "1"} // ⬅️ ล็อกเมื่อเป็นฟอร์ม 17 ตค
                 onEnterNext={() => {
                   const tryFocus = () => {
-                    if (formTemplate !== "1" && isEnabledInput(refs.riceType?.current)) {
+                    if (isEnabledInput(refs.riceType?.current)) {
                       refs.riceType.current.focus()
                       refs.riceType.current.scrollIntoView?.({ block: "center" })
                       return true
@@ -2485,7 +2528,7 @@ const Buy = () => {
                   }))
                 }}
                 placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId || formTemplate === "1"}
+                disabled={!order.productId}
                 error={!!errors.riceType}
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
@@ -2521,7 +2564,7 @@ const Buy = () => {
                   setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))
                 }}
                 placeholder="— เลือกชั้นย่อย —"
-                disabled={!order.riceId || formTemplate === "1"}
+                disabled={!order.riceId}
                 error={!!errors.subrice}
                 hintRed={!!missingHints.subrice}
                 clearHint={() => clearHint("subrice")}
@@ -2564,7 +2607,6 @@ const Buy = () => {
                 hintRed={!!missingHints.condition}
                 clearHint={() => clearHint("condition")}
                 buttonRef={refs.condition}
-                disabled={formTemplate === "1"}
                 onEnterNext={() => focusNext("condition")}
               />
               {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
@@ -2587,7 +2629,6 @@ const Buy = () => {
                 hintRed={!!missingHints.fieldType}
                 clearHint={() => clearHint("fieldType")}
                 buttonRef={refs.fieldType}
-                disabled={formTemplate === "1"}
                 onEnterNext={() => focusNext("fieldType")}
               />
               {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
@@ -2610,7 +2651,6 @@ const Buy = () => {
                 hintRed={!!missingHints.riceYear}
                 clearHint={() => clearHint("riceYear")}
                 buttonRef={refs.riceYear}
-                disabled={formTemplate === "1"}
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const keys = ["businessType", "program", "branchName", "klangName"]
@@ -2651,7 +2691,6 @@ const Buy = () => {
                 hintRed={!!missingHints.businessType}
                 clearHint={() => clearHint("businessType")}
                 buttonRef={refs.businessType}
-                disabled={formTemplate === "1"}
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.program?.current
@@ -2698,7 +2737,6 @@ const Buy = () => {
                 error={!!errors.program}
                 hintRed={!!missingHints.program}
                 clearHint={() => { clearHint("program"); clearError("program") }}
-                disabled={formTemplate === "1"}
                 onEnterNext={() => {
                   const focusKlang = () => {
                     const elK = refs.klangName?.current

@@ -1,8 +1,8 @@
 // src/pages/Sales.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { apiAuth, post } from "../lib/api" // helper แนบโทเคนอัตโนมัติ
+import { apiAuth, post } from "../lib/api"
 
-/** ---------------- Utilities (ยึดสไตล์/แนวคิดจากหน้า Buy/Sales เดิม) ---------------- */
+// ---------------- Utilities ----------------
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
 const toIntOrNull = (v) => {
@@ -15,12 +15,6 @@ const thb = (n) =>
     isFinite(n) ? n : 0
   )
 
-/** เงิน: ช่วยให้พิมพ์แล้วขึ้นคอมม่า และแปลงกลับเป็นตัวเลข */
-const moneyToNumber = (v) => {
-  if (v === "" || v == null) return 0
-  const n = Number(String(v).replace(/,/g, "")) // ไม่ใช้ตอนคำนวณอัตโนมัติแล้ว แต่เผื่อในอนาคต
-  return isFinite(n) ? n : 0
-}
 const formatMoneyInput = (val) => {
   let s = String(val).replace(/[^0-9.]/g, "")
   if (s === "") return ""
@@ -35,7 +29,6 @@ const formatMoneyInput = (val) => {
   }
   return intWithCommas
 }
-
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -45,7 +38,7 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
-/** ---------------- Styles ---------------- */
+// ---------------- Styles ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -57,7 +50,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------------- Enter-to-next ---------------- */
+// ---------------- Enter-to-next ----------------
 const isEnabledInput = (el) => {
   if (!el) return false
   if (typeof el.disabled !== "undefined" && el.disabled) return false
@@ -69,13 +62,11 @@ const isEnabledInput = (el) => {
 const useEnterNavigation = (refs, buyerType, order) => {
   const personOrder = ["citizenId", "memberId", "fullName", "houseNo", "moo", "subdistrict", "district", "province", "postalCode", "phone"]
   const companyOrder = ["companyName", "taxId", "companyPhone", "hqHouseNo", "hqMoo", "hqSubdistrict", "hqDistrict", "hqProvince", "hqPostalCode", "brHouseNo", "brMoo", "brSubdistrict", "brDistrict", "brProvince", "brPostalCode"]
-  // หมายเหตุ: รายการ orderOrder เดิมยังคงไว้ แต่ช่อง entry/exit/unitPrice/amountTHB จะไม่อยู่ใน DOM แล้ว จึงไม่ถูกรวมในการเดินโฟกัส
   const orderOrder = [
     "product", "riceType", "subrice", "condition", "fieldType", "riceYear", "businessType", "program",
     "branchName", "klangName",
-    // รถพ่วงจะโฟกัสด้วยเมาส์/Tab เป็นหลัก
-    // เอกสารอ้างอิง
-    "scaleNo", "cashReceiptNo", "creditInvoiceNo", "deptAllowed", "deptPostpone", "deptPostponePeriod",
+    // (ย้ายใบชั่งลงไปอยู่ในรถพ่วงแล้ว)
+    "cashReceiptNo", "creditInvoiceNo", "deptAllowed", "deptPostpone", "deptPostponePeriod",
     "comment", "payment", "issueDate"
   ]
   let list = (buyerType === "person" ? personOrder : companyOrder).concat(orderOrder)
@@ -110,7 +101,7 @@ const useEnterNavigation = (refs, buyerType, order) => {
   return { onEnter, focusNext }
 }
 
-/** ---------------- Reusable ComboBox ---------------- */
+// ---------------- Reusable ComboBox ----------------
 function ComboBox({
   options = [], value, onChange, placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "", getValue = (o) => o?.value ?? o?.id ?? "",
@@ -249,7 +240,7 @@ function ComboBox({
   )
 }
 
-/** ---------------- DateInput ---------------- */
+// ---------------- DateInput ----------------
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
@@ -282,15 +273,11 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
-/** =====================================================================
- *                              Sales Page (ขาย)
- *  - ผูกกับ BE /order/customers/save/sell ตามสเปคล่าสุด
- *  - เพิ่มโหมดกรอกรถพ่วงหลายคัน แล้วแตกเป็นหลายออเดอร์เมื่อบันทึก
- *  - ใช้ค่า Dropdown/ข้อมูลลูกค้าร่วมกันทั้งหมด + gram (คุณภาพข้าว)
- *  - สไตล์/Enter-to-next คงแนวเดียวกับไฟล์เดิม
- * ===================================================================== */
+// =====================================================================
+//                              Sales Page (ขาย: หลายพ่วง)
+// =====================================================================
 function Sales() {
-  /** ---------- state พื้นฐาน ---------- */
+  // ---------- state พื้นฐาน ----------
   const [errors, setErrors] = useState({})
   const [missingHints, setMissingHints] = useState({})
   const [loadingCustomer, setLoadingCustomer] = useState(false)
@@ -328,7 +315,7 @@ function Sales() {
   const [klangOptions, setKlangOptions] = useState([])
   const [businessOptions, setBusinessOptions] = useState([])
 
-  /** ---------- ฟอร์มสำเร็จรูป ---------- */
+  // ---------- ฟอร์มสำเร็จรูป ----------
   const templateOptions = [
     { id: "0", label: "— ฟอร์มปกติ —" },
     { id: "1", label: "รหัส 1 • ข้าวหอมมะลิ" },
@@ -338,34 +325,28 @@ function Sales() {
   const [formTemplate, setFormTemplate] = useState("0")
   const isTemplateActive = formTemplate !== "0"
 
-  /** ---------- ประเภทผู้ซื้อ ---------- */
+  // ---------- ประเภทผู้ซื้อ ----------
   const buyerTypeOptions = [
     { id: "person", label: "บุคคลธรรมดา" },
     { id: "company", label: "บริษัท / นิติบุคคล" },
   ]
   const [buyerType, setBuyerType] = useState("person")
 
-  /** ---------- ฟอร์มลูกค้า ---------- */
+  // ---------- ฟอร์มลูกค้า ----------
   const [customer, setCustomer] = useState({
-    // บุคคล
     citizenId: "",
-    memberId: "", // ⭐ เพื่ออ้างอิงตอนบันทึก
+    memberId: "",
     fullName: "",
     houseNo: "", moo: "", subdistrict: "", district: "", province: "", postalCode: "", phone: "",
-    // บริษัท
     companyName: "", taxId: "", companyPhone: "",
     hqHouseNo: "", hqMoo: "", hqSubdistrict: "", hqDistrict: "", hqProvince: "", hqPostalCode: "",
     brHouseNo: "", brMoo: "", brSubdistrict: "", brDistrict: "", brProvince: "", brPostalCode: "",
   })
 
-  /** ---------- meta ของบุคคล/ลูกค้า ---------- */
-  const [memberMeta, setMemberMeta] = useState({
-    type: "unknown",   // "member" | "customer" | "unknown"
-    assoId: null,
-    memberId: null,
-  })
+  // ---------- meta ของบุคคล/ลูกค้า ----------
+  const [memberMeta, setMemberMeta] = useState({ type: "unknown", assoId: null, memberId: null })
 
-  /** ---------- ฟอร์มออเดอร์ (ค่าใช้ร่วม) ---------- */
+  // ---------- ฟอร์มออเดอร์ (ค่าใช้ร่วม) ----------
   const [order, setOrder] = useState({
     productId: "", productName: "",
     riceId: "", riceType: "",
@@ -375,23 +356,14 @@ function Sales() {
     riceYearId: "", riceYear: "",
     businessTypeId: "", businessType: "",
     programId: "", programName: "",
-
     branchName: "", branchId: null,
     klangName: "", klangId: null,
-
     issueDate: new Date().toISOString().slice(0, 10),
     gram: "", comment: "",
-
-    // วิธีชำระเงิน
     paymentMethod: "",    // label
     paymentMethodId: "",  // id
-
-    // เอกสารอ้างอิง (optional)
-    scaleNo: "",
-    cashReceiptNo: "",      // แสดงเมื่อขายสด
-    creditInvoiceNo: "",    // แสดงเมื่อขายเชื่อ
-
-    // internal flags
+    cashReceiptNo: "",
+    creditInvoiceNo: "",
     __isCash: false,
     __isCredit: false,
   })
@@ -399,18 +371,17 @@ function Sales() {
   // ฟอร์มเครดิต (ขายเชื่อ)
   const [dept, setDept] = useState({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
 
-  /** ---------- รถพ่วงหลายคัน ---------- */
+  // ---------- รถพ่วงหลายคัน ----------
   const trailerCountOptions = Array.from({ length: 10 }, (_, i) => ({ id: String(i + 1), label: `${i + 1} คัน` }))
   const [trailersCount, setTrailersCount] = useState(1)
   const [trailers, setTrailers] = useState([
-    { licensePlate: "", frontWeightKg: "", backWeightKg: "", unitPrice: "" } // เป็นเงินคำนวณอัตโนมัติ
+    { licensePlate: "", scaleNoFront: "", scaleNoBack: "", frontWeightKg: "", backWeightKg: "", unitPrice: "" }
   ])
-  // ให้เพิ่ม/ลดจำนวนฟอร์มตามที่เลือก
   useEffect(() => {
     setTrailers((prev) => {
       if (trailersCount <= prev.length) return prev.slice(0, trailersCount)
-      const last = prev[prev.length - 1] || { licensePlate: "", frontWeightKg: "", backWeightKg: "", unitPrice: "" }
-      const more = Array.from({ length: trailersCount - prev.length }, () => ({ ...last, licensePlate: "" }))
+      const last = prev[prev.length - 1] || { licensePlate: "", scaleNoFront: "", scaleNoBack: "", frontWeightKg: "", backWeightKg: "", unitPrice: "" }
+      const more = Array.from({ length: trailersCount - prev.length }, () => ({ ...last, licensePlate: "", scaleNoFront: "", scaleNoBack: "" }))
       return prev.concat(more)
     })
   }, [trailersCount])
@@ -419,7 +390,7 @@ function Sales() {
     setTrailers((prev) => prev.map((t, i) => (i === idx ? { ...t, [key]: value } : t)))
   }
 
-  /** ---------- Refs สำหรับนำทางด้วย Enter ---------- */
+  // ---------- Refs สำหรับนำทางด้วย Enter ----------
   const refs = {
     citizenId: useRef(null), memberId: useRef(null), fullName: useRef(null),
     houseNo: useRef(null), moo: useRef(null), subdistrict: useRef(null), district: useRef(null),
@@ -438,32 +409,27 @@ function Sales() {
     issueDate: useRef(null), gram: useRef(null), comment: useRef(null),
     buyerType: useRef(null),
 
-    // docs
-    scaleNo: useRef(null),
     cashReceiptNo: useRef(null),
     creditInvoiceNo: useRef(null),
 
-    // template
     formTemplate: useRef(null),
 
-    // Dept (credit)
     deptAllowed: useRef(null),
     deptPostpone: useRef(null),
     deptPostponePeriod: useRef(null),
 
-    // ปุ่ม submit
     submitBtn: useRef(null),
   }
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
-  /** ---------- Debounce ---------- */
+  // ---------- Debounce ----------
   const debouncedCitizenId = useDebounce(customer.citizenId)
   const debouncedMemberId  = useDebounce(customer.memberId)
   const debouncedFullName  = useDebounce(customer.fullName)
   const debouncedCompanyName = useDebounce(customer.companyName)
   const debouncedTaxId = useDebounce(customer.taxId)
 
-  /** ---------- helpers ---------- */
+  // ---------- helpers ----------
   const fetchFirstOkJson = async (paths = []) => {
     for (const p of paths) {
       try {
@@ -474,7 +440,6 @@ function Sales() {
     }
     return Array.isArray(paths) ? [] : {}
   }
-
   const clearError = (key) =>
     setErrors((prev) => {
       if (!(key in prev)) return prev
@@ -486,7 +451,7 @@ function Sales() {
   const redHintCls = (key) => (missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : "")
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
 
-  /** ---------- โหลด dropdown เริ่มต้น ---------- */
+  // ---------- โหลด dropdown เริ่มต้น ----------
   useEffect(() => {
     const loadStaticDD = async () => {
       try {
@@ -497,7 +462,7 @@ function Sales() {
             fetchFirstOkJson(["/order/field/search"]),
             fetchFirstOkJson(["/order/year/search"]),
             fetchFirstOkJson(["/order/program/search"]),
-            fetchFirstOkJson(["/order/payment/search/sell"]),  // ⭐ Sales → sell (id=1,2)
+            fetchFirstOkJson(["/order/payment/search/sell"]),
             fetchFirstOkJson(["/order/branch/search"]),
             fetchFirstOkJson(["/order/business/search"]),
           ])
@@ -519,7 +484,7 @@ function Sales() {
     loadStaticDD()
   }, [])
 
-  /** ---------- โหลด species/variant เมื่อเลือก product ---------- */
+  // ---------- species/variant ----------
   useEffect(() => {
     const pid = order.productId
     if (!pid) {
@@ -531,9 +496,7 @@ function Sales() {
         const arr = (await apiAuth(`/order/species/search?product_id=${encodeURIComponent(pid)}`)) || []
         const mapped = arr.map((x) => ({ id: String(x.id), label: String(x.species ?? "").trim() }))
         setRiceOptions(mapped)
-      } catch (e) {
-        console.error(e); setRiceOptions([])
-      }
+      } catch (e) { console.error(e); setRiceOptions([]) }
     }
     loadSpecies()
   }, [order.productId])
@@ -549,14 +512,12 @@ function Sales() {
         const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(rid)}`)) || []
         const mapped = arr.map((x) => ({ id: String(x.id), label: String(x.variant ?? "").trim() }))
         setSubriceOptions(mapped)
-      } catch (e) {
-        console.error(e); setSubriceOptions([])
-      }
+      } catch (e) { console.error(e); setSubriceOptions([]) }
     }
     loadVariant()
   }, [order.riceId])
 
-  /** ---------- โหลดคลังตามสาขา ---------- */
+  // ---------- โหลดคลังตามสาขา ----------
   useEffect(() => {
     const bId = order.branchId
     const bName = order.branchName?.trim()
@@ -569,14 +530,12 @@ function Sales() {
         const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
         const data = await apiAuth(`/order/klang/search?${qs}`)
         setKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
-      } catch (e) {
-        console.error(e); setKlangOptions([])
-      }
+      } catch (e) { console.error(e); setKlangOptions([]) }
     }
     loadKlang()
   }, [order.branchId, order.branchName])
 
-  /** ---------- ฟอร์มสำเร็จรูป: โหลด/บันทึกค่า ---------- */
+  // ---------- ฟอร์มสำเร็จรูป ----------
   useEffect(() => {
     try {
       const saved = localStorage.getItem("sales.formTemplate")
@@ -587,39 +546,26 @@ function Sales() {
     try { localStorage.setItem("sales.formTemplate", formTemplate) } catch {}
   }, [formTemplate])
 
-  // เมื่อเปลี่ยน Template → บังคับเลือก "ประเภทสินค้า: ข้าวเปลือก"
   useEffect(() => {
     if (!isTemplateActive) return
     if (productOptions.length === 0) return
     const paddy = productOptions.find((o) => o.label.includes("ข้าวเปลือก"))
     if (paddy && order.productId !== paddy.id) {
-      setOrder((p) => ({
-        ...p,
-        productId: paddy.id,
-        productName: paddy.label,
-        riceId: "", riceType: "",
-        subriceId: "", subriceName: "",
-      }))
+      setOrder((p) => ({ ...p, productId: paddy.id, productName: paddy.label, riceId: "", riceType: "", subriceId: "", subriceName: "" }))
     }
   }, [formTemplate, productOptions])
 
-  // เมื่อ species โหลดแล้ว → เลือกชนิดข้าวตาม Template
   useEffect(() => {
     if (!isTemplateActive) return
     if (riceOptions.length === 0) return
     const want = formTemplate === "1" ? "หอมมะลิ" : formTemplate === "2" ? "เหนียว" : "พันธุ์"
     const target = riceOptions.find((r) => r.label.includes(want))
     if (target && order.riceId !== target.id) {
-      setOrder((p) => ({
-        ...p,
-        riceId: target.id,
-        riceType: target.label,
-        subriceId: "", subriceName: "",
-      }))
+      setOrder((p) => ({ ...p, riceId: target.id, riceType: target.label, subriceId: "", subriceName: "" }))
     }
   }, [formTemplate, riceOptions])
 
-  /** ---------- แผงค้นหาบุคคล/บริษัท (ยกมาจากไฟล์เดิม) ---------- */
+  // ---------- แผงค้นหาบุคคล/บริษัท ----------
   const mapSimplePersonToUI = (r = {}) => {
     const S = (v) => (v == null ? "" : String(v))
     return {
@@ -652,7 +598,6 @@ function Sales() {
     setCustomerFound(true)
   }
 
-  // ค้น member_id
   useEffect(() => {
     if (buyerType !== "person") { setCustomerFound(null); return }
     const mid = toIntOrNull(debouncedMemberId)
@@ -671,7 +616,6 @@ function Sales() {
     fetchByMemberId()
   }, [debouncedMemberId, buyerType])
 
-  // citizen_id
   useEffect(() => {
     if (buyerType !== "person") { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: null }); return }
     const cid = onlyDigits(debouncedCitizenId)
@@ -690,7 +634,6 @@ function Sales() {
     fetchByCid()
   }, [debouncedCitizenId, buyerType])
 
-  // ค้นด้วยชื่อ
   useEffect(() => {
     if (buyerType !== "person") { setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); setMemberMeta({ type: "unknown", assoId: null, memberId: null }); return }
     const q = (debouncedFullName || "").trim()
@@ -718,7 +661,6 @@ function Sales() {
     searchByName()
   }, [debouncedFullName, buyerType])
 
-  // ปิดลิสต์เมื่อคลิกนอก
   useEffect(() => {
     const onClick = (e) => {
       if (!nameBoxRef.current) return
@@ -756,7 +698,7 @@ function Sales() {
     }
   }
 
-  /** ---------- บริษัท ---------- */
+  // ---------- บริษัท ----------
   useEffect(() => {
     const onClick = (e) => {
       if (!companyBoxRef.current) return
@@ -838,11 +780,11 @@ function Sales() {
     else if (e.key === "Escape") { e.preventDefault(); setShowCompanyList(false); setCompanyHighlighted(-1) }
   }
 
-  /** ---------- อัปเดต state ---------- */
+  // ---------- อัปเดต state ----------
   const updateCustomer = (k, v) => { if (String(v).trim() !== "") clearHint(k); setCustomer((p) => ({ ...p, [k]: v })) }
   const updateOrder = (k, v) => { if (String(v).trim() !== "") clearHint(k); setOrder((p) => ({ ...p, [k]: v })) }
 
-  /** ---------- Payment resolver (Sales: ขายสด=1, ขายเชื่อ=2) ---------- */
+  // ---------- Payment resolver ----------
   const resolvePaymentId = () => {
     if (/^\d+$/.test(String(order.paymentMethodId || ""))) return Number(order.paymentMethodId)
     const label = (order.paymentMethod || "").trim()
@@ -865,7 +807,7 @@ function Sales() {
     setOrder((p) => ({ ...p, __isCredit: credit, __isCash: !credit }))
   }, [order.paymentMethod, paymentOptions])
 
-  /** ---------- Validate + hint ---------- */
+  // ---------- Validate + hint ----------
   const computeMissingHints = () => {
     const m = {}
     if (buyerType === "person") {
@@ -883,10 +825,8 @@ function Sales() {
     if (!order.businessTypeId) m.businessType = true
     if (!order.branchName) m.branchName = true
     if (!order.klangName) m.klangName = true
-
     const pid = resolvePaymentId()
     if (!pid) m.payment = true
-
     if (!order.issueDate) m.issueDate = true
     return m
   }
@@ -917,7 +857,6 @@ function Sales() {
     if (!pid) e.payment = "เลือกวิธีชำระเงิน"
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
 
-    // ตรวจรถพ่วงทีละคัน
     const tErr = []
     trailers.forEach((t, i) => {
       const te = {}
@@ -925,7 +864,6 @@ function Sales() {
       if (t.frontWeightKg === "" || Number(t.frontWeightKg) <= 0) te.frontWeightKg = "กรอกน้ำหนักสุทธิพ่วงหน้า"
       if (t.backWeightKg === ""  || Number(t.backWeightKg)  <= 0) te.backWeightKg  = "กรอกน้ำหนักสุทธิพ่วงหลัง"
       if (t.unitPrice === ""     || Number(t.unitPrice)     <= 0) te.unitPrice     = "กรอกราคาต่อกก."
-      // net > 0
       const net = Number(t.frontWeightKg || 0) + Number(t.backWeightKg || 0)
       if (net <= 0) te._net = "น้ำหนักรวมต้องมากกว่า 0"
       tErr[i] = te
@@ -947,12 +885,11 @@ function Sales() {
       if (el && typeof el.focus === "function") { try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} el.focus() }
       return
     }
-    // ถ้า error อยู่ในรถพ่วง เลื่อนขึ้นไปยังหัวข้อรถพ่วง
     const tmp = document.getElementById("trailers-block")
     if (tmp) { try { tmp.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} }
   }
 
-  /** ---------- Submit (เรียก /order/customers/save/sell) ---------- */
+  // ---------- Submit ----------
   const toIsoDateTime = (yyyyMmDd) => {
     try { return new Date(`${yyyyMmDd}T12:00:00Z`).toISOString() } catch { return new Date().toISOString() }
   }
@@ -973,14 +910,14 @@ function Sales() {
       branchName: "", branchId: null, klangName: "", klangId: null,
       issueDate: new Date().toISOString().slice(0, 10), gram: "", comment: "",
       paymentMethod: "", paymentMethodId: "",
-      scaleNo: "", cashReceiptNo: "", creditInvoiceNo: "",
+      cashReceiptNo: "", creditInvoiceNo: "",
       __isCash: false, __isCredit: false,
     })
     setRiceOptions([]); setSubriceOptions([]); setKlangOptions([])
     setBuyerType("person")
     setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
     setTrailersCount(1)
-    setTrailers([{ licensePlate: "", frontWeightKg: "", backWeightKg: "", unitPrice: "" }])
+    setTrailers([{ licensePlate: "", scaleNoFront: "", scaleNoBack: "", frontWeightKg: "", backWeightKg: "", unitPrice: "" }])
     try { refs.buyerType?.current?.focus() } catch {}
   }
 
@@ -991,11 +928,9 @@ function Sales() {
     const eObj = validateAll()
     if (Object.keys(eObj).length > 0) { scrollToFirstError(eObj); return }
 
-    // แยกชื่อบุคคล
     const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
     const lastName = rest.join(" ")
 
-    // แปลง id ให้เป็นตัวเลข
     const productId = /^\d+$/.test(order.productId) ? Number(order.productId) : null
     const riceId = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
     const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null
@@ -1006,15 +941,9 @@ function Sales() {
     const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
     const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
     const programId = /^\d+$/.test(order.programId) ? Number(order.programId) : null
-    const paymentId = resolvePaymentIdForBE() // ⭐ sell: 1/2
+    const paymentId = resolvePaymentIdForBE()
 
-    // เอกสารอ้างอิง ใช้ตามวิธีชำระเงิน ถ้าไม่ระบุใช้ใบชั่ง
-    const isCredit = isCreditPayment()
-    const orderSerialCommon =
-      (isCredit ? (order.creditInvoiceNo?.trim() || "") : (order.cashReceiptNo?.trim() || "")) ||
-      (order.scaleNo?.trim() || null)
-
-    // customer payload ตามตัวตน
+    // customer payload
     let customerPayload
     if (buyerType === "person") {
       const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
@@ -1071,14 +1000,14 @@ function Sales() {
           price_per_kilo: pricePerKg,
           price_1: price1,
           price_2: price2,
-          order_serial_1: orderSerialCommon,
-          order_serial_2: null,
+          order_serial_1: (t.scaleNoFront || "").trim() || null,  // ใบชั่งพ่วงหน้า
+          order_serial_2: (t.scaleNoBack || "").trim() || null,   // ใบชั่งพ่วงหลัง
           date: dateISO,
           branch_location: branchId,
           klang_location: klangId,
           comment: order.comment?.trim() ? `${order.comment.trim()} (พ่วงที่ ${i + 1})` : null,
         },
-        // dept แนบเสมอ (BE ใช้เมื่อ payment_id == 2)
+        // dept แนบเสมอ (ใช้เมื่อ payment_id == 2)
         dept: { date_created: dateISO, allowed_period: Number(dept.allowedPeriod || 0), postpone: Boolean(dept.postpone), postpone_period: Number(dept.postpone ? (dept.postponePeriod || 0) : 0) },
       }
 
@@ -1089,7 +1018,6 @@ function Sales() {
       } catch (err) {
         console.error("SAVE ERROR (trailer", i + 1, "):", err?.data || err)
         results.push({ index: i + 1, success: false, message: err?.message || "เกิดข้อผิดพลาด", detail: err?.data?.detail })
-        // ทำตาม requirement: ส่งต่อทีละคันจนจบ ไม่หยุดกลางทาง
       }
     }
 
@@ -1105,7 +1033,7 @@ function Sales() {
     }
   }
 
-  /** ---------------- UI ---------------- */
+  // ---------------- UI ----------------
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
@@ -1116,7 +1044,6 @@ function Sales() {
           <div className="mb-3 flex flex-wrap items-start gap-2">
             <h2 className="text-xl font-semibold">ข้อมูลลูกค้า</h2>
 
-            {/* Badge สถานะ — แสดงเฉพาะโหมดบุคคล */}
             {buyerType === "person" ? (
               memberMeta.type === "member" ? (
                 <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60 self-start">
@@ -1157,7 +1084,7 @@ function Sales() {
               />
             </div>
 
-            {/* ดรอปดาวฟอร์มสำเร็จรูป */}
+            {/* ฟอร์มสำเร็จรูป */}
             <div className="w-full sm:w-72 self-start">
               <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
               <ComboBox
@@ -1216,7 +1143,6 @@ function Sales() {
               {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
             </div>
 
-            {/* เอกสารอ้างอิง: ใบรับเงิน/ใบกำกับ */}
             <div>
               <label className={labelCls}>
                 {order.__isCredit
@@ -1270,7 +1196,7 @@ function Sales() {
               <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-sm dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-100">
                 <div className="mb-2 flex items-center gap-2">
                   <svg viewBox="0 0 24 24" width="18" height="18" className="opacity-80" fill="currentColor">
-                    <path d="M3 5a2 2 0 0 0-2 2v2h22V7a2 2 0 0 0 2-2H3zm20 6H1v6a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-6zM4 17h6v-2H4v2z"/>
+                    <path d="M3 5a2 2 0 0 0-2 2v2h22V7a2 2 0 0 0-2-2H3zm20 6H1v6a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-6zM4 17h6v-2H4v2z"/>
                   </svg>
                   <div className="font-semibold">รายละเอียดเครดิต (ขายเชื่อ)</div>
                 </div>
@@ -1284,12 +1210,7 @@ function Sales() {
                       className={baseField}
                       value={String(dept.allowedPeriod ?? 0)}
                       onChange={(e) => setDept((p) => ({ ...p, allowedPeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.isComposing) {
-                          e.preventDefault();
-                          refs.deptPostpone?.current?.focus();
-                        }
-                      }}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); refs.deptPostpone?.current?.focus(); } }}
                       placeholder="เช่น 30"
                     />
                   </div>
@@ -1304,9 +1225,9 @@ function Sales() {
                         onChange={(e) => setDept((p) => ({ ...p, postpone: e.target.checked }))}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.isComposing) {
-                            e.preventDefault();
-                            if (!!dept.postpone) refs.deptPostponePeriod?.current?.focus();
-                            else refs.issueDate?.current?.focus();
+                            e.preventDefault()
+                            if (!!dept.postpone) refs.deptPostponePeriod?.current?.focus()
+                            else refs.issueDate?.current?.focus()
                           }
                         }}
                       />
@@ -1322,12 +1243,7 @@ function Sales() {
                           className={baseField}
                           value={String(dept.postponePeriod ?? 0)}
                           onChange={(e) => setDept((p) => ({ ...p, postponePeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.isComposing) {
-                              e.preventDefault();
-                              refs.issueDate?.current?.focus();
-                            }
-                          }}
+                          onKeyDown={(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); refs.issueDate?.current?.focus(); } }}
                           placeholder="เช่น 15"
                         />
                       </div>
@@ -1342,7 +1258,7 @@ function Sales() {
             </div>
           )}
 
-          {/* ส่วนฟอร์มลูกค้า (บุคคล / บริษัท) */}
+          {/* ส่วนฟอร์มลูกค้า */}
           {buyerType === "person" ? (
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
@@ -1359,8 +1275,6 @@ function Sales() {
                 />
                 <div className={helpTextCls}>{loadingCustomer && "กำลังค้นหาลูกค้า..."}</div>
               </div>
-
-              {/* member_id */}
               <div>
                 <label className={labelCls}>รหัสสมาชิก (member_id)</label>
                 <input
@@ -1377,9 +1291,7 @@ function Sales() {
                 {!!memberMeta.memberId && <p className={helpTextCls}>พบสมาชิก: member_id {memberMeta.memberId}</p>}
                 {errors.memberId && <p className={errorTextCls}>{errors.memberId}</p>}
               </div>
-
               <div className="md:col-span-1" />
-
               <div className="md:col-span-2" ref={nameBoxRef}>
                 <label className={labelCls}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
                 <input
@@ -1443,7 +1355,7 @@ function Sales() {
               </div>
             </div>
           ) : (
-            /* -------------------- บริษัท -------------------- */
+            // ---------------- บริษัท ----------------
             <div className="md:col-span-2" ref={companyBoxRef}>
               <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
               <input
@@ -1520,11 +1432,7 @@ function Sales() {
                 options={productOptions}
                 value={order.productId}
                 onChange={(id, found) => {
-                  setOrder((p) => ({
-                    ...p,
-                    productId: id, productName: found?.label ?? "",
-                    riceId: "", riceType: "", subriceId: "", subriceName: "",
-                  }))
+                  setOrder((p) => ({ ...p, productId: id, productName: found?.label ?? "", riceId: "", riceType: "", subriceId: "", subriceName: "" }))
                 }}
                 placeholder="— เลือกประเภทสินค้า —"
                 error={!!errors.product}
@@ -1542,9 +1450,7 @@ function Sales() {
               <ComboBox
                 options={riceOptions}
                 value={order.riceId}
-                onChange={(id, found) => {
-                  setOrder((p) => ({ ...p, riceId: id, riceType: found?.label ?? "", subriceId: "", subriceName: "" }))
-                }}
+                onChange={(id, found) => setOrder((p) => ({ ...p, riceId: id, riceType: found?.label ?? "", subriceId: "", subriceName: "" }))}
                 placeholder="— เลือกชนิดข้าว —"
                 disabled={!order.productId || isTemplateActive}
                 error={!!errors.riceType}
@@ -1624,7 +1530,6 @@ function Sales() {
               {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
             </div>
 
-            {/* ประเภทธุรกิจ */}
             <div>
               <label className={labelCls}>ประเภทธุรกิจ</label>
               <ComboBox
@@ -1633,11 +1538,11 @@ function Sales() {
                 getValue={(o) => o.id}
                 onChange={(_id, found) => setOrder((p) => ({ ...p, businessTypeId: found?.id ?? "", businessType: found?.label ?? "" }))}
                 placeholder="— เลือกประเภทธุรกิจ —"
-                error={!!errors.businessType}
-                hintRed={!!missingHints.businessType}
-                clearHint={() => clearHint("businessType")}
-                buttonRef={refs.businessType}
-                onEnterNext={() => focusNext("program")}
+              error={!!errors.businessType}
+              hintRed={!!missingHints.businessType}
+              clearHint={() => clearHint("businessType")}
+              buttonRef={refs.businessType}
+              onEnterNext={() => focusNext("program")}
               />
               {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
             </div>
@@ -1687,7 +1592,6 @@ function Sales() {
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
-                // ผู้ใช้จะเลื่อนลงกรอก “รถพ่วงหลายคัน” ต่อ
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>
@@ -1744,8 +1648,9 @@ function Sales() {
                       )}
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-5">
-                      <div className="md:col-span-2">
+                    {/* แถวที่ 1: ทะเบียน + ใบชั่งพ่วงหน้า/หลัง */}
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div>
                         <label className={labelCls}>ทะเบียนรถ</label>
                         <input
                           className={cx(baseField, terr.licensePlate && "border-red-500 ring-2 ring-red-300")}
@@ -1756,6 +1661,29 @@ function Sales() {
                         {terr.licensePlate && <p className={errorTextCls}>{terr.licensePlate}</p>}
                       </div>
 
+                      <div>
+                        <label className={labelCls}>เลขที่ใบชั่งพ่วงหน้า</label>
+                        <input
+                          className={baseField}
+                          value={t.scaleNoFront}
+                          onChange={(e) => updateTrailer(idx, "scaleNoFront", e.target.value)}
+                          placeholder="เช่น SCL-2025-000123"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelCls}>เลขที่ใบชั่งพ่วงหลัง</label>
+                        <input
+                          className={baseField}
+                          value={t.scaleNoBack}
+                          onChange={(e) => updateTrailer(idx, "scaleNoBack", e.target.value)}
+                          placeholder="เช่น SCL-2025-000124"
+                        />
+                      </div>
+                    </div>
+
+                    {/* แถวที่ 2: น้ำหนัก/ราคา/เป็นเงิน */}
+                    <div className="grid gap-4 md:grid-cols-5 mt-4">
                       <div>
                         <label className={labelCls}>น้ำหนักสุทธิพ่วงหน้า (กก.)</label>
                         <input
@@ -1808,21 +1736,6 @@ function Sales() {
                   </div>
                 )
               })}
-            </div>
-          </div>
-
-          {/* เอกสารอ้างอิงด้านล่าง — ใบชั่ง (สำรอง) */}
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <div>
-              <label className={labelCls}>เลขที่ใบชั่ง</label>
-              <input
-                ref={refs.scaleNo}
-                className={baseField}
-                value={order.scaleNo}
-                onChange={(e) => updateOrder("scaleNo", e.target.value)}
-                onKeyDown={onEnter("scaleNo")}
-                placeholder="เช่น SCL-2025-000123 (ไม่บังคับ)"
-              />
             </div>
           </div>
 
@@ -1881,10 +1794,6 @@ function Sales() {
                 value: (<ul className="list-disc pl-5"><li>{order.branchName || "—"}</li>{order.klangName && <li>{order.klangName}</li>}</ul>),
               },
               { label: "คุณภาพข้าว (gram)", value: order.gram || "—" },
-              // เอกสารอ้างอิง
-              { label: "เลขที่ใบชั่ง", value: order.scaleNo || "—" },
-              ...(order.__isCash ? [{ label: "ใบรับเงิน (สด)", value: order.cashReceiptNo || "—" }] : []),
-              ...(order.__isCredit ? [{ label: "ใบกำกับ (เชื่อ)", value: order.creditInvoiceNo || "—" }] : []),
               { label: "หมายเหตุ / คอมเมนต์", value: order.comment || "—" },
             ].map((c) => (
               <div key={c.label} className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
@@ -1902,6 +1811,8 @@ function Sales() {
                     <tr className="text-left border-b border-slate-200 dark:border-slate-700">
                       <th className="py-2 pr-4">#</th>
                       <th className="py-2 pr-4">ทะเบียนรถ</th>
+                      <th className="py-2 pr-4">ใบชั่งพ่วงหน้า</th>
+                      <th className="py-2 pr-4">ใบชั่งพ่วงหลัง</th>
                       <th className="py-2 pr-4">พ่วงหน้า (กก.)</th>
                       <th className="py-2 pr-4">พ่วงหลัง (กก.)</th>
                       <th className="py-2 pr-4">รวม (กก.)</th>
@@ -1917,6 +1828,8 @@ function Sales() {
                         <tr key={i} className="border-b border-slate-100 dark:border-slate-700/60">
                           <td className="py-2 pr-4">{i + 1}</td>
                           <td className="py-2 pr-4">{t.licensePlate || "—"}</td>
+                          <td className="py-2 pr-4">{t.scaleNoFront || "—"}</td>
+                          <td className="py-2 pr-4">{t.scaleNoBack || "—"}</td>
                           <td className="py-2 pr-4">{t.frontWeightKg || "0"}</td>
                           <td className="py-2 pr-4">{t.backWeightKg || "0"}</td>
                           <td className="py-2 pr-4">{Math.round(net * 100) / 100}</td>

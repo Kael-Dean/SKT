@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth, post } from "../lib/api" // helper แนบโทเคนอัตโนมัติ
 
-/** ---------------- Utilities (ยึดสไตล์/แนวคิดจากหน้า Buy) ---------------- */
+/** ---------------- Utilities (ยึดสไตล์/แนวคิดจากหน้า Buy/Sales เดิม) ---------------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
 const toIntOrNull = (v) => {
@@ -18,7 +18,7 @@ const thb = (n) =>
 /** เงิน: ช่วยให้พิมพ์แล้วขึ้นคอมม่า และแปลงกลับเป็นตัวเลข */
 const moneyToNumber = (v) => {
   if (v === "" || v == null) return 0
-  const n = Number(String(v).replace(/,/g, ""))
+  const n = Number(String(v).replace(/,/g, "")) // ไม่ใช้ตอนคำนวณอัตโนมัติแล้ว แต่เผื่อในอนาคต
   return isFinite(n) ? n : 0
 }
 const formatMoneyInput = (val) => {
@@ -45,7 +45,7 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
-/** ---------------- Styles (เหมือนหน้า Buy) ---------------- */
+/** ---------------- Styles ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -69,9 +69,11 @@ const isEnabledInput = (el) => {
 const useEnterNavigation = (refs, buyerType, order) => {
   const personOrder = ["citizenId", "memberId", "fullName", "houseNo", "moo", "subdistrict", "district", "province", "postalCode", "phone"]
   const companyOrder = ["companyName", "taxId", "companyPhone", "hqHouseNo", "hqMoo", "hqSubdistrict", "hqDistrict", "hqProvince", "hqPostalCode", "brHouseNo", "brMoo", "brSubdistrict", "brDistrict", "brProvince", "brPostalCode"]
+  // หมายเหตุ: รายการ orderOrder เดิมยังคงไว้ แต่ช่อง entry/exit/unitPrice/amountTHB จะไม่อยู่ใน DOM แล้ว จึงไม่ถูกรวมในการเดินโฟกัส
   const orderOrder = [
     "product", "riceType", "subrice", "condition", "fieldType", "riceYear", "businessType", "program",
-    "branchName", "klangName", "entryWeightKg", "exitWeightKg", "unitPrice", "amountTHB",
+    "branchName", "klangName",
+    // รถพ่วงจะโฟกัสด้วยเมาส์/Tab เป็นหลัก
     // เอกสารอ้างอิง
     "scaleNo", "cashReceiptNo", "creditInvoiceNo", "deptAllowed", "deptPostpone", "deptPostponePeriod",
     "comment", "payment", "issueDate"
@@ -281,10 +283,11 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 })
 
 /** =====================================================================
- *                              Sales Page
- *  - UI ให้เหมือน Buy + ย้าย "ใบรับเงิน/ใบกำกับ" ขึ้นบน
- *  - เพิ่ม enter-to-next ให้พฤติกรรมเหมือน Buy
- *  - ปุ่มบันทึก/รีเซ็ต ใช้สไตล์เดียวกับ Buy
+ *                              Sales Page (ขาย)
+ *  - ผูกกับ BE /order/customers/save/sell ตามสเปคล่าสุด
+ *  - เพิ่มโหมดกรอกรถพ่วงหลายคัน แล้วแตกเป็นหลายออเดอร์เมื่อบันทึก
+ *  - ใช้ค่า Dropdown/ข้อมูลลูกค้าร่วมกันทั้งหมด + gram (คุณภาพข้าว)
+ *  - สไตล์/Enter-to-next คงแนวเดียวกับไฟล์เดิม
  * ===================================================================== */
 function Sales() {
   /** ---------- state พื้นฐาน ---------- */
@@ -325,7 +328,7 @@ function Sales() {
   const [klangOptions, setKlangOptions] = useState([])
   const [businessOptions, setBusinessOptions] = useState([])
 
-  /** ---------- ฟอร์มสำเร็จรูป (Template) แบบหน้า Buy ---------- */
+  /** ---------- ฟอร์มสำเร็จรูป ---------- */
   const templateOptions = [
     { id: "0", label: "— ฟอร์มปกติ —" },
     { id: "1", label: "รหัส 1 • ข้าวหอมมะลิ" },
@@ -362,7 +365,7 @@ function Sales() {
     memberId: null,
   })
 
-  /** ---------- ฟอร์มออเดอร์ ---------- */
+  /** ---------- ฟอร์มออเดอร์ (ค่าใช้ร่วม) ---------- */
   const [order, setOrder] = useState({
     productId: "", productName: "",
     riceId: "", riceType: "",
@@ -376,8 +379,6 @@ function Sales() {
     branchName: "", branchId: null,
     klangName: "", klangId: null,
 
-    entryWeightKg: "", exitWeightKg: "",
-    unitPrice: "", amountTHB: "",
     issueDate: new Date().toISOString().slice(0, 10),
     gram: "", comment: "",
 
@@ -395,8 +396,28 @@ function Sales() {
     __isCredit: false,
   })
 
-  // ▼ เพิ่ม: ฟอร์มเครดิต (ขายเชื่อ) ให้เหมือนหน้า Buy
+  // ฟอร์มเครดิต (ขายเชื่อ)
   const [dept, setDept] = useState({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
+
+  /** ---------- รถพ่วงหลายคัน ---------- */
+  const trailerCountOptions = Array.from({ length: 10 }, (_, i) => ({ id: String(i + 1), label: `${i + 1} คัน` }))
+  const [trailersCount, setTrailersCount] = useState(1)
+  const [trailers, setTrailers] = useState([
+    { licensePlate: "", frontWeightKg: "", backWeightKg: "", unitPrice: "" } // เป็นเงินคำนวณอัตโนมัติ
+  ])
+  // ให้เพิ่ม/ลดจำนวนฟอร์มตามที่เลือก
+  useEffect(() => {
+    setTrailers((prev) => {
+      if (trailersCount <= prev.length) return prev.slice(0, trailersCount)
+      const last = prev[prev.length - 1] || { licensePlate: "", frontWeightKg: "", backWeightKg: "", unitPrice: "" }
+      const more = Array.from({ length: trailersCount - prev.length }, () => ({ ...last, licensePlate: "" }))
+      return prev.concat(more)
+    })
+  }, [trailersCount])
+
+  const updateTrailer = (idx, key, value) => {
+    setTrailers((prev) => prev.map((t, i) => (i === idx ? { ...t, [key]: value } : t)))
+  }
 
   /** ---------- Refs สำหรับนำทางด้วย Enter ---------- */
   const refs = {
@@ -413,8 +434,7 @@ function Sales() {
     condition: useRef(null), fieldType: useRef(null), riceYear: useRef(null), businessType: useRef(null),
     program: useRef(null), payment: useRef(null),
     branchName: useRef(null), klangName: useRef(null),
-    entryWeightKg: useRef(null), exitWeightKg: useRef(null),
-    unitPrice: useRef(null), amountTHB: useRef(null),
+
     issueDate: useRef(null), gram: useRef(null), comment: useRef(null),
     buyerType: useRef(null),
 
@@ -431,7 +451,7 @@ function Sales() {
     deptPostpone: useRef(null),
     deptPostponePeriod: useRef(null),
 
-    // ปุ่ม submit (ใช้เลื่อนโฟกัสจาก “เป็นเงิน”)
+    // ปุ่ม submit
     submitBtn: useRef(null),
   }
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
@@ -599,7 +619,7 @@ function Sales() {
     }
   }, [formTemplate, riceOptions])
 
-  /** ---------- แผงค้นหาบุคคล (member_id, citizen_id, ชื่อ) ---------- */
+  /** ---------- แผงค้นหาบุคคล/บริษัท (ยกมาจากไฟล์เดิม) ---------- */
   const mapSimplePersonToUI = (r = {}) => {
     const S = (v) => (v == null ? "" : String(v))
     return {
@@ -632,7 +652,7 @@ function Sales() {
     setCustomerFound(true)
   }
 
-  // ค้นด้วย member_id
+  // ค้น member_id
   useEffect(() => {
     if (buyerType !== "person") { setCustomerFound(null); return }
     const mid = toIntOrNull(debouncedMemberId)
@@ -651,7 +671,7 @@ function Sales() {
     fetchByMemberId()
   }, [debouncedMemberId, buyerType])
 
-  // citizen_id (เพื่อช่วยเติมข้อมูล/ที่อยู่เท่านั้น)
+  // citizen_id
   useEffect(() => {
     if (buyerType !== "person") { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: null }); return }
     const cid = onlyDigits(debouncedCitizenId)
@@ -818,28 +838,9 @@ function Sales() {
     else if (e.key === "Escape") { e.preventDefault(); setShowCompanyList(false); setCompanyHighlighted(-1) }
   }
 
-  /** ---------- อัปเดตและคำนวณน้ำหนัก ---------- */
+  /** ---------- อัปเดต state ---------- */
   const updateCustomer = (k, v) => { if (String(v).trim() !== "") clearHint(k); setCustomer((p) => ({ ...p, [k]: v })) }
   const updateOrder = (k, v) => { if (String(v).trim() !== "") clearHint(k); setOrder((p) => ({ ...p, [k]: v })) }
-
-  const grossFromScale = useMemo(() => {
-    const entry = toNumber(order.entryWeightKg)
-    const exit  = toNumber(order.exitWeightKg)
-    const g = exit - entry
-    return g > 0 ? g : 0
-  }, [order.entryWeightKg, order.exitWeightKg])
-
-  const computedAmount = useMemo(() => {
-    if (order.unitPrice === "" || isNaN(Number(order.unitPrice))) return null
-    return grossFromScale * Number(order.unitPrice)
-  }, [grossFromScale, order.unitPrice])
-  useEffect(() => {
-    if (computedAmount !== null) {
-      const rounded = Math.round(computedAmount * 100) / 100
-      const formatted = formatMoneyInput(String(rounded))
-      setOrder((prev) => ({ ...prev, amountTHB: formatted }))
-    }
-  }, [computedAmount])
 
   /** ---------- Payment resolver (Sales: ขายสด=1, ขายเชื่อ=2) ---------- */
   const resolvePaymentId = () => {
@@ -859,8 +860,6 @@ function Sales() {
     return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
   }
   const resolvePaymentIdForBE = () => (isCreditPayment() ? 2 : 1)
-
-  // sync flags for conditional docs
   useEffect(() => {
     const credit = isCreditPayment()
     setOrder((p) => ({ ...p, __isCredit: credit, __isCash: !credit }))
@@ -888,18 +887,14 @@ function Sales() {
     const pid = resolvePaymentId()
     if (!pid) m.payment = true
 
-    if (!order.entryWeightKg || Number(order.entryWeightKg) < 0) m.entryWeightKg = true
-    if (!order.exitWeightKg || Number(order.exitWeightKg) <= 0) m.exitWeightKg = true
-    if (grossFromScale <= 0) m.netFromScale = true
-    if (!order.amountTHB || moneyToNumber(order.amountTHB) <= 0) m.amountTHB = true
     if (!order.issueDate) m.issueDate = true
     return m
   }
+
   const validateAll = () => {
     const e = {}
     if (buyerType === "person") {
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
-      // ต้องมี member_id หรือ asso_id ตาม BE (อิงหน้า Buy)
       if (!toIntOrNull(memberMeta.memberId ?? customer.memberId) && !memberMeta.assoId) {
         e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id"
       }
@@ -917,26 +912,44 @@ function Sales() {
     if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ"
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
+
     const pid = resolvePaymentId()
     if (!pid) e.payment = "เลือกวิธีชำระเงิน"
-    if (order.entryWeightKg === "" || Number(order.entryWeightKg) < 0) e.entryWeightKg = "กรอกน้ำหนักก่อนชั่ง"
-    if (order.exitWeightKg === "" || Number(order.exitWeightKg) <= 0) e.exitWeightKg = "กรอกน้ำหนักหลังชั่ง"
-    if (grossFromScale <= 0) e.exitWeightKg = "ค่าน้ำหนักจากตาชั่งต้องมากกว่า 0"
-    const amt = moneyToNumber(order.amountTHB)
-    if (!amt || amt <= 0) e.amountTHB = "กรอกจำนวนเงินให้ถูกต้อง"
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
+
+    // ตรวจรถพ่วงทีละคัน
+    const tErr = []
+    trailers.forEach((t, i) => {
+      const te = {}
+      if (!String(t.licensePlate || "").trim()) te.licensePlate = "กรอกทะเบียนรถ"
+      if (t.frontWeightKg === "" || Number(t.frontWeightKg) <= 0) te.frontWeightKg = "กรอกน้ำหนักสุทธิพ่วงหน้า"
+      if (t.backWeightKg === ""  || Number(t.backWeightKg)  <= 0) te.backWeightKg  = "กรอกน้ำหนักสุทธิพ่วงหลัง"
+      if (t.unitPrice === ""     || Number(t.unitPrice)     <= 0) te.unitPrice     = "กรอกราคาต่อกก."
+      // net > 0
+      const net = Number(t.frontWeightKg || 0) + Number(t.backWeightKg || 0)
+      if (net <= 0) te._net = "น้ำหนักรวมต้องมากกว่า 0"
+      tErr[i] = te
+    })
+    if (tErr.some((x) => Object.keys(x || {}).length > 0)) e.trailers = tErr
+
     setErrors(e)
     return e
   }
+
   const scrollToFirstError = (eObj) => {
     const personKeys = ["memberId", "fullName"]
     const companyKeys = ["companyName", "taxId"]
-    const commonOrderKeys = ["product","riceType","subrice","condition","fieldType","riceYear","businessType","branchName","klangName","payment","entryWeightKg","exitWeightKg","amountTHB","issueDate"]
+    const commonOrderKeys = ["product","riceType","subrice","condition","fieldType","riceYear","businessType","branchName","klangName","payment","issueDate"]
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
     const firstKey = keys.find((k) => k in eObj)
-    if (!firstKey) return
-    const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
-    if (el && typeof el.focus === "function") { try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} el.focus() }
+    if (firstKey) {
+      const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
+      if (el && typeof el.focus === "function") { try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} el.focus() }
+      return
+    }
+    // ถ้า error อยู่ในรถพ่วง เลื่อนขึ้นไปยังหัวข้อรถพ่วง
+    const tmp = document.getElementById("trailers-block")
+    if (tmp) { try { tmp.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} }
   }
 
   /** ---------- Submit (เรียก /order/customers/save/sell) ---------- */
@@ -958,7 +971,6 @@ function Sales() {
       conditionId: "", condition: "", fieldTypeId: "", fieldType: "", riceYearId: "", riceYear: "",
       businessTypeId: "", businessType: "", programId: "", programName: "",
       branchName: "", branchId: null, klangName: "", klangId: null,
-      entryWeightKg: "", exitWeightKg: "", unitPrice: "", amountTHB: "",
       issueDate: new Date().toISOString().slice(0, 10), gram: "", comment: "",
       paymentMethod: "", paymentMethodId: "",
       scaleNo: "", cashReceiptNo: "", creditInvoiceNo: "",
@@ -967,6 +979,8 @@ function Sales() {
     setRiceOptions([]); setSubriceOptions([]); setKlangOptions([])
     setBuyerType("person")
     setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
+    setTrailersCount(1)
+    setTrailers([{ licensePlate: "", frontWeightKg: "", backWeightKg: "", unitPrice: "" }])
     try { refs.buyerType?.current?.focus() } catch {}
   }
 
@@ -994,13 +1008,13 @@ function Sales() {
     const programId = /^\d+$/.test(order.programId) ? Number(order.programId) : null
     const paymentId = resolvePaymentIdForBE() // ⭐ sell: 1/2
 
-    // เอกสารอ้างอิง (ตามชนิดการชำระเงิน; ถ้าเว้นว่างจะ fallback ที่ใบชั่ง)
+    // เอกสารอ้างอิง ใช้ตามวิธีชำระเงิน ถ้าไม่ระบุใช้ใบชั่ง
     const isCredit = isCreditPayment()
-    const orderSerial =
+    const orderSerialCommon =
       (isCredit ? (order.creditInvoiceNo?.trim() || "") : (order.cashReceiptNo?.trim() || "")) ||
       (order.scaleNo?.trim() || null)
 
-    // สร้าง payload
+    // customer payload ตามตัวตน
     let customerPayload
     if (buyerType === "person") {
       const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
@@ -1015,9 +1029,9 @@ function Sales() {
     } else {
       const taxId = onlyDigits(customer.taxId)
       customerPayload = taxId
-        ? { party_type: "company", tax_id: taxId }
+        ? { party_type: "company", tax_id: taxId, company_name: customer.companyName || undefined }
         : memberMeta.assoId
-        ? { party_type: "company", asso_id: memberMeta.assoId }
+        ? { party_type: "company", asso_id: memberMeta.assoId, company_name: customer.companyName || undefined }
         : { party_type: "company", tax_id: "" }
     }
 
@@ -1034,40 +1048,60 @@ function Sales() {
 
     const dateISO = toIsoDateTime(order.issueDate)
 
-    const payload = {
-      customer: customerPayload,
-      order: {
-        payment_id: paymentId,
-        spec,
-        humidity: 0,
-        entry_weight: Number(order.entryWeightKg || 0),
-        exit_weight: Number(order.exitWeightKg || 0),
-        weight: Number(grossFromScale),
-        price_per_kilo: Number(order.unitPrice || 0),
-        price: Number(moneyToNumber(order.amountTHB) || 0),
-        impurity: 0,
-        order_serial: orderSerial,
-        date: dateISO,
-        branch_location: branchId,
-        klang_location: klangId,
-        gram: Number(order.gram || 0),
-        comment: order.comment?.trim() || null,
-        business_type: businessTypeId,
-      },
-      // dept แนบเสมอ (BE ใช้เมื่อ payment_id == 2)
-      dept: { date_created: dateISO, allowed_period: Number(dept.allowedPeriod || 0), postpone: Boolean(dept.postpone), postpone_period: Number(dept.postpone ? (dept.postponePeriod || 0) : 0) },
+    // ส่งทีละคัน
+    let ok = 0
+    const results = []
+    for (let i = 0; i < trailers.length; i++) {
+      const t = trailers[i]
+      const weight1 = Number(t.frontWeightKg || 0)
+      const weight2 = Number(t.backWeightKg || 0)
+      const pricePerKg = Number(t.unitPrice || 0)
+      const price1 = Math.round(weight1 * pricePerKg * 100) / 100
+      const price2 = Math.round(weight2 * pricePerKg * 100) / 100
+
+      const payload = {
+        customer: customerPayload,
+        order: {
+          payment_id: paymentId,
+          spec,
+          license_plate: (t.licensePlate || "").trim() || null,
+          weight_1: weight1,
+          weight_2: weight2,
+          gram: Number(order.gram || 0),
+          price_per_kilo: pricePerKg,
+          price_1: price1,
+          price_2: price2,
+          order_serial_1: orderSerialCommon,
+          order_serial_2: null,
+          date: dateISO,
+          branch_location: branchId,
+          klang_location: klangId,
+          comment: order.comment?.trim() ? `${order.comment.trim()} (พ่วงที่ ${i + 1})` : null,
+        },
+        // dept แนบเสมอ (BE ใช้เมื่อ payment_id == 2)
+        dept: { date_created: dateISO, allowed_period: Number(dept.allowedPeriod || 0), postpone: Boolean(dept.postpone), postpone_period: Number(dept.postpone ? (dept.postponePeriod || 0) : 0) },
+      }
+
+      try {
+        const r = await post("/order/customers/save/sell", payload)
+        ok += 1
+        results.push({ index: i + 1, success: true, id: r?.order_id })
+      } catch (err) {
+        console.error("SAVE ERROR (trailer", i + 1, "):", err?.data || err)
+        results.push({ index: i + 1, success: false, message: err?.message || "เกิดข้อผิดพลาด", detail: err?.data?.detail })
+        // ทำตาม requirement: ส่งต่อทีละคันจนจบ ไม่หยุดกลางทาง
+      }
     }
 
-    try {
-      await post("/order/customers/save/sell", payload)
+    const failed = results.filter((x) => !x.success)
+    if (failed.length === 0) {
       try { localStorage.setItem("sales.formTemplate", formTemplate) } catch {}
-      alert("บันทึกออเดอร์ขายเรียบร้อย ✅")
+      alert(`บันทึกออเดอร์ขายสำเร็จทั้งหมด ${ok}/${trailers.length} รายการ ✅`)
       handleReset()
       try { refs.submitBtn?.current?.blur?.() } catch {}
-    } catch (err) {
-      console.error("SAVE ERROR:", err?.data || err)
-      const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
-      alert(`บันทึกล้มเหลว: ${err.message || "เกิดข้อผิดพลาด"}${detail}`)
+    } else {
+      const summary = failed.map((f) => `• คันที่ ${f.index}: ${f.message}${f.detail ? `\nรายละเอียด: ${JSON.stringify(f.detail)}` : ""}`).join("\n\n")
+      alert(`บันทึกสำเร็จ ${ok}/${trailers.length} รายการ\n\nรายการที่ผิดพลาด:\n${summary}`)
     }
   }
 
@@ -1075,7 +1109,7 @@ function Sales() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ขาย</h1>
+        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ขาย (หลายพ่วง)</h1>
 
         {/* กล่องข้อมูลลูกค้า */}
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
@@ -1141,7 +1175,7 @@ function Sales() {
             </div>
           </div>
 
-          {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง (เหมือนหน้า Buy) */}
+          {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง */}
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>วิธีชำระเงิน</label>
@@ -1152,7 +1186,6 @@ function Sales() {
                 placeholder="— เลือกวิธีชำระเงิน —"
                 buttonRef={refs.payment}
                 onEnterNext={() => {
-                  // กด Enter จากวิธีชำระเงิน → โฟกัสไปช่องเอกสารบนคอลัมน์ที่ 3 (เหมือนหน้า Buy)
                   const tryFocusDoc = () => {
                     const el = order.__isCredit ? refs.creditInvoiceNo?.current : refs.cashReceiptNo?.current
                     if (el && isEnabledInput(el)) {
@@ -1183,7 +1216,7 @@ function Sales() {
               {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
             </div>
 
-            {/* เอกสารอ้างอิง: ใบรับเงิน/ใบกำกับ (ย้ายขึ้นจากด้านล่าง) */}
+            {/* เอกสารอ้างอิง: ใบรับเงิน/ใบกำกับ */}
             <div>
               <label className={labelCls}>
                 {order.__isCredit
@@ -1193,8 +1226,6 @@ function Sales() {
                   : "เอกสารอ้างอิง (เลือกวิธีชำระเงินเพื่อกรอก)"
                 }
               </label>
-
-              {/* แสดงอินพุตตามประเภทการชำระเงิน */}
               {order.__isCredit ? (
                 <input
                   ref={refs.creditInvoiceNo}
@@ -1233,13 +1264,13 @@ function Sales() {
             </div>
           </div>
 
-          {/* ▼ เฉพาะกรณี "ขายเชื่อ/เครดิต" แสดงกรอบกรอกเงื่อนไขเครดิต */}
+          {/* เงื่อนไขเครดิต */}
           {isCreditPayment() && (
             <div className="md:col-span-3 mt-2">
               <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-sm dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-100">
                 <div className="mb-2 flex items-center gap-2">
                   <svg viewBox="0 0 24 24" width="18" height="18" className="opacity-80" fill="currentColor">
-                    <path d="M3 5a2 2 0 0 0-2 2v2h22V7a2 2 0 0 0-2-2H3zm20 6H1v6a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-6zM4 17h6v-2H4v2z"/>
+                    <path d="M3 5a2 2 0 0 0-2 2v2h22V7a2 2 0 0 0 2-2H3zm20 6H1v6a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-6zM4 17h6v-2H4v2z"/>
                   </svg>
                   <div className="font-semibold">รายละเอียดเครดิต (ขายเชื่อ)</div>
                 </div>
@@ -1306,7 +1337,6 @@ function Sales() {
 
                 <p className="mt-2 text-sm opacity-80">
                   ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>allowed_period</code>, <code>postpone</code>, <code>postpone_period</code>
-                  เพื่อใช้คำนวณวันครบกำหนดและวันเลื่อนครบกำหนด (ถ้ามี).
                 </p>
               </div>
             </div>
@@ -1657,97 +1687,29 @@ function Sales() {
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
-                onEnterNext={() => focusNext("entryWeightKg")}
+                // ผู้ใช้จะเลื่อนลงกรอก “รถพ่วงหลายคัน” ต่อ
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>
           </div>
 
-          {/* ตัวเลข */}
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-transparent dark:border-slate-700 dark:bg-slate-800">
+          {/* รถพ่วงหลายคัน */}
+          <div id="trailers-block" className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-transparent dark:border-slate-700 dark:bg-slate-800">
             <div className="mb-3 flex items-center gap-2">
               <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              <h3 className="text-lg font-semibold">ตัวเลขและการคำนวณ</h3>
+              <h3 className="text-lg font-semibold">ข้อมูลรถพ่วงหลายคัน</h3>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <label className={labelCls}>น้ำหนักก่อนชั่ง (กก.)</label>
-                <input
-                  ref={refs.entryWeightKg}
-                  inputMode="decimal"
-                  className={cx(baseField, redFieldCls("entryWeightKg"))}
-                  value={order.entryWeightKg}
-                  onChange={(e) => updateOrder("entryWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => { clearHint("entryWeightKg"); clearError("entryWeightKg") }}
-                  onKeyDown={onEnter("entryWeightKg")}
-                  placeholder="เช่น 7000"
+              <div className="md:w-60">
+                <label className={labelCls}>จำนวนรถพ่วง</label>
+                <ComboBox
+                  options={trailerCountOptions}
+                  value={String(trailersCount)}
+                  onChange={(id) => setTrailersCount(Number(id))}
                 />
-                {errors.entryWeightKg && <p className={errorTextCls}>{errors.entryWeightKg}</p>}
               </div>
 
-              <div>
-                <label className={labelCls}>น้ำหนักหลังชั่ง (กก.)</label>
-                <input
-                  ref={refs.exitWeightKg}
-                  inputMode="decimal"
-                  className={cx(baseField, redFieldCls("exitWeightKg"))}
-                  value={order.exitWeightKg}
-                  onChange={(e) => updateOrder("exitWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => { clearHint("exitWeightKg"); clearError("exitWeightKg") }}
-                  onKeyDown={onEnter("exitWeightKg")}
-                  placeholder="เช่น 12000"
-                />
-                {errors.exitWeightKg && <p className={errorTextCls}>{errors.exitWeightKg}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>น้ำหนักจากตาชั่ง (กก.)</label>
-                <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(grossFromScale * 100) / 100} />
-                <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
-              </div>
-
-              <div>
-                <label className={labelCls}>ราคาต่อกก. (บาท)</label>
-                <input
-                  ref={refs.unitPrice}
-                  inputMode="decimal"
-                  className={baseField}
-                  value={order.unitPrice}
-                  onChange={(e) => updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => clearHint("unitPrice")}
-                  onKeyDown={onEnter("unitPrice")}
-                  placeholder="เช่น 15.00"
-                />
-                <p className={helpTextCls}>ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
-              </div>
-
-              <div>
-                <label className={labelCls}>เป็นเงิน (บาท)</label>
-                <input
-                  ref={refs.amountTHB}
-                  inputMode="decimal"
-                  className={cx(baseField, redFieldCls("amountTHB"))}
-                  value={order.amountTHB}
-                  onChange={(e) => updateOrder("amountTHB", formatMoneyInput(e.target.value))}
-                  onFocus={() => { clearHint("amountTHB"); clearError("amountTHB") }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.isComposing) {
-                      e.preventDefault()
-                      const btn = refs.submitBtn?.current
-                      if (btn && isEnabledInput(btn)) {
-                        try { btn.scrollIntoView({ block: "center" }) } catch {}
-                        btn.focus?.()
-                      }
-                    }
-                  }}
-                  placeholder="เช่น 45,000"
-                />
-                {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(moneyToNumber(order.amountTHB))}</p>}
-                {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
-              </div>
-
-              {/* gram (optional) */}
               <div>
                 <label className={labelCls}>คุณภาพข้าว (gram)</label>
                 <input
@@ -1761,9 +1723,95 @@ function Sales() {
                 />
               </div>
             </div>
+
+            {/* รายการรถพ่วง */}
+            <div className="mt-4 grid gap-4">
+              {trailers.map((t, idx) => {
+                const net = toNumber(t.frontWeightKg) + toNumber(t.backWeightKg)
+                const amount = Math.round(net * toNumber(t.unitPrice) * 100) / 100
+                const terr = errors?.trailers?.[idx] || {}
+                return (
+                  <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex h-2 w-2 rounded-full bg-slate-500" />
+                        <div className="font-semibold">รถพ่วง #{idx + 1}</div>
+                      </div>
+                      {net > 0 && (
+                        <div className="text-sm text-slate-600 dark:text-slate-300">
+                          น้ำหนักรวม: <b>{Math.round(net * 100) / 100} กก.</b> | เป็นเงินโดยประมาณ: <b>{thb(amount)}</b>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-5">
+                      <div className="md:col-span-2">
+                        <label className={labelCls}>ทะเบียนรถ</label>
+                        <input
+                          className={cx(baseField, terr.licensePlate && "border-red-500 ring-2 ring-red-300")}
+                          value={t.licensePlate}
+                          onChange={(e) => updateTrailer(idx, "licensePlate", e.target.value.toUpperCase())}
+                          placeholder="เช่น 1กก-1234 กทม."
+                        />
+                        {terr.licensePlate && <p className={errorTextCls}>{terr.licensePlate}</p>}
+                      </div>
+
+                      <div>
+                        <label className={labelCls}>น้ำหนักสุทธิพ่วงหน้า (กก.)</label>
+                        <input
+                          inputMode="decimal"
+                          className={cx(baseField, terr.frontWeightKg && "border-red-500 ring-2 ring-red-300")}
+                          value={t.frontWeightKg}
+                          onChange={(e) => updateTrailer(idx, "frontWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                          placeholder="เช่น 7,000"
+                        />
+                        {terr.frontWeightKg && <p className={errorTextCls}>{terr.frontWeightKg}</p>}
+                      </div>
+
+                      <div>
+                        <label className={labelCls}>น้ำหนักสุทธิพ่วงหลัง (กก.)</label>
+                        <input
+                          inputMode="decimal"
+                          className={cx(baseField, terr.backWeightKg && "border-red-500 ring-2 ring-red-300")}
+                          value={t.backWeightKg}
+                          onChange={(e) => updateTrailer(idx, "backWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                          placeholder="เช่น 12,000"
+                        />
+                        {terr.backWeightKg && <p className={errorTextCls}>{terr.backWeightKg}</p>}
+                      </div>
+
+                      <div>
+                        <label className={labelCls}>ราคาต่อกก. (บาท)</label>
+                        <input
+                          inputMode="decimal"
+                          className={cx(baseField, terr.unitPrice && "border-red-500 ring-2 ring-red-300")}
+                          value={t.unitPrice}
+                          onChange={(e) => updateTrailer(idx, "unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
+                          placeholder="เช่น 15.00"
+                        />
+                        {terr.unitPrice && <p className={errorTextCls}>{terr.unitPrice}</p>}
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className={labelCls}>เป็นเงิน (บาท)</label>
+                        <input
+                          className={cx(baseField, fieldDisabled)}
+                          value={formatMoneyInput(String(amount))}
+                          disabled
+                          placeholder="คำนวณอัตโนมัติ"
+                        />
+                        <p className={helpTextCls}>คำนวณจาก (พ่วงหน้า + พ่วงหลัง) × ราคาต่อกก.</p>
+                      </div>
+                    </div>
+
+                    {terr._net && <p className={errorTextCls}>{terr._net}</p>}
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
-          {/* เอกสารอ้างอิง (ด้านล่างกรอบตัวเลข) — คงไว้เฉพาะเลขที่ใบชั่ง */}
+          {/* เอกสารอ้างอิงด้านล่าง — ใบชั่ง (สำรอง) */}
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>เลขที่ใบชั่ง</label>
@@ -1832,11 +1880,7 @@ function Sales() {
                 label: "สาขา / คลัง",
                 value: (<ul className="list-disc pl-5"><li>{order.branchName || "—"}</li>{order.klangName && <li>{order.klangName}</li>}</ul>),
               },
-              { label: "ก่อนชั่ง", value: Math.round(toNumber(order.entryWeightKg) * 100) / 100 + " กก." },
-              { label: "หลังชั่ง", value: Math.round(toNumber(order.exitWeightKg) * 100) / 100 + " กก." },
-              { label: "จากตาชั่ง", value: Math.round(grossFromScale * 100) / 100 + " กก." },
-              { label: "ราคาต่อหน่วย", value: order.unitPrice ? `${Number(order.unitPrice).toFixed(2)} บาท/กก.` : "—" },
-              { label: "ยอดเงิน", value: order.amountTHB ? thb(moneyToNumber(order.amountTHB)) : "—" },
+              { label: "คุณภาพข้าว (gram)", value: order.gram || "—" },
               // เอกสารอ้างอิง
               { label: "เลขที่ใบชั่ง", value: order.scaleNo || "—" },
               ...(order.__isCash ? [{ label: "ใบรับเงิน (สด)", value: order.cashReceiptNo || "—" }] : []),
@@ -1848,9 +1892,50 @@ function Sales() {
                 <div className="text-lg md:text-xl font-semibold">{c.value}</div>
               </div>
             ))}
+
+            {/* สรุปรถพ่วง + ยอดรวม */}
+            <div className="md:col-span-5 rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+              <div className="text-slate-600 dark:text-slate-300 mb-2">สรุปรถพ่วง</div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left border-b border-slate-200 dark:border-slate-700">
+                      <th className="py-2 pr-4">#</th>
+                      <th className="py-2 pr-4">ทะเบียนรถ</th>
+                      <th className="py-2 pr-4">พ่วงหน้า (กก.)</th>
+                      <th className="py-2 pr-4">พ่วงหลัง (กก.)</th>
+                      <th className="py-2 pr-4">รวม (กก.)</th>
+                      <th className="py-2 pr-4">ราคาต่อกก.</th>
+                      <th className="py-2 pr-4">เป็นเงิน (≈)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trailers.map((t, i) => {
+                      const net = toNumber(t.frontWeightKg) + toNumber(t.backWeightKg)
+                      const amount = Math.round(net * toNumber(t.unitPrice) * 100) / 100
+                      return (
+                        <tr key={i} className="border-b border-slate-100 dark:border-slate-700/60">
+                          <td className="py-2 pr-4">{i + 1}</td>
+                          <td className="py-2 pr-4">{t.licensePlate || "—"}</td>
+                          <td className="py-2 pr-4">{t.frontWeightKg || "0"}</td>
+                          <td className="py-2 pr-4">{t.backWeightKg || "0"}</td>
+                          <td className="py-2 pr-4">{Math.round(net * 100) / 100}</td>
+                          <td className="py-2 pr-4">{t.unitPrice ? Number(t.unitPrice).toFixed(2) : "—"}</td>
+                          <td className="py-2 pr-4">{thb(amount)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-3 text-right font-semibold">
+                รวมทั้งสิ้น (โดยประมาณ):{" "}
+                {thb(trailers.reduce((s, t) => s + (toNumber(t.frontWeightKg) + toNumber(t.backWeightKg)) * toNumber(t.unitPrice), 0))}
+              </div>
+            </div>
           </div>
 
-          {/* ปุ่มบันทึก/รีเซ็ต — สไตล์เดียวกับหน้า Buy */}
+          {/* ปุ่มบันทึก/รีเซ็ต */}
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <button
               ref={refs.submitBtn}
@@ -1862,7 +1947,7 @@ function Sales() {
                 hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
                 hover:scale-[1.05] active:scale-[.97] cursor-pointer"
             >
-              บันทึกออเดอร์ขาย
+              บันทึกออเดอร์ขาย ({trailers.length} คัน)
             </button>
             <button
               type="button"

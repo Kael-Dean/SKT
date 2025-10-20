@@ -1110,6 +1110,7 @@ function Sales() {
                 options={paymentOptions}
                 value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
                 onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
+
                 placeholder="— เลือกวิธีชำระเงิน —"
                 buttonRef={refs.payment}
                 onEnterNext={() => {
@@ -1440,7 +1441,7 @@ function Sales() {
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
                 disabled={isTemplateActive}
-                onEnterNext={() => focusNext("riceType")}
+                onEnterNext={() => focusNext("product")}
               />
               {errors.product && <p className={errorTextCls}>{errors.product}</p>}
             </div>
@@ -1457,7 +1458,7 @@ function Sales() {
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
                 buttonRef={refs.riceType}
-                onEnterNext={() => focusNext("subrice")}
+                onEnterNext={() => focusNext("riceType")}
               />
               {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
             </div>
@@ -1474,7 +1475,7 @@ function Sales() {
                 hintRed={!!missingHints.subrice}
                 clearHint={() => clearHint("subrice")}
                 buttonRef={refs.subrice}
-                onEnterNext={() => focusNext("condition")}
+                onEnterNext={() => focusNext("subrice")}
               />
               {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
             </div>
@@ -1491,7 +1492,7 @@ function Sales() {
                 hintRed={!!missingHints.condition}
                 clearHint={() => clearHint("condition")}
                 buttonRef={refs.condition}
-                onEnterNext={() => focusNext("fieldType")}
+                onEnterNext={() => focusNext("condition")}
               />
               {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
             </div>
@@ -1508,7 +1509,7 @@ function Sales() {
                 hintRed={!!missingHints.fieldType}
                 clearHint={() => clearHint("fieldType")}
                 buttonRef={refs.fieldType}
-                onEnterNext={() => focusNext("riceYear")}
+                onEnterNext={() => focusNext("fieldType")}
               />
               {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
             </div>
@@ -1525,7 +1526,7 @@ function Sales() {
                 hintRed={!!missingHints.riceYear}
                 clearHint={() => clearHint("riceYear")}
                 buttonRef={refs.riceYear}
-                onEnterNext={() => focusNext("businessType")}
+                onEnterNext={() => focusNext("riceYear")}
               />
               {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
             </div>
@@ -1542,7 +1543,7 @@ function Sales() {
               hintRed={!!missingHints.businessType}
               clearHint={() => clearHint("businessType")}
               buttonRef={refs.businessType}
-              onEnterNext={() => focusNext("program")}
+              onEnterNext={() => focusNext("businessType")}
               />
               {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
             </div>
@@ -1556,7 +1557,7 @@ function Sales() {
                 onChange={(_id, found) => setOrder((p) => ({ ...p, programId: found?.id ?? "", programName: found?.label ?? "" }))}
                 placeholder="— เลือกโปรแกรม —"
                 buttonRef={refs.program}
-                onEnterNext={() => focusNext("branchName")}
+                onEnterNext={() => focusNext("program")}
               />
             </div>
           </div>
@@ -1575,7 +1576,7 @@ function Sales() {
                 hintRed={!!missingHints.branchName}
                 clearHint={() => clearHint("branchName")}
                 buttonRef={refs.branchName}
-                onEnterNext={() => focusNext("klangName")}
+                onEnterNext={() => focusNext("branchName")}
               />
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
             </div>
@@ -1604,8 +1605,8 @@ function Sales() {
               <h3 className="text-lg font-semibold">ข้อมูลรถพ่วงหลายคัน</h3>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="md:w-60">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="w-full sm:w-64 md:w-60">
                 <label className={labelCls}>จำนวนรถพ่วง</label>
                 <ComboBox
                   options={trailerCountOptions}

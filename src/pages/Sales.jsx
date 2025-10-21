@@ -158,29 +158,10 @@ function ComboBox({
 
   const onKeyDown = (e) => {
     if (disabled) return
-
-    // ✅ ปรับ: ถ้าเมนูปิดและกด Enter
-    // - ถ้ามีค่าที่เลือกแล้ว → ไปช่องถัดไป
-    // - ถ้ายังไม่มีค่า → เปิดเมนู
-    const hasSelected = value !== undefined && value !== null && String(value) !== ""
-
-    if (!open) {
-      if (e.key === "Enter") {
-        e.preventDefault()
-        if (hasSelected) {
-          onEnterNext?.()
-        } else {
-          setOpen(true); setHighlight((h) => (h >= 0 ? h : 0)); clearHint?.()
-        }
-        return
-      }
-      if (e.key === " " || e.key === "ArrowDown") {
-        e.preventDefault(); setOpen(true); setHighlight((h) => (h >= 0 ? h : 0)); clearHint?.(); return
-      }
-      return
+    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+      e.preventDefault(); setOpen(true); setHighlight((h) => (h >= 0 ? h : 0)); clearHint?.(); return
     }
-
-    // เมนูเปิดอยู่ → คุม highlight/เลือก
+    if (!open) return
     if (e.key === "ArrowDown") {
       e.preventDefault()
       setHighlight((h) => { const next = h < options.length - 1 ? h + 1 : 0; requestAnimationFrame(() => scrollHighlightedIntoView(next)); return next })
@@ -767,7 +748,7 @@ function Sales() {
       hqProvince: S(r.hq_province ?? r.hqProvince ?? ""), hqPostalCode: onlyDigits(S(r.hq_postal_code ?? r.hqPostalCode ?? "")),
       brHouseNo: S(r.branch_address ?? r.branchAddress ?? ""), brMoo: S(r.branch_moo ?? r.branchMoo ?? ""),
       brSubdistrict: S(r.branch_tambon ?? r.brSubdistrict ?? ""), brDistrict: S(r.branch_amphur ?? r.brDistrict ?? ""),
-      brProvince: S(r.branch_province ?? r.brProvince ?? ""), brPostalCode: S(r.branch_postal_code ?? r.brPostalCode ?? ""),
+      brProvince: S(r.branch_province ?? r.brProvince ?? ""), brPostalCode: onlyDigits(S(r.branch_postal_code ?? r.brPostalCode ?? "")),
     }
   }
   const pickCompanyResult = async (rec) => {
@@ -1396,8 +1377,7 @@ function Sales() {
                   onKeyDown={onEnter("citizenId")}
                 />
                 <div className={helpTextCls}>{loadingCustomer && "กำลังค้นหาลูกค้า..."}</div>
-              </div
-              >
+              </div>
               <div>
                 <label className={labelCls}>รหัสสมาชิก (member_id)</label>
                 <input
@@ -1572,7 +1552,29 @@ function Sales() {
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
                 disabled={isTemplateActive}
-                onEnterNext={() => focusNext("product")} // → ชนิดข้าว
+                // ⭐ เปลี่ยนพฤติกรรม: Enter จาก "ประเภทสินค้า" → ไป "ชนิดข้าว" (ถ้ามี) เหมือนหน้า Buy
+                onEnterNext={() => {
+                  const tryFocus = () => {
+                    if (isEnabledInput(refs.riceType?.current)) {
+                      try { refs.riceType.current.scrollIntoView({ block: "center" }) } catch {}
+                      refs.riceType.current.focus?.()
+                      return true
+                    }
+                    const keys = ["subrice","condition","fieldType","riceYear","program","businessType","branchName"]
+                    for (const k of keys) {
+                      const el = refs[k]?.current
+                      if (el && isEnabledInput(el)) {
+                        try { el.scrollIntoView({ block: "center" }) } catch {}
+                        el.focus?.()
+                        return true
+                      }
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 180)
+                }}
               />
               {errors.product && <p className={errorTextCls}>{errors.product}</p>}
             </div>
@@ -1589,7 +1591,31 @@ function Sales() {
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
                 buttonRef={refs.riceType}
-                onEnterNext={() => focusNext("riceType")} // → ชั้นย่อย
+                // ⭐ เปลี่ยนพฤติกรรม: Enter จาก "ชนิดข้าว" → ไป "ชั้นย่อย" (ถ้ามี)
+                onEnterNext={() => {
+                  const tryFocus = () => {
+                    const el = refs.subrice?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.()
+                      return true
+                    }
+                    const keys = ["condition","fieldType","riceYear","program","businessType","branchName"]
+                    for (const k of keys) {
+                      const e2 = refs[k]?.current
+                      if (e2 && isEnabledInput(e2)) {
+                        try { e2.scrollIntoView({ block: "center" }) } catch {}
+                        e2.focus?.()
+                        return true
+                      }
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 120)
+                  setTimeout(tryFocus, 200)
+                }}
               />
               {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
             </div>
@@ -1707,7 +1733,22 @@ function Sales() {
                 hintRed={!!missingHints.branchName}
                 clearHint={() => clearHint("branchName")}
                 buttonRef={refs.branchName}
-                onEnterNext={() => focusNext("branchName")} // → คลัง
+                // ⭐ เปลี่ยนพฤติกรรม: Enter จาก "สาขา" → ไป "คลัง" เหมือนหน้า Buy
+                onEnterNext={() => {
+                  const tryFocus = () => {
+                    const el = refs.klangName?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.()
+                      try { el.select?.() } catch {}
+                      return true
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 180)
+                }}
               />
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
             </div>
@@ -1724,7 +1765,22 @@ function Sales() {
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
-                onEnterNext={() => focusNext("klangName")}
+                // ⭐ คงพฤติกรรมเดิม: จาก "คลัง" → จำนวนรถพ่วง
+                onEnterNext={() => {
+                  const goTrailer = () => {
+                    const el = refs.trailerCount?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.()
+                      return true
+                    }
+                    return false
+                  }
+                  if (!goTrailer()) {
+                    // สำรอง: ไปตามลิสต์เดิม
+                    focusNext("klangName")
+                  }
+                }}
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>
@@ -1744,7 +1800,7 @@ function Sales() {
                   options={trailerCountOptions}
                   value={String(trailersCount)}
                   onChange={(id) => setTrailersCount(Number(id))}
-                  // ref สำหรับโฟกัสภายหลัง (ไม่เปลี่ยน flow ที่คุณสั่ง)
+                  // ⭐ เพิ่ม ref ให้โฟกัสจาก "คลัง"
                   buttonRef={refs.trailerCount}
                 />
               </div>

@@ -66,7 +66,7 @@ const useEnterNavigation = (refs, buyerType, order) => {
   const orderOrder = [
     "product", "riceType", "subrice", "condition", "fieldType", "riceYear", "businessType", "program",
     "branchName", "klangName",
-    "payment", "saleId",
+    "payment",
     "cashReceiptNo", "creditInvoiceNo", "deptAllowed", "deptPostpone", "deptPostponePeriod",
     "comment", "issueDate"
   ]
@@ -363,7 +363,6 @@ function Sales() {
     comment: "",
     paymentMethod: "",    // label
     paymentMethodId: "",  // id
-    saleId: "",           // เลขที่ขาย
     cashReceiptNo: "",
     creditInvoiceNo: "",
     __isCash: false,
@@ -428,7 +427,6 @@ function Sales() {
 
     cashReceiptNo: useRef(null),
     creditInvoiceNo: useRef(null),
-    saleId: useRef(null),
 
     formTemplate: useRef(null),
 
@@ -845,7 +843,6 @@ function Sales() {
     if (!order.klangName) m.klangName = true
     const pid = resolvePaymentId()
     if (!pid) m.payment = true
-    if (!order.saleId) m.saleId = true
     if (!order.issueDate) m.issueDate = true
     return m
   }
@@ -874,7 +871,6 @@ function Sales() {
 
     const pid = resolvePaymentId()
     if (!pid) e.payment = "เลือกวิธีชำระเงิน"
-    if (!order.saleId) e.saleId = "กรุณากรอกเลขที่ขาย (Sale ID)"
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
 
     const tErr = []
@@ -909,7 +905,7 @@ function Sales() {
   const scrollToFirstError = (eObj) => {
     const personKeys = ["memberId", "fullName"]
     const companyKeys = ["companyName", "taxId"]
-    const commonOrderKeys = ["product","riceType","subrice","condition","fieldType","riceYear","businessType","branchName","klangName","payment","saleId","issueDate"]
+    const commonOrderKeys = ["product","riceType","subrice","condition","fieldType","riceYear","businessType","branchName","klangName","payment","issueDate"]
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
     const firstKey = keys.find((k) => k in eObj)
     if (firstKey) {
@@ -942,7 +938,6 @@ function Sales() {
       branchName: "", branchId: null, klangName: "", klangId: null,
       issueDate: new Date().toISOString().slice(0, 10), comment: "",
       paymentMethod: "", paymentMethodId: "",
-      saleId: "",
       cashReceiptNo: "", creditInvoiceNo: "",
       __isCash: false, __isCredit: false,
     })
@@ -1009,7 +1004,8 @@ function Sales() {
     }
 
     const dateISO = toIsoDateTime(order.issueDate)
-    const saleId = (order.saleId || "").trim()
+    // ใช้เลขเอกสารเป็น sale_id ตาม requirement
+    const saleId = ((order.__isCredit ? order.creditInvoiceNo : order.cashReceiptNo) || "").trim() || null
 
     // ส่งทีละคัน
     let ok = 0
@@ -1147,8 +1143,8 @@ function Sales() {
             </div>
           </div>
 
-          {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง + Sale ID */}
-          <div className="grid gap-4 md:grid-cols-4">
+          {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง (ใช้เป็น Sale ID) */}
+          <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>วิธีชำระเงิน</label>
               <ComboBox
@@ -1207,7 +1203,9 @@ function Sales() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.isComposing) {
                       e.preventDefault()
-                      refs.saleId?.current?.focus()
+                      // ไปฟิลด์ถัดไปตามคิว navigation
+                      const fn = () => focusNext("creditInvoiceNo")
+                      fn(); setTimeout(fn, 60)
                     }
                   }}
                   placeholder="เช่น INV-2025-000456 (ไม่บังคับ)"
@@ -1221,7 +1219,8 @@ function Sales() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.isComposing) {
                       e.preventDefault()
-                      refs.saleId?.current?.focus()
+                      const fn = () => focusNext("cashReceiptNo")
+                      fn(); setTimeout(fn, 60)
                     }
                   }}
                   placeholder="เช่น RC-2025-000789 (ไม่บังคับ)"
@@ -1229,21 +1228,7 @@ function Sales() {
               ) : (
                 <input className={cx(baseField, fieldDisabled)} disabled placeholder="โปรดเลือกวิธีชำระเงินก่อน" />
               )}
-            </div>
-
-            <div>
-              <label className={labelCls}>เลขที่ขาย (Sale ID)</label>
-              <input
-                ref={refs.saleId}
-                className={cx(baseField, redFieldCls("saleId"), redHintCls("saleId"))}
-                value={order.saleId}
-                onChange={(e) => updateOrder("saleId", e.target.value)}
-                onFocus={() => clearError("saleId")}
-                onKeyDown={onEnter("saleId")}
-                placeholder="เช่น SALE-2025-000123"
-                aria-invalid={errors.saleId ? true : undefined}
-              />
-              {errors.saleId && <p className={errorTextCls}>{errors.saleId}</p>}
+              <div className={helpTextCls}>* ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>sale_id</code></div>
             </div>
           </div>
 
@@ -1893,7 +1878,6 @@ function Sales() {
             {[
               { label: "ลงวันที่", value: order.issueDate || "—" },
               { label: "วิธีชำระเงิน", value: order.paymentMethod || "—" },
-              { label: "เลขที่ขาย (Sale ID)", value: order.saleId || "—" },
               { label: "สินค้า", value: order.productName || "—" },
               { label: "ชนิดข้าว", value: order.riceType || "—" },
               { label: "ชั้นย่อย", value: order.subriceName || "—" },

@@ -9,7 +9,13 @@ const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
   )
-
+const findLabelById = (opts = [], id) => {
+  const s = String(id ?? "") 
+  if (!s) return "" 
+  const f = opts.find((o) => String(o.id) === s) 
+  return f ? String(f.label ?? "") : ""
+}
+  
 // แปลงเป็นเลขจำนวนเต็ม ถ้าไม่ใช่ตัวเลขให้คืน null
 const toIntOrNull = (v) => {
   if (v === null || v === undefined) return null
@@ -908,9 +914,23 @@ const Buy = () => {
     const loadForms = async () => {
       try {
         const arr = (await apiAuth("/order/form/search")) || []
-        const mapped = arr
-          .map((x) => ({ id: String(x.id ?? x.value ?? ""), label: String(x.prod_name ?? x.name ?? x.label ?? "").trim() }))
-          .filter((o) => o.id && o.label)
+        const mapped = arr 
+          .map((x) => ({ 
+            id: String(x.id ?? x.value ?? ""), 
+            label: String(x.prod_name ?? x.name ?? x.label ?? "").trim(), 
+            // ⭐ เก็บ spec ทั้งชุดจาก BE เพื่อยิงใส่ฟอร์มตรง ๆ 
+            spec: { 
+              product_id: x.product_id ?? null, 
+              species_id: x.species_id ?? null, 
+              variant_id: x.variant_id ?? null, 
+              product_year: x.product_year ?? null, 
+              condition_id: x.condition_id ?? null, 
+              field_type: x.field_type ?? null, 
+              program: x.program ?? null, 
+              business_type: x.business_type ?? null, 
+            }, 
+          })) 
+          .filter((o) => o.id && o.label) 
         setTemplateOptions([{ id: "0", label: "— ไม่ล็อก (เลือกเอง) —" }, ...mapped])
       } catch (e) {
         console.error("load form templates error:", e)
@@ -1563,73 +1583,91 @@ const Buy = () => {
     setOrder((prev) => ({ ...prev, [k]: v }))
   }
 
-  /** ---------- Template mapping (ใหม่) ---------- */
-  const isTemplateActive = formTemplate !== "0"
-  const chooseByIncludes = (opts, text) =>
-    (opts || []).find((o) => String(text || "").includes(String(o.label || "")))
-
-  const applyTemplateByLabel = (label) => {
-    if (!label) return
-    // product
-    const prod = chooseByIncludes(productOptions, label)
-    if (prod && String(order.productId) !== String(prod.id)) {
-      setOrder((p) => ({
-        ...p,
-        productId: prod.id,
-        productName: prod.label,
-        riceId: "",
-        riceType: "",
-        subriceId: "",
-        subriceName: "",
-      }))
-      // รอจนกว่าจะโหลด species แล้วค่อยจับคู่ species ตาม label
-      setPendingTemplateLabel(label)
-    }
-
-    // condition
-    const cond = chooseByIncludes(conditionOptions, label)
-    if (cond) setOrder((p) => ({ ...p, conditionId: cond.id, condition: cond.label }))
-
-    // field type
-    const fld = chooseByIncludes(fieldTypeOptions, label)
-    if (fld) setOrder((p) => ({ ...p, fieldTypeId: fld.id, fieldType: fld.label }))
-
-    // year
-    const yr = chooseByIncludes(yearOptions, label)
-    if (yr) setOrder((p) => ({ ...p, riceYearId: yr.id, riceYear: yr.label }))
-
-    // program
-    const prog = chooseByIncludes(programOptions, label)
-    if (prog) setOrder((p) => ({ ...p, programId: prog.id, programName: prog.label }))
-
-    // หมายเหตุ: businessType และ subrice ไม่มีใน prod_name → ให้ผู้ใช้เลือกเอง
-  }
-
-  // เมื่อ template เปลี่ยนหรือ options พร้อม → ใช้ label เติมค่าที่หาเจอ
-  useEffect(() => {
-    if (!isTemplateActive) return
-    const current = templateOptions.find((o) => String(o.id) === String(formTemplate))
-    const label = current?.label || selectedTemplateLabel
-    if (label) applyTemplateByLabel(label)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formTemplate, productOptions, conditionOptions, fieldTypeOptions, yearOptions, programOptions])
-
-  // หลังโหลด species แล้ว ค่อยเติม species จาก label ของ template
-  useEffect(() => {
-    if (!pendingTemplateLabel || riceOptions.length === 0) return
-    const sp = chooseByIncludes(riceOptions, pendingTemplateLabel)
-    if (sp) {
-      setOrder((p) => ({
-        ...p,
-        riceId: sp.id,
-        riceType: sp.label,
-        subriceId: "",
-        subriceName: "",
-      }))
-    }
-    setPendingTemplateLabel("")
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [riceOptions, pendingTemplateLabel])
+/** ---------- Template mapping (ใหม่/อิง spec จาก BE โดยตรง) ---------- */
+  const isTemplateActive = formTemplate !== "0" 
+  const applyTemplateBySpec = (spec) => { 
+    if (!spec) return 
+    const S = (v) => (v == null ? "" : String(v)) 
+    setOrder((p) => ({ 
+      ...p, 
+      // ตั้งค่าเป็น "id" ทั้งหมดก่อน แล้วให้ hook ด้านล่างเติม label ตาม options 
+      productId: S(spec.product_id), 
+      riceId: S(spec.species_id), 
+      subriceId: S(spec.variant_id), 
+      riceYearId: S(spec.product_year), 
+      conditionId: S(spec.condition_id), 
+      fieldTypeId: S(spec.field_type), 
+      programId: S(spec.program), 
+      businessTypeId: S(spec.business_type), 
+      // เคลียร์ชื่อเดิมเพื่อรอ sync id->label 
+      productName: "", 
+      riceType: "", 
+      subriceName: "", 
+      riceYear: "", 
+      condition: "", 
+      fieldType: "", 
+      programName: "", 
+      businessType: "", 
+      // __templateLockedProduct: true, // ถ้าต้องการล็อกการแก้ไข product ให้ปลดคอมเมนต์ 
+    })) 
+  } 
+  // เลือก template → อัด spec ลงฟอร์มทันที 
+  useEffect(() => { 
+    if (!isTemplateActive) return 
+    const current = templateOptions.find((o) => String(o.id) === String(formTemplate)) 
+    if (current?.spec) applyTemplateBySpec(current.spec) 
+    // eslint-disable-next-line react-hooks/exhaustive-deps 
+  }, [formTemplate]) 
+ 
+  /** ---------- Sync id -> label เมื่อ options โหลดเสร็จ ---------- */ 
+  useEffect(() => { 
+    const lbl = findLabelById(productOptions, order.productId) 
+    if (order.productId && lbl && lbl !== order.productName) { 
+      setOrder((p) => ({ ...p, productName: lbl })) 
+    } 
+  }, [order.productId, productOptions]) // productName 
+  useEffect(() => { 
+    const lbl = findLabelById(riceOptions, order.riceId) 
+    if (order.riceId && lbl && lbl !== order.riceType) { 
+      setOrder((p) => ({ ...p, riceType: lbl })) 
+    } 
+  }, [order.riceId, riceOptions]) // riceType 
+  useEffect(() => { 
+    const lbl = findLabelById(subriceOptions, order.subriceId) 
+    if (order.subriceId && lbl && lbl !== order.subriceName) { 
+      setOrder((p) => ({ ...p, subriceName: lbl })) 
+    } 
+  }, [order.subriceId, subriceOptions]) // subriceName 
+  useEffect(() => { 
+    const lbl = findLabelById(conditionOptions, order.conditionId) 
+    if (order.conditionId && lbl && lbl !== order.condition) { 
+      setOrder((p) => ({ ...p, condition: lbl })) 
+    } 
+  }, [order.conditionId, conditionOptions]) // condition 
+  useEffect(() => { 
+    const lbl = findLabelById(fieldTypeOptions, order.fieldTypeId) 
+    if (order.fieldTypeId && lbl && lbl !== order.fieldType) { 
+      setOrder((p) => ({ ...p, fieldType: lbl })) 
+    } 
+  }, [order.fieldTypeId, fieldTypeOptions]) // fieldType 
+  useEffect(() => { 
+    const lbl = findLabelById(yearOptions, order.riceYearId) 
+    if (order.riceYearId && lbl && lbl !== order.riceYear) { 
+      setOrder((p) => ({ ...p, riceYear: lbl })) 
+    } 
+  }, [order.riceYearId, yearOptions]) // riceYear 
+  useEffect(() => { 
+    const lbl = findLabelById(programOptions, order.programId) 
+    if (order.programId && lbl && lbl !== order.programName) { 
+      setOrder((p) => ({ ...p, programName: lbl })) 
+    } 
+  }, [order.programId, programOptions]) // programName 
+  useEffect(() => { 
+    const lbl = findLabelById(businessOptions, order.businessTypeId) 
+    if (order.businessTypeId && lbl && lbl !== order.businessType) { 
+      setOrder((p) => ({ ...p, businessType: lbl })) 
+    } 
+  }, [order.businessTypeId, businessOptions]) // businessType
 
   /** แชร์สถานะสเปกไปยังหน้า Sell ผ่าน localStorage */
   useEffect(() => {
@@ -2096,15 +2134,15 @@ const Buy = () => {
                     localStorage.setItem("shared.formTemplate", JSON.stringify({ id: idStr, label }))
                     localStorage.setItem("buy.formTemplate", idStr)
                   } catch {}
-                  if (idStr !== "0" && label) applyTemplateByLabel(label)
+                  if (idStr !== "0" && found?.spec) applyTemplateBySpec(found.spec)
                 }}
                 buttonRef={refs.formTemplate}
               />
               {isTemplateActive ? (
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  เลือกจากรายการที่สร้างไว้ในระบบ (BE). ระบบจะพยายามเติม: <b>ประเภทสินค้า</b>, <b>ชนิดข้าว</b>, <b>เงื่อนไข</b>, <b>ประเภทนา</b>, <b>ปี/ฤดูกาล</b>, <b>โปรแกรม</b> อัตโนมัติจากชื่อฟอร์ม <br />
-                  <span className="italic">* โปรดเลือก <b>ชั้นย่อย (Sub-class)</b> และ <b>ประเภทธุรกิจ</b> ด้วยตนเอง</span>
-                </p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300"> 
+                  เลือกจากรายการที่สร้างไว้ในระบบ (BE). ระบบจะเติมจาก <b>spec</b> ที่ BE ส่งมาโดยตรง: 
+                  <b> ประเภทสินค้า</b>, <b>ชนิดข้าว</b>, <b>ชั้นย่อย</b>, <b>เงื่อนไข</b>, <b>ประเภทนา</b>, <b>ปี/ฤดูกาล</b>, <b>โปรแกรม</b>, <b>ประเภทธุรกิจ</b>. 
+                </p> 
               ) : (
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                   “ไม่ล็อก” — เลือกสเปกเองได้ทุกช่อง

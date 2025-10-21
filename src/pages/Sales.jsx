@@ -64,10 +64,8 @@ const useEnterNavigation = (refs, buyerType, order) => {
   const personOrder = ["citizenId", "memberId", "fullName", "houseNo", "moo", "subdistrict", "district", "province", "postalCode", "phone"]
   const companyOrder = ["companyName", "taxId", "companyPhone", "hqHouseNo", "hqMoo", "hqSubdistrict", "hqDistrict", "hqProvince", "hqPostalCode", "brHouseNo", "brMoo", "brSubdistrict", "brDistrict", "brProvince", "brPostalCode"]
   const orderOrder = [
-    // ▶︎ Flow ใหม่ตามที่ขอ
     "product", "riceType", "subrice", "condition", "fieldType", "riceYear", "businessType", "program",
-    "branchName", "klangName", "trailersCount", // << เพิ่ม trailersCount ต่อจาก klangName
-    // ▶︎ ส่วนวิธีชำระเงิน/เอกสาร/อื่น ๆ (คงเดิม)
+    "branchName", "klangName",
     "payment",
     "cashReceiptNo", "creditInvoiceNo", "deptAllowed", "deptPostpone", "deptPostponePeriod",
     "comment", "issueDate"
@@ -424,9 +422,6 @@ function Sales() {
     program: useRef(null), payment: useRef(null),
     branchName: useRef(null), klangName: useRef(null),
 
-    // ✅ ใหม่: จำนวนรถพ่วง
-    trailersCount: useRef(null),
-
     issueDate: useRef(null), comment: useRef(null),
     buyerType: useRef(null),
 
@@ -438,6 +433,9 @@ function Sales() {
     deptAllowed: useRef(null),
     deptPostpone: useRef(null),
     deptPostponePeriod: useRef(null),
+
+    // ⭐ ใหม่: จำนวนรถพ่วง
+    trailerCount: useRef(null),
 
     submitBtn: useRef(null),
   }
@@ -701,6 +699,8 @@ function Sales() {
     await fillFromRecord(rec)
     setShowNameList(false); setNameResults([]); setHighlightedIndex(-1)
   }
+
+  // ⭐ ปรับ Enter บนลิสต์ชื่อ: เลือกชื่อแล้วเด้งไป "ประเภทสินค้า"
   const handleNameKeyDown = async (e) => {
     if (!showNameList || nameResults.length === 0) return
     if (e.key === "ArrowDown") {
@@ -713,7 +713,16 @@ function Sales() {
       setHighlightedIndex(prev); requestAnimationFrame(() => scrollHighlightedIntoView2(prev))
     } else if (e.key === "Enter") {
       e.preventDefault()
-      if (highlightedIndex >= 0 && highlightedIndex < nameResults.length) await pickNameResult(nameResults[highlightedIndex])
+      if (highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
+        await pickNameResult(nameResults[highlightedIndex])
+        requestAnimationFrame(() => {
+          const el = refs.product?.current
+          if (el && isEnabledInput(el)) {
+            try { el.scrollIntoView({ block: "center" }) } catch {}
+            el.focus?.()
+          }
+        })
+      }
     } else if (e.key === "Escape") {
       e.preventDefault(); setShowNameList(false); setHighlightedIndex(-1)
     }
@@ -1082,6 +1091,26 @@ function Sales() {
   }
 
   // ---------------- UI ----------------
+  // ⭐ เพิ่ม handler: Enter ที่ช่อง "ชื่อ–สกุล" → ไป "ประเภทสินค้า" (ถ้าไม่ได้เลือกจากลิสต์)
+  const handleFullNameKeyDown = (e) => {
+    if (showNameList && nameResults.length > 0) {
+      // ให้ตัวจัดการลิสต์ทำงานต่อ (เลือกชื่อ/ลูกศร/escape)
+      return handleNameKeyDown(e)
+    }
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault()
+      const el = refs.product?.current
+      if (el && isEnabledInput(el)) {
+        try { el.scrollIntoView({ block: "center" }) } catch {}
+        el.focus?.()
+        try { el.select?.() } catch {}
+        return
+      }
+      // สำรอง: ใช้ลำดับปกติ
+      focusNext("fullName")
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
@@ -1202,6 +1231,7 @@ function Sales() {
                 }
               </label>
               {order.__isCredit ? (
+                // ⭐ ปรับ Enter: จากใบกำกับ (เชื่อ) → ชื่อ–สกุล / ชื่อบริษัท
                 <input
                   ref={refs.creditInvoiceNo}
                   className={baseField}
@@ -1210,7 +1240,18 @@ function Sales() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.isComposing) {
                       e.preventDefault()
-                      // ไปฟิลด์ถัดไปตามคิว navigation
+                      const goName = () => {
+                        const key = buyerType === "person" ? "fullName" : "companyName"
+                        const el = refs[key]?.current
+                        if (el && isEnabledInput(el)) {
+                          try { el.scrollIntoView({ block: "center" }) } catch {}
+                          el.focus?.(); try { el.select?.() } catch {}
+                          return true
+                        }
+                        return false
+                      }
+                      if (goName()) return
+                      // สำรอง: ไปตามคิวเดิม
                       const fn = () => focusNext("creditInvoiceNo")
                       fn(); setTimeout(fn, 60)
                     }
@@ -1218,6 +1259,7 @@ function Sales() {
                   placeholder="เช่น INV-2025-000456 (ไม่บังคับ)"
                 />
               ) : order.__isCash ? (
+                // ⭐ ปรับ Enter: จากใบรับเงิน (สด) → ชื่อ–สกุล / ชื่อบริษัท
                 <input
                   ref={refs.cashReceiptNo}
                   className={baseField}
@@ -1226,6 +1268,18 @@ function Sales() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.isComposing) {
                       e.preventDefault()
+                      const goName = () => {
+                        const key = buyerType === "person" ? "fullName" : "companyName"
+                        const el = refs[key]?.current
+                        if (el && isEnabledInput(el)) {
+                          try { el.scrollIntoView({ block: "center" }) } catch {}
+                          el.focus?.(); try { el.select?.() } catch {}
+                          return true
+                        }
+                        return false
+                      }
+                      if (goName()) return
+                      // สำรอง: ไปตามคิวเดิม
                       const fn = () => focusNext("cashReceiptNo")
                       fn(); setTimeout(fn, 60)
                     }
@@ -1245,7 +1299,7 @@ function Sales() {
               <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-sm dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-100">
                 <div className="mb-2 flex items-center gap-2">
                   <svg viewBox="0 0 24 24" width="18" height="18" className="opacity-80" fill="currentColor">
-                    <path d="M3 5a2 2 0 0 0-2 2v2h22V7a2 2 0 0 0-2-2H3zm20 6H1v6a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-6zM4 17h6v-2H4v2z"/>
+                    <path d="M3 5a2 2 0 0 0-2 2v2h22V7a2 2 0 0 0 2-2H3zm20 6H1v6a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-6zM4 17h6v-2H4v2z"/>
                   </svg>
                   <div className="font-semibold">รายละเอียดเครดิต (ขายเชื่อ)</div>
                 </div>
@@ -1353,8 +1407,8 @@ function Sales() {
                     else { setShowNameList(false); setHighlightedIndex(-1) }
                   }}
                   onFocus={() => { clearHint("fullName"); clearError("fullName") }}
-                  onKeyDown={handleNameKeyDown}
-                  onKeyDownCapture={onEnter("fullName")}
+                  // ⭐ เปลี่ยนเป็น handler ใหม่แทน onKeyDownCapture เดิม
+                  onKeyDown={handleFullNameKeyDown}
                   placeholder="เช่น นายสมชาย ใจดี"
                   aria-expanded={showNameList}
                   aria-controls="name-results"
@@ -1379,7 +1433,16 @@ function Sales() {
                           type="button"
                           ref={(el) => (itemRefs.current[idx] = el)}
                           key={`${r.type}-${r.asso_id}-${idx}`}
-                          onClick={async () => await pickNameResult(r)}
+                          onClick={async () => {
+                            await pickNameResult(r)
+                            requestAnimationFrame(() => {
+                              const elP = refs.product?.current
+                              if (elP && isEnabledInput(elP)) {
+                                try { elP.scrollIntoView({ block: "center" }) } catch {}
+                                elP.focus?.()
+                              }
+                            })
+                          }}
                           onMouseEnter={() => { setHighlightedIndex(idx); requestAnimationFrame(() => scrollHighlightedIntoView2(idx)) }}
                           role="option"
                           aria-selected={isActive}
@@ -1641,8 +1704,22 @@ function Sales() {
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
-                // ✅ ใหม่: หลังเลือกคลังแล้วเด้งไป "จำนวนรถพ่วง"
-                onEnterNext={() => focusNext("klangName")}
+                // ⭐ ใหม่: Enter จาก "คลัง" → "จำนวนรถพ่วง"
+                onEnterNext={() => {
+                  const goTrailer = () => {
+                    const el = refs.trailerCount?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.()
+                      return true
+                    }
+                    return false
+                  }
+                  if (!goTrailer()) {
+                    // สำรอง: ไปตามลิสต์เดิม
+                    focusNext("klangName")
+                  }
+                }}
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>
@@ -1662,8 +1739,8 @@ function Sales() {
                   options={trailerCountOptions}
                   value={String(trailersCount)}
                   onChange={(id) => setTrailersCount(Number(id))}
-                  // ✅ ใหม่: ผูก ref เพื่อรองรับ Enter flow
-                  buttonRef={refs.trailersCount}
+                  // ⭐ เพิ่ม ref ให้โฟกัสจาก "คลัง"
+                  buttonRef={refs.trailerCount}
                 />
               </div>
             </div>

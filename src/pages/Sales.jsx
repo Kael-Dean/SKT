@@ -60,29 +60,19 @@ const isEnabledInput = (el) => {
   if (!el.offsetParent && el.type !== "hidden" && el.getAttribute("role") !== "combobox") return false
   return true
 }
-
-// ★ changed: จัด path การกด Enter ใหม่ให้เริ่มที่วิธีชำระเงิน → เอกสารอ้างอิง → บุคคล/บริษัท (core) → สเปกสินค้า → สาขา/คลัง → จำนวนรถพ่วง → อื่น ๆ
 const useEnterNavigation = (refs, buyerType, order) => {
-  // ให้เฉพาะ core ของผู้ซื้อก่อน เพื่อให้ fullName → ไปสินค้าทันที
-  const personCore = ["citizenId", "memberId", "fullName"]
-  const companyCore = ["companyName", "taxId", "companyPhone"] // ถ้า field ไม่อยู่บนหน้า จะถูกกรองทิ้งอัตโนมัติ
-
-  // เส้นทางของออเดอร์ (ตัด payment/doc ออกไปอยู่หัวขบวน)
-  const orderFlow = [
+  const personOrder = ["citizenId", "memberId", "fullName", "houseNo", "moo", "subdistrict", "district", "province", "postalCode", "phone"]
+  const companyOrder = ["companyName", "taxId", "companyPhone", "hqHouseNo", "hqMoo", "hqSubdistrict", "hqDistrict", "hqProvince", "hqPostalCode", "brHouseNo", "brMoo", "brSubdistrict", "brDistrict", "brProvince", "brPostalCode"]
+  const orderOrder = [
+    // ▶︎ Flow ใหม่ตามที่ขอ
     "product", "riceType", "subrice", "condition", "fieldType", "riceYear", "businessType", "program",
-    "branchName", "klangName",
-    "trailersCount",         // ★ changed: เพิ่มจำนวนรถพ่วงเข้าทางเดิน
-    "comment", "issueDate",
-    "deptAllowed", "deptPostpone", "deptPostponePeriod", // เฉพาะกรณีขายเชื่อ
+    "branchName", "klangName", "trailersCount", // << เพิ่ม trailersCount ต่อจาก klangName
+    // ▶︎ ส่วนวิธีชำระเงิน/เอกสาร/อื่น ๆ (คงเดิม)
+    "payment",
+    "cashReceiptNo", "creditInvoiceNo", "deptAllowed", "deptPostpone", "deptPostponePeriod",
+    "comment", "issueDate"
   ]
-
-  // ประกอบลิสต์หลัก
-  let list = ["payment"]                                  // เริ่มที่วิธีชำระเงิน ★
-  if (order.__isCash)   list.push("cashReceiptNo")        // เอกสาร (สด)
-  if (order.__isCredit) list.push("creditInvoiceNo")      // เอกสาร (เชื่อ)
-  list = list.concat(buyerType === "person" ? personCore : companyCore).concat(orderFlow)
-
-  // เงื่อนไขเปิดใช้งานจริงของแต่ละคีย์
+  let list = (buyerType === "person" ? personOrder : companyOrder).concat(orderOrder)
   list = list.filter((key) => {
     const el = refs?.[key]?.current
     if (!el) return false
@@ -93,7 +83,6 @@ const useEnterNavigation = (refs, buyerType, order) => {
     if (key === "creditInvoiceNo" && !order.__isCredit) return false
     return isEnabledInput(el)
   })
-
   const focusNext = (currentKey) => {
     const i = list.indexOf(currentKey)
     const nextKey = i >= 0 && i < list.length - 1 ? list[i + 1] : null
@@ -104,7 +93,6 @@ const useEnterNavigation = (refs, buyerType, order) => {
     el.focus?.()
     try { if (el.select) el.select() } catch {}
   }
-
   const onEnter = (currentKey) => (e) => {
     if (e.key === "Enter" && !e.isComposing) {
       const isTextArea = e.currentTarget?.tagName?.toLowerCase() === "textarea"
@@ -436,6 +424,9 @@ function Sales() {
     program: useRef(null), payment: useRef(null),
     branchName: useRef(null), klangName: useRef(null),
 
+    // ✅ ใหม่: จำนวนรถพ่วง
+    trailersCount: useRef(null),
+
     issueDate: useRef(null), comment: useRef(null),
     buyerType: useRef(null),
 
@@ -447,9 +438,6 @@ function Sales() {
     deptAllowed: useRef(null),
     deptPostpone: useRef(null),
     deptPostponePeriod: useRef(null),
-
-    // ★ changed: เพิ่ม ref สำหรับจำนวนรถพ่วง
-    trailersCount: useRef(null),
 
     submitBtn: useRef(null),
   }
@@ -924,8 +912,7 @@ function Sales() {
   const scrollToFirstError = (eObj) => {
     const personKeys = ["memberId", "fullName"]
     const companyKeys = ["companyName", "taxId"]
-    // ★ changed: จัด payment ให้อยู่ต้น ๆ เพื่อชี้โฟกัสได้ถูก
-    const commonOrderKeys = ["payment","issueDate","product","riceType","subrice","condition","fieldType","riceYear","businessType","branchName","klangName"]
+    const commonOrderKeys = ["product","riceType","subrice","condition","fieldType","riceYear","businessType","branchName","klangName","payment","issueDate"]
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
     const firstKey = keys.find((k) => k in eObj)
     if (firstKey) {
@@ -1184,7 +1171,7 @@ function Sales() {
                     return false
                   }
                   if (tryFocusDoc()) return
-                  setTimeout(tryFocusDoc, 60)   // เผื่อ state ยังไม่ทันอัปเดต
+                  setTimeout(tryFocusDoc, 60)
                   setTimeout(tryFocusDoc, 160)
                 }}
               />
@@ -1223,7 +1210,7 @@ function Sales() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.isComposing) {
                       e.preventDefault()
-                      // ★ changed: ใช้เส้นทางใหม่ → citizenId / companyName
+                      // ไปฟิลด์ถัดไปตามคิว navigation
                       const fn = () => focusNext("creditInvoiceNo")
                       fn(); setTimeout(fn, 60)
                     }
@@ -1239,7 +1226,7 @@ function Sales() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.isComposing) {
                       e.preventDefault()
-                      const fn = () => focusNext("cashReceiptNo") // ★ changed: ไป citizenId/companyName ต่อ
+                      const fn = () => focusNext("cashReceiptNo")
                       fn(); setTimeout(fn, 60)
                     }
                   }}
@@ -1654,7 +1641,8 @@ function Sales() {
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
-                onEnterNext={() => focusNext("klangName") /* ★ changed: ต่อไปจำนวนรถพ่วง */}
+                // ✅ ใหม่: หลังเลือกคลังแล้วเด้งไป "จำนวนรถพ่วง"
+                onEnterNext={() => focusNext("klangName")}
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>
@@ -1674,25 +1662,8 @@ function Sales() {
                   options={trailerCountOptions}
                   value={String(trailersCount)}
                   onChange={(id) => setTrailersCount(Number(id))}
-                  buttonRef={refs.trailersCount}            // ★ changed: มี ref แล้ว
-                  onEnterNext={() => {                     // ★ changed: เด้งเข้าอินพุตแรกของบล็อครถพ่วง
-                    const tryFocusFirstTrailer = () => {
-                      const root = document.getElementById("trailers-block")
-                      if (!root) return false
-                      const els = root.querySelectorAll('input:not([disabled]):not([readonly]), [role="combobox"]')
-                      for (const el of els) {
-                        if (isEnabledInput(el)) {
-                          try { el.scrollIntoView({ block: "center" }) } catch {}
-                          el.focus?.(); try { el.select?.() } catch {}
-                          return true
-                        }
-                      }
-                      return false
-                    }
-                    if (tryFocusFirstTrailer()) return
-                    setTimeout(tryFocusFirstTrailer, 80)
-                    setTimeout(tryFocusFirstTrailer, 200)
-                  }}
+                  // ✅ ใหม่: ผูก ref เพื่อรองรับ Enter flow
+                  buttonRef={refs.trailersCount}
                 />
               </div>
             </div>

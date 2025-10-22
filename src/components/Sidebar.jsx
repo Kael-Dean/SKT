@@ -211,7 +211,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                   {[
                     { label: 'สมัครสมาชิก', path: '/member-signup' },
                     { label: 'ค้นหาสมาชิก', path: '/search' },
-                    { label: 'เพิ่มลูกค้า', path: '/customer-add' },
+                    { label: 'เพิ่มลูกค้าทั้วไป', path: '/customer-add' },
                     { label: 'เพิ่มบริษัท', path: '/company-add' },
                     { label: 'สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)', path: '/member-termination' },
                   ].map((item) => (

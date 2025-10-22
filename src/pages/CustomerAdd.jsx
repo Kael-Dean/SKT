@@ -6,7 +6,7 @@ import { apiAuth } from "../lib/api"
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-// (ยังคงไว้ใช้สำหรับกรณีค้นหา/เติมอัตโนมัติจากชื่อ หากพบเลข 13 หลักจากฐานสมาชิก)
+// Thai citizen ID validator (keep from original)
 function validateThaiCitizenId(id) {
   const cid = onlyDigits(id)
   if (cid.length !== 13) return false
@@ -26,65 +26,73 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
-/** ---------- Surin map: อำเภอ -> ตำบล (ตามที่ผู้ใช้ส่งมา) ---------- */
-const SURIN_MAP = {
-  "อำเภอเมืองสุรินทร์": [
+/** **********************************************************************
+ * จังหวัดสุรินทร์ (เหมือนหน้า Signup): รายการอำเภอ (17) + ตำบลต่ออำเภอ
+ * - พยายามโหลดจาก API ก่อน (เช่น /geo/*) ถ้าไม่มีใช้ fallback ด้านล่าง
+ *********************************************************************** */
+const PROV_SURIN = "สุรินทร์"
+const AMPHOES_SURIN = [
+  "เมืองสุรินทร์","จอมพระ","ชุมพลบุรี","ท่าตูม","ปราสาท","กาบเชิง","รัตนบุรี","สนม","ศีขรภูมิ",
+  "สังขะ","ลำดวน","สำโรงทาบ","โนนนารายณ์","บัวเชด","พนมดงรัก","ศรีณรงค์","เขวาสินรินทร์",
+]
+const TAMBONS_BY_AMPHOE = {
+  "เมืองสุรินทร์": [
     "ในเมือง","สวาย","ตั้งใจ","เพี้ยราม","นาดี","ท่าสว่าง","สลักได","ตาอ็อง","สำโรง","แกใหญ่",
     "นอกเมือง","คอโค","เฉนียง","เทนมีย์","นาบัว","เมืองที","ราม","บุฤๅษี","ตระแสง","แสลงพันธ์","กาเกาะ"
   ],
-  "อำเภอสังขะ": [
+  "สังขะ": [
     "สังขะ","ขอนแตก","ดม","พระแก้ว","บ้านจารย์","กระเทียม","สะกาด","ตาตุม","ทับทัน","ตาคง","บ้านชบ","เทพรักษา"
   ],
-  "อำเภอปราศาท": [ // (สะกดตามข้อความผู้ใช้)
+  "ปราสาท": [
     "กังแอน","ทมอ","ทุ่งมน","ไพล","ตาเบา","หนองใหญ่","ปรือ","บ้านไทร","โคกยาง","โคกสะอาด",
     "โชคนาสาม","เชื้อเพลิง","ปราสาททนง","ตานี","บ้านพลวง","กันตวจระมวล","สมุด","ประทัดบุ"
   ],
-  "อำเภอรัตนบุรี": [
+  "รัตนบุรี": [
     "รัตนบุรี","ธาตุ","แก","ดอนแรด","หนองบัวทอง","หนองบัวบาน","ไผ่","เบิด","น้ำเขียว","กุดขาคีม","ยางสว่าง","ทับใหญ่"
   ],
-  "อำเภอท่าตูม": [
+  "ท่าตูม": [
     "ท่าตูม","กระโพ","พรมเทพ","โพนครก","เมืองแก","บะ","หนองบัว","บัวโคก","หนองเมธี","ทุ่งกุลา"
   ],
-  "อำเภอจอมพระ": [
+  "จอมพระ": [
     "จอมพระ","เมืองลีง","กระหาด","บุแกรง","หนองสนิท","บ้านผือ","ลุ่มระวี","ชุมแสง","เป็นสุข"
   ],
-  "อำเภอสนม": [
+  "สนม": [
     "สนม","แคน","โพนโก","หนองระฆัง","นานวน","หัวงัว","หนองอียอ"
   ],
-  "อำเภอศีขรภูมิ": [
-    "ระแงง","ตรึม","จารพัต","ยาง","แตล","หนองบัว","คาละแมะ","หนองเหล็ก","หนองขวาว",
-    "ช่างปี่","กุดหวาย","ขวาวใหญ่","นารุ่ง","ตรมไพร","ผักไหม"
+  "ศีขรภูมิ": [
+    "ระแงง","ตรึม","จารพัต","ยาง","แตล","หนองบัว","คาละแมะ","หนองเหล็ก","หนองขวาว","ช่างปี่",
+    "กุดหวาย","ขวาวใหญ่","นารุ่ง","ตรมไพร","ผักไหม"
   ],
-  "อำเภอลำดวน": [
-    "ลำดวน","โชกเหนือ","ตรำดม","อู่โลก","ตระเปียงเตีย"
+  "ลำดวน": [
+    "ลำดวน","โชคเหนือ","ตรำดม","อู่โลก","ตระเปียงเตีย"
   ],
-  "อำเภอบัวเชด": [
+  "บัวเชด": [
     "บัวเชด","สะเดา","จรัส","ตาวัง","อาโพน","สำเภาลูน"
   ],
-  "อำเภอชุมพล": [
+  "ชุมพลบุรี": [
     "ชุมพลบุรี","ไพรขลา","นาหนองไผ่","ศรีณรงค์","ยะวึก","เมืองบัว"
   ],
-  "อำเภอสำโรงทาบ": [
+  "สำโรงทาบ": [
     "ชุมพลบุรี","ไพรขลา","นาหนองไผ่","ศรีณรงค์","ยะวึก","เมืองบัว"
   ],
-  "อำเภอเขวาสินรินทร์": [
+  "เขวาสินรินทร์": [
     "เขวาสินรินทร์","บึง","ตากูก","ปราสาททอง","นาดี"
   ],
-  "อำเภอพนมดงรัก": [
-    "บักได","โคกกลาง","จีดแดก","ตาเมียง"
+  "พนมดงรัก": [
+    "บักได","โคกกลาง","จีกแดก","ตาเมียง"
   ],
-  "อำเภอศรีณรงค์": [
+  "ศรีณรงค์": [
     "ณรงค์","แจนแวน","ตรวจ","หนองแวง","ศรีสุข"
   ],
-  "อำเภอโนนนารายณ์": [
+  "โนนนารายณ์": [
     "หนองหลวง","คำผง","โนน","ระเวียง","หนองเทพ"
   ],
-  "อำเภอกาบเชิง": [
+  "กาบเชิง": [
     "กาบเชิง","คูตัน","ด่าน","แนงมุด","โคกตะเคียน","ตะเคียน"
   ],
 }
 
-/** ---------- Styles ---------- */
+/** ---------- Styles (match Signup) ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -112,7 +120,164 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- DateInput (เผื่ออนาคต ถ้าต้องใช้) ---------- */
+/** ---------- ComboBox (same behavior/look as Signup) ---------- */
+function ComboBox({
+  options = [],
+  value,
+  onChange,
+  placeholder = "— เลือก —",
+  getLabel = (o) => o?.label ?? "",
+  getValue = (o) => o?.value ?? o?.id ?? "",
+  disabled = false,
+  error = false,
+  buttonRef = null,
+}) {
+  const [open, setOpen] = useState(false)
+  const [highlight, setHighlight] = useState(-1)
+  const boxRef = useRef(null)
+  const listRef = useRef(null)
+  const internalBtnRef = useRef(null)
+  const controlRef = buttonRef || internalBtnRef
+
+  const selectedLabel = useMemo(() => {
+    const found = options.find((o) => String(getValue(o)) === String(value))
+    return found ? getLabel(found) : ""
+  }, [options, value, getLabel, getValue])
+
+  useEffect(() => {
+    const onClick = (e) => {
+      if (!boxRef.current) return
+      if (!boxRef.current.contains(e.target)) {
+        setOpen(false)
+        setHighlight(-1)
+      }
+    }
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [])
+
+  const commit = (opt) => {
+    const v = String(getValue(opt))
+    onChange?.(v, opt)
+    setOpen(false)
+    setHighlight(-1)
+    requestAnimationFrame(() => controlRef.current?.focus())
+  }
+
+  const scrollHighlightedIntoView = (index) => {
+    const listEl = listRef.current
+    const itemEl = listEl?.children?.[index]
+    if (!listEl || !itemEl) return
+    const itemRect = itemEl.getBoundingClientRect()
+    const listRect = listEl.getBoundingClientRect()
+    const buffer = 6
+    if (itemRect.top < listRect.top + buffer) {
+      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+    } else if (itemRect.bottom > listRect.bottom - buffer) {
+      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+    }
+  }
+
+  const onKeyDown = (e) => {
+    if (disabled) return
+    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+      e.preventDefault()
+      setOpen(true)
+      setHighlight((h) => (h >= 0 ? h : 0))
+      return
+    }
+    if (!open) return
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setHighlight((h) => {
+        const next = h < options.length - 1 ? h + 1 : 0
+        requestAnimationFrame(() => scrollHighlightedIntoView(next))
+        return next
+      })
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setHighlight((h) => {
+        const prev = h > 0 ? h - 1 : options.length - 1
+        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
+        return prev
+      })
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
+    } else if (e.key === "Escape") {
+      e.preventDefault()
+      setOpen(false)
+      setHighlight(-1)
+    }
+  }
+
+  return (
+    <div className="relative" ref={boxRef}>
+      <button
+        type="button"
+        ref={controlRef}
+        disabled={disabled}
+        onClick={() => { if (!disabled) setOpen((o) => !o) }}
+        onKeyDown={onKeyDown}
+        className={cx(
+          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
+          disabled ? "bg-slate-200 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
+          error
+            ? "border-red-400 ring-2 ring-red-300/70"
+            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
+          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80"
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-invalid={error ? true : undefined}
+      >
+        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
+      </button>
+
+      {open && (
+        <div
+          ref={listRef}
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        >
+          {options.length === 0 && (
+            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
+          )}
+          {options.map((opt, idx) => {
+            const label = getLabel(opt)
+            const isActive = idx === highlight
+            const isChosen = String(getValue(opt)) === String(value)
+            return (
+              <button
+                key={String(getValue(opt)) || label || idx}
+                type="button"
+                role="option"
+                aria-selected={isChosen}
+                onMouseEnter={() => setHighlight(idx)}
+                onClick={() => commit(opt)}
+                className={cx(
+                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
+                  isActive
+                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                )}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+                )}
+                <span className="flex-1">{label}</span>
+                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** ---------- DateInput (keep) ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
@@ -155,14 +320,18 @@ const CustomerAdd = () => {
   const [relOpts, setRelOpts] = useState([])         // [{id, fid_relationship}]
   const [relLoading, setRelLoading] = useState(false)
 
+  // จังหวัด/อำเภอ/ตำบล options (เหมือน Signup)
+  const [amphoeOptions, setAmphoeOptions] = useState([]) // {value,label}
+  const [tambonOptions, setTambonOptions] = useState([]) // {value,label}
+
   // refs เพื่อเลื่อนโฟกัสไปยัง error ตัวแรก
   const refs = {
     citizen_id: useRef(null),
     full_name: useRef(null),
     address: useRef(null),
     mhoo: useRef(null),
-    sub_district: useRef(null),
-    district: useRef(null),
+    district: useRef(null),     // อำเภอ
+    sub_district: useRef(null), // ตำบล
     province: useRef(null),
     postal_code: useRef(null),
     phone_number: useRef(null),
@@ -172,12 +341,10 @@ const CustomerAdd = () => {
   }
   const topRef = useRef(null)
 
-  // ฟอร์ม (ส่งทุกอินพุตที่ Backend รองรับใน /member/customers/signup)
+  // ฟอร์ม
   const [form, setForm] = useState({
-    // UI-only (ยังเก็บไว้ได้ แต่อย่าส่งขึ้น Backend)
     slowdown_rice: false,
 
-    // ลูกค้าทั่วไป (map -> CustomerCreate)
     citizen_id: "",
     full_name: "",
     address: "",
@@ -188,7 +355,6 @@ const CustomerAdd = () => {
     postal_code: "",
     phone_number: "",
 
-    // เพิ่ม: กลุ่ม FID ให้ส่งขึ้น Backend ด้วย
     fid: "",
     fid_owner: "",
     fid_relationship: "",
@@ -202,7 +368,7 @@ const CustomerAdd = () => {
       return rest
     })
 
-  // โหลดตัวเลือก FID Relationship จาก BE
+  /** ---------- Load FID Relationship ---------- */
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -210,32 +376,26 @@ const CustomerAdd = () => {
         setRelLoading(true)
         const rows = await apiAuth(`/member/members/fid_relationship`)
         if (!cancelled && Array.isArray(rows)) {
-          setRelOpts(rows) // rows: [{id, fid_relationship}]
+          setRelOpts(rows)
         }
-      } catch {
-        // เงียบไว้ก่อน
-      } finally {
+      } catch {} finally {
         if (!cancelled) setRelLoading(false)
       }
     })()
     return () => { cancelled = true }
   }, [])
 
-  // debounce เพื่อค้นหาอัตโนมัติ (ฝั่งสมาชิก)
+  /** ---------- Address autofill via member search (same as original) ---------- */
   const debCid = useDebounce(form.citizen_id, 400)
   const debName = useDebounce(form.full_name, 400)
 
-  /** helper: ดึงข้อมูลจากสมาชิกเดิม (เพื่อเติมอัตโนมัติ) */
   const fetchMemberSearch = async (q) => {
     try {
       const arr = await apiAuth(`/member/members/search?q=${encodeURIComponent(q)}`)
       return Array.isArray(arr) ? arr : []
-    } catch {
-      return []
-    }
+    } catch { return [] }
   }
 
-  /** เติมที่อยู่จากผลสมาชิก */
   const hydrateFromMember = (rec) => {
     const toStr = (v) => (v == null ? "" : String(v))
     const addr = {
@@ -253,19 +413,12 @@ const CustomerAdd = () => {
       fid_relationship: toStr(rec.fid_relationship ?? ""),
     }
     const full = `${addr.first_name} ${addr.last_name}`.trim()
-
-    // ถ้า district จากสมาชิกมีในแผนที่ ให้ตั้งค่าและรีเซ็ตตำบลตาม
-    const hasDistrict = addr.district && SURIN_MAP[addr.district]
     setForm((prev) => ({
       ...prev,
       full_name: prev.full_name || full,
       address: prev.address || addr.address,
       mhoo: prev.mhoo || addr.mhoo,
-      district: hasDistrict ? addr.district : prev.district,
-      sub_district:
-        hasDistrict && SURIN_MAP[addr.district].includes(addr.sub_district)
-          ? addr.sub_district
-          : prev.sub_district,
+      // อำเภอ/ตำบล ให้ผู้ใช้เลือกเองจากดรอปดาวใหม่
       province: prev.province || addr.province,
       postal_code: prev.postal_code || addr.postal_code,
       phone_number: prev.phone_number || addr.phone_number,
@@ -275,7 +428,6 @@ const CustomerAdd = () => {
     }))
   }
 
-  /** ค้นหาด้วย citizen_id กับฝั่งสมาชิก (เพื่อเติมอัตโนมัติ) */
   useEffect(() => {
     const cid = onlyDigits(debCid || "")
     if (submitting) return
@@ -297,7 +449,6 @@ const CustomerAdd = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debCid, submitting])
 
-  /** ค้นหาด้วยชื่อ–สกุล (ไปดูฝั่งสมาชิก) */
   useEffect(() => {
     const q = (debName || "").trim()
     if (submitting) return
@@ -324,41 +475,97 @@ const CustomerAdd = () => {
     // eslint-disable-line react-hooks/exhaustive-deps
   }, [debName, submitting])
 
-  /** ตัวเลือกอำเภอ/ตำบลแบบพึ่งพา */
-  const districtOptions = useMemo(() => Object.keys(SURIN_MAP), [])
-  const tambonOptions = useMemo(
-    () => (form.district && SURIN_MAP[form.district] ? SURIN_MAP[form.district] : []),
-    [form.district]
-  )
+  /** ---------- Amphoe/Tambon loader (like Signup) ---------- */
+  const shapeOptions = (arr = [], labelKey = "name", valueKey = "id") =>
+    arr.map((x, i) => {
+      const v = String(x?.[valueKey] ?? x?.value ?? x?.id ?? x?.[labelKey] ?? i)
+      const l = String(x?.[labelKey] ?? x?.label ?? x?.name ?? x)
+      return { value: v, label: l }
+    })
+  const dedupe = (arr) => Array.from(new Set(arr))
 
-  // รีเซ็ตตำบลทุกครั้งที่เปลี่ยนอำเภอ
+  const loadAmphoesSurin = async () => {
+    const candidates = [
+      `/geo/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
+      `/geo/amphoes?province_name=${encodeURIComponent(PROV_SURIN)}`,
+      `/th/geo/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
+      `/address/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
+    ]
+    let options = []
+    for (const p of candidates) {
+      try {
+        const data = await apiAuth(p)
+        if (Array.isArray(data) && data.length) {
+          const tryKeys = ["name", "amphoe_name", "amphoe", "label"]
+          const labelKey = tryKeys.find((k) => typeof data?.[0]?.[k] !== "undefined") || "name"
+          options = shapeOptions(data, labelKey)
+          break
+        }
+      } catch {}
+    }
+    if (!options.length) {
+      options = AMPHOES_SURIN.map((n) => ({ value: n, label: n }))
+    }
+    setAmphoeOptions(options.sort((a, b) => a.label.localeCompare(b.label, "th")))
+  }
+
+  const loadTambonsByAmphoe = async (amphoeLabel) => {
+    if (!amphoeLabel) { setTambonOptions([]); return }
+    const candidates = [
+      `/geo/tambon?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
+      `/geo/tambons?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
+      `/th/geo/tambon?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
+      `/address/tambon?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
+    ]
+    let options = []
+    for (const p of candidates) {
+      try {
+        const data = await apiAuth(p)
+        if (Array.isArray(data) && data.length) {
+          const tryKeys = ["name", "tambon_name", "subdistrict", "label"]
+          const labelKey = tryKeys.find((k) => typeof data?.[0]?.[k] !== "undefined") || "name"
+          options = shapeOptions(data, labelKey)
+          break
+        }
+      } catch {}
+    }
+    if (!options.length) {
+      const fall = dedupe(TAMBONS_BY_AMPHOE[amphoeLabel] || [])
+      options = fall.map((n, i) => ({ value: n || String(i), label: n }))
+    }
+    setTambonOptions(options.sort((a, b) => a.label.localeCompare(b.label, "th")))
+  }
+
+  // init
   useEffect(() => {
-    update("sub_district", "")
-    clearError("sub_district")
-    clearError("district")
-  }, [form.district]) // eslint-disable-line react-hooks/exhaustive-deps
+    loadAmphoesSurin()
+  }, [])
 
-  /** ตรวจความถูกต้องก่อนส่งเข้า Back */
+  // when district changed -> reset + load tambons
+  useEffect(() => {
+    const amphoeLabel = form.district
+      ? (amphoeOptions.find((o) => String(o.value) === String(form.district))?.label ?? form.district)
+      : ""
+    setForm((prev) => ({ ...prev, sub_district: "" }))
+    clearError("district")
+    clearError("sub_district")
+    loadTambonsByAmphoe(amphoeLabel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.district])
+
+  /** ---------- Validation ---------- */
   const validateAll = () => {
     const e = {}
-
-    // ✅ บังคับ citizen_id เป็นเลข 13 หลัก (ให้ตรงกับ BE)
     const cid = onlyDigits(form.citizen_id)
     if (cid.length !== 13) e.citizen_id = "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
-
     if (!form.full_name.trim()) e.full_name = "กรุณากรอกชื่อ–สกุล"
     if (!form.address.trim()) e.address = "กรุณากรอกบ้านเลขที่"
-
     if (!form.district) e.district = "กรุณาเลือกอำเภอ"
     if (!form.sub_district) e.sub_district = "กรุณาเลือกตำบล"
-
     if (!form.province.trim()) e.province = "กรุณากรอกจังหวัด"
-
-    // ถ้ามีค่า ให้เป็นตัวเลข
-    ;["postal_code", "fid"].forEach((k) => {
+    ;["postal_code","fid"].forEach((k) => {
       if (form[k] !== "" && isNaN(Number(form[k]))) e[k] = "ต้องเป็นตัวเลข"
     })
-
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -366,7 +573,7 @@ const CustomerAdd = () => {
   // เลื่อนไป error แรก
   useEffect(() => {
     const order = [
-      "citizen_id","full_name","address","mhoo","sub_district","district","province","postal_code",
+      "citizen_id","full_name","address","mhoo","district","sub_district","province","postal_code",
       "phone_number","fid","fid_owner","fid_relationship"
     ]
     const first = order.find((k) => k in errors)
@@ -377,9 +584,9 @@ const CustomerAdd = () => {
         el.focus()
       }
     }
-  }, [errors]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [errors])
 
-  /** แปลงชื่อเต็ม -> first_name / last_name */
+  /** ---------- Helpers ---------- */
   const splitName = (full = "") => {
     const parts = full.trim().split(/\s+/).filter(Boolean)
     if (parts.length === 0) return { first_name: "", last_name: "" }
@@ -387,18 +594,16 @@ const CustomerAdd = () => {
     return { first_name: parts[0], last_name: parts.slice(1).join(" ") }
   }
 
-  /** บันทึก (เชื่อมกับ POST /member/customers/signup) */
+  /** ---------- Submit ---------- */
   const handleSubmit = async (ev) => {
     ev.preventDefault()
     if (!validateAll()) return
     setSubmitting(true)
-
     const { first_name, last_name } = splitName(form.full_name)
-
     const payload = {
       first_name,
       last_name,
-      citizen_id: onlyDigits(form.citizen_id), // ✅ 13 หลักตาม validateAll
+      citizen_id: onlyDigits(form.citizen_id),
       address: form.address.trim(),
       mhoo: (form.mhoo ?? "").toString().trim() || "",
       sub_district: form.sub_district.trim(),
@@ -406,12 +611,10 @@ const CustomerAdd = () => {
       province: form.province.trim(),
       postal_code: form.postal_code !== "" ? Number(form.postal_code) : null,
       phone_number: form.phone_number.trim() || null,
-      // ✅ เพิ่มกลุ่ม FID (optional ทั้งหมด)
       fid: form.fid !== "" ? Number(form.fid) : null,
       fid_owner: form.fid_owner.trim() || null,
       fid_relationship: form.fid_relationship !== "" ? Number(form.fid_relationship) : null,
     }
-
     try {
       await apiAuth(`/member/customers/signup`, { method: "POST", body: payload })
       alert("บันทึกข้อมูลลูกค้าทั่วไปเรียบร้อย ✅")
@@ -566,9 +769,9 @@ const CustomerAdd = () => {
               </div>
             </div>
 
-            {/* แถวถัด ๆ ไป: 3 คอลัมน์ทุกบรรทัด */}
+            {/* แถวถัดไป: 3 คอลัมน์ทุกบรรทัด */}
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-              {/* address  */}
+              {/* address */}
               <div>
                 <label className={labelCls}>บ้านเลขที่</label>
                 <input
@@ -595,43 +798,35 @@ const CustomerAdd = () => {
                 />
               </div>
 
-              {/* sub_district (ตำบล) -> Dependent select */}
-              <div>
-                <label className={labelCls}>ตำบล</label>
-                <select
-                  ref={refs.sub_district}
-                  className={cx(baseField, errors.sub_district && fieldError)}
-                  value={form.sub_district}
-                  onChange={(e) => { clearError("sub_district"); update("sub_district", e.target.value) }}
-                  onFocus={() => clearError("sub_district")}
-                  disabled={!form.district}
-                  aria-invalid={errors.sub_district ? true : undefined}
-                >
-                  <option value="">{form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}</option>
-                  {tambonOptions.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-                {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
-              </div>
-
-              {/* district (อำเภอ) -> Select */}
+              {/* ✅ อำเภอ (SWAPPED to appear before ตำบล) */}
               <div>
                 <label className={labelCls}>อำเภอ</label>
-                <select
-                  ref={refs.district}
-                  className={cx(baseField, errors.district && fieldError)}
-                  value={form.district}
-                  onChange={(e) => { clearError("district"); update("district", e.target.value) }}
-                  onFocus={() => clearError("district")}
-                  aria-invalid={errors.district ? true : undefined}
-                >
-                  <option value="">— เลือกอำเภอ —</option>
-                  {districtOptions.map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
+                <div ref={refs.district}>
+                  <ComboBox
+                    options={amphoeOptions}
+                    value={form.district}
+                    onChange={(v) => { clearError("district"); update("district", v) }}
+                    placeholder="— เลือกอำเภอ —"
+                    error={!!errors.district}
+                  />
+                </div>
                 {errors.district && <p className={errorTextCls}>{errors.district}</p>}
+              </div>
+
+              {/* ✅ ตำบล (ตามอำเภอที่เลือก) — moved to after district */}
+              <div>
+                <label className={labelCls}>ตำบล</label>
+                <div ref={refs.sub_district}>
+                  <ComboBox
+                    options={tambonOptions}
+                    value={form.sub_district}
+                    onChange={(v) => { clearError("sub_district"); update("sub_district", v) }}
+                    placeholder={form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}
+                    error={!!errors.sub_district}
+                    disabled={!form.district}
+                  />
+                </div>
+                {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
               </div>
 
               {/* province */}
@@ -660,7 +855,7 @@ const CustomerAdd = () => {
                   value={form.postal_code}
                   onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value).slice(0,5)) }}
                   onFocus={() => clearError("postal_code")}
-                  placeholder="เช่น 40000"
+                  placeholder="เช่น 32000"
                   aria-invalid={errors.postal_code ? true : undefined}
                 />
                 {errors.postal_code && <p className={errorTextCls}>{errors.postal_code}</p>}
@@ -675,11 +870,11 @@ const CustomerAdd = () => {
                   className={baseField}
                   value={form.phone_number}
                   onChange={(e) => update("phone_number", e.target.value)}
-                  placeholder="เช่น 021234567"
+                  placeholder="เช่น 08x-xxx-xxxx"
                 />
               </div>
 
-              {/* บล็อก FID (ส่งขึ้น Back ได้) */}
+              {/* บล็อก FID */}
               <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
                 {/* fid */}
                 <div>
@@ -709,25 +904,20 @@ const CustomerAdd = () => {
                   />
                 </div>
 
-                {/* fid_relationship -> ดรอปดาวจาก BE */}
+                {/* fid_relationship (from BE) */}
                 <div>
                   <label className={labelCls}>ความสัมพันธ์ (FID Relationship)</label>
                   <select
                     ref={refs.fid_relationship}
                     className={cx(baseField, errors.fid_relationship && fieldError)}
                     value={form.fid_relationship}
-                    onChange={(e) => {
-                      clearError("fid_relationship")
-                      update("fid_relationship", e.target.value) // เก็บเป็น string ของ id; แปลงตอนส่ง
-                    }}
+                    onChange={(e) => { clearError("fid_relationship"); update("fid_relationship", e.target.value) }}
                     onFocus={() => clearError("fid_relationship")}
                     disabled={relLoading}
                   >
                     <option value="">{relLoading ? "กำลังโหลด..." : "— เลือกความสัมพันธ์ —"}</option>
                     {relOpts.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.fid_relationship}
-                      </option>
+                      <option key={r.id} value={r.id}>{r.fid_relationship}</option>
                     ))}
                   </select>
                   {errors.fid_relationship && <p className={errorTextCls}>{errors.fid_relationship}</p>}

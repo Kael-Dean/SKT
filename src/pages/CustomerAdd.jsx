@@ -96,7 +96,7 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- ComboBox (เพิ่ม onEnterNext สำหรับเดินหน้าเมื่อกด Enter ตอนปิด dropdown) ---------- */
+/** ---------- ComboBox (เปิด dropdown อัตโนมัติ/ด้วย Enter และเลื่อนไปช่องถัดไปหลังเลือกด้วยคีย์บอร์ด) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -107,7 +107,7 @@ function ComboBox({
   disabled = false,
   error = false,
   buttonRef = null,
-  onEnterNext = null, // <— NEW
+  onEnterNext = null, // ใช้เมื่อเลือกด้วยคีย์บอร์ด เพื่อไปช่องถัดไป
 }) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
@@ -133,12 +133,16 @@ function ComboBox({
     return () => document.removeEventListener("click", onClick)
   }, [])
 
-  const commit = (opt) => {
+  // เปลี่ยนให้ commit รองรับ navigate หลังเลือกด้วยคีย์บอร์ด
+  const commit = (opt, { navigate = false } = {}) => {
     const v = String(getValue(opt))
     onChange?.(v, opt)
     setOpen(false)
     setHighlight(-1)
-    requestAnimationFrame(() => controlRef.current?.focus())
+    requestAnimationFrame(() => {
+      controlRef.current?.focus()
+      if (navigate) onEnterNext?.()
+    })
   }
 
   const scrollHighlightedIntoView = (index) => {
@@ -158,13 +162,15 @@ function ComboBox({
   const onKeyDown = (e) => {
     if (disabled) return
 
-    // NEW: ถ้ายังไม่เปิด dropdown และกด Enter → ให้ไปช่องถัดไป
+    // ✅ ถ้ายังไม่เปิด dropdown และกด Enter → เปิด dropdown
     if (!open && e.key === "Enter") {
       e.preventDefault()
-      onEnterNext?.()
+      setOpen(true)
+      setHighlight((h) => (h >= 0 ? h : 0))
       return
     }
 
+    // เปิด dropdown ด้วย Space หรือ ArrowDown
     if (!open && (e.key === " " || e.key === "ArrowDown")) {
       e.preventDefault()
       setOpen(true)
@@ -189,7 +195,10 @@ function ComboBox({
       })
     } else if (e.key === "Enter") {
       e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
+      if (highlight >= 0 && highlight < options.length) {
+        // ✅ เลือกแล้วไปช่องถัดไปอัตโนมัติ
+        commit(options[highlight], { navigate: true })
+      }
     } else if (e.key === "Escape") {
       e.preventDefault()
       setOpen(false)
@@ -205,6 +214,8 @@ function ComboBox({
         disabled={disabled}
         onClick={() => { if (!disabled) setOpen((o) => !o) }}
         onKeyDown={onKeyDown}
+        // ✅ ใช้บอกฟังก์ชันนำทางว่าอันนี้คือปุ่มของ ComboBox
+        data-combobox-btn="true"
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
           disabled ? "bg-slate-200 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
@@ -337,7 +348,7 @@ const CustomerAdd = () => {
   const submitBtnRef = useRef(null)
   const topRef = useRef(null)
 
-  // NEW: ปุ่มของ ComboBox เพื่อจับโฟกัส/เดินหน้า
+  // ปุ่มของ ComboBox เพื่อจับโฟกัส/เดินหน้า
   const comboBtnRefs = {
     district: useRef(null),
     sub_district: useRef(null),
@@ -374,7 +385,7 @@ const CustomerAdd = () => {
       return rest
     })
 
-  // ---------- NEW: Enter Navigation ----------
+  // ---------- Enter Navigation ----------
   const enterOrder = [
     { key: "citizen_id", ref: refs.citizen_id },
     { key: "full_name", ref: refs.full_name },
@@ -400,6 +411,10 @@ const CustomerAdd = () => {
       try {
         el.focus()
         try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
+        // ✅ ถ้าเป็นปุ่มของ ComboBox ให้เปิด dropdown อัตโนมัติ
+        if (el?.dataset?.comboboxBtn === "true") {
+          requestAnimationFrame(() => { el.click?.() })
+        }
       } catch {}
       break
     }
@@ -880,7 +895,7 @@ const CustomerAdd = () => {
                     onChange={(v) => { clearError("district"); update("district", v) }}
                     placeholder="— เลือกอำเภอ —"
                     error={!!errors.district}
-                    buttonRef={comboBtnRefs.district} // NEW: ให้ Enter ไปต่อได้
+                    buttonRef={comboBtnRefs.district}
                     onEnterNext={() => focusNextFromIndex(4)} // index ของ district ใน enterOrder
                   />
                 </div>
@@ -898,7 +913,7 @@ const CustomerAdd = () => {
                     placeholder={form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}
                     error={!!errors.sub_district}
                     disabled={!form.district}
-                    buttonRef={comboBtnRefs.sub_district} // NEW
+                    buttonRef={comboBtnRefs.sub_district}
                     onEnterNext={() => focusNextFromIndex(5)} // index ของ sub_district
                   />
                 </div>
@@ -996,7 +1011,7 @@ const CustomerAdd = () => {
                       placeholder={relLoading ? "กำลังโหลด..." : "— เลือกความสัมพันธ์ —"}
                       error={!!errors.fid_relationship}
                       disabled={relLoading}
-                      buttonRef={comboBtnRefs.fid_relationship} // NEW
+                      buttonRef={comboBtnRefs.fid_relationship}
                       onEnterNext={() => focusNextFromIndex(11)}   // index ของ fid_relationship
                     />
                   </div>

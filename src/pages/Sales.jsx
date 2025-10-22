@@ -441,6 +441,54 @@ function Sales() {
   }
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
+  // ⭐⭐ Refs + ลำดับการเลื่อนของรถพ่วงแต่ละคัน (dynamic)
+  const trailerRefs = useRef([]) // [{key: ref}]
+  const getTRef = (i, key) => {
+    if (!trailerRefs.current[i]) trailerRefs.current[i] = {}
+    if (!trailerRefs.current[i][key]) trailerRefs.current[i][key] = { current: null }
+    return trailerRefs.current[i][key]
+  }
+  const trailerOrder = [
+    "scaleNoFront",
+    "unitPriceFront",
+    "gramFront",
+    "licensePlateFront",
+    "frontWeightKg",
+    "amountFront",
+    "scaleNoBack",
+    "unitPriceBack",
+    "gramBack",
+    "licensePlateBack",
+    "backWeightKg",
+    "amountBack",
+  ]
+  const focusTrailerField = (i, key) => {
+    const el = getTRef(i, key)?.current
+    if (!el) return false
+    try { el.scrollIntoView({ block: "center" }) } catch {}
+    el.focus?.()
+    try { el.select?.() } catch {}
+    return true
+  }
+  const focusFirstOfTrailer = (i = 0) => focusTrailerField(i, "scaleNoFront")
+  const focusNextTrailer = (i, key) => {
+    const idx = trailerOrder.indexOf(key)
+    if (idx < 0) return false
+    // ยังอยู่คันเดิม
+    if (idx < trailerOrder.length - 1) return focusTrailerField(i, trailerOrder[idx + 1])
+    // เป็นเงิน(หลัง) → คันถัดไปหรือ submit
+    if (i < trailers.length - 1) return focusFirstOfTrailer(i + 1)
+    const sb = refs.submitBtn?.current
+    if (sb) { try { sb.scrollIntoView({ block: "center" }) } catch {}; sb.focus?.(); return true }
+    return false
+  }
+  const onEnterTrailer = (i, key) => (e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault()
+      focusNextTrailer(i, key)
+    }
+  }
+
   // ---------- Debounce ----------
   const debouncedCitizenId = useDebounce(customer.citizenId)
   const debouncedMemberId  = useDebounce(customer.memberId)
@@ -1287,7 +1335,7 @@ function Sales() {
                   placeholder="เช่น RC-2025-000789 (ไม่บังคับ)"
                 />
               ) : (
-                <input className={cx(baseField, fieldDisabled)} disabled placeholder="โปรดเลือกวิธีชำระเงินก่อน" />
+                <input className={cx(baseField, fieldDisabled)} readOnly placeholder="โปรดเลือกวิธีชำระเงินก่อน" />
               )}
               <div className={helpTextCls}>* ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>sale_id</code></div>
             </div>
@@ -1552,7 +1600,7 @@ function Sales() {
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
                 disabled={isTemplateActive}
-                // ⭐ เปลี่ยนพฤติกรรม: Enter จาก "ประเภทสินค้า" → ไป "ชนิดข้าว" (ถ้ามี) เหมือนหน้า Buy
+                // ⭐ Enter จาก "ประเภทสินค้า" → ไป "ชนิดข้าว" หรือถัดไป
                 onEnterNext={() => {
                   const tryFocus = () => {
                     if (isEnabledInput(refs.riceType?.current)) {
@@ -1591,7 +1639,7 @@ function Sales() {
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
                 buttonRef={refs.riceType}
-                // ⭐ เปลี่ยนพฤติกรรม: Enter จาก "ชนิดข้าว" → ไป "ชั้นย่อย" (ถ้ามี)
+                // ⭐ Enter จาก "ชนิดข้าว" → ไป "ชั้นย่อย" หรือถัดไป
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.subrice?.current
@@ -1733,7 +1781,7 @@ function Sales() {
                 hintRed={!!missingHints.branchName}
                 clearHint={() => clearHint("branchName")}
                 buttonRef={refs.branchName}
-                // ⭐ เปลี่ยนพฤติกรรม: Enter จาก "สาขา" → ไป "คลัง" เหมือนหน้า Buy
+                // Enter จาก "สาขา" → "คลัง"
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.klangName?.current
@@ -1765,21 +1813,13 @@ function Sales() {
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
-                // ⭐ คงพฤติกรรมเดิม: จาก "คลัง" → จำนวนรถพ่วง
+                // ⭐ ใหม่: Enter จาก "คลัง" → ใบชั่งพ่วงหน้าของคันที่ 1
                 onEnterNext={() => {
-                  const goTrailer = () => {
-                    const el = refs.trailerCount?.current
-                    if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch {}
-                      el.focus?.()
-                      return true
-                    }
-                    return false
+                  if (trailers.length > 0) {
+                    if (focusFirstOfTrailer(0)) return
                   }
-                  if (!goTrailer()) {
-                    // สำรอง: ไปตามลิสต์เดิม
-                    focusNext("klangName")
-                  }
+                  // สำรอง ถ้าไม่มีพ่วง
+                  focusNext("klangName")
                 }}
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
@@ -1800,8 +1840,9 @@ function Sales() {
                   options={trailerCountOptions}
                   value={String(trailersCount)}
                   onChange={(id) => setTrailersCount(Number(id))}
-                  // ⭐ เพิ่ม ref ให้โฟกัสจาก "คลัง"
+                  // ⭐ เพิ่ม ref ให้โฟกัสจาก "คลัง" และ Enter → ใบชั่งหน้าคันที่ 1
                   buttonRef={refs.trailerCount}
+                  onEnterNext={() => focusFirstOfTrailer(0)}
                 />
               </div>
             </div>
@@ -1845,9 +1886,11 @@ function Sales() {
                           <div className="md:col-span-1">
                             <label className={labelCls}>เลขที่ใบชั่งพ่วงหน้า</label>
                             <input
+                              ref={getTRef(idx, "scaleNoFront")}
                               className={baseField}
                               value={t.scaleNoFront}
                               onChange={(e) => updateTrailer(idx, "scaleNoFront", e.target.value)}
+                              onKeyDown={onEnterTrailer(idx, "scaleNoFront")}
                               placeholder="เช่น SCL-2025-000123"
                             />
                           </div>
@@ -1855,10 +1898,12 @@ function Sales() {
                           <div>
                             <label className={labelCls}>ราคาต่อกก. (บาท)</label>
                             <input
+                              ref={getTRef(idx, "unitPriceFront")}
                               inputMode="decimal"
                               className={cx(baseField, terr.unitPriceFront && "border-red-500 ring-2 ring-red-300")}
                               value={t.unitPriceFront}
                               onChange={(e) => updateTrailer(idx, "unitPriceFront", e.target.value.replace(/[^\d.]/g, ""))}
+                              onKeyDown={onEnterTrailer(idx, "unitPriceFront")}
                               placeholder="เช่น 15.00"
                             />
                             {terr.unitPriceFront && <p className={errorTextCls}>{terr.unitPriceFront}</p>}
@@ -1867,10 +1912,12 @@ function Sales() {
                           <div>
                             <label className={labelCls}>คุณภาพข้าว (gram)</label>
                             <input
+                              ref={getTRef(idx, "gramFront")}
                               inputMode="numeric"
                               className={baseField}
                               value={t.gramFront}
                               onChange={(e) => updateTrailer(idx, "gramFront", onlyDigits(e.target.value))}
+                              onKeyDown={onEnterTrailer(idx, "gramFront")}
                               placeholder="เช่น 85"
                             />
                           </div>
@@ -1878,9 +1925,11 @@ function Sales() {
                           <div>
                             <label className={labelCls}>ทะเบียนพ่วงหน้า</label>
                             <input
+                              ref={getTRef(idx, "licensePlateFront")}
                               className={cx(baseField, terr.licensePlateFront && "border-red-500 ring-2 ring-red-300")}
                               value={t.licensePlateFront}
                               onChange={(e) => updateTrailer(idx, "licensePlateFront", e.target.value.toUpperCase())}
+                              onKeyDown={onEnterTrailer(idx, "licensePlateFront")}
                               placeholder="เช่น 1กก-1234 กทม."
                             />
                             {terr.licensePlateFront && <p className={errorTextCls}>{terr.licensePlateFront}</p>}
@@ -1889,10 +1938,12 @@ function Sales() {
                           <div>
                             <label className={labelCls}>น้ำหนักสุทธิพ่วงหน้า (กก.)</label>
                             <input
+                              ref={getTRef(idx, "frontWeightKg")}
                               inputMode="decimal"
                               className={cx(baseField, terr.frontWeightKg && "border-red-500 ring-2 ring-red-300")}
                               value={t.frontWeightKg}
                               onChange={(e) => updateTrailer(idx, "frontWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                              onKeyDown={onEnterTrailer(idx, "frontWeightKg")}
                               placeholder="เช่น 7,000"
                             />
                             {terr.frontWeightKg && <p className={errorTextCls}>{terr.frontWeightKg}</p>}
@@ -1900,7 +1951,17 @@ function Sales() {
 
                           <div className="md:col-span-1">
                             <label className={labelCls}>เป็นเงิน (พ่วงหน้า)</label>
-                            <input className={cx(baseField, fieldDisabled)} value={formatMoneyInput(String(amount1))} disabled placeholder="คำนวณอัตโนมัติ" />
+                            {/* readOnly เพื่อให้โฟกัส/กด Enter ได้ */}
+                            <input
+                              ref={getTRef(idx, "amountFront")}
+                              className={cx(baseField, fieldDisabled)}
+                              value={formatMoneyInput(String(amount1))}
+                              readOnly
+                              tabIndex={0}
+                              onKeyDown={onEnterTrailer(idx, "amountFront")}
+                              aria-readonly="true"
+                              placeholder="คำนวณอัตโนมัติ"
+                            />
                           </div>
                         </div>
                       </div>
@@ -1916,9 +1977,11 @@ function Sales() {
                           <div className="md:col-span-1">
                             <label className={labelCls}>เลขที่ใบชั่งพ่วงหลัง</label>
                             <input
+                              ref={getTRef(idx, "scaleNoBack")}
                               className={baseField}
                               value={t.scaleNoBack}
                               onChange={(e) => updateTrailer(idx, "scaleNoBack", e.target.value)}
+                              onKeyDown={onEnterTrailer(idx, "scaleNoBack")}
                               placeholder="เช่น SCL-2025-000124"
                             />
                           </div>
@@ -1926,10 +1989,12 @@ function Sales() {
                           <div>
                             <label className={labelCls}>ราคาต่อกก. (บาท)</label>
                             <input
+                              ref={getTRef(idx, "unitPriceBack")}
                               inputMode="decimal"
                               className={cx(baseField, terr.unitPriceBack && "border-red-500 ring-2 ring-red-300")}
                               value={t.unitPriceBack}
                               onChange={(e) => updateTrailer(idx, "unitPriceBack", e.target.value.replace(/[^\d.]/g, ""))}
+                              onKeyDown={onEnterTrailer(idx, "unitPriceBack")}
                               placeholder="เช่น 15.00"
                             />
                             {terr.unitPriceBack && <p className={errorTextCls}>{terr.unitPriceBack}</p>}
@@ -1938,10 +2003,12 @@ function Sales() {
                           <div>
                             <label className={labelCls}>คุณภาพข้าว (gram)</label>
                             <input
+                              ref={getTRef(idx, "gramBack")}
                               inputMode="numeric"
                               className={baseField}
                               value={t.gramBack}
                               onChange={(e) => updateTrailer(idx, "gramBack", onlyDigits(e.target.value))}
+                              onKeyDown={onEnterTrailer(idx, "gramBack")}
                               placeholder="เช่น 85"
                             />
                           </div>
@@ -1949,9 +2016,11 @@ function Sales() {
                           <div>
                             <label className={labelCls}>ทะเบียนพ่วงหลัง</label>
                             <input
+                              ref={getTRef(idx, "licensePlateBack")}
                               className={cx(baseField, terr.licensePlateBack && "border-red-500 ring-2 ring-red-300")}
                               value={t.licensePlateBack}
                               onChange={(e) => updateTrailer(idx, "licensePlateBack", e.target.value.toUpperCase())}
+                              onKeyDown={onEnterTrailer(idx, "licensePlateBack")}
                               placeholder="เช่น 1กก-5678 กทม."
                             />
                             {terr.licensePlateBack && <p className={errorTextCls}>{terr.licensePlateBack}</p>}
@@ -1960,10 +2029,12 @@ function Sales() {
                           <div>
                             <label className={labelCls}>น้ำหนักสุทธิพ่วงหลัง (กก.)</label>
                             <input
+                              ref={getTRef(idx, "backWeightKg")}
                               inputMode="decimal"
                               className={cx(baseField, terr.backWeightKg && "border-red-500 ring-2 ring-red-300")}
                               value={t.backWeightKg}
                               onChange={(e) => updateTrailer(idx, "backWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                              onKeyDown={onEnterTrailer(idx, "backWeightKg")}
                               placeholder="เช่น 12,000"
                             />
                             {terr.backWeightKg && <p className={errorTextCls}>{terr.backWeightKg}</p>}
@@ -1971,7 +2042,17 @@ function Sales() {
 
                           <div className="md:col-span-1">
                             <label className={labelCls}>เป็นเงิน (พ่วงหลัง)</label>
-                            <input className={cx(baseField, fieldDisabled)} value={formatMoneyInput(String(amount2))} disabled placeholder="คำนวณอัตโนมัติ" />
+                            {/* readOnly เพื่อให้โฟกัส/กด Enter ได้ */}
+                            <input
+                              ref={getTRef(idx, "amountBack")}
+                              className={cx(baseField, fieldDisabled)}
+                              value={formatMoneyInput(String(amount2))}
+                              readOnly
+                              tabIndex={0}
+                              onKeyDown={onEnterTrailer(idx, "amountBack")}
+                              aria-readonly="true"
+                              placeholder="คำนวณอัตโนมัติ"
+                            />
                           </div>
                         </div>
                       </div>

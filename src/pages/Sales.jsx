@@ -1159,6 +1159,12 @@ function Sales() {
     }
   }
 
+  // --------- สีในหัว/เซลล์สรุป (front/back) ----------
+  const frontHeadCls = "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-200"
+  const frontCellCls = "bg-emerald-50/60 dark:bg-emerald-900/10"
+  const backHeadCls  = "bg-slate-50 text-slate-900 dark:bg-slate-800/40 dark:text-slate-200"
+  const backCellCls  = "bg-slate-50 dark:bg-slate-800/40"
+
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
@@ -1813,13 +1819,21 @@ function Sales() {
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
-                // ⭐ ใหม่: Enter จาก "คลัง" → ใบชั่งพ่วงหน้าของคันที่ 1
+                // ⭐ ใหม่: Enter จาก "คลัง" → "จำนวนรถพ่วง" (ตามที่ขอ)
                 onEnterNext={() => {
-                  if (trailers.length > 0) {
-                    if (focusFirstOfTrailer(0)) return
+                  const goTrailerCount = () => {
+                    const el = refs.trailerCount?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.()
+                      return true
+                    }
+                    return false
                   }
-                  // สำรอง ถ้าไม่มีพ่วง
-                  focusNext("klangName")
+                  if (!goTrailerCount()) {
+                    // สำรอง ถ้าไม่มีพ่วง
+                    focusNext("klangName")
+                  }
                 }}
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
@@ -2128,25 +2142,31 @@ function Sales() {
 
             {/* สรุปรถพ่วง + ยอดรวม */}
             <div className="md:col-span-5 rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-              <div className="text-slate-600 dark:text-slate-300 mb-2">สรุปรถพ่วง</div>
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-slate-600 dark:text-slate-300">สรุปรถพ่วง</div>
+                <div className="flex items-center gap-4 text-xs md:text-sm opacity-80">
+                  <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500" />พ่วงหน้า</span>
+                  <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-slate-500" />พ่วงหลัง</span>
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="text-left border-b border-slate-200 dark:border-slate-700">
                       <th className="py-2 pr-4">#</th>
-                      <th className="py-2 pr-4">ทะเบียนพ่วงหน้า</th>
-                      <th className="py-2 pr-4">ทะเบียนพ่วงหลัง</th>
-                      <th className="py-2 pr-4">ใบชั่งพ่วงหน้า</th>
-                      <th className="py-2 pr-4">ใบชั่งพ่วงหลัง</th>
-                      <th className="py-2 pr-4">ราคาต่อกก.หน้า</th>
-                      <th className="py-2 pr-4">คุณภาพหน้า (g)</th>
-                      <th className="py-2 pr-4">พ่วงหน้า (กก.)</th>
-                      <th className="py-2 pr-4">ราคาต่อกก.หลัง</th>
-                      <th className="py-2 pr-4">คุณภาพหลัง (g)</th>
-                      <th className="py-2 pr-4">พ่วงหลัง (กก.)</th>
+                      <th className={cx("py-2 pr-4", frontHeadCls)}>ทะเบียนพ่วงหน้า</th>
+                      <th className={cx("py-2 pr-4", backHeadCls)}>ทะเบียนพ่วงหลัง</th>
+                      <th className={cx("py-2 pr-4", frontHeadCls)}>ใบชั่งพ่วงหน้า</th>
+                      <th className={cx("py-2 pr-4", backHeadCls)}>ใบชั่งพ่วงหลัง</th>
+                      <th className={cx("py-2 pr-4", frontHeadCls)}>ราคาต่อกก.หน้า</th>
+                      <th className={cx("py-2 pr-4", frontHeadCls)}>คุณภาพหน้า (g)</th>
+                      <th className={cx("py-2 pr-4", frontHeadCls)}>พ่วงหน้า (กก.)</th>
+                      <th className={cx("py-2 pr-4", backHeadCls)}>ราคาต่อกก.หลัง</th>
+                      <th className={cx("py-2 pr-4", backHeadCls)}>คุณภาพหลัง (g)</th>
+                      <th className={cx("py-2 pr-4", backHeadCls)}>พ่วงหลัง (กก.)</th>
                       <th className="py-2 pr-4">รวม (กก.)</th>
-                      <th className="py-2 pr-4">เงินพ่วงหน้า (≈)</th>
-                      <th className="py-2 pr-4">เงินพ่วงหลัง (≈)</th>
+                      <th className={cx("py-2 pr-4", frontHeadCls)}>เงินพ่วงหน้า (≈)</th>
+                      <th className={cx("py-2 pr-4", backHeadCls)}>เงินพ่วงหลัง (≈)</th>
                       <th className="py-2 pr-4">รวมเงิน (≈)</th>
                     </tr>
                   </thead>
@@ -2163,19 +2183,19 @@ function Sales() {
                       return (
                         <tr key={i} className="border-b border-slate-100 dark:border-slate-700/60">
                           <td className="py-2 pr-4">{i + 1}</td>
-                          <td className="py-2 pr-4">{t.licensePlateFront || "—"}</td>
-                          <td className="py-2 pr-4">{t.licensePlateBack || "—"}</td>
-                          <td className="py-2 pr-4">{t.scaleNoFront || "—"}</td>
-                          <td className="py-2 pr-4">{t.scaleNoBack || "—"}</td>
-                          <td className="py-2 pr-4">{u1 ? u1.toFixed(2) : "—"}</td>
-                          <td className="py-2 pr-4">{t.gramFront || "—"}</td>
-                          <td className="py-2 pr-4">{t.frontWeightKg || "0"}</td>
-                          <td className="py-2 pr-4">{u2 ? u2.toFixed(2) : "—"}</td>
-                          <td className="py-2 pr-4">{t.gramBack || "—"}</td>
-                          <td className="py-2 pr-4">{t.backWeightKg || "0"}</td>
+                          <td className={cx("py-2 pr-4", frontCellCls)}>{t.licensePlateFront || "—"}</td>
+                          <td className={cx("py-2 pr-4", backCellCls)}>{t.licensePlateBack || "—"}</td>
+                          <td className={cx("py-2 pr-4", frontCellCls)}>{t.scaleNoFront || "—"}</td>
+                          <td className={cx("py-2 pr-4", backCellCls)}>{t.scaleNoBack || "—"}</td>
+                          <td className={cx("py-2 pr-4", frontCellCls)}>{u1 ? u1.toFixed(2) : "—"}</td>
+                          <td className={cx("py-2 pr-4", frontCellCls)}>{t.gramFront || "—"}</td>
+                          <td className={cx("py-2 pr-4", frontCellCls)}>{t.frontWeightKg || "0"}</td>
+                          <td className={cx("py-2 pr-4", backCellCls)}>{u2 ? u2.toFixed(2) : "—"}</td>
+                          <td className={cx("py-2 pr-4", backCellCls)}>{t.gramBack || "—"}</td>
+                          <td className={cx("py-2 pr-4", backCellCls)}>{t.backWeightKg || "0"}</td>
                           <td className="py-2 pr-4">{round2(net)}</td>
-                          <td className="py-2 pr-4">{thb(amount1)}</td>
-                          <td className="py-2 pr-4">{thb(amount2)}</td>
+                          <td className={cx("py-2 pr-4", frontCellCls)}>{thb(amount1)}</td>
+                          <td className={cx("py-2 pr-4", backCellCls)}>{thb(amount2)}</td>
                           <td className="py-2 pr-4">{thb(amount)}</td>
                         </tr>
                       )

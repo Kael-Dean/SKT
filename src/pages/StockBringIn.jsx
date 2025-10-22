@@ -234,10 +234,10 @@ function StockBringIn() {
     program: "",
     business_type: "",
 
-    // CarryOver (บังคับเกือบทุกช่อง)
+    // CarryOver (บังคับราคา 1 & 2, ปริมาณ, คลัง)
     co_klang: "",
     price1: "",
-    price2: "", // ไม่บังคับ (อย่างน้อยต้องมีหนึ่งราคา)
+    price2: "",
     co_available: "",
     comment: "", // ไม่บังคับ
   }
@@ -376,8 +376,6 @@ function StockBringIn() {
     return qty > 0 && price > 0 ? qty * price : 0
   }, [pricesArr, form.co_available])
 
-  const redFieldCls = (key) =>
-    errors[key] || missingHints[key] ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : ""
   const clearError = (key) =>
     setErrors((prev) => {
       if (!(key in prev)) return prev
@@ -398,7 +396,9 @@ function StockBringIn() {
     if (!form.program) m.program = true
     if (!form.business_type) m.business_type = true
     if (!form.co_klang) m.co_klang = true
-    if (pricesArr.length === 0) m.prices = true
+    // บังคับราคา 1 และ 2 > 0
+    if (!(toNumber(form.price1) > 0 && toNumber(form.price2) > 0)) m.prices = true
+    // ปริมาณต้อง > 0
     if (form.co_available === "" || toNumber(form.co_available) <= 0) m.co_available = true
     return m
   }
@@ -414,7 +414,10 @@ function StockBringIn() {
     if (!form.program) e.program = "กรุณาเลือกโปรแกรม"
     if (!form.business_type) e.business_type = "กรุณาเลือกประเภทธุรกิจ"
     if (!form.co_klang) e.co_klang = "กรุณาเลือกคลังปลายทาง"
-    if (pricesArr.length === 0) e.prices = "ต้องมีราคาอย่างน้อย 1 ช่อง และมากกว่า 0"
+    // ต้องมีราคา 1 และ ราคา 2 และทั้งคู่ > 0
+    if (!(toNumber(form.price1) > 0 && toNumber(form.price2) > 0)) {
+      e.prices = "ต้องกรอกราคา 1 และ ราคา 2 มากกว่า 0"
+    }
     if (form.co_available === "") e.co_available = "กรุณากรอกปริมาณยกมา"
     else if (toNumber(form.co_available) <= 0) e.co_available = "ปริมาณต้องมากกว่า 0"
     setErrors(e)
@@ -567,7 +570,7 @@ function StockBringIn() {
         business_type: Number(form.business_type),
       },
       co_klang: Number(form.co_klang),
-      prices: pricesArr, // ต้องมีอย่างน้อย 1 ค่า
+      prices: pricesArr, // ต้องมี 2 ค่า (> 0)
       co_available: Number(form.co_available),
       comment: form.comment?.trim() || null,
     }
@@ -795,7 +798,7 @@ function StockBringIn() {
                 onKeyDown={(e) => onEnterKey(e, price1Ref)}
                 placeholder="เช่น 9.50"
               />
-              <p className={helpTextCls}>ต้องกรอกอย่างน้อย 1 ช่อง</p>
+              <p className={helpTextCls}>ต้องกรอกทั้ง 2 ช่อง</p>
             </div>
 
             <div>
@@ -803,9 +806,10 @@ function StockBringIn() {
               <input
                 ref={price2Ref}
                 inputMode="decimal"
-                className={baseField}
+                className={cx(baseField, errors.prices && "border-red-400 ring-2 ring-red-300/70")}
                 value={form.price2}
                 onChange={(e) => update("price2", e.target.value.replace(/[^\d.]/g, ""))}
+                onFocus={() => setErrors((p)=>({ ...p, prices: undefined }))}
                 onKeyDown={(e) => onEnterKey(e, price2Ref)}
                 placeholder="เช่น 15"
               />

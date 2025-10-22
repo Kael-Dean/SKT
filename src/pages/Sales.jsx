@@ -2140,80 +2140,106 @@ function Sales() {
               </div>
             ))}
 
-            {/* สรุปรถพ่วง + ยอดรวม */}
-            <div className="md:col-span-5 rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-slate-600 dark:text-slate-300">สรุปรถพ่วง</div>
-                <div className="flex items-center gap-4 text-xs md:text-sm opacity-80">
-                  <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500" />พ่วงหน้า</span>
-                  <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-slate-500" />พ่วงหลัง</span>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left border-b border-slate-200 dark:border-slate-700">
-                      <th className="py-2 pr-4">#</th>
-                      <th className={cx("py-2 pr-4", frontHeadCls)}>ทะเบียนพ่วงหน้า</th>
-                      <th className={cx("py-2 pr-4", backHeadCls)}>ทะเบียนพ่วงหลัง</th>
-                      <th className={cx("py-2 pr-4", frontHeadCls)}>ใบชั่งพ่วงหน้า</th>
-                      <th className={cx("py-2 pr-4", backHeadCls)}>ใบชั่งพ่วงหลัง</th>
-                      <th className={cx("py-2 pr-4", frontHeadCls)}>ราคาต่อกก.หน้า</th>
-                      <th className={cx("py-2 pr-4", frontHeadCls)}>คุณภาพหน้า (g)</th>
-                      <th className={cx("py-2 pr-4", frontHeadCls)}>พ่วงหน้า (กก.)</th>
-                      <th className={cx("py-2 pr-4", backHeadCls)}>ราคาต่อกก.หลัง</th>
-                      <th className={cx("py-2 pr-4", backHeadCls)}>คุณภาพหลัง (g)</th>
-                      <th className={cx("py-2 pr-4", backHeadCls)}>พ่วงหลัง (กก.)</th>
-                      <th className="py-2 pr-4">รวม (กก.)</th>
-                      <th className={cx("py-2 pr-4", frontHeadCls)}>เงินพ่วงหน้า (≈)</th>
-                      <th className={cx("py-2 pr-4", backHeadCls)}>เงินพ่วงหลัง (≈)</th>
-                      <th className="py-2 pr-4">รวมเงิน (≈)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {trailers.map((t, i) => {
-                      const w1 = toNumber(t.frontWeightKg)
-                      const w2 = toNumber(t.backWeightKg)
-                      const u1 = toNumber(t.unitPriceFront)
-                      const u2 = toNumber(t.unitPriceBack)
-                      const amount1 = round2(w1 * u1)
-                      const amount2 = round2(w2 * u2)
-                      const net = w1 + w2
-                      const amount = amount1 + amount2
-                      return (
-                        <tr key={i} className="border-b border-slate-100 dark:border-slate-700/60">
-                          <td className="py-2 pr-4">{i + 1}</td>
-                          <td className={cx("py-2 pr-4", frontCellCls)}>{t.licensePlateFront || "—"}</td>
-                          <td className={cx("py-2 pr-4", backCellCls)}>{t.licensePlateBack || "—"}</td>
-                          <td className={cx("py-2 pr-4", frontCellCls)}>{t.scaleNoFront || "—"}</td>
-                          <td className={cx("py-2 pr-4", backCellCls)}>{t.scaleNoBack || "—"}</td>
-                          <td className={cx("py-2 pr-4", frontCellCls)}>{u1 ? u1.toFixed(2) : "—"}</td>
-                          <td className={cx("py-2 pr-4", frontCellCls)}>{t.gramFront || "—"}</td>
-                          <td className={cx("py-2 pr-4", frontCellCls)}>{t.frontWeightKg || "0"}</td>
-                          <td className={cx("py-2 pr-4", backCellCls)}>{u2 ? u2.toFixed(2) : "—"}</td>
-                          <td className={cx("py-2 pr-4", backCellCls)}>{t.gramBack || "—"}</td>
-                          <td className={cx("py-2 pr-4", backCellCls)}>{t.backWeightKg || "0"}</td>
-                          <td className="py-2 pr-4">{round2(net)}</td>
-                          <td className={cx("py-2 pr-4", frontCellCls)}>{thb(amount1)}</td>
-                          <td className={cx("py-2 pr-4", backCellCls)}>{thb(amount2)}</td>
-                          <td className="py-2 pr-4">{thb(amount)}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-3 text-right font-semibold">
-                รวมทั้งสิ้น (โดยประมาณ):{" "}
-                {thb(trailers.reduce((s, t) => {
-                  const w1 = toNumber(t.frontWeightKg)
-                  const w2 = toNumber(t.backWeightKg)
-                  const u1 = toNumber(t.unitPriceFront)
-                  const u2 = toNumber(t.unitPriceBack)
-                  return s + (w1 * u1) + (w2 * u2)
-                }, 0))}
-              </div>
-            </div>
+            {/* สรุปรถพ่วง + ยอดรวม (จัดกลุ่ม: พ่วงหน้า → พ่วงหลัง → รวมเงินทั้งไฟล์) */}
+<div className="md:col-span-5 rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+  <div className="mb-2 flex items-center justify-between">
+    <div className="text-slate-600 dark:text-slate-300">สรุปรถพ่วง</div>
+    <div className="flex items-center gap-4 text-xs md:text-sm opacity-80">
+      <span className="inline-flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-emerald-500" />พ่วงหน้า
+      </span>
+      <span className="inline-flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-slate-500" />พ่วงหลัง
+      </span>
+    </div>
+  </div>
+
+  <div className="overflow-x-auto">
+    <table className="min-w-full text-sm">
+      <thead>
+        <tr className="text-left border-b border-slate-200 dark:border-slate-700">
+          <th className="py-2 pr-4">#</th>
+
+          {/* ---- กลุ่มพ่วงหน้า (ติดกันทั้งหมด) ---- */}
+          <th className={cx("py-2 pr-4", frontHeadCls)}>ทะเบียนพ่วงหน้า</th>
+          <th className={cx("py-2 pr-4", frontHeadCls)}>ใบชั่งพ่วงหน้า</th>
+          <th className={cx("py-2 pr-4", frontHeadCls)}>ราคาต่อกก.หน้า</th>
+          <th className={cx("py-2 pr-4", frontHeadCls)}>คุณภาพหน้า (g)</th>
+          <th className={cx("py-2 pr-4", frontHeadCls)}>พ่วงหน้า (กก.)</th>
+          <th className={cx("py-2 pr-4", frontHeadCls)}>เงินพ่วงหน้า (≈)</th>
+
+          {/* ---- กลุ่มพ่วงหลัง (ต่อท้ายทั้งหมด) ---- */}
+          <th className={cx("py-2 pr-4", backHeadCls)}>ทะเบียนพ่วงหลัง</th>
+          <th className={cx("py-2 pr-4", backHeadCls)}>ใบชั่งพ่วงหลัง</th>
+          <th className={cx("py-2 pr-4", backHeadCls)}>ราคาต่อกก.หลัง</th>
+          <th className={cx("py-2 pr-4", backHeadCls)}>คุณภาพหลัง (g)</th>
+          <th className={cx("py-2 pr-4", backHeadCls)}>พ่วงหลัง (กก.)</th>
+          <th className={cx("py-2 pr-4", backHeadCls)}>เงินพ่วงหลัง (≈)</th>
+
+          {/* ---- รวมต่อแถวสุดท้ายของแต่ละคัน ---- */}
+          <th className="py-2 pr-4">รวมน้ำหนัก (กก.)</th>
+          <th className="py-2 pr-4">รวมเงิน (≈)</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {trailers.map((t, i) => {
+          const w1 = toNumber(t.frontWeightKg)
+          const w2 = toNumber(t.backWeightKg)
+          const u1 = toNumber(t.unitPriceFront)
+          const u2 = toNumber(t.unitPriceBack)
+          const amount1 = round2(w1 * u1)
+          const amount2 = round2(w2 * u2)
+          const net = w1 + w2
+          const amount = amount1 + amount2
+
+          return (
+            <tr key={i} className="border-b border-slate-100 dark:border-slate-700/60">
+              <td className="py-2 pr-4">{i + 1}</td>
+
+              {/* พ่วงหน้า (เรียงติดกัน) */}
+              <td className={cx("py-2 pr-4", frontCellCls)}>{t.licensePlateFront || "—"}</td>
+              <td className={cx("py-2 pr-4", frontCellCls)}>{t.scaleNoFront || "—"}</td>
+              <td className={cx("py-2 pr-4", frontCellCls)}>{u1 ? u1.toFixed(2) : "—"}</td>
+              <td className={cx("py-2 pr-4", frontCellCls)}>{t.gramFront || "—"}</td>
+              <td className={cx("py-2 pr-4", frontCellCls)}>{t.frontWeightKg || "0"}</td>
+              <td className={cx("py-2 pr-4", frontCellCls)}>{thb(amount1)}</td>
+
+              {/* พ่วงหลัง (เรียงต่อท้าย) */}
+              <td className={cx("py-2 pr-4", backCellCls)}>{t.licensePlateBack || "—"}</td>
+              <td className={cx("py-2 pr-4", backCellCls)}>{t.scaleNoBack || "—"}</td>
+              <td className={cx("py-2 pr-4", backCellCls)}>{u2 ? u2.toFixed(2) : "—"}</td>
+              <td className={cx("py-2 pr-4", backCellCls)}>{t.gramBack || "—"}</td>
+              <td className={cx("py-2 pr-4", backCellCls)}>{t.backWeightKg || "0"}</td>
+              <td className={cx("py-2 pr-4", backCellCls)}>{thb(amount2)}</td>
+
+              {/* รวมต่อคัน */}
+              <td className="py-2 pr-4">{round2(net)}</td>
+              <td className="py-2 pr-4">{thb(amount)}</td>
+            </tr>
+          )
+        })}
+      </tbody>
+
+      {/* รวมเงินทั้งไฟล์ (แสดงท้ายตาราง) */}
+      <tfoot>
+        <tr className="border-t border-slate-200 dark:border-slate-700">
+          <td colSpan={14} className="py-3 pr-4 text-right font-semibold">รวมเงินทั้งไฟล์:</td>
+          <td className="py-3 pr-4 font-semibold">
+            {thb(trailers.reduce((s, t) => {
+              const w1 = toNumber(t.frontWeightKg)
+              const w2 = toNumber(t.backWeightKg)
+              const u1 = toNumber(t.unitPriceFront)
+              const u2 = toNumber(t.unitPriceBack)
+              return s + (w1 * u1) + (w2 * u2)
+            }, 0))}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
           </div>
 
           {/* ปุ่มบันทึก/รีเซ็ต */}

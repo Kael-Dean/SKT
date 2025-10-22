@@ -96,7 +96,7 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- ComboBox (ยกมาจาก MemberSignup) ---------- */
+/** ---------- ComboBox (เพิ่ม onEnterNext สำหรับเดินหน้าเมื่อกด Enter ตอนปิด dropdown) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -107,6 +107,7 @@ function ComboBox({
   disabled = false,
   error = false,
   buttonRef = null,
+  onEnterNext = null, // <— NEW
 }) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
@@ -156,7 +157,15 @@ function ComboBox({
 
   const onKeyDown = (e) => {
     if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+
+    // NEW: ถ้ายังไม่เปิด dropdown และกด Enter → ให้ไปช่องถัดไป
+    if (!open && e.key === "Enter") {
+      e.preventDefault()
+      onEnterNext?.()
+      return
+    }
+
+    if (!open && (e.key === " " || e.key === "ArrowDown")) {
       e.preventDefault()
       setOpen(true)
       setHighlight((h) => (h >= 0 ? h : 0))
@@ -309,22 +318,31 @@ const CustomerAdd = () => {
   const [amphoeOptions, setAmphoeOptions] = useState([]) // [{value,label}]
   const [tambonOptions, setTambonOptions] = useState([]) // [{value,label}]
 
-  // refs เพื่อเลื่อนโฟกัสไปยัง error ตัวแรก
+  // refs อินพุต
   const refs = {
     citizen_id: useRef(null),
     full_name: useRef(null),
     address: useRef(null),
     mhoo: useRef(null),
-    sub_district: useRef(null),
-    district: useRef(null),
+    sub_district: useRef(null), // ใช้กับข้อความ error เท่านั้น
+    district: useRef(null),     // ใช้กับข้อความ error เท่านั้น
     province: useRef(null),
     postal_code: useRef(null),
     phone_number: useRef(null),
     fid: useRef(null),
     fid_owner: useRef(null),
+    fid_relationship: useRef(null), // ใช้กับข้อความ error เท่านั้น
+  }
+  // ปุ่มที่โฟกัสตอนสุดท้าย
+  const submitBtnRef = useRef(null)
+  const topRef = useRef(null)
+
+  // NEW: ปุ่มของ ComboBox เพื่อจับโฟกัส/เดินหน้า
+  const comboBtnRefs = {
+    district: useRef(null),
+    sub_district: useRef(null),
     fid_relationship: useRef(null),
   }
-  const topRef = useRef(null)
 
   // ฟอร์ม (ส่งทุกอินพุตที่ Backend รองรับใน /member/customers/signup)
   const [form, setForm] = useState({
@@ -355,6 +373,47 @@ const CustomerAdd = () => {
       const { [k]: _omit, ...rest } = prev
       return rest
     })
+
+  // ---------- NEW: Enter Navigation ----------
+  const enterOrder = [
+    { key: "citizen_id", ref: refs.citizen_id },
+    { key: "full_name", ref: refs.full_name },
+    { key: "address", ref: refs.address },
+    { key: "mhoo", ref: refs.mhoo },
+    { key: "district", ref: comboBtnRefs.district },        // ComboBox
+    { key: "sub_district", ref: comboBtnRefs.sub_district },// ComboBox (อาจ disabled)
+    { key: "province", ref: refs.province },
+    { key: "postal_code", ref: refs.postal_code },
+    { key: "phone_number", ref: refs.phone_number },
+    { key: "fid", ref: refs.fid },
+    { key: "fid_owner", ref: refs.fid_owner },
+    { key: "fid_relationship", ref: comboBtnRefs.fid_relationship }, // ComboBox
+    { key: "submit", ref: submitBtnRef },
+  ]
+
+  const focusNextFromIndex = (idx) => {
+    for (let i = idx + 1; i < enterOrder.length; i++) {
+      const el = enterOrder[i]?.ref?.current
+      if (!el) continue
+      // ข้ามตัวที่ disabled
+      if (typeof el.disabled !== "undefined" && el.disabled) continue
+      try {
+        el.focus()
+        try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
+      } catch {}
+      break
+    }
+  }
+
+  const bindEnter = (idx) => ({
+    onKeyDown: (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault()
+        focusNextFromIndex(idx)
+      }
+    }
+  })
+  // ---------- END Enter Navigation ----------
 
   // โหลดตัวเลือก FID Relationship จาก BE
   useEffect(() => {
@@ -567,7 +626,7 @@ const CustomerAdd = () => {
     return Object.keys(e).length === 0
   }
 
-  // เลื่อนไป error แรก
+  // เลื่อนไป error แรก (ปรับให้โฟกัสที่ปุ่ม ComboBox เมื่อ error)
   useEffect(() => {
     const order = [
       "citizen_id","full_name","address","mhoo","district","sub_district","province","postal_code",
@@ -575,7 +634,8 @@ const CustomerAdd = () => {
     ]
     const first = order.find((k) => k in errors)
     if (first) {
-      const el = refs[first]?.current
+      const mapCombo = { district: comboBtnRefs.district, sub_district: comboBtnRefs.sub_district, fid_relationship: comboBtnRefs.fid_relationship }
+      const el = (mapCombo[first]?.current) || (refs[first]?.current)
       if (el && typeof el.focus === "function") {
         try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
         el.focus()
@@ -757,6 +817,7 @@ const CustomerAdd = () => {
                   onFocus={() => clearError("citizen_id")}
                   placeholder="เช่น 1234567890123"
                   aria-invalid={errors.citizen_id ? true : undefined}
+                  {...bindEnter(0)}
                 />
                 {errors.citizen_id && <p className={errorTextCls}>{errors.citizen_id}</p>}
               </div>
@@ -772,6 +833,7 @@ const CustomerAdd = () => {
                   onFocus={() => clearError("full_name")}
                   placeholder="เช่น นายสมชาย ใจดี"
                   aria-invalid={errors.full_name ? true : undefined}
+                  {...bindEnter(1)}
                 />
                 {errors.full_name && <p className={errorTextCls}>{errors.full_name}</p>}
               </div>
@@ -790,6 +852,7 @@ const CustomerAdd = () => {
                   onFocus={() => clearError("address")}
                   placeholder="เช่น 99/1"
                   aria-invalid={errors.address ? true : undefined}
+                  {...bindEnter(2)}
                 />
                 {errors.address && <p className={errorTextCls}>{errors.address}</p>}
               </div>
@@ -803,10 +866,11 @@ const CustomerAdd = () => {
                   value={form.mhoo}
                   onChange={(e) => update("mhoo", e.target.value)}
                   placeholder="เช่น 4"
+                  {...bindEnter(3)}
                 />
               </div>
 
-              {/* ✅ อำเภอ (district) — ย้ายขึ้นมาแทนตำแหน่งเดิมของ “ตำบล” + ใช้ ComboBox */}
+              {/* ✅ อำเภอ (district) — ใช้ ComboBox */}
               <div>
                 <label className={labelCls}>อำเภอ</label>
                 <div ref={refs.district}>
@@ -816,12 +880,14 @@ const CustomerAdd = () => {
                     onChange={(v) => { clearError("district"); update("district", v) }}
                     placeholder="— เลือกอำเภอ —"
                     error={!!errors.district}
+                    buttonRef={comboBtnRefs.district} // NEW: ให้ Enter ไปต่อได้
+                    onEnterNext={() => focusNextFromIndex(4)} // index ของ district ใน enterOrder
                   />
                 </div>
                 {errors.district && <p className={errorTextCls}>{errors.district}</p>}
               </div>
 
-              {/* ✅ ตำบล (sub_district) — ย้ายลงมาตามหลังอำเภอ + ใช้ ComboBox */}
+              {/* ✅ ตำบล (sub_district) — ใช้ ComboBox */}
               <div>
                 <label className={labelCls}>ตำบล</label>
                 <div ref={refs.sub_district}>
@@ -832,6 +898,8 @@ const CustomerAdd = () => {
                     placeholder={form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}
                     error={!!errors.sub_district}
                     disabled={!form.district}
+                    buttonRef={comboBtnRefs.sub_district} // NEW
+                    onEnterNext={() => focusNextFromIndex(5)} // index ของ sub_district
                   />
                 </div>
                 {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
@@ -848,6 +916,7 @@ const CustomerAdd = () => {
                   onFocus={() => clearError("province")}
                   placeholder="เช่น สุรินทร์"
                   aria-invalid={errors.province ? true : undefined}
+                  {...bindEnter(6)}
                 />
                 {errors.province && <p className={errorTextCls}>{errors.province}</p>}
               </div>
@@ -865,6 +934,7 @@ const CustomerAdd = () => {
                   onFocus={() => clearError("postal_code")}
                   placeholder="เช่น 32000"
                   aria-invalid={errors.postal_code ? true : undefined}
+                  {...bindEnter(7)}
                 />
                 {errors.postal_code && <p className={errorTextCls}>{errors.postal_code}</p>}
               </div>
@@ -879,10 +949,11 @@ const CustomerAdd = () => {
                   value={form.phone_number}
                   onChange={(e) => update("phone_number", e.target.value)}
                   placeholder="เช่น 021234567"
+                  {...bindEnter(8)}
                 />
               </div>
 
-              {/* บล็อก FID (ส่งขึ้น Back ได้) */}
+              {/* บล็อก FID */}
               <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
                 {/* fid */}
                 <div>
@@ -896,6 +967,7 @@ const CustomerAdd = () => {
                     onFocus={() => clearError("fid")}
                     placeholder="ตัวเลข เช่น 123456"
                     aria-invalid={errors.fid ? true : undefined}
+                    {...bindEnter(9)}
                   />
                   {errors.fid && <p className={errorTextCls}>{errors.fid}</p>}
                 </div>
@@ -909,10 +981,11 @@ const CustomerAdd = () => {
                     value={form.fid_owner}
                     onChange={(e) => update("fid_owner", e.target.value)}
                     placeholder="เช่น นายสมหมาย นามดี"
+                    {...bindEnter(10)}
                   />
                 </div>
 
-                {/* ✅ fid_relationship -> ใช้ ComboBox ให้หน้าตาเหมือน MemberSignup */}
+                {/* ✅ fid_relationship -> ใช้ ComboBox */}
                 <div>
                   <label className={labelCls}>ความสัมพันธ์ (FID Relationship)</label>
                   <div ref={refs.fid_relationship}>
@@ -923,6 +996,8 @@ const CustomerAdd = () => {
                       placeholder={relLoading ? "กำลังโหลด..." : "— เลือกความสัมพันธ์ —"}
                       error={!!errors.fid_relationship}
                       disabled={relLoading}
+                      buttonRef={comboBtnRefs.fid_relationship} // NEW
+                      onEnterNext={() => focusNextFromIndex(11)}   // index ของ fid_relationship
                     />
                   </div>
                   {errors.fid_relationship && <p className={errorTextCls}>{errors.fid_relationship}</p>}
@@ -933,6 +1008,7 @@ const CustomerAdd = () => {
             {/* ปุ่ม */}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
+                ref={submitBtnRef}
                 type="submit"
                 disabled={submitting}
                 className="inline-flex items-center justify-center rounded-2xl 

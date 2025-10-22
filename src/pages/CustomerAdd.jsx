@@ -6,7 +6,7 @@ import { apiAuth } from "../lib/api"
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-// Thai citizen ID validator (keep from original)
+// ตรวจเลขบัตรประชาชนไทย (ใช้ต่อเมื่อค้นหาจากชื่อแล้วได้ 13 หลัก)
 function validateThaiCitizenId(id) {
   const cid = onlyDigits(id)
   if (cid.length !== 13) return false
@@ -27,72 +27,48 @@ function useDebounce(value, delay = 400) {
 }
 
 /** **********************************************************************
- * จังหวัดสุรินทร์ (เหมือนหน้า Signup): รายการอำเภอ (17) + ตำบลต่ออำเภอ
- * - พยายามโหลดจาก API ก่อน (เช่น /geo/*) ถ้าไม่มีใช้ fallback ด้านล่าง
+ * จังหวัดสุรินทร์: รายการอำเภอ (ครบ 17) และตำบล (ตามหน้า MemberSignup)
+ * - พยายามดึงจาก API ก่อน (เช่น /geo/*) → ถ้าไม่มีใช้ fallback ด้านล่าง
  *********************************************************************** */
 const PROV_SURIN = "สุรินทร์"
+
+// ✅ ครบ 17 อำเภอ (แบบเดียวกับ MemberSignup)
 const AMPHOES_SURIN = [
-  "เมืองสุรินทร์","จอมพระ","ชุมพลบุรี","ท่าตูม","ปราสาท","กาบเชิง","รัตนบุรี","สนม","ศีขรภูมิ",
-  "สังขะ","ลำดวน","สำโรงทาบ","โนนนารายณ์","บัวเชด","พนมดงรัก","ศรีณรงค์","เขวาสินรินทร์",
+  "เมืองสุรินทร์","จอมพระ","ชุมพลบุรี","ท่าตูม","ปราสาท","กาบเชิง","รัตนบุรี","สนม",
+  "ศีขรภูมิ","สังขะ","ลำดวน","สำโรงทาบ","โนนนารายณ์","บัวเชด","พนมดงรัก","ศรีณรงค์","เขวาสินรินทร์",
 ]
+
+// ✅ Mapping ตำบลตามหน้า MemberSignup
 const TAMBONS_BY_AMPHOE = {
-  "เมืองสุรินทร์": [
+  "เมืองสุรินทร์":[
     "ในเมือง","สวาย","ตั้งใจ","เพี้ยราม","นาดี","ท่าสว่าง","สลักได","ตาอ็อง","สำโรง","แกใหญ่",
     "นอกเมือง","คอโค","เฉนียง","เทนมีย์","นาบัว","เมืองที","ราม","บุฤๅษี","ตระแสง","แสลงพันธ์","กาเกาะ"
   ],
-  "สังขะ": [
-    "สังขะ","ขอนแตก","ดม","พระแก้ว","บ้านจารย์","กระเทียม","สะกาด","ตาตุม","ทับทัน","ตาคง","บ้านชบ","เทพรักษา"
-  ],
-  "ปราสาท": [
+  "สังขะ":[ "สังขะ","ขอนแตก","ดม","พระแก้ว","บ้านจารย์","กระเทียม","สะกาด","ตาตุม","ทับทัน","ตาคง","บ้านชบ","เทพรักษา" ],
+  "ปราสาท":[
     "กังแอน","ทมอ","ทุ่งมน","ไพล","ตาเบา","หนองใหญ่","ปรือ","บ้านไทร","โคกยาง","โคกสะอาด",
     "โชคนาสาม","เชื้อเพลิง","ปราสาททนง","ตานี","บ้านพลวง","กันตวจระมวล","สมุด","ประทัดบุ"
   ],
-  "รัตนบุรี": [
-    "รัตนบุรี","ธาตุ","แก","ดอนแรด","หนองบัวทอง","หนองบัวบาน","ไผ่","เบิด","น้ำเขียว","กุดขาคีม","ยางสว่าง","ทับใหญ่"
-  ],
-  "ท่าตูม": [
-    "ท่าตูม","กระโพ","พรมเทพ","โพนครก","เมืองแก","บะ","หนองบัว","บัวโคก","หนองเมธี","ทุ่งกุลา"
-  ],
-  "จอมพระ": [
-    "จอมพระ","เมืองลีง","กระหาด","บุแกรง","หนองสนิท","บ้านผือ","ลุ่มระวี","ชุมแสง","เป็นสุข"
-  ],
-  "สนม": [
-    "สนม","แคน","โพนโก","หนองระฆัง","นานวน","หัวงัว","หนองอียอ"
-  ],
-  "ศีขรภูมิ": [
+  "รัตนบุรี":[ "รัตนบุรี","ธาตุ","แก","ดอนแรด","หนองบัวทอง","หนองบัวบาน","ไผ่","เบิด","น้ำเขียว","กุดขาคีม","ยางสว่าง","ทับใหญ่" ],
+  "ท่าตูม":[ "ท่าตูม","กระโพ","พรมเทพ","โพนครก","เมืองแก","บะ","หนองบัว","บัวโคก","หนองเมธี","ทุ่งกุลา" ],
+  "จอมพระ":[ "จอมพระ","เมืองลีง","กระหาด","บุแกรง","หนองสนิท","บ้านผือ","ลุ่มระวี","ชุมแสง","เป็นสุข" ],
+  "สนม":[ "สนม","แคน","โพนโก","หนองระฆัง","นานวน","หัวงัว","หนองอียอ" ],
+  "ศีขรภูมิ":[
     "ระแงง","ตรึม","จารพัต","ยาง","แตล","หนองบัว","คาละแมะ","หนองเหล็ก","หนองขวาว","ช่างปี่",
     "กุดหวาย","ขวาวใหญ่","นารุ่ง","ตรมไพร","ผักไหม"
   ],
-  "ลำดวน": [
-    "ลำดวน","โชคเหนือ","ตรำดม","อู่โลก","ตระเปียงเตีย"
-  ],
-  "บัวเชด": [
-    "บัวเชด","สะเดา","จรัส","ตาวัง","อาโพน","สำเภาลูน"
-  ],
-  "ชุมพลบุรี": [
-    "ชุมพลบุรี","ไพรขลา","นาหนองไผ่","ศรีณรงค์","ยะวึก","เมืองบัว"
-  ],
-  "สำโรงทาบ": [
-    "ชุมพลบุรี","ไพรขลา","นาหนองไผ่","ศรีณรงค์","ยะวึก","เมืองบัว"
-  ],
-  "เขวาสินรินทร์": [
-    "เขวาสินรินทร์","บึง","ตากูก","ปราสาททอง","นาดี"
-  ],
-  "พนมดงรัก": [
-    "บักได","โคกกลาง","จีกแดก","ตาเมียง"
-  ],
-  "ศรีณรงค์": [
-    "ณรงค์","แจนแวน","ตรวจ","หนองแวง","ศรีสุข"
-  ],
-  "โนนนารายณ์": [
-    "หนองหลวง","คำผง","โนน","ระเวียง","หนองเทพ"
-  ],
-  "กาบเชิง": [
-    "กาบเชิง","คูตัน","ด่าน","แนงมุด","โคกตะเคียน","ตะเคียน"
-  ],
+  "ลำดวน":[ "ลำดวน","โชคเหนือ","ตรำดม","อู่โลก","ตระเปียงเตีย" ],
+  "บัวเชด":[ "บัวเชด","สะเดา","จรัส","ตาวัง","อาโพน","สำเภาลูน" ],
+  "ชุมพลบุรี":[ "ชุมพลบุรี","ไพรขลา","นาหนองไผ่","ศรีณรงค์","ยะวึก","เมืองบัว" ],
+  "สำโรงทาบ":[ "ชุมพลบุรี","ไพรขลา","นาหนองไผ่","ศรีณรงค์","ยะวึก","เมืองบัว" ],
+  "เขวาสินรินทร์":[ "เขวาสินรินทร์","บึง","ตากูก","ปราสาททอง","นาดี" ],
+  "พนมดงรัก":[ "บักได","โคกกลาง","จีกแดก","ตาเมียง" ],
+  "ศรีณรงค์":[ "ณรงค์","แจนแวน","ตรวจ","หนองแวง","ศรีสุข" ],
+  "โนนนารายณ์":[ "หนองหลวง","คำผง","โนน","ระเวียง","หนองเทพ" ],
+  "กาบเชิง":[ "กาบเชิง","คูตัน","ด่าน","แนงมุด","โคกตะเคียน","ตะเคียน" ],
 }
 
-/** ---------- Styles (match Signup) ---------- */
+/** ---------- Styles ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -103,7 +79,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- Reusable Section Card ---------- */
+/** ---------- SectionCard (เหมือน MemberSignup) ---------- */
 function SectionCard({ title, subtitle, children, className = "" }) {
   return (
     <div
@@ -120,7 +96,7 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- ComboBox (same behavior/look as Signup) ---------- */
+/** ---------- ComboBox (ยกมาจาก MemberSignup) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -223,9 +199,8 @@ function ComboBox({
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
           disabled ? "bg-slate-200 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          error
-            ? "border-red-400 ring-2 ring-red-300/70"
-            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
+          error ? "border-red-400 ring-2 ring-red-300/70"
+                : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
           "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80"
         )}
         aria-haspopup="listbox"
@@ -277,7 +252,7 @@ function ComboBox({
   )
 }
 
-/** ---------- DateInput (keep) ---------- */
+/** ---------- DateInput (เดิม) ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
@@ -310,19 +285,29 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
+/** ---------- Helpers: โหลดอำเภอ/ตำบลแบบเดียวกับ MemberSignup ---------- */
+const shapeOptions = (arr = [], labelKey = "name", valueKey = "id") =>
+  arr.map((x, i) => {
+    const v = String(x?.[valueKey] ?? x?.value ?? x?.id ?? x?.[labelKey] ?? i)
+    const l = String(x?.[labelKey] ?? x?.label ?? x?.name ?? x)
+    return { value: v, label: l }
+  })
+
+const dedupe = (arr) => Array.from(new Set(arr))
+
 /** ---------- Component: CustomerAdd ---------- */
 const CustomerAdd = () => {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [status, setStatus] = useState({ searching: false, message: "", tone: "muted" }) // tone: muted|ok|warn
 
-  // FID relationship options
-  const [relOpts, setRelOpts] = useState([])         // [{id, fid_relationship}]
+  // สำหรับตัวเลือกความสัมพันธ์ FID
+  const [relOpts, setRelOpts] = useState([])   // [{id, fid_relationship}]
   const [relLoading, setRelLoading] = useState(false)
 
-  // จังหวัด/อำเภอ/ตำบล options (เหมือน Signup)
-  const [amphoeOptions, setAmphoeOptions] = useState([]) // {value,label}
-  const [tambonOptions, setTambonOptions] = useState([]) // {value,label}
+  // อำเภอ/ตำบล (options เหมือน MemberSignup)
+  const [amphoeOptions, setAmphoeOptions] = useState([]) // [{value,label}]
+  const [tambonOptions, setTambonOptions] = useState([]) // [{value,label}]
 
   // refs เพื่อเลื่อนโฟกัสไปยัง error ตัวแรก
   const refs = {
@@ -330,8 +315,8 @@ const CustomerAdd = () => {
     full_name: useRef(null),
     address: useRef(null),
     mhoo: useRef(null),
-    district: useRef(null),     // อำเภอ
-    sub_district: useRef(null), // ตำบล
+    sub_district: useRef(null),
+    district: useRef(null),
     province: useRef(null),
     postal_code: useRef(null),
     phone_number: useRef(null),
@@ -341,10 +326,12 @@ const CustomerAdd = () => {
   }
   const topRef = useRef(null)
 
-  // ฟอร์ม
+  // ฟอร์ม (ส่งทุกอินพุตที่ Backend รองรับใน /member/customers/signup)
   const [form, setForm] = useState({
+    // UI-only
     slowdown_rice: false,
 
+    // ลูกค้าทั่วไป (map -> CustomerCreate)
     citizen_id: "",
     full_name: "",
     address: "",
@@ -355,6 +342,7 @@ const CustomerAdd = () => {
     postal_code: "",
     phone_number: "",
 
+    // กลุ่ม FID
     fid: "",
     fid_owner: "",
     fid_relationship: "",
@@ -368,122 +356,24 @@ const CustomerAdd = () => {
       return rest
     })
 
-  /** ---------- Load FID Relationship ---------- */
+  // โหลดตัวเลือก FID Relationship จาก BE
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
         setRelLoading(true)
         const rows = await apiAuth(`/member/members/fid_relationship`)
-        if (!cancelled && Array.isArray(rows)) {
-          setRelOpts(rows)
-        }
-      } catch {} finally {
+        if (!cancelled && Array.isArray(rows)) setRelOpts(rows)
+      } catch {
+        // เงียบไว้
+      } finally {
         if (!cancelled) setRelLoading(false)
       }
     })()
     return () => { cancelled = true }
   }, [])
 
-  /** ---------- Address autofill via member search (same as original) ---------- */
-  const debCid = useDebounce(form.citizen_id, 400)
-  const debName = useDebounce(form.full_name, 400)
-
-  const fetchMemberSearch = async (q) => {
-    try {
-      const arr = await apiAuth(`/member/members/search?q=${encodeURIComponent(q)}`)
-      return Array.isArray(arr) ? arr : []
-    } catch { return [] }
-  }
-
-  const hydrateFromMember = (rec) => {
-    const toStr = (v) => (v == null ? "" : String(v))
-    const addr = {
-      address: toStr(rec.address ?? ""),
-      mhoo: toStr(rec.mhoo ?? ""),
-      sub_district: toStr(rec.sub_district ?? ""),
-      district: toStr(rec.district ?? ""),
-      province: toStr(rec.province ?? ""),
-      postal_code: onlyDigits(toStr(rec.postal_code ?? "")),
-      first_name: toStr(rec.first_name ?? ""),
-      last_name: toStr(rec.last_name ?? ""),
-      phone_number: toStr(rec.phone_number ?? ""),
-      fid: toStr(rec.fid ?? ""),
-      fid_owner: toStr(rec.fid_owner ?? ""),
-      fid_relationship: toStr(rec.fid_relationship ?? ""),
-    }
-    const full = `${addr.first_name} ${addr.last_name}`.trim()
-    setForm((prev) => ({
-      ...prev,
-      full_name: prev.full_name || full,
-      address: prev.address || addr.address,
-      mhoo: prev.mhoo || addr.mhoo,
-      // อำเภอ/ตำบล ให้ผู้ใช้เลือกเองจากดรอปดาวใหม่
-      province: prev.province || addr.province,
-      postal_code: prev.postal_code || addr.postal_code,
-      phone_number: prev.phone_number || addr.phone_number,
-      fid: prev.fid || addr.fid,
-      fid_owner: prev.fid_owner || addr.fid_owner,
-      fid_relationship: prev.fid_relationship || addr.fid_relationship,
-    }))
-  }
-
-  useEffect(() => {
-    const cid = onlyDigits(debCid || "")
-    if (submitting) return
-    if (cid.length !== 13 || !validateThaiCitizenId(cid)) return
-    let cancelled = false
-    ;(async () => {
-      setStatus({ searching: true, message: "กำลังค้นหาจากเลขบัตรประชาชนในฐานสมาชิก...", tone: "muted" })
-      const list = await fetchMemberSearch(cid)
-      if (cancelled) return
-      const found = list.find((r) => onlyDigits(r.citizen_id ?? "") === cid)
-      if (found) {
-        hydrateFromMember(found)
-        setStatus({ searching: false, message: "พบข้อมูลสมาชิกเดิม และเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
-      } else {
-        setStatus({ searching: false, message: "ไม่พบเลขนี้ในฐานสมาชิก จะสร้างลูกค้าใหม่เมื่อบันทึก", tone: "warn" })
-      }
-    })()
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debCid, submitting])
-
-  useEffect(() => {
-    const q = (debName || "").trim()
-    if (submitting) return
-    if (q.length < 2) return
-    let cancelled = false
-    ;(async () => {
-      setStatus({ searching: true, message: "กำลังค้นหาจากชื่อ–สกุลในฐานสมาชิก...", tone: "muted" })
-      const list = await fetchMemberSearch(q)
-      if (cancelled) return
-      const found = list.find((r) => {
-        const f = `${(r.first_name ?? "").trim()} ${(r.last_name ?? "").trim()}`.trim()
-        return f && f.includes(q)
-      })
-      if (found) {
-        const cid = onlyDigits(found.citizen_id ?? "")
-        if (cid.length === 13 && validateThaiCitizenId(cid)) update("citizen_id", cid)
-        hydrateFromMember(found)
-        setStatus({ searching: false, message: "พบข้อมูลสมาชิกเดิม และเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
-      } else {
-        setStatus({ searching: false, message: "ไม่พบชื่อนี้ในฐานสมาชิก", tone: "warn" })
-      }
-    })()
-    return () => { cancelled = true }
-    // eslint-disable-line react-hooks/exhaustive-deps
-  }, [debName, submitting])
-
-  /** ---------- Amphoe/Tambon loader (like Signup) ---------- */
-  const shapeOptions = (arr = [], labelKey = "name", valueKey = "id") =>
-    arr.map((x, i) => {
-      const v = String(x?.[valueKey] ?? x?.value ?? x?.id ?? x?.[labelKey] ?? i)
-      const l = String(x?.[labelKey] ?? x?.label ?? x?.name ?? x)
-      return { value: v, label: l }
-    })
-  const dedupe = (arr) => Array.from(new Set(arr))
-
+  // --- โหลดอำเภอ (พยายามจาก API | fallback คงที่) ---
   const loadAmphoesSurin = async () => {
     const candidates = [
       `/geo/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
@@ -536,36 +426,143 @@ const CustomerAdd = () => {
     setTambonOptions(options.sort((a, b) => a.label.localeCompare(b.label, "th")))
   }
 
-  // init
-  useEffect(() => {
-    loadAmphoesSurin()
-  }, [])
+  // mount: โหลดอำเภอ
+  useEffect(() => { loadAmphoesSurin() }, [])
 
-  // when district changed -> reset + load tambons
+  // รีเซ็ตตำบล & โหลดใหม่เมื่อเปลี่ยนอำเภอ
   useEffect(() => {
     const amphoeLabel = form.district
       ? (amphoeOptions.find((o) => String(o.value) === String(form.district))?.label ?? form.district)
       : ""
-    setForm((prev) => ({ ...prev, sub_district: "" }))
-    clearError("district")
-    clearError("sub_district")
+    update("sub_district", "")
     loadTambonsByAmphoe(amphoeLabel)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.district])
 
-  /** ---------- Validation ---------- */
+  // debounce เพื่อค้นหาอัตโนมัติ (ฝั่งสมาชิก)
+  const debCid = useDebounce(form.citizen_id, 400)
+  const debName = useDebounce(form.full_name, 400)
+
+  /** helper: ดึงข้อมูลจากสมาชิกเดิม (เพื่อเติมอัตโนมัติ) */
+  const fetchMemberSearch = async (q) => {
+    try {
+      const arr = await apiAuth(`/member/members/search?q=${encodeURIComponent(q)}`)
+      return Array.isArray(arr) ? arr : []
+    } catch {
+      return []
+    }
+  }
+
+  /** เติมที่อยู่จากผลสมาชิก */
+  const hydrateFromMember = (rec) => {
+    const toStr = (v) => (v == null ? "" : String(v))
+    const addr = {
+      address: toStr(rec.address ?? ""),
+      mhoo: toStr(rec.mhoo ?? ""),
+      sub_district: toStr(rec.sub_district ?? ""),
+      district: toStr(rec.district ?? ""),
+      province: toStr(rec.province ?? ""),
+      postal_code: onlyDigits(toStr(rec.postal_code ?? "")),
+      first_name: toStr(rec.first_name ?? ""),
+      last_name: toStr(rec.last_name ?? ""),
+      phone_number: toStr(rec.phone_number ?? ""),
+      fid: toStr(rec.fid ?? ""),
+      fid_owner: toStr(rec.fid_owner ?? ""),
+      fid_relationship: toStr(rec.fid_relationship ?? ""),
+    }
+    const full = `${addr.first_name} ${addr.last_name}`.trim()
+
+    // ถ้า district จากสมาชิก มีชื่ออยู่ใน options ให้ตั้งค่า และตรวจตำบลให้สอดคล้อง
+    const hasDistrict = !!amphoeOptions.find((o) => o.label === addr.district || o.value === addr.district)
+    setForm((prev) => ({
+      ...prev,
+      full_name: prev.full_name || full,
+      address: prev.address || addr.address,
+      mhoo: prev.mhoo || addr.mhoo,
+      district: hasDistrict
+        ? (amphoeOptions.find((o) => o.label === addr.district)?.value ?? addr.district)
+        : prev.district,
+      sub_district:
+        hasDistrict && (TAMBONS_BY_AMPHOE[addr.district] || []).includes(addr.sub_district)
+          ? addr.sub_district
+          : prev.sub_district,
+      province: prev.province || addr.province,
+      postal_code: prev.postal_code || addr.postal_code,
+      phone_number: prev.phone_number || addr.phone_number,
+      fid: prev.fid || addr.fid,
+      fid_owner: prev.fid_owner || addr.fid_owner,
+      fid_relationship: prev.fid_relationship || addr.fid_relationship,
+    }))
+  }
+
+  /** ค้นหาด้วย citizen_id กับฝั่งสมาชิก (เพื่อเติมอัตโนมัติ) */
+  useEffect(() => {
+    const cid = onlyDigits(debCid || "")
+    if (submitting) return
+    if (cid.length !== 13 || !validateThaiCitizenId(cid)) return
+    let cancelled = false
+    ;(async () => {
+      setStatus({ searching: true, message: "กำลังค้นหาจากเลขบัตรประชาชนในฐานสมาชิก...", tone: "muted" })
+      const list = await fetchMemberSearch(cid)
+      if (cancelled) return
+      const found = list.find((r) => onlyDigits(r.citizen_id ?? "") === cid)
+      if (found) {
+        hydrateFromMember(found)
+        setStatus({ searching: false, message: "พบข้อมูลสมาชิกเดิม และเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
+      } else {
+        setStatus({ searching: false, message: "ไม่พบเลขนี้ในฐานสมาชิก จะสร้างลูกค้าใหม่เมื่อบันทึก", tone: "warn" })
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debCid, submitting])
+
+  /** ค้นหาด้วยชื่อ–สกุล (ไปดูฝั่งสมาชิก) */
+  useEffect(() => {
+    const q = (debName || "").trim()
+    if (submitting) return
+    if (q.length < 2) return
+    let cancelled = false
+    ;(async () => {
+      setStatus({ searching: true, message: "กำลังค้นหาจากชื่อ–สกุลในฐานสมาชิก...", tone: "muted" })
+      const list = await fetchMemberSearch(q)
+      if (cancelled) return
+      const found = list.find((r) => {
+        const f = `${(r.first_name ?? "").trim()} ${(r.last_name ?? "").trim()}`.trim()
+        return f && f.includes(q)
+      })
+      if (found) {
+        const cid = onlyDigits(found.citizen_id ?? "")
+        if (cid.length === 13 && validateThaiCitizenId(cid)) update("citizen_id", cid)
+        hydrateFromMember(found)
+        setStatus({ searching: false, message: "พบข้อมูลสมาชิกเดิม และเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
+      } else {
+        setStatus({ searching: false, message: "ไม่พบชื่อนี้ในฐานสมาชิก", tone: "warn" })
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debName, submitting])
+
+  /** ตรวจความถูกต้องก่อนส่งเข้า Back */
   const validateAll = () => {
     const e = {}
+
     const cid = onlyDigits(form.citizen_id)
     if (cid.length !== 13) e.citizen_id = "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
+
     if (!form.full_name.trim()) e.full_name = "กรุณากรอกชื่อ–สกุล"
     if (!form.address.trim()) e.address = "กรุณากรอกบ้านเลขที่"
+
     if (!form.district) e.district = "กรุณาเลือกอำเภอ"
     if (!form.sub_district) e.sub_district = "กรุณาเลือกตำบล"
+
     if (!form.province.trim()) e.province = "กรุณากรอกจังหวัด"
-    ;["postal_code","fid"].forEach((k) => {
+
+    ;["postal_code", "fid"].forEach((k) => {
       if (form[k] !== "" && isNaN(Number(form[k]))) e[k] = "ต้องเป็นตัวเลข"
     })
+
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -584,9 +581,9 @@ const CustomerAdd = () => {
         el.focus()
       }
     }
-  }, [errors])
+  }, [errors]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** ---------- Helpers ---------- */
+  /** แปลงชื่อเต็ม -> first_name / last_name */
   const splitName = (full = "") => {
     const parts = full.trim().split(/\s+/).filter(Boolean)
     if (parts.length === 0) return { first_name: "", last_name: "" }
@@ -594,12 +591,14 @@ const CustomerAdd = () => {
     return { first_name: parts[0], last_name: parts.slice(1).join(" ") }
   }
 
-  /** ---------- Submit ---------- */
+  /** บันทึก (POST /member/customers/signup) */
   const handleSubmit = async (ev) => {
     ev.preventDefault()
     if (!validateAll()) return
     setSubmitting(true)
+
     const { first_name, last_name } = splitName(form.full_name)
+
     const payload = {
       first_name,
       last_name,
@@ -611,10 +610,12 @@ const CustomerAdd = () => {
       province: form.province.trim(),
       postal_code: form.postal_code !== "" ? Number(form.postal_code) : null,
       phone_number: form.phone_number.trim() || null,
+      // กลุ่ม FID (optional)
       fid: form.fid !== "" ? Number(form.fid) : null,
       fid_owner: form.fid_owner.trim() || null,
       fid_relationship: form.fid_relationship !== "" ? Number(form.fid_relationship) : null,
     }
+
     try {
       await apiAuth(`/member/customers/signup`, { method: "POST", body: payload })
       alert("บันทึกข้อมูลลูกค้าทั่วไปเรียบร้อย ✅")
@@ -649,10 +650,17 @@ const CustomerAdd = () => {
       fid_owner: "",
       fid_relationship: "",
     })
+    setTambonOptions([])
     requestAnimationFrame(() => {
       try { topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) } catch {}
     })
   }
+
+  // แปลง relOpts -> options สำหรับ ComboBox
+  const fidRelOptions = useMemo(
+    () => relOpts.map((r) => ({ value: String(r.id), label: String(r.fid_relationship) })),
+    [relOpts]
+  )
 
   /** ---------- UI ---------- */
   return (
@@ -798,7 +806,7 @@ const CustomerAdd = () => {
                 />
               </div>
 
-              {/* ✅ อำเภอ (SWAPPED to appear before ตำบล) */}
+              {/* ✅ อำเภอ (district) — ย้ายขึ้นมาแทนตำแหน่งเดิมของ “ตำบล” + ใช้ ComboBox */}
               <div>
                 <label className={labelCls}>อำเภอ</label>
                 <div ref={refs.district}>
@@ -813,7 +821,7 @@ const CustomerAdd = () => {
                 {errors.district && <p className={errorTextCls}>{errors.district}</p>}
               </div>
 
-              {/* ✅ ตำบล (ตามอำเภอที่เลือก) — moved to after district */}
+              {/* ✅ ตำบล (sub_district) — ย้ายลงมาตามหลังอำเภอ + ใช้ ComboBox */}
               <div>
                 <label className={labelCls}>ตำบล</label>
                 <div ref={refs.sub_district}>
@@ -870,11 +878,11 @@ const CustomerAdd = () => {
                   className={baseField}
                   value={form.phone_number}
                   onChange={(e) => update("phone_number", e.target.value)}
-                  placeholder="เช่น 08x-xxx-xxxx"
+                  placeholder="เช่น 021234567"
                 />
               </div>
 
-              {/* บล็อก FID */}
+              {/* บล็อก FID (ส่งขึ้น Back ได้) */}
               <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
                 {/* fid */}
                 <div>
@@ -904,22 +912,19 @@ const CustomerAdd = () => {
                   />
                 </div>
 
-                {/* fid_relationship (from BE) */}
+                {/* ✅ fid_relationship -> ใช้ ComboBox ให้หน้าตาเหมือน MemberSignup */}
                 <div>
                   <label className={labelCls}>ความสัมพันธ์ (FID Relationship)</label>
-                  <select
-                    ref={refs.fid_relationship}
-                    className={cx(baseField, errors.fid_relationship && fieldError)}
-                    value={form.fid_relationship}
-                    onChange={(e) => { clearError("fid_relationship"); update("fid_relationship", e.target.value) }}
-                    onFocus={() => clearError("fid_relationship")}
-                    disabled={relLoading}
-                  >
-                    <option value="">{relLoading ? "กำลังโหลด..." : "— เลือกความสัมพันธ์ —"}</option>
-                    {relOpts.map((r) => (
-                      <option key={r.id} value={r.id}>{r.fid_relationship}</option>
-                    ))}
-                  </select>
+                  <div ref={refs.fid_relationship}>
+                    <ComboBox
+                      options={fidRelOptions}
+                      value={form.fid_relationship}
+                      onChange={(v) => { clearError("fid_relationship"); update("fid_relationship", v) }}
+                      placeholder={relLoading ? "กำลังโหลด..." : "— เลือกความสัมพันธ์ —"}
+                      error={!!errors.fid_relationship}
+                      disabled={relLoading}
+                    />
+                  </div>
                   {errors.fid_relationship && <p className={errorTextCls}>{errors.fid_relationship}</p>}
                 </div>
               </div>

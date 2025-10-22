@@ -854,7 +854,7 @@ const CustomerAdd = () => {
 
               {/* postal_code */}
               <div>
-                <label className={labelCls}>รหัสไปรษณีย์ (ไม่บังคับ)</label>
+                <label className={labelCls}>รหัสไปรษณีย์</label>
                 <input
                   ref={refs.postal_code}
                   inputMode="numeric"

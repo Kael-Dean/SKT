@@ -76,10 +76,9 @@ const baseField =
 
 const fieldError = "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500"
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
-const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- SectionCard (เหมือน MemberSignup) ---------- */
+/** ---------- SectionCard ---------- */
 function SectionCard({ title, subtitle, children, className = "" }) {
   return (
     <div
@@ -96,7 +95,7 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- ComboBox (เปิด dropdown อัตโนมัติ/ด้วย Enter และเลื่อนไปช่องถัดไปหลังเลือกด้วยคีย์บอร์ด) ---------- */
+/** ---------- ComboBox (เปิดแล้วไฮไลต์ตัวแรก/ค่าปัจจุบันอัตโนมัติ) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -107,7 +106,7 @@ function ComboBox({
   disabled = false,
   error = false,
   buttonRef = null,
-  onEnterNext = null, // ใช้เมื่อเลือกด้วยคีย์บอร์ด เพื่อไปช่องถัดไป
+  onEnterNext = null,
 }) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
@@ -121,6 +120,12 @@ function ComboBox({
     return found ? getLabel(found) : ""
   }, [options, value, getLabel, getValue])
 
+  // หาดัชนีของค่าปัจจุบัน
+  const selectedIndex = useMemo(
+    () => options.findIndex((o) => String(getValue(o)) === String(value)),
+    [options, value, getValue]
+  )
+
   useEffect(() => {
     const onClick = (e) => {
       if (!boxRef.current) return
@@ -133,7 +138,18 @@ function ComboBox({
     return () => document.removeEventListener("click", onClick)
   }, [])
 
-  // เปลี่ยนให้ commit รองรับ navigate หลังเลือกด้วยคีย์บอร์ด
+  // ✅ เปิด dropdown: ตั้ง highlight เป็น "ค่าปัจจุบัน" ถ้ามี ไม่งั้นเป็นตัวแรก (index 0)
+  useEffect(() => {
+    if (open) {
+      const idx = selectedIndex >= 0 ? selectedIndex : (options.length ? 0 : -1)
+      setHighlight(idx)
+      if (idx >= 0) {
+        // scroll ให้ตัวที่ไฮไลต์อยู่กลาง ๆ
+        requestAnimationFrame(() => scrollHighlightedIntoView(idx))
+      }
+    }
+  }, [open, selectedIndex, options])
+
   const commit = (opt, { navigate = false } = {}) => {
     const v = String(getValue(opt))
     onChange?.(v, opt)
@@ -162,19 +178,17 @@ function ComboBox({
   const onKeyDown = (e) => {
     if (disabled) return
 
-    // ✅ ถ้ายังไม่เปิด dropdown และกด Enter → เปิด dropdown
+    // ถ้ายังไม่เปิดและกด Enter → เปิด พร้อมไฮไลต์ตัวแรก/ค่าปัจจุบัน
     if (!open && e.key === "Enter") {
       e.preventDefault()
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
+      setOpen(true) // useEffect(open) จะตั้ง highlight ให้อัตโนมัติ
       return
     }
 
-    // เปิด dropdown ด้วย Space หรือ ArrowDown
+    // Space / ArrowDown เพื่อเปิด
     if (!open && (e.key === " " || e.key === "ArrowDown")) {
       e.preventDefault()
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
+      setOpen(true) // useEffect(open) จะตั้ง highlight ให้อัตโนมัติ
       return
     }
     if (!open) return
@@ -196,7 +210,7 @@ function ComboBox({
     } else if (e.key === "Enter") {
       e.preventDefault()
       if (highlight >= 0 && highlight < options.length) {
-        // ✅ เลือกแล้วไปช่องถัดไปอัตโนมัติ
+        // เลือกแล้วไปช่องถัดไปอัตโนมัติ
         commit(options[highlight], { navigate: true })
       }
     } else if (e.key === "Escape") {
@@ -212,9 +226,20 @@ function ComboBox({
         type="button"
         ref={controlRef}
         disabled={disabled}
-        onClick={() => { if (!disabled) setOpen((o) => !o) }}
+        onClick={() => {
+          if (disabled) return
+          setOpen((o) => {
+            const willOpen = !o
+            // ถ้ากำลังจะเปิด ให้ตั้ง highlight ไปที่ค่าปัจจุบัน/ตัวแรก
+            if (!o) {
+              const idx = selectedIndex >= 0 ? selectedIndex : (options.length ? 0 : -1)
+              setHighlight(idx)
+            }
+            return willOpen
+          })
+        }}
         onKeyDown={onKeyDown}
-        // ✅ ใช้บอกฟังก์ชันนำทางว่าอันนี้คือปุ่มของ ComboBox
+        // สำหรับจับว่าเป็นปุ่ม ComboBox (ใช้กับ Enter navigation)
         data-combobox-btn="true"
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
@@ -272,7 +297,7 @@ function ComboBox({
   )
 }
 
-/** ---------- DateInput (เดิม) ---------- */
+/** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
@@ -305,7 +330,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
-/** ---------- Helpers: โหลดอำเภอ/ตำบลแบบเดียวกับ MemberSignup ---------- */
+/** ---------- Helpers: โหลดอำเภอ/ตำบล ---------- */
 const shapeOptions = (arr = [], labelKey = "name", valueKey = "id") =>
   arr.map((x, i) => {
     const v = String(x?.[valueKey] ?? x?.value ?? x?.id ?? x?.[labelKey] ?? i)
@@ -355,12 +380,9 @@ const CustomerAdd = () => {
     fid_relationship: useRef(null),
   }
 
-  // ฟอร์ม (ส่งทุกอินพุตที่ Backend รองรับใน /member/customers/signup)
+  // ฟอร์ม
   const [form, setForm] = useState({
-    // UI-only
     slowdown_rice: false,
-
-    // ลูกค้าทั่วไป (map -> CustomerCreate)
     citizen_id: "",
     full_name: "",
     address: "",
@@ -370,8 +392,6 @@ const CustomerAdd = () => {
     province: "",
     postal_code: "",
     phone_number: "",
-
-    // กลุ่ม FID
     fid: "",
     fid_owner: "",
     fid_relationship: "",
@@ -411,7 +431,7 @@ const CustomerAdd = () => {
       try {
         el.focus()
         try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
-        // ✅ ถ้าเป็นปุ่มของ ComboBox ให้เปิด dropdown อัตโนมัติ
+        // ถ้าเป็นปุ่มของ ComboBox ให้เปิด dropdown + ไฮไลต์ตัวแรก/ค่าปัจจุบันทันที
         if (el?.dataset?.comboboxBtn === "true") {
           requestAnimationFrame(() => { el.click?.() })
         }
@@ -439,7 +459,6 @@ const CustomerAdd = () => {
         const rows = await apiAuth(`/member/members/fid_relationship`)
         if (!cancelled && Array.isArray(rows)) setRelOpts(rows)
       } catch {
-        // เงียบไว้
       } finally {
         if (!cancelled) setRelLoading(false)
       }
@@ -641,7 +660,7 @@ const CustomerAdd = () => {
     return Object.keys(e).length === 0
   }
 
-  // เลื่อนไป error แรก (ปรับให้โฟกัสที่ปุ่ม ComboBox เมื่อ error)
+  // เลื่อนไป error แรก (โฟกัสที่ปุ่ม ComboBox เมื่อ error)
   useEffect(() => {
     const order = [
       "citizen_id","full_name","address","mhoo","district","sub_district","province","postal_code",
@@ -854,7 +873,7 @@ const CustomerAdd = () => {
               </div>
             </div>
 
-            {/* แถวถัดไป: 3 คอลัมน์ทุกบรรทัด */}
+            {/* แถวถัดไป */}
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               {/* address */}
               <div>
@@ -885,7 +904,7 @@ const CustomerAdd = () => {
                 />
               </div>
 
-              {/* ✅ อำเภอ (district) — ใช้ ComboBox */}
+              {/* อำเภอ */}
               <div>
                 <label className={labelCls}>อำเภอ</label>
                 <div ref={refs.district}>
@@ -896,13 +915,13 @@ const CustomerAdd = () => {
                     placeholder="— เลือกอำเภอ —"
                     error={!!errors.district}
                     buttonRef={comboBtnRefs.district}
-                    onEnterNext={() => focusNextFromIndex(4)} // index ของ district ใน enterOrder
+                    onEnterNext={() => focusNextFromIndex(4)}
                   />
                 </div>
                 {errors.district && <p className={errorTextCls}>{errors.district}</p>}
               </div>
 
-              {/* ✅ ตำบล (sub_district) — ใช้ ComboBox */}
+              {/* ตำบล */}
               <div>
                 <label className={labelCls}>ตำบล</label>
                 <div ref={refs.sub_district}>
@@ -914,7 +933,7 @@ const CustomerAdd = () => {
                     error={!!errors.sub_district}
                     disabled={!form.district}
                     buttonRef={comboBtnRefs.sub_district}
-                    onEnterNext={() => focusNextFromIndex(5)} // index ของ sub_district
+                    onEnterNext={() => focusNextFromIndex(5)}
                   />
                 </div>
                 {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
@@ -1000,7 +1019,7 @@ const CustomerAdd = () => {
                   />
                 </div>
 
-                {/* ✅ fid_relationship -> ใช้ ComboBox */}
+                {/* fid_relationship */}
                 <div>
                   <label className={labelCls}>ความสัมพันธ์ (FID Relationship)</label>
                   <div ref={refs.fid_relationship}>
@@ -1012,7 +1031,7 @@ const CustomerAdd = () => {
                       error={!!errors.fid_relationship}
                       disabled={relLoading}
                       buttonRef={comboBtnRefs.fid_relationship}
-                      onEnterNext={() => focusNextFromIndex(11)}   // index ของ fid_relationship
+                      onEnterNext={() => focusNextFromIndex(11)}
                     />
                   </div>
                   {errors.fid_relationship && <p className={errorTextCls}>{errors.fid_relationship}</p>}

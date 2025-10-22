@@ -224,7 +224,7 @@ function StockBringIn() {
   const [klangOptions, setKlangOptions] = useState([])
 
   const initialForm = {
-    // ProductSpecIn
+    // ProductSpecIn (บังคับทุกช่อง)
     product_id: "",
     species_id: "",
     variant_id: "",
@@ -234,12 +234,12 @@ function StockBringIn() {
     program: "",
     business_type: "",
 
-    // CarryOver
+    // CarryOver (บังคับเกือบทุกช่อง)
     co_klang: "",
     price1: "",
-    price2: "", // optional
+    price2: "", // ไม่บังคับ (อย่างน้อยต้องมีหนึ่งราคา)
     co_available: "",
-    comment: "",
+    comment: "", // ไม่บังคับ
   }
 
   const [form, setForm] = useState(initialForm)
@@ -392,9 +392,14 @@ function StockBringIn() {
     if (!form.product_id) m.product_id = true
     if (!form.species_id) m.species_id = true
     if (!form.variant_id) m.variant_id = true
+    if (!form.product_year) m.product_year = true
+    if (!form.condition_id) m.condition_id = true
+    if (!form.field_type) m.field_type = true
+    if (!form.program) m.program = true
+    if (!form.business_type) m.business_type = true
     if (!form.co_klang) m.co_klang = true
     if (pricesArr.length === 0) m.prices = true
-    if (form.co_available === "" || toNumber(form.co_available) < 0) m.co_available = true
+    if (form.co_available === "" || toNumber(form.co_available) <= 0) m.co_available = true
     return m
   }
 
@@ -403,10 +408,15 @@ function StockBringIn() {
     if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
     if (!form.species_id) e.species_id = "กรุณาเลือกชนิดข้าว"
     if (!form.variant_id) e.variant_id = "กรุณาเลือกชั้นย่อย/สายพันธุ์"
+    if (!form.product_year) e.product_year = "กรุณาเลือกปี/ฤดูกาล"
+    if (!form.condition_id) e.condition_id = "กรุณาเลือกสภาพ/เงื่อนไข"
+    if (!form.field_type) e.field_type = "กรุณาเลือกประเภทนา"
+    if (!form.program) e.program = "กรุณาเลือกโปรแกรม"
+    if (!form.business_type) e.business_type = "กรุณาเลือกประเภทธุรกิจ"
     if (!form.co_klang) e.co_klang = "กรุณาเลือกคลังปลายทาง"
     if (pricesArr.length === 0) e.prices = "ต้องมีราคาอย่างน้อย 1 ช่อง และมากกว่า 0"
     if (form.co_available === "") e.co_available = "กรุณากรอกปริมาณยกมา"
-    else if (toNumber(form.co_available) < 0) e.co_available = "ปริมาณต้องไม่น้อยกว่า 0"
+    else if (toNumber(form.co_available) <= 0) e.co_available = "ปริมาณต้องมากกว่า 0"
     setErrors(e)
     return { ok: Object.keys(e).length === 0, e }
   }
@@ -483,6 +493,11 @@ function StockBringIn() {
     product_id: productRef,
     species_id: speciesRef,
     variant_id: variantRef,
+    product_year: yearRef,
+    condition_id: conditionRef,
+    field_type: fieldTypeRef,
+    program: programRef,
+    business_type: businessRef,
     co_klang: klangRef,
     co_available: coAvailableRef,
     prices: price1Ref,
@@ -506,7 +521,19 @@ function StockBringIn() {
   }
 
   const focusFirstInvalid = (hints, e) => {
-    const order = ["product_id", "species_id", "variant_id", "co_klang", "co_available", "prices"]
+    const order = [
+      "product_id",
+      "species_id",
+      "variant_id",
+      "product_year",
+      "condition_id",
+      "field_type",
+      "program",
+      "business_type",
+      "co_klang",
+      "co_available",
+      "prices",
+    ]
     const firstKey = order.find((k) => hints[k] || e[k])
     if (!firstKey) return
     // ชี้แดงแบบ hint และโฟกัสช่องแรกที่ผิด
@@ -533,15 +560,15 @@ function StockBringIn() {
         product_id: Number(form.product_id),
         species_id: Number(form.species_id),
         variant_id: Number(form.variant_id),
-        product_year: form.product_year === "" ? null : Number(form.product_year),
-        condition_id: form.condition_id === "" ? null : Number(form.condition_id),
-        field_type: form.field_type === "" ? null : Number(form.field_type),
-        program: form.program === "" ? null : Number(form.program),
-        business_type: form.business_type === "" ? null : Number(form.business_type),
+        product_year: Number(form.product_year),
+        condition_id: Number(form.condition_id),
+        field_type: Number(form.field_type),
+        program: Number(form.program),
+        business_type: Number(form.business_type),
       },
       co_klang: Number(form.co_klang),
-      prices: pricesArr, // 1-2 รายการ, > 0
-      co_available: form.co_available === "" ? 0 : Number(form.co_available),
+      prices: pricesArr, // ต้องมีอย่างน้อย 1 ค่า
+      co_available: Number(form.co_available),
       comment: form.comment?.trim() || null,
     }
 
@@ -575,7 +602,7 @@ function StockBringIn() {
           <h2 className="mb-3 text-xl font-semibold">กำหนดสเปคสินค้า</h2>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <label className={labelCls}>ประเภทสินค้า</label>
+              <label className={labelCls}>ประเภทสินค้า<span className="text-red-500"> *</span></label>
               <ComboBox
                 options={productOptions}
                 value={form.product_id}
@@ -592,7 +619,7 @@ function StockBringIn() {
             </div>
 
             <div>
-              <label className={labelCls}>ชนิดข้าว (Species)</label>
+              <label className={labelCls}>ชนิดข้าว (Species)<span className="text-red-500"> *</span></label>
               <ComboBox
                 options={speciesOptions}
                 value={form.species_id}
@@ -609,7 +636,7 @@ function StockBringIn() {
             </div>
 
             <div>
-              <label className={labelCls}>ชั้นย่อย/สายพันธุ์ (Variant)</label>
+              <label className={labelCls}>ชั้นย่อย/สายพันธุ์ (Variant)<span className="text-red-500"> *</span></label>
               <ComboBox
                 options={variantOptions}
                 value={form.variant_id}
@@ -626,69 +653,88 @@ function StockBringIn() {
             </div>
 
             <div>
-              <label className={labelCls}>ปีสินค้า/ฤดูกาล</label>
+              <label className={labelCls}>ปีสินค้า/ฤดูกาล<span className="text-red-500"> *</span></label>
               <ComboBox
                 options={yearOptions}
                 value={form.product_year}
-                onChange={(v) => update("product_year", v)}
+                onChange={(v) => { clearError("product_year"); clearHint("product_year"); update("product_year", v) }}
+                error={!!errors.product_year}
+                hintRed={!!missingHints.product_year}
+                clearHint={() => clearHint("product_year")}
                 placeholder="— เลือกปี/ฤดูกาล —"
                 buttonRef={yearRef}
                 enterMovesFocus
                 onEnterWhenClosed={() => focusNextAndOpenIfCombo(yearRef)}
               />
-              <p className={helpTextCls}>ไม่ระบุก็ได้</p>
+              {errors.product_year && <p className={errorTextCls}>{errors.product_year}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>สภาพ/เงื่อนไข</label>
+              <label className={labelCls}>สภาพ/เงื่อนไข<span className="text-red-500"> *</span></label>
               <ComboBox
                 options={conditionOptions}
                 value={form.condition_id}
-                onChange={(v) => update("condition_id", v)}
+                onChange={(v) => { clearError("condition_id"); clearHint("condition_id"); update("condition_id", v) }}
+                error={!!errors.condition_id}
+                hintRed={!!missingHints.condition_id}
+                clearHint={() => clearHint("condition_id")}
                 placeholder="— เลือกสภาพ/เงื่อนไข —"
                 buttonRef={conditionRef}
                 enterMovesFocus
                 onEnterWhenClosed={() => focusNextAndOpenIfCombo(conditionRef)}
               />
+              {errors.condition_id && <p className={errorTextCls}>{errors.condition_id}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>ประเภทนา</label>
+              <label className={labelCls}>ประเภทนา<span className="text-red-500"> *</span></label>
               <ComboBox
                 options={fieldTypeOptions}
                 value={form.field_type}
-                onChange={(v) => update("field_type", v)}
+                onChange={(v) => { clearError("field_type"); clearHint("field_type"); update("field_type", v) }}
+                error={!!errors.field_type}
+                hintRed={!!missingHints.field_type}
+                clearHint={() => clearHint("field_type")}
                 placeholder="— เลือกประเภทนา —"
                 buttonRef={fieldTypeRef}
                 enterMovesFocus
                 onEnterWhenClosed={() => focusNextAndOpenIfCombo(fieldTypeRef)}
               />
+              {errors.field_type && <p className={errorTextCls}>{errors.field_type}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>โปรแกรม</label>
+              <label className={labelCls}>โปรแกรม<span className="text-red-500"> *</span></label>
               <ComboBox
                 options={programOptions}
                 value={form.program}
-                onChange={(v) => update("program", v)}
+                onChange={(v) => { clearError("program"); clearHint("program"); update("program", v) }}
+                error={!!errors.program}
+                hintRed={!!missingHints.program}
+                clearHint={() => clearHint("program")}
                 placeholder="— เลือกโปรแกรม —"
                 buttonRef={programRef}
                 enterMovesFocus
                 onEnterWhenClosed={() => focusNextAndOpenIfCombo(programRef)}
               />
+              {errors.program && <p className={errorTextCls}>{errors.program}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>ประเภทธุรกิจ</label>
+              <label className={labelCls}>ประเภทธุรกิจ<span className="text-red-500"> *</span></label>
               <ComboBox
                 options={businessOptions}
                 value={form.business_type}
-                onChange={(v) => update("business_type", v)}
+                onChange={(v) => { clearError("business_type"); clearHint("business_type"); update("business_type", v) }}
+                error={!!errors.business_type}
+                hintRed={!!missingHints.business_type}
+                clearHint={() => clearHint("business_type")}
                 placeholder="— เลือกประเภทธุรกิจ —"
                 buttonRef={businessRef}
                 enterMovesFocus
                 onEnterWhenClosed={() => focusNextAndOpenIfCombo(businessRef)}
               />
+              {errors.business_type && <p className={errorTextCls}>{errors.business_type}</p>}
             </div>
           </div>
         </div>
@@ -698,7 +744,7 @@ function StockBringIn() {
           <h2 className="mb-3 text-xl font-semibold">คลังปลายทางและปริมาณยกเข้า</h2>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <label className={labelCls}>เลือกคลังปลายทาง</label>
+              <label className={labelCls}>เลือกคลังปลายทาง<span className="text-red-500"> *</span></label>
               <ComboBox
                 options={klangOptions}
                 value={form.co_klang}
@@ -715,7 +761,7 @@ function StockBringIn() {
             </div>
 
             <div>
-              <label className={labelCls}>ปริมาณยกมา (กก.)</label>
+              <label className={labelCls}>ปริมาณยกมา (กก.)<span className="text-red-500"> *</span></label>
               <input
                 ref={coAvailableRef}
                 inputMode="decimal"
@@ -728,14 +774,14 @@ function StockBringIn() {
                 aria-invalid={errors.co_available ? true : undefined}
               />
               {errors.co_available && <p className={errorTextCls}>{errors.co_available}</p>}
-              <p className={helpTextCls}>ระบุได้ 0 หรือมากกว่า</p>
+              <p className={helpTextCls}>ต้องมากกว่า 0</p>
             </div>
           </div>
         </div>
 
         {/* ราคายกเข้า */}
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <h2 className="mb-3 text-xl font-semibold">ราคายกเข้า</h2>
+          <h2 className="mb-3 text-xl font-semibold">ราคายกเข้า<span className="text-red-500"> *</span></h2>
           <div className="grid gap-4 md:grid-cols-4">
             <div>
               <label className={labelCls}>ราคา 1 (บาท/กก.)</label>

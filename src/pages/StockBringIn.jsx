@@ -223,7 +223,7 @@ function StockBringIn() {
   const [businessOptions, setBusinessOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
 
-  const [form, setForm] = useState({
+  const initialForm = {
     // ProductSpecIn
     product_id: "",
     species_id: "",
@@ -240,7 +240,9 @@ function StockBringIn() {
     price2: "", // optional
     co_available: "",
     comment: "",
-  })
+  }
+
+  const [form, setForm] = useState(initialForm)
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
   /** ---------- helpers ---------- */
@@ -406,7 +408,7 @@ function StockBringIn() {
     if (form.co_available === "") e.co_available = "กรุณากรอกปริมาณยกมา"
     else if (toNumber(form.co_available) < 0) e.co_available = "ปริมาณต้องไม่น้อยกว่า 0"
     setErrors(e)
-    return Object.keys(e).length === 0
+    return { ok: Object.keys(e).length === 0, e }
   }
 
   /** ---------- ===== Keyboard Flow: Enter ไล่โฟกัส + เปิด dropdown ถัดไป ===== ---------- */
@@ -476,12 +478,55 @@ function StockBringIn() {
     }
   }
 
+  /** ---------- Helper: focus + scroll to first invalid ---------- */
+  const fieldRefByKey = {
+    product_id: productRef,
+    species_id: speciesRef,
+    variant_id: variantRef,
+    co_klang: klangRef,
+    co_available: coAvailableRef,
+    prices: price1Ref,
+  }
+
+  const scrollAndFocus = (ref) => {
+    const el = ref?.current
+    if (!el) return
+    try {
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+      // หากเป็น ComboBox (button) ให้โฟกัส + เปิดรายการเพื่อให้เลือกได้ทันที
+      el.focus({ preventScroll: true })
+      const hasPopup = el.getAttribute?.("aria-haspopup")
+      if (hasPopup === "listbox" && el.getAttribute("aria-expanded") !== "true") {
+        // เปิดหลังเลื่อนจบเล็กน้อย
+        setTimeout(() => {
+          if (el.getAttribute("aria-expanded") !== "true") el.click()
+        }, 120)
+      }
+    } catch (_) {}
+  }
+
+  const focusFirstInvalid = (hints, e) => {
+    const order = ["product_id", "species_id", "variant_id", "co_klang", "co_available", "prices"]
+    const firstKey = order.find((k) => hints[k] || e[k])
+    if (!firstKey) return
+    // ชี้แดงแบบ hint และโฟกัสช่องแรกที่ผิด
+    setMissingHints((prev) => ({ ...prev, [firstKey]: true }))
+    const ref = fieldRefByKey[firstKey]
+    // รอให้ DOM อัปเดตแล้วค่อยเลื่อน
+    setTimeout(() => scrollAndFocus(ref), 0)
+  }
+
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault()
     const hints = computeMissingHints()
     setMissingHints(hints)
-    if (!validate()) return
+
+    const { ok, e: ev } = validate()
+    if (!ok) {
+      focusFirstInvalid(hints, ev)
+      return
+    }
 
     const payload = {
       spec: {
@@ -504,9 +549,13 @@ function StockBringIn() {
     try {
       await post("/carryover/create", payload)
       alert("บันทึกยอดยกมาสำเร็จ ✅")
-      setForm((f) => ({ ...f, price1: "", price2: "", co_available: "", comment: "" }))
+      // รีเซ็ตค่าทุกอย่าง + ล้าง error/hint + เด้งไปบนสุด + โฟกัสช่องแรก
+      setForm(initialForm)
       setErrors({})
       setMissingHints({})
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      // โฟกัสประเภทสินค้าเล็กน้อยหลังเลื่อน
+      setTimeout(() => productRef.current?.focus(), 200)
     } catch (err) {
       console.error(err)
       const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
@@ -764,15 +813,7 @@ function StockBringIn() {
 
           <button
             type="button"
-            onClick={() =>
-              setForm((f) => ({
-                ...f,
-                price1: "",
-                price2: "",
-                co_available: "",
-                comment: "",
-              }))
-            }
+            onClick={() => setForm(initialForm)}
             className="inline-flex items-center justify-center rounded-2xl 
               border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
               shadow-sm transition-all duration-300 ease-out
@@ -781,7 +822,7 @@ function StockBringIn() {
               dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
               dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
           >
-            ล้างเฉพาะราคากับปริมาณ
+            ล้างฟอร์มทั้งหมด
           </button>
         </div>
       </div>

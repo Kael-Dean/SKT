@@ -86,12 +86,10 @@ function StockTransferIn() {
     weight_out: "",  // กก. (จำนวนเต็ม)
     quality_note: "",
 
-    // สิ่งเจือปน (%)
-    impurity_percent: "",
-
-    // จากคำขอ (แสดงอย่างเดียว)
-    price_per_kilo: "", // ราคาต้นทุน/กก. จากคำขอฝั่งโอนออก (ถ้ามี)
-    dest_quality: "",   // คุณภาพ (ตัวเลข)
+    // ต้องกรอก
+    dest_quality: "",        // คุณภาพ (0–100)
+    impurity_percent: "",    // สิ่งเจือปน (0–100)
+    price_per_kilo: "",      // ราคาต้นทุน/กก. (> 0)
   })
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
@@ -159,28 +157,26 @@ function StockTransferIn() {
   const dateRef = useRef(null)
   const weightInRef = useRef(null)
   const weightOutRef = useRef(null)
-  const impurityRef = useRef(null)
   const destQualityRef = useRef(null)
+  const impurityRef = useRef(null)
+  const priceRef = useRef(null)
 
-  // Anchor (โฟกัสได้) สำหรับฟิลด์ที่เป็น disabled input
-  const priceAnchorRef = useRef(null)
+  // Anchor (โฟกัสได้) สำหรับช่องรวมต้นทุน (disabled)
   const totalCostAnchorRef = useRef(null)
 
   const noteRef = useRef(null)
   const submitBtnRef = useRef(null)
 
-  // ORDER ใหม่ตามที่ผู้ใช้ต้องการ:
-  // weight_out → dest_quality → impurity → price_per_kilo → total_cost → submit
+  // ORDER ตามต้องการ: weight_out → dest_quality → impurity → price_per_kilo → total_cost → submit
   const orderedRefs = [
     dateRef,
     weightInRef,
     weightOutRef,
     destQualityRef,
     impurityRef,
-    priceAnchorRef,
+    priceRef,
     totalCostAnchorRef,
     submitBtnRef,
-    // (วาง noteRef ไว้ท้ายสุด เผื่อใช้ Tab ต่อเอง)
   ]
 
   const focusNext = (refObj) => {
@@ -217,6 +213,16 @@ function StockTransferIn() {
     if (form.weight_in === "" || weightIn <= 0) m.weight_in = true
     if (form.weight_out === "" || weightOut < 0) m.weight_out = true
     if (netWeightInt <= 0) m.net_weight = true
+
+    const dq = Number(form.dest_quality)
+    if (form.dest_quality === "" || !isFinite(dq) || dq < 0 || dq > 100) m.dest_quality = true
+
+    const ip = Number(form.impurity_percent)
+    if (form.impurity_percent === "" || !isFinite(ip) || ip < 0 || ip > 100) m.impurity_percent = true
+
+    const ppk = Number(form.price_per_kilo)
+    if (form.price_per_kilo === "" || !isFinite(ppk) || ppk <= 0) m.price_per_kilo = true
+
     return m
   }
 
@@ -227,14 +233,19 @@ function StockTransferIn() {
     if (form.weight_in === "" || weightIn <= 0) e.weight_in = "น้ำหนักชั่งเข้า ต้องเป็นจำนวนเต็มมากกว่า 0"
     if (form.weight_out === "" || weightOut < 0) e.weight_out = "น้ำหนักชั่งออก ต้องเป็นจำนวนเต็ม (≥ 0)"
     if (netWeightInt <= 0) e.net_weight = "น้ำหนักสุทธ้องมากกว่า 0 (ชั่งเข้า − ชั่งออก)"
-    if (form.impurity_percent !== "") {
-      const ip = Number(form.impurity_percent)
-      if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "กรุณากรอก 0–100"
-    }
-    if (form.dest_quality !== "") {
-      const q = Number(form.dest_quality)
-      if (!isFinite(q)) e.dest_quality = "กรุณากรอกตัวเลข"
-    }
+
+    const dq = Number(form.dest_quality)
+    if (form.dest_quality === "") e.dest_quality = "กรุณากรอกคุณภาพ (0–100)"
+    else if (!isFinite(dq) || dq < 0 || dq > 100) e.dest_quality = "คุณภาพต้องเป็นตัวเลข 0–100"
+
+    const ip = Number(form.impurity_percent)
+    if (form.impurity_percent === "") e.impurity_percent = "กรุณากรอกสิ่งเจือปน (%)"
+    else if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "สิ่งเจือปนต้องเป็นตัวเลข 0–100"
+
+    const ppk = Number(form.price_per_kilo)
+    if (form.price_per_kilo === "") e.price_per_kilo = "กรุณากรอกราคาต้นทุน/กก."
+    else if (!isFinite(ppk) || ppk <= 0) e.price_per_kilo = "ราคาต้นทุน/กก. ต้องมากกว่า 0"
+
     setErrors(e)
     return { ok: Object.keys(e).length === 0, e }
   }
@@ -245,8 +256,9 @@ function StockTransferIn() {
     weight_in: weightInRef,
     weight_out: weightOutRef,
     net_weight: weightInRef,       // ให้ไปเริ่มที่ชั่งเข้า
-    impurity_percent: impurityRef,
     dest_quality: destQualityRef,
+    impurity_percent: impurityRef,
+    price_per_kilo: priceRef,
   }
 
   const scrollAndFocus = (ref) => {
@@ -270,8 +282,9 @@ function StockTransferIn() {
       "weight_in",
       "weight_out",
       "net_weight",
-      "impurity_percent",
       "dest_quality",
+      "impurity_percent",
+      "price_per_kilo",
     ]
     const firstKey = order.find((k) => hints[k] || e[k])
     if (!firstKey) return
@@ -292,17 +305,16 @@ function StockTransferIn() {
       return
     }
 
-    // สร้าง payload ตรงกับ TransferConfirm (ฝั่ง BE)
+    // payload สำหรับยืนยันรับเข้า
     const payload = {
       action: "ACCEPT",
       dest_entry_weight: weightIn,                 // จำนวนเต็ม
       dest_exit_weight: weightOut,                 // จำนวนเต็ม
       dest_weight: netWeightInt,                   // จำนวนเต็ม (สำคัญ! TempStock เป็น Integer)
-      dest_impurity: form.impurity_percent === "" ? null : Number(form.impurity_percent),
-      dest_quality: form.dest_quality === "" ? null : Number(form.dest_quality),
+      dest_impurity: Number(form.impurity_percent),
+      dest_quality: Number(form.dest_quality),
       receiver_note: form.quality_note?.trim() || null,
-      // ช่วยส่ง dest_price ให้ BE เก็บประกอบ ถ้ามี price_per_kilo
-      dest_price: pricePerKilo ? pricePerKilo * netWeightInt : null,
+      dest_price: pricePerKilo * netWeightInt,
     }
 
     setSubmitting(true)
@@ -467,7 +479,7 @@ function StockTransferIn() {
             </div>
           </div>
 
-          {/* กล่อง: ชั่งน้ำหนักและบันทึก */}
+            {/* กล่อง: ชั่งน้ำหนักและบันทึก */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ชั่งน้ำหนักและบันทึก</h2>
 
@@ -530,40 +542,40 @@ function StockTransferIn() {
             {/* แถวที่ 2: คุณภาพ & สิ่งเจือปน */}
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
-                <label className={labelCls}>คุณภาพ</label>
+                <label className={labelCls}>คุณภาพ <span className="text-red-500">*</span></label>
                 <input
                   ref={destQualityRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  className={cx(baseField, errors.dest_quality && "border-red-400 ring-2 ring-red-300/70")}
+                  className={cx(baseField, redFieldCls("dest_quality"))}
                   value={form.dest_quality}
                   onChange={(e) => update("dest_quality", onlyDigits(e.target.value))}
-                  onFocus={() => clearError("dest_quality")}
+                  onFocus={() => { clearError("dest_quality"); clearHint("dest_quality") }}
                   onKeyDown={(e) => onEnterKey(e, destQualityRef)}
-                  placeholder="กรอกตัวเลข เช่น 95"
+                  placeholder="กรอก 0–100"
                   aria-invalid={errors.dest_quality ? true : undefined}
                 />
                 {errors.dest_quality && <p className={errorTextCls}>{errors.dest_quality}</p>}
               </div>
 
               <div>
-                <label className={labelCls}>สิ่งเจือปน (%)</label>
+                <label className={labelCls}>สิ่งเจือปน (%) <span className="text-red-500">*</span></label>
                 <input
                   ref={impurityRef}
                   inputMode="decimal"
-                  className={cx(baseField, errors.impurity_percent && "border-red-400 ring-2 ring-red-300/70")}
+                  className={cx(baseField, redFieldCls("impurity_percent"))}
                   value={form.impurity_percent}
                   onChange={(e) => {
                     const v = e.target.value.replace(/[^\d.]/g, "")
                     update("impurity_percent", v)
                   }}
-                  onFocus={() => clearError("impurity_percent")}
+                  onFocus={() => { clearError("impurity_percent"); clearHint("impurity_percent") }}
                   onKeyDown={(e) => onEnterKey(e, impurityRef)}
-                  placeholder="เช่น 2.5"
+                  placeholder="กรอก 0–100"
                   aria-invalid={errors.impurity_percent ? true : undefined}
                 />
                 {errors.impurity_percent && <p className={errorTextCls}>{errors.impurity_percent}</p>}
-                <p className={helpTextCls}>กรอกเป็นตัวเลข 0–100 (เว้นว่างได้)</p>
+                <p className={helpTextCls}>กรอกเป็นตัวเลข 0–100</p>
               </div>
             </div>
           </div>
@@ -572,24 +584,21 @@ function StockTransferIn() {
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ต้นทุนและคุณภาพ</h2>
             <div className="grid gap-4 md:grid-cols-3">
-              {/* Anchor (focusable) ครอบช่องราคาต้นทุน/กก. */}
-              <div
-                ref={priceAnchorRef}
-                tabIndex={0}
-                role="group"
-                onKeyDown={(e) => onEnterKey(e, priceAnchorRef)}
-                className="focus:outline-none focus:ring-2 focus:ring-emerald-500/30 rounded-2xl"
-              >
-                <label className={labelCls}>ราคาต้นทุน/กก. (บาท)</label>
+              <div>
+                <label className={labelCls}>ราคาต้นทุน/กก. (บาท) <span className="text-red-500">*</span></label>
                 <input
+                  ref={priceRef}
                   inputMode="decimal"
-                  className={cx(baseField, fieldDisabled, "bg-slate-100 dark:bg-slate-700")}
+                  className={cx(baseField, redFieldCls("price_per_kilo"))}
                   value={form.price_per_kilo}
                   onChange={(e) => update("price_per_kilo", e.target.value.replace(/[^\d.]/g, ""))}
-                  placeholder="ออโต้จากคำขอ"
-                  disabled
+                  onFocus={() => { clearError("price_per_kilo"); clearHint("price_per_kilo") }}
+                  onKeyDown={(e) => onEnterKey(e, priceRef)}
+                  placeholder="เช่น 9.50"
+                  aria-invalid={errors.price_per_kilo ? true : undefined}
                 />
-                <p className={helpTextCls}>ออโต้ฟิลจากคำขอฝั่งโอนออก (ถ้ามี)</p>
+                {errors.price_per_kilo && <p className={errorTextCls}>{errors.price_per_kilo}</p>}
+                <p className={helpTextCls}>ต้องมากกว่า 0</p>
               </div>
 
               {/* Anchor (focusable) ครอบช่องรวมต้นทุน */}

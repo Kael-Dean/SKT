@@ -26,26 +26,39 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- ComboBox ---------- */
-function ComboBox({
-  options = [],
-  value,
-  onChange,
-  placeholder = "— เลือก —",
-  getLabel = (o) => o?.label ?? "",
-  getValue = (o) => o?.id ?? o?.value ?? "",
-  disabled = false,
-  error = false,
-  buttonRef = null,
-  hintRed = false,
-  clearHint = () => {},
-}) {
+/** ---------- ComboBox (forwardRef + open/close/focus + onMoveNext) ---------- */
+const ComboBox = forwardRef(function ComboBox(
+  {
+    options = [],
+    value,
+    onChange,
+    placeholder = "— เลือก —",
+    getLabel = (o) => o?.label ?? "",
+    getValue = (o) => o?.id ?? o?.value ?? "",
+    disabled = false,
+    error = false,
+    hintRed = false,
+    clearHint = () => {},
+    onMoveNext, // ← ใหม่: เมื่อผู้ใช้กด Enter ให้เลื่อนไปช่องถัดไป
+  },
+  ref
+) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
   const boxRef = useRef(null)
   const listRef = useRef(null)
-  const internalBtnRef = useRef(null)
-  const controlRef = buttonRef || internalBtnRef
+  const buttonRef = useRef(null)
+
+  useImperativeHandle(ref, () => ({
+    focus: () => buttonRef.current?.focus(),
+    open: () => {
+      if (!disabled) {
+        setOpen(true)
+        setHighlight((h) => (h >= 0 ? h : 0))
+      }
+    },
+    close: () => setOpen(false),
+  }))
 
   const selectedLabel = useMemo(() => {
     const found = options.find((o) => String(getValue(o)) === String(value))
@@ -64,13 +77,16 @@ function ComboBox({
     return () => document.removeEventListener("click", onClick)
   }, [])
 
-  const commit = (opt) => {
+  const commit = (opt, moveNextAfter = false) => {
     const v = String(getValue(opt))
     onChange?.(v, opt)
     setOpen(false)
     setHighlight(-1)
     clearHint?.()
-    requestAnimationFrame(() => controlRef.current?.focus())
+    requestAnimationFrame(() => {
+      buttonRef.current?.focus()
+      if (moveNextAfter) onMoveNext?.()
+    })
   }
 
   const scrollHighlightedIntoView = (index) => {
@@ -89,7 +105,22 @@ function ComboBox({
 
   const onKeyDown = (e) => {
     if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+
+    // ปรับพฤติกรรม Enter: ใช้เป็น "ไปช่องถัดไป" แทนการเปิดดรอปดาวน์
+    if (e.key === "Enter") {
+      e.preventDefault()
+      if (open && highlight >= 0 && highlight < options.length) {
+        // ถ้าเปิดอยู่และมีไฮไลท์ → เลือกแล้วไปช่องถัดไป
+        commit(options[highlight], true)
+      } else {
+        // ถ้ายังไม่เปิด → ข้ามไปช่องถัดไปเลย
+        onMoveNext?.()
+      }
+      return
+    }
+
+    // เปิดด้วย Space/ArrowDown (เอา Enter ออกแล้ว)
+    if (!open && (e.key === " " || e.key === "ArrowDown")) {
       e.preventDefault()
       setOpen(true)
       setHighlight((h) => (h >= 0 ? h : 0))
@@ -112,9 +143,6 @@ function ComboBox({
         requestAnimationFrame(() => scrollHighlightedIntoView(prev))
         return prev
       })
-    } else if (e.key === "Enter") {
-      e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
     } else if (e.key === "Escape") {
       e.preventDefault()
       setOpen(false)
@@ -126,7 +154,7 @@ function ComboBox({
     <div className="relative" ref={boxRef}>
       <button
         type="button"
-        ref={controlRef}
+        ref={buttonRef}
         disabled={disabled}
         onClick={() => {
           if (!disabled) {
@@ -172,7 +200,7 @@ function ComboBox({
                 role="option"
                 aria-selected={isChosen}
                 onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)}
+                onClick={() => commit(opt /* moveNextAfter */)}
                 className={cx(
                   "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
                   isActive
@@ -192,7 +220,7 @@ function ComboBox({
       )}
     </div>
   )
-}
+})
 
 /** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
@@ -674,6 +702,79 @@ function StockTransferOut() {
     }
   }
 
+  /** ---------- Keyboard flow: Enter → next (and auto-open dropdown) ---------- */
+  // refs ของทุกช่องตามลำดับที่ผู้ใช้ต้องการ
+  const driverRef = useRef(null)
+  const plateRef = useRef(null)
+  const fromBranchRef = useRef(null)
+  const fromKlangRef = useRef(null)
+  const toBranchRef = useRef(null)
+  const toKlangRef = useRef(null)
+  const productRef = useRef(null)
+  const riceRef = useRef(null)
+  const subriceRef = useRef(null)
+  const conditionRef = useRef(null)
+  const fieldRef = useRef(null)
+  const yearRef = useRef(null)
+  const programRef = useRef(null)
+  const businessRef = useRef(null)
+  const weightInRef = useRef(null)
+  const weightOutRef = useRef(null)
+  const costRef = useRef(null)
+  const impurityRef = useRef(null)
+  const saveBtnRef = useRef(null)
+
+  const getFlow = () => {
+    // ข้ามฟิลด์ที่ disabled ตามสภาพจริงของหน้า
+    return [
+      { ref: driverRef, type: "input", disabled: false },
+      { ref: plateRef, type: "input", disabled: false },
+      { ref: fromBranchRef, type: "combo", disabled: false },
+      { ref: fromKlangRef, type: "combo", disabled: !form.from_branch_id },
+      { ref: toBranchRef, type: "combo", disabled: false },
+      { ref: toKlangRef, type: "combo", disabled: !form.to_branch_id },
+      { ref: productRef, type: "combo", disabled: false },
+      { ref: riceRef, type: "combo", disabled: !form.product_id },
+      { ref: subriceRef, type: "combo", disabled: !form.rice_id },
+      { ref: conditionRef, type: "combo", disabled: true }, // locked
+      { ref: fieldRef, type: "combo", disabled: false },
+      { ref: yearRef, type: "combo", disabled: false },
+      { ref: programRef, type: "combo", disabled: false },
+      { ref: businessRef, type: "combo", disabled: true }, // locked
+      { ref: weightInRef, type: "input", disabled: false },
+      { ref: weightOutRef, type: "input", disabled: false },
+      // ข้าม "น้ำหนักสุทธิ" (disabled)
+      { ref: costRef, type: "input", disabled: false },
+      // ข้าม "ราคาสุทธิ" (disabled)
+      { ref: impurityRef, type: "input", disabled: false },
+      { ref: saveBtnRef, type: "button", disabled: false },
+    ].filter((i) => !i.disabled)
+  }
+
+  const focusNextFromRef = (currentRef) => {
+    const arr = getFlow()
+    const idx = arr.findIndex((i) => i.ref === currentRef)
+    const next = idx >= 0 ? arr[idx + 1] : null
+    if (!next) return
+    const target = next.ref.current
+    if (!target) return
+
+    // ถ้าเป็น ComboBox → focus แล้วเปิดดรอปดาวน์อัตโนมัติ
+    if (next.type === "combo") {
+      target.focus?.()
+      target.open?.()
+    } else {
+      target.focus?.()
+    }
+  }
+
+  const enterToNext = (refObj) => (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      focusNextFromRef(refObj)
+    }
+  }
+
   /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
@@ -686,7 +787,7 @@ function StockTransferOut() {
             <h2 className="mb-3 text-xl font-semibold">ข้อมูลการโอน</h2>
 
             <div className="grid gap-4 md:grid-cols-3">
-              {/* วันที่ */}
+              {/* วันที่ (ไม่ใส่ใน flow ตามที่ผู้ใช้ระบุ) */}
               <div>
                 <label className={labelCls}>วันที่โอน</label>
                 <DateInput
@@ -707,6 +808,7 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>ชื่อผู้ขนส่ง</label>
                 <input
+                  ref={driverRef}
                   className={cx(baseField, redFieldCls("driver_name"))}
                   value={form.driver_name}
                   onChange={(e) => update("driver_name", e.target.value)}
@@ -714,6 +816,7 @@ function StockTransferOut() {
                     clearError("driver_name")
                     clearHint("driver_name")
                   }}
+                  onKeyDown={enterToNext(driverRef)}
                   placeholder="เช่น นายสมชาย ขยันงาน"
                   aria-invalid={errors.driver_name ? true : undefined}
                 />
@@ -724,6 +827,7 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>ทะเบียนรถขนส่ง</label>
                 <input
+                  ref={plateRef}
                   className={cx(baseField, redFieldCls("plate_number"))}
                   value={form.plate_number}
                   onChange={(e) => update("plate_number", e.target.value)}
@@ -731,6 +835,7 @@ function StockTransferOut() {
                     clearError("plate_number")
                     clearHint("plate_number")
                   }}
+                  onKeyDown={enterToNext(plateRef)}
                   placeholder="เช่น 1ขข-1234 กทม."
                   aria-invalid={errors.plate_number ? true : undefined}
                 />
@@ -741,9 +846,11 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>สาขาต้นทาง</label>
                 <ComboBox
+                  ref={fromBranchRef}
                   options={fromBranchOptions}
                   value={form.from_branch_id}
                   getValue={(o) => o.id}
+                  onMoveNext={() => focusNextFromRef(fromBranchRef)}
                   onChange={(_val, found) => {
                     clearError("from_branch_id")
                     clearHint("from_branch_id")
@@ -762,9 +869,11 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>คลังต้นทาง</label>
                 <ComboBox
+                  ref={fromKlangRef}
                   options={fromKlangOptions}
                   value={form.from_klang_id}
                   getValue={(o) => o.id}
+                  onMoveNext={() => focusNextFromRef(fromKlangRef)}
                   onChange={(_val, found) => {
                     clearError("from_klang_id")
                     clearHint("from_klang_id")
@@ -785,9 +894,11 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>สาขาปลายทาง</label>
                 <ComboBox
+                  ref={toBranchRef}
                   options={toBranchOptions}
                   value={form.to_branch_id}
                   getValue={(o) => o.id}
+                  onMoveNext={() => focusNextFromRef(toBranchRef)}
                   onChange={(_val, found) => {
                     clearError("to_branch_id")
                     clearHint("to_branch_id")
@@ -806,9 +917,11 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>คลังปลายทาง</label>
                 <ComboBox
+                  ref={toKlangRef}
                   options={toKlangOptions}
                   value={form.to_klang_id}
                   getValue={(o) => o.id}
+                  onMoveNext={() => focusNextFromRef(toKlangRef)}
                   onChange={(_val, found) => {
                     clearError("to_klang_id")
                     clearHint("to_klang_id")
@@ -836,8 +949,10 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>ประเภทสินค้า</label>
                 <ComboBox
+                  ref={productRef}
                   options={productOptions}
                   value={form.product_id}
+                  onMoveNext={() => focusNextFromRef(productRef)}
                   onChange={(id, found) => {
                     clearError("product_id")
                     clearHint("product_id")
@@ -859,8 +974,10 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>ชนิดข้าว</label>
                 <ComboBox
+                  ref={riceRef}
                   options={riceOptions}
                   value={form.rice_id}
+                  onMoveNext={() => focusNextFromRef(riceRef)}
                   onChange={(id, found) => {
                     clearError("rice_id")
                     clearHint("rice_id")
@@ -881,8 +998,10 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
                 <ComboBox
+                  ref={subriceRef}
                   options={subriceOptions}
                   value={form.subrice_id}
+                  onMoveNext={() => focusNextFromRef(subriceRef)}
                   onChange={(id, found) => {
                     clearError("subrice_id")
                     clearHint("subrice_id")
@@ -901,8 +1020,10 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>สภาพ/เงื่อนไข</label>
                 <ComboBox
+                  ref={conditionRef}
                   options={conditionOptions}
                   value={form.condition_id}
+                  onMoveNext={() => focusNextFromRef(conditionRef)}
                   onChange={(id, found) => {
                     update("condition_id", id)
                     update("condition_label", found?.label ?? "")
@@ -916,8 +1037,10 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>ประเภทนา</label>
                 <ComboBox
+                  ref={fieldRef}
                   options={fieldOptions}
                   value={form.field_type_id}
+                  onMoveNext={() => focusNextFromRef(fieldRef)}
                   onChange={(id, found) => {
                     clearError("field_type_id")
                     clearHint("field_type_id")
@@ -935,8 +1058,10 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>ปี/ฤดูกาล</label>
                 <ComboBox
+                  ref={yearRef}
                   options={yearOptions}
                   value={form.rice_year_id}
+                  onMoveNext={() => focusNextFromRef(yearRef)}
                   onChange={(id, found) => {
                     update("rice_year_id", id)
                     update("rice_year_label", found?.label ?? "")
@@ -949,8 +1074,10 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
                 <ComboBox
+                  ref={programRef}
                   options={programOptions}
                   value={form.program_id}
+                  onMoveNext={() => focusNextFromRef(programRef)}
                   onChange={(id, found) => {
                     update("program_id", id)
                     update("program_label", found?.label ?? "")
@@ -963,8 +1090,10 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>ประเภทธุรกิจ</label>
                 <ComboBox
+                  ref={businessRef}
                   options={businessOptions}
                   value={form.business_type_id}
+                  onMoveNext={() => focusNextFromRef(businessRef)}
                   onChange={(id, found) => {
                     clearError("business_type_id")
                     clearHint("business_type_id")
@@ -988,6 +1117,7 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>น้ำหนักขาเข้า (รถเปล่า) กก.</label>
                 <input
+                  ref={weightInRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
                   className={cx(baseField, redFieldCls("weight_in"))}
@@ -997,6 +1127,7 @@ function StockTransferOut() {
                     clearError("weight_in")
                     clearHint("weight_in")
                   }}
+                  onKeyDown={enterToNext(weightInRef)}
                   placeholder="เช่น 9000"
                   aria-invalid={errors.weight_in ? true : undefined}
                 />
@@ -1007,6 +1138,7 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>น้ำหนักขาออก (รถ + ข้าว) กก.</label>
                 <input
+                  ref={weightOutRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
                   className={cx(baseField, redFieldCls("weight_out"))}
@@ -1016,6 +1148,7 @@ function StockTransferOut() {
                     clearError("weight_out")
                     clearHint("weight_out")
                   }}
+                  onKeyDown={enterToNext(weightOutRef)}
                   placeholder="เช่น 24000"
                   aria-invalid={errors.weight_out ? true : undefined}
                 />
@@ -1033,11 +1166,13 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>ราคาต้นทุน (บาท/กก.)</label>
                 <input
+                  ref={costRef}
                   inputMode="decimal"
                   className={cx(baseField, errors.cost_per_kg && "border-red-400")}
                   value={form.cost_per_kg}
                   onChange={(e) => update("cost_per_kg", e.target.value.replace(/[^\d.]/g, ""))}
                   onFocus={() => clearError("cost_per_kg")}
+                  onKeyDown={enterToNext(costRef)}
                   placeholder="เช่น 8.50"
                   aria-invalid={errors.cost_per_kg ? true : undefined}
                 />
@@ -1054,11 +1189,13 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>สิ่งเจือปน (%)</label>
                 <input
+                  ref={impurityRef}
                   inputMode="decimal"
                   className={cx(baseField, errors.impurity_percent && "border-red-400")}
                   value={form.impurity_percent}
                   onChange={(e) => update("impurity_percent", e.target.value.replace(/[^\d.]/g, ""))}
                   onFocus={() => clearError("impurity_percent")}
+                  onKeyDown={enterToNext(impurityRef)}
                   placeholder="เช่น 2.5"
                   aria-invalid={errors.impurity_percent ? true : undefined}
                 />
@@ -1086,6 +1223,7 @@ function StockTransferOut() {
           {/* ปุ่ม */}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
+              ref={saveBtnRef}
               type="submit"
               disabled={submitting}
               className="inline-flex items-center justify-center rounded-2xl 

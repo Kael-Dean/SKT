@@ -161,17 +161,26 @@ function StockTransferIn() {
   const weightOutRef = useRef(null)
   const impurityRef = useRef(null)
   const destQualityRef = useRef(null)
+
+  // Anchor (โฟกัสได้) สำหรับฟิลด์ที่เป็น disabled input
+  const priceAnchorRef = useRef(null)
+  const totalCostAnchorRef = useRef(null)
+
   const noteRef = useRef(null)
   const submitBtnRef = useRef(null)
 
+  // ORDER ใหม่ตามที่ผู้ใช้ต้องการ:
+  // weight_out → dest_quality → impurity → price_per_kilo → total_cost → submit
   const orderedRefs = [
     dateRef,
     weightInRef,
     weightOutRef,
-    impurityRef,
     destQualityRef,
-    noteRef,
+    impurityRef,
+    priceAnchorRef,
+    totalCostAnchorRef,
     submitBtnRef,
+    // (วาง noteRef ไว้ท้ายสุด เผื่อใช้ Tab ต่อเอง)
   ]
 
   const focusNext = (refObj) => {
@@ -179,9 +188,16 @@ function StockTransferIn() {
     if (idx === -1) return
     for (let i = idx + 1; i < orderedRefs.length; i++) {
       const el = orderedRefs[i]?.current
-      if (el && !el.disabled && typeof el.focus === "function") {
+      if (el && typeof el.focus === "function") {
         el.focus()
         return
+      } else if (el?.querySelector) {
+        // โฟกัสลูกที่โฟกัสได้ (เช่นภายใน container)
+        const focusable = el.querySelector('input,button,select,textarea,[tabindex]:not([tabindex="-1"])')
+        if (focusable) {
+          focusable.focus()
+          return
+        }
       }
     }
   }
@@ -238,7 +254,6 @@ function StockTransferIn() {
     if (!el) return
     try {
       el.scrollIntoView({ behavior: "smooth", block: "center" })
-      // focus เฉพาะ element ที่โฟกัสได้
       if (typeof el.focus === "function") {
         el.focus({ preventScroll: true })
       } else if (el.querySelector) {
@@ -557,7 +572,14 @@ function StockTransferIn() {
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">ต้นทุนและคุณภาพ</h2>
             <div className="grid gap-4 md:grid-cols-3">
-              <div>
+              {/* Anchor (focusable) ครอบช่องราคาต้นทุน/กก. */}
+              <div
+                ref={priceAnchorRef}
+                tabIndex={0}
+                role="group"
+                onKeyDown={(e) => onEnterKey(e, priceAnchorRef)}
+                className="focus:outline-none focus:ring-2 focus:ring-emerald-500/30 rounded-2xl"
+              >
                 <label className={labelCls}>ราคาต้นทุน/กก. (บาท)</label>
                 <input
                   inputMode="decimal"
@@ -570,7 +592,14 @@ function StockTransferIn() {
                 <p className={helpTextCls}>ออโต้ฟิลจากคำขอฝั่งโอนออก (ถ้ามี)</p>
               </div>
 
-              <div>
+              {/* Anchor (focusable) ครอบช่องรวมต้นทุน */}
+              <div
+                ref={totalCostAnchorRef}
+                tabIndex={0}
+                role="group"
+                onKeyDown={(e) => onEnterKey(e, totalCostAnchorRef)}
+                className="focus:outline-none focus:ring-2 focus:ring-emerald-500/30 rounded-2xl"
+              >
                 <label className={labelCls}>รวมต้นทุน (ประมาณ)</label>
                 <input disabled className={cx(baseField, fieldDisabled)} value={thb(totalCost)} placeholder="—" />
                 <p className={helpTextCls}>คำนวณ = ราคาต้นทุน/กก. × น้ำหนักสุทธิ</p>
@@ -588,7 +617,6 @@ function StockTransferIn() {
                   className={baseField}
                   value={form.quality_note}
                   onChange={(e) => update("quality_note", e.target.value)}
-                  onKeyDown={(e) => onEnterKey(e, noteRef)}
                   placeholder="เช่น ความชื้นสูง แกลบเยอะ หรือเหตุผลกรณีปฏิเสธ"
                 />
               </div>

@@ -1,6 +1,6 @@
-// src/pages/StockTransferOut.jsx
+// src/pages/StockTransferIn.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { get, post } from "../lib/api" // ✅ helper API กลาง
+import { get, post } from "../lib/api"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -13,17 +13,6 @@ const thb = (n) =>
     isFinite(n) ? n : 0
   )
 const cx = (...a) => a.filter(Boolean).join(" ")
-const focusSmooth = (el) => {
-  if (!el) return
-  try {
-    el.scrollIntoView({ behavior: "smooth", block: "center" })
-    el.focus?.({ preventScroll: true })
-    if (typeof el.select === "function" && !el.readOnly && !el.disabled) el.select()
-    if (el.tagName?.toLowerCase() === "input" && el.type === "date") el.showPicker?.()
-  } catch {
-    el.focus?.()
-  }
-}
 
 /** ---------- Styles ---------- */
 const baseField =
@@ -37,199 +26,8 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- ComboBox (รองรับ Enter Navigation) ---------- */
-function ComboBox({
-  options = [],
-  value,
-  onChange,
-  placeholder = "— เลือก —",
-  getLabel = (o) => o?.label ?? "",
-  getValue = (o) => o?.id ?? o?.value ?? "",
-  disabled = false,
-  error = false,
-  buttonRef = null,
-  hintRed = false,
-  clearHint = () => {},
-  onAdvance = () => {}, // ✅ เรียกเมื่อกด Enter เพื่อไปช่องถัดไป
-}) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(-1)
-  const boxRef = useRef(null)
-  const listRef = useRef(null)
-  const internalBtnRef = useRef(null)
-  const controlRef = buttonRef || internalBtnRef
-
-  const selectedLabel = useMemo(() => {
-    const found = options.find((o) => String(getValue(o)) === String(value))
-    return found ? getLabel(found) : ""
-  }, [options, value, getLabel, getValue])
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (!boxRef.current) return
-      if (!boxRef.current.contains(e.target)) {
-        setOpen(false)
-        setHighlight(-1)
-      }
-    }
-    document.addEventListener("click", onClick)
-    return () => document.removeEventListener("click", onClick)
-  }, [])
-
-  const commit = (opt, { advance = false } = {}) => {
-    const v = String(getValue(opt))
-    onChange?.(v, opt)
-    setOpen(false)
-    setHighlight(-1)
-    clearHint?.()
-    if (advance) {
-      requestAnimationFrame(() => onAdvance?.())
-    } else {
-      requestAnimationFrame(() => controlRef.current?.focus())
-    }
-  }
-
-  const scrollHighlightedIntoView = (index) => {
-    const listEl = listRef.current
-    const itemEl = listEl?.children?.[index]
-    if (!listEl || !itemEl) return
-    const itemRect = itemEl.getBoundingClientRect()
-    const listRect = listEl.getBoundingClientRect()
-    const buffer = 6
-    if (itemRect.top < listRect.top + buffer) {
-      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
-    } else if (itemRect.bottom > listRect.bottom - buffer) {
-      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
-    }
-  }
-
-  const onKeyDown = (e) => {
-    if (disabled) return
-    // ---- Enter Navigation (ปิดอยู่) ----
-    if (!open && e.key === "Enter") {
-      e.preventDefault()
-      // ถ้ายังไม่ได้เลือกค่า → เปิด dropdown และไฮไลต์ตัวแรก
-      if (!value) {
-        setOpen(true)
-        setHighlight(0)
-        clearHint?.()
-      } else {
-        // ถ้ามีค่าแล้ว → ไปช่องถัดไป
-        onAdvance?.()
-      }
-      return
-    }
-    // ---- toggle & เปิดด้วย Space/ArrowDown ตามปกติ ----
-    if (!open && (e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault()
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
-      clearHint?.()
-      return
-    }
-    if (!open) return
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const next = h < options.length - 1 ? h + 1 : 0
-        requestAnimationFrame(() => scrollHighlightedIntoView(next))
-        return next
-      })
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const prev = h > 0 ? h - 1 : options.length - 1
-        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
-        return prev
-      })
-    } else if (e.key === "Enter") {
-      e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) {
-        // เลือกแล้วไปต่อเลย
-        commit(options[highlight], { advance: true })
-      }
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      setOpen(false)
-      setHighlight(-1)
-    }
-  }
-
-  return (
-    <div className="relative" ref={boxRef}>
-      <button
-        type="button"
-        ref={controlRef}
-        disabled={disabled}
-        onClick={() => {
-          if (!disabled) {
-            setOpen((o) => !o)
-            clearHint?.()
-          }
-        }}
-        onKeyDown={onKeyDown}
-        onFocus={() => clearHint?.()}
-        className={cx(
-          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          error
-            ? "border-red-400 ring-2 ring-red-300/70"
-            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80",
-          hintRed && "ring-2 ring-red-300 animate-pulse"
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-invalid={error || hintRed ? true : undefined}
-      >
-        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
-      </button>
-
-      {open && (
-        <div
-          ref={listRef}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
-          )}
-          {options.map((opt, idx) => {
-            const label = getLabel(opt)
-            const isActive = idx === highlight
-            const isChosen = String(getValue(opt)) === String(value)
-            return (
-              <button
-                key={String(getValue(opt)) || label || idx}
-                type="button"
-                role="option"
-                aria-selected={isChosen}
-                onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)}
-                className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
-                  isActive
-                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                )}
-              >
-                {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-                )}
-                <span className="flex-1">{label}</span>
-                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** ---------- DateInput (รองรับ Enter Navigation) ---------- */
-const DateInput = forwardRef(function DateInput({ error = false, className = "", onEnter = () => {}, ...props }, ref) {
+/** ---------- DateInput ---------- */
+const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
 
@@ -239,12 +37,6 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
       <input
         type="date"
         ref={inputRef}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault()
-            onEnter?.()
-          }
-        }}
         className={cx(
           baseField,
           "pr-12 cursor-pointer",
@@ -276,598 +68,397 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
-/** ---------- Page ---------- */
-function StockTransferOut() {
+/** ---------- Main Page (รับเข้า) + FormGuard ---------- */
+function StockTransferIn() {
   const [submitting, setSubmitting] = useState(false)
 
-  /** ---------- Dropdown states ---------- */
-  const [productOptions, setProductOptions] = useState([])
-  const [riceOptions, setRiceOptions] = useState([])      // species
-  const [subriceOptions, setSubriceOptions] = useState([]) // variant
-
-  const [fromBranchOptions, setFromBranchOptions] = useState([])
-  const [toBranchOptions, setToBranchOptions] = useState([])
-  const [fromKlangOptions, setFromKlangOptions] = useState([])
-  const [toKlangOptions, setToKlangOptions] = useState([])
-
-  // ✅ เมตาดาต้า
-  const [conditionOptions, setConditionOptions] = useState([])
-  const [fieldOptions, setFieldOptions] = useState([])
-  const [yearOptions, setYearOptions] = useState([])
-  const [programOptions, setProgramOptions] = useState([])
-  const [businessOptions, setBusinessOptions] = useState([])
+  /** ---------- Requests (inbox) ---------- */
+  const [loadingRequests, setLoadingRequests] = useState(false)
+  const [requests, setRequests] = useState([])
 
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
+    transfer_id: null,
     transfer_date: new Date().toISOString().slice(0, 10),
 
-    from_branch_id: null,
-    from_branch_name: "",
-    from_klang_id: null,
-    from_klang_name: "",
-
-    to_branch_id: null,
-    to_branch_name: "",
-    to_klang_id: null,
-    to_klang_name: "",
-
-    // ✅ ใหม่
-    driver_name: "",     // ชื่อผู้ขนส่ง
-    plate_number: "",    // ทะเบียนรถ
-
-    product_id: "",
-    product_name: "",
-    rice_id: "",
-    rice_type: "",
-    subrice_id: "",
-    subrice_name: "",
-
-    condition_id: "",
-    condition_label: "",
-    field_type_id: "",
-    field_type_label: "",
-    rice_year_id: "",
-    rice_year_label: "",
-    program_id: "",
-    program_label: "",
-    business_type_id: "",
-    business_type_label: "",
-
-    // ชั่งรถ
-    weight_in: "",   // รถเปล่า (ขาเข้าโรงชั่ง)
-    weight_out: "",  // รถ + ข้าว (ขาออก)
-    cost_per_kg: "",
+    // ชั่ง/หมายเหตุฝั่งผู้รับ
+    weight_in: "",   // กก. (จำนวนเต็ม)
+    weight_out: "",  // กก. (จำนวนเต็ม)
     quality_note: "",
 
-    impurity_percent: "",
+    // ต้องกรอก
+    dest_quality: "",        // คุณภาพ (0–100)
+    impurity_percent: "",    // สิ่งเจือปน (0–100)
+    price_per_kilo: "",      // ราคาต้นทุน/กก. (> 0)
   })
-
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
-  /** ---------- Derived ---------- */
-  const weightIn = useMemo(() => toInt(form.weight_in), [form.weight_in])     // รถเปล่า
-  const weightOut = useMemo(() => toInt(form.weight_out), [form.weight_out])  // รถ + ข้าว
-  const netWeightInt = useMemo(() => Math.max(weightOut - weightIn, 0), [weightIn, weightOut])
+  const weightIn = useMemo(() => toInt(form.weight_in), [form.weight_in])
+  const weightOut = useMemo(() => toInt(form.weight_out), [form.weight_out])
+  const netWeightInt = useMemo(() => Math.max(weightIn - weightOut, 0), [weightIn, weightOut])
 
-  const costPerKg = useMemo(() => Number(form.cost_per_kg || 0), [form.cost_per_kg])
-  const totalCost = useMemo(() => costPerKg * netWeightInt, [costPerKg, netWeightInt])
+  const pricePerKilo = useMemo(() => Number(form.price_per_kilo || 0), [form.price_per_kilo])
+  const totalCost = useMemo(() => pricePerKilo * netWeightInt, [pricePerKilo, netWeightInt])
 
-  /** ---------- Errors / hints ---------- */
+  /** ---------- FormGuard: state ---------- */
   const [errors, setErrors] = useState({})
   const [missingHints, setMissingHints] = useState({})
-  const hasRed = (key) => !!errors[key] || !!missingHints[key]
-  const redFieldCls = (key) => (hasRed(key) ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : "")
-  const redHintCls = (key) => (missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : "")
-  const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
+
+  const redFieldCls = (key) =>
+    errors[key] || missingHints[key] ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : ""
+  const redHintCls = (key) =>
+    missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : ""
   const clearError = (key) =>
     setErrors((prev) => {
       if (!(key in prev)) return prev
       const { [key]: _omit, ...rest } = prev
       return rest
     })
+  const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
 
-  /** ---------- Refs: ใช้กับ Enter Navigation ---------- */
-  const transferDateRef = useRef(null)
-
-  const driverNameRef = useRef(null)
-  const plateNumberRef = useRef(null)
-
-  const fromBranchBtnRef = useRef(null)
-  const fromKlangBtnRef = useRef(null)
-  const toBranchBtnRef = useRef(null)
-  const toKlangBtnRef = useRef(null)
-
-  const productBtnRef = useRef(null)
-  const riceBtnRef = useRef(null)
-  const subriceBtnRef = useRef(null)
-
-  const fieldTypeBtnRef = useRef(null)
-  const yearBtnRef = useRef(null)
-  const programBtnRef = useRef(null)
-  const businessBtnRef = useRef(null) // disabled, ใช้สำหรับลำดับ/ข้าม
-
-  const weightInRef = useRef(null)
-  const weightOutRef = useRef(null)
-  const costPerKgRef = useRef(null)
-  const impurityRef = useRef(null)
-  const qualityNoteRef = useRef(null)
-
-  const submitBtnRef = useRef(null)
-
-  const refMap = {
-    transfer_date: transferDateRef,
-    driver_name: driverNameRef,
-    plate_number: plateNumberRef,
-
-    from_branch_id: fromBranchBtnRef,
-    from_klang_id: fromKlangBtnRef,
-    to_branch_id: toBranchBtnRef,
-    to_klang_id: toKlangBtnRef,
-
-    product_id: productBtnRef,
-    rice_id: riceBtnRef,
-    subrice_id: subriceBtnRef,
-
-    field_type_id: fieldTypeBtnRef,
-    rice_year_id: yearBtnRef,
-    program_id: programBtnRef,
-    business_type_id: businessBtnRef,
-
-    weight_in: weightInRef,
-    weight_out: weightOutRef,
-    cost_per_kg: costPerKgRef,
-    impurity_percent: impurityRef,
-    quality_note: qualityNoteRef,
-
-    submit: submitBtnRef,
-  }
-
-  const isFieldDisabled = (key) => {
-    switch (key) {
-      case "from_klang_id":
-        return !form.from_branch_id
-      case "to_klang_id":
-        return !form.to_branch_id
-      case "rice_id":
-        return !form.product_id
-      case "subrice_id":
-        return !form.rice_id
-      case "business_type_id":
-        return true
-      case "condition_id":
-        return true
-      case "net_weight":
-      case "total_cost":
-        return true
-      default:
-        return !!refMap[key]?.current?.disabled
-    }
-  }
-
-  const focusField = (key) => {
-    if (key == null) return false
-    if (key !== "submit" && isFieldDisabled(key)) return false
-    const el = refMap[key]?.current
-    if (!el) return false
-    if (el.disabled) return false
-    focusSmooth(el)
-    return true
-  }
-
-  // ลำดับซ้าย→ขวา บน→ล่าง จบที่ปุ่ม submit
-  const navOrder = [
-    "transfer_date",
-    "driver_name",
-    "plate_number",
-
-    "from_branch_id",
-    "from_klang_id",
-    "to_branch_id",
-    "to_klang_id",
-
-    "product_id",
-    "rice_id",
-    "subrice_id",
-
-    // "condition_id",  // ปิดไว้ ข้าม
-    "field_type_id",
-    "rice_year_id",
-    "program_id",
-    // "business_type_id",  // ปิดไว้ ข้าม
-
-    "weight_in",
-    "weight_out",
-    // "net_weight", // disabled
-    "cost_per_kg",
-    // "total_cost", // disabled
-    "impurity_percent",
-    "quality_note",
-
-    "submit",
-  ]
-
-  const focusNextFrom = (currentKey) => {
-    const idx = navOrder.indexOf(currentKey)
-    for (let i = idx + 1; i < navOrder.length; i++) {
-      const key = navOrder[i]
-      if (focusField(key)) return key
-    }
-    return null
-  }
-
-  /** ---------- Load dropdowns ---------- */
+  /** ---------- โหลดรายการคำขอ ---------- */
+  const requestsBoxRef = useRef(null)
   useEffect(() => {
-    const loadStatic = async () => {
+    let timer = null
+    let alive = true
+    async function fetchRequests() {
       try {
-        const [products, branches, conditions, fields, years, programs, businesses] = await Promise.all([
-          get("/order/product/search"),
-          get("/order/branch/search"),
-          get("/order/condition/search"),
-          get("/order/field/search"),
-          get("/order/year/search"),
-          get("/order/program/search"),
-          get("/order/business/search"),
-        ])
-
-        setProductOptions(
-          (products || [])
-            .map((x) => ({
-              id: String(x.id ?? x.product_id ?? x.value ?? ""),
-              label: String(x.product_type ?? x.name ?? x.label ?? "").trim(),
-            }))
-            .filter((o) => o.id && o.label)
-        )
-
-        const brs = (branches || []).map((b) => ({ id: b.id, label: b.branch_name }))
-        setFromBranchOptions(brs)
-        setToBranchOptions(brs)
-
-        // 🔒 เงื่อนไข → แห้ง
-        const allConds = (conditions || []).map((c) => ({ id: c.id, label: c.condition }))
-        const dryCond = allConds.find((c) => c.label === "แห้ง")
-        setConditionOptions(dryCond ? [dryCond] : [])
-        update("condition_id", dryCond?.id ?? "")
-        update("condition_label", dryCond?.label ?? "")
-
-        setFieldOptions(
-          (fields || [])
-            .map((f) => ({ id: f.id, label: f.field ?? f.field_type ?? "" }))
-            .filter((o) => o.id && o.label)
-        )
-
-        setYearOptions((years || []).map((y) => ({ id: y.id, label: y.year })))
-        setProgramOptions((programs || []).map((p) => ({ id: p.id, label: p.program })))
-
-        // 🔒 ประเภทธุรกิจ → ซื้อมาขายไป
-        const allBiz = (businesses || []).map((b) => ({ id: b.id, label: b.business }))
-        const buySell = allBiz.find((b) => b.label === "ซื้อมาขายไป")
-        setBusinessOptions(buySell ? [buySell] : [])
-        update("business_type_id", buySell?.id ?? "")
-        update("business_type_label", buySell?.label ?? "")
+        setLoadingRequests(true)
+        const data = await get(`/transfer/pending/incoming`)
+        if (alive) setRequests(Array.isArray(data) ? data : [])
       } catch (e) {
-        console.error("load static error:", e)
-        setProductOptions([])
-        setFromBranchOptions([])
-        setToBranchOptions([])
-        setConditionOptions([])
-        setFieldOptions([])
-        setYearOptions([])
-        setProgramOptions([])
-        setBusinessOptions([])
+        if (alive) setRequests([])
+      } finally {
+        if (alive) setLoadingRequests(false)
       }
     }
-    loadStatic()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchRequests()
+    timer = setInterval(fetchRequests, 20000)
+    return () => {
+      alive = false
+      if (timer) clearInterval(timer)
+    }
   }, [])
 
-  // product -> species
-  useEffect(() => {
-    const pid = form.product_id
-    setRiceOptions([])
-    setSubriceOptions([])
-    update("rice_id", "")
-    update("rice_type", "")
-    update("subrice_id", "")
-    update("subrice_name", "")
-    if (!pid) return
+  /** ---------- เลือกคำขอ ---------- */
+  const pickRequest = (req) => {
+    update("transfer_id", req.id ?? null)
+    update("price_per_kilo", req?.price_per_kilo != null ? String(req.price_per_kilo) : "")
+    update("weight_in", "")
+    update("weight_out", "")
+    update("impurity_percent", "")
+    update("quality_note", "")
+    update("dest_quality", "")
+    setErrors({})
+    setMissingHints({})
+  }
 
-    const loadSpecies = async () => {
-      try {
-        const arr = await get(`/order/species/search?product_id=${encodeURIComponent(pid)}`)
-        const mapped = (arr || [])
-          .map((x) => ({
-            id: String(x.id ?? x.species_id ?? x.value ?? ""),
-            label: String(x.species ?? x.name ?? x.label ?? "").trim(),
-          }))
-          .filter((o) => o.id && o.label)
-        setRiceOptions(mapped)
-      } catch (e) {
-        console.error("load species error:", e)
-        setRiceOptions([])
+  /** ---------- FormGuard: Enter-next + focus order ---------- */
+  const dateRef = useRef(null)
+  const weightInRef = useRef(null)
+  const weightOutRef = useRef(null)
+  const destQualityRef = useRef(null)
+  const impurityRef = useRef(null)
+  const priceRef = useRef(null)
+
+  // Anchor (โฟกัสได้) สำหรับช่องรวมต้นทุน (disabled)
+  const totalCostAnchorRef = useRef(null)
+
+  const noteRef = useRef(null)
+  const submitBtnRef = useRef(null)
+
+  // ORDER ตามต้องการ: weight_out → dest_quality → impurity → price_per_kilo → total_cost → submit
+  const orderedRefs = [
+    dateRef,
+    weightInRef,
+    weightOutRef,
+    destQualityRef,
+    impurityRef,
+    priceRef,
+    totalCostAnchorRef,
+    submitBtnRef,
+  ]
+
+  const focusNext = (refObj) => {
+    const idx = orderedRefs.findIndex((r) => r === refObj)
+    if (idx === -1) return
+    for (let i = idx + 1; i < orderedRefs.length; i++) {
+      const el = orderedRefs[i]?.current
+      if (el && typeof el.focus === "function") {
+        el.focus()
+        return
+      } else if (el?.querySelector) {
+        // โฟกัสลูกที่โฟกัสได้ (เช่นภายใน container)
+        const focusable = el.querySelector('input,button,select,textarea,[tabindex]:not([tabindex="-1"])')
+        if (focusable) {
+          focusable.focus()
+          return
+        }
       }
     }
-    loadSpecies()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.product_id])
+  }
 
-  // species -> variant
-  useEffect(() => {
-    const sid = form.rice_id
-    setSubriceOptions([])
-    update("subrice_id", "")
-    update("subrice_name", "")
-    if (!sid) return
+  const onEnterKey = (e, currentRef) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      focusNext(currentRef)
+    }
+  }
 
-    const loadVariant = async () => {
-      try {
-        const arr = await get(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)
-        const mapped = (arr || [])
-          .map((x) => ({
-            id: String(x.id ?? x.variant_id ?? x.value ?? ""),
-            label: String(x.variant ?? x.sub_class ?? x.name ?? x.label ?? "").trim(),
-          }))
-          .filter((o) => o.id && o.label)
-        setSubriceOptions(mapped)
-      } catch (e) {
-        console.error("load variant error:", e)
-        setSubriceOptions([])
-      }
-    }
-    loadVariant()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.rice_id])
-
-  // โหลดคลัง (ต้นทาง)
-  useEffect(() => {
-    const bid = form.from_branch_id
-    const bname = form.from_branch_name?.trim()
-    if (bid == null && !bname) {
-      setFromKlangOptions([])
-      update("from_klang_id", null)
-      update("from_klang_name", "")
-      return
-    }
-    const loadKlang = async () => {
-      try {
-        const qs = bid != null ? `branch_id=${bid}` : `branch_name=${encodeURIComponent(bname)}`
-        const arr = await get(`/order/klang/search?${qs}`)
-        setFromKlangOptions((arr || []).map((k) => ({ id: k.id, label: k.klang_name })))
-      } catch (e) {
-        console.error("Load from klang error:", e)
-        setFromKlangOptions([])
-      }
-    }
-    loadKlang()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.from_branch_id, form.from_branch_name])
-
-  // โหลดคลัง (ปลายทาง)
-  useEffect(() => {
-    const bid = form.to_branch_id
-    const bname = form.to_branch_name?.trim()
-    if (bid == null && !bname) {
-      setToKlangOptions([])
-      update("to_klang_id", null)
-      update("to_klang_name", "")
-      return
-    }
-    const loadKlang = async () => {
-      try {
-        const qs = bid != null ? `branch_id=${bid}` : `branch_name=${encodeURIComponent(bname)}`
-        const arr = await get(`/order/klang/search?${qs}`)
-        setToKlangOptions((arr || []).map((k) => ({ id: k.id, label: k.klang_name })))
-      } catch (e) {
-        console.error("Load to klang error:", e)
-        setToKlangOptions([])
-      }
-    }
-    loadKlang()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.to_branch_id, form.to_branch_name])
-
-  /** ---------- Validate ---------- */
+  /** ---------- FormGuard: validate + scroll-to-first-invalid ---------- */
   const computeMissingHints = () => {
     const m = {}
+    if (!form.transfer_id) m.transfer_id = true
     if (!form.transfer_date) m.transfer_date = true
-
-    if (!form.from_branch_id) m.from_branch_id = true
-    if (!form.from_klang_id) m.from_klang_id = true
-    if (!form.to_branch_id) m.to_branch_id = true
-    if (!form.to_klang_id) m.to_klang_id = true
-    if (form.from_branch_id && form.to_branch_id && String(form.from_branch_id) === String(form.to_branch_id)) {
-      m.to_branch_id = true
-    }
-
-    if (!form.driver_name?.trim()) m.driver_name = true
-    if (!form.plate_number?.trim()) m.plate_number = true
-
-    if (!form.product_id) m.product_id = true
-    if (!form.rice_id) m.rice_id = true
-    if (!form.subrice_id) m.subrice_id = true
-
-    if (!form.field_type_id) m.field_type_id = true
-    if (!form.business_type_id) m.business_type_id = true
-
-    if (form.weight_in === "" || toInt(form.weight_in) <= 0) m.weight_in = true
-    if (form.weight_out === "" || toInt(form.weight_out) <= 0) m.weight_out = true
-    if (toInt(form.weight_out) <= toInt(form.weight_in)) m.weight_out = true
+    if (form.weight_in === "" || weightIn <= 0) m.weight_in = true
+    if (form.weight_out === "" || weightOut < 0) m.weight_out = true
     if (netWeightInt <= 0) m.net_weight = true
 
-    if (form.cost_per_kg !== "" && Number(form.cost_per_kg) < 0) m.cost_per_kg = true
+    const dq = Number(form.dest_quality)
+    if (form.dest_quality === "" || !isFinite(dq) || dq < 0 || dq > 100) m.dest_quality = true
+
+    const ip = Number(form.impurity_percent)
+    if (form.impurity_percent === "" || !isFinite(ip) || ip < 0 || ip > 100) m.impurity_percent = true
+
+    const ppk = Number(form.price_per_kilo)
+    if (form.price_per_kilo === "" || !isFinite(ppk) || ppk <= 0) m.price_per_kilo = true
 
     return m
   }
 
   const validate = () => {
     const e = {}
-    if (!form.transfer_date) e.transfer_date = "กรุณาเลือกวันที่โอน"
+    if (!form.transfer_date) e.transfer_date = "กรุณาเลือกวันที่รับเข้า"
+    if (!form.transfer_id) e.transfer_id = "กรุณาเลือกคำขอโอนจากรายการด้านบนก่อน"
+    if (form.weight_in === "" || weightIn <= 0) e.weight_in = "น้ำหนักชั่งเข้า ต้องเป็นจำนวนเต็มมากกว่า 0"
+    if (form.weight_out === "" || weightOut < 0) e.weight_out = "น้ำหนักชั่งออก ต้องเป็นจำนวนเต็ม (≥ 0)"
+    if (netWeightInt <= 0) e.net_weight = "น้ำหนักสุทธ้องมากกว่า 0 (ชั่งเข้า − ชั่งออก)"
 
-    if (!form.from_branch_id) e.from_branch_id = "กรุณาเลือกสาขาต้นทาง"
-    if (!form.from_klang_id) e.from_klang_id = "กรุณาเลือกคลังต้นทาง"
-    if (!form.to_branch_id) e.to_branch_id = "กรุณาเลือกสาขาปลายทาง"
-    if (!form.to_klang_id) e.to_klang_id = "กรุณาเลือกคลังปลายทาง"
-    if (form.from_branch_id && form.to_branch_id && String(form.from_branch_id) === String(form.to_branch_id)) {
-      e.to_branch_id = "สาขาต้นทาง/ปลายทาง ต้องไม่ซ้ำกัน"
-    }
+    const dq = Number(form.dest_quality)
+    if (form.dest_quality === "") e.dest_quality = "กรุณากรอกคุณภาพ (0–100)"
+    else if (!isFinite(dq) || dq < 0 || dq > 100) e.dest_quality = "คุณภาพต้องเป็นตัวเลข 0–100"
 
-    if (!form.driver_name?.trim()) e.driver_name = "กรุณากรอกชื่อผู้ขนส่ง"
-    if (!form.plate_number?.trim()) e.plate_number = "กรุณากรอกทะเบียนรถ"
+    const ip = Number(form.impurity_percent)
+    if (form.impurity_percent === "") e.impurity_percent = "กรุณากรอกสิ่งเจือปน (%)"
+    else if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "สิ่งเจือปนต้องเป็นตัวเลข 0–100"
 
-    if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
-    if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
-    if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
-
-    if (!form.field_type_id) e.field_type_id = "กรุณาเลือกประเภทนา"
-    if (!form.business_type_id) e.business_type_id = "กรุณาเลือกประเภทธุรกิจ"
-
-    const tIn = toInt(form.weight_in)
-    const tOut = toInt(form.weight_out)
-    if (tIn <= 0) e.weight_in = "น้ำหนักขาเข้า (รถเปล่า) ต้องมากกว่า 0"
-    if (tOut <= 0) e.weight_out = "น้ำหนักขาออก (รถ+ข้าว) ต้องมากกว่า 0"
-    if (tOut <= tIn) e.weight_out = "น้ำหนักขาออก ต้องมากกว่า น้ำหนักขาเข้า"
-    if (netWeightInt <= 0) e.net_weight = "น้ำหนักสุทธิต้องมากกว่า 0 (ขาออก − ขาเข้า)"
-
-    if (form.cost_per_kg !== "" && Number(form.cost_per_kg) < 0) e.cost_per_kg = "ราคาต้นทุนต้องไม่ติดลบ"
-
-    if (form.impurity_percent !== "") {
-      const ip = Number(form.impurity_percent)
-      if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "กรุณากรอก 0–100"
-    }
+    const ppk = Number(form.price_per_kilo)
+    if (form.price_per_kilo === "") e.price_per_kilo = "กรุณากรอกราคาต้นทุน/กก."
+    else if (!isFinite(ppk) || ppk <= 0) e.price_per_kilo = "ราคาต้นทุน/กก. ต้องมากกว่า 0"
 
     setErrors(e)
-    return Object.keys(e).length === 0
+    return { ok: Object.keys(e).length === 0, e }
   }
 
-  /** ---------- Builders ---------- */
-  const buildSpec = () => {
-    const product_id = /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id
-    const species_id = /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id
-    const variant_id = /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id
-
-    return {
-      product_id,
-      species_id,
-      variant_id,
-      product_year: form.rice_year_id ? Number(form.rice_year_id) : null,
-      condition_id: form.condition_id ? Number(form.condition_id) : null,
-      field_type: form.field_type_id ? Number(form.field_type_id) : null,
-      program: form.program_id ? Number(form.program_id) : null,
-      business_type: form.business_type_id ? Number(form.business_type_id) : null,
-    }
+  const fieldRefByKey = {
+    transfer_id: requestsBoxRef,   // ชี้ไปที่กล่องรายการคำขอ
+    transfer_date: dateRef,
+    weight_in: weightInRef,
+    weight_out: weightOutRef,
+    net_weight: weightInRef,       // ให้ไปเริ่มที่ชั่งเข้า
+    dest_quality: destQualityRef,
+    impurity_percent: impurityRef,
+    price_per_kilo: priceRef,
   }
 
-  const lookupOriginStock = async (transferQty) => {
+  const scrollAndFocus = (ref) => {
+    const el = ref?.current
+    if (!el) return
     try {
-      const body = { klang_id: Number(form.from_klang_id), spec: buildSpec() }
-      const rows = await post("/transfer/stock/lookup", body)
-      if (!rows || rows.length === 0) throw new Error("ไม่พบสต็อกต้นทางของสเปกนี้ในคลังที่เลือก")
-      const available = Number(rows[0].available ?? 0)
-      if (available < transferQty) {
-        throw new Error(`สต็อกคงเหลือต้นทางไม่พอ (คงเหลือ ${available.toLocaleString()} กก.)`)
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+      if (typeof el.focus === "function") {
+        el.focus({ preventScroll: true })
+      } else if (el.querySelector) {
+        const focusable = el.querySelector('input,button,select,textarea,[tabindex]:not([tabindex="-1"])')
+        focusable?.focus({ preventScroll: true })
       }
-      return true
-    } catch (err) {
-      throw err
-    }
+    } catch {}
   }
 
-  /** ---------- Submit ---------- */
+  const focusFirstInvalid = (hints, e) => {
+    const order = [
+      "transfer_id",
+      "transfer_date",
+      "weight_in",
+      "weight_out",
+      "net_weight",
+      "dest_quality",
+      "impurity_percent",
+      "price_per_kilo",
+    ]
+    const firstKey = order.find((k) => hints[k] || e[k])
+    if (!firstKey) return
+    setMissingHints((prev) => ({ ...prev, [firstKey]: true }))
+    const ref = fieldRefByKey[firstKey]
+    setTimeout(() => scrollAndFocus(ref), 0)
+  }
+
+  /** ---------- Submit (ACCEPT) + FormGuard flow ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault()
     const hints = computeMissingHints()
     setMissingHints(hints)
-    if (!validate()) return
-
-    const transferQty = netWeightInt // ✅ ต้องเป็นจำนวนเต็มกก.
-    if (!(transferQty > 0)) {
-      setErrors((prev) => ({ ...prev, net_weight: "น้ำหนักสุทธิไม่ถูกต้อง" }))
+    const { ok, e: ev } = validate()
+    if (!ok) {
+      focusFirstInvalid(hints, ev)
+      alert("กรุณากรอกข้อมูลที่บังคับให้ครบ (ดูช่องกรอบแดง)")
       return
+    }
+
+    // payload สำหรับยืนยันรับเข้า
+    const payload = {
+      action: "ACCEPT",
+      dest_entry_weight: weightIn,                 // จำนวนเต็ม
+      dest_exit_weight: weightOut,                 // จำนวนเต็ม
+      dest_weight: netWeightInt,                   // จำนวนเต็ม (สำคัญ! TempStock เป็น Integer)
+      dest_impurity: Number(form.impurity_percent),
+      dest_quality: Number(form.dest_quality),
+      receiver_note: form.quality_note?.trim() || null,
+      dest_price: pricePerKilo * netWeightInt,
     }
 
     setSubmitting(true)
     try {
-      // ✅ Pre-check: สต็อกต้นทาง
-      await lookupOriginStock(transferQty)
+      await post(`/transfer/confirm/${encodeURIComponent(form.transfer_id)}`, payload)
+      alert("บันทึกรับเข้าสำเร็จ ✅")
 
-      const payload = {
-        date: form.transfer_date,
-
-        from_branch: form.from_branch_id != null ? Number(form.from_branch_id) : null,
-        from_klang: form.from_klang_id != null ? Number(form.from_klang_id) : 0,
-
-        to_branch: form.to_branch_id != null ? Number(form.to_branch_id) : null,
-        to_klang: form.to_klang_id != null ? Number(form.to_klang_id) : null,
-
-        driver_name: form.driver_name.trim(),
-        plate_number: form.plate_number.trim(),
-
-        spec: buildSpec(),
-
-        // ⚖️ บันทึกค่าชั่ง (รถเปล่า/รถ+ข้าว)
-        entry_weight: toInt(form.weight_in),   // รถเปล่า
-        exit_weight: toInt(form.weight_out),   // รถ + ข้าว
-
-        // ✅ น้ำหนักสุทธิ = ขาออก − ขาเข้า
-        weight: transferQty,
-        impurity: form.impurity_percent === "" ? 0 : Number(form.impurity_percent),
-
-        // ราคา (อาจว่างได้)
-        price_per_kilo: Number(form.cost_per_kg) || 0,
-        price: (Number(form.cost_per_kg) || 0) * transferQty,
-
-        quality: 0,
-
-        // ใช้จำนวนย้ายตาม net เป็นจำนวนเต็ม
-        transfer_qty: transferQty,
-
-        // บันทึกเพิ่มเติม/เหตุผล (ผู้โอน)
-        sender_note: form.quality_note?.trim() || null,
-      }
-
-      await post("/transfer/request", payload)
-
-      alert("บันทึกคำขอโอนออกสำเร็จ ✅")
+      // ล้างฟอร์ม (ยกเว้นวันที่), รีโหลดรายการ, เด้งไปบนสุด + โฟกัสวันที่
       setForm((f) => ({
         ...f,
+        transfer_id: null,
         weight_in: "",
         weight_out: "",
-        cost_per_kg: "",
+        quality_note: "",
         impurity_percent: "",
-        // คงค่า quality_note (บันทึกเพิ่มเติม) ไว้ ไม่ล้าง
+        price_per_kilo: "",
+        dest_quality: "",
       }))
-      requestAnimationFrame(() => focusField("weight_in"))
+      setErrors({})
+      setMissingHints({})
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      setTimeout(() => dateRef.current?.focus(), 200)
+
+      // รีโหลดรายการรอรับเข้า
+      try {
+        const data = await get(`/transfer/pending/incoming`)
+        setRequests(Array.isArray(data) ? data : [])
+      } catch {}
     } catch (err) {
       console.error(err)
-      alert(err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก")
+      const msg = err?.message || ""
+      if (/Integer|จำนวนเต็ม|whole kg|move quantity/i.test(msg)) {
+        alert("ต้องกรอกน้ำหนักเป็น ‘จำนวนเต็มกก.’ เท่านั้น (TempStock เป็น Integer)")
+      } else if (/Insufficient stock|409/.test(msg)) {
+        alert("สต็อกต้นทางไม่พอ กรุณาติดต่อสาขาต้นทาง")
+      } else {
+        alert(msg || "เกิดข้อผิดพลาดระหว่างบันทึก")
+      }
     } finally {
       setSubmitting(false)
     }
   }
 
-  /** ---------- UI ---------- */
+  /** ---------- Reject ---------- */
+  const handleReject = async (reqId) => {
+    if (!reqId) return
+    const note = prompt("ระบุเหตุผลที่ปฏิเสธ (ถ้ามี):") ?? ""
+    try {
+      await post(`/transfer/confirm/${encodeURIComponent(reqId)}`, {
+        action: "REJECT",
+        receiver_note: note.trim() || null,
+      })
+      alert("ปฏิเสธคำขอเรียบร้อย")
+      const data = await get(`/transfer/pending/incoming`)
+      setRequests(Array.isArray(data) ? data : [])
+    } catch (e) {
+      console.error(e)
+      alert(e?.message || "ปฏิเสธไม่สำเร็จ")
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🚚 โอนออกข้าวเปลือก</h1>
+        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">📦 รับเข้าข้าวเปลือก</h1>
 
+        {/* คำขอที่รอเข้าจาก backend */}
+        <div
+          ref={requestsBoxRef}
+          className={cx(
+            "mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800",
+            (errors.transfer_id || missingHints.transfer_id) && "ring-2 ring-red-300"
+          )}
+        >
+          <div className="mb-3 flex items-center gap-3">
+            <h2 className="text-xl font-semibold">คำขอโอนเข้าที่รอดำเนินการ</h2>
+            <span className="inline-flex items-center justify-center rounded-full bg-emerald-100 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
+              {loadingRequests ? "กำลังโหลด..." : `ทั้งหมด ${requests.length} รายการ`}
+            </span>
+          </div>
+
+          {requests.length === 0 ? (
+            <div className="text-slate-600 dark:text-slate-300">ยังไม่มีคำขอโอนเข้ามาในสาขาของคุณ</div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {requests.map((req) => (
+                <div
+                  key={req.id}
+                  className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-semibold">เลขคำขอ: {req.id}</div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleReject(req.id)}
+                        className="rounded-xl border border-red-300 px-3 py-1.5 text-red-600 font-medium hover:bg-red-50 dark:hover:bg-red-900/20"
+                      >
+                        ปฏิเสธ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => pickRequest(req)}
+                        className="rounded-xl bg-emerald-600 px-3 py-1.5 text-white font-medium hover:bg-emerald-700 active:scale-[.98]"
+                      >
+                        รับเข้า
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm text-slate-700 dark:text-slate-300">
+                    <div>จากคลัง (ID): {req.from_klang ?? "-"}</div>
+                    <div>ไปคลัง (ID): {req.to_klang ?? "-"}</div>
+                    <div>สถานะ: {req.status ?? "-"}</div>
+                    {req.price_per_kilo != null && (
+                      <div>ราคาต้นทุน/กก. ที่เสนอ: {Number(req.price_per_kilo).toFixed(2)} บาท</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {errors.transfer_id && requests.length > 0 && (
+            <p className="mt-3 text-sm text-red-500">{errors.transfer_id}</p>
+          )}
+        </div>
+
+        {/* ฟอร์มรับเข้า */}
         <form onSubmit={handleSubmit}>
-          {/* กล่องข้อมูลการโอน */}
+          {/* กล่อง: ข้อมูลการรับเข้า */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">ข้อมูลการโอน</h2>
+            <h2 className="mb-3 text-xl font-semibold">ข้อมูลการรับเข้า</h2>
 
             <div className="grid gap-4 md:grid-cols-3">
-              {/* วันที่ */}
               <div>
-                <label className={labelCls}>วันที่โอน</label>
+                <label className={labelCls}>วันที่รับเข้า</label>
                 <DateInput
-                  ref={transferDateRef}
+                  ref={dateRef}
                   value={form.transfer_date}
-                  onEnter={() => focusNextFrom("transfer_date")}
                   onChange={(e) => {
                     clearError("transfer_date")
                     clearHint("transfer_date")
                     update("transfer_date", e.target.value)
                   }}
+                  onKeyDown={(e) => onEnterKey(e, dateRef)}
                   error={!!errors.transfer_date}
                   className={redHintCls("transfer_date")}
                   aria-invalid={errors.transfer_date ? true : undefined}
@@ -875,326 +466,27 @@ function StockTransferOut() {
                 {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
               </div>
 
-              {/* ✅ ชื่อผู้ขนส่ง */}
               <div>
-                <label className={labelCls}>ชื่อผู้ขนส่ง</label>
+                <label className={labelCls}>เลขคำขอที่เลือก</label>
                 <input
-                  ref={driverNameRef}
-                  className={cx(baseField, redFieldCls("driver_name"))}
-                  value={form.driver_name}
-                  onChange={(e) => update("driver_name", e.target.value)}
-                  onFocus={() => {
-                    clearError("driver_name")
-                    clearHint("driver_name")
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      focusNextFrom("driver_name")
-                    }
-                  }}
-                  placeholder="เช่น นายสมชาย ขยันงาน"
-                  aria-invalid={errors.driver_name ? true : undefined}
+                  disabled
+                  className={cx(baseField, fieldDisabled)}
+                  value={form.transfer_id ?? ""}
+                  placeholder="ยังไม่ได้เลือก"
                 />
-                {errors.driver_name && <p className={errorTextCls}>{errors.driver_name}</p>}
+                {errors.transfer_id && <p className={errorTextCls}>{errors.transfer_id}</p>}
               </div>
-
-              {/* ✅ ทะเบียนรถ */}
-              <div>
-                <label className={labelCls}>ทะเบียนรถขนส่ง</label>
-                <input
-                  ref={plateNumberRef}
-                  className={cx(baseField, redFieldCls("plate_number"))}
-                  value={form.plate_number}
-                  onChange={(e) => update("plate_number", e.target.value)}
-                  onFocus={() => {
-                    clearError("plate_number")
-                    clearHint("plate_number")
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      focusNextFrom("plate_number")
-                    }
-                  }}
-                  placeholder="เช่น 1ขข-1234 กทม."
-                  aria-invalid={errors.plate_number ? true : undefined}
-                />
-                {errors.plate_number && <p className={errorTextCls}>{errors.plate_number}</p>}
-              </div>
-
-              {/* ต้นทาง */}
-              <div>
-                <label className={labelCls}>สาขาต้นทาง</label>
-                <ComboBox
-                  buttonRef={fromBranchBtnRef}
-                  options={fromBranchOptions}
-                  value={form.from_branch_id}
-                  getValue={(o) => o.id}
-                  onChange={(_val, found) => {
-                    clearError("from_branch_id")
-                    clearHint("from_branch_id")
-                    update("from_branch_id", found?.id ?? null)
-                    update("from_branch_name", found?.label ?? "")
-                    update("from_klang_id", null)
-                    update("from_klang_name", "")
-                  }}
-                  placeholder="— เลือกสาขาต้นทาง —"
-                  error={!!errors.from_branch_id}
-                  hintRed={!!missingHints.from_branch_id}
-                  onAdvance={() => focusNextFrom("from_branch_id")}
-                />
-                {errors.from_branch_id && <p className={errorTextCls}>{errors.from_branch_id}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>คลังต้นทาง</label>
-                <ComboBox
-                  buttonRef={fromKlangBtnRef}
-                  options={fromKlangOptions}
-                  value={form.from_klang_id}
-                  getValue={(o) => o.id}
-                  onChange={(_val, found) => {
-                    clearError("from_klang_id")
-                    clearHint("from_klang_id")
-                    update("from_klang_id", found?.id ?? null)
-                    update("from_klang_name", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกคลังต้นทาง —"
-                  disabled={!form.from_branch_id}
-                  error={!!errors.from_klang_id}
-                  hintRed={!!missingHints.from_klang_id}
-                  onAdvance={() => focusNextFrom("from_klang_id")}
-                />
-                {errors.from_klang_id && <p className={errorTextCls}>{errors.from_klang_id}</p>}
-              </div>
-
-              <div className="hidden md:block" />
-
-              {/* ปลายทาง */}
-              <div>
-                <label className={labelCls}>สาขาปลายทาง</label>
-                <ComboBox
-                  buttonRef={toBranchBtnRef}
-                  options={toBranchOptions}
-                  value={form.to_branch_id}
-                  getValue={(o) => o.id}
-                  onChange={(_val, found) => {
-                    clearError("to_branch_id")
-                    clearHint("to_branch_id")
-                    update("to_branch_id", found?.id ?? null)
-                    update("to_branch_name", found?.label ?? "")
-                    update("to_klang_id", null)
-                    update("to_klang_name", "")
-                  }}
-                  placeholder="— เลือกสาขาปลายทาง —"
-                  error={!!errors.to_branch_id}
-                  hintRed={!!missingHints.to_branch_id}
-                  onAdvance={() => focusNextFrom("to_branch_id")}
-                />
-                {errors.to_branch_id && <p className={errorTextCls}>{errors.to_branch_id}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>คลังปลายทาง</label>
-                <ComboBox
-                  buttonRef={toKlangBtnRef}
-                  options={toKlangOptions}
-                  value={form.to_klang_id}
-                  getValue={(o) => o.id}
-                  onChange={(_val, found) => {
-                    clearError("to_klang_id")
-                    clearHint("to_klang_id")
-                    update("to_klang_id", found?.id ?? null)
-                    update("to_klang_name", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกคลังปลายทาง —"
-                  disabled={!form.to_branch_id}
-                  error={!!errors.to_klang_id}
-                  hintRed={!!missingHints.to_klang_id}
-                  onAdvance={() => focusNextFrom("to_klang_id")}
-                />
-                {errors.to_klang_id && <p className={errorTextCls}>{errors.to_klang_id}</p>}
-              </div>
-
-              <div className="hidden md:block" />
             </div>
           </div>
 
-          {/* สินค้า + เมตาดาต้า */}
+            {/* กล่อง: ชั่งน้ำหนักและบันทึก */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
+            <h2 className="mb-3 text-xl font-semibold">ชั่งน้ำหนักและบันทึก</h2>
 
+            {/* แถวที่ 1: น้ำหนักเข้า/ออก/สุทธิ */}
             <div className="grid gap-4 md:grid-cols-3">
-              {/* ประเภทสินค้า */}
               <div>
-                <label className={labelCls}>ประเภทสินค้า</label>
-                <ComboBox
-                  buttonRef={productBtnRef}
-                  options={productOptions}
-                  value={form.product_id}
-                  onChange={(id, found) => {
-                    clearError("product_id")
-                    clearHint("product_id")
-                    update("product_id", id)
-                    update("product_name", found?.label ?? "")
-                    update("rice_id", "")
-                    update("rice_type", "")
-                    update("subrice_id", "")
-                    update("subrice_name", "")
-                  }}
-                  placeholder="— เลือกประเภทสินค้า —"
-                  error={!!errors.product_id}
-                  hintRed={!!missingHints.product_id}
-                  onAdvance={() => focusNextFrom("product_id")}
-                />
-                {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
-              </div>
-
-              {/* ชนิดข้าว */}
-              <div>
-                <label className={labelCls}>ชนิดข้าว</label>
-                <ComboBox
-                  buttonRef={riceBtnRef}
-                  options={riceOptions}
-                  value={form.rice_id}
-                  onChange={(id, found) => {
-                    clearError("rice_id")
-                    clearHint("rice_id")
-                    update("rice_id", id)
-                    update("rice_type", found?.label ?? "")
-                    update("subrice_id", "")
-                    update("subrice_name", "")
-                  }}
-                  placeholder="— เลือกชนิดข้าว —"
-                  disabled={!form.product_id}
-                  error={!!errors.rice_id}
-                  hintRed={!!missingHints.rice_id}
-                  onAdvance={() => focusNextFrom("rice_id")}
-                />
-                {errors.rice_id && <p className={errorTextCls}>{errors.rice_id}</p>}
-              </div>
-
-              {/* ชั้นย่อย */}
-              <div>
-                <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
-                <ComboBox
-                  buttonRef={subriceBtnRef}
-                  options={subriceOptions}
-                  value={form.subrice_id}
-                  onChange={(id, found) => {
-                    clearError("subrice_id")
-                    clearHint("subrice_id")
-                    update("subrice_id", id)
-                    update("subrice_name", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกชั้นย่อย —"
-                  disabled={!form.rice_id}
-                  error={!!errors.subrice_id}
-                  hintRed={!!missingHints.subrice_id}
-                  onAdvance={() => focusNextFrom("subrice_id")}
-                />
-                {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
-              </div>
-
-              {/* สภาพ/เงื่อนไข (locked → แห้ง) */}
-              <div>
-                <label className={labelCls}>สภาพ/เงื่อนไข</label>
-                <ComboBox
-                  buttonRef={undefined}
-                  options={conditionOptions}
-                  value={form.condition_id}
-                  onChange={(id, found) => {
-                    update("condition_id", id)
-                    update("condition_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกสภาพ/เงื่อนไข —"
-                  disabled
-                />
-              </div>
-
-              {/* ประเภทนา */}
-              <div>
-                <label className={labelCls}>ประเภทนา</label>
-                <ComboBox
-                  buttonRef={fieldTypeBtnRef}
-                  options={fieldOptions}
-                  value={form.field_type_id}
-                  onChange={(id, found) => {
-                    clearError("field_type_id")
-                    clearHint("field_type_id")
-                    update("field_type_id", id)
-                    update("field_type_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกประเภทนา —"
-                  error={!!errors.field_type_id}
-                  hintRed={!!missingHints.field_type_id}
-                  onAdvance={() => focusNextFrom("field_type_id")}
-                />
-                {errors.field_type_id && <p className={errorTextCls}>{errors.field_type_id}</p>}
-              </div>
-
-              {/* ปี/ฤดูกาล */}
-              <div>
-                <label className={labelCls}>ปี/ฤดูกาล</label>
-                <ComboBox
-                  buttonRef={yearBtnRef}
-                  options={yearOptions}
-                  value={form.rice_year_id}
-                  onChange={(id, found) => {
-                    update("rice_year_id", id)
-                    update("rice_year_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกปี/ฤดูกาล —"
-                  onAdvance={() => focusNextFrom("rice_year_id")}
-                />
-              </div>
-
-              {/* โปรแกรม */}
-              <div>
-                <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
-                <ComboBox
-                  buttonRef={programBtnRef}
-                  options={programOptions}
-                  value={form.program_id}
-                  onChange={(id, found) => {
-                    update("program_id", id)
-                    update("program_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกโปรแกรม —"
-                  onAdvance={() => focusNextFrom("program_id")}
-                />
-              </div>
-
-              {/* ประเภทธุรกิจ (locked → ซื้อมาขายไป) */}
-              <div>
-                <label className={labelCls}>ประเภทธุรกิจ</label>
-                <ComboBox
-                  buttonRef={businessBtnRef}
-                  options={businessOptions}
-                  value={form.business_type_id}
-                  onChange={(id, found) => {
-                    clearError("business_type_id")
-                    clearHint("business_type_id")
-                    update("business_type_id", id)
-                    update("business_type_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกประเภทธุรกิจ —"
-                  error={!!errors.business_type_id}
-                  hintRed={!!missingHints.business_type_id}
-                  disabled
-                />
-                {errors.business_type_id && <p className={errorTextCls}>{errors.business_type_id}</p>}
-              </div>
-            </div>
-          </div>
-
-          {/* ชั่ง/ราคา */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">ชั่งน้ำหนักและต้นทุน</h2>
-            <div className="grid gap-4 md:grid-cols-4">
-              <div>
-                <label className={labelCls}>น้ำหนักขาเข้า (รถเปล่า) กก.</label>
+                <label className={labelCls}>น้ำหนักชั่งเข้า (กก.)</label>
                 <input
                   ref={weightInRef}
                   inputMode="numeric"
@@ -1206,13 +498,8 @@ function StockTransferOut() {
                     clearError("weight_in")
                     clearHint("weight_in")
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      focusNextFrom("weight_in")
-                    }
-                  }}
-                  placeholder="เช่น 9000"
+                  onKeyDown={(e) => onEnterKey(e, weightInRef)}
+                  placeholder="เช่น 15000"
                   aria-invalid={errors.weight_in ? true : undefined}
                 />
                 {errors.weight_in && <p className={errorTextCls}>{errors.weight_in}</p>}
@@ -1220,7 +507,7 @@ function StockTransferOut() {
               </div>
 
               <div>
-                <label className={labelCls}>น้ำหนักขาออก (รถ + ข้าว) กก.</label>
+                <label className={labelCls}>น้ำหนักชั่งออก (กก.)</label>
                 <input
                   ref={weightOutRef}
                   inputMode="numeric"
@@ -1232,95 +519,114 @@ function StockTransferOut() {
                     clearError("weight_out")
                     clearHint("weight_out")
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      focusNextFrom("weight_out")
-                    }
-                  }}
-                  placeholder="เช่น 24000"
+                  onKeyDown={(e) => onEnterKey(e, weightOutRef)}
+                  placeholder="เช่น 2000"
                   aria-invalid={errors.weight_out ? true : undefined}
                 />
                 {errors.weight_out && <p className={errorTextCls}>{errors.weight_out}</p>}
-                <p className={helpTextCls}>* ต้องเป็นจำนวนเต็มกิโลกรัม และมากกว่า “ขาเข้า”</p>
+                <p className={helpTextCls}>* ต้องเป็นจำนวนเต็มกิโลกรัม</p>
               </div>
 
               <div>
                 <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
-                <input disabled className={cx(baseField, fieldDisabled)} value={netWeightInt} />
-                {errors.net_weight && <p className={errorTextCls}>{errors.net_weight}</p>}
-                <p className={helpTextCls}>คำนวณ = น้ำหนักขาออก − น้ำหนักขาเข้า</p>
-              </div>
-
-              <div>
-                <label className={labelCls}>ราคาต้นทุน (บาท/กก.)</label>
                 <input
-                  ref={costPerKgRef}
-                  inputMode="decimal"
-                  className={cx(baseField, errors.cost_per_kg && "border-red-400")}
-                  value={form.cost_per_kg}
-                  onChange={(e) => update("cost_per_kg", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => clearError("cost_per_kg")}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      focusNextFrom("cost_per_kg")
-                    }
-                  }}
-                  placeholder="เช่น 8.50"
-                  aria-invalid={errors.cost_per_kg ? true : undefined}
+                  disabled
+                  className={cx(baseField, fieldDisabled)}
+                  value={netWeightInt}
                 />
-                {errors.cost_per_kg && <p className={errorTextCls}>{errors.cost_per_kg}</p>}
+                {errors.net_weight && <p className={errorTextCls}>{errors.net_weight}</p>}
+                <p className={helpTextCls}>คำนวณ = ชั่งเข้า − ชั่งออก</p>
+              </div>
+            </div>
+
+            {/* แถวที่ 2: คุณภาพ & สิ่งเจือปน */}
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelCls}>คุณภาพ <span className="text-red-500">*</span></label>
+                <input
+                  ref={destQualityRef}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className={cx(baseField, redFieldCls("dest_quality"))}
+                  value={form.dest_quality}
+                  onChange={(e) => update("dest_quality", onlyDigits(e.target.value))}
+                  onFocus={() => { clearError("dest_quality"); clearHint("dest_quality") }}
+                  onKeyDown={(e) => onEnterKey(e, destQualityRef)}
+                  placeholder="กรอก 0–100"
+                  aria-invalid={errors.dest_quality ? true : undefined}
+                />
+                {errors.dest_quality && <p className={errorTextCls}>{errors.dest_quality}</p>}
               </div>
 
               <div>
-                <label className={labelCls}>ราคาสุทธิ (บาท)</label>
-                <input disabled className={cx(baseField, fieldDisabled)} value={thb(totalCost)} />
-                <p className={helpTextCls}>คำนวณ = ราคาต้นทุน × น้ำหนักสุทธิ</p>
-              </div>
-
-              {/* สิ่งเจือปน (%) */}
-              <div>
-                <label className={labelCls}>สิ่งเจือปน (%)</label>
+                <label className={labelCls}>สิ่งเจือปน (%) <span className="text-red-500">*</span></label>
                 <input
                   ref={impurityRef}
                   inputMode="decimal"
-                  className={cx(baseField, errors.impurity_percent && "border-red-400")}
+                  className={cx(baseField, redFieldCls("impurity_percent"))}
                   value={form.impurity_percent}
-                  onChange={(e) => update("impurity_percent", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => clearError("impurity_percent")}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      focusNextFrom("impurity_percent")
-                    }
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^\d.]/g, "")
+                    update("impurity_percent", v)
                   }}
-                  placeholder="เช่น 2.5"
+                  onFocus={() => { clearError("impurity_percent"); clearHint("impurity_percent") }}
+                  onKeyDown={(e) => onEnterKey(e, impurityRef)}
+                  placeholder="กรอก 0–100"
                   aria-invalid={errors.impurity_percent ? true : undefined}
                 />
                 {errors.impurity_percent && <p className={errorTextCls}>{errors.impurity_percent}</p>}
-                <p className={helpTextCls}>กรอกเป็นตัวเลข 0–100 (เว้นว่างได้)</p>
+                <p className={helpTextCls}>กรอกเป็นตัวเลข 0–100</p>
               </div>
             </div>
           </div>
 
-          {/* บันทึกเพิ่มเติม (ผู้โอน) — เหมือนหน้า 'รับเข้า' */}
+          {/* กล่อง: ต้นทุนและคุณภาพ */}
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h2 className="mb-3 text-xl font-semibold">ต้นทุนและคุณภาพ</h2>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelCls}>ราคาต้นทุน/กก. (บาท) <span className="text-red-500">*</span></label>
+                <input
+                  ref={priceRef}
+                  inputMode="decimal"
+                  className={cx(baseField, redFieldCls("price_per_kilo"))}
+                  value={form.price_per_kilo}
+                  onChange={(e) => update("price_per_kilo", e.target.value.replace(/[^\d.]/g, ""))}
+                  onFocus={() => { clearError("price_per_kilo"); clearHint("price_per_kilo") }}
+                  onKeyDown={(e) => onEnterKey(e, priceRef)}
+                  placeholder="เช่น 9.50"
+                  aria-invalid={errors.price_per_kilo ? true : undefined}
+                />
+                {errors.price_per_kilo && <p className={errorTextCls}>{errors.price_per_kilo}</p>}
+                <p className={helpTextCls}>ต้องมากกว่า 0</p>
+              </div>
+
+              {/* Anchor (focusable) ครอบช่องรวมต้นทุน */}
+              <div
+                ref={totalCostAnchorRef}
+                tabIndex={0}
+                role="group"
+                onKeyDown={(e) => onEnterKey(e, totalCostAnchorRef)}
+                className="focus:outline-none focus:ring-2 focus:ring-emerald-500/30 rounded-2xl"
+              >
+                <label className={labelCls}>รวมต้นทุน (ประมาณ)</label>
+                <input disabled className={cx(baseField, fieldDisabled)} value={thb(totalCost)} placeholder="—" />
+                <p className={helpTextCls}>คำนวณ = ราคาต้นทุน/กก. × น้ำหนักสุทธิ</p>
+              </div>
+            </div>
+          </div>
+
+          {/* บันทึกเพิ่มเติม */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="grid gap-4 md:grid-cols-3">
               <div className="md:col-span-3">
-                <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้โอน)</label>
+                <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
                 <input
-                  ref={qualityNoteRef}
+                  ref={noteRef}
                   className={baseField}
                   value={form.quality_note}
                   onChange={(e) => update("quality_note", e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      focusNextFrom("quality_note")
-                    }
-                  }}
-                  placeholder="เช่น โอนระบายสต็อกจากสาขา A ไปสาขา B เพื่อเตรียมขายโครงการ X"
+                  placeholder="เช่น ความชื้นสูง แกลบเยอะ หรือเหตุผลกรณีปฏิเสธ"
                 />
               </div>
             </div>
@@ -1341,7 +647,25 @@ function StockTransferOut() {
                 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
               aria-busy={submitting ? "true" : "false"}
             >
-              {submitting ? "กำลังบันทึก..." : "บันทึกการโอนออก"}
+              {submitting ? "กำลังบันทึก..." : "บันทึกรับเข้า (ACCEPT)"}
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                if (!form.transfer_id) {
+                  alert("กรุณาเลือกคำขอเพื่อปฏิเสธ")
+                  return
+                }
+                await handleReject(form.transfer_id)
+              }}
+              className="inline-flex items-center justify-center rounded-2xl 
+                border border-red-300 bg-white px-6 py-3 text-base font-semibold text-red-600 
+                shadow-sm transition-all duration-300 ease-out
+                hover:bg-red-50 hover:shadow-md hover:scale-[1.03]
+                active:scale-[.97] cursor-pointer"
+            >
+              ปฏิเสธคำขอ (REJECT)
             </button>
 
             <button
@@ -1349,11 +673,13 @@ function StockTransferOut() {
               onClick={() =>
                 setForm((f) => ({
                   ...f,
+                  transfer_id: null,
                   weight_in: "",
                   weight_out: "",
-                  cost_per_kg: "",
+                  quality_note: "",
                   impurity_percent: "",
-                  // ไม่ล้าง quality_note เพื่อเก็บบันทึกเพิ่มเติมของผู้โอน
+                  price_per_kilo: "",
+                  dest_quality: "",
                 }))
               }
               className="inline-flex items-center justify-center rounded-2xl 
@@ -1365,7 +691,7 @@ function StockTransferOut() {
                 dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
                 dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
             >
-              ล้างเฉพาะค่าชั่ง/ราคา
+              ล้างฟอร์ม
             </button>
           </div>
         </form>
@@ -1374,4 +700,4 @@ function StockTransferOut() {
   )
 }
 
-export default StockTransferOut
+export default StockTransferIn

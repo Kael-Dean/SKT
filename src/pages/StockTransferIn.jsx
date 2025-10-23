@@ -68,7 +68,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
-/** ---------- Main Page ---------- */
+/** ---------- Main Page (รับเข้า) + FormGuard ---------- */
 function StockTransferIn() {
   const [submitting, setSubmitting] = useState(false)
 
@@ -102,8 +102,10 @@ function StockTransferIn() {
   const pricePerKilo = useMemo(() => Number(form.price_per_kilo || 0), [form.price_per_kilo])
   const totalCost = useMemo(() => pricePerKilo * netWeightInt, [pricePerKilo, netWeightInt])
 
+  /** ---------- FormGuard: state ---------- */
   const [errors, setErrors] = useState({})
   const [missingHints, setMissingHints] = useState({})
+
   const redFieldCls = (key) =>
     errors[key] || missingHints[key] ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : ""
   const redHintCls = (key) =>
@@ -117,6 +119,7 @@ function StockTransferIn() {
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
 
   /** ---------- โหลดรายการคำขอ ---------- */
+  const requestsBoxRef = useRef(null)
   useEffect(() => {
     let timer = null
     let alive = true
@@ -152,11 +155,49 @@ function StockTransferIn() {
     setMissingHints({})
   }
 
-  /** ---------- Validate ---------- */
+  /** ---------- FormGuard: Enter-next + focus order ---------- */
+  const dateRef = useRef(null)
+  const weightInRef = useRef(null)
+  const weightOutRef = useRef(null)
+  const impurityRef = useRef(null)
+  const destQualityRef = useRef(null)
+  const noteRef = useRef(null)
+  const submitBtnRef = useRef(null)
+
+  const orderedRefs = [
+    dateRef,
+    weightInRef,
+    weightOutRef,
+    impurityRef,
+    destQualityRef,
+    noteRef,
+    submitBtnRef,
+  ]
+
+  const focusNext = (refObj) => {
+    const idx = orderedRefs.findIndex((r) => r === refObj)
+    if (idx === -1) return
+    for (let i = idx + 1; i < orderedRefs.length; i++) {
+      const el = orderedRefs[i]?.current
+      if (el && !el.disabled && typeof el.focus === "function") {
+        el.focus()
+        return
+      }
+    }
+  }
+
+  const onEnterKey = (e, currentRef) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      focusNext(currentRef)
+    }
+  }
+
+  /** ---------- FormGuard: validate + scroll-to-first-invalid ---------- */
   const computeMissingHints = () => {
     const m = {}
-    if (!form.transfer_date) m.transfer_date = true
     if (!form.transfer_id) m.transfer_id = true
+    if (!form.transfer_date) m.transfer_date = true
     if (form.weight_in === "" || weightIn <= 0) m.weight_in = true
     if (form.weight_out === "" || weightOut < 0) m.weight_out = true
     if (netWeightInt <= 0) m.net_weight = true
@@ -179,15 +220,62 @@ function StockTransferIn() {
       if (!isFinite(q)) e.dest_quality = "กรุณากรอกตัวเลข"
     }
     setErrors(e)
-    return Object.keys(e).length === 0
+    return { ok: Object.keys(e).length === 0, e }
   }
 
-  /** ---------- Submit (ACCEPT) ---------- */
+  const fieldRefByKey = {
+    transfer_id: requestsBoxRef,   // ชี้ไปที่กล่องรายการคำขอ
+    transfer_date: dateRef,
+    weight_in: weightInRef,
+    weight_out: weightOutRef,
+    net_weight: weightInRef,       // ให้ไปเริ่มที่ชั่งเข้า
+    impurity_percent: impurityRef,
+    dest_quality: destQualityRef,
+  }
+
+  const scrollAndFocus = (ref) => {
+    const el = ref?.current
+    if (!el) return
+    try {
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+      // focus เฉพาะ element ที่โฟกัสได้
+      if (typeof el.focus === "function") {
+        el.focus({ preventScroll: true })
+      } else if (el.querySelector) {
+        const focusable = el.querySelector('input,button,select,textarea,[tabindex]:not([tabindex="-1"])')
+        focusable?.focus({ preventScroll: true })
+      }
+    } catch {}
+  }
+
+  const focusFirstInvalid = (hints, e) => {
+    const order = [
+      "transfer_id",
+      "transfer_date",
+      "weight_in",
+      "weight_out",
+      "net_weight",
+      "impurity_percent",
+      "dest_quality",
+    ]
+    const firstKey = order.find((k) => hints[k] || e[k])
+    if (!firstKey) return
+    setMissingHints((prev) => ({ ...prev, [firstKey]: true }))
+    const ref = fieldRefByKey[firstKey]
+    setTimeout(() => scrollAndFocus(ref), 0)
+  }
+
+  /** ---------- Submit (ACCEPT) + FormGuard flow ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault()
     const hints = computeMissingHints()
     setMissingHints(hints)
-    if (!validate()) return
+    const { ok, e: ev } = validate()
+    if (!ok) {
+      focusFirstInvalid(hints, ev)
+      alert("กรุณากรอกข้อมูลที่บังคับให้ครบ (ดูช่องกรอบแดง)")
+      return
+    }
 
     // สร้าง payload ตรงกับ TransferConfirm (ฝั่ง BE)
     const payload = {
@@ -207,7 +295,7 @@ function StockTransferIn() {
       await post(`/transfer/confirm/${encodeURIComponent(form.transfer_id)}`, payload)
       alert("บันทึกรับเข้าสำเร็จ ✅")
 
-      // ล้างฟอร์ม
+      // ล้างฟอร์ม (ยกเว้นวันที่), รีโหลดรายการ, เด้งไปบนสุด + โฟกัสวันที่
       setForm((f) => ({
         ...f,
         transfer_id: null,
@@ -218,6 +306,10 @@ function StockTransferIn() {
         price_per_kilo: "",
         dest_quality: "",
       }))
+      setErrors({})
+      setMissingHints({})
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      setTimeout(() => dateRef.current?.focus(), 200)
 
       // รีโหลดรายการรอรับเข้า
       try {
@@ -227,7 +319,6 @@ function StockTransferIn() {
     } catch (err) {
       console.error(err)
       const msg = err?.message || ""
-      // กรณี BE โยนข้อความเรื่อง TempStock เป็น Integer
       if (/Integer|จำนวนเต็ม|whole kg|move quantity/i.test(msg)) {
         alert("ต้องกรอกน้ำหนักเป็น ‘จำนวนเต็มกก.’ เท่านั้น (TempStock เป็น Integer)")
       } else if (/Insufficient stock|409/.test(msg)) {
@@ -264,7 +355,13 @@ function StockTransferIn() {
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">📦 รับเข้าข้าวเปลือก</h1>
 
         {/* คำขอที่รอเข้าจาก backend */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div
+          ref={requestsBoxRef}
+          className={cx(
+            "mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800",
+            (errors.transfer_id || missingHints.transfer_id) && "ring-2 ring-red-300"
+          )}
+        >
           <div className="mb-3 flex items-center gap-3">
             <h2 className="text-xl font-semibold">คำขอโอนเข้าที่รอดำเนินการ</h2>
             <span className="inline-flex items-center justify-center rounded-full bg-emerald-100 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
@@ -312,6 +409,9 @@ function StockTransferIn() {
               ))}
             </div>
           )}
+          {errors.transfer_id && requests.length > 0 && (
+            <p className="mt-3 text-sm text-red-500">{errors.transfer_id}</p>
+          )}
         </div>
 
         {/* ฟอร์มรับเข้า */}
@@ -324,12 +424,14 @@ function StockTransferIn() {
               <div>
                 <label className={labelCls}>วันที่รับเข้า</label>
                 <DateInput
+                  ref={dateRef}
                   value={form.transfer_date}
                   onChange={(e) => {
                     clearError("transfer_date")
                     clearHint("transfer_date")
                     update("transfer_date", e.target.value)
                   }}
+                  onKeyDown={(e) => onEnterKey(e, dateRef)}
                   error={!!errors.transfer_date}
                   className={redHintCls("transfer_date")}
                   aria-invalid={errors.transfer_date ? true : undefined}
@@ -359,6 +461,7 @@ function StockTransferIn() {
               <div>
                 <label className={labelCls}>น้ำหนักชั่งเข้า (กก.)</label>
                 <input
+                  ref={weightInRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
                   className={cx(baseField, redFieldCls("weight_in"))}
@@ -368,6 +471,7 @@ function StockTransferIn() {
                     clearError("weight_in")
                     clearHint("weight_in")
                   }}
+                  onKeyDown={(e) => onEnterKey(e, weightInRef)}
                   placeholder="เช่น 15000"
                   aria-invalid={errors.weight_in ? true : undefined}
                 />
@@ -378,6 +482,7 @@ function StockTransferIn() {
               <div>
                 <label className={labelCls}>น้ำหนักชั่งออก (กก.)</label>
                 <input
+                  ref={weightOutRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
                   className={cx(baseField, redFieldCls("weight_out"))}
@@ -387,6 +492,7 @@ function StockTransferIn() {
                     clearError("weight_out")
                     clearHint("weight_out")
                   }}
+                  onKeyDown={(e) => onEnterKey(e, weightOutRef)}
                   placeholder="เช่น 2000"
                   aria-invalid={errors.weight_out ? true : undefined}
                 />
@@ -411,12 +517,14 @@ function StockTransferIn() {
               <div>
                 <label className={labelCls}>คุณภาพ</label>
                 <input
+                  ref={destQualityRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  className={cx(baseField, errors.dest_quality && "border-red-400")}
+                  className={cx(baseField, errors.dest_quality && "border-red-400 ring-2 ring-red-300/70")}
                   value={form.dest_quality}
                   onChange={(e) => update("dest_quality", onlyDigits(e.target.value))}
                   onFocus={() => clearError("dest_quality")}
+                  onKeyDown={(e) => onEnterKey(e, destQualityRef)}
                   placeholder="กรอกตัวเลข เช่น 95"
                   aria-invalid={errors.dest_quality ? true : undefined}
                 />
@@ -426,15 +534,16 @@ function StockTransferIn() {
               <div>
                 <label className={labelCls}>สิ่งเจือปน (%)</label>
                 <input
+                  ref={impurityRef}
                   inputMode="decimal"
-                  className={cx(baseField, errors.impurity_percent && "border-red-400")}
+                  className={cx(baseField, errors.impurity_percent && "border-red-400 ring-2 ring-red-300/70")}
                   value={form.impurity_percent}
                   onChange={(e) => {
                     const v = e.target.value.replace(/[^\d.]/g, "")
-                    // อนุญาตทศนิยม แต่จะส่งเป็น Number (ไม่บังคับ)
                     update("impurity_percent", v)
                   }}
                   onFocus={() => clearError("impurity_percent")}
+                  onKeyDown={(e) => onEnterKey(e, impurityRef)}
                   placeholder="เช่น 2.5"
                   aria-invalid={errors.impurity_percent ? true : undefined}
                 />
@@ -475,9 +584,11 @@ function StockTransferIn() {
               <div className="md:col-span-3">
                 <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
                 <input
+                  ref={noteRef}
                   className={baseField}
                   value={form.quality_note}
                   onChange={(e) => update("quality_note", e.target.value)}
+                  onKeyDown={(e) => onEnterKey(e, noteRef)}
                   placeholder="เช่น ความชื้นสูง แกลบเยอะ หรือเหตุผลกรณีปฏิเสธ"
                 />
               </div>
@@ -487,6 +598,7 @@ function StockTransferIn() {
           {/* ปุ่ม */}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
+              ref={submitBtnRef}
               type="submit"
               disabled={submitting}
               className="inline-flex items-center justify-center rounded-2xl 

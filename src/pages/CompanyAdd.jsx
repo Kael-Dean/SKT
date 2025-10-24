@@ -10,6 +10,8 @@ const toNull = (s) => {
   const v = (s ?? "").trim()
   return v === "" ? null : v
 }
+const isEnterKey = (e) =>
+  e.key === "Enter" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && !e.isComposing
 
 /** ---------- Styles (เทียบให้ตรงกับ CustomerAdd) ---------- */
 const baseField =
@@ -38,11 +40,12 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- Component: CompanyAdd ---------- */
+/** ---------- Component: CompanyAdd (เพิ่ม FormGuard + Enter-to-next) ---------- */
 const CompanyAdd = () => {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
+  // ---------- Refs ----------
   const refs = {
     company_name: useRef(null),
     tax_id: useRef(null),
@@ -61,6 +64,8 @@ const CompanyAdd = () => {
     branch_amphur: useRef(null),
     branch_province: useRef(null),
     branch_postal_code: useRef(null),
+
+    submit_btn: useRef(null),
   }
 
   // ฟอร์มตรงกับชื่อฟิลด์ฝั่ง Backend (CompanyCustomerCreate)
@@ -94,14 +99,51 @@ const CompanyAdd = () => {
       return rest
     })
 
-  /** ---------- Validate ---------- */
+  /** ---------- FormGuard: per-field ---------- */
+  const validateField = (k, val = form[k]) => {
+    let msg = ""
+    switch (k) {
+      case "company_name":
+        if (!(val ?? "").trim()) msg = "กรุณากรอกชื่อบริษัท / นิติบุคคล"
+        break
+      case "tax_id":
+        if (!is13(val)) msg = "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก"
+        break
+      case "hq_address":
+        if (!(val ?? "").trim()) msg = "กรุณากรอกบ้านเลขที่/ที่อยู่ (HQ)"
+        break
+      case "hq_tambon":
+        if (!(val ?? "").trim()) msg = "กรุณากรอกตำบล (HQ)"
+        break
+      case "hq_amphur":
+        if (!(val ?? "").trim()) msg = "กรุณากรอกอำเภอ (HQ)"
+        break
+      case "hq_province":
+        if (!(val ?? "").trim()) msg = "กรุณากรอกจังหวัด (HQ)"
+        break
+      case "hq_postal_code":
+        if (val && onlyDigits(val).length !== 5) msg = "รหัสไปรษณีย์ (HQ) ต้องมี 5 หลัก"
+        break
+      case "branch_postal_code":
+        if (val && onlyDigits(val).length !== 5) msg = "รหัสไปรษณีย์ (สาขา) ต้องมี 5 หลัก"
+        break
+      default:
+        msg = ""
+    }
+    setErrors((prev) => {
+      const next = { ...prev }
+      if (msg) next[k] = msg
+      else delete next[k]
+      return next
+    })
+    return !msg
+  }
+
   const validateAll = () => {
     const e = {}
-
     if (!form.company_name.trim()) e.company_name = "กรุณากรอกชื่อบริษัท / นิติบุคคล"
     if (!is13(form.tax_id)) e.tax_id = "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก"
 
-    // HQ minimal required (ตาม UI เราบังคับให้ครบเพื่อคุณภาพข้อมูล)
     if (!form.hq_address.trim()) e.hq_address = "กรุณากรอกบ้านเลขที่/ที่อยู่ (HQ)"
     if (!form.hq_tambon.trim()) e.hq_tambon = "กรุณากรอกตำบล (HQ)"
     if (!form.hq_amphur.trim()) e.hq_amphur = "กรุณากรอกอำเภอ (HQ)"
@@ -109,7 +151,6 @@ const CompanyAdd = () => {
     if (form.hq_postal_code && onlyDigits(form.hq_postal_code).length !== 5)
       e.hq_postal_code = "รหัสไปรษณีย์ (HQ) ต้องมี 5 หลัก"
 
-    // Branch optional—but if filled, postal must be 5 digits
     if (form.branch_postal_code && onlyDigits(form.branch_postal_code).length !== 5)
       e.branch_postal_code = "รหัสไปรษณีย์ (สาขา) ต้องมี 5 หลัก"
 
@@ -117,7 +158,7 @@ const CompanyAdd = () => {
     return Object.keys(e).length === 0
   }
 
-  // โฟกัสไป error ตัวแรก
+  // โฟกัสไป error ตัวแรกเมื่อมี error set ใหม่
   useEffect(() => {
     if (!Object.keys(errors).length) return
     const order = [
@@ -144,13 +185,93 @@ const CompanyAdd = () => {
         el.scrollIntoView({ behavior: "smooth", block: "center" })
       } catch {}
       el.focus()
+      el.select?.()
     }
   }, [errors]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** ---------- Enter-to-next (ตามลำดับที่ระบุ) ---------- */
+  const enterOrder = [
+    "company_name",
+    "phone_number",
+    "hq_address",
+    "hq_moo",
+    "hq_tambon",
+    "hq_amphur",
+    "hq_province",
+    "hq_postal_code",
+    "branch_address",
+    "branch_moo",
+    "branch_tambon",
+    "branch_amphur",
+    "branch_province",
+    "branch_postal_code",
+    "submit_btn",
+  ]
+
+  // ช่องที่ต้องผ่านก่อนเลื่อนไปอันถัดไปเมื่อกด Enter
+  const requiredInEnter = new Set([
+    "company_name",
+    "hq_address",
+    "hq_tambon",
+    "hq_amphur",
+    "hq_province",
+    // hq_postal_code/branch_postal_code: ถ้ามีค่า -> ต้องครบ 5 หลัก (จะ guard ด้านล่าง)
+  ])
+
+  const guardIfNeededAndNext = (currentKey) => {
+    // Guard ช่องที่จำเป็น
+    if (requiredInEnter.has(currentKey)) {
+      const ok = validateField(currentKey)
+      if (!ok) {
+        const el = refs[currentKey]?.current
+        if (el) {
+          el.focus()
+          el.select?.()
+        }
+        return
+      }
+    }
+    // Guard รหัสไปรษณีย์ถ้ามีการกรอก
+    if (currentKey === "hq_postal_code" && form.hq_postal_code) {
+      if (!validateField("hq_postal_code")) return
+    }
+    if (currentKey === "branch_postal_code" && form.branch_postal_code) {
+      if (!validateField("branch_postal_code")) return
+    }
+
+    // ไปช่องถัดไป
+    const idx = enterOrder.indexOf(currentKey)
+    const nextKey = idx >= 0 ? enterOrder[Math.min(idx + 1, enterOrder.length - 1)] : null
+    if (!nextKey) return
+
+    if (nextKey === "submit_btn") {
+      refs.submit_btn.current?.focus()
+      return
+    }
+    const el = refs[nextKey]?.current
+    if (el) {
+      try {
+        el.scrollIntoView({ behavior: "smooth", block: "center" })
+      } catch {}
+      el.focus()
+      el.select?.()
+    }
+  }
+
+  const onEnter = (key) => (e) => {
+    if (!isEnterKey(e)) return
+    // กันการ submit ฟอร์มโดยอุบัติเหตุเวลา Enter
+    e.preventDefault()
+    guardIfNeededAndNext(key)
+  }
 
   /** ---------- Submit ---------- */
   const handleSubmit = async (ev) => {
     ev.preventDefault()
-    if (!validateAll()) return
+    if (!validateAll()) {
+      alert("บันทึกไม่สำเร็จ กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วนและถูกต้อง")
+      return
+    }
     setSubmitting(true)
 
     // map -> CompanyCustomerCreate (ตรงชื่อฟิลด์)
@@ -164,20 +285,21 @@ const CompanyAdd = () => {
       hq_tambon: toNull(form.hq_tambon),
       hq_amphur: toNull(form.hq_amphur),
       hq_province: toNull(form.hq_province),
-      hq_postal_code: form.hq_postal_code ? onlyDigits(form.hq_postal_code) : null, // ส่งเป็นสตริง
+      hq_postal_code: form.hq_postal_code ? onlyDigits(form.hq_postal_code) : null,
 
       branch_address: toNull(form.branch_address),
       branch_moo: toNull(form.branch_moo),
       branch_tambon: toNull(form.branch_tambon),
       branch_amphur: toNull(form.branch_amphur),
       branch_province: toNull(form.branch_province),
-      branch_postal_code: form.branch_postal_code ? onlyDigits(form.branch_postal_code) : null, // ส่งเป็นสตริง
+      branch_postal_code: form.branch_postal_code ? onlyDigits(form.branch_postal_code) : null,
     }
 
     try {
       await apiAuth("/member/customers/company-signup", { method: "POST", body: payload })
       alert("บันทึกข้อมูลบริษัทเรียบร้อย ✅")
       handleReset()
+      refs.company_name.current?.focus()
     } catch (err) {
       console.error(err)
       const msg =
@@ -234,6 +356,8 @@ const CompanyAdd = () => {
                     update("company_name", e.target.value)
                   }}
                   onFocus={() => clearError("company_name")}
+                  onBlur={() => validateField("company_name")}
+                  onKeyDown={onEnter("company_name")}
                   placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
                   aria-invalid={errors.company_name ? true : undefined}
                 />
@@ -253,6 +377,8 @@ const CompanyAdd = () => {
                     update("tax_id", onlyDigits(e.target.value))
                   }}
                   onFocus={() => clearError("tax_id")}
+                  onBlur={() => validateField("tax_id")}
+                  // ไม่อยู่ในลำดับ Enter ตามที่ร้องขอ
                   placeholder="เช่น 0123456789012"
                   aria-invalid={errors.tax_id ? true : undefined}
                 />
@@ -271,6 +397,7 @@ const CompanyAdd = () => {
                   className={baseField}
                   value={form.phone_number}
                   onChange={(e) => update("phone_number", e.target.value)}
+                  onKeyDown={onEnter("phone_number")}
                   placeholder="เช่น 021234567"
                 />
               </div>
@@ -295,6 +422,8 @@ const CompanyAdd = () => {
                       update("hq_address", e.target.value)
                     }}
                     onFocus={() => clearError("hq_address")}
+                    onBlur={() => validateField("hq_address")}
+                    onKeyDown={onEnter("hq_address")}
                     placeholder="เช่น 99/1 หมู่บ้านตัวอย่าง"
                     aria-invalid={errors.hq_address ? true : undefined}
                   />
@@ -308,6 +437,7 @@ const CompanyAdd = () => {
                     className={baseField}
                     value={form.hq_moo}
                     onChange={(e) => update("hq_moo", e.target.value)}
+                    onKeyDown={onEnter("hq_moo")}
                     placeholder="เช่น 4"
                   />
                 </div>
@@ -323,6 +453,8 @@ const CompanyAdd = () => {
                       update("hq_tambon", e.target.value)
                     }}
                     onFocus={() => clearError("hq_tambon")}
+                    onBlur={() => validateField("hq_tambon")}
+                    onKeyDown={onEnter("hq_tambon")}
                     placeholder="เช่น หนองปลาไหล"
                     aria-invalid={errors.hq_tambon ? true : undefined}
                   />
@@ -340,6 +472,8 @@ const CompanyAdd = () => {
                       update("hq_amphur", e.target.value)
                     }}
                     onFocus={() => clearError("hq_amphur")}
+                    onBlur={() => validateField("hq_amphur")}
+                    onKeyDown={onEnter("hq_amphur")}
                     placeholder="เช่น เมือง"
                     aria-invalid={errors.hq_amphur ? true : undefined}
                   />
@@ -357,6 +491,8 @@ const CompanyAdd = () => {
                       update("hq_province", e.target.value)
                     }}
                     onFocus={() => clearError("hq_province")}
+                    onBlur={() => validateField("hq_province")}
+                    onKeyDown={onEnter("hq_province")}
                     placeholder="เช่น ขอนแก่น"
                     aria-invalid={errors.hq_province ? true : undefined}
                   />
@@ -376,6 +512,8 @@ const CompanyAdd = () => {
                       update("hq_postal_code", onlyDigits(e.target.value))
                     }}
                     onFocus={() => clearError("hq_postal_code")}
+                    onBlur={() => validateField("hq_postal_code")}
+                    onKeyDown={onEnter("hq_postal_code")}
                     placeholder="เช่น 10110"
                     aria-invalid={errors.hq_postal_code ? true : undefined}
                   />
@@ -399,6 +537,7 @@ const CompanyAdd = () => {
                     className={baseField}
                     value={form.branch_address}
                     onChange={(e) => update("branch_address", e.target.value)}
+                    onKeyDown={onEnter("branch_address")}
                     placeholder="เช่น 10/2 หมู่บ้านตัวอย่าง"
                   />
                 </div>
@@ -410,6 +549,7 @@ const CompanyAdd = () => {
                     className={baseField}
                     value={form.branch_moo}
                     onChange={(e) => update("branch_moo", e.target.value)}
+                    onKeyDown={onEnter("branch_moo")}
                     placeholder="เช่น 5"
                   />
                 </div>
@@ -421,6 +561,7 @@ const CompanyAdd = () => {
                     className={baseField}
                     value={form.branch_tambon}
                     onChange={(e) => update("branch_tambon", e.target.value)}
+                    onKeyDown={onEnter("branch_tambon")}
                     placeholder="เช่น บึงเนียม"
                   />
                 </div>
@@ -432,6 +573,7 @@ const CompanyAdd = () => {
                     className={baseField}
                     value={form.branch_amphur}
                     onChange={(e) => update("branch_amphur", e.target.value)}
+                    onKeyDown={onEnter("branch_amphur")}
                     placeholder="เช่น เมือง"
                   />
                 </div>
@@ -443,6 +585,7 @@ const CompanyAdd = () => {
                     className={baseField}
                     value={form.branch_province}
                     onChange={(e) => update("branch_province", e.target.value)}
+                    onKeyDown={onEnter("branch_province")}
                     placeholder="เช่น ขอนแก่น"
                   />
                 </div>
@@ -460,6 +603,8 @@ const CompanyAdd = () => {
                       update("branch_postal_code", onlyDigits(e.target.value))
                     }}
                     onFocus={() => clearError("branch_postal_code")}
+                    onBlur={() => validateField("branch_postal_code")}
+                    onKeyDown={onEnter("branch_postal_code")}
                     placeholder="เช่น 10220"
                     aria-invalid={errors.branch_postal_code ? true : undefined}
                   />
@@ -471,6 +616,7 @@ const CompanyAdd = () => {
             {/* ปุ่ม */}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
+                ref={refs.submit_btn}
                 type="submit"
                 disabled={submitting}
                 className="inline-flex items-center justify-center rounded-2xl 
@@ -481,6 +627,7 @@ const CompanyAdd = () => {
                            hover:scale-[1.05] active:scale-[.97]
                            disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                 aria-busy={submitting ? "true" : "false"}
+                // หากโฟกัสอยู่ที่ปุ่มแล้วกด Enter จะ submit ตามปกติ
               >
                 {submitting ? "กำลังบันทึก..." : "บันทึกข้อมูลบริษัท"}
               </button>

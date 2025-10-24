@@ -1543,6 +1543,7 @@ const Buy = () => {
 
     if (!order.paymentMethod && !resolvePaymentId()) m.payment = true
     if (!order.issueDate) m.issueDate = true
+    if (!order.paymentRefNo?.trim()) m.paymentRefNo = true
 
     if (!order.productId) m.product = true
     if (!order.riceId) m.riceType = true
@@ -1712,6 +1713,7 @@ const Buy = () => {
     const pid = resolvePaymentId()
     if (!pid) e.payment = "เลือกวิธีชำระเงิน"
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
+    if (!order.paymentRefNo?.trim()) e.paymentRefNo = "กรอกเลขที่ใบชั่ง/ใบเบิกเงิน"
 
     if (!order.productId) e.product = "เลือกประเภทสินค้า"
     if (!order.riceId) e.riceType = "เลือกชนิดข้าว (species)"
@@ -1748,7 +1750,7 @@ const Buy = () => {
     const companyKeys = ["companyName", "taxId"]
 
     const commonOrderKeys = [
-      "payment","issueDate",
+      "payment","issueDate","paymentRefNo",
       "product","riceType","subrice","condition","fieldType","riceYear","program","businessType",
       "branchName","klangName",
       "entryWeightKg","exitWeightKg","moisturePct","impurityPct","deductWeightKg","gram","unitPrice","amountTHB",
@@ -1771,7 +1773,7 @@ const Buy = () => {
     const personKeys = ["memberId","fullName"]
     const companyKeys = ["companyName","taxId"]
     const commonOrderKeys = [
-      "payment","issueDate",
+      "payment","issueDate","paymentRefNo",
       "product","riceType","subrice","condition","fieldType","riceYear","program","businessType",
       "branchName","klangName",
       "entryWeightKg","exitWeightKg","moisturePct","impurityPct","deductWeightKg","gram","unitPrice","amountTHB",
@@ -1805,14 +1807,16 @@ const Buy = () => {
     setMissingHints(hints)
     const eObj = validateAll()
 
-    if (Object.keys(eObj).length > 0) {
-      scrollToFirstError(eObj)
-      return
-    }
-    if (Object.values(hints).some(Boolean)) {
-      scrollToFirstMissing(hints)
-      return
-    }
+     if (Object.keys(eObj).length > 0) {
+    alert("บันทึกไม่สำเร็จ ⚠️\n\nรบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง") 
+    scrollToFirstError(eObj) 
+    return 
+  } 
+  if (Object.values(hints).some(Boolean)) { 
+    alert("บันทึกไม่สำเร็จ ⚠️\n\nรบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง") 
+    scrollToFirstMissing(hints) 
+    return 
+  }
 
     // แยกชื่อ (เฉพาะบุคคล)
     const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
@@ -2199,10 +2203,10 @@ const Buy = () => {
               <label className={labelCls}>เลขที่ใบชั่ง/ใบเบิกเงิน</label>
               <input
                 ref={refs.paymentRefNo}
-                className={baseField}
+                className={cx(baseField, redFieldCls("paymentRefNo"))}
                 value={order.paymentRefNo}
                 onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
-                onFocus={() => clearHint("paymentRefNo")}
+                onFocus={() => { clearHint("paymentRefNo"); clearError("paymentRefNo") }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.isComposing) {
                     e.preventDefault()
@@ -2224,6 +2228,7 @@ const Buy = () => {
                 }}
                 placeholder="เช่น A-2025-000123"
               />
+              {errors.paymentRefNo && <p className={errorTextCls}>{errors.paymentRefNo}</p>}
             </div>
           </div>
 

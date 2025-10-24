@@ -107,6 +107,8 @@ const useEnterNavigation = (refs, buyerType, order) => {
 function ComboBox({
   options = [], value, onChange, placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "", getValue = (o) => o?.value ?? o?.id ?? "",
+  /** ⭐ เพิ่ม: รองรับ sub‑label ใต้ชื่อ */
+  getSubLabel = (o) => o?.subLabel ?? "",
   disabled = false, error = false, buttonRef = null, hintRed = false,
   clearHint = () => {}, onEnterNext
 }) {
@@ -117,10 +119,13 @@ function ComboBox({
   const internalBtnRef = useRef(null)
   const controlRef = buttonRef || internalBtnRef
 
-  const selectedLabel = useMemo(() => {
-    const found = options.find((o) => String(getValue(o)) === String(value))
-    return found ? getLabel(found) : ""
-  }, [options, value, getLabel, getValue])
+  /** เลือกรายการปัจจุบัน (ทั้ง label + sublabel) */
+  const selectedObj = useMemo(
+    () => options.find((o) => String(getValue(o)) === String(value)),
+    [options, value, getValue]
+  )
+  const selectedLabel = selectedObj ? getLabel(selectedObj) : ""
+  const selectedSubLabel = selectedObj ? (getSubLabel(selectedObj) || "") : ""
 
   useEffect(() => {
     const onClick = (e) => {
@@ -198,7 +203,16 @@ function ComboBox({
         aria-expanded={open}
         aria-invalid={error || hintRed ? true : undefined}
       >
-        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
+        {selectedLabel ? (
+          <div className="flex flex-col">
+            <span>{selectedLabel}</span>
+            {selectedSubLabel && (
+              <span className="text-[13px] text-slate-600 dark:text-slate-300">{selectedSubLabel}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-slate-500 dark:text-white/70">{placeholder}</span>
+        )}
       </button>
 
       {open && (
@@ -212,6 +226,7 @@ function ComboBox({
           )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
+            const sub = getSubLabel(opt) || ""
             const isActive = idx === highlight
             const isChosen = String(getValue(opt)) === String(value)
             return (
@@ -231,7 +246,10 @@ function ComboBox({
                 {isActive && (
                   <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
                 )}
-                <span className="flex-1">{label}</span>
+                <span className="flex-1">
+                  <div className="">{label}</div>
+                  {sub && <div className="text-sm text-slate-600 dark:text-slate-300">{sub}</div>}
+                </span>
                 {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
               </button>
             )
@@ -323,6 +341,48 @@ function Sales() {
   ])
   const [formTemplate, setFormTemplate] = useState("0")
   const [selectedTemplateLabel, setSelectedTemplateLabel] = useState("")
+
+  /** ⭐ เก็บ label ของ variant (ชั้นย่อย) สำหรับ template */
+  const [variantLookup, setVariantLookup] = useState({})
+  useEffect(() => {
+    const speciesIds = Array.from(
+      new Set(
+        (templateOptions || [])
+          .map((t) => t?.spec?.species_id)
+          .filter(Boolean)
+          .map(String)
+      )
+    )
+    if (speciesIds.length === 0) return
+    const loadAll = async () => {
+      try {
+        const list = await Promise.all(
+          speciesIds.map(async (sid) => {
+            const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)) || []
+            return arr.map((x) => ({
+              id: String(x.id ?? x.variant_id ?? x.value ?? ""),
+              label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
+            }))
+          })
+        )
+        const map = {}
+        list.flat().forEach(({ id, label }) => {
+          if (id && label) map[id] = label
+        })
+        setVariantLookup(map)
+      } catch (e) {
+        console.error("load variants for templates error:", e)
+      }
+    }
+    loadAll()
+  }, [templateOptions])
+
+  /** คืน sub‑label แสดงใต้ชื่อ template: “ชั้นย่อย …” */
+  const templateSubLabel = (opt) => {
+    const vid = String(opt?.spec?.variant_id ?? "")
+    const vLabel = vid ? (variantLookup[vid] || `#${vid}`) : ""
+    return vLabel ? `ชั้นย่อย: ${vLabel}` : ""
+  }
 
   // ---------- ประเภทผู้ซื้อ ----------
   const buyerTypeOptions = [
@@ -1155,7 +1215,7 @@ function Sales() {
       field_type: fieldTypeId ?? null,
       program: programId ?? null,
       business_type: businessTypeId ?? null,
-    } // ← เหมือนหน้า Buy และสอดคล้องกับ BE :contentReference[oaicite:2]{index=2}
+    }
 
     const dateISO = toIsoDateTime(order.issueDate)
     const saleId = ((order.__isCredit ? order.creditInvoiceNo : order.cashReceiptNo) || "").trim() || null
@@ -1311,6 +1371,8 @@ function Sales() {
               <ComboBox
                 options={templateOptions}
                 value={formTemplate}
+                /** ⭐ แสดงบรรทัด “ชั้นย่อย …” ใต้ชื่อฟอร์ม */
+                getSubLabel={(o) => templateSubLabel(o)}
                 onChange={(id, found) => {
                   const idStr = String(id)
                   setFormTemplate(idStr)
@@ -2229,7 +2291,7 @@ function Sales() {
               </div>
             ))}
 
-            {/* ตารางสรุปรถพ่วง + รวมเงินทั้งไฟล์ (คงรูปแบบเดิม) */}
+            {/* ตารางสรุปรถพ่วง + รวมเงินทั้งไฟล์ */}
             <div className="md:col-span-5 rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
               <div className="mb-2 flex items-center justify-between">
                 <div className="text-slate-600 dark:text-slate-300">สรุปรถพ่วง</div>

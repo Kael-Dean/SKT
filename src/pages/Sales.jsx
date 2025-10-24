@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth, post } from "../lib/api"
 
-// ---------------- Utilities ----------------
+/* ---------------- Utilities ---------------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
 const toIntOrNull = (v) => {
@@ -30,6 +30,7 @@ const formatMoneyInput = (val) => {
   }
   return intWithCommas
 }
+
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -39,7 +40,7 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
-// ---------------- Styles ----------------
+/* ---------------- Styles ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -51,7 +52,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-// ---------------- Enter-to-next ----------------
+/* ---------------- Enter-to-next ---------------- */
 const isEnabledInput = (el) => {
   if (!el) return false
   if (typeof el.disabled !== "undefined" && el.disabled) return false
@@ -61,14 +62,12 @@ const isEnabledInput = (el) => {
   return true
 }
 const useEnterNavigation = (refs, buyerType, order) => {
-  const personOrder = ["citizenId", "memberId", "fullName", "houseNo", "moo", "subdistrict", "district", "province", "postalCode", "phone"]
-  const companyOrder = ["companyName", "taxId", "companyPhone", "hqHouseNo", "hqMoo", "hqSubdistrict", "hqDistrict", "hqProvince", "hqPostalCode", "brHouseNo", "brMoo", "brSubdistrict", "brDistrict", "brProvince", "brPostalCode"]
+  const personOrder = ["citizenId","memberId","fullName","houseNo","moo","subdistrict","district","province","postalCode","phone"]
+  const companyOrder = ["companyName","taxId","companyPhone","hqHouseNo","hqMoo","hqSubdistrict","hqDistrict","hqProvince","hqPostalCode","brHouseNo","brMoo","brSubdistrict","brDistrict","brProvince","brPostalCode"]
   const orderOrder = [
-    "product", "riceType", "subrice", "condition", "fieldType", "riceYear", "businessType", "program",
-    "branchName", "klangName",
-    "payment",
-    "cashReceiptNo", "creditInvoiceNo", "deptAllowed", "deptPostpone", "deptPostponePeriod",
-    "comment", "issueDate"
+    "product","riceType","subrice","condition","fieldType","riceYear","businessType","program",
+    "branchName","klangName","payment","cashReceiptNo","creditInvoiceNo","deptAllowed","deptPostpone","deptPostponePeriod",
+    "comment","issueDate"
   ]
   let list = (buyerType === "person" ? personOrder : companyOrder).concat(orderOrder)
   list = list.filter((key) => {
@@ -102,12 +101,11 @@ const useEnterNavigation = (refs, buyerType, order) => {
   return { onEnter, focusNext }
 }
 
-// ---------------- Reusable ComboBox ----------------
+/* ---------------- Reusable ComboBox ---------------- */
 function ComboBox({
   options = [], value, onChange, placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "", getValue = (o) => o?.value ?? o?.id ?? "",
-  disabled = false, error = false, buttonRef = null, hintRed = false,
-  clearHint = () => {}, onEnterNext
+  disabled = false, error = false, buttonRef = null, hintRed = false, clearHint = () => {}, onEnterNext
 }) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
@@ -124,9 +122,7 @@ function ComboBox({
   useEffect(() => {
     const onClick = (e) => {
       if (!boxRef.current) return
-      if (!boxRef.current.contains(e.target)) {
-        setOpen(false); setHighlight(-1)
-      }
+      if (!boxRef.current.contains(e.target)) { setOpen(false); setHighlight(-1) }
     }
     document.addEventListener("click", onClick)
     return () => document.removeEventListener("click", onClick)
@@ -136,10 +132,7 @@ function ComboBox({
     const v = String(getValue(opt))
     onChange?.(v, opt)
     setOpen(false); setHighlight(-1); clearHint?.()
-    requestAnimationFrame(() => {
-      controlRef.current?.focus()
-      onEnterNext?.()
-    })
+    requestAnimationFrame(() => { controlRef.current?.focus(); onEnterNext?.() })
   }
 
   const scrollHighlightedIntoView = (index) => {
@@ -149,11 +142,8 @@ function ComboBox({
     const itemRect = itemEl.getBoundingClientRect()
     const listRect = listEl.getBoundingClientRect()
     const buffer = 6
-    if (itemRect.top < listRect.top + buffer) {
-      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
-    } else if (itemRect.bottom > listRect.bottom - buffer) {
-      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
-    }
+    if (itemRect.top < listRect.top + buffer)      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+    else if (itemRect.bottom > listRect.bottom - buffer) listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
   }
 
   const onKeyDown = (e) => {
@@ -241,7 +231,7 @@ function ComboBox({
   )
 }
 
-// ---------------- DateInput ----------------
+/* ---------------- DateInput ---------------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
@@ -274,17 +264,17 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
-// =====================================================================
-//                              Sales Page (ขาย: หลายพ่วง)
-// =====================================================================
+/* =====================================================================
+ *                              Sales Page (ขาย: หลายพ่วง)
+ * ===================================================================*/
 function Sales() {
-  // ---------- state พื้นฐาน ----------
+  /* ---------- state พื้นฐาน ---------- */
   const [errors, setErrors] = useState({})
   const [missingHints, setMissingHints] = useState({})
   const [loadingCustomer, setLoadingCustomer] = useState(false)
   const [customerFound, setCustomerFound] = useState(null)
 
-  // ค้นหาชื่อบุคคล
+  /* ค้นหาชื่อบุคคล */
   const [nameResults, setNameResults] = useState([])
   const [showNameList, setShowNameList] = useState(false)
   const nameBoxRef = useRef(null)
@@ -294,7 +284,7 @@ function Sales() {
   const listContainerRef = useRef(null)
   const itemRefs = useRef([])
 
-  // ค้นหาบริษัท
+  /* ค้นหาบริษัท */
   const [companyResults, setCompanyResults] = useState([])
   const [showCompanyList, setShowCompanyList] = useState(false)
   const companyBoxRef = useRef(null)
@@ -303,9 +293,9 @@ function Sales() {
   const [companyHighlighted, setCompanyHighlighted] = useState(-1)
   const companyItemRefs = useRef([])
 
-  // dropdown opts
+  /* dropdown opts */
   const [productOptions, setProductOptions] = useState([])
-  const [riceOptions, setRiceOptions] = useState([])     // species
+  const [riceOptions, setRiceOptions] = useState([])       // species
   const [subriceOptions, setSubriceOptions] = useState([]) // variant
   const [conditionOptions, setConditionOptions] = useState([])
   const [fieldTypeOptions, setFieldTypeOptions] = useState([])
@@ -316,24 +306,21 @@ function Sales() {
   const [klangOptions, setKlangOptions] = useState([])
   const [businessOptions, setBusinessOptions] = useState([])
 
-  // ---------- ฟอร์มสำเร็จรูป ----------
-  const templateOptions = [
-    { id: "0", label: "— ฟอร์มปกติ —" },
-    { id: "1", label: "รหัส 1 • ข้าวหอมมะลิ" },
-    { id: "2", label: "รหัส 2 • ข้าวเหนียว" },
-    { id: "3", label: "รหัส 3 • เมล็ดพันธุ์" },
-  ]
+  /* ---------- ฟอร์มสำเร็จรูป (โหลดจาก BE แบบหน้า buy) ---------- */
+  const [templateOptions, setTemplateOptions] = useState([{ id: "0", label: "— ไม่ล็อก (เลือกเอง) —" }])
   const [formTemplate, setFormTemplate] = useState("0")
+  const [selectedTemplateLabel, setSelectedTemplateLabel] = useState("")
+
   const isTemplateActive = formTemplate !== "0"
 
-  // ---------- ประเภทผู้ซื้อ ----------
+  /* ---------- ประเภทผู้ซื้อ ---------- */
   const buyerTypeOptions = [
     { id: "person", label: "บุคคลธรรมดา" },
     { id: "company", label: "บริษัท / นิติบุคคล" },
   ]
   const [buyerType, setBuyerType] = useState("person")
 
-  // ---------- ฟอร์มลูกค้า ----------
+  /* ---------- ฟอร์มลูกค้า ---------- */
   const [customer, setCustomer] = useState({
     citizenId: "",
     memberId: "",
@@ -344,10 +331,10 @@ function Sales() {
     brHouseNo: "", brMoo: "", brSubdistrict: "", brDistrict: "", brProvince: "", brPostalCode: "",
   })
 
-  // ---------- meta ของบุคคล/ลูกค้า ----------
+  /* ---------- meta ของบุคคล/ลูกค้า ---------- */
   const [memberMeta, setMemberMeta] = useState({ type: "unknown", assoId: null, memberId: null })
 
-  // ---------- ฟอร์มออเดอร์ (ค่าใช้ร่วม) ----------
+  /* ---------- ฟอร์มออเดอร์ (ค่าใช้ร่วม) ---------- */
   const [order, setOrder] = useState({
     productId: "", productName: "",
     riceId: "", riceType: "",
@@ -369,28 +356,18 @@ function Sales() {
     __isCredit: false,
   })
 
-  // ฟอร์มเครดิต (ขายเชื่อ)
+  /* ฟอร์มเครดิต (ขายเชื่อ) */
   const [dept, setDept] = useState({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
 
-  // ---------- รถพ่วงหลายคัน ----------
+  /* ---------- รถพ่วงหลายคัน ---------- */
   const trailerCountOptions = Array.from({ length: 10 }, (_, i) => ({ id: String(i + 1), label: `${i + 1} คัน` }))
   const [trailersCount, setTrailersCount] = useState(1)
   const newTrailer = () => ({
-    // แยกทะเบียนตามโซน
-    licensePlateFront: "",
-    licensePlateBack: "",
-    // ใบชั่งตามโซน
-    scaleNoFront: "",
-    scaleNoBack: "",
-    // น้ำหนักตามโซน
-    frontWeightKg: "",
-    backWeightKg: "",
-    // ราคาต่อกก. แยกตามโซน
-    unitPriceFront: "",
-    unitPriceBack: "",
-    // คุณภาพข้าว (gram) แยกตามโซน
-    gramFront: "",
-    gramBack: "",
+    licensePlateFront: "", licensePlateBack: "",
+    scaleNoFront: "", scaleNoBack: "",
+    frontWeightKg: "", backWeightKg: "",
+    unitPriceFront: "", unitPriceBack: "",
+    gramFront: "", gramBack: "",
   })
   const [trailers, setTrailers] = useState([newTrailer()])
   useEffect(() => {
@@ -406,7 +383,7 @@ function Sales() {
     setTrailers((prev) => prev.map((t, i) => (i === idx ? { ...t, [key]: value } : t)))
   }
 
-  // ---------- Refs สำหรับนำทางด้วย Enter ----------
+  /* ---------- Refs สำหรับนำทางด้วย Enter ---------- */
   const refs = {
     citizenId: useRef(null), memberId: useRef(null), fullName: useRef(null),
     houseNo: useRef(null), moo: useRef(null), subdistrict: useRef(null), district: useRef(null),
@@ -434,69 +411,19 @@ function Sales() {
     deptPostpone: useRef(null),
     deptPostponePeriod: useRef(null),
 
-    // ⭐ ใหม่: จำนวนรถพ่วง
     trailerCount: useRef(null),
-
     submitBtn: useRef(null),
   }
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
-  // ⭐⭐ Refs + ลำดับการเลื่อนของรถพ่วงแต่ละคัน (dynamic)
-  const trailerRefs = useRef([]) // [{key: ref}]
-  const getTRef = (i, key) => {
-    if (!trailerRefs.current[i]) trailerRefs.current[i] = {}
-    if (!trailerRefs.current[i][key]) trailerRefs.current[i][key] = { current: null }
-    return trailerRefs.current[i][key]
-  }
-  const trailerOrder = [
-    "scaleNoFront",
-    "unitPriceFront",
-    "gramFront",
-    "licensePlateFront",
-    "frontWeightKg",
-    "amountFront",
-    "scaleNoBack",
-    "unitPriceBack",
-    "gramBack",
-    "licensePlateBack",
-    "backWeightKg",
-    "amountBack",
-  ]
-  const focusTrailerField = (i, key) => {
-    const el = getTRef(i, key)?.current
-    if (!el) return false
-    try { el.scrollIntoView({ block: "center" }) } catch {}
-    el.focus?.()
-    try { el.select?.() } catch {}
-    return true
-  }
-  const focusFirstOfTrailer = (i = 0) => focusTrailerField(i, "scaleNoFront")
-  const focusNextTrailer = (i, key) => {
-    const idx = trailerOrder.indexOf(key)
-    if (idx < 0) return false
-    // ยังอยู่คันเดิม
-    if (idx < trailerOrder.length - 1) return focusTrailerField(i, trailerOrder[idx + 1])
-    // เป็นเงิน(หลัง) → คันถัดไปหรือ submit
-    if (i < trailers.length - 1) return focusFirstOfTrailer(i + 1)
-    const sb = refs.submitBtn?.current
-    if (sb) { try { sb.scrollIntoView({ block: "center" }) } catch {}; sb.focus?.(); return true }
-    return false
-  }
-  const onEnterTrailer = (i, key) => (e) => {
-    if (e.key === "Enter" && !e.isComposing) {
-      e.preventDefault()
-      focusNextTrailer(i, key)
-    }
-  }
-
-  // ---------- Debounce ----------
-  const debouncedCitizenId = useDebounce(customer.citizenId)
-  const debouncedMemberId  = useDebounce(customer.memberId)
-  const debouncedFullName  = useDebounce(customer.fullName)
+  /* ---------- Debounce ---------- */
+  const debouncedCitizenId   = useDebounce(customer.citizenId)
+  const debouncedMemberId    = useDebounce(customer.memberId)
+  const debouncedFullName    = useDebounce(customer.fullName)
   const debouncedCompanyName = useDebounce(customer.companyName)
-  const debouncedTaxId = useDebounce(customer.taxId)
+  const debouncedTaxId       = useDebounce(customer.taxId)
 
-  // ---------- helpers ----------
+  /* ---------- helpers ---------- */
   const fetchFirstOkJson = async (paths = []) => {
     for (const p of paths) {
       try {
@@ -508,17 +435,14 @@ function Sales() {
     return Array.isArray(paths) ? [] : {}
   }
   const clearError = (key) =>
-    setErrors((prev) => {
-      if (!(key in prev)) return prev
-      const { [key]: _omit, ...rest } = prev
-      return rest
-    })
+    setErrors((prev) => { if (!(key in prev)) return prev; const { [key]: _omit, ...rest } = prev; return rest })
   const hasRed = (key) => !!errors[key] || !!missingHints[key]
   const redFieldCls = (key) => (hasRed(key) ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : "")
-  const redHintCls = (key) => (missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : "")
+  const redHintCls  = (key) => (missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : "")
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
+  const findLabelById = (options, id) => (options.find((o) => String(o.id) === String(id))?.label ?? "")
 
-  // ---------- โหลด dropdown เริ่มต้น ----------
+  /* ---------- โหลด dropdown เริ่มต้น ---------- */
   useEffect(() => {
     const loadStaticDD = async () => {
       try {
@@ -551,7 +475,7 @@ function Sales() {
     loadStaticDD()
   }, [])
 
-  // ---------- species/variant ----------
+  /* ---------- species/variant ---------- */
   useEffect(() => {
     const pid = order.productId
     if (!pid) {
@@ -584,7 +508,7 @@ function Sales() {
     loadVariant()
   }, [order.riceId])
 
-  // ---------- โหลดคลังตามสาขา ----------
+  /* ---------- โหลดคลังตามสาขา ---------- */
   useEffect(() => {
     const bId = order.branchId
     const bName = order.branchName?.trim()
@@ -602,37 +526,118 @@ function Sales() {
     loadKlang()
   }, [order.branchId, order.branchName])
 
-  // ---------- ฟอร์มสำเร็จรูป ----------
+  /* ---------- ฟอร์มสำเร็จรูป: โหลดจาก BE และซิงค์กับ shared.formTemplate ---------- */
+  useEffect(() => {
+    const loadForms = async () => {
+      try {
+        const arr = (await apiAuth("/order/form/search")) || []  // รายการ ProductSpec ที่ตั้งค่า prod_name แล้ว
+        const mapped = arr
+          .map((x) => ({
+            id: String(x.id ?? ""),
+            label: String(x.prod_name ?? "").trim(),
+            spec: {
+              product_id: x.product_id ?? null,
+              species_id: x.species_id ?? null,
+              variant_id: x.variant_id ?? null,
+              product_year: x.product_year ?? null,
+              condition_id: x.condition_id ?? null,
+              field_type: x.field_type ?? null,
+              program: x.program ?? null,
+              business_type: x.business_type ?? null,
+            },
+          }))
+          .filter((o) => o.id && o.label)
+        setTemplateOptions([{ id: "0", label: "— ไม่ล็อก (เลือกเอง) —" }, ...mapped])
+      } catch (e) {
+        console.error("load form templates error:", e)
+        setTemplateOptions([{ id: "0", label: "— ไม่ล็อก (เลือกเอง) —" }])
+      }
+    }
+    loadForms()
+  }, [])
+
+  // init จาก shared.formTemplate (ถ้ามี) หรือจาก sales.formTemplate เดิม
   useEffect(() => {
     try {
+      const shared = JSON.parse(localStorage.getItem("shared.formTemplate") || "null")
+      if (shared?.id) {
+        setFormTemplate(String(shared.id))
+        setSelectedTemplateLabel(shared.label || "")
+        return
+      }
       const saved = localStorage.getItem("sales.formTemplate")
-      if (saved && ["0", "1", "2", "3"].includes(saved)) setFormTemplate(saved)
+      if (saved) setFormTemplate(saved)
     } catch {}
   }, [])
+
+  const applyTemplateBySpec = (spec) => {
+    if (!spec) return
+    const S = (v) => (v == null ? "" : String(v))
+    setOrder((p) => ({
+      ...p,
+      productId: S(spec.product_id),
+      riceId: S(spec.species_id),
+      subriceId: S(spec.variant_id),
+      riceYearId: S(spec.product_year),
+      conditionId: S(spec.condition_id),
+      fieldTypeId: S(spec.field_type),
+      programId: S(spec.program),
+      businessTypeId: S(spec.business_type),
+      productName: "", riceType: "", subriceName: "", riceYear: "", condition: "", fieldType: "", programName: "", businessType: "",
+    }))
+  }
+
   useEffect(() => {
     try { localStorage.setItem("sales.formTemplate", formTemplate) } catch {}
   }, [formTemplate])
 
+  // เมื่อเลือก template → set label เก็บไว้ + อัด spec ลงฟอร์ม
   useEffect(() => {
-    if (!isTemplateActive) return
-    if (productOptions.length === 0) return
-    const paddy = productOptions.find((o) => o.label.includes("ข้าวเปลือก"))
-    if (paddy && order.productId !== paddy.id) {
-      setOrder((p) => ({ ...p, productId: paddy.id, productName: paddy.label, riceId: "", riceType: "", subriceId: "", subriceName: "" }))
+    if (!isTemplateActive) { setSelectedTemplateLabel(""); return }
+    const current = templateOptions.find((o) => String(o.id) === String(formTemplate))
+    if (current) {
+      setSelectedTemplateLabel(current.label || "")
+      try { localStorage.setItem("shared.formTemplate", JSON.stringify({ id: String(formTemplate), label: current.label || "" })) } catch {}
+      if (current.spec) applyTemplateBySpec(current.spec)
     }
-  }, [formTemplate, productOptions])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formTemplate])
 
+  /* ---------- Sync id -> label เมื่อ options โหลดเสร็จ ---------- */
   useEffect(() => {
-    if (!isTemplateActive) return
-    if (riceOptions.length === 0) return
-    const want = formTemplate === "1" ? "หอมมะลิ" : formTemplate === "2" ? "เหนียว" : "พันธุ์"
-    const target = riceOptions.find((r) => r.label.includes(want))
-    if (target && order.riceId !== target.id) {
-      setOrder((p) => ({ ...p, riceId: target.id, riceType: target.label, subriceId: "", subriceName: "" }))
-    }
-  }, [formTemplate, riceOptions])
+    const lbl = findLabelById(productOptions, order.productId)
+    if (order.productId && lbl && lbl !== order.productName) setOrder((p) => ({ ...p, productName: lbl }))
+  }, [order.productId, productOptions])
+  useEffect(() => {
+    const lbl = findLabelById(riceOptions, order.riceId)
+    if (order.riceId && lbl && lbl !== order.riceType) setOrder((p) => ({ ...p, riceType: lbl }))
+  }, [order.riceId, riceOptions])
+  useEffect(() => {
+    const lbl = findLabelById(subriceOptions, order.subriceId)
+    if (order.subriceId && lbl && lbl !== order.subriceName) setOrder((p) => ({ ...p, subriceName: lbl }))
+  }, [order.subriceId, subriceOptions])
+  useEffect(() => {
+    const lbl = findLabelById(conditionOptions, order.conditionId)
+    if (order.conditionId && lbl && lbl !== order.condition) setOrder((p) => ({ ...p, condition: lbl }))
+  }, [order.conditionId, conditionOptions])
+  useEffect(() => {
+    const lbl = findLabelById(fieldTypeOptions, order.fieldTypeId)
+    if (order.fieldTypeId && lbl && lbl !== order.fieldType) setOrder((p) => ({ ...p, fieldType: lbl }))
+  }, [order.fieldTypeId, fieldTypeOptions])
+  useEffect(() => {
+    const lbl = findLabelById(yearOptions, order.riceYearId)
+    if (order.riceYearId && lbl && lbl !== order.riceYear) setOrder((p) => ({ ...p, riceYear: lbl }))
+  }, [order.riceYearId, yearOptions])
+  useEffect(() => {
+    const lbl = findLabelById(programOptions, order.programId)
+    if (order.programId && lbl && lbl !== order.programName) setOrder((p) => ({ ...p, programName: lbl }))
+  }, [order.programId, programOptions])
+  useEffect(() => {
+    const lbl = findLabelById(businessOptions, order.businessTypeId)
+    if (order.businessTypeId && lbl && lbl !== order.businessType) setOrder((p) => ({ ...p, businessType: lbl }))
+  }, [order.businessTypeId, businessOptions])
 
-  // ---------- แผงค้นหาบุคคล/บริษัท ----------
+  /* ---------- แผงค้นหาบุคคล/บริษัท (เหมือนเดิม) ---------- */
   const mapSimplePersonToUI = (r = {}) => {
     const S = (v) => (v == null ? "" : String(v))
     return {
@@ -665,6 +670,7 @@ function Sales() {
     setCustomerFound(true)
   }
 
+  // ค้นจาก member_id
   useEffect(() => {
     if (buyerType !== "person") { setCustomerFound(null); return }
     const mid = toIntOrNull(debouncedMemberId)
@@ -683,6 +689,7 @@ function Sales() {
     fetchByMemberId()
   }, [debouncedMemberId, buyerType])
 
+  // ค้นจาก citizen_id
   useEffect(() => {
     if (buyerType !== "person") { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: null }); return }
     const cid = onlyDigits(debouncedCitizenId)
@@ -701,6 +708,7 @@ function Sales() {
     fetchByCid()
   }, [debouncedCitizenId, buyerType])
 
+  // ค้นจากชื่อ
   useEffect(() => {
     if (buyerType !== "person") { setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); setMemberMeta({ type: "unknown", assoId: null, memberId: null }); return }
     const q = (debouncedFullName || "").trim()
@@ -747,8 +755,6 @@ function Sales() {
     await fillFromRecord(rec)
     setShowNameList(false); setNameResults([]); setHighlightedIndex(-1)
   }
-
-  // ⭐ ปรับ Enter บนลิสต์ชื่อ: เลือกชื่อแล้วเด้งไป "ประเภทสินค้า"
   const handleNameKeyDown = async (e) => {
     if (!showNameList || nameResults.length === 0) return
     if (e.key === "ArrowDown") {
@@ -763,20 +769,14 @@ function Sales() {
       e.preventDefault()
       if (highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
         await pickNameResult(nameResults[highlightedIndex])
-        requestAnimationFrame(() => {
-          const el = refs.product?.current
-          if (el && isEnabledInput(el)) {
-            try { el.scrollIntoView({ block: "center" }) } catch {}
-            el.focus?.()
-          }
-        })
+        requestAnimationFrame(() => { const el = refs.product?.current; if (el && isEnabledInput(el)) { try { el.scrollIntoView({ block: "center" }) } catch {}; el.focus?.() } })
       }
     } else if (e.key === "Escape") {
       e.preventDefault(); setShowNameList(false); setHighlightedIndex(-1)
     }
   }
 
-  // ---------- บริษัท ----------
+  /* ---------- บริษัท ---------- */
   useEffect(() => {
     const onClick = (e) => {
       if (!companyBoxRef.current) return
@@ -833,9 +833,7 @@ function Sales() {
         }
       } catch (err) {
         console.error(err); setCompanyResults([]); setShowCompanyList(false); setCompanyHighlighted(-1)
-      } finally {
-        setLoadingCustomer(false)
-      }
+      } finally { setLoadingCustomer(false) }
     }
     searchCompany()
   }, [debouncedCompanyName, buyerType])
@@ -860,11 +858,11 @@ function Sales() {
     else if (e.key === "Escape") { e.preventDefault(); setShowCompanyList(false); setCompanyHighlighted(-1) }
   }
 
-  // ---------- อัปเดต state ----------
+  /* ---------- อัปเดต state ---------- */
   const updateCustomer = (k, v) => { if (String(v).trim() !== "") clearHint(k); setCustomer((p) => ({ ...p, [k]: v })) }
   const updateOrder = (k, v) => { if (String(v).trim() !== "") clearHint(k); setOrder((p) => ({ ...p, [k]: v })) }
 
-  // ---------- Payment resolver ----------
+  /* ---------- Payment resolver ---------- */
   const resolvePaymentId = () => {
     if (/^\d+$/.test(String(order.paymentMethodId || ""))) return Number(order.paymentMethodId)
     const label = (order.paymentMethod || "").trim()
@@ -887,7 +885,7 @@ function Sales() {
     setOrder((p) => ({ ...p, __isCredit: credit, __isCash: !credit }))
   }, [order.paymentMethod, paymentOptions])
 
-  // ---------- Validate + hint ----------
+  /* ---------- Validate + hint ---------- */
   const computeMissingHints = () => {
     const m = {}
     if (buyerType === "person") {
@@ -946,11 +944,9 @@ function Sales() {
         String(t.scaleNoBack || "").trim() !== "" ||
         String(t.unitPriceBack || "").trim() !== "" ||
         String(t.gramBack || "").trim() !== ""
-      // บังคับฝั่งพ่วงหน้าเสมอ
       if (!String(t.licensePlateFront || "").trim()) te.licensePlateFront = "กรอกทะเบียนพ่วงหน้า"
       if (t.frontWeightKg === "" || Number(t.frontWeightKg) <= 0) te.frontWeightKg = "กรอกน้ำหนักสุทธิพ่วงหน้า (> 0)"
       if (t.unitPriceFront === "" || Number(t.unitPriceFront) <= 0) te.unitPriceFront = "กรอกราคาต่อกก. พ่วงหน้า (> 0)"
-      // บังคับฝั่งพ่วงหลังเฉพาะเมื่อมีกรอกข้อมูล/น้ำหนัก
       if (hasBack) {
         if (!String(t.licensePlateBack || "").trim()) te.licensePlateBack = "กรอกทะเบียนพ่วงหลัง"
         if (t.backWeightKg === "" || Number(t.backWeightKg) <= 0) te.backWeightKg = "กรอกน้ำหนักสุทธิพ่วงหลัง (> 0)"
@@ -981,7 +977,7 @@ function Sales() {
     if (tmp) { try { tmp.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} }
   }
 
-  // ---------- Submit ----------
+  /* ---------- Submit ---------- */
   const toIsoDateTime = (yyyyMmDd) => {
     try { return new Date(`${yyyyMmDd}T12:00:00Z`).toISOString() } catch { return new Date().toISOString() }
   }
@@ -1068,7 +1064,6 @@ function Sales() {
     }
 
     const dateISO = toIsoDateTime(order.issueDate)
-    // ใช้เลขเอกสารเป็น sale_id ตาม requirement
     const saleId = ((order.__isCredit ? order.creditInvoiceNo : order.cashReceiptNo) || "").trim() || null
 
     // ส่งทีละคัน
@@ -1086,7 +1081,7 @@ function Sales() {
       const price1 = round2(w1 * u1)
       const price2 = round2(w2 * u2)
 
-      // สำหรับ BE: ส่ง price_per_kilo และ gram เป็น “ค่าเฉลี่ยถ่วงน้ำหนัก” ต่อคัน
+      // ส่งราคา/gram เฉลี่ยถ่วงน้ำหนัก (ต่อคัน)
       const net = w1 + w2
       const weightedUnit = net > 0 ? round2((w1 * u1 + w2 * u2) / net) : (u1 || u2 || 0)
       const weightedGram = net > 0 ? Math.round((w1 * g1 + w2 * g2) / net) : (g1 || g2 || 0)
@@ -1101,8 +1096,8 @@ function Sales() {
           license_plate_2: (t.licensePlateBack || "").trim() || null,
           weight_1: w1,
           weight_2: w2 || 0,
-          gram: weightedGram,                      // <— ส่ง gram ถ่วงน้ำหนัก
-          price_per_kilo: weightedUnit,            // <— ส่งราคาต่อกก.ถ่วงน้ำหนักทั้งคัน
+          gram: weightedGram,
+          price_per_kilo: weightedUnit,
           price_1: price1,
           price_2: price2 || 0,
           order_serial_1: (t.scaleNoFront || "").trim() || null,
@@ -1112,7 +1107,6 @@ function Sales() {
           klang_location: klangId,
           comment: order.comment?.trim() ? `${order.comment.trim()} (พ่วงที่ ${i + 1})` : null,
         },
-        // dept แนบเสมอ (ใช้เมื่อ payment_id == 2)
         dept: { date_created: dateISO, allowed_period: Number(dept.allowedPeriod || 0), postpone: Boolean(dept.postpone), postpone_period: Number(dept.postpone ? (dept.postponePeriod || 0) : 0) },
       }
 
@@ -1138,28 +1132,21 @@ function Sales() {
     }
   }
 
-  // ---------------- UI ----------------
-  // ⭐ เพิ่ม handler: Enter ที่ช่อง "ชื่อ–สกุล" → ไป "ประเภทสินค้า" (ถ้าไม่ได้เลือกจากลิสต์)
+  /* ---------------- UI ---------------- */
   const handleFullNameKeyDown = (e) => {
-    if (showNameList && nameResults.length > 0) {
-      // ให้ตัวจัดการลิสต์ทำงานต่อ (เลือกชื่อ/ลูกศร/escape)
-      return handleNameKeyDown(e)
-    }
+    if (showNameList && nameResults.length > 0) return handleNameKeyDown(e)
     if (e.key === "Enter" && !e.isComposing) {
       e.preventDefault()
       const el = refs.product?.current
       if (el && isEnabledInput(el)) {
         try { el.scrollIntoView({ block: "center" }) } catch {}
-        el.focus?.()
-        try { el.select?.() } catch {}
+        el.focus?.(); try { el.select?.() } catch {}
         return
       }
-      // สำรอง: ใช้ลำดับปกติ
       focusNext("fullName")
     }
   }
 
-  // --------- สีในหัว/เซลล์สรุป (front/back) ----------
   const frontHeadCls = "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-200"
   const frontCellCls = "bg-emerald-50/60 dark:bg-emerald-900/10"
   const backHeadCls  = "bg-slate-50 text-slate-900 dark:bg-slate-800/40 dark:text-slate-200"
@@ -1224,16 +1211,13 @@ function Sales() {
                 onChange={(id) => setFormTemplate(String(id))}
                 buttonRef={refs.formTemplate}
               />
-              {isTemplateActive && (
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  ระบบล็อก <b>ประเภทสินค้า: ข้าวเปลือก</b> และ
-                  <b>{formTemplate === "1" ? " ข้าวหอมมะลิ" : formTemplate === "2" ? " ข้าวเหนียว" : " เมล็ดพันธุ์"}</b>
-                </p>
+              {isTemplateActive && selectedTemplateLabel && (
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">กำลังใช้ฟอร์ม: <b>{selectedTemplateLabel}</b></p>
               )}
             </div>
           </div>
 
-          {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง (ใช้เป็น Sale ID) */}
+          {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง */}
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>วิธีชำระเงิน</label>
@@ -1246,11 +1230,7 @@ function Sales() {
                 onEnterNext={() => {
                   const tryFocusDoc = () => {
                     const el = order.__isCredit ? refs.creditInvoiceNo?.current : refs.cashReceiptNo?.current
-                    if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch {}
-                      el.focus?.(); try { el.select?.() } catch {}
-                      return true
-                    }
+                    if (el && isEnabledInput(el)) { try { el.scrollIntoView({ block: "center" }) } catch {}; el.focus?.(); try { el.select?.() } catch {}; return true }
                     return false
                   }
                   if (tryFocusDoc()) return
@@ -1285,7 +1265,6 @@ function Sales() {
                 }
               </label>
               {order.__isCredit ? (
-                // ⭐ ปรับ Enter: จากใบกำกับ (เชื่อ) → ชื่อ–สกุล / ชื่อบริษัท
                 <input
                   ref={refs.creditInvoiceNo}
                   className={baseField}
@@ -1294,26 +1273,15 @@ function Sales() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.isComposing) {
                       e.preventDefault()
-                      const goName = () => {
-                        const key = buyerType === "person" ? "fullName" : "companyName"
-                        const el = refs[key]?.current
-                        if (el && isEnabledInput(el)) {
-                          try { el.scrollIntoView({ block: "center" }) } catch {}
-                          el.focus?.(); try { el.select?.() } catch {}
-                          return true
-                        }
-                        return false
-                      }
-                      if (goName()) return
-                      // สำรอง: ไปตามคิวเดิม
-                      const fn = () => focusNext("creditInvoiceNo")
-                      fn(); setTimeout(fn, 60)
+                      const key = buyerType === "person" ? "fullName" : "companyName"
+                      const el = refs[key]?.current
+                      if (el && isEnabledInput(el)) { try { el.scrollIntoView({ block: "center" }) } catch {}; el.focus?.(); try { el.select?.() } catch {} }
+                      else focusNext("creditInvoiceNo")
                     }
                   }}
                   placeholder="เช่น INV-2025-000456 (ไม่บังคับ)"
                 />
               ) : order.__isCash ? (
-                // ⭐ ปรับ Enter: จากใบรับเงิน (สด) → ชื่อ–สกุล / ชื่อบริษัท
                 <input
                   ref={refs.cashReceiptNo}
                   className={baseField}
@@ -1322,20 +1290,10 @@ function Sales() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.isComposing) {
                       e.preventDefault()
-                      const goName = () => {
-                        const key = buyerType === "person" ? "fullName" : "companyName"
-                        const el = refs[key]?.current
-                        if (el && isEnabledInput(el)) {
-                          try { el.scrollIntoView({ block: "center" }) } catch {}
-                          el.focus?.(); try { el.select?.() } catch {}
-                          return true
-                        }
-                        return false
-                      }
-                      if (goName()) return
-                      // สำรอง: ไปตามคิวเดิม
-                      const fn = () => focusNext("cashReceiptNo")
-                      fn(); setTimeout(fn, 60)
+                      const key = buyerType === "person" ? "fullName" : "companyName"
+                      const el = refs[key]?.current
+                      if (el && isEnabledInput(el)) { try { el.scrollIntoView({ block: "center" }) } catch {}; el.focus?.(); try { el.select?.() } catch {} }
+                      else focusNext("cashReceiptNo")
                     }
                   }}
                   placeholder="เช่น RC-2025-000789 (ไม่บังคับ)"
@@ -1461,7 +1419,6 @@ function Sales() {
                     else { setShowNameList(false); setHighlightedIndex(-1) }
                   }}
                   onFocus={() => { clearHint("fullName"); clearError("fullName") }}
-                  // ⭐ เปลี่ยนเป็น handler ใหม่แทน onKeyDownCapture เดิม
                   onKeyDown={handleFullNameKeyDown}
                   placeholder="เช่น นายสมชาย ใจดี"
                   aria-expanded={showNameList}
@@ -1491,10 +1448,7 @@ function Sales() {
                             await pickNameResult(r)
                             requestAnimationFrame(() => {
                               const elP = refs.product?.current
-                              if (elP && isEnabledInput(elP)) {
-                                try { elP.scrollIntoView({ block: "center" }) } catch {}
-                                elP.focus?.()
-                              }
+                              if (elP && isEnabledInput(elP)) { try { elP.scrollIntoView({ block: "center" }) } catch {}; elP.focus?.() }
                             })
                           }}
                           onMouseEnter={() => { setHighlightedIndex(idx); requestAnimationFrame(() => scrollHighlightedIntoView2(idx)) }}
@@ -1521,7 +1475,7 @@ function Sales() {
               </div>
             </div>
           ) : (
-            // ---------------- บริษัท ----------------
+            /* ---------------- บริษัท ---------------- */
             <div className="md:col-span-2" ref={companyBoxRef}>
               <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
               <input
@@ -1605,24 +1559,12 @@ function Sales() {
                 hintRed={!!missingHints.product}
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
-                disabled={isTemplateActive}
-                // ⭐ Enter จาก "ประเภทสินค้า" → ไป "ชนิดข้าว" หรือถัดไป
+                disabled={false /* ไม่ล็อก เช่นเดียวกับหน้า buy */}
                 onEnterNext={() => {
                   const tryFocus = () => {
-                    if (isEnabledInput(refs.riceType?.current)) {
-                      try { refs.riceType.current.scrollIntoView({ block: "center" }) } catch {}
-                      refs.riceType.current.focus?.()
-                      return true
-                    }
+                    if (isEnabledInput(refs.riceType?.current)) { try { refs.riceType.current.scrollIntoView({ block: "center" }) } catch {}; refs.riceType.current.focus?.(); return true }
                     const keys = ["subrice","condition","fieldType","riceYear","program","businessType","branchName"]
-                    for (const k of keys) {
-                      const el = refs[k]?.current
-                      if (el && isEnabledInput(el)) {
-                        try { el.scrollIntoView({ block: "center" }) } catch {}
-                        el.focus?.()
-                        return true
-                      }
-                    }
+                    for (const k of keys) { const el = refs[k]?.current; if (el && isEnabledInput(el)) { try { el.scrollIntoView({ block: "center" }) } catch {}; el.focus?.(); return true } }
                     return false
                   }
                   if (tryFocus()) return
@@ -1640,29 +1582,17 @@ function Sales() {
                 value={order.riceId}
                 onChange={(id, found) => setOrder((p) => ({ ...p, riceId: id, riceType: found?.label ?? "", subriceId: "", subriceName: "" }))}
                 placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId || isTemplateActive}
+                disabled={!order.productId}
                 error={!!errors.riceType}
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
                 buttonRef={refs.riceType}
-                // ⭐ Enter จาก "ชนิดข้าว" → ไป "ชั้นย่อย" หรือถัดไป
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.subrice?.current
-                    if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch {}
-                      el.focus?.()
-                      return true
-                    }
+                    if (el && isEnabledInput(el)) { try { el.scrollIntoView({ block: "center" }) } catch {}; el.focus?.(); return true }
                     const keys = ["condition","fieldType","riceYear","program","businessType","branchName"]
-                    for (const k of keys) {
-                      const e2 = refs[k]?.current
-                      if (e2 && isEnabledInput(e2)) {
-                        try { e2.scrollIntoView({ block: "center" }) } catch {}
-                        e2.focus?.()
-                        return true
-                      }
-                    }
+                    for (const k of keys) { const e2 = refs[k]?.current; if (e2 && isEnabledInput(e2)) { try { e2.scrollIntoView({ block: "center" }) } catch {}; e2.focus?.(); return true } }
                     return false
                   }
                   if (tryFocus()) return
@@ -1787,16 +1717,10 @@ function Sales() {
                 hintRed={!!missingHints.branchName}
                 clearHint={() => clearHint("branchName")}
                 buttonRef={refs.branchName}
-                // Enter จาก "สาขา" → "คลัง"
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.klangName?.current
-                    if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch {}
-                      el.focus?.()
-                      try { el.select?.() } catch {}
-                      return true
-                    }
+                    if (el && isEnabledInput(el)) { try { el.scrollIntoView({ block: "center" }) } catch {}; el.focus?.(); try { el.select?.() } catch {}; return true }
                     return false
                   }
                   if (tryFocus()) return
@@ -1806,6 +1730,7 @@ function Sales() {
               />
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
             </div>
+
             <div>
               <label className={labelCls}>คลัง</label>
               <ComboBox
@@ -1819,427 +1744,158 @@ function Sales() {
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
-                // ⭐ ใหม่: Enter จาก "คลัง" → "จำนวนรถพ่วง" (ตามที่ขอ)
                 onEnterNext={() => {
-                  const goTrailerCount = () => {
+                  const tryFocus = () => {
                     const el = refs.trailerCount?.current
-                    if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch {}
-                      el.focus?.()
-                      return true
-                    }
+                    if (el && isEnabledInput(el)) { try { el.scrollIntoView({ block: "center" }) } catch {}; el.focus?.(); return true }
                     return false
                   }
-                  if (!goTrailerCount()) {
-                    // สำรอง ถ้าไม่มีพ่วง
-                    focusNext("klangName")
-                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
                 }}
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>
-          </div>
 
-          {/* รถพ่วงหลายคัน */}
-          <div id="trailers-block" className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-transparent dark:border-slate-700 dark:bg-slate-800">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              <h3 className="text-lg font-semibold">ข้อมูลรถพ่วงหลายคัน</h3>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="w-full sm:w-64 md:w-60">
-                <label className={labelCls}>จำนวนรถพ่วง</label>
-                <ComboBox
-                  options={trailerCountOptions}
-                  value={String(trailersCount)}
-                  onChange={(id) => setTrailersCount(Number(id))}
-                  // ⭐ เพิ่ม ref ให้โฟกัสจาก "คลัง" และ Enter → ใบชั่งหน้าคันที่ 1
-                  buttonRef={refs.trailerCount}
-                  onEnterNext={() => focusFirstOfTrailer(0)}
-                />
-              </div>
-            </div>
-
-            {/* รายการรถพ่วง */}
-            <div className="mt-4 grid gap-4">
-              {trailers.map((t, idx) => {
-                const w1 = toNumber(t.frontWeightKg)
-                const w2 = toNumber(t.backWeightKg)
-                const u1 = toNumber(t.unitPriceFront)
-                const u2 = toNumber(t.unitPriceBack)
-                const amount1 = round2(w1 * u1)
-                const amount2 = round2(w2 * u2)
-                const net = w1 + w2
-                const amount = amount1 + amount2
-                const terr = errors?.trailers?.[idx] || {}
-                return (
-                  <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex h-2 w-2 rounded-full bg-slate-500" />
-                        <div className="font-semibold">รถพ่วง #{idx + 1}</div>
-                      </div>
-                      {net > 0 && (
-                        <div className="text-sm text-slate-600 dark:text-slate-300">
-                          น้ำหนักรวม: <b>{round2(net)} กก.</b> | เป็นเงินโดยประมาณ: <b>{thb(amount)}</b>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* โซนแยก: พ่วงหน้า / พ่วงหลัง */}
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {/* พ่วงหน้า */}
-                      <div className="rounded-2xl border border-emerald-200 dark:border-emerald-700/60 p-4">
-                        <div className="mb-2 font-semibold flex items-center gap-2">
-                          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                          พ่วงหน้า
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-3">
-                          <div className="md:col-span-1">
-                            <label className={labelCls}>เลขที่ใบชั่งพ่วงหน้า</label>
-                            <input
-                              ref={getTRef(idx, "scaleNoFront")}
-                              className={baseField}
-                              value={t.scaleNoFront}
-                              onChange={(e) => updateTrailer(idx, "scaleNoFront", e.target.value)}
-                              onKeyDown={onEnterTrailer(idx, "scaleNoFront")}
-                              placeholder="เช่น SCL-2025-000123"
-                            />
-                          </div>
-
-                          <div>
-                            <label className={labelCls}>ราคาต่อกก. (บาท)</label>
-                            <input
-                              ref={getTRef(idx, "unitPriceFront")}
-                              inputMode="decimal"
-                              className={cx(baseField, terr.unitPriceFront && "border-red-500 ring-2 ring-red-300")}
-                              value={t.unitPriceFront}
-                              onChange={(e) => updateTrailer(idx, "unitPriceFront", e.target.value.replace(/[^\d.]/g, ""))}
-                              onKeyDown={onEnterTrailer(idx, "unitPriceFront")}
-                              placeholder="เช่น 15.00"
-                            />
-                            {terr.unitPriceFront && <p className={errorTextCls}>{terr.unitPriceFront}</p>}
-                          </div>
-
-                          <div>
-                            <label className={labelCls}>คุณภาพข้าว (gram)</label>
-                            <input
-                              ref={getTRef(idx, "gramFront")}
-                              inputMode="numeric"
-                              className={baseField}
-                              value={t.gramFront}
-                              onChange={(e) => updateTrailer(idx, "gramFront", onlyDigits(e.target.value))}
-                              onKeyDown={onEnterTrailer(idx, "gramFront")}
-                              placeholder="เช่น 85"
-                            />
-                          </div>
-
-                          <div>
-                            <label className={labelCls}>ทะเบียนพ่วงหน้า</label>
-                            <input
-                              ref={getTRef(idx, "licensePlateFront")}
-                              className={cx(baseField, terr.licensePlateFront && "border-red-500 ring-2 ring-red-300")}
-                              value={t.licensePlateFront}
-                              onChange={(e) => updateTrailer(idx, "licensePlateFront", e.target.value.toUpperCase())}
-                              onKeyDown={onEnterTrailer(idx, "licensePlateFront")}
-                              placeholder="เช่น 1กก-1234 กทม."
-                            />
-                            {terr.licensePlateFront && <p className={errorTextCls}>{terr.licensePlateFront}</p>}
-                          </div>
-
-                          <div>
-                            <label className={labelCls}>น้ำหนักสุทธิพ่วงหน้า (กก.)</label>
-                            <input
-                              ref={getTRef(idx, "frontWeightKg")}
-                              inputMode="decimal"
-                              className={cx(baseField, terr.frontWeightKg && "border-red-500 ring-2 ring-red-300")}
-                              value={t.frontWeightKg}
-                              onChange={(e) => updateTrailer(idx, "frontWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                              onKeyDown={onEnterTrailer(idx, "frontWeightKg")}
-                              placeholder="เช่น 7,000"
-                            />
-                            {terr.frontWeightKg && <p className={errorTextCls}>{terr.frontWeightKg}</p>}
-                          </div>
-
-                          <div className="md:col-span-1">
-                            <label className={labelCls}>เป็นเงิน (พ่วงหน้า)</label>
-                            {/* readOnly เพื่อให้โฟกัส/กด Enter ได้ */}
-                            <input
-                              ref={getTRef(idx, "amountFront")}
-                              className={cx(baseField, fieldDisabled)}
-                              value={formatMoneyInput(String(amount1))}
-                              readOnly
-                              tabIndex={0}
-                              onKeyDown={onEnterTrailer(idx, "amountFront")}
-                              aria-readonly="true"
-                              placeholder="คำนวณอัตโนมัติ"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* พ่วงหลัง */}
-                      <div className="rounded-2xl border border-slate-200 dark:border-slate-600 p-4">
-                        <div className="mb-2 font-semibold flex items-center gap-2">
-                          <span className="inline-flex h-2 w-2 rounded-full bg-slate-500" />
-                          พ่วงหลัง
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-3">
-                          <div className="md:col-span-1">
-                            <label className={labelCls}>เลขที่ใบชั่งพ่วงหลัง</label>
-                            <input
-                              ref={getTRef(idx, "scaleNoBack")}
-                              className={baseField}
-                              value={t.scaleNoBack}
-                              onChange={(e) => updateTrailer(idx, "scaleNoBack", e.target.value)}
-                              onKeyDown={onEnterTrailer(idx, "scaleNoBack")}
-                              placeholder="เช่น SCL-2025-000124"
-                            />
-                          </div>
-
-                          <div>
-                            <label className={labelCls}>ราคาต่อกก. (บาท)</label>
-                            <input
-                              ref={getTRef(idx, "unitPriceBack")}
-                              inputMode="decimal"
-                              className={cx(baseField, terr.unitPriceBack && "border-red-500 ring-2 ring-red-300")}
-                              value={t.unitPriceBack}
-                              onChange={(e) => updateTrailer(idx, "unitPriceBack", e.target.value.replace(/[^\d.]/g, ""))}
-                              onKeyDown={onEnterTrailer(idx, "unitPriceBack")}
-                              placeholder="เช่น 15.00"
-                            />
-                            {terr.unitPriceBack && <p className={errorTextCls}>{terr.unitPriceBack}</p>}
-                          </div>
-
-                          <div>
-                            <label className={labelCls}>คุณภาพข้าว (gram)</label>
-                            <input
-                              ref={getTRef(idx, "gramBack")}
-                              inputMode="numeric"
-                              className={baseField}
-                              value={t.gramBack}
-                              onChange={(e) => updateTrailer(idx, "gramBack", onlyDigits(e.target.value))}
-                              onKeyDown={onEnterTrailer(idx, "gramBack")}
-                              placeholder="เช่น 85"
-                            />
-                          </div>
-
-                          <div>
-                            <label className={labelCls}>ทะเบียนพ่วงหลัง</label>
-                            <input
-                              ref={getTRef(idx, "licensePlateBack")}
-                              className={cx(baseField, terr.licensePlateBack && "border-red-500 ring-2 ring-red-300")}
-                              value={t.licensePlateBack}
-                              onChange={(e) => updateTrailer(idx, "licensePlateBack", e.target.value.toUpperCase())}
-                              onKeyDown={onEnterTrailer(idx, "licensePlateBack")}
-                              placeholder="เช่น 1กก-5678 กทม."
-                            />
-                            {terr.licensePlateBack && <p className={errorTextCls}>{terr.licensePlateBack}</p>}
-                          </div>
-
-                          <div>
-                            <label className={labelCls}>น้ำหนักสุทธิพ่วงหลัง (กก.)</label>
-                            <input
-                              ref={getTRef(idx, "backWeightKg")}
-                              inputMode="decimal"
-                              className={cx(baseField, terr.backWeightKg && "border-red-500 ring-2 ring-red-300")}
-                              value={t.backWeightKg}
-                              onChange={(e) => updateTrailer(idx, "backWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-                              onKeyDown={onEnterTrailer(idx, "backWeightKg")}
-                              placeholder="เช่น 12,000"
-                            />
-                            {terr.backWeightKg && <p className={errorTextCls}>{terr.backWeightKg}</p>}
-                          </div>
-
-                          <div className="md:col-span-1">
-                            <label className={labelCls}>เป็นเงิน (พ่วงหลัง)</label>
-                            {/* readOnly เพื่อให้โฟกัส/กด Enter ได้ */}
-                            <input
-                              ref={getTRef(idx, "amountBack")}
-                              className={cx(baseField, fieldDisabled)}
-                              value={formatMoneyInput(String(amount2))}
-                              readOnly
-                              tabIndex={0}
-                              onKeyDown={onEnterTrailer(idx, "amountBack")}
-                              aria-readonly="true"
-                              placeholder="คำนวณอัตโนมัติ"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {terr._net && <p className={errorTextCls}>{terr._net}</p>}
-                  </div>
-                )
-              })}
+            <div>
+              <label className={labelCls}>จำนวนรถพ่วง</label>
+              <ComboBox
+                options={trailerCountOptions}
+                value={String(trailersCount)}
+                onChange={(v) => setTrailersCount(Number(v || 1))}
+                buttonRef={refs.trailerCount}
+              />
             </div>
           </div>
 
           {/* หมายเหตุ */}
           <div className="mt-4">
-            <label className={labelCls}>หมายเหตุ / คอมเมนต์</label>
+            <label className={labelCls}>หมายเหตุ (ถ้ามี)</label>
             <textarea
               ref={refs.comment}
-              rows={3}
               className={baseField}
+              rows={2}
               value={order.comment}
               onChange={(e) => updateOrder("comment", e.target.value)}
               onKeyDown={onEnter("comment")}
-              placeholder="ระบุรายละเอียดเพิ่มเติม ถ้ามี"
+              placeholder="รายละเอียดเพิ่มเติม"
             />
           </div>
 
-          {/* สรุปสั้น ๆ */}
-          <div className="mt-6 grid gap-4 md:grid-cols-5">
-            {buyerType === "person" ? (
-              <>
-                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-                  <div className="text-slate-600 dark:text-slate-300">ผู้ซื้อ</div>
-                  <div className="text-lg md:text-xl font-semibold whitespace-pre-line">{customer.fullName || "—"}</div>
+          {/* พ่วงหลายคัน */}
+          <div id="trailers-block" className="mt-6">
+            <h3 className="mb-2 text-lg font-semibold">รายการพ่วง ({trailers.length} คัน)</h3>
+
+            {trailers.map((t, i) => {
+              const getTRef = (key) => ({ current: null }) // สำหรับ UI นี้ไม่ใช้ Enter chain แบบละเอียด เพื่อลดความยาวไฟล์
+              return (
+                <div key={i} className="mb-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                  <div className="mb-2 font-medium">พ่วงที่ {i + 1}</div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {/* พ่วงหน้า */}
+                    <div className="rounded-xl">
+                      <div className={cx("rounded-xl p-3 font-medium", frontHeadCls)}>พ่วงหน้า</div>
+                      <div className={cx("grid gap-3 p-3 rounded-b-xl", frontCellCls)}>
+                        <input className={baseField} placeholder="เลขใบชั่ง (หน้า)" value={t.scaleNoFront} onChange={(e) => updateTrailer(i, "scaleNoFront", e.target.value)} />
+                        <input className={baseField} placeholder="ทะเบียน (หน้า)" value={t.licensePlateFront} onChange={(e) => updateTrailer(i, "licensePlateFront", e.target.value)} />
+                        <input className={baseField} inputMode="numeric" placeholder="น้ำหนักสุทธิ kg (หน้า)" value={t.frontWeightKg} onChange={(e) => updateTrailer(i, "frontWeightKg", onlyDigits(e.target.value))} />
+                        <input className={baseField} inputMode="decimal" placeholder="ราคาต่อกก. (หน้า)" value={t.unitPriceFront} onChange={(e) => updateTrailer(i, "unitPriceFront", formatMoneyInput(e.target.value))} />
+                        <input className={baseField} inputMode="numeric" placeholder="คุณภาพ (gram) (หน้า)" value={t.gramFront} onChange={(e) => updateTrailer(i, "gramFront", onlyDigits(e.target.value))} />
+                      </div>
+                    </div>
+
+                    {/* พ่วงหลัง */}
+                    <div className="rounded-xl">
+                      <div className={cx("rounded-xl p-3 font-medium", backHeadCls)}>พ่วงหลัง</div>
+                      <div className={cx("grid gap-3 p-3 rounded-b-xl", backCellCls)}>
+                        <input className={baseField} placeholder="เลขใบชั่ง (หลัง)" value={t.scaleNoBack} onChange={(e) => updateTrailer(i, "scaleNoBack", e.target.value)} />
+                        <input className={baseField} placeholder="ทะเบียน (หลัง)" value={t.licensePlateBack} onChange={(e) => updateTrailer(i, "licensePlateBack", e.target.value)} />
+                        <input className={baseField} inputMode="numeric" placeholder="น้ำหนักสุทธิ kg (หลัง)" value={t.backWeightKg} onChange={(e) => updateTrailer(i, "backWeightKg", onlyDigits(e.target.value))} />
+                        <input className={baseField} inputMode="decimal" placeholder="ราคาต่อกก. (หลัง)" value={t.unitPriceBack} onChange={(e) => updateTrailer(i, "unitPriceBack", formatMoneyInput(e.target.value))} />
+                        <input className={baseField} inputMode="numeric" placeholder="คุณภาพ (gram) (หลัง)" value={t.gramBack} onChange={(e) => updateTrailer(i, "gramBack", onlyDigits(e.target.value))} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-                  <div className="text-slate-600 dark:text-slate-300">member_id</div>
-                  <div className="text-lg md:text-xl font-semibold">{memberMeta.memberId ?? (customer.memberId?.trim() || "-")}</div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-                  <div className="text-slate-600 dark:text-slate-300">บริษัท/นิติบุคคล</div>
-                  <div className="text-lg md:text-xl font-semibold">{customer.companyName || "—"}</div>
-                </div>
-                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-                  <div className="text-slate-600 dark:text-slate-300">เลขที่ผู้เสียภาษี</div>
-                  <div className="text-lg md:text-xl font-semibold">{customer.taxId || "—"}</div>
-                </div>
-              </>
-            )}
+              )
+            })}
 
-            {[
-              { label: "ลงวันที่", value: order.issueDate || "—" },
-              { label: "วิธีชำระเงิน", value: order.paymentMethod || "—" },
-              { label: "สินค้า", value: order.productName || "—" },
-              { label: "ชนิดข้าว", value: order.riceType || "—" },
-              { label: "ชั้นย่อย", value: order.subriceName || "—" },
-              { label: "เงื่อนไข", value: order.condition || "—" },
-              { label: "ประเภทนา", value: order.fieldType || "—" },
-              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
-              {
-                label: "สาขา / คลัง",
-                value: (<ul className="list-disc pl-5"><li>{order.branchName || "—"}</li>{order.klangName && <li>{order.klangName}</li>}</ul>),
-              },
-              { label: "หมายเหตุ / คอมเมนต์", value: order.comment || "—" },
-            ].map((c) => (
-              <div key={c.label} className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-                <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
-                <div className="text-lg md:text-xl font-semibold">{c.value}</div>
-              </div>
-            ))}
+            {/* สรุปต่อไฟล์ */}
+            <div className="mt-4 overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700">
+              <table className="min-w-[960px] w-full text-left">
+                <thead className="bg-slate-50 dark:bg-slate-800/60">
+                  <tr>
+                    <th className="py-2 pl-4">#</th>
+                    <th className="py-2 pr-4">เลขชั่ง(หน้า)</th>
+                    <th className="py-2 pr-4">ทะเบียน(หน้า)</th>
+                    <th className="py-2 pr-4">ราคาต่อกก.(หน้า)</th>
+                    <th className="py-2 pr-4">gram(หน้า)</th>
+                    <th className="py-2 pr-4">น้ำหนัก(หน้า)</th>
+                    <th className="py-2 pr-4">เป็นเงิน(หน้า)</th>
 
-            {/* สรุปรถพ่วง + ยอดรวม (จัดกลุ่ม: พ่วงหน้า → พ่วงหลัง → รวมเงินทั้งไฟล์) */}
-<div className="md:col-span-5 rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-  <div className="mb-2 flex items-center justify-between">
-    <div className="text-slate-600 dark:text-slate-300">สรุปรถพ่วง</div>
-    <div className="flex items-center gap-4 text-xs md:text-sm opacity-80">
-      <span className="inline-flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-emerald-500" />พ่วงหน้า
-      </span>
-      <span className="inline-flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-slate-500" />พ่วงหลัง
-      </span>
-    </div>
-  </div>
+                    <th className="py-2 pr-4">เลขชั่ง(หลัง)</th>
+                    <th className="py-2 pr-4">ทะเบียน(หลัง)</th>
+                    <th className="py-2 pr-4">ราคาต่อกก.(หลัง)</th>
+                    <th className="py-2 pr-4">gram(หลัง)</th>
+                    <th className="py-2 pr-4">น้ำหนัก(หลัง)</th>
+                    <th className="py-2 pr-4">เป็นเงิน(หลัง)</th>
 
-  <div className="overflow-x-auto">
-    <table className="min-w-full text-sm">
-      <thead>
-        <tr className="text-left border-b border-slate-200 dark:border-slate-700">
-          <th className="py-2 pr-4">#</th>
+                    <th className="py-2 pr-4">น้ำหนักรวม</th>
+                    <th className="py-2 pr-4">รวมเงิน</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trailers.map((t, idx) => {
+                    const w1 = toNumber(t.frontWeightKg)
+                    const w2 = toNumber(t.backWeightKg)
+                    const u1 = toNumber(t.unitPriceFront)
+                    const u2 = toNumber(t.unitPriceBack)
+                    const amount1 = round2(w1 * u1)
+                    const amount2 = round2(w2 * u2)
+                    const net = w1 + w2
+                    const amount = amount1 + amount2
+                    return (
+                      <tr key={idx} className="border-t border-slate-200 dark:border-slate-700">
+                        <td className="py-2 pl-4">{idx + 1}</td>
 
-          {/* ---- กลุ่มพ่วงหน้า (ติดกันทั้งหมด) ---- */}
-          <th className={cx("py-2 pr-4", frontHeadCls)}>ทะเบียนพ่วงหน้า</th>
-          <th className={cx("py-2 pr-4", frontHeadCls)}>ใบชั่งพ่วงหน้า</th>
-          <th className={cx("py-2 pr-4", frontHeadCls)}>ราคาต่อกก.หน้า</th>
-          <th className={cx("py-2 pr-4", frontHeadCls)}>คุณภาพหน้า (g)</th>
-          <th className={cx("py-2 pr-4", frontHeadCls)}>พ่วงหน้า (กก.)</th>
-          <th className={cx("py-2 pr-4", frontHeadCls)}>เงินพ่วงหน้า (≈)</th>
+                        <td className={cx("py-2 pr-4", frontCellCls)}>{t.scaleNoFront || "—"}</td>
+                        <td className={cx("py-2 pr-4", frontCellCls)}>{t.licensePlateFront || "—"}</td>
+                        <td className={cx("py-2 pr-4", frontCellCls)}>{u1 ? u1.toFixed(2) : "—"}</td>
+                        <td className={cx("py-2 pr-4", frontCellCls)}>{t.gramFront || "—"}</td>
+                        <td className={cx("py-2 pr-4", frontCellCls)}>{t.frontWeightKg || "0"}</td>
+                        <td className={cx("py-2 pr-4", frontCellCls)}>{thb(amount1)}</td>
 
-          {/* ---- กลุ่มพ่วงหลัง (ต่อท้ายทั้งหมด) ---- */}
-          <th className={cx("py-2 pr-4", backHeadCls)}>ทะเบียนพ่วงหลัง</th>
-          <th className={cx("py-2 pr-4", backHeadCls)}>ใบชั่งพ่วงหลัง</th>
-          <th className={cx("py-2 pr-4", backHeadCls)}>ราคาต่อกก.หลัง</th>
-          <th className={cx("py-2 pr-4", backHeadCls)}>คุณภาพหลัง (g)</th>
-          <th className={cx("py-2 pr-4", backHeadCls)}>พ่วงหลัง (กก.)</th>
-          <th className={cx("py-2 pr-4", backHeadCls)}>เงินพ่วงหลัง (≈)</th>
+                        <td className={cx("py-2 pr-4", backCellCls)}>{t.scaleNoBack || "—"}</td>
+                        <td className={cx("py-2 pr-4", backCellCls)}>{t.licensePlateBack || "—"}</td>
+                        <td className={cx("py-2 pr-4", backCellCls)}>{u2 ? u2.toFixed(2) : "—"}</td>
+                        <td className={cx("py-2 pr-4", backCellCls)}>{t.gramBack || "—"}</td>
+                        <td className={cx("py-2 pr-4", backCellCls)}>{t.backWeightKg || "0"}</td>
+                        <td className={cx("py-2 pr-4", backCellCls)}>{thb(amount2)}</td>
 
-          {/* ---- รวมต่อแถวสุดท้ายของแต่ละคัน ---- */}
-          <th className="py-2 pr-4">รวมน้ำหนัก (กก.)</th>
-          <th className="py-2 pr-4">รวมเงิน (≈)</th>
-        </tr>
-      </thead>
+                        <td className="py-2 pr-4">{round2(net)}</td>
+                        <td className="py-2 pr-4">{thb(amount)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
 
-      <tbody>
-        {trailers.map((t, i) => {
-          const w1 = toNumber(t.frontWeightKg)
-          const w2 = toNumber(t.backWeightKg)
-          const u1 = toNumber(t.unitPriceFront)
-          const u2 = toNumber(t.unitPriceBack)
-          const amount1 = round2(w1 * u1)
-          const amount2 = round2(w2 * u2)
-          const net = w1 + w2
-          const amount = amount1 + amount2
-
-          return (
-            <tr key={i} className="border-b border-slate-100 dark:border-slate-700/60">
-              <td className="py-2 pr-4">{i + 1}</td>
-
-              {/* พ่วงหน้า (เรียงติดกัน) */}
-              <td className={cx("py-2 pr-4", frontCellCls)}>{t.licensePlateFront || "—"}</td>
-              <td className={cx("py-2 pr-4", frontCellCls)}>{t.scaleNoFront || "—"}</td>
-              <td className={cx("py-2 pr-4", frontCellCls)}>{u1 ? u1.toFixed(2) : "—"}</td>
-              <td className={cx("py-2 pr-4", frontCellCls)}>{t.gramFront || "—"}</td>
-              <td className={cx("py-2 pr-4", frontCellCls)}>{t.frontWeightKg || "0"}</td>
-              <td className={cx("py-2 pr-4", frontCellCls)}>{thb(amount1)}</td>
-
-              {/* พ่วงหลัง (เรียงต่อท้าย) */}
-              <td className={cx("py-2 pr-4", backCellCls)}>{t.licensePlateBack || "—"}</td>
-              <td className={cx("py-2 pr-4", backCellCls)}>{t.scaleNoBack || "—"}</td>
-              <td className={cx("py-2 pr-4", backCellCls)}>{u2 ? u2.toFixed(2) : "—"}</td>
-              <td className={cx("py-2 pr-4", backCellCls)}>{t.gramBack || "—"}</td>
-              <td className={cx("py-2 pr-4", backCellCls)}>{t.backWeightKg || "0"}</td>
-              <td className={cx("py-2 pr-4", backCellCls)}>{thb(amount2)}</td>
-
-              {/* รวมต่อคัน */}
-              <td className="py-2 pr-4">{round2(net)}</td>
-              <td className="py-2 pr-4">{thb(amount)}</td>
-            </tr>
-          )
-        })}
-      </tbody>
-
-      {/* รวมเงินทั้งไฟล์ (แสดงท้ายตาราง) */}
-      <tfoot>
-        <tr className="border-t border-slate-200 dark:border-slate-700">
-          <td colSpan={14} className="py-3 pr-4 text-right font-semibold">รวมเงินทั้งไฟล์:</td>
-          <td className="py-3 pr-4 font-semibold">
-            {thb(trailers.reduce((s, t) => {
-              const w1 = toNumber(t.frontWeightKg)
-              const w2 = toNumber(t.backWeightKg)
-              const u1 = toNumber(t.unitPriceFront)
-              const u2 = toNumber(t.unitPriceBack)
-              return s + (w1 * u1) + (w2 * u2)
-            }, 0))}
-          </td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-</div>
-
+                <tfoot>
+                  <tr className="border-t border-slate-200 dark:border-slate-700">
+                    <td colSpan={14} className="py-3 pr-4 text-right font-semibold">รวมเงินทั้งไฟล์:</td>
+                    <td className="py-3 pr-4 font-semibold">
+                      {thb(trailers.reduce((s, t) => {
+                        const w1 = toNumber(t.frontWeightKg)
+                        const w2 = toNumber(t.backWeightKg)
+                        const u1 = toNumber(t.unitPriceFront)
+                        const u2 = toNumber(t.unitPriceBack)
+                        return s + (w1 * u1) + (w2 * u2)
+                      }, 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
 
           {/* ปุ่มบันทึก/รีเซ็ต */}

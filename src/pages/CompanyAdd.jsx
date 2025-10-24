@@ -1,5 +1,5 @@
 // src/pages/CompanyAdd.jsx
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../lib/api"
 
 /** ---------- Utils ---------- */
@@ -38,6 +38,75 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
+/** ---------- Enter-to-next helpers (ยกหลักการจากหน้า Buy) ---------- */
+// ตรวจว่า input ยัง enable/มองเห็นอยู่ไหม
+const isEnabledInput = (el) => {
+  if (!el) return false
+  if (typeof el.disabled !== "undefined" && el.disabled) return false
+  const style = window.getComputedStyle?.(el)
+  if (style && (style.display === "none" || style.visibility === "hidden")) return false
+  if (!el.offsetParent && el.type !== "hidden" && el.getAttribute("role") !== "combobox") return false
+  return true
+}
+
+// ฮุคควบคุม Enter → โฟกัสช่องถัดไป
+const useEnterNavigation = (refs) => {
+  // ลำดับที่ผู้ใช้ต้องการ (ผมแทรก tax_id ไว้หลังชื่อบริษัท เพราะเป็นฟิลด์บังคับ)
+  const order = [
+    "company_name",
+    "tax_id",
+    "phone_number",
+    "hq_address",
+    "hq_moo",
+    "hq_tambon",
+    "hq_amphur",
+    "hq_province",
+    "hq_postal_code",
+    "branch_address",
+    "branch_moo",
+    "branch_tambon",
+    "branch_amphur",
+    "branch_province",
+    "branch_postal_code",
+    "submitBtn", // โฟกัสปุ่มบันทึก
+  ]
+
+  const focusNext = (currentKey) => {
+    const list = order.filter((k) => isEnabledInput(refs?.[k]?.current))
+    const i = list.indexOf(currentKey)
+    const nextKey = i >= 0 && i < list.length - 1 ? list[i + 1] : null
+    if (!nextKey) return
+    const el = refs[nextKey]?.current
+    if (!el) return
+    try { el.scrollIntoView({ block: "center" }) } catch {}
+    el.focus?.()
+    try { el.select?.() } catch {}
+  }
+
+  const onEnter = (currentKey) => (e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault()
+      focusNext(currentKey)
+    }
+  }
+
+  return { onEnter, focusNext }
+}
+
+/** ---------- FormGuard: เตือนถ้าจะออกจากหน้า/รีเฟรชแล้วยังกรอกค้าง ---------- */
+const useFormGuard = (active) => {
+  useEffect(() => {
+    if (!active) return
+    const h = (e) => {
+      e.preventDefault()
+      e.returnValue = "" // ให้เบราว์เซอร์โชว์ dialog ยืนยัน
+      return ""
+    }
+    window.addEventListener("beforeunload", h)
+    return () => window.removeEventListener("beforeunload", h)
+  }, [active])
+}
+
 /** ---------- Component: CompanyAdd ---------- */
 const CompanyAdd = () => {
   const [errors, setErrors] = useState({})
@@ -61,7 +130,12 @@ const CompanyAdd = () => {
     branch_amphur: useRef(null),
     branch_province: useRef(null),
     branch_postal_code: useRef(null),
+
+    // ปุ่มบันทึก
+    submitBtn: useRef(null),
   }
+
+  const { onEnter } = useEnterNavigation(refs)
 
   // ฟอร์มตรงกับชื่อฟิลด์ฝั่ง Backend (CompanyCustomerCreate)
   const [form, setForm] = useState({
@@ -101,7 +175,7 @@ const CompanyAdd = () => {
     if (!form.company_name.trim()) e.company_name = "กรุณากรอกชื่อบริษัท / นิติบุคคล"
     if (!is13(form.tax_id)) e.tax_id = "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก"
 
-    // HQ minimal required (ตาม UI เราบังคับให้ครบเพื่อคุณภาพข้อมูล)
+    // HQ minimal required (บังคับให้ครบเพื่อคุณภาพข้อมูล)
     if (!form.hq_address.trim()) e.hq_address = "กรุณากรอกบ้านเลขที่/ที่อยู่ (HQ)"
     if (!form.hq_tambon.trim()) e.hq_tambon = "กรุณากรอกตำบล (HQ)"
     if (!form.hq_amphur.trim()) e.hq_amphur = "กรุณากรอกอำเภอ (HQ)"
@@ -146,6 +220,13 @@ const CompanyAdd = () => {
       el.focus()
     }
   }, [errors]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** ---------- FormGuard เปิดเมื่อฟอร์มสกปรก และไม่อยู่ระหว่าง submit ---------- */
+  const isDirty = useMemo(
+    () => Object.values(form).some((v) => String(v ?? "").trim() !== ""),
+    [form]
+  )
+  useFormGuard(isDirty && !submitting)
 
   /** ---------- Submit ---------- */
   const handleSubmit = async (ev) => {
@@ -211,6 +292,7 @@ const CompanyAdd = () => {
       branch_province: "",
       branch_postal_code: "",
     })
+    // FormGuard จะปิดเองเพราะ isDirty กลับเป็น false
   }
 
   /** ---------- UI ---------- */
@@ -234,6 +316,7 @@ const CompanyAdd = () => {
                     update("company_name", e.target.value)
                   }}
                   onFocus={() => clearError("company_name")}
+                  onKeyDown={onEnter("company_name")}
                   placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
                   aria-invalid={errors.company_name ? true : undefined}
                 />
@@ -253,6 +336,7 @@ const CompanyAdd = () => {
                     update("tax_id", onlyDigits(e.target.value))
                   }}
                   onFocus={() => clearError("tax_id")}
+                  onKeyDown={onEnter("tax_id")}
                   placeholder="เช่น 0123456789012"
                   aria-invalid={errors.tax_id ? true : undefined}
                 />
@@ -271,6 +355,7 @@ const CompanyAdd = () => {
                   className={baseField}
                   value={form.phone_number}
                   onChange={(e) => update("phone_number", e.target.value)}
+                  onKeyDown={onEnter("phone_number")}
                   placeholder="เช่น 021234567"
                 />
               </div>
@@ -295,6 +380,7 @@ const CompanyAdd = () => {
                       update("hq_address", e.target.value)
                     }}
                     onFocus={() => clearError("hq_address")}
+                    onKeyDown={onEnter("hq_address")}
                     placeholder="เช่น 99/1 หมู่บ้านตัวอย่าง"
                     aria-invalid={errors.hq_address ? true : undefined}
                   />
@@ -308,6 +394,7 @@ const CompanyAdd = () => {
                     className={baseField}
                     value={form.hq_moo}
                     onChange={(e) => update("hq_moo", e.target.value)}
+                    onKeyDown={onEnter("hq_moo")}
                     placeholder="เช่น 4"
                   />
                 </div>
@@ -323,6 +410,7 @@ const CompanyAdd = () => {
                       update("hq_tambon", e.target.value)
                     }}
                     onFocus={() => clearError("hq_tambon")}
+                    onKeyDown={onEnter("hq_tambon")}
                     placeholder="เช่น หนองปลาไหล"
                     aria-invalid={errors.hq_tambon ? true : undefined}
                   />
@@ -340,6 +428,7 @@ const CompanyAdd = () => {
                       update("hq_amphur", e.target.value)
                     }}
                     onFocus={() => clearError("hq_amphur")}
+                    onKeyDown={onEnter("hq_amphur")}
                     placeholder="เช่น เมือง"
                     aria-invalid={errors.hq_amphur ? true : undefined}
                   />
@@ -357,6 +446,7 @@ const CompanyAdd = () => {
                       update("hq_province", e.target.value)
                     }}
                     onFocus={() => clearError("hq_province")}
+                    onKeyDown={onEnter("hq_province")}
                     placeholder="เช่น ขอนแก่น"
                     aria-invalid={errors.hq_province ? true : undefined}
                   />
@@ -376,6 +466,7 @@ const CompanyAdd = () => {
                       update("hq_postal_code", onlyDigits(e.target.value))
                     }}
                     onFocus={() => clearError("hq_postal_code")}
+                    onKeyDown={onEnter("hq_postal_code")}
                     placeholder="เช่น 10110"
                     aria-invalid={errors.hq_postal_code ? true : undefined}
                   />
@@ -399,6 +490,7 @@ const CompanyAdd = () => {
                     className={baseField}
                     value={form.branch_address}
                     onChange={(e) => update("branch_address", e.target.value)}
+                    onKeyDown={onEnter("branch_address")}
                     placeholder="เช่น 10/2 หมู่บ้านตัวอย่าง"
                   />
                 </div>
@@ -410,6 +502,7 @@ const CompanyAdd = () => {
                     className={baseField}
                     value={form.branch_moo}
                     onChange={(e) => update("branch_moo", e.target.value)}
+                    onKeyDown={onEnter("branch_moo")}
                     placeholder="เช่น 5"
                   />
                 </div>
@@ -421,6 +514,7 @@ const CompanyAdd = () => {
                     className={baseField}
                     value={form.branch_tambon}
                     onChange={(e) => update("branch_tambon", e.target.value)}
+                    onKeyDown={onEnter("branch_tambon")}
                     placeholder="เช่น บึงเนียม"
                   />
                 </div>
@@ -432,6 +526,7 @@ const CompanyAdd = () => {
                     className={baseField}
                     value={form.branch_amphur}
                     onChange={(e) => update("branch_amphur", e.target.value)}
+                    onKeyDown={onEnter("branch_amphur")}
                     placeholder="เช่น เมือง"
                   />
                 </div>
@@ -443,6 +538,7 @@ const CompanyAdd = () => {
                     className={baseField}
                     value={form.branch_province}
                     onChange={(e) => update("branch_province", e.target.value)}
+                    onKeyDown={onEnter("branch_province")}
                     placeholder="เช่น ขอนแก่น"
                   />
                 </div>
@@ -460,6 +556,7 @@ const CompanyAdd = () => {
                       update("branch_postal_code", onlyDigits(e.target.value))
                     }}
                     onFocus={() => clearError("branch_postal_code")}
+                    onKeyDown={onEnter("branch_postal_code")}
                     placeholder="เช่น 10220"
                     aria-invalid={errors.branch_postal_code ? true : undefined}
                   />
@@ -471,6 +568,7 @@ const CompanyAdd = () => {
             {/* ปุ่ม */}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
+                ref={refs.submitBtn}
                 type="submit"
                 disabled={submitting}
                 className="inline-flex items-center justify-center rounded-2xl 

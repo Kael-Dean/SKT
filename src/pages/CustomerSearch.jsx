@@ -106,7 +106,7 @@ function useFIDRelationshipMap() {
 }
 
 /** ---------- หน้าค้นหา ลูกค้าทั่วไป ---------- */
-const CustomeerSearch = () => {
+const CustomerSearch = () => {
   const [q, setQ] = useState("")
   const dq = useDebounce(q, 450)
 
@@ -412,4 +412,4 @@ const CustomeerSearch = () => {
   )
 }
 
-export default CustomeerSearch
+export default CustomerSearch

@@ -26,7 +26,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       location.pathname.startsWith('/transfer-in') ||
       location.pathname.startsWith('/transfer-out') ||
       location.pathname.startsWith('/bring-in') ||
-      location.pathname.startsWith('/bring-in-mill') || // ✅ เพิ่มเส้นทางใหม่ให้ auto-open
+      location.pathname.startsWith('/bring-in-mill') || // ✅ เส้นทางนี้ยังคงรองรับ
       location.pathname.startsWith('/transfer-mill') ||
       location.pathname.startsWith('/damage-out'),
     [location.pathname]
@@ -34,14 +34,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const [businessOpen, setBusinessOpen] = useState(inBusiness)
   useEffect(() => setBusinessOpen(inBusiness), [inBusiness])
 
-  // ✅ กลุ่มใหม่: ทะเบียนสมาชิก (auto-open เมื่ออยู่ในเส้นทางที่เกี่ยวข้อง)
+  // ✅ กลุ่ม: ทะเบียนสมาชิก (auto-open เมื่ออยู่ในเส้นทางที่เกี่ยวข้อง)
   const inMembers = useMemo(
     () =>
       location.pathname.startsWith('/member-signup') ||
       location.pathname.startsWith('/search') ||
+      location.pathname.startsWith('/customer-search') || // ✅ เพิ่มเพื่อรองรับเมนูใหม่
       location.pathname.startsWith('/customer-add') ||
       location.pathname.startsWith('/company-add') ||
-      location.pathname.startsWith('/member-termination'), // ← เพิ่มหน้าสมาชิกสิ้นสภาพ
+      location.pathname.startsWith('/member-termination'),
     [location.pathname]
   )
   const [membersOpen, setMembersOpen] = useState(inMembers)
@@ -73,11 +74,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const firstMenu = { label: 'หน้าหลัก', path: '/home' }
 
-  // ✅ เมนูอื่น ๆ (ย้าย 4 เมนูไปอยู่ใน "ทะเบียนสมาชิก" แล้ว)
+  // ✅ เมนูอื่น ๆ
   const otherMenus = [
     { label: 'คลังเอกสาร', path: '/documents' },
     { label: 'ออเดอร์', path: '/order' },
-    { label: 'คลังสินค้า', path: '/stock' }, // ← อยู่ถัดจากออเดอร์ตามที่กำหนด
+    { label: 'คลังสินค้า', path: '/stock' },
   ]
 
   const isActive = (p) => location.pathname === p
@@ -174,7 +175,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             </div>
           </div>
 
-          {/* 3) กลุ่มใหม่: ทะเบียนสมาชิก */}
+          {/* 3) กลุ่ม: ทะเบียนสมาชิก */}
           <div className={cardWrapper}>
             <div className={cardBox}>
               <button
@@ -211,7 +212,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                   {[
                     { label: 'สมัครสมาชิก', path: '/member-signup' },
                     { label: 'ค้นหาสมาชิก', path: '/search' },
-                    { label: 'เพิ่มลูกค้าทั้วไป', path: '/customer-add' },
+                    { label: 'ค้นหาลูกค้าทั่วไป', path: '/customer-search' }, // ✅ ใหม่: ขอไว้ถัดจาก "ค้นหาสมาชิก"
+                    { label: 'เพิ่มลูกค้าทั่วไป', path: '/customer-add' },   // 🔤 แก้สะกด "ทั้วไป" → "ทั่วไป"
                     { label: 'เพิ่มบริษัท', path: '/company-add' },
                     { label: 'สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)', path: '/member-termination' },
                   ].map((item) => (

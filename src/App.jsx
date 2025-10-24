@@ -15,6 +15,9 @@ import Stock from './pages/Stock'
 import CustomerAdd from './pages/CustomerAdd'
 import CompanyAdd from './pages/CompanyAdd'
 
+// ✅ นำเข้าหน้า CustomerSearch (ค้นหาลูกค้าทั่วไป)
+import CustomerSearch from './pages/CustomerSearch' // ถ้าไฟล์คุณยังชื่อ CustomeerSearch.jsx ให้แก้ path นี้
+
 // ✅ กลุ่มธุรกิจรวบรวมผลผลิต
 import StockTransferOut from './pages/StockTransferOut'
 import StockTransferIn from './pages/StockTransferIn'
@@ -67,6 +70,9 @@ function App() {
         <Route path="/member-signup" element={<MemberSignup />} />
         <Route path="/search" element={<MemberSearch />} />
         <Route path="/stock" element={<Stock />} />
+
+        {/* ✅ Route ใหม่: ค้นหาลูกค้าทั่วไป */}
+        <Route path="/customer-search" element={<CustomerSearch />} />
 
         {/* ✅ Route ใหม่: เพิ่มลูกค้า / เพิ่มบริษัท */}
         <Route path="/customer-add" element={<CustomerAdd />} />

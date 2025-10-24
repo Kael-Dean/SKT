@@ -1,6 +1,6 @@
 // src/pages/CustomeerSearch.jsx
 import { useEffect, useMemo, useState } from "react"
-import { apiAuth } from "../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ (เหมือน MemberSearch)
+import { apiAuth } from "../lib/api"   // ✅ แนบโทเคนอัตโนมัติ (เหมือน MemberSearch)
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -27,15 +27,27 @@ function formatDate(v) {
   }
 }
 
-/** ---------- ฟิลด์ของ "ลูกค้าทั่วไป" ตามสคีมาฝั่ง BE ---------- */
+/** ---------- ค่าคำนำหน้า + sex ---------- */
+const PREFIX_OPTIONS = [
+  { value: "",  label: "— เลือก —" },
+  { value: "1", label: "นาย" },
+  { value: "2", label: "นาง" },
+  { value: "3", label: "นางสาว" },
+]
+const sexFromPrefix = (pre) => (pre === "1" ? "M" : pre === "2" || pre === "3" ? "F" : "")
+
+/** ---------- ฟิลด์ของ "ลูกค้าทั่วไป" ตามฝั่ง BE ---------- */
 /**
  * Customer fields (individual):
- * - first_name, last_name, citizen_id, address, mhoo, sub_district, district, province, postal_code
+ * - precode (number), sex (M/F)
+ * - first_name, last_name, citizen_id
+ * - address, mhoo, sub_district, district, province, postal_code
  * - phone_number?, fid?, fid_owner?, fid_relationship?
- * (จะไม่มีฟิลด์เฉพาะสมาชิก เช่น member_id, โครงการ, ที่ดิน ฯลฯ)
- * อ้างอิงสคีมาและเอ็นด์พอยท์ /member/customer/search และ /member/members/fid_relationship
+ *
+ * อ้างอิงสคีมา/เอ็นด์พอยท์ที่หน้าเพิ่มลูกค้าทั่วไปและสมัครสมาชิกใช้อยู่
  */
 const CUSTOMER_FIELD_KEYS = [
+  "precode", "sex",
   "first_name", "last_name", "citizen_id", "phone_number",
   "address", "mhoo", "sub_district", "district", "province", "postal_code",
   "fid", "fid_owner", "fid_relationship",
@@ -45,6 +57,9 @@ const CUSTOMER_FIELD_KEYS = [
 function normalizeCustomerRecord(raw = {}) {
   const out = {
     asso_id: raw.asso_id ?? raw.assoId ?? raw.id ?? null,
+
+    precode: raw.precode ?? null,
+    sex: raw.sex ?? "",
 
     first_name: raw.first_name ?? raw.firstname ?? "",
     last_name:  raw.last_name  ?? raw.lastname  ?? "",
@@ -63,7 +78,6 @@ function normalizeCustomerRecord(raw = {}) {
     fid_owner: raw.fid_owner ?? "",
     fid_relationship: raw.fid_relationship ?? null,
 
-    // กันไว้เผื่อ BE ให้ timestamp มาด้วย
     created_at: raw.created_at ?? raw.regis_date ?? null,
   }
 
@@ -84,7 +98,7 @@ const TABLE_COLUMNS = [
   { key: "district",     label: "อำเภอ",             render: (row) => row.district || "-" },
 ]
 
-/** ---------- ตัวแผนที่ id -> ข้อความความสัมพันธ์ FID ---------- */
+/** ---------- ตัวแผนที่ id -> ข้อความความสัมพันธ์ FID + options ---------- */
 function useFIDRelationshipMap() {
   const [map, setMap] = useState({})
   useEffect(() => {
@@ -97,15 +111,43 @@ function useFIDRelationshipMap() {
         })
         setMap(m)
       } catch {
-        // เงียบๆ ถ้าดึงไม่ได้ ให้โชว์เป็นตัวเลขเดิม
+        // ถ้าดึงไม่ได้ ให้โชว์เป็นตัวเลขเดิม
       }
     }
     run()
   }, [])
   return map
 }
+function useFIDRelationshipOptions(fidMap) {
+  return useMemo(
+    () =>
+      Object.entries(fidMap || {}).map(([id, label]) => ({
+        value: String(id),
+        label: String(label),
+      })),
+    [fidMap]
+  )
+}
 
-/** ---------- หน้าค้นหา ลูกค้าทั่วไป ---------- */
+/** PATCH helper (ลองหลายเส้นทาง) */
+async function patchCustomerFlex(id, body) {
+  const paths = [
+    `/member/customer/${id}`,
+    `/member/customers/${id}`,
+  ]
+  let lastErr
+  for (const p of paths) {
+    try {
+      const updated = await apiAuth(p, { method: "PATCH", body })
+      return updated
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  throw lastErr || new Error("บันทึกไม่สำเร็จ")
+}
+
+/** ---------- หน้าค้นหา ลูกค้าทั่วไป (แก้ไขได้) ---------- */
 const CustomerSearch = () => {
   const [q, setQ] = useState("")
   const dq = useDebounce(q, 450)
@@ -116,10 +158,15 @@ const CustomerSearch = () => {
 
   // modal
   const [open, setOpen] = useState(false)
-  const [active, setActive] = useState(null)
+  const [active, setActive] = useState(null)   // normalized row (ของจริง)
+  const [draft, setDraft] = useState(null)     // ค่าที่แก้ไขอยู่
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [rowError, setRowError] = useState("")
 
-  // FID relationship map
+  // FID relationship
   const fidMap = useFIDRelationshipMap()
+  const fidOptions = useFIDRelationshipOptions(fidMap)
 
   const hint = useMemo(() => {
     const digits = onlyDigits(q)
@@ -151,13 +198,108 @@ const CustomerSearch = () => {
   }, [dq])
 
   const openModal = (row) => {
-    setActive(normalizeCustomerRecord(row))
+    const r = normalizeCustomerRecord(row)
+    setActive(r)
+
+    // เตรียม draft เริ่มต้น (เป็น string/รูปแบบพร้อมแก้)
+    const d = {}
+    CUSTOMER_FIELD_KEYS.forEach((key) => {
+      let v = r[key]
+      if (key === "citizen_id") v = onlyDigits(String(v || "")).slice(0, 13)
+      else if (["postal_code", "fid", "precode", "fid_relationship"].includes(key)) v = v == null ? "" : String(v)
+      else v = v ?? ""
+      d[key] = v
+    })
+    // ล็อก sex จาก precode (กรณีไม่มีในข้อมูลเดิม)
+    d.sex = sexFromPrefix(d.precode) || d.sex || ""
+    setDraft(d)
+
+    setRowError("")
+    setEditing(false)
     setOpen(true)
   }
 
   const closeModal = () => {
     setOpen(false)
     setActive(null)
+    setDraft(null)
+    setEditing(false)
+    setSaving(false)
+    setRowError("")
+  }
+
+  const onChangeField = (key, val) => {
+    if (!draft) return
+    if (key === "citizen_id") val = onlyDigits(val).slice(0, 13)
+    if (["postal_code", "fid", "precode", "fid_relationship"].includes(key)) val = onlyDigits(String(val))
+    // เปลี่ยน precode ⇒ อัปเดต sex อัตโนมัติ
+    if (key === "precode") {
+      const sx = sexFromPrefix(val)
+      setDraft((p) => ({ ...p, precode: val, sex: sx }))
+    } else {
+      setDraft((p) => ({ ...p, [key]: val }))
+    }
+  }
+
+  // บันทึก: สร้าง diff เฉพาะฟิลด์ที่เปลี่ยน และส่ง PATCH
+  const save = async () => {
+    if (!active || !draft) return
+    setRowError("")
+    setSaving(true)
+    try {
+      const diff = {}
+      const keysToCheck = [...CUSTOMER_FIELD_KEYS]
+
+      keysToCheck.forEach((key) => {
+        let newV = draft[key]
+        let oldV = active[key]
+
+        // แปลงประเภทค่าก่อนเทียบ (ให้เข้ารูปแบบที่ BE ใช้)
+        if (key === "citizen_id") {
+          newV = onlyDigits(newV || "") || null
+        } else if (["postal_code", "fid", "precode", "fid_relationship"].includes(key)) {
+          newV = newV === "" || newV == null ? null : Number(newV)
+          oldV = oldV === "" || oldV == null ? null : Number(oldV)
+        } else {
+          newV = newV ?? ""
+          oldV = oldV ?? ""
+        }
+
+        if (oldV !== newV) diff[key] = newV
+      })
+
+      const idForPatch = active.asso_id ?? active.id
+      if (!idForPatch && idForPatch !== 0) throw new Error("ไม่พบรหัสลูกค้า (id) สำหรับบันทึก")
+
+      // optimistic update
+      const prev = rows
+      setRows((cur) => cur.map((x) => ( (x.asso_id ?? x.id) === idForPatch ? { ...x, ...diff } : x )))
+
+      // เรียก PATCH (ลองหลายเส้นทาง)
+      const updatedRaw = await patchCustomerFlex(idForPatch, diff)
+      const updated = normalizeCustomerRecord(updatedRaw)
+
+      // sync กลับเข้าตาราง + active + draft
+      setRows((cur) => cur.map((x) => ( (x.asso_id ?? x.id) === idForPatch ? updated : x )))
+      setActive(updated)
+
+      const nd = {}
+      CUSTOMER_FIELD_KEYS.forEach((key) => {
+        let v = updated[key]
+        if (key === "citizen_id") v = onlyDigits(String(v || "")).slice(0, 13)
+        else if (["postal_code", "fid", "precode", "fid_relationship"].includes(key)) v = v == null ? "" : String(v)
+        else v = v ?? ""
+        nd[key] = v
+      })
+      nd.sex = sexFromPrefix(nd.precode) || nd.sex || ""
+      setDraft(nd)
+
+      setEditing(false)
+    } catch (e) {
+      setRowError(e?.message || "บันทึกไม่สำเร็จ")
+    } finally {
+      setSaving(false)
+    }
   }
 
   const loaderCols = TABLE_COLUMNS.length + 1 // + Actions column
@@ -258,7 +400,7 @@ const CustomerSearch = () => {
         </div>
       </div>
 
-      {/* Modal (อ่านอย่างเดียว) */}
+      {/* Modal (แก้ไขได้เหมือน MemberSearch) */}
       <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
         <div className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={closeModal} />
         <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5">
@@ -281,46 +423,148 @@ const CustomerSearch = () => {
                 <div className="text-slate-600 dark:text-slate-300">ไม่มีข้อมูล</div>
               ) : (
                 <>
-                  {/* แถวข้อมูลทั่วไป */}
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm md:text-base text-slate-600 dark:text-slate-300">
+                      วันที่สร้างข้อมูล: {formatDate(active.created_at)}
+                    </div>
+
+                    {!editing ? (
+                      <button
+                        type="button"
+                        onClick={() => setEditing(true)}
+                        className="rounded-2xl bg-emerald-600 px-4 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98]"
+                      >
+                        แก้ไข
+                      </button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={save}
+                          disabled={saving}
+                          className="rounded-2xl bg-emerald-600 px-5 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98] disabled:opacity-60"
+                        >
+                          {saving ? "กำลังบันทึก..." : "บันทึก"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditing(false)
+                            openModal(active)
+                          }}
+                          className="rounded-2xl border border-slate-300 px-5 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
+                        >
+                          ยกเลิก
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {rowError && (
+                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-base text-red-700 dark:border-red-400 dark:bg-red-900/20 dark:text-red-200">
+                      {rowError}
+                    </div>
+                  )}
+
+                  {/* แถวแรก: ชื่อ นามสกุล */}
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                     {/* ชื่อ */}
                     <div>
-                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
-                        ชื่อ
-                      </label>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                        {active.first_name || "-"}
-                      </div>
+                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">ชื่อ</label>
+                      {!editing ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                          {active.first_name || "-"}
+                        </div>
+                      ) : (
+                        <input
+                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                          value={draft.first_name ?? ""}
+                          onChange={(e) => onChangeField("first_name", e.target.value)}
+                          placeholder="ชื่อ"
+                        />
+                      )}
                     </div>
 
                     {/* นามสกุล */}
                     <div>
-                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
-                        นามสกุล
-                      </label>
+                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">นามสกุล</label>
+                      {!editing ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                          {active.last_name || "-"}
+                        </div>
+                      ) : (
+                        <input
+                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                          value={draft.last_name ?? ""}
+                          onChange={(e) => onChangeField("last_name", e.target.value)}
+                          placeholder="นามสกุล"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* คำนำหน้า + เพศ + เลขบัตร + โทรศัพท์ */}
+                  <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-4">
+                    {/* precode */}
+                    <div>
+                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">คำนำหน้า (precode)</label>
+                      {!editing ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                          {PREFIX_OPTIONS.find(op => op.value === String(active.precode))?.label || "-"}
+                        </div>
+                      ) : (
+                        <select
+                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                          value={draft.precode ?? ""}
+                          onChange={(e) => onChangeField("precode", e.target.value)}
+                        >
+                          {PREFIX_OPTIONS.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
+                        </select>
+                      )}
+                    </div>
+
+                    {/* sex (ล็อกจาก precode) */}
+                    <div>
+                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">เพศ (กำหนดจากคำนำหน้า)</label>
                       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                        {active.last_name || "-"}
+                        {(editing ? sexFromPrefix(draft.precode) : active.sex) || "-"}
                       </div>
                     </div>
 
-                    {/* เลขบัตรประชาชน */}
+                    {/* citizen_id */}
                     <div>
-                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
-                        เลขบัตรประชาชน
-                      </label>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60 break-all">
-                        {active.citizen_id || "-"}
-                      </div>
+                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">เลขบัตรประชาชน</label>
+                      {!editing ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60 break-all">
+                          {active.citizen_id || "-"}
+                        </div>
+                      ) : (
+                        <input
+                          inputMode="numeric"
+                          maxLength={13}
+                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                          value={draft.citizen_id ?? ""}
+                          onChange={(e) => onChangeField("citizen_id", e.target.value)}
+                          placeholder="13 หลัก"
+                        />
+                      )}
                     </div>
 
-                    {/* เบอร์โทรศัพท์ */}
+                    {/* phone */}
                     <div>
-                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
-                        โทรศัพท์
-                      </label>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                        {active.phone_number || "-"}
-                      </div>
+                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">โทรศัพท์</label>
+                      {!editing ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                          {active.phone_number || "-"}
+                        </div>
+                      ) : (
+                        <input
+                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                          value={draft.phone_number ?? ""}
+                          onChange={(e) => onChangeField("phone_number", e.target.value)}
+                          placeholder="08x-xxx-xxxx"
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -328,80 +572,97 @@ const CustomerSearch = () => {
                   <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-400 dark:bg-emerald-900/10">
                     <div className="mb-3 text-lg font-semibold text-emerald-800 dark:text-emerald-200">📍 ที่อยู่</div>
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                      <div>
-                        <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">ที่อยู่</label>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {active.address || "-"}
+                      {[
+                        { key: "address", label: "ที่อยู่" },
+                        { key: "mhoo", label: "หมู่" },
+                        { key: "sub_district", label: "ตำบล" },
+                        { key: "district", label: "อำเภอ" },
+                        { key: "province", label: "จังหวัด" },
+                        { key: "postal_code", label: "รหัสไปรษณีย์", numeric: true },
+                      ].map(({ key, label, numeric }) => (
+                        <div key={key}>
+                          <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">{label}</label>
+                          {!editing ? (
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                              {active[key] || "-"}
+                            </div>
+                          ) : (
+                            <input
+                              inputMode={numeric ? "numeric" : undefined}
+                              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                              value={draft[key] ?? ""}
+                              onChange={(e) => onChangeField(key, e.target.value)}
+                              placeholder={label}
+                            />
+                          )}
                         </div>
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">หมู่</label>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {active.mhoo || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">ตำบล</label>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {active.sub_district || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">อำเภอ</label>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {active.district || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">จังหวัด</label>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {active.province || "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">รหัสไปรษณีย์</label>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {active.postal_code || "-"}
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
 
                   {/* ข้อมูล FID */}
-                  {(active.fid || active.fid_owner || active.fid_relationship != null) && (
-                    <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-400 dark:bg-emerald-900/10">
-                      <div className="mb-3 text-lg font-semibold text-emerald-800 dark:text-emerald-200">🧾 ข้อมูล FID</div>
-                      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                        <div>
-                          <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">FID</label>
+                  <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-400 dark:bg-emerald-900/10">
+                    <div className="mb-3 text-lg font-semibold text-emerald-800 dark:text-emerald-200">🧾 ข้อมูล FID</div>
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                      {/* fid */}
+                      <div>
+                        <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">FID</label>
+                        {!editing ? (
                           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
                             {active.fid ?? "-"}
                           </div>
-                        </div>
-                        <div>
-                          <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">ชื่อผู้ถือ FID</label>
+                        ) : (
+                          <input
+                            inputMode="numeric"
+                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                            value={draft.fid ?? ""}
+                            onChange={(e) => onChangeField("fid", e.target.value)}
+                            placeholder="เช่น 123456"
+                          />
+                        )}
+                      </div>
+
+                      {/* fid_owner */}
+                      <div>
+                        <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">ชื่อผู้ถือ FID</label>
+                        {!editing ? (
                           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
                             {active.fid_owner || "-"}
                           </div>
-                        </div>
-                        <div>
-                          <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">ความสัมพันธ์</label>
+                        ) : (
+                          <input
+                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                            value={draft.fid_owner ?? ""}
+                            onChange={(e) => onChangeField("fid_owner", e.target.value)}
+                            placeholder="เช่น นายสมชาย ใจดี"
+                          />
+                        )}
+                      </div>
+
+                      {/* fid_relationship */}
+                      <div>
+                        <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">ความสัมพันธ์</label>
+                        {!editing ? (
                           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
                             {active.fid_relationship != null
                               ? (fidMap?.[active.fid_relationship] ?? active.fid_relationship)
                               : "-"}
                           </div>
-                        </div>
+                        ) : (
+                          <select
+                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                            value={draft.fid_relationship ?? ""}
+                            onChange={(e) => onChangeField("fid_relationship", e.target.value)}
+                          >
+                            <option value="">— เลือก —</option>
+                            {fidOptions.map((op) => (
+                              <option key={op.value} value={op.value}>{op.label}</option>
+                            ))}
+                          </select>
+                        )}
                       </div>
                     </div>
-                  )}
-
-                  {/* เผื่ออนาคตแสดงวันที่สร้าง */}
-                  {active.created_at && (
-                    <div className="mt-4 text-sm md:text-base text-slate-500 dark:text-slate-400">
-                      วันที่สร้างข้อมูล: {formatDate(active.created_at)}
-                    </div>
-                  )}
+                  </div>
                 </>
               )}
             </div>

@@ -39,7 +39,7 @@ const ComboBox = forwardRef(function ComboBox(
     error = false,
     hintRed = false,
     clearHint = () => {},
-    onMoveNext, // ← ใหม่: เมื่อผู้ใช้กด Enter ให้เลื่อนไปช่องถัดไป
+    onMoveNext, // ← เมื่อกด Enter (หรือเลือกค่า) ให้เลื่อนไปช่องถัดไป
   },
   ref
 ) {
@@ -77,7 +77,8 @@ const ComboBox = forwardRef(function ComboBox(
     return () => document.removeEventListener("click", onClick)
   }, [])
 
-  const commit = (opt, moveNextAfter = false) => {
+  // ✅ เลือกแล้ว "ไปช่องถัดไปเสมอ" (รวมทั้งการคลิกเมาส์)
+  const commit = (opt) => {
     const v = String(getValue(opt))
     onChange?.(v, opt)
     setOpen(false)
@@ -85,7 +86,7 @@ const ComboBox = forwardRef(function ComboBox(
     clearHint?.()
     requestAnimationFrame(() => {
       buttonRef.current?.focus()
-      if (moveNextAfter) onMoveNext?.()
+      onMoveNext?.()
     })
   }
 
@@ -106,20 +107,18 @@ const ComboBox = forwardRef(function ComboBox(
   const onKeyDown = (e) => {
     if (disabled) return
 
-    // ปรับพฤติกรรม Enter: ใช้เป็น "ไปช่องถัดไป" แทนการเปิดดรอปดาวน์
+    // ✅ Enter = ถ้าเปิดและมีไฮไลท์ → เลือก; ถ้าไม่เปิด → ข้ามไปช่องถัดไป
     if (e.key === "Enter") {
       e.preventDefault()
       if (open && highlight >= 0 && highlight < options.length) {
-        // ถ้าเปิดอยู่และมีไฮไลท์ → เลือกแล้วไปช่องถัดไป
-        commit(options[highlight], true)
+        commit(options[highlight])
       } else {
-        // ถ้ายังไม่เปิด → ข้ามไปช่องถัดไปเลย
         onMoveNext?.()
       }
       return
     }
 
-    // เปิดด้วย Space/ArrowDown (เอา Enter ออกแล้ว)
+    // เปิดด้วย Space/ArrowDown (Enter ใช้เดินหน้าแล้ว)
     if (!open && (e.key === " " || e.key === "ArrowDown")) {
       e.preventDefault()
       setOpen(true)
@@ -200,7 +199,7 @@ const ComboBox = forwardRef(function ComboBox(
                 role="option"
                 aria-selected={isChosen}
                 onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt /* moveNextAfter */)}
+                onClick={() => commit(opt)} // ✅ คลิกแล้วไปต่อทันที
                 className={cx(
                   "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
                   isActive
@@ -725,7 +724,7 @@ function StockTransferOut() {
   const saveBtnRef = useRef(null)
 
   const getFlow = () => {
-    // ข้ามฟิลด์ที่ disabled ตามสภาพจริงของหน้า
+    // ✅ เรียงลำดับตามที่ขอ + ข้ามฟิลด์ที่ disabled จริง
     return [
       { ref: driverRef, type: "input", disabled: false },
       { ref: plateRef, type: "input", disabled: false },
@@ -736,17 +735,16 @@ function StockTransferOut() {
       { ref: productRef, type: "combo", disabled: false },
       { ref: riceRef, type: "combo", disabled: !form.product_id },
       { ref: subriceRef, type: "combo", disabled: !form.rice_id },
-      { ref: conditionRef, type: "combo", disabled: true }, // locked
+      { ref: conditionRef, type: "combo", disabled: true }, // locked → ข้าม
       { ref: fieldRef, type: "combo", disabled: false },
       { ref: yearRef, type: "combo", disabled: false },
       { ref: programRef, type: "combo", disabled: false },
-      { ref: businessRef, type: "combo", disabled: true }, // locked
+      { ref: businessRef, type: "combo", disabled: true }, // locked → ข้าม
       { ref: weightInRef, type: "input", disabled: false },
       { ref: weightOutRef, type: "input", disabled: false },
       // ข้าม "น้ำหนักสุทธิ" (disabled)
       { ref: costRef, type: "input", disabled: false },
-      // ข้าม "ราคาสุทธิ" (disabled)
-      { ref: impurityRef, type: "input", disabled: false },
+      // ❌ ตัด "สิ่งเจือปน (%)" ออกจาก Enter‑Flow ตามที่ร้องขอ
       { ref: saveBtnRef, type: "button", disabled: false },
     ].filter((i) => !i.disabled)
   }
@@ -1185,7 +1183,7 @@ function StockTransferOut() {
                 <p className={helpTextCls}>คำนวณ = ราคาต้นทุน × น้ำหนักสุทธิ</p>
               </div>
 
-              {/* สิ่งเจือปน (%) */}
+              {/* สิ่งเจือปน (%) — ยังคงมีช่อง แต่ไม่อยู่ใน Enter‑Flow */}
               <div>
                 <label className={labelCls}>สิ่งเจือปน (%)</label>
                 <input
@@ -1195,7 +1193,13 @@ function StockTransferOut() {
                   value={form.impurity_percent}
                   onChange={(e) => update("impurity_percent", e.target.value.replace(/[^\d.]/g, ""))}
                   onFocus={() => clearError("impurity_percent")}
-                  onKeyDown={enterToNext(impurityRef)}
+                  onKeyDown={(e) => {
+                    // ถ้าต้องการให้ Enter ที่ช่องนี้ไปปุ่มบันทึกด้วย สามารถเปิดใช้ได้
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      saveBtnRef.current?.focus?.()
+                    }
+                  }}
                   placeholder="เช่น 2.5"
                   aria-invalid={errors.impurity_percent ? true : undefined}
                 />

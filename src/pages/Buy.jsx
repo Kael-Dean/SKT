@@ -169,6 +169,8 @@ function ComboBox({
   placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "",
   getValue = (o) => o?.value ?? o?.id ?? "",
+  /** ⭐ ใหม่: คืนบรรทัดอธิบายย่อยใต้ชื่อ */
+  getSubLabel = (o) => o?.subLabel ?? "",
   disabled = false,
   error = false,
   buttonRef = null,
@@ -183,10 +185,13 @@ function ComboBox({
   const internalBtnRef = useRef(null)
   const controlRef = buttonRef || internalBtnRef
 
-  const selectedLabel = useMemo(() => {
-    const found = options.find((o) => String(getValue(o)) === String(value))
-    return found ? getLabel(found) : ""
-  }, [options, value, getLabel, getValue])
+  /** เลือกรายการปัจจุบัน (ทั้ง label + sublabel) */
+  const selectedObj = useMemo(
+    () => options.find((o) => String(getValue(o)) === String(value)),
+    [options, value, getValue]
+  )
+  const selectedLabel = selectedObj ? getLabel(selectedObj) : ""
+  const selectedSubLabel = selectedObj ? (getSubLabel(selectedObj) || "") : ""
 
   useEffect(() => {
     const onClick = (e) => {
@@ -288,7 +293,16 @@ function ComboBox({
         aria-expanded={open}
         aria-invalid={error || hintRed ? true : undefined}
       >
-        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
+        {selectedLabel ? (
+          <div className="flex flex-col">
+            <span>{selectedLabel}</span>
+            {selectedSubLabel && (
+              <span className="text-[13px] text-slate-600 dark:text-slate-300">{selectedSubLabel}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-slate-500 dark:text-white/70">{placeholder}</span>
+        )}
       </button>
 
       {open && (
@@ -302,6 +316,7 @@ function ComboBox({
           )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
+            const sub = getSubLabel(opt) || ""
             const isActive = idx === highlight
             const isChosen = String(getValue(opt)) === String(value)
             return (
@@ -322,7 +337,10 @@ function ComboBox({
                 {isActive && (
                   <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
                 )}
-                <span className="flex-1">{label}</span>
+                <span className="flex-1">
+                  <div className="">{label}</div>
+                  {sub && <div className="text-sm text-slate-600 dark:text-slate-300">{sub}</div>}
+                </span>
                 {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
               </button>
             )
@@ -332,6 +350,7 @@ function ComboBox({
     </div>
   )
 }
+
 
 /** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput(
@@ -458,6 +477,47 @@ const Buy = () => {
   const [formTemplate, setFormTemplate] = useState("0") // "0" = ไม่ล็อก
   const [selectedTemplateLabel, setSelectedTemplateLabel] = useState("") // เก็บ label ที่เลือกไว้
   const [pendingTemplateLabel, setPendingTemplateLabel] = useState("") // ใช้ดักเติม species หลังโหลด riceOptions
+  const [variantLookup, setVariantLookup] = useState({})
+  useEffect(() => {
+    const speciesIds = Array.from(
+      new Set(
+        (templateOptions || [])
+          .map((t) => t?.spec?.species_id)
+          .filter(Boolean)
+          .map(String)
+      )
+    )
+    if (speciesIds.length === 0) return
+
+    const fetchAll = async () => {
+      try {
+        const list = await Promise.all(
+          speciesIds.map(async (sid) => {
+            const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)) || []
+            return arr.map((x) => ({
+              id: String(x.id ?? x.variant_id ?? x.value ?? ""),
+              label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
+            }))
+          })
+        )
+        const map = {}
+        list.flat().forEach(({ id, label }) => {
+          if (id && label) map[id] = label
+        })
+        setVariantLookup(map)
+      } catch (e) {
+        console.error("load variants for templates error:", e)
+      }
+    }
+    fetchAll()
+  }, [templateOptions])
+
+  /** คืนข้อความบรรทัดย่อยของ template: “ชั้นย่อย …” */
+  const templateSubLabel = (opt) => {
+    const vid = String(opt?.spec?.variant_id ?? "")
+    const vLabel = vid ? (variantLookup[vid] || `#${vid}`) : ""
+    return vLabel ? `ชั้นย่อย: ${vLabel}` : ""
+  }
 
   /** ⭐ ประเภทผู้ซื้อ */
   const buyerTypeOptions = [
@@ -2125,9 +2185,11 @@ const Buy = () => {
             {/* ดรอปดาวฟอร์มสำเร็จรูป (มุมขวา) — โหลดจาก BE */}
             <div className="w-full sm:w-72 self-start">
               <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
-              <ComboBox
+                <ComboBox
                 options={templateOptions}
                 value={formTemplate}
+                /** ⭐ เพิ่มบรรทัดย่อยใต้ชื่อ: ชื่อชั้นย่อยของ template */
+                getSubLabel={(o) => templateSubLabel(o)}
                 onChange={(id, found) => {
                   const idStr = String(id)
                   setFormTemplate(idStr)
@@ -2142,6 +2204,7 @@ const Buy = () => {
                 }}
                 buttonRef={refs.formTemplate}
               />
+
               {isTemplateActive ? (
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300"> 
                   เลือกจากรายการที่สร้างไว้ในระบบ (BE). ระบบจะเติมจาก <b>spec</b> ที่ BE ส่งมาโดยตรง: 

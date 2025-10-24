@@ -30,6 +30,7 @@ const formatMoneyInput = (val) => {
   }
   return intWithCommas
 }
+
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -316,15 +317,12 @@ function Sales() {
   const [klangOptions, setKlangOptions] = useState([])
   const [businessOptions, setBusinessOptions] = useState([])
 
-  // ---------- ฟอร์มสำเร็จรูป ----------
-  const templateOptions = [
-    { id: "0", label: "— ฟอร์มปกติ —" },
-    { id: "1", label: "รหัส 1 • ข้าวหอมมะลิ" },
-    { id: "2", label: "รหัส 2 • ข้าวเหนียว" },
-    { id: "3", label: "รหัส 3 • เมล็ดพันธุ์" },
-  ]
+  // ---------- ฟอร์มสำเร็จรูป (โหลดจาก BE แบบหน้า Buy) ----------
+  const [templateOptions, setTemplateOptions] = useState([
+    { id: "0", label: "— ฟอร์มปกติ (เลือกเอง) —" },
+  ])
   const [formTemplate, setFormTemplate] = useState("0")
-  const isTemplateActive = formTemplate !== "0"
+  const [selectedTemplateLabel, setSelectedTemplateLabel] = useState("")
 
   // ---------- ประเภทผู้ซื้อ ----------
   const buyerTypeOptions = [
@@ -376,19 +374,14 @@ function Sales() {
   const trailerCountOptions = Array.from({ length: 10 }, (_, i) => ({ id: String(i + 1), label: `${i + 1} คัน` }))
   const [trailersCount, setTrailersCount] = useState(1)
   const newTrailer = () => ({
-    // แยกทะเบียนตามโซน
     licensePlateFront: "",
     licensePlateBack: "",
-    // ใบชั่งตามโซน
     scaleNoFront: "",
     scaleNoBack: "",
-    // น้ำหนักตามโซน
     frontWeightKg: "",
     backWeightKg: "",
-    // ราคาต่อกก. แยกตามโซน
     unitPriceFront: "",
     unitPriceBack: "",
-    // คุณภาพข้าว (gram) แยกตามโซน
     gramFront: "",
     gramBack: "",
   })
@@ -397,7 +390,7 @@ function Sales() {
     setTrailers((prev) => {
       if (trailersCount <= prev.length) return prev.slice(0, trailersCount)
       const last = prev[prev.length - 1] || newTrailer()
-      const more = Array.from({ length: trailersCount - prev.length }, () => ({ ...last, ...newTrailer() }))
+      const more = Array.from({ length: trailersCount - prev.length }, () => ({ ...last, ...newTrailer() } ))
       return prev.concat(more)
     })
   }, [trailersCount])
@@ -434,34 +427,20 @@ function Sales() {
     deptPostpone: useRef(null),
     deptPostponePeriod: useRef(null),
 
-    // ⭐ ใหม่: จำนวนรถพ่วง
     trailerCount: useRef(null),
 
     submitBtn: useRef(null),
   }
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
-  // ⭐⭐ Refs + ลำดับการเลื่อนของรถพ่วงแต่ละคัน (dynamic)
+  // ⭐⭐ Refs ของรถพ่วง (dynamic)
   const trailerRefs = useRef([]) // [{key: ref}]
   const getTRef = (i, key) => {
     if (!trailerRefs.current[i]) trailerRefs.current[i] = {}
     if (!trailerRefs.current[i][key]) trailerRefs.current[i][key] = { current: null }
     return trailerRefs.current[i][key]
   }
-  const trailerOrder = [
-    "scaleNoFront",
-    "unitPriceFront",
-    "gramFront",
-    "licensePlateFront",
-    "frontWeightKg",
-    "amountFront",
-    "scaleNoBack",
-    "unitPriceBack",
-    "gramBack",
-    "licensePlateBack",
-    "backWeightKg",
-    "amountBack",
-  ]
+  const trailerOrder = ["scaleNoFront","unitPriceFront","gramFront","licensePlateFront","frontWeightKg","amountFront","scaleNoBack","unitPriceBack","gramBack","licensePlateBack","backWeightKg","amountBack"]
   const focusTrailerField = (i, key) => {
     const el = getTRef(i, key)?.current
     if (!el) return false
@@ -474,9 +453,7 @@ function Sales() {
   const focusNextTrailer = (i, key) => {
     const idx = trailerOrder.indexOf(key)
     if (idx < 0) return false
-    // ยังอยู่คันเดิม
     if (idx < trailerOrder.length - 1) return focusTrailerField(i, trailerOrder[idx + 1])
-    // เป็นเงิน(หลัง) → คันถัดไปหรือ submit
     if (i < trailers.length - 1) return focusFirstOfTrailer(i + 1)
     const sb = refs.submitBtn?.current
     if (sb) { try { sb.scrollIntoView({ block: "center" }) } catch {}; sb.focus?.(); return true }
@@ -602,35 +579,147 @@ function Sales() {
     loadKlang()
   }, [order.branchId, order.branchName])
 
-  // ---------- ฟอร์มสำเร็จรูป ----------
+  // ---------- โหลดรายการฟอร์มสำเร็จรูปจาก BE + จำค่าที่แชร์จาก Buy ----------
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("sales.formTemplate")
-      if (saved && ["0", "1", "2", "3"].includes(saved)) setFormTemplate(saved)
-    } catch {}
+    const loadForms = async () => {
+      try {
+        const arr = (await apiAuth("/order/form/search")) || []
+        const mapped = arr
+          .map((x) => ({
+            id: String(x.id ?? x.value ?? ""),
+            label: String(x.prod_name ?? x.name ?? x.label ?? "").trim(),
+            spec: {
+              product_id: x.product_id ?? null,
+              species_id: x.species_id ?? null,
+              variant_id: x.variant_id ?? null,
+              product_year: x.product_year ?? null,
+              condition_id: x.condition_id ?? null,
+              field_type: x.field_type ?? null,
+              program: x.program ?? null,
+              business_type: x.business_type ?? null,
+            },
+          }))
+          .filter((o) => o.id && o.label)
+        setTemplateOptions([{ id: "0", label: "— ฟอร์มปกติ (เลือกเอง) —" }, ...mapped])
+
+        // ดึง template ที่แชร์จากหน้า Buy ไว้ (ถ้ามี)
+        try {
+          const shared = localStorage.getItem("shared.formTemplate")
+          if (shared) {
+            const o = JSON.parse(shared)
+            if (o?.id) {
+              setFormTemplate(String(o.id))
+              setSelectedTemplateLabel(o.label || "")
+            }
+          } else {
+            const saved = localStorage.getItem("sales.formTemplate")
+            if (saved) setFormTemplate(saved)
+          }
+        } catch {}
+      } catch (e) {
+        console.error("load form templates error:", e)
+        setTemplateOptions([{ id: "0", label: "— ฟอร์มปกติ (เลือกเอง) —" }])
+      }
+    }
+    loadForms()
   }, [])
+
+  // ---------- Template mapping (อิง spec จาก BE) ----------
+  const findLabelById = (opts = [], id) => {
+    const s = String(id ?? "")
+    if (!s) return ""
+    const f = opts.find((o) => String(o.id) === s)
+    return f ? String(f.label ?? "") : ""
+  }
+
+  const isTemplateActive = formTemplate !== "0"
+  const applyTemplateBySpec = (spec) => {
+    if (!spec) return
+    const S = (v) => (v == null ? "" : String(v))
+    setOrder((p) => ({
+      ...p,
+      productId: S(spec.product_id),
+      riceId: S(spec.species_id),
+      subriceId: S(spec.variant_id),
+      riceYearId: S(spec.product_year),
+      conditionId: S(spec.condition_id),
+      fieldTypeId: S(spec.field_type),
+      programId: S(spec.program),
+      businessTypeId: S(spec.business_type),
+
+      productName: "",
+      riceType: "",
+      subriceName: "",
+      riceYear: "",
+      condition: "",
+      fieldType: "",
+      programName: "",
+      businessType: "",
+    }))
+  }
+
+  // เลือก template → ยิงสเปกเข้า state + จำค่าไว้ใช้ต่อ
   useEffect(() => {
-    try { localStorage.setItem("sales.formTemplate", formTemplate) } catch {}
+    if (!isTemplateActive) return
+    const current = templateOptions.find((o) => String(o.id) === String(formTemplate))
+    if (current?.spec) applyTemplateBySpec(current.spec)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formTemplate])
 
+  // Sync id -> label เมื่อ options โหลดเสร็จ
   useEffect(() => {
-    if (!isTemplateActive) return
-    if (productOptions.length === 0) return
-    const paddy = productOptions.find((o) => o.label.includes("ข้าวเปลือก"))
-    if (paddy && order.productId !== paddy.id) {
-      setOrder((p) => ({ ...p, productId: paddy.id, productName: paddy.label, riceId: "", riceType: "", subriceId: "", subriceName: "" }))
+    const lbl = findLabelById(productOptions, order.productId)
+    if (order.productId && lbl && lbl !== order.productName) {
+      setOrder((p) => ({ ...p, productName: lbl }))
     }
-  }, [formTemplate, productOptions])
+  }, [order.productId, productOptions])
+  useEffect(() => {
+    const lbl = findLabelById(riceOptions, order.riceId)
+    if (order.riceId && lbl && lbl !== order.riceType) {
+      setOrder((p) => ({ ...p, riceType: lbl }))
+    }
+  }, [order.riceId, riceOptions])
+  useEffect(() => {
+    const lbl = findLabelById(subriceOptions, order.subriceId)
+    if (order.subriceId && lbl && lbl !== order.subriceName) {
+      setOrder((p) => ({ ...p, subriceName: lbl }))
+    }
+  }, [order.subriceId, subriceOptions])
+  useEffect(() => {
+    const lbl = findLabelById(conditionOptions, order.conditionId)
+    if (order.conditionId && lbl && lbl !== order.condition) {
+      setOrder((p) => ({ ...p, condition: lbl }))
+    }
+  }, [order.conditionId, conditionOptions])
+  useEffect(() => {
+    const lbl = findLabelById(fieldTypeOptions, order.fieldTypeId)
+    if (order.fieldTypeId && lbl && lbl !== order.fieldType) {
+      setOrder((p) => ({ ...p, fieldType: lbl }))
+    }
+  }, [order.fieldTypeId, fieldTypeOptions])
+  useEffect(() => {
+    const lbl = findLabelById(yearOptions, order.riceYearId)
+    if (order.riceYearId && lbl && lbl !== order.riceYear) {
+      setOrder((p) => ({ ...p, riceYear: lbl }))
+    }
+  }, [order.riceYearId, yearOptions])
+  useEffect(() => {
+    const lbl = findLabelById(programOptions, order.programId)
+    if (order.programId && lbl && lbl !== order.programName) {
+      setOrder((p) => ({ ...p, programName: lbl }))
+    }
+  }, [order.programId, programOptions])
+  useEffect(() => {
+    const lbl = findLabelById(businessOptions, order.businessTypeId)
+    if (order.businessTypeId && lbl && lbl !== order.businessType) {
+      setOrder((p) => ({ ...p, businessType: lbl }))
+    }
+  }, [order.businessTypeId, businessOptions])
 
+  // ---------- แชร์ template id ปัจจุบัน (ให้หน้าอื่นใช้ต่อ) ----------
   useEffect(() => {
-    if (!isTemplateActive) return
-    if (riceOptions.length === 0) return
-    const want = formTemplate === "1" ? "หอมมะลิ" : formTemplate === "2" ? "เหนียว" : "พันธุ์"
-    const target = riceOptions.find((r) => r.label.includes(want))
-    if (target && order.riceId !== target.id) {
-      setOrder((p) => ({ ...p, riceId: target.id, riceType: target.label, subriceId: "", subriceName: "" }))
-    }
-  }, [formTemplate, riceOptions])
+    try { localStorage.setItem("sales.formTemplate", String(formTemplate)) } catch {}
+  }, [formTemplate])
 
   // ---------- แผงค้นหาบุคคล/บริษัท ----------
   const mapSimplePersonToUI = (r = {}) => {
@@ -748,7 +837,7 @@ function Sales() {
     setShowNameList(false); setNameResults([]); setHighlightedIndex(-1)
   }
 
-  // ⭐ ปรับ Enter บนลิสต์ชื่อ: เลือกชื่อแล้วเด้งไป "ประเภทสินค้า"
+  // ⭐ ปรับ Enter บนลิสต์ชื่อ → ไป "ประเภทสินค้า"
   const handleNameKeyDown = async (e) => {
     if (!showNameList || nameResults.length === 0) return
     if (e.key === "ArrowDown") {
@@ -950,7 +1039,7 @@ function Sales() {
       if (!String(t.licensePlateFront || "").trim()) te.licensePlateFront = "กรอกทะเบียนพ่วงหน้า"
       if (t.frontWeightKg === "" || Number(t.frontWeightKg) <= 0) te.frontWeightKg = "กรอกน้ำหนักสุทธิพ่วงหน้า (> 0)"
       if (t.unitPriceFront === "" || Number(t.unitPriceFront) <= 0) te.unitPriceFront = "กรอกราคาต่อกก. พ่วงหน้า (> 0)"
-      // บังคับฝั่งพ่วงหลังเฉพาะเมื่อมีกรอกข้อมูล/น้ำหนัก
+      // บังคับฝั่งพ่วงหลังเมื่อมีข้อมูล
       if (hasBack) {
         if (!String(t.licensePlateBack || "").trim()) te.licensePlateBack = "กรอกทะเบียนพ่วงหลัง"
         if (t.backWeightKg === "" || Number(t.backWeightKg) <= 0) te.backWeightKg = "กรอกน้ำหนักสุทธิพ่วงหลัง (> 0)"
@@ -1056,6 +1145,7 @@ function Sales() {
         : { party_type: "company", tax_id: "" }
     }
 
+    // spec สำหรับ BE (ตาม ProductSpecIn)
     const spec = {
       product_id: productId,
       species_id: riceId,
@@ -1065,10 +1155,9 @@ function Sales() {
       field_type: fieldTypeId ?? null,
       program: programId ?? null,
       business_type: businessTypeId ?? null,
-    }
+    } // ← เหมือนหน้า Buy และสอดคล้องกับ BE :contentReference[oaicite:2]{index=2}
 
     const dateISO = toIsoDateTime(order.issueDate)
-    // ใช้เลขเอกสารเป็น sale_id ตาม requirement
     const saleId = ((order.__isCredit ? order.creditInvoiceNo : order.cashReceiptNo) || "").trim() || null
 
     // ส่งทีละคัน
@@ -1086,7 +1175,7 @@ function Sales() {
       const price1 = round2(w1 * u1)
       const price2 = round2(w2 * u2)
 
-      // สำหรับ BE: ส่ง price_per_kilo และ gram เป็น “ค่าเฉลี่ยถ่วงน้ำหนัก” ต่อคัน
+      // ค่าเฉลี่ยถ่วงน้ำหนักต่อคัน (ส่งให้ BE)
       const net = w1 + w2
       const weightedUnit = net > 0 ? round2((w1 * u1 + w2 * u2) / net) : (u1 || u2 || 0)
       const weightedGram = net > 0 ? Math.round((w1 * g1 + w2 * g2) / net) : (g1 || g2 || 0)
@@ -1101,8 +1190,8 @@ function Sales() {
           license_plate_2: (t.licensePlateBack || "").trim() || null,
           weight_1: w1,
           weight_2: w2 || 0,
-          gram: weightedGram,                      // <— ส่ง gram ถ่วงน้ำหนัก
-          price_per_kilo: weightedUnit,            // <— ส่งราคาต่อกก.ถ่วงน้ำหนักทั้งคัน
+          gram: weightedGram,
+          price_per_kilo: weightedUnit,
           price_1: price1,
           price_2: price2 || 0,
           order_serial_1: (t.scaleNoFront || "").trim() || null,
@@ -1128,7 +1217,12 @@ function Sales() {
 
     const failed = results.filter((x) => !x.success)
     if (failed.length === 0) {
-      try { localStorage.setItem("sales.formTemplate", formTemplate) } catch {}
+      try {
+        const currentTpl = templateOptions.find((o) => String(o.id) === String(formTemplate))
+        const saveTpl = { id: String(formTemplate), label: currentTpl?.label || selectedTemplateLabel || "" }
+        localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl)) // แชร์ให้หน้าอื่นใช้
+        localStorage.setItem("sales.formTemplate", String(formTemplate))
+      } catch {}
       alert(`บันทึกออเดอร์ขายสำเร็จทั้งหมด ${ok}/${trailers.length} รายการ ✅`)
       handleReset()
       try { refs.submitBtn?.current?.blur?.() } catch {}
@@ -1139,10 +1233,8 @@ function Sales() {
   }
 
   // ---------------- UI ----------------
-  // ⭐ เพิ่ม handler: Enter ที่ช่อง "ชื่อ–สกุล" → ไป "ประเภทสินค้า" (ถ้าไม่ได้เลือกจากลิสต์)
   const handleFullNameKeyDown = (e) => {
     if (showNameList && nameResults.length > 0) {
-      // ให้ตัวจัดการลิสต์ทำงานต่อ (เลือกชื่อ/ลูกศร/escape)
       return handleNameKeyDown(e)
     }
     if (e.key === "Enter" && !e.isComposing) {
@@ -1154,12 +1246,10 @@ function Sales() {
         try { el.select?.() } catch {}
         return
       }
-      // สำรอง: ใช้ลำดับปกติ
       focusNext("fullName")
     }
   }
 
-  // --------- สีในหัว/เซลล์สรุป (front/back) ----------
   const frontHeadCls = "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-200"
   const frontCellCls = "bg-emerald-50/60 dark:bg-emerald-900/10"
   const backHeadCls  = "bg-slate-50 text-slate-900 dark:bg-slate-800/40 dark:text-slate-200"
@@ -1215,25 +1305,37 @@ function Sales() {
               />
             </div>
 
-            {/* ฟอร์มสำเร็จรูป */}
+            {/* ฟอร์มสำเร็จรูป (จาก BE) */}
             <div className="w-full sm:w-72 self-start">
               <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
               <ComboBox
                 options={templateOptions}
                 value={formTemplate}
-                onChange={(id) => setFormTemplate(String(id))}
+                onChange={(id, found) => {
+                  const idStr = String(id)
+                  setFormTemplate(idStr)
+                  const label = found?.label ?? ""
+                  setSelectedTemplateLabel(label)
+                  try {
+                    localStorage.setItem("shared.formTemplate", JSON.stringify({ id: idStr, label }))
+                    localStorage.setItem("sales.formTemplate", idStr)
+                  } catch {}
+                  if (idStr !== "0" && found?.spec) applyTemplateBySpec(found.spec)
+                }}
                 buttonRef={refs.formTemplate}
               />
-              {isTemplateActive && (
+              {isTemplateActive ? (
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  ระบบล็อก <b>ประเภทสินค้า: ข้าวเปลือก</b> และ
-                  <b>{formTemplate === "1" ? " ข้าวหอมมะลิ" : formTemplate === "2" ? " ข้าวเหนียว" : " เมล็ดพันธุ์"}</b>
+                  ระบบจะเติมสเปกจาก <b>spec</b> ที่ BE ส่งมาโดยตรง:
+                  <b> ประเภทสินค้า</b>, <b>ชนิดข้าว</b>, <b>ชั้นย่อย</b>, <b>เงื่อนไข</b>, <b>ประเภทนา</b>, <b>ปี/ฤดูกาล</b>, <b>โปรแกรม</b>, <b>ประเภทธุรกิจ</b>
                 </p>
+              ) : (
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">“ฟอร์มปกติ” — เลือกสเปกเองได้ทุกช่อง</p>
               )}
             </div>
           </div>
 
-          {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง (ใช้เป็น Sale ID) */}
+          {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง */}
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>วิธีชำระเงิน</label>
@@ -1285,7 +1387,6 @@ function Sales() {
                 }
               </label>
               {order.__isCredit ? (
-                // ⭐ ปรับ Enter: จากใบกำกับ (เชื่อ) → ชื่อ–สกุล / ชื่อบริษัท
                 <input
                   ref={refs.creditInvoiceNo}
                   className={baseField}
@@ -1305,7 +1406,6 @@ function Sales() {
                         return false
                       }
                       if (goName()) return
-                      // สำรอง: ไปตามคิวเดิม
                       const fn = () => focusNext("creditInvoiceNo")
                       fn(); setTimeout(fn, 60)
                     }
@@ -1313,7 +1413,6 @@ function Sales() {
                   placeholder="เช่น INV-2025-000456 (ไม่บังคับ)"
                 />
               ) : order.__isCash ? (
-                // ⭐ ปรับ Enter: จากใบรับเงิน (สด) → ชื่อ–สกุล / ชื่อบริษัท
                 <input
                   ref={refs.cashReceiptNo}
                   className={baseField}
@@ -1333,7 +1432,6 @@ function Sales() {
                         return false
                       }
                       if (goName()) return
-                      // สำรอง: ไปตามคิวเดิม
                       const fn = () => focusNext("cashReceiptNo")
                       fn(); setTimeout(fn, 60)
                     }
@@ -1461,7 +1559,6 @@ function Sales() {
                     else { setShowNameList(false); setHighlightedIndex(-1) }
                   }}
                   onFocus={() => { clearHint("fullName"); clearError("fullName") }}
-                  // ⭐ เปลี่ยนเป็น handler ใหม่แทน onKeyDownCapture เดิม
                   onKeyDown={handleFullNameKeyDown}
                   placeholder="เช่น นายสมชาย ใจดี"
                   aria-expanded={showNameList}
@@ -1606,7 +1703,6 @@ function Sales() {
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
                 disabled={isTemplateActive}
-                // ⭐ Enter จาก "ประเภทสินค้า" → ไป "ชนิดข้าว" หรือถัดไป
                 onEnterNext={() => {
                   const tryFocus = () => {
                     if (isEnabledInput(refs.riceType?.current)) {
@@ -1645,7 +1741,6 @@ function Sales() {
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
                 buttonRef={refs.riceType}
-                // ⭐ Enter จาก "ชนิดข้าว" → ไป "ชั้นย่อย" หรือถัดไป
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.subrice?.current
@@ -1787,7 +1882,6 @@ function Sales() {
                 hintRed={!!missingHints.branchName}
                 clearHint={() => clearHint("branchName")}
                 buttonRef={refs.branchName}
-                // Enter จาก "สาขา" → "คลัง"
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.klangName?.current
@@ -1819,7 +1913,6 @@ function Sales() {
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
-                // ⭐ ใหม่: Enter จาก "คลัง" → "จำนวนรถพ่วง" (ตามที่ขอ)
                 onEnterNext={() => {
                   const goTrailerCount = () => {
                     const el = refs.trailerCount?.current
@@ -1831,7 +1924,6 @@ function Sales() {
                     return false
                   }
                   if (!goTrailerCount()) {
-                    // สำรอง ถ้าไม่มีพ่วง
                     focusNext("klangName")
                   }
                 }}
@@ -1854,7 +1946,6 @@ function Sales() {
                   options={trailerCountOptions}
                   value={String(trailersCount)}
                   onChange={(id) => setTrailersCount(Number(id))}
-                  // ⭐ เพิ่ม ref ให้โฟกัสจาก "คลัง" และ Enter → ใบชั่งหน้าคันที่ 1
                   buttonRef={refs.trailerCount}
                   onEnterNext={() => focusFirstOfTrailer(0)}
                 />
@@ -1965,7 +2056,6 @@ function Sales() {
 
                           <div className="md:col-span-1">
                             <label className={labelCls}>เป็นเงิน (พ่วงหน้า)</label>
-                            {/* readOnly เพื่อให้โฟกัส/กด Enter ได้ */}
                             <input
                               ref={getTRef(idx, "amountFront")}
                               className={cx(baseField, fieldDisabled)}
@@ -2056,7 +2146,6 @@ function Sales() {
 
                           <div className="md:col-span-1">
                             <label className={labelCls}>เป็นเงิน (พ่วงหลัง)</label>
-                            {/* readOnly เพื่อให้โฟกัส/กด Enter ได้ */}
                             <input
                               ref={getTRef(idx, "amountBack")}
                               className={cx(baseField, fieldDisabled)}
@@ -2093,7 +2182,7 @@ function Sales() {
             />
           </div>
 
-          {/* สรุปสั้น ๆ */}
+          {/* สรุปสั้น ๆ + ตารางพ่วง + รวมเงิน (เหมือนเดิม) */}
           <div className="mt-6 grid gap-4 md:grid-cols-5">
             {buyerType === "person" ? (
               <>
@@ -2140,105 +2229,92 @@ function Sales() {
               </div>
             ))}
 
-            {/* สรุปรถพ่วง + ยอดรวม (จัดกลุ่ม: พ่วงหน้า → พ่วงหลัง → รวมเงินทั้งไฟล์) */}
-<div className="md:col-span-5 rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-  <div className="mb-2 flex items-center justify-between">
-    <div className="text-slate-600 dark:text-slate-300">สรุปรถพ่วง</div>
-    <div className="flex items-center gap-4 text-xs md:text-sm opacity-80">
-      <span className="inline-flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-emerald-500" />พ่วงหน้า
-      </span>
-      <span className="inline-flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-slate-500" />พ่วงหลัง
-      </span>
-    </div>
-  </div>
+            {/* ตารางสรุปรถพ่วง + รวมเงินทั้งไฟล์ (คงรูปแบบเดิม) */}
+            <div className="md:col-span-5 rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-slate-600 dark:text-slate-300">สรุปรถพ่วง</div>
+                <div className="flex items-center gap-4 text-xs md:text-sm opacity-80">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />พ่วงหน้า
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-slate-500" />พ่วงหลัง
+                  </span>
+                </div>
+              </div>
 
-  <div className="overflow-x-auto">
-    <table className="min-w-full text-sm">
-      <thead>
-        <tr className="text-left border-b border-slate-200 dark:border-slate-700">
-          <th className="py-2 pr-4">#</th>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left border-b border-slate-200 dark:border-slate-700">
+                      <th className="py-2 pr-4">#</th>
+                      <th className={cx("py-2 pr-4", frontHeadCls)}>ทะเบียนพ่วงหน้า</th>
+                      <th className={cx("py-2 pr-4", frontHeadCls)}>ใบชั่งพ่วงหน้า</th>
+                      <th className={cx("py-2 pr-4", frontHeadCls)}>ราคาต่อกก.หน้า</th>
+                      <th className={cx("py-2 pr-4", frontHeadCls)}>คุณภาพหน้า (g)</th>
+                      <th className={cx("py-2 pr-4", frontHeadCls)}>พ่วงหน้า (กก.)</th>
+                      <th className={cx("py-2 pr-4", frontHeadCls)}>เงินพ่วงหน้า (≈)</th>
+                      <th className={cx("py-2 pr-4", backHeadCls)}>ทะเบียนพ่วงหลัง</th>
+                      <th className={cx("py-2 pr-4", backHeadCls)}>ใบชั่งพ่วงหลัง</th>
+                      <th className={cx("py-2 pr-4", backHeadCls)}>ราคาต่อกก.หลัง</th>
+                      <th className={cx("py-2 pr-4", backHeadCls)}>คุณภาพหลัง (g)</th>
+                      <th className={cx("py-2 pr-4", backHeadCls)}>พ่วงหลัง (กก.)</th>
+                      <th className={cx("py-2 pr-4", backHeadCls)}>เงินพ่วงหลัง (≈)</th>
+                      <th className="py-2 pr-4">รวมน้ำหนัก (กก.)</th>
+                      <th className="py-2 pr-4">รวมเงิน (≈)</th>
+                    </tr>
+                  </thead>
 
-          {/* ---- กลุ่มพ่วงหน้า (ติดกันทั้งหมด) ---- */}
-          <th className={cx("py-2 pr-4", frontHeadCls)}>ทะเบียนพ่วงหน้า</th>
-          <th className={cx("py-2 pr-4", frontHeadCls)}>ใบชั่งพ่วงหน้า</th>
-          <th className={cx("py-2 pr-4", frontHeadCls)}>ราคาต่อกก.หน้า</th>
-          <th className={cx("py-2 pr-4", frontHeadCls)}>คุณภาพหน้า (g)</th>
-          <th className={cx("py-2 pr-4", frontHeadCls)}>พ่วงหน้า (กก.)</th>
-          <th className={cx("py-2 pr-4", frontHeadCls)}>เงินพ่วงหน้า (≈)</th>
+                  <tbody>
+                    {trailers.map((t, i) => {
+                      const w1 = toNumber(t.frontWeightKg)
+                      const w2 = toNumber(t.backWeightKg)
+                      const u1 = toNumber(t.unitPriceFront)
+                      const u2 = toNumber(t.unitPriceBack)
+                      const amount1 = round2(w1 * u1)
+                      const amount2 = round2(w2 * u2)
+                      const net = w1 + w2
+                      const amount = amount1 + amount2
 
-          {/* ---- กลุ่มพ่วงหลัง (ต่อท้ายทั้งหมด) ---- */}
-          <th className={cx("py-2 pr-4", backHeadCls)}>ทะเบียนพ่วงหลัง</th>
-          <th className={cx("py-2 pr-4", backHeadCls)}>ใบชั่งพ่วงหลัง</th>
-          <th className={cx("py-2 pr-4", backHeadCls)}>ราคาต่อกก.หลัง</th>
-          <th className={cx("py-2 pr-4", backHeadCls)}>คุณภาพหลัง (g)</th>
-          <th className={cx("py-2 pr-4", backHeadCls)}>พ่วงหลัง (กก.)</th>
-          <th className={cx("py-2 pr-4", backHeadCls)}>เงินพ่วงหลัง (≈)</th>
+                      return (
+                        <tr key={i} className="border-b border-slate-100 dark:border-slate-700/60">
+                          <td className="py-2 pr-4">{i + 1}</td>
+                          <td className={cx("py-2 pr-4", frontCellCls)}>{t.licensePlateFront || "—"}</td>
+                          <td className={cx("py-2 pr-4", frontCellCls)}>{t.scaleNoFront || "—"}</td>
+                          <td className={cx("py-2 pr-4", frontCellCls)}>{u1 ? u1.toFixed(2) : "—"}</td>
+                          <td className={cx("py-2 pr-4", frontCellCls)}>{t.gramFront || "—"}</td>
+                          <td className={cx("py-2 pr-4", frontCellCls)}>{t.frontWeightKg || "0"}</td>
+                          <td className={cx("py-2 pr-4", frontCellCls)}>{thb(amount1)}</td>
+                          <td className={cx("py-2 pr-4", backCellCls)}>{t.licensePlateBack || "—"}</td>
+                          <td className={cx("py-2 pr-4", backCellCls)}>{t.scaleNoBack || "—"}</td>
+                          <td className={cx("py-2 pr-4", backCellCls)}>{u2 ? u2.toFixed(2) : "—"}</td>
+                          <td className={cx("py-2 pr-4", backCellCls)}>{t.gramBack || "—"}</td>
+                          <td className={cx("py-2 pr-4", backCellCls)}>{t.backWeightKg || "0"}</td>
+                          <td className={cx("py-2 pr-4", backCellCls)}>{thb(amount2)}</td>
+                          <td className="py-2 pr-4">{round2(net)}</td>
+                          <td className="py-2 pr-4">{thb(amount)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
 
-          {/* ---- รวมต่อแถวสุดท้ายของแต่ละคัน ---- */}
-          <th className="py-2 pr-4">รวมน้ำหนัก (กก.)</th>
-          <th className="py-2 pr-4">รวมเงิน (≈)</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        {trailers.map((t, i) => {
-          const w1 = toNumber(t.frontWeightKg)
-          const w2 = toNumber(t.backWeightKg)
-          const u1 = toNumber(t.unitPriceFront)
-          const u2 = toNumber(t.unitPriceBack)
-          const amount1 = round2(w1 * u1)
-          const amount2 = round2(w2 * u2)
-          const net = w1 + w2
-          const amount = amount1 + amount2
-
-          return (
-            <tr key={i} className="border-b border-slate-100 dark:border-slate-700/60">
-              <td className="py-2 pr-4">{i + 1}</td>
-
-              {/* พ่วงหน้า (เรียงติดกัน) */}
-              <td className={cx("py-2 pr-4", frontCellCls)}>{t.licensePlateFront || "—"}</td>
-              <td className={cx("py-2 pr-4", frontCellCls)}>{t.scaleNoFront || "—"}</td>
-              <td className={cx("py-2 pr-4", frontCellCls)}>{u1 ? u1.toFixed(2) : "—"}</td>
-              <td className={cx("py-2 pr-4", frontCellCls)}>{t.gramFront || "—"}</td>
-              <td className={cx("py-2 pr-4", frontCellCls)}>{t.frontWeightKg || "0"}</td>
-              <td className={cx("py-2 pr-4", frontCellCls)}>{thb(amount1)}</td>
-
-              {/* พ่วงหลัง (เรียงต่อท้าย) */}
-              <td className={cx("py-2 pr-4", backCellCls)}>{t.licensePlateBack || "—"}</td>
-              <td className={cx("py-2 pr-4", backCellCls)}>{t.scaleNoBack || "—"}</td>
-              <td className={cx("py-2 pr-4", backCellCls)}>{u2 ? u2.toFixed(2) : "—"}</td>
-              <td className={cx("py-2 pr-4", backCellCls)}>{t.gramBack || "—"}</td>
-              <td className={cx("py-2 pr-4", backCellCls)}>{t.backWeightKg || "0"}</td>
-              <td className={cx("py-2 pr-4", backCellCls)}>{thb(amount2)}</td>
-
-              {/* รวมต่อคัน */}
-              <td className="py-2 pr-4">{round2(net)}</td>
-              <td className="py-2 pr-4">{thb(amount)}</td>
-            </tr>
-          )
-        })}
-      </tbody>
-
-      {/* รวมเงินทั้งไฟล์ (แสดงท้ายตาราง) */}
-      <tfoot>
-        <tr className="border-t border-slate-200 dark:border-slate-700">
-          <td colSpan={14} className="py-3 pr-4 text-right font-semibold">รวมเงินทั้งไฟล์:</td>
-          <td className="py-3 pr-4 font-semibold">
-            {thb(trailers.reduce((s, t) => {
-              const w1 = toNumber(t.frontWeightKg)
-              const w2 = toNumber(t.backWeightKg)
-              const u1 = toNumber(t.unitPriceFront)
-              const u2 = toNumber(t.unitPriceBack)
-              return s + (w1 * u1) + (w2 * u2)
-            }, 0))}
-          </td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-</div>
+                  <tfoot>
+                    <tr className="border-t border-slate-200 dark:border-slate-700">
+                      <td colSpan={14} className="py-3 pr-4 text-right font-semibold">รวมเงินทั้งไฟล์:</td>
+                      <td className="py-3 pr-4 font-semibold">
+                        {thb(trailers.reduce((s, t) => {
+                          const w1 = toNumber(t.frontWeightKg)
+                          const w2 = toNumber(t.backWeightKg)
+                          const u1 = toNumber(t.unitPriceFront)
+                          const u2 = toNumber(t.unitPriceBack)
+                          return s + (w1 * u1) + (w2 * u2)
+                        }, 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
 
           </div>
 

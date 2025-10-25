@@ -26,7 +26,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       location.pathname.startsWith('/transfer-in') ||
       location.pathname.startsWith('/transfer-out') ||
       location.pathname.startsWith('/bring-in') ||
-      location.pathname.startsWith('/bring-in-mill') || // ✅ เส้นทางนี้ยังคงรองรับ
+      location.pathname.startsWith('/bring-in-mill') ||
       location.pathname.startsWith('/transfer-mill') ||
       location.pathname.startsWith('/damage-out'),
     [location.pathname]
@@ -39,7 +39,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     () =>
       location.pathname.startsWith('/member-signup') ||
       location.pathname.startsWith('/search') ||
-      location.pathname.startsWith('/customer-search') || // ✅ เพิ่มเพื่อรองรับเมนูใหม่
+      location.pathname.startsWith('/customer-search') ||
       location.pathname.startsWith('/customer-add') ||
       location.pathname.startsWith('/company-add') ||
       location.pathname.startsWith('/member-termination'),
@@ -56,14 +56,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   /** ---------- CSS ---------- */
   const baseBtn =
-    // เพิ่ม hover:cursor-pointer เพื่อให้เมาส์เป็นนิ้วชี้เมื่อชี้ที่ปุ่ม
     'w-full h-12 flex items-center justify-center rounded-xl transition-all duration-200 ease-out font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 px-4 hover:cursor-pointer'
   const idleBtn =
     'text-gray-900 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-100 dark:hover:bg-gray-700 dark:hover:text-white hover:scale-[1.02] hover:shadow-md'
   const activeBtn =
     'bg-black text-white dark:bg-gray-800 dark:text-white hover:scale-[1.02] hover:shadow-lg hover:opacity-90'
   const subBtnBase =
-    // เพิ่ม hover:cursor-pointer ให้กับปุ่มเมนูย่อยทั้งหมด
     'w-full h-11 flex items-center justify-center rounded-lg px-4 transition-all duration-200 ease-out text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 hover:cursor-pointer'
   const subIdle =
     'text-gray-700 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-200 dark:hover:bg-gray-700'
@@ -201,7 +199,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 />
               </div>
 
-              {/* เมนูย่อยของทะเบียนสมาชิก (เพิ่มอีโมจิ) */}
+              {/* เมนูย่อยของทะเบียนสมาชิก (สลับตำแหน่งตามที่ขอ) */}
               <div
                 id="members-submenu"
                 className={`transition-[max-height,opacity] duration-300 ease-out ${
@@ -213,10 +211,13 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 <div className="px-3 pb-3 pt-2 space-y-2">
                   {[
                     { label: '📝 สมัครสมาชิก', path: '/member-signup' },
-                    { label: '🔎 ค้นหาสมาชิก', path: '/search' },
-                    { label: '🔎 ค้นหาลูกค้าทั่วไป', path: '/customer-search' }, // ✅ ใหม่: ถัดจาก "ค้นหาสมาชิก"
+                    // ⬇️ สลับ: เอา "เพิ่มลูกค้าทั่วไป" ขึ้นมาก่อน "ค้นหาสมาชิก"
                     { label: '📝 เพิ่มลูกค้าทั่วไป', path: '/customer-add' },
+                    
                     { label: '📝 เพิ่มบริษัท', path: '/company-add' },
+                    { label: '🔎 ค้นหาสมาชิก', path: '/search' },
+                    // ⬇️ สลับ: เอา "เพิ่มบริษัท" ขึ้นมาก่อน "ค้นหาลูกค้าทั่วไป"
+                    { label: '🔎 ค้นหาลูกค้าทั่วไป', path: '/customer-search' },
                     { label: '🪪 สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)', path: '/member-termination' },
                   ].map((item) => (
                     <div key={item.path}>

@@ -1103,6 +1103,8 @@ function Sales() {
         String(t.scaleNoBack || "").trim() !== "" ||
         String(t.unitPriceBack || "").trim() !== "" ||
         String(t.gramBack || "").trim() !== ""
+      // ✅ บังคับกรอกเลขที่ใบชั่งพ่วงหน้า
+      if (!String(t.scaleNoFront || "").trim()) te.scaleNoFront = "กรุณากรอกเลขที่ใบชั่งพ่วงหน้า"
       // บังคับฝั่งพ่วงหน้าเสมอ
       if (!String(t.licensePlateFront || "").trim()) te.licensePlateFront = "กรอกทะเบียนพ่วงหน้า"
       if (t.frontWeightKg === "" || Number(t.frontWeightKg) <= 0) te.frontWeightKg = "กรอกน้ำหนักสุทธิพ่วงหน้า (> 0)"
@@ -2104,12 +2106,13 @@ ${summary}`)
                             <label className={labelCls}>เลขที่ใบชั่งพ่วงหน้า</label>
                             <input
                               ref={getTRef(idx, "scaleNoFront")}
-                              className={baseField}
+                              className={cx(baseField, terr.scaleNoFront && "border-red-500 ring-2 ring-red-300")}
                               value={t.scaleNoFront}
                               onChange={(e) => updateTrailer(idx, "scaleNoFront", e.target.value)}
                               onKeyDown={onEnterTrailer(idx, "scaleNoFront")}
                               placeholder="เช่น SCL-2025-000123"
                             />
+                            {terr.scaleNoFront && <p className={errorTextCls}>{terr.scaleNoFront}</p>}
                           </div>
 
                           <div>

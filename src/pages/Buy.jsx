@@ -1868,12 +1868,12 @@ const Buy = () => {
     const eObj = validateAll()
 
      if (Object.keys(eObj).length > 0) {
-    alert("บันทึกไม่สำเร็จ ⚠️⚠️⚠️⚠️⚠️\n\nรบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง") 
+    alert("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️ บันทึกไม่สำเร็จ ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️\n\nรบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง") 
     scrollToFirstError(eObj) 
     return 
   } 
   if (Object.values(hints).some(Boolean)) { 
-    alert("บันทึกไม่สำเร็จ ⚠️⚠️⚠️⚠️⚠️\n\nรบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง") 
+    alert("⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️ บันทึกไม่สำเร็จ ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️\n\nรบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง") 
     scrollToFirstMissing(hints) 
     return 
   }
@@ -2004,7 +2004,7 @@ const Buy = () => {
         localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl))
         localStorage.setItem("buy.formTemplate", String(formTemplate))
       } catch {}
-      alert("บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅")
+      alert("✅✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅✅")
       // ⬇️ เคลียร์ฟอร์มทั้งหมด + ปิดออโต้ค้นหา จนกว่าจะพิมพ์ใหม่
       handleReset()
       requestAnimationFrame(() => scrollToPageTop())

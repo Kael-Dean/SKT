@@ -89,7 +89,7 @@ function ComboBox({
 
     // ----- ปิดอยู่ -----
     if (!open) {
-      // กด Enter เพื่อ "ข้ามช่อง" (จะไปเปิด dropdown ของช่องถัดไปที่ parent จัดการ)
+      // กด Enter เพื่อ "ข้ามช่อง"
       if (enterMovesFocus && e.key === "Enter") {
         e.preventDefault()
         onEnterWhenClosed?.()
@@ -211,6 +211,14 @@ function StockBringIn() {
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
   const [missingHints, setMissingHints] = useState({})
+
+  // ⭐ จุดยึดบนสุด + ฟังก์ชันเลื่อนขึ้นบน (ให้เหมือนหน้า Sales)
+  const pageTopRef = useRef(null)
+  const scrollToPageTop = () => {
+    try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch {}
+    const root = document.scrollingElement || document.documentElement || document.body
+    try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
+  }
 
   // lookups (id/label)
   const [productOptions, setProductOptions] = useState([])
@@ -549,11 +557,18 @@ function StockBringIn() {
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    // เลื่อนขึ้นบนสุดให้เหมือนหน้า Sales
+    scrollToPageTop()
+
     const hints = computeMissingHints()
     setMissingHints(hints)
 
     const { ok, e: ev } = validate()
-    if (!ok) {
+
+    // ❌ แจ้งเตือนแบบหน้า Sales เมื่อฟอร์มไม่ผ่าน
+    if (!ok || Object.values(hints).some(Boolean)) {
+      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
       focusFirstInvalid(hints, ev)
       return
     }
@@ -578,18 +593,22 @@ function StockBringIn() {
     setLoading(true)
     try {
       await post("/carryover/create", payload)
-      alert("บันทึกยอดยกมาสำเร็จ ✅")
+
+      // ✅ แจ้งเตือนแบบหน้า Sales (ปรับข้อความให้ตรงหน้าฟอร์ม)
+      alert("✅✅✅✅✅✅✅✅✅ บันทึกยอดยกเข้าเรียบร้อย ✅✅✅✅✅✅✅✅✅")
+
       // รีเซ็ตค่าทุกอย่าง + ล้าง error/hint + เด้งไปบนสุด + โฟกัสช่องแรก
       setForm(initialForm)
       setErrors({})
       setMissingHints({})
-      window.scrollTo({ top: 0, behavior: "smooth" })
-      // โฟกัสประเภทสินค้าเล็กน้อยหลังเลื่อน
+      requestAnimationFrame(() => scrollToPageTop())
+      try { submitBtnRef.current?.blur?.() } catch {}
       setTimeout(() => productRef.current?.focus(), 200)
     } catch (err) {
       console.error(err)
-      const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
-      alert((err?.message || "บันทึกยอดยกมาไม่สำเร็จ") + detail)
+      const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : (err?.message ? `\n\nรายละเอียด:\n${err.message}` : "")
+      // ❌ แจ้งเตือนสไตล์เดียวกับหน้า Sales เมื่อเกิดข้อผิดพลาดจาก BE
+      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌${detail}`)
     } finally {
       setLoading(false)
     }
@@ -598,6 +617,9 @@ function StockBringIn() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
+        {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด (เหมือนหน้า Sales) */}
+        <div ref={pageTopRef} />
+
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">📥 ยอดยกมา (Carry Over)</h1>
 
         {/* สเปคสินค้า */}

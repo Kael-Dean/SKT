@@ -35,69 +35,6 @@ function useDebounce(value, delay = 400) {
 /** ---------- class helpers ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/// ⭐⭐ Enter-to-next helpers (ดึงแนวทางจากหน้า Buy.jsx)
-const isEnabledInput = (el) => {
-  if (!el) return false
-  if (typeof el.disabled !== "undefined" && el.disabled) return false
-  const style = window.getComputedStyle?.(el)
-  if (style && (style.display === "none" || style.visibility === "hidden")) return false
-  if (!el.offsetParent && el.type !== "hidden" && el.getAttribute?.("role") !== "combobox") return false
-  return true
-}
-
-const useEnterNavigation = (refs) => {
-  // ✅ ลำดับตามที่ผู้ใช้สั่ง
-  const order = [
-    "member_id",
-    "precode",
-    "first_name",
-    "last_name",
-    "citizen_id",
-    "spouce_name",
-    "address",
-    "mhoo",
-    "district",
-    "sub_district",
-    "subprov",
-    "postal_code",
-    "phone_number",
-    "salary",
-    "tgs_group",
-    "ar_limit",
-    "normal_share",
-    "bank_account",
-    "tgs_id",
-    "orders_placed",
-    "fid",
-    "fid_owner",
-    "agri_type",
-    "fertilizing_period",
-    "fertilizer_type",
-    "submitBtn", // → ปุ่มบันทึก
-  ]
-
-  const list = order.filter((k) => refs?.[k]?.current && isEnabledInput(refs[k].current))
-
-  const focusNext = (currentKey) => {
-    const i = list.indexOf(currentKey)
-    const nextKey = i >= 0 && i < list.length - 1 ? list[i + 1] : null
-    if (!nextKey) return
-    const el = refs[nextKey]?.current
-    if (!el) return
-    try { el.scrollIntoView({ block: "center", behavior: "smooth" }) } catch {}
-    el.focus?.()
-    try { if (el.select) el.select() } catch {}
-  }
-
-  const onEnter = (currentKey) => (e) => {
-    if (e.key === "Enter" && !e.isComposing) {
-      e.preventDefault()
-      focusNext(currentKey)
-    }
-  }
-
-  return { onEnter, focusNext }
-}
 /** ---------- สไตล์ ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -121,23 +58,7 @@ const PROV_SURIN = "สุรินทร์"
 
 // ✅ ครบ 17 อำเภอของจังหวัดสุรินทร์
 const AMPHOES_SURIN = [
-  "เมืองสุรินทร์",
-  "จอมพระ",
-  "ชุมพลบุรี",
-  "ท่าตูม",
-  "ปราสาท",
-  "กาบเชิง",
-  "รัตนบุรี",
-  "สนม",
-  "ศีขรภูมิ",
-  "สังขะ",
-  "ลำดวน",
-  "สำโรงทาบ",
-  "โนนนารายณ์",
-  "บัวเชด",
-  "พนมดงรัก",
-  "ศรีณรงค์",
-  "เขวาสินรินทร์",
+  "เมืองสุรินทร์","จอมพระ","ชุมพลบุรี","ท่าตูม","ปราสาท","กาบเชิง","รัตนบุรี","สนม","ศีขรภูมิ","สังขะ","ลำดวน","สำโรงทาบ","โนนนารายณ์","บัวเชด","พนมดงรัก","ศรีณรงค์","เขวาสินรินทร์",
 ]
 
 // ✅ ตำบลตามที่ส่งมา (ลบตัวซ้ำ/ปรับสะกดเล็กน้อย)
@@ -146,57 +67,80 @@ const TAMBONS_BY_AMPHOE = {
     "ในเมือง","สวาย","ตั้งใจ","เพี้ยราม","นาดี","ท่าสว่าง","สลักได","ตาอ็อง","สำโรง","แกใหญ่",
     "นอกเมือง","คอโค","เฉนียง","เทนมีย์","นาบัว","เมืองที","ราม","บุฤๅษี","ตระแสง","แสลงพันธ์","กาเกาะ"
   ],
-  "สังขะ": [
-    "สังขะ","ขอนแตก","ดม","พระแก้ว","บ้านจารย์","กระเทียม","สะกาด","ตาตุม","ทับทัน","ตาคง","บ้านชบ","เทพรักษา"
-  ],
+  "สังขะ": ["สังขะ","ขอนแตก","ดม","พระแก้ว","บ้านจารย์","กระเทียม","สะกาด","ตาตุม","ทับทัน","ตาคง","บ้านชบ","เทพรักษา"],
   "ปราสาท": [
     "กังแอน","ทมอ","ทุ่งมน","ไพล","ตาเบา","หนองใหญ่","ปรือ","บ้านไทร","โคกยาง","โคกสะอาด",
     "โชคนาสาม","เชื้อเพลิง","ปราสาททนง","ตานี","บ้านพลวง","กันตวจระมวล","สมุด","ประทัดบุ"
   ],
-  "รัตนบุรี": [
-    "รัตนบุรี","ธาตุ","แก","ดอนแรด","หนองบัวทอง","หนองบัวบาน","ไผ่","เบิด","น้ำเขียว","กุดขาคีม","ยางสว่าง","ทับใหญ่"
-  ],
-  "ท่าตูม": [
-    "ท่าตูม","กระโพ","พรมเทพ","โพนครก","เมืองแก","บะ","หนองบัว","บัวโคก","หนองเมธี","ทุ่งกุลา"
-  ],
-  "จอมพระ": [
-    "จอมพระ","เมืองลีง","กระหาด","บุแกรง","หนองสนิท","บ้านผือ","ลุ่มระวี","ชุมแสง","เป็นสุข"
-  ],
-  "สนม": [
-    "สนม","แคน","โพนโก","หนองระฆัง","นานวน","หัวงัว","หนองอียอ"
-  ],
+  "รัตนบุรี": ["รัตนบุรี","ธาตุ","แก","ดอนแรด","หนองบัวทอง","หนองบัวบาน","ไผ่","เบิด","น้ำเขียว","กุดขาคีม","ยางสว่าง","ทับใหญ่"],
+  "ท่าตูม": ["ท่าตูม","กระโพ","พรมเทพ","โพนครก","เมืองแก","บะ","หนองบัว","บัวโคก","หนองเมธี","ทุ่งกุลา"],
+  "จอมพระ": ["จอมพระ","เมืองลีง","กระหาด","บุแกรง","หนองสนิท","บ้านผือ","ลุ่มระวี","ชุมแสง","เป็นสุข"],
+  "สนม": ["สนม","แคน","โพนโก","หนองระฆัง","นานวน","หัวงัว","หนองอียอ"],
   "ศีขรภูมิ": [
     "ระแงง","ตรึม","จารพัต","ยาง","แตล","หนองบัว","คาละแมะ","หนองเหล็ก","หนองขวาว","ช่างปี่",
     "กุดหวาย","ขวาวใหญ่","นารุ่ง","ตรมไพร","ผักไหม"
   ],
-  "ลำดวน": [
-    "ลำดวน","โชคเหนือ","ตรำดม","อู่โลก","ตระเปียงเตีย"
-  ],
-  "บัวเชด": [
-    "บัวเชด","สะเดา","จรัส","ตาวัง","อาโพน","สำเภาลูน"
-  ],
-  "ชุมพลบุรี": [
-    "ชุมพลบุรี","ไพรขลา","นาหนองไผ่","ศรีณรงค์","ยะวึก","เมืองบัว" ,"กระเบื้อง","กระเบื้องเมืองใหม่","สระขุด","หนองเรือ"
-  ],
-  "สำโรงทาบ": [
-    // *ตามที่ผู้ใช้ส่งมา (ซ้ำกับชุมพลบุรี)*
-    "กระออม","เกาะแก้ว","ประดู่","ศรีสุข","สะโน","สำโรงทาบ","เสม็จ","หนองไผ่ล้อม","หนองฮะ","หมื่นศรี"
-  ],
-  "เขวาสินรินทร์": [
-    "เขวาสินรินทร์","บึง","ตากูก","ปราสาททอง","นาดี"
-  ],
-  "พนมดงรัก": [
-    "บักได","โคกกลาง","จีกแดก","ตาเมียง"
-  ],
-  "ศรีณรงค์": [
-    "ณรงค์","แจนแวน","ตรวจ","หนองแวง","ศรีสุข"
-  ],
-  "โนนนารายณ์": [
-    "หนองหลวง","คำผง","โนน","ระเวียง","หนองเทพ"
-  ],
-  "กาบเชิง": [
-    "กาบเชิง","คูตัน","ด่าน","แนงมุด","โคกตะเคียน","ตะเคียน"
-  ],
+  "ลำดวน": ["ลำดวน","โชคเหนือ","ตรำดม","อู่โลก","ตระเปียงเตีย"],
+  "บัวเชด": ["บัวเชด","สะเดา","จรัส","ตาวัง","อาโพน","สำเภาลูน"],
+  "ชุมพลบุรี": ["ชุมพลบุรี","ไพรขลา","นาหนองไผ่","ศรีณรงค์","ยะวึก","เมืองบัว" ,"กระเบื้อง","กระเบื้องเมืองใหม่","สระขุด","หนองเรือ"],
+  "สำโรงทาบ": ["กระออม","เกาะแก้ว","ประดู่","ศรีสุข","สะโน","สำโรงทาบ","เสม็จ","หนองไผ่ล้อม","หนองฮะ","หมื่นศรี"],
+  "เขวาสินรินทร์": ["เขวาสินรินทร์","บึง","ตากูก","ปราสาททอง","นาดี"],
+  "พนมดงรัก": ["บักได","โคกกลาง","จีกแดก","ตาเมียง"],
+  "ศรีณรงค์": ["ณรงค์","แจนแวน","ตรวจ","หนองแวง","ศรีสุข"],
+  "โนนนารายณ์": ["หนองหลวง","คำผง","โนน","ระเวียง","หนองเทพ"],
+  "กาบเชิง": ["กาบเชิง","คูตัน","ด่าน","แนงมุด","โคกตะเคียน","ตะเคียน"],
+}
+
+/** ---------- Enter-to-next helpers ---------- */
+// เหมือนแนวทางหน้า Buy: ตรวจว่า element โฟกัสได้จริง
+const isEnabledInput = (el) => {
+  if (!el) return false
+  if (typeof el.disabled !== "undefined" && el.disabled) return false
+  const style = window.getComputedStyle?.(el)
+  if (style && (style.display === "none" || style.visibility === "hidden")) return false
+  if (!el.offsetParent && el.type !== "hidden" && el.getAttribute("role") !== "combobox") return false
+  return true
+}
+
+/**
+ * Hook สำหรับ map ลำดับโฟกัสเมื่อกด Enter
+ * ลำดับตามที่ผู้ใช้ต้องการ:
+ * member_id → precode → first_name → last_name → citizen_id → spouce_name → address → mhoo →
+ * district → sub_district → subprov → postal_code → phone_number → salary → tgs_group →
+ * ar_limit → normal_share → bank_account → tgs_id → orders_placed → fid → fid_owner →
+ * agri_type → fertilizing_period → fertilizer_type → submit
+ */
+const useEnterNavigation = (refs) => {
+  const order = [
+    "member_id","precode","first_name","last_name","citizen_id","spouce_name",
+    "address","mhoo","district","sub_district","subprov","postal_code","phone_number",
+    "salary","tgs_group","ar_limit","normal_share","bank_account","tgs_id","orders_placed",
+    "fid","fid_owner","agri_type","fertilizing_period","fertilizer_type","submitBtn",
+  ]
+
+  const list = order.filter((key) => isEnabledInput(refs?.[key]?.current))
+
+  const focusNext = (currentKey) => {
+    const i = list.indexOf(currentKey)
+    const nextKey = i >= 0 && i < list.length - 1 ? list[i + 1] : null
+    if (!nextKey) return
+    const el = refs[nextKey]?.current
+    if (!el) return
+    try { el.scrollIntoView({ block: "center" }) } catch {}
+    el.focus?.()
+    try { el.select?.() } catch {}
+  }
+
+  const onEnter = (currentKey) => (e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      const isTextArea = e.currentTarget?.tagName?.toLowerCase() === "textarea"
+      if (isTextArea && e.shiftKey) return
+      e.preventDefault()
+      focusNext(currentKey)
+    }
+  }
+
+  return { onEnter, focusNext }
 }
 
 /** ---------- Reusable Section Card ---------- */
@@ -216,7 +160,7 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- Reusable ComboBox (เพิ่ม onEnterNext + buttonRef สำหรับโฟกัส/เลื่อน) ---------- */
+/** ---------- Reusable ComboBox (เพิ่ม onEnterNext + รองรับ buttonRef) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -227,7 +171,7 @@ function ComboBox({
   disabled = false,
   error = false,
   buttonRef = null,
-  onEnterNext, // ⭐ ใหม่: เรียกเมื่อผู้ใช้กด Enter เพื่อไปฟิลด์ถัดไป
+  onEnterNext, // ⭐ ใหม่: เรียกหลัง commit (คลิก/Enter เลือกรายการ) เพื่อเลื่อนไปช่องถัดไป
 }) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
@@ -260,6 +204,7 @@ function ComboBox({
     setHighlight(-1)
     requestAnimationFrame(() => {
       controlRef.current?.focus()
+      // เลื่อนต่ออัตโนมัติ (ถ้าผู้ใช้ระบุ)
       onEnterNext?.()
     })
   }
@@ -280,20 +225,7 @@ function ComboBox({
 
   const onKeyDown = (e) => {
     if (disabled) return
-
-    // ⭐ หากปิด dropdown อยู่และมีค่าอยู่แล้ว → Enter = ไปช่องถัดไป
-    if (!open && e.key === "Enter") {
-      e.preventDefault()
-      if (String(value || "") !== "") {
-        onEnterNext?.()
-        return
-      }
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
-      return
-    }
-
-    if (!open && (e.key === " " || e.key === "ArrowDown")) {
+    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
       e.preventDefault()
       setOpen(true)
       setHighlight((h) => (h >= 0 ? h : 0))
@@ -331,7 +263,9 @@ function ComboBox({
         type="button"
         ref={controlRef}
         disabled={disabled}
-        onClick={() => { if (!disabled) setOpen((o) => !o) }}
+        onClick={() => {
+          if (!disabled) setOpen((o) => !o)
+        }}
         onKeyDown={onKeyDown}
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
@@ -484,6 +418,10 @@ const MemberSignup = () => {
     agri_type: "",
     fertilizing_period: "",
     fertilizer_type: "",
+  })
+
+  const { onEnter, focusNext } = useEnterNavigation({
+    // mapping ref จะตั้งค่าด้านล่าง
   })
 
   // 👉 debounce ที่อิงกับค่าจริง
@@ -797,9 +735,14 @@ const MemberSignup = () => {
     fertilizing_period: useRef(null),
     fertilizer_type: useRef(null),
 
-    // ⭐ ปุ่มส่งฟอร์ม
+    // ปุ่ม submit (สำหรับโฟกัสตอนสุดท้าย)
     submitBtn: useRef(null),
   }
+
+  // ผูก onEnter/focusNext ใหม่ให้ใช้ refs ตัวจริง
+  const enterNav = useEnterNavigation(refs)
+  const onEnterField = enterNav.onEnter
+  const focusNextField = enterNav.focusNext
 
   const update = (k, v) => setForm((prev) => ({ ...prev, [k]: v }))
   const clearError = (key) =>
@@ -1034,9 +977,6 @@ const MemberSignup = () => {
     })
   }
 
-  // ⭐ ใช้ตัวช่วย Enter-to-next
-  const { onEnter, focusNext } = useEnterNavigation(refs)
-
   /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
@@ -1064,10 +1004,7 @@ const MemberSignup = () => {
           </div>
         )}
 
-        {/* ⭐ เพิ่มฟอร์มการ์ด (ห่อฟอร์มด้วยการ์ดใหญ่) */}
-        <form onSubmit={handleSubmit}
-          className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
+        <form onSubmit={handleSubmit}>
           {/* โครงการที่เข้าร่วม */}
           <SectionCard title="โครงการที่เข้าร่วม" className="mb-6">
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -1125,7 +1062,7 @@ const MemberSignup = () => {
                   value={form.member_id}
                   onChange={(e) => { clearError("member_id"); update("member_id", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("member_id")}
-                  onKeyDown={onEnter("member_id")}
+                  onKeyDown={onEnterField("member_id")}
                   placeholder="เช่น 11263"
                   aria-invalid={errors.member_id ? true : undefined}
                 />
@@ -1142,7 +1079,19 @@ const MemberSignup = () => {
                   placeholder="— เลือกคำนำหน้า —"
                   error={!!errors.precode}
                   buttonRef={refs.precode}
-                  onEnterNext={() => focusNext("precode")}
+                  onEnterNext={() => {
+                    const tryFocus = () => {
+                      const el = refs.first_name?.current
+                      if (el && isEnabledInput(el)) {
+                        try { el.scrollIntoView({ block: "center" }) } catch {}
+                        el.focus?.(); try { el.select?.() } catch {}
+                        return true
+                      }
+                      return false
+                    }
+                    if (tryFocus()) return
+                    setTimeout(tryFocus, 60); setTimeout(tryFocus, 180)
+                  }}
                 />
                 {errors.precode && <p className={errorTextCls}>{errors.precode}</p>}
               </div>
@@ -1170,7 +1119,7 @@ const MemberSignup = () => {
                   value={form.first_name}
                   onChange={(e) => { clearError("first_name"); update("first_name", e.target.value) }}
                   onFocus={() => clearError("first_name")}
-                  onKeyDown={onEnter("first_name")}
+                  onKeyDown={onEnterField("first_name")}
                   placeholder="สมชาย"
                   aria-invalid={errors.first_name ? true : undefined}
                 />
@@ -1186,7 +1135,7 @@ const MemberSignup = () => {
                   value={form.last_name}
                   onChange={(e) => { clearError("last_name"); update("last_name", e.target.value) }}
                   onFocus={() => clearError("last_name")}
-                  onKeyDown={onEnter("last_name")}
+                  onKeyDown={onEnterField("last_name")}
                   placeholder="ใจดี"
                   aria-invalid={errors.last_name ? true : undefined}
                 />
@@ -1204,7 +1153,7 @@ const MemberSignup = () => {
                   value={form.citizen_id}
                   onChange={(e) => { clearError("citizen_id"); update("citizen_id", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("citizen_id")}
-                  onKeyDown={onEnter("citizen_id")}
+                  onKeyDown={onEnterField("citizen_id")}
                   placeholder="1234567890123"
                   aria-invalid={errors.citizen_id ? true : undefined}
                 />
@@ -1226,8 +1175,8 @@ const MemberSignup = () => {
                   onChange={() => { /* locked: no manual change */ }}
                   placeholder="— เลือกคำนำหน้าเพื่อกำหนด —"
                   error={!!errors.sex}
-                  buttonRef={refs.sex}
                   disabled
+                  buttonRef={refs.sex}
                 />
                 {errors.sex && <p className={errorTextCls}>{errors.sex}</p>}
               </div>
@@ -1240,7 +1189,7 @@ const MemberSignup = () => {
                   className={baseField}
                   value={form.spouce_name}
                   onChange={(e) => update("spouce_name", e.target.value)}
-                  onKeyDown={onEnter("spouce_name")}
+                  onKeyDown={onEnterField("spouce_name")}
                   placeholder="ชื่อคุ๋สมรส"
                 />
               </div>
@@ -1258,7 +1207,7 @@ const MemberSignup = () => {
                   value={form.address}
                   onChange={(e) => { clearError("address"); update("address", e.target.value) }}
                   onFocus={() => clearError("address")}
-                  onKeyDown={onEnter("address")}
+                  onKeyDown={onEnterField("address")}
                   placeholder="เช่น 123/4"
                   aria-invalid={errors.address ? true : undefined}
                 />
@@ -1272,7 +1221,7 @@ const MemberSignup = () => {
                   className={baseField}
                   value={form.mhoo}
                   onChange={(e) => update("mhoo", e.target.value)}
-                  onKeyDown={onEnter("mhoo")}
+                  onKeyDown={onEnterField("mhoo")}
                   placeholder="เช่น 1"
                 />
               </div>
@@ -1302,7 +1251,26 @@ const MemberSignup = () => {
                   placeholder="— เลือกอำเภอ —"
                   error={!!errors.district}
                   buttonRef={refs.district}
-                  onEnterNext={() => focusNext("district")}
+                  onEnterNext={() => {
+                    // ✅ ต้องไป "ตำบล" ก่อนเสมอ ถ้าพร้อม; ไม่พร้อมค่อยไป subprov
+                    const tryFocus = () => {
+                      const elTambon = refs.sub_district?.current
+                      if (elTambon && isEnabledInput(elTambon)) {
+                        try { elTambon.scrollIntoView({ block: "center" }) } catch {}
+                        elTambon.focus?.(); try { elTambon.select?.() } catch {}
+                        return true
+                      }
+                      const elSubprov = refs.subprov?.current
+                      if (elSubprov && isEnabledInput(elSubprov)) {
+                        try { elSubprov.scrollIntoView({ block: "center" }) } catch {}
+                        elSubprov.focus?.(); try { elSubprov.select?.() } catch {}
+                        return true
+                      }
+                      return false
+                    }
+                    if (tryFocus()) return
+                    setTimeout(tryFocus, 80); setTimeout(tryFocus, 200)
+                  }}
                 />
                 {errors.district && <p className={errorTextCls}>{errors.district}</p>}
               </div>
@@ -1318,7 +1286,7 @@ const MemberSignup = () => {
                   error={!!errors.sub_district}
                   disabled={!form.district}
                   buttonRef={refs.sub_district}
-                  onEnterNext={() => focusNext("sub_district")}
+                  onEnterNext={() => focusNextField("sub_district")}
                 />
                 {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
               </div>
@@ -1331,7 +1299,7 @@ const MemberSignup = () => {
                   className={baseField}
                   value={form.subprov}
                   onChange={(e) => update("subprov", onlyDigits(e.target.value))}
-                  onKeyDown={onEnter("subprov")}
+                  onKeyDown={onEnterField("subprov")}
                   placeholder="เช่น 501"
                 />
               </div>
@@ -1346,7 +1314,7 @@ const MemberSignup = () => {
                   value={form.postal_code}
                   onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("postal_code")}
-                  onKeyDown={onEnter("postal_code")}
+                  onKeyDown={onEnterField("postal_code")}
                   placeholder="32000"
                   aria-invalid={errors.postal_code ? true : undefined}
                 />
@@ -1362,7 +1330,7 @@ const MemberSignup = () => {
                   value={form.phone_number}
                   onChange={(e) => { clearError("phone_number"); update("phone_number", e.target.value) }}
                   onFocus={() => clearError("phone_number")}
-                  onKeyDown={onEnter("phone_number")}
+                  onKeyDown={onEnterField("phone_number")}
                   placeholder="08x-xxx-xxxx"
                   aria-invalid={errors.phone_number ? true : undefined}
                 />
@@ -1383,7 +1351,7 @@ const MemberSignup = () => {
                   value={form.salary}
                   onChange={(e) => { clearError("salary"); update("salary", e.target.value.replace(/[^\d.]/g, "")) }}
                   onFocus={() => clearError("salary")}
-                  onKeyDown={onEnter("salary")}
+                  onKeyDown={onEnterField("salary")}
                   placeholder="15000"
                   aria-invalid={errors.salary ? true : undefined}
                 />
@@ -1399,7 +1367,7 @@ const MemberSignup = () => {
                   value={form.tgs_group}
                   onChange={(e) => { clearError("tgs_group"); update("tgs_group", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("tgs_group")}
-                  onKeyDown={onEnter("tgs_group")}
+                  onKeyDown={onEnterField("tgs_group")}
                   placeholder="16"
                   aria-invalid={errors.tgs_group ? true : undefined}
                 />
@@ -1415,7 +1383,7 @@ const MemberSignup = () => {
                   value={form.ar_limit}
                   onChange={(e) => { clearError("ar_limit"); update("ar_limit", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("ar_limit")}
-                  onKeyDown={onEnter("ar_limit")}
+                  onKeyDown={onEnterField("ar_limit")}
                   placeholder="100000"
                   aria-invalid={errors.ar_limit ? true : undefined}
                 />
@@ -1431,7 +1399,7 @@ const MemberSignup = () => {
                   value={form.normal_share}
                   onChange={(e) => { clearError("normal_share"); update("normal_share", e.target.value.replace(/[^\d.]/g, "")) }}
                   onFocus={() => clearError("normal_share")}
-                  onKeyDown={onEnter("normal_share")}
+                  onKeyDown={onEnterField("normal_share")}
                   placeholder="214"
                   aria-invalid={errors.normal_share ? true : undefined}
                 />
@@ -1464,7 +1432,7 @@ const MemberSignup = () => {
                   className={baseField}
                   value={form.bank_account}
                   onChange={(e) => update("bank_account", e.target.value)}
-                  onKeyDown={onEnter("bank_account")}
+                  onKeyDown={onEnterField("bank_account")}
                   placeholder="014-1-23456-7"
                 />
               </div>
@@ -1476,7 +1444,7 @@ const MemberSignup = () => {
                   className={baseField}
                   value={form.tgs_id}
                   onChange={(e) => update("tgs_id", e.target.value)}
-                  onKeyDown={onEnter("tgs_id")}
+                  onKeyDown={onEnterField("tgs_id")}
                   placeholder="TGS-001"
                 />
               </div>
@@ -1490,7 +1458,7 @@ const MemberSignup = () => {
                   value={form.orders_placed}
                   onChange={(e) => { clearError("orders_placed"); update("orders_placed", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("orders_placed")}
-                  onKeyDown={onEnter("orders_placed")}
+                  onKeyDown={onEnterField("orders_placed")}
                   placeholder="เช่น 4"
                   aria-invalid={errors.orders_placed ? true : undefined}
                 />
@@ -1576,7 +1544,7 @@ const MemberSignup = () => {
                   value={form.fid}
                   onChange={(e) => { clearError("fid"); update("fid", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("fid")}
-                  onKeyDown={onEnter("fid")}
+                  onKeyDown={onEnterField("fid")}
                   placeholder="เช่น 123456"
                   aria-invalid={errors.fid ? true : undefined}
                 />
@@ -1591,7 +1559,7 @@ const MemberSignup = () => {
                   value={form.fid_owner}
                   onChange={(e) => { clearError("fid_owner"); update("fid_owner", e.target.value) }}
                   onFocus={() => clearError("fid_owner")}
-                  onKeyDown={onEnter("fid_owner")}
+                  onKeyDown={onEnterField("fid_owner")}
                   placeholder="เช่น นายสมชาย ใจดี"
                   aria-invalid={errors.fid_owner ? true : undefined}
                 />
@@ -1607,7 +1575,7 @@ const MemberSignup = () => {
                   value={form.agri_type}
                   onChange={(e) => { clearError("agri_type"); update("agri_type", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("agri_type")}
-                  onKeyDown={onEnter("agri_type")}
+                  onKeyDown={onEnterField("agri_type")}
                   placeholder="เช่น 1"
                   aria-invalid={errors.agri_type ? true : undefined}
                 />
@@ -1624,7 +1592,7 @@ const MemberSignup = () => {
                   value={form.fertilizing_period}
                   onChange={(e) => { clearError("fertilizing_period"); update("fertilizing_period", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("fertilizing_period")}
-                  onKeyDown={onEnter("fertilizing_period")}
+                  onKeyDown={onEnterField("fertilizing_period")}
                   placeholder="เช่น 30"
                   aria-invalid={errors.fertilizing_period ? true : undefined}
                 />
@@ -1641,7 +1609,16 @@ const MemberSignup = () => {
                   value={form.fertilizer_type}
                   onChange={(e) => { clearError("fertilizer_type"); update("fertilizer_type", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("fertilizer_type")}
-                  onKeyDown={onEnter("fertilizer_type")}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.isComposing) {
+                      e.preventDefault()
+                      const btn = refs.submitBtn?.current
+                      if (btn && isEnabledInput(btn)) {
+                        try { btn.scrollIntoView({ block: "center" }) } catch {}
+                        btn.focus?.()
+                      }
+                    }
+                  }}
                   placeholder="เช่น 16160 (แทน 16-16-0)"
                   aria-invalid={errors.fertilizer_type ? true : undefined}
                 />

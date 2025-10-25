@@ -303,6 +303,14 @@ function Sales() {
   const [loadingCustomer, setLoadingCustomer] = useState(false)
   const [customerFound, setCustomerFound] = useState(null)
 
+  // ⭐ จุดยึดบนสุด + ฟังก์ชันเลื่อนขึ้นบน (เหมือนหน้า Buy)
+  const pageTopRef = useRef(null)
+  const scrollToPageTop = () => {
+    try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch {}
+    const root = document.scrollingElement || document.documentElement || document.body
+    try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
+  }
+
   // ค้นหาชื่อบุคคล
   const [nameResults, setNameResults] = useState([])
   const [showNameList, setShowNameList] = useState(false)
@@ -1130,6 +1138,21 @@ function Sales() {
     if (tmp) { try { tmp.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} }
   }
 
+  // ✅ โฟกัสตัวแรกตาม missing hints (ให้เหมือนหน้า Buy)
+  const scrollToFirstMissing = (hintsObj) => {
+    const personKeys = ["memberId","fullName"]
+    const companyKeys = ["companyName","taxId"]
+    const commonOrderKeys = ["product","riceType","subrice","condition","fieldType","riceYear","businessType","branchName","klangName","payment","issueDate"]
+    const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
+    const firstKey = keys.find((k) => hintsObj[k])
+    if (!firstKey) return
+    const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
+    if (el && typeof el.focus === "function") {
+      try { el.focus({ preventScroll: true }) } catch { el.focus() }
+      try { el.select?.() } catch {}
+    }
+  }
+
   // ---------- Submit ----------
   const toIsoDateTime = (yyyyMmDd) => {
     try { return new Date(`${yyyyMmDd}T12:00:00Z`).toISOString() } catch { return new Date().toISOString() }
@@ -1164,10 +1187,24 @@ function Sales() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    // เลื่อนขึ้นบนสุดเหมือนหน้า Buy
+    scrollToPageTop()
+
     const hints = computeMissingHints()
     setMissingHints(hints)
     const eObj = validateAll()
-    if (Object.keys(eObj).length > 0) { scrollToFirstError(eObj); return }
+
+    // ❌ แจ้งเตือนแบบหน้า Buy เมื่อฟอร์มไม่ผ่าน
+    if (Object.keys(eObj).length > 0) {
+      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      scrollToFirstError(eObj)
+      return
+    }
+    if (Object.values(hints).some(Boolean)) {
+      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      scrollToFirstMissing(hints)
+      return
+    }
 
     const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
     const lastName = rest.join(" ")
@@ -1283,12 +1320,22 @@ function Sales() {
         localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl)) // แชร์ให้หน้าอื่นใช้
         localStorage.setItem("sales.formTemplate", String(formTemplate))
       } catch {}
-      alert(`บันทึกออเดอร์ขายสำเร็จทั้งหมด ${ok}/${trailers.length} รายการ ✅`)
+      // ✅ แจ้งเตือนแบบเดียวกับหน้า Buy
+      alert("✅✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅✅")
       handleReset()
+      requestAnimationFrame(() => scrollToPageTop())
       try { refs.submitBtn?.current?.blur?.() } catch {}
     } else {
-      const summary = failed.map((f) => `• คันที่ ${f.index}: ${f.message}${f.detail ? `\nรายละเอียด: ${JSON.stringify(f.detail)}` : ""}`).join("\n\n")
-      alert(`บันทึกสำเร็จ ${ok}/${trailers.length} รายการ\n\nรายการที่ผิดพลาด:\n${summary}`)
+      const summary = failed
+        .map((f) => `• คันที่ ${f.index}: ${f.message}${f.detail ? `\nรายละเอียด: ${JSON.stringify(f.detail)}` : ""}`)
+        .join("\n\n")
+      // ❌ แจ้งเตือนแบบเดียวกับหน้า Buy (ล้มเหลว)
+      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
+      
+บันทึกสำเร็จ ${ok}/${trailers.length} รายการ
+
+รายการที่ผิดพลาด:
+${summary}`)
     }
   }
 
@@ -1318,6 +1365,9 @@ function Sales() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
+        {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด (ให้เหมือน Buy) */}
+        <div ref={pageTopRef} />
+
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ขาย (หลายพ่วง)</h1>
 
         {/* กล่องข้อมูลลูกค้า */}

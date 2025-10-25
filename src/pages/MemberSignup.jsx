@@ -35,6 +35,69 @@ function useDebounce(value, delay = 400) {
 /** ---------- class helpers ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
+/// ⭐⭐ Enter-to-next helpers (ดึงแนวทางจากหน้า Buy.jsx)
+const isEnabledInput = (el) => {
+  if (!el) return false
+  if (typeof el.disabled !== "undefined" && el.disabled) return false
+  const style = window.getComputedStyle?.(el)
+  if (style && (style.display === "none" || style.visibility === "hidden")) return false
+  if (!el.offsetParent && el.type !== "hidden" && el.getAttribute?.("role") !== "combobox") return false
+  return true
+}
+
+const useEnterNavigation = (refs) => {
+  // ✅ ลำดับตามที่ผู้ใช้สั่ง
+  const order = [
+    "member_id",
+    "precode",
+    "first_name",
+    "last_name",
+    "citizen_id",
+    "spouce_name",
+    "address",
+    "mhoo",
+    "district",
+    "sub_district",
+    "subprov",
+    "postal_code",
+    "phone_number",
+    "salary",
+    "tgs_group",
+    "ar_limit",
+    "normal_share",
+    "bank_account",
+    "tgs_id",
+    "orders_placed",
+    "fid",
+    "fid_owner",
+    "agri_type",
+    "fertilizing_period",
+    "fertilizer_type",
+    "submitBtn", // → ปุ่มบันทึก
+  ]
+
+  const list = order.filter((k) => refs?.[k]?.current && isEnabledInput(refs[k].current))
+
+  const focusNext = (currentKey) => {
+    const i = list.indexOf(currentKey)
+    const nextKey = i >= 0 && i < list.length - 1 ? list[i + 1] : null
+    if (!nextKey) return
+    const el = refs[nextKey]?.current
+    if (!el) return
+    try { el.scrollIntoView({ block: "center", behavior: "smooth" }) } catch {}
+    el.focus?.()
+    try { if (el.select) el.select() } catch {}
+  }
+
+  const onEnter = (currentKey) => (e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault()
+      focusNext(currentKey)
+    }
+  }
+
+  return { onEnter, focusNext }
+}
 /** ---------- สไตล์ ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -153,7 +216,7 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- Reusable ComboBox ---------- */
+/** ---------- Reusable ComboBox (เพิ่ม onEnterNext + buttonRef สำหรับโฟกัส/เลื่อน) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -164,6 +227,7 @@ function ComboBox({
   disabled = false,
   error = false,
   buttonRef = null,
+  onEnterNext, // ⭐ ใหม่: เรียกเมื่อผู้ใช้กด Enter เพื่อไปฟิลด์ถัดไป
 }) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
@@ -194,7 +258,10 @@ function ComboBox({
     onChange?.(v, opt)
     setOpen(false)
     setHighlight(-1)
-    requestAnimationFrame(() => controlRef.current?.focus())
+    requestAnimationFrame(() => {
+      controlRef.current?.focus()
+      onEnterNext?.()
+    })
   }
 
   const scrollHighlightedIntoView = (index) => {
@@ -213,7 +280,20 @@ function ComboBox({
 
   const onKeyDown = (e) => {
     if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+
+    // ⭐ หากปิด dropdown อยู่และมีค่าอยู่แล้ว → Enter = ไปช่องถัดไป
+    if (!open && e.key === "Enter") {
+      e.preventDefault()
+      if (String(value || "") !== "") {
+        onEnterNext?.()
+        return
+      }
+      setOpen(true)
+      setHighlight((h) => (h >= 0 ? h : 0))
+      return
+    }
+
+    if (!open && (e.key === " " || e.key === "ArrowDown")) {
       e.preventDefault()
       setOpen(true)
       setHighlight((h) => (h >= 0 ? h : 0))
@@ -251,9 +331,7 @@ function ComboBox({
         type="button"
         ref={controlRef}
         disabled={disabled}
-        onClick={() => {
-          if (!disabled) setOpen((o) => !o)
-        }}
+        onClick={() => { if (!disabled) setOpen((o) => !o) }}
         onKeyDown={onKeyDown}
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
@@ -718,6 +796,9 @@ const MemberSignup = () => {
     agri_type: useRef(null),
     fertilizing_period: useRef(null),
     fertilizer_type: useRef(null),
+
+    // ⭐ ปุ่มส่งฟอร์ม
+    submitBtn: useRef(null),
   }
 
   const update = (k, v) => setForm((prev) => ({ ...prev, [k]: v }))
@@ -953,6 +1034,9 @@ const MemberSignup = () => {
     })
   }
 
+  // ⭐ ใช้ตัวช่วย Enter-to-next
+  const { onEnter, focusNext } = useEnterNavigation(refs)
+
   /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
@@ -980,7 +1064,10 @@ const MemberSignup = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        {/* ⭐ เพิ่มฟอร์มการ์ด (ห่อฟอร์มด้วยการ์ดใหญ่) */}
+        <form onSubmit={handleSubmit}
+          className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        >
           {/* โครงการที่เข้าร่วม */}
           <SectionCard title="โครงการที่เข้าร่วม" className="mb-6">
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -1038,6 +1125,7 @@ const MemberSignup = () => {
                   value={form.member_id}
                   onChange={(e) => { clearError("member_id"); update("member_id", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("member_id")}
+                  onKeyDown={onEnter("member_id")}
                   placeholder="เช่น 11263"
                   aria-invalid={errors.member_id ? true : undefined}
                 />
@@ -1047,15 +1135,15 @@ const MemberSignup = () => {
               {/* คำนำหน้า (ดรอปดาว) */}
               <div>
                 <label className={labelCls}>คำนำหน้า (precode)</label>
-                <div ref={refs.precode}>
-                  <ComboBox
-                    options={[{ value: "1", label: "นาย" },{ value: "2", label: "นาง" },{ value: "3", label: "นางสาว" }]}
-                    value={form.precode}
-                    onChange={(v) => onChangePrecode(v)}
-                    placeholder="— เลือกคำนำหน้า —"
-                    error={!!errors.precode}
-                  />
-                </div>
+                <ComboBox
+                  options={[{ value: "1", label: "นาย" },{ value: "2", label: "นาง" },{ value: "3", label: "นางสาว" }]}
+                  value={form.precode}
+                  onChange={(v) => onChangePrecode(v)}
+                  placeholder="— เลือกคำนำหน้า —"
+                  error={!!errors.precode}
+                  buttonRef={refs.precode}
+                  onEnterNext={() => focusNext("precode")}
+                />
                 {errors.precode && <p className={errorTextCls}>{errors.precode}</p>}
               </div>
 
@@ -1082,6 +1170,7 @@ const MemberSignup = () => {
                   value={form.first_name}
                   onChange={(e) => { clearError("first_name"); update("first_name", e.target.value) }}
                   onFocus={() => clearError("first_name")}
+                  onKeyDown={onEnter("first_name")}
                   placeholder="สมชาย"
                   aria-invalid={errors.first_name ? true : undefined}
                 />
@@ -1097,6 +1186,7 @@ const MemberSignup = () => {
                   value={form.last_name}
                   onChange={(e) => { clearError("last_name"); update("last_name", e.target.value) }}
                   onFocus={() => clearError("last_name")}
+                  onKeyDown={onEnter("last_name")}
                   placeholder="ใจดี"
                   aria-invalid={errors.last_name ? true : undefined}
                 />
@@ -1114,6 +1204,7 @@ const MemberSignup = () => {
                   value={form.citizen_id}
                   onChange={(e) => { clearError("citizen_id"); update("citizen_id", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("citizen_id")}
+                  onKeyDown={onEnter("citizen_id")}
                   placeholder="1234567890123"
                   aria-invalid={errors.citizen_id ? true : undefined}
                 />
@@ -1126,19 +1217,18 @@ const MemberSignup = () => {
               {/* เพศ (ล็อกจากคำนำหน้า) */}
               <div>
                 <label className={labelCls}>เพศ (กำหนดจากคำนำหน้า)</label>
-                <div ref={refs.sex}>
-                  <ComboBox
-                    options={[
-                      { value: "M", label: "ชาย (M)" },
-                      { value: "F", label: "หญิง (F)" },
-                    ]}
-                    value={form.sex}
-                    onChange={() => { /* locked: no manual change */ }}
-                    placeholder="— เลือกคำนำหน้าเพื่อกำหนด —"
-                    error={!!errors.sex}
-                    disabled
-                  />
-                </div>
+                <ComboBox
+                  options={[
+                    { value: "M", label: "ชาย (M)" },
+                    { value: "F", label: "หญิง (F)" },
+                  ]}
+                  value={form.sex}
+                  onChange={() => { /* locked: no manual change */ }}
+                  placeholder="— เลือกคำนำหน้าเพื่อกำหนด —"
+                  error={!!errors.sex}
+                  buttonRef={refs.sex}
+                  disabled
+                />
                 {errors.sex && <p className={errorTextCls}>{errors.sex}</p>}
               </div>
 
@@ -1150,6 +1240,7 @@ const MemberSignup = () => {
                   className={baseField}
                   value={form.spouce_name}
                   onChange={(e) => update("spouce_name", e.target.value)}
+                  onKeyDown={onEnter("spouce_name")}
                   placeholder="ชื่อคุ๋สมรส"
                 />
               </div>
@@ -1167,6 +1258,7 @@ const MemberSignup = () => {
                   value={form.address}
                   onChange={(e) => { clearError("address"); update("address", e.target.value) }}
                   onFocus={() => clearError("address")}
+                  onKeyDown={onEnter("address")}
                   placeholder="เช่น 123/4"
                   aria-invalid={errors.address ? true : undefined}
                 />
@@ -1175,59 +1267,73 @@ const MemberSignup = () => {
 
               <div>
                 <label className={labelCls}>หมู่ (mhoo)</label>
-                <input ref={refs.mhoo} className={baseField} value={form.mhoo} onChange={(e) => update("mhoo", e.target.value)} placeholder="เช่น 1" />
+                <input
+                  ref={refs.mhoo}
+                  className={baseField}
+                  value={form.mhoo}
+                  onChange={(e) => update("mhoo", e.target.value)}
+                  onKeyDown={onEnter("mhoo")}
+                  placeholder="เช่น 1"
+                />
               </div>
 
               {/* ✅ จังหวัด (ล็อกสุรินทร์) */}
               <div>
                 <label className={labelCls}>จังหวัด</label>
-                <div ref={refs.province}>
-                  <ComboBox
-                    options={[{ value: PROV_SURIN, label: PROV_SURIN }]}
-                    value={form.province}
-                    onChange={() => {}}
-                    placeholder={PROV_SURIN}
-                    disabled
-                    error={!!errors.province}
-                  />
-                </div>
+                <ComboBox
+                  options={[{ value: PROV_SURIN, label: PROV_SURIN }]}
+                  value={form.province}
+                  onChange={() => {}}
+                  placeholder={PROV_SURIN}
+                  disabled
+                  error={!!errors.province}
+                  buttonRef={refs.province}
+                />
                 {errors.province && <p className={errorTextCls}>{errors.province}</p>}
               </div>
 
               {/* ✅ อำเภอ (ดรอปดาวทั้งหมดในสุรินทร์) */}
               <div>
                 <label className={labelCls}>อำเภอ (district)</label>
-                <div ref={refs.district}>
-                  <ComboBox
-                    options={amphoeOptions}
-                    value={form.district}
-                    onChange={(v) => { clearError("district"); update("district", v) }}
-                    placeholder="— เลือกอำเภอ —"
-                    error={!!errors.district}
-                  />
-                </div>
+                <ComboBox
+                  options={amphoeOptions}
+                  value={form.district}
+                  onChange={(v) => { clearError("district"); update("district", v) }}
+                  placeholder="— เลือกอำเภอ —"
+                  error={!!errors.district}
+                  buttonRef={refs.district}
+                  onEnterNext={() => focusNext("district")}
+                />
                 {errors.district && <p className={errorTextCls}>{errors.district}</p>}
               </div>
 
               {/* ✅ ตำบล (ดรอปดาวตามอำเภอที่เลือก) */}
               <div>
                 <label className={labelCls}>ตำบล (sub_district)</label>
-                <div ref={refs.sub_district}>
-                  <ComboBox
-                    options={tambonOptions}
-                    value={form.sub_district}
-                    onChange={(v) => { clearError("sub_district"); update("sub_district", v) }}
-                    placeholder={form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}
-                    error={!!errors.sub_district}
-                    disabled={!form.district}
-                  />
-                </div>
+                <ComboBox
+                  options={tambonOptions}
+                  value={form.sub_district}
+                  onChange={(v) => { clearError("sub_district"); update("sub_district", v) }}
+                  placeholder={form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}
+                  error={!!errors.sub_district}
+                  disabled={!form.district}
+                  buttonRef={refs.sub_district}
+                  onEnterNext={() => focusNext("sub_district")}
+                />
                 {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
               </div>
 
               <div>
                 <label className={labelCls}>อำเภอย่อย/รหัสอำเภอ (subprov)</label>
-                <input ref={refs.subprov} inputMode="numeric" className={baseField} value={form.subprov} onChange={(e) => update("subprov", onlyDigits(e.target.value))} placeholder="เช่น 501" />
+                <input
+                  ref={refs.subprov}
+                  inputMode="numeric"
+                  className={baseField}
+                  value={form.subprov}
+                  onChange={(e) => update("subprov", onlyDigits(e.target.value))}
+                  onKeyDown={onEnter("subprov")}
+                  placeholder="เช่น 501"
+                />
               </div>
 
               <div>
@@ -1240,6 +1346,7 @@ const MemberSignup = () => {
                   value={form.postal_code}
                   onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("postal_code")}
+                  onKeyDown={onEnter("postal_code")}
                   placeholder="32000"
                   aria-invalid={errors.postal_code ? true : undefined}
                 />
@@ -1255,6 +1362,7 @@ const MemberSignup = () => {
                   value={form.phone_number}
                   onChange={(e) => { clearError("phone_number"); update("phone_number", e.target.value) }}
                   onFocus={() => clearError("phone_number")}
+                  onKeyDown={onEnter("phone_number")}
                   placeholder="08x-xxx-xxxx"
                   aria-invalid={errors.phone_number ? true : undefined}
                 />
@@ -1275,6 +1383,7 @@ const MemberSignup = () => {
                   value={form.salary}
                   onChange={(e) => { clearError("salary"); update("salary", e.target.value.replace(/[^\d.]/g, "")) }}
                   onFocus={() => clearError("salary")}
+                  onKeyDown={onEnter("salary")}
                   placeholder="15000"
                   aria-invalid={errors.salary ? true : undefined}
                 />
@@ -1290,6 +1399,7 @@ const MemberSignup = () => {
                   value={form.tgs_group}
                   onChange={(e) => { clearError("tgs_group"); update("tgs_group", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("tgs_group")}
+                  onKeyDown={onEnter("tgs_group")}
                   placeholder="16"
                   aria-invalid={errors.tgs_group ? true : undefined}
                 />
@@ -1305,6 +1415,7 @@ const MemberSignup = () => {
                   value={form.ar_limit}
                   onChange={(e) => { clearError("ar_limit"); update("ar_limit", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("ar_limit")}
+                  onKeyDown={onEnter("ar_limit")}
                   placeholder="100000"
                   aria-invalid={errors.ar_limit ? true : undefined}
                 />
@@ -1320,6 +1431,7 @@ const MemberSignup = () => {
                   value={form.normal_share}
                   onChange={(e) => { clearError("normal_share"); update("normal_share", e.target.value.replace(/[^\d.]/g, "")) }}
                   onFocus={() => clearError("normal_share")}
+                  onKeyDown={onEnter("normal_share")}
                   placeholder="214"
                   aria-invalid={errors.normal_share ? true : undefined}
                 />
@@ -1347,12 +1459,26 @@ const MemberSignup = () => {
 
               <div className="md:col-span-2">
                 <label className={labelCls}>บัญชีธนาคาร (bank_account)</label>
-                <input ref={refs.bank_account} className={baseField} value={form.bank_account} onChange={(e) => update("bank_account", e.target.value)} placeholder="014-1-23456-7" />
+                <input
+                  ref={refs.bank_account}
+                  className={baseField}
+                  value={form.bank_account}
+                  onChange={(e) => update("bank_account", e.target.value)}
+                  onKeyDown={onEnter("bank_account")}
+                  placeholder="014-1-23456-7"
+                />
               </div>
 
               <div>
                 <label className={labelCls}>รหัสสมาชิกในระบบ (tgs_id)</label>
-                <input ref={refs.tgs_id} className={baseField} value={form.tgs_id} onChange={(e) => update("tgs_id", e.target.value)} placeholder="TGS-001" />
+                <input
+                  ref={refs.tgs_id}
+                  className={baseField}
+                  value={form.tgs_id}
+                  onChange={(e) => update("tgs_id", e.target.value)}
+                  onKeyDown={onEnter("tgs_id")}
+                  placeholder="TGS-001"
+                />
               </div>
 
               <div>
@@ -1364,6 +1490,7 @@ const MemberSignup = () => {
                   value={form.orders_placed}
                   onChange={(e) => { clearError("orders_placed"); update("orders_placed", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("orders_placed")}
+                  onKeyDown={onEnter("orders_placed")}
                   placeholder="เช่น 4"
                   aria-invalid={errors.orders_placed ? true : undefined}
                 />
@@ -1449,6 +1576,7 @@ const MemberSignup = () => {
                   value={form.fid}
                   onChange={(e) => { clearError("fid"); update("fid", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("fid")}
+                  onKeyDown={onEnter("fid")}
                   placeholder="เช่น 123456"
                   aria-invalid={errors.fid ? true : undefined}
                 />
@@ -1463,6 +1591,7 @@ const MemberSignup = () => {
                   value={form.fid_owner}
                   onChange={(e) => { clearError("fid_owner"); update("fid_owner", e.target.value) }}
                   onFocus={() => clearError("fid_owner")}
+                  onKeyDown={onEnter("fid_owner")}
                   placeholder="เช่น นายสมชาย ใจดี"
                   aria-invalid={errors.fid_owner ? true : undefined}
                 />
@@ -1478,6 +1607,7 @@ const MemberSignup = () => {
                   value={form.agri_type}
                   onChange={(e) => { clearError("agri_type"); update("agri_type", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("agri_type")}
+                  onKeyDown={onEnter("agri_type")}
                   placeholder="เช่น 1"
                   aria-invalid={errors.agri_type ? true : undefined}
                 />
@@ -1494,6 +1624,7 @@ const MemberSignup = () => {
                   value={form.fertilizing_period}
                   onChange={(e) => { clearError("fertilizing_period"); update("fertilizing_period", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("fertilizing_period")}
+                  onKeyDown={onEnter("fertilizing_period")}
                   placeholder="เช่น 30"
                   aria-invalid={errors.fertilizing_period ? true : undefined}
                 />
@@ -1510,6 +1641,7 @@ const MemberSignup = () => {
                   value={form.fertilizer_type}
                   onChange={(e) => { clearError("fertilizer_type"); update("fertilizer_type", onlyDigits(e.target.value)) }}
                   onFocus={() => clearError("fertilizer_type")}
+                  onKeyDown={onEnter("fertilizer_type")}
                   placeholder="เช่น 16160 (แทน 16-16-0)"
                   aria-invalid={errors.fertilizer_type ? true : undefined}
                 />
@@ -1520,6 +1652,7 @@ const MemberSignup = () => {
             {/* ปุ่ม */}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
+                ref={refs.submitBtn}
                 type="submit"
                 disabled={submitting}
                 className="inline-flex items-center justify-center rounded-2xl 

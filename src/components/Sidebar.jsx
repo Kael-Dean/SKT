@@ -56,13 +56,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   /** ---------- CSS ---------- */
   const baseBtn =
-    'w-full h-12 flex items-center justify-center rounded-xl transition-all duration-200 ease-out font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 px-4'
+    // เพิ่ม hover:cursor-pointer เพื่อให้เมาส์เป็นนิ้วชี้เมื่อชี้ที่ปุ่ม
+    'w-full h-12 flex items-center justify-center rounded-xl transition-all duration-200 ease-out font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 px-4 hover:cursor-pointer'
   const idleBtn =
     'text-gray-900 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-100 dark:hover:bg-gray-700 dark:hover:text-white hover:scale-[1.02] hover:shadow-md'
   const activeBtn =
     'bg-black text-white dark:bg-gray-800 dark:text-white hover:scale-[1.02] hover:shadow-lg hover:opacity-90'
   const subBtnBase =
-    'w-full h-11 flex items-center justify-center rounded-lg px-4 transition-all duration-200 ease-out text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
+    // เพิ่ม hover:cursor-pointer ให้กับปุ่มเมนูย่อยทั้งหมด
+    'w-full h-11 flex items-center justify-center rounded-lg px-4 transition-all duration-200 ease-out text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 hover:cursor-pointer'
   const subIdle =
     'text-gray-700 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-200 dark:hover:bg-gray-700'
   const subActive =
@@ -256,7 +258,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         <div className="mt-auto p-4 shrink-0">
           <button
             onClick={handleLogout}
-            className="w-full h-12 flex items-center justify-center rounded-xl font-semibold text-white bg-red-600 hover:bg-red-500 active:bg-red-700 hover:scale-[1.02] hover:shadow-lg shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 transition-all duration-200 ease-out"
+            className="w-full h-12 flex items-center justify-center rounded-xl font-semibold text-white bg-red-600 hover:bg-red-500 active:bg-red-700 hover:scale-[1.02] hover:shadow-lg hover:cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 transition-all duration-200 ease-out"
           >
             ออกจากระบบ
           </button>

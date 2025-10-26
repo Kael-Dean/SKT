@@ -1,3 +1,4 @@
+// src/pages/StockTransferOut.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { get, post } from "../lib/api" // ✅ helper API กลาง
 
@@ -13,7 +14,6 @@ const thb = (n) =>
   )
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/** ---------- Styles ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -25,7 +25,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- ComboBox (forwardRef + open/close/focus + onMoveNext) ---------- */
+/** ---------- ComboBox (แก้ Enter ➜ ไปช่องถัดไป + กันคลิกอัตโนมัติ) ---------- */
 const ComboBox = forwardRef(function ComboBox(
   {
     options = [],
@@ -38,7 +38,7 @@ const ComboBox = forwardRef(function ComboBox(
     error = false,
     hintRed = false,
     clearHint = () => {},
-    onMoveNext, // ← เมื่อกด Enter (หรือเลือกค่า) ให้เลื่อนไปช่องถัดไป
+    onMoveNext, // เมื่อกด Enter (หรือเลือกค่า) ให้เลื่อนไปช่องถัดไป
   },
   ref
 ) {
@@ -47,6 +47,7 @@ const ComboBox = forwardRef(function ComboBox(
   const boxRef = useRef(null)
   const listRef = useRef(null)
   const buttonRef = useRef(null)
+  const suppressNextClickRef = useRef(false) // ← ป้องกัน "click" อัตโนมัติจากการกด Enter
 
   useImperativeHandle(ref, () => ({
     focus: () => buttonRef.current?.focus(),
@@ -76,7 +77,6 @@ const ComboBox = forwardRef(function ComboBox(
     return () => document.removeEventListener("click", onClick)
   }, [])
 
-  // ✅ เลือกแล้ว "ไปช่องถัดไปเสมอ" (รวมทั้งการคลิกเมาส์)
   const commit = (opt) => {
     const v = String(getValue(opt))
     onChange?.(v, opt)
@@ -106,9 +106,12 @@ const ComboBox = forwardRef(function ComboBox(
   const onKeyDown = (e) => {
     if (disabled) return
 
-    // ✅ Enter = ถ้าเปิดและมีไฮไลท์ → เลือก; ถ้าไม่เปิด → ข้ามไปช่องถัดไป
     if (e.key === "Enter") {
+      // ปิด default และกัน "click" อัตโนมัติ
       e.preventDefault()
+      suppressNextClickRef.current = true
+
+      // ถ้าเปิดและไฮไลท์อยู่ → เลือก, ไม่งั้น → ไปช่องถัดไป
       if (open && highlight >= 0 && highlight < options.length) {
         commit(options[highlight])
       } else {
@@ -117,7 +120,7 @@ const ComboBox = forwardRef(function ComboBox(
       return
     }
 
-    // เปิดด้วย Space/ArrowDown (Enter ใช้เดินหน้าแล้ว)
+    // เปิดด้วย Space/ArrowDown
     if (!open && (e.key === " " || e.key === "ArrowDown")) {
       e.preventDefault()
       setOpen(true)
@@ -155,12 +158,20 @@ const ComboBox = forwardRef(function ComboBox(
         ref={buttonRef}
         disabled={disabled}
         onClick={() => {
+          // ถ้าพึ่งกด Enter มา ให้ข้ามคลิกนี้ (กัน dropdown เปิด/ปิดเอง)
+          if (suppressNextClickRef.current) {
+            suppressNextClickRef.current = false
+            return
+          }
           if (!disabled) {
             setOpen((o) => !o)
             clearHint?.()
           }
         }}
         onKeyDown={onKeyDown}
+        onKeyUp={(e) => {
+          if (e.key === "Enter") suppressNextClickRef.current = false
+        }}
         onFocus={() => clearHint?.()}
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
@@ -198,7 +209,7 @@ const ComboBox = forwardRef(function ComboBox(
                 role="option"
                 aria-selected={isChosen}
                 onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)} // ✅ คลิกแล้วไปต่อทันที
+                onClick={() => commit(opt)}
                 className={cx(
                   "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
                   isActive
@@ -268,8 +279,8 @@ function StockTransferOut() {
 
   /** ---------- Dropdown states ---------- */
   const [productOptions, setProductOptions] = useState([])
-  const [riceOptions, setRiceOptions] = useState([])      // species
-  const [subriceOptions, setSubriceOptions] = useState([]) // variant
+  const [riceOptions, setRiceOptions] = useState([])
+  const [subriceOptions, setSubriceOptions] = useState([])
 
   const [fromBranchOptions, setFromBranchOptions] = useState([])
   const [toBranchOptions, setToBranchOptions] = useState([])
@@ -297,9 +308,9 @@ function StockTransferOut() {
     to_klang_id: null,
     to_klang_name: "",
 
-    // ✅ ใหม่
-    driver_name: "",     // ชื่อผู้ขนส่ง
-    plate_number: "",    // ทะเบียนรถ
+    // ข้อมูลผู้ขนส่ง (อยู่นอก flow Enter นี้)
+    driver_name: "",
+    plate_number: "",
 
     product_id: "",
     product_name: "",
@@ -320,21 +331,19 @@ function StockTransferOut() {
     business_type_label: "",
 
     // ชั่งรถ
-    weight_in: "",   // รถเปล่า (ขาเข้าโรงชั่ง)
-    weight_out: "",  // รถ + ข้าว (ขาออก)
+    weight_in: "",
+    weight_out: "",
     cost_per_kg: "",
     quality_note: "",
-
     impurity_percent: "",
   })
 
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
   /** ---------- Derived ---------- */
-  const weightIn = useMemo(() => toInt(form.weight_in), [form.weight_in])     // รถเปล่า
-  const weightOut = useMemo(() => toInt(form.weight_out), [form.weight_out])  // รถ + ข้าว
+  const weightIn = useMemo(() => toInt(form.weight_in), [form.weight_in])
+  const weightOut = useMemo(() => toInt(form.weight_out), [form.weight_out])
   const netWeightInt = useMemo(() => Math.max(weightOut - weightIn, 0), [weightIn, weightOut])
-
   const costPerKg = useMemo(() => Number(form.cost_per_kg || 0), [form.cost_per_kg])
   const totalCost = useMemo(() => costPerKg * netWeightInt, [costPerKg, netWeightInt])
 
@@ -635,7 +644,7 @@ function StockTransferOut() {
     setMissingHints(hints)
     if (!validate()) return
 
-    const transferQty = netWeightInt // ✅ ต้องเป็นจำนวนเต็มกก.
+    const transferQty = netWeightInt
     if (!(transferQty > 0)) {
       setErrors((prev) => ({ ...prev, net_weight: "น้ำหนักสุทธิไม่ถูกต้อง" }))
       return
@@ -643,7 +652,6 @@ function StockTransferOut() {
 
     setSubmitting(true)
     try {
-      // ✅ Pre-check: สต็อกต้นทาง
       await lookupOriginStock(transferQty)
 
       const payload = {
@@ -660,37 +668,29 @@ function StockTransferOut() {
 
         spec: buildSpec(),
 
-        // ⚖️ บันทึกค่าชั่ง (รถเปล่า/รถ+ข้าว)
-        entry_weight: toInt(form.weight_in),   // รถเปล่า
-        exit_weight: toInt(form.weight_out),   // รถ + ข้าว
+        entry_weight: toInt(form.weight_in),
+        exit_weight: toInt(form.weight_out),
 
-        // ✅ น้ำหนักสุทธิ = ขาออก − ขาเข้า
         weight: transferQty,
         impurity: form.impurity_percent === "" ? 0 : Number(form.impurity_percent),
 
-        // ราคา (อาจว่างได้)
         price_per_kilo: Number(form.cost_per_kg) || 0,
         price: (Number(form.cost_per_kg) || 0) * transferQty,
 
         quality: 0,
-
-        // ใช้จำนวนย้ายตาม net เป็นจำนวนเต็ม
         transfer_qty: transferQty,
-
-        // บันทึกเพิ่มเติม/เหตุผล (ผู้โอน)
         sender_note: form.quality_note?.trim() || null,
       }
 
       await post("/transfer/request", payload)
 
-      alert("✅✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅✅")
+      alert("✅✅✅ บันทึกออเดอร์เรียบร้อย")
       setForm((f) => ({
         ...f,
         weight_in: "",
         weight_out: "",
         cost_per_kg: "",
         impurity_percent: "",
-        // คงค่า quality_note (บันทึกเพิ่มเติม) ไว้ ไม่ล้าง
       }))
     } catch (err) {
       console.error(err)
@@ -700,8 +700,7 @@ function StockTransferOut() {
     }
   }
 
-  /** ---------- Keyboard flow: Enter → next (ตามลำดับที่ผู้ใช้ระบุ) ---------- */
-  // refs ของทุกช่องตามลำดับที่ผู้ใช้ต้องการ
+  /** ---------- Keyboard flow: ปรับตามที่ขอ ---------- */
   const driverRef = useRef(null)
   const plateRef = useRef(null)
   const fromBranchRef = useRef(null)
@@ -722,27 +721,25 @@ function StockTransferOut() {
   const impurityRef = useRef(null)
   const saveBtnRef = useRef(null)
 
-  // ✅ ลำดับใหม่ (รวมผู้ขนส่ง/ทะเบียนรถ) ตามสเปกที่ระบุ
+  // ⬇️ ลำดับ Enter (ตามที่ร้องขอ)
   const getFlow = () => {
     return [
-      { ref: driverRef, type: "input", disabled: false },             // ชื่อผู้ขนส่ง
-      { ref: plateRef, type: "input", disabled: false },              // ทะเบียนรถ
-      { ref: fromBranchRef, type: "combo", disabled: false },         // สาขาต้นทาง
+      { ref: fromBranchRef, type: "combo", disabled: false },               // สาขาต้นทาง
       { ref: fromKlangRef, type: "combo", disabled: !form.from_branch_id }, // คลังต้นทาง
-      { ref: toBranchRef, type: "combo", disabled: false },           // สาขาปลายทาง
+      { ref: toBranchRef, type: "combo", disabled: false },                  // สาขาปลายทาง
       { ref: toKlangRef, type: "combo", disabled: !form.to_branch_id },     // คลังปลายทาง
-      { ref: productRef, type: "combo", disabled: false },            // ประเภทสินค้า
-      { ref: riceRef, type: "combo", disabled: !form.product_id },    // ชนิดข้าว
-      { ref: subriceRef, type: "combo", disabled: !form.rice_id },    // ชั้นย่อย
-      { ref: fieldRef, type: "combo", disabled: false },              // ประเภทนา
-      { ref: yearRef, type: "combo", disabled: false },               // ปี/ฤดูกาล
-      { ref: programRef, type: "combo", disabled: false },            // โปรแกรม (ไม่บังคับ)
-      { ref: weightInRef, type: "input", disabled: false },           // น้ำหนักขาเข้า
-      { ref: weightOutRef, type: "input", disabled: false },          // น้ำหนักขาออก
-      { ref: costRef, type: "input", disabled: false },               // ราคาต้นทุน/กก.
-      { ref: impurityRef, type: "input", disabled: false },           // สิ่งเจือปน (%)
-      { ref: saveBtnRef, type: "button", disabled: false },           // ปุ่มบันทึก
-      // หมายเหตุ: conditionRef / businessRef เป็นค่าที่ถูกล็อก → ไม่ใส่ใน flow
+      { ref: productRef, type: "combo", disabled: false },                   // ประเภทสินค้า
+      { ref: riceRef, type: "combo", disabled: !form.product_id },          // ชนิดข้าว
+      { ref: subriceRef, type: "combo", disabled: !form.rice_id },          // ชั้นย่อย
+      { ref: fieldRef, type: "combo", disabled: false },                    // ประเภทนา
+      { ref: yearRef, type: "combo", disabled: false },                     // ปี/ฤดูกาล
+      { ref: programRef, type: "combo", disabled: false },                  // โปรแกรม (ไม่บังคับ)
+      { ref: weightInRef, type: "input", disabled: false },                 // น้ำหนักขาเข้า
+      { ref: weightOutRef, type: "input", disabled: false },                // น้ำหนักขาออก
+      { ref: costRef, type: "input", disabled: false },                     // ราคาต้นทุน/กก.
+      { ref: impurityRef, type: "input", disabled: false },                 // สิ่งเจือปน (%)
+      { ref: saveBtnRef, type: "button", disabled: false },                 // ปุ่มบันทึก
+      // หมายเหตุ: driver/plate/condition/business อยู่นอก flow นี้ตามสเปกล่าสุด
     ].filter((i) => !i.disabled)
   }
 
@@ -754,7 +751,6 @@ function StockTransferOut() {
     const target = next.ref.current
     if (!target) return
 
-    // ถ้าเป็น ComboBox → focus แล้วเปิดดรอปดาวน์อัตโนมัติ
     if (next.type === "combo") {
       target.focus?.()
       target.open?.()
@@ -782,7 +778,7 @@ function StockTransferOut() {
             <h2 className="mb-3 text-xl font-semibold">ข้อมูลการโอน</h2>
 
             <div className="grid gap-4 md:grid-cols-3">
-              {/* วันที่ (ไม่ใส่ใน flow ตามที่ผู้ใช้ระบุ) */}
+              {/* วันที่ */}
               <div>
                 <label className={labelCls}>วันที่โอน</label>
                 <DateInput
@@ -799,7 +795,7 @@ function StockTransferOut() {
                 {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
               </div>
 
-              {/* ชื่อผู้ขนส่ง — อยู่ใน Enter‑Flow */}
+              {/* ชื่อผู้ขนส่ง (อยู่นอก flow) */}
               <div>
                 <label className={labelCls}>ชื่อผู้ขนส่ง</label>
                 <input
@@ -811,14 +807,13 @@ function StockTransferOut() {
                     clearError("driver_name")
                     clearHint("driver_name")
                   }}
-                  onKeyDown={enterToNext(driverRef)}
                   placeholder="เช่น นายสมชาย ขยันงาน"
                   aria-invalid={errors.driver_name ? true : undefined}
                 />
                 {errors.driver_name && <p className={errorTextCls}>{errors.driver_name}</p>}
               </div>
 
-              {/* ทะเบียนรถ — อยู่ใน Enter‑Flow */}
+              {/* ทะเบียนรถ (อยู่นอก flow) */}
               <div>
                 <label className={labelCls}>ทะเบียนรถขนส่ง</label>
                 <input
@@ -830,7 +825,6 @@ function StockTransferOut() {
                     clearError("plate_number")
                     clearHint("plate_number")
                   }}
-                  onKeyDown={enterToNext(plateRef)}
                   placeholder="เช่น 1ขข-1234 กทม."
                   aria-invalid={errors.plate_number ? true : undefined}
                 />
@@ -1011,14 +1005,14 @@ function StockTransferOut() {
                 {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
               </div>
 
-              {/* สภาพ/เงื่อนไข (locked → แห้ง) */}
+              {/* สภาพ/เงื่อนไข (ล็อกเป็น “แห้ง”) */}
               <div>
                 <label className={labelCls}>สภาพ/เงื่อนไข</label>
                 <ComboBox
                   ref={conditionRef}
                   options={conditionOptions}
                   value={form.condition_id}
-                  onMoveNext={() => focusNextFromRef(conditionRef)}
+                  onMoveNext={() => {/* ไม่อยู่ใน flow */}}
                   onChange={(id, found) => {
                     update("condition_id", id)
                     update("condition_label", found?.label ?? "")
@@ -1081,14 +1075,14 @@ function StockTransferOut() {
                 />
               </div>
 
-              {/* ประเภทธุรกิจ (locked → ซื้อมาขายไป) */}
+              {/* ประเภทธุรกิจ (ล็อกเป็น “ซื้อมาขายไป”) */}
               <div>
                 <label className={labelCls}>ประเภทธุรกิจ</label>
                 <ComboBox
                   ref={businessRef}
                   options={businessOptions}
                   value={form.business_type_id}
-                  onMoveNext={() => focusNextFromRef(businessRef)}
+                  onMoveNext={() => {/* ไม่อยู่ใน flow */}}
                   onChange={(id, found) => {
                     clearError("business_type_id")
                     clearHint("business_type_id")
@@ -1180,7 +1174,6 @@ function StockTransferOut() {
                 <p className={helpTextCls}>คำนวณ = ราคาต้นทุน × น้ำหนักสุทธิ</p>
               </div>
 
-              {/* สิ่งเจือปน (%) — อยู่ใน Enter‑Flow ตามคำขอ */}
               <div>
                 <label className={labelCls}>สิ่งเจือปน (%)</label>
                 <input
@@ -1200,22 +1193,7 @@ function StockTransferOut() {
             </div>
           </div>
 
-          {/* บันทึกเพิ่มเติม (ผู้โอน) */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="md:col-span-3">
-                <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้โอน)</label>
-                <input
-                  className={baseField}
-                  value={form.quality_note}
-                  onChange={(e) => update("quality_note", e.target.value)}
-                  placeholder="เช่น โอนระบายสต็อกจากสาขา A ไปสาขา B เพื่อเตรียมขายโครงการ X"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* ===== ฟอร์มการ์ด: สรุปก่อนบันทึก ===== */}
+          {/* ฟอร์มการ์ดสรุปก่อนบันทึก */}
           <div className="mb-6">
             <h2 className="mb-3 text-xl font-semibold">สรุปก่อนบันทึก</h2>
             <div className="grid gap-4 md:grid-cols-5">
@@ -1282,7 +1260,6 @@ function StockTransferOut() {
                   weight_out: "",
                   cost_per_kg: "",
                   impurity_percent: "",
-                  // ไม่ล้าง quality_note เพื่อเก็บบันทึกเพิ่มเติมของผู้โอน
                 }))
               }
               className="inline-flex items-center justify-center rounded-2xl 

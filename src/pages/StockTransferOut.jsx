@@ -107,20 +107,16 @@ const ComboBox = forwardRef(function ComboBox(
     if (disabled) return
 
     if (e.key === "Enter") {
-      // ปิด default และกัน "click" อัตโนมัติ
       e.preventDefault()
       suppressNextClickRef.current = true
 
       const hasValue = !(value === null || value === undefined || String(value) === "")
 
-      // ถ้าเปิดและไฮไลท์อยู่ → เลือก
       if (open && highlight >= 0 && highlight < options.length) {
         commit(options[highlight])
       } else if (hasValue) {
-        // ถ้าปิดและมีค่าแล้ว → ไปช่องถัดไป
         onMoveNext?.()
       } else {
-        // ยังไม่มีค่า → เปิดรายการ
         setOpen(true)
         setHighlight((h) => (h >= 0 ? h : 0))
         clearHint?.()
@@ -128,7 +124,6 @@ const ComboBox = forwardRef(function ComboBox(
       return
     }
 
-    // เปิดด้วย Space/ArrowDown
     if (!open && (e.key === " " || e.key === "ArrowDown")) {
       e.preventDefault()
       setOpen(true)
@@ -166,7 +161,6 @@ const ComboBox = forwardRef(function ComboBox(
         ref={buttonRef}
         disabled={disabled}
         onClick={() => {
-          // ถ้าพึ่งกด Enter มา ให้ข้ามคลิกนี้ (กัน dropdown เปิด/ปิดเอง)
           if (suppressNextClickRef.current) {
             suppressNextClickRef.current = false
             return
@@ -708,7 +702,7 @@ function StockTransferOut() {
     }
   }
 
-  /** ---------- Keyboard flow: ปรับตามที่ขอ ---------- */
+  /** ---------- Keyboard flow ---------- */
   const driverRef = useRef(null)
   const plateRef = useRef(null)
   const fromBranchRef = useRef(null)
@@ -739,27 +733,34 @@ function StockTransferOut() {
     } catch {}
   }
 
-  // ⬇️ ลำดับ Enter (ตามที่ร้องขอ)
+  // 👉 helper ใหม่: โฟกัส-เปิดคอมโบถัดไปแบบกำหนดตรง ๆ (ใช้สำหรับ 4 ช่องที่สั่ง)
+  const focusComboRef = (nextRef) => {
+    const target = nextRef?.current
+    if (!target) return
+    target.focus?.()
+    requestAnimationFrame(() => {
+      target.open?.()
+      scrollActiveIntoView()
+    })
+  }
+
+  // เดิมยังคงมี flow ใหญ่สำหรับช่องอื่น ๆ
   const getFlow = () => {
     return [
-      { ref: driverRef, type: "input", disabled: false },                   // ชื่อผู้ขนส่ง
-      { ref: plateRef, type: "input", disabled: false },                    // ทะเบียนรถ
-      { ref: fromBranchRef, type: "combo", disabled: false },               // สาขาต้นทาง
-      { ref: fromKlangRef, type: "combo", disabled: !form.from_branch_id }, // คลังต้นทาง
-      { ref: toBranchRef, type: "combo", disabled: false },                 // สาขาปลายทาง
-      { ref: toKlangRef, type: "combo", disabled: !form.to_branch_id },     // คลังปลายทาง
-      { ref: productRef, type: "combo", disabled: false },                  // ประเภทสินค้า
-      { ref: riceRef, type: "combo", disabled: !form.product_id },          // ชนิดข้าว
-      { ref: subriceRef, type: "combo", disabled: !form.rice_id },          // ชั้นย่อย
-      { ref: fieldRef, type: "combo", disabled: false },                    // ประเภทนา
-      { ref: yearRef, type: "combo", disabled: false },                     // ปี/ฤดูกาล
-      { ref: programRef, type: "combo", disabled: false },                  // โปรแกรม (ไม่บังคับ)
-      { ref: weightInRef, type: "input", disabled: false },                 // น้ำหนักขาเข้า
-      { ref: weightOutRef, type: "input", disabled: false },                // น้ำหนักขาออก
-      { ref: costRef, type: "input", disabled: false },                     // ราคาต้นทุน/กก.
-      { ref: impurityRef, type: "input", disabled: false },                 // สิ่งเจือปน (%)
-      { ref: saveBtnRef, type: "button", disabled: false },                 // ปุ่มบันทึก
-      // หมายเหตุ: condition/business ยังอยู่ในฟอร์มแต่ไม่อยู่ใน flow ที่จะเลื่อนไปหาด้วย Enter
+      { ref: driverRef, type: "input", disabled: false },
+      { ref: plateRef, type: "input", disabled: false },
+      // 4 ช่องนี้เรา “ผูกแบบกำหนดตรง ๆ” ด้วย focusComboRef แล้ว ไม่พึ่งลิสต์นี้
+      { ref: productRef, type: "combo", disabled: false },
+      { ref: riceRef, type: "combo", disabled: !form.product_id },
+      { ref: subriceRef, type: "combo", disabled: !form.rice_id },
+      { ref: fieldRef, type: "combo", disabled: false },
+      { ref: yearRef, type: "combo", disabled: false },
+      { ref: programRef, type: "combo", disabled: false },
+      { ref: weightInRef, type: "input", disabled: false },
+      { ref: weightOutRef, type: "input", disabled: false },
+      { ref: costRef, type: "input", disabled: false },
+      { ref: impurityRef, type: "input", disabled: false },
+      { ref: saveBtnRef, type: "button", disabled: false },
     ].filter((i) => !i.disabled)
   }
 
@@ -774,7 +775,6 @@ function StockTransferOut() {
     if (next.type === "combo") {
       target.focus?.()
       requestAnimationFrame(() => {
-        // เปิด dropdown และเลื่อนจอเข้าเห็น
         target.open?.()
         scrollActiveIntoView()
       })
@@ -866,7 +866,8 @@ function StockTransferOut() {
                   options={fromBranchOptions}
                   value={form.from_branch_id}
                   getValue={(o) => o.id}
-                  onMoveNext={() => focusNextFromRef(fromBranchRef)}
+                  // ⬇️ ลำดับใหม่: Enter ที่สาขาต้นทาง → คลังต้นทาง
+                  onMoveNext={() => focusComboRef(fromKlangRef)}
                   onChange={(_val, found) => {
                     clearError("from_branch_id")
                     clearHint("from_branch_id")
@@ -889,7 +890,8 @@ function StockTransferOut() {
                   options={fromKlangOptions}
                   value={form.from_klang_id}
                   getValue={(o) => o.id}
-                  onMoveNext={() => focusNextFromRef(fromKlangRef)}
+                  // ⬇️ ลำดับใหม่: Enter ที่คลังต้นทาง → สาขาปลายทาง
+                  onMoveNext={() => focusComboRef(toBranchRef)}
                   onChange={(_val, found) => {
                     clearError("from_klang_id")
                     clearHint("from_klang_id")
@@ -914,7 +916,8 @@ function StockTransferOut() {
                   options={toBranchOptions}
                   value={form.to_branch_id}
                   getValue={(o) => o.id}
-                  onMoveNext={() => focusNextFromRef(toBranchRef)}
+                  // ⬇️ ลำดับใหม่: Enter ที่สาขาปลายทาง → คลังปลายทาง
+                  onMoveNext={() => focusComboRef(toKlangRef)}
                   onChange={(_val, found) => {
                     clearError("to_branch_id")
                     clearHint("to_branch_id")
@@ -937,7 +940,8 @@ function StockTransferOut() {
                   options={toKlangOptions}
                   value={form.to_klang_id}
                   getValue={(o) => o.id}
-                  onMoveNext={() => focusNextFromRef(toKlangRef)}
+                  // ⬇️ ลำดับใหม่: สุดลิสต์ 4 ช่องแล้ว (ไม่บังคับไปต่อ)
+                  onMoveNext={() => {/* จบลำดับที่กำหนด */}}
                   onChange={(_val, found) => {
                     clearError("to_klang_id")
                     clearHint("to_klang_id")

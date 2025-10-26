@@ -2289,7 +2289,7 @@ const Buy = () => {
                     setTimeout(tryFocus, 180)
                   }
                 }}
-                placeholder="เช่น A-2025-000123"
+                placeholder="เช่น 011-0000123456"
               />
               {errors.paymentRefNo && <p className={errorTextCls}>{errors.paymentRefNo}</p>}
             </div>

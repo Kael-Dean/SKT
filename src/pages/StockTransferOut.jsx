@@ -729,12 +729,12 @@ function StockTransferOut() {
   const impurityRef = useRef(null)
   const saveBtnRef = useRef(null)
 
-  // helper: เลื่อนจอไปยัง element โฟกัสปัจจุบัน
+  // helper: เลื่อนจอไปยัง element โฟกัสปัจจุบัน (แนวตั้ง+แนวนอน)
   const scrollActiveIntoView = () => {
     try {
       const el = document.activeElement
       if (el && typeof el.scrollIntoView === "function") {
-        el.scrollIntoView({ behavior: "smooth", block: "center" })
+        el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" })
       }
     } catch {}
   }
@@ -837,7 +837,7 @@ function StockTransferOut() {
                   aria-invalid={errors.driver_name ? true : undefined}
                 />
                 {errors.driver_name && <p className={errorTextCls}>{errors.driver_name}</p>}
-              </div>
+              </div >
 
               {/* ทะเบียนรถ */}
               <div>

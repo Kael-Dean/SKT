@@ -701,7 +701,7 @@ function StockTransferOut() {
     }
   }
 
-  /** ---------- Keyboard flow: Enter → next (ตามลำดับที่ผู้ใช้ระบุ) ---------- */
+  /** ---------- Keyboard flow: Enter → next (and auto-open dropdown) ---------- */
   // refs ของทุกช่องตามลำดับที่ผู้ใช้ต้องการ
   const driverRef = useRef(null)
   const plateRef = useRef(null)
@@ -723,9 +723,11 @@ function StockTransferOut() {
   const impurityRef = useRef(null)
   const saveBtnRef = useRef(null)
 
-  // ✅ ลำดับใหม่: จากต้นทาง → … → โปรแกรม → น้ำหนักเข้า → น้ำหนักออก → ราคา/กก. → สิ่งเจือปน → บันทึก
   const getFlow = () => {
+    // ✅ เรียงลำดับตามที่ขอ + ข้ามฟิลด์ที่ disabled จริง
     return [
+      { ref: driverRef, type: "input", disabled: false },
+      { ref: plateRef, type: "input", disabled: false },
       { ref: fromBranchRef, type: "combo", disabled: false },
       { ref: fromKlangRef, type: "combo", disabled: !form.from_branch_id },
       { ref: toBranchRef, type: "combo", disabled: false },
@@ -733,16 +735,17 @@ function StockTransferOut() {
       { ref: productRef, type: "combo", disabled: false },
       { ref: riceRef, type: "combo", disabled: !form.product_id },
       { ref: subriceRef, type: "combo", disabled: !form.rice_id },
+      { ref: conditionRef, type: "combo", disabled: true }, // locked → ข้าม
       { ref: fieldRef, type: "combo", disabled: false },
       { ref: yearRef, type: "combo", disabled: false },
-      { ref: programRef, type: "combo", disabled: false }, // (ไม่บังคับ) แต่รวมใน flow ตามคำขอ
+      { ref: programRef, type: "combo", disabled: false },
+      { ref: businessRef, type: "combo", disabled: true }, // locked → ข้าม
       { ref: weightInRef, type: "input", disabled: false },
       { ref: weightOutRef, type: "input", disabled: false },
+      // ข้าม "น้ำหนักสุทธิ" (disabled)
       { ref: costRef, type: "input", disabled: false },
-      { ref: impurityRef, type: "input", disabled: false },
+      // ❌ ตัด "สิ่งเจือปน (%)" ออกจาก Enter‑Flow ตามที่ร้องขอ
       { ref: saveBtnRef, type: "button", disabled: false },
-      // หมายเหตุ: conditionRef/businessRef ถูก lock → ไม่อยู่ใน flow
-      // driverRef / plateRef ยังคงอยู่ในฟอร์ม แต่ไม่ถูกรวมใน flow ตามสเปกที่ระบุ
     ].filter((i) => !i.disabled)
   }
 
@@ -799,7 +802,7 @@ function StockTransferOut() {
                 {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
               </div>
 
-              {/* ชื่อผู้ขนส่ง (อยู่นอก flow) */}
+              {/* ✅ ชื่อผู้ขนส่ง */}
               <div>
                 <label className={labelCls}>ชื่อผู้ขนส่ง</label>
                 <input
@@ -811,13 +814,14 @@ function StockTransferOut() {
                     clearError("driver_name")
                     clearHint("driver_name")
                   }}
+                  onKeyDown={enterToNext(driverRef)}
                   placeholder="เช่น นายสมชาย ขยันงาน"
                   aria-invalid={errors.driver_name ? true : undefined}
                 />
                 {errors.driver_name && <p className={errorTextCls}>{errors.driver_name}</p>}
               </div>
 
-              {/* ทะเบียนรถ (อยู่นอก flow) */}
+              {/* ✅ ทะเบียนรถ */}
               <div>
                 <label className={labelCls}>ทะเบียนรถขนส่ง</label>
                 <input
@@ -829,6 +833,7 @@ function StockTransferOut() {
                     clearError("plate_number")
                     clearHint("plate_number")
                   }}
+                  onKeyDown={enterToNext(plateRef)}
                   placeholder="เช่น 1ขข-1234 กทม."
                   aria-invalid={errors.plate_number ? true : undefined}
                 />
@@ -1178,7 +1183,7 @@ function StockTransferOut() {
                 <p className={helpTextCls}>คำนวณ = ราคาต้นทุน × น้ำหนักสุทธิ</p>
               </div>
 
-              {/* สิ่งเจือปน (%) — อยู่ใน Enter‑Flow ตามคำขอ */}
+              {/* สิ่งเจือปน (%) — ยังคงมีช่อง แต่ไม่อยู่ใน Enter‑Flow */}
               <div>
                 <label className={labelCls}>สิ่งเจือปน (%)</label>
                 <input
@@ -1188,7 +1193,13 @@ function StockTransferOut() {
                   value={form.impurity_percent}
                   onChange={(e) => update("impurity_percent", e.target.value.replace(/[^\d.]/g, ""))}
                   onFocus={() => clearError("impurity_percent")}
-                  onKeyDown={enterToNext(impurityRef)}
+                  onKeyDown={(e) => {
+                    // ถ้าต้องการให้ Enter ที่ช่องนี้ไปปุ่มบันทึกด้วย สามารถเปิดใช้ได้
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      saveBtnRef.current?.focus?.()
+                    }
+                  }}
                   placeholder="เช่น 2.5"
                   aria-invalid={errors.impurity_percent ? true : undefined}
                 />
@@ -1198,7 +1209,7 @@ function StockTransferOut() {
             </div>
           </div>
 
-          {/* บันทึกเพิ่มเติม (ผู้โอน) */}
+          {/* บันทึกเพิ่มเติม (ผู้โอน) — เหมือนหน้า 'รับเข้า' */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="grid gap-4 md:grid-cols-3">
               <div className="md:col-span-3">
@@ -1210,46 +1221,6 @@ function StockTransferOut() {
                   placeholder="เช่น โอนระบายสต็อกจากสาขา A ไปสาขา B เพื่อเตรียมขายโครงการ X"
                 />
               </div>
-            </div>
-          </div>
-
-          {/* ===== ฟอร์มการ์ด: สรุปก่อนบันทึก ===== */}
-          <div className="mb-6">
-            <h2 className="mb-3 text-xl font-semibold">สรุปก่อนบันทึก</h2>
-            <div className="grid gap-4 md:grid-cols-5">
-              {[
-                { label: "วันที่โอน", value: form.transfer_date || "—" },
-                { label: "จาก (สาขา/คลัง)", value: `${form.from_branch_name || "—"}${form.from_klang_name ? `\n${form.from_klang_name}` : ""}` },
-                { label: "ไป (สาขา/คลัง)", value: `${form.to_branch_name || "—"}${form.to_klang_name ? `\n${form.to_klang_name}` : ""}` },
-                { label: "สินค้า", value: form.product_name || "—" },
-                { label: "ชนิดข้าว", value: form.rice_type || "—" },
-                { label: "ชั้นย่อย", value: form.subrice_name || "—" },
-                { label: "ประเภทนา", value: form.field_type_label || "—" },
-                { label: "ปี/ฤดูกาล", value: form.rice_year_label || "—" },
-                { label: "โปรแกรม", value: form.program_label || "—" },
-                { label: "ประเภทธุรกิจ", value: form.business_type_label || "—" },
-                { label: "น้ำหนักขาเข้า", value: `${toInt(form.weight_in).toLocaleString()} กก.` },
-                { label: "น้ำหนักขาออก", value: `${toInt(form.weight_out).toLocaleString()} กก.` },
-                { label: "น้ำหนักสุทธิ", value: `${netWeightInt.toLocaleString()} กก.` },
-                { label: "ราคาต้นทุน/กก.", value: form.cost_per_kg ? `${Number(form.cost_per_kg).toFixed(2)} บาท/กก.` : "—" },
-                { label: "ราคารวม", value: thb(totalCost) },
-                { label: "สิ่งเจือปน", value: form.impurity_percent !== "" ? `${Number(form.impurity_percent)} %` : "—" },
-                { label: "ผู้ขนส่ง", value: form.driver_name || "—" },
-                { label: "ทะเบียนรถ", value: form.plate_number || "—" },
-                { label: "บันทึกเพิ่มเติม", value: form.quality_note || "—" },
-              ].map((c) => (
-                <div
-                  key={c.label}
-                  className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
-                >
-                  <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
-                  {typeof c.value === "string" ? (
-                    <div className="text-lg md:text-xl font-semibold whitespace-pre-line">{c.value}</div>
-                  ) : (
-                    <div className="text-lg md:text-xl font-semibold">{c.value}</div>
-                  )}
-                </div>
-              ))}
             </div>
           </div>
 

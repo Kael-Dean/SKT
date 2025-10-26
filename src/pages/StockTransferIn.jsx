@@ -14,6 +14,14 @@ const thb = (n) =>
   )
 const cx = (...a) => a.filter(Boolean).join(" ")
 
+/** ---------- ALERT MESSAGES (ให้เหมือนหน้าขาย) ---------- */
+const ALERT_FAIL =
+  "❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌"
+const ALERT_FAIL_HINT =
+  `${ALERT_FAIL}\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง`
+const ALERT_SUCCESS =
+  "✅✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅✅"
+
 /** ---------- Styles ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -301,7 +309,8 @@ function StockTransferIn() {
     const { ok, e: ev } = validate()
     if (!ok) {
       focusFirstInvalid(hints, ev)
-      alert("กรุณากรอกข้อมูลที่บังคับให้ครบ (ดูช่องกรอบแดง)")
+      // ใช้ข้อความเตือนเหมือนหน้า Sales.jsx
+      alert(ALERT_FAIL_HINT)
       return
     }
 
@@ -320,7 +329,8 @@ function StockTransferIn() {
     setSubmitting(true)
     try {
       await post(`/transfer/confirm/${encodeURIComponent(form.transfer_id)}`, payload)
-      alert("บันทึกรับเข้าสำเร็จ ✅")
+      // สำเร็จ: แจ้งเตือนแบบเดียวกับหน้าขาย
+      alert(ALERT_SUCCESS)
 
       // ล้างฟอร์ม (ยกเว้นวันที่), รีโหลดรายการ, เด้งไปบนสุด + โฟกัสวันที่
       setForm((f) => ({
@@ -346,13 +356,16 @@ function StockTransferIn() {
     } catch (err) {
       console.error(err)
       const msg = err?.message || ""
+      let detail
       if (/Integer|จำนวนเต็ม|whole kg|move quantity/i.test(msg)) {
-        alert("ต้องกรอกน้ำหนักเป็น ‘จำนวนเต็มกก.’ เท่านั้น (TempStock เป็น Integer)")
+        detail = "ต้องกรอกน้ำหนักเป็น ‘จำนวนเต็มกก.’ เท่านั้น (TempStock เป็น Integer)"
       } else if (/Insufficient stock|409/.test(msg)) {
-        alert("สต็อกต้นทางไม่พอ กรุณาติดต่อสาขาต้นทาง")
+        detail = "สต็อกต้นทางไม่พอ กรุณาติดต่อสาขาต้นทาง"
       } else {
-        alert(msg || "เกิดข้อผิดพลาดระหว่างบันทึก")
+        detail = msg || "เกิดข้อผิดพลาดระหว่างบันทึก"
       }
+      // ล้มเหลว: แสดงหัวข้อความล้มเหลวแบบเดียวกับหน้าขาย แล้วตามด้วยรายละเอียด
+      alert(`${ALERT_FAIL}\n\n${detail}`)
     } finally {
       setSubmitting(false)
     }
@@ -652,12 +665,12 @@ function StockTransferIn() {
 
             <button
               type="button"
-              onClick={async () => {
+              onClick={() => {
                 if (!form.transfer_id) {
                   alert("กรุณาเลือกคำขอเพื่อปฏิเสธ")
                   return
                 }
-                await handleReject(form.transfer_id)
+                handleReject(form.transfer_id)
               }}
               className="inline-flex items-center justify-center rounded-2xl 
                 border border-red-300 bg-white px-6 py-3 text-base font-semibold text-red-600 
@@ -680,8 +693,7 @@ function StockTransferIn() {
                   impurity_percent: "",
                   price_per_kilo: "",
                   dest_quality: "",
-                }))
-              }
+                }))}
               className="inline-flex items-center justify-center rounded-2xl 
                 border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
                 shadow-sm

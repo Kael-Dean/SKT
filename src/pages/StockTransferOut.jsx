@@ -684,7 +684,7 @@ function StockTransferOut() {
 
       await post("/transfer/request", payload)
 
-      alert("บันทึกคำขอโอนออกสำเร็จ ✅")
+      alert("✅✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅✅")
       setForm((f) => ({
         ...f,
         weight_in: "",

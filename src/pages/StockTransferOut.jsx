@@ -851,7 +851,13 @@ function StockTransferOut() {
                     clearError("plate_number")
                     clearHint("plate_number")
                   }}
-                  onKeyDown={enterToNext(plateRef)}
+                  // ⬇️ แก้ตามสั่ง: Enter ที่ทะเบียนรถ ➜ โฟกัส "สาขาต้นทาง"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      focusComboRef(fromBranchRef)
+                    }
+                  }}
                   placeholder="เช่น 1ขข-1234 กทม."
                   aria-invalid={errors.plate_number ? true : undefined}
                 />
@@ -866,7 +872,7 @@ function StockTransferOut() {
                   options={fromBranchOptions}
                   value={form.from_branch_id}
                   getValue={(o) => o.id}
-                  // ⬇️ ลำดับใหม่: Enter ที่สาขาต้นทาง → คลังต้นทาง
+                  // ⬇️ ลำดับ: Enter ที่สาขาต้นทาง → คลังต้นทาง
                   onMoveNext={() => focusComboRef(fromKlangRef)}
                   onChange={(_val, found) => {
                     clearError("from_branch_id")
@@ -890,7 +896,7 @@ function StockTransferOut() {
                   options={fromKlangOptions}
                   value={form.from_klang_id}
                   getValue={(o) => o.id}
-                  // ⬇️ ลำดับใหม่: Enter ที่คลังต้นทาง → สาขาปลายทาง
+                  // ⬇️ ลำดับ: Enter ที่คลังต้นทาง → สาขาปลายทาง
                   onMoveNext={() => focusComboRef(toBranchRef)}
                   onChange={(_val, found) => {
                     clearError("from_klang_id")
@@ -916,7 +922,7 @@ function StockTransferOut() {
                   options={toBranchOptions}
                   value={form.to_branch_id}
                   getValue={(o) => o.id}
-                  // ⬇️ ลำดับใหม่: Enter ที่สาขาปลายทาง → คลังปลายทาง
+                  // ⬇️ ลำดับ: Enter ที่สาขาปลายทาง → คลังปลายทาง
                   onMoveNext={() => focusComboRef(toKlangRef)}
                   onChange={(_val, found) => {
                     clearError("to_branch_id")
@@ -940,8 +946,8 @@ function StockTransferOut() {
                   options={toKlangOptions}
                   value={form.to_klang_id}
                   getValue={(o) => o.id}
-                  // ⬇️ ลำดับใหม่: สุดลิสต์ 4 ช่องแล้ว (ไม่บังคับไปต่อ)
-                  onMoveNext={() => {/* จบลำดับที่กำหนด */}}
+                  // ⬇️ แก้ตามสั่ง: Enter ที่คลังปลายทาง ➜ ไป "ประเภทสินค้า"
+                  onMoveNext={() => focusComboRef(productRef)}
                   onChange={(_val, found) => {
                     clearError("to_klang_id")
                     clearHint("to_klang_id")

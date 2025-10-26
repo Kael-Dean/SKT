@@ -111,11 +111,19 @@ const ComboBox = forwardRef(function ComboBox(
       e.preventDefault()
       suppressNextClickRef.current = true
 
-      // ถ้าเปิดและไฮไลท์อยู่ → เลือก, ไม่งั้น → ไปช่องถัดไป
+      const hasValue = !(value === null || value === undefined || String(value) === "")
+
+      // ถ้าเปิดและไฮไลท์อยู่ → เลือก
       if (open && highlight >= 0 && highlight < options.length) {
         commit(options[highlight])
-      } else {
+      } else if (hasValue) {
+        // ถ้าปิดและมีค่าแล้ว → ไปช่องถัดไป
         onMoveNext?.()
+      } else {
+        // ยังไม่มีค่า → เปิดรายการ
+        setOpen(true)
+        setHighlight((h) => (h >= 0 ? h : 0))
+        clearHint?.()
       }
       return
     }
@@ -308,7 +316,7 @@ function StockTransferOut() {
     to_klang_id: null,
     to_klang_name: "",
 
-    // ข้อมูลผู้ขนส่ง (อยู่นอก flow Enter นี้)
+    // ข้อมูลผู้ขนส่ง (เข้าร่วม flow แล้ว)
     driver_name: "",
     plate_number: "",
 
@@ -721,14 +729,26 @@ function StockTransferOut() {
   const impurityRef = useRef(null)
   const saveBtnRef = useRef(null)
 
+  // helper: เลื่อนจอไปยัง element โฟกัสปัจจุบัน
+  const scrollActiveIntoView = () => {
+    try {
+      const el = document.activeElement
+      if (el && typeof el.scrollIntoView === "function") {
+        el.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
+    } catch {}
+  }
+
   // ⬇️ ลำดับ Enter (ตามที่ร้องขอ)
   const getFlow = () => {
     return [
+      { ref: driverRef, type: "input", disabled: false },                   // ชื่อผู้ขนส่ง
+      { ref: plateRef, type: "input", disabled: false },                    // ทะเบียนรถ
       { ref: fromBranchRef, type: "combo", disabled: false },               // สาขาต้นทาง
       { ref: fromKlangRef, type: "combo", disabled: !form.from_branch_id }, // คลังต้นทาง
-      { ref: toBranchRef, type: "combo", disabled: false },                  // สาขาปลายทาง
+      { ref: toBranchRef, type: "combo", disabled: false },                 // สาขาปลายทาง
       { ref: toKlangRef, type: "combo", disabled: !form.to_branch_id },     // คลังปลายทาง
-      { ref: productRef, type: "combo", disabled: false },                   // ประเภทสินค้า
+      { ref: productRef, type: "combo", disabled: false },                  // ประเภทสินค้า
       { ref: riceRef, type: "combo", disabled: !form.product_id },          // ชนิดข้าว
       { ref: subriceRef, type: "combo", disabled: !form.rice_id },          // ชั้นย่อย
       { ref: fieldRef, type: "combo", disabled: false },                    // ประเภทนา
@@ -739,7 +759,7 @@ function StockTransferOut() {
       { ref: costRef, type: "input", disabled: false },                     // ราคาต้นทุน/กก.
       { ref: impurityRef, type: "input", disabled: false },                 // สิ่งเจือปน (%)
       { ref: saveBtnRef, type: "button", disabled: false },                 // ปุ่มบันทึก
-      // หมายเหตุ: driver/plate/condition/business อยู่นอก flow นี้ตามสเปกล่าสุด
+      // หมายเหตุ: condition/business ยังอยู่ในฟอร์มแต่ไม่อยู่ใน flow ที่จะเลื่อนไปหาด้วย Enter
     ].filter((i) => !i.disabled)
   }
 
@@ -753,9 +773,14 @@ function StockTransferOut() {
 
     if (next.type === "combo") {
       target.focus?.()
-      target.open?.()
+      requestAnimationFrame(() => {
+        // เปิด dropdown และเลื่อนจอเข้าเห็น
+        target.open?.()
+        scrollActiveIntoView()
+      })
     } else {
       target.focus?.()
+      requestAnimationFrame(scrollActiveIntoView)
     }
   }
 
@@ -795,7 +820,7 @@ function StockTransferOut() {
                 {errors.transfer_date && <p className={errorTextCls}>{errors.transfer_date}</p>}
               </div>
 
-              {/* ชื่อผู้ขนส่ง (อยู่นอก flow) */}
+              {/* ชื่อผู้ขนส่ง */}
               <div>
                 <label className={labelCls}>ชื่อผู้ขนส่ง</label>
                 <input
@@ -807,13 +832,14 @@ function StockTransferOut() {
                     clearError("driver_name")
                     clearHint("driver_name")
                   }}
+                  onKeyDown={enterToNext(driverRef)}
                   placeholder="เช่น นายสมชาย ขยันงาน"
                   aria-invalid={errors.driver_name ? true : undefined}
                 />
                 {errors.driver_name && <p className={errorTextCls}>{errors.driver_name}</p>}
               </div>
 
-              {/* ทะเบียนรถ (อยู่นอก flow) */}
+              {/* ทะเบียนรถ */}
               <div>
                 <label className={labelCls}>ทะเบียนรถขนส่ง</label>
                 <input
@@ -825,6 +851,7 @@ function StockTransferOut() {
                     clearError("plate_number")
                     clearHint("plate_number")
                   }}
+                  onKeyDown={enterToNext(plateRef)}
                   placeholder="เช่น 1ขข-1234 กทม."
                   aria-invalid={errors.plate_number ? true : undefined}
                 />

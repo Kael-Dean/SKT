@@ -144,9 +144,9 @@ const useEnterNavigation = (refs, buyerType, order) => {
     if (!nextKey) return
     const el = refs[nextKey]?.current
     if (!el) return
-    try { el.scrollIntoView({ block: "center" }) } catch {}
+    try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
     el.focus?.()
-    try { if (el.select) el.select() } catch {}
+    try { if (el.select) el.select() } catch (_e) {}
   }
 
   const onEnter = (currentKey) => (e) => {
@@ -529,6 +529,9 @@ const Buy = () => {
   /** ▼ Kill‑switch: ปิดการค้นหา/ออโต้ฟิลอัตโนมัติหลังบันทึก/รีเซ็ต จนกว่าจะพิมพ์ใหม่ */
   const [autoSearchEnabled, setAutoSearchEnabled] = useState(true)
 
+  // 🔒 กันกดบันทึกซ้ำ
+  const [submitting, setSubmitting] = useState(false)
+
   /** ฟอร์มลูกค้า */
   const [customer, setCustomer] = useState({
     // บุคคลธรรมดา
@@ -694,7 +697,11 @@ const Buy = () => {
     submitBtn: useRef(null),
   }
 
-  const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
+  
+
+  // 🔒 กันกดซ้ำในระดับ micro (setState ยังไม่ทัน)
+  const submitLockRef = useRef(false)
+const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
   /** ▼ จุดยึดบนสุด */
   const pageTopRef = useRef(null)
@@ -716,12 +723,12 @@ const Buy = () => {
       }
       const saved = localStorage.getItem("buy.formTemplate")
       if (saved) setFormTemplate(saved)
-    } catch {}
+    } catch (_e) {}
   }, [])
 
   /** scrollToTop */
   const scrollToPageTop = () => {
-    try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch {}
+    try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch (_e) {}
     const root = document.scrollingElement || document.documentElement || document.body
     try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
   }
@@ -1123,7 +1130,7 @@ const Buy = () => {
       setCompanyHighlighted(next)
       requestAnimationFrame(() => {
         const el = companyItemRefs.current[next]
-        try { el?.scrollIntoView({ block: "nearest" }) } catch {}
+        try { el?.scrollIntoView({ block: "nearest" }) } catch (_e) {}
       })
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
@@ -1131,7 +1138,7 @@ const Buy = () => {
       setCompanyHighlighted(prev)
       requestAnimationFrame(() => {
         const el = companyItemRefs.current[prev]
-        try { el?.scrollIntoView({ block: "nearest" }) } catch {}
+        try { el?.scrollIntoView({ block: "nearest" }) } catch (_e) {}
       })
     } else if (e.key === "Enter") {
       e.preventDefault()
@@ -1744,7 +1751,7 @@ const Buy = () => {
         businessTypeId: order.businessTypeId || null,
       }
       localStorage.setItem("shared.specPrefill", JSON.stringify(sharedSpec))
-    } catch {}
+    } catch (_e) {}
   }, [
     order.productId,
     order.riceId,
@@ -1824,7 +1831,7 @@ const Buy = () => {
     const el = refs[keyToFocus]?.current || (firstKey === "payment" ? refs.payment?.current : null)
     if (el && typeof el.focus === "function") {
       try { el.focus({ preventScroll: true }) } catch { el.focus() }
-      try { el.select?.() } catch {}
+      try { el.select?.() } catch (_e) {}
     }
   }
 
@@ -1844,7 +1851,7 @@ const Buy = () => {
     const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
     if (el && typeof el.focus === "function") {
       try { el.focus({ preventScroll: true }) } catch { el.focus() }
-      try { el.select?.() } catch {}
+      try { el.select?.() } catch (_e) {}
     }
   }
 
@@ -1855,6 +1862,12 @@ const Buy = () => {
 
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
+    e.preventDefault()
+    // 🔒 กันกดบันทึกซ้ำทั้งจากคลิกและ Enter
+    if (submitLockRef.current || submitting) { return }
+    submitLockRef.current = true /* placeholder will be fixed below */
+    setSubmitting(true)
+    try {
     // ปิดออโต้ค้นหาทันทีที่เริ่มบันทึก + ยกเลิกผล async เก่า
     setAutoSearchEnabled(false)
     bumpSearchEpoch()
@@ -2003,7 +2016,7 @@ const Buy = () => {
         const saveTpl = { id: String(formTemplate), label: currentTpl?.label || selectedTemplateLabel || "" }
         localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl))
         localStorage.setItem("buy.formTemplate", String(formTemplate))
-      } catch {}
+      } catch (_e) {}
       alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
       // ⬇️ เคลียร์ฟอร์มทั้งหมด + ปิดออโต้ค้นหา จนกว่าจะพิมพ์ใหม่
       handleReset()
@@ -2013,18 +2026,23 @@ const Buy = () => {
       const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
       alert(`บันทึกล้มเหลว: ${err.message || "เกิดข้อผิดพลาด"}${detail}`)
     }
-  }
+    } finally {
+      submitLockRef.current = false
+      setSubmitting(false)
+    }
+
+}
 
   const handleReset = () => {
     // ปิดระบบ auto-search ชั่วคราวระหว่างรีเซ็ตเพื่อไม่ให้มี auto-fill
     setAutoSearchEnabled(false)
-    try { suppressNameSearchRef.current = true; } catch {}
-    try { companySuppressSearchRef.current = true; } catch {}
+    try { suppressNameSearchRef.current = true; } catch (_e) {}
+    try { companySuppressSearchRef.current = true; } catch (_e) {}
 
     // ปิดออโต้ฟิลและยกเลิกผล async เก่าทันที
     bumpSearchEpoch()
-    try { suppressNameSearchRef.current = true } catch (__) {}
-    try { companySuppressSearchRef.current = true } catch (__) {}
+    try { suppressNameSearchRef.current = true } catch (_e) {}
+    try { companySuppressSearchRef.current = true } catch (_e) {}
     setErrors({})
     setMissingHints({})
     setCustomerFound(null)
@@ -2199,7 +2217,7 @@ const Buy = () => {
                   try {
                     localStorage.setItem("shared.formTemplate", JSON.stringify({ id: idStr, label }))
                     localStorage.setItem("buy.formTemplate", idStr)
-                  } catch {}
+                  } catch (_e) {}
                   if (idStr !== "0" && found?.spec) applyTemplateBySpec(found.spec)
                 }}
                 buttonRef={refs.formTemplate}
@@ -2233,9 +2251,9 @@ const Buy = () => {
                   const tryFocus = () => {
                     const el = refs.paymentRefNo?.current
                     if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
                       el.focus?.()
-                      try { el.select?.() } catch {}
+                      try { el.select?.() } catch (_e) {}
                       return true
                     }
                     return false
@@ -2277,9 +2295,9 @@ const Buy = () => {
                     const tryFocus = () => {
                       const el = refs[targetKey]?.current
                       if (el && isEnabledInput(el)) {
-                        try { el.scrollIntoView({ block: "center" }) } catch {}
+                        try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
                         el.focus?.()
-                        try { el.select?.() } catch {}
+                        try { el.select?.() } catch (_e) {}
                         return true
                       }
                       return false
@@ -2532,7 +2550,7 @@ const Buy = () => {
                         onMouseEnter={() => {
                           setCompanyHighlighted(idx)
                           requestAnimationFrame(() => {
-                            try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch {}
+                            try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch (_e) {}
                           })
                         }}
                         role="option"
@@ -2567,7 +2585,7 @@ const Buy = () => {
         <form
           onSubmit={handleSubmit}
           className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
+         onKeyDown={(e)=>{ if(submitting && e.key==="Enter"){ e.preventDefault() } }}>
           <h2 className="mb-3 text-xl font-semibold">รายละเอียดการซื้อ</h2>
 
           {/* เลือกประเภท/ปี/โปรแกรม/ธุรกิจ */}
@@ -2604,7 +2622,7 @@ const Buy = () => {
                     for (const k of keys) {
                       const el = refs[k]?.current
                       if (el && isEnabledInput(el)) {
-                        try { el.scrollIntoView({ block: "center" }) } catch {}
+                        try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
                         el.focus?.()
                         return true
                       }
@@ -2645,7 +2663,7 @@ const Buy = () => {
                     for (const k of keys) {
                       const el = refs[k]?.current
                       if (el && isEnabledInput(el)) {
-                        try { el.scrollIntoView({ block: "center" }) } catch {}
+                        try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
                         el.focus?.()
                         return true
                       }
@@ -2681,7 +2699,7 @@ const Buy = () => {
                     for (const k of keys) {
                       const el = refs[k]?.current
                       if (el && isEnabledInput(el)) {
-                        try { el.scrollIntoView({ block: "center" }) } catch {}
+                        try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
                         el.focus?.()
                         return true
                       }
@@ -2763,9 +2781,9 @@ const Buy = () => {
                     for (const k of keys) {
                       const el = refs[k]?.current
                       if (el && isEnabledInput(el)) {
-                        try { el.scrollIntoView({ block: "center" }) } catch {}
+                        try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
                         el.focus?.()
-                        try { el.select?.() } catch {}
+                        try { el.select?.() } catch (_e) {}
                         return true
                       }
                     }
@@ -2801,18 +2819,18 @@ const Buy = () => {
                   const tryFocus = () => {
                     const el = refs.program?.current
                     if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
                       el.focus?.()
-                      try { el.select?.() } catch {}
+                      try { el.select?.() } catch (_e) {}
                       return true
                     }
                     const fallback = ["branchName","klangName"]
                     for (const k of fallback) {
                       const e2 = refs[k]?.current
                       if (e2 && isEnabledInput(e2)) {
-                        try { e2.scrollIntoView({ block: "center" }) } catch {}
+                        try { e2.scrollIntoView({ block: "center" }) } catch (_e) {}
                         e2.focus?.()
-                        try { e2.select?.() } catch {}
+                        try { e2.select?.() } catch (_e) {}
                         return true
                       }
                     }
@@ -2847,16 +2865,16 @@ const Buy = () => {
                   const focusKlang = () => {
                     const elK = refs.klangName?.current
                     if (elK && isEnabledInput(elK)) {
-                      try { elK.scrollIntoView({ block: "center" }) } catch {}
+                      try { elK.scrollIntoView({ block: "center" }) } catch (_e) {}
                       elK.focus?.()
-                      try { elK.select?.() } catch {}
+                      try { elK.select?.() } catch (_e) {}
                       return true
                     }
                     const elB = refs.branchName?.current
                     if (elB && isEnabledInput(elB)) {
-                      try { elB.scrollIntoView({ block: "center" }) } catch {}
+                      try { elB.scrollIntoView({ block: "center" }) } catch (_e) {}
                       elB.focus?.()
-                      try { elB.select?.() } catch {}
+                      try { elB.select?.() } catch (_e) {}
                       return true
                     }
                     return false
@@ -2902,9 +2920,9 @@ const Buy = () => {
                   const tryFocus = () => {
                     const el = refs.klangName?.current
                     if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
                       el.focus?.()
-                      try { el.select?.() } catch {}
+                      try { el.select?.() } catch (_e) {}
                       return true
                     }
                     return false
@@ -2941,9 +2959,9 @@ const Buy = () => {
                   const tryFocus = () => {
                     const el = refs.entryWeightKg?.current
                     if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
                       el.focus?.()
-                      try { el.select?.() } catch {}
+                      try { el.select?.() } catch (_e) {}
                       return true
                     }
                     return false
@@ -3136,7 +3154,7 @@ const Buy = () => {
                       e.preventDefault()
                       const btn = refs.submitBtn?.current
                       if (btn && isEnabledInput(btn)) {
-                        try { btn.scrollIntoView({ block: "center" }) } catch {}
+                        try { btn.scrollIntoView({ block: "center" }) } catch (_e) {}
                         btn.focus?.()
                       }
                     }
@@ -3244,16 +3262,27 @@ const Buy = () => {
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
               ref={refs.submitBtn}
-              type="submit"
+              type="submit" disabled={submitting} aria-busy={submitting}
               onClick={scrollToPageTop}
               className="inline-flex items-center justify-center rounded-2xl 
                 bg-emerald-600 px-6 py-3 text-base font-semibold text-white
                 shadow-[0_6px_16px_rgba(16,185,129,0.35)]
                 transition-all duration-300 ease-out
                 hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                hover:scale-[1.05] active:scale-[.97] cursor-pointer"
+                hover:scale-[1.05] active:scale-[.97] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              บันทึกออเดอร์
+              {submitting ? (
+  <span className="inline-flex items-center gap-2">
+    <svg viewBox="0 0 24 24" width="18" height="18" className="animate-spin">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25"></circle>
+      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none"></path>
+    </svg>
+    กำลังบันทึก…
+  </span>
+) : (
+  <>บันทึกออเดอร์</>
+)}
+
             </button>
 
             <button

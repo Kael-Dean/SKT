@@ -564,7 +564,7 @@ const CustomerAdd = () => {
       postal_code: form.postal_code !== "" ? Number(form.postal_code) : null,
       phone_number: form.phone_number.trim() || null,
       // กลุ่ม FID (optional)
-      fid: form.fid !== "" ? Number(form.fid) : null,
+      fid: form.fid !== "" ? onlyDigits(form.fid) : null,
       fid_owner: form.fid_owner.trim() || null,
       fid_relationship: form.fid_relationship !== "" ? Number(form.fid_relationship) : null,
     }

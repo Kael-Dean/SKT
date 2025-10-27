@@ -1323,7 +1323,7 @@ function Sales() {
         localStorage.setItem("sales.formTemplate", String(formTemplate))
       } catch {}
       // ✅ แจ้งเตือนแบบเดียวกับหน้า Buy
-      alert("✅✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅✅")
+      alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
       handleReset()
       requestAnimationFrame(() => scrollToPageTop())
       try { refs.submitBtn?.current?.blur?.() } catch {}

@@ -2004,7 +2004,7 @@ const Buy = () => {
         localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl))
         localStorage.setItem("buy.formTemplate", String(formTemplate))
       } catch {}
-      alert("✅✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅✅")
+      alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
       // ⬇️ เคลียร์ฟอร์มทั้งหมด + ปิดออโต้ค้นหา จนกว่าจะพิมพ์ใหม่
       handleReset()
       requestAnimationFrame(() => scrollToPageTop())

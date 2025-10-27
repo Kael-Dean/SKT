@@ -14,7 +14,7 @@ const thb = (n) =>
   )
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-// base fields
+/** ---------- Base styles ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -26,7 +26,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- ComboBox (แก้ Enter ➜ ไปช่องถัดไป + กันคลิกอัตโนมัติ) ---------- */
+/** ---------- ComboBox (รองรับ Enter ➜ ช่องถัดไป + กันคลิกซ้ำเมื่อกด Enter) ---------- */
 const ComboBox = forwardRef(function ComboBox(
   {
     options = [],
@@ -48,7 +48,7 @@ const ComboBox = forwardRef(function ComboBox(
   const boxRef = useRef(null)
   const listRef = useRef(null)
   const buttonRef = useRef(null)
-  const suppressNextClickRef = useRef(false) // ← ป้องกัน "click" อัตโนมัติจากการกด Enter
+  const suppressNextClickRef = useRef(false) // ป้องกัน click อัตโนมัติหลัง Enter
 
   useImperativeHandle(ref, () => ({
     focus: () => buttonRef.current?.focus(),
@@ -112,7 +112,6 @@ const ComboBox = forwardRef(function ComboBox(
       suppressNextClickRef.current = true
 
       const hasValue = !(value === null || value === undefined || String(value) === "")
-
       if (open && highlight >= 0 && highlight < options.length) {
         commit(options[highlight])
       } else if (hasValue) {
@@ -311,7 +310,7 @@ function StockTransferOut() {
     to_klang_id: null,
     to_klang_name: "",
 
-    // ข้อมูลผู้ขนส่ง (เข้าร่วม flow แล้ว)
+    // ข้อมูลผู้ขนส่ง
     driver_name: "",
     plate_number: "",
 
@@ -534,7 +533,7 @@ function StockTransferOut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.to_branch_id, form.to_branch_name])
 
-  /** ---------- Validate ---------- */
+  /** ---------- Validate & Hints ---------- */
   const computeMissingHints = () => {
     const m = {}
     if (!form.transfer_date) m.transfer_date = true
@@ -567,6 +566,7 @@ function StockTransferOut() {
     return m
   }
 
+  // เปลี่ยนให้คืน e object (เหมือน Buy.jsx ใช้ตรวจแล้วเลื่อนโฟกัส)
   const validate = () => {
     const e = {}
     if (!form.transfer_date) e.transfer_date = "กรุณาเลือกวันที่โอน"
@@ -604,106 +604,10 @@ function StockTransferOut() {
     }
 
     setErrors(e)
-    return Object.keys(e).length === 0
+    return e
   }
 
-  /** ---------- Builders ---------- */
-  const buildSpec = () => {
-    const product_id = /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id
-    const species_id = /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id
-    const variant_id = /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id
-
-    return {
-      product_id,
-      species_id,
-      variant_id,
-      product_year: form.rice_year_id ? Number(form.rice_year_id) : null,
-      condition_id: form.condition_id ? Number(form.condition_id) : null,
-      field_type: form.field_type_id ? Number(form.field_type_id) : null,
-      program: form.program_id ? Number(form.program_id) : null,
-      business_type: form.business_type_id ? Number(form.business_type_id) : null,
-    }
-  }
-
-  const lookupOriginStock = async (transferQty) => {
-    try {
-      const body = { klang_id: Number(form.from_klang_id), spec: buildSpec() }
-      const rows = await post("/transfer/stock/lookup", body)
-      if (!rows || rows.length === 0) throw new Error("ไม่พบสต็อกต้นทางของสเปกนี้ในคลังที่เลือก")
-      const available = Number(rows[0].available ?? 0)
-      if (available < transferQty) {
-        throw new Error(`สต็อกคงเหลือต้นทางไม่พอ (คงเหลือ ${available.toLocaleString()} กก.)`)
-      }
-      return true
-    } catch (err) {
-      throw err
-    }
-  }
-
-  /** ---------- Submit ---------- */
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    const hints = computeMissingHints()
-    setMissingHints(hints)
-    if (!validate()) return
-
-    const transferQty = netWeightInt
-    if (!(transferQty > 0)) {
-      setErrors((prev) => ({ ...prev, net_weight: "น้ำหนักสุทธิไม่ถูกต้อง" }))
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      await lookupOriginStock(transferQty)
-
-      const payload = {
-        date: form.transfer_date,
-
-        from_branch: form.from_branch_id != null ? Number(form.from_branch_id) : null,
-        from_klang: form.from_klang_id != null ? Number(form.from_klang_id) : 0,
-
-        to_branch: form.to_branch_id != null ? Number(form.to_branch_id) : null,
-        to_klang: form.to_klang_id != null ? Number(form.to_klang_id) : null,
-
-        driver_name: form.driver_name.trim(),
-        plate_number: form.plate_number.trim(),
-
-        spec: buildSpec(),
-
-        entry_weight: toInt(form.weight_in),
-        exit_weight: toInt(form.weight_out),
-
-        weight: transferQty,
-        impurity: form.impurity_percent === "" ? 0 : Number(form.impurity_percent),
-
-        price_per_kilo: Number(form.cost_per_kg) || 0,
-        price: (Number(form.cost_per_kg) || 0) * transferQty,
-
-        quality: 0,
-        transfer_qty: transferQty,
-        sender_note: form.quality_note?.trim() || null,
-      }
-
-      await post("/transfer/request", payload)
-
-      alert("✅✅✅ บันทึกออเดอร์เรียบร้อย")
-      setForm((f) => ({
-        ...f,
-        weight_in: "",
-        weight_out: "",
-        cost_per_kg: "",
-        impurity_percent: "",
-      }))
-    } catch (err) {
-      console.error(err)
-      alert(err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก")
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  /** ---------- Keyboard flow ---------- */
+  /** ---------- Keyboard flow & Focus helpers ---------- */
   const driverRef = useRef(null)
   const plateRef = useRef(null)
   const fromBranchRef = useRef(null)
@@ -723,8 +627,8 @@ function StockTransferOut() {
   const costRef = useRef(null)
   const impurityRef = useRef(null)
   const saveBtnRef = useRef(null)
+  const dateRef = useRef(null)
 
-  // helper: เลื่อนจอไปยัง element โฟกัสปัจจุบัน (แนวตั้ง+แนวนอน)
   const scrollActiveIntoView = () => {
     try {
       const el = document.activeElement
@@ -734,7 +638,7 @@ function StockTransferOut() {
     } catch {}
   }
 
-  // 👉 helper ใหม่: โฟกัส-เปิดคอมโบถัดไปแบบกำหนดตรง ๆ (ใช้สำหรับ 4 ช่องที่สั่ง)
+  // โฟกัส+เปิดคอมโบตัวถัดไป แบบชัดเจน (ใช้กับ 4 ช่องตามที่ผู้ใช้สั่ง)
   const focusComboRef = (nextRef) => {
     const target = nextRef?.current
     if (!target) return
@@ -745,12 +649,11 @@ function StockTransferOut() {
     })
   }
 
-  // เดิมยังคงมี flow ใหญ่สำหรับช่องอื่น ๆ
   const getFlow = () => {
     return [
       { ref: driverRef, type: "input", disabled: false },
       { ref: plateRef, type: "input", disabled: false },
-      // 4 ช่องนี้เรา “ผูกแบบกำหนดตรง ๆ” ด้วย focusComboRef แล้ว ไม่พึ่งลิสต์นี้
+      // 4 ช่องนี้กำหนดตรง ๆ ด้วย focusComboRef
       { ref: productRef, type: "combo", disabled: false },
       { ref: riceRef, type: "combo", disabled: !form.product_id },
       { ref: subriceRef, type: "combo", disabled: !form.rice_id },
@@ -792,6 +695,180 @@ function StockTransferOut() {
     }
   }
 
+  /** ---------- Scroll-to helpers (ใหม่: เอาไว้เด้งโฟกัสตอนบันทึกไม่ผ่าน) ---------- */
+  const scrollToPageTop = () => {
+    try {
+      const root = document.scrollingElement || document.documentElement || document.body
+      root.scrollTo({ top: 0, behavior: "smooth" })
+    } catch {}
+  }
+
+  const errorOrder = [
+    "transfer_date",
+    "from_branch_id", "from_klang_id",
+    "to_branch_id", "to_klang_id",
+    "driver_name", "plate_number",
+    "product_id", "rice_id", "subrice_id",
+    "field_type_id", "rice_year_id", "program_id", "business_type_id",
+    "weight_in", "weight_out", "net_weight",
+    "cost_per_kg", "impurity_percent",
+  ]
+
+  const refMap = {
+    transfer_date: dateRef,
+    from_branch_id: fromBranchRef,
+    from_klang_id: fromKlangRef,
+    to_branch_id: toBranchRef,
+    to_klang_id: toKlangRef,
+    driver_name: driverRef,
+    plate_number: plateRef,
+    product_id: productRef,
+    rice_id: riceRef,
+    subrice_id: subriceRef,
+    field_type_id: fieldRef,
+    rice_year_id: yearRef,
+    program_id: programRef,
+    business_type_id: businessRef,
+    weight_in: weightInRef,
+    weight_out: weightOutRef,
+    cost_per_kg: costRef,
+    impurity_percent: impurityRef,
+  }
+  const comboKeys = new Set([
+    "from_branch_id","from_klang_id","to_branch_id","to_klang_id",
+    "product_id","rice_id","subrice_id","field_type_id","rice_year_id","program_id","business_type_id",
+  ])
+
+  const focusByKey = (key) => {
+    const k = key === "net_weight" ? "weight_out" : key
+    const r = refMap[k]
+    if (!r?.current) return
+    if (comboKeys.has(k)) {
+      focusComboRef(r)
+    } else {
+      r.current.focus?.()
+      scrollActiveIntoView()
+    }
+  }
+
+  const scrollToFirstError = (eObj) => {
+    const firstKey = errorOrder.find((k) => k in eObj)
+    if (firstKey) focusByKey(firstKey)
+  }
+  const scrollToFirstMissing = (hintsObj) => {
+    const firstKey = errorOrder.find((k) => hintsObj[k])
+    if (firstKey) focusByKey(firstKey)
+  }
+
+  /** ---------- Submit ---------- */
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    scrollToPageTop()
+
+    const hints = computeMissingHints()
+    setMissingHints(hints)
+    const eObj = validate()
+
+    // ⛔ เหมือนหน้า Buy: เด้งข้อความถ้าไม่ผ่าน และโฟกัสช่องแรกที่ขาด
+    if (Object.keys(eObj).length > 0) {
+      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      scrollToFirstError(eObj)
+      return
+    }
+    if (Object.values(hints).some(Boolean)) {
+      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      scrollToFirstMissing(hints)
+      return
+    }
+
+    const transferQty = netWeightInt
+    if (!(transferQty > 0)) {
+      const e2 = { net_weight: "น้ำหนักสุทธิไม่ถูกต้อง" }
+      setErrors((prev) => ({ ...prev, ...e2 }))
+      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนตรวจสอบ “น้ำหนักสุทธิ” ให้ถูกต้อง")
+      scrollToFirstError(e2)
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      // ตรวจสต็อกต้นทาง
+      const bodyLookup = { klang_id: Number(form.from_klang_id), spec: buildSpec() }
+      const rows = await post("/transfer/stock/lookup", bodyLookup)
+      if (!rows || rows.length === 0) throw new Error("ไม่พบสต็อกต้นทางของสเปกนี้ในคลังที่เลือก")
+      const available = Number(rows[0].available ?? 0)
+      if (available < transferQty) {
+        throw new Error(`สต็อกคงเหลือต้นทางไม่พอ (คงเหลือ ${available.toLocaleString()} กก.)`)
+      }
+
+      const payload = {
+        date: form.transfer_date,
+
+        from_branch: form.from_branch_id != null ? Number(form.from_branch_id) : null,
+        from_klang: form.from_klang_id != null ? Number(form.from_klang_id) : 0,
+
+        to_branch: form.to_branch_id != null ? Number(form.to_branch_id) : null,
+        to_klang: form.to_klang_id != null ? Number(form.to_klang_id) : null,
+
+        driver_name: form.driver_name.trim(),
+        plate_number: form.plate_number.trim(),
+
+        spec: buildSpec(),
+
+        entry_weight: toInt(form.weight_in),
+        exit_weight: toInt(form.weight_out),
+
+        weight: transferQty,
+        impurity: form.impurity_percent === "" ? 0 : Number(form.impurity_percent),
+
+        price_per_kilo: Number(form.cost_per_kg) || 0,
+        price: (Number(form.cost_per_kg) || 0) * transferQty,
+
+        quality: 0,
+        transfer_qty: transferQty,
+        sender_note: form.quality_note?.trim() || null,
+      }
+
+      await post("/transfer/request", payload)
+
+      // ✅ แบบหน้า Buy: เด้งแจ้งเตือนสำเร็จ
+      alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
+
+      // เคลียร์บางช่อง (ตามเดิม)
+      setForm((f) => ({
+        ...f,
+        weight_in: "",
+        weight_out: "",
+        cost_per_kg: "",
+        impurity_percent: "",
+      }))
+    } catch (err) {
+      console.error(err)
+      const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
+      alert(`บันทึกล้มเหลว: ${err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก"}${detail}`)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  /** ---------- Builders ---------- */
+  const buildSpec = () => {
+    const product_id = /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id
+    const species_id = /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id
+    const variant_id = /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id
+
+    return {
+      product_id,
+      species_id,
+      variant_id,
+      product_year: form.rice_year_id ? Number(form.rice_year_id) : null,
+      condition_id: form.condition_id ? Number(form.condition_id) : null,
+      field_type: form.field_type_id ? Number(form.field_type_id) : null,
+      program: form.program_id ? Number(form.program_id) : null,
+      business_type: form.business_type_id ? Number(form.business_type_id) : null,
+    }
+  }
+
   /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
@@ -808,6 +885,7 @@ function StockTransferOut() {
               <div>
                 <label className={labelCls}>วันที่โอน</label>
                 <DateInput
+                  ref={dateRef}
                   value={form.transfer_date}
                   onChange={(e) => {
                     clearError("transfer_date")
@@ -838,7 +916,7 @@ function StockTransferOut() {
                   aria-invalid={errors.driver_name ? true : undefined}
                 />
                 {errors.driver_name && <p className={errorTextCls}>{errors.driver_name}</p>}
-              </div >
+              </div>
 
               {/* ทะเบียนรถ */}
               <div>
@@ -852,7 +930,7 @@ function StockTransferOut() {
                     clearError("plate_number")
                     clearHint("plate_number")
                   }}
-                  // ⬇️ แก้ตามสั่ง: Enter ที่ทะเบียนรถ ➜ โฟกัส "สาขาต้นทาง"
+                  // Enter ➜ โฟกัส "สาขาต้นทาง"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault()
@@ -873,7 +951,7 @@ function StockTransferOut() {
                   options={fromBranchOptions}
                   value={form.from_branch_id}
                   getValue={(o) => o.id}
-                  // ⬇️ ลำดับ: Enter ที่สาขาต้นทาง → คลังต้นทาง
+                  // Enter ➜ คลังต้นทาง
                   onMoveNext={() => focusComboRef(fromKlangRef)}
                   onChange={(_val, found) => {
                     clearError("from_branch_id")
@@ -897,7 +975,7 @@ function StockTransferOut() {
                   options={fromKlangOptions}
                   value={form.from_klang_id}
                   getValue={(o) => o.id}
-                  // ⬇️ ลำดับ: Enter ที่คลังต้นทาง → สาขาปลายทาง
+                  // Enter ➜ สาขาปลายทาง
                   onMoveNext={() => focusComboRef(toBranchRef)}
                   onChange={(_val, found) => {
                     clearError("from_klang_id")
@@ -923,7 +1001,7 @@ function StockTransferOut() {
                   options={toBranchOptions}
                   value={form.to_branch_id}
                   getValue={(o) => o.id}
-                  // ⬇️ ลำดับ: Enter ที่สาขาปลายทาง → คลังปลายทาง
+                  // Enter ➜ คลังปลายทาง
                   onMoveNext={() => focusComboRef(toKlangRef)}
                   onChange={(_val, found) => {
                     clearError("to_branch_id")
@@ -947,7 +1025,7 @@ function StockTransferOut() {
                   options={toKlangOptions}
                   value={form.to_klang_id}
                   getValue={(o) => o.id}
-                  // ⬇️ แก้ตามสั่ง: Enter ที่คลังปลายทาง ➜ ไป "ประเภทสินค้า"
+                  // Enter ➜ ประเภทสินค้า
                   onMoveNext={() => focusComboRef(productRef)}
                   onChange={(_val, found) => {
                     clearError("to_klang_id")
@@ -979,7 +1057,7 @@ function StockTransferOut() {
                   ref={productRef}
                   options={productOptions}
                   value={form.product_id}
-                  // ⬇️ แก้ตามสั่ง: Enter ที่ "ประเภทสินค้า" → โฟกัส/เปิด "ชนิดข้าว"
+                  // Enter ➜ ชนิดข้าว
                   onMoveNext={() => focusComboRef(riceRef)}
                   onChange={(id, found) => {
                     clearError("product_id")
@@ -1005,7 +1083,7 @@ function StockTransferOut() {
                   ref={riceRef}
                   options={riceOptions}
                   value={form.rice_id}
-                  // ⬇️ แก้ตามสั่ง: Enter ที่ "ชนิดข้าว" → โฟกัส/เปิด "ชั้นย่อย"
+                  // Enter ➜ ชั้นย่อย
                   onMoveNext={() => focusComboRef(subriceRef)}
                   onChange={(id, found) => {
                     clearError("rice_id")
@@ -1030,7 +1108,7 @@ function StockTransferOut() {
                   ref={subriceRef}
                   options={subriceOptions}
                   value={form.subrice_id}
-                  // ⬇️ แก้ตามสั่ง: Enter ที่ "ชั้นย่อย" → โฟกัส/เปิด "ประเภทนา"
+                  // Enter ➜ ประเภทนา
                   onMoveNext={() => focusComboRef(fieldRef)}
                   onChange={(id, found) => {
                     clearError("subrice_id")
@@ -1053,7 +1131,7 @@ function StockTransferOut() {
                   ref={conditionRef}
                   options={conditionOptions}
                   value={form.condition_id}
-                  onMoveNext={() => {/* ไม่อยู่ใน flow */}}
+                  onMoveNext={() => {/* not in flow */}}
                   onChange={(id, found) => {
                     update("condition_id", id)
                     update("condition_label", found?.label ?? "")
@@ -1123,7 +1201,7 @@ function StockTransferOut() {
                   ref={businessRef}
                   options={businessOptions}
                   value={form.business_type_id}
-                  onMoveNext={() => {/* ไม่อยู่ใน flow */}}
+                  onMoveNext={() => {/* not in flow */}}
                   onChange={(id, found) => {
                     clearError("business_type_id")
                     clearHint("business_type_id")
@@ -1234,7 +1312,7 @@ function StockTransferOut() {
             </div>
           </div>
 
-          {/* ฟอร์มการ์ดสรุปก่อนบันทึก */}
+          {/* สรุปก่อนบันทึก */}
           <div className="mb-6">
             <h2 className="mb-3 text-xl font-semibold">สรุปก่อนบันทึก</h2>
             <div className="grid gap-4 md:grid-cols-5">
@@ -1280,6 +1358,7 @@ function StockTransferOut() {
               ref={saveBtnRef}
               type="submit"
               disabled={submitting}
+              onClick={scrollToPageTop}
               className="inline-flex items-center justify-center rounded-2xl 
                 bg-emerald-600 px-6 py-3 text-base font-semibold text-white
                 shadow-[0_6px_16px_rgba(16,185,129,0.35)]

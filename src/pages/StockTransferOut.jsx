@@ -1,6 +1,5 @@
-// src/pages/StockTransferOut.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { get, post } from "../lib/api" // ✅ helper API กลาง
+import { get, post } from "../lib/api"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -14,7 +13,7 @@ const thb = (n) =>
   )
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/** ---------- Base styles ---------- */
+// base fields
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -26,7 +25,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- ComboBox (รองรับ Enter ➜ ช่องถัดไป + กันคลิกซ้ำเมื่อกด Enter) ---------- */
+/** ---------- ComboBox (Enter ➜ ไปช่องถัดไป + กันคลิกอัตโนมัติ) ---------- */
 const ComboBox = forwardRef(function ComboBox(
   {
     options = [],
@@ -48,7 +47,7 @@ const ComboBox = forwardRef(function ComboBox(
   const boxRef = useRef(null)
   const listRef = useRef(null)
   const buttonRef = useRef(null)
-  const suppressNextClickRef = useRef(false) // ป้องกัน click อัตโนมัติหลัง Enter
+  const suppressNextClickRef = useRef(false) // ← กัน click อัตโนมัติจาก Enter
 
   useImperativeHandle(ref, () => ({
     focus: () => buttonRef.current?.focus(),
@@ -112,6 +111,7 @@ const ComboBox = forwardRef(function ComboBox(
       suppressNextClickRef.current = true
 
       const hasValue = !(value === null || value === undefined || String(value) === "")
+
       if (open && highlight >= 0 && highlight < options.length) {
         commit(options[highlight])
       } else if (hasValue) {
@@ -533,7 +533,7 @@ function StockTransferOut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.to_branch_id, form.to_branch_name])
 
-  /** ---------- Validate & Hints ---------- */
+  /** ---------- Validate ---------- */
   const computeMissingHints = () => {
     const m = {}
     if (!form.transfer_date) m.transfer_date = true
@@ -561,12 +561,19 @@ function StockTransferOut() {
     if (toInt(form.weight_out) <= toInt(form.weight_in)) m.weight_out = true
     if (netWeightInt <= 0) m.net_weight = true
 
-    if (form.cost_per_kg !== "" && Number(form.cost_per_kg) < 0) m.cost_per_kg = true
+    // ⬇️ ทำให้สองช่องนี้ "ต้องกรอก" และขึ้นเป็น hint แดงถ้ายังว่าง/ผิดรูปแบบ
+    if (form.cost_per_kg === "" || Number(form.cost_per_kg) < 0) m.cost_per_kg = true
+
+    if (form.impurity_percent === "") {
+      m.impurity_percent = true
+    } else {
+      const ip = Number(form.impurity_percent)
+      if (!isFinite(ip) || ip < 0 || ip > 100) m.impurity_percent = true
+    }
 
     return m
   }
 
-  // เปลี่ยนให้คืน e object (เหมือน Buy.jsx ใช้ตรวจแล้วเลื่อนโฟกัส)
   const validate = () => {
     const e = {}
     if (!form.transfer_date) e.transfer_date = "กรุณาเลือกวันที่โอน"
@@ -596,9 +603,14 @@ function StockTransferOut() {
     if (tOut <= tIn) e.weight_out = "น้ำหนักขาออก ต้องมากกว่า น้ำหนักขาเข้า"
     if (netWeightInt <= 0) e.net_weight = "น้ำหนักสุทธิต้องมากกว่า 0 (ขาออก − ขาเข้า)"
 
-    if (form.cost_per_kg !== "" && Number(form.cost_per_kg) < 0) e.cost_per_kg = "ราคาต้นทุนต้องไม่ติดลบ"
+    // ⬇️ ทำให้ต้องกรอก + ตรวจค่าติดลบ
+    if (form.cost_per_kg === "") e.cost_per_kg = "กรุณากรอกราคาต้นทุน"
+    else if (Number(form.cost_per_kg) < 0) e.cost_per_kg = "ราคาต้นทุนต้องไม่ติดลบ"
 
-    if (form.impurity_percent !== "") {
+    // ⬇️ ทำให้ต้องกรอก + ตรวจช่วง 0–100
+    if (form.impurity_percent === "") {
+      e.impurity_percent = "กรุณากรอกสิ่งเจือปน 0–100"
+    } else {
       const ip = Number(form.impurity_percent)
       if (!isFinite(ip) || ip < 0 || ip > 100) e.impurity_percent = "กรุณากรอก 0–100"
     }
@@ -607,7 +619,40 @@ function StockTransferOut() {
     return e
   }
 
-  /** ---------- Keyboard flow & Focus helpers ---------- */
+  /** ---------- Builders ---------- */
+  const buildSpec = () => {
+    const product_id = /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id
+    const species_id = /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id
+    const variant_id = /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id
+
+    return {
+      product_id,
+      species_id,
+      variant_id,
+      product_year: form.rice_year_id ? Number(form.rice_year_id) : null,
+      condition_id: form.condition_id ? Number(form.condition_id) : null,
+      field_type: form.field_type_id ? Number(form.field_type_id) : null,
+      program: form.program_id ? Number(form.program_id) : null,
+      business_type: form.business_type_id ? Number(form.business_type_id) : null,
+    }
+  }
+
+  const lookupOriginStock = async (transferQty) => {
+    try {
+      const body = { klang_id: Number(form.from_klang_id), spec: buildSpec() }
+      const rows = await post("/transfer/stock/lookup", body)
+      if (!rows || rows.length === 0) throw new Error("ไม่พบสต็อกต้นทางของสเปกนี้ในคลังที่เลือก")
+      const available = Number(rows[0].available ?? 0)
+      if (available < transferQty) {
+        throw new Error(`สต็อกคงเหลือต้นทางไม่พอ (คงเหลือ ${available.toLocaleString()} กก.)`)
+      }
+      return true
+    } catch (err) {
+      throw err
+    }
+  }
+
+  /** ---------- Keyboard & focus flow ---------- */
   const driverRef = useRef(null)
   const plateRef = useRef(null)
   const fromBranchRef = useRef(null)
@@ -629,6 +674,7 @@ function StockTransferOut() {
   const saveBtnRef = useRef(null)
   const dateRef = useRef(null)
 
+  // helper: เลื่อนจอไปยัง element โฟกัสปัจจุบัน
   const scrollActiveIntoView = () => {
     try {
       const el = document.activeElement
@@ -638,7 +684,7 @@ function StockTransferOut() {
     } catch {}
   }
 
-  // โฟกัส+เปิดคอมโบตัวถัดไป แบบชัดเจน (ใช้กับ 4 ช่องตามที่ผู้ใช้สั่ง)
+  // โฟกัส + เปิดคอมโบถัดไป (สำหรับ 4 ช่องที่กำหนด)
   const focusComboRef = (nextRef) => {
     const target = nextRef?.current
     if (!target) return
@@ -695,7 +741,7 @@ function StockTransferOut() {
     }
   }
 
-  /** ---------- Scroll-to helpers (ใหม่: เอาไว้เด้งโฟกัสตอนบันทึกไม่ผ่าน) ---------- */
+  /** ---------- Scroll helpers (สำหรับแจ้งเตือนแบบหน้า Buy) ---------- */
   const scrollToPageTop = () => {
     try {
       const root = document.scrollingElement || document.documentElement || document.body
@@ -769,7 +815,7 @@ function StockTransferOut() {
     setMissingHints(hints)
     const eObj = validate()
 
-    // ⛔ เหมือนหน้า Buy: เด้งข้อความถ้าไม่ผ่าน และโฟกัสช่องแรกที่ขาด
+    // ⛔ เหมือนหน้า Buy: ถ้าขาดหรือผิด เด้งเตือน + โฟกัสช่องแรกที่ขาด/ผิด
     if (Object.keys(eObj).length > 0) {
       alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
       scrollToFirstError(eObj)
@@ -792,14 +838,7 @@ function StockTransferOut() {
 
     setSubmitting(true)
     try {
-      // ตรวจสต็อกต้นทาง
-      const bodyLookup = { klang_id: Number(form.from_klang_id), spec: buildSpec() }
-      const rows = await post("/transfer/stock/lookup", bodyLookup)
-      if (!rows || rows.length === 0) throw new Error("ไม่พบสต็อกต้นทางของสเปกนี้ในคลังที่เลือก")
-      const available = Number(rows[0].available ?? 0)
-      if (available < transferQty) {
-        throw new Error(`สต็อกคงเหลือต้นทางไม่พอ (คงเหลือ ${available.toLocaleString()} กก.)`)
-      }
+      await lookupOriginStock(transferQty)
 
       const payload = {
         date: form.transfer_date,
@@ -819,10 +858,10 @@ function StockTransferOut() {
         exit_weight: toInt(form.weight_out),
 
         weight: transferQty,
-        impurity: form.impurity_percent === "" ? 0 : Number(form.impurity_percent),
+        impurity: Number(form.impurity_percent),
 
-        price_per_kilo: Number(form.cost_per_kg) || 0,
-        price: (Number(form.cost_per_kg) || 0) * transferQty,
+        price_per_kilo: Number(form.cost_per_kg),
+        price: Number(form.cost_per_kg) * transferQty,
 
         quality: 0,
         transfer_qty: transferQty,
@@ -831,10 +870,7 @@ function StockTransferOut() {
 
       await post("/transfer/request", payload)
 
-      // ✅ แบบหน้า Buy: เด้งแจ้งเตือนสำเร็จ
-      alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
-
-      // เคลียร์บางช่อง (ตามเดิม)
+      alert("✅✅✅ บันทึกออเดอร์เรียบร้อย")
       setForm((f) => ({
         ...f,
         weight_in: "",
@@ -844,28 +880,9 @@ function StockTransferOut() {
       }))
     } catch (err) {
       console.error(err)
-      const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
-      alert(`บันทึกล้มเหลว: ${err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก"}${detail}`)
+      alert(err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก")
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  /** ---------- Builders ---------- */
-  const buildSpec = () => {
-    const product_id = /^\d+$/.test(form.product_id) ? Number(form.product_id) : form.product_id
-    const species_id = /^\d+$/.test(form.rice_id) ? Number(form.rice_id) : form.rice_id
-    const variant_id = /^\d+$/.test(form.subrice_id) ? Number(form.subrice_id) : form.subrice_id
-
-    return {
-      product_id,
-      species_id,
-      variant_id,
-      product_year: form.rice_year_id ? Number(form.rice_year_id) : null,
-      condition_id: form.condition_id ? Number(form.condition_id) : null,
-      field_type: form.field_type_id ? Number(form.field_type_id) : null,
-      program: form.program_id ? Number(form.program_id) : null,
-      business_type: form.business_type_id ? Number(form.business_type_id) : null,
     }
   }
 
@@ -1131,7 +1148,7 @@ function StockTransferOut() {
                   ref={conditionRef}
                   options={conditionOptions}
                   value={form.condition_id}
-                  onMoveNext={() => {/* not in flow */}}
+                  onMoveNext={() => {/* ไม่อยู่ใน flow */}}
                   onChange={(id, found) => {
                     update("condition_id", id)
                     update("condition_label", found?.label ?? "")
@@ -1201,7 +1218,7 @@ function StockTransferOut() {
                   ref={businessRef}
                   options={businessOptions}
                   value={form.business_type_id}
-                  onMoveNext={() => {/* not in flow */}}
+                  onMoveNext={() => {/* ไม่อยู่ใน flow */}}
                   onChange={(id, found) => {
                     clearError("business_type_id")
                     clearHint("business_type_id")
@@ -1276,10 +1293,10 @@ function StockTransferOut() {
                 <input
                   ref={costRef}
                   inputMode="decimal"
-                  className={cx(baseField, errors.cost_per_kg && "border-red-400")}
+                  className={cx(baseField, redFieldCls("cost_per_kg"))}
                   value={form.cost_per_kg}
                   onChange={(e) => update("cost_per_kg", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => clearError("cost_per_kg")}
+                  onFocus={() => { clearError("cost_per_kg"); clearHint("cost_per_kg") }}
                   onKeyDown={enterToNext(costRef)}
                   placeholder="เช่น 8.50"
                   aria-invalid={errors.cost_per_kg ? true : undefined}
@@ -1298,16 +1315,16 @@ function StockTransferOut() {
                 <input
                   ref={impurityRef}
                   inputMode="decimal"
-                  className={cx(baseField, errors.impurity_percent && "border-red-400")}
+                  className={cx(baseField, redFieldCls("impurity_percent"))}
                   value={form.impurity_percent}
                   onChange={(e) => update("impurity_percent", e.target.value.replace(/[^\d.]/g, ""))}
-                  onFocus={() => clearError("impurity_percent")}
+                  onFocus={() => { clearError("impurity_percent"); clearHint("impurity_percent") }}
                   onKeyDown={enterToNext(impurityRef)}
                   placeholder="เช่น 2.5"
                   aria-invalid={errors.impurity_percent ? true : undefined}
                 />
                 {errors.impurity_percent && <p className={errorTextCls}>{errors.impurity_percent}</p>}
-                <p className={helpTextCls}>กรอกเป็นตัวเลข 0–100 (เว้นว่างได้)</p>
+                <p className={helpTextCls}>กรอกเป็นตัวเลข 0–100</p>
               </div>
             </div>
           </div>
@@ -1368,7 +1385,7 @@ function StockTransferOut() {
                 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
               aria-busy={submitting ? "true" : "false"}
             >
-              {submitting ? "กำลังบันทึก..." : "บันทึกการโอนออก"}
+              {submitting ? "กำลังบันทึก." : "บันทึกการโอนออก"}
             </button>
 
             <button

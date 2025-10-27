@@ -14,6 +14,7 @@ const thb = (n) =>
   )
 const cx = (...a) => a.filter(Boolean).join(" ")
 
+// base fields
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -978,7 +979,8 @@ function StockTransferOut() {
                   ref={productRef}
                   options={productOptions}
                   value={form.product_id}
-                  onMoveNext={() => focusNextFromRef(productRef)}
+                  // ⬇️ แก้ตามสั่ง: Enter ที่ "ประเภทสินค้า" → โฟกัส/เปิด "ชนิดข้าว"
+                  onMoveNext={() => focusComboRef(riceRef)}
                   onChange={(id, found) => {
                     clearError("product_id")
                     clearHint("product_id")
@@ -1003,7 +1005,8 @@ function StockTransferOut() {
                   ref={riceRef}
                   options={riceOptions}
                   value={form.rice_id}
-                  onMoveNext={() => focusNextFromRef(riceRef)}
+                  // ⬇️ แก้ตามสั่ง: Enter ที่ "ชนิดข้าว" → โฟกัส/เปิด "ชั้นย่อย"
+                  onMoveNext={() => focusComboRef(subriceRef)}
                   onChange={(id, found) => {
                     clearError("rice_id")
                     clearHint("rice_id")
@@ -1027,7 +1030,8 @@ function StockTransferOut() {
                   ref={subriceRef}
                   options={subriceOptions}
                   value={form.subrice_id}
-                  onMoveNext={() => focusNextFromRef(subriceRef)}
+                  // ⬇️ แก้ตามสั่ง: Enter ที่ "ชั้นย่อย" → โฟกัส/เปิด "ประเภทนา"
+                  onMoveNext={() => focusComboRef(fieldRef)}
                   onChange={(id, found) => {
                     clearError("subrice_id")
                     clearHint("subrice_id")

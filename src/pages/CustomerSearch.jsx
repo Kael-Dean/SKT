@@ -1,6 +1,6 @@
-// src/pages/CustomeerSearch.jsx
+// src/pages/CustomerSearch.jsx
 import { useEffect, useMemo, useState } from "react"
-import { apiAuth } from "../lib/api"   // ✅ แนบโทเคนอัตโนมัติ (เหมือน MemberSearch)
+import { apiAuth } from "../lib/api"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -29,7 +29,7 @@ function formatDate(v) {
 
 /** ---------- ค่าคำนำหน้า + sex ---------- */
 const PREFIX_OPTIONS = [
-  { value: "",  label: "— เลือก —" },
+  { value: "", label: "— เลือก —" },
   { value: "1", label: "นาย" },
   { value: "2", label: "นาง" },
   { value: "3", label: "นางสาว" },
@@ -37,15 +37,6 @@ const PREFIX_OPTIONS = [
 const sexFromPrefix = (pre) => (pre === "1" ? "M" : pre === "2" || pre === "3" ? "F" : "")
 
 /** ---------- ฟิลด์ของ "ลูกค้าทั่วไป" ตามฝั่ง BE ---------- */
-/**
- * Customer fields (individual):
- * - precode (number), sex (M/F)
- * - first_name, last_name, citizen_id
- * - address, mhoo, sub_district, district, province, postal_code
- * - phone_number?, fid?, fid_owner?, fid_relationship?
- *
- * อ้างอิงสคีมา/เอ็นด์พอยท์ที่หน้าเพิ่มลูกค้าทั่วไปและสมัครสมาชิกใช้อยู่
- */
 const CUSTOMER_FIELD_KEYS = [
   "precode", "sex",
   "first_name", "last_name", "citizen_id", "phone_number",
@@ -74,7 +65,8 @@ function normalizeCustomerRecord(raw = {}) {
     province: raw.province ?? "",
     postal_code: raw.postal_code ?? raw.postalCode ?? "",
 
-    fid: raw.fid ?? null,
+    // ✅ เก็บเป็น string/null เพื่อให้ UI และ diff ทำงานถูกต้อง
+    fid: raw.fid != null ? String(raw.fid) : null,
     fid_owner: raw.fid_owner ?? "",
     fid_relationship: raw.fid_relationship ?? null,
 
@@ -88,7 +80,7 @@ function normalizeCustomerRecord(raw = {}) {
   return out
 }
 
-/** ---------- คอลัมน์ตาราง (เหมือน MemberSearch แต่ตัดฟิลด์เฉพาะสมาชิกออก) ---------- */
+/** ---------- คอลัมน์ตาราง ---------- */
 const TABLE_COLUMNS = [
   { key: "first_name",   label: "ชื่อ",              render: (row) => row.first_name || "-" },
   { key: "last_name",    label: "นามสกุล",          render: (row) => row.last_name || "-" },
@@ -104,7 +96,7 @@ function useFIDRelationshipMap() {
   useEffect(() => {
     const run = async () => {
       try {
-        const rows = await apiAuth("/member/members/fid_relationship") // คืน [{ id, fid_relationship }]
+        const rows = await apiAuth("/member/members/fid_relationship") // [{ id, fid_relationship }]
         const m = {}
         ;(Array.isArray(rows) ? rows : []).forEach((r) => {
           if (r?.id != null) m[r.id] = r?.fid_relationship ?? String(r.id)
@@ -129,22 +121,9 @@ function useFIDRelationshipOptions(fidMap) {
   )
 }
 
-/** PATCH helper (ลองหลายเส้นทาง) */
-async function patchCustomerFlex(id, body) {
-  const paths = [
-    `/member/customer/${id}`,
-    `/member/customers/${id}`,
-  ]
-  let lastErr
-  for (const p of paths) {
-    try {
-      const updated = await apiAuth(p, { method: "PATCH", body })
-      return updated
-    } catch (e) {
-      lastErr = e
-    }
-  }
-  throw lastErr || new Error("บันทึกไม่สำเร็จ")
+/** ---------- PATCH helper: ใช้ endpoint เดียวเพื่อตัด 404 ---------- */
+async function patchCustomer(id, body) {
+  return await apiAuth(`/member/customers/${id}`, { method: "PATCH", body })
 }
 
 /** ---------- หน้าค้นหา ลูกค้าทั่วไป (แก้ไขได้) ---------- */
@@ -206,7 +185,7 @@ const CustomerSearch = () => {
     CUSTOMER_FIELD_KEYS.forEach((key) => {
       let v = r[key]
       if (key === "citizen_id") v = onlyDigits(String(v || "")).slice(0, 13)
-      else if (["postal_code", "fid", "precode", "fid_relationship"].includes(key)) v = v == null ? "" : String(v)
+      else if (["postal_code", "precode", "fid_relationship"].includes(key)) v = v == null ? "" : String(v)
       else v = v ?? ""
       d[key] = v
     })
@@ -231,7 +210,9 @@ const CustomerSearch = () => {
   const onChangeField = (key, val) => {
     if (!draft) return
     if (key === "citizen_id") val = onlyDigits(val).slice(0, 13)
-    if (["postal_code", "fid", "precode", "fid_relationship"].includes(key)) val = onlyDigits(String(val))
+    // ❌ เดิม: บังคับ digits ให้รวม 'fid' → ทำให้พิมพ์อักษรไม่ได้
+    // ✅ ใหม่: เอา 'fid' ออก ให้เป็นข้อความอิสระ
+    if (["postal_code", "precode", "fid_relationship"].includes(key)) val = onlyDigits(String(val))
     // เปลี่ยน precode ⇒ อัปเดต sex อัตโนมัติ
     if (key === "precode") {
       const sx = sexFromPrefix(val)
@@ -257,9 +238,14 @@ const CustomerSearch = () => {
         // แปลงประเภทค่าก่อนเทียบ (ให้เข้ารูปแบบที่ BE ใช้)
         if (key === "citizen_id") {
           newV = onlyDigits(newV || "") || null
-        } else if (["postal_code", "fid", "precode", "fid_relationship"].includes(key)) {
+          oldV = onlyDigits(oldV || "") || null
+        } else if (["postal_code", "precode", "fid_relationship"].includes(key)) {
           newV = newV === "" || newV == null ? null : Number(newV)
           oldV = oldV === "" || oldV == null ? null : Number(oldV)
+        } else if (key === "fid") {
+          // ✅ สำคัญ: FID เป็นสตริงเสมอ (ถ้าว่างให้เป็น null)
+          newV = newV === "" || newV == null ? null : String(newV).trim()
+          oldV = oldV === "" || oldV == null ? null : String(oldV).trim()
         } else {
           newV = newV ?? ""
           oldV = oldV ?? ""
@@ -273,21 +259,21 @@ const CustomerSearch = () => {
 
       // optimistic update
       const prev = rows
-      setRows((cur) => cur.map((x) => ( (x.asso_id ?? x.id) === idForPatch ? { ...x, ...diff } : x )))
+      setRows((cur) => cur.map((x) => ((x.asso_id ?? x.id) === idForPatch ? { ...x, ...diff } : x)))
 
-      // เรียก PATCH (ลองหลายเส้นทาง)
-      const updatedRaw = await patchCustomerFlex(idForPatch, diff)
+      // เรียก PATCH
+      const updatedRaw = await patchCustomer(idForPatch, diff)
       const updated = normalizeCustomerRecord(updatedRaw)
 
       // sync กลับเข้าตาราง + active + draft
-      setRows((cur) => cur.map((x) => ( (x.asso_id ?? x.id) === idForPatch ? updated : x )))
+      setRows((cur) => cur.map((x) => ((x.asso_id ?? x.id) === idForPatch ? updated : x)))
       setActive(updated)
 
       const nd = {}
       CUSTOMER_FIELD_KEYS.forEach((key) => {
         let v = updated[key]
         if (key === "citizen_id") v = onlyDigits(String(v || "")).slice(0, 13)
-        else if (["postal_code", "fid", "precode", "fid_relationship"].includes(key)) v = v == null ? "" : String(v)
+        else if (["postal_code", "precode", "fid_relationship"].includes(key)) v = v == null ? "" : String(v)
         else v = v ?? ""
         nd[key] = v
       })
@@ -400,7 +386,7 @@ const CustomerSearch = () => {
         </div>
       </div>
 
-      {/* Modal (แก้ไขได้เหมือน MemberSearch) */}
+      {/* Modal */}
       <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
         <div className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={closeModal} />
         <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5">
@@ -613,11 +599,10 @@ const CustomerSearch = () => {
                           </div>
                         ) : (
                           <input
-                            inputMode="numeric"
                             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                             value={draft.fid ?? ""}
                             onChange={(e) => onChangeField("fid", e.target.value)}
-                            placeholder="เช่น 123456"
+                            placeholder="เช่น FID-001234 หรือ 123456"
                           />
                         )}
                       </div>

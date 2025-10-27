@@ -1,5 +1,13 @@
 // src/pages/StockTransferMill.jsx
-import { useEffect, useMemo, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+} from "react"
 import { get, post } from "../lib/api"
 
 /** ---------- Utils ---------- */
@@ -21,7 +29,22 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- ComboBox ---------- */
+/** ---------- Helper: โฟกัสช่องถัดไปที่ใช้งานได้ ---------- */
+const focusNextAvailable = (...refs) => {
+  for (const r of refs) {
+    const el = r?.current
+    if (!el) continue
+    // ถ้าเป็นปุ่ม/อินพุตที่ disabled ให้ข้าม
+    if (typeof el.disabled !== "undefined" && el.disabled) continue
+    try {
+      el.focus()
+      return true
+    } catch {}
+  }
+  return false
+}
+
+/** ---------- ComboBox (รองรับ Enter → Next) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -34,6 +57,9 @@ function ComboBox({
   buttonRef = null,
   hintRed = false,
   clearHint = () => {},
+  // เพิ่มฟีเจอร์ Enter chain
+  enterToNext = false,
+  onEnterNext = null,
 }) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
@@ -81,13 +107,32 @@ function ComboBox({
 
   const onKeyDown = (e) => {
     if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+
+    // ปิดอยู่ + กด Enter:
+    // - ถ้า enterToNext และมีค่าแล้ว → ไปช่องถัดไป
+    // - ถ้าไม่มีค่า → เปิดรายการ
+    if (!open && e.key === "Enter") {
+      e.preventDefault()
+      clearHint?.()
+      const hasValue = !(value === "" || value === null || value === undefined)
+      if (enterToNext && hasValue) {
+        onEnterNext?.()
+      } else {
+        setOpen(true)
+        setHighlight((h) => (h >= 0 ? h : 0))
+      }
+      return
+    }
+
+    // ปิดอยู่ + Space/ArrowDown → เปิดรายการ
+    if (!open && (e.key === " " || e.key === "ArrowDown")) {
       e.preventDefault()
       setOpen(true)
       setHighlight((h) => (h >= 0 ? h : 0))
       clearHint?.()
       return
     }
+
     if (!open) return
 
     if (e.key === "ArrowDown") {
@@ -106,7 +151,10 @@ function ComboBox({
       })
     } else if (e.key === "Enter") {
       e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
+      if (highlight >= 0 && highlight < options.length) {
+        commit(options[highlight])
+        if (enterToNext) setTimeout(() => onEnterNext?.(), 0)
+      }
     } else if (e.key === "Escape") {
       e.preventDefault()
       setOpen(false)
@@ -150,7 +198,9 @@ function ComboBox({
           role="listbox"
           className="absolute z-20 mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
-          {options.length === 0 && <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>}
+          {options.length === 0 && (
+            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
+          )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
             const isActive = idx === highlight
@@ -170,7 +220,9 @@ function ComboBox({
                     : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
                 )}
               >
-                {isActive && <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />}
+                {isActive && (
+                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+                )}
                 <span className="flex-1">{label}</span>
                 {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
               </button>
@@ -303,6 +355,20 @@ function StockTransferMill() {
     setEligible([])
     setEligibleErr("")
   }, [])
+
+  /** ---------- Refs สำหรับ Enter Chain ---------- */
+  const lotNumberRef = useRef(null)
+  const totalWeightRef = useRef(null)
+
+  const branchBtnRef = useRef(null)
+  const klangBtnRef = useRef(null)
+  const productBtnRef = useRef(null)
+  const speciesBtnRef = useRef(null)
+  const variantBtnRef = useRef(null)
+  const fieldTypeBtnRef = useRef(null)
+  const yearBtnRef = useRef(null)
+  const businessBtnRef = useRef(null)
+  const programBtnRef = useRef(null)
 
   /** ---------- Load dropdowns ---------- */
   useEffect(() => {
@@ -706,12 +772,19 @@ function StockTransferMill() {
               <div>
                 <label className={labelCls}>เลข LOT</label>
                 <input
+                  ref={lotNumberRef}
                   className={cx(baseField, redFieldCls("lot_number"))}
                   value={form.lot_number}
                   onChange={(e) => update("lot_number", e.target.value)}
                   onFocus={() => {
                     clearError("lot_number")
                     clearHint("lot_number")
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      focusNextAvailable(totalWeightRef)
+                    }
                   }}
                   placeholder="เช่น MILL-2025-001"
                   aria-invalid={errors.lot_number ? true : undefined}
@@ -722,6 +795,7 @@ function StockTransferMill() {
               <div>
                 <label className={labelCls}>น้ำหนักรวม LOT (กก.)</label>
                 <input
+                  ref={totalWeightRef}
                   inputMode="numeric"
                   className={cx(baseField, redFieldCls("total_weight"))}
                   value={form.total_weight}
@@ -729,6 +803,22 @@ function StockTransferMill() {
                   onFocus={() => {
                     clearError("total_weight")
                     clearHint("total_weight")
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      // ถ้าเปิดโหมดทุกคลัง → ข้ามสาขา/คลัง ไป "ประเภทสินค้า"
+                      if (selectAllKlangs) {
+                        focusNextAvailable(productBtnRef)
+                      } else {
+                        // ถ้า branch ถูก disable (ไม่มี) → ข้ามไปคลัง/ประเภทสินค้า
+                        if (!focusNextAvailable(branchBtnRef)) {
+                          if (!focusNextAvailable(klangBtnRef)) {
+                            focusNextAvailable(productBtnRef)
+                          }
+                        }
+                      }
+                    }
                   }}
                   placeholder="เช่น 5000"
                   aria-invalid={errors.total_weight ? true : undefined}
@@ -761,7 +851,7 @@ function StockTransferMill() {
                 onChange={(e) => {
                   const on = e.target.checked
                   setSelectAllKlangs(on)
-                  // เปิดโหมดทุกคลัง → ปิดการเลือกคลังเดียว / ล้างผลค้นหา
+                  // เปิดโหมดทุกคลัง → ปิดการเลือกคลังเดี่ยว / ล้างผลค้นหา
                   if (on) {
                     update("klang_id", null)
                     update("klang_name", "")
@@ -795,6 +885,12 @@ function StockTransferMill() {
                   }}
                   placeholder="— เลือกสาขา —"
                   disabled={selectAllKlangs} // โหมดทุกคลัง: ไม่ต้องเลือกสาขา
+                  buttonRef={branchBtnRef}
+                  enterToNext
+                  onEnterNext={() => {
+                    // ถ้า "คลัง" ใช้ไม่ได้ (disabled) ให้ข้ามไป "ประเภทสินค้า"
+                    if (!focusNextAvailable(klangBtnRef)) focusNextAvailable(productBtnRef)
+                  }}
                 />
                 {selectAllKlangs && (
                   <p className={helpTextCls}>โหมด “ทุกคลัง” จะค้นหาทุกสาขาให้อัตโนมัติ</p>
@@ -819,6 +915,9 @@ function StockTransferMill() {
                   disabled={!form.branch_id || selectAllKlangs}
                   error={!selectAllKlangs && !!errors.klang_id}
                   hintRed={!selectAllKlangs && !!missingHints.klang_id}
+                  buttonRef={klangBtnRef}
+                  enterToNext
+                  onEnterNext={() => focusNextAvailable(productBtnRef)}
                 />
                 <p className={helpTextCls}>
                   {selectAllKlangs
@@ -849,6 +948,9 @@ function StockTransferMill() {
                   }}
                   placeholder="— เลือกประเภทสินค้า —"
                   error={!!errors.product_id}
+                  buttonRef={productBtnRef}
+                  enterToNext
+                  onEnterNext={() => focusNextAvailable(speciesBtnRef)}
                 />
                 {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
               </div>
@@ -873,6 +975,9 @@ function StockTransferMill() {
                   placeholder="— เลือกชนิดข้าว —"
                   disabled={!form.product_id}
                   error={!!errors.rice_id}
+                  buttonRef={speciesBtnRef}
+                  enterToNext
+                  onEnterNext={() => focusNextAvailable(variantBtnRef)}
                 />
                 {errors.rice_id && <p className={errorTextCls}>{errors.rice_id}</p>}
               </div>
@@ -895,11 +1000,15 @@ function StockTransferMill() {
                   placeholder="— เลือกชั้นย่อย —"
                   disabled={!form.rice_id}
                   error={!!errors.subrice_id}
+                  buttonRef={variantBtnRef}
+                  enterToNext
+                  // ตามคำสั่ง: จาก Variant → ประเภทนา (ข้าม "สภาพ/เงื่อนไข")
+                  onEnterNext={() => focusNextAvailable(fieldTypeBtnRef)}
                 />
                 {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
               </div>
 
-              {/* สภาพ/เงื่อนไข (ไม่บังคับ) */}
+              {/* สภาพ/เงื่อนไข (ไม่บังคับ) — ไม่อยู่ในลำดับ Enter ที่ร้องขอ */}
               <div>
                 <label className={labelCls}>สภาพ/เงื่อนไข (ไม่บังคับ)</label>
                 <ComboBox
@@ -927,6 +1036,9 @@ function StockTransferMill() {
                     clearEligibleOnly()
                   }}
                   placeholder="— เลือกประเภทนา —"
+                  buttonRef={fieldTypeBtnRef}
+                  enterToNext
+                  onEnterNext={() => focusNextAvailable(yearBtnRef)}
                 />
               </div>
 
@@ -943,6 +1055,9 @@ function StockTransferMill() {
                     clearEligibleOnly()
                   }}
                   placeholder="— เลือกปี/ฤดูกาล —"
+                  buttonRef={yearBtnRef}
+                  enterToNext
+                  onEnterNext={() => focusNextAvailable(businessBtnRef)}
                 />
               </div>
 
@@ -959,6 +1074,9 @@ function StockTransferMill() {
                     clearEligibleOnly()
                   }}
                   placeholder="— เลือกประเภทธุรกิจ —"
+                  buttonRef={businessBtnRef}
+                  enterToNext
+                  onEnterNext={() => focusNextAvailable(programBtnRef)}
                 />
               </div>
 
@@ -975,6 +1093,11 @@ function StockTransferMill() {
                     clearEligibleOnly()
                   }}
                   placeholder="— เลือกโปรแกรม —"
+                  buttonRef={programBtnRef}
+                  enterToNext
+                  onEnterNext={() => {
+                    // จุดสิ้นสุดลำดับ — ยังไม่โฟกัสต่อ (ถ้าต้องการให้ไปปุ่ม "ดึงคลังที่เข้าเกณฑ์" แจ้งได้)
+                  }}
                 />
               </div>
             </div>

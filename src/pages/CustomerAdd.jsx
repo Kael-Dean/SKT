@@ -6,26 +6,6 @@ import { apiAuth } from "../lib/api"
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-// ตรวจเลขบัตรประชาชนไทย (ใช้ต่อเมื่อค้นหาจากชื่อแล้วได้ 13 หลัก)
-function validateThaiCitizenId(id) {
-  const cid = onlyDigits(id)
-  if (cid.length !== 13) return false
-  let sum = 0
-  for (let i = 0; i < 12; i++) sum += Number(cid[i]) * (13 - i)
-  const check = (11 - (sum % 11)) % 10
-  return check === Number(cid[12])
-}
-
-// debounce
-function useDebounce(value, delay = 400) {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(t)
-  }, [value, delay])
-  return debounced
-}
-
 /** **********************************************************************
  * จังหวัดสุรินทร์: รายการอำเภอ (ครบ 17) และตำบล (ตามหน้า MemberSignup)
  * - พยายามดึงจาก API ก่อน (เช่น /geo/*) → ถ้าไม่มีใช้ fallback ด้านล่าง
@@ -120,7 +100,6 @@ function ComboBox({
     return found ? getLabel(found) : ""
   }, [options, value, getLabel, getValue])
 
-  // หาดัชนีของค่าปัจจุบัน
   const selectedIndex = useMemo(
     () => options.findIndex((o) => String(getValue(o)) === String(value)),
     [options, value, getValue]
@@ -138,7 +117,6 @@ function ComboBox({
     return () => document.removeEventListener("click", onClick)
   }, [])
 
-  // ✅ เปิด dropdown: ตั้ง highlight เป็น "ค่าปัจจุบัน" ถ้ามี ไม่งั้นเป็นตัวแรก (index 0)
   useEffect(() => {
     if (open) {
       const idx = selectedIndex >= 0 ? selectedIndex : (options.length ? 0 : -1)
@@ -176,14 +154,11 @@ function ComboBox({
 
   const onKeyDown = (e) => {
     if (disabled) return
-
-    // ถ้ายังไม่เปิดและกด Enter → เปิด พร้อมไฮไลต์ตัวแรก/ค่าปัจจุบัน
     if (!open && e.key === "Enter") {
       e.preventDefault()
       setOpen(true)
       return
     }
-
     if (!open && (e.key === " " || e.key === "ArrowDown")) {
       e.preventDefault()
       setOpen(true)
@@ -347,7 +322,6 @@ const sexFromPrefix = (pre) => (pre === "1" ? "M" : pre === "2" || pre === "3" ?
 const CustomerAdd = () => {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
-  const [status, setStatus] = useState({ searching: false, message: "", tone: "muted" }) // tone: muted|ok|warn
 
   // สำหรับตัวเลือกความสัมพันธ์ FID
   const [relOpts, setRelOpts] = useState([])   // [{id, fid_relationship}]
@@ -360,27 +334,26 @@ const CustomerAdd = () => {
   // refs อินพุต
   const refs = {
     citizen_id: useRef(null),
-    precode: useRef(null),         // ใหม่
+    precode: useRef(null),
     full_name: useRef(null),
     address: useRef(null),
     mhoo: useRef(null),
-    sub_district: useRef(null), // ใช้กับข้อความ error เท่านั้น
-    district: useRef(null),     // ใช้กับข้อความ error เท่านั้น
+    sub_district: useRef(null),
+    district: useRef(null),
     province: useRef(null),
     postal_code: useRef(null),
     phone_number: useRef(null),
     fid: useRef(null),
     fid_owner: useRef(null),
-    fid_relationship: useRef(null), // ใช้กับข้อความ error เท่านั้น
-    sex: useRef(null),              // แสดงเฉย ๆ
+    fid_relationship: useRef(null),
+    sex: useRef(null),
   }
-  // ปุ่มที่โฟกัสตอนสุดท้าย
   const submitBtnRef = useRef(null)
   const topRef = useRef(null)
 
-  // ปุ่มของ ComboBox เพื่อจับโฟกัส/เดินหน้า
+  // ปุ่มของ ComboBox
   const comboBtnRefs = {
-    precode: useRef(null),          // ใหม่
+    precode: useRef(null),
     district: useRef(null),
     sub_district: useRef(null),
     fid_relationship: useRef(null),
@@ -390,8 +363,8 @@ const CustomerAdd = () => {
   const [form, setForm] = useState({
     slowdown_rice: false,
     citizen_id: "",
-    precode: "",        // ใหม่
-    sex: "",            // ใหม่ (กำหนดจาก precode)
+    precode: "",
+    sex: "",
     full_name: "",
     address: "",
     mhoo: "",
@@ -416,18 +389,18 @@ const CustomerAdd = () => {
   // ---------- Enter Navigation ----------
   const enterOrder = [
     { key: "citizen_id", ref: refs.citizen_id },
-    { key: "precode", ref: comboBtnRefs.precode },         // ComboBox (ใหม่)
+    { key: "precode", ref: comboBtnRefs.precode },
     { key: "full_name", ref: refs.full_name },
     { key: "address", ref: refs.address },
     { key: "mhoo", ref: refs.mhoo },
-    { key: "district", ref: comboBtnRefs.district },        // ComboBox
-    { key: "sub_district", ref: comboBtnRefs.sub_district },// ComboBox (อาจ disabled)
+    { key: "district", ref: comboBtnRefs.district },
+    { key: "sub_district", ref: comboBtnRefs.sub_district },
     { key: "province", ref: refs.province },
     { key: "postal_code", ref: refs.postal_code },
     { key: "phone_number", ref: refs.phone_number },
     { key: "fid", ref: refs.fid },
     { key: "fid_owner", ref: refs.fid_owner },
-    { key: "fid_relationship", ref: comboBtnRefs.fid_relationship }, // ComboBox
+    { key: "fid_relationship", ref: comboBtnRefs.fid_relationship },
     { key: "submit", ref: submitBtnRef },
   ]
 
@@ -539,115 +512,6 @@ const CustomerAdd = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.district])
 
-  // debounce เพื่อค้นหาอัตโนมัติ (ฝั่งสมาชิก)
-  const debCid = useDebounce(form.citizen_id, 400)
-  const debName = useDebounce(form.full_name, 400)
-
-  /** helper: ดึงข้อมูลจากสมาชิกเดิม (เพื่อเติมอัตโนมัติ) */
-  const fetchMemberSearch = async (q) => {
-    try {
-      const arr = await apiAuth(`/member/members/search?q=${encodeURIComponent(q)}`)
-      return Array.isArray(arr) ? arr : []
-    } catch {
-      return []
-    }
-  }
-
-  /** เติมที่อยู่/ข้อมูลจากผลสมาชิก */
-  const hydrateFromMember = (rec) => {
-    const toStr = (v) => (v == null ? "" : String(v))
-    const addr = {
-      address: toStr(rec.address ?? ""),
-      mhoo: toStr(rec.mhoo ?? ""),
-      sub_district: toStr(rec.sub_district ?? ""),
-      district: toStr(rec.district ?? ""),
-      province: toStr(rec.province ?? ""),
-      postal_code: onlyDigits(toStr(rec.postal_code ?? "")),
-      first_name: toStr(rec.first_name ?? ""),
-      last_name: toStr(rec.last_name ?? ""),
-      phone_number: toStr(rec.phone_number ?? ""),
-      fid: toStr(rec.fid ?? ""),
-      fid_owner: toStr(rec.fid_owner ?? ""),
-      fid_relationship: toStr(rec.fid_relationship ?? ""),
-      precode: toStr(rec.precode ?? ""),  // ใหม่
-      sex: toStr(rec.sex ?? ""),          // ใหม่
-    }
-    const full = `${addr.first_name} ${addr.last_name}`.trim()
-
-    // ถ้า district จากสมาชิก มีชื่ออยู่ใน options ให้ตั้งค่า และตรวจตำบลให้สอดคล้อง
-    const hasDistrict = !!amphoeOptions.find((o) => o.label === addr.district || o.value === addr.district)
-    setForm((prev) => ({
-      ...prev,
-      precode: prev.precode || addr.precode,
-      sex: prev.sex || (addr.sex || sexFromPrefix(addr.precode) || ""),
-      full_name: prev.full_name || full,
-      address: prev.address || addr.address,
-      mhoo: prev.mhoo || addr.mhoo,
-      district: hasDistrict
-        ? (amphoeOptions.find((o) => o.label === addr.district)?.value ?? addr.district)
-        : prev.district,
-      sub_district:
-        hasDistrict && (TAMBONS_BY_AMPHOE[addr.district] || []).includes(addr.sub_district)
-          ? addr.sub_district
-          : prev.sub_district,
-      province: prev.province || addr.province,
-      postal_code: prev.postal_code || addr.postal_code,
-      phone_number: prev.phone_number || addr.phone_number,
-      fid: prev.fid || addr.fid,
-      fid_owner: prev.fid_owner || addr.fid_owner,
-      fid_relationship: prev.fid_relationship || addr.fid_relationship,
-    }))
-  }
-
-  /** ค้นหาด้วย citizen_id กับฝั่งสมาชิก (เพื่อเติมอัตโนมัติ) */
-  useEffect(() => {
-    const cid = onlyDigits(debCid || "")
-    if (submitting) return
-    if (cid.length !== 13 || !validateThaiCitizenId(cid)) return
-    let cancelled = false
-    ;(async () => {
-      setStatus({ searching: true, message: "กำลังค้นหาจากเลขบัตรประชาชนในฐานสมาชิก...", tone: "muted" })
-      const list = await fetchMemberSearch(cid)
-      if (cancelled) return
-      const found = list.find((r) => onlyDigits(r.citizen_id ?? "") === cid)
-      if (found) {
-        hydrateFromMember(found)
-        setStatus({ searching: false, message: "พบข้อมูลสมาชิกเดิม และเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
-      } else {
-        setStatus({ searching: false, message: "ไม่พบเลขนี้ในฐานสมาชิก จะสร้างลูกค้าใหม่เมื่อบันทึก", tone: "warn" })
-      }
-    })()
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debCid, submitting])
-
-  /** ค้นหาด้วยชื่อ–สกุล (ไปดูฝั่งสมาชิก) */
-  useEffect(() => {
-    const q = (debName || "").trim()
-    if (submitting) return
-    if (q.length < 2) return
-    let cancelled = false
-    ;(async () => {
-      setStatus({ searching: true, message: "กำลังค้นหาจากชื่อ–สกุลในฐานสมาชิก...", tone: "muted" })
-      const list = await fetchMemberSearch(q)
-      if (cancelled) return
-      const found = list.find((r) => {
-        const f = `${(r.first_name ?? "").trim()} ${(r.last_name ?? "").trim()}`.trim()
-        return f && f.includes(q)
-      })
-      if (found) {
-        const cid = onlyDigits(found.citizen_id ?? "")
-        if (cid.length === 13 && validateThaiCitizenId(cid)) update("citizen_id", cid)
-        hydrateFromMember(found)
-        setStatus({ searching: false, message: "พบข้อมูลสมาชิกเดิม และเติมให้อัตโนมัติแล้ว ✅", tone: "ok" })
-      } else {
-        setStatus({ searching: false, message: "ไม่พบชื่อนี้ในฐานสมาชิก", tone: "warn" })
-      }
-    })()
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debName, submitting])
-
   /** ตรวจความถูกต้องก่อนส่งเข้า Back */
   const validateAll = () => {
     const e = {}
@@ -655,7 +519,7 @@ const CustomerAdd = () => {
     const cid = onlyDigits(form.citizen_id)
     if (cid.length !== 13) e.citizen_id = "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
 
-    if (!form.precode) e.precode = "กรุณาเลือกคำนำหน้า"         // ใหม่
+    if (!form.precode) e.precode = "กรุณาเลือกคำนำหน้า"
     if (!form.full_name.trim()) e.full_name = "กรุณากรอกชื่อ–สกุล"
     if (!form.address.trim()) e.address = "กรุณากรอกบ้านเลขที่"
 
@@ -672,49 +536,23 @@ const CustomerAdd = () => {
     return Object.keys(e).length === 0
   }
 
-  // เลื่อนไป error แรก (โฟกัสที่ปุ่ม ComboBox เมื่อ error)
-  useEffect(() => {
-    const order = [
-      "citizen_id","precode","full_name","address","mhoo","district","sub_district","province","postal_code",
-      "phone_number","fid","fid_owner","fid_relationship"
-    ]
-    const first = order.find((k) => k in errors)
-    if (first) {
-      const mapCombo = {
-        precode: comboBtnRefs.precode,
-        district: comboBtnRefs.district,
-        sub_district: comboBtnRefs.sub_district,
-        fid_relationship: comboBtnRefs.fid_relationship
-      }
-      const el = (mapCombo[first]?.current) || (refs[first]?.current)
-      if (el && typeof el.focus === "function") {
-        try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
-        el.focus()
-      }
-    }
-  }, [errors]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  /** แปลงชื่อเต็ม -> first_name / last_name */
-  const splitName = (full = "") => {
-    const parts = full.trim().split(/\s+/).filter(Boolean)
-    if (parts.length === 0) return { first_name: "", last_name: "" }
-    if (parts.length === 1) return { first_name: parts[0], last_name: "" }
-    return { first_name: parts[0], last_name: parts.slice(1).join(" ") }
-  }
-
-  /** บันทึก (POST /member/customers/signup) */
   const handleSubmit = async (ev) => {
     ev.preventDefault()
     if (!validateAll()) return
     setSubmitting(true)
 
+    const splitName = (full = "") => {
+      const parts = full.trim().split(/\s+/).filter(Boolean)
+      if (parts.length === 0) return { first_name: "", last_name: "" }
+      if (parts.length === 1) return { first_name: parts[0], last_name: "" }
+      return { first_name: parts[0], last_name: parts.slice(1).join(" ") }
+    }
     const { first_name, last_name } = splitName(form.full_name)
 
     const payload = {
       first_name,
       last_name,
       citizen_id: onlyDigits(form.citizen_id),
-      // ใหม่: ส่ง precode + sex เหมือนหน้า MemberSignup
       precode: form.precode !== "" ? Number(form.precode) : null,
       sex: form.sex || null,
 
@@ -749,12 +587,11 @@ const CustomerAdd = () => {
 
   const handleReset = () => {
     setErrors({})
-    setStatus({ searching: false, message: "", tone: "muted" })
     setForm({
       slowdown_rice: false,
       citizen_id: "",
-      precode: "",   // ใหม่
-      sex: "",       // ใหม่
+      precode: "",
+      sex: "",
       full_name: "",
       address: "",
       mhoo: "",
@@ -783,24 +620,9 @@ const CustomerAdd = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 ref={topRef} tabIndex={-1} className="mb-1 text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 ref={topRef} tabIndex={-1} className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">
           👤 เพิ่มลูกค้าทั่วไป
         </h1>
-
-        {/* แถบสถานะค้นหา/เติมอัตโนมัติ */}
-        {status.message && (
-          <div
-            className={cx(
-              "mb-4 rounded-xl px-4 py-2 text-sm",
-              status.tone === "ok"   && "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200",
-              status.tone === "warn" && "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-200",
-              status.tone === "muted"&& "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-200"
-            )}
-            aria-live="polite"
-          >
-            {status.searching ? "⏳ " : ""}{status.message}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit}>
           {/* โครงการ (UI-only) */}
@@ -879,7 +701,7 @@ const CustomerAdd = () => {
                 {errors.citizen_id && <p className={errorTextCls}>{errors.citizen_id}</p>}
               </div>
 
-              {/* precode (ใหม่) */}
+              {/* precode */}
               <div>
                 <label className={labelCls}>คำนำหน้า (precode)</label>
                 <div ref={refs.precode}>
@@ -898,7 +720,7 @@ const CustomerAdd = () => {
 
               {/* full_name */}
               <div>
-                <label className={labelCls}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
+                <label className={labelCls}>ชื่อ–สกุล</label>
                 <input
                   ref={refs.full_name}
                   className={cx(baseField, errors.full_name && fieldError)}
@@ -1027,7 +849,7 @@ const CustomerAdd = () => {
                 />
               </div>
 
-              {/* sex (แสดงอัตโนมัติจากคำนำหน้า) */}
+              {/* sex (คำนวณจาก precode ภายในฟอร์ม) */}
               <div>
                 <label className={labelCls}>เพศ (กำหนดจากคำนำหน้า)</label>
                 <div ref={refs.sex}>

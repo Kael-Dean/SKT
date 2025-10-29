@@ -471,10 +471,12 @@ const Buy = () => {
   const [businessOptions, setBusinessOptions] = useState([])
 
   /** ▶︎ ฟอร์มสำเร็จรูป (Template) — โหลดจาก BE */
-  const [templateOptions, setTemplateOptions] = useState([
-    { id: "0", label: "— ไม่ล็อก (เลือกเอง) —" },
-  ])
-  const [formTemplate, setFormTemplate] = useState("0") // "0" = ไม่ล็อก
+  // 🔒 โหมดล็อกสเปก: ใช้ฟอร์มสำเร็จรูปเท่านั้น
+  const LOCK_SPEC = true
+
+  // ไม่มีตัวเลือก “ไม่ล็อก” อีกต่อไป
+  const [templateOptions, setTemplateOptions] = useState([])
+  const [formTemplate, setFormTemplate] = useState("") // ต้องเลือกเสมอ
   const [selectedTemplateLabel, setSelectedTemplateLabel] = useState("") // เก็บ label ที่เลือกไว้
   const [pendingTemplateLabel, setPendingTemplateLabel] = useState("") // ใช้ดักเติม species หลังโหลด riceOptions
   const [variantLookup, setVariantLookup] = useState({})
@@ -976,7 +978,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
     loadStaticDD()
   }, [])
 
-  /** 🔄 โหลดรายการฟอร์มสำเร็จรูปจาก BE */
+  /** 🔄 โหลดรายการฟอร์มสำเร็จรูปจาก BE (โหมดบังคับใช้ template เท่านั้น) */
   useEffect(() => {
     const loadForms = async () => {
       try {
@@ -998,10 +1000,37 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
             }, 
           })) 
           .filter((o) => o.id && o.label) 
-        setTemplateOptions([{ id: "0", label: "— ไม่ล็อก (เลือกเอง) —" }, ...mapped])
+
+        setTemplateOptions(mapped)
+
+        // ตั้งค่า template เริ่มต้น: ใช้อันที่เซฟไว้ หรืออันแรก
+        let nextId = ""
+        try {
+          const shared = localStorage.getItem("shared.formTemplate")
+          if (shared) {
+            const o = JSON.parse(shared)
+            if (o?.id && mapped.some(m => String(m.id) === String(o.id))) nextId = String(o.id)
+          }
+          if (!nextId) {
+            const saved = localStorage.getItem("buy.formTemplate")
+            if (saved && mapped.some(m => String(m.id) === String(saved))) nextId = String(saved)
+          }
+        } catch (_e) {}
+        if (!nextId) nextId = String(mapped[0]?.id || "")
+
+        if (nextId) {
+          setFormTemplate(nextId)
+          const found = mapped.find((o) => String(o.id) === nextId)
+          setSelectedTemplateLabel(found?.label || "")
+          if (found?.spec) applyTemplateBySpec(found.spec)
+          try {
+            localStorage.setItem("shared.formTemplate", JSON.stringify({ id: nextId, label: found?.label || "" }))
+            localStorage.setItem("buy.formTemplate", nextId)
+          } catch (_e) {}
+        }
       } catch (e) {
         console.error("load form templates error:", e)
-        setTemplateOptions([{ id: "0", label: "— ไม่ล็อก (เลือกเอง) —" }])
+        setTemplateOptions([])
       }
     }
     loadForms()
@@ -1652,7 +1681,8 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
   }
 
 /** ---------- Template mapping (ใหม่/อิง spec จาก BE โดยตรง) ---------- */
-  const isTemplateActive = formTemplate !== "0" 
+  // โหมดนี้บังคับใช้ template เสมอ
+  const isTemplateActive = true 
   const applyTemplateBySpec = (spec) => { 
     if (!spec) return 
     const S = (v) => (v == null ? "" : String(v)) 
@@ -1676,12 +1706,11 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       fieldType: "", 
       programName: "", 
       businessType: "", 
-      // __templateLockedProduct: true, // ถ้าต้องการล็อกการแก้ไข product ให้ปลดคอมเมนต์ 
     })) 
   } 
   // เลือก template → อัด spec ลงฟอร์มทันที 
   useEffect(() => { 
-    if (!isTemplateActive) return 
+    if (!formTemplate) return 
     const current = templateOptions.find((o) => String(o.id) === String(formTemplate)) 
     if (current?.spec) applyTemplateBySpec(current.spec) 
     // eslint-disable-next-line react-hooks/exhaustive-deps 
@@ -1782,14 +1811,14 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
     if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
     if (!order.paymentRefNo?.trim()) e.paymentRefNo = "กรอกเลขที่ใบชั่ง/ใบเบิกเงิน"
 
-    if (!order.productId) e.product = "เลือกประเภทสินค้า"
-    if (!order.riceId) e.riceType = "เลือกชนิดข้าว (species)"
-    if (!order.subriceId) e.subrice = "เลือกชั้นย่อย (variant)"
-    if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข"
-    if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"
-    if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"
-    if (!order.programId) e.program = "เลือกโปรแกรม"
-    if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ"
+    if (!order.productId) e.product = "เลือกฟอร์มสำเร็จรูปให้มีสเปกสินค้า"
+    if (!order.riceId) e.riceType = "เลือกฟอร์มสำเร็จรูปให้มีชนิดข้าว (species)"
+    if (!order.subriceId) e.subrice = "เลือกฟอร์มสำเร็จรูปให้มีชั้นย่อย (variant)"
+    if (!order.conditionId) e.condition = "เลือกฟอร์มสำเร็จรูปให้มีสภาพ/เงื่อนไข"
+    if (!order.fieldTypeId) e.fieldType = "เลือกฟอร์มสำเร็จรูปให้มีประเภทนา"
+    if (!order.riceYearId) e.riceYear = "เลือกฟอร์มสำเร็จรูปให้มีปี/ฤดูกาล"
+    if (!order.programId) e.program = "เลือกฟอร์มสำเร็จรูปให้มีโปรแกรม"
+    if (!order.businessTypeId) e.businessType = "เลือกฟอร์มสำเร็จรูปให้มีประเภทธุรกิจ"
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
 
@@ -2200,7 +2229,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
               />
             </div>
 
-            {/* ดรอปดาวฟอร์มสำเร็จรูป (มุมขวา) — โหลดจาก BE */}
+            {/* ดรอปดาวฟอร์มสำเร็จรูป (มุมขวา) — โหลดจาก BE (โหมดล็อกสเปก) */}
             <div className="w-full sm:w-72 self-start">
               <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
                 <ComboBox
@@ -2213,26 +2242,20 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                   setFormTemplate(idStr)
                   const label = found?.label ?? ""
                   setSelectedTemplateLabel(label)
-                  // บันทึกให้หน้า Sell ใช้ต่อ
+                  // บันทึกให้หน้าอื่นใช้ต่อ
                   try {
                     localStorage.setItem("shared.formTemplate", JSON.stringify({ id: idStr, label }))
                     localStorage.setItem("buy.formTemplate", idStr)
                   } catch (_e) {}
-                  if (idStr !== "0" && found?.spec) applyTemplateBySpec(found.spec)
+                  if (found?.spec) applyTemplateBySpec(found.spec)
                 }}
                 buttonRef={refs.formTemplate}
               />
 
-              {isTemplateActive ? (
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300"> 
-                  เลือกจากรายการที่สร้างไว้ในระบบ (BE). ระบบจะเติมจาก <b>spec</b> ที่ BE ส่งมาโดยตรง: 
-                  <b> ประเภทสินค้า</b>, <b>ชนิดข้าว</b>, <b>ชั้นย่อย</b>, <b>เงื่อนไข</b>, <b>ประเภทนา</b>, <b>ปี/ฤดูกาล</b>, <b>โปรแกรม</b>, <b>ประเภทธุรกิจ</b>. 
-                </p> 
-              ) : (
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  “ไม่ล็อก” — เลือกสเปกเองได้ทุกช่อง
-                </p>
-              )}
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300"> 
+                ระบบ <b>ล็อกสเปกจากฟอร์มสำเร็จรูป</b> เท่านั้น: 
+                <b> ประเภทสินค้า</b>, <b>ชนิดข้าว</b>, <b>ชั้นย่อย</b>, <b>เงื่อนไข</b>, <b>ประเภทนา</b>, <b>ปี/ฤดูกาล</b>, <b>โปรแกรม</b>, <b>ประเภทธุรกิจ</b> จะไม่สามารถแก้จากแบบฟอร์มด้านล่างได้
+              </p> 
             </div>
           </div>
 
@@ -2604,35 +2627,14 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                     riceType: "",
                     subriceId: "",
                     subriceName: "",
-                  }))
-                }}
-                placeholder="— เลือกประเภทสินค้า —"
+                  }))}
+                }
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 error={!!errors.product}
                 hintRed={!!missingHints.product}
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
-                onEnterNext={() => {
-                  const tryFocus = () => {
-                    if (isEnabledInput(refs.riceType?.current)) {
-                      refs.riceType.current.focus()
-                      refs.riceType.current.scrollIntoView?.({ block: "center" })
-                      return true
-                    }
-                    const keys = ["subrice","condition","fieldType","riceYear","program","businessType","branchName"]
-                    for (const k of keys) {
-                      const el = refs[k]?.current
-                      if (el && isEnabledInput(el)) {
-                        try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
-                        el.focus?.()
-                        return true
-                      }
-                    }
-                    return false
-                  }
-                  if (tryFocus()) return
-                  setTimeout(tryFocus, 60)
-                  setTimeout(tryFocus, 180)
-                }}
+                disabled={LOCK_SPEC}
               />
               {errors.product && <p className={errorTextCls}>{errors.product}</p>}
             </div>
@@ -2649,32 +2651,14 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                     riceType: found?.label ?? "",
                     subriceId: "",
                     subriceName: "",
-                  }))
-                }}
-                placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId}
+                  }))}
+                }
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                disabled={LOCK_SPEC}
                 error={!!errors.riceType}
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
                 buttonRef={refs.riceType}
-                onEnterNext={() => {
-                  const tryFocus = () => {
-                    const keys = ["subrice","condition","fieldType","riceYear","program","businessType","branchName"]
-                    for (const k of keys) {
-                      const el = refs[k]?.current
-                      if (el && isEnabledInput(el)) {
-                        try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
-                        el.focus?.()
-                        return true
-                      }
-                    }
-                    return false
-                  }
-                  if (tryFocus()) return
-                  setTimeout(tryFocus, 60)
-                  setTimeout(tryFocus, 120)
-                  setTimeout(tryFocus, 200)
-                }}
               />
               {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
             </div>
@@ -2685,31 +2669,14 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                 options={subriceOptions}
                 value={order.subriceId}
                 onChange={(id, found) => {
-                  setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))
-                }}
-                placeholder="— เลือกชั้นย่อย —"
-                disabled={!order.riceId}
+                  setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))}
+                }
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                disabled={LOCK_SPEC}
                 error={!!errors.subrice}
                 hintRed={!!missingHints.subrice}
                 clearHint={() => clearHint("subrice")}
                 buttonRef={refs.subrice}
-                onEnterNext={() => {
-                  const keys = ["condition","fieldType","riceYear","program","businessType","branchName"]
-                  const tryFocus = () => {
-                    for (const k of keys) {
-                      const el = refs[k]?.current
-                      if (el && isEnabledInput(el)) {
-                        try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
-                        el.focus?.()
-                        return true
-                      }
-                    }
-                    return false
-                  }
-                  if (tryFocus()) return
-                  setTimeout(tryFocus, 60)
-                  setTimeout(tryFocus, 180)
-                }}
               />
               {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
             </div>
@@ -2726,12 +2693,12 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                     conditionId: found?.id ?? "",
                     condition: found?.label ?? "",
                   }))}
-                placeholder="— เลือกสภาพ/เงื่อนไข —"
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 error={!!errors.condition}
                 hintRed={!!missingHints.condition}
                 clearHint={() => clearHint("condition")}
                 buttonRef={refs.condition}
-                onEnterNext={() => focusNext("condition")}
+                disabled={LOCK_SPEC}
               />
               {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
             </div>
@@ -2748,12 +2715,12 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                     fieldTypeId: found?.id ?? "",
                     fieldType: found?.label ?? "",
                   }))}
-                placeholder="— เลือกประเภทนา —"
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 error={!!errors.fieldType}
                 hintRed={!!missingHints.fieldType}
                 clearHint={() => clearHint("fieldType")}
                 buttonRef={refs.fieldType}
-                onEnterNext={() => focusNext("fieldType")}
+                disabled={LOCK_SPEC}
               />
               {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
             </div>
@@ -2770,29 +2737,12 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                     riceYearId: found?.id ?? "",
                     riceYear: found?.label ?? "",
                   }))}
-                placeholder="— เลือกปี/ฤดูกาล —"
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 error={!!errors.riceYear}
                 hintRed={!!missingHints.riceYear}
                 clearHint={() => clearHint("riceYear")}
                 buttonRef={refs.riceYear}
-                onEnterNext={() => {
-                  const tryFocus = () => {
-                    const keys = ["businessType", "program", "branchName", "klangName"]
-                    for (const k of keys) {
-                      const el = refs[k]?.current
-                      if (el && isEnabledInput(el)) {
-                        try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
-                        el.focus?.()
-                        try { el.select?.() } catch (_e) {}
-                        return true
-                      }
-                    }
-                    return false
-                  }
-                  if (tryFocus()) return
-                  setTimeout(tryFocus, 60)
-                  setTimeout(tryFocus, 180)
-                }}
+                disabled={LOCK_SPEC}
               />
               {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
             </div>
@@ -2810,36 +2760,12 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                     businessTypeId: found?.id ?? "",
                     businessType: found?.label ?? "",
                   }))}
-                placeholder="— เลือกประเภทธุรกิจ —"
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 error={!!errors.businessType}
                 hintRed={!!missingHints.businessType}
                 clearHint={() => clearHint("businessType")}
                 buttonRef={refs.businessType}
-                onEnterNext={() => {
-                  const tryFocus = () => {
-                    const el = refs.program?.current
-                    if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
-                      el.focus?.()
-                      try { el.select?.() } catch (_e) {}
-                      return true
-                    }
-                    const fallback = ["branchName","klangName"]
-                    for (const k of fallback) {
-                      const e2 = refs[k]?.current
-                      if (e2 && isEnabledInput(e2)) {
-                        try { e2.scrollIntoView({ block: "center" }) } catch (_e) {}
-                        e2.focus?.()
-                        try { e2.select?.() } catch (_e) {}
-                        return true
-                      }
-                    }
-                    return false
-                  }
-                  if (tryFocus()) return
-                  setTimeout(tryFocus, 80)
-                  setTimeout(tryFocus, 200)
-                }}
+                disabled={LOCK_SPEC}
               />
               {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
             </div>
@@ -2856,33 +2782,12 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                     programId: found?.id ?? "",
                     programName: found?.label ?? "",
                   }))}
-                placeholder="— เลือกโปรแกรม —"
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 buttonRef={refs.program}
                 error={!!errors.program}
                 hintRed={!!missingHints.program}
                 clearHint={() => { clearHint("program"); clearError("program") }}
-                onEnterNext={() => {
-                  const focusKlang = () => {
-                    const elK = refs.klangName?.current
-                    if (elK && isEnabledInput(elK)) {
-                      try { elK.scrollIntoView({ block: "center" }) } catch (_e) {}
-                      elK.focus?.()
-                      try { elK.select?.() } catch (_e) {}
-                      return true
-                    }
-                    const elB = refs.branchName?.current
-                    if (elB && isEnabledInput(elB)) {
-                      try { elB.scrollIntoView({ block: "center" }) } catch (_e) {}
-                      elB.focus?.()
-                      try { elB.select?.() } catch (_e) {}
-                      return true
-                    }
-                    return false
-                  }
-                  if (focusKlang()) return
-                  setTimeout(focusKlang, 100)
-                  setTimeout(focusKlang, 250)
-                }}
+                disabled={LOCK_SPEC}
               />
 
               {errors.program && <p className={errorTextCls}>{errors.program}</p>}
@@ -2916,21 +2821,6 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                 clearHint={() => clearHint("branchName")}
                 buttonRef={refs.branchName}
                 disabled={branchLocked}
-                onEnterNext={() => {
-                  const tryFocus = () => {
-                    const el = refs.klangName?.current
-                    if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
-                      el.focus?.()
-                      try { el.select?.() } catch (_e) {}
-                      return true
-                    }
-                    return false
-                  }
-                  if (tryFocus()) return
-                  setTimeout(tryFocus, 60)
-                  setTimeout(tryFocus, 180)
-                }}
               />
               {branchLocked && <p className={helpTextCls}>สาขาถูกล็อกตามรหัสผู้ใช้</p>}
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
@@ -2955,21 +2845,6 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
-                onEnterNext={() => {
-                  const tryFocus = () => {
-                    const el = refs.entryWeightKg?.current
-                    if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
-                      el.focus?.()
-                      try { el.select?.() } catch (_e) {}
-                      return true
-                    }
-                    return false
-                  }
-                  if (tryFocus()) return
-                  setTimeout(tryFocus, 60)
-                  setTimeout(tryFocus, 180)
-                }}
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>

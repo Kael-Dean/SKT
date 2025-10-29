@@ -215,6 +215,8 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 })
 
 /** ---------- Page: Order ---------- */
+const PAGE_SIZE = 100
+
 const Order = () => {
   const today = new Date().toISOString().slice(0, 10)
   const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
@@ -222,6 +224,16 @@ const Order = () => {
   /** ---------- State ---------- */
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
+
+  // Pagination
+  const [page, setPage] = useState(1)
+  const [pageInput, setPageInput] = useState("1")
+
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(rows.length / PAGE_SIZE)), [rows.length])
+  const pagedRows = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return rows.slice(start, start + PAGE_SIZE)
+  }, [rows, page])
 
   // Options
   const [branchOptions, setBranchOptions] = useState([])
@@ -360,9 +372,14 @@ const Order = () => {
 
       const data = await apiAuth(`/order/orders/report?${params.toString()}`)
       setRows(Array.isArray(data) ? data : [])
+      // reset page เมื่อมีการโหลดข้อมูลใหม่
+      setPage(1)
+      setPageInput("1")
     } catch (e) {
       console.error(e)
       setRows([])
+      setPage(1)
+      setPageInput("1")
     } finally {
       setLoading(false)
     }
@@ -387,6 +404,43 @@ const Order = () => {
     return { weight, revenue }
   }, [rows])
 
+  /** ---------- Pagination helpers ---------- */
+  useEffect(() => {
+    // ถ้าจำนวนหน้าลดลง ให้เลื่อน page ให้อยู่ในช่วง
+    setPage((p) => Math.min(Math.max(1, p), totalPages))
+    setPageInput((v) => String(Math.min(Math.max(1, toNumber(onlyDigits(v)) || 1), totalPages)))
+  }, [totalPages])
+
+  const goToPage = (p) => {
+    const n = Math.min(Math.max(1, toNumber(p)), totalPages)
+    setPage(n)
+    setPageInput(String(n))
+    window?.scrollTo?.({ top: 0, behavior: "smooth" })
+  }
+  const nextPage = () => goToPage(page + 1)
+  const prevPage = () => goToPage(page - 1)
+  const onCommitPageInput = () => {
+    const n = toNumber(onlyDigits(pageInput))
+    if (!n) { setPageInput(String(page)); return }
+    goToPage(n)
+  }
+  const pageItems = useMemo(() => {
+    const items = []
+    const delta = 2
+    const left = Math.max(1, page - delta)
+    const right = Math.min(totalPages, page + delta)
+
+    if (left > 1) items.push(1)
+    if (left > 2) items.push("...")
+
+    for (let i = left; i <= right; i++) items.push(i)
+
+    if (right < totalPages - 1) items.push("...")
+    if (right < totalPages) items.push(totalPages)
+
+    return items
+  }, [page, totalPages])
+
   /** ---------- Reset ---------- */
   const resetFilters = () => {
     setFilters({
@@ -406,9 +460,14 @@ const Order = () => {
     setKlangOptions([])
     setRiceOptions([])
     setSubriceOptions([])
+    setPage(1)
+    setPageInput("1")
   }
 
   /** ----------- UI ----------- */
+  const startIndex = (page - 1) * PAGE_SIZE + 1
+  const endIndex = Math.min(rows.length, page * PAGE_SIZE)
+
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
@@ -616,7 +675,7 @@ const Order = () => {
               ) : rows.length === 0 ? (
                 <tr><td className="px-3 py-3" colSpan={10}>ไม่พบข้อมูล</td></tr>
               ) : (
-                rows.map((r) => {
+                pagedRows.map((r) => {
                   const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
                   const exit  = toNumber(r.exit_weight  ?? r.exitWeight  ?? r.exit  ?? 0)
                   const net   = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry))
@@ -643,6 +702,88 @@ const Order = () => {
               )}
             </tbody>
           </table>
+
+          {/* Pagination Bar */}
+          <div className="flex flex-col gap-3 p-3 md:flex-row md:items-center md:justify-between">
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              แสดง <b>{rows.length ? startIndex.toLocaleString() : 0}</b>
+              –<b>{rows.length ? endIndex.toLocaleString() : 0}</b> จาก <b>{rows.length.toLocaleString()}</b> รายการ
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={prevPage}
+                disabled={page <= 1}
+                className={[
+                  "h-10 rounded-xl px-4 text-sm font-medium",
+                  page <= 1
+                    ? "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
+                    : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
+                  "border border-slate-300 dark:border-slate-600"
+                ].join(" ")}
+              >
+                ก่อนหน้า
+              </button>
+
+              {/* Page numbers */}
+              <div className="flex items-center gap-1">
+                {pageItems.map((it, idx) =>
+                  it === "..." ? (
+                    <span key={`dots-${idx}`} className="px-2 text-slate-500 dark:text-slate-300">…</span>
+                  ) : (
+                    <button
+                      key={`p-${it}`}
+                      type="button"
+                      onClick={() => goToPage(it)}
+                      className={[
+                        "h-10 min-w-[40px] rounded-xl px-3 text-sm font-semibold transition",
+                        it === page
+                          ? "bg-emerald-600 text-white"
+                          : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
+                        "border border-slate-300 dark:border-slate-600"
+                      ].join(" ")}
+                    >
+                      {it}
+                    </button>
+                  )
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={nextPage}
+                disabled={page >= totalPages}
+                className={[
+                  "h-10 rounded-xl px-4 text-sm font-medium",
+                  page >= totalPages
+                    ? "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
+                    : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
+                  "border border-slate-300 dark:border-slate-600"
+                ].join(" ")}
+              >
+                ถัดไป
+              </button>
+
+              {/* Jump to page */}
+              <div className="ml-2 flex items-center gap-2">
+                <label className="text-sm text-slate-600 dark:text-slate-300">ไปหน้า</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={pageInput}
+                  onChange={(e) => setPageInput(onlyDigits(e.target.value))}
+                  onKeyDown={(e) => e.key === "Enter" && onCommitPageInput()}
+                  onBlur={onCommitPageInput}
+                  className="h-10 w-20 rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none
+                             focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30
+                             dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                />
+                <span className="text-sm text-slate-600 dark:text-slate-300">/ {totalPages.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

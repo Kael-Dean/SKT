@@ -15,7 +15,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- DateInput ---------- */
+/** ---------- DateInput (เดิม) ---------- */
 const DateInput = forwardRef(function DateInput(
   { error = false, className = "", ...props },
   ref
@@ -57,6 +57,199 @@ const DateInput = forwardRef(function DateInput(
   )
 })
 
+/** ---------- ComboBox (ยกมาจากหน้า CustomerAdd เพื่อให้สไตล์เหมือนกัน) ---------- */
+// อ้างอิงสไตล์และพฤติกรรมจากหน้า CustomerAdd: ComboBox/hover/focus/enter navigation
+function ComboBox({
+  options = [],
+  value,
+  onChange,
+  placeholder = "— เลือก —",
+  getLabel = (o) => o?.label ?? "",
+  getValue = (o) => o?.value ?? o?.id ?? "",
+  disabled = false,
+  error = false,
+  buttonRef = null,
+  onEnterNext = null,
+}) {
+  const [open, setOpen] = useState(false)
+  const [highlight, setHighlight] = useState(-1)
+  const boxRef = useRef(null)
+  const listRef = useRef(null)
+  const internalBtnRef = useRef(null)
+  const controlRef = buttonRef || internalBtnRef
+
+  const selectedLabel = useMemo(() => {
+    const found = options.find((o) => String(getValue(o)) === String(value))
+    return found ? getLabel(found) : ""
+  }, [options, value, getLabel, getValue])
+
+  const selectedIndex = useMemo(
+    () => options.findIndex((o) => String(getValue(o)) === String(value)),
+    [options, value, getValue]
+  )
+
+  useEffect(() => {
+    const onClick = (e) => {
+      if (!boxRef.current) return
+      if (!boxRef.current.contains(e.target)) {
+        setOpen(false)
+        setHighlight(-1)
+      }
+    }
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [])
+
+  useEffect(() => {
+    if (open) {
+      const idx = selectedIndex >= 0 ? selectedIndex : (options.length ? 0 : -1)
+      setHighlight(idx)
+      if (idx >= 0) {
+        requestAnimationFrame(() => scrollHighlightedIntoView(idx))
+      }
+    }
+  }, [open, selectedIndex, options])
+
+  const commit = (opt, { navigate = false } = {}) => {
+    const v = String(getValue(opt))
+    onChange?.(v, opt)
+    setOpen(false)
+    setHighlight(-1)
+    requestAnimationFrame(() => {
+      controlRef.current?.focus()
+      if (navigate) onEnterNext?.()
+    })
+  }
+
+  const scrollHighlightedIntoView = (index) => {
+    const listEl = listRef.current
+    const itemEl = listEl?.children?.[index]
+    if (!listEl || !itemEl) return
+    const itemRect = itemEl.getBoundingClientRect()
+    const listRect = listEl.getBoundingClientRect()
+    const buffer = 6
+    if (itemRect.top < listRect.top + buffer) {
+      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+    } else if (itemRect.bottom > listRect.bottom - buffer) {
+      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+    }
+  }
+
+  const onKeyDown = (e) => {
+    if (disabled) return
+    if (!open && e.key === "Enter") {
+      e.preventDefault()
+      setOpen(true)
+      return
+    }
+    if (!open && (e.key === " " || e.key === "ArrowDown")) {
+      e.preventDefault()
+      setOpen(true)
+      return
+    }
+    if (!open) return
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setHighlight((h) => {
+        const next = h < options.length - 1 ? h + 1 : 0
+        requestAnimationFrame(() => scrollHighlightedIntoView(next))
+        return next
+      })
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setHighlight((h) => {
+        const prev = h > 0 ? h - 1 : options.length - 1
+        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
+        return prev
+      })
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (highlight >= 0 && highlight < options.length) {
+        commit(options[highlight], { navigate: true })
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault()
+      setOpen(false)
+      setHighlight(-1)
+    }
+  }
+
+  return (
+    <div className="relative" ref={boxRef}>
+      <button
+        type="button"
+        ref={controlRef}
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return
+          setOpen((o) => {
+            const willOpen = !o
+            if (!o) {
+              const idx = selectedIndex >= 0 ? selectedIndex : (options.length ? 0 : -1)
+              setHighlight(idx)
+            }
+            return willOpen
+          })
+        }}
+        onKeyDown={onKeyDown}
+        data-combobox-btn="true"
+        className={cx(
+          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
+          disabled ? "bg-slate-200 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
+          error ? "border-red-400 ring-2 ring-red-300/70"
+                : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
+          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80"
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-invalid={error ? true : undefined}
+      >
+        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
+      </button>
+
+      {open && (
+        <div
+          ref={listRef}
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        >
+          {options.length === 0 && (
+            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
+          )}
+          {options.map((opt, idx) => {
+            const label = getLabel(opt)
+            const isActive = idx === highlight
+            const isChosen = String(getValue(opt)) === String(value)
+            return (
+              <button
+                key={String(getValue(opt)) || label || idx}
+                type="button"
+                role="option"
+                aria-selected={isChosen}
+                onMouseEnter={() => setHighlight(idx)}
+                onClick={() => commit(opt)}
+                className={cx(
+                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
+                  isActive
+                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                )}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+                )}
+                <span className="flex-1">{label}</span>
+                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** ---------- รายการรายงาน / mapping ไป BE ---------- */
 const REPORTS = [
   {
@@ -84,7 +277,7 @@ const REPORTS = [
     endpoint: "/report/purchases/daily-excel", // requires: start_date, end_date, branch_id; optional: spec_id
     type: "excel",
     require: ["startDate", "endDate", "branchId"],
-    optional: ["specId"],
+    optional: ["SpecId"],
   },
   {
     key: "registerPurchase",
@@ -347,6 +540,9 @@ function Documents() {
   const FieldError = ({ name }) =>
     errors[name] ? <div className={errorTextCls}>{errors[name]}</div> : null
 
+  // helper สำหรับเติม option “ค่าว่าง” เพื่อให้ล้างค่าได้เหมือน select เดิม
+  const withEmpty = (opts, emptyLabel = "— เลือก —") => [{ id: "", label: emptyLabel }, ...opts]
+
   const FormDates = ({ report }) => {
     if (!(report.require.includes("startDate") || report.require.includes("endDate"))) return null
     return (
@@ -380,33 +576,30 @@ function Documents() {
       {showProduct && (
         <div>
           <label className={labelCls}>ประเภทสินค้า</label>
-          <select
-            className={baseField}
+          <ComboBox
+            options={withEmpty(productOptions, "— เลือก —")}
             value={filters.productId}
-            onChange={(e) => setFilter("productId", e.target.value)}
-          >
-            <option value="">— เลือก —</option>
-            {productOptions.map((o) => (
-              <option key={o.id} value={o.id}>{o.label}</option>
-            ))}
-          </select>
+            onChange={(v) => setFilter("productId", v)}
+            placeholder="— เลือก —"
+          />
         </div>
       )}
       <div>
         <label className={labelCls}>
           ชนิดข้าว (spec){requiredSpec && <span className="text-red-500"> *</span>}
         </label>
-        <select
-          className={cx(baseField, requiredSpec && errors.specId && "border-red-400 ring-2 ring-red-300/70")}
+        <ComboBox
+          options={
+            (specOptions.length === 0)
+              ? [] // ยังไม่มีตัวเลือก (ให้ placeholder บอกให้เลือกประเภทสินค้าก่อน)
+              : withEmpty(specOptions, "— เลือก —")
+          }
           value={filters.specId}
-          onChange={(e) => setFilter("specId", e.target.value)}
+          onChange={(v) => setFilter("specId", v)}
+          placeholder={specOptions.length ? "— เลือก —" : "— เลือกประเภทสินค้าก่อน —"}
           disabled={specOptions.length === 0}
-        >
-          <option value="">{specOptions.length ? "— เลือก —" : "— เลือกประเภทสินค้าก่อน —"}</option>
-          {specOptions.map((o) => (
-            <option key={o.id} value={o.id}>{o.label}</option>
-          ))}
-        </select>
+          error={!!(requiredSpec && errors.specId)}
+        />
         {requiredSpec && <FieldError name="specId" />}
       </div>
     </>
@@ -418,31 +611,24 @@ function Documents() {
         <label className={labelCls}>
           สาขา{requireBranch && <span className="text-red-500"> *</span>}
         </label>
-        <select
-          className={cx(baseField, requireBranch && errors.branchId && "border-red-400 ring-2 ring-red-300/70")}
+        <ComboBox
+          options={withEmpty(branchOptions, "— เลือก —")}
           value={filters.branchId}
-          onChange={(e) => setFilter("branchId", e.target.value)}
-        >
-          <option value="">— เลือก —</option>
-          {branchOptions.map((o) => (
-            <option key={o.id} value={o.id}>{o.label}</option>
-          ))}
-        </select>
+          onChange={(v) => setFilter("branchId", v)}
+          placeholder="— เลือก —"
+          error={!!(requireBranch && errors.branchId)}
+        />
         {requireBranch && <FieldError name="branchId" />}
       </div>
       <div>
         <label className={labelCls}>คลัง (ไม่บังคับ)</label>
-        <select
-          className={baseField}
+        <ComboBox
+          options={withEmpty(klangOptions, "— ทั้งหมด —")}
           value={filters.klangId}
-          onChange={(e) => setFilter("klangId", e.target.value)}
+          onChange={(v) => setFilter("klangId", v)}
+          placeholder="— ทั้งหมด —"
           disabled={!filters.branchId || klangOptions.length === 0}
-        >
-          <option value="">— ทั้งหมด —</option>
-          {klangOptions.map((o) => (
-            <option key={o.id} value={o.id}>{o.label}</option>
-          ))}
-        </select>
+        />
       </div>
     </>
   )
@@ -470,17 +656,17 @@ function Documents() {
             {/* spec เป็นตัวเลือกเสริม */}
             <div>
               <label className={labelCls}>ชนิดข้าว (spec) – ไม่บังคับ</label>
-              <select
-                className={baseField}
+              <ComboBox
+                options={
+                  (specOptions.length === 0)
+                    ? []
+                    : withEmpty(specOptions, "— เลือก —")
+                }
                 value={filters.specId}
-                onChange={(e) => setFilter("specId", e.target.value)}
+                onChange={(v) => setFilter("specId", v)}
+                placeholder={specOptions.length ? "— เลือก —" : "— เลือกประเภทสินค้าก่อน —"}
                 disabled={specOptions.length === 0}
-              >
-                <option value="">{specOptions.length ? "— เลือก —" : "— เลือกประเภทสินค้าก่อน —"}</option>
-                {specOptions.map((o) => (
-                  <option key={o.id} value={o.id}>{o.label}</option>
-                ))}
-              </select>
+              />
               <p className={helpTextCls}>ถ้าไม่เลือก จะออกรวมทุกชนิดข้าวในสาขานั้น</p>
             </div>
           </div>
@@ -549,21 +735,18 @@ function Documents() {
             <FormBranchKlang requireBranch />
             <div>
               <label className={labelCls}>ประเภทสินค้า (product_id) *</label>
-              <select
-                className={cx(baseField, errors.productId && "border-red-400 ring-2 ring-red-300/70")}
+              <ComboBox
+                options={withEmpty(productOptions, "— เลือก —")}
                 value={filters.productId}
-                onChange={(e) => setFilter("productId", e.target.value)}
-              >
-                <option value="">— เลือก —</option>
-                {productOptions.map((o) => (
-                  <option key={o.id} value={o.id}>{o.label}</option>
-                ))}
-              </select>
+                onChange={(v) => setFilter("productId", v)}
+                placeholder="— เลือก —"
+                error={!!errors.productId}
+              />
               <FieldError name="productId" />
             </div>
           </div>
           {previewJson && (
-            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-800">
               <div className="mb-2 font-semibold">ตัวอย่างผลลัพธ์ (JSON)</div>
               <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words">{JSON.stringify(previewJson, null, 2)}</pre>
             </div>
@@ -627,10 +810,12 @@ function Documents() {
                 <div className="text-xl font-semibold">{reportObj.title}</div>
                 <div className={helpTextCls}>{reportObj.desc}</div>
               </div>
+              {/* ปุ่มกลับ/เลือกรายงานอื่น — ขยายขนาดและทำให้เด่นขึ้น */}
               <button
                 type="button"
                 onClick={() => { setActiveReport(null); setPreviewJson(null); setErrors({}); }}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700/60 dark:text-white"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 md:px-5 py-3 text-base font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-100 hover:shadow-md hover:scale-[1.02] active:scale-[.98] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50"
+                title="กลับไปหน้าเลือกรายงาน"
               >
                 ← เลือกรายงานอื่น
               </button>

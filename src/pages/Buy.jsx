@@ -1489,12 +1489,32 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
     return () => document.removeEventListener("click", onClick)
   }, [])
 
-  const pickNameResult = async (rec) => {
+  const focusKlangOrBranchOrEntry = () => {
+    const tryFocusRef = (r) => {
+      const el = r?.current
+      if (el && isEnabledInput(el)) {
+        try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
+        el.focus?.()
+        try { el.select?.() } catch (_e) {}
+        return true
+      }
+      return false
+    }
+    if (tryFocusRef(refs.klangName)) return
+    if (tryFocusRef(refs.branchName)) return
+    tryFocusRef(refs.entryWeightKg)
+  }
+
+const pickNameResult = async (rec) => {
     suppressNameSearchRef.current = true
     await fillFromRecord(rec)
     setShowNameList(false)
     setNameResults([])
     setHighlightedIndex(-1)
+    // หลังเลือกชื่อแล้ว ให้โฟกัสไปที่ "คลัง" (ถ้าเลือกได้) ถ้าไม่ได้ให้ไปที่ "สาขา" หรือ "น้ำหนักก่อนชั่ง"
+    requestAnimationFrame(() => {
+      focusKlangOrBranchOrEntry()
+    })
   }
 
   /** scroll item ที่ไฮไลต์ */
@@ -1529,23 +1549,24 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
   /** คีย์บอร์ดนำทาง dropdown ชื่อ */
   const handleNameKeyDown = async (e) => {
-    if (!showNameList || nameResults.length === 0) return
-    if (e.key === "ArrowDown") {
+    if (e.key === "ArrowDown" && showNameList && nameResults.length > 0) {
       e.preventDefault()
       const next = highlightedIndex < nameResults.length - 1 ? highlightedIndex + 1 : 0
       setHighlightedIndex(next)
       requestAnimationFrame(() => scrollHighlightedIntoView2(next))
-    } else if (e.key === "ArrowUp") {
+    } else if (e.key === "ArrowUp" && showNameList && nameResults.length > 0) {
       e.preventDefault()
       const prev = highlightedIndex > 0 ? highlightedIndex - 1 : nameResults.length - 1
       setHighlightedIndex(prev)
       requestAnimationFrame(() => scrollHighlightedIntoView2(prev))
-    } else if (e.key === "Enter") {
+    } else if (e.key === "Enter" && !e.isComposing) {
       e.preventDefault()
-      if (highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
+      if (showNameList && nameResults.length > 0 && highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
         await pickNameResult(nameResults[highlightedIndex])
+      } else {
+        focusKlangOrBranchOrEntry()
       }
-    } else if (e.key === "Escape") {
+    } else if (e.key === "Escape" && showNameList) {
       e.preventDefault()
       setShowNameList(false)
       setHighlightedIndex(-1)
@@ -2406,7 +2427,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                     clearError("fullName")
                   }}
                   onKeyDown={handleNameKeyDown}
-                  onKeyDownCapture={onEnter("fullName")}
+                  
                   placeholder="เช่น นายสมชาย ใจดี"
                   aria-expanded={showNameList}
                   aria-controls="name-results"
@@ -2820,6 +2841,21 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                 hintRed={!!missingHints.branchName}
                 clearHint={() => clearHint("branchName")}
                 buttonRef={refs.branchName}
+                onEnterNext={() => {
+                  const tryFocus = () => {
+                    const el = refs.klangName?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
+                      el.focus?.()
+                      try { el.select?.() } catch (_e) {}
+                      return true
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 180)
+                }}
                 disabled={branchLocked}
               />
               {branchLocked && <p className={helpTextCls}>สาขาถูกล็อกตามรหัสผู้ใช้</p>}
@@ -2845,6 +2881,21 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
                 hintRed={!!missingHints.klangName}
                 clearHint={() => clearHint("klangName")}
                 buttonRef={refs.klangName}
+                onEnterNext={() => {
+                  const tryFocus = () => {
+                    const el = refs.entryWeightKg?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
+                      el.focus?.()
+                      try { el.select?.() } catch (_e) {}
+                      return true
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 180)
+                }}
               />
               {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
             </div>

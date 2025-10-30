@@ -56,7 +56,7 @@ const DateInput = forwardRef(function DateInput(
   )
 })
 
-/** ---------- ComboBox (กด/ลูกศร/Enter ได้) ---------- */
+/** ---------- ComboBox (สไตล์เดียวกับหน้า Buy) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -103,19 +103,7 @@ function ComboBox({
       const idx = selectedIndex >= 0 ? selectedIndex : (options.length ? 0 : -1)
       setHighlight(idx)
       if (idx >= 0) {
-        requestAnimationFrame(() => {
-          const listEl = listRef.current
-          const itemEl = listEl?.children?.[idx]
-          if (!listEl || !itemEl) return
-          const itemRect = itemEl.getBoundingClientRect()
-          const listRect = listEl.getBoundingClientRect()
-          const buffer = 6
-          if (itemRect.top < listRect.top + buffer) {
-            listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
-          } else if (itemRect.bottom > listRect.bottom - buffer) {
-            listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
-          }
-        })
+        requestAnimationFrame(() => scrollHighlightedIntoView(idx))
       }
     }
   }, [open, selectedIndex, options])
@@ -131,23 +119,57 @@ function ComboBox({
     })
   }
 
+  const scrollHighlightedIntoView = (index) => {
+    const listEl = listRef.current
+    const itemEl = listEl?.children?.[index]
+    if (!listEl || !itemEl) return
+    const itemRect = itemEl.getBoundingClientRect()
+    const listRect = listEl.getBoundingClientRect()
+    const buffer = 6
+    if (itemRect.top < listRect.top + buffer) {
+      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+    } else if (itemRect.bottom > listRect.bottom - buffer) {
+      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+    }
+  }
+
   const onKeyDown = (e) => {
     if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault(); setOpen(true); return
+    if (!open && e.key === "Enter") {
+      e.preventDefault()
+      setOpen(true)
+      return
+    }
+    if (!open && (e.key === " " || e.key === "ArrowDown")) {
+      e.preventDefault()
+      setOpen(true)
+      return
     }
     if (!open) return
+
     if (e.key === "ArrowDown") {
       e.preventDefault()
-      setHighlight((h) => (h < options.length - 1 ? h + 1 : 0))
+      setHighlight((h) => {
+        const next = h < options.length - 1 ? h + 1 : 0
+        requestAnimationFrame(() => scrollHighlightedIntoView(next))
+        return next
+      })
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
-      setHighlight((h) => (h > 0 ? h - 1 : options.length - 1))
+      setHighlight((h) => {
+        const prev = h > 0 ? h - 1 : options.length - 1
+        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
+        return prev
+      })
     } else if (e.key === "Enter") {
       e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight], { navigate: true })
+      if (highlight >= 0 && highlight < options.length) {
+        commit(options[highlight], { navigate: true })
+      }
     } else if (e.key === "Escape") {
-      e.preventDefault(); setOpen(false); setHighlight(-1)
+      e.preventDefault()
+      setOpen(false)
+      setHighlight(-1)
     }
   }
 
@@ -169,6 +191,7 @@ function ComboBox({
           })
         }}
         onKeyDown={onKeyDown}
+        data-combobox-btn="true"
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
           disabled ? "bg-slate-200 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
@@ -231,10 +254,10 @@ const REPORTS = [
     key: "purchaseGrouped",
     title: "ซื้อ/ขาย แยกราคาต่อกก. (Excel)",
     desc: "สรุปซื้อ-ขายตามราคาต่อกก. ช่วงวันที่ที่กำหนด",
-    endpoint: "/report/orders/purchase-excel", // requires: start_date, end_date, spec_id; optional: branch_id, klang_id
+    endpoint: "/report/orders/purchase-excel", // requires: start_date, end_date; optional: spec_id, branch_id, klang_id
     type: "excel",
-    require: ["startDate", "endDate", "specId"],
-    optional: ["branchId", "klangId"],
+    require: ["startDate", "endDate"],         // <— spec เป็นทางเลือก ตาม BE
+    optional: ["specId", "branchId", "klangId"],
   },
   {
     key: "salesDaily",
@@ -252,7 +275,7 @@ const REPORTS = [
     endpoint: "/report/purchases/daily-excel", // requires: start_date, end_date, branch_id; optional: spec_id
     type: "excel",
     require: ["startDate", "endDate", "branchId"],
-    optional: ["specId"], // ✅ แก้สะกดให้ตรงกับ state
+    optional: ["specId"],                      // <— แก้คีย์สะกดให้ตรง (ไม่ใช่ SpecId)
   },
   {
     key: "registerPurchase",
@@ -269,7 +292,7 @@ const REPORTS = [
     desc: "ซื้อ-ขาย-รับโอน-โอน-ส่งสี-ตัดเสียหาย ตามสาขา",
     endpoint: "/report/branch-rx.xlsx", // requires: start_date, end_date, branch_id, spec_id
     type: "excel",
-    require: ["startDate", "endDate", "branchId", "specId"],
+    require: ["startDate", "endDate", "branchId", "specId"],  // <— ต้องเลือกชนิดข้าว ตาม BE
     optional: [],
   },
   {
@@ -292,18 +315,15 @@ const REPORTS = [
   },
 ]
 
-/** ======================================================================= */
-/** ============================  MAIN COMPONENT  ========================== */
-/** ======================================================================= */
-export default function Documents() {
+function Documents() {
   /** ---------- โหลดตัวเลือกพื้นฐาน ---------- */
   const [loadingOptions, setLoadingOptions] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [errors, setErrors] = useState({})
-  const [activeReport, setActiveReport] = useState(null) // key ของ REPORTS
+  const [activeReport, setActiveReport] = useState(REPORTS[0].key)
 
   const [productOptions, setProductOptions] = useState([])
-  const [specOptions, setSpecOptions] = useState([])   // ‘ชนิดข้าว (spec)’ จาก /order/rice/search?product_id
+  const [specOptions, setSpecOptions] = useState([]) // ‘ชนิดข้าว (spec)’ จาก /order/rice/search?product_id
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
 
@@ -376,14 +396,13 @@ export default function Documents() {
     const loadSpecs = async () => {
       try {
         const arr = (await apiAuth(`/order/rice/search?product_id=${encodeURIComponent(pid)}`)) || []
-        // id ที่ได้ จะถือเป็น spec_id สำหรับฝั่งรายงานทั้งหมด
+        // id ที่ได้ จะถือเป็น spec_id สำหรับฝั่งรายงาน
         setSpecOptions(
-          arr
-            .map((x) => ({
-              id: String(x.id ?? x.rice_id ?? ""),
-              label: String(x.rice_type ?? x.name ?? "").trim(),
-            }))
-            .filter((o) => o.id && o.label)
+          arr.map((x) => ({
+            id: String(x.id ?? x.rice_id ?? ""),
+            label: String(x.rice_type ?? x.name ?? "").trim(),
+          }))
+          .filter((o) => o.id && o.label)
         )
       } catch (e) {
         console.error("load spec error:", e)
@@ -404,11 +423,7 @@ export default function Documents() {
     const loadKlang = async () => {
       try {
         const arr = (await apiAuth(`/order/klang/search?branch_id=${encodeURIComponent(bId)}`)) || []
-        setKlangOptions(
-          arr
-            .map((x) => ({ id: String(x.id), label: x.klang_name }))
-            .filter((o) => o.id && o.label)
-        )
+        setKlangOptions(arr.map((x) => ({ id: String(x.id), label: x.klang_name })).filter((o) => o.id && o.label))
       } catch (e) {
         console.error("load klang error:", e)
         setKlangOptions([])
@@ -434,7 +449,9 @@ export default function Documents() {
     }
     for (const field of report.require) {
       if (["startDate", "endDate"].includes(field)) continue
-      if (!filters[field]) e[field] = "จำเป็นต้องระบุ"
+      if (!filters[field]) {
+        e[field] = "จำเป็นต้องระบุ"
+      }
     }
     setErrors(e)
     return e
@@ -453,7 +470,7 @@ export default function Documents() {
     // ส่วนกลาง
     if (filters.branchId) p.set("branch_id", filters.branchId)
     if (filters.klangId) p.set("klang_id", filters.klangId)
-    if (filters.specId) p.set("spec_id", filters.specId) // ส่ง spec_id ตามที่ BE ใช้
+    if (filters.specId) p.set("spec_id", filters.specId) // ส่ง spec_id ตรงตาม BE
     if (filters.productId && report.key === "stockTree") p.set("product_id", filters.productId)
 
     // เฉพาะ register-excel
@@ -486,7 +503,7 @@ export default function Documents() {
       } else if (report.type === "json") {
         const json = await apiAuth(`${report.endpoint}?${params.toString()}`)
         setPreviewJson(json)
-        // เผื่ออยากดาวน์โหลด .json
+        // สร้างไฟล์ .json ให้ดาวน์โหลดด้วย
         const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" })
         const link = document.createElement("a")
         link.href = URL.createObjectURL(blob)
@@ -552,7 +569,7 @@ export default function Documents() {
     )
   }
 
-  const FormProductSpec = ({ requiredSpec = false, showProduct = true }) => (
+  const FormProductSpec = ({ requiredSpec = false, showProduct = true, hintOptional = false }) => (
     <>
       {showProduct && (
         <div>
@@ -572,7 +589,7 @@ export default function Documents() {
         <ComboBox
           options={
             (specOptions.length === 0)
-              ? [] // ยังไม่มีตัวเลือก → บังคับให้เลือกประเภทสินค้าก่อน
+              ? [] // ยังไม่มีตัวเลือก (ให้ placeholder บอกให้เลือกประเภทสินค้าก่อน)
               : withEmpty(specOptions, "— เลือก —")
           }
           value={filters.specId}
@@ -582,6 +599,7 @@ export default function Documents() {
           error={!!(requiredSpec && errors.specId)}
         />
         {requiredSpec && <FieldError name="specId" />}
+        {hintOptional && <p className={helpTextCls}>ถ้าไม่เลือก ระบบจะออกรวมทุกชนิดข้าว</p>}
       </div>
     </>
   )
@@ -614,236 +632,174 @@ export default function Documents() {
     </>
   )
 
+  const currentReport = useMemo(() => REPORTS.find(r => r.key === activeReport), [activeReport])
+
   const renderReportForm = (report) => {
     if (!report) return null
 
     if (report.key === "purchaseGrouped") {
       return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-            <FormProductSpec requiredSpec showProduct />
-            <FormBranchKlang requireBranch={false} />
-          </div>
-        </>
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormDates report={report} />
+          <FormProductSpec requiredSpec={false} showProduct hintOptional />
+          <FormBranchKlang requireBranch={false} />
+        </div>
       )
     }
+
     if (report.key === "salesDaily" || report.key === "purchasesDaily") {
       return (
         <>
           <div className="grid gap-4 md:grid-cols-3">
             <FormDates report={report} />
             <FormBranchKlang requireBranch />
-            {/* spec เป็นตัวเลือกเสริม */}
-            <div>
-              <label className={labelCls}>ชนิดข้าว (spec) – ไม่บังคับ</label>
-              <ComboBox
-                options={(specOptions.length === 0) ? [] : withEmpty(specOptions, "— เลือก —")}
-                value={filters.specId}
-                onChange={(v) => setFilter("specId", v)}
-                placeholder={specOptions.length ? "— เลือก —" : "— เลือกประเภทสินค้าก่อน —"}
-                disabled={specOptions.length === 0}
-              />
-              <p className={helpTextCls}>ถ้าไม่เลือก จะออกรวมทุกชนิดข้าวในสาขานั้น</p>
-            </div>
+            <FormProductSpec requiredSpec={false} showProduct hintOptional />
           </div>
         </>
       )
     }
+
     if (report.key === "registerPurchase") {
       return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-            <FormBranchKlang requireBranch={false} />
-            <div>
-              <label className={labelCls}>ค้นหาชื่อสายพันธุ์ (`species_like`)</label>
-              <input
-                className={baseField}
-                placeholder="เช่น มะลิ"
-                value={filters.speciesLike}
-                onChange={(e) => setFilter("speciesLike", e.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>ที่อยู่ บรรทัด 4 (`addr_line4`)</label>
-              <input
-                className={baseField}
-                value={filters.addrLine4}
-                onChange={(e) => setFilter("addrLine4", e.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>ที่อยู่ บรรทัด 5 (`addr_line5`)</label>
-              <input
-                className={baseField}
-                value={filters.addrLine5}
-                onChange={(e) => setFilter("addrLine5", e.target.value)}
-              />
-            </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormDates report={report} />
+          <FormBranchKlang requireBranch={false} />
+          <div>
+            <label className={labelCls}>ค้นหาชื่อสายพันธุ์ (`species_like`)</label>
+            <input
+              className={baseField}
+              placeholder="เช่น มะลิ"
+              value={filters.speciesLike}
+              onChange={(e) => setFilter("speciesLike", e.target.value)}
+            />
           </div>
-        </>
+          <div>
+            <label className={labelCls}>ที่อยู่ บรรทัด 4 (`addr_line4`)</label>
+            <input
+              className={baseField}
+              value={filters.addrLine4}
+              onChange={(e) => setFilter("addrLine4", e.target.value)}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>ที่อยู่ บรรทัด 5 (`addr_line5`)</label>
+            <input
+              className={baseField}
+              value={filters.addrLine5}
+              onChange={(e) => setFilter("addrLine5", e.target.value)}
+            />
+          </div>
+        </div>
       )
     }
+
     if (report.key === "branchRx") {
       return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-            <FormBranchKlang requireBranch />
-            <FormProductSpec requiredSpec showProduct />
-          </div>
-        </>
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormDates report={report} />
+          <FormBranchKlang requireBranch />
+          <FormProductSpec requiredSpec showProduct />
+        </div>
       )
     }
+
     if (report.key === "riceSummary") {
       return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-          </div>
-        </>
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormDates report={report} />
+          <div className="md:col-span-2" />
+        </div>
       )
     }
+
     if (report.key === "stockTree") {
       return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormBranchKlang requireBranch />
-            <div>
-              <label className={labelCls}>ประเภทสินค้า (product_id) *</label>
-              <ComboBox
-                options={withEmpty(productOptions, "— เลือก —")}
-                value={filters.productId}
-                onChange={(v) => setFilter("productId", v)}
-                placeholder="— เลือก —"
-                error={!!errors.productId}
-              />
-              <FieldError name="productId" />
-            </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormBranchKlang requireBranch />
+          <div>
+            <label className={labelCls}>ประเภทสินค้า *</label>
+            <ComboBox
+              options={withEmpty(productOptions, "— เลือก —")}
+              value={filters.productId}
+              onChange={(v) => setFilter("productId", v)}
+              placeholder="— เลือก —"
+              error={!filters.productId && !!errors.productId}
+            />
           </div>
-          {previewJson && (
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-800">
-              <div className="mb-2 font-semibold">ตัวอย่างผลลัพธ์ (JSON)</div>
-              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words">
-                {JSON.stringify(previewJson, null, 2)}
-              </pre>
-            </div>
-          )}
-        </>
+        </div>
       )
     }
+
     return null
   }
 
-  /** ---------- Render ---------- */
-  const reportObj = REPORTS.find((r) => r.key === activeReport)
-
   return (
-    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      <div className="mx-auto max-w-6xl p-5 md:p-6 lg:p-8">
-        <div className="mb-6 flex items-center gap-3">
-          <h1 className="text-3xl font-bold">📚 คลังเอกสาร & รายงาน</h1>
-          {!loadingOptions && (
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
-              พร้อมใช้งาน
-            </span>
-          )}
-        </div>
+    <div className="p-6 md:p-10">
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl md:text-3xl font-semibold text-slate-800 dark:text-slate-100">
+          คลังเอกสาร & รายงาน
+        </h1>
+        <span className="rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-sm">พร้อมใช้งาน</span>
+      </div>
 
-        {/* --------------------------- เลือกรายงาน --------------------------- */}
-        {!reportObj && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {REPORTS.map((r) => (
-              <button
-                key={r.key}
-                type="button"
-                onClick={() => { setActiveReport(r.key); setPreviewJson(null); setErrors({}); }}
-                className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all hover:shadow-md hover:scale-[1.01] dark:border-slate-700 dark:bg-slate-800"
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="text-lg font-semibold">{r.title}</div>
-                  <span
-                    className={cx(
-                      "rounded-full px-2.5 py-1 text-xs font-medium",
-                      r.type === "excel"
-                        ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60"
-                        : "bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60"
-                    )}
-                  >
-                    {r.type.toUpperCase()}
-                  </span>
-                </div>
-                <p className="text-slate-600 dark:text-slate-300">{r.desc}</p>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* --------------------------- ฟอร์มของรายงาน --------------------------- */}
-        {reportObj && (
-          <form
-            onSubmit={(e) => { e.preventDefault(); doDownload(reportObj) }}
-            className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white mt-2"
+      {/* เลือกรายงาน */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        {REPORTS.map((r) => (
+          <button
+            key={r.key}
+            onClick={() => setActiveReport(r.key)}
+            className={cx(
+              "rounded-full px-4 py-2 text-sm md:text-[15px] border",
+              activeReport === r.key
+                ? "bg-emerald-600 text-white border-emerald-600"
+                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200"
+            )}
           >
-            <div className="mb-5 flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xl font-semibold">{reportObj.title}</div>
-                <div className={helpTextCls}>{reportObj.desc}</div>
-              </div>
-              {/* ปุ่มกลับ/เลือกรายงานอื่น */}
-              <button
-                type="button"
-                onClick={() => { setActiveReport(null); setPreviewJson(null); setErrors({}); }}
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 md:px-5 py-3 text-base font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-100 hover:shadow-md hover:scale-[1.02] active:scale-[.98] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50"
-                title="กลับไปหน้าเลือกรายงาน"
-              >
-                ← เลือกรายงานอื่น
-              </button>
-            </div>
+            {r.title}
+          </button>
+        ))}
+      </div>
 
-            {renderReportForm(reportObj)}
+      {/* ฟอร์มพารามิเตอร์ */}
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 md:p-7 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="mb-1 text-slate-700 dark:text-slate-200">{currentReport?.desc}</div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                disabled={downloading}
-                className={cx(
-                  "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-base font-semibold text-white " +
-                  "shadow-[0_6px_16px_rgba(16,185,129,0.35)] transition-all duration-300 ease-out " +
-                  "hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97] cursor-pointer",
-                  downloading && "opacity-70 cursor-wait hover:scale-100 hover:shadow-none"
-                )}
-              >
-                {reportObj.type === "excel"
-                  ? (downloading ? "กำลังเตรียมไฟล์..." : "⬇️ ดาวน์โหลด Excel")
-                  : (downloading ? "กำลังดึงข้อมูล..." : "👁️‍🗨️ พรีวิว + ดาวน์โหลด JSON")}
-              </button>
+        <div className="mt-4">
+          {renderReportForm(currentReport)}
+        </div>
 
-              <button
-                type="button"
-                onClick={resetForm}
-                className={
-                  "inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-6 py-3 text-base " +
-                  "font-medium text-slate-700 shadow-sm transition-all duration-300 ease-out hover:bg-slate-100 hover:shadow-md " +
-                  "hover:scale-[1.03] active:scale-[.97] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white " +
-                  "dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
-                }
-              >
-                รีเซ็ตตัวกรอง
-              </button>
-            </div>
-          </form>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            onClick={() => doDownload(currentReport)}
+            disabled={downloading || loadingOptions}
+            className={cx(
+              "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800",
+              (downloading || loadingOptions) && "opacity-60 cursor-not-allowed"
+            )}
+          >
+            <span>⬇</span> ดาวน์โหลด {currentReport?.type === "json" ? "JSON" : "Excel"}
+          </button>
+          <button
+            onClick={resetForm}
+            className="rounded-2xl border border-slate-300 px-4 py-2 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
+          >
+            รีเซ็ตตัวกรอง
+          </button>
+        </div>
+
+        {currentReport?.key === "stockTree" && previewJson && (
+          <pre className="mt-6 max-h-96 overflow-auto rounded-2xl bg-slate-900 p-4 text-slate-100 text-sm">
+            {JSON.stringify(previewJson, null, 2)}
+          </pre>
         )}
 
-        {/* หมายเหตุ / วิธีเพิ่มรายงานใหม่ */}
-        <div className="mt-6 rounded-2xl border border-dashed border-slate-300 p-5 text-slate-600 dark:border-slate-600 dark:text-slate-300">
-          <div className="font-medium">เพิ่มรายงานใหม่</div>
-          <div className="mt-1 text-sm">
-            ให้หลังบ้านเปิด endpoint ภายใต้ <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/report/…</code> แล้วเพิ่มรายการในตัวแปร <code>REPORTS</code> (กำหนด <code>require</code> / <code>optional</code> ให้ตรงกับ BE) จากนั้น FE จะสร้าง query string ให้ให้อัตโนมัติ
-          </div>
-        </div>
+        <p className="mt-6 text-sm text-slate-500 dark:text-slate-300">
+          เพิ่มรายงานใหม่ ให้หลังบ้านเปิด endpoint ภายใต้ <code>/report/…</code> แล้วนิยามรายการในตัวแปร <code>REPORTS</code> กำหนด
+          <code>require</code>/<code>optional</code> ให้ตรงกับ BE จากนั้น FE จะสร้าง query string ให้อัตโนมัติ
+        </p>
       </div>
     </div>
   )
 }
+
+export default Documents

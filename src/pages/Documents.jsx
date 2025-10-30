@@ -247,7 +247,7 @@ const REPORTS = [
     endpoint: "/report/purchases/daily-excel",
     type: "excel",
     require: ["startDate", "endDate", "branchId"],
-    optional: ["specId"], // ← แก้ตัวพิมพ์ให้ถูก
+    optional: ["specId"],
   },
   {
     key: "registerPurchase",
@@ -289,6 +289,7 @@ const REPORTS = [
 
 function Documents() {
   const [loadingOptions, setLoadingOptions] = useState(false)
+  const [loadingSpecs, setLoadingSpecs] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [errors, setErrors] = useState({})
   const [activeReport, setActiveReport] = useState(null)
@@ -316,7 +317,7 @@ function Documents() {
   })
   const setFilter = (k, v) => setFilters((p) => ({ ...p, [k]: v }))
 
-  /** โหลดตัวเลือกพื้นฐาน */
+  /** โหลดตัวเลือกพื้นฐาน (product, branch) */
   useEffect(() => {
     const loadOptions = async () => {
       try {
@@ -348,54 +349,28 @@ function Documents() {
     loadOptions()
   }, [])
 
-  /** helper: ลองหลาย endpoint เพื่อดึงชนิดข้าว (spec) */
-  const fetchSpecOptions = async (pid) => {
-    const qs = encodeURIComponent(pid)
-    const candidates = [
-      `/order/rice/search?product_id=${qs}`,
-      `/order/spec/search?product_id=${qs}`,
-      `/order/product/spec/search?product_id=${qs}`,
-      `/order/productspec/search?product_id=${qs}`,
-      `/order/specs?product_id=${qs}`,
-    ]
-    let lastErr
-    for (const path of candidates) {
-      try {
-        const arr = await apiAuth(path)
-        if (Array.isArray(arr)) {
-          const opts = arr
-            .map((x) => ({
-              id: String(x.id ?? x.spec_id ?? x.rice_id ?? x.ps_id ?? ""),
-              label: String(x.rice_type ?? x.prod_name ?? x.name ?? x.spec_name ?? x.label ?? "").trim(),
-            }))
-            .filter((o) => o.id && o.label)
-          if (opts.length) return opts
-        }
-      } catch (e) {
-        lastErr = e
-        // 404 ก็ลองตัวถัดไป
-        continue
-      }
-    }
-    throw lastErr || new Error("ไม่พบ endpoint สำหรับค้นหา spec")
-  }
-
-  /** product → spec */
+  /** โหลด “รายการสำเร็จรูป (spec)” แบบหน้า buy: /order/form/search */
   useEffect(() => {
-    const pid = filters.productId
-    if (!pid) {
-      setSpecOptions([]); setFilters((p) => ({ ...p, specId: "" })); return
-    }
-    (async () => {
+    const loadSpecs = async () => {
       try {
-        const opts = await fetchSpecOptions(pid)
+        setLoadingSpecs(true)
+        const rows = await apiAuth("/order/form/search") // คืน ProductSpec ที่มี prod_name แล้ว
+        const opts = (rows || [])
+          .map((r) => ({
+            id: String(r.id),
+            label: String(r.prod_name || r.name || r.spec_name || `spec #${r.id}`).trim(),
+          }))
+          .filter((o) => o.id && o.label)
         setSpecOptions(opts)
       } catch (e) {
-        console.error("load spec error:", e)
+        console.error("loadSpecs error:", e)
         setSpecOptions([])
+      } finally {
+        setLoadingSpecs(false)
       }
-    })()
-  }, [filters.productId])
+    }
+    loadSpecs()
+  }, [])
 
   /** branch → klang */
   useEffect(() => {
@@ -441,7 +416,10 @@ function Documents() {
     if (report.require.includes("endDate") || report.optional?.includes?.("endDate")) p.set("end_date", filters.endDate)
     if (filters.branchId) p.set("branch_id", filters.branchId)
     if (filters.klangId) p.set("klang_id", filters.klangId)
-    if (filters.specId) p.set("spec_id", filters.specId)
+    if (filters.specId) {
+      // รองรับ BE ที่รับหลายค่า: spec_id=1&spec_id=2 ... (ตอนนี้เราเลือกเดี่ยว แต่ใช้ append เพื่อรองรับอนาคต)
+      p.append("spec_id", filters.specId)
+    }
     if (filters.productId && report.key === "stockTree") p.set("product_id", filters.productId)
     if (report.key === "registerPurchase") {
       if (filters.speciesLike) p.set("species_like", filters.speciesLike.trim())
@@ -507,32 +485,21 @@ function Documents() {
     )
   }
 
-  const FormProductSpec = ({ requiredSpec=false, showProduct=true }) => (
-    <>
-      {showProduct && (
-        <div>
-          <label className={labelCls}>ประเภทสินค้า</label>
-          <ComboBox
-            options={withEmpty(productOptions, "— เลือก —")}
-            value={filters.productId}
-            onChange={(v) => setFilter("productId", v)}
-            placeholder="— เลือก —"
-          />
-        </div>
-      )}
-      <div>
-        <label className={labelCls}>ชนิดข้าว (spec){requiredSpec && <span className="text-red-500"> *</span>}</label>
-        <ComboBox
-          options={specOptions.length === 0 ? [] : withEmpty(specOptions, "— เลือก —")}
-          value={filters.specId}
-          onChange={(v) => setFilter("specId", v)}
-          placeholder={specOptions.length ? "— เลือก —" : "— เลือกประเภทสินค้าก่อน —"}
-          disabled={specOptions.length === 0}
-          error={!!(requiredSpec && errors.specId)}
-        />
-        {requiredSpec && <FieldError name="specId" />}
-      </div>
-    </>
+  /** ดรอปดาว “รายการสำเร็จรูป (spec)” จาก BE */
+  const FormSpecOnly = ({ requiredSpec=false }) => (
+    <div>
+      <label className={labelCls}>รายการสำเร็จรูป (spec){requiredSpec && <span className="text-red-500"> *</span>}</label>
+      <ComboBox
+        options={withEmpty(specOptions, loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —")}
+        value={filters.specId}
+        onChange={(v) => setFilter("specId", v)}
+        placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
+        disabled={loadingSpecs || specOptions.length === 0}
+        error={!!(requiredSpec && errors.specId)}
+      />
+      {requiredSpec && <FieldError name="specId" />}
+      <p className={helpTextCls}>ข้อมูลรายการมาจากฝั่ง BE `/order/form/search` (prod_name)</p>
+    </div>
   )
 
   const FormBranchKlang = ({ requireBranch=false }) => (
@@ -567,7 +534,7 @@ function Documents() {
       return (
         <div className="grid gap-4 md:grid-cols-3">
           <FormDates report={report}/>
-          <FormProductSpec requiredSpec showProduct/>
+          <FormSpecOnly requiredSpec />
           <FormBranchKlang requireBranch={false}/>
         </div>
       )
@@ -578,9 +545,9 @@ function Documents() {
           <div className="grid gap-4 md:grid-cols-3">
             <FormDates report={report}/>
             <FormBranchKlang requireBranch/>
-            <FormProductSpec requiredSpec={false} showProduct/>
+            <FormSpecOnly requiredSpec={false}/>
           </div>
-          <p className={helpTextCls}>ถ้าไม่เลือกชนิดข้าว ระบบจะออกรวมทุกชนิดในสาขาที่เลือก</p>
+          <p className={helpTextCls}>ถ้าไม่เลือกสเปก ระบบจะออกรวมทุกชนิดในสาขาที่เลือก</p>
         </>
       )
     }
@@ -610,7 +577,7 @@ function Documents() {
         <div className="grid gap-4 md:grid-cols-3">
           <FormDates report={report}/>
           <FormBranchKlang requireBranch/>
-          <FormProductSpec requiredSpec showProduct/>
+          <FormSpecOnly requiredSpec />
         </div>
       )
     }
@@ -653,7 +620,7 @@ function Documents() {
       <div className="mx-auto max-w-6xl p-5 md:p-6 lg:p-8">
         <div className="mb-6 flex items-center gap-3">
           <h1 className="text-3xl font-bold">📚 คลังเอกสาร & รายงาน</h1>
-          {!loadingOptions && (
+          {!loadingOptions && !loadingSpecs && (
             <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
               พร้อมใช้งาน
             </span>

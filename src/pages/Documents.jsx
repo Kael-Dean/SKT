@@ -1,11 +1,9 @@
+// src/pages/Documents.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { apiAuth, apiDownload } from "../lib/api"   // ✅ helper แนบ token + BASE URL
+import { apiAuth, apiDownload } from "../lib/api"
 
 /** ---------- Utils ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
-const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
-
-/** ---------- Styles ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -21,7 +19,6 @@ const DateInput = forwardRef(function DateInput(
 ) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
-
   return (
     <div className="relative">
       <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
@@ -102,9 +99,19 @@ function ComboBox({
     if (open) {
       const idx = selectedIndex >= 0 ? selectedIndex : (options.length ? 0 : -1)
       setHighlight(idx)
-      if (idx >= 0) {
-        requestAnimationFrame(() => scrollHighlightedIntoView(idx))
-      }
+      if (idx >= 0) requestAnimationFrame(() => {
+        const listEl = listRef.current
+        const itemEl = listEl?.children?.[idx]
+        if (!listEl || !itemEl) return
+        const itemRect = itemEl.getBoundingClientRect()
+        const listRect = listEl.getBoundingClientRect()
+        const buffer = 6
+        if (itemRect.top < listRect.top + buffer) {
+          listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+        } else if (itemRect.bottom > listRect.bottom - buffer) {
+          listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+        }
+      })
     }
   }, [open, selectedIndex, options])
 
@@ -119,57 +126,23 @@ function ComboBox({
     })
   }
 
-  const scrollHighlightedIntoView = (index) => {
-    const listEl = listRef.current
-    const itemEl = listEl?.children?.[index]
-    if (!listEl || !itemEl) return
-    const itemRect = itemEl.getBoundingClientRect()
-    const listRect = listEl.getBoundingClientRect()
-    const buffer = 6
-    if (itemRect.top < listRect.top + buffer) {
-      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
-    } else if (itemRect.bottom > listRect.bottom - buffer) {
-      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
-    }
-  }
-
   const onKeyDown = (e) => {
     if (disabled) return
-    if (!open && e.key === "Enter") {
-      e.preventDefault()
-      setOpen(true)
-      return
-    }
-    if (!open && (e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault()
-      setOpen(true)
-      return
-    }
+    if (!open && e.key === "Enter") { e.preventDefault(); setOpen(true); return }
+    if (!open && (e.key === " " || e.key === "ArrowDown")) { e.preventDefault(); setOpen(true); return }
     if (!open) return
-
     if (e.key === "ArrowDown") {
       e.preventDefault()
-      setHighlight((h) => {
-        const next = h < options.length - 1 ? h + 1 : 0
-        requestAnimationFrame(() => scrollHighlightedIntoView(next))
-        return next
-      })
+      setHighlight((h) => (h < options.length - 1 ? h + 1 : 0))
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
-      setHighlight((h) => {
-        const prev = h > 0 ? h - 1 : options.length - 1
-        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
-        return prev
-      })
+      setHighlight((h) => (h > 0 ? h - 1 : options.length - 1))
     } else if (e.key === "Enter") {
       e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) {
-        commit(options[highlight], { navigate: true })
-      }
+      if (highlight >= 0 && highlight < options.length) commit(options[highlight], { navigate: true })
     } else if (e.key === "Escape") {
       e.preventDefault()
-      setOpen(false)
-      setHighlight(-1)
+      setOpen(false); setHighlight(-1)
     }
   }
 
@@ -191,7 +164,6 @@ function ComboBox({
           })
         }}
         onKeyDown={onKeyDown}
-        data-combobox-btn="true"
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
           disabled ? "bg-slate-200 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
@@ -254,7 +226,7 @@ const REPORTS = [
     key: "purchaseGrouped",
     title: "ซื้อ/ขาย แยกราคาต่อกก. (Excel)",
     desc: "สรุปซื้อ-ขายตามราคาต่อกก. ช่วงวันที่ที่กำหนด",
-    endpoint: "/report/orders/purchase-excel", // requires: start_date, end_date, spec_id; optional: branch_id, klang_id
+    endpoint: "/report/orders/purchase-excel",
     type: "excel",
     require: ["startDate", "endDate", "specId"],
     optional: ["branchId", "klangId"],
@@ -263,7 +235,7 @@ const REPORTS = [
     key: "salesDaily",
     title: "ขายรายวัน (Excel)",
     desc: "รายการขายแบบแยกวันต่อวัน",
-    endpoint: "/report/sales/daily-excel", // requires: start_date, end_date, branch_id; optional: spec_id
+    endpoint: "/report/sales/daily-excel",
     type: "excel",
     require: ["startDate", "endDate", "branchId"],
     optional: ["specId"],
@@ -272,16 +244,16 @@ const REPORTS = [
     key: "purchasesDaily",
     title: "ซื้อรายวัน (Excel)",
     desc: "รายการซื้อแบบแยกวันต่อวัน",
-    endpoint: "/report/purchases/daily-excel", // requires: start_date, end_date, branch_id; optional: spec_id
+    endpoint: "/report/purchases/daily-excel",
     type: "excel",
     require: ["startDate", "endDate", "branchId"],
-    optional: ["specId"], // ✅ แก้ตัวพิมพ์ให้ตรง
+    optional: ["specId"], // ← แก้ตัวพิมพ์ให้ถูก
   },
   {
     key: "registerPurchase",
     title: "ทะเบียนรับซื้อ (Excel)",
     desc: "ทะเบียนรับซื้อพร้อมค้นหาสายพันธุ์/ที่อยู่",
-    endpoint: "/report/orders/register-excel", // requires: start_date, end_date; optional: branch_id, klang_id, species_like, addr_line4, addr_line5
+    endpoint: "/report/orders/register-excel",
     type: "excel",
     require: ["startDate", "endDate"],
     optional: ["branchId", "klangId", "speciesLike", "addrLine4", "addrLine5"],
@@ -290,7 +262,7 @@ const REPORTS = [
     key: "branchRx",
     title: "สรุปสาขา (RX) (Excel)",
     desc: "ซื้อ-ขาย-รับโอน-โอน-ส่งสี-ตัดเสียหาย ตามสาขา",
-    endpoint: "/report/branch-rx.xlsx", // requires: start_date, end_date, branch_id, spec_id
+    endpoint: "/report/branch-rx.xlsx",
     type: "excel",
     require: ["startDate", "endDate", "branchId", "specId"],
     optional: [],
@@ -299,7 +271,7 @@ const REPORTS = [
     key: "riceSummary",
     title: "สรุปซื้อขายรวม (Excel)",
     desc: "รวมทุกสาขา/ชนิดข้าวหลัก ช่วงวันที่ที่กำหนด",
-    endpoint: "/report/rice-summary.xlsx", // requires: start_date, end_date
+    endpoint: "/report/rice-summary.xlsx",
     type: "excel",
     require: ["startDate", "endDate"],
     optional: [],
@@ -308,7 +280,7 @@ const REPORTS = [
     key: "stockTree",
     title: "โครงสร้างสต๊อก (JSON)",
     desc: "ภาพรวมสต๊อกแบบ Tree (product → species → …)",
-    endpoint: "/report/stock/tree", // requires: branch_id, product_id; optional: klang_id, species_id, variant_id, …
+    endpoint: "/report/stock/tree",
     type: "json",
     require: ["branchId", "productId"],
     optional: ["klangId"],
@@ -316,43 +288,35 @@ const REPORTS = [
 ]
 
 function Documents() {
-  /** ---------- โหลดตัวเลือกพื้นฐาน ---------- */
   const [loadingOptions, setLoadingOptions] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [errors, setErrors] = useState({})
-  const [activeReport, setActiveReport] = useState(null) // key ของ REPORTS
+  const [activeReport, setActiveReport] = useState(null)
 
   const [productOptions, setProductOptions] = useState([])
-  const [specOptions, setSpecOptions] = useState([]) // << ‘ชนิดข้าว (spec)’ จาก /order/rice/search?product_id
+  const [specOptions, setSpecOptions] = useState([])
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
 
-  const [previewJson, setPreviewJson] = useState(null) // สำหรับ stock/tree
+  const [previewJson, setPreviewJson] = useState(null)
 
   const today = new Date().toISOString().slice(0, 10)
-  const firstDayThisMonth = useMemo(() => {
-    const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10)
-  }, [])
+  const firstDayThisMonth = useMemo(() => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10) }, [])
 
-  /** ---------- State ฟิลเตอร์กลาง + ต่อรายงาน ---------- */
   const [filters, setFilters] = useState({
-    // กลาง
     startDate: firstDayThisMonth,
     endDate: today,
-    // ผูก options
     productId: "",
     specId: "",
     branchId: "",
     klangId: "",
-    // register-excel
     speciesLike: "",
     addrLine4: "",
     addrLine5: "",
-    // stock-tree เฉพาะ (ไม่มีวันที่)
   })
   const setFilter = (k, v) => setFilters((p) => ({ ...p, [k]: v }))
 
-  /** ---------- Load base options ---------- */
+  /** โหลดตัวเลือกพื้นฐาน */
   useEffect(() => {
     const loadOptions = async () => {
       try {
@@ -376,8 +340,7 @@ function Documents() {
         )
       } catch (e) {
         console.error("loadOptions error:", e)
-        setProductOptions([])
-        setBranchOptions([])
+        setProductOptions([]); setBranchOptions([])
       } finally {
         setLoadingOptions(false)
       }
@@ -385,42 +348,62 @@ function Documents() {
     loadOptions()
   }, [])
 
-  /** product → spec (ชนิดข้าว / spec_id) */
+  /** helper: ลองหลาย endpoint เพื่อดึงชนิดข้าว (spec) */
+  const fetchSpecOptions = async (pid) => {
+    const qs = encodeURIComponent(pid)
+    const candidates = [
+      `/order/rice/search?product_id=${qs}`,
+      `/order/spec/search?product_id=${qs}`,
+      `/order/product/spec/search?product_id=${qs}`,
+      `/order/productspec/search?product_id=${qs}`,
+      `/order/specs?product_id=${qs}`,
+    ]
+    let lastErr
+    for (const path of candidates) {
+      try {
+        const arr = await apiAuth(path)
+        if (Array.isArray(arr)) {
+          const opts = arr
+            .map((x) => ({
+              id: String(x.id ?? x.spec_id ?? x.rice_id ?? x.ps_id ?? ""),
+              label: String(x.rice_type ?? x.prod_name ?? x.name ?? x.spec_name ?? x.label ?? "").trim(),
+            }))
+            .filter((o) => o.id && o.label)
+          if (opts.length) return opts
+        }
+      } catch (e) {
+        lastErr = e
+        // 404 ก็ลองตัวถัดไป
+        continue
+      }
+    }
+    throw lastErr || new Error("ไม่พบ endpoint สำหรับค้นหา spec")
+  }
+
+  /** product → spec */
   useEffect(() => {
     const pid = filters.productId
     if (!pid) {
-      setSpecOptions([])
-      setFilters((p) => ({ ...p, specId: "" }))
-      return
+      setSpecOptions([]); setFilters((p) => ({ ...p, specId: "" })); return
     }
-    const loadSpecs = async () => {
+    (async () => {
       try {
-        const arr = (await apiAuth(`/order/rice/search?product_id=${encodeURIComponent(pid)}`)) || []
-        // id ที่ได้ จะถือเป็น spec_id สำหรับฝั่งรายงาน
-        setSpecOptions(
-          arr.map((x) => ({
-            id: String(x.id ?? x.rice_id ?? ""),
-            label: String(x.rice_type ?? x.name ?? "").trim(),
-          }))
-          .filter((o) => o.id && o.label)
-        )
+        const opts = await fetchSpecOptions(pid)
+        setSpecOptions(opts)
       } catch (e) {
         console.error("load spec error:", e)
         setSpecOptions([])
       }
-    }
-    loadSpecs()
+    })()
   }, [filters.productId])
 
   /** branch → klang */
   useEffect(() => {
     const bId = filters.branchId
     if (!bId) {
-      setKlangOptions([])
-      setFilters((p) => ({ ...p, klangId: "" }))
-      return
+      setKlangOptions([]); setFilters((p) => ({ ...p, klangId: "" })); return
     }
-    const loadKlang = async () => {
+    (async () => {
       try {
         const arr = (await apiAuth(`/order/klang/search?branch_id=${encodeURIComponent(bId)}`)) || []
         setKlangOptions(arr.map((x) => ({ id: String(x.id), label: x.klang_name })).filter((o) => o.id && o.label))
@@ -428,66 +411,50 @@ function Documents() {
         console.error("load klang error:", e)
         setKlangOptions([])
       }
-    }
-    loadKlang()
+    })()
   }, [filters.branchId])
 
-  /** ---------- Validation ตามรายงาน ---------- */
+  /** validate ตามรายงาน */
   const validate = (report) => {
     const e = {}
     if (!report) return e
-
     const needDate = report.require.includes("startDate") || report.require.includes("endDate")
     if (needDate) {
       if (!filters.startDate) e.startDate = "กรุณาเลือกวันที่เริ่มต้น"
       if (!filters.endDate) e.endDate = "กรุณาเลือกวันที่สิ้นสุด"
       if (filters.startDate && filters.endDate) {
-        const s = new Date(filters.startDate)
-        const ed = new Date(filters.endDate)
+        const s = new Date(filters.startDate), ed = new Date(filters.endDate)
         if (ed < s) e.endDate = "วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น"
       }
     }
     for (const field of report.require) {
       if (["startDate", "endDate"].includes(field)) continue
-      if (!filters[field]) {
-        e[field] = "จำเป็นต้องระบุ"
-      }
+      if (!filters[field]) e[field] = "จำเป็นต้องระบุ"
     }
-    setErrors(e)
-    return e
+    setErrors(e); return e
   }
 
-  /** ---------- Map ฟิลด์ → QueryString ---------- */
+  /** map ฟิลด์ → querystring */
   const buildParams = (report) => {
     const p = new URLSearchParams()
-    // วันที่ (บางรายงานไม่ใช้ เช่น stock/tree)
-    if (report.require.includes("startDate") || report.optional?.includes?.("startDate")) {
-      p.set("start_date", filters.startDate)
-    }
-    if (report.require.includes("endDate") || report.optional?.includes?.("endDate")) {
-      p.set("end_date", filters.endDate)
-    }
-    // ส่วนกลาง
+    if (report.require.includes("startDate") || report.optional?.includes?.("startDate")) p.set("start_date", filters.startDate)
+    if (report.require.includes("endDate") || report.optional?.includes?.("endDate")) p.set("end_date", filters.endDate)
     if (filters.branchId) p.set("branch_id", filters.branchId)
     if (filters.klangId) p.set("klang_id", filters.klangId)
-    if (filters.specId) p.set("spec_id", filters.specId) // ส่ง spec_id ตรงตาม BE
+    if (filters.specId) p.set("spec_id", filters.specId)
     if (filters.productId && report.key === "stockTree") p.set("product_id", filters.productId)
-
-    // เฉพาะ register-excel
     if (report.key === "registerPurchase") {
       if (filters.speciesLike) p.set("species_like", filters.speciesLike.trim())
-      if (filters.addrLine4) p.set("addr_line4", filters.addrLine4.trim())
-      if (filters.addrLine5) p.set("addr_line5", filters.addrLine5.trim())
+      if (filters.addrLine4)  p.set("addr_line4",  filters.addrLine4.trim())
+      if (filters.addrLine5)  p.set("addr_line5",  filters.addrLine5.trim())
     }
-
     return p
   }
 
-  /** ---------- Download / Preview ---------- */
+  /** ดาวน์โหลด/พรีวิว */
   const doDownload = async (report) => {
     const errs = validate(report)
     if (Object.keys(errs).length) return
-
     try {
       setDownloading(true)
       const params = buildParams(report)
@@ -496,49 +463,30 @@ function Documents() {
         const link = document.createElement("a")
         link.href = URL.createObjectURL(blob)
         link.download = filename || `${report.key}_${filters.startDate || ""}_${filters.endDate || ""}.xlsx`
-        document.body.appendChild(link)
-        link.click()
-        link.remove()
+        document.body.appendChild(link); link.click(); link.remove()
         setTimeout(() => URL.revokeObjectURL(link.href), 3000)
-      } else if (report.type === "json") {
+      } else {
         const json = await apiAuth(`${report.endpoint}?${params.toString()}`)
         setPreviewJson(json)
-        // สร้างไฟล์ .json ให้ดาวน์โหลดด้วย
         const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" })
         const link = document.createElement("a")
         link.href = URL.createObjectURL(blob)
         link.download = `${report.key}.json`
-        document.body.appendChild(link)
-        link.click()
-        link.remove()
+        document.body.appendChild(link); link.click(); link.remove()
         setTimeout(() => URL.revokeObjectURL(link.href), 3000)
       }
     } catch (err) {
-      console.error(err)
-      alert("เกิดข้อผิดพลาดในการดึงรายงาน")
-    } finally {
-      setDownloading(false)
-    }
+      console.error(err); alert("เกิดข้อผิดพลาดในการดึงรายงาน")
+    } finally { setDownloading(false) }
   }
 
-  const resetForm = () =>
-    setFilters({
-      startDate: firstDayThisMonth,
-      endDate: new Date().toISOString().slice(0, 10),
-      productId: "",
-      specId: "",
-      branchId: "",
-      klangId: "",
-      speciesLike: "",
-      addrLine4: "",
-      addrLine5: "",
-    })
+  const resetForm = () => setFilters({
+    startDate: firstDayThisMonth, endDate: new Date().toISOString().slice(0,10),
+    productId: "", specId: "", branchId: "", klangId: "",
+    speciesLike: "", addrLine4: "", addrLine5: "",
+  })
 
-  /** ---------- UI helper ---------- */
-  const FieldError = ({ name }) =>
-    errors[name] ? <div className={errorTextCls}>{errors[name]}</div> : null
-
-  // helper สำหรับเติม option “ค่าว่าง” เพื่อให้ล้างค่าได้เหมือน select เดิม
+  const FieldError = ({ name }) => errors[name] ? <div className={errorTextCls}>{errors[name]}</div> : null
   const withEmpty = (opts, emptyLabel = "— เลือก —") => [{ id: "", label: emptyLabel }, ...opts]
 
   const FormDates = ({ report }) => {
@@ -547,29 +495,19 @@ function Documents() {
       <>
         <div>
           <label className={labelCls}>วันที่เริ่มต้น</label>
-          <DateInput
-            value={filters.startDate}
-            onChange={(e) => setFilter("startDate", e.target.value)}
-            error={!!errors.startDate}
-            aria-invalid={errors.startDate ? true : undefined}
-          />
+          <DateInput value={filters.startDate} onChange={(e)=>setFilter("startDate", e.target.value)} error={!!errors.startDate}/>
           <FieldError name="startDate" />
         </div>
         <div>
           <label className={labelCls}>วันที่สิ้นสุด</label>
-          <DateInput
-            value={filters.endDate}
-            onChange={(e) => setFilter("endDate", e.target.value)}
-            error={!!errors.endDate}
-            aria-invalid={errors.endDate ? true : undefined}
-          />
+          <DateInput value={filters.endDate} onChange={(e)=>setFilter("endDate", e.target.value)} error={!!errors.endDate}/>
           <FieldError name="endDate" />
         </div>
       </>
     )
   }
 
-  const FormProductSpec = ({ requiredSpec = false, showProduct = true }) => (
+  const FormProductSpec = ({ requiredSpec=false, showProduct=true }) => (
     <>
       {showProduct && (
         <div>
@@ -583,15 +521,9 @@ function Documents() {
         </div>
       )}
       <div>
-        <label className={labelCls}>
-          ชนิดข้าว (spec){requiredSpec && <span className="text-red-500"> *</span>}
-        </label>
+        <label className={labelCls}>ชนิดข้าว (spec){requiredSpec && <span className="text-red-500"> *</span>}</label>
         <ComboBox
-          options={
-            (specOptions.length === 0)
-              ? [] // ยังไม่มีตัวเลือก (ให้ placeholder บอกให้เลือกประเภทสินค้าก่อน)
-              : withEmpty(specOptions, "— เลือก —")
-          }
+          options={specOptions.length === 0 ? [] : withEmpty(specOptions, "— เลือก —")}
           value={filters.specId}
           onChange={(v) => setFilter("specId", v)}
           placeholder={specOptions.length ? "— เลือก —" : "— เลือกประเภทสินค้าก่อน —"}
@@ -603,12 +535,10 @@ function Documents() {
     </>
   )
 
-  const FormBranchKlang = ({ requireBranch = false }) => (
+  const FormBranchKlang = ({ requireBranch=false }) => (
     <>
       <div>
-        <label className={labelCls}>
-          สาขา{requireBranch && <span className="text-red-500"> *</span>}
-        </label>
+        <label className={labelCls}>สาขา{requireBranch && <span className="text-red-500"> *</span>}</label>
         <ComboBox
           options={withEmpty(branchOptions, "— เลือก —")}
           value={filters.branchId}
@@ -633,26 +563,22 @@ function Documents() {
 
   const renderReportForm = (report) => {
     if (!report) return null
-
     if (report.key === "purchaseGrouped") {
       return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-            <FormProductSpec requiredSpec showProduct />
-            <FormBranchKlang requireBranch={false} />
-          </div>
-        </>
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormDates report={report}/>
+          <FormProductSpec requiredSpec showProduct/>
+          <FormBranchKlang requireBranch={false}/>
+        </div>
       )
     }
     if (report.key === "salesDaily" || report.key === "purchasesDaily") {
-      // ✅ เพิ่ม Product + Spec เพื่อให้เลือกชนิดข้าวได้จริง (spec เป็นตัวเลือก)
       return (
         <>
           <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-            <FormBranchKlang requireBranch />
-            <FormProductSpec requiredSpec={false} showProduct />
+            <FormDates report={report}/>
+            <FormBranchKlang requireBranch/>
+            <FormProductSpec requiredSpec={false} showProduct/>
           </div>
           <p className={helpTextCls}>ถ้าไม่เลือกชนิดข้าว ระบบจะออกรวมทุกชนิดในสาขาที่เลือก</p>
         </>
@@ -660,70 +586,48 @@ function Documents() {
     }
     if (report.key === "registerPurchase") {
       return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-            <FormBranchKlang requireBranch={false} />
-            <div>
-              <label className={labelCls}>ค้นหาชื่อสายพันธุ์ (`species_like`)</label>
-              <input
-                className={baseField}
-                placeholder="เช่น มะลิ"
-                value={filters.speciesLike}
-                onChange={(e) => setFilter("speciesLike", e.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>ที่อยู่ บรรทัด 4 (`addr_line4`)</label>
-              <input
-                className={baseField}
-                value={filters.addrLine4}
-                onChange={(e) => setFilter("addrLine4", e.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>ที่อยู่ บรรทัด 5 (`addr_line5`)</label>
-              <input
-                className={baseField}
-                value={filters.addrLine5}
-                onChange={(e) => setFilter("addrLine5", e.target.value)}
-              />
-            </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormDates report={report}/>
+          <FormBranchKlang requireBranch={false}/>
+          <div>
+            <label className={labelCls}>ค้นหาชื่อสายพันธุ์ (`species_like`)</label>
+            <input className={baseField} placeholder="เช่น มะลิ"
+              value={filters.speciesLike} onChange={(e)=>setFilter("speciesLike", e.target.value)} />
           </div>
-        </>
+          <div>
+            <label className={labelCls}>ที่อยู่ บรรทัด 4 (`addr_line4`)</label>
+            <input className={baseField} value={filters.addrLine4} onChange={(e)=>setFilter("addrLine4", e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>ที่อยู่ บรรทัด 5 (`addr_line5`)</label>
+            <input className={baseField} value={filters.addrLine5} onChange={(e)=>setFilter("addrLine5", e.target.value)} />
+          </div>
+        </div>
       )
     }
     if (report.key === "branchRx") {
       return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-            <FormBranchKlang requireBranch />
-            <FormProductSpec requiredSpec showProduct />
-          </div>
-        </>
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormDates report={report}/>
+          <FormBranchKlang requireBranch/>
+          <FormProductSpec requiredSpec showProduct/>
+        </div>
       )
     }
     if (report.key === "riceSummary") {
-      return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-          </div>
-        </>
-      )
+      return <div className="grid gap-4 md:grid-cols-3"><FormDates report={report}/></div>
     }
     if (report.key === "stockTree") {
       return (
         <>
           <div className="grid gap-4 md:grid-cols-3">
-            <FormBranchKlang requireBranch />
+            <FormBranchKlang requireBranch/>
             <div>
               <label className={labelCls}>ประเภทสินค้า (product_id) *</label>
               <ComboBox
                 options={withEmpty(productOptions, "— เลือก —")}
                 value={filters.productId}
-                onChange={(v) => setFilter("productId", v)}
+                onChange={(v)=>setFilter("productId", v)}
                 placeholder="— เลือก —"
                 error={!!errors.productId}
               />
@@ -742,7 +646,6 @@ function Documents() {
     return null
   }
 
-  /** ---------- Render ---------- */
   const reportObj = REPORTS.find((r) => r.key === activeReport)
 
   return (
@@ -757,7 +660,6 @@ function Documents() {
           )}
         </div>
 
-        {/* --------------------------- เลือกรายงาน --------------------------- */}
         {!reportObj && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {REPORTS.map((r) => (
@@ -784,7 +686,6 @@ function Documents() {
           </div>
         )}
 
-        {/* --------------------------- ฟอร์มของรายงาน --------------------------- */}
         {reportObj && (
           <form
             onSubmit={(e) => { e.preventDefault(); doDownload(reportObj) }}
@@ -795,7 +696,6 @@ function Documents() {
                 <div className="text-xl font-semibold">{reportObj.title}</div>
                 <div className={helpTextCls}>{reportObj.desc}</div>
               </div>
-              {/* ปุ่มกลับ/เลือกรายงานอื่น */}
               <button
                 type="button"
                 onClick={() => { setActiveReport(null); setPreviewJson(null); setErrors({}); }}
@@ -838,7 +738,6 @@ function Documents() {
           </form>
         )}
 
-        {/* หมายเหตุ / วิธีเพิ่มรายงานใหม่ */}
         <div className="mt-6 rounded-2xl border border-dashed border-slate-300 p-5 text-slate-600 dark:border-slate-600 dark:text-slate-300">
           <div className="font-medium">เพิ่มรายงานใหม่</div>
           <div className="mt-1 text-sm">

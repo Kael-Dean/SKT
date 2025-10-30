@@ -468,7 +468,13 @@ const StockDamageOut = () => {
     e.preventDefault()
     const hints = computeMissingHints()
     setMissingHints(hints)
-    if (!validate()) return
+    const okForm = validate()
+
+    // ❌ แจ้งเตือน “ไม่สำเร็จ” แบบหน้า Sales เมื่อฟอร์มไม่ครบ/ไม่ผ่าน
+    if (!okForm || Object.values(hints).some(Boolean)) {
+      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -509,7 +515,9 @@ const StockDamageOut = () => {
 
       await post("/carryover/create", payload)
 
-      alert("บันทึกตัดเสียหาย (Damage Out) สำเร็จ ✅")
+      // ✅ แจ้งเตือน “สำเร็จ” แบบเดียวกับหน้า Sales
+      alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
+
       setForm((f) => ({
         ...f,
         // คงสาขา/คลังไว้
@@ -539,7 +547,12 @@ const StockDamageOut = () => {
       const msg = Array.isArray(detail)
         ? detail.map((d) => (d?.loc ? `${d.loc.join(" > ")}: ${d?.msg}` : d?.msg || String(d))).join("\n")
         : (typeof detail === "string" ? detail : (err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก"))
-      alert(msg)
+
+      // ❌ แจ้งเตือน “ไม่สำเร็จ” แบบหน้า Sales + โชว์รายละเอียด
+      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
+
+รายละเอียด:
+${msg}`)
     } finally {
       setSubmitting(false)
     }

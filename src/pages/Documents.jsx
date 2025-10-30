@@ -1,4 +1,3 @@
-// src/pages/Documents.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth, apiDownload } from "../lib/api"   // ✅ helper แนบ token + BASE URL
 
@@ -15,7 +14,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- DateInput (เดิม) ---------- */
+/** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput(
   { error = false, className = "", ...props },
   ref
@@ -57,8 +56,7 @@ const DateInput = forwardRef(function DateInput(
   )
 })
 
-/** ---------- ComboBox (ยกมาจากหน้า CustomerAdd เพื่อให้สไตล์เหมือนกัน) ---------- */
-// อ้างอิงสไตล์และพฤติกรรมจากหน้า CustomerAdd: ComboBox/hover/focus/enter navigation
+/** ---------- ComboBox ---------- */
 function ComboBox({
   options = [],
   value,
@@ -277,7 +275,7 @@ const REPORTS = [
     endpoint: "/report/purchases/daily-excel", // requires: start_date, end_date, branch_id; optional: spec_id
     type: "excel",
     require: ["startDate", "endDate", "branchId"],
-    optional: ["SpecId"],
+    optional: ["specId"], // ✅ แก้ตัวพิมพ์ให้ตรง
   },
   {
     key: "registerPurchase",
@@ -472,7 +470,7 @@ function Documents() {
     // ส่วนกลาง
     if (filters.branchId) p.set("branch_id", filters.branchId)
     if (filters.klangId) p.set("klang_id", filters.klangId)
-    if (filters.specId) p.set("spec_id", filters.specId)
+    if (filters.specId) p.set("spec_id", filters.specId) // ส่ง spec_id ตรงตาม BE
     if (filters.productId && report.key === "stockTree") p.set("product_id", filters.productId)
 
     // เฉพาะ register-excel
@@ -648,28 +646,15 @@ function Documents() {
       )
     }
     if (report.key === "salesDaily" || report.key === "purchasesDaily") {
+      // ✅ เพิ่ม Product + Spec เพื่อให้เลือกชนิดข้าวได้จริง (spec เป็นตัวเลือก)
       return (
         <>
           <div className="grid gap-4 md:grid-cols-3">
             <FormDates report={report} />
             <FormBranchKlang requireBranch />
-            {/* spec เป็นตัวเลือกเสริม */}
-            <div>
-              <label className={labelCls}>ชนิดข้าว (spec) – ไม่บังคับ</label>
-              <ComboBox
-                options={
-                  (specOptions.length === 0)
-                    ? []
-                    : withEmpty(specOptions, "— เลือก —")
-                }
-                value={filters.specId}
-                onChange={(v) => setFilter("specId", v)}
-                placeholder={specOptions.length ? "— เลือก —" : "— เลือกประเภทสินค้าก่อน —"}
-                disabled={specOptions.length === 0}
-              />
-              <p className={helpTextCls}>ถ้าไม่เลือก จะออกรวมทุกชนิดข้าวในสาขานั้น</p>
-            </div>
+            <FormProductSpec requiredSpec={false} showProduct />
           </div>
+          <p className={helpTextCls}>ถ้าไม่เลือกชนิดข้าว ระบบจะออกรวมทุกชนิดในสาขาที่เลือก</p>
         </>
       )
     }
@@ -810,7 +795,7 @@ function Documents() {
                 <div className="text-xl font-semibold">{reportObj.title}</div>
                 <div className={helpTextCls}>{reportObj.desc}</div>
               </div>
-              {/* ปุ่มกลับ/เลือกรายงานอื่น — ขยายขนาดและทำให้เด่นขึ้น */}
+              {/* ปุ่มกลับ/เลือกรายงานอื่น */}
               <button
                 type="button"
                 onClick={() => { setActiveReport(null); setPreviewJson(null); setErrors({}); }}

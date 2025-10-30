@@ -1,3 +1,4 @@
+// src/pages/StockTransferOut.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { get, post } from "../lib/api"
 
@@ -38,7 +39,7 @@ const ComboBox = forwardRef(function ComboBox(
     error = false,
     hintRed = false,
     clearHint = () => {},
-    onMoveNext, // เมื่อกด Enter (หรือเลือกค่า) ให้เลื่อนไปช่องถัดไป
+    onMoveNext,
   },
   ref
 ) {
@@ -47,7 +48,7 @@ const ComboBox = forwardRef(function ComboBox(
   const boxRef = useRef(null)
   const listRef = useRef(null)
   const buttonRef = useRef(null)
-  const suppressNextClickRef = useRef(false) // ← กัน click อัตโนมัติจาก Enter
+  const suppressNextClickRef = useRef(false)
 
   useImperativeHandle(ref, () => ({
     focus: () => buttonRef.current?.focus(),
@@ -561,7 +562,6 @@ function StockTransferOut() {
     if (toInt(form.weight_out) <= toInt(form.weight_in)) m.weight_out = true
     if (netWeightInt <= 0) m.net_weight = true
 
-    // ⬇️ ทำให้สองช่องนี้ "ต้องกรอก" และขึ้นเป็น hint แดงถ้ายังว่าง/ผิดรูปแบบ
     if (form.cost_per_kg === "" || Number(form.cost_per_kg) < 0) m.cost_per_kg = true
 
     if (form.impurity_percent === "") {
@@ -603,11 +603,9 @@ function StockTransferOut() {
     if (tOut <= tIn) e.weight_out = "น้ำหนักขาออก ต้องมากกว่า น้ำหนักขาเข้า"
     if (netWeightInt <= 0) e.net_weight = "น้ำหนักสุทธิต้องมากกว่า 0 (ขาออก − ขาเข้า)"
 
-    // ⬇️ ทำให้ต้องกรอก + ตรวจค่าติดลบ
     if (form.cost_per_kg === "") e.cost_per_kg = "กรุณากรอกราคาต้นทุน"
     else if (Number(form.cost_per_kg) < 0) e.cost_per_kg = "ราคาต้นทุนต้องไม่ติดลบ"
 
-    // ⬇️ ทำให้ต้องกรอก + ตรวจช่วง 0–100
     if (form.impurity_percent === "") {
       e.impurity_percent = "กรุณากรอกสิ่งเจือปน 0–100"
     } else {
@@ -674,7 +672,6 @@ function StockTransferOut() {
   const saveBtnRef = useRef(null)
   const dateRef = useRef(null)
 
-  // helper: เลื่อนจอไปยัง element โฟกัสปัจจุบัน
   const scrollActiveIntoView = () => {
     try {
       const el = document.activeElement
@@ -684,7 +681,6 @@ function StockTransferOut() {
     } catch {}
   }
 
-  // โฟกัส + เปิดคอมโบถัดไป (สำหรับ 4 ช่องที่กำหนด)
   const focusComboRef = (nextRef) => {
     const target = nextRef?.current
     if (!target) return
@@ -699,7 +695,6 @@ function StockTransferOut() {
     return [
       { ref: driverRef, type: "input", disabled: false },
       { ref: plateRef, type: "input", disabled: false },
-      // 4 ช่องนี้กำหนดตรง ๆ ด้วย focusComboRef
       { ref: productRef, type: "combo", disabled: false },
       { ref: riceRef, type: "combo", disabled: !form.product_id },
       { ref: subriceRef, type: "combo", disabled: !form.rice_id },
@@ -741,7 +736,7 @@ function StockTransferOut() {
     }
   }
 
-  /** ---------- Scroll helpers (สำหรับแจ้งเตือนแบบหน้า Buy) ---------- */
+  /** ---------- Scroll helpers (สำหรับแจ้งเตือนแบบหน้า Sales/Buy) ---------- */
   const scrollToPageTop = () => {
     try {
       const root = document.scrollingElement || document.documentElement || document.body
@@ -815,7 +810,7 @@ function StockTransferOut() {
     setMissingHints(hints)
     const eObj = validate()
 
-    // ⛔ เหมือนหน้า Buy: ถ้าขาดหรือผิด เด้งเตือน + โฟกัสช่องแรกที่ขาด/ผิด
+    // ❌ แบบเดียวกับหน้า Sales/Buy: ไม่ผ่าน valid → เด้งเตือนใหญ่ + โฟกัสช่องแรก
     if (Object.keys(eObj).length > 0) {
       alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
       scrollToFirstError(eObj)
@@ -870,7 +865,9 @@ function StockTransferOut() {
 
       await post("/transfer/request", payload)
 
-      alert("✅✅✅ บันทึกออเดอร์เรียบร้อย")
+      // ✅ แจ้งเตือนสำเร็จ: ใช้สไตล์เดียวกับ Sales
+      alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
+      // เคลียร์เฉพาะค่าชั่ง/ราคา + เลื่อนไปบนสุด + blur ปุ่ม (ให้ UX ตรงกับ Sales)
       setForm((f) => ({
         ...f,
         weight_in: "",
@@ -878,9 +875,17 @@ function StockTransferOut() {
         cost_per_kg: "",
         impurity_percent: "",
       }))
+      requestAnimationFrame(() => scrollToPageTop())
+      try { saveBtnRef.current?.blur?.() } catch {}
     } catch (err) {
       console.error(err)
-      alert(err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก")
+      // ❌ แจ้งล้มเหลว: ข้อความแบบเดียวกับหน้า Sales พร้อมรายละเอียดที่ได้จาก API
+      const baseMsg = err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก"
+      const detail = err?.data?.detail
+      const summary = detail ? `\n\nรายละเอียด: ${typeof detail === "string" ? detail : JSON.stringify(detail)}` : ""
+      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
+
+${baseMsg}${summary}`)
     } finally {
       setSubmitting(false)
     }
@@ -947,7 +952,6 @@ function StockTransferOut() {
                     clearError("plate_number")
                     clearHint("plate_number")
                   }}
-                  // Enter ➜ โฟกัส "สาขาต้นทาง"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault()
@@ -968,7 +972,6 @@ function StockTransferOut() {
                   options={fromBranchOptions}
                   value={form.from_branch_id}
                   getValue={(o) => o.id}
-                  // Enter ➜ คลังต้นทาง
                   onMoveNext={() => focusComboRef(fromKlangRef)}
                   onChange={(_val, found) => {
                     clearError("from_branch_id")
@@ -992,7 +995,6 @@ function StockTransferOut() {
                   options={fromKlangOptions}
                   value={form.from_klang_id}
                   getValue={(o) => o.id}
-                  // Enter ➜ สาขาปลายทาง
                   onMoveNext={() => focusComboRef(toBranchRef)}
                   onChange={(_val, found) => {
                     clearError("from_klang_id")
@@ -1018,7 +1020,6 @@ function StockTransferOut() {
                   options={toBranchOptions}
                   value={form.to_branch_id}
                   getValue={(o) => o.id}
-                  // Enter ➜ คลังปลายทาง
                   onMoveNext={() => focusComboRef(toKlangRef)}
                   onChange={(_val, found) => {
                     clearError("to_branch_id")
@@ -1042,7 +1043,6 @@ function StockTransferOut() {
                   options={toKlangOptions}
                   value={form.to_klang_id}
                   getValue={(o) => o.id}
-                  // Enter ➜ ประเภทสินค้า
                   onMoveNext={() => focusComboRef(productRef)}
                   onChange={(_val, found) => {
                     clearError("to_klang_id")
@@ -1074,7 +1074,6 @@ function StockTransferOut() {
                   ref={productRef}
                   options={productOptions}
                   value={form.product_id}
-                  // Enter ➜ ชนิดข้าว
                   onMoveNext={() => focusComboRef(riceRef)}
                   onChange={(id, found) => {
                     clearError("product_id")
@@ -1100,7 +1099,6 @@ function StockTransferOut() {
                   ref={riceRef}
                   options={riceOptions}
                   value={form.rice_id}
-                  // Enter ➜ ชั้นย่อย
                   onMoveNext={() => focusComboRef(subriceRef)}
                   onChange={(id, found) => {
                     clearError("rice_id")
@@ -1125,7 +1123,6 @@ function StockTransferOut() {
                   ref={subriceRef}
                   options={subriceOptions}
                   value={form.subrice_id}
-                  // Enter ➜ ประเภทนา
                   onMoveNext={() => focusComboRef(fieldRef)}
                   onChange={(id, found) => {
                     clearError("subrice_id")

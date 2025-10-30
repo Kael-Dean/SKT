@@ -369,6 +369,51 @@ function StockTransferMill() {
   const yearBtnRef = useRef(null)
   const businessBtnRef = useRef(null)
   const programBtnRef = useRef(null)
+  const submitBtnRef = useRef(null)
+
+  /** ---------- Scroll/Focus helpers (ให้เหมือนหน้า Sales) ---------- */
+  const scrollToPageTop = () => {
+    try {
+      const root = document.scrollingElement || document.documentElement || document.body
+      root.scrollTo({ top: 0, behavior: "smooth" })
+    } catch {}
+  }
+
+  const errorOrder = [
+    "lot_number",
+    "total_weight",
+    "branch_id",
+    "klang_id",
+    "product_id",
+    "rice_id",
+    "subrice_id",
+    "picks",
+  ]
+  const refMap = {
+    lot_number: lotNumberRef,
+    total_weight: totalWeightRef,
+    branch_id: branchBtnRef,
+    klang_id: klangBtnRef,
+    product_id: productBtnRef,
+    rice_id: speciesBtnRef,
+    subrice_id: variantBtnRef,
+    picks: totalWeightRef,
+  }
+  const focusByKey = (key) => {
+    const r = refMap[key]
+    const el = r?.current
+    if (!el) return
+    try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
+    try { el.focus?.() } catch {}
+  }
+  const scrollToFirstError = (eObj) => {
+    const firstKey = errorOrder.find((k) => k in eObj)
+    if (firstKey) focusByKey(firstKey)
+  }
+  const scrollToFirstMissing = (hintsObj) => {
+    const firstKey = errorOrder.find((k) => hintsObj[k])
+    if (firstKey) focusByKey(firstKey)
+  }
 
   /** ---------- Load dropdowns ---------- */
   useEffect(() => {
@@ -555,6 +600,7 @@ function StockTransferMill() {
     return Object.keys(e).length === 0
   }
 
+  // ⭐ เปลี่ยนให้คืน "e object" เพื่อใช้แจ้งเตือนแบบหน้า Sales
   const validateBeforeSubmit = () => {
     const e = {}
     if (!form.lot_number?.trim()) e.lot_number = "กรุณาใส่เลข LOT"
@@ -567,10 +613,11 @@ function StockTransferMill() {
     if (tw <= 0) e.total_weight = "น้ำหนักรวมต้องมากกว่า 0 (กก.) และเป็นจำนวนเต็ม"
     if (picks.length === 0) e.picks = "กรุณาเพิ่มคลังอย่างน้อย 1 รายการ"
     const totalPicked = picks.reduce((acc, it) => acc + toInt(it.pick_weight), 0)
-    if (totalPicked !== tw) e.picks = `น้ำหนักที่เลือก (${totalPicked.toLocaleString()} กก.) ต้องเท่ากับน้ำหนักรวม (${tw.toLocaleString()} กก.)`
+    if (totalPicked !== tw)
+      e.picks = `น้ำหนักที่เลือก (${totalPicked.toLocaleString()} กก.) ต้องเท่ากับน้ำหนักรวม (${tw.toLocaleString()} กก.)`
 
     setErrors(e)
-    return Object.keys(e).length === 0
+    return e
   }
 
   /** ---------- Payload helpers ---------- */
@@ -708,9 +755,24 @@ function StockTransferMill() {
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault()
+    // เหมือนหน้า Sales: เลื่อนขึ้นบนสุดก่อน validate
+    scrollToPageTop()
+
     const hints = computeMissingHints()
     setMissingHints(hints)
-    if (!validateBeforeSubmit()) return
+    const eObj = validateBeforeSubmit()
+
+    // ❌ แจ้งเตือนแบบ Sales เมื่อฟอร์มไม่ผ่าน
+    if (Object.keys(eObj).length > 0) {
+      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      scrollToFirstError(eObj)
+      return
+    }
+    if (Object.values(hints).some(Boolean)) {
+      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      scrollToFirstMissing(hints)
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -726,7 +788,9 @@ function StockTransferMill() {
       }
 
       const created = await post("/mill/records", payload)
-      alert(`สร้างล็อตสีสำเร็จ ✅\nLOT: ${created?.lot_number || payload.lot_number}`)
+
+      // ✅ แจ้งเตือนสำเร็จ: รูปแบบเดียวกับหน้า Sales
+      alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
 
       // Reset เฉพาะส่วนสินค้า (คง branch/klang/โหมดทุกคลัง เผื่อดึงต่อ)
       setPicks([])
@@ -751,9 +815,18 @@ function StockTransferMill() {
         business_type_id: "",
         business_type_label: "",
       }))
+
+      requestAnimationFrame(() => scrollToPageTop())
+      try { submitBtnRef.current?.blur?.() } catch {}
     } catch (err) {
       console.error(err)
-      alert(err?.message || "สร้างล็อตสีไม่สำเร็จ")
+      // ❌ แจ้งล้มเหลว: ข้อความแบบเดียวกับหน้า Sales พร้อมรายละเอียดจาก API ถ้ามี
+      const baseMsg = err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก"
+      const detail = err?.data?.detail
+      const summary = detail ? `\n\nรายละเอียด: ${typeof detail === "string" ? detail : JSON.stringify(detail)}` : ""
+      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
+
+${baseMsg}${summary}`)
     } finally {
       setSubmitting(false)
     }
@@ -1265,6 +1338,7 @@ function StockTransferMill() {
           {/* ปุ่ม */}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
+              ref={submitBtnRef}
               type="submit"
               disabled={submitting}
               className="inline-flex items-center justify-center rounded-2xl 

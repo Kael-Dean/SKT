@@ -1,6 +1,6 @@
 // src/pages/Order.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { apiAuth } from "../lib/api"  // ✅ ใช้ call รวม token/JSON
+import { apiAuth } from "../lib/api"  // ✅ helper รวม token/BASE URL
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -9,7 +9,6 @@ const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
   )
-// ฟอร์แมตราคาเป็น "บาท" (ไม่มีสัญลักษณ์สกุลเงิน) ตรงตามหัวคอลัมน์ "ราคาต่อกก. (บาท)"
 const baht = (n) =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
@@ -185,7 +184,7 @@ function ComboBox({
   )
 }
 
-/** ---------- DateInput ---------- */
+/** ---------- DateInput (รองรับ error) ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
@@ -212,7 +211,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
                    transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
-          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
+          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
         </svg>
       </button>
     </div>
@@ -230,69 +229,84 @@ const Order = () => {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
 
-  // Pagination
+  // pagination
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState("1")
-
   const totalPages = useMemo(() => Math.max(1, Math.ceil(rows.length / PAGE_SIZE)), [rows.length])
   const pagedRows = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
     return rows.slice(start, start + PAGE_SIZE)
   }, [rows, page])
 
-  // Options
+  // options
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
-  const [productOptions, setProductOptions] = useState([])
-  const [riceOptions, setRiceOptions] = useState([])
-  const [subriceOptions, setSubriceOptions] = useState([])
-  const [yearOptions, setYearOptions] = useState([])
-  const [conditionOptions, setConditionOptions] = useState([])
-  const [fieldOptions, setFieldOptions] = useState([])
+  const [specOptions, setSpecOptions] = useState([])
+  const [loadingSpecs, setLoadingSpecs] = useState(false)
 
-  // Filters
+  // filters
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
 
     branchId: "", branchName: "",
     klangId: "", klangName: "",
-    productId: "", productName: "",
-    riceId: "", riceName: "",
-    subriceId: "", subriceName: "",
-    yearId: "", yearName: "",
-    conditionId: "", conditionName: "",
-    fieldTypeId: "", fieldTypeName: "",
+
+    specId: "", specLabel: "",
     q: "",
   })
+  const [errors, setErrors] = useState({ startDate: "", endDate: "" })
 
   const debouncedQ = useDebounce(filters.q, 500)
 
-  /** ---------- Load static dropdowns ---------- */
+  /** ---------- Validation ---------- */
+  const validateDates = (s, e) => {
+    const out = { startDate: "", endDate: "" }
+    if (!s) out.startDate = "กรุณาเลือกวันที่เริ่ม"
+    if (!e) out.endDate = "กรุณาเลือกวันที่สิ้นสุด"
+    if (s && e) {
+      const sd = new Date(s)
+      const ed = new Date(e)
+      if (ed < sd) out.endDate = "วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น"
+    }
+    setErrors(out)
+    return !out.startDate && !out.endDate
+  }
+
+  useEffect(() => {
+    validateDates(filters.startDate, filters.endDate)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.startDate, filters.endDate])
+
+  /** ---------- Load initial (branch + spec) ---------- */
   useEffect(() => {
     const loadInitial = async () => {
       try {
-        const [branches, products, years, conds, fields] = await Promise.all([
+        setLoadingSpecs(true)
+        const [branches, specs] = await Promise.all([
           apiAuth(`/order/branch/search`),
-          apiAuth(`/order/product/search`),
-          apiAuth(`/order/year/search`),
-          apiAuth(`/order/condition/search`),
-          apiAuth(`/order/field/search`),
+          apiAuth(`/order/form/search`), // รายการสำเร็จรูป (ProductSpec.prod_name)
         ])
-
         setBranchOptions((Array.isArray(branches) ? branches : []).map(x => ({ id: String(x.id), label: x.branch_name })))
-        setProductOptions((Array.isArray(products) ? products : []).map(x => ({ id: String(x.id), label: x.product_type })))
-        setYearOptions((Array.isArray(years) ? years : []).map(x => ({ id: String(x.id), label: String(x.year) })))
-        setConditionOptions((Array.isArray(conds) ? conds : []).map(x => ({ id: String(x.id), label: String(x.year ?? x.condition ?? x.label ?? "") })))
-        setFieldOptions((Array.isArray(fields) ? fields : []).map(x => ({ id: String(x.id), label: String(x.year ?? x.field_type ?? x.label ?? "") })))
+
+        const opts = (Array.isArray(specs) ? specs : [])
+          .map(r => ({
+            id: String(r.id),
+            label: String(r.prod_name || r.name || r.spec_name || `spec #${r.id}`).trim(),
+          }))
+          .filter(o => o.id && o.label)
+        setSpecOptions(opts) // ⚠️ ไม่ตัดเหลือ 2 รายการ — แสดงทั้งหมด
       } catch (e) {
         console.error("load initial options failed:", e)
+        setBranchOptions([]); setSpecOptions([])
+      } finally {
+        setLoadingSpecs(false)
       }
     }
     loadInitial()
   }, [])
 
-  /** ---------- Load Klang by branch ---------- */
+  /** ---------- branch → klang ---------- */
   useEffect(() => {
     const loadKlang = async () => {
       if (!filters.branchId) {
@@ -312,87 +326,33 @@ const Order = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId])
 
-  /** ---------- Load Rice by product ---------- */
-  useEffect(() => {
-    const loadRice = async () => {
-      if (!filters.productId) {
-        setRiceOptions([])
-        setFilters((p) => ({ ...p, riceId: "", riceName: "", subriceId: "", subriceName: "" }))
-        return
-      }
-      try {
-        const data = await apiAuth(`/order/rice/search?product_id=${filters.productId}`)
-        const mapped = (Array.isArray(data) ? data : [])
-          .map(x => ({ id: String(x.id), label: String(x.rice_type ?? "").trim() }))
-          .filter(o => o.id && o.label)
-        setRiceOptions(mapped)
-      } catch (e) {
-        console.error("load rice failed:", e)
-        setRiceOptions([])
-      }
-    }
-    loadRice()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.productId])
-
-  /** ---------- Load Subrice by rice ---------- */
-  useEffect(() => {
-    const loadSubrice = async () => {
-      if (!filters.riceId) {
-        setSubriceOptions([])
-        setFilters((p) => ({ ...p, subriceId: "", subriceName: "" }))
-        return
-      }
-      try {
-        const data = await apiAuth(`/order/sub-rice/search?rice_id=${filters.riceId}`)
-        const mapped = (Array.isArray(data) ? data : [])
-          .map(x => ({ id: String(x.id), label: String(x.sub_class ?? "").trim() }))
-          .filter(o => o.id && o.label)
-        setSubriceOptions(mapped)
-      } catch (e) {
-        console.error("load subrice failed:", e)
-        setSubriceOptions([])
-      }
-    }
-    loadSubrice()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.riceId])
-
-  /** ---------- Fetch orders (ส่งทุก filter ที่มี) ---------- */
+  /** ---------- Fetch orders ---------- */
   const fetchOrders = async () => {
+    if (!validateDates(filters.startDate, filters.endDate)) return
     try {
       setLoading(true)
       const params = new URLSearchParams()
       params.set("start_date", filters.startDate)
       params.set("end_date", filters.endDate)
-      if (filters.branchId)    params.set("branch_id", filters.branchId)
-      if (filters.klangId)     params.set("klang_id", filters.klangId)
-      if (filters.productId)   params.set("product_id", filters.productId)
-      if (filters.riceId)      params.set("rice_id", filters.riceId)
-      if (filters.subriceId)   params.set("subrice_id", filters.subriceId)
-      if (filters.yearId)      params.set("rice_year", filters.yearId)
-      if (filters.conditionId) params.set("condition_id", filters.conditionId)
-      if (filters.fieldTypeId) params.set("field_type", filters.fieldTypeId)
-      if (filters.q?.trim())   params.set("q", filters.q.trim())
+      if (filters.branchId) params.set("branch_id", filters.branchId)
+      if (filters.klangId) params.set("klang_id", filters.klangId)
+      if (filters.q?.trim()) params.set("q", filters.q.trim())
+      if (filters.specId) params.append("spec_id", filters.specId) // 👉 เผื่อ BE รองรับ จะฟิลเตอร์ตาม spec ได้
 
       const data = await apiAuth(`/order/orders/report?${params.toString()}`)
       setRows(Array.isArray(data) ? data : [])
-      // reset page เมื่อมีการโหลดข้อมูลใหม่
-      setPage(1)
-      setPageInput("1")
+      setPage(1); setPageInput("1")
     } catch (e) {
       console.error(e)
-      setRows([])
-      setPage(1)
-      setPageInput("1")
+      setRows([]); setPage(1); setPageInput("1")
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { fetchOrders() }, []) // init
+  useEffect(() => { fetchOrders() }, []) // init load
 
-  /** ---------- Auto-refresh on debounced search ---------- */
+  /** ---------- Auto refresh on debounced search ---------- */
   useEffect(() => {
     if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -400,26 +360,20 @@ const Order = () => {
 
   /** ---------- Totals ---------- */
   const totals = useMemo(() => {
-    let weight = 0
-    let revenue = 0
-    rows.forEach((x) => {
-      weight += toNumber(x.weight)
-      revenue += toNumber(x.price)
-    })
+    let weight = 0, revenue = 0
+    rows.forEach((x) => { weight += toNumber(x.weight); revenue += toNumber(x.price) })
     return { weight, revenue }
   }, [rows])
 
   /** ---------- Pagination helpers ---------- */
   useEffect(() => {
-    // ถ้าจำนวนหน้าลดลง ให้เลื่อน page ให้อยู่ในช่วง
     setPage((p) => Math.min(Math.max(1, p), totalPages))
     setPageInput((v) => String(Math.min(Math.max(1, toNumber(onlyDigits(v)) || 1), totalPages)))
   }, [totalPages])
 
   const goToPage = (p) => {
     const n = Math.min(Math.max(1, toNumber(p)), totalPages)
-    setPage(n)
-    setPageInput(String(n))
+    setPage(n); setPageInput(String(n))
     window?.scrollTo?.({ top: 0, behavior: "smooth" })
   }
   const nextPage = () => goToPage(page + 1)
@@ -434,15 +388,11 @@ const Order = () => {
     const delta = 2
     const left = Math.max(1, page - delta)
     const right = Math.min(totalPages, page + delta)
-
     if (left > 1) items.push(1)
     if (left > 2) items.push("...")
-
     for (let i = left; i <= right; i++) items.push(i)
-
     if (right < totalPages - 1) items.push("...")
     if (right < totalPages) items.push(totalPages)
-
     return items
   }, [page, totalPages])
 
@@ -454,19 +404,13 @@ const Order = () => {
 
       branchId: "", branchName: "",
       klangId: "", klangName: "",
-      productId: "", productName: "",
-      riceId: "", riceName: "",
-      subriceId: "", subriceName: "",
-      yearId: "", yearName: "",
-      conditionId: "", conditionName: "",
-      fieldTypeId: "", fieldTypeName: "",
+
+      specId: "", specLabel: "",
       q: "",
     })
     setKlangOptions([])
-    setRiceOptions([])
-    setSubriceOptions([])
-    setPage(1)
-    setPageInput("1")
+    setPage(1); setPageInput("1")
+    setErrors({ startDate: "", endDate: "" })
   }
 
   /** ----------- UI ----------- */
@@ -481,13 +425,26 @@ const Order = () => {
         {/* Filters */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="grid gap-3 md:grid-cols-6">
+            {/* วันที่เริ่ม */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่เริ่ม</label>
-              <DateInput value={filters.startDate} onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))} />
+              <DateInput
+                value={filters.startDate}
+                onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
+                error={!!errors.startDate}
+              />
+              {errors.startDate && <div className="mt-1 text-sm text-red-500">{errors.startDate}</div>}
             </div>
+
+            {/* วันที่สิ้นสุด */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่สิ้นสุด</label>
-              <DateInput value={filters.endDate} onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))} />
+              <DateInput
+                value={filters.endDate}
+                onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
+                error={!!errors.endDate}
+              />
+              {errors.endDate && <div className="mt-1 text-sm text-red-500">{errors.endDate}</div>}
             </div>
 
             {/* สาขา */}
@@ -498,8 +455,7 @@ const Order = () => {
                 value={filters.branchId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" }))
-                }
+                  setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" }))}
                 placeholder="— เลือกสาขา —"
               />
             </div>
@@ -512,98 +468,36 @@ const Order = () => {
                 value={filters.klangId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" }))
-                }
+                  setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" }))}
                 placeholder="— เลือกคลัง —"
                 disabled={!filters.branchId}
               />
             </div>
 
-            {/* Product */}
-            <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สินค้า (Product)</label>
+            {/* รายการสำเร็จรูป (spec) */}
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รายการสำเร็จรูป (spec)</label>
               <ComboBox
-                options={productOptions}
-                value={filters.productId}
+                options={specOptions}
+                value={filters.specId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, productId: id || "", productName: found?.label ?? "", riceId: "", riceName: "", subriceId: "", subriceName: "" }))
-                }
-                placeholder="— เลือกสินค้า —"
+                  setFilters((p) => ({ ...p, specId: id || "", specLabel: found?.label ?? "" }))}
+                placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
+                disabled={loadingSpecs || specOptions.length === 0}
               />
+              <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                ตัวเลือกนี้มาจาก <code>/order/form/search</code> (prod_name)
+              </div>
             </div>
 
-            {/* Rice */}
-            <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ประเภทข้าว</label>
-              <ComboBox
-                options={riceOptions}
-                value={filters.riceId}
-                getValue={(o) => o.id}
-                onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, riceId: id || "", riceName: found?.label ?? "", subriceId: "", subriceName: "" }))}
-                placeholder="— เลือกประเภทข้าว —"
-                disabled={!filters.productId}
-              />
-            </div>
-
-            {/* Sub-rice */}
-            <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ชนิดย่อย (Sub-rice)</label>
-              <ComboBox
-                options={subriceOptions}
-                value={filters.subriceId}
-                getValue={(o) => o.id}
-                onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, subriceId: id || "", subriceName: found?.label ?? "" }))}
-                placeholder="— เลือกชนิดย่อย —"
-                disabled={!filters.riceId}
-              />
-            </div>
-
-            {/* Year */}
-            <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ฤดูกาล/ปี</label>
-              <ComboBox
-                options={yearOptions}
-                value={filters.yearId}
-                getValue={(o) => o.id}
-                onChange={(id, found) => setFilters((p) => ({ ...p, yearId: id || "", yearName: found?.label ?? "" })) }
-                placeholder="— เลือกปี —"
-              />
-            </div>
-
-            {/* Condition */}
-            <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สภาพ (Condition)</label>
-              <ComboBox
-                options={conditionOptions}
-                value={filters.conditionId}
-                getValue={(o) => o.id}
-                onChange={(id, found) => setFilters((p) => ({ ...p, conditionId: id || "", conditionName: found?.label ?? "" })) }
-                placeholder="— เลือกสภาพ —"
-              />
-            </div>
-
-            {/* Field Type */}
-            <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ประเภทนา (Field Type)</label>
-              <ComboBox
-                options={fieldOptions}
-                value={filters.fieldTypeId}
-                getValue={(o) => o.id}
-                onChange={(id, found) => setFilters((p) => ({ ...p, fieldTypeId: id || "", fieldTypeName: found?.label ?? "" })) }
-                placeholder="— เลือกประเภทนา —"
-              />
-            </div>
-
-            {/* Search */}
+            {/* Search box */}
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)</label>
               <input
                 className={baseField}
                 value={filters.q}
-                onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value })) }
+                onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
                 placeholder="พิมพ์อย่างน้อย 2 ตัวอักษร แล้วระบบจะค้นหาอัตโนมัติ"
               />
             </div>
@@ -612,12 +506,13 @@ const Order = () => {
               <button
                 onClick={fetchOrders}
                 type="button"
-                className="inline-flex items-center justify-center rounded-2xl 
-                           bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                           shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                           transition-all duration-300 ease-out
-                           hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                           hover:scale-[1.05] active:scale-[.97] cursor-pointer"
+                disabled={!!errors.startDate || !!errors.endDate}
+                className={[
+                  "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-base font-semibold text-white transition-all duration-300 ease-out cursor-pointer",
+                  (!!errors.startDate || !!errors.endDate)
+                    ? "bg-emerald-400/60 pointer-events-none"
+                    : "bg-emerald-600 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97]"
+                ].join(" ")}
               >
                 ค้นหา
               </button>
@@ -626,8 +521,7 @@ const Order = () => {
                 onClick={resetFilters}
                 className="inline-flex items-center justify-center rounded-2xl 
                            border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                           shadow-sm
-                           transition-all duration-300 ease-out
+                           shadow-sm transition-all duration-300 ease-out
                            hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
                            active:scale-[.97]
                            dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 

@@ -677,7 +677,13 @@ function Documents() {
   const reportObj = REPORTS.find((r) => r.key === activeReport)
 
   return (
-    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
+    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base documents-page">
+      {/* ให้ปุ่มที่กดได้เป็นเคอร์เซอร์นิ้วชี้เฉพาะตอน hover และไม่ทับ disabled/wait */}
+      <style>{`
+        .documents-page button:not(:disabled):not(.cursor-not-allowed):not(.cursor-wait):hover { cursor: pointer; }
+        .documents-page [role="button"]:hover, .documents-page [role="option"]:hover { cursor: pointer; }
+      `}</style>
+
       <div className="mx-auto max-w-6xl p-5 md:p-6 lg:p-8">
         <div className="mb-6 flex items-center gap-3">
           <h1 className="text-3xl font-bold">📚 คลังเอกสาร & รายงาน</h1>
@@ -695,7 +701,7 @@ function Documents() {
                 key={r.key}
                 type="button"
                 onClick={() => { setActiveReport(r.key); setPreviewJson(null); setErrors({}); }}
-                className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all hover:shadow-md hover:scale-[1.01] dark:border-slate-700 dark:bg-slate-800"
+                className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all hover:shadow-md hover:scale-[1.01] dark:border-slate-700 dark:bg-slate-800 cursor-pointer"
               >
                 <div className="mb-2 flex items-center justify-between">
                   <div className="text-lg font-semibold">{r.title}</div>
@@ -727,7 +733,7 @@ function Documents() {
               <button
                 type="button"
                 onClick={() => { setActiveReport(null); setPreviewJson(null); setErrors({}); }}
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 md:px-5 py-3 text-base font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-100 hover:shadow-md hover:scale-[1.02] active:scale-[.98] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 md:px-5 py-3 text-base font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-100 hover:shadow-md hover:scale-[1.02] active:scale-[.98] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 cursor-pointer"
                 title="กลับไปหน้าเลือกรายงาน"
               >
                 ← เลือกรายงานอื่น

@@ -76,7 +76,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   // ✅ เมนูอื่น ๆ
   const otherMenus = [
-    { label: 'คลังเอกสาร', path: '/documents' },
+    { label: 'รายงาน', path: '/documents' },
     { label: 'ออเดอร์', path: '/order' },
     { label: 'คลังสินค้า', path: '/stock' },
   ]

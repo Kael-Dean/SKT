@@ -76,9 +76,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   // ✅ เมนูอื่น ๆ
   const otherMenus = [
-    { label: 'รายงาน', path: '/documents' },
-    { label: 'ออเดอร์', path: '/order' },
-    { label: 'คลังสินค้า', path: '/stock' },
+    { label: '📝 รายงาน', path: '/documents' },
+    { label: '📦 ออเดอร์', path: '/order' },
+    { label: '🏭 คลังสินค้า', path: '/stock' },
   ]
 
   const isActive = (p) => location.pathname === p
@@ -135,7 +135,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 className={`${baseBtn} ${inBusiness ? activeBtn : idleBtn} rounded-2xl`}
               >
                 <span className="flex items-center gap-2">
-                  ธุรกิจรวบรวมผลผลิต
+                  🌾 ธุรกิจรวบรวมผลผลิต
                   <span className={`transition-transform ${businessOpen ? 'rotate-180' : ''}`}>▾</span>
                 </span>
               </button>
@@ -186,7 +186,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 className={`${baseBtn} ${inMembers ? activeBtn : idleBtn} rounded-2xl`}
               >
                 <span className="flex items-center gap-2">
-                  ทะเบียนสมาชิก
+                  🪪 ทะเบียนสมาชิก
                   <span className={`transition-transform ${membersOpen ? 'rotate-180' : ''}`}>▾</span>
                 </span>
               </button>

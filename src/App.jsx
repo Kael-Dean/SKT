@@ -32,7 +32,7 @@ import StockBringInMill from './pages/StockBringInMill'
 import MemberTermination from './pages/MemberTermination'
 
 // ✅ นำเข้าหน้าใหม่: ซื้อหุ้น
-import Share from './pages/Share'
+import {Share} from './pages/Share'
 
 /** ---------- Route Guard เฉพาะ user id 17/18 ---------- */
 const ALLOWED_USER_IDS = new Set([17, 18])

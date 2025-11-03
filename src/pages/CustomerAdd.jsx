@@ -584,7 +584,7 @@ const CustomerAdd = () => {
 
     try {
       await apiAuth(`/member/customers/signup`, { method: "POST", body: payload })
-      alert("✅✅✅✅✅✅✅✅ บันทึกสมัครสมาชิกเรียบร้อย ✅✅✅✅✅✅✅✅")
+      alert("✅✅✅✅✅✅ บันทึกสมัครลูกค้าทั้วไปเรียบร้อย ✅✅✅✅✅✅")
       handleReset()
       requestAnimationFrame(() => scrollToPageTop())
       try { submitBtnRef.current?.blur?.() } catch {}

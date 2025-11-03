@@ -472,7 +472,7 @@ const MemberSignup = () => {
   const [amphoeOptions, setAmphoeOptions] = useState([])
   const [tambonOptions, setTambonOptions] = useState([])
 
-  // 🧾 ใบเสร็จ/ป๊อปอัพ
+  // 🧾 ใบเสร็จ/ป๊อปอัป
   const [receipt, setReceipt] = useState(null)
   const [receiptOpen, setReceiptOpen] = useState(false)
 
@@ -876,15 +876,17 @@ const MemberSignup = () => {
       "tgs_group",
       "orders_placed",
       "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
-      "fid","agri_type","fertilizing_period","fertilizer_type",
+      "agri_type","fertilizing_period","fertilizer_type",
     ].forEach((k) => {
       const v = form[k]
       if (v !== "" && isNaN(Number(v))) e[k] = "ตัวเลขเท่านั้น"
     })
 
-    // ซื้อหุ้น: บังคับ tgs_id + buy_amount > 0
-    const amountOk = form.buy_amount && !isNaN(Number(form.buy_amount)) && Number(form.buy_amount) > 0
-    if (!amountOk) e.buy_amount = "กรอกจำนวนเงินหุ้นมากกว่า 0"
+    // ซื้อหุ้น: บังคับ tgs_id + buy_amount ≥ 100 (ตาม BE)
+    const amountNum = Number(form.buy_amount || 0)
+    if (!amountNum || isNaN(amountNum) || amountNum < 100) {
+      e.buy_amount = "มูลค่าที่ซื้อต้องเป็นจำนวนเงิน ≥ 100"
+    }
     if (!form.tgs_id) e.tgs_id = "กรอกรหัสสมาชิกในระบบ (tgs_id) เพื่อทำการซื้อหุ้น"
 
     // ช่วงค่าที่ดิน
@@ -961,21 +963,20 @@ const MemberSignup = () => {
       last_name: form.last_name.trim(),
       citizen_id: onlyDigits(form.citizen_id),
       address: form.address.trim(),
-      mhoo: form.mhoo.trim(),
+      mhoo: (form.mhoo ?? "").toString().trim(),
       sub_district: form.sub_district.trim(),
       district: form.district.trim(),
       province: PROV_SURIN,
-      subprov: form.subprov === "" ? null : Number(form.subprov),
+      subprov: form.subprov === "" ? 0 : Number(form.subprov), // ต้องเป็น int
       postal_code: form.postal_code === "" ? 0 : Number(form.postal_code),
-      phone_number: form.phone_number.trim(),
+      phone_number: (form.phone_number ?? "").toString().trim(),
       sex: form.sex,
 
       // เฉพาะที่ใช้
       tgs_group: form.tgs_group === "" ? 0 : Number(form.tgs_group),
-      share_per_month: 0,
-      bank_account: form.bank_account.trim(),
+      bank_account: (form.bank_account ?? "").toString().trim(),
       tgs_id: form.tgs_id.trim(),
-      spouce_name: form.spouce_name.trim(),
+      spouce_name: (form.spouce_name ?? "").toString().trim(),
       orders_placed: form.orders_placed === "" ? 0 : Number(form.orders_placed),
 
       // Land
@@ -989,31 +990,32 @@ const MemberSignup = () => {
       other_ngan: form.other_ngan === "" ? 0 : Number(form.other_ngan),
       other_wa:   form.other_wa === "" ? 0 : Number(form.other_wa),
 
-      // 🌾 ข้อมูลเกษตร
-      fid: form.fid === "" ? null : Number(form.fid),
-      fid_owner: form.fid_owner.trim(),
+      // 🌾 ข้อมูลเกษตร (🟢 fid เป็น string)
+      fid: form.fid === "" ? null : String(form.fid),
+      fid_owner: (form.fid_owner ?? "").toString().trim(),
       fid_relationship: form.fid_relationship ?? null,
       agri_type: form.agri_type === "" ? null : Number(form.agri_type),
       fertilizing_period: form.fertilizing_period === "" ? null : Number(form.fertilizing_period),
       fertilizer_type: form.fertilizer_type === "" ? null : Number(form.fertilizer_type),
+
+      // 🟢 ส่งจำนวนเงินซื้อหุ้นครั้งแรกให้ BE ทำรายการทันที
+      initial_share: String(form.buy_amount).trim(),     // Decimal เป็น string (สูงสุด 3 ตำแหน่ง)
+      initial_buy_date: form.buy_date || null,          // ไม่ระบุก็ได้
     }
 
     try {
-      // 1) สมัครสมาชิก
-      await apiAuth(`/member/members/signup`, { method: "POST", body: payload })
+      // 1) สมัครสมาชิก + ซื้อหุ้นครั้งแรก (BE จะคืนใบเสร็จใน field initial_purchase)
+      const resp = await apiAuth(`/member/members/signup`, { method: "POST", body: payload })
 
-      // 2) ซื้อหุ้นอัตโนมัติ (ใช้ tgs_id + buy_amount + buy_date)
-      const body = {
-        amount: String(form.buy_amount).trim(),     // Pydantic Decimal รับสตริงได้
-        buy_date: form.buy_date || undefined,       // ไม่ระบุก็ได้
+      // 2) ดึงใบเสร็จจาก response
+      const r = resp?.initial_purchase || null
+      if (r) {
+        setReceipt(r)
+        setReceiptOpen(true) // แสดงป๊อปอัปใบเสร็จ
+      } else {
+        // ถ้า BE ไม่คืนใบเสร็จ (ไม่คาดว่าจะเกิด) ก็แจ้งสำเร็จเฉย ๆ
+        alert("บันทึกสมาชิกสำเร็จ")
       }
-      const receiptResp = await apiAuth(
-        `/share/${encodeURIComponent(form.tgs_id)}/buy-share`,
-        { method: "POST", body }
-      )
-
-      setReceipt(receiptResp)
-      setReceiptOpen(true) // แสดงป๊อปอัพใบเสร็จ
     } catch (err) {
       console.error(err)
       alert(`บันทึก/ซื้อหุ้นล้มเหลว: ${err.message || err}`)

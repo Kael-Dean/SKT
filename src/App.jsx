@@ -16,7 +16,7 @@ import CustomerAdd from './pages/CustomerAdd'
 import CompanyAdd from './pages/CompanyAdd'
 
 // ✅ นำเข้าหน้า CustomerSearch (ค้นหาลูกค้าทั่วไป)
-import CustomerSearch from './pages/CustomerSearch' // ถ้าไฟล์คุณยังชื่อ CustomeerSearch.jsx ให้แก้ path นี้
+import CustomerSearch from './pages/CustomerSearch'
 
 // ✅ กลุ่มธุรกิจรวบรวมผลผลิต
 import StockTransferOut from './pages/StockTransferOut'
@@ -30,6 +30,9 @@ import StockBringInMill from './pages/StockBringInMill'
 
 // ✅ นำเข้าหน้า: สมาชิกสิ้นสภาพ
 import MemberTermination from './pages/MemberTermination'
+
+// ✅ นำเข้าหน้าใหม่: ซื้อหุ้น
+import Share from './pages/Share'
 
 /** ---------- Route Guard เฉพาะ user id 17/18 ---------- */
 const ALLOWED_USER_IDS = new Set([17, 18])
@@ -80,6 +83,9 @@ function App() {
 
         {/* ✅ Route ใหม่: สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต) */}
         <Route path="/member-termination" element={<MemberTermination />} />
+
+        {/* ✅ Route ใหม่: ซื้อหุ้น */}
+        <Route path="/share" element={<Share />} />
 
         {/* ✅ Routes กลุ่มธุรกิจรวบรวมผลผลิต */}
         <Route path="/bring-in" element={<StockBringIn />} />

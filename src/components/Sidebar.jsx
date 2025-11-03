@@ -42,7 +42,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       location.pathname.startsWith('/customer-search') ||
       location.pathname.startsWith('/customer-add') ||
       location.pathname.startsWith('/company-add') ||
-      location.pathname.startsWith('/member-termination'),
+      location.pathname.startsWith('/member-termination') ||
+      location.pathname.startsWith('/share'), // ⬅️ เพิ่มให้เปิดกลุ่มเมื่ออยู่หน้า "ซื้อหุ้น"
     [location.pathname]
   )
   const [membersOpen, setMembersOpen] = useState(inMembers)
@@ -106,7 +107,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       <div className="flex h-full flex-col">
         {/* Header */}
         <div className="p-4 shrink-0">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">🏢 องค์กร</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">🏢 เมนู</h1>
         </div>
 
         {/* NAV */}
@@ -199,7 +200,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 />
               </div>
 
-              {/* เมนูย่อยของทะเบียนสมาชิก (สลับตำแหน่งตามที่ขอ) */}
+              {/* เมนูย่อยของทะเบียนสมาชิก */}
               <div
                 id="members-submenu"
                 className={`transition-[max-height,opacity] duration-300 ease-out ${
@@ -213,12 +214,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     { label: '📝 สมัครสมาชิก', path: '/member-signup' },
                     // ⬇️ สลับ: เอา "เพิ่มลูกค้าทั่วไป" ขึ้นมาก่อน "ค้นหาสมาชิก"
                     { label: '📝 เพิ่มลูกค้าทั่วไป', path: '/customer-add' },
-                    
                     { label: '📝 เพิ่มบริษัท', path: '/company-add' },
                     { label: '🔎 ค้นหาสมาชิก', path: '/search' },
                     // ⬇️ สลับ: เอา "เพิ่มบริษัท" ขึ้นมาก่อน "ค้นหาลูกค้าทั่วไป"
                     { label: '🔎 ค้นหาลูกค้าทั่วไป', path: '/customer-search' },
                     { label: '🪪 สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)', path: '/member-termination' },
+                    { label: '📈 ซื้อหุ้น', path: '/share' }, // ⬅️ เมนูใหม่
                   ].map((item) => (
                     <div key={item.path}>
                       <button

@@ -30,6 +30,20 @@ const toDecimal3 = (s = "") => {
   return dec ? `${i}.${dec}` : i
 }
 
+// รูปแบบตัวเลขไว้โชว์ใน Modal
+const n2 = (x) => {
+  const n = Number(x)
+  return Number.isFinite(n)
+    ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "0.00"
+}
+const n3 = (x) => {
+  const n = Number(x)
+  return Number.isFinite(n)
+    ? n.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+    : "0.000"
+}
+
 // debounce
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value)
@@ -43,7 +57,7 @@ function useDebounce(value, delay = 400) {
 /** ---------- class helpers ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/** ---------- Enter-to-next helpers (ยกแนวจากหน้า Buy) ---------- */
+/** ---------- Enter-to-next helpers ---------- */
 // ตรวจว่า element โฟกัสได้จริง
 const isEnabledInput = (el) => {
   if (!el) return false
@@ -71,23 +85,23 @@ const useEnterNavigation = (refs) => {
     "postal_code",
     "phone_number",
 
-    // ⬇️ (ลบ salary / ar_limit / normal_share / last_bought_date / transfer_date ออก)
+    // ⬇️ ช่องการเงินที่ยังใช้งาน
     "tgs_group",
     "bank_account",
     "tgs_id",
     "orders_placed",
 
-    // ⬇️ เพิ่มลำดับช่องซื้อหุ้น
+    // ⬇️ ซื้อหุ้น (ไม่มีปุ่มซื้อแล้ว)
     "buy_amount",
     "buy_date",
-    "buyBtn",
 
-    // ต่อด้วยข้อมูลเกษตร
+    // เกษตร
     "fid",
     "fid_owner",
     "agri_type",
     "fertilizing_period",
     "fertilizer_type",
+
     "submitBtn", // → ปุ่มบันทึก
   ]
 
@@ -384,12 +398,68 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
+/** ---------- Receipt Modal ---------- */
+function ReceiptModal({ open, onClose, receipt, name }) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-black shadow-xl dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+        <h3 className="text-xl font-semibold mb-2">บันทึกสำเร็จ & ใบเสร็จซื้อหุ้น</h3>
+        <p className="text-slate-700 dark:text-slate-300 mb-4">
+          <span className="font-medium">ชื่อสมาชิก:</span> {name || "-"}
+        </p>
+
+        <div className="rounded-xl bg-slate-50 p-4 text-slate-800 dark:bg-slate-700/40 dark:text-slate-100">
+          <div className="flex justify-between py-1">
+            <span>มูลค่าที่ซื้อ</span>
+            <span className="font-semibold">{n3(receipt?.value_bought)} บาท</span>
+          </div>
+          <div className="flex justify-between py-1">
+            <span>ค่าธรรมเนียม</span>
+            <span className="font-semibold">{n2(receipt?.fee)} บาท</span>
+          </div>
+          <div className="flex justify-between py-1">
+            <span>รวมชำระ</span>
+            <span className="font-semibold">{n2(receipt?.total_due)} บาท</span>
+          </div>
+          <div className="flex justify-between py-1">
+            <span>ยอดรวมหุ้นสะสมหลังซื้อ</span>
+            <span className="font-semibold">{n3(receipt?.total_share_after)} บาท</span>
+          </div>
+          <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            วันที่ซื้อ: {receipt?.buy_date || "-"} | รหัสสมาชิกในระบบ: {receipt?.tgs_id || "-"}
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center justify-center rounded-2xl 
+                       border border-indigo-300 bg-white px-5 py-2.5 text-sm font-semibold text-indigo-700 
+                       shadow-sm transition hover:bg-indigo-50 dark:bg-slate-700/60 dark:text-indigo-300"
+          >
+            พิมพ์ใบเสร็จ
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center justify-center rounded-2xl 
+                       bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow
+                       hover:bg-emerald-700"
+          >
+            ปิด
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** ---------- Component ---------- */
 const MemberSignup = () => {
   const [errors, setErrors] = useState({})
-  const [buyErrors, setBuyErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
-  const [buying, setBuying] = useState(false)
   const [shouldScrollError, setShouldScrollError] = useState(false)
 
   // 🔝 ref สำหรับเลื่อนกลับไปบนสุดเมื่อรีเซ็ต
@@ -399,8 +469,12 @@ const MemberSignup = () => {
   const [lookupStatus, setLookupStatus] = useState({ searching: false, message: "", tone: "muted" }) // tone: muted|ok|warn
 
   // ✅ สถานะสำหรับจังหวัด/อำเภอ/ตำบล (สุรินทร์เท่านั้น)
-  const [amphoeOptions, setAmphoeOptions] = useState([])     // {value,label} ของอำเภอ
-  const [tambonOptions, setTambonOptions] = useState([])     // {value,label} ของตำบล (ตามอำเภอที่เลือก)
+  const [amphoeOptions, setAmphoeOptions] = useState([])
+  const [tambonOptions, setTambonOptions] = useState([])
+
+  // 🧾 ใบเสร็จ/ป๊อปอัพ
+  const [receipt, setReceipt] = useState(null)
+  const [receiptOpen, setReceiptOpen] = useState(false)
 
   // state หลักของฟอร์ม
   const [form, setForm] = useState({
@@ -425,14 +499,14 @@ const MemberSignup = () => {
     phone_number: "",
     sex: "",
 
-    // ⬇️ ลบ salary / ar_limit / normal_share / last_bought_date / transfer_date
+    // ⬇️ เฉพาะที่ใช้จริงในส่วนการเงิน
     tgs_group: "",
     bank_account: "",
     tgs_id: "",
     spouce_name: "",
     orders_placed: "",
 
-    // 🌱 ช่องซื้อหุ้น (ใหม่)
+    // ซื้อหุ้น (ปุ่มซื้อถูกลบ ใช้ตอน submit)
     buy_amount: "",
     buy_date: new Date().toISOString().slice(0, 10),
 
@@ -441,7 +515,7 @@ const MemberSignup = () => {
     rent_rai: "",  rent_ngan: "",  rent_wa: "",
     other_rai: "", other_ngan: "", other_wa: "",
 
-    // 🌾 ข้อมูลเกษตร (ใหม่)
+    // 🌾 ข้อมูลเกษตร
     fid: "",
     fid_owner: "",
     agri_type: "",
@@ -741,7 +815,6 @@ const MemberSignup = () => {
     // ซื้อหุ้น (ใหม่)
     buy_amount: useRef(null),
     buy_date: useRef(null),
-    buyBtn: useRef(null),
 
     // เกษตร
     fid: useRef(null),
@@ -760,12 +833,6 @@ const MemberSignup = () => {
   const update = (k, v) => setForm((prev) => ({ ...prev, [k]: v }))
   const clearError = (key) =>
     setErrors((prev) => {
-      if (!(key in prev)) return prev
-      const { [key]: _omit, ...rest } = prev
-      return rest
-    })
-  const clearBuyError = (key) =>
-    setBuyErrors((prev) => {
       if (!(key in prev)) return prev
       const { [key]: _omit, ...rest } = prev
       return rest
@@ -800,12 +867,12 @@ const MemberSignup = () => {
     if (!form.district) e.district = "เลือกอำเภอ"
     if (!form.province) e.province = "จังหวัดต้องเป็นสุรินทร์"
 
-    // เพศถูกล็อกจากคำนำหน้า ถ้าไม่มีให้เตือนให้เลือกคำนำหน้า
+    // เพศถูกล็อกจากคำนำหน้า
     if (!form.sex) e.sex = "เลือกคำนำหน้าเพื่อกำหนดเพศอัตโนมัติ"
 
+    // ตัวเลขต่าง ๆ
     ;[
       "member_id","precode","subprov","postal_code",
-      // ⬇️ ลบ salary / ar_limit / normal_share ออกจากชุดตรวจ
       "tgs_group",
       "orders_placed",
       "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
@@ -815,6 +882,12 @@ const MemberSignup = () => {
       if (v !== "" && isNaN(Number(v))) e[k] = "ตัวเลขเท่านั้น"
     })
 
+    // ซื้อหุ้น: บังคับ tgs_id + buy_amount > 0
+    const amountOk = form.buy_amount && !isNaN(Number(form.buy_amount)) && Number(form.buy_amount) > 0
+    if (!amountOk) e.buy_amount = "กรอกจำนวนเงินหุ้นมากกว่า 0"
+    if (!form.tgs_id) e.tgs_id = "กรอกรหัสสมาชิกในระบบ (tgs_id) เพื่อทำการซื้อหุ้น"
+
+    // ช่วงค่าที่ดิน
     const landTriples = [
       ["own_rai","own_ngan","own_wa"],
       ["rent_rai","rent_ngan","rent_wa"],
@@ -828,7 +901,6 @@ const MemberSignup = () => {
     })
 
     if (!form.regis_date) e.regis_date = "เลือกวันที่สมัคร"
-    // ⬇️ ลบการบังคับ last_bought_date ออก
 
     setErrors(e)
     return Object.keys(e).length === 0
@@ -843,8 +915,11 @@ const MemberSignup = () => {
       "address","mhoo","province","district","sub_district","postal_code",
       "phone_number","sex",
 
-      // ⬇️ ส่วนการเงิน (เฉพาะที่ยังใช้อยู่)
-      "tgs_group","bank_account","tgs_id","spouce_name","orders_placed",
+      // การเงิน
+      "tgs_group","bank_account","tgs_id","orders_placed",
+
+      // ซื้อหุ้น
+      "buy_amount","buy_date",
 
       // ที่ดินและเกษตร
       "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
@@ -867,7 +942,7 @@ const MemberSignup = () => {
     ev.preventDefault()
     const ok = validateAll()
     if (!ok) {
-      alert("สมัครสมาชิกไม่สำเร็จ ⚠️\n\nกรุณากรอกข้อมูลให้ครบในช่องที่มีกรอบสีแดง")
+      alert("สมัครสมาชิก/ซื้อหุ้นไม่สำเร็จ ⚠️\n\nกรุณากรอกข้อมูลให้ครบในช่องที่มีกรอบสีแดง")
       setShouldScrollError(true)
       return
     }
@@ -895,9 +970,9 @@ const MemberSignup = () => {
       phone_number: form.phone_number.trim(),
       sex: form.sex,
 
-      // ⬇️ คงเฉพาะที่ยังมีใช้
+      // เฉพาะที่ใช้
       tgs_group: form.tgs_group === "" ? 0 : Number(form.tgs_group),
-      share_per_month: 0, // ⛳️ ตาม requirement เดิม
+      share_per_month: 0,
       bank_account: form.bank_account.trim(),
       tgs_id: form.tgs_id.trim(),
       spouce_name: form.spouce_name.trim(),
@@ -924,67 +999,33 @@ const MemberSignup = () => {
     }
 
     try {
+      // 1) สมัครสมาชิก
       await apiAuth(`/member/members/signup`, { method: "POST", body: payload })
-      alert("บันทึกสมาชิกเรียบร้อย ✅")
-      handleReset()
+
+      // 2) ซื้อหุ้นอัตโนมัติ (ใช้ tgs_id + buy_amount + buy_date)
+      const body = {
+        amount: String(form.buy_amount).trim(),     // Pydantic Decimal รับสตริงได้
+        buy_date: form.buy_date || undefined,       // ไม่ระบุก็ได้
+      }
+      const receiptResp = await apiAuth(
+        `/share/${encodeURIComponent(form.tgs_id)}/buy-share`,
+        { method: "POST", body }
+      )
+
+      setReceipt(receiptResp)
+      setReceiptOpen(true) // แสดงป๊อปอัพใบเสร็จ
     } catch (err) {
       console.error(err)
-      alert(`บันทึกล้มเหลว: ${err.message}`)
+      alert(`บันทึก/ซื้อหุ้นล้มเหลว: ${err.message || err}`)
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleBuyShare = async () => {
-    // ตรวจขั้นต่ำก่อนซื้อหุ้น
-    const be = {}
-    if (!form.tgs_id) be.tgs_id = "กรอกรหัสสมาชิกในระบบ (tgs_id) ก่อนซื้อหุ้น"
-    const amountStr = String(form.buy_amount || "").trim()
-    if (!amountStr || isNaN(Number(amountStr)) || Number(amountStr) <= 0) {
-      be.buy_amount = "กรอกจำนวนเงินหุ้นมากกว่า 0"
-    }
-    setBuyErrors(be)
-    if (be.tgs_id) {
-      refs.tgs_id.current?.focus()
-      return
-    }
-    if (be.buy_amount) {
-      refs.buy_amount.current?.focus()
-      return
-    }
-
-    setBuying(true)
-    try {
-      const body = {
-        amount: amountStr,                   // ส่งเป็นสตริงทศนิยม (Pydantic รับ Decimal)
-        buy_date: form.buy_date || undefined // ไม่ระบุก็ได้
-      }
-      const receipt = await apiAuth(
-        `/share/${encodeURIComponent(form.tgs_id)}/buy-share`,
-        { method: "POST", body }
-      )
-      // ใบเสร็จ (first purchase มี fee 50 ตามฝั่ง BE)
-      alert(
-        `ซื้อหุ้นสำเร็จ ✅\n\n` +
-        `วันที่ซื้อ: ${receipt.buy_date}\n` +
-        `มูลค่าที่ซื้อ: ${receipt.value_bought}\n` +
-        `ค่าธรรมเนียม: ${receipt.fee}\n` +
-        `รวมชำระ: ${receipt.total_due}\n` +
-        `ยอดรวมหุ้นสะสม: ${receipt.total_share_after}`
-      )
-      setForm((prev) => ({ ...prev, buy_amount: "" }))
-      setBuyErrors({})
-    } catch (err) {
-      console.error(err)
-      alert(`ซื้อหุ้นไม่สำเร็จ: ${err.message || err}`)
-    } finally {
-      setBuying(false)
-    }
-  }
-
   const handleReset = () => {
     setErrors({})
-    setBuyErrors({})
+    setReceipt(null)
+    setReceiptOpen(false)
     setForm({
       regis_date: new Date().toISOString().slice(0, 10),
       seedling_prog: false,
@@ -1143,7 +1184,7 @@ const MemberSignup = () => {
                 {errors.member_id && <p className={errorTextCls}>{errors.member_id}</p>}
               </div>
 
-              {/* คำนำหน้า (ดรอปดาว) */}
+              {/* คำนำหน้า */}
               <div>
                 <label className={labelCls}>คำนำหน้า (precode)</label>
                 <div ref={refs.precode}>
@@ -1425,14 +1466,14 @@ const MemberSignup = () => {
                 <label className={labelCls}>รหัสสมาชิกในระบบ (tgs_id)</label>
                 <input
                   ref={refs.tgs_id}
-                  className={cx(baseField, buyErrors.tgs_id && fieldError)}
+                  className={cx(baseField, errors.tgs_id && fieldError)}
                   value={form.tgs_id}
-                  onChange={(e) => { clearBuyError("tgs_id"); update("tgs_id", e.target.value) }}
+                  onChange={(e) => { clearError("tgs_id"); update("tgs_id", e.target.value) }}
                   onKeyDown={onEnter("tgs_id")}
                   placeholder="TGS-001"
-                  aria-invalid={buyErrors.tgs_id ? true : undefined}
+                  aria-invalid={errors.tgs_id ? true : undefined}
                 />
-                {buyErrors.tgs_id && <p className={errorTextCls}>{buyErrors.tgs_id}</p>}
+                {errors.tgs_id && <p className={errorTextCls}>{errors.tgs_id}</p>}
               </div>
 
               <div>
@@ -1452,7 +1493,7 @@ const MemberSignup = () => {
               </div>
             </div>
 
-            {/* ซื้อหุ้น (แทนชุดฟิลด์ที่ถูกลบ) */}
+            {/* ซื้อหุ้น (แทนชุดฟิลด์ที่ถูกลบปุ่ม) */}
             <h3 className="mt-6 mb-3 text-lg font-semibold">ซื้อหุ้น</h3>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
@@ -1460,15 +1501,15 @@ const MemberSignup = () => {
                 <input
                   ref={refs.buy_amount}
                   inputMode="decimal"
-                  className={cx(baseField, buyErrors.buy_amount && fieldError)}
+                  className={cx(baseField, errors.buy_amount && fieldError)}
                   value={form.buy_amount}
-                  onChange={(e) => { clearBuyError("buy_amount"); update("buy_amount", toDecimal3(e.target.value)) }}
+                  onChange={(e) => { clearError("buy_amount"); update("buy_amount", toDecimal3(e.target.value)) }}
                   onKeyDown={onEnter("buy_amount")}
                   placeholder="เช่น 1000.000"
-                  aria-invalid={buyErrors.buy_amount ? true : undefined}
+                  aria-invalid={errors.buy_amount ? true : undefined}
                 />
-                {buyErrors.buy_amount && <p className={errorTextCls}>{buyErrors.buy_amount}</p>}
-                <p className={helpTextCls}>ทศนิยมได้ไม่เกิน 3 ตำแหน่ง</p>
+                {errors.buy_amount && <p className={errorTextCls}>{errors.buy_amount}</p>}
+                <p className={helpTextCls}>ทศนิยมได้ไม่เกิน 3 ตำแหน่ง • ครั้งแรกมีค่าธรรมเนียม 50 บาท (คำนวณโดยฝั่ง BE)</p>
               </div>
 
               <div>
@@ -1479,28 +1520,6 @@ const MemberSignup = () => {
                   onChange={(e) => update("buy_date", e.target.value)}
                 />
               </div>
-            </div>
-
-            <div className="mt-4">
-              <button
-                ref={refs.buyBtn}
-                type="button"
-                onClick={handleBuyShare}
-                disabled={buying}
-                className="inline-flex items-center justify-center rounded-2xl 
-                            bg-indigo-600 px-6 py-3 text-base font-semibold text-white
-                            shadow-[0_6px_16px_rgba(79,70,229,0.35)]
-                            transition-all duration-300 ease-out
-                            hover:bg-indigo-700 hover:shadow-[0_8px_20px_rgba(79,70,229,0.45)]
-                            hover:scale-[1.05] active:scale-[.97]
-                            disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-                aria-busy={buying ? "true" : "false"}
-              >
-                {buying ? "กำลังบันทึกการซื้อ..." : "ซื้อหุ้น"}
-              </button>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                ระบบจะคิดค่าธรรมเนียม 50 บาทเฉพาะการซื้อครั้งแรก (ตาม BE) และอัปเดตยอดรวมหุ้นสะสมให้อัตโนมัติ
-              </p>
             </div>
           </SectionCard>
 
@@ -1587,74 +1606,6 @@ const MemberSignup = () => {
               </div>
             </div>
 
-            {/* ที่ดินถือครอง */}
-            <h3 className="mt-6 mb-3 text-lg font-semibold">ที่ดินถือครอง</h3>
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-              <table className="min-w-full text-left text-[15px] md:text-base">
-                <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-                  <tr>
-                    <th className="px-3 py-2">ประเภท</th>
-                    <th className="px-3 py-2 text-center">ไร่</th>
-                    <th className="px-3 py-2 text-center">งาน</th>
-                    <th className="px-3 py-2 text-center">วา</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { key:"own",  label:"ของตนเอง" },
-                    { key:"rent", label:"เช่า" },
-                    { key:"other",label:"อื่น ๆ" },
-                  ].map(({key,label})=>(
-                    <tr key={key} className="bg-white dark:bg-slate-800">
-                      <td className="px-3 py-2">{label}</td>
-                      <td className="px-3 py-2">
-                        <input
-                          ref={refs[`${key}_rai`]}
-                          inputMode="numeric"
-                          className={cx(baseField, "text-center", errors[`${key}_rai`] && fieldError)}
-                          value={form[`${key}_rai`]}
-                          onChange={(e)=>{ clearError(`${key}_rai`); update(`${key}_rai`, onlyDigits(e.target.value)) }}
-                          onFocus={() => clearError(`${key}_rai`)}
-                          onKeyDown={onEnter(`${key}_rai`)}
-                          placeholder="0"
-                          aria-invalid={errors[`${key}_rai`] ? true : undefined}
-                        />
-                        {errors[`${key}_rai`] && <p className={cx(errorTextCls, "text-xs")}>{errors[`${key}_rai`]}</p>}
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          ref={refs[`${key}_ngan`]}
-                          inputMode="numeric"
-                          className={cx(baseField, "text-center", errors[`${key}_ngan`] && fieldError)}
-                          value={form[`${key}_ngan`]}
-                          onChange={(e)=>{ clearError(`${key}_ngan`); update(`${key}_ngan`, String(clampNgan(e.target.value))) }}
-                          onFocus={() => clearError(`${key}_ngan`)}
-                          onKeyDown={onEnter(`${key}_ngan`)}
-                          placeholder="0–3"
-                          aria-invalid={errors[`${key}_ngan`] ? true : undefined}
-                        />
-                        {errors[`${key}_ngan`] && <p className={cx(errorTextCls, "text-xs")}>{errors[`${key}_ngan`]}</p>}
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          ref={refs[`${key}_wa`]}
-                          inputMode="numeric"
-                          className={cx(baseField, "text-center", errors[`${key}_wa`] && fieldError)}
-                          value={form[`${key}_wa`]}
-                          onChange={(e)=>{ clearError(`${key}_wa`); update(`${key}_wa`, String(clampWa(e.target.value))) }}
-                          onFocus={() => clearError(`${key}_wa`)}
-                          onKeyDown={onEnter(`${key}_wa`)}
-                          placeholder="0–99"
-                          aria-invalid={errors[`${key}_wa`] ? true : undefined}
-                        />
-                        {errors[`${key}_wa`] && <p className={cx(errorTextCls, "text-xs")}>{errors[`${key}_wa`]}</p>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
             {/* ปุ่ม */}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
@@ -1690,6 +1641,17 @@ const MemberSignup = () => {
             </div>
           </SectionCard>
         </form>
+
+        {/* Receipt Modal */}
+        <ReceiptModal
+          open={receiptOpen}
+          receipt={receipt}
+          name={`${(form.first_name || "").trim()} ${(form.last_name || "").trim()}`}
+          onClose={() => {
+            setReceiptOpen(false)
+            handleReset()
+          }}
+        />
       </div>
     </div>
   )

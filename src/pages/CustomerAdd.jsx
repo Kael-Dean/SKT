@@ -430,6 +430,28 @@ const CustomerAdd = () => {
   })
   // ---------- END Enter Navigation ----------
 
+  // ⭐ เลื่อนไปบนสุดแบบหน้า Sales
+  const scrollToPageTop = () => {
+    try { topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) } catch {}
+    const root = document.scrollingElement || document.documentElement || document.body
+    try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
+  }
+
+  // ⭐ เลื่อนโฟกัสไปช่องแรกที่ผิด (เรียงตาม enterOrder)
+  const scrollToFirstError = (eObj = {}) => {
+    const keyOrder = enterOrder.map((o) => o.key)
+    const firstKey = keyOrder.find((k) => eObj[k])
+    if (firstKey) {
+      const el = enterOrder.find((o) => o.key === firstKey)?.ref?.current
+      if (el && typeof el.focus === "function") {
+        try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
+        el.focus()
+      }
+      return
+    }
+    scrollToPageTop()
+  }
+
   // โหลดตัวเลือก FID Relationship จาก BE
   useEffect(() => {
     let cancelled = false
@@ -532,12 +554,23 @@ const CustomerAdd = () => {
     if (form.postal_code !== "" && isNaN(Number(form.postal_code))) e.postal_code = "ต้องเป็นตัวเลข"
 
     setErrors(e)
-    return Object.keys(e).length === 0
+    return e
   }
 
   const handleSubmit = async (ev) => {
     ev.preventDefault()
-    if (!validateAll()) return
+    // ให้ฟีลเหมือนหน้า Sales: เลื่อนขึ้นบนก่อน
+    scrollToPageTop()
+
+    const eObj = validateAll()
+
+    // ❌ แจ้งเตือนแบบหน้า Sales เมื่อฟอร์มไม่ผ่าน
+    if (Object.keys(eObj).length > 0) {
+      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      scrollToFirstError(eObj)
+      return
+    }
+
     setSubmitting(true)
 
     const splitName = (full = "") => {
@@ -570,15 +603,22 @@ const CustomerAdd = () => {
 
     try {
       await apiAuth(`/member/customers/signup`, { method: "POST", body: payload })
-      alert("บันทึกข้อมูลลูกค้าทั่วไปเรียบร้อย ✅")
+      // ✅ แจ้งเตือนแบบหน้า Sales (สำเร็จ)
+      alert("✅✅✅✅✅✅✅✅ บันทึกสมัครสมาชิกเรียบร้อย ✅✅✅✅✅✅✅✅")
       handleReset()
+      // เลื่อนขึ้นบนอีกครั้งเพื่อให้ผู้ใช้เห็นต้นฟอร์ม
+      requestAnimationFrame(() => scrollToPageTop())
+      try { submitBtnRef.current?.blur?.() } catch {}
     } catch (err) {
       console.error(err)
       const msg =
         (err && err.detail) ||
         (typeof err?.message === "string" ? err.message : "") ||
         "บันทึกล้มเหลว กรุณาลองใหม่"
-      alert(msg)
+      // ❌ แจ้งเตือนแบบหน้า Sales (ล้มเหลวจาก BE)
+      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
+
+สาเหตุ: ${msg}`)
     } finally {
       setSubmitting(false)
     }

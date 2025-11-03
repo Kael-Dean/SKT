@@ -7,18 +7,18 @@ const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const cx = (...a) => a.filter(Boolean).join(" ")
 
 /** **********************************************************************
- * จังหวัดสุรินทร์: รายการอำเภอ (ครบ 17) และตำบล (ตามหน้า MemberSignup)
- * - พยายามดึงจาก API ก่อน (เช่น /geo/*) → ถ้าไม่มีใช้ fallback ด้านล่าง
+ * แหล่งข้อมูลจังหวัด/อำเภอ/ตำบล (ทั้งประเทศ)
+ * - โหลดจาก /public/data/thai/{province,district,sub_district}.json
+ * - ถ้าโหลดไม่ได้ → fallback เฉพาะ “สุรินทร์” เพื่อไม่ให้ฟอร์มพัง
  *********************************************************************** */
-const PROV_SURIN = "สุรินทร์"
+const DATA_BASE = "/data/thai" // อยู่ใต้ public (เช่น public/data/thai/province.json)
 
-// ✅ ครบ 17 อำเภอ (แบบเดียวกับ MemberSignup)
+// ---------- Fallback เฉพาะสุรินทร์ ----------
+const PROV_SURIN = "สุรินทร์"
 const AMPHOES_SURIN = [
   "เมืองสุรินทร์","จอมพระ","ชุมพลบุรี","ท่าตูม","ปราสาท","กาบเชิง","รัตนบุรี","สนม",
   "ศีขรภูมิ","สังขะ","ลำดวน","สำโรงทาบ","โนนนารายณ์","บัวเชด","พนมดงรัก","ศรีณรงค์","เขวาสินรินทร์",
 ]
-
-// ✅ Mapping ตำบลตามหน้า MemberSignup
 const TAMBONS_BY_AMPHOE = {
   "เมืองสุรินทร์":[
     "ในเมือง","สวาย","ตั้งใจ","เพี้ยราม","นาดี","ท่าสว่าง","สลักได","ตาอ็อง","สำโรง","แกใหญ่",
@@ -75,7 +75,7 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- ComboBox (เปิดแล้วไฮไลต์ตัวแรก/ค่าปัจจุบันอัตโนมัติ) ---------- */
+/** ---------- ComboBox (ปุ่มกดแบบเดิม) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -121,9 +121,7 @@ function ComboBox({
     if (open) {
       const idx = selectedIndex >= 0 ? selectedIndex : (options.length ? 0 : -1)
       setHighlight(idx)
-      if (idx >= 0) {
-        requestAnimationFrame(() => scrollHighlightedIntoView(idx))
-      }
+      if (idx >= 0) requestAnimationFrame(() => scrollHighlightedIntoView(idx))
     }
   }, [open, selectedIndex, options])
 
@@ -155,14 +153,10 @@ function ComboBox({
   const onKeyDown = (e) => {
     if (disabled) return
     if (!open && e.key === "Enter") {
-      e.preventDefault()
-      setOpen(true)
-      return
+      e.preventDefault(); setOpen(true); return
     }
     if (!open && (e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault()
-      setOpen(true)
-      return
+      e.preventDefault(); setOpen(true); return
     }
     if (!open) return
 
@@ -182,13 +176,9 @@ function ComboBox({
       })
     } else if (e.key === "Enter") {
       e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) {
-        commit(options[highlight], { navigate: true })
-      }
+      if (highlight >= 0 && highlight < options.length) commit(options[highlight], { navigate: true })
     } else if (e.key === "Escape") {
-      e.preventDefault()
-      setOpen(false)
-      setHighlight(-1)
+      e.preventDefault(); setOpen(false); setHighlight(-1)
     }
   }
 
@@ -253,10 +243,163 @@ function ComboBox({
                     : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
                 )}
               >
-                {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-                )}
+                {isActive && <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />}
                 <span className="flex-1">{label}</span>
+                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** ---------- SearchComboBox (พิมพ์ค้นหา + ดรอปดาว) ---------- */
+function SearchComboBox({
+  options = [],
+  value,
+  onChange,
+  placeholder = "พิมพ์เพื่อค้นหา…",
+  disabled = false,
+  error = false,
+  inputRef = null,
+  onEnterNext = null,
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+  const [highlight, setHighlight] = useState(-1)
+  const boxRef = useRef(null)
+  const listRef = useRef(null)
+  const internalInputRef = useRef(null)
+  const controlRef = inputRef || internalInputRef
+
+  const selected = useMemo(() => options.find((o) => String(o.value) === String(value)), [options, value])
+  const selectedLabel = selected?.label ?? ""
+
+  // sync query display with selected label
+  useEffect(() => { setQuery(selectedLabel) }, [selectedLabel])
+
+  useEffect(() => {
+    const onClick = (e) => {
+      if (!boxRef.current) return
+      if (!boxRef.current.contains(e.target)) {
+        setOpen(false)
+        setHighlight(-1)
+        // ถ้าปิดแล้วไม่มี selection → เคลียร์ query ทิ้ง
+        if (!value) setQuery("")
+      }
+    }
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [value])
+
+  const norm = (s) => String(s || "").toLocaleLowerCase("th")
+  const filtered = useMemo(() => {
+    const q = norm(query)
+    if (!q) return options
+    return options.filter((o) => norm(o.label).includes(q))
+  }, [options, query])
+
+  useEffect(() => {
+    if (open) {
+      const idx = filtered.findIndex((o) => String(o.value) === String(value))
+      setHighlight(idx >= 0 ? idx : (filtered.length ? 0 : -1))
+      if (idx >= 0) requestAnimationFrame(() => {
+        const listEl = listRef.current
+        const itemEl = listEl?.children?.[idx]
+        if (listEl && itemEl) listEl.scrollTop = itemEl.offsetTop - 6
+      })
+    }
+  }, [open, filtered, value])
+
+  const commit = (opt, { navigate = false } = {}) => {
+    onChange?.(String(opt.value), opt)
+    setOpen(false)
+    setHighlight(-1)
+    setQuery(opt.label || "")
+    requestAnimationFrame(() => {
+      controlRef.current?.blur?.()
+      if (navigate) onEnterNext?.()
+    })
+  }
+
+  const onKeyDown = (e) => {
+    if (disabled) return
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setOpen(true)
+      setHighlight((h) => {
+        const next = h < filtered.length - 1 ? h + 1 : 0
+        return filtered.length ? next : -1
+      })
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      if (!open) return
+      setHighlight((h) => {
+        const prev = h > 0 ? h - 1 : (filtered.length ? filtered.length - 1 : -1)
+        return prev
+      })
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (open && highlight >= 0 && highlight < filtered.length) {
+        commit(filtered[highlight], { navigate: true })
+      } else if (!open) {
+        setOpen(true)
+      } else if (filtered.length === 1) {
+        commit(filtered[0], { navigate: true })
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault(); setOpen(false); setHighlight(-1)
+    }
+  }
+
+  return (
+    <div className="relative" ref={boxRef}>
+      <input
+        type="text"
+        ref={controlRef}
+        disabled={disabled}
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
+        className={cx(baseField, error && fieldError, disabled && "bg-slate-200 cursor-not-allowed")}
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-invalid={error ? true : undefined}
+      />
+      {/* dropdown */}
+      {open && (
+        <div
+          ref={listRef}
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        >
+          {filtered.length === 0 && (
+            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่พบจังหวัดที่ตรงเงื่อนไข</div>
+          )}
+          {filtered.map((opt, idx) => {
+            const isActive = idx === highlight
+            const isChosen = String(opt.value) === String(value)
+            return (
+              <button
+                key={String(opt.value) || idx}
+                type="button"
+                role="option"
+                aria-selected={isChosen}
+                onMouseEnter={() => setHighlight(idx)}
+                onClick={() => commit(opt)}
+                className={cx(
+                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
+                  isActive
+                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                )}
+              >
+                {isActive && <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />}
+                <span className="flex-1">{opt.label}</span>
                 {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
               </button>
             )
@@ -300,36 +443,30 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
-/** ---------- Helpers: โหลดอำเภอ/ตำบล ---------- */
-const shapeOptions = (arr = [], labelKey = "name", valueKey = "id") =>
-  arr.map((x, i) => {
-    const v = String(x?.[valueKey] ?? x?.value ?? x?.id ?? x?.[labelKey] ?? i)
-    const l = String(x?.[labelKey] ?? x?.label ?? x?.name ?? x)
-    return { value: v, label: l }
-  })
-
-const dedupe = (arr) => Array.from(new Set(arr))
-
-/** ---------- Prefix/sex helpers ---------- */
-const PREFIX_OPTIONS = [
-  { value: "1", label: "นาย" },
-  { value: "2", label: "นาง" },
-  { value: "3", label: "นางสาว" },
-]
-const sexFromPrefix = (pre) => (pre === "1" ? "M" : pre === "2" || pre === "3" ? "F" : "")
-
 /** ---------- Component: CustomerAdd ---------- */
 const CustomerAdd = () => {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
-  // สำหรับตัวเลือกความสัมพันธ์ FID
-  const [relOpts, setRelOpts] = useState([])   // [{id, fid_relationship}]
+  // ความสัมพันธ์ FID
+  const [relOpts, setRelOpts] = useState([])
   const [relLoading, setRelLoading] = useState(false)
 
-  // อำเภอ/ตำบล (options เหมือน MemberSignup)
-  const [amphoeOptions, setAmphoeOptions] = useState([]) // [{value,label}]
-  const [tambonOptions, setTambonOptions] = useState([]) // [{value,label}]
+  // ---------- Geo data ----------
+  const [geoReady, setGeoReady] = useState(false)
+  const [provOptions, setProvOptions] = useState([])        // [{value: province_id, label: province_name_th}]
+  const [districtOptions, setDistrictOptions] = useState([]) // [{value: district_id, label: amphoe_th}]
+  const [tambonOptions, setTambonOptions] = useState([])     // [{value: subdistrict_id, label: tambon_th}]
+
+  // index เร็วๆ
+  const geoRef = useRef({
+    provinces: [],   // [{id, name_th, name_en}]
+    districts: [],   // [{id, name_th, name_en, province_id}]
+    subs: [],        // [{id, name_th, name_en, district_id, zip_code}]
+    provById: new Map(),
+    amphoeByProv: new Map(),     // province_id -> [{id, name_th, ...}]
+    tambonByAmphoe: new Map(),   // district_id -> [{id, name_th, ...}]
+  })
 
   // refs อินพุต
   const refs = {
@@ -351,7 +488,7 @@ const CustomerAdd = () => {
   const submitBtnRef = useRef(null)
   const topRef = useRef(null)
 
-  // ปุ่มของ ComboBox
+  // ปุ่ม ComboBox
   const comboBtnRefs = {
     precode: useRef(null),
     district: useRef(null),
@@ -359,7 +496,7 @@ const CustomerAdd = () => {
     fid_relationship: useRef(null),
   }
 
-  // ฟอร์ม
+  // ฟอร์ม (เก็บ id สำหรับจังหวัด/อำเภอ/ตำบล; เปลี่ยนเป็นชื่อไทยตอนส่ง)
   const [form, setForm] = useState({
     slowdown_rice: false,
     citizen_id: "",
@@ -368,9 +505,9 @@ const CustomerAdd = () => {
     full_name: "",
     address: "",
     mhoo: "",
-    sub_district: "",
-    district: "",
-    province: "",
+    sub_district: "",  // = subdistrict_id
+    district: "",      // = district_id
+    province: "",      // = province_id
     postal_code: "",
     phone_number: "",
     fid: "",
@@ -386,16 +523,16 @@ const CustomerAdd = () => {
       return rest
     })
 
-  // ---------- Enter Navigation ----------
+  // ---------- Enter Navigation (เลื่อน “จังหวัด” มาก่อน “อำเภอ”) ----------
   const enterOrder = [
     { key: "citizen_id", ref: refs.citizen_id },
     { key: "precode", ref: comboBtnRefs.precode },
     { key: "full_name", ref: refs.full_name },
     { key: "address", ref: refs.address },
     { key: "mhoo", ref: refs.mhoo },
+    { key: "province", ref: refs.province },      // ← จังหวัด มาก่อน
     { key: "district", ref: comboBtnRefs.district },
     { key: "sub_district", ref: comboBtnRefs.sub_district },
-    { key: "province", ref: refs.province },
     { key: "postal_code", ref: refs.postal_code },
     { key: "phone_number", ref: refs.phone_number },
     { key: "fid", ref: refs.fid },
@@ -403,7 +540,6 @@ const CustomerAdd = () => {
     { key: "fid_relationship", ref: comboBtnRefs.fid_relationship },
     { key: "submit", ref: submitBtnRef },
   ]
-
   const focusNextFromIndex = (idx) => {
     for (let i = idx + 1; i < enterOrder.length; i++) {
       const el = enterOrder[i]?.ref?.current
@@ -412,47 +548,18 @@ const CustomerAdd = () => {
       try {
         el.focus()
         try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
-        if (el?.dataset?.comboboxBtn === "true") {
-          requestAnimationFrame(() => { el.click?.() })
-        }
+        if (el?.dataset?.comboboxBtn === "true") requestAnimationFrame(() => { el.click?.() })
       } catch {}
       break
     }
   }
-
   const bindEnter = (idx) => ({
     onKeyDown: (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault()
-        focusNextFromIndex(idx)
-      }
+      if (e.key === "Enter") { e.preventDefault(); focusNextFromIndex(idx) }
     }
   })
-  // ---------- END Enter Navigation ----------
 
-  // ⭐ เลื่อนไปบนสุดแบบหน้า Sales
-  const scrollToPageTop = () => {
-    try { topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) } catch {}
-    const root = document.scrollingElement || document.documentElement || document.body
-    try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
-  }
-
-  // ⭐ เลื่อนโฟกัสไปช่องแรกที่ผิด (เรียงตาม enterOrder)
-  const scrollToFirstError = (eObj = {}) => {
-    const keyOrder = enterOrder.map((o) => o.key)
-    const firstKey = keyOrder.find((k) => eObj[k])
-    if (firstKey) {
-      const el = enterOrder.find((o) => o.key === firstKey)?.ref?.current
-      if (el && typeof el.focus === "function") {
-        try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
-        el.focus()
-      }
-      return
-    }
-    scrollToPageTop()
-  }
-
-  // โหลดตัวเลือก FID Relationship จาก BE
+  // ---------- โหลดตัวเลือกความสัมพันธ์ FID ----------
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -468,109 +575,147 @@ const CustomerAdd = () => {
     return () => { cancelled = true }
   }, [])
 
-  // --- โหลดอำเภอ (พยายามจาก API | fallback คงที่) ---
-  const loadAmphoesSurin = async () => {
-    const candidates = [
-      `/geo/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
-      `/geo/amphoes?province_name=${encodeURIComponent(PROV_SURIN)}`,
-      `/th/geo/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
-      `/address/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
-    ]
-    let options = []
-    for (const p of candidates) {
-      try {
-        const data = await apiAuth(p)
-        if (Array.isArray(data) && data.length) {
-          const tryKeys = ["name", "amphoe_name", "amphoe", "label"]
-          const labelKey = tryKeys.find((k) => typeof data?.[0]?.[k] !== "undefined") || "name"
-          options = shapeOptions(data, labelKey)
-          break
-        }
-      } catch {}
-    }
-    if (!options.length) {
-      options = AMPHOES_SURIN.map((n) => ({ value: n, label: n }))
-    }
-    setAmphoeOptions(options.sort((a, b) => a.label.localeCompare(b.label, "th")))
-  }
-
-  const loadTambonsByAmphoe = async (amphoeLabel) => {
-    if (!amphoeLabel) { setTambonOptions([]); return }
-    const candidates = [
-      `/geo/tambon?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
-      `/geo/tambons?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
-      `/th/geo/tambon?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
-      `/address/tambon?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
-    ]
-    let options = []
-    for (const p of candidates) {
-      try {
-        const data = await apiAuth(p)
-        if (Array.isArray(data) && data.length) {
-          const tryKeys = ["name", "tambon_name", "subdistrict", "label"]
-          const labelKey = tryKeys.find((k) => typeof data?.[0]?.[k] !== "undefined") || "name"
-          options = shapeOptions(data, labelKey)
-          break
-        }
-      } catch {}
-    }
-    if (!options.length) {
-      const fall = dedupe(TAMBONS_BY_AMPHOE[amphoeLabel] || [])
-      options = fall.map((n, i) => ({ value: n || String(i), label: n }))
-    }
-    setTambonOptions(options.sort((a, b) => a.label.localeCompare(b.label, "th")))
-  }
-
-  // mount: โหลดอำเภอ
-  useEffect(() => { loadAmphoesSurin() }, [])
-
-  // รีเซ็ตตำบล & โหลดใหม่เมื่อเปลี่ยนอำเภอ
+  /** ------------------------- โหลด Geo JSON ทั้งประเทศ ------------------------- */
   useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [provRes, distRes, subRes] = await Promise.all([
+          fetch(`${DATA_BASE}/province.json`),
+          fetch(`${DATA_BASE}/district.json`),
+          fetch(`${DATA_BASE}/sub_district.json`),
+        ])
+        if (!provRes.ok || !distRes.ok || !subRes.ok) throw new Error("geo files not found")
+        const [provinces, districts, subs] = await Promise.all([provRes.json(), distRes.json(), subRes.json()])
+
+        // build indexes
+        const provById = new Map(provinces.map(p => [String(p.id), p]))
+        const amphoeByProv = new Map()
+        districts.forEach(d => {
+          const key = String(d.province_id)
+          if (!amphoeByProv.has(key)) amphoeByProv.set(key, [])
+          amphoeByProv.get(key).push(d)
+        })
+        const tambonByAmphoe = new Map()
+        subs.forEach(s => {
+          const key = String(s.district_id)
+          if (!tambonByAmphoe.has(key)) tambonByAmphoe.set(key, [])
+          tambonByAmphoe.get(key).push(s)
+        })
+
+        geoRef.current = { provinces, districts, subs, provById, amphoeByProv, tambonByAmphoe }
+
+        // province options
+        const pOpts = provinces
+          .map(p => ({ value: String(p.id), label: String(p.name_th || p.name) }))
+          .sort((a, b) => a.label.localeCompare(b.label, "th"))
+
+        if (!cancelled) { setProvOptions(pOpts); setGeoReady(true) }
+      } catch (e) {
+        // Fallback: สุรินทร์เท่านั้น
+        if (!cancelled) {
+          setProvOptions([{ value: "SURIN_FALLBACK", label: PROV_SURIN }])
+          setGeoReady(false)
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  // เมื่อเลือก “จังหวัด” → โหลด “อำเภอ”
+  const loadAmphoeOptions = (provinceIdOrFallback) => {
+    if (geoReady) {
+      const provId = String(provinceIdOrFallback || "")
+      const amphoes = (geoRef.current.amphoeByProv.get(provId) || [])
+      const opts = amphoes
+        .map(d => ({ value: String(d.id), label: String(d.name_th || d.name) }))
+        .sort((a, b) => a.label.localeCompare(b.label, "th"))
+      setDistrictOptions(opts)
+      return
+    }
+    // fallback (สุรินทร์)
+    const opts = AMPHOES_SURIN.map(n => ({ value: n, label: n }))
+      .sort((a, b) => a.label.localeCompare(b.label, "th"))
+    setDistrictOptions(opts)
+  }
+
+  // เมื่อเลือก “อำเภอ” → โหลด “ตำบล”
+  const loadTambonOptions = (districtIdOrName) => {
+    if (geoReady) {
+      const dId = String(districtIdOrName || "")
+      const subs = geoRef.current.tambonByAmphoe.get(dId) || []
+      const opts = subs
+        .map(s => ({ value: String(s.id), label: String(s.name_th || s.name), zip: s.zip_code }))
+        .sort((a, b) => a.label.localeCompare(b.label, "th"))
+      setTambonOptions(opts)
+      return
+    }
+    // fallback
     const amphoeLabel = form.district
-      ? (amphoeOptions.find((o) => String(o.value) === String(form.district))?.label ?? form.district)
+      ? (districtOptions.find(o => String(o.value) === String(form.district))?.label ?? form.district)
       : ""
-    update("sub_district", "")
-    loadTambonsByAmphoe(amphoeLabel)
+    const fall = Array.from(new Set(TAMBONS_BY_AMPHOE[amphoeLabel] || []))
+    const opts = fall.map((n, i) => ({ value: n || String(i), label: n }))
+      .sort((a, b) => a.label.localeCompare(b.label, "th"))
+    setTambonOptions(opts)
+  }
+
+  // เปลี่ยนจังหวัด → เคลียร์อำเภอ/ตำบลและโหลดใหม่
+  useEffect(() => {
+    if (!form.province) { setDistrictOptions([]); setTambonOptions([]); return }
+    loadAmphoeOptions(form.province)
+    update("district", ""); update("sub_district", "")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.province])
+
+  // เปลี่ยนอำเภอ → เคลียร์ตำบลและโหลดใหม่
+  useEffect(() => {
+    if (!form.district) { setTambonOptions([]); return }
+    loadTambonOptions(form.district)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.district])
 
-  /** ตรวจความถูกต้องก่อนส่งเข้า Back */
+  /** ช่วยแปลง id → ชื่อไทย ตอนส่ง */
+  const resolveProvinceName = () => {
+    if (!form.province) return ""
+    if (!geoReady) return PROV_SURIN
+    const p = geoRef.current.provinces.find(p => String(p.id) === String(form.province))
+    return p?.name_th || ""
+  }
+  const resolveDistrictName = () => {
+    if (!form.district) return ""
+    if (!geoReady) return form.district
+    const d = geoRef.current.districts.find(x => String(x.id) === String(form.district))
+    return d?.name_th || ""
+  }
+  const resolveTambonName = () => {
+    if (!form.sub_district) return ""
+    if (!geoReady) return form.sub_district
+    const s = geoRef.current.subs.find(x => String(x.id) === String(form.sub_district))
+    return s?.name_th || ""
+  }
+
+  /** ตรวจความถูกต้องก่อนส่ง */
   const validateAll = () => {
     const e = {}
-
     const cid = onlyDigits(form.citizen_id)
     if (cid.length !== 13) e.citizen_id = "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
-
     if (!form.precode) e.precode = "กรุณาเลือกคำนำหน้า"
     if (!form.full_name.trim()) e.full_name = "กรุณากรอกชื่อ–สกุล"
     if (!form.address.trim()) e.address = "กรุณากรอกบ้านเลขที่"
 
+    if (!form.province) e.province = "กรุณาเลือกจังหวัด"
     if (!form.district) e.district = "กรุณาเลือกอำเภอ"
     if (!form.sub_district) e.sub_district = "กรุณาเลือกตำบล"
 
-    if (!form.province.trim()) e.province = "กรุณากรอกจังหวัด"
-
-    // 🔧 เหลือเฉพาะ postal_code ที่ต้องเป็นตัวเลข (ตัด FID ออก)
     if (form.postal_code !== "" && isNaN(Number(form.postal_code))) e.postal_code = "ต้องเป็นตัวเลข"
-
     setErrors(e)
-    return e
+    return Object.keys(e).length === 0
   }
 
   const handleSubmit = async (ev) => {
     ev.preventDefault()
-    // ให้ฟีลเหมือนหน้า Sales: เลื่อนขึ้นบนก่อน
-    scrollToPageTop()
-
-    const eObj = validateAll()
-
-    // ❌ แจ้งเตือนแบบหน้า Sales เมื่อฟอร์มไม่ผ่าน
-    if (Object.keys(eObj).length > 0) {
-      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
-      scrollToFirstError(eObj)
-      return
-    }
-
+    if (!validateAll()) return
     setSubmitting(true)
 
     const splitName = (full = "") => {
@@ -590,12 +735,12 @@ const CustomerAdd = () => {
 
       address: form.address.trim(),
       mhoo: (form.mhoo ?? "").toString().trim() || "",
-      sub_district: form.sub_district.trim(),
-      district: form.district.trim(),
-      province: form.province.trim(),
+      sub_district: resolveTambonName(),
+      district: resolveDistrictName(),
+      province: resolveProvinceName(),
       postal_code: form.postal_code !== "" ? Number(form.postal_code) : null,
       phone_number: form.phone_number.trim() || null,
-      // กลุ่ม FID (optional) — ✅ ส่งเป็นสตริงตามที่กรอก
+
       fid: form.fid !== "" ? String(form.fid).trim() : null,
       fid_owner: form.fid_owner.trim() || null,
       fid_relationship: form.fid_relationship !== "" ? Number(form.fid_relationship) : null,
@@ -603,22 +748,18 @@ const CustomerAdd = () => {
 
     try {
       await apiAuth(`/member/customers/signup`, { method: "POST", body: payload })
-      // ✅ แจ้งเตือนแบบหน้า Sales (สำเร็จ)
-      alert("✅✅✅✅✅✅✅✅ บันทึกสมัครสมาชิกเรียบร้อย ✅✅✅✅✅✅✅✅")
+      alert("✅ บันทึกข้อมูลลูกค้าทั่วไปเรียบร้อย")
       handleReset()
-      // เลื่อนขึ้นบนอีกครั้งเพื่อให้ผู้ใช้เห็นต้นฟอร์ม
-      requestAnimationFrame(() => scrollToPageTop())
-      try { submitBtnRef.current?.blur?.() } catch {}
+      requestAnimationFrame(() => {
+        try { topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) } catch {}
+      })
     } catch (err) {
       console.error(err)
       const msg =
         (err && err.detail) ||
         (typeof err?.message === "string" ? err.message : "") ||
         "บันทึกล้มเหลว กรุณาลองใหม่"
-      // ❌ แจ้งเตือนแบบหน้า Sales (ล้มเหลวจาก BE)
-      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
-
-สาเหตุ: ${msg}`)
+      alert(`❌ บันทึกไม่สำเร็จ\n\nสาเหตุ: ${msg}`)
     } finally {
       setSubmitting(false)
     }
@@ -643,6 +784,7 @@ const CustomerAdd = () => {
       fid_owner: "",
       fid_relationship: "",
     })
+    setDistrictOptions([])
     setTambonOptions([])
     requestAnimationFrame(() => {
       try { topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) } catch {}
@@ -727,11 +869,7 @@ const CustomerAdd = () => {
                   maxLength={13}
                   className={cx(baseField, errors.citizen_id && fieldError)}
                   value={form.citizen_id}
-                  onChange={(e) => {
-                    clearError("citizen_id")
-                    const digits = onlyDigits(e.target.value).slice(0, 13)
-                    update("citizen_id", digits)
-                  }}
+                  onChange={(e) => { clearError("citizen_id"); update("citizen_id", onlyDigits(e.target.value).slice(0,13)) }}
                   onFocus={() => clearError("citizen_id")}
                   placeholder="เช่น 1234567890123"
                   aria-invalid={errors.citizen_id ? true : undefined}
@@ -745,9 +883,9 @@ const CustomerAdd = () => {
                 <label className={labelCls}>คำนำหน้า (precode)</label>
                 <div ref={refs.precode}>
                   <ComboBox
-                    options={PREFIX_OPTIONS}
+                    options={[{ value: "1", label: "นาย" }, { value: "2", label: "นาง" }, { value: "3", label: "นางสาว" }]}
                     value={form.precode}
-                    onChange={(v) => { clearError("precode"); update("precode", v); update("sex", sexFromPrefix(v)) }}
+                    onChange={(v) => { clearError("precode"); update("precode", v); update("sex", v==="1"?"M":"F") }}
                     placeholder="— เลือกคำนำหน้า —"
                     error={!!errors.precode}
                     buttonRef={comboBtnRefs.precode}
@@ -774,7 +912,7 @@ const CustomerAdd = () => {
               </div>
             </div>
 
-            {/* แถวถัดไป */}
+            {/* แถวถัดไป: ตามลำดับ จังหวัด → อำเภอ → ตำบล */}
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               {/* address */}
               <div>
@@ -805,55 +943,63 @@ const CustomerAdd = () => {
                 />
               </div>
 
-              {/* อำเภอ */}
+              {/* province (ค้นหาได้) */}
+              <div>
+                <label className={labelCls}>จังหวัด</label>
+                <SearchComboBox
+                  options={provOptions}
+                  value={form.province}
+                  onChange={(v) => { clearError("province"); update("province", v) }}
+                  placeholder={provOptions.length ? "พิมพ์เพื่อค้นหาจังหวัด…" : "กำลังโหลด..."}
+                  disabled={!provOptions.length}
+                  error={!!errors.province}
+                  inputRef={refs.province}
+                  onEnterNext={() => focusNextFromIndex(5)}
+                />
+                {errors.province && <p className={errorTextCls}>{errors.province}</p>}
+              </div>
+
+              {/* district */}
               <div>
                 <label className={labelCls}>อำเภอ</label>
                 <div ref={refs.district}>
                   <ComboBox
-                    options={amphoeOptions}
+                    options={districtOptions}
                     value={form.district}
                     onChange={(v) => { clearError("district"); update("district", v) }}
-                    placeholder="— เลือกอำเภอ —"
+                    placeholder={form.province ? "— เลือกอำเภอ —" : "เลือกจังหวัดก่อน"}
                     error={!!errors.district}
+                    disabled={!form.province}
                     buttonRef={comboBtnRefs.district}
-                    onEnterNext={() => focusNextFromIndex(5)}
+                    onEnterNext={() => focusNextFromIndex(6)}
                   />
                 </div>
                 {errors.district && <p className={errorTextCls}>{errors.district}</p>}
               </div>
 
-              {/* ตำบล */}
+              {/* sub_district */}
               <div>
                 <label className={labelCls}>ตำบล</label>
                 <div ref={refs.sub_district}>
                   <ComboBox
                     options={tambonOptions}
                     value={form.sub_district}
-                    onChange={(v) => { clearError("sub_district"); update("sub_district", v) }}
+                    onChange={(v, opt) => {
+                      clearError("sub_district")
+                      update("sub_district", v)
+                      // หากมี zip_code ในชุดข้อมูล — auto fill (optional)
+                      if (opt?.zip && String(form.postal_code || "") === "") {
+                        update("postal_code", String(opt.zip).slice(0,5))
+                      }
+                    }}
                     placeholder={form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}
                     error={!!errors.sub_district}
                     disabled={!form.district}
                     buttonRef={comboBtnRefs.sub_district}
-                    onEnterNext={() => focusNextFromIndex(6)}
+                    onEnterNext={() => focusNextFromIndex(7)}
                   />
                 </div>
                 {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
-              </div>
-
-              {/* province */}
-              <div>
-                <label className={labelCls}>จังหวัด</label>
-                <input
-                  ref={refs.province}
-                  className={cx(baseField, errors.province && fieldError)}
-                  value={form.province}
-                  onChange={(e) => { clearError("province"); update("province", e.target.value) }}
-                  onFocus={() => clearError("province")}
-                  placeholder="เช่น สุรินทร์"
-                  aria-invalid={errors.province ? true : undefined}
-                  {...bindEnter(7)}
-                />
-                {errors.province && <p className={errorTextCls}>{errors.province}</p>}
               </div>
 
               {/* postal_code */}
@@ -888,7 +1034,7 @@ const CustomerAdd = () => {
                 />
               </div>
 
-              {/* sex (คำนวณจาก precode ภายในฟอร์ม) */}
+              {/* sex (disabled) */}
               <div>
                 <label className={labelCls}>เพศ (กำหนดจากคำนำหน้า)</label>
                 <div ref={refs.sex}>
@@ -902,26 +1048,20 @@ const CustomerAdd = () => {
                 </div>
               </div>
 
-              {/* บล็อก FID */}
+              {/* FID block */}
               <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
-                {/* fid */}
                 <div>
                   <label className={labelCls}>เลขที่ทะเบียนเกษตรกร (FID)</label>
                   <input
                     ref={refs.fid}
-                    // ⬇️ อนุญาตเป็นสตริง ไม่บังคับเลข
-                    className={cx(baseField, errors.fid && fieldError)}
+                    className={baseField}
                     value={form.fid}
-                    onChange={(e) => { clearError("fid"); update("fid", e.target.value) }}
-                    onFocus={() => clearError("fid")}
+                    onChange={(e) => update("fid", e.target.value)}
                     placeholder="เช่น FID-001234 หรือ 123456"
-                    aria-invalid={errors.fid ? true : undefined}
                     {...bindEnter(10)}
                   />
-                  {errors.fid && <p className={errorTextCls}>{errors.fid}</p>}
                 </div>
 
-                {/* fid_owner */}
                 <div>
                   <label className={labelCls}>ชื่อทะเบียนเกษตรกร (FID Owner)</label>
                   <input
@@ -934,22 +1074,19 @@ const CustomerAdd = () => {
                   />
                 </div>
 
-                {/* fid_relationship */}
                 <div>
                   <label className={labelCls}>ความสัมพันธ์ (FID Relationship)</label>
                   <div ref={refs.fid_relationship}>
                     <ComboBox
-                      options={fidRelOptions}
+                      options={relOpts.map((r) => ({ value: String(r.id), label: String(r.fid_relationship) }))}
                       value={form.fid_relationship}
-                      onChange={(v) => { clearError("fid_relationship"); update("fid_relationship", v) }}
+                      onChange={(v) => update("fid_relationship", v)}
                       placeholder={relLoading ? "กำลังโหลด..." : "— เลือกความสัมพันธ์ —"}
-                      error={!!errors.fid_relationship}
                       disabled={relLoading}
                       buttonRef={comboBtnRefs.fid_relationship}
                       onEnterNext={() => focusNextFromIndex(12)}
                     />
                   </div>
-                  {errors.fid_relationship && <p className={errorTextCls}>{errors.fid_relationship}</p>}
                 </div>
               </div>
             </div>

@@ -1244,7 +1244,7 @@ const MemberSignup = () => {
                   aria-invalid={errors.buy_amount ? true : undefined}
                 />
                 {errors.buy_amount && <p className={errorTextCls}>{errors.buy_amount}</p>}
-                <p className={helpTextCls}>ทศนิยมได้ไม่เกิน 3 ตำแหน่ง • ครั้งแรกมีค่าธรรมเนียม 50 บาท (คำนวณโดยฝั่ง BE)</p>
+                <p className={helpTextCls}>ไม่ต่ำกว่า 100 บาท • ครั้งแรกมีค่าธรรมเนียม 50 บาท </p>
               </div>
 
               <div>

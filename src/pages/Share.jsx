@@ -276,7 +276,7 @@ function Share() {
     } else {
       // ตรวจจำนวนทศนิยม
       const decimals = (amountRaw.split(".")[1] || "").length
-      if (decimals > 3) e.amount = "ทศนิยมได้ไม่เกิน 3 ตำแหน่ง"
+      if (decimals > 3) e.amount = "ไม่ต่ำกว่า 100 บาท"
     }
     setErrors(e)
     return Object.keys(e).length === 0

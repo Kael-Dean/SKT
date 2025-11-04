@@ -949,24 +949,39 @@ const MemberSignup = () => {
     }
 
     try {
-      // 1) สมัครสมาชิก + ซื้อหุ้นครั้งแรก (BE จะคืนใบเสร็จใน field initial_purchase)
-      const resp = await apiAuth(`/member/members/signup`, { method: "POST", body: payload })
+  // 1) สมัครสมาชิก
+  const resp = await apiAuth(`/member/members/signup`, { method: "POST", body: payload })
 
-      // 2) ดึงใบเสร็จจาก response
-      const r = resp?.initial_purchase || null
-      if (r) {
-        setReceipt(r)
-        setReceiptOpen(true) // แสดงป๊อปอัปใบเสร็จ
-      } else {
-        // ถ้า BE ไม่คืนใบเสร็จ (ไม่คาดว่าจะเกิด) ก็แจ้งสำเร็จเฉย ๆ
-        alert("บันทึกสมาชิกสำเร็จ")
-      }
-    } catch (err) {
-      console.error(err)
-      alert(`บันทึก/ซื้อหุ้นล้มเหลว: ${err.message || err}`)
-    } finally {
-      setSubmitting(false)
+  // --- แก้ตรงนี้: ถ้า BE ไม่ได้ทำ initial purchase ให้ FE ซื้อหุ้นต่อเอง ---
+  const buyAmountNum = Number(form.buy_amount || 0)
+  let receiptFromBE = resp?.initial_purchase || null
+
+  // ถ้าไม่ได้ใบเสร็จจาก BE และในฟอร์มมียอดซื้อหุ้น >=100 และมี tgs_id → ยิงซื้อหุ้น
+  if (!receiptFromBE && buyAmountNum >= 100 && form.tgs_id?.trim()) {
+    const shareBody = {
+      amount: buyAmountNum,                 // BE /share/* รับ float
+      buy_date: form.buy_date || null,      // YYYY-MM-DD หรือ null
     }
+    // เรียกตาม spec ของ BE: /share/{tgs_id}/buy-share
+    receiptFromBE = await apiAuth(`/share/${encodeURIComponent(form.tgs_id.trim())}/buy-share`, {
+      method: "POST",
+      body: shareBody,
+    })
+  }
+
+  if (receiptFromBE) {
+    setReceipt(receiptFromBE)
+    setReceiptOpen(true)
+  } else {
+    alert("บันทึกสมาชิกสำเร็จ (ไม่มีรายการซื้อหุ้น)")
+  }
+} catch (err) {
+  console.error(err)
+  alert(`บันทึก/ซื้อหุ้นล้มเหลว: ${err.message || err}`)
+} finally {
+  setSubmitting(false)
+}
+
   }
 
   const handleReset = () => {

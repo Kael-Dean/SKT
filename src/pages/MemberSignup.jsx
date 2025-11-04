@@ -44,16 +44,6 @@ const n3 = (x) => {
     : "0.000"
 }
 
-// debounce
-function useDebounce(value, delay = 400) {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(t)
-  }, [value, delay])
-  return debounced
-}
-
 /** ---------- class helpers ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
@@ -463,9 +453,6 @@ const MemberSignup = () => {
   // 🔝 ref สำหรับเลื่อนกลับไปบนสุดเมื่อรีเซ็ต
   const topRef = useRef(null)
 
-  // 🧠 สถานะค้นหา/เติมอัตโนมัติ
-  const [lookupStatus, setLookupStatus] = useState({ searching: false, message: "", tone: "muted" }) // tone: muted|ok|warn
-
   // ✅ สถานะสำหรับจังหวัด/อำเภอ/ตำบล (สุรินทร์เท่านั้น)
   const [amphoeOptions, setAmphoeOptions] = useState([])
   const [tambonOptions, setTambonOptions] = useState([])
@@ -519,185 +506,6 @@ const MemberSignup = () => {
     fertilizing_period: "",
     fertilizer_type: "",
   })
-
-  // 👉 debounce
-  const debCid   = useDebounce(form.citizen_id, 400)
-  const debFirst = useDebounce(form.first_name, 400)
-  const debLast  = useDebounce(form.last_name, 400)
-
-  /** helper: เรียก endpoint เดียวที่ “มีจริง” แล้วเงียบเมื่อ 404/5xx */
-  const apiAuthSafe = async (path, fallback = []) => {
-    try {
-      const data = await apiAuth(path)
-      return data ?? fallback
-    } catch {
-      return fallback
-    }
-  }
-
-  /** 🔎 ดึงข้อมูลจาก citizen_id โดยเรียกเฉพาะ endpoint ที่มีจริง */
-  const loadAddressByCitizenId = async (cid) => {
-    const q = encodeURIComponent(onlyDigits(cid))
-    const [fromCustomers, fromMembers] = await Promise.all([
-      apiAuthSafe(`/member/customer/search?q=${q}`, []),
-      apiAuthSafe(`/member/members/search?q=${q}`, []),
-    ])
-    const list = [
-      ...(Array.isArray(fromCustomers) ? fromCustomers : []),
-      ...(Array.isArray(fromMembers) ? fromMembers : []),
-    ]
-    const found = list.find(
-      (r) => onlyDigits(r.citizen_id ?? r.citizenId ?? "") === onlyDigits(cid)
-    )
-    if (!found) return
-
-    const toStr = (v) => (v == null ? "" : String(v))
-    const addr = {
-      address: toStr(found.address ?? found.house_no ?? found.houseNo ?? ""),
-      mhoo: toStr(found.mhoo ?? found.moo ?? ""),
-      sub_district: toStr(found.sub_district ?? found.subdistrict ?? found.subDistrict ?? ""),
-      district: toStr(found.district ?? ""),
-      province: PROV_SURIN,
-      postal_code: onlyDigits(toStr(found.postal_code ?? found.postalCode ?? "")),
-      first_name: toStr(found.first_name ?? found.firstName ?? ""),
-      last_name: toStr(found.last_name ?? found.lastName ?? ""),
-      phone_number: toStr(found.phone_number ?? found.phone ?? ""),
-    }
-
-    const hasAnyAddress =
-      addr.address || addr.mhoo || addr.sub_district || addr.district || addr.province || addr.postal_code
-
-    if (addr.first_name || addr.last_name || hasAnyAddress) {
-      setForm((prev) => ({
-        ...prev,
-        first_name:   prev.first_name   || addr.first_name,
-        last_name:    prev.last_name    || addr.last_name,
-        address:      prev.address      || addr.address,
-        mhoo:         prev.mhoo         || addr.mhoo,
-        province: PROV_SURIN,
-        phone_number: prev.phone_number || addr.phone_number,
-      }))
-    }
-  }
-
-  // ช่วย map ผลลัพธ์
-  const mapToCustomerShape = (r) => ({
-    type: r.type ?? (r.member_id ? "member" : "customer"),
-    first_name: r.first_name ?? "",
-    last_name: r.last_name ?? "",
-    citizen_id: r.citizen_id ?? r.citizenId ?? "",
-    address: r.address ?? "",
-    mhoo: r.mhoo ?? "",
-    sub_district: r.sub_district ?? "",
-    district: r.district ?? "",
-    province: PROV_SURIN,
-    postal_code: r.postal_code ?? "",
-    phone_number: r.phone_number ?? "",
-    member_id: r.member_id ?? null,
-  })
-
-  const prefillFromCustomer = (rec) => {
-    const c = mapToCustomerShape(rec)
-    setForm((prev) => ({
-      ...prev,
-      first_name:   prev.first_name   || c.first_name,
-      last_name:    prev.last_name    || c.last_name,
-      citizen_id:   prev.citizen_id   || onlyDigits(c.citizen_id),
-      address:      prev.address      || c.address,
-      mhoo:         prev.mhoo         || c.mhoo,
-      province: PROV_SURIN,
-      // district/sub_district ให้เลือกใหม่จากดรอปดาว
-      postal_code:  prev.postal_code  || String(c.postal_code || ""),
-      phone_number: prev.phone_number || c.phone_number,
-    }))
-  }
-
-  // ค้นหาจาก “ลูกค้า” ก่อน แล้วค่อย fallback ไป “สมาชิก”
-  const searchCustomerAny = async (q) => {
-    const cust = await apiAuthSafe(`/member/customer/search?q=${encodeURIComponent(q)}`, [])
-    if (Array.isArray(cust) && cust.length) return { from: "customer", items: cust }
-    const mem = await apiAuthSafe(`/member/members/search?q=${encodeURIComponent(q)}`, [])
-    if (Array.isArray(mem) && mem.length) return { from: "member", items: mem }
-    return { from: null, items: [] }
-  }
-
-  const pickBestRecord = (items, matcher) => {
-    const filtered = items.filter(matcher)
-    if (filtered.length === 0) return null
-    const customers = filtered.filter((x) => !x.member_id && (x.type ? x.type !== "member" : true))
-    return (customers[0] || filtered[0]) ?? null
-  }
-
-  // เมื่อกรอกเลขบัตรครบและ valid => ค้นหา+เติม + ดึงที่อยู่
-  useEffect(() => {
-    const cid = onlyDigits(debCid || "")
-    if (cid.length !== 13 || !validateThaiCitizenId(cid)) return
-
-    let cancelled = false
-    ;(async () => {
-      setLookupStatus({ searching: true, message: "กำลังค้นหาจากฐานสมาชิกทั่วไป...", tone: "muted" })
-      const res = await searchCustomerAny(cid)
-      if (cancelled) return
-
-      const found = pickBestRecord(res.items, (r) => onlyDigits(r.citizen_id ?? r.citizenId ?? "") === cid)
-      if (found) {
-        prefillFromCustomer(found)
-        await loadAddressByCitizenId(cid)
-        setLookupStatus({
-          searching: false,
-          message: res.from === "customer"
-            ? "พบ ‘สมาชิกทั่วไป’ และเติมให้อัตโนมัติแล้ว ✅"
-            : "ไม่พบในสมาชิกทั่วไป แต่พบใน ‘สมาชิก’ และเติมให้อัตโนมัติแล้ว ✅",
-          tone: "ok"
-        })
-      } else {
-        setLookupStatus({ searching: false, message: "ไม่พบบุคคลนี้ในฐานสมาชิกทั่วไป/สมาชิก", tone: "warn" })
-      }
-    })()
-
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debCid])
-
-  // เมื่อกรอกชื่อ–นามสกุลครบ (≥2) => ค้นหา+เติม (+ที่อยู่ถ้ามี citizen_id)
-  useEffect(() => {
-    const first = (debFirst || "").trim()
-    const last  = (debLast  || "").trim()
-    if (first.length < 2 || last.length < 2) return
-
-    let cancelled = false
-    const q = `${first} ${last}`
-    ;(async () => {
-      setLookupStatus({ searching: true, message: "กำลังค้นหาจากชื่อ–นามสกุลในฐานสมาชิกทั่วไป...", tone: "muted" })
-      const res = await searchCustomerAny(q)
-      if (cancelled) return
-
-      const found = pickBestRecord(
-        res.items,
-        (r) => (r.first_name ?? "").toLowerCase().includes(first.toLowerCase())
-          && (r.last_name ?? "").toLowerCase().includes(last.toLowerCase())
-      )
-      if (found) {
-        prefillFromCustomer(found)
-        const cid = onlyDigits(found.citizen_id ?? found.citizenId ?? "")
-        if (cid.length === 13 && validateThaiCitizenId(cid)) {
-          await loadAddressByCitizenId(cid)
-        }
-        setLookupStatus({
-          searching: false,
-          message: res.from === "customer"
-            ? "พบ ‘สมาชิกทั่วไป’ และเติมให้อัตโนมัติแล้ว ✅"
-            : "ไม่พบในสมาชิกทั่วไป แต่พบใน ‘สมาชิก’ และเติมให้อัตโนมัติแล้ว ✅",
-          tone: "ok"
-        })
-      } else {
-        setLookupStatus({ searching: false, message: "ไม่พบชื่อ–นามสกุลนี้ในฐานสมาชิกทั่วไป/สมาชิก", tone: "warn" })
-      }
-    })()
-
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debFirst, debLast])
 
   // ---------- จังหวัด/อำเภอ/ตำบล ----------
   const dedupe = (arr) => Array.from(new Set(arr))
@@ -949,39 +757,37 @@ const MemberSignup = () => {
     }
 
     try {
-  // 1) สมัครสมาชิก
-  const resp = await apiAuth(`/member/members/signup`, { method: "POST", body: payload })
+      // 1) สมัครสมาชิก
+      const resp = await apiAuth(`/member/members/signup`, { method: "POST", body: payload })
 
-  // --- แก้ตรงนี้: ถ้า BE ไม่ได้ทำ initial purchase ให้ FE ซื้อหุ้นต่อเอง ---
-  const buyAmountNum = Number(form.buy_amount || 0)
-  let receiptFromBE = resp?.initial_purchase || null
+      // --- ถ้า BE ไม่ได้ทำ initial purchase ให้ FE ซื้อหุ้นต่อเอง ---
+      const buyAmountNum = Number(form.buy_amount || 0)
+      let receiptFromBE = resp?.initial_purchase || null
 
-  // ถ้าไม่ได้ใบเสร็จจาก BE และในฟอร์มมียอดซื้อหุ้น >=100 และมี tgs_id → ยิงซื้อหุ้น
-  if (!receiptFromBE && buyAmountNum >= 100 && form.tgs_id?.trim()) {
-    const shareBody = {
-      amount: buyAmountNum,                 // BE /share/* รับ float
-      buy_date: form.buy_date || null,      // YYYY-MM-DD หรือ null
+      if (!receiptFromBE && buyAmountNum >= 100 && form.tgs_id?.trim()) {
+        const shareBody = {
+          amount: buyAmountNum,                 // BE /share/* รับ float
+          buy_date: form.buy_date || null,      // YYYY-MM-DD หรือ null
+        }
+        // เรียกตาม spec ของ BE: /share/{tgs_id}/buy-share
+        receiptFromBE = await apiAuth(`/share/${encodeURIComponent(form.tgs_id.trim())}/buy-share`, {
+          method: "POST",
+          body: shareBody,
+        })
+      }
+
+      if (receiptFromBE) {
+        setReceipt(receiptFromBE)
+        setReceiptOpen(true)
+      } else {
+        alert("บันทึกสมาชิกสำเร็จ (ไม่มีรายการซื้อหุ้น)")
+      }
+    } catch (err) {
+      console.error(err)
+      alert(`บันทึก/ซื้อหุ้นล้มเหลว: ${err.message || err}`)
+    } finally {
+      setSubmitting(false)
     }
-    // เรียกตาม spec ของ BE: /share/{tgs_id}/buy-share
-    receiptFromBE = await apiAuth(`/share/${encodeURIComponent(form.tgs_id.trim())}/buy-share`, {
-      method: "POST",
-      body: shareBody,
-    })
-  }
-
-  if (receiptFromBE) {
-    setReceipt(receiptFromBE)
-    setReceiptOpen(true)
-  } else {
-    alert("บันทึกสมาชิกสำเร็จ (ไม่มีรายการซื้อหุ้น)")
-  }
-} catch (err) {
-  console.error(err)
-  alert(`บันทึก/ซื้อหุ้นล้มเหลว: ${err.message || err}`)
-} finally {
-  setSubmitting(false)
-}
-
   }
 
   const handleReset = () => {
@@ -1031,7 +837,6 @@ const MemberSignup = () => {
       fertilizing_period: "",
       fertilizer_type: "",
     })
-    setLookupStatus({ searching: false, message: "", tone: "muted" })
     setTambonOptions([])
 
     requestAnimationFrame(() => {
@@ -1060,21 +865,6 @@ const MemberSignup = () => {
         >
           👤 สมัครสมาชิก
         </h1>
-
-        {/* แถบสถานะค้นหา/เติมอัตโนมัติ */}
-        {lookupStatus.message && (
-          <div
-            className={cx(
-              "mb-4 rounded-xl px-4 py-2 text-sm",
-              lookupStatus.tone === "ok"   && "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200",
-              lookupStatus.tone === "warn" && "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-200",
-              lookupStatus.tone === "muted"&& "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-200"
-            )}
-            aria-live="polite"
-          >
-            {lookupStatus.searching ? "⏳ " : ""}{lookupStatus.message}
-          </div>
-        )}
 
         {/* ⭐ ห่อทั้งฟอร์มด้วยการ์ดใหญ่ */}
         <form
@@ -1436,8 +1226,6 @@ const MemberSignup = () => {
                 />
                 {errors.tgs_id && <p className={errorTextCls}>{errors.tgs_id}</p>}
               </div>
-
-              
             </div>
 
             {/* ซื้อหุ้น (แทนชุดฟิลด์ที่ถูกลบปุ่ม) */}

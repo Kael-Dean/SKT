@@ -35,6 +35,14 @@ const isQueryEqualPicked = (q, picked) => {
   const full = norm(`${picked.first_name ?? ""} ${picked.last_name ?? ""}`)
   return norm(q) === full || q === picked.citizen_id
 }
+// คืนวันที่ปัจจุบันแบบ "เวลาท้องถิ่น" ไม่ใช่ UTC (กันวันเพี้ยน)
+function todayLocalISODate() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${dd}`
+}
 
 /** ---------- สไตล์พื้นฐาน (อิงจาก MemberTermination) ---------- */
 const baseField =
@@ -114,7 +122,7 @@ const DateInput = forwardRef(function DateInput(
 
 /** ---------- หน้า Share (ซื้อหุ้น) ---------- */
 function Share() {
-  /** --- ค้นหา/เลือกสมาชิก (ยก logic จากหน้า MemberTermination) --- */
+  /** --- ค้นหา/เลือกสมาชิก --- */
   const [query, setQuery] = useState("")
   const debQ = useDebounce(query, 350)
   const [results, setResults] = useState([])
@@ -129,8 +137,7 @@ function Share() {
   const [picked, setPicked] = useState(null)
 
   // ฟิลด์ซื้อหุ้น
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const [buyDate, setBuyDate] = useState(todayStr)
+  const [buyDate, setBuyDate] = useState(todayLocalISODate())
   const [amountRaw, setAmountRaw] = useState("") // เก็บรูปแบบที่ผู้ใช้พิมพ์
   const [submitting, setSubmitting] = useState(false)
   const [receipt, setReceipt] = useState(null) // response จาก BE
@@ -282,7 +289,7 @@ function Share() {
     setErrors({})
     setShowList(false)
     setHighlighted(-1)
-    setBuyDate(todayStr)
+    setBuyDate(todayLocalISODate())
     setAmountRaw("")
     setReceipt(null)
     searchRef.current?.focus()

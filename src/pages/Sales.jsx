@@ -302,6 +302,7 @@ function Sales() {
   const [missingHints, setMissingHints] = useState({})
   const [loadingCustomer, setLoadingCustomer] = useState(false)
   const [customerFound, setCustomerFound] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
 
   // ⭐ จุดยึดบนสุด + ฟังก์ชันเลื่อนขึ้นบน (เหมือนหน้า Buy)
   const pageTopRef = useRef(null)
@@ -499,6 +500,7 @@ function Sales() {
 
     submitBtn: useRef(null),
   }
+  const submitLockRef = useRef(false)
   const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
   // ⭐⭐ Refs ของรถพ่วง (dynamic)
@@ -1189,8 +1191,12 @@ function Sales() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    // เลื่อนขึ้นบนสุดเหมือนหน้า Buy
-    scrollToPageTop()
+    if (submitLockRef.current || submitting) { return }
+    submitLockRef.current = true
+    setSubmitting(true)
+    try {
+      // เลื่อนขึ้นบนสุดเหมือนหน้า Buy
+      scrollToPageTop()
 
     const hints = computeMissingHints()
     setMissingHints(hints)
@@ -1338,6 +1344,10 @@ function Sales() {
 
 รายการที่ผิดพลาด:
 ${summary}`)
+    }
+    } finally {
+      submitLockRef.current = false
+      setSubmitting(false)
     }
   }
 
@@ -1798,7 +1808,7 @@ ${summary}`)
         </div>
 
         {/* ฟอร์มออเดอร์ */}
-        <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+        <form onSubmit={handleSubmit} onKeyDown={(e)=>{ if(submitting && e.key==="Enter"){ e.preventDefault() } }} className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <h2 className="mb-3 text-xl font-semibold">รายละเอียดการขาย</h2>
 
           {/* เลือกประเภท/ปี/โปรแกรม/ธุรกิจ */}
@@ -2437,15 +2447,25 @@ ${summary}`)
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <button
               ref={refs.submitBtn}
-              type="submit"
+              type="submit" disabled={submitting} aria-busy={submitting}
               className="inline-flex items-center justify-center rounded-2xl 
                 bg-emerald-600 px-6 py-3 text-base font-semibold text-white
                 shadow-[0_6px_16px_rgba(16,185,129,0.35)]
                 transition-all duration-300 ease-out
                 hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                hover:scale-[1.05] active:scale-[.97] cursor-pointer"
+                hover:scale-[1.05] active:scale-[.97] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              บันทึกออเดอร์ขาย ({trailers.length} คัน)
+              {submitting ? (
+                <span className="inline-flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" width="18" height="18" className="animate-spin">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25"></circle>
+                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none"></path>
+                  </svg>
+                  กำลังบันทึก…
+                </span>
+              ) : (
+                <>บันทึกออเดอร์ขาย ({trailers.length} คัน)</>
+              )}
             </button>
             <button
               type="button"

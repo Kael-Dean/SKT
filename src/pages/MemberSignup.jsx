@@ -89,7 +89,6 @@ const useEnterNavigation = (refs) => {
     "tgs_group",
     "bank_account",
     "tgs_id",
-    "orders_placed",
 
     // ⬇️ ซื้อหุ้น (ไม่มีปุ่มซื้อแล้ว)
     "buy_amount",
@@ -503,7 +502,6 @@ const MemberSignup = () => {
     bank_account: "",
     tgs_id: "",
     spouce_name: "",
-    orders_placed: "",
 
     // ซื้อหุ้น (ปุ่มซื้อถูกลบ ใช้ตอน submit)
     buy_amount: "",
@@ -760,7 +758,6 @@ const MemberSignup = () => {
     bank_account: useRef(null),
     tgs_id: useRef(null),
     spouce_name: useRef(null),
-    orders_placed: useRef(null),
 
     // ซื้อหุ้น (ใหม่)
     buy_amount: useRef(null),
@@ -824,7 +821,6 @@ const MemberSignup = () => {
     ;[
       "member_id","precode","subprov","postal_code",
       "tgs_group",
-      "orders_placed",
       "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
       "agri_type","fertilizing_period","fertilizer_type",
     ].forEach((k) => {
@@ -868,7 +864,7 @@ const MemberSignup = () => {
       "phone_number","sex",
 
       // การเงิน
-      "tgs_group","bank_account","tgs_id","orders_placed",
+      "tgs_group","bank_account","tgs_id",
 
       // ซื้อหุ้น
       "buy_amount","buy_date",
@@ -927,7 +923,6 @@ const MemberSignup = () => {
       bank_account: (form.bank_account ?? "").toString().trim(),
       tgs_id: form.tgs_id.trim(),
       spouce_name: (form.spouce_name ?? "").toString().trim(),
-      orders_placed: form.orders_placed === "" ? 0 : Number(form.orders_placed),
 
       // Land
       own_rai:  form.own_rai === "" ? 0 : Number(form.own_rai),
@@ -1004,7 +999,6 @@ const MemberSignup = () => {
       bank_account: "",
       tgs_id: "",
       spouce_name: "",
-      orders_placed: "",
 
       // ซื้อหุ้น
       buy_amount: "",
@@ -1428,21 +1422,7 @@ const MemberSignup = () => {
                 {errors.tgs_id && <p className={errorTextCls}>{errors.tgs_id}</p>}
               </div>
 
-              <div>
-                <label className={labelCls}>จำนวนครั้งที่ซื้อ (orders_placed)</label>
-                <input
-                  ref={refs.orders_placed}
-                  inputMode="numeric"
-                  className={cx(baseField, errors.orders_placed && fieldError)}
-                  value={form.orders_placed}
-                  onChange={(e) => { clearError("orders_placed"); update("orders_placed", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("orders_placed")}
-                  onKeyDown={onEnter("orders_placed")}
-                  placeholder="เช่น 4"
-                  aria-invalid={errors.orders_placed ? true : undefined}
-                />
-                {errors.orders_placed && <p className={errorTextCls}>{errors.orders_placed}</p>}
-              </div>
+              
             </div>
 
             {/* ซื้อหุ้น (แทนชุดฟิลด์ที่ถูกลบปุ่ม) */}

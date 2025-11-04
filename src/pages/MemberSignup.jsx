@@ -446,7 +446,7 @@ function ReceiptModal({ open, onClose, receipt, name }) {
                        bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow
                        hover:bg-emerald-700"
           >
-            ปิด
+            ตกลง
           </button>
         </div>
       </div>

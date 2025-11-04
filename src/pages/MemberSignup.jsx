@@ -146,8 +146,7 @@ const errorTextCls = "mt-1 text-sm text-red-500"
 
 /** **********************************************************************
  * จังหวัดสุรินทร์: รายการอำเภอ (ครบ 17) และตำบล (ตามที่ผู้ใช้ส่งมา)
- * - ระบบจะพยายามดึงจาก API ก่อน (เช่น /geo/*) ถ้ามี → ใช้ข้อมูลจาก API
- * - ถ้าไม่มี API → ใช้ fallback ด้านล่างนี้
+ * ใช้ข้อมูล local เพื่อตัด 404 จาก /geo/*
  *********************************************************************** */
 const PROV_SURIN = "สุรินทร์"
 
@@ -528,42 +527,43 @@ const MemberSignup = () => {
   const debFirst = useDebounce(form.first_name, 400)
   const debLast  = useDebounce(form.last_name, 400)
 
-  /** helper: ลองเรียกหลาย endpoint จนกว่าจะเจอที่ใช้ได้ (array/object ก็รับ) */
-  const apiAuthFirstOkJson = async (paths = []) => {
-    for (const p of paths) {
-      try {
-        const data = await apiAuth(p)
-        if (Array.isArray(data)) return data
-        if (data && typeof data === "object") return data
-      } catch (_) {}
+  /** helper: เรียก endpoint เดียวที่ “มีจริง” แล้วเงียบเมื่อ 404/5xx */
+  const apiAuthSafe = async (path, fallback = []) => {
+    try {
+      const data = await apiAuth(path)
+      return data ?? fallback
+    } catch {
+      return fallback
     }
-    return Array.isArray(paths) ? [] : {}
   }
 
-  /** 🔎 helper: ดึงที่อยู่เต็มจาก citizen_id (แต่จะ “บังคับ province = สุรินทร์” เสมอ) */
+  /** 🔎 ดึงข้อมูลจาก citizen_id โดยเรียกเฉพาะ endpoint ที่มีจริง */
   const loadAddressByCitizenId = async (cid) => {
     const q = encodeURIComponent(onlyDigits(cid))
-    const candidates = [
-      `/order/customer/detail?citizen_id=${q}`,
-      `/order/customers/detail?citizen_id=${q}`,
-      `/customer/detail?citizen_id=${q}`,
-      `/customers/detail?citizen_id=${q}`,
-      `/member/detail?citizen_id=${q}`,
-      `/order/customers/search?q=${q}`,
+    const [fromCustomers, fromMembers] = await Promise.all([
+      apiAuthSafe(`/member/customer/search?q=${q}`, []),
+      apiAuthSafe(`/member/members/search?q=${q}`, []),
+    ])
+    const list = [
+      ...(Array.isArray(fromCustomers) ? fromCustomers : []),
+      ...(Array.isArray(fromMembers) ? fromMembers : []),
     ]
-    const data = await apiAuthFirstOkJson(candidates)
+    const found = list.find(
+      (r) => onlyDigits(r.citizen_id ?? r.citizenId ?? "") === onlyDigits(cid)
+    )
+    if (!found) return
 
     const toStr = (v) => (v == null ? "" : String(v))
     const addr = {
-      address: toStr(data.address ?? data.house_no ?? data.houseNo ?? ""),
-      mhoo: toStr(data.mhoo ?? data.moo ?? ""),
-      sub_district: toStr(data.sub_district ?? data.subdistrict ?? data.subDistrict ?? ""),
-      district: toStr(data.district ?? ""),
+      address: toStr(found.address ?? found.house_no ?? found.houseNo ?? ""),
+      mhoo: toStr(found.mhoo ?? found.moo ?? ""),
+      sub_district: toStr(found.sub_district ?? found.subdistrict ?? found.subDistrict ?? ""),
+      district: toStr(found.district ?? ""),
       province: PROV_SURIN,
-      postal_code: onlyDigits(toStr(data.postal_code ?? data.postalCode ?? "")),
-      first_name: toStr(data.first_name ?? data.firstName ?? ""),
-      last_name: toStr(data.last_name ?? data.lastName ?? ""),
-      phone_number: toStr(data.phone_number ?? data.phone ?? ""),
+      postal_code: onlyDigits(toStr(found.postal_code ?? found.postalCode ?? "")),
+      first_name: toStr(found.first_name ?? found.firstName ?? ""),
+      last_name: toStr(found.last_name ?? found.lastName ?? ""),
+      phone_number: toStr(found.phone_number ?? found.phone ?? ""),
     }
 
     const hasAnyAddress =
@@ -614,18 +614,12 @@ const MemberSignup = () => {
     }))
   }
 
-  // ค้นหา “สมาชิกทั่วไป” ก่อน แล้วค่อย fallback ไป “สมาชิก”
+  // ค้นหาจาก “ลูกค้า” ก่อน แล้วค่อย fallback ไป “สมาชิก”
   const searchCustomerAny = async (q) => {
-    try {
-      const arr = await apiAuth(`/order/customers/search?q=${encodeURIComponent(q)}`)
-      if (Array.isArray(arr) && arr.length) return { from: "customer", items: arr }
-    } catch (_) {}
-
-    try {
-      const arr2 = await apiAuth(`/member/members/search?q=${encodeURIComponent(q)}`)
-      if (Array.isArray(arr2) && arr2.length) return { from: "member", items: arr2 }
-    } catch (_) {}
-
+    const cust = await apiAuthSafe(`/member/customer/search?q=${encodeURIComponent(q)}`, [])
+    if (Array.isArray(cust) && cust.length) return { from: "customer", items: cust }
+    const mem = await apiAuthSafe(`/member/members/search?q=${encodeURIComponent(q)}`, [])
+    if (Array.isArray(mem) && mem.length) return { from: "member", items: mem }
     return { from: null, items: [] }
   }
 
@@ -708,64 +702,22 @@ const MemberSignup = () => {
   }, [debFirst, debLast])
 
   // ---------- จังหวัด/อำเภอ/ตำบล ----------
-  const shapeOptions = (arr = [], labelKey = "name", valueKey = "id") =>
-    arr.map((x, i) => {
-      const v = String(x?.[valueKey] ?? x?.value ?? x?.id ?? x?.[labelKey] ?? i)
-      const l = String(x?.[labelKey] ?? x?.label ?? x?.name ?? x)
-      return { value: v, label: l }
-    })
   const dedupe = (arr) => Array.from(new Set(arr))
 
   const loadAmphoesSurin = async () => {
-    const candidates = [
-      `/geo/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
-      `/geo/amphoes?province_name=${encodeURIComponent(PROV_SURIN)}`,
-      `/th/geo/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
-      `/address/amphoe?province=${encodeURIComponent(PROV_SURIN)}`,
-    ]
-    let options = []
-    for (const p of candidates) {
-      try {
-        const data = await apiAuth(p)
-        if (Array.isArray(data) && data.length) {
-          const tryKeys = ["name", "amphoe_name", "amphoe", "label"]
-          const labelKey = tryKeys.find((k) => typeof data?.[0]?.[k] !== "undefined") || "name"
-          options = shapeOptions(data, labelKey)
-          break
-        }
-      } catch (_) {}
-    }
-    if (!options.length) {
-      options = AMPHOES_SURIN.map((n) => ({ value: n, label: n }))
-    }
-    setAmphoeOptions(options.sort((a, b) => a.label.localeCompare(b.label, "th")))
+    const options = AMPHOES_SURIN
+      .map((n) => ({ value: n, label: n }))
+      .sort((a, b) => a.label.localeCompare(b.label, "th"))
+    setAmphoeOptions(options)
   }
 
   const loadTambonsByAmphoe = async (amphoeLabel) => {
     if (!amphoeLabel) { setTambonOptions([]); return }
-    const candidates = [
-      `/geo/tambon?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
-      `/geo/tambons?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
-      `/th/geo/tambon?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
-      `/address/tambon?province=${encodeURIComponent(PROV_SURIN)}&amphoe=${encodeURIComponent(amphoeLabel)}`,
-    ]
-    let options = []
-    for (const p of candidates) {
-      try {
-        const data = await apiAuth(p)
-        if (Array.isArray(data) && data.length) {
-          const tryKeys = ["name", "tambon_name", "subdistrict", "label"]
-          const labelKey = tryKeys.find((k) => typeof data?.[0]?.[k] !== "undefined") || "name"
-          options = shapeOptions(data, labelKey)
-          break
-        }
-      } catch (_) {}
-    }
-    if (!options.length) {
-      const fall = dedupe(TAMBONS_BY_AMPHOE[amphoeLabel] || [])
-      options = fall.map((n, i) => ({ value: n || String(i), label: n }))
-    }
-    setTambonOptions(options.sort((a, b) => a.label.localeCompare(b.label, "th")))
+    const fall = dedupe(TAMBONS_BY_AMPHOE[amphoeLabel] || [])
+    const options = fall
+      .map((n, i) => ({ value: n || String(i), label: n }))
+      .sort((a, b) => a.label.localeCompare(b.label, "th"))
+    setTambonOptions(options)
   }
 
   // โหลดอำเภอครั้งแรก + ล็อกจังหวัดเป็นสุรินทร์เสมอ
@@ -779,9 +731,7 @@ const MemberSignup = () => {
 
   // เมื่อเปลี่ยนอำเภอ → โหลดตำบลใหม่ + ล้างค่าตำบลเดิม
   useEffect(() => {
-    const amphoeLabel = form.district
-      ? (amphoeOptions.find((o) => String(o.value) === String(form.district))?.label ?? form.district)
-      : ""
+    const amphoeLabel = form.district || ""
     setForm((prev) => ({ ...prev, sub_district: "" }))
     loadTambonsByAmphoe(amphoeLabel)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -999,7 +949,7 @@ const MemberSignup = () => {
       fertilizer_type: form.fertilizer_type === "" ? null : Number(form.fertilizer_type),
 
       // 🟢 ส่งจำนวนเงินซื้อหุ้นครั้งแรกให้ BE ทำรายการทันที
-      initial_share: String(form.buy_amount).trim(),     // Decimal เป็น string (สูงสุด 3 ตำแหน่ง)
+      initial_share: String(form.buy_amount).trim(),     // ส่งเป็น string ให้ BE แปลงเป็น Decimal/ตรวจ ≥ 100
       initial_buy_date: form.buy_date || null,          // ไม่ระบุก็ได้
     }
 

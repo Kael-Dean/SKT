@@ -50,21 +50,13 @@ function extractCurrentShare(resp) {
       const n = Number(resp)
       return Number.isFinite(n) ? n : null
     }
-
-    // กรณีตอบเป็นอ็อบเจ็กต์
     const cand =
-      // เคสใบเสร็จซื้อหุ้น / ซื้อครั้งล่าสุด
       resp.total_share_after ??
-      // เคสข้อมูลสมาชิกปัจจุบัน
       resp.total_share ??
-      resp?.member?.total_share ??
-      resp?.data?.total_share ??
-      resp?.data?.member?.total_share ??
-      // เคสเรียกชื่ออื่น
       resp.current_share ??
       resp.balance ??
-      resp.share_total
-
+      resp.share_total ??
+      resp?.data?.total_share
     if (cand == null) return null
     const n = Number(cand)
     return Number.isFinite(n) ? n : null
@@ -237,11 +229,7 @@ function normalizeRecord(raw = {}) {
     tgs_group: raw.tgs_group ?? null,
     share_per_month: raw.share_per_month ?? null,
     ar_limit: raw.ar_limit ?? null,
-
-    // เก็บทั้ง normal_share และ total_share (ถ้ามี) เพื่อใช้เป็น fallback
     normal_share: raw.normal_share ?? null,
-    total_share: raw.total_share ?? raw?.data?.total_share ?? null,
-
     bank_account: raw.bank_account ?? "",
     tgs_id: raw.tgs_id ?? "",
     spouce_name: raw.spouce_name ?? "",
@@ -265,11 +253,6 @@ function normalizeRecord(raw = {}) {
     slowdown_rice: toBool(raw.slowdown_rice ?? false),
     organic_prog: toBool(raw.organic_prog ?? false),
     product_loan: toBool(raw.product_loan ?? false),
-  }
-
-  // ถ้า normal_share ว่างแต่มี total_share ให้ใช้ total_share เป็นค่าเริ่มต้น
-  if ((out.normal_share == null || out.normal_share === "") && out.total_share != null) {
-    out.normal_share = out.total_share
   }
 
   FIELD_CONFIG.forEach(({ key }) => {
@@ -359,75 +342,39 @@ const MemberSearch = () => {
     setEditing(false)
     setOpen(true)
 
-    // รีเซ็ตสถานะหุ้นปัจจุบัน
+    // โหลดยอดหุ้นปัจจุบันตามจริง (ถ้ามี tgs_id)
     setCurrentShare(null)
     setCurrentShareError("")
-
-    // ---------- โหลดยอดหุ้นปัจจุบันตามจริง ----------
-    ;(async () => {
-      try {
-        setCurrentShareLoading(true)
-
-        // 1) ถ้าจากแถวค้นหามี total_share อยู่แล้ว ใช้ได้ทันที
-        const fromRow = extractCurrentShare({ total_share: r.total_share })
-        if (fromRow != null) {
-          setCurrentShare(fromRow)
-          return
-        }
-
-        // 2) ลองหลาย endpoint ที่เป็นไปได้
-        let found = null
-
-        // 2.1 กลุ่ม share/*
-        if (r?.tgs_id) {
+    if (r?.tgs_id) {
+      ;(async () => {
+        try {
+          setCurrentShareLoading(true)
+          // ลองหลาย endpoint เผื่อ BE ตั้งชื่อแตกต่างกัน
           const tgs = encodeURIComponent(r.tgs_id)
-          const shareEndpoints = [
-            `/share/${tgs}`,          // ถ้ามี
-            `/share/${tgs}/balance`,  // ถ้ามี
-            `/share/${tgs}/summary`,  // ถ้ามี
+          const endpoints = [
+            `/share/${tgs}`,
+            `/share/${tgs}/balance`,
+            `/share/${tgs}/summary`,
           ]
-          for (const ep of shareEndpoints) {
+          let found = null
+          for (const ep of endpoints) {
             try {
               const resp = await apiAuth(ep)
-              const v = extractCurrentShare(resp)
-              if (v != null) { found = v; break }
-            } catch {
-              /* ลองตัวถัดไป */
+              const val = extractCurrentShare(resp)
+              if (val != null) { found = val; break }
+            } catch (_e) {
+              // ลอง endpoint ถัดไป
             }
           }
+          if (found != null) setCurrentShare(found)
+          else setCurrentShareError("ไม่พบข้อมูลยอดหุ้นปัจจุบัน")
+        } catch (e) {
+          setCurrentShareError(e?.message || "ดึงยอดหุ้นปัจจุบันไม่สำเร็จ")
+        } finally {
+          setCurrentShareLoading(false)
         }
-
-        // 2.2 กลุ่ม member/*
-        if (found == null) {
-          const id = r.member_id
-          const tgs = r.tgs_id ? encodeURIComponent(r.tgs_id) : null
-          const memberEndpoints = [
-            id != null ? `/member/members/${id}` : null,          // รายการสมาชิกตาม id
-            tgs ? `/member/members/by-tgs/${tgs}` : null,          // กรณีระบบมี route นี้
-          ].filter(Boolean)
-
-          for (const ep of memberEndpoints) {
-            try {
-              const resp = await apiAuth(ep)
-              const v = extractCurrentShare(resp)
-              if (v != null) { found = v; break }
-            } catch {
-              /* ลองตัวถัดไป */
-            }
-          }
-        }
-
-        if (found != null) {
-          setCurrentShare(found)
-        } else {
-          setCurrentShareError("ไม่พบข้อมูลยอดหุ้นปัจจุบัน")
-        }
-      } catch (e) {
-        setCurrentShareError(e?.message || "ดึงยอดหุ้นปัจจุบันไม่สำเร็จ")
-      } finally {
-        setCurrentShareLoading(false)
-      }
-    })()
+      })()
+    }
   }
 
   const closeModal = () => {
@@ -491,6 +438,7 @@ const MemberSearch = () => {
       if (!idForPatch && idForPatch !== 0) throw new Error("ไม่พบเลขสมาชิก (member_id) สำหรับบันทึก")
 
       // optimistic update
+      const prev = rows
       setRows((cur) => cur.map((x) => (x.member_id === active.member_id ? { ...x, ...diff } : x)))
 
       // ✅ ใช้ apiAuth แทน fetch ตรง
@@ -516,11 +464,8 @@ const MemberSearch = () => {
       setDraft(nd)
 
       setEditing(false)
-
-      // อัปเดต currentShare ถ้า response มี total_share
-      const v = extractCurrentShare(updatedRaw)
-      if (v != null) setCurrentShare(v)
     } catch (e) {
+      // rollback ถ้า error
       setRows((cur) => cur) // state คงไว้
       setRowError(e?.message || "บันทึกไม่สำเร็จ")
     } finally {
@@ -763,7 +708,6 @@ const MemberSearch = () => {
                                   if (f.key === "normal_share") {
                                     if (currentShareLoading) return "— กำลังโหลด —"
                                     if (currentShare != null) return String(currentShare)
-                                    if (active?.total_share != null) return String(active.total_share)
                                     return val ?? "-"
                                   }
                                   if (f.type === "date" || f.type === "date-optional") return formatDate(val)
@@ -782,7 +726,7 @@ const MemberSearch = () => {
                               </select>
                             ) : f.type === "date" || f.type === "date-optional" ? (
                               <input
-                                type={f.type === "date" || f.type === "date-optional" ? "date" : "text"}
+                                type="date"
                                 className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                                 value={val ?? ""}
                                 onChange={(e) => onChangeField(f.key, e.target.value)}

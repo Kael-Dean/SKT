@@ -41,6 +41,30 @@ function formatDate(v) {
   }
 }
 
+/** พยายามดึงค่า "ยอดหุ้นปัจจุบัน" จาก response ได้หลายรูปแบบ */
+function extractCurrentShare(resp) {
+  try {
+    if (resp == null) return null
+    if (typeof resp === "number") return Number.isFinite(resp) ? resp : null
+    if (typeof resp === "string") {
+      const n = Number(resp)
+      return Number.isFinite(n) ? n : null
+    }
+    const cand =
+      resp.total_share_after ??
+      resp.total_share ??
+      resp.current_share ??
+      resp.balance ??
+      resp.share_total ??
+      resp?.data?.total_share
+    if (cand == null) return null
+    const n = Number(cand)
+    return Number.isFinite(n) ? n : null
+  } catch {
+    return null
+  }
+}
+
 /** ---------- โครงการ ---------- */
 const PROGRAMS = [
   { key: "seedling_prog", label: "โครงผลิตเมล็ดพันธ์", emoji: "🌱" },
@@ -264,6 +288,10 @@ const MemberSearch = () => {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [rowError, setRowError] = useState("")
+  // หุ้นปัจจุบัน (แสดงแทน normal_share เมื่อดูรายละเอียด)
+  const [currentShare, setCurrentShare] = useState(null)
+  const [currentShareLoading, setCurrentShareLoading] = useState(false)
+  const [currentShareError, setCurrentShareError] = useState("")
 
   const hint = useMemo(() => {
     const digits = onlyDigits(q)
@@ -313,6 +341,40 @@ const MemberSearch = () => {
     setRowError("")
     setEditing(false)
     setOpen(true)
+
+    // โหลดยอดหุ้นปัจจุบันตามจริง (ถ้ามี tgs_id)
+    setCurrentShare(null)
+    setCurrentShareError("")
+    if (r?.tgs_id) {
+      ;(async () => {
+        try {
+          setCurrentShareLoading(true)
+          // ลองหลาย endpoint เผื่อ BE ตั้งชื่อแตกต่างกัน
+          const tgs = encodeURIComponent(r.tgs_id)
+          const endpoints = [
+            `/share/${tgs}`,
+            `/share/${tgs}/balance`,
+            `/share/${tgs}/summary`,
+          ]
+          let found = null
+          for (const ep of endpoints) {
+            try {
+              const resp = await apiAuth(ep)
+              const val = extractCurrentShare(resp)
+              if (val != null) { found = val; break }
+            } catch (_e) {
+              // ลอง endpoint ถัดไป
+            }
+          }
+          if (found != null) setCurrentShare(found)
+          else setCurrentShareError("ไม่พบข้อมูลยอดหุ้นปัจจุบัน")
+        } catch (e) {
+          setCurrentShareError(e?.message || "ดึงยอดหุ้นปัจจุบันไม่สำเร็จ")
+        } finally {
+          setCurrentShareLoading(false)
+        }
+      })()
+    }
   }
 
   const closeModal = () => {
@@ -322,6 +384,9 @@ const MemberSearch = () => {
     setEditing(false)
     setSaving(false)
     setRowError("")
+    setCurrentShare(null)
+    setCurrentShareLoading(false)
+    setCurrentShareError("")
   }
 
   const onChangeField = (key, val) => {
@@ -639,7 +704,15 @@ const MemberSearch = () => {
                             <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">{f.label}</label>
                             {!editing ? (
                               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                                {f.type === "date" || f.type === "date-optional" ? formatDate(val) : (val ?? "-")}
+                                {(() => {
+                                  if (f.key === "normal_share") {
+                                    if (currentShareLoading) return "— กำลังโหลด —"
+                                    if (currentShare != null) return String(currentShare)
+                                    return val ?? "-"
+                                  }
+                                  if (f.type === "date" || f.type === "date-optional") return formatDate(val)
+                                  return val ?? "-"
+                                })()}
                               </div>
                             ) : f.type === "select" ? (
                               <select

@@ -55,11 +55,13 @@ function extractCurrentShare(resp) {
     const cand =
       // เคสใบเสร็จซื้อหุ้น / ซื้อครั้งล่าสุด
       resp.total_share_after ??
-      // เคสข้อมูลสมาชิกปัจจุบัน
+      // เคสข้อมูลสมาชิกปัจจุบัน (รองรับทั้งเอกพจน์/พหูพจน์)
       resp.total_share ??
+      resp.total_shares ??
       resp?.member?.total_share ??
+      resp?.member?.total_shares ??
       resp?.data?.total_share ??
-      resp?.data?.member?.total_share ??
+      resp?.data?.total_shares ??
       // เคสเรียกชื่ออื่น
       resp.current_share ??
       resp.balance ??
@@ -240,7 +242,14 @@ function normalizeRecord(raw = {}) {
 
     // เก็บทั้ง normal_share และ total_share (ถ้ามี) เพื่อใช้เป็น fallback
     normal_share: raw.normal_share ?? null,
-    total_share: raw.total_share ?? raw?.data?.total_share ?? null,
+
+    // ✅ map ให้รองรับทั้ง total_share และ total_shares จากแบ็กเอนด์
+    total_share:
+      raw.total_share ??
+      raw.total_shares ??
+      raw?.data?.total_share ??
+      raw?.data?.total_shares ??
+      null,
 
     bank_account: raw.bank_account ?? "",
     tgs_id: raw.tgs_id ?? "",
@@ -368,14 +377,14 @@ const MemberSearch = () => {
       try {
         setCurrentShareLoading(true)
 
-        // 1) ถ้าจากแถวค้นหามี total_share อยู่แล้ว ใช้ได้ทันที
-        const fromRow = extractCurrentShare({ total_share: r.total_share })
+        // 1) ใช้ค่าที่มาจากผลค้นหา (รองรับ total_share/total_shares)
+        const fromRow = extractCurrentShare(r)
         if (fromRow != null) {
           setCurrentShare(fromRow)
           return
         }
 
-        // 2) ลองหลาย endpoint ที่เป็นไปได้
+        // 2) (สำรอง) พยายามเรียกหลาย endpoint ที่อาจมีในระบบ
         let found = null
 
         // 2.1 กลุ่ม share/*
@@ -397,13 +406,13 @@ const MemberSearch = () => {
           }
         }
 
-        // 2.2 กลุ่ม member/*
+        // 2.2 กลุ่ม member/* (ถ้ามีปลายทาง get-by-id)
         if (found == null) {
           const id = r.member_id
           const tgs = r.tgs_id ? encodeURIComponent(r.tgs_id) : null
           const memberEndpoints = [
-            id != null ? `/member/members/${id}` : null,          // รายการสมาชิกตาม id
-            tgs ? `/member/members/by-tgs/${tgs}` : null,          // กรณีระบบมี route นี้
+            id != null ? `/member/members/${id}` : null,
+            tgs ? `/member/members/by-tgs/${tgs}` : null,
           ].filter(Boolean)
 
           for (const ep of memberEndpoints) {
@@ -517,7 +526,7 @@ const MemberSearch = () => {
 
       setEditing(false)
 
-      // อัปเดต currentShare ถ้า response มี total_share
+      // อัปเดต currentShare ถ้า response มี total_share/total_shares
       const v = extractCurrentShare(updatedRaw)
       if (v != null) setCurrentShare(v)
     } catch (e) {

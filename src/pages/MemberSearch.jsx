@@ -704,15 +704,7 @@ const MemberSearch = () => {
                             <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">{f.label}</label>
                             {!editing ? (
                               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                                {(() => {
-                                  if (f.key === "normal_share") {
-                                    if (currentShareLoading) return "— กำลังโหลด —"
-                                    if (currentShare != null) return String(currentShare)
-                                    return val ?? "-"
-                                  }
-                                  if (f.type === "date" || f.type === "date-optional") return formatDate(val)
-                                  return val ?? "-"
-                                })()}
+                                {f.type === "date" || f.type === "date-optional" ? formatDate(val) : (val ?? "-")}
                               </div>
                             ) : f.type === "select" ? (
                               <select

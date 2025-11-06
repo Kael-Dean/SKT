@@ -1652,8 +1652,29 @@ const pickNameResult = async (rec) => {
     const m = {}
 
     if (buyerType === "person") {
-      if (!customer.fullName.trim()) m.fullName = true
-    } else {
+      const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
+      const assoIdVal = memberMeta.assoId || null
+
+      // Prefer asso_id (จากรายชื่อ) ก่อน ถ้ามี เพื่อกันปัญหา member_id ใน BE
+      if (assoIdVal) {
+        customerPayload = {
+          party_type: "individual",
+          asso_id: assoIdVal,
+          first_name: firstName || "",
+          last_name: lastName || "",
+        }
+      } else if (memberIdNum) {
+        customerPayload = {
+          party_type: "individual",
+          member_id: memberIdNum,
+          first_name: firstName || "",
+          last_name: lastName || "",
+        }
+      } else {
+        alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลจากรายชื่อ (asso_id)")
+        return
+      }
+} else {
       if (!customer.companyName.trim()) m.companyName = true
       if (!customer.taxId.trim()) m.taxId = true
     }

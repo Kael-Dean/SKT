@@ -711,7 +711,7 @@ const MemberSignup = () => {
       organic_prog: !!form.organic_prog,
       product_loan: !!form.product_loan,
 
-      member_id: Number(form.member_id),
+      member_id: form.member_id.trim(),
       precode: Number(form.precode),
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),

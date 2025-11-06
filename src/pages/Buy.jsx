@@ -824,7 +824,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       }))
       if (addr.type) setMemberMeta((m) => ({ ...m, type: addr.type }))
       if (addr.asso_id) setMemberMeta((m) => ({ ...m, assoId: addr.asso_id }))
-      if (addr.member_id != null) setMemberMeta((m) => ({ ...m, memberId: toIntOrNull(addr.member_id) }))
+      if (addr.member_id != null) setMemberMeta((m) => ({ ...m, memberId: String(addr.member_id) }))
     }
   }
 
@@ -1819,7 +1819,8 @@ const pickNameResult = async (rec) => {
 
     if (buyerType === "person") {
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
-      if (!toIntOrNull(memberMeta.memberId ?? customer.memberId) && !memberMeta.assoId) {
+       const _midStr = String(memberMeta.memberId ?? customer.memberId ?? "").trim() 
+ if (!_midStr && !memberMeta.assoId) {
         e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกจากรายชื่อที่มี asso_id"
       }
     } else {
@@ -1982,28 +1983,18 @@ const pickNameResult = async (rec) => {
     // customer payload
 let customerPayload
 if (buyerType === "person") {
-  const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
-  const assoIdVal = memberMeta.assoId || null
+  const memberIdStr = String(memberMeta.memberId ?? customer.memberId ?? "").trim()
+  const assoIdVal = memberMeta.assoId || null 
 
-  if (!memberIdNum && !assoIdVal) {
+  if (!memberIdStr && !assoIdVal) {
     alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id จากผลค้นหา")
     return
   }
 
   // ✅ member_id ต้องเป็น "string"
-  customerPayload = memberIdNum
-    ? {
-        party_type: "individual",
-        member_id: String(memberIdNum),
-        first_name: firstName || "",
-        last_name: lastName || "",
-      }
-    : {
-        party_type: "individual",
-        asso_id: assoIdVal,            // UUID/string ก็ได้ตาม BE
-        first_name: firstName || "",
-        last_name: lastName || "",
-      }
+  customerPayload = memberIdStr
+    ? { party_type: "individual", member_id: memberIdStr, first_name: firstName || "", last_name: lastName || "" }
+    : { party_type: "individual", asso_id: assoIdVal, first_name: firstName || "", last_name: lastName || "" }
 } else {
   const taxId = onlyDigits(customer.taxId)
   // ✅ ฝั่งบริษัทก็ต้องเป็นโครงสร้างเดียวกัน (ไม่มี {individual:{...}})

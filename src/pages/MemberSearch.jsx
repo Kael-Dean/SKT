@@ -41,6 +41,15 @@ function formatDate(v) {
   }
 }
 
+/** แปลงตัวเลขหุ้นให้สวยงาม */
+function formatShares(v) {
+  if (v === null || v === undefined) return "—"
+  const n = Number(v)
+  return Number.isFinite(n)
+    ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "—"
+}
+
 /** พยายามดึงค่า "ยอดหุ้นปัจจุบัน" จาก response ได้หลายรูปแบบ */
 function extractCurrentShare(resp) {
   try {
@@ -95,7 +104,7 @@ const FIELD_CONFIG = [
   { key: "tgs_group", label: "กลุ่ม", type: "number" },
   { key: "share_per_month", label: "ส่งหุ้น/เดือน", type: "decimal" },
   { key: "ar_limit", label: "วงเงินสินเชื่อ", type: "number" },
-  { key: "normal_share", label: "หุ้นปกติ", type: "decimal" },
+  { key: "normal_share", label: "หุ้นปกติ", type: "decimal" }, // 👈 โหมดดูจะโชว์ยอดหุ้นปัจจุบันแทน
   { key: "bank_account", label: "บัญชีธนาคาร", type: "text" },
   { key: "tgs_id", label: "รหัสสมาชิกในระบบ (tgs_id)", type: "text" },
   { key: "spouce_name", label: "ชื่อคู่สมรส", type: "text" },
@@ -234,6 +243,9 @@ function normalizeRecord(raw = {}) {
     tgs_id: raw.tgs_id ?? "",
     spouce_name: raw.spouce_name ?? "",
     orders_placed: raw.orders_placed ?? null,
+
+    // ✅ รองรับ total_shares จาก API
+    total_shares: raw.total_shares ?? raw.totalShares ?? null,
 
     regis_date: raw.regis_date ?? raw.created_at ?? raw.registered_at ?? null,
     last_bought_date: raw.last_bought_date ?? null,
@@ -633,6 +645,32 @@ const MemberSearch = () => {
                     )}
                   </div>
 
+                  {/* 📈 ข้อมูลหุ้น */}
+                  <div className="mb-5 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-400 dark:bg-indigo-900/10">
+                    <div className="mb-2 text-base font-semibold text-indigo-800 dark:text-indigo-200">📈 ข้อมูลหุ้น</div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {/* ยอดหุ้นปัจจุบัน */}
+                      <div className="rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
+                        <div className="text-sm text-slate-600 dark:text-slate-300">ยอดหุ้นปัจจุบัน</div>
+                        <div className="mt-1 text-2xl font-semibold">
+                          {currentShareLoading
+                            ? "กำลังโหลด..."
+                            : formatShares(currentShare)}
+                        </div>
+                        {!!currentShareError && (
+                          <div className="mt-1 text-xs text-red-600 dark:text-red-300">{currentShareError}</div>
+                        )}
+                      </div>
+                      {/* ยอดหุ้นสะสม (total_shares) */}
+                      <div className="rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
+                        <div className="text-sm text-slate-600 dark:text-slate-300">ยอดหุ้นสะสม (total_shares)</div>
+                        <div className="mt-1 text-2xl font-semibold">
+                          {formatShares(active?.total_shares)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* โครงการที่เข้าร่วม */}
                   <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-400 dark:bg-emerald-900/10">
                     <div className="mb-2 text-base font-semibold text-emerald-800 dark:text-emerald-200">🎯 โครงการที่เข้าร่วม</div>
@@ -704,7 +742,14 @@ const MemberSearch = () => {
                             <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">{f.label}</label>
                             {!editing ? (
                               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                                {f.type === "date" || f.type === "date-optional" ? formatDate(val) : (val ?? "-")}
+                                {/* 👇 โหมดดู: ถ้าเป็น normal_share ให้แสดง currentShare ที่ดึงมาจริง */}
+                                {f.key === "normal_share"
+                                  ? (currentShareLoading
+                                      ? "กำลังดึงยอดหุ้น..."
+                                      : formatShares(currentShare ?? val))
+                                  : (f.type === "date" || f.type === "date-optional"
+                                      ? formatDate(val)
+                                      : (val ?? "-"))}
                               </div>
                             ) : f.type === "select" ? (
                               <select

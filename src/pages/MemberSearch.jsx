@@ -50,30 +50,6 @@ function formatShares(v) {
     : "—"
 }
 
-/** พยายามดึงค่า "ยอดหุ้นปัจจุบัน" จาก response ได้หลายรูปแบบ */
-function extractCurrentShare(resp) {
-  try {
-    if (resp == null) return null
-    if (typeof resp === "number") return Number.isFinite(resp) ? resp : null
-    if (typeof resp === "string") {
-      const n = Number(resp)
-      return Number.isFinite(n) ? n : null
-    }
-    const cand =
-      resp.total_share_after ??
-      resp.total_share ??
-      resp.current_share ??
-      resp.balance ??
-      resp.share_total ??
-      resp?.data?.total_share
-    if (cand == null) return null
-    const n = Number(cand)
-    return Number.isFinite(n) ? n : null
-  } catch {
-    return null
-  }
-}
-
 /** ---------- โครงการ ---------- */
 const PROGRAMS = [
   { key: "seedling_prog", label: "โครงผลิตเมล็ดพันธ์", emoji: "🌱" },
@@ -104,7 +80,7 @@ const FIELD_CONFIG = [
   { key: "tgs_group", label: "กลุ่ม", type: "number" },
   { key: "share_per_month", label: "ส่งหุ้น/เดือน", type: "decimal" },
   { key: "ar_limit", label: "วงเงินสินเชื่อ", type: "number" },
-  { key: "normal_share", label: "หุ้นปกติ", type: "decimal" }, // 👈 โหมดดูจะโชว์ยอดหุ้นปัจจุบันแทน
+  { key: "normal_share", label: "หุ้นปกติ", type: "decimal" },
   { key: "bank_account", label: "บัญชีธนาคาร", type: "text" },
   { key: "tgs_id", label: "รหัสสมาชิกในระบบ (tgs_id)", type: "text" },
   { key: "spouce_name", label: "ชื่อคู่สมรส", type: "text" },
@@ -300,10 +276,6 @@ const MemberSearch = () => {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [rowError, setRowError] = useState("")
-  // หุ้นปัจจุบัน (แสดงแทน normal_share เมื่อดูรายละเอียด)
-  const [currentShare, setCurrentShare] = useState(null)
-  const [currentShareLoading, setCurrentShareLoading] = useState(false)
-  const [currentShareError, setCurrentShareError] = useState("")
 
   const hint = useMemo(() => {
     const digits = onlyDigits(q)
@@ -353,40 +325,6 @@ const MemberSearch = () => {
     setRowError("")
     setEditing(false)
     setOpen(true)
-
-    // โหลดยอดหุ้นปัจจุบันตามจริง (ถ้ามี tgs_id)
-    setCurrentShare(null)
-    setCurrentShareError("")
-    if (r?.tgs_id) {
-      ;(async () => {
-        try {
-          setCurrentShareLoading(true)
-          // ลองหลาย endpoint เผื่อ BE ตั้งชื่อแตกต่างกัน
-          const tgs = encodeURIComponent(r.tgs_id)
-          const endpoints = [
-            `/share/${tgs}`,
-            `/share/${tgs}/balance`,
-            `/share/${tgs}/summary`,
-          ]
-          let found = null
-          for (const ep of endpoints) {
-            try {
-              const resp = await apiAuth(ep)
-              const val = extractCurrentShare(resp)
-              if (val != null) { found = val; break }
-            } catch (_e) {
-              // ลอง endpoint ถัดไป
-            }
-          }
-          if (found != null) setCurrentShare(found)
-          else setCurrentShareError("ไม่พบข้อมูลยอดหุ้นปัจจุบัน")
-        } catch (e) {
-          setCurrentShareError(e?.message || "ดึงยอดหุ้นปัจจุบันไม่สำเร็จ")
-        } finally {
-          setCurrentShareLoading(false)
-        }
-      })()
-    }
   }
 
   const closeModal = () => {
@@ -396,9 +334,6 @@ const MemberSearch = () => {
     setEditing(false)
     setSaving(false)
     setRowError("")
-    setCurrentShare(null)
-    setCurrentShareLoading(false)
-    setCurrentShareError("")
   }
 
   const onChangeField = (key, val) => {
@@ -450,7 +385,6 @@ const MemberSearch = () => {
       if (!idForPatch && idForPatch !== 0) throw new Error("ไม่พบเลขสมาชิก (member_id) สำหรับบันทึก")
 
       // optimistic update
-      const prev = rows
       setRows((cur) => cur.map((x) => (x.member_id === active.member_id ? { ...x, ...diff } : x)))
 
       // ✅ ใช้ apiAuth แทน fetch ตรง
@@ -477,7 +411,6 @@ const MemberSearch = () => {
 
       setEditing(false)
     } catch (e) {
-      // rollback ถ้า error
       setRows((cur) => cur) // state คงไว้
       setRowError(e?.message || "บันทึกไม่สำเร็จ")
     } finally {
@@ -648,19 +581,7 @@ const MemberSearch = () => {
                   {/* 📈 ข้อมูลหุ้น */}
                   <div className="mb-5 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-400 dark:bg-indigo-900/10">
                     <div className="mb-2 text-base font-semibold text-indigo-800 dark:text-indigo-200">📈 ข้อมูลหุ้น</div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      {/* ยอดหุ้นปัจจุบัน */}
-                      <div className="rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
-                        <div className="text-sm text-slate-600 dark:text-slate-300">ยอดหุ้นปัจจุบัน</div>
-                        <div className="mt-1 text-2xl font-semibold">
-                          {currentShareLoading
-                            ? "กำลังโหลด..."
-                            : formatShares(currentShare)}
-                        </div>
-                        {!!currentShareError && (
-                          <div className="mt-1 text-xs text-red-600 dark:text-red-300">{currentShareError}</div>
-                        )}
-                      </div>
+                    <div className="grid grid-cols-1 gap-4">
                       {/* ยอดหุ้นสะสม (total_shares) */}
                       <div className="rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
                         <div className="text-sm text-slate-600 dark:text-slate-300">ยอดหุ้นสะสม (total_shares)</div>
@@ -742,14 +663,9 @@ const MemberSearch = () => {
                             <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">{f.label}</label>
                             {!editing ? (
                               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                                {/* 👇 โหมดดู: ถ้าเป็น normal_share ให้แสดง currentShare ที่ดึงมาจริง */}
-                                {f.key === "normal_share"
-                                  ? (currentShareLoading
-                                      ? "กำลังดึงยอดหุ้น..."
-                                      : formatShares(currentShare ?? val))
-                                  : (f.type === "date" || f.type === "date-optional"
-                                      ? formatDate(val)
-                                      : (val ?? "-"))}
+                                {(f.type === "date" || f.type === "date-optional")
+                                  ? formatDate(val)
+                                  : (f.key === "normal_share" ? formatShares(val) : (val ?? "-"))}
                               </div>
                             ) : f.type === "select" ? (
                               <select

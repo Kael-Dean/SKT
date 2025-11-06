@@ -1277,7 +1277,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       fid: toStr(r.fid ?? ""),
       fidOwner: toStr(r.fid_owner ?? r.fidowner ?? ""),
       fidRelationship: toStr(r.fid_relationship ?? r.fidreationship ?? r.fid_rel ?? ""),
-      memberId: r.member_id != null ? toIntOrNull(r.member_id) : null,
+      memberId: r.member_id != null ? String(r.member_id) : null,
     }
   }
 
@@ -1296,7 +1296,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       fid: data.fid || prev.fid,
       fidOwner: data.fidOwner || prev.fidOwner,
       fidRelationship: data.fidRelationship || prev.fidRelationship,
-      memberId: data.memberId != null ? String(data.memberId) : prev.memberId,
+      memberId: data.memberId != null ? data.memberId : prev.memberId,
     }))
     if (__epoch !== searchEpochRef.current) return
     setMemberMeta({ type: data.type, assoId: data.assoId, memberId: data.memberId })
@@ -1331,14 +1331,14 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       setCustomerFound(null)
       return
     }
-    const mid = toIntOrNull(debouncedMemberId)
-    if (mid == null || mid <= 0) return
+    const mid = String(debouncedMemberId || "").trim()
+if (!mid) return
     const fetchByMemberId = async () => {
       const __epoch = searchEpochRef.current
       try {
         setLoadingCustomer(true)
         const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(String(mid))}`)) || []
-        const exact = arr.find((r) => r.type === "member" && toIntOrNull(r.member_id) === mid) || arr[0]
+        const exact = arr.find((r) => r.type === "member" && String(r.member_id) === mid) || arr[0]
         if (exact) {
           if (__epoch !== searchEpochRef.current) return
           await fillFromRecord(exact)

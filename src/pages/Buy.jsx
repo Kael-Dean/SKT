@@ -1979,37 +1979,41 @@ const pickNameResult = async (rec) => {
     const dateStr = order.issueDate
 
     // customer payload
-    let customerPayload
-    if (buyerType === "person") {
-      const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
-      const assoIdVal = memberMeta.assoId || null
+    // customer payload
+let customerPayload
+if (buyerType === "person") {
+  const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
+  const assoIdVal = memberMeta.assoId || null
 
-      if (!memberIdNum && !assoIdVal) {
-        alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id จากผลค้นหา")
-        return
+  if (!memberIdNum && !assoIdVal) {
+    alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id จากผลค้นหา")
+    return
+  }
+
+  // ✅ member_id ต้องเป็น "string"
+  customerPayload = memberIdNum
+    ? {
+        party_type: "individual",
+        member_id: String(memberIdNum),
+        first_name: firstName || "",
+        last_name: lastName || "",
       }
+    : {
+        party_type: "individual",
+        asso_id: assoIdVal,            // UUID/string ก็ได้ตาม BE
+        first_name: firstName || "",
+        last_name: lastName || "",
+      }
+} else {
+  const taxId = onlyDigits(customer.taxId)
+  // ✅ ฝั่งบริษัทก็ต้องเป็นโครงสร้างเดียวกัน (ไม่มี {individual:{...}})
+  customerPayload = taxId
+    ? { party_type: "company", tax_id: String(taxId) }
+    : memberMeta.assoId
+    ? { party_type: "company", asso_id: memberMeta.assoId }
+    : { party_type: "company", tax_id: "" }
+}
 
-      customerPayload = memberIdNum
-        ? {
-            party_type: "individual",
-            member_id: memberIdNum,
-            first_name: firstName || "",
-            last_name: lastName || "",
-          }
-        : {
-            party_type: "individual",
-            asso_id: assoIdVal,
-            first_name: firstName || "",
-            last_name: lastName || "",
-          }
-    } else {
-      const taxId = onlyDigits(customer.taxId)
-      customerPayload = taxId
-        ? { party_type: "company", tax_id: taxId }
-        : memberMeta.assoId
-        ? { party_type: "company", asso_id: memberMeta.assoId }
-        : { party_type: "company", tax_id: "" }
-    }
 
     /** Dept payload */
     const makeDeptDate = (yyyyMmDd) => {

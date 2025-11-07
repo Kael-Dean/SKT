@@ -431,41 +431,6 @@ const USER_BRANCH_MAP = {
   chomphra: "จอมพระ",
 }
 
-
-// ---------------- Branch locker helpers (PATCH) ----------------
-const resolveLockedBranch = (branches = []) => {
-  try {
-    const token = getToken()
-    const payload = decodeJwtPayload(token) || {}
-    const username = String(payload.sub || "").toLowerCase()
-
-    // 1) ตรง ๆ จาก claim id
-    const claimId = payload.branch_id ?? payload.branchId ?? payload.bid ?? null
-    if (claimId != null) {
-      const t = branches.find(b => String(b.id) === String(claimId))
-      if (t) return { id: t.id, label: t.label }
-    }
-
-    // 2) จาก claim name
-    const claimName = payload.branch_name ?? payload.branchName ?? payload.branch ?? ""
-    if (claimName) {
-      const t = branches.find(b => String(b.label || "").includes(String(claimName)))
-      if (t) return { id: t.id, label: t.label }
-    }
-
-    // 3) fallback: จาก username mapping เดิม
-    const key = Object.keys(USER_BRANCH_MAP).find(k => username.includes(k))
-    if (key) {
-      const wantedLabelTH = USER_BRANCH_MAP[key]
-      const t = branches.find(b => String(b.label || "").includes(wantedLabelTH))
-      if (t) return { id: t.id, label: t.label }
-    }
-
-    return null
-  } catch {
-    return null
-  }
-}
 /** ---------- Component ---------- */
 const Buy = () => {
   const [loadingCustomer, setLoadingCustomer] = useState(false)
@@ -646,9 +611,8 @@ const Buy = () => {
     amountTHB: "",
     paymentRefNo: "",
     issueDate: new Date().toISOString().slice(0, 10),
-    branchName: lockedBranch?.label || prev.branchName,
-      branchId: lockedBranch?.id ?? prev.branchId,
-      
+    branchName: "",
+    branchId: null,
     klangName: "",
     klangId: null,
     registeredPlace: "",
@@ -1072,43 +1036,34 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
     loadForms()
   }, [])
 
-  /** 🔒 ล็อกสาขาตามผู้ใช้ (claim + fallback) */
-  const [branchLocked, setBranchLocked] = useState(true)
-  const [lockedBranch, setLockedBranch] = useState(null)
-
+  /** 🔒 ล็อกสาขาตาม username ใน JWT */
+  const [branchLocked, setBranchLocked] = useState(false)
   useEffect(() => {
     if (!branchOptions?.length) return
-    const t = resolveLockedBranch(branchOptions)
-    if (t) {
-      setLockedBranch(t)
-      setBranchLocked(true)
+    try {
+      const token = getToken()
+      const username = (decodeJwtPayload(token)?.sub || "").toLowerCase()
+      if (!username) return
+      const key = Object.keys(USER_BRANCH_MAP).find((k) => username.includes(k))
+      if (!key) return
+      const wantedLabelTH = USER_BRANCH_MAP[key]
+      const target = branchOptions.find((o) => String(o.label || "").includes(wantedLabelTH))
+      if (!target) return
       setOrder((p) => ({
         ...p,
-        branchId: t.id,
-        branchName: t.label,
+        branchId: target.id,
+        branchName: target.label,
         klangName: "",
         klangId: null,
       }))
-    } else {
-      setLockedBranch(null)
       setBranchLocked(true)
+    } catch (e) {
+      console.error("lock branch by login failed:", e)
+      setBranchLocked(false)
     }
   }, [branchOptions])
 
-  // ผู้คุม: ถ้าใครไปเปลี่ยน branchId ให้บังคับกลับ
-  useEffect(() => {
-    if (!branchLocked || !lockedBranch) return
-    if (String(order.branchId ?? "") !== String(lockedBranch.id)) {
-      setOrder((p) => ({
-        ...p,
-        branchId: lockedBranch.id,
-        branchName: lockedBranch.label,
-        klangName: "",
-        klangId: null,
-      }))
-    }
-  }, [branchLocked, lockedBranch, order.branchId])
-// ปิด dropdown บริษัทเมื่อคลิกนอก
+  // ปิด dropdown บริษัทเมื่อคลิกนอก
   useEffect(() => {
     const onClick = (e) => {
       if (!companyBoxRef.current) return
@@ -1995,7 +1950,7 @@ const pickNameResult = async (rec) => {
     const productId = /^\d+$/.test(order.productId) ? Number(order.productId) : null
     const riceId = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null // species_id
     const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null // variant_id
-    const branchId = lockedBranch?.id != null ? Number(lockedBranch.id) : null
+    const branchId = order.branchId != null ? Number(order.branchId) : null
     const klangId = order.klangId != null ? Number(order.klangId) : null
     const riceYearId = /^\d+$/.test(order.riceYearId) ? Number(order.riceYearId) : null
     const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
@@ -2204,9 +2159,8 @@ if (buyerType === "person") {
       amountTHB: "",
       paymentRefNo: "",
       issueDate: prev.issueDate,
-      branchName: lockedBranch?.label || prev.branchName,
-      branchId: lockedBranch?.id ?? prev.branchId,
-      
+      branchName: "",
+      branchId: null,
       klangName: "",
       klangId: null,
       registeredPlace: "",
@@ -2224,7 +2178,7 @@ if (buyerType === "person") {
     })
 
     setBuyerType("person")
-    // setBranchLocked(false) // (disabled by patch: keep branch locked on reset)
+    setBranchLocked(false) // ปลดล็อกเมื่อรีเซ็ต
     setPendingTemplateLabel("")
     // ไม่เปลี่ยน formTemplate เพื่อรักษาค่าเดิมที่ผู้ใช้ตั้งไว้
     if (typeof requestAnimationFrame === "function") {
@@ -2859,16 +2813,25 @@ if (buyerType === "person") {
           {/* สาขา + คลัง */}
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div>
-              
-<label className={labelCls}>สาขา</label>
+              <label className={labelCls}>สาขา</label>
               <ComboBox
-                // แสดงได้เฉพาะสาขาที่ล็อกเท่านั้น
-                options={lockedBranch ? branchOptions.filter(o => String(o.id) === String(lockedBranch.id)) : []}
-                value={lockedBranch?.id ?? ""}
+                options={
+                  branchLocked && order.branchId != null
+                    ? branchOptions.filter((o) => String(o.id) === String(order.branchId))
+                    : branchOptions
+                }
+                value={order.branchId}
                 getValue={(o) => o.id}
-                // ignored เมื่อถูกล็อก
-                onChange={() => {}}
-                placeholder={lockedBranch ? lockedBranch.label : "— (กำลังล็อกจากบัญชี) —"}
+                onChange={(_val, found) => {
+                  setOrder((p) => ({
+                    ...p,
+                    branchId: found?.id ?? null,
+                    branchName: found?.label ?? "",
+                    klangName: "",
+                    klangId: null,
+                  }))
+                }}
+                placeholder="— เลือกสาขา —"
                 error={!!errors.branchName}
                 hintRed={!!missingHints.branchName}
                 clearHint={() => clearHint("branchName")}
@@ -2876,21 +2839,23 @@ if (buyerType === "person") {
                 onEnterNext={() => {
                   const tryFocus = () => {
                     const el = refs.klangName?.current
-                    if (el && isEnabledInput(el)) { try { el.scrollIntoView({ block: "center" }) } catch (_e) {} el.focus?.(); try { el.select?.() } catch (_e) {} ; return true }
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
+                      el.focus?.()
+                      try { el.select?.() } catch (_e) {}
+                      return true
+                    }
                     return false
                   }
                   if (tryFocus()) return
                   setTimeout(tryFocus, 60)
                   setTimeout(tryFocus, 180)
                 }}
-                disabled={true}   // 🔒 ปิดถาวร
+                disabled={branchLocked}
               />
-              <p className={helpTextCls}>
-                สาขาถูกล็อกตามผู้ใช้: <b>{lockedBranch?.label || "ไม่พบในโทเค็น"}</b>
-              </p>
+              {branchLocked && <p className={helpTextCls}>สาขาถูกล็อกตามรหัสผู้ใช้</p>}
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
             </div>
-
 
             <div>
               <label className={labelCls}>คลัง</label>

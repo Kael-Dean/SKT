@@ -274,7 +274,7 @@ function ComboBox({
         disabled={disabled}
         onClick={() => {
           if (!disabled) {
-            setOpen((o) => o || !o)
+            setOpen((o) => !o)
             clearHint?.()
           }
         }}
@@ -505,6 +505,9 @@ const Buy = () => {
   const [programOptions, setProgramOptions] = useState([])
   const [paymentOptions, setPaymentOptions] = useState([])
   const [businessOptions, setBusinessOptions] = useState([])
+
+  // ใช้บังคับให้โหลดคลังใหม่ (กันกรณี branchId เท่าเดิม)
+  const [klangReloadKey, setKlangReloadKey] = useState(0)
 
   /** ▶︎ ฟอร์มสำเร็จรูป (Template) — โหลดจาก BE */
   // 🔒 โหมดล็อกสเปก: ใช้ฟอร์มสำเร็จรูปเท่านั้น
@@ -1101,7 +1104,8 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
     const b = lockedBranch || deriveLockedBranch(branchOptions)
     if (!b) { setBranchLocked(false); return null }
     setBranchLocked(true)
-    setOrder((p) => ({ ...p, branchId: b.id, branchName: b.label }))
+    setOrder((p) => ({ ...p, branchId: b.id, branchName: b.label, klangName: "", klangId: null }))
+    setKlangReloadKey((n) => n + 1) // ⟳ บังคับให้โหลดคลัง
     return b
   }
 
@@ -2226,6 +2230,7 @@ if (buyerType === "person") {
 
     setBuyerType("person")
     enforceBranchLock() // 🔒 รีเซ็ตแล้วยังล็อกสาขาตามผู้ใช้เสมอ
+    setKlangReloadKey((n) => n + 1) // ⟳ บังคับให้โหลดคลัง
     setPendingTemplateLabel("")
     // ไม่เปลี่ยน formTemplate เพื่อรักษาค่าเดิมที่ผู้ใช้ตั้งไว้
     if (typeof requestAnimationFrame === "function") {
@@ -3276,3 +3281,4 @@ if (buyerType === "person") {
 }
 
 export default Buy
+

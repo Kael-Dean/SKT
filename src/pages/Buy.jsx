@@ -450,6 +450,25 @@ const deriveLockedBranch = (opts = []) => {
 
 /** ---------- Component ---------- */
 const Buy = () => {
+  // --- FIX: force re-load warehouses (คลัง) even when branchId stays the same ---
+  async function forceKlangLoad(branchId, branchName) {
+    const bId = branchId ?? null
+    const bName = String(branchName ?? "").trim()
+    if (bId == null && !bName) {
+      setKlangOptions([])
+      setOrder((p) => ({ ...p, klangName: "", klangId: null }))
+      return
+    }
+    try {
+      const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
+      const data = await apiAuth(`/order/klang/search?${qs}`)
+      setKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
+    } catch (e) {
+      console.error("Load klang error:", e)
+      setKlangOptions([])
+    }
+  }
+
   const [loadingCustomer, setLoadingCustomer] = useState(false)
   const [customerFound, setCustomerFound] = useState(null)
   const [errors, setErrors] = useState({})

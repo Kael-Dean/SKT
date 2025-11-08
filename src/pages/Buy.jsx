@@ -431,6 +431,23 @@ const USER_BRANCH_MAP = {
   chomphra: "จอมพระ",
 }
 
+/** ================= Hard‑lock Branch helpers (ใหม่) ================= */
+const deriveLockedBranch = (opts = []) => {
+  try {
+    const token = getToken()
+    const username = (decodeJwtPayload(token)?.sub || "").toLowerCase()
+    if (!username) return null
+    const key = Object.keys(USER_BRANCH_MAP).find((k) => username.includes(k))
+    if (!key) return null
+    const wantedLabelTH = USER_BRANCH_MAP[key]
+    const target = (opts || []).find((o) => String(o.label || "").includes(wantedLabelTH))
+    return target || null
+  } catch (e) {
+    console.error("deriveLockedBranch failed:", e)
+    return null
+  }
+}
+
 /** ---------- Component ---------- */
 const Buy = () => {
   const [loadingCustomer, setLoadingCustomer] = useState(false)
@@ -1036,34 +1053,40 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
     loadForms()
   }, [])
 
-  /** 🔒 ล็อกสาขาตาม username ใน JWT */
+  // 🔒 สาขาที่ล็อกจากสิทธิ์ผู้ใช้
+  const [lockedBranch, setLockedBranch] = useState(null)
   const [branchLocked, setBranchLocked] = useState(false)
+
+  /** 🔒 ล็อกสาขาตาม username ใน JWT (แข็งแรง) */
   useEffect(() => {
     if (!branchOptions?.length) return
-    try {
-      const token = getToken()
-      const username = (decodeJwtPayload(token)?.sub || "").toLowerCase()
-      if (!username) return
-      const key = Object.keys(USER_BRANCH_MAP).find((k) => username.includes(k))
-      if (!key) return
-      const wantedLabelTH = USER_BRANCH_MAP[key]
-      const target = branchOptions.find((o) => String(o.label || "").includes(wantedLabelTH))
-      if (!target) return
+    const b = deriveLockedBranch(branchOptions)
+    if (b) {
+      setLockedBranch(b)
+      setBranchLocked(true)
       setOrder((p) => ({
         ...p,
-        branchId: target.id,
-        branchName: target.label,
+        branchId: b.id,
+        branchName: b.label,
         klangName: "",
         klangId: null,
       }))
-      setBranchLocked(true)
-    } catch (e) {
-      console.error("lock branch by login failed:", e)
+    } else {
+      setLockedBranch(null)
       setBranchLocked(false)
     }
   }, [branchOptions])
 
-  // ปิด dropdown บริษัทเมื่อคลิกนอก
+  // ใช้ซ้ำเพื่อย้ำล็อกเวลารีเซ็ต
+  const enforceBranchLock = () => {
+    const b = lockedBranch || deriveLockedBranch(branchOptions)
+    if (!b) { setBranchLocked(false); return null }
+    setBranchLocked(true)
+    setOrder((p) => ({ ...p, branchId: b.id, branchName: b.label }))
+    return b
+  }
+
+// ปิด dropdown บริษัทเมื่อคลิกนอก
   useEffect(() => {
     const onClick = (e) => {
       if (!companyBoxRef.current) return
@@ -1950,7 +1973,12 @@ const pickNameResult = async (rec) => {
     const productId = /^\d+$/.test(order.productId) ? Number(order.productId) : null
     const riceId = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null // species_id
     const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null // variant_id
-    const branchId = order.branchId != null ? Number(order.branchId) : null
+    const b = lockedBranch || deriveLockedBranch(branchOptions)
+    if (!b) {
+      alert("ล็อกสาขาไม่สำเร็จ: ไม่พบสาขาจากสิทธิ์ผู้ใช้ในระบบ")
+      return
+    }
+    const branchId = Number(b.id)
     const klangId = order.klangId != null ? Number(order.klangId) : null
     const riceYearId = /^\d+$/.test(order.riceYearId) ? Number(order.riceYearId) : null
     const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
@@ -2178,7 +2206,7 @@ if (buyerType === "person") {
     })
 
     setBuyerType("person")
-    setBranchLocked(false) // ปลดล็อกเมื่อรีเซ็ต
+    enforceBranchLock() // 🔒 รีเซ็ตแล้วยังล็อกสาขาตามผู้ใช้เสมอ
     setPendingTemplateLabel("")
     // ไม่เปลี่ยน formTemplate เพื่อรักษาค่าเดิมที่ผู้ใช้ตั้งไว้
     if (typeof requestAnimationFrame === "function") {

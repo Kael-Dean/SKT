@@ -507,9 +507,7 @@ const Buy = () => {
   const [businessOptions, setBusinessOptions] = useState([])
 
   // ใช้บังคับให้โหลดคลังใหม่ (กันกรณี branchId เท่าเดิม)
-  const [klangReloadKey, setKlangReloadKey] = useState(0)
-
-  /** ▶︎ ฟอร์มสำเร็จรูป (Template) — โหลดจาก BE */
+/** ▶︎ ฟอร์มสำเร็จรูป (Template) — โหลดจาก BE */
   // 🔒 โหมดล็อกสเปก: ใช้ฟอร์มสำเร็จรูปเท่านั้น
   const LOCK_SPEC = true
 
@@ -2130,115 +2128,118 @@ if (buyerType === "person") {
 }
 
   const handleReset = () => {
-    // ปิดระบบ auto-search ชั่วคราวระหว่างรีเซ็ตเพื่อไม่ให้มี auto-fill
-    setAutoSearchEnabled(false)
-    try { suppressNameSearchRef.current = true; } catch (_e) {}
-    try { companySuppressSearchRef.current = true; } catch (_e) {}
+  // ปิดระบบ auto-search ชั่วคราวระหว่างรีเซ็ตเพื่อไม่ให้มี auto-fill
+  setAutoSearchEnabled(false)
+  try { suppressNameSearchRef.current = true; } catch (_e) {}
+  try { companySuppressSearchRef.current = true; } catch (_e) {}
 
-    // ปิดออโต้ฟิลและยกเลิกผล async เก่าทันที
-    bumpSearchEpoch()
-    try { suppressNameSearchRef.current = true } catch (_e) {}
-    try { companySuppressSearchRef.current = true } catch (_e) {}
-    setErrors({})
-    setMissingHints({})
-    setCustomerFound(null)
-    setLoadingCustomer(false)
-    setNameResults([])
-    setShowNameList(false)
-    setHighlightedIndex(-1)
-    setMemberMeta({ type: "unknown", assoId: null, memberId: null })
+  // ปิดออโต้ฟิลและยกเลิกผล async เก่าทันที
+  bumpSearchEpoch()
+  try { suppressNameSearchRef.current = true } catch (_e) {}
+  try { companySuppressSearchRef.current = true } catch (_e) {}
+  setErrors({})
+  setMissingHints({})
+  setCustomerFound(null)
+  setLoadingCustomer(false)
+  setNameResults([])
+  setShowNameList(false)
+  setHighlightedIndex(-1)
+  setMemberMeta({ type: "unknown", assoId: null, memberId: null })
 
-    setCustomer({
-      citizenId: "",
-      memberId: "",
-      fullName: "",
-      houseNo: "",
-      moo: "",
-      subdistrict: "",
-      district: "",
-      province: "",
-      postalCode: "",
-      phone: "",
-      fid: "",
-      fidOwner: "",
-      fidRelationship: "",
-      companyName: "",
-      taxId: "",
-      companyPhone: "",
-      hqHouseNo: "",
-      hqMoo: "",
-      hqSubdistrict: "",
-      hqDistrict: "",
-      hqProvince: "",
-      hqPostalCode: "",
-      brHouseNo: "",
-      brMoo: "",
-      brSubdistrict: "",
-      brDistrict: "",
-      brProvince: "",
-      brPostalCode: "",
-    })
+  setCustomer({
+    citizenId: "",
+    memberId: "",
+    fullName: "",
+    houseNo: "",
+    moo: "",
+    subdistrict: "",
+    district: "",
+    province: "",
+    postalCode: "",
+    phone: "",
+    fid: "",
+    fidOwner: "",
+    fidRelationship: "",
+    companyName: "",
+    taxId: "",
+    companyPhone: "",
+    hqHouseNo: "",
+    hqMoo: "",
+    hqSubdistrict: "",
+    hqDistrict: "",
+    hqProvince: "",
+    hqPostalCode: "",
+    brHouseNo: "",
+    brMoo: "",
+    brSubdistrict: "",
+    brDistrict: "",
+    brProvince: "",
+    brPostalCode: "",
+  })
 
-    // ⭐ คงค่า issueDate เดิมไว้
-    setOrder((prev) => ({
-      productId: "",
-      productName: "",
-      riceId: "",
-      riceType: "",
-      subriceId: "",
-      subriceName: "",
-      gram: "",
-      riceYear: "",
-      riceYearId: "",
-      condition: "",
-      conditionId: "",
-      fieldType: "",
-      fieldTypeId: "",
-      programId: "",
-      programName: "",
-      paymentMethod: "",
-      paymentMethodId: "",
-      businessType: "",
-      businessTypeId: "",
-      entryWeightKg: "",
-      exitWeightKg: "",
-      moisturePct: "",
-      impurityPct: "",
-      manualDeduct: false,
-      deductWeightKg: "",
-      unitPrice: "",
-      amountTHB: "",
-      paymentRefNo: "",
-      issueDate: prev.issueDate,
-      branchName: "",
-      branchId: null,
-      klangName: "",
-      klangId: null,
-      registeredPlace: "",
-      comment: "",
-    }))
+  // ⭐ คงค่า issueDate และสาขาเดิมไว้ และรีเซ็ตเฉพาะ "คลัง"
+  setOrder((prev) => ({
+    productId: "",
+    productName: "",
+    riceId: "",
+    riceType: "",
+    subriceId: "",
+    subriceName: "",
+    gram: "",
+    riceYear: "",
+    riceYearId: "",
+    condition: "",
+    conditionId: "",
+    fieldType: "",
+    fieldTypeId: "",
+    programId: "",
+    programName: "",
+    paymentMethod: "",
+    paymentMethodId: "",
+    businessType: "",
+    businessTypeId: "",
+    entryWeightKg: "",
+    exitWeightKg: "",
+    moisturePct: "",
+    impurityPct: "",
+    manualDeduct: false,
+    deductWeightKg: "",
+    unitPrice: "",
+    amountTHB: "",
+    paymentRefNo: "",
+    issueDate: prev.issueDate,
+    // ✅ คงสาขาที่กำลังใช้งานไว้
+    branchName: prev.branchName,
+    branchId: prev.branchId,
+    // 🔄 รีเซ็ตคลังใหม่ แต่ยัง "เลือกได้ปกติ"
+    klangName: "",
+    klangId: null,
+    registeredPlace: "",
+    comment: "",
+  }))
 
-    setRiceOptions([])
-    setSubriceOptions([])
-    setKlangOptions([])
+  // ❌ อย่าล้างรายการคลัง เพื่อให้ดรอปดาวใช้งานได้ทันที
+  setRiceOptions([])
+  setSubriceOptions([])
+  // setKlangOptions([])  // ← เอาออก
 
-    setDept({
-      allowedPeriod: 30,
-      postpone: false,
-      postponePeriod: 0,
-    })
+  setDept({
+    allowedPeriod: 30,
+    postpone: false,
+    postponePeriod: 0,
+  })
 
-    setBuyerType("person")
-    enforceBranchLock() // 🔒 รีเซ็ตแล้วยังล็อกสาขาตามผู้ใช้เสมอ
-    setKlangReloadKey((n) => n + 1) // ⟳ บังคับให้โหลดคลัง
-    setPendingTemplateLabel("")
-    // ไม่เปลี่ยน formTemplate เพื่อรักษาค่าเดิมที่ผู้ใช้ตั้งไว้
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(() => scrollToPageTop())
-    } else {
-      scrollToPageTop()
-    }
+  setBuyerType("person")
+  // ❌ ไม่ต้อง enforceBranchLock หรือบังคับ reload คลัง
+
+  setPendingTemplateLabel("")
+  // ไม่เปลี่ยน formTemplate เพื่อรักษาค่าเดิมที่ผู้ใช้ตั้งไว้
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => scrollToPageTop())
+  } else {
+    scrollToPageTop()
   }
+}
 
   /** ---------- UI ---------- */
   return (

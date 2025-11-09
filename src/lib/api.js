@@ -1,69 +1,88 @@
 // src/lib/api.js
-export const API_BASE = import.meta.env.VITE_API_BASE || ""
+
+// เลือก BASE ตาม host ปัจจุบัน: ถ้ารันบนโดเมนของคุณให้ยิงโดเมนใหม่
+const RUNAPP = (import.meta.env.VITE_API_BASE_RUNAPP || "").replace(/\/$/, "");
+const CUSTOM = (import.meta.env.VITE_API_BASE_CUSTOM || "").replace(/\/$/, "");
+
+function pickBase() {
+  const host = typeof window !== "undefined" ? window.location.hostname : "";
+  if (host && host.endsWith("amcsurin.com")) return CUSTOM || RUNAPP;
+  return RUNAPP || CUSTOM;
+}
+const API_BASE = pickBase();
+
+/** join base + path ให้ปลอดภัยเรื่อง / ซ้อน */
+function joinUrl(base, path) {
+  const b = String(base || "").replace(/\/+$/, "");
+  const p = String(path || "").replace(/^\/+/, "");
+  return `${b}/${p}`;
+}
 
 // --------------------------------------------------
 // internal fetch helper (JSON)
 // --------------------------------------------------
 async function _call(path, { method = "GET", body, headers } = {}) {
-  const isJsonBody = body != null && !(body instanceof FormData)
+  const isJsonBody = body != null && !(body instanceof FormData);
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(joinUrl(API_BASE, path), {
     method,
     headers: {
       ...(isJsonBody ? { "Content-Type": "application/json" } : {}),
       ...(headers || {}),
     },
     body: isJsonBody ? JSON.stringify(body) : body,
-  })
+  });
 
-  const ct = res.headers.get("content-type") || ""
-  const data = ct.includes("application/json") ? await res.json().catch(() => ({})) : await res.text().catch(() => "")
+  const ct = res.headers.get("content-type") || "";
+  const data = ct.includes("application/json")
+    ? await res.json().catch(() => ({}))
+    : await res.text().catch(() => "");
 
   if (!res.ok) {
     // สกัดข้อความ error ให้เข้าใจง่าย (รองรับ FastAPI 422 detail)
-    let msg = "Request failed"
-    if (typeof data === "string" && data) msg = data
+    let msg = "Request failed";
+    if (typeof data === "string" && data) msg = data;
     else if (data?.detail) {
       msg = Array.isArray(data.detail)
         ? data.detail.map((d) => (d.msg ? d.msg : JSON.stringify(d))).join(" | ")
-        : (data.detail?.message || data.detail || msg)
-    } else if (data?.message) msg = data.message
+        : (data.detail?.message || data.detail || msg);
+    } else if (data?.message) msg = data.message;
 
-    const error = new Error(msg)
-    error.status = res.status
-    error.data = data
-    throw error
+    const error = new Error(msg);
+    error.status = res.status;
+    error.data = data;
+    throw error;
   }
-  return data
+  return data;
 }
 
 // public API
 export function api(path, opts) {
-  return _call(path, opts)
+  return _call(path, opts);
 }
 
 // --------------------------------------------------
 // protected API (แนบ token อัตโนมัติ; เลือกได้ว่าจะ redirect เมื่อ 401 ไหม)
 // --------------------------------------------------
-import { getToken, logout } from "./auth"
+import { getToken, logout } from "./auth"; // ใช้ชุด auth เดิมของคุณได้เลย :contentReference[oaicite:1]{index=1}
 
 export async function apiAuth(path, opts = {}) {
-  const token = getToken()
-  const { redirectOn401 = false, ...rest } = opts
+  const token = getToken();
+  const { redirectOn401 = false, ...rest } = opts;
   try {
     return await _call(path, {
       ...rest,
       headers: { ...(rest.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    })
+    });
   } catch (err) {
     if (err.status === 401 && redirectOn401) {
-      logout()
+      logout();
       // HashRouter:
-      window.location.hash = "#/login"
+      window.location.hash = "#/login";
       // BrowserRouter:
       // window.location.replace("/login")
     }
-    throw err
+    throw err;
   }
 }
 
@@ -71,33 +90,33 @@ export async function apiAuth(path, opts = {}) {
 // download helper (binary)
 // --------------------------------------------------
 export async function apiDownload(path, opts = {}) {
-  const token = getToken()
-  const res = await fetch(`${API_BASE}${path}`, {
+  const token = getToken();
+  const res = await fetch(joinUrl(API_BASE, path), {
     ...opts,
     headers: {
       ...(opts.headers || {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-  })
+  });
   if (!res.ok) {
-    const text = await res.text().catch(() => "")
-    const err = new Error(text || res.statusText || "Download failed")
-    err.status = res.status
-    throw err
+    const text = await res.text().catch(() => "");
+    const err = new Error(text || res.statusText || "Download failed");
+    err.status = res.status;
+    throw err;
   }
-  const blob = await res.blob()
-  let filename = "download"
-  const cd = res.headers.get("content-disposition")
+  const blob = await res.blob();
+  let filename = "download";
+  const cd = res.headers.get("content-disposition");
   if (cd) {
-    const m = cd.match(/filename\*=UTF-8''([^;]+)|filename="?([^"]+)"?/i)
-    const raw = m ? decodeURIComponent(m[1] || m[2] || "") : ""
-    if (raw) filename = raw
+    const m = cd.match(/filename\*=UTF-8''([^;]+)|filename="?([^"]+)"?/i);
+    const raw = m ? decodeURIComponent(m[1] || m[2] || "") : "";
+    if (raw) filename = raw;
   }
-  return { blob, filename }
+  return { blob, filename };
 }
 
 // shorthand helpers
-export const get  = (p, opts)       => apiAuth(p, opts)
-export const post = (p, body, opts) => apiAuth(p, { method: "POST", body, ...(opts || {}) })
-export const put  = (p, body, opts) => apiAuth(p, { method: "PUT",  body, ...(opts || {}) })
-export const del  = (p, body, opts) => apiAuth(p, { method: "DELETE", body, ...(opts || {}) })
+export const get  = (p, opts)       => apiAuth(p, opts);
+export const post = (p, body, opts) => apiAuth(p, { method: "POST", body, ...(opts || {}) });
+export const put  = (p, body, opts) => apiAuth(p, { method: "PUT",  body, ...(opts || {}) });
+export const del  = (p, body, opts) => apiAuth(p, { method: "DELETE", body, ...(opts || {}) });

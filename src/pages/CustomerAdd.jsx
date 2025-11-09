@@ -133,16 +133,19 @@ function ComboBox({
     return () => document.removeEventListener("click", onClick)
   }, [])
 
+  // 👉 เมื่อเปิด dropdown: เลือกไฮไลต์ที่ตรงกับค่าปัจจุบันก่อน (ถ้ามี) มิฉะนั้นเริ่มที่อันแรก
   useEffect(() => {
     if (open) {
-      setHighlight(display.length ? 0 : -1)
+      const currentIndex = display.findIndex((o) => String(getValue(o)) === String(value))
+      const startIndex = display.length ? (currentIndex >= 0 ? currentIndex : 0) : -1
+      setHighlight(startIndex)
       if (searchable) {
         requestAnimationFrame(() => searchRef.current?.focus())
-      } else if (display.length) {
-        requestAnimationFrame(() => scrollHighlightedIntoView(0))
+      } else if (display.length && startIndex >= 0) {
+        requestAnimationFrame(() => scrollHighlightedIntoView(startIndex))
       }
     }
-  }, [open, searchable, display.length])
+  }, [open, searchable, display, getValue, value])
 
   const commit = (opt, { navigate = false } = {}) => {
     const v = String(getValue(opt))
@@ -172,10 +175,41 @@ function ComboBox({
 
   const onKeyDownButton = (e) => {
     if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+
+    // เปิดเมนูด้วย Enter / Space / ArrowDown / ArrowUp
+    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown" || e.key === "ArrowUp")) {
       e.preventDefault()
       setOpen(true)
       return
+    }
+
+    // ↕️ โหมดไม่ searchable: ให้ปุ่มหลักจับลูกศร/Enter/Escape เพื่อเลื่อนและเลือก
+    if (open && !searchable) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault()
+        setHighlight((h) => {
+          const next = h < display.length - 1 ? h + 1 : 0
+          requestAnimationFrame(() => scrollHighlightedIntoView(next))
+          return next
+        })
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault()
+        setHighlight((h) => {
+          const prev = h > 0 ? h - 1 : display.length - 1
+          requestAnimationFrame(() => scrollHighlightedIntoView(prev))
+          return prev
+        })
+      } else if (e.key === "Enter") {
+        e.preventDefault()
+        if (highlight >= 0 && highlight < display.length) {
+          commit(display[highlight], { navigate: true })
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault()
+        setOpen(false)
+        setTerm("")
+        setHighlight(-1)
+      }
     }
   }
 

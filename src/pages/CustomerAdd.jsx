@@ -139,7 +139,11 @@ function ComboBox({
       if (searchable) {
         requestAnimationFrame(() => searchRef.current?.focus())
       } else if (display.length) {
-        requestAnimationFrame(() => scrollHighlightedIntoView(0))
+        // โหมดไม่ค้นหา: โฟกัสลิสต์เพื่อรับคีย์บอร์ด และเลื่อนให้ไอเท็มแรกเข้าเฟรม
+        requestAnimationFrame(() => {
+          listRef.current?.focus()
+          scrollHighlightedIntoView(0)
+        })
       }
     }
   }, [open, searchable, display.length])
@@ -172,10 +176,16 @@ function ComboBox({
 
   const onKeyDownButton = (e) => {
     if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+    // เปิดลิสต์เมื่อกด Enter/Space/Arrow
+    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown" || e.key === "ArrowUp")) {
       e.preventDefault()
       setOpen(true)
       return
+    }
+    // ลิสต์เปิดและไม่ค้นหา: ให้ปุ่มส่งต่อการควบคุมทิศทางด้วย (กันกรณีโฟกัสยังอยู่ที่ปุ่ม)
+    if (open && !searchable && ["ArrowDown","ArrowUp","Home","End","Enter","Escape"].includes(e.key)) {
+      e.preventDefault()
+      handleListKeyDown(e)
     }
   }
 
@@ -204,6 +214,46 @@ function ComboBox({
       setOpen(false)
       setTerm("")
       setHighlight(-1)
+      requestAnimationFrame(() => controlRef.current?.focus())
+    }
+  }
+
+  // ⌨️ โหมดไม่ค้นหา: รองรับลูกศร/Enter/Escape บนลิสต์
+  const handleListKeyDown = (e) => {
+    if (!open) return
+    if (e.key === "ArrowDown") {
+      setHighlight((h) => {
+        const next = h < display.length - 1 ? h + 1 : 0
+        requestAnimationFrame(() => scrollHighlightedIntoView(next))
+        return next
+      })
+    } else if (e.key === "ArrowUp") {
+      setHighlight((h) => {
+        const prev = h > 0 ? h - 1 : display.length - 1
+        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
+        return prev
+      })
+    } else if (e.key === "Home") {
+      setHighlight(() => {
+        const next = display.length ? 0 : -1
+        requestAnimationFrame(() => next >= 0 && scrollHighlightedIntoView(next))
+        return next
+      })
+    } else if (e.key === "End") {
+      setHighlight(() => {
+        const next = display.length ? display.length - 1 : -1
+        requestAnimationFrame(() => next >= 0 && scrollHighlightedIntoView(next))
+        return next
+      })
+    } else if (e.key === "Enter") {
+      if (highlight >= 0 && highlight < display.length) {
+        commit(display[highlight], { navigate: true })
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false)
+      setTerm("")
+      setHighlight(-1)
+      requestAnimationFrame(() => controlRef.current?.focus())
     }
   }
 
@@ -234,6 +284,8 @@ function ComboBox({
         <div
           ref={listRef}
           role="listbox"
+          tabIndex={0}                 // ทำให้โฟกัสได้เพื่อรับคีย์บอร์ด
+          onKeyDown={!searchable ? handleListKeyDown : undefined}
           className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
           {searchable && (

@@ -4,9 +4,9 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  base: '/skt-front/',   // ต้องตรงกับโฟลเดอร์ที่ deploy ขึ้น GCS
+  base: './',   // ✅ use relative URLs (works from any path)
   plugins: [
     react(),
-    tailwindcss(),       // อย่าลบออก ถ้าโปรเจกต์คุณใช้ Tailwind
+    tailwindcss(),
   ],
 })

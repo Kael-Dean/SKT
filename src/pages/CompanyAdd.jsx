@@ -1,17 +1,64 @@
-// src/pages/CompanyAdd.jsx
-import { useEffect, useMemo, useRef, useState } from "react"
+// src/pages/CustomerAdd.jsx
+import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api"
 
-/** ---------- Utils ---------- */
+// ✅ โหลดข้อมูลจากไฟล์ JSON ใน src (ไม่ใช้ fetch จึงไม่โดน 403)
+import PROVINCES_RAW from "../data/thai/province.json"
+import DISTRICTS_RAW from "../data/thai/district.json"
+import SUBDISTRICTS_RAW from "../data/thai/sub_district.json"
+
+/* -------------------------- Utilities & helpers -------------------------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const cx = (...a) => a.filter(Boolean).join(" ")
-const is13 = (s = "") => onlyDigits(s).length === 13
-const toNull = (s) => {
-  const v = (s ?? "").trim()
-  return v === "" ? null : v
+
+// ค้น key แบบยืดหยุ่น รองรับหลายรูปแบบ dataset
+const pickKey = (obj = {}, candidates = []) => {
+  const lower = Object.keys(obj).reduce((acc, k) => (acc[k.toLowerCase()] = k, acc), {})
+  for (const cand of candidates) {
+    const k = lower[cand.toLowerCase()]
+    if (k) return k
+  }
+  return null
 }
 
-/** ---------- Styles (เทียบให้ตรงกับ CustomerAdd) ---------- */
+// normalize dataset -> province/district/subdistrict พร้อม key ที่พบ
+const detectProvinceKeys = (arr) => {
+  const s = arr?.[0] || {}
+  return {
+    id: pickKey(s, ["id","province_id","changwat_id","code","PROVINCE_ID"]),
+    name: pickKey(s, ["name_th","name","province_name","PROVINCE_NAME","thai_name","th","nameTH"]),
+  }
+}
+const detectDistrictKeys = (arr) => {
+  const s = arr?.[0] || {}
+  return {
+    id: pickKey(s, ["id","district_id","amphoe_id","AMPHOE_ID","DISTRICT_ID","code"]),
+    name: pickKey(s, ["name_th","name","district_name","AMPHOE_NAME","thai_name","nameTH"]),
+    provId: pickKey(s, ["province_id","changwat_id","PROVINCE_ID","CHANGWAT_ID"]),
+  }
+}
+const detectSubdistrictKeys = (arr) => {
+  const s = arr?.[0] || {}
+  return {
+    id: pickKey(s, ["id","sub_district_id","tambon_id","SUB_DISTRICT_ID","TAMBON_ID","code"]),
+    name: pickKey(s, ["name_th","name","sub_district_name","TAMBON_NAME","thai_name","nameTH"]),
+    distId: pickKey(s, ["district_id","amphoe_id","AMPHOE_ID","DISTRICT_ID","code_district"]),
+    zip: pickKey(s, ["zip","zipcode","zip_code","POSTCODE"]),
+  }
+}
+
+// แปลงชุดข้อมูลเป็น options ที่ ComboBox ใช้
+const toOptions = (rows, labelKey, valueKey, extra = (r)=>({})) =>
+  (rows || []).map((r, i) => {
+    const label = String(r?.[labelKey] ?? r?.name ?? r?.label ?? r ?? "")
+    const value = String(r?.[valueKey] ?? r?.id ?? label ?? i)
+    return { label, value, ...extra(r) }
+  })
+
+// ลบซ้ำ (เผื่อชุดข้อมูลซ้ำกัน)
+const dedupe = (arr) => Array.from(new Set(arr))
+
+/* ------------------------------- UI styles ------------------------------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -19,9 +66,9 @@ const baseField =
 
 const fieldError = "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500"
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
-const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
+/* ---------------------------- Section container --------------------------- */
 function SectionCard({ title, subtitle, children, className = "" }) {
   return (
     <div
@@ -38,126 +85,349 @@ function SectionCard({ title, subtitle, children, className = "" }) {
   )
 }
 
-/** ---------- Enter-to-next helpers (ยกหลักการจากหน้า Buy) ---------- */
-// ตรวจว่า input ยัง enable/มองเห็นอยู่ไหม
-const isEnabledInput = (el) => {
-  if (!el) return false
-  if (typeof el.disabled !== "undefined" && el.disabled) return false
-  const style = window.getComputedStyle?.(el)
-  if (style && (style.display === "none" || style.visibility === "hidden")) return false
-  if (!el.offsetParent && el.type !== "hidden" && el.getAttribute("role") !== "combobox") return false
-  return true
-}
+/* --------------------------- Searchable ComboBox -------------------------- */
+function ComboBox({
+  options = [],
+  value,
+  onChange,
+  placeholder = "— เลือก —",
+  getLabel = (o) => o?.label ?? "",
+  getValue = (o) => o?.value ?? o?.id ?? "",
+  disabled = false,
+  error = false,
+  buttonRef = null,
+  onEnterNext = null,
+  searchable = false,
+  searchPlaceholder = "พิมพ์เพื่อกรอง...",
+  filter = (label, term) => label.toLowerCase().includes(term.trim().toLowerCase()),
+}) {
+  const [open, setOpen] = useState(false)
+  const [highlight, setHighlight] = useState(-1)
+  const [term, setTerm] = useState("")
+  const boxRef = useRef(null)
+  const listRef = useRef(null)
+  const internalBtnRef = useRef(null)
+  const searchRef = useRef(null)
+  const controlRef = buttonRef || internalBtnRef
 
-// ฮุคควบคุม Enter → โฟกัสช่องถัดไป
-const useEnterNavigation = (refs) => {
-  // ลำดับที่ผู้ใช้ต้องการ (ผมแทรก tax_id ไว้หลังชื่อบริษัท เพราะเป็นฟิลด์บังคับ)
-  const order = [
-    "company_name",
-    "tax_id",
-    "phone_number",
-    "hq_address",
-    "hq_moo",
-    "hq_tambon",
-    "hq_amphur",
-    "hq_province",
-    "hq_postal_code",
-    "branch_address",
-    "branch_moo",
-    "branch_tambon",
-    "branch_amphur",
-    "branch_province",
-    "branch_postal_code",
-    "submitBtn", // โฟกัสปุ่มบันทึก
-  ]
+  const selectedLabel = useMemo(() => {
+    const found = options.find((o) => String(getValue(o)) === String(value))
+    return found ? getLabel(found) : ""
+  }, [options, value, getLabel, getValue])
 
-  const focusNext = (currentKey) => {
-    const list = order.filter((k) => isEnabledInput(refs?.[k]?.current))
-    const i = list.indexOf(currentKey)
-    const nextKey = i >= 0 && i < list.length - 1 ? list[i + 1] : null
-    if (!nextKey) return
-    const el = refs[nextKey]?.current
-    if (!el) return
-    try { el.scrollIntoView({ block: "center" }) } catch {}
-    el.focus?.()
-    try { el.select?.() } catch {}
-  }
+  const display = useMemo(() => {
+    if (!searchable || !term) return options
+    return options.filter((o) => filter(getLabel(o), term))
+  }, [options, term, searchable, filter, getLabel])
 
-  const onEnter = (currentKey) => (e) => {
-    if (e.key === "Enter" && !e.isComposing) {
-      e.preventDefault()
-      focusNext(currentKey)
-    }
-  }
-
-  return { onEnter, focusNext }
-}
-
-/** ---------- FormGuard: เตือนถ้าจะออกจากหน้า/รีเฟรชแล้วยังกรอกค้าง ---------- */
-const useFormGuard = (active) => {
   useEffect(() => {
-    if (!active) return
-    const h = (e) => {
-      e.preventDefault()
-      e.returnValue = "" // ให้เบราว์เซอร์โชว์ dialog ยืนยัน
-      return ""
+    const onClick = (e) => {
+      if (!boxRef.current) return
+      if (!boxRef.current.contains(e.target)) {
+        setOpen(false)
+        setHighlight(-1)
+        setTerm("")
+      }
     }
-    window.addEventListener("beforeunload", h)
-    return () => window.removeEventListener("beforeunload", h)
-  }, [active])
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [])
+
+  useEffect(() => {
+    if (open) {
+      setHighlight(display.length ? 0 : -1)
+      if (searchable) {
+        requestAnimationFrame(() => searchRef.current?.focus())
+      } else if (display.length) {
+        // ❌ เลิกโฟกัสลิสต์ (ป้องกันขอบดำ), คงไว้แค่เลื่อนให้ไอเท็มแรกเข้าเฟรม
+        requestAnimationFrame(() => {
+          scrollHighlightedIntoView(0)
+        })
+      }
+    }
+  }, [open, searchable, display.length])
+
+  const commit = (opt, { navigate = false } = {}) => {
+    const v = String(getValue(opt))
+    onChange?.(v, opt)
+    setOpen(false)
+    setHighlight(-1)
+    setTerm("")
+    requestAnimationFrame(() => {
+      controlRef.current?.focus()
+      if (navigate) onEnterNext?.()
+    })
+  }
+
+  const scrollHighlightedIntoView = (index) => {
+    const listEl = listRef.current
+    const itemEl = listEl?.children?.[searchable ? index + 1 : index] // +1 เมื่อมีช่องค้นหา
+    if (!listEl || !itemEl) return
+    const itemRect = itemEl.getBoundingClientRect()
+    const listRect = listEl.getBoundingClientRect()
+    const buffer = 6
+    if (itemRect.top < listRect.top + buffer) {
+      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+    } else if (itemRect.bottom > listRect.bottom - buffer) {
+      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+    }
+  }
+
+  // ⌨️ จัดการคีย์บอร์ดที่ "ปุ่ม" คอมโบบ็อกซ์ (สำหรับโหมดไม่ค้นหา)
+  const onKeyDownButton = (e) => {
+    if (disabled) return
+    // ยังไม่เปิด -> เปิดด้วย Enter/Space/Arrow
+    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      e.preventDefault()
+      setOpen(true)
+      return
+    }
+    // เปิดอยู่และไม่ค้นหา -> รองรับลูกศร/Enter/Escape (ไม่ต้องโฟกัสลิสต์)
+    if (open && !searchable) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault()
+        if (!display.length) return
+        setHighlight((h) => {
+          const next = h < display.length - 1 ? h + 1 : 0
+          requestAnimationFrame(() => scrollHighlightedIntoView(next))
+          return next
+        })
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault()
+        if (!display.length) return
+        setHighlight((h) => {
+          const prev = h > 0 ? h - 1 : display.length - 1
+          requestAnimationFrame(() => scrollHighlightedIntoView(prev))
+          return prev
+        })
+      } else if (e.key === "Enter") {
+        e.preventDefault()
+        if (highlight >= 0 && highlight < display.length) commit(display[highlight], { navigate: true })
+      } else if (e.key === "Escape") {
+        e.preventDefault()
+        setOpen(false)
+        setTerm("")
+        setHighlight(-1)
+      }
+    }
+  }
+
+  // ⌨️ โหมดค้นหา: จัดการที่ช่องค้นหา
+  const onKeyDownSearch = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setHighlight((h) => {
+        const next = h < display.length - 1 ? h + 1 : 0
+        requestAnimationFrame(() => scrollHighlightedIntoView(next))
+        return next
+      })
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setHighlight((h) => {
+        const prev = h > 0 ? h - 1 : display.length - 1
+        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
+        return prev
+      })
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (highlight >= 0 && highlight < display.length) commit(display[highlight], { navigate: true })
+    } else if (e.key === "Escape") {
+      e.preventDefault()
+      setOpen(false)
+      setTerm("")
+      setHighlight(-1)
+    }
+  }
+
+  return (
+    <div className="relative" ref={boxRef}>
+      <button
+        type="button"
+        ref={controlRef}
+        disabled={disabled}
+        onClick={() => { if (!disabled) setOpen((o) => !o) }}
+        onKeyDown={onKeyDownButton}
+        data-combobox-btn="true"
+        className={cx(
+          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
+          disabled ? "bg-slate-200 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
+          error ? "border-red-400 ring-2 ring-red-300/70"
+                : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
+          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80"
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-invalid={error ? true : undefined}
+      >
+        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
+      </button>
+
+      {open && (
+        <div
+          ref={listRef}
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg
+                     outline-none focus:outline-none focus:ring-0
+                     dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        >
+          {searchable && (
+            <div className="sticky top-0 z-10 bg-white/95 dark:bg-slate-800/95 backdrop-blur px-3 py-2 border-b border-slate-100 dark:border-slate-700">
+              <input
+                ref={searchRef}
+                value={term}
+                onChange={(e) => { setTerm(e.target.value); setHighlight(0) }}
+                onKeyDown={onKeyDownSearch}
+                placeholder={searchPlaceholder}
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              />
+            </div>
+          )}
+
+          {display.length === 0 && (
+            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
+          )}
+          {display.map((opt, idx) => {
+            const label = getLabel(opt)
+            const isActive = idx === highlight
+            const isChosen = String(getValue(opt)) === String(value)
+            return (
+              <button
+                key={String(getValue(opt)) || label || idx}
+                type="button"
+                role="option"
+                aria-selected={isChosen}
+                onMouseEnter={() => setHighlight(idx)}
+                onClick={() => commit(opt)}
+                className={cx(
+                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
+                  isActive
+                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                )}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+                )}
+                <span className="flex-1">{label}</span>
+                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
-/** ---------- Component: CompanyAdd ---------- */
-const CompanyAdd = () => {
+/* -------------------------------- DateInput ------------------------------- */
+const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
+  const inputRef = useRef(null)
+  useImperativeHandle(ref, () => inputRef.current)
+  return (
+    <div className="relative">
+      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
+      <input
+        type="date"
+        ref={inputRef}
+        className={cx(baseField, "pr-12 cursor-pointer", error && fieldError, className)}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => {
+          const el = inputRef.current
+          if (!el) return
+          if (typeof el.showPicker === "function") el.showPicker()
+          else { el.focus(); el.click?.() }
+        }}
+        aria-label="เปิดตัวเลือกวันที่"
+        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
+                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
+          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
+        </svg>
+      </button>
+    </div>
+  )
+})
+
+/* -------------------------- Prefix/sex helpers --------------------------- */
+const PREFIX_OPTIONS = [
+  { value: "1", label: "นาย" },
+  { value: "2", label: "นาง" },
+  { value: "3", label: "นางสาว" },
+]
+const sexFromPrefix = (pre) => (pre === "1" ? "M" : pre === "2" || pre === "3" ? "F" : "")
+
+/* ----------------------------- Main component ---------------------------- */
+const CustomerAdd = () => {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
+  // FID relationship
+  const [relOpts, setRelOpts] = useState([])
+  const [relLoading, setRelLoading] = useState(false)
+
+  // ตัวเลือก จังหวัด/อำเภอ/ตำบล
+  const [provinceOptions, setProvinceOptions] = useState([]) // [{value,label,__id}]
+  const [amphoeOptions, setAmphoeOptions] = useState([])
+  const [tambonOptions, setTambonOptions] = useState([])
+
+  // เก็บ id ที่เลือกไว้ใช้กรองขั้นต่อไป
+  const [selectedProvinceId, setSelectedProvinceId] = useState(null)
+  const [selectedDistrictId, setSelectedDistrictId] = useState(null)
+
+  // dataset keys ที่ตรวจจับได้
+  const PROV_K = useMemo(() => detectProvinceKeys(PROVINCES_RAW), [])
+  const DIST_K = useMemo(() => detectDistrictKeys(DISTRICTS_RAW), [])
+  const SUBD_K = useMemo(() => detectSubdistrictKeys(SUBDISTRICTS_RAW), [])
+
+  // refs
   const refs = {
-    company_name: useRef(null),
-    tax_id: useRef(null),
+    citizen_id: useRef(null),
+    precode: useRef(null),
+    full_name: useRef(null),
+    address: useRef(null),
+    mhoo: useRef(null),
+    province: useRef(null),
+    district: useRef(null),
+    sub_district: useRef(null),
+    postal_code: useRef(null),
     phone_number: useRef(null),
+    fid: useRef(null),
+    fid_owner: useRef(null),
+    fid_relationship: useRef(null),
+    sex: useRef(null),
+  }
+  const submitBtnRef = useRef(null)
+  const topRef = useRef(null)
 
-    hq_address: useRef(null),
-    hq_moo: useRef(null),
-    hq_tambon: useRef(null),
-    hq_amphur: useRef(null),
-    hq_province: useRef(null),
-    hq_postal_code: useRef(null),
-
-    branch_address: useRef(null),
-    branch_moo: useRef(null),
-    branch_tambon: useRef(null),
-    branch_amphur: useRef(null),
-    branch_province: useRef(null),
-    branch_postal_code: useRef(null),
-
-    // ปุ่มบันทึก
-    submitBtn: useRef(null),
+  const comboBtnRefs = {
+    precode: useRef(null),
+    province: useRef(null),
+    district: useRef(null),
+    sub_district: useRef(null),
+    fid_relationship: useRef(null),
   }
 
-  const { onEnter } = useEnterNavigation(refs)
-
-  // ฟอร์มตรงกับชื่อฟิลด์ฝั่ง Backend (CompanyCustomerCreate)
+  // form state
   const [form, setForm] = useState({
-    company_name: "",
-    tax_id: "",
+    slowdown_rice: false,
+    citizen_id: "",
+    precode: "",
+    sex: "",
+    full_name: "",
+    address: "",
+    mhoo: "",
+    province: "",
+    district: "",
+    sub_district: "",
+    postal_code: "",
     phone_number: "",
-
-    // HQ
-    hq_address: "",
-    hq_moo: "",
-    hq_tambon: "",
-    hq_amphur: "",
-    hq_province: "",
-    hq_postal_code: "",
-
-    // Branch (optional)
-    branch_address: "",
-    branch_moo: "",
-    branch_tambon: "",
-    branch_amphur: "",
-    branch_province: "",
-    branch_postal_code: "",
+    fid: "",
+    fid_owner: "",
+    fid_relationship: "",
   })
 
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
@@ -168,104 +438,199 @@ const CompanyAdd = () => {
       return rest
     })
 
-  /** ---------- Validate ---------- */
-  const validateAll = () => {
-    const e = {}
+  /* ----------------------------- Enter order ----------------------------- */
+  const enterOrder = [
+    { key: "citizen_id", ref: refs.citizen_id },
+    { key: "precode", ref: comboBtnRefs.precode },
+    { key: "full_name", ref: refs.full_name },
+    { key: "address", ref: refs.address },
+    { key: "mhoo", ref: refs.mhoo },
+    { key: "province", ref: comboBtnRefs.province },     // ← ย้ายจังหวัดมาก่อน
+    { key: "district", ref: comboBtnRefs.district },
+    { key: "sub_district", ref: comboBtnRefs.sub_district },
+    { key: "postal_code", ref: refs.postal_code },
+    { key: "phone_number", ref: refs.phone_number },
+    { key: "fid", ref: refs.fid },
+    { key: "fid_owner", ref: refs.fid_owner },
+    { key: "fid_relationship", ref: comboBtnRefs.fid_relationship },
+    { key: "submit", ref: submitBtnRef },
+  ]
+  const focusNextFromIndex = (idx) => {
+    for (let i = idx + 1; i < enterOrder.length; i++) {
+      const el = enterOrder[i]?.ref?.current
+      if (!el) continue
+      if (typeof el.disabled !== "undefined" && el.disabled) continue
+      try {
+        el.focus()
+        try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
+        if (el?.dataset?.comboboxBtn === "true") {
+          requestAnimationFrame(() => { el.click?.() })
+        }
+      } catch {}
+      break
+    }
+  }
+  const bindEnter = (idx) => ({
+    onKeyDown: (e) => { if (e.key === "Enter") { e.preventDefault(); focusNextFromIndex(idx) } }
+  })
 
-    if (!form.company_name.trim()) e.company_name = "กรุณากรอกชื่อบริษัท / นิติบุคคล"
-    if (!is13(form.tax_id)) e.tax_id = "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก"
-
-    // HQ minimal required (บังคับให้ครบเพื่อคุณภาพข้อมูล)
-    if (!form.hq_address.trim()) e.hq_address = "กรุณากรอกบ้านเลขที่/ที่อยู่ (HQ)"
-    if (!form.hq_tambon.trim()) e.hq_tambon = "กรุณากรอกตำบล (HQ)"
-    if (!form.hq_amphur.trim()) e.hq_amphur = "กรุณากรอกอำเภอ (HQ)"
-    if (!form.hq_province.trim()) e.hq_province = "กรุณากรอกจังหวัด (HQ)"
-    if (form.hq_postal_code && onlyDigits(form.hq_postal_code).length !== 5)
-      e.hq_postal_code = "รหัสไปรษณีย์ (HQ) ต้องมี 5 หลัก"
-
-    // Branch optional—but if filled, postal must be 5 digits
-    if (form.branch_postal_code && onlyDigits(form.branch_postal_code).length !== 5)
-      e.branch_postal_code = "รหัสไปรษณีย์ (สาขา) ต้องมี 5 หลัก"
-
-    setErrors(e)
-    return Object.keys(e).length === 0
+  const scrollToPageTop = () => {
+    try { topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) } catch {}
+    const root = document.scrollingElement || document.documentElement || document.body
+    try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
+  }
+  const scrollToFirstError = (eObj = {}) => {
+    const keyOrder = enterOrder.map((o) => o.key)
+    const firstKey = keyOrder.find((k) => eObj[k])
+    if (firstKey) {
+      const el = enterOrder.find((o) => o.key === firstKey)?.ref?.current
+      if (el && typeof el.focus === "function") {
+        try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
+        el.focus()
+      }
+      return
+    }
+    scrollToPageTop()
   }
 
-  // โฟกัสไป error ตัวแรก
+  /* --------------------------- Load relationships --------------------------- */
   useEffect(() => {
-    if (!Object.keys(errors).length) return
-    const order = [
-      "company_name",
-      "tax_id",
-      "phone_number",
-      "hq_address",
-      "hq_moo",
-      "hq_tambon",
-      "hq_amphur",
-      "hq_province",
-      "hq_postal_code",
-      "branch_address",
-      "branch_moo",
-      "branch_tambon",
-      "branch_amphur",
-      "branch_province",
-      "branch_postal_code",
-    ]
-    const first = order.find((k) => k in errors)
-    const el = first ? refs[first]?.current : null
-    if (el && el.focus) {
+    let cancelled = false
+    ;(async () => {
       try {
-        el.scrollIntoView({ behavior: "smooth", block: "center" })
-      } catch {}
-      el.focus()
-    }
-  }, [errors]) // eslint-disable-line react-hooks/exhaustive-deps
+        setRelLoading(true)
+        const rows = await apiAuth(`/member/members/fid_relationship`)
+        if (!cancelled && Array.isArray(rows)) setRelOpts(rows)
+      } catch { }
+      finally { if (!cancelled) setRelLoading(false) }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
-  /** ---------- FormGuard เปิดเมื่อฟอร์มสกปรก และไม่อยู่ระหว่าง submit ---------- */
-  const isDirty = useMemo(
-    () => Object.values(form).some((v) => String(v ?? "").trim() !== ""),
-    [form]
-  )
-  useFormGuard(isDirty && !submitting)
+  /* ---------------------- Build province/district data ---------------------- */
+  useEffect(() => {
+    // provinces
+    const provOpts = toOptions(
+      PROVINCES_RAW,
+      PROV_K.name || "name",
+      PROV_K.name || "name",     // เก็บ value = ชื่อ จัดเก็บใน form.province
+      (r) => ({ __id: String(r?.[PROV_K.id] ?? r?.id ?? r?.code ?? "") })
+    )
+    provOpts.sort((a, b) => a.label.localeCompare(b.label, "th"))
+    setProvinceOptions(provOpts)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  /** ---------- Submit ---------- */
+  const reloadDistricts = (provinceId) => {
+    if (!provinceId) { setAmphoeOptions([]); return }
+    const rows = (DISTRICTS_RAW || []).filter((r) => String(r?.[DIST_K.provId]) === String(provinceId))
+    const opts = toOptions(
+      rows,
+      DIST_K.name || "name",
+      DIST_K.name || "name",      // value = ชื่อ (เก็บใน form.district)
+      (r) => ({ __id: String(r?.[DIST_K.id]) })
+    ).sort((a,b) => a.label.localeCompare(b.label, "th"))
+    setAmphoeOptions(opts)
+  }
+
+  const reloadSubdistricts = (districtId) => {
+    if (!districtId) { setTambonOptions([]); return }
+    const rows = (SUBDISTRICTS_RAW || []).filter((r) => String(r?.[SUBD_K.distId]) === String(districtId))
+    const opts = toOptions(
+      rows,
+      SUBD_K.name || "name",
+      SUBD_K.name || "name",    // value = ชื่อ (เก็บใน form.sub_district)
+      (r) => ({ __zip: r?.[SUBD_K.zip] ?? null })
+    ).sort((a,b) => a.label.localeCompare(b.label, "th"))
+    setTambonOptions(opts)
+  }
+
+  // เมื่อเลือกจังหวัด → ล้างอำเภอ/ตำบล และโหลดอำเภอ
+  useEffect(() => {
+    update("district",""); setSelectedDistrictId(null)
+    update("sub_district",""); setTambonOptions([])
+    reloadDistricts(selectedProvinceId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProvinceId])
+
+  // เมื่อเลือกอำเภอ → ล้างตำบล และโหลดตำบล
+  useEffect(() => {
+    update("sub_district","")
+    reloadSubdistricts(selectedDistrictId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDistrictId])
+
+  /* ------------------------------- Validate ------------------------------- */
+  const validateAll = () => {
+    const e = {}
+    const cid = onlyDigits(form.citizen_id)
+    if (cid.length !== 13) e.citizen_id = "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
+
+    if (!form.precode) e.precode = "กรุณาเลือกคำนำหน้า"
+    if (!form.full_name.trim()) e.full_name = "กรุณากรอกชื่อ–สกุล"
+    if (!form.address.trim()) e.address = "กรุณากรอกบ้านเลขที่"
+    if (!form.province) e.province = "กรุณาเลือกจังหวัด"
+    if (!form.district) e.district = "กรุณาเลือกอำเภอ"
+    if (!form.sub_district) e.sub_district = "กรุณาเลือกตำบล"
+
+    if (form.postal_code !== "" && isNaN(Number(form.postal_code))) e.postal_code = "ต้องเป็นตัวเลข"
+    setErrors(e)
+    return e
+  }
+
   const handleSubmit = async (ev) => {
     ev.preventDefault()
-    if (!validateAll()) return
+    scrollToPageTop()
+    const eObj = validateAll()
+    if (Object.keys(eObj).length > 0) {
+      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      scrollToFirstError(eObj)
+      return
+    }
+
     setSubmitting(true)
+    const splitName = (full = "") => {
+      const parts = full.trim().split(/\s+/).filter(Boolean)
+      if (parts.length === 0) return { first_name: "", last_name: "" }
+      if (parts.length === 1) return { first_name: parts[0], last_name: "" }
+      return { first_name: parts[0], last_name: parts.slice(1).join(" ") }
+    }
+    const { first_name, last_name } = splitName(form.full_name)
 
-    // map -> CompanyCustomerCreate (ตรงชื่อฟิลด์)
     const payload = {
-      company_name: form.company_name.trim(),
-      tax_id: onlyDigits(form.tax_id),
-      phone_number: toNull(form.phone_number),
+      first_name,
+      last_name,
+      citizen_id: onlyDigits(form.citizen_id),
+      precode: form.precode !== "" ? Number(form.precode) : null,
+      sex: form.sex || null,
 
-      hq_address: toNull(form.hq_address),
-      hq_moo: toNull(form.hq_moo),
-      hq_tambon: toNull(form.hq_tambon),
-      hq_amphur: toNull(form.hq_amphur),
-      hq_province: toNull(form.hq_province),
-      hq_postal_code: form.hq_postal_code ? onlyDigits(form.hq_postal_code) : null, // ส่งเป็นสตริง
-
-      branch_address: toNull(form.branch_address),
-      branch_moo: toNull(form.branch_moo),
-      branch_tambon: toNull(form.branch_tambon),
-      branch_amphur: toNull(form.branch_amphur),
-      branch_province: toNull(form.branch_province),
-      branch_postal_code: form.branch_postal_code ? onlyDigits(form.branch_postal_code) : null, // ส่งเป็นสตริง
+      address: form.address.trim(),
+      mhoo: (form.mhoo ?? "").toString().trim() || "",
+      sub_district: form.sub_district.trim(),
+      district: form.district.trim(),
+      province: form.province.trim(),
+      postal_code: form.postal_code !== "" ? Number(form.postal_code) : null,
+      phone_number: form.phone_number.trim() || null,
+      fid: form.fid !== "" ? String(form.fid).trim() : null,
+      fid_owner: form.fid_owner.trim() || null,
+      fid_relationship: form.fid_relationship !== "" ? Number(form.fid_relationship) : null,
     }
 
     try {
-      await apiAuth("/member/customers/company-signup", { method: "POST", body: payload })
-      alert("บันทึกข้อมูลบริษัทเรียบร้อย ✅")
+      await apiAuth(`/member/customers/signup`, { method: "POST", body: payload })
+      alert("✅✅✅✅✅✅ บันทึกสมัครลูกค้าทั้วไปเรียบร้อย ✅✅✅✅✅✅")
       handleReset()
+      requestAnimationFrame(() => scrollToPageTop())
+      try { submitBtnRef.current?.blur?.() } catch {}
     } catch (err) {
       console.error(err)
       const msg =
         (err && err.detail) ||
         (typeof err?.message === "string" ? err.message : "") ||
         "บันทึกล้มเหลว กรุณาลองใหม่"
-      alert(msg)
+      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
+
+สาเหตุ: ${msg}`)
     } finally {
       setSubmitting(false)
     }
@@ -274,293 +639,336 @@ const CompanyAdd = () => {
   const handleReset = () => {
     setErrors({})
     setForm({
-      company_name: "",
-      tax_id: "",
+      slowdown_rice: false,
+      citizen_id: "",
+      precode: "",
+      sex: "",
+      full_name: "",
+      address: "",
+      mhoo: "",
+      province: "",
+      district: "",
+      sub_district: "",
+      postal_code: "",
       phone_number: "",
-
-      hq_address: "",
-      hq_moo: "",
-      hq_tambon: "",
-      hq_amphur: "",
-      hq_province: "",
-      hq_postal_code: "",
-
-      branch_address: "",
-      branch_moo: "",
-      branch_tambon: "",
-      branch_amphur: "",
-      branch_province: "",
-      branch_postal_code: "",
+      fid: "",
+      fid_owner: "",
+      fid_relationship: "",
     })
-    // FormGuard จะปิดเองเพราะ isDirty กลับเป็น false
+    setSelectedProvinceId(null)
+    setSelectedDistrictId(null)
+    setAmphoeOptions([])
+    setTambonOptions([])
+    requestAnimationFrame(() => {
+      try { topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) } catch {}
+    })
   }
 
-  /** ---------- UI ---------- */
+  const fidRelOptions = useMemo(
+    () => relOpts.map((r) => ({ value: String(r.id), label: String(r.fid_relationship) })),
+    [relOpts]
+  )
+
+  /* ---------------------------------- UI ---------------------------------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-1 text-3xl font-bold text-gray-900 dark:text-white">🏢 เพิ่มบริษัท / นิติบุคคล</h1>
+        <h1 ref={topRef} tabIndex={-1} className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">
+          👤 เพิ่มลูกค้าทั่วไป
+        </h1>
 
         <form onSubmit={handleSubmit}>
-          <SectionCard title="ข้อมูลบริษัท">
-            {/* แถวบนสุด: ชื่อบริษัท / เลขผู้เสียภาษี */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
+          {/* โครงการ (UI-only) */}
+          <SectionCard title="โครงการที่เข้าร่วม" className="mb-6">
+            <div className="grid gap-3 md:grid-cols-3">
+              <label
+                className={cx(
+                  "group relative flex w-full items-center justify-center gap-4 text-center cursor-pointer rounded-2xl border p-4 min-h[72px] transition-all",
+                  "border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-700/40",
+                  "shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
+                  "hover:border-emerald-300/70 dark:hover:border-emerald-400/40",
+                  form.slowdown_rice ? "ring-2 ring-emerald-400 shadow-[0_12px_30px_rgba(16,185,129,0.25)]" : "ring-0"
+                )}
+              >
+                <span
+                  className={cx(
+                    "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors",
+                    form.slowdown_rice ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-600"
+                  )}
+                  aria-hidden="true"
+                >
+                  <span
+                    className={cx(
+                      "inline-block h-6 w-6 transform rounded-full bg-white shadow transition",
+                      "shadow-[0_3px_10px_rgba(0,0,0,0.25)]",
+                      form.slowdown_rice ? "translate-x-6" : "translate-x-1",
+                      "group-hover:scale-105"
+                    )}
+                  />
+                </span>
+
                 <input
-                  ref={refs.company_name}
-                  className={cx(baseField, errors.company_name && fieldError)}
-                  value={form.company_name}
-                  onChange={(e) => {
-                    clearError("company_name")
-                    update("company_name", e.target.value)
-                  }}
-                  onFocus={() => clearError("company_name")}
-                  onKeyDown={onEnter("company_name")}
-                  placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
-                  aria-invalid={errors.company_name ? true : undefined}
+                  type="checkbox"
+                  className="sr-only"
+                  checked={!!form.slowdown_rice}
+                  onChange={(e) => update("slowdown_rice", e.target.checked)}
                 />
-                {errors.company_name && <p className={errorTextCls}>{errors.company_name}</p>}
+                <span className="text-slate-800 dark:text-slate-100 text-[15px] md:text-base font-medium text-center">
+                  โครงการชะลอข้าวเปลือก
+                </span>
+                <span
+                  className={cx(
+                    "pointer-events-none absolute inset-0 rounded-2xl transition-opacity",
+                    "bg-emerald-100/30 dark:bg-emerald-400/10",
+                    form.slowdown_rice ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                  )}
+                  aria-hidden="true"
+                />
+              </label>
+            </div>
+          </SectionCard>
+
+          {/* แบบฟอร์มหลัก */}
+          <SectionCard title="ข้อมูลลูกค้าทั่วไป">
+            {/* แถวบนสุด */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelCls}>เลขที่บัตรประชาชน (13 หลัก)</label>
+                <input
+                  ref={refs.citizen_id}
+                  inputMode="numeric"
+                  maxLength={13}
+                  className={cx(baseField, errors.citizen_id && fieldError)}
+                  value={form.citizen_id}
+                  onChange={(e) => { clearError("citizen_id"); update("citizen_id", onlyDigits(e.target.value).slice(0,13)) }}
+                  onFocus={() => clearError("citizen_id")}
+                  placeholder="เช่น 1234567890123"
+                  aria-invalid={errors.citizen_id ? true : undefined}
+                  {...bindEnter(0)}
+                />
+                {errors.citizen_id && <p className={errorTextCls}>{errors.citizen_id}</p>}
               </div>
 
               <div>
-                <label className={labelCls}>เลขที่ผู้เสียภาษี (13 หลัก)</label>
+                <label className={labelCls}>คำนำหน้า (precode)</label>
+                <div ref={refs.precode}>
+                  <ComboBox
+                    options={PREFIX_OPTIONS}
+                    value={form.precode}
+                    onChange={(v) => { clearError("precode"); update("precode", v); update("sex", sexFromPrefix(v)) }}
+                    placeholder="— เลือกคำนำหน้า —"
+                    error={!!errors.precode}
+                    buttonRef={comboBtnRefs.precode}
+                    onEnterNext={() => focusNextFromIndex(1)}
+                  />
+                </div>
+                {errors.precode && <p className={errorTextCls}>{errors.precode}</p>}
+              </div>
+
+              <div>
+                <label className={labelCls}>ชื่อ–สกุล</label>
                 <input
-                  ref={refs.tax_id}
-                  inputMode="numeric"
-                  maxLength={13}
-                  className={cx(baseField, errors.tax_id && fieldError)}
-                  value={form.tax_id}
-                  onChange={(e) => {
-                    clearError("tax_id")
-                    update("tax_id", onlyDigits(e.target.value))
-                  }}
-                  onFocus={() => clearError("tax_id")}
-                  onKeyDown={onEnter("tax_id")}
-                  placeholder="เช่น 0123456789012"
-                  aria-invalid={errors.tax_id ? true : undefined}
+                  ref={refs.full_name}
+                  className={cx(baseField, errors.full_name && fieldError)}
+                  value={form.full_name}
+                  onChange={(e) => { clearError("full_name"); update("full_name", e.target.value) }}
+                  onFocus={() => clearError("full_name")}
+                  placeholder="เช่น นายสมชาย ใจดี"
+                  aria-invalid={errors.full_name ? true : undefined}
+                  {...bindEnter(2)}
                 />
-                {errors.tax_id && <p className={errorTextCls}>{errors.tax_id}</p>}
-                <p className={helpTextCls}>ใช้สำหรับออกเอกสารภาษี</p>
+                {errors.full_name && <p className={errorTextCls}>{errors.full_name}</p>}
               </div>
             </div>
 
-            {/* เบอร์โทรบริษัท (ไม่บังคับ) */}
+            {/* แถวที่สอง */}
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
-                <label className={labelCls}>เบอร์โทรบริษัท (ไม่บังคับ)</label>
+                <label className={labelCls}>บ้านเลขที่</label>
+                <input
+                  ref={refs.address}
+                  className={cx(baseField, errors.address && fieldError)}
+                  value={form.address}
+                  onChange={(e) => { clearError("address"); update("address", e.target.value) }}
+                  onFocus={() => clearError("address")}
+                  placeholder="เช่น 99/1"
+                  aria-invalid={errors.address ? true : undefined}
+                  {...bindEnter(3)}
+                />
+                {errors.address && <p className={errorTextCls}>{errors.address}</p>}
+              </div>
+
+              <div>
+                <label className={labelCls}>หมู่</label>
+                <input
+                  ref={refs.mhoo}
+                  className={baseField}
+                  value={form.mhoo}
+                  onChange={(e) => update("mhoo", e.target.value)}
+                  placeholder="เช่น 4"
+                  {...bindEnter(4)}
+                />
+              </div>
+
+              {/* จังหวัด (ค้นหาได้) */}
+              <div>
+                <label className={labelCls}>จังหวัด</label>
+                <div ref={refs.province}>
+                  <ComboBox
+                    options={provinceOptions}
+                    value={form.province}
+                    onChange={(v, opt) => {
+                      clearError("province")
+                      update("province", v)
+                      setSelectedProvinceId(opt?.__id || null)
+                    }}
+                    placeholder="— เลือก/พิมพ์เพื่อค้นหาจังหวัด —"
+                    error={!!errors.province}
+                    buttonRef={comboBtnRefs.province}
+                    searchable
+                    searchPlaceholder="พิมพ์ชื่อจังหวัด..."
+                    onEnterNext={() => focusNextFromIndex(5)}
+                  />
+                </div>
+                {errors.province && <p className={errorTextCls}>{errors.province}</p>}
+              </div>
+
+              {/* อำเภอ */}
+              <div className="md:col-span-1">
+                <label className={labelCls}>อำเภอ</label>
+                <div ref={refs.district}>
+                  <ComboBox
+                    options={amphoeOptions}
+                    value={form.district}
+                    onChange={(v, opt) => {
+                      clearError("district")
+                      update("district", v)
+                      setSelectedDistrictId(opt?.__id || null)
+                    }}
+                    placeholder={form.province ? "— เลือกอำเภอ —" : "เลือกจังหวัดก่อน"}
+                    error={!!errors.district}
+                    disabled={!form.province}
+                    buttonRef={comboBtnRefs.district}
+                    onEnterNext={() => focusNextFromIndex(6)}
+                  />
+                </div>
+                {errors.district && <p className={errorTextCls}>{errors.district}</p>}
+              </div>
+
+              {/* ตำบล */}
+              <div className="md:col-span-1">
+                <label className={labelCls}>ตำบล</label>
+                <div ref={refs.sub_district}>
+                  <ComboBox
+                    options={tambonOptions}
+                    value={form.sub_district}
+                    onChange={(v, opt) => {
+                      clearError("sub_district")
+                      update("sub_district", v)
+                      if (!form.postal_code && opt?.__zip) {
+                        update("postal_code", String(opt.__zip))
+                      }
+                    }}
+                    placeholder={form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}
+                    error={!!errors.sub_district}
+                    disabled={!form.district}
+                    buttonRef={comboBtnRefs.sub_district}
+                    onEnterNext={() => focusNextFromIndex(7)}
+                  />
+                </div>
+                {errors.sub_district && <p className={errorTextCls}>{errors.sub_district}</p>}
+              </div>
+
+              {/* รหัสไปรษณีย์ */}
+              <div>
+                <label className={labelCls}>รหัสไปรษณีย์</label>
+                <input
+                  ref={refs.postal_code}
+                  inputMode="numeric"
+                  maxLength={5}
+                  className={cx(baseField, errors.postal_code && fieldError)}
+                  value={form.postal_code}
+                  onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value).slice(0,5)) }}
+                  onFocus={() => clearError("postal_code")}
+                  placeholder="เช่น 32000"
+                  aria-invalid={errors.postal_code ? true : undefined}
+                  {...bindEnter(8)}
+                />
+                {errors.postal_code && <p className={errorTextCls}>{errors.postal_code}</p>}
+              </div>
+
+              {/* เบอร์โทร */}
+              <div>
+                <label className={labelCls}>เบอร์โทรศัพท์</label>
                 <input
                   ref={refs.phone_number}
                   inputMode="tel"
                   className={baseField}
                   value={form.phone_number}
                   onChange={(e) => update("phone_number", e.target.value)}
-                  onKeyDown={onEnter("phone_number")}
                   placeholder="เช่น 021234567"
+                  {...bindEnter(9)}
                 />
               </div>
-            </div>
 
-            {/* HQ */}
-            <div className="mt-6">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-blue-500" />
-                <span className="font-semibold">ที่อยู่สำนักงานใหญ่ (HQ)</span>
+              {/* เพศ (กำหนดจากคำนำหน้า) */}
+              <div>
+                <label className={labelCls}>เพศ (กำหนดจากคำนำหน้า)</label>
+                <div ref={refs.sex}>
+                  <ComboBox
+                    options={[{ value: "M", label: "ชาย (M)" }, { value: "F", label: "หญิง (F)" }]}
+                    value={form.sex}
+                    onChange={() => {}}
+                    placeholder="— เลือกคำนำหน้าเพื่อกำหนด —"
+                    disabled
+                  />
+                </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              {/* FID block */}
+              <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
                 <div>
-                  <label className={labelCls}>บ้านเลขที่ / ที่อยู่ (HQ)</label>
+                  <label className={labelCls}>เลขที่ทะเบียนเกษตรกร (FID)</label>
                   <input
-                    ref={refs.hq_address}
-                    className={cx(baseField, errors.hq_address && fieldError)}
-                    value={form.hq_address}
-                    onChange={(e) => {
-                      clearError("hq_address")
-                      update("hq_address", e.target.value)
-                    }}
-                    onFocus={() => clearError("hq_address")}
-                    onKeyDown={onEnter("hq_address")}
-                    placeholder="เช่น 99/1 หมู่บ้านตัวอย่าง"
-                    aria-invalid={errors.hq_address ? true : undefined}
+                    ref={refs.fid}
+                    className={cx(baseField, errors.fid && fieldError)}
+                    value={form.fid}
+                    onChange={(e) => { clearError("fid"); update("fid", e.target.value) }}
+                    onFocus={() => clearError("fid")}
+                    placeholder="เช่น FID-001234 หรือ 123456"
+                    aria-invalid={errors.fid ? true : undefined}
+                    {...bindEnter(10)}
                   />
-                  {errors.hq_address && <p className={errorTextCls}>{errors.hq_address}</p>}
+                  {errors.fid && <p className={errorTextCls}>{errors.fid}</p>}
                 </div>
 
                 <div>
-                  <label className={labelCls}>หมู่ (HQ)</label>
+                  <label className={labelCls}>ชื่อทะเบียนเกษตรกร (FID Owner)</label>
                   <input
-                    ref={refs.hq_moo}
+                    ref={refs.fid_owner}
                     className={baseField}
-                    value={form.hq_moo}
-                    onChange={(e) => update("hq_moo", e.target.value)}
-                    onKeyDown={onEnter("hq_moo")}
-                    placeholder="เช่น 4"
+                    value={form.fid_owner}
+                    onChange={(e) => update("fid_owner", e.target.value)}
+                    placeholder="เช่น นายสมหมาย นามดี"
+                    {...bindEnter(11)}
                   />
                 </div>
 
                 <div>
-                  <label className={labelCls}>ตำบล (HQ)</label>
-                  <input
-                    ref={refs.hq_tambon}
-                    className={cx(baseField, errors.hq_tambon && fieldError)}
-                    value={form.hq_tambon}
-                    onChange={(e) => {
-                      clearError("hq_tambon")
-                      update("hq_tambon", e.target.value)
-                    }}
-                    onFocus={() => clearError("hq_tambon")}
-                    onKeyDown={onEnter("hq_tambon")}
-                    placeholder="เช่น หนองปลาไหล"
-                    aria-invalid={errors.hq_tambon ? true : undefined}
-                  />
-                  {errors.hq_tambon && <p className={errorTextCls}>{errors.hq_tambon}</p>}
-                </div>
-
-                <div>
-                  <label className={labelCls}>อำเภอ (HQ)</label>
-                  <input
-                    ref={refs.hq_amphur}
-                    className={cx(baseField, errors.hq_amphur && fieldError)}
-                    value={form.hq_amphur}
-                    onChange={(e) => {
-                      clearError("hq_amphur")
-                      update("hq_amphur", e.target.value)
-                    }}
-                    onFocus={() => clearError("hq_amphur")}
-                    onKeyDown={onEnter("hq_amphur")}
-                    placeholder="เช่น เมือง"
-                    aria-invalid={errors.hq_amphur ? true : undefined}
-                  />
-                  {errors.hq_amphur && <p className={errorTextCls}>{errors.hq_amphur}</p>}
-                </div>
-
-                <div>
-                  <label className={labelCls}>จังหวัด (HQ)</label>
-                  <input
-                    ref={refs.hq_province}
-                    className={cx(baseField, errors.hq_province && fieldError)}
-                    value={form.hq_province}
-                    onChange={(e) => {
-                      clearError("hq_province")
-                      update("hq_province", e.target.value)
-                    }}
-                    onFocus={() => clearError("hq_province")}
-                    onKeyDown={onEnter("hq_province")}
-                    placeholder="เช่น ขอนแก่น"
-                    aria-invalid={errors.hq_province ? true : undefined}
-                  />
-                  {errors.hq_province && <p className={errorTextCls}>{errors.hq_province}</p>}
-                </div>
-
-                <div>
-                  <label className={labelCls}>รหัสไปรษณีย์ (HQ)</label>
-                  <input
-                    ref={refs.hq_postal_code}
-                    inputMode="numeric"
-                    maxLength={5}
-                    className={cx(baseField, errors.hq_postal_code && fieldError)}
-                    value={form.hq_postal_code}
-                    onChange={(e) => {
-                      clearError("hq_postal_code")
-                      update("hq_postal_code", onlyDigits(e.target.value))
-                    }}
-                    onFocus={() => clearError("hq_postal_code")}
-                    onKeyDown={onEnter("hq_postal_code")}
-                    placeholder="เช่น 10110"
-                    aria-invalid={errors.hq_postal_code ? true : undefined}
-                  />
-                  {errors.hq_postal_code && <p className={errorTextCls}>{errors.hq_postal_code}</p>}
-                </div>
-              </div>
-            </div>
-
-            {/* Branch (optional) */}
-            <div className="mt-8">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-blue-500" />
-                <span className="font-semibold">ที่อยู่สำนักงานสาขา (ถ้ามี)</span>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <label className={labelCls}>บ้านเลขที่ / ที่อยู่ (สาขา)</label>
-                  <input
-                    ref={refs.branch_address}
-                    className={baseField}
-                    value={form.branch_address}
-                    onChange={(e) => update("branch_address", e.target.value)}
-                    onKeyDown={onEnter("branch_address")}
-                    placeholder="เช่น 10/2 หมู่บ้านตัวอย่าง"
-                  />
-                </div>
-
-                <div>
-                  <label className={labelCls}>หมู่ (สาขา)</label>
-                  <input
-                    ref={refs.branch_moo}
-                    className={baseField}
-                    value={form.branch_moo}
-                    onChange={(e) => update("branch_moo", e.target.value)}
-                    onKeyDown={onEnter("branch_moo")}
-                    placeholder="เช่น 5"
-                  />
-                </div>
-
-                <div>
-                  <label className={labelCls}>ตำบล (สาขา)</label>
-                  <input
-                    ref={refs.branch_tambon}
-                    className={baseField}
-                    value={form.branch_tambon}
-                    onChange={(e) => update("branch_tambon", e.target.value)}
-                    onKeyDown={onEnter("branch_tambon")}
-                    placeholder="เช่น บึงเนียม"
-                  />
-                </div>
-
-                <div>
-                  <label className={labelCls}>อำเภอ (สาขา)</label>
-                  <input
-                    ref={refs.branch_amphur}
-                    className={baseField}
-                    value={form.branch_amphur}
-                    onChange={(e) => update("branch_amphur", e.target.value)}
-                    onKeyDown={onEnter("branch_amphur")}
-                    placeholder="เช่น เมือง"
-                  />
-                </div>
-
-                <div>
-                  <label className={labelCls}>จังหวัด (สาขา)</label>
-                  <input
-                    ref={refs.branch_province}
-                    className={baseField}
-                    value={form.branch_province}
-                    onChange={(e) => update("branch_province", e.target.value)}
-                    onKeyDown={onEnter("branch_province")}
-                    placeholder="เช่น ขอนแก่น"
-                  />
-                </div>
-
-                <div>
-                  <label className={labelCls}>รหัสไปรษณีย์ (สาขา)</label>
-                  <input
-                    ref={refs.branch_postal_code}
-                    inputMode="numeric"
-                    maxLength={5}
-                    className={cx(baseField, errors.branch_postal_code && fieldError)}
-                    value={form.branch_postal_code}
-                    onChange={(e) => {
-                      clearError("branch_postal_code")
-                      update("branch_postal_code", onlyDigits(e.target.value))
-                    }}
-                    onFocus={() => clearError("branch_postal_code")}
-                    onKeyDown={onEnter("branch_postal_code")}
-                    placeholder="เช่น 10220"
-                    aria-invalid={errors.branch_postal_code ? true : undefined}
-                  />
-                  {errors.branch_postal_code && <p className={errorTextCls}>{errors.branch_postal_code}</p>}
+                  <label className={labelCls}>ความสัมพันธ์ (FID Relationship)</label>
+                  <div ref={refs.fid_relationship}>
+                    <ComboBox
+                      options={fidRelOptions}
+                      value={form.fid_relationship}
+                      onChange={(v) => { clearError("fid_relationship"); update("fid_relationship", v) }}
+                      placeholder={relLoading ? "กำลังโหลด..." : "— เลือกความสัมพันธ์ —"}
+                      error={!!errors.fid_relationship}
+                      disabled={relLoading}
+                      buttonRef={comboBtnRefs.fid_relationship}
+                      onEnterNext={() => focusNextFromIndex(12)}
+                    />
+                  </div>
+                  {errors.fid_relationship && <p className={errorTextCls}>{errors.fid_relationship}</p>}
                 </div>
               </div>
             </div>
@@ -568,32 +976,32 @@ const CompanyAdd = () => {
             {/* ปุ่ม */}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
-                ref={refs.submitBtn}
+                ref={submitBtnRef}
                 type="submit"
                 disabled={submitting}
                 className="inline-flex items-center justify-center rounded-2xl 
-                           bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                           shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                           transition-all duration-300 ease-out
-                           hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                           hover:scale-[1.05] active:scale-[.97]
-                           disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                          bg-emerald-600 px-6 py-3 text-base font-semibold text-white
+                          shadow-[0_6px_16px_rgba(16,185,129,0.35)]
+                          transition-all duration-300 ease-out
+                          hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
+                          hover:scale-[1.05] active:scale-[.97]
+                          disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                 aria-busy={submitting ? "true" : "false"}
               >
-                {submitting ? "กำลังบันทึก..." : "บันทึกข้อมูลบริษัท"}
+                {submitting ? "กำลังบันทึก..." : "บันทึกข้อมูลลูกค้า"}
               </button>
 
               <button
                 type="button"
                 onClick={handleReset}
                 className="inline-flex items-center justify-center rounded-2xl 
-                           border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                           shadow-sm
-                           transition-all duration-300 ease-out
-                           hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                           active:scale-[.97]
-                           dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                           dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                          border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
+                          shadow-sm
+                          transition-all duration-300 ease-out
+                          hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
+                          active:scale-[.97]
+                          dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
+                          dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
               >
                 รีเซ็ต
               </button>
@@ -605,4 +1013,4 @@ const CompanyAdd = () => {
   )
 }
 
-export default CompanyAdd
+export default CustomerAdd

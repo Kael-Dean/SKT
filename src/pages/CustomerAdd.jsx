@@ -55,9 +55,6 @@ const toOptions = (rows, labelKey, valueKey, extra = (r)=>({})) =>
     return { label, value, ...extra(r) }
   })
 
-// ลบซ้ำ (เผื่อชุดข้อมูลซ้ำกัน)
-const dedupe = (arr) => Array.from(new Set(arr))
-
 /* ------------------------------- UI styles ------------------------------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -155,7 +152,8 @@ function ComboBox({
     setHighlight(-1)
     setTerm("")
     requestAnimationFrame(() => {
-      controlRef.current?.focus()
+      // ❌ ไม่ให้เกิดกรอบดำ: เอาโฟกัสออกจากปุ่ม แล้วค่อยไปช่องถัดไป
+      controlRef.current?.blur()
       if (navigate) onEnterNext?.()
     })
   }
@@ -182,7 +180,7 @@ function ComboBox({
       setOpen(true)
       return
     }
-    // ลิสต์เปิดและไม่ค้นหา: ให้ปุ่มส่งต่อการควบคุมทิศทางด้วย (กันกรณีโฟกัสยังอยู่ที่ปุ่ม)
+    // ลิสต์เปิดและไม่ค้นหา: ส่งต่อคีย์ไปที่ลิสต์
     if (open && !searchable && ["ArrowDown","ArrowUp","Home","End","Enter","Escape"].includes(e.key)) {
       e.preventDefault()
       handleListKeyDown(e)
@@ -214,7 +212,7 @@ function ComboBox({
       setOpen(false)
       setTerm("")
       setHighlight(-1)
-      requestAnimationFrame(() => controlRef.current?.focus())
+      requestAnimationFrame(() => controlRef.current?.blur()) // ❌ ตัดกรอบดำ
     }
   }
 
@@ -253,12 +251,19 @@ function ComboBox({
       setOpen(false)
       setTerm("")
       setHighlight(-1)
-      requestAnimationFrame(() => controlRef.current?.focus())
+      requestAnimationFrame(() => controlRef.current?.blur()) // ❌ ตัดกรอบดำ
     }
   }
 
   return (
     <div className="relative" ref={boxRef}>
+      {/* กันกรอบ focus ทุกชิ้นส่วนของคอมโบ */}
+      <style>{`
+        [data-combobox-btn]:focus, [data-combobox-btn]:focus-visible { outline: none !important; }
+        [data-combobox-panel]:focus, [data-combobox-panel]:focus-visible { outline: none !important; box-shadow: none !important; }
+        [data-combobox-option]:focus, [data-combobox-option]:focus-visible { outline: none !important; }
+      `}</style>
+
       <button
         type="button"
         ref={controlRef}
@@ -267,7 +272,7 @@ function ComboBox({
         onKeyDown={onKeyDownButton}
         data-combobox-btn="true"
         className={cx(
-          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
+          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none focus:outline-none focus-visible:outline-none transition shadow-none",
           disabled ? "bg-slate-200 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
           error ? "border-red-400 ring-2 ring-red-300/70"
                 : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
@@ -284,9 +289,10 @@ function ComboBox({
         <div
           ref={listRef}
           role="listbox"
-          tabIndex={0}                 // ทำให้โฟกัสได้เพื่อรับคีย์บอร์ด
+          tabIndex={0}                 // ทำให้รับคีย์บอร์ดได้
           onKeyDown={!searchable ? handleListKeyDown : undefined}
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          data-combobox-panel="true"
+          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none focus:outline-none focus:ring-0 ring-0"
         >
           {searchable && (
             <div className="sticky top-0 z-10 bg-white/95 dark:bg-slate-800/95 backdrop-blur px-3 py-2 border-b border-slate-100 dark:border-slate-700">
@@ -296,7 +302,7 @@ function ComboBox({
                 onChange={(e) => { setTerm(e.target.value); setHighlight(0) }}
                 onKeyDown={onKeyDownSearch}
                 placeholder={searchPlaceholder}
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-[15px] outline-none focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-emerald-500/30 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
               />
             </div>
           )}
@@ -316,8 +322,9 @@ function ComboBox({
                 aria-selected={isChosen}
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => commit(opt)}
+                data-combobox-option="true"
                 className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
+                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer outline-none focus:outline-none focus-visible:outline-none",
                   isActive
                     ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
                     : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
@@ -883,7 +890,6 @@ const CustomerAdd = () => {
                     onChange={(v, opt) => {
                       clearError("sub_district")
                       update("sub_district", v)
-                      // อัปเดตรหัสไปรษณีย์ถ้ามีในชุดข้อมูล
                       if (!form.postal_code && opt?.__zip) {
                         update("postal_code", String(opt.__zip))
                       }

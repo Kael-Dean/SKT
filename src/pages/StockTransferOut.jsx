@@ -833,6 +833,8 @@ function StockTransferOut() {
   const impurityRef = useRef(null)
   const saveBtnRef = useRef(null)
   const dateRef = useRef(null)
+  /** ⭐ เพิ่ม: ref ของคอมโบ “ฟอร์มสำเร็จรูป” เพื่อใช้ onMoveNext */
+  const templateRef = useRef(null)
 
   const scrollActiveIntoView = () => {
     try {
@@ -1064,6 +1066,7 @@ ${baseMsg}${summary}`)
               <div className="ml-auto w-full sm:w-72 self-start">
                 <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
                 <ComboBox
+                  ref={templateRef}
                   options={templateOptions}
                   value={formTemplate}
                   getSubLabel={(o) => templateSubLabel(o)}
@@ -1075,6 +1078,15 @@ ${baseMsg}${summary}`)
                       localStorage.setItem("transfer.formTemplate", idStr)
                     } catch {}
                     if (found?.spec) applyTemplateBySpec(found.spec)
+                  }}
+                  /** ⭐ Enter หรือเลือกเสร็จ ➜ เด้งไป "ชื่อผู้ขนส่ง" */
+                  onMoveNext={() => {
+                    try {
+                      driverRef.current?.focus?.()
+                      requestAnimationFrame(() => {
+                        try { document.activeElement?.scrollIntoView?.({ behavior: "smooth", block: "center" }) } catch {}
+                      })
+                    } catch {}
                   }}
                   placeholder="— เลือกฟอร์มสำเร็จรูป —"
                 />
@@ -1095,6 +1107,18 @@ ${baseMsg}${summary}`)
                     clearError("transfer_date")
                     clearHint("transfer_date")
                     update("transfer_date", e.target.value)
+                  }}
+                  /** ⭐ Enter ที่วันที่ ➜ เด้งไป "ชื่อผู้ขนส่ง" */
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      try {
+                        driverRef.current?.focus?.()
+                        requestAnimationFrame(() => {
+                          try { document.activeElement?.scrollIntoView?.({ behavior: "smooth", block: "center" }) } catch {}
+                        })
+                      } catch {}
+                    }
                   }}
                   error={!!errors.transfer_date}
                   className={redHintCls("transfer_date")}
@@ -1225,7 +1249,15 @@ ${baseMsg}${summary}`)
                   options={toKlangOptions}
                   value={form.to_klang_id}
                   getValue={(o) => o.id}
-                  onMoveNext={() => focusComboRef(productRef)}
+                  /** ⭐ เลือกคลังปลายทางเสร็จ ➜ ไป "น้ำหนักขาเข้า (รถเปล่า)" */
+                  onMoveNext={() => {
+                    try {
+                      weightInRef.current?.focus?.()
+                      requestAnimationFrame(() => {
+                        try { document.activeElement?.scrollIntoView?.({ behavior: "smooth", block: "center" }) } catch {}
+                      })
+                    } catch {}
+                  }}
                   onChange={(_val, found) => {
                     clearError("to_klang_id")
                     clearHint("to_klang_id")
@@ -1318,7 +1350,7 @@ ${baseMsg}${summary}`)
                   ref={conditionRef}
                   options={conditionOptions}
                   value={form.condition_id}
-                  onMoveNext={() => {/* skip */}}
+                  onMoveNext={() => {/* ไม่อยู่ใน flow */}}
                   onChange={(id, found) => {
                     update("condition_id", id)
                     update("condition_label", found?.label ?? "")
@@ -1387,7 +1419,7 @@ ${baseMsg}${summary}`)
                   ref={businessRef}
                   options={businessOptions}
                   value={form.business_type_id}
-                  onMoveNext={() => {/* skip */}} 
+                  onMoveNext={() => {/* ไม่อยู่ใน flow */}} 
                   onChange={(id, found) => {
                     clearError("business_type_id")
                     clearHint("business_type_id")

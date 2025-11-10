@@ -13,6 +13,12 @@ const thb = (n) =>
     isFinite(n) ? n : 0
   )
 const cx = (...a) => a.filter(Boolean).join(" ")
+const findLabelById = (opts = [], id) => {
+  const s = String(id ?? "")
+  if (!s) return ""
+  const f = opts.find((o) => String(o.id ?? o.value) === s)
+  return f ? String(f.label ?? "") : ""
+}
 
 // base fields
 const baseField =
@@ -26,7 +32,7 @@ const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700
 const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
 const errorTextCls = "mt-1 text-sm text-red-500"
 
-/** ---------- ComboBox (Enter ➜ ไปช่องถัดไป + กันคลิกอัตโนมัติ) ---------- */
+/** ---------- ComboBox (เพิ่ม subLabel + Enter ➜ ไปช่องถัดไป) ---------- */
 const ComboBox = forwardRef(function ComboBox(
   {
     options = [],
@@ -35,6 +41,8 @@ const ComboBox = forwardRef(function ComboBox(
     placeholder = "— เลือก —",
     getLabel = (o) => o?.label ?? "",
     getValue = (o) => o?.id ?? o?.value ?? "",
+    /** ⭐ เพิ่มบรรทัดอธิบายย่อยใต้ชื่อ (ใช้กับฟอร์มสำเร็จรูป) */
+    getSubLabel = (o) => o?.subLabel ?? "",
     disabled = false,
     error = false,
     hintRed = false,
@@ -61,10 +69,12 @@ const ComboBox = forwardRef(function ComboBox(
     close: () => setOpen(false),
   }))
 
-  const selectedLabel = useMemo(() => {
-    const found = options.find((o) => String(getValue(o)) === String(value))
-    return found ? getLabel(found) : ""
-  }, [options, value, getLabel, getValue])
+  const selectedObj = useMemo(
+    () => options.find((o) => String(getValue(o)) === String(value)),
+    [options, value, getValue]
+  )
+  const selectedLabel = selectedObj ? getLabel(selectedObj) : ""
+  const selectedSubLabel = selectedObj ? getSubLabel(selectedObj) || "" : ""
 
   useEffect(() => {
     const onClick = (e) => {
@@ -189,7 +199,16 @@ const ComboBox = forwardRef(function ComboBox(
         aria-expanded={open}
         aria-invalid={error || hintRed ? true : undefined}
       >
-        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
+        {selectedLabel ? (
+          <div className="flex flex-col">
+            <span>{selectedLabel}</span>
+            {selectedSubLabel && (
+              <span className="text-[13px] text-slate-600 dark:text-slate-300">{selectedSubLabel}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-slate-500 dark:text-white/70">{placeholder}</span>
+        )}
       </button>
 
       {open && (
@@ -203,6 +222,7 @@ const ComboBox = forwardRef(function ComboBox(
           )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
+            const sub = getSubLabel(opt) || ""
             const isActive = idx === highlight
             const isChosen = String(getValue(opt)) === String(value)
             return (
@@ -223,7 +243,10 @@ const ComboBox = forwardRef(function ComboBox(
                 {isActive && (
                   <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
                 )}
-                <span className="flex-1">{label}</span>
+                <span className="flex-1">
+                  <div>{label}</div>
+                  {sub && <div className="text-sm text-slate-600 dark:text-slate-300">{sub}</div>}
+                </span>
                 {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
               </button>
             )
@@ -280,6 +303,17 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 function StockTransferOut() {
   const [submitting, setSubmitting] = useState(false)
 
+  /** ---------- Template lock (เหมือนหน้า Buy) ---------- */
+  const LOCK_SPEC = true
+  const [templateOptions, setTemplateOptions] = useState([])
+  const [formTemplate, setFormTemplate] = useState("")
+  const [variantLookup, setVariantLookup] = useState({})
+  const templateSubLabel = (opt) => {
+    const vid = String(opt?.spec?.variant_id ?? "")
+    const vLabel = vid ? (variantLookup[vid] || `#${vid}`) : ""
+    return vLabel ? `ชั้นย่อย: ${vLabel}` : ""
+  }
+
   /** ---------- Dropdown states ---------- */
   const [productOptions, setProductOptions] = useState([])
   const [riceOptions, setRiceOptions] = useState([])
@@ -290,7 +324,7 @@ function StockTransferOut() {
   const [fromKlangOptions, setFromKlangOptions] = useState([])
   const [toKlangOptions, setToKlangOptions] = useState([])
 
-  // ✅ เมตาดาต้า
+  // ✅ เมตาดาต้า (ไม่ล็อคค่าล่วงหน้าอีกต่อไป — ใช้จาก Template)
   const [conditionOptions, setConditionOptions] = useState([])
   const [fieldOptions, setFieldOptions] = useState([])
   const [yearOptions, setYearOptions] = useState([])
@@ -340,7 +374,6 @@ function StockTransferOut() {
     quality_note: "",
     impurity_percent: "",
   })
-
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
   /** ---------- Derived ---------- */
@@ -391,28 +424,15 @@ function StockTransferOut() {
         setFromBranchOptions(brs)
         setToBranchOptions(brs)
 
-        // 🔒 เงื่อนไข → แห้ง
-        const allConds = (conditions || []).map((c) => ({ id: c.id, label: c.condition }))
-        const dryCond = allConds.find((c) => c.label === "แห้ง")
-        setConditionOptions(dryCond ? [dryCond] : [])
-        update("condition_id", dryCond?.id ?? "")
-        update("condition_label", dryCond?.label ?? "")
-
+        setConditionOptions((conditions || []).map((c, i) => ({ id: String(c.id ?? i), label: String(c.condition ?? c.name ?? "") })))
         setFieldOptions(
           (fields || [])
-            .map((f) => ({ id: f.id, label: f.field ?? f.field_type ?? "" }))
+            .map((f, i) => ({ id: String(f.id ?? i), label: String(f.field ?? f.field_type ?? f.name ?? "") }))
             .filter((o) => o.id && o.label)
         )
-
-        setYearOptions((years || []).map((y) => ({ id: y.id, label: y.year })))
-        setProgramOptions((programs || []).map((p) => ({ id: p.id, label: p.program })))
-
-        // 🔒 ประเภทธุรกิจ → ซื้อมาขายไป
-        const allBiz = (businesses || []).map((b) => ({ id: b.id, label: b.business }))
-        const buySell = allBiz.find((b) => b.label === "ซื้อมาขายไป")
-        setBusinessOptions(buySell ? [buySell] : [])
-        update("business_type_id", buySell?.id ?? "")
-        update("business_type_label", buySell?.label ?? "")
+        setYearOptions((years || []).map((y, i) => ({ id: String(y.id ?? i), label: String(y.year ?? y.name ?? "") })))
+        setProgramOptions((programs || []).map((p, i) => ({ id: String(p.id ?? i), label: String(p.program ?? p.name ?? "") })))
+        setBusinessOptions((businesses || []).map((b, i) => ({ id: String(b.id ?? i), label: String(b.business ?? b.name ?? "") })))
       } catch (e) {
         console.error("load static error:", e)
         setProductOptions([])
@@ -426,20 +446,163 @@ function StockTransferOut() {
       }
     }
     loadStatic()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // product -> species
+  /** ---------- โหลด Template (รูปแบบเดียวกับหน้า Buy) ---------- */
+  useEffect(() => {
+    const loadForms = async () => {
+      try {
+        const arr = (await get("/order/form/search")) || []
+        const mapped = arr
+          .map((x) => ({
+            id: String(x.id ?? x.value ?? ""),
+            label: String(x.prod_name ?? x.name ?? x.label ?? "").trim(),
+            spec: {
+              product_id: x.product_id ?? null,
+              species_id: x.species_id ?? null,
+              variant_id: x.variant_id ?? null,
+              product_year: x.product_year ?? null,
+              condition_id: x.condition_id ?? null,
+              field_type: x.field_type ?? null,
+              program: x.program ?? null,
+              business_type: x.business_type ?? null,
+            },
+          }))
+          .filter((o) => o.id && o.label)
+
+        setTemplateOptions(mapped)
+
+        // ค่าเริ่มต้น: shared.formTemplate → transfer.formTemplate → อันแรก
+        let nextId = ""
+        try {
+          const shared = localStorage.getItem("shared.formTemplate")
+          if (shared) {
+            const o = JSON.parse(shared)
+            if (o?.id && mapped.some((m) => String(m.id) === String(o.id))) nextId = String(o.id)
+          }
+          if (!nextId) {
+            const saved = localStorage.getItem("transfer.formTemplate")
+            if (saved && mapped.some((m) => String(m.id) === String(saved))) nextId = String(saved)
+          }
+        } catch {}
+        if (!nextId) nextId = String(mapped[0]?.id || "")
+
+        if (nextId) {
+          setFormTemplate(nextId)
+          const found = mapped.find((o) => String(o.id) === nextId)
+          if (found?.spec) applyTemplateBySpec(found.spec)
+          try {
+            localStorage.setItem("shared.formTemplate", JSON.stringify({ id: nextId, label: found?.label || "" }))
+            localStorage.setItem("transfer.formTemplate", nextId)
+          } catch {}
+        }
+
+        // เตรียม lookup variant id → label เพื่อแสดง subLabel ใน template
+        const speciesIds = Array.from(
+          new Set((mapped || []).map((t) => t?.spec?.species_id).filter(Boolean).map(String))
+        )
+        if (speciesIds.length) {
+          const list = await Promise.all(
+            speciesIds.map(async (sid) => {
+              const arr2 = (await get(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)) || []
+              return arr2.map((x) => ({
+                id: String(x.id ?? x.variant_id ?? x.value ?? ""),
+                label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
+              }))
+            })
+          )
+          const map = {}
+          list.flat().forEach(({ id, label }) => {
+            if (id && label) map[id] = label
+          })
+          setVariantLookup(map)
+        }
+      } catch (e) {
+        console.error("load form templates error:", e)
+        setTemplateOptions([])
+      }
+    }
+    loadForms()
+  }, [])
+
+  /** ---------- apply template spec ---------- */
+  const applyTemplateBySpec = (spec) => {
+    if (!spec) return
+    const S = (v) => (v == null ? "" : String(v))
+    setForm((p) => ({
+      ...p,
+      product_id: S(spec.product_id),
+      rice_id: S(spec.species_id),
+      subrice_id: S(spec.variant_id),
+      rice_year_id: S(spec.product_year),
+      condition_id: S(spec.condition_id),
+      field_type_id: S(spec.field_type),
+      program_id: S(spec.program),
+      business_type_id: S(spec.business_type),
+      // เคลียร์ label รอ sync กับ options
+      product_name: "",
+      rice_type: "",
+      subrice_name: "",
+      rice_year_label: "",
+      condition_label: "",
+      field_type_label: "",
+      program_label: "",
+      business_type_label: "",
+    }))
+  }
+  useEffect(() => {
+    if (!formTemplate) return
+    const current = templateOptions.find((o) => String(o.id) === String(formTemplate))
+    if (current?.spec) applyTemplateBySpec(current.spec)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formTemplate])
+
+  /** ---------- Sync id -> label เมื่อ options โหลดเสร็จ (เหมือนหน้า Buy) ---------- */
+  useEffect(() => {
+    const lbl = findLabelById(productOptions, form.product_id)
+    if (form.product_id && lbl && lbl !== form.product_name) update("product_name", lbl)
+  }, [form.product_id, productOptions]) // product_name
+  useEffect(() => {
+    const lbl = findLabelById(riceOptions, form.rice_id)
+    if (form.rice_id && lbl && lbl !== form.rice_type) update("rice_type", lbl)
+  }, [form.rice_id, riceOptions]) // rice_type
+  useEffect(() => {
+    const lbl = findLabelById(subriceOptions, form.subrice_id)
+    if (form.subrice_id && lbl && lbl !== form.subrice_name) update("subrice_name", lbl)
+  }, [form.subrice_id, subriceOptions]) // subrice_name
+  useEffect(() => {
+    const lbl = findLabelById(conditionOptions, form.condition_id)
+    if (form.condition_id && lbl && lbl !== form.condition_label) update("condition_label", lbl)
+  }, [form.condition_id, conditionOptions]) // condition_label
+  useEffect(() => {
+    const lbl = findLabelById(fieldOptions, form.field_type_id)
+    if (form.field_type_id && lbl && lbl !== form.field_type_label) update("field_type_label", lbl)
+  }, [form.field_type_id, fieldOptions]) // field_type_label
+  useEffect(() => {
+    const lbl = findLabelById(yearOptions, form.rice_year_id)
+    if (form.rice_year_id && lbl && lbl !== form.rice_year_label) update("rice_year_label", lbl)
+  }, [form.rice_year_id, yearOptions]) // rice_year_label
+  useEffect(() => {
+    const lbl = findLabelById(programOptions, form.program_id)
+    if (form.program_id && lbl && lbl !== form.program_label) update("program_label", lbl)
+  }, [form.program_id, programOptions]) // program_label
+  useEffect(() => {
+    const lbl = findLabelById(businessOptions, form.business_type_id)
+    if (form.business_type_id && lbl && lbl !== form.business_type_label) update("business_type_label", lbl)
+  }, [form.business_type_id, businessOptions]) // business_type_label
+
+  /** ---------- product -> species (ปรับ logic ให้ไม่ล้างค่าเมื่อมี pid) ---------- */
   useEffect(() => {
     const pid = form.product_id
-    setRiceOptions([])
-    setSubriceOptions([])
-    update("rice_id", "")
-    update("rice_type", "")
-    update("subrice_id", "")
-    update("subrice_name", "")
-    if (!pid) return
-
+    if (!pid) {
+      setRiceOptions([])
+      setSubriceOptions([])
+      update("rice_id", "")
+      update("rice_type", "")
+      update("subrice_id", "")
+      update("subrice_name", "")
+      return
+    }
     const loadSpecies = async () => {
       try {
         const arr = await get(`/order/species/search?product_id=${encodeURIComponent(pid)}`)
@@ -456,17 +619,18 @@ function StockTransferOut() {
       }
     }
     loadSpecies()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-comments
   }, [form.product_id])
 
-  // species -> variant
+  /** ---------- species -> variant (ไม่ล้าง subrice เมื่อมี sid) ---------- */
   useEffect(() => {
     const sid = form.rice_id
-    setSubriceOptions([])
-    update("subrice_id", "")
-    update("subrice_name", "")
-    if (!sid) return
-
+    if (!sid) {
+      setSubriceOptions([])
+      update("subrice_id", "")
+      update("subrice_name", "")
+      return
+    }
     const loadVariant = async () => {
       try {
         const arr = await get(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)
@@ -483,10 +647,9 @@ function StockTransferOut() {
       }
     }
     loadVariant()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.rice_id])
 
-  // โหลดคลัง (ต้นทาง)
+  /** ---------- โหลดคลัง (ต้นทาง/ปลายทาง) ---------- */
   useEffect(() => {
     const bid = form.from_branch_id
     const bname = form.from_branch_name?.trim()
@@ -510,7 +673,6 @@ function StockTransferOut() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.from_branch_id, form.from_branch_name])
 
-  // โหลดคลัง (ปลายทาง)
   useEffect(() => {
     const bid = form.to_branch_id
     const bname = form.to_branch_name?.trim()
@@ -589,12 +751,12 @@ function StockTransferOut() {
     if (!form.driver_name?.trim()) e.driver_name = "กรุณากรอกชื่อผู้ขนส่ง"
     if (!form.plate_number?.trim()) e.plate_number = "กรุณากรอกทะเบียนรถ"
 
-    if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
-    if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
-    if (!form.subrice_id) e.subrice_id = "กรุณาเลือกชั้นย่อย"
+    if (!form.product_id) e.product_id = "กรุณาเลือกฟอร์มสำเร็จรูปให้มีประเภทสินค้า"
+    if (!form.rice_id) e.rice_id = "กรุณาเลือกฟอร์มสำเร็จรูปให้มีชนิดข้าว"
+    if (!form.subrice_id) e.subrice_id = "กรุณาเลือกฟอร์มสำเร็จรูปให้มีชั้นย่อย"
 
-    if (!form.field_type_id) e.field_type_id = "กรุณาเลือกประเภทนา"
-    if (!form.business_type_id) e.business_type_id = "กรุณาเลือกประเภทธุรกิจ"
+    if (!form.field_type_id) e.field_type_id = "กรุณาเลือกฟอร์มสำเร็จรูปให้มีประเภทนา"
+    if (!form.business_type_id) e.business_type_id = "กรุณาเลือกฟอร์มสำเร็จรูปให้มีประเภทธุรกิจ"
 
     const tIn = toInt(form.weight_in)
     const tOut = toInt(form.weight_out)
@@ -695,12 +857,12 @@ function StockTransferOut() {
     return [
       { ref: driverRef, type: "input", disabled: false },
       { ref: plateRef, type: "input", disabled: false },
-      { ref: productRef, type: "combo", disabled: false },
-      { ref: riceRef, type: "combo", disabled: !form.product_id },
-      { ref: subriceRef, type: "combo", disabled: !form.rice_id },
-      { ref: fieldRef, type: "combo", disabled: false },
-      { ref: yearRef, type: "combo", disabled: false },
-      { ref: programRef, type: "combo", disabled: false },
+      { ref: productRef, type: "combo", disabled: LOCK_SPEC },
+      { ref: riceRef, type: "combo", disabled: LOCK_SPEC || !form.product_id },
+      { ref: subriceRef, type: "combo", disabled: LOCK_SPEC || !form.rice_id },
+      { ref: fieldRef, type: "combo", disabled: LOCK_SPEC },
+      { ref: yearRef, type: "combo", disabled: LOCK_SPEC },
+      { ref: programRef, type: "combo", disabled: LOCK_SPEC },
       { ref: weightInRef, type: "input", disabled: false },
       { ref: weightOutRef, type: "input", disabled: false },
       { ref: costRef, type: "input", disabled: false },
@@ -736,7 +898,7 @@ function StockTransferOut() {
     }
   }
 
-  /** ---------- Scroll helpers (สำหรับแจ้งเตือนแบบหน้า Sales/Buy) ---------- */
+  /** ---------- Scroll helpers ---------- */
   const scrollToPageTop = () => {
     try {
       const root = document.scrollingElement || document.documentElement || document.body
@@ -810,7 +972,6 @@ function StockTransferOut() {
     setMissingHints(hints)
     const eObj = validate()
 
-    // ❌ แบบเดียวกับหน้า Sales/Buy: ไม่ผ่าน valid → เด้งเตือนใหญ่ + โฟกัสช่องแรก
     if (Object.keys(eObj).length > 0) {
       alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
       scrollToFirstError(eObj)
@@ -865,9 +1026,7 @@ function StockTransferOut() {
 
       await post("/transfer/request", payload)
 
-      // ✅ แจ้งเตือนสำเร็จ: ใช้สไตล์เดียวกับ Sales
       alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
-      // เคลียร์เฉพาะค่าชั่ง/ราคา + เลื่อนไปบนสุด + blur ปุ่ม (ให้ UX ตรงกับ Sales)
       setForm((f) => ({
         ...f,
         weight_in: "",
@@ -879,7 +1038,6 @@ function StockTransferOut() {
       try { saveBtnRef.current?.blur?.() } catch {}
     } catch (err) {
       console.error(err)
-      // ❌ แจ้งล้มเหลว: ข้อความแบบเดียวกับหน้า Sales พร้อมรายละเอียดที่ได้จาก API
       const baseMsg = err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก"
       const detail = err?.data?.detail
       const summary = detail ? `\n\nรายละเอียด: ${typeof detail === "string" ? detail : JSON.stringify(detail)}` : ""
@@ -898,9 +1056,33 @@ ${baseMsg}${summary}`)
         <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🚚 โอนออกข้าวเปลือก</h1>
 
         <form onSubmit={handleSubmit}>
-          {/* กล่องข้อมูลการโอน */}
+          {/* กล่องข้อมูลการโอน + ดรอปดาวน์ฟอร์มสำเร็จรูป (ตำแหน่งแบบเดียวกับหน้า Buy) */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">ข้อมูลการโอน</h2>
+            <div className="mb-3 flex flex-wrap items-start gap-2">
+              <h2 className="text-xl font-semibold">ข้อมูลการโอน</h2>
+
+              <div className="ml-auto w-full sm:w-72 self-start">
+                <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
+                <ComboBox
+                  options={templateOptions}
+                  value={formTemplate}
+                  getSubLabel={(o) => templateSubLabel(o)}
+                  onChange={(id, found) => {
+                    const idStr = String(id)
+                    setFormTemplate(idStr)
+                    try {
+                      localStorage.setItem("shared.formTemplate", JSON.stringify({ id: idStr, label: found?.label || "" }))
+                      localStorage.setItem("transfer.formTemplate", idStr)
+                    } catch {}
+                    if (found?.spec) applyTemplateBySpec(found.spec)
+                  }}
+                  placeholder="— เลือกฟอร์มสำเร็จรูป —"
+                />
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                  ระบบ <b>ล็อกสเปกจากฟอร์มสำเร็จรูป</b> เท่านั้น: <b>ประเภทสินค้า</b>, <b>ชนิดข้าว</b>, <b>ชั้นย่อย</b>, <b>สภาพ</b>, <b>ประเภทนา</b>, <b>ปี/ฤดูกาล</b>, <b>โปรแกรม</b>, <b>ประเภทธุรกิจ</b>
+                </p>
+              </div>
+            </div>
 
             <div className="grid gap-4 md:grid-cols-3">
               {/* วันที่ */}
@@ -1062,170 +1244,160 @@ ${baseMsg}${summary}`)
             </div>
           </div>
 
-          {/* สินค้า + เมตาดาต้า */}
+          {/* สินค้า + เมตาดาต้า (ล็อกจาก Template) */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
 
             <div className="grid gap-4 md:grid-cols-3">
-              {/* ประเภทสินค้า */}
               <div>
                 <label className={labelCls}>ประเภทสินค้า</label>
                 <ComboBox
                   ref={productRef}
                   options={productOptions}
                   value={form.product_id}
-                  onMoveNext={() => focusComboRef(riceRef)}
+                  onMoveNext={() => {/* skip */}}
                   onChange={(id, found) => {
                     clearError("product_id")
                     clearHint("product_id")
                     update("product_id", id)
                     update("product_name", found?.label ?? "")
-                    update("rice_id", "")
-                    update("rice_type", "")
-                    update("subrice_id", "")
-                    update("subrice_name", "")
                   }}
-                  placeholder="— เลือกประเภทสินค้า —"
+                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                   error={!!errors.product_id}
                   hintRed={!!missingHints.product_id}
+                  disabled={LOCK_SPEC}
                 />
                 {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
               </div>
 
-              {/* ชนิดข้าว */}
               <div>
                 <label className={labelCls}>ชนิดข้าว</label>
                 <ComboBox
                   ref={riceRef}
                   options={riceOptions}
                   value={form.rice_id}
-                  onMoveNext={() => focusComboRef(subriceRef)}
+                  onMoveNext={() => {/* skip */}}
                   onChange={(id, found) => {
                     clearError("rice_id")
                     clearHint("rice_id")
                     update("rice_id", id)
                     update("rice_type", found?.label ?? "")
-                    update("subrice_id", "")
-                    update("subrice_name", "")
                   }}
-                  placeholder="— เลือกชนิดข้าว —"
-                  disabled={!form.product_id}
+                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                  disabled={LOCK_SPEC}
                   error={!!errors.rice_id}
                   hintRed={!!missingHints.rice_id}
                 />
                 {errors.rice_id && <p className={errorTextCls}>{errors.rice_id}</p>}
               </div>
 
-              {/* ชั้นย่อย */}
               <div>
                 <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
                 <ComboBox
                   ref={subriceRef}
                   options={subriceOptions}
                   value={form.subrice_id}
-                  onMoveNext={() => focusComboRef(fieldRef)}
+                  onMoveNext={() => {/* skip */}}
                   onChange={(id, found) => {
                     clearError("subrice_id")
                     clearHint("subrice_id")
                     update("subrice_id", id)
                     update("subrice_name", found?.label ?? "")
                   }}
-                  placeholder="— เลือกชั้นย่อย —"
-                  disabled={!form.rice_id}
+                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                  disabled={LOCK_SPEC}
                   error={!!errors.subrice_id}
                   hintRed={!!missingHints.subrice_id}
                 />
                 {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
               </div>
 
-              {/* สภาพ/เงื่อนไข (ล็อกเป็น “แห้ง”) */}
               <div>
                 <label className={labelCls}>สภาพ/เงื่อนไข</label>
                 <ComboBox
                   ref={conditionRef}
                   options={conditionOptions}
                   value={form.condition_id}
-                  onMoveNext={() => {/* ไม่อยู่ใน flow */}}
+                  onMoveNext={() => {/* skip */}}
                   onChange={(id, found) => {
                     update("condition_id", id)
                     update("condition_label", found?.label ?? "")
                   }}
-                  placeholder="— เลือกสภาพ/เงื่อนไข —"
-                  disabled
+                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                  disabled={LOCK_SPEC}
                 />
               </div>
 
-              {/* ประเภทนา */}
               <div>
                 <label className={labelCls}>ประเภทนา</label>
                 <ComboBox
                   ref={fieldRef}
                   options={fieldOptions}
                   value={form.field_type_id}
-                  onMoveNext={() => focusNextFromRef(fieldRef)}
+                  onMoveNext={() => {/* skip */}}
                   onChange={(id, found) => {
                     clearError("field_type_id")
                     clearHint("field_type_id")
                     update("field_type_id", id)
                     update("field_type_label", found?.label ?? "")
                   }}
-                  placeholder="— เลือกประเภทนา —"
+                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                   error={!!errors.field_type_id}
                   hintRed={!!missingHints.field_type_id}
+                  disabled={LOCK_SPEC}
                 />
                 {errors.field_type_id && <p className={errorTextCls}>{errors.field_type_id}</p>}
               </div>
 
-              {/* ปี/ฤดูกาล */}
               <div>
                 <label className={labelCls}>ปี/ฤดูกาล</label>
                 <ComboBox
                   ref={yearRef}
                   options={yearOptions}
                   value={form.rice_year_id}
-                  onMoveNext={() => focusNextFromRef(yearRef)}
+                  onMoveNext={() => {/* skip */}}
                   onChange={(id, found) => {
                     update("rice_year_id", id)
                     update("rice_year_label", found?.label ?? "")
                   }}
-                  placeholder="— เลือกปี/ฤดูกาล —"
+                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                  disabled={LOCK_SPEC}
                 />
               </div>
 
-              {/* โปรแกรม */}
               <div>
-                <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
+                <label className={labelCls}>โปรแกรม</label>
                 <ComboBox
                   ref={programRef}
                   options={programOptions}
                   value={form.program_id}
-                  onMoveNext={() => focusNextFromRef(programRef)}
+                  onMoveNext={() => {/* skip */}}
                   onChange={(id, found) => {
                     update("program_id", id)
                     update("program_label", found?.label ?? "")
                   }}
-                  placeholder="— เลือกโปรแกรม —"
+                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                  disabled={LOCK_SPEC}
                 />
               </div>
 
-              {/* ประเภทธุรกิจ (ล็อกเป็น “ซื้อมาขายไป”) */}
               <div>
                 <label className={labelCls}>ประเภทธุรกิจ</label>
                 <ComboBox
                   ref={businessRef}
                   options={businessOptions}
                   value={form.business_type_id}
-                  onMoveNext={() => {/* ไม่อยู่ใน flow */}}
+                  onMoveNext={() => {/* skip */}} 
                   onChange={(id, found) => {
                     clearError("business_type_id")
                     clearHint("business_type_id")
                     update("business_type_id", id)
                     update("business_type_label", found?.label ?? "")
                   }}
-                  placeholder="— เลือกประเภทธุรกิจ —"
+                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                   error={!!errors.business_type_id}
                   hintRed={!!missingHints.business_type_id}
-                  disabled
+                  disabled={LOCK_SPEC}
                 />
                 {errors.business_type_id && <p className={errorTextCls}>{errors.business_type_id}</p>}
               </div>
@@ -1337,6 +1509,7 @@ ${baseMsg}${summary}`)
                 { label: "สินค้า", value: form.product_name || "—" },
                 { label: "ชนิดข้าว", value: form.rice_type || "—" },
                 { label: "ชั้นย่อย", value: form.subrice_name || "—" },
+                { label: "สภาพ", value: form.condition_label || "—" },
                 { label: "ประเภทนา", value: form.field_type_label || "—" },
                 { label: "ปี/ฤดูกาล", value: form.rice_year_label || "—" },
                 { label: "โปรแกรม", value: form.program_label || "—" },

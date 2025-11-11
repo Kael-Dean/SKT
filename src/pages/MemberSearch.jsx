@@ -2,6 +2,10 @@
 import { useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ
 
+/** ============ ตำแหน่งหยุดของหัวตารางใต้ App Bar ============ */
+/** ปรับเลขนี้ให้เท่าความสูง App Bar ของระบบคุณ (หน่วยเป็น px) */
+const STICKY_TOP_PX = 72
+
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 
@@ -422,7 +426,11 @@ const MemberSearch = () => {
 
   return (
     <div className="min-h-screen rounded-2xl bg-white text-black dark:bg-slate-900 dark:text-white">
-      <div className="mx-auto max-w-6xl p-4 md:p-6 text-base md:text-lg">
+      <div
+        className="mx-auto max-w-6xl p-4 md:p-6 text-base md:text-lg"
+        // เผื่ออนาคตมี anchor/scrollIntoView จะได้ไม่โดน App Bar บัง
+        style={{ scrollMarginTop: STICKY_TOP_PX }}
+      >
         <h1 className="mb-4 text-2xl md:text-3xl font-bold">🔎 ค้นหาสมาชิก</h1>
 
         {/* การ์ดค้นหา */}
@@ -457,7 +465,11 @@ const MemberSearch = () => {
           <div className="overflow-x-auto rounded-2xl">
             <table className="w-full text-base tabular-nums">
               <thead className="text-slate-700 dark:text-slate-100">
-                <tr className="sticky top-0 z-10 bg-slate-50/95 supports-[backdrop-filter]:bg-slate-50/60 dark:bg-slate-700/60">
+                {/* 👇 เปลี่ยนจาก top-0 เป็นกำหนด offset ตาม STICKY_TOP_PX */}
+                <tr
+                  className="sticky z-10 bg-slate-50/95 supports-[backdrop-filter]:bg-slate-50/60 dark:bg-slate-700/60"
+                  style={{ top: STICKY_TOP_PX }}
+                >
                   {TABLE_COLUMNS.map((c) => (
                     <th key={c.key} className="whitespace-nowrap px-5 py-4 text-left text-[15px] md:text-base font-semibold">
                       {c.label}

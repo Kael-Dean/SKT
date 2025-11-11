@@ -374,7 +374,17 @@ const Order = () => {
   const goToPage = (p) => {
     const n = Math.min(Math.max(1, toNumber(p)), totalPages)
     setPage(n); setPageInput(String(n))
-    window?.scrollTo?.({ top: 0, behavior: "smooth" })
+    // Smooth scroll to top of the main scroll container (with window fallback)
+    try {
+      const main = document.querySelector('main')
+      if (main && typeof main.scrollTo === 'function') {
+        main.scrollTo({ top: 0, behavior: 'smooth' })
+      } else {
+        window?.scrollTo?.({ top: 0, behavior: 'smooth' })
+      }
+    } catch (_) {
+      // no-op
+    }
   }
   const nextPage = () => goToPage(page + 1)
   const prevPage = () => goToPage(page - 1)

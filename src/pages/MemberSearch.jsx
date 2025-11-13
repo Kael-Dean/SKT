@@ -66,7 +66,7 @@ const toBool = (v) => v === true || v === 1 || v === "1" || String(v).toLowerCas
 
 /** ---------- ฟิลด์ทั้งหมด (ยกเว้นโครงการ) ---------- */
 const FIELD_CONFIG = [
-  { key: "member_id", label: "เลขสมาชิก", type: "number" },
+  { key: "member_id", label: "เลขสมาชิก", type: "text" },
   { key: "precode", label: "คำนำหน้า (รหัส)", type: "number" },
   { key: "first_name", label: "ชื่อ", type: "text" },
   { key: "last_name", label: "นามสกุล", type: "text" },
@@ -80,18 +80,12 @@ const FIELD_CONFIG = [
   { key: "province", label: "จังหวัด", type: "text" },
   { key: "postal_code", label: "รหัสไปรษณีย์", type: "number" },
   { key: "subprov", label: "อำเภอย่อย/รหัสอำเภอ", type: "number" },
-  { key: "salary", label: "เงินเดือน", type: "decimal" },
   { key: "tgs_group", label: "กลุ่ม", type: "number" },
-  { key: "share_per_month", label: "ส่งหุ้น/เดือน", type: "decimal" },
-  { key: "ar_limit", label: "วงเงินสินเชื่อ", type: "number" },
-  { key: "normal_share", label: "หุ้นปกติ", type: "decimal" },
   { key: "bank_account", label: "บัญชีธนาคาร", type: "text" },
   { key: "tgs_id", label: "รหัสสมาชิกในระบบ (tgs_id)", type: "text" },
   { key: "spouce_name", label: "ชื่อคู่สมรส", type: "text" },
   { key: "orders_placed", label: "จำนวนครั้งที่ซื้อ", type: "number" },
   { key: "regis_date", label: "วันที่สมัคร", type: "date" },
-  { key: "last_bought_date", label: "วันที่ซื้อครั้งล่าสุด", type: "date" },
-  { key: "transfer_date", label: "วันที่โอน (ไม่ระบุก็ได้)", type: "date-optional" },
   // ที่ดิน
   { key: "own_rai", label: "ถือครอง (ไร่)", type: "number" },
   { key: "own_ngan", label: "ถือครอง (งาน)", type: "number" },
@@ -199,7 +193,7 @@ const TABLE_COLUMNS = [
 function normalizeRecord(raw = {}) {
   const out = {
     asso_id: raw.asso_id ?? raw.assoId ?? raw.id ?? null,
-    member_id: raw.member_id ?? raw.memberId ?? null,
+    member_id: raw.member_id != null ? String(raw.member_id) : (raw.memberId != null ? String(raw.memberId) : null),
 
     first_name: raw.first_name ?? raw.firstname ?? "",
     last_name: raw.last_name ?? raw.lastname ?? "",
@@ -386,6 +380,9 @@ const MemberSearch = () => {
       const idForPatch = active.member_id
       if (!idForPatch && idForPatch !== 0) throw new Error("ไม่พบเลขสมาชิก (member_id) สำหรับบันทึก")
 
+      // ✅ ส่งค่า member_id กลับไปเป็น string เสมอ (แก้กรณี BE ต้องการ string)
+      diff.member_id = String(idForPatch)
+
       setRows((cur) => cur.map((x) => (x.member_id === active.member_id ? { ...x, ...diff } : x)))
 
       const updatedRaw = await apiAuth(`/member/members/${idForPatch}`, {
@@ -548,7 +545,7 @@ const MemberSearch = () => {
                 <>
                   <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-sm md:text-base text-slate-600 dark:text-slate-300">
-                      สร้างเมื่อ: {formatDate(active.regis_date)} • ซื้อครั้งล่าสุด: {formatDate(active.last_bought_date)}
+                      สร้างเมื่อ: {formatDate(active.regis_date)}
                     </div>
 
                     {!editing ? (

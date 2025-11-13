@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ
 
 /** ============ ตำแหน่งหยุดของหัวตารางใต้ App Bar ============ */
-/** ปรับเลขนี้ให้เท่าความสูง App Bar ของระบบคุณ (หน่วยเป็น px) */
-const STICKY_TOP_PX = 72
+/** ถ้าหัวตารางไปซ้อนกับแถวข้อมูลให้ใช้ 0 (หรือปรับตาม layout จริงของ App Bar) */
+const STICKY_TOP_PX = 0
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -190,7 +190,7 @@ const TABLE_COLUMNS = [
   { key: "citizen_id", label: "เลขบัตรประชาชน", render: (row) => row.citizen_id || "-" },
   { key: "phone_number", label: "โทรศัพท์", render: (row) => row.phone_number ?? "-" },
   { key: "province", label: "จังหวัด", render: (row) => row.province ?? "-" },
-  { key: "district", label: "อำเภอ", render: (row) => row.district ?? "-" },   // 👈 ใหม่
+  { key: "district", label: "อำเภอ", render: (row) => row.district ?? "-" },
   { key: "regis_date", label: "วันที่สมัคร", render: (row) => formatDate(row.regis_date) },
   { key: "__programs", label: "โครงการ", render: (row) => <ProgramBadges row={row} /> },
 ]
@@ -297,7 +297,6 @@ const MemberSearch = () => {
       if (!term) return
       setLoading(true)
       try {
-        // ✅ ใช้ apiAuth (แนบ token + จัดการ 401)
         const data = await apiAuth(`/member/members/search?q=${encodeURIComponent(term)}`)
         const normalized = (Array.isArray(data) ? data : []).map(normalizeRecord)
         setRows(normalized)
@@ -355,7 +354,6 @@ const MemberSearch = () => {
     setDraft((p) => ({ ...p, [key]: !!checked }))
   }
 
-  // บันทึก: รวมฟิลด์โครงการไปด้วย
   const save = async () => {
     if (!active) return
     setRowError("")
@@ -388,10 +386,8 @@ const MemberSearch = () => {
       const idForPatch = active.member_id
       if (!idForPatch && idForPatch !== 0) throw new Error("ไม่พบเลขสมาชิก (member_id) สำหรับบันทึก")
 
-      // optimistic update
       setRows((cur) => cur.map((x) => (x.member_id === active.member_id ? { ...x, ...diff } : x)))
 
-      // ✅ ใช้ apiAuth แทน fetch ตรง
       const updatedRaw = await apiAuth(`/member/members/${idForPatch}`, {
         method: "PATCH",
         body: diff,
@@ -401,7 +397,6 @@ const MemberSearch = () => {
       setRows((cur) => cur.map((x) => (x.member_id === updated.member_id ? updated : x)))
       setActive(updated)
 
-      // refresh draft
       const nd = {}
       FIELD_CONFIG.forEach(({ key, type }) => {
         let v = updated[key]
@@ -415,20 +410,19 @@ const MemberSearch = () => {
 
       setEditing(false)
     } catch (e) {
-      setRows((cur) => cur) // state คงไว้
+      setRows((cur) => cur)
       setRowError(e?.message || "บันทึกไม่สำเร็จ")
     } finally {
       setSaving(false)
     }
   }
 
-  const loaderCols = TABLE_COLUMNS.length + 1 // + Actions column
+  const loaderCols = TABLE_COLUMNS.length + 1
 
   return (
     <div className="min-h-screen rounded-2xl bg-white text-black dark:bg-slate-900 dark:text-white">
       <div
         className="mx-auto max-w-6xl p-4 md:p-6 text-base md:text-lg"
-        // เผื่ออนาคตมี anchor/scrollIntoView จะได้ไม่โดน App Bar บัง
         style={{ scrollMarginTop: STICKY_TOP_PX }}
       >
         <h1 className="mb-4 text-2xl md:text-3xl font-bold">🔎 ค้นหาสมาชิก</h1>
@@ -465,9 +459,8 @@ const MemberSearch = () => {
           <div className="overflow-x-auto rounded-2xl">
             <table className="w-full text-base tabular-nums">
               <thead className="text-slate-700 dark:text-slate-100">
-                {/* 👇 เปลี่ยนจาก top-0 เป็นกำหนด offset ตาม STICKY_TOP_PX */}
                 <tr
-                  className="sticky z-10 bg-slate-50/95 supports-[backdrop-filter]:bg-slate-50/60 dark:bg-slate-700/60"
+                  className="sticky z-10 bg-slate-50 dark:bg-slate-700"
                   style={{ top: STICKY_TOP_PX }}
                 >
                   {TABLE_COLUMNS.map((c) => (
@@ -574,7 +567,8 @@ const MemberSearch = () => {
                           disabled={saving}
                           className="rounded-2xl bg-emerald-600 px-5 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98] disabled:opacity-60"
                         >
-                          {saving ? "กำลังบันทึก..." : "บันทึก"}
+                          {saving ? "กำลังบันทึก..." : "บันทึก"
+                          }
                         </button>
                         <button
                           type="button"
@@ -594,7 +588,6 @@ const MemberSearch = () => {
                   <div className="mb-5 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-400 dark:bg-indigo-900/10">
                     <div className="mb-2 text-base font-semibold text-indigo-800 dark:text-indigo-200">📈 ข้อมูลหุ้น</div>
                     <div className="grid grid-cols-1 gap-4">
-                      {/* ยอดหุ้นสะสม (total_shares) */}
                       <div className="rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
                         <div className="text-sm text-slate-600 dark:text-slate-300">ยอดหุ้นสะสม (total_shares)</div>
                         <div className="mt-1 text-2xl font-semibold">
@@ -622,10 +615,8 @@ const MemberSearch = () => {
 
                   {/* ข้อมูลทั่วไป */}
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                    {/* ✅ แถวแรกมีเฉพาะ "ชื่อ" และ "นามสกุล" อยู่บรรทัดเดียวกัน */}
                     <div className="md:col-span-2 xl:col-span-3">
                       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                        {/* ชื่อ */}
                         <div>
                           <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
                             ชื่อ
@@ -644,7 +635,6 @@ const MemberSearch = () => {
                           )}
                         </div>
 
-                        {/* นามสกุล */}
                         <div>
                           <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
                             นามสกุล
@@ -665,7 +655,6 @@ const MemberSearch = () => {
                       </div>
                     </div>
 
-                    {/* ฟิลด์อื่น ๆ (ยกเว้น first_name/last_name และ LAND_KEYS) */}
                     {FIELD_CONFIG
                       .filter(f => !LAND_KEYS.includes(f.key) && f.key !== "first_name" && f.key !== "last_name")
                       .map((f) => {

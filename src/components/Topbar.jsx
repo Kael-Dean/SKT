@@ -1,6 +1,7 @@
 // src/components/Topbar.jsx
 import { useEffect, useMemo, useState } from "react"
 
+/** decode JWT payload (Base64URL safe) */
 function safeDecodeJwt(token) {
   try {
     const base64Url = token.split(".")[1]
@@ -18,17 +19,27 @@ function safeDecodeJwt(token) {
   }
 }
 
+/** แผนที่ role_id -> ป้ายชื่อที่ต้องการแสดงบน Topbar */
+const ROLE_LABEL_BY_ID = {
+  1: "admin",
+  2: "manager",
+  3: "Human Resources",
+  4: "Head Accounting",
+  5: "Marketing",
+}
+
 const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
-  const [userInfo, setUserInfo] = useState({ username: "", id: null, role: null })
+  const [userInfo, setUserInfo] = useState({ username: "", id: null, roleId: null })
 
   useEffect(() => {
     const readToken = () => {
       const token = localStorage.getItem("token")
       const payload = token ? safeDecodeJwt(token) : null
+      const rid = Number(payload?.role ?? 0) // backend ใส่ role เป็น str(role_id) ใน JWT payload. :contentReference[oaicite:6]{index=6}
       setUserInfo({
         username: payload?.sub || "",
         id: payload?.id ?? null,
-        role: payload?.role ?? null,
+        roleId: Number.isFinite(rid) ? rid : null,
       })
     }
     readToken()
@@ -45,62 +56,61 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
   const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
 
   const displayName = userInfo.username || "ไม่พบผู้ใช้"
-  const displayRole =
-    userInfo.role === "1" ? "Admin" :
-    userInfo.role === "2" ? "Manager" :
-    userInfo.role ? `Role ${userInfo.role}` : "—"
+  const displayRole = userInfo.roleId
+    ? (ROLE_LABEL_BY_ID[userInfo.roleId] || `Role ${userInfo.roleId}`)
+    : "—"
+
   const avatarLetter = (displayName[0] || "U").toUpperCase()
 
   return (
     <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70">
       <div className="mx-4 flex w-auto items-center justify-between gap-3 px-4 py-3 md:mx-8 md:px-6">
-       
+
         {/* Left */}
-    <div className="flex items-center gap-10">
-      {/* ปุ่มสามขีด */}
-      <button
-        onClick={onToggleSidebar}
-        className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-2xl text-gray-700 shadow-sm transition active:scale-95 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
-        aria-label={sidebarBtnLabel}
-        title={sidebarBtnLabel}
-        type="button"
-      >
-        {isSidebarOpen ? (
-          // Chevron Left
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        ) : (
-          // Hamburger
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        )}
-      </button>
+        <div className="flex items-center gap-10">
+          {/* ปุ่มสามขีด */}
+          <button
+            onClick={onToggleSidebar}
+            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-2xl text-gray-700 shadow-sm transition active:scale-95 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+            aria-label={sidebarBtnLabel}
+            title={sidebarBtnLabel}
+            type="button"
+          >
+            {isSidebarOpen ? (
+              // Chevron Left
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            ) : (
+              // Hamburger
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
 
-      {/* โลโก้ + ชื่อสหกรณ์ */}
-      <div className="hidden select-none items-center gap-9 md:flex">
-        <img
-          src={darkMode ? asset("/logo/skt-logo-dark.png") : asset("/logo/skt-logo.png")}
-          onError={(e) => {
-            const cur = e.currentTarget.src
-            const alt = cur.includes("skt-logo-dark")
-              ? asset("/logo/skt-logo.png")
-              : asset("/logo/skt-logo-dark.png")
-            if (cur !== alt) e.currentTarget.src = alt
-          }}
-          alt="โลโก้องค์กร"
-          className="h-10 w-auto rounded object-contain transition-opacity duration-200"
-          loading="eager"
-          decoding="async"
-          fetchpriority="high"
-        />
-        <span className="whitespace-nowrap text-[15px] font-bold tracking-tight md:text-lg">
-          สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.สุรินทร์
-        </span>
-      </div>
-    </div>
-
+          {/* โลโก้ + ชื่อองค์กร */}
+          <div className="hidden select-none items-center gap-9 md:flex">
+            <img
+              src={darkMode ? asset("/logo/skt-logo-dark.png") : asset("/logo/skt-logo.png")}
+              onError={(e) => {
+                const cur = e.currentTarget.src
+                const alt = cur.includes("skt-logo-dark")
+                  ? asset("/logo/skt-logo.png")
+                  : asset("/logo/skt-logo-dark.png")
+                if (cur !== alt) e.currentTarget.src = alt
+              }}
+              alt="โลโก้องค์กร"
+              className="h-10 w-auto rounded object-contain transition-opacity duration-200"
+              loading="eager"
+              decoding="async"
+              fetchpriority="high"
+            />
+            <span className="whitespace-nowrap text-[15px] font-bold tracking-tight md:text-lg">
+              สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.สุรินทร์
+            </span>
+          </div>
+        </div>
 
         {/* Center search */}
         <div className="flex min-w-0 flex-1 justify-center px-2">

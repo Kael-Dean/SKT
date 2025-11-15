@@ -77,7 +77,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { label: '🏭 คลังสินค้า', path: '/stock' },
   ]), [])
 
-  // รวม path ทั้งหมด (ใช้สร้างสิทธิ์แบบรวมเร็ว ๆ)
+  // รวม path ทั้งหมด (สำหรับคำนวณสิทธิ์รวมเร็ว ๆ)
   const ALL_PATHS = useMemo(() => {
     const list = [
       firstMenu.path,
@@ -85,7 +85,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       ...membersBase.map(i => i.path),
       ...otherMenusBase.map(i => i.path),
     ]
-    // unique
     return Array.from(new Set(list))
   }, [businessBase, membersBase, otherMenusBase])
 
@@ -100,14 +99,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       return allow
     }
 
-    // hr → เห็นเฉพาะ "สมัครอีเมลพนักงาน" (ยังไม่มีหน้า → ตอนนี้มีแค่ /home)
+    // hr → เฉพาะ "สมัครอีเมลพนักงาน" (ยังไม่มีหน้า → ตอนนี้มีแค่ /home)
     if (roleId === ROLE.HR) {
       // เมื่อมีหน้าแล้วค่อยเปิด:
       // allow.add('/employee-email')
       return allow
     }
 
-    // ha → เฉพาะเอกสาร/รายงาน, ซื้อหุ้น, ค้นหา 2 หน้า, ออเดอร์
+    // ha → เฉพาะ เอกสาร/รายงาน, ซื้อหุ้น, ค้นหา 2 หน้า, ออเดอร์
     if (roleId === ROLE.HA) {
       ['/documents', '/share', '/search', '/customer-search', '/order'].forEach((p) => allow.add(p))
       return allow
@@ -120,7 +119,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       return allow
     }
 
-    // ไม่ระบุ/ไม่รู้จัก role → ให้เห็นขั้นต่ำ (หน้าหลัก)
+    // role อื่น/ไม่รู้จัก → แค่หน้าหลัก
     return allow
   }, [roleId, ALL_PATHS])
 
@@ -331,7 +330,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           )}
 
           {/* 4) เมนูที่เหลือ */}
-          {otherMenusBase.filter(i => canSee(i.path)).map((item) => {
+          {otherMenus.map((item) => {
             const active = isActive(item.path)
             return (
               <div className={cardWrapper} key={item.path}>

@@ -1,13 +1,24 @@
 // src/lib/api.js
 
-// เลือก BASE ตาม host ปัจจุบัน: ถ้ารันบนโดเมนของคุณให้ยิงโดเมนใหม่
-const RUNAPP = (import.meta.env.VITE_API_BASE_RUNAPP || "").replace(/\/$/, "");
-const CUSTOM = (import.meta.env.VITE_API_BASE_CUSTOM || "").replace(/\/$/, "");
+// เลือก BASE จาก .env ถ้ามี
+const ENV_BASES = [
+  import.meta.env.VITE_API_BASE,
+  import.meta.env.VITE_API_BASE_RUNAPP,
+  import.meta.env.VITE_API_BASE_CUSTOM,
+].filter(Boolean);
 
 function pickBase() {
+  const first = ENV_BASES.find(Boolean);
+  if (first) return first.replace(/\/$/, "");
+
+  // ไม่มี .env → เดาตามสภาพแวดล้อม
   const host = typeof window !== "undefined" ? window.location.hostname : "";
-  if (host && host.endsWith("amcsurin.com")) return CUSTOM || RUNAPP;
-  return RUNAPP || CUSTOM;
+
+  // โหมดพัฒนา: api รันที่ :8000 ตามดีฟอลต์ FastAPI
+  if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8000";
+
+  // โปรดักชัน: สมมุติว่ามี reverse proxy แมป /api → FastAPI
+  return "/api";
 }
 const API_BASE = pickBase();
 
@@ -15,7 +26,7 @@ const API_BASE = pickBase();
 function joinUrl(base, path) {
   const b = String(base || "").replace(/\/+$/, "");
   const p = String(path || "").replace(/^\/+/, "");
-  return `${b}/${p}`;
+  return b ? `${b}/${p}` : `/${p}`;
 }
 
 // --------------------------------------------------
@@ -48,7 +59,7 @@ async function _call(path, { method = "GET", body, headers } = {}) {
         : (data.detail?.message || data.detail || msg);
     } else if (data?.message) msg = data.message;
 
-    const error = new Error(msg);
+    const error = new Error(msg || `HTTP ${res.status}`);
     error.status = res.status;
     error.data = data;
     throw error;
@@ -64,7 +75,7 @@ export function api(path, opts) {
 // --------------------------------------------------
 // protected API (แนบ token อัตโนมัติ; เลือกได้ว่าจะ redirect เมื่อ 401 ไหม)
 // --------------------------------------------------
-import { getToken, logout } from "./auth"; // ใช้ชุด auth เดิมของคุณได้เลย :contentReference[oaicite:1]{index=1}
+import { getToken, logout } from "./auth"; // ใช้ชุด auth เดิมของคุณได้เลย :contentReference[oaicite:4]{index=4}
 
 export async function apiAuth(path, opts = {}) {
   const token = getToken();

@@ -1,12 +1,63 @@
 // components/Sidebar.jsx
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+
+/**
+ * RBAC_SAVE: กำหนดว่าสิทธิ์ "กดบันทึก" ในแต่ละหน้าอนุญาตให้โรลใดบ้าง
+ * - hasSave: true  => เพจมีปุ่มบันทึก (ถ้า role ไม่มีสิทธิ์บันทึก ให้ซ่อนจากเมนู)
+ * - hasSave: false => เพจไม่มีปุ่มบันทึก (แสดงให้ทุก role ดูได้ตามปกติ)
+ * - allowedRoles: ใส่เป็นหมายเลข role_id ที่อนุญาตให้ "กดบันทึก" ในหน้านั้น
+ *
+ * !! ปรับค่าด้านล่างนี้ให้ตรงกับของจริงในระบบ !!
+ *   ตัวอย่างนิยาม role_id:
+ *     1=Admin, 2=Manager, 3=Staff, 4=Viewer (แล้วแต่ระบบจริง)
+ */
+const RBAC_SAVE = {
+  // กลุ่ม ธุรกิจรวบรวมผลผลิต
+  '/bring-in':       { hasSave: true,  allowedRoles: [1, 2, 3] },
+  '/bring-in-mill':  { hasSave: true,  allowedRoles: [1, 2] },   // เดิมเคยล็อกตาม uid -> เปลี่ยนเป็น role
+  '/Buy':            { hasSave: true,  allowedRoles: [1, 2, 3] },
+  '/sales':          { hasSave: true,  allowedRoles: [1, 2, 3] },
+  '/transfer-in':    { hasSave: true,  allowedRoles: [1, 2, 3] },
+  '/transfer-out':   { hasSave: true,  allowedRoles: [1, 2] },
+  '/transfer-mill':  { hasSave: true,  allowedRoles: [1, 2] },
+  '/damage-out':     { hasSave: true,  allowedRoles: [1, 2] },
+
+  // กลุ่ม ทะเบียนสมาชิก
+  '/member-signup':        { hasSave: true,  allowedRoles: [1, 2] },
+  '/customer-add':         { hasSave: true,  allowedRoles: [1, 2, 3] },
+  '/company-add':          { hasSave: true,  allowedRoles: [1, 2] },
+  '/search':               { hasSave: false },  // หน้าค้นหา (ไม่มี Save) -> แสดงได้ทุก role
+  '/customer-search':      { hasSave: false },  // หน้าค้นหา (ไม่มี Save)
+  '/member-termination':   { hasSave: true,  allowedRoles: [1, 2] },
+  '/share':                { hasSave: true,  allowedRoles: [1, 2] },
+
+  // เมนูอื่น ๆ (ใส่ตามจริงของระบบคุณ)
+  '/documents': { hasSave: false },
+  '/order':     { hasSave: true, allowedRoles: [1, 2, 3] },
+  '/stock':     { hasSave: false },
+}
+
+/** helper: decode JWT payload แบบ safe (Base64URL) เพื่ออ่าน role จาก token ของแบ็กเอนด์ */
+function decodeJwtPayload(token) {
+  try {
+    const base64Url = token.split('.')[1] || ''
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=')
+    const json = decodeURIComponent(
+      atob(padded).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+    )
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // 👉 ดึง user ปัจจุบันจาก localStorage
+  // 👉 ดึง user ปัจจุบันจาก localStorage (ยังคงรองรับโครงสร้างเดิม)
   const user = useMemo(() => {
     try {
       const raw = localStorage.getItem('user')
@@ -15,8 +66,18 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       return null
     }
   }, [])
-  const uid = Number(user?.id ?? user?.user_id ?? 0)
-  const canSeeBringInMill = uid === 17 || uid === 18
+
+  // 👉 หา roleId ปัจจุบัน: จาก user.role_id ก่อน ถ้าไม่เจอ ค่อย decode จาก JWT "token" (payload.role)
+  const roleId = useMemo(() => {
+    const fromUser = Number(user?.role_id ?? user?.role ?? NaN)
+    if (!Number.isNaN(fromUser)) return fromUser
+
+    const token = localStorage.getItem('token')
+    if (!token) return 0
+    const payload = decodeJwtPayload(token) || {}
+    const roleClaim = Number(payload.role ?? payload.role_id ?? 0) // แบ็กเอนด์ใส่ role ลง payload แล้ว :contentReference[oaicite:2]{index=2}
+    return Number.isFinite(roleClaim) ? roleClaim : 0
+  }, [user])
 
   // เปิด dropdown อัตโนมัติเมื่ออยู่ในเมนูธุรกิจรวบรวมผลผลิต
   const inBusiness = useMemo(
@@ -43,7 +104,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       location.pathname.startsWith('/customer-add') ||
       location.pathname.startsWith('/company-add') ||
       location.pathname.startsWith('/member-termination') ||
-      location.pathname.startsWith('/share'), // ⬅️ เพิ่มให้เปิดกลุ่มเมื่ออยู่หน้า "ซื้อหุ้น"
+      location.pathname.startsWith('/share'),
     [location.pathname]
   )
   const [membersOpen, setMembersOpen] = useState(inMembers)
@@ -73,10 +134,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const cardBox =
     'rounded-2xl ring-1 ring-gray-200/90 dark:ring-gray-700/80 bg-white/70 dark:bg-gray-800/60 shadow-sm'
 
+  // เมนูหลักหน้าแรก (ไม่บังคับสิทธิ์)
   const firstMenu = { label: 'หน้าหลัก', path: '/home' }
 
-  // ✅ เมนูอื่น ๆ
-  const otherMenus = [
+  // เมนูอื่น ๆ (กำหนด hasSave/allowedRoles ที่ RBAC_SAVE ด้านบน)
+  const otherMenusBase = [
     { label: '📝 รายงาน', path: '/documents' },
     { label: '📦 ออเดอร์', path: '/order' },
     { label: '🏭 คลังสินค้า', path: '/stock' },
@@ -84,19 +146,56 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const isActive = (p) => location.pathname === p
 
-  // ✅ เมนูย่อยธุรกิจ (เพิ่ม "ยกเข้าโรงสี" แบบมีเงื่อนไข)
-  const businessMenuItems = useMemo(() => {
-    return [
-      { label: 'ยกมา', path: '/bring-in' },
-      ...(canSeeBringInMill ? [{ label: 'ยกเข้าโรงสี', path: '/bring-in-mill' }] : []),
-      { label: 'ซื้อข้าว', path: '/Buy' },
-      { label: 'ขายข้าว', path: '/sales' },
-      { label: 'รับเข้า', path: '/transfer-in' },
-      { label: 'โอนออก', path: '/transfer-out' },
-      { label: 'ส่งสี', path: '/transfer-mill' },
-      { label: 'ตัดเสียหาย', path: '/damage-out' },
-    ]
-  }, [canSeeBringInMill])
+  /** ฟังก์ชันตัดสินว่า "ควรแสดง" เมนูหรือไม่ ตามกติกา: ไม่มีสิทธิ์บันทึกก็ไม่แสดง */
+  const canSeePath = useCallback((path) => {
+    const rule = RBAC_SAVE[path]
+    // ไม่กำหนด rule ไว้ -> แสดงได้ (safe default)
+    if (!rule) return true
+    // หน้าที่ไม่มีปุ่มบันทึก -> แสดงได้ทุก role
+    if (rule.hasSave === false) return true
+    // หน้าที่มีปุ่มบันทึก -> ต้องมี role ใน allowedRoles
+    if (!Array.isArray(rule.allowedRoles)) return true
+    return rule.allowedRoles.includes(roleId)
+  }, [roleId])
+
+  // ✅ เมนูย่อยธุรกิจ
+  const businessBase = useMemo(() => ([
+    { label: 'ยกมา', path: '/bring-in' },
+    { label: 'ยกเข้าโรงสี', path: '/bring-in-mill' },
+    { label: 'ซื้อข้าว', path: '/Buy' },
+    { label: 'ขายข้าว', path: '/sales' },
+    { label: 'รับเข้า', path: '/transfer-in' },
+    { label: 'โอนออก', path: '/transfer-out' },
+    { label: 'ส่งสี', path: '/transfer-mill' },
+    { label: 'ตัดเสียหาย', path: '/damage-out' },
+  ]), [])
+  const businessMenuItems = useMemo(
+    () => businessBase.filter(item => canSeePath(item.path)),
+    [businessBase, canSeePath]
+  )
+
+  // ✅ เมนูย่อยทะเบียนสมาชิก
+  const membersBase = useMemo(() => ([
+    { label: '📝 สมัครสมาชิก', path: '/member-signup' },
+    { label: '📝 เพิ่มลูกค้าทั่วไป', path: '/customer-add' },
+    { label: '📝 เพิ่มบริษัท', path: '/company-add' },
+    { label: '🔎 ค้นหาสมาชิก', path: '/search' },
+    { label: '🔎 ค้นหาลูกค้าทั่วไป', path: '/customer-search' },
+    { label: '🪪 สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)', path: '/member-termination' },
+    { label: '📈 ซื้อหุ้น', path: '/share' },
+  ]), [])
+  const memberMenuItems = useMemo(
+    () => membersBase.filter(item => canSeePath(item.path)),
+    [membersBase, canSeePath]
+  )
+
+  const otherMenus = useMemo(
+    () => otherMenusBase.filter(item => canSeePath(item.path)),
+    [otherMenusBase, canSeePath]
+  )
+
+  const showBusinessGroup = businessMenuItems.length > 0
+  const showMemberGroup = memberMenuItems.length > 0
 
   return (
     <div
@@ -126,116 +225,110 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </div>
 
           {/* 2) กลุ่ม: ธุรกิจรวบรวมผลผลิต */}
-          <div className={cardWrapper}>
-            <div className={cardBox}>
-              <button
-                type="button"
-                aria-expanded={businessOpen}
-                aria-controls="business-submenu"
-                onClick={() => setBusinessOpen((v) => !v)}
-                className={`${baseBtn} ${inBusiness ? activeBtn : idleBtn} rounded-2xl`}
-              >
-                <span className="flex items-center gap-2">
-                  🌾 ธุรกิจรวบรวมผลผลิต
-                  <span className={`transition-transform ${businessOpen ? 'rotate-180' : ''}`}>▾</span>
-                </span>
-              </button>
+          {showBusinessGroup && (
+            <div className={cardWrapper}>
+              <div className={cardBox}>
+                <button
+                  type="button"
+                  aria-expanded={businessOpen}
+                  aria-controls="business-submenu"
+                  onClick={() => setBusinessOpen((v) => !v)}
+                  className={`${baseBtn} ${inBusiness ? activeBtn : idleBtn} rounded-2xl`}
+                >
+                  <span className="flex items-center gap-2">
+                    🌾 ธุรกิจรวบรวมผลผลิต
+                    <span className={`transition-transform ${businessOpen ? 'rotate-180' : ''}`}>▾</span>
+                  </span>
+                </button>
 
-              <div className="px-3">
+                <div className="px-3">
+                  <div
+                    className={`mx-1 h-px transition-all duration-300 ${
+                      businessOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'
+                    }`}
+                  />
+                </div>
+
+                {/* เมนูย่อย */}
                 <div
-                  className={`mx-1 h-px transition-all duration-300 ${
-                    businessOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'
+                  id="business-submenu"
+                  className={`transition-[max-height,opacity] duration-300 ease-out ${
+                    businessOpen
+                      ? 'max-h-[70vh] opacity-100'
+                      : 'max-h-0 opacity-0 overflow-hidden'
                   }`}
-                />
-              </div>
-
-              {/* เมนูย่อย */}
-              <div
-                id="business-submenu"
-                className={`transition-[max-height,opacity] duration-300 ease-out ${
-                  businessOpen
-                    ? 'max-h-[70vh] opacity-100'
-                    : 'max-h-0 opacity-0 overflow-hidden'
-                }`}
-              >
-                <div className="px-3 pb-3 pt-2 space-y-2">
-                  {businessMenuItems.map((item) => (
-                    <div key={item.path}>
-                      <button
-                        onClick={() => { navigate(item.path); setIsOpen(false) }}
-                        aria-current={isActive(item.path) ? 'page' : undefined}
-                        className={`${subBtnBase} ${isActive(item.path) ? subActive : subIdle}`}
-                      >
-                        {item.label}
-                      </button>
-                      <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
-                    </div>
-                  ))}
+                >
+                  <div className="px-3 pb-3 pt-2 space-y-2">
+                    {businessMenuItems.map((item) => (
+                      <div key={item.path}>
+                        <button
+                          onClick={() => { navigate(item.path); setIsOpen(false) }}
+                          aria-current={isActive(item.path) ? 'page' : undefined}
+                          className={`${subBtnBase} ${isActive(item.path) ? subActive : subIdle}`}
+                        >
+                          {item.label}
+                        </button>
+                        <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* 3) กลุ่ม: ทะเบียนสมาชิก */}
-          <div className={cardWrapper}>
-            <div className={cardBox}>
-              <button
-                type="button"
-                aria-expanded={membersOpen}
-                aria-controls="members-submenu"
-                onClick={() => setMembersOpen((v) => !v)}
-                className={`${baseBtn} ${inMembers ? activeBtn : idleBtn} rounded-2xl`}
-              >
-                <span className="flex items-center gap-2">
-                  🪪 ทะเบียนสมาชิก
-                  <span className={`transition-transform ${membersOpen ? 'rotate-180' : ''}`}>▾</span>
-                </span>
-              </button>
+          {showMemberGroup && (
+            <div className={cardWrapper}>
+              <div className={cardBox}>
+                <button
+                  type="button"
+                  aria-expanded={membersOpen}
+                  aria-controls="members-submenu"
+                  onClick={() => setMembersOpen((v) => !v)}
+                  className={`${baseBtn} ${inMembers ? activeBtn : idleBtn} rounded-2xl`}
+                >
+                  <span className="flex items-center gap-2">
+                    🪪 ทะเบียนสมาชิก
+                    <span className={`transition-transform ${membersOpen ? 'rotate-180' : ''}`}>▾</span>
+                  </span>
+                </button>
 
-              <div className="px-3">
+                <div className="px-3">
+                  <div
+                    className={`mx-1 h-px transition-all duration-300 ${
+                      membersOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'
+                    }`}
+                  />
+                </div>
+
+                {/* เมนูย่อยของทะเบียนสมาชิก */}
                 <div
-                  className={`mx-1 h-px transition-all duration-300 ${
-                    membersOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'
+                  id="members-submenu"
+                  className={`transition-[max-height,opacity] duration-300 ease-out ${
+                    membersOpen
+                      ? 'max-h-[70vh] opacity-100'
+                      : 'max-h-0 opacity-0 overflow-hidden'
                   }`}
-                />
-              </div>
-
-              {/* เมนูย่อยของทะเบียนสมาชิก */}
-              <div
-                id="members-submenu"
-                className={`transition-[max-height,opacity] duration-300 ease-out ${
-                  membersOpen
-                    ? 'max-h-[70vh] opacity-100'
-                    : 'max-h-0 opacity-0 overflow-hidden'
-                }`}
-              >
-                <div className="px-3 pb-3 pt-2 space-y-2">
-                  {[
-                    { label: '📝 สมัครสมาชิก', path: '/member-signup' },
-                    // ⬇️ สลับ: เอา "เพิ่มลูกค้าทั่วไป" ขึ้นมาก่อน "ค้นหาสมาชิก"
-                    { label: '📝 เพิ่มลูกค้าทั่วไป', path: '/customer-add' },
-                    { label: '📝 เพิ่มบริษัท', path: '/company-add' },
-                    { label: '🔎 ค้นหาสมาชิก', path: '/search' },
-                    // ⬇️ สลับ: เอา "เพิ่มบริษัท" ขึ้นมาก่อน "ค้นหาลูกค้าทั่วไป"
-                    { label: '🔎 ค้นหาลูกค้าทั่วไป', path: '/customer-search' },
-                    { label: '🪪 สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)', path: '/member-termination' },
-                    { label: '📈 ซื้อหุ้น', path: '/share' }, // ⬅️ เมนูใหม่
-                  ].map((item) => (
-                    <div key={item.path}>
-                      <button
-                        onClick={() => { navigate(item.path); setIsOpen(false) }}
-                        aria-current={isActive(item.path) ? 'page' : undefined}
-                        className={`${subBtnBase} ${isActive(item.path) ? subActive : subIdle}`}
-                      >
-                        {item.label}
-                      </button>
-                      <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
-                    </div>
-                  ))}
+                >
+                  <div className="px-3 pb-3 pt-2 space-y-2">
+                    {memberMenuItems.map((item) => (
+                      <div key={item.path}>
+                        <button
+                          onClick={() => { navigate(item.path); setIsOpen(false) }}
+                          aria-current={isActive(item.path) ? 'page' : undefined}
+                          className={`${subBtnBase} ${isActive(item.path) ? subActive : subIdle}`}
+                        >
+                          {item.label}
+                        </button>
+                        <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* 4) เมนูที่เหลือ */}
           {otherMenus.map((item) => {

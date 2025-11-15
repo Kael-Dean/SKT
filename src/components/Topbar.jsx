@@ -20,7 +20,7 @@ function safeDecodeJwt(token) {
 }
 
 /** แผนที่ role_id -> ป้ายชื่อที่ต้องการแสดงบน Topbar */
-const ROLE_LABEL_BY_ID = {
+const ROLE_TITLE = {
   1: "admin",
   2: "manager",
   3: "Human Resources",
@@ -28,18 +28,25 @@ const ROLE_LABEL_BY_ID = {
   5: "Marketing",
 }
 
+/** username ตรงแพทเทิร์น admin-xxx-0x ให้เป็น Marketing */
+function isMarketingAliasUsername(username) {
+  if (!username) return false
+  const u = String(username).toLowerCase().trim()
+  // ตัวอย่าง: admin-surin-01, admin-xxx-09
+  return /^admin-[a-z0-9-]+-0\d$/.test(u)
+}
+
 const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
-  const [userInfo, setUserInfo] = useState({ username: "", id: null, roleId: null })
+  const [userInfo, setUserInfo] = useState({ username: "", id: null, role: null })
 
   useEffect(() => {
     const readToken = () => {
       const token = localStorage.getItem("token")
       const payload = token ? safeDecodeJwt(token) : null
-      const rid = Number(payload?.role ?? 0) // backend ใส่ role เป็น str(role_id) ใน JWT payload. :contentReference[oaicite:6]{index=6}
       setUserInfo({
         username: payload?.sub || "",
         id: payload?.id ?? null,
-        roleId: Number.isFinite(rid) ? rid : null,
+        role: payload?.role ?? null, // role เป็น string ของ role_id จาก JWT
       })
     }
     readToken()
@@ -56,9 +63,12 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
   const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
 
   const displayName = userInfo.username || "ไม่พบผู้ใช้"
-  const displayRole = userInfo.roleId
-    ? (ROLE_LABEL_BY_ID[userInfo.roleId] || `Role ${userInfo.roleId}`)
-    : "—"
+  const roleIdFromToken = Number(userInfo.role ?? 0)
+  const isAliasMarketing = isMarketingAliasUsername(userInfo.username)
+  const effectiveRoleId = isAliasMarketing ? 5 : roleIdFromToken
+
+  const displayRole =
+    ROLE_TITLE[effectiveRoleId] ?? (userInfo.role ? `Role ${userInfo.role}` : "—")
 
   const avatarLetter = (displayName[0] || "U").toUpperCase()
 
@@ -154,9 +164,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
               <span className="absolute -right-0.5 -top-0.5 block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900" />
             </div>
             <div className="hidden text-left md:block">
-              <div className="text-sm font-semibold leading-4">
-                {displayName}
-              </div>
+              <div className="text-sm font-semibold leading-4">{displayName}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">{displayRole}</div>
             </div>
             <span className="ml-1 hidden text-gray-400 group-hover:text-gray-600 dark:text-gray-500 md:block">

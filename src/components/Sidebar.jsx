@@ -1,11 +1,31 @@
-// components/Sidebar.jsx
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useMemo, useState, useCallback } from 'react'
 
-/** นิยามรหัส role_id ตามตารางใน DB */
 const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
+const ROLE_ALIASES = {
+  ADMIN: ROLE.ADMIN, AD: ROLE.ADMIN,
+  MNG: ROLE.MNG, MANAGER: ROLE.MNG,
+  HR: ROLE.HR, HUMANRESOURCES: ROLE.HR, HUMAN_RESOURCES: ROLE.HR,
+  HA: ROLE.HA, ACCOUNT: ROLE.HA, ACCOUNTING: ROLE.HA, 'HEAD ACCOUNTING': ROLE.HA, 'HEAD-ACCOUNTING': ROLE.HA,
+  MKT: ROLE.MKT, MARKETING: ROLE.MKT,
+}
 
-/** helper: decode JWT payload (Base64URL) เพื่ออ่าน role จาก token ของแบ็กเอนด์ */
+function normalizeRoleId(raw) {
+  if (raw == null) return 0
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+  const s = String(raw).trim()
+  if (!s) return 0
+  if (/^\d+$/.test(s)) return Number(s)
+  const up = s.toUpperCase()
+  if (ROLE_ALIASES[up]) return ROLE_ALIASES[up]
+  if (up.includes('ACCOUNT')) return ROLE.HA
+  if (up.includes('MARKET')) return ROLE.MKT
+  if (up.includes('MANAG')) return ROLE.MNG
+  if (up.includes('ADMIN')) return ROLE.ADMIN
+  if (up === 'HR' || up.includes('HUMAN')) return ROLE.HR
+  return 0
+}
+
 function decodeJwtPayload(token) {
   try {
     const base64Url = token.split('.')[1] || ''
@@ -15,37 +35,50 @@ function decodeJwtPayload(token) {
       atob(padded).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
     )
     return JSON.parse(json)
-  } catch {
-    return null
+  } catch { return null }
+}
+
+function readRoleId() {
+  // 1) from user-like objects
+  try {
+    const keys = ['user', 'userdata', 'profile', 'account', 'current_user']
+    for (const k of keys) {
+      const raw = localStorage.getItem(k)
+      if (!raw) continue
+      const u = JSON.parse(raw)
+      const cands = [
+        u.role_id, u.roleId, u.role, u.role_code, u.roleCode,
+        u.role_name, u.roleName, u.position, u.position_code, u.positionCode,
+      ]
+      for (const c of cands) {
+        const id = normalizeRoleId(c)
+        if (id) return id
+      }
+    }
+  } catch {}
+
+  // 2) from JWTs
+  const token = localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('jwt')
+  if (token) {
+    const p = decodeJwtPayload(token) || {}
+    const claims = [p.role_id, p.roleId, p.role, p.roles, p.authorities, p.scope]
+    for (const c of claims) {
+      const id = normalizeRoleId(Array.isArray(c) ? c[0] : c)
+      if (id) return id
+    }
   }
+
+  // 3) loose key
+  const loose = normalizeRoleId(localStorage.getItem('role'))
+  return loose || 0
 }
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // 👉 ดึง user ปัจจุบันจาก localStorage (รองรับโครงสร้างเดิม)
-  const user = useMemo(() => {
-    try {
-      const raw = localStorage.getItem('user')
-      return raw ? JSON.parse(raw) : null
-    } catch {
-      return null
-    }
-  }, [])
+  const roleId = useMemo(() => readRoleId(), [])
 
-  // 👉 หา roleId ปัจจุบัน: จาก user.role_id ก่อน ถ้าไม่เจอ ค่อย decode จาก JWT "token" (payload.role)
-  const roleId = useMemo(() => {
-    const fromUser = Number(user?.role_id ?? user?.role ?? NaN)
-    if (Number.isFinite(fromUser)) return fromUser
-    const token = localStorage.getItem('token')
-    if (!token) return 0
-    const payload = decodeJwtPayload(token) || {}
-    const roleClaim = Number(payload.role ?? payload.role_id ?? 0) // ฝั่งแบ็กเอนด์แนบ role ลง JWT แล้ว
-    return Number.isFinite(roleClaim) ? roleClaim : 0
-  }, [user])
-
-  // ---------- กำหนดรายการเมนูทั้งหมด ----------
   const firstMenu = { label: 'หน้าหลัก', path: '/home' }
 
   const businessBase = useMemo(() => ([
@@ -69,15 +102,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { label: '📈 ซื้อหุ้น', path: '/share' },
   ]), [])
 
-  // ✅ เพิ่ม “แก้ไขออเดอร์” เข้าในกลุ่มเมนูอื่น ๆ
+  // ✅ เพิ่ม “แก้ไขออเดอร์” (ให้เฉพาะ mng/admin/HA)
   const otherMenusBase = useMemo(() => ([
     { label: '📝 รายงาน', path: '/documents' },
     { label: '📦 ออเดอร์', path: '/order' },
-    { label: '🛠️ แก้ไขออเดอร์', path: '/order-correction' }, // <<--- เมนูใหม่
+    { label: '🛠️ แก้ไขออเดอร์', path: '/order-correction' },
     { label: '🏭 คลังสินค้า', path: '/stock' },
   ]), [])
 
-  // รวม path ทั้งหมด (สำหรับคำนวณสิทธิ์รวมเร็ว ๆ)
   const ALL_PATHS = useMemo(() => {
     const list = [
       firstMenu.path,
@@ -88,43 +120,37 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     return Array.from(new Set(list))
   }, [businessBase, membersBase, otherMenusBase])
 
-  // ---------- คำนวณสิทธิ์แสดงเมนูตาม role ----------
+  // กำหนดสิทธิ์แสดงเมนู
   const allowedSet = useMemo(() => {
-    // เห็นหน้าแรกเสมอ
     const allow = new Set(['/home'])
 
-    // admin/mng → เห็นทุกหน้า
     if (roleId === ROLE.ADMIN || roleId === ROLE.MNG) {
       ALL_PATHS.forEach((p) => allow.add(p))
       return allow
     }
 
-    // hr → ตอนนี้เปิดเฉพาะ /home (รอหน้าเฉพาะของ HR)
     if (roleId === ROLE.HR) {
       return allow
     }
 
-    // ha → เห็น รายงาน/ออเดอร์/ค้นหา/ซื้อหุ้น + เปิด “แก้ไขออเดอร์”
     if (roleId === ROLE.HA) {
-      ['/documents', '/share', '/search', '/customer-search', '/order', '/order-correction'].forEach((p) => allow.add(p))
+      ['/documents', '/share', '/search', '/customer-search', '/order', '/order-correction']
+        .forEach((p) => allow.add(p))
       return allow
     }
 
-    // mkt → ทุกหน้ายกเว้น "รายงาน" และ **ห้ามเห็น “แก้ไขออเดอร์”**
     if (roleId === ROLE.MKT) {
       ALL_PATHS.forEach((p) => allow.add(p))
       allow.delete('/documents')
-      allow.delete('/order-correction') // <<--- ซ่อนเมนูนี้จาก MKT
+      allow.delete('/order-correction') // ซ่อนจาก MKT
       return allow
     }
 
-    // role อื่น/ไม่รู้จัก → แค่หน้าหลัก
     return allow
   }, [roleId, ALL_PATHS])
 
   const canSee = useCallback((path) => allowedSet.has(path), [allowedSet])
 
-  // ---------- เปิด/ปิดกลุ่มเมนูอัตโนมัติ ----------
   const inBusiness = useMemo(
     () =>
       location.pathname.startsWith('/Buy') ||
@@ -157,10 +183,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('userdata')
+    localStorage.removeItem('profile')
+    localStorage.removeItem('account')
     navigate('/')
   }
 
-  /** ---------- CSS ---------- */
   const baseBtn =
     'w-full h-12 flex items-center justify-center rounded-xl transition-all duration-200 ease-out font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 px-4 hover:cursor-pointer'
   const idleBtn =
@@ -180,7 +208,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const isActive = (p) => location.pathname === p
 
-  // ---------- กรองเมนูตามสิทธิ์ ----------
   const businessMenuItems = useMemo(
     () => businessBase.filter((item) => canSee(item.path)),
     [businessBase, canSee]
@@ -204,14 +231,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       } bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-lg`}
     >
       <div className="flex h-full flex-col">
-        {/* Header */}
         <div className="p-4 shrink-0">
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">🏢 เมนู</h1>
         </div>
 
-        {/* NAV */}
         <nav className="flex-1 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
-          {/* 1) เมนู: หน้าหลัก */}
           {canSee(firstMenu.path) && (
             <div className={cardWrapper}>
               <div className={cardBox}>
@@ -226,7 +250,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             </div>
           )}
 
-          {/* 2) กลุ่ม: ธุรกิจรวบรวมผลผลิต */}
           {showBusinessGroup && (
             <div className={cardWrapper}>
               <div className={cardBox}>
@@ -244,14 +267,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 </button>
 
                 <div className="px-3">
-                  <div
-                    className={`mx-1 h-px transition-all duration-300 ${
-                      businessOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'
-                    }`}
-                  />
+                  <div className={`mx-1 h-px transition-all duration-300 ${businessOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'}`} />
                 </div>
 
-                {/* เมนูย่อย */}
                 <div
                   id="business-submenu"
                   className={`transition-[max-height,opacity] duration-300 ease-out ${
@@ -277,7 +295,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             </div>
           )}
 
-          {/* 3) กลุ่ม: ทะเบียนสมาชิก */}
           {showMemberGroup && (
             <div className={cardWrapper}>
               <div className={cardBox}>
@@ -295,14 +312,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 </button>
 
                 <div className="px-3">
-                  <div
-                    className={`mx-1 h-px transition-all duration-300 ${
-                      membersOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'
-                    }`}
-                  />
+                  <div className={`mx-1 h-px transition-all duration-300 ${membersOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'}`} />
                 </div>
 
-                {/* เมนูย่อยของทะเบียนสมาชิก */}
                 <div
                   id="members-submenu"
                   className={`transition-[max-height,opacity] duration-300 ease-out ${
@@ -328,7 +340,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             </div>
           )}
 
-          {/* 4) เมนูที่เหลือ */}
           {otherMenus.map((item) => {
             const active = isActive(item.path)
             return (
@@ -347,7 +358,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           })}
         </nav>
 
-        {/* Footer */}
         <div className="mt-auto p-4 shrink-0">
           <button
             onClick={handleLogout}

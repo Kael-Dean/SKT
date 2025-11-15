@@ -34,6 +34,9 @@ import MemberTermination from './pages/MemberTermination'
 // ✅ นำเข้าหน้าใหม่: ซื้อหุ้น
 import Share from './pages/Share'
 
+// ✅ นำเข้า “หน้าแก้ไขออเดอร์” ใหม่
+import OrderCorrection from './pages/OrderCorrection'  // <<--- หน้าใหม่
+
 /** ---------- Route Guard เฉพาะ user id 17/18 ---------- */
 const ALLOWED_USER_IDS = new Set([17, 18])
 const getCurrentUser = () => {
@@ -51,6 +54,41 @@ function RequireUserId17or18({ children }) {
   if (!ALLOWED_USER_IDS.has(uid)) {
     return <Navigate to="/home" replace />
   }
+  return children
+}
+
+/** ---------- Route Guard ตามบทบาท: mng / admin / HA เท่านั้น ---------- */
+const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
+
+function decodeJwtPayload(token) {
+  try {
+    const base64Url = token.split('.')[1] || ''
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=')
+    const json = decodeURIComponent(
+      atob(padded).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+    )
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
+
+function getRoleId() {
+  const u = getCurrentUser()
+  const fromUser = Number(u?.role_id ?? u?.role ?? NaN)
+  if (Number.isFinite(fromUser)) return fromUser
+  const token = localStorage.getItem('token')
+  if (!token) return 0
+  const payload = decodeJwtPayload(token) || {}
+  const claim = Number(payload.role ?? payload.role_id ?? 0)
+  return Number.isFinite(claim) ? claim : 0
+}
+
+function RequireMngAdminHA({ children }) {
+  const roleId = getRoleId()
+  const ok = roleId === ROLE.ADMIN || roleId === ROLE.MNG || roleId === ROLE.HA
+  if (!ok) return <Navigate to="/home" replace />
   return children
 }
 
@@ -101,6 +139,16 @@ function App() {
             <RequireUserId17or18>
               <StockBringInMill />
             </RequireUserId17or18>
+          }
+        />
+
+        {/* ✅ ใหม่: แก้ไขออเดอร์ — ให้เห็นเฉพาะ mng / admin / HA */}
+        <Route
+          path="/order-correction"
+          element={
+            <RequireMngAdminHA>
+              <OrderCorrection />
+            </RequireMngAdminHA>
           }
         />
       </Route>

@@ -9,7 +9,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ อ่าน role จากศูนย์กลาง
   const roleId = useMemo(() => getRoleId(), []);
 
   const firstMenu = { label: 'หน้าหลัก', path: '/home' };
@@ -35,7 +34,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { label: '📈 ซื้อหุ้น', path: '/share' },
   ]), []);
 
-  // (มี "แก้ไขออเดอร์" เพิ่มไว้แล้ว)
+  // มี “แก้ไขออเดอร์”
   const otherMenusBase = useMemo(() => ([
     { label: '📝 รายงาน', path: '/documents' },
     { label: '📦 ออเดอร์', path: '/order' },
@@ -53,7 +52,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     return Array.from(new Set(list));
   }, [businessBase, membersBase, otherMenusBase]);
 
-  // ✅ กำหนดสิทธิ์แสดงเมนู (กฎเดิม)
+  /** ✅ กำหนดสิทธิ์: อนุญาตเมนู “แก้ไขออเดอร์” ให้ ADMIN(1), MNG(2), HR(3) */
   const allowedSet = useMemo(() => {
     const allow = new Set(['/home']);
 
@@ -63,6 +62,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     }
 
     if (roleId === ROLE.HR) {
+      allow.add('/order-correction');   // ← เพิ่มให้ HR
       return allow;
     }
 
@@ -80,7 +80,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     }
 
     return allow;
-  }, [roleId, ALL_PATHS]);
+  }, [roleId, ALL_PATHS]); // โครงสร้างเมนูอ้างอิงไฟล์เดิมของโปรเจ็กต์ :contentReference[oaicite:5]{index=5}
 
   const canSee = useCallback((path) => allowedSet.has(path), [allowedSet]);
 
@@ -114,8 +114,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   useEffect(() => setMembersOpen(inMembers), [inMembers]);
 
   const handleLogout = () => {
-    authLogout(); // ล้าง token + user (ศูนย์กลาง)
-    // ล้างคีย์เก่าที่เคยทำให้เดามั่ว (ถ้ามีตกค้าง)
+    authLogout();
     ['userdata', 'profile', 'account'].forEach(k => localStorage.removeItem(k));
     navigate('/');
   };

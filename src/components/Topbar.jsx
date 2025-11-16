@@ -1,76 +1,47 @@
 // src/components/Topbar.jsx
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react";
+import { getUser, getRoleId } from "../lib/auth";
 
-/** decode JWT payload (Base64URL safe) */
-function safeDecodeJwt(token) {
-  try {
-    const base64Url = token.split(".")[1]
-    if (!base64Url) return null
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
-    const json = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    )
-    return JSON.parse(json)
-  } catch {
-    return null
-  }
-}
-
-/** แผนที่ role_id -> ป้ายชื่อที่ต้องการแสดงบน Topbar */
 const ROLE_TITLE = {
   1: "admin",
   2: "manager",
   3: "Human Resources",
   4: "Head Accounting",
   5: "Marketing",
-}
-
-/** username ตรงแพทเทิร์น admin-xxx-0x ให้เป็น Marketing */
-function isMarketingAliasUsername(username) {
-  if (!username) return false
-  const u = String(username).toLowerCase().trim()
-  // ตัวอย่าง: admin-surin-01, admin-xxx-09
-  return /^admin-[a-z0-9-]+-0\d$/.test(u)
-}
+};
 
 const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
-  const [userInfo, setUserInfo] = useState({ username: "", id: null, role: null })
+  const [userInfo, setUserInfo] = useState({ username: "", id: null, roleId: 0 });
 
   useEffect(() => {
-    const readToken = () => {
-      const token = localStorage.getItem("token")
-      const payload = token ? safeDecodeJwt(token) : null
+    const refresh = () => {
+      const u = getUser() || {};
       setUserInfo({
-        username: payload?.sub || "",
-        id: payload?.id ?? null,
-        role: payload?.role ?? null, // role เป็น string ของ role_id จาก JWT
-      })
-    }
-    readToken()
-    const onStorage = (e) => e.key === "token" && readToken()
-    window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
-  }, [])
+        username: u.username || "",
+        id: u.id ?? null,
+        roleId: getRoleId(), // ✅ แหล่งความจริงเดียว
+      });
+    };
+    refresh();
+    const onStorage = (e) => {
+      if (e.key === "user" || e.key === "token") refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const toggleLabel = useMemo(
     () => (darkMode ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด"),
     [darkMode]
-  )
-  const sidebarBtnLabel = isSidebarOpen ? "ซ่อนเมนู" : "แสดงเมนู"
-  const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
+  );
+  const sidebarBtnLabel = isSidebarOpen ? "ซ่อนเมนู" : "แสดงเมนู";
+  const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`;
 
-  const displayName = userInfo.username || "ไม่พบผู้ใช้"
-  const roleIdFromToken = Number(userInfo.role ?? 0)
-  const isAliasMarketing = isMarketingAliasUsername(userInfo.username)
-  const effectiveRoleId = isAliasMarketing ? 5 : roleIdFromToken
-
+  const displayName = userInfo.username || "ไม่พบผู้ใช้";
   const displayRole =
-    ROLE_TITLE[effectiveRoleId] ?? (userInfo.role ? `Role ${userInfo.role}` : "—")
-
-  const avatarLetter = (displayName[0] || "U").toUpperCase()
+    ROLE_TITLE[userInfo.roleId] ??
+    (userInfo.roleId ? `Role ${userInfo.roleId}` : "—");
+  const avatarLetter = (displayName[0] || "U").toUpperCase();
 
   return (
     <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70">
@@ -104,11 +75,11 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             <img
               src={darkMode ? asset("/logo/skt-logo-dark.png") : asset("/logo/skt-logo.png")}
               onError={(e) => {
-                const cur = e.currentTarget.src
+                const cur = e.currentTarget.src;
                 const alt = cur.includes("skt-logo-dark")
                   ? asset("/logo/skt-logo.png")
-                  : asset("/logo/skt-logo-dark.png")
-                if (cur !== alt) e.currentTarget.src = alt
+                  : asset("/logo/skt-logo-dark.png");
+                if (cur !== alt) e.currentTarget.src = alt;
               }}
               alt="โลโก้องค์กร"
               className="h-10 w-auto rounded object-contain transition-opacity duration-200"
@@ -174,7 +145,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
         </div>
       </div>
     </header>
-  )
-}
+  );
+};
 
-export default Topbar
+export default Topbar;

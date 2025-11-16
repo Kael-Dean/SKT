@@ -1,85 +1,18 @@
-import { useNavigate, useLocation } from 'react-router-dom'
-import { useEffect, useMemo, useState, useCallback } from 'react'
+// src/components/Sidebar.jsx
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { getRoleId, logout as authLogout } from '../lib/auth';
 
-const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
-const ROLE_ALIASES = {
-  ADMIN: ROLE.ADMIN, AD: ROLE.ADMIN,
-  MNG: ROLE.MNG, MANAGER: ROLE.MNG,
-  HR: ROLE.HR, HUMANRESOURCES: ROLE.HR, HUMAN_RESOURCES: ROLE.HR,
-  HA: ROLE.HA, ACCOUNT: ROLE.HA, ACCOUNTING: ROLE.HA, 'HEAD ACCOUNTING': ROLE.HA, 'HEAD-ACCOUNTING': ROLE.HA,
-  MKT: ROLE.MKT, MARKETING: ROLE.MKT,
-}
-
-function normalizeRoleId(raw) {
-  if (raw == null) return 0
-  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
-  const s = String(raw).trim()
-  if (!s) return 0
-  if (/^\d+$/.test(s)) return Number(s)
-  const up = s.toUpperCase()
-  if (ROLE_ALIASES[up]) return ROLE_ALIASES[up]
-  if (up.includes('ACCOUNT')) return ROLE.HA
-  if (up.includes('MARKET')) return ROLE.MKT
-  if (up.includes('MANAG')) return ROLE.MNG
-  if (up.includes('ADMIN')) return ROLE.ADMIN
-  if (up === 'HR' || up.includes('HUMAN')) return ROLE.HR
-  return 0
-}
-
-function decodeJwtPayload(token) {
-  try {
-    const base64Url = token.split('.')[1] || ''
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=')
-    const json = decodeURIComponent(
-      atob(padded).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
-    )
-    return JSON.parse(json)
-  } catch { return null }
-}
-
-function readRoleId() {
-  // 1) from user-like objects
-  try {
-    const keys = ['user', 'userdata', 'profile', 'account', 'current_user']
-    for (const k of keys) {
-      const raw = localStorage.getItem(k)
-      if (!raw) continue
-      const u = JSON.parse(raw)
-      const cands = [
-        u.role_id, u.roleId, u.role, u.role_code, u.roleCode,
-        u.role_name, u.roleName, u.position, u.position_code, u.positionCode,
-      ]
-      for (const c of cands) {
-        const id = normalizeRoleId(c)
-        if (id) return id
-      }
-    }
-  } catch {}
-
-  // 2) from JWTs
-  const token = localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('jwt')
-  if (token) {
-    const p = decodeJwtPayload(token) || {}
-    const claims = [p.role_id, p.roleId, p.role, p.roles, p.authorities, p.scope]
-    for (const c of claims) {
-      const id = normalizeRoleId(Array.isArray(c) ? c[0] : c)
-      if (id) return id
-    }
-  }
-
-  // 3) loose key
-  const loose = normalizeRoleId(localStorage.getItem('role'))
-  return loose || 0
-}
+const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 };
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
-  const navigate = useNavigate()
-  const location = useLocation()
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const roleId = useMemo(() => readRoleId(), [])
+  // ✅ อ่าน role จากศูนย์กลาง
+  const roleId = useMemo(() => getRoleId(), []);
 
-  const firstMenu = { label: 'หน้าหลัก', path: '/home' }
+  const firstMenu = { label: 'หน้าหลัก', path: '/home' };
 
   const businessBase = useMemo(() => ([
     { label: 'ยกมา', path: '/bring-in' },
@@ -90,7 +23,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { label: 'โอนออก', path: '/transfer-out' },
     { label: 'ส่งสี', path: '/transfer-mill' },
     { label: 'ตัดเสียหาย', path: '/damage-out' },
-  ]), [])
+  ]), []);
 
   const membersBase = useMemo(() => ([
     { label: '📝 สมัครสมาชิก', path: '/member-signup' },
@@ -100,15 +33,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { label: '🔎 ค้นหาลูกค้าทั่วไป', path: '/customer-search' },
     { label: '🪪 สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)', path: '/member-termination' },
     { label: '📈 ซื้อหุ้น', path: '/share' },
-  ]), [])
+  ]), []);
 
-  // ✅ เพิ่ม “แก้ไขออเดอร์” (ให้เฉพาะ mng/admin/HA)
+  // (มี "แก้ไขออเดอร์" เพิ่มไว้แล้ว)
   const otherMenusBase = useMemo(() => ([
     { label: '📝 รายงาน', path: '/documents' },
     { label: '📦 ออเดอร์', path: '/order' },
     { label: '🛠️ แก้ไขออเดอร์', path: '/order-correction' },
     { label: '🏭 คลังสินค้า', path: '/stock' },
-  ]), [])
+  ]), []);
 
   const ALL_PATHS = useMemo(() => {
     const list = [
@@ -116,40 +49,40 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       ...businessBase.map(i => i.path),
       ...membersBase.map(i => i.path),
       ...otherMenusBase.map(i => i.path),
-    ]
-    return Array.from(new Set(list))
-  }, [businessBase, membersBase, otherMenusBase])
+    ];
+    return Array.from(new Set(list));
+  }, [businessBase, membersBase, otherMenusBase]);
 
-  // กำหนดสิทธิ์แสดงเมนู
+  // ✅ กำหนดสิทธิ์แสดงเมนู (กฎเดิม)
   const allowedSet = useMemo(() => {
-    const allow = new Set(['/home'])
+    const allow = new Set(['/home']);
 
     if (roleId === ROLE.ADMIN || roleId === ROLE.MNG) {
-      ALL_PATHS.forEach((p) => allow.add(p))
-      return allow
+      ALL_PATHS.forEach((p) => allow.add(p));
+      return allow;
     }
 
     if (roleId === ROLE.HR) {
-      return allow
+      return allow;
     }
 
     if (roleId === ROLE.HA) {
       ['/documents', '/share', '/search', '/customer-search', '/order', '/order-correction']
-        .forEach((p) => allow.add(p))
-      return allow
+        .forEach((p) => allow.add(p));
+      return allow;
     }
 
     if (roleId === ROLE.MKT) {
-      ALL_PATHS.forEach((p) => allow.add(p))
-      allow.delete('/documents')
-      allow.delete('/order-correction') // ซ่อนจาก MKT
-      return allow
+      ALL_PATHS.forEach((p) => allow.add(p));
+      allow.delete('/documents');
+      allow.delete('/order-correction'); // ซ่อนจาก MKT
+      return allow;
     }
 
-    return allow
-  }, [roleId, ALL_PATHS])
+    return allow;
+  }, [roleId, ALL_PATHS]);
 
-  const canSee = useCallback((path) => allowedSet.has(path), [allowedSet])
+  const canSee = useCallback((path) => allowedSet.has(path), [allowedSet]);
 
   const inBusiness = useMemo(
     () =>
@@ -162,9 +95,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       location.pathname.startsWith('/transfer-mill') ||
       location.pathname.startsWith('/damage-out'),
     [location.pathname]
-  )
-  const [businessOpen, setBusinessOpen] = useState(inBusiness)
-  useEffect(() => setBusinessOpen(inBusiness), [inBusiness])
+  );
+  const [businessOpen, setBusinessOpen] = useState(inBusiness);
+  useEffect(() => setBusinessOpen(inBusiness), [inBusiness]);
 
   const inMembers = useMemo(
     () =>
@@ -176,53 +109,51 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       location.pathname.startsWith('/member-termination') ||
       location.pathname.startsWith('/share'),
     [location.pathname]
-  )
-  const [membersOpen, setMembersOpen] = useState(inMembers)
-  useEffect(() => setMembersOpen(inMembers), [inMembers])
+  );
+  const [membersOpen, setMembersOpen] = useState(inMembers);
+  useEffect(() => setMembersOpen(inMembers), [inMembers]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    localStorage.removeItem('userdata')
-    localStorage.removeItem('profile')
-    localStorage.removeItem('account')
-    navigate('/')
-  }
+    authLogout(); // ล้าง token + user (ศูนย์กลาง)
+    // ล้างคีย์เก่าที่เคยทำให้เดามั่ว (ถ้ามีตกค้าง)
+    ['userdata', 'profile', 'account'].forEach(k => localStorage.removeItem(k));
+    navigate('/');
+  };
 
   const baseBtn =
-    'w-full h-12 flex items-center justify-center rounded-xl transition-all duration-200 ease-out font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 px-4 hover:cursor-pointer'
+    'w-full h-12 flex items-center justify-center rounded-xl transition-all duration-200 ease-out font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 px-4 hover:cursor-pointer';
   const idleBtn =
-    'text-gray-900 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-100 dark:hover:bg-gray-700 dark:hover:text-white hover:scale-[1.02] hover:shadow-md'
+    'text-gray-900 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-100 dark:hover:bg-gray-700 dark:hover:text-white hover:scale-[1.02] hover:shadow-md';
   const activeBtn =
-    'bg-black text-white dark:bg-gray-800 dark:text-white hover:scale-[1.02] hover:shadow-lg hover:opacity-90'
+    'bg-black text-white dark:bg-gray-800 dark:text-white hover:scale-[1.02] hover:shadow-lg hover:opacity-90';
   const subBtnBase =
-    'w-full h-11 flex items-center justify-center rounded-lg px-4 transition-all duration-200 ease-out text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 hover:cursor-pointer'
+    'w-full h-11 flex items-center justify-center rounded-lg px-4 transition-all duration-200 ease-out text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 hover:cursor-pointer';
   const subIdle =
-    'text-gray-700 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-200 dark:hover:bg-gray-700'
+    'text-gray-700 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-200 dark:hover:bg-gray-700';
   const subActive =
-    'bg-black/90 text-white dark:bg-white/90 dark:text-black font-semibold'
+    'bg-black/90 text-white dark:bg-white/90 dark:text-black font-semibold';
 
-  const cardWrapper = 'px-3 py-1'
+  const cardWrapper = 'px-3 py-1';
   const cardBox =
-    'rounded-2xl ring-1 ring-gray-200/90 dark:ring-gray-700/80 bg-white/70 dark:bg-gray-800/60 shadow-sm'
+    'rounded-2xl ring-1 ring-gray-200/90 dark:ring-gray-700/80 bg-white/70 dark:bg-gray-800/60 shadow-sm';
 
-  const isActive = (p) => location.pathname === p
+  const isActive = (p) => location.pathname === p;
 
   const businessMenuItems = useMemo(
     () => businessBase.filter((item) => canSee(item.path)),
     [businessBase, canSee]
-  )
+  );
   const memberMenuItems = useMemo(
     () => membersBase.filter((item) => canSee(item.path)),
     [membersBase, canSee]
-  )
+  );
   const otherMenus = useMemo(
     () => otherMenusBase.filter((item) => canSee(item.path)),
     [otherMenusBase, canSee]
-  )
+  );
 
-  const showBusinessGroup = businessMenuItems.length > 0
-  const showMemberGroup = memberMenuItems.length > 0
+  const showBusinessGroup = businessMenuItems.length > 0;
+  const showMemberGroup = memberMenuItems.length > 0;
 
   return (
     <div
@@ -240,7 +171,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <div className={cardWrapper}>
               <div className={cardBox}>
                 <button
-                  onClick={() => { navigate(firstMenu.path); setIsOpen(false) }}
+                  onClick={() => { navigate(firstMenu.path); setIsOpen(false); }}
                   aria-current={isActive(firstMenu.path) ? 'page' : undefined}
                   className={`${baseBtn} ${isActive(firstMenu.path) ? activeBtn : idleBtn} rounded-2xl`}
                 >
@@ -280,7 +211,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     {businessMenuItems.map((item) => (
                       <div key={item.path}>
                         <button
-                          onClick={() => { navigate(item.path); setIsOpen(false) }}
+                          onClick={() => { navigate(item.path); setIsOpen(false); }}
                           aria-current={isActive(item.path) ? 'page' : undefined}
                           className={`${subBtnBase} ${isActive(item.path) ? subActive : subIdle}`}
                         >
@@ -325,7 +256,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     {memberMenuItems.map((item) => (
                       <div key={item.path}>
                         <button
-                          onClick={() => { navigate(item.path); setIsOpen(false) }}
+                          onClick={() => { navigate(item.path); setIsOpen(false); }}
                           aria-current={isActive(item.path) ? 'page' : undefined}
                           className={`${subBtnBase} ${isActive(item.path) ? subActive : subIdle}`}
                         >
@@ -341,12 +272,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           )}
 
           {otherMenus.map((item) => {
-            const active = isActive(item.path)
+            const active = isActive(item.path);
             return (
               <div className={cardWrapper} key={item.path}>
                 <div className={cardBox}>
                   <button
-                    onClick={() => { navigate(item.path); setIsOpen(false) }}
+                    onClick={() => { navigate(item.path); setIsOpen(false); }}
                     aria-current={active ? 'page' : undefined}
                     className={`${baseBtn} ${active ? activeBtn : idleBtn} rounded-2xl`}
                   >
@@ -354,7 +285,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                   </button>
                 </div>
               </div>
-            )
+            );
           })}
         </nav>
 
@@ -368,7 +299,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Sidebar
+export default Sidebar;

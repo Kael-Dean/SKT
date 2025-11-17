@@ -1,51 +1,14 @@
+
 <!doctype html>
-<html lang="th">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>สกต.สุรินทร์</title>
     <link rel="icon" type="image/png" href="/logo/skt-logo-dark.png" />
-
-    <!-- Boot guard: กัน "หน้าเด้งขาว" ถ้าบันเดิลล้มก่อน React mount -->
-    <style>
-      .crash-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fff;color:#111}
-      .crash-box{max-width:720px;margin:24px;padding:20px;border:1px solid #f1c0c0;background:#fff3f3;border-radius:16px}
-      .crash-title{font-size:20px;font-weight:700;margin-bottom:8px}
-      .crash-btns{display:flex;gap:8px;margin-top:12px}
-      .btn{appearance:none;border:1px solid #ddd;border-radius:12px;padding:8px 14px;cursor:pointer}
-      .btn.primary{background:#10b981;color:#fff;border-color:#059669}
-    </style>
-    <script>
-      (function () {
-        var mounted = false;
-        function showCrash(err) {
-          if (mounted) return;
-          var root = document.getElementById('root');
-          var msg = (err && (err.message || err.reason || err.toString())) || 'เกิดข้อผิดพลาดในการโหลดระบบ';
-          root.innerHTML =
-            '<div class="crash-wrap"><div class="crash-box">' +
-            '<div class="crash-title">เกิดข้อผิดพลาดขณะโหลดระบบ</div>' +
-            '<div style="opacity:.85">ระบบได้ป้องกันไม่ให้หน้าเป็นสีขาว คุณสามารถรีโหลดหน้าหรือกลับหน้าหลักได้</div>' +
-            '<pre style="margin:12px 0;white-space:pre-wrap;color:#b91c1c;background:#fff;border:1px dashed #fca5a5;border-radius:12px;padding:10px">' +
-            String(msg).slice(0, 600) +
-            '</pre>' +
-            '<div class="crash-btns">' +
-            '<button class="btn primary" onclick="location.reload()">รีโหลดหน้า</button>' +
-            '<button class="btn" onclick="location.href=\'/#/home\'">กลับหน้าหลัก</button>' +
-            '</div></div></div>';
-        }
-        window.__appBoot = {
-          mounted: function(){ mounted = true; },
-          crash: showCrash
-        };
-        window.addEventListener('error', function (e) { showCrash(e.error || e); }, { capture: true });
-        window.addEventListener('unhandledrejection', function (e) { showCrash(e.reason || e); });
-      })();
-    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>สกต.สุรินทร์</title>
   </head>
   <body>
     <div id="root"></div>
-    <!-- Vite/CRA จะจัดการบันเดิลให้เอง -->
-    <script type="module" src="/src/index.jsx"></script>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

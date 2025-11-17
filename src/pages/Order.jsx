@@ -218,51 +218,6 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
-/** ---------- Order type helpers ---------- */
-const ORDER_TYPE_OPTIONS = [
-  { id: "all", label: "ซื้อ + ขายทั้งหมด" },
-  { id: "buy", label: "เฉพาะซื้อ" },
-  { id: "sell", label: "เฉพาะขาย" },
-]
-
-// แยกประเภทออเดอร์จากข้อมูลในแถว
-const getOrderTypeFromRow = (r) => {
-  const raw = r?.type ?? r?.order_type ?? r?.orderType
-  const tNum = raw != null && raw !== "" ? Number(raw) : NaN
-  if (tNum === 1) return "buy"
-  if (tNum === 2) return "sell"
-
-  if (typeof raw === "string") {
-    const s = raw.toLowerCase()
-    if (s.includes("buy")) return "buy"
-    if (s.includes("sell")) return "sell"
-  }
-
-  // fallback: ถ้า entry/exit มีค่าชัด → มองว่าเป็นฝั่งซื้อ, ถ้าไม่มีแต่ weight มี → มองว่าเป็นขาย
-  const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
-  const exit  = toNumber(r.exit_weight  ?? r.exitWeight  ?? r.exit  ?? 0)
-  const net   = toNumber(r.weight ?? 0)
-
-  if (entry > 0 || exit > 0) return "buy"
-  if (net > 0 && entry === 0 && exit === 0) return "sell"
-  return "unknown"
-}
-
-const getOrderTypeLabel = (r) => {
-  const t = getOrderTypeFromRow(r)
-  if (t === "buy") return "ซื้อ"
-  if (t === "sell") return "ขาย"
-  return "—"
-}
-
-const matchOrderType = (r, filterType) => {
-  if (!filterType || filterType === "all") return true
-  const t = getOrderTypeFromRow(r)
-  if (filterType === "buy") return t === "buy"
-  if (filterType === "sell") return t === "sell"
-  return true
-}
-
 /** ---------- Page: Order ---------- */
 const PAGE_SIZE = 100
 
@@ -271,12 +226,17 @@ const Order = () => {
   const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
 
   /** ---------- State ---------- */
-  const [rows, setRows] = useState([])         // raw ทั้งหมด (ซื้อ+ขาย)
+  const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
 
   // pagination
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState("1")
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(rows.length / PAGE_SIZE)), [rows.length])
+  const pagedRows = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return rows.slice(start, start + PAGE_SIZE)
+  }, [rows, page])
 
   // options
   const [branchOptions, setBranchOptions] = useState([])
@@ -294,8 +254,6 @@ const Order = () => {
 
     specId: "", specLabel: "",
     q: "",
-
-    orderType: "all",    // ⭐ ใหม่: all / buy / sell
   })
   const [errors, setErrors] = useState({ startDate: "", endDate: "" })
 
@@ -337,7 +295,7 @@ const Order = () => {
             label: String(r.prod_name || r.name || r.spec_name || `spec #${r.id}`).trim(),
           }))
           .filter(o => o.id && o.label)
-        setSpecOptions(opts)
+        setSpecOptions(opts) // ⚠️ ไม่ตัดเหลือ 2 รายการ — แสดงทั้งหมด
       } catch (e) {
         console.error("load initial options failed:", e)
         setBranchOptions([]); setSpecOptions([])
@@ -368,7 +326,7 @@ const Order = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId])
 
-  /** ---------- Fetch orders (raw ทั้งหมด) ---------- */
+  /** ---------- Fetch orders ---------- */
   const fetchOrders = async () => {
     if (!validateDates(filters.startDate, filters.endDate)) return
     try {
@@ -379,7 +337,7 @@ const Order = () => {
       if (filters.branchId) params.set("branch_id", filters.branchId)
       if (filters.klangId) params.set("klang_id", filters.klangId)
       if (filters.q?.trim()) params.set("q", filters.q.trim())
-      if (filters.specId) params.append("spec_id", filters.specId)
+      if (filters.specId) params.append("spec_id", filters.specId) // 👉 เผื่อ BE รองรับ จะฟิลเตอร์ตาม spec ได้
 
       const data = await apiAuth(`/order/orders/report?${params.toString()}`)
       setRows(Array.isArray(data) ? data : [])
@@ -400,27 +358,14 @@ const Order = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQ])
 
-  /** ---------- Filter by order type (ซื้อ/ขาย/ทั้งหมด) ---------- */
-  const filteredRows = useMemo(
-    () => rows.filter((r) => matchOrderType(r, filters.orderType)),
-    [rows, filters.orderType]
-  )
-
-  /** ---------- Totals (อิงหลังกรองแล้ว) ---------- */
+  /** ---------- Totals ---------- */
   const totals = useMemo(() => {
     let weight = 0, revenue = 0
-    filteredRows.forEach((x) => { weight += toNumber(x.weight); revenue += toNumber(x.price) })
+    rows.forEach((x) => { weight += toNumber(x.weight); revenue += toNumber(x.price) })
     return { weight, revenue }
-  }, [filteredRows])
+  }, [rows])
 
-  /** ---------- Pagination helpers (อิงหลังกรองแล้ว) ---------- */
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE)), [filteredRows.length])
-
-  const pagedRows = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE
-    return filteredRows.slice(start, start + PAGE_SIZE)
-  }, [filteredRows, page])
-
+  /** ---------- Pagination helpers ---------- */
   useEffect(() => {
     setPage((p) => Math.min(Math.max(1, p), totalPages))
     setPageInput((v) => String(Math.min(Math.max(1, toNumber(onlyDigits(v)) || 1), totalPages)))
@@ -431,11 +376,11 @@ const Order = () => {
     setPage(n); setPageInput(String(n))
     // Smooth scroll to top of the main scroll container (with window fallback)
     try {
-      const main = document.querySelector("main")
-      if (main && typeof main.scrollTo === "function") {
-        main.scrollTo({ top: 0, behavior: "smooth" })
+      const main = document.querySelector('main')
+      if (main && typeof main.scrollTo === 'function') {
+        main.scrollTo({ top: 0, behavior: 'smooth' })
       } else {
-        window?.scrollTo?.({ top: 0, behavior: "smooth" })
+        window?.scrollTo?.({ top: 0, behavior: 'smooth' })
       }
     } catch (_) {
       // no-op
@@ -472,8 +417,6 @@ const Order = () => {
 
       specId: "", specLabel: "",
       q: "",
-
-      orderType: "all",
     })
     setKlangOptions([])
     setPage(1); setPageInput("1")
@@ -481,15 +424,13 @@ const Order = () => {
   }
 
   /** ----------- UI ----------- */
-  const startIndex = filteredRows.length ? (page - 1) * PAGE_SIZE + 1 : 0
-  const endIndex = filteredRows.length ? Math.min(filteredRows.length, page * PAGE_SIZE) : 0
+  const startIndex = (page - 1) * PAGE_SIZE + 1
+  const endIndex = Math.min(rows.length, page * PAGE_SIZE)
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
-        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">
-          📦 รายการออเดอร์ซื้อ / ขายข้าวเปลือก
-        </h1>
+        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">📦 รายการออเดอร์ซื้อข้าวเปลือก</h1>
 
         {/* Filters */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
@@ -560,22 +501,9 @@ const Order = () => {
               </div>
             </div>
 
-            {/* ประเภทออเดอร์ (ซื้อ/ขาย/ทั้งหมด) */}
-            <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ประเภทออเดอร์</label>
-              <ComboBox
-                options={ORDER_TYPE_OPTIONS}
-                value={filters.orderType}
-                onChange={(id) => setFilters((p) => ({ ...p, orderType: id || "all" }))}
-                placeholder="— ซื้อ + ขายทั้งหมด —"
-              />
-            </div>
-
             {/* Search box */}
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
-                ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)
-              </label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)</label>
               <input
                 className={baseField}
                 value={filters.q}
@@ -615,11 +543,11 @@ const Order = () => {
           </div>
         </div>
 
-        {/* Summary (หลังกรองแล้ว) */}
+        {/* Summary */}
         <div className="mb-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
             <div className="text-slate-500 dark:text-slate-400">จำนวนรายการ</div>
-            <div className="text-2xl font-semibold">{filteredRows.length.toLocaleString()}</div>
+            <div className="text-2xl font-semibold">{rows.length.toLocaleString()}</div>
           </div>
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
             <div className="text-slate-500 dark:text-slate-400">น้ำหนักรวม (กก.)</div>
@@ -638,7 +566,6 @@ const Order = () => {
               <tr>
                 <th className="px-3 py-2">วันที่</th>
                 <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
-                <th className="px-3 py-2">ประเภท</th>{/* ซื้อ / ขาย */}
                 <th className="px-3 py-2">ลูกค้า</th>
                 <th className="px-3 py-2">ชนิดข้าว</th>
                 <th className="px-3 py-2">สาขา</th>
@@ -652,9 +579,9 @@ const Order = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td className="px-3 py-3" colSpan={12}>กำลังโหลด...</td></tr>
-              ) : filteredRows.length === 0 ? (
-                <tr><td className="px-3 py-3" colSpan={12}>ไม่พบข้อมูล</td></tr>
+                <tr><td className="px-3 py-3" colSpan={11}>กำลังโหลด...</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td className="px-3 py-3" colSpan={11}>ไม่พบข้อมูล</td></tr>
               ) : (
                 pagedRows.map((r) => {
                   const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
@@ -671,10 +598,7 @@ const Order = () => {
                     >
                       <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
                       <td className="px-3 py-2">{r.order_serial || r.paymentRefNo || "—"}</td>
-                      <td className="px-3 py-2">{getOrderTypeLabel(r)}</td>
-                      <td className="px-3 py-2">
-                        {`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.customer_name || "—"}
-                      </td>
+                      <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.customer_name || "—"}</td>
                       <td className="px-3 py-2">{r.species || r.rice_type || r.riceType || "—"}</td>
                       <td className="px-3 py-2">{r.branch_name || r.branchName || "—"}</td>
                       <td className="px-3 py-2">{r.klang_name || r.klangName || "—"}</td>
@@ -693,8 +617,8 @@ const Order = () => {
           {/* Pagination Bar */}
           <div className="flex flex-col gap-3 p-3 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-600 dark:text-slate-300">
-              แสดง <b>{startIndex.toLocaleString()}</b>
-              –<b>{endIndex.toLocaleString()}</b> จาก <b>{filteredRows.length.toLocaleString()}</b> รายการ
+              แสดง <b>{rows.length ? startIndex.toLocaleString() : 0}</b>
+              –<b>{rows.length ? endIndex.toLocaleString() : 0}</b> จาก <b>{rows.length.toLocaleString()}</b> รายการ
             </div>
 
             <div className="flex flex-wrap items-center gap-2">

@@ -107,7 +107,7 @@ const useEnterNavigation = (refs, buyerType, order) => {
 function ComboBox({
   options = [], value, onChange, placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "", getValue = (o) => o?.value ?? o?.id ?? "",
-  /** ⭐ เพิ่ม: รองรับ sub‑label ใต้ชื่อ */
+  /** ⭐ รองรับ sub‑label ใต้ชื่อ */
   getSubLabel = (o) => o?.subLabel ?? "",
   disabled = false, error = false, buttonRef = null, hintRed = false,
   clearHint = () => {}, onEnterNext
@@ -293,6 +293,56 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
+/* ==================== JWT Branch Lock (เหมือนหน้า Buy) ==================== */
+// ดึง token แล้วถอด payload (แบบเดียวกับหน้า Buy.jsx)
+const getToken = () =>
+  localStorage.getItem("access_token") ||
+  localStorage.getItem("token") ||
+  sessionStorage.getItem("access_token") ||
+  sessionStorage.getItem("token") ||
+  ""
+
+const decodeJwtPayload = (token) => {
+  try {
+    const clean = String(token || "").replace(/^Bearer\s+/i, "")
+    const b64 = clean.split(".")[1]
+    if (!b64) return null
+    const json = atob(b64.replace(/-/g, "+").replace(/_/g, "/"))
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
+
+const USER_BRANCH_MAP = {
+  tartoom: "ท่าตูม",
+  ratanaburi: "รัตนบุรี",
+  surin: "สุรินทร์",
+  sirin: "สุรินทร์",
+  processing: "ฝ่ายแปรรูปผลิตผล",
+  srikor: "ศีขรภูมิ",
+  prasat: "ปราสาท",
+  chumpolburi: "ชุมพลบุรี",
+  sangkha: "สังขะ",
+  chomphra: "จอมพระ",
+}
+
+const deriveLockedBranch = (opts = []) => {
+  try {
+    const token = getToken()
+    const username = (decodeJwtPayload(token)?.sub || "").toLowerCase()
+    if (!username) return null
+    const key = Object.keys(USER_BRANCH_MAP).find((k) => username.includes(k))
+    if (!key) return null
+    const wantedLabelTH = USER_BRANCH_MAP[key]
+    const target = (opts || []).find((o) => String(o.label || "").includes(wantedLabelTH))
+    return target || null
+  } catch (e) {
+    console.error("deriveLockedBranch failed:", e)
+    return null
+  }
+}
+
 // =====================================================================
 //                              Sales Page (ขาย: หลายพ่วง)
 // =====================================================================
@@ -349,11 +399,14 @@ function Sales() {
   const [klangOptions, setKlangOptions] = useState([])
   const [businessOptions, setBusinessOptions] = useState([])
 
-  // ---------- ฟอร์มสำเร็จรูป (โหลดจาก BE แบบหน้า Buy) ----------
-  const [templateOptions, setTemplateOptions] = useState([
-    { id: "0", label: "— ฟอร์มปกติ (เลือกเอง) —" },
-  ])
-  const [formTemplate, setFormTemplate] = useState("0")
+  // 🔒 ล็อกสาขาตาม JWT
+  const [lockedBranch, setLockedBranch] = useState(null)
+  const [branchLocked, setBranchLocked] = useState(false)
+
+  // ---------- ฟอร์มสำเร็จรูป (โหมดล็อกเหมือนหน้า Buy) ----------
+  const LOCK_SPEC = true // บังคับล็อกสเปกจากฟอร์ม
+  const [templateOptions, setTemplateOptions] = useState([]) // ไม่มีตัวเลือก “ฟอร์มปกติ”
+  const [formTemplate, setFormTemplate] = useState("")       // ต้องเลือกเสมอ
   const [selectedTemplateLabel, setSelectedTemplateLabel] = useState("")
 
   /** ⭐ เก็บ label ของ variant (ชั้นย่อย) สำหรับ template */
@@ -654,7 +707,7 @@ function Sales() {
     loadKlang()
   }, [order.branchId, order.branchName])
 
-  // ---------- โหลดรายการฟอร์มสำเร็จรูปจาก BE + จำค่าที่แชร์จาก Buy ----------
+  // ---------- โหลดรายการฟอร์มสำเร็จรูปจาก BE (ล็อกสเปก) ----------
   useEffect(() => {
     const loadForms = async () => {
       try {
@@ -675,25 +728,35 @@ function Sales() {
             },
           }))
           .filter((o) => o.id && o.label)
-        setTemplateOptions([{ id: "0", label: "— ฟอร์มปกติ (เลือกเอง) —" }, ...mapped])
+        setTemplateOptions(mapped)
 
-        // ดึง template ที่แชร์จากหน้า Buy ไว้ (ถ้ามี)
+        // ตั้งค่า template เริ่มต้น: ใช้อันที่แชร์/ที่เคยเลือก หรืออันแรก
+        let nextId = ""
         try {
           const shared = localStorage.getItem("shared.formTemplate")
           if (shared) {
             const o = JSON.parse(shared)
-            if (o?.id) {
-              setFormTemplate(String(o.id))
-              setSelectedTemplateLabel(o.label || "")
-            }
-          } else {
+            if (o?.id && mapped.some(m => String(m.id) === String(o.id))) nextId = String(o.id)
+          }
+          if (!nextId) {
             const saved = localStorage.getItem("sales.formTemplate")
-            if (saved) setFormTemplate(saved)
+            if (saved && mapped.some(m => String(m.id) === String(saved))) nextId = String(saved)
           }
         } catch {}
+        if (!nextId) nextId = String(mapped[0]?.id || "")
+        if (nextId) {
+          setFormTemplate(nextId)
+          const found = mapped.find((o) => String(o.id) === nextId)
+          setSelectedTemplateLabel(found?.label || "")
+          if (found?.spec) applyTemplateBySpec(found.spec)
+          try {
+            localStorage.setItem("shared.formTemplate", JSON.stringify({ id: nextId, label: found?.label || "" }))
+            localStorage.setItem("sales.formTemplate", nextId)
+          } catch {}
+        }
       } catch (e) {
         console.error("load form templates error:", e)
-        setTemplateOptions([{ id: "0", label: "— ฟอร์มปกติ (เลือกเอง) —" }])
+        setTemplateOptions([])
       }
     }
     loadForms()
@@ -707,7 +770,6 @@ function Sales() {
     return f ? String(f.label ?? "") : ""
   }
 
-  const isTemplateActive = formTemplate !== "0"
   const applyTemplateBySpec = (spec) => {
     if (!spec) return
     const S = (v) => (v == null ? "" : String(v))
@@ -732,14 +794,6 @@ function Sales() {
       businessType: "",
     }))
   }
-
-  // เลือก template → ยิงสเปกเข้า state + จำค่าไว้ใช้ต่อ
-  useEffect(() => {
-    if (!isTemplateActive) return
-    const current = templateOptions.find((o) => String(o.id) === String(formTemplate))
-    if (current?.spec) applyTemplateBySpec(current.spec)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formTemplate])
 
   // Sync id -> label เมื่อ options โหลดเสร็จ
   useEffect(() => {
@@ -791,9 +845,9 @@ function Sales() {
     }
   }, [order.businessTypeId, businessOptions])
 
-  // ---------- แชร์ template id ปัจจุบัน (ให้หน้าอื่นใช้ต่อ) ----------
+  // ---------- แชร์ template id ปัจจุบัน ----------
   useEffect(() => {
-    try { localStorage.setItem("sales.formTemplate", String(formTemplate)) } catch {}
+    try { if (formTemplate) localStorage.setItem("sales.formTemplate", String(formTemplate)) } catch {}
   }, [formTemplate])
 
   // ---------- แผงค้นหาบุคคล/บริษัท ----------
@@ -813,8 +867,7 @@ function Sales() {
       province: S(r.province ?? ""),
       postalCode: onlyDigits(S(r.postal_code ?? r.postalCode ?? "")),
       phone: S(r.phone ?? r.tel ?? r.mobile ?? ""),
-      // ⭐ เก็บ member_id เป็นสตริงตั้งแต่ต้น
-      memberId: r.member_id != null ? String(r.member_id) : null,
+      memberId: r.member_id != null ? toIntOrNull(r.member_id) : null,
     }
   }
   const fillFromRecord = async (raw = {}) => {
@@ -826,23 +879,23 @@ function Sales() {
       phone: data.phone || prev.phone,
       memberId: data.memberId != null ? String(data.memberId) : prev.memberId,
     }))
-    setMemberMeta({ type: data.type, assoId: data.assoId, memberId: data.memberId }) // ← string
+    setMemberMeta({ type: data.type, assoId: data.assoId, memberId: data.memberId })
     setCustomerFound(true)
   }
 
-  // 🔎 member_id (เปลี่ยนเป็น string)
+  // 🔎 member_id
   useEffect(() => {
     if (!autoSearchEnabled) { setCustomerFound(null); return }
     if (buyerType !== "person") { setCustomerFound(null); return }
-    const mid = String(debouncedMemberId || "").trim()
-    if (!mid) return
+    const mid = toIntOrNull(debouncedMemberId)
+    if (mid == null) return
     const __epoch = searchEpochRef.current
     const fetchByMemberId = async () => {
       try {
         setLoadingCustomer(true)
         const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(String(mid))}`)) || []
         if (__epoch !== searchEpochRef.current) return
-        const exact = arr.find((r) => r.type === "member" && String(r.member_id ?? r.memberId ?? "") === mid) || arr[0]
+        const exact = arr.find((r) => r.type === "member" && toIntOrNull(r.member_id) === mid) || arr[0]
         if (exact) await fillFromRecord(exact)
         else { if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null }) }
       } catch (e) {
@@ -1050,7 +1103,6 @@ function Sales() {
 
   // ---------- อัปเดต state ----------
   const updateCustomer = (k, v) => {
-    // เปิด auto‑search เมื่อผู้ใช้เริ่มพิมพ์ใหม่ (เหมือนหน้า Buy)
     setAutoSearchEnabled(true)
     if (String(v).trim() !== "") clearHint(k)
     setCustomer((p) => ({ ...p, [k]: v }))
@@ -1108,8 +1160,7 @@ function Sales() {
     const e = {}
     if (buyerType === "person") {
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
-      const _midStr = String(memberMeta.memberId ?? customer.memberId ?? "").trim()
-      if (!_midStr && !memberMeta.assoId) {
+      if (!toIntOrNull(memberMeta.memberId ?? customer.memberId) && !memberMeta.assoId) {
         e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id"
       }
     } else {
@@ -1117,13 +1168,13 @@ function Sales() {
       if (!customer.taxId.trim()) e.taxId = "กรุณากรอกเลขผู้เสียภาษี"
     }
 
-    if (!order.productId) e.product = "เลือกประเภทสินค้า"
-    if (!order.riceId) e.riceType = "เลือกชนิดข้าว (species)"
-    if (!order.subriceId) e.subrice = "เลือกชั้นย่อย (variant)"
-    if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข"
-    if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา"
-    if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล"
-    if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ"
+    if (!order.productId) e.product = "เลือกประเภทสินค้า (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.riceId) e.riceType = "เลือกชนิดข้าว (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.subriceId) e.subrice = "เลือกชั้นย่อย (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ (ล็อกจากฟอร์มสำเร็จรูป)"
     if (!order.branchName) e.branchName = "เลือกสาขา"
     if (!order.klangName) e.klangName = "เลือกคลัง"
 
@@ -1140,13 +1191,10 @@ function Sales() {
         String(t.scaleNoBack || "").trim() !== "" ||
         String(t.unitPriceBack || "").trim() !== "" ||
         String(t.gramBack || "").trim() !== ""
-      // ✅ บังคับกรอกเลขที่ใบชั่งพ่วงหน้า
       if (!String(t.scaleNoFront || "").trim()) te.scaleNoFront = "กรุณากรอกเลขที่ใบชั่งพ่วงหน้า"
-      // บังคับฝั่งพ่วงหน้าเสมอ
       if (!String(t.licensePlateFront || "").trim()) te.licensePlateFront = "กรอกทะเบียนพ่วงหน้า"
       if (t.frontWeightKg === "" || Number(t.frontWeightKg) <= 0) te.frontWeightKg = "กรอกน้ำหนักสุทธิพ่วงหน้า (> 0)"
       if (t.unitPriceFront === "" || Number(t.unitPriceFront) <= 0) te.unitPriceFront = "กรอกราคาต่อกก. พ่วงหน้า (> 0)"
-      // บังคับฝั่งพ่วงหลังเมื่อมีข้อมูล
       if (hasBack) {
         if (!String(t.licensePlateBack || "").trim()) te.licensePlateBack = "กรอกทะเบียนพ่วงหลัง"
         if (t.backWeightKg === "" || Number(t.backWeightKg) <= 0) te.backWeightKg = "กรอกน้ำหนักสุทธิพ่วงหลัง (> 0)"
@@ -1177,7 +1225,6 @@ function Sales() {
     if (tmp) { try { tmp.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} }
   }
 
-  // ✅ โฟกัสตัวแรกตาม missing hints (ให้เหมือนหน้า Buy)
   const scrollToFirstMissing = (hintsObj) => {
     const personKeys = ["memberId","fullName"]
     const companyKeys = ["companyName","taxId"]
@@ -1192,13 +1239,27 @@ function Sales() {
     }
   }
 
+  // ---------- Branch lock (หลังโหลดรายการสาขา) ----------
+  useEffect(() => {
+    if (!branchOptions?.length) return
+    const b = deriveLockedBranch(branchOptions)
+    if (b) {
+      setLockedBranch(b)
+      setBranchLocked(true)
+      setOrder((p) => ({ ...p, branchId: b.id, branchName: b.label, klangName: "", klangId: null }))
+    } else {
+      setLockedBranch(null)
+      setBranchLocked(false)
+    }
+  }, [branchOptions])
+
   // ---------- Submit ----------
   const toIsoDateTime = (yyyyMmDd) => {
     try { return new Date(`${yyyyMmDd}T12:00:00Z`).toISOString() } catch { return new Date().toISOString() }
   }
 
   const handleReset = () => {
-    // ปิด auto-search ชั่วคราว + ยกเลิกผล async ค้าง (กันฟอร์มถูกเติมกลับมา)
+    // ปิด auto-search ชั่วคราว + ยกเลิกผล async ค้าง
     setAutoSearchEnabled(false)
     bumpSearchEpoch()
 
@@ -1210,17 +1271,26 @@ function Sales() {
       brHouseNo: "", brMoo: "", brSubdistrict: "", brDistrict: "", brProvince: "", brPostalCode: "",
     })
     setMemberMeta({ type: "unknown", assoId: null, memberId: null })
-    setOrder({
-      productId: "", productName: "", riceId: "", riceType: "", subriceId: "", subriceName: "",
-      conditionId: "", condition: "", fieldTypeId: "", fieldType: "", riceYearId: "", riceYear: "",
-      businessTypeId: "", businessType: "", programId: "", programName: "",
-      branchName: "", branchId: null, klangName: "", klangId: null,
-      issueDate: new Date().toISOString().slice(0, 10), comment: "",
+    setOrder((prev) => ({
+      productId: prev.productId, productName: prev.productName,
+      riceId: prev.riceId, riceType: prev.riceType,
+      subriceId: prev.subriceId, subriceName: prev.subriceName,
+      conditionId: prev.conditionId, condition: prev.condition,
+      fieldTypeId: prev.fieldTypeId, fieldType: prev.fieldType,
+      riceYearId: prev.riceYearId, riceYear: prev.riceYear,
+      businessTypeId: prev.businessTypeId, businessType: prev.businessType,
+      programId: prev.programId, programName: prev.programName,
+      // คงสาขาที่ล็อกไว้ (ถ้ามี)
+      branchName: branchLocked ? (lockedBranch?.label || prev.branchName) : prev.branchName,
+      branchId: branchLocked ? (lockedBranch?.id ?? prev.branchId) : prev.branchId,
+      klangName: "", klangId: null,
+      issueDate: prev.issueDate, comment: "",
       paymentMethod: "", paymentMethodId: "",
       cashReceiptNo: "", creditInvoiceNo: "",
       __isCash: false, __isCredit: false,
-    })
-    setRiceOptions([]); setSubriceOptions([]); setKlangOptions([])
+    }))
+    // ❌ ไม่ล้าง klangOptions เพื่อให้เลือกต่อได้ทันที
+    setRiceOptions([]); setSubriceOptions([])
     setBuyerType("person")
     setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
     setTrailersCount(1)
@@ -1228,16 +1298,15 @@ function Sales() {
     setShowNameList(false); setNameResults([]); setHighlightedIndex(-1)
     setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1)
     try { refs.buyerType?.current?.focus() } catch {}
+    requestAnimationFrame(() => scrollToPageTop())
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    // 🔒 กันกดบันทึกซ้ำทั้งจากคลิกและ Enter (เหมือน Buy)
     if (submitLockRef.current || submitting) { return }
     submitLockRef.current = true
     setSubmitting(true)
     try {
-      // เลื่อนขึ้นบนสุด + ปิด auto-search และยกเลิกผล async เก่า (กันฟอร์มเด้งกลับแล้วกดซ้ำ)
       scrollToPageTop()
       setAutoSearchEnabled(false)
       bumpSearchEpoch()
@@ -1246,7 +1315,6 @@ function Sales() {
       setMissingHints(hints)
       const eObj = validateAll()
 
-      // ❌ แจ้งเตือนแบบหน้า Buy เมื่อฟอร์มไม่ผ่าน
       if (Object.keys(eObj).length > 0) {
         alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
         scrollToFirstError(eObj)
@@ -1264,7 +1332,8 @@ function Sales() {
       const productId = /^\d+$/.test(order.productId) ? Number(order.productId) : null
       const riceId = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
       const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null
-      const branchId = order.branchId != null ? Number(order.branchId) : null
+      const b = lockedBranch || deriveLockedBranch(branchOptions)
+      const branchId = b ? Number(b.id) : (order.branchId != null ? Number(order.branchId) : null)
       const klangId = order.klangId != null ? Number(order.klangId) : null
       const riceYearId = /^\d+$/.test(order.riceYearId) ? Number(order.riceYearId) : null
       const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
@@ -1276,19 +1345,19 @@ function Sales() {
       // customer payload
       let customerPayload
       if (buyerType === "person") {
-        const memberIdStr = String(memberMeta.memberId ?? customer.memberId ?? "").trim()
+        const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
         const assoIdVal = memberMeta.assoId || null
-        if (!memberIdStr && !assoIdVal) {
+        if (!memberIdNum && !assoIdVal) {
           alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id จากผลค้นหา")
           return
         }
-        customerPayload = memberIdStr
-          ? { party_type: "individual", member_id: memberIdStr, first_name: firstName || "", last_name: lastName || "" }
+        customerPayload = memberIdNum
+          ? { party_type: "individual", member_id: memberIdNum, first_name: firstName || "", last_name: lastName || "" }
           : { party_type: "individual", asso_id: assoIdVal, first_name: firstName || "", last_name: lastName || "" }
       } else {
         const taxId = onlyDigits(customer.taxId)
         customerPayload = taxId
-          ? { party_type: "company", tax_id: String(taxId), company_name: customer.companyName || undefined }
+          ? { party_type: "company", tax_id: taxId, company_name: customer.companyName || undefined }
           : memberMeta.assoId
           ? { party_type: "company", asso_id: memberMeta.assoId, company_name: customer.companyName || undefined }
           : { party_type: "company", tax_id: "" }
@@ -1369,10 +1438,9 @@ function Sales() {
         try {
           const currentTpl = templateOptions.find((o) => String(o.id) === String(formTemplate))
           const saveTpl = { id: String(formTemplate), label: currentTpl?.label || selectedTemplateLabel || "" }
-          localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl)) // แชร์ให้หน้าอื่นใช้
+          localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl))
           localStorage.setItem("sales.formTemplate", String(formTemplate))
         } catch {}
-        // ✅ แจ้งเตือนแบบเดียวกับหน้า Buy
         alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
         handleReset()
         requestAnimationFrame(() => scrollToPageTop())
@@ -1381,7 +1449,6 @@ function Sales() {
         const summary = failed
           .map((f) => `• คันที่ ${f.index}: ${f.message}${f.detail ? `\nรายละเอียด: ${JSON.stringify(f.detail)}` : ""}`)
           .join("\n\n")
-        // ❌ แจ้งเตือนแบบเดียวกับหน้า Buy (ล้มเหลว)
         alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
       
 บันทึกสำเร็จ ${ok}/${trailers.length} รายการ
@@ -1471,13 +1538,12 @@ ${summary}`)
               />
             </div>
 
-            {/* ฟอร์มสำเร็จรูป (จาก BE) */}
+            {/* ฟอร์มสำเร็จรูป (จาก BE, โหมดล็อก) */}
             <div className="w-full sm:w-72 self-start">
               <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
               <ComboBox
                 options={templateOptions}
                 value={formTemplate}
-                /** ⭐ แสดงบรรทัด “ชั้นย่อย …” ใต้ชื่อฟอร์ม */
                 getSubLabel={(o) => templateSubLabel(o)}
                 onChange={(id, found) => {
                   const idStr = String(id)
@@ -1488,18 +1554,14 @@ ${summary}`)
                     localStorage.setItem("shared.formTemplate", JSON.stringify({ id: idStr, label }))
                     localStorage.setItem("sales.formTemplate", idStr)
                   } catch {}
-                  if (idStr !== "0" && found?.spec) applyTemplateBySpec(found.spec)
+                  if (found?.spec) applyTemplateBySpec(found.spec)
                 }}
                 buttonRef={refs.formTemplate}
               />
-              {isTemplateActive ? (
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  ระบบจะเติมสเปกจาก <b>spec</b> ที่ BE ส่งมาโดยตรง:
-                  <b> ประเภทสินค้า</b>, <b>ชนิดข้าว</b>, <b>ชั้นย่อย</b>, <b>เงื่อนไข</b>, <b>ประเภทนา</b>, <b>ปี/ฤดูกาล</b>, <b>โปรแกรม</b>, <b>ประเภทธุรกิจ</b>
-                </p>
-              ) : (
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">“ฟอร์มปกติ” — เลือกสเปกเองได้ทุกช่อง</p>
-              )}
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                ระบบ <b>ล็อกสเปกจากฟอร์มสำเร็จรูป</b> เท่านั้น:
+                <b> ประเภทสินค้า</b>, <b>ชนิดข้าว</b>, <b>ชั้นย่อย</b>, <b>เงื่อนไข</b>, <b>ประเภทนา</b>, <b>ปี/ฤดูกาล</b>, <b>โปรแกรม</b>, <b>ประเภทธุรกิจ</b> จะไม่สามารถแก้จากแบบฟอร์มด้านล่างได้
+              </p>
             </div>
           </div>
 
@@ -1510,7 +1572,7 @@ ${summary}`)
               <ComboBox
                 options={paymentOptions}
                 value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
-                onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))} // ใช้ label
+                onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
                 placeholder="— เลือกวิธีชำระเงิน —"
                 buttonRef={refs.payment}
                 onEnterNext={() => {
@@ -1865,34 +1927,12 @@ ${summary}`)
                 onChange={(id, found) => {
                   setOrder((p) => ({ ...p, productId: id, productName: found?.label ?? "", riceId: "", riceType: "", subriceId: "", subriceName: "" }))
                 }}
-                placeholder="— เลือกประเภทสินค้า —"
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 error={!!errors.product}
                 hintRed={!!missingHints.product}
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
-                disabled={isTemplateActive}
-                onEnterNext={() => {
-                  const tryFocus = () => {
-                    if (isEnabledInput(refs.riceType?.current)) {
-                      try { refs.riceType.current.scrollIntoView({ block: "center" }) } catch {}
-                      refs.riceType.current.focus?.()
-                      return true
-                    }
-                    const keys = ["subrice","condition","fieldType","riceYear","program","businessType","branchName"]
-                    for (const k of keys) {
-                      const el = refs[k]?.current
-                      if (el && isEnabledInput(el)) {
-                        try { el.scrollIntoView({ block: "center" }) } catch {}
-                        el.focus?.()
-                        return true
-                      }
-                    }
-                    return false
-                  }
-                  if (tryFocus()) return
-                  setTimeout(tryFocus, 60)
-                  setTimeout(tryFocus, 180)
-                }}
+                disabled={LOCK_SPEC}
               />
               {errors.product && <p className={errorTextCls}>{errors.product}</p>}
             </div>
@@ -1903,36 +1943,12 @@ ${summary}`)
                 options={riceOptions}
                 value={order.riceId}
                 onChange={(id, found) => setOrder((p) => ({ ...p, riceId: id, riceType: found?.label ?? "", subriceId: "", subriceName: "" }))}
-                placeholder="— เลือกชนิดข้าว —"
-                disabled={!order.productId || isTemplateActive}
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                disabled={LOCK_SPEC}
                 error={!!errors.riceType}
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
                 buttonRef={refs.riceType}
-                onEnterNext={() => {
-                  const tryFocus = () => {
-                    const el = refs.subrice?.current
-                    if (el && isEnabledInput(el)) {
-                      try { el.scrollIntoView({ block: "center" }) } catch {}
-                      el.focus?.()
-                      return true
-                    }
-                    const keys = ["condition","fieldType","riceYear","program","businessType","branchName"]
-                    for (const k of keys) {
-                      const e2 = refs[k]?.current
-                      if (e2 && isEnabledInput(e2)) {
-                        try { e2.scrollIntoView({ block: "center" }) } catch {}
-                        e2.focus?.()
-                        return true
-                      }
-                    }
-                    return false
-                  }
-                  if (tryFocus()) return
-                  setTimeout(tryFocus, 60)
-                  setTimeout(tryFocus, 120)
-                  setTimeout(tryFocus, 200)
-                }}
               />
               {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
             </div>
@@ -1943,13 +1959,12 @@ ${summary}`)
                 options={subriceOptions}
                 value={order.subriceId}
                 onChange={(id, found) => setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))}
-                placeholder="— เลือกชั้นย่อย —"
-                disabled={!order.riceId}
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                disabled={LOCK_SPEC}
                 error={!!errors.subrice}
                 hintRed={!!missingHints.subrice}
                 clearHint={() => clearHint("subrice")}
                 buttonRef={refs.subrice}
-                onEnterNext={() => focusNext("subrice")}
               />
               {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
             </div>
@@ -1961,12 +1976,12 @@ ${summary}`)
                 value={order.conditionId}
                 getValue={(o) => o.id}
                 onChange={(_id, found) => setOrder((p) => ({ ...p, conditionId: found?.id ?? "", condition: found?.label ?? "" }))}
-                placeholder="— เลือกสภาพ/เงื่อนไข —"
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 error={!!errors.condition}
                 hintRed={!!missingHints.condition}
                 clearHint={() => clearHint("condition")}
                 buttonRef={refs.condition}
-                onEnterNext={() => focusNext("condition")}
+                disabled={LOCK_SPEC}
               />
               {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
             </div>
@@ -1978,12 +1993,12 @@ ${summary}`)
                 value={order.fieldTypeId}
                 getValue={(o) => o.id}
                 onChange={(_id, found) => setOrder((p) => ({ ...p, fieldTypeId: found?.id ?? "", fieldType: found?.label ?? "" }))}
-                placeholder="— เลือกประเภทนา —"
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 error={!!errors.fieldType}
                 hintRed={!!missingHints.fieldType}
                 clearHint={() => clearHint("fieldType")}
                 buttonRef={refs.fieldType}
-                onEnterNext={() => focusNext("fieldType")}
+                disabled={LOCK_SPEC}
               />
               {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
             </div>
@@ -1995,12 +2010,12 @@ ${summary}`)
                 value={order.riceYearId}
                 getValue={(o) => o.id}
                 onChange={(_id, found) => setOrder((p) => ({ ...p, riceYearId: found?.id ?? "", riceYear: found?.label ?? "" }))}
-                placeholder="— เลือกปี/ฤดูกาล —"
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 error={!!errors.riceYear}
                 hintRed={!!missingHints.riceYear}
                 clearHint={() => clearHint("riceYear")}
                 buttonRef={refs.riceYear}
-                onEnterNext={() => focusNext("riceYear")}
+                disabled={LOCK_SPEC}
               />
               {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
             </div>
@@ -2012,12 +2027,12 @@ ${summary}`)
                 value={order.businessTypeId}
                 getValue={(o) => o.id}
                 onChange={(_id, found) => setOrder((p) => ({ ...p, businessTypeId: found?.id ?? "", businessType: found?.label ?? "" }))}
-                placeholder="— เลือกประเภทธุรกิจ —"
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 error={!!errors.businessType}
                 hintRed={!!missingHints.businessType}
                 clearHint={() => clearHint("businessType")}
                 buttonRef={refs.businessType}
-                onEnterNext={() => focusNext("businessType")}
+                disabled={LOCK_SPEC}
               />
               {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
             </div>
@@ -2029,9 +2044,9 @@ ${summary}`)
                 value={order.programId}
                 getValue={(o) => o.id}
                 onChange={(_id, found) => setOrder((p) => ({ ...p, programId: found?.id ?? "", programName: found?.label ?? "" }))}
-                placeholder="— เลือกโปรแกรม —"
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 buttonRef={refs.program}
-                onEnterNext={() => focusNext("program")}
+                disabled={LOCK_SPEC}
               />
             </div>
           </div>
@@ -2041,7 +2056,7 @@ ${summary}`)
             <div>
               <label className={labelCls}>สาขา</label>
               <ComboBox
-                options={branchOptions}
+                options={branchLocked && order.branchId != null ? branchOptions.filter((o) => String(o.id) === String(order.branchId)) : branchOptions}
                 value={order.branchId}
                 getValue={(o) => o.id}
                 onChange={(_val, found) => setOrder((p) => ({ ...p, branchId: found?.id ?? null, branchName: found?.label ?? "", klangName: "", klangId: null }))}
@@ -2065,7 +2080,9 @@ ${summary}`)
                   setTimeout(tryFocus, 60)
                   setTimeout(tryFocus, 180)
                 }}
+                disabled={branchLocked}
               />
+              {branchLocked && <p className={helpTextCls}>สาขาถูกล็อกตามรหัสผู้ใช้</p>}
               {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
             </div>
             <div>

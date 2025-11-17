@@ -387,7 +387,8 @@ const OrderCorrection = () => {
   }, [page, totalPages])
 
   /** Reset filters */
-  const resetFilters = () => {
+  const resetFilters = () =>
+  {
     setFilters({
       startDate: firstDayThisMonth,
       endDate: today,
@@ -400,13 +401,13 @@ const OrderCorrection = () => {
     setErrors({ startDate: "", endDate: "" })
   }
 
-  /** ---------------- Edit Modal (pattern เหมือน MemberSearch) ---------------- */
+  /** ---------------- Edit Modal ---------------- */
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(null)
   const [draft, setDraft] = useState(null)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)   // ← NEW: deleting flag
+  const [deleting, setDeleting] = useState(false)   // flag สำหรับลบ
   const [rowError, setRowError] = useState("")
   const [touched, setTouched] = useState(new Set())
 
@@ -507,7 +508,7 @@ const OrderCorrection = () => {
     setTouched(new Set())
   }
 
-  /** ---- Build changes payloads (ส่งเฉพาะคีย์ที่แก้) ---- */
+  /** ---- Build changes payloads ---- */
   const buildChangesBuy = (d, touchedKeys) => {
     const c = {}
     const put = (k, v) => { if (touchedKeys.has(k)) c[k] = v }
@@ -627,9 +628,8 @@ const OrderCorrection = () => {
     }
   }
 
-  /** -------- NEW: Delete order with confirm + BE DELETE -------- */
+  /** -------- ลบออเดอร์ + ยืนยัน -------- */
   const deleteOrder = async () => {
-    // พยายามลบแบบไม่ระบุ force_type ก่อน แล้วค่อย fallback
     const id = draft?.order_id
     if (!id) return
     const prefer = (draft?.type === "sell" ? "sell" : "buy")
@@ -677,7 +677,7 @@ const OrderCorrection = () => {
       <div className="mx-auto max-w-7xl p-4 md:p-6">
         <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🛠️ แก้ไขออเดอร์</h1>
 
-        {/* Filters (เหมือนหน้า Order) */}
+        {/* Filters */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="grid gap-3 md:grid-cols-6">
             <div>
@@ -958,9 +958,18 @@ const OrderCorrection = () => {
                       วันที่เอกสาร: {draft.date ? new Date(draft.date).toLocaleDateString("th-TH") : "-"}
                     </div>
 
+                    {/* ปุ่มด้านขวา */}
                     {!editing ? (
                       <div className="flex gap-2">
-                        {/* NEW: Delete button (red) */}
+                        {/* แก้ไข (ซ้าย) */}
+                        <button
+                          type="button"
+                          onClick={() => setEditing(true)}
+                          className="rounded-2xl bg-emerald-600 px-4 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98]"
+                        >
+                          แก้ไข
+                        </button>
+                        {/* ลบออเดอร์ (ขวา) */}
                         <button
                           type="button"
                           onClick={confirmAndDelete}
@@ -968,13 +977,6 @@ const OrderCorrection = () => {
                           className="rounded-2xl bg-red-600 px-4 py-2 text-base font-semibold text-white hover:bg-red-700 active:scale-[.98] disabled:opacity-60"
                         >
                           {deleting ? "กำลังลบ..." : "ลบออเดอร์"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditing(true)}
-                          className="rounded-2xl bg-emerald-600 px-4 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98]"
-                        >
-                          แก้ไข
                         </button>
                       </div>
                     ) : (
@@ -994,15 +996,7 @@ const OrderCorrection = () => {
                         >
                           ยกเลิก
                         </button>
-                        {/* NEW: Also allow delete while editing */}
-                        <button
-                          type="button"
-                          onClick={confirmAndDelete}
-                          disabled={deleting}
-                          className="rounded-2xl bg-red-600 px-4 py-2 text-base font-semibold text-white hover:bg-red-700 active:scale-[.98] disabled:opacity-60"
-                        >
-                          {deleting ? "กำลังลบ..." : "ลบออเดอร์"}
-                        </button>
+                        {/* ซ่อนปุ่มลบระหว่างแก้ไขตามที่ร้องขอ */}
                       </div>
                     )}
                   </div>

@@ -1352,8 +1352,19 @@ function Sales() {
           return
         }
         customerPayload = memberIdNum
-          ? { party_type: "individual", member_id: memberIdNum, first_name: firstName || "", last_name: lastName || "" }
-          : { party_type: "individual", asso_id: assoIdVal, first_name: firstName || "", last_name: lastName || "" }
+  ? {
+      party_type: "individual",
+      member_id: String(memberIdNum),   // ⭐ ส่งเป็น string
+      first_name: firstName || "",
+      last_name: lastName || "",
+    }
+  : {
+      party_type: "individual",
+      asso_id: assoIdVal,
+      first_name: firstName || "",
+      last_name: lastName || "",
+    }
+
       } else {
         const taxId = onlyDigits(customer.taxId)
         customerPayload = taxId

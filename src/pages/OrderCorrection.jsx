@@ -406,6 +406,7 @@ const OrderCorrection = () => {
   const [draft, setDraft] = useState(null)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)   // ← NEW: deleting flag
   const [rowError, setRowError] = useState("")
   const [touched, setTouched] = useState(new Set())
 
@@ -501,6 +502,7 @@ const OrderCorrection = () => {
     setDraft(null)
     setEditing(false)
     setSaving(false)
+    setDeleting(false)
     setRowError("")
     setTouched(new Set())
   }
@@ -622,6 +624,47 @@ const OrderCorrection = () => {
       setRowError(e?.message || "บันทึกไม่สำเร็จ")
     } finally {
       setSaving(false)
+    }
+  }
+
+  /** -------- NEW: Delete order with confirm + BE DELETE -------- */
+  const deleteOrder = async () => {
+    // พยายามลบแบบไม่ระบุ force_type ก่อน แล้วค่อย fallback
+    const id = draft?.order_id
+    if (!id) return
+    const prefer = (draft?.type === "sell" ? "sell" : "buy")
+    const candidates = [
+      `/order/orders/${id}`,                            // no force_type
+      `/order/orders/${id}?force_type=${prefer}`,      // prefer type
+      `/order/orders/${id}?force_type=${prefer === "buy" ? "sell" : "buy"}`, // opposite
+    ]
+    let lastErr = null
+    for (const url of candidates) {
+      try {
+        await apiAuth(url, { method: "DELETE" })
+        return
+      } catch (e) {
+        lastErr = e
+      }
+    }
+    throw lastErr
+  }
+
+  const confirmAndDelete = async () => {
+    if (!active || !draft || deleting) return
+    const ok = window.confirm(`ต้องการลบออเดอร์ #${active.id ?? draft.order_id} จริงหรือไม่?\nการลบจะย้อนสต๊อก/เครดิต และไม่สามารถยกเลิกได้`)
+    if (!ok) return
+    setRowError("")
+    setDeleting(true)
+    try {
+      await deleteOrder()
+      setOpen(false)
+      await fetchOrders()
+    } catch (e) {
+      console.error(e)
+      setRowError(e?.message || "ลบออเดอร์ไม่สำเร็จ")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -916,13 +959,24 @@ const OrderCorrection = () => {
                     </div>
 
                     {!editing ? (
-                      <button
-                        type="button"
-                        onClick={() => setEditing(true)}
-                        className="rounded-2xl bg-emerald-600 px-4 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98]"
-                      >
-                        แก้ไข
-                      </button>
+                      <div className="flex gap-2">
+                        {/* NEW: Delete button (red) */}
+                        <button
+                          type="button"
+                          onClick={confirmAndDelete}
+                          disabled={deleting}
+                          className="rounded-2xl bg-red-600 px-4 py-2 text-base font-semibold text-white hover:bg-red-700 active:scale-[.98] disabled:opacity-60"
+                        >
+                          {deleting ? "กำลังลบ..." : "ลบออเดอร์"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditing(true)}
+                          className="rounded-2xl bg-emerald-600 px-4 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98]"
+                        >
+                          แก้ไข
+                        </button>
+                      </div>
                     ) : (
                       <div className="flex gap-2">
                         <button
@@ -939,6 +993,15 @@ const OrderCorrection = () => {
                           className="rounded-2xl border border-slate-300 px-5 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
                         >
                           ยกเลิก
+                        </button>
+                        {/* NEW: Also allow delete while editing */}
+                        <button
+                          type="button"
+                          onClick={confirmAndDelete}
+                          disabled={deleting}
+                          className="rounded-2xl bg-red-600 px-4 py-2 text-base font-semibold text-white hover:bg-red-700 active:scale-[.98] disabled:opacity-60"
+                        >
+                          {deleting ? "กำลังลบ..." : "ลบออเดอร์"}
                         </button>
                       </div>
                     )}

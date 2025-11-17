@@ -828,7 +828,7 @@ const OrderCorrection = () => {
       spec_id: "",
     });
 
-    setOpen(true);
+  setOpen(true);
   };
 
   const closeModal = () => {
@@ -1352,15 +1352,11 @@ const OrderCorrection = () => {
 
         {/* EDIT MODAL */}
         <div
-          className={`fixed inset-0 z-50 ${
-            open ? "pointer-events-auto" : "pointer-events-none"
-          }`}
+          className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`}
           aria-hidden={!open}
         >
           <div
-            className={`absolute inset-0 bg-black/60 transition-opacity ${
-              open ? "opacity-100" : "opacity-0"
-            }`}
+            className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
             onClick={closeModal}
           />
           <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5">

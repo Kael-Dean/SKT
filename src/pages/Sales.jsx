@@ -188,7 +188,7 @@ function ComboBox({
         type="button"
         ref={controlRef}
         disabled={disabled}
-        onClick={() => { if (!disabled) { setOpen((o) => o || !o); clearHint?.() } }}
+        onClick={() => { if (!disabled) { setOpen((o) => !o); clearHint?.() } }}  
         onKeyDown={onKeyDown}
         onFocus={() => clearHint?.()}
         className={cx(
@@ -303,6 +303,11 @@ function Sales() {
   const [loadingCustomer, setLoadingCustomer] = useState(false)
   const [customerFound, setCustomerFound] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // 🔒 Kill‑switch auto-search + anti‑race (เหมือนหน้า Buy)
+  const [autoSearchEnabled, setAutoSearchEnabled] = useState(true)
+  const searchEpochRef = useRef(0)
+  const bumpSearchEpoch = () => { searchEpochRef.current += 1 }
 
   // ⭐ จุดยึดบนสุด + ฟังก์ชันเลื่อนขึ้นบน (เหมือนหน้า Buy)
   const pageTopRef = useRef(null)
@@ -824,53 +829,68 @@ function Sales() {
     setCustomerFound(true)
   }
 
+  // 🔎 member_id
   useEffect(() => {
+    if (!autoSearchEnabled) { setCustomerFound(null); return }
     if (buyerType !== "person") { setCustomerFound(null); return }
     const mid = toIntOrNull(debouncedMemberId)
     if (mid == null) return
+    const __epoch = searchEpochRef.current
     const fetchByMemberId = async () => {
       try {
         setLoadingCustomer(true)
         const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(String(mid))}`)) || []
+        if (__epoch !== searchEpochRef.current) return
         const exact = arr.find((r) => r.type === "member" && toIntOrNull(r.member_id) === mid) || arr[0]
         if (exact) await fillFromRecord(exact)
-        else { setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null }) }
+        else { if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null }) }
       } catch (e) {
-        console.error(e); setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null })
-      } finally { setLoadingCustomer(false) }
+        console.error(e); if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null })
+      } finally { if (__epoch === searchEpochRef.current) setLoadingCustomer(false) }
     }
     fetchByMemberId()
-  }, [debouncedMemberId, buyerType])
+  }, [debouncedMemberId, buyerType, autoSearchEnabled])
 
+  // 🔎 citizen_id
   useEffect(() => {
+    if (!autoSearchEnabled) { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: null }); return }
     if (buyerType !== "person") { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: null }); return }
     const cid = onlyDigits(debouncedCitizenId)
     if (cid.length !== 13) { setCustomerFound(null); return }
+    const __epoch = searchEpochRef.current
     const fetchByCid = async () => {
       try {
         setLoadingCustomer(true)
         const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(cid)}`)) || []
+        if (__epoch !== searchEpochRef.current) return
         const exact = arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
         if (exact) await fillFromRecord(exact)
-        else { setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null }) }
+        else { if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null }) }
       } catch (e) {
-        console.error(e); setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null })
-      } finally { setLoadingCustomer(false) }
+        console.error(e); if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null })
+      } finally { if (__epoch === searchEpochRef.current) setLoadingCustomer(false) }
     }
     fetchByCid()
-  }, [debouncedCitizenId, buyerType])
+  }, [debouncedCitizenId, buyerType, autoSearchEnabled])
 
+  // 🔎 ค้นหาด้วยชื่อ
   useEffect(() => {
-    if (buyerType !== "person") { setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); setMemberMeta({ type: "unknown", assoId: null, memberId: null }); return }
+    if (!autoSearchEnabled) { setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); return }
+    if (buyerType !== "person") {
+      setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); setMemberMeta({ type: "unknown", assoId: null, memberId: null })
+      return
+    }
     const q = (debouncedFullName || "").trim()
     if (suppressNameSearchRef.current) {
       suppressNameSearchRef.current = false; setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); return
     }
     if (q.length < 2) { setNameResults([]); setShowNameList(false); setHighlightedIndex(-1); return }
+    const __epoch = searchEpochRef.current
     const searchByName = async () => {
       try {
         setLoadingCustomer(true)
         const items = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(q)}`)) || []
+        if (__epoch !== searchEpochRef.current) return
         const mapped = items.map((r) => ({
           ...r,
           asso_id: r.asso_id, member_id: r.member_id,
@@ -878,14 +898,15 @@ function Sales() {
         }))
         setNameResults(mapped)
         if (document.activeElement === nameInputRef.current) {
+          if (__epoch !== searchEpochRef.current) return
           setShowNameList(true); setHighlightedIndex(mapped.length > 0 ? 0 : -1)
         }
       } catch (e) {
         console.error(e); setNameResults([]); setShowNameList(false); setHighlightedIndex(-1)
-      } finally { setLoadingCustomer(false) }
+      } finally { if (__epoch === searchEpochRef.current) setLoadingCustomer(false) }
     }
     searchByName()
-  }, [debouncedFullName, buyerType])
+  }, [debouncedFullName, buyerType, autoSearchEnabled])
 
   useEffect(() => {
     const onClick = (e) => {
@@ -976,41 +997,48 @@ function Sales() {
     setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1)
   }
   useEffect(() => {
+    if (!autoSearchEnabled) { setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1); return }
     if (buyerType !== "company") { setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1); return }
     const q = (debouncedCompanyName || "").trim()
     if (companySuppressSearchRef.current) {
       companySuppressSearchRef.current = false; setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1); return
     }
     if (q.length < 2) { setCompanyResults([]); setShowCompanyList(false); setCompanyHighlighted(-1); return }
+    const __epoch = searchEpochRef.current
     const searchCompany = async () => {
       try {
         setLoadingCustomer(true)
         const items = (await apiAuth(`/order/companies/search?q=${encodeURIComponent(q)}`)) || []
+        if (__epoch !== searchEpochRef.current) return
         setCompanyResults(items)
         if (document.activeElement === companyInputRef.current) {
+          if (__epoch !== searchEpochRef.current) return
           setShowCompanyList(true); setCompanyHighlighted(items.length > 0 ? 0 : -1)
         }
       } catch (err) {
         console.error(err); setCompanyResults([]); setShowCompanyList(false); setCompanyHighlighted(-1)
       } finally {
-        setLoadingCustomer(false)
+        if (__epoch === searchEpochRef.current) setLoadingCustomer(false)
       }
     }
     searchCompany()
-  }, [debouncedCompanyName, buyerType])
+  }, [debouncedCompanyName, buyerType, autoSearchEnabled])
   useEffect(() => {
+    if (!autoSearchEnabled) return
     if (buyerType !== "company") return
     const tid = onlyDigits(debouncedTaxId)
     if (tid.length !== 13) return
+    const __epoch = searchEpochRef.current
     const searchByTax = async () => {
       try {
         setLoadingCustomer(true)
         const items = (await apiAuth(`/order/companies/search?q=${encodeURIComponent(tid)}`)) || []
+        if (__epoch !== searchEpochRef.current) return
         if (items.length > 0) await pickCompanyResult(items[0])
-      } catch (e) { console.error(e) } finally { setLoadingCustomer(false) }
+      } catch (e) { console.error(e) } finally { if (__epoch === searchEpochRef.current) setLoadingCustomer(false) }
     }
     searchByTax()
-  }, [debouncedTaxId, buyerType])
+  }, [debouncedTaxId, buyerType, autoSearchEnabled])
   const handleCompanyKeyDown = async (e) => {
     if (!showCompanyList || companyResults.length === 0) return
     if (e.key === "ArrowDown") { e.preventDefault(); const next = companyHighlighted < companyResults.length - 1 ? companyHighlighted + 1 : 0; setCompanyHighlighted(next); requestAnimationFrame(() => { try { companyItemRefs.current[next]?.scrollIntoView({ block: "nearest" }) } catch {} }) }
@@ -1020,7 +1048,12 @@ function Sales() {
   }
 
   // ---------- อัปเดต state ----------
-  const updateCustomer = (k, v) => { if (String(v).trim() !== "") clearHint(k); setCustomer((p) => ({ ...p, [k]: v })) }
+  const updateCustomer = (k, v) => {
+    // เปิด auto‑search เมื่อผู้ใช้เริ่มพิมพ์ใหม่ (เหมือนหน้า Buy)
+    setAutoSearchEnabled(true)
+    if (String(v).trim() !== "") clearHint(k)
+    setCustomer((p) => ({ ...p, [k]: v }))
+  }
   const updateOrder = (k, v) => { if (String(v).trim() !== "") clearHint(k); setOrder((p) => ({ ...p, [k]: v })) }
 
   // ---------- Payment resolver ----------
@@ -1163,6 +1196,10 @@ function Sales() {
   }
 
   const handleReset = () => {
+    // ปิด auto-search ชั่วคราว + ยกเลิกผล async ค้าง (กันฟอร์มถูกเติมกลับมา)
+    setAutoSearchEnabled(false)
+    bumpSearchEpoch()
+
     setErrors({}); setMissingHints({})
     setCustomer({
       citizenId: "", memberId: "", fullName: "", houseNo: "", moo: "", subdistrict: "", district: "", province: "", postalCode: "", phone: "",
@@ -1186,165 +1223,170 @@ function Sales() {
     setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
     setTrailersCount(1)
     setTrailers([newTrailer()])
+    setShowNameList(false); setNameResults([]); setHighlightedIndex(-1)
+    setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1)
     try { refs.buyerType?.current?.focus() } catch {}
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    // 🔒 กันกดบันทึกซ้ำทั้งจากคลิกและ Enter (เหมือน Buy)
     if (submitLockRef.current || submitting) { return }
     submitLockRef.current = true
     setSubmitting(true)
     try {
-      // เลื่อนขึ้นบนสุดเหมือนหน้า Buy
+      // เลื่อนขึ้นบนสุด + ปิด auto-search และยกเลิกผล async เก่า (กันฟอร์มเด้งกลับแล้วกดซ้ำ)
       scrollToPageTop()
+      setAutoSearchEnabled(false)
+      bumpSearchEpoch()
 
-    const hints = computeMissingHints()
-    setMissingHints(hints)
-    const eObj = validateAll()
+      const hints = computeMissingHints()
+      setMissingHints(hints)
+      const eObj = validateAll()
 
-    // ❌ แจ้งเตือนแบบหน้า Buy เมื่อฟอร์มไม่ผ่าน
-    if (Object.keys(eObj).length > 0) {
-      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
-      scrollToFirstError(eObj)
-      return
-    }
-    if (Object.values(hints).some(Boolean)) {
-      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
-      scrollToFirstMissing(hints)
-      return
-    }
-
-    const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
-    const lastName = rest.join(" ")
-
-    const productId = /^\d+$/.test(order.productId) ? Number(order.productId) : null
-    const riceId = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
-    const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null
-    const branchId = order.branchId != null ? Number(order.branchId) : null
-    const klangId = order.klangId != null ? Number(order.klangId) : null
-    const riceYearId = /^\d+$/.test(order.riceYearId) ? Number(order.riceYearId) : null
-    const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
-    const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
-    const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
-    const programId = /^\d+$/.test(order.programId) ? Number(order.programId) : null
-    const paymentId = resolvePaymentIdForBE()
-
-    // customer payload
-    let customerPayload
-    if (buyerType === "person") {
-      const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
-      const assoIdVal = memberMeta.assoId || null
-      if (!memberIdNum && !assoIdVal) {
-        alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id จากผลค้นหา")
+      // ❌ แจ้งเตือนแบบหน้า Buy เมื่อฟอร์มไม่ผ่าน
+      if (Object.keys(eObj).length > 0) {
+        alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+        scrollToFirstError(eObj)
         return
       }
-      customerPayload = memberIdNum
-        ? { party_type: "individual", member_id: memberIdNum, first_name: firstName || "", last_name: lastName || "" }
-        : { party_type: "individual", asso_id: assoIdVal, first_name: firstName || "", last_name: lastName || "" }
-    } else {
-      const taxId = onlyDigits(customer.taxId)
-      customerPayload = taxId
-        ? { party_type: "company", tax_id: taxId, company_name: customer.companyName || undefined }
-        : memberMeta.assoId
-        ? { party_type: "company", asso_id: memberMeta.assoId, company_name: customer.companyName || undefined }
-        : { party_type: "company", tax_id: "" }
-    }
-
-    // spec สำหรับ BE (ตาม ProductSpecIn)
-    const spec = {
-      product_id: productId,
-      species_id: riceId,
-      variant_id: subriceId,
-      product_year: riceYearId ?? null,
-      condition_id: conditionId ?? null,
-      field_type: fieldTypeId ?? null,
-      program: programId ?? null,
-      business_type: businessTypeId ?? null,
-    }
-
-    const dateISO = toIsoDateTime(order.issueDate)
-    const saleId = ((order.__isCredit ? order.creditInvoiceNo : order.cashReceiptNo) || "").trim() || null
-
-    // ส่งทีละคัน
-    let ok = 0
-    const results = []
-    for (let i = 0; i < trailers.length; i++) {
-      const t = trailers[i]
-      const w1 = toNumber(t.frontWeightKg)
-      const w2 = toNumber(t.backWeightKg)
-      const u1 = toNumber(t.unitPriceFront)
-      const u2 = toNumber(t.unitPriceBack)
-      const g1 = toNumber(t.gramFront)
-      const g2 = toNumber(t.gramBack)
-
-      const price1 = round2(w1 * u1)
-      const price2 = round2(w2 * u2)
-
-      // ค่าเฉลี่ยถ่วงน้ำหนักต่อคัน (ส่งให้ BE)
-      const net = w1 + w2
-      const weightedUnit = net > 0 ? round2((w1 * u1 + w2 * u2) / net) : (u1 || u2 || 0)
-      const weightedGram = net > 0 ? Math.round((w1 * g1 + w2 * g2) / net) : (g1 || g2 || 0)
-
-      const payload = {
-        customer: customerPayload,
-        order: {
-          sale_id: saleId,
-          payment_id: paymentId,
-          spec,
-          license_plate_1: (t.licensePlateFront || "").trim() || null,
-          license_plate_2: (t.licensePlateBack || "").trim() || null,
-          weight_1: w1,
-          weight_2: w2 || 0,
-          gram: weightedGram,
-          price_per_kilo: weightedUnit,
-          price_1: price1,
-          price_2: price2 || 0,
-          order_serial_1: (t.scaleNoFront || "").trim() || null,
-          order_serial_2: (t.scaleNoBack || "").trim() || null,
-          date: dateISO,
-          branch_location: branchId,
-          klang_location: klangId,
-          comment: order.comment?.trim() ? `${order.comment.trim()} (พ่วงที่ ${i + 1})` : null,
-        },
-        // dept แนบเสมอ (ใช้เมื่อ payment_id == 2)
-        dept: { date_created: dateISO, allowed_period: Number(dept.allowedPeriod || 0), postpone: Boolean(dept.postpone), postpone_period: Number(dept.postpone ? (dept.postponePeriod || 0) : 0) },
+      if (Object.values(hints).some(Boolean)) {
+        alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+        scrollToFirstMissing(hints)
+        return
       }
 
-      try {
-        const r = await post("/order/customers/save/sell", payload)
-        ok += 1
-        results.push({ index: i + 1, success: true, id: r?.order_id })
-      } catch (err) {
-        console.error("SAVE ERROR (trailer", i + 1, "):", err?.data || err)
-        results.push({ index: i + 1, success: false, message: err?.message || "เกิดข้อผิดพลาด", detail: err?.data?.detail })
-      }
-    }
+      const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
+      const lastName = rest.join(" ")
 
-    const failed = results.filter((x) => !x.success)
-    if (failed.length === 0) {
-      try {
-        const currentTpl = templateOptions.find((o) => String(o.id) === String(formTemplate))
-        const saveTpl = { id: String(formTemplate), label: currentTpl?.label || selectedTemplateLabel || "" }
-        localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl)) // แชร์ให้หน้าอื่นใช้
-        localStorage.setItem("sales.formTemplate", String(formTemplate))
-      } catch {}
-      // ✅ แจ้งเตือนแบบเดียวกับหน้า Buy
-      alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
-      handleReset()
-      requestAnimationFrame(() => scrollToPageTop())
-      try { refs.submitBtn?.current?.blur?.() } catch {}
-    } else {
-      const summary = failed
-        .map((f) => `• คันที่ ${f.index}: ${f.message}${f.detail ? `\nรายละเอียด: ${JSON.stringify(f.detail)}` : ""}`)
-        .join("\n\n")
-      // ❌ แจ้งเตือนแบบเดียวกับหน้า Buy (ล้มเหลว)
-      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
+      const productId = /^\d+$/.test(order.productId) ? Number(order.productId) : null
+      const riceId = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
+      const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null
+      const branchId = order.branchId != null ? Number(order.branchId) : null
+      const klangId = order.klangId != null ? Number(order.klangId) : null
+      const riceYearId = /^\d+$/.test(order.riceYearId) ? Number(order.riceYearId) : null
+      const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
+      const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
+      const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
+      const programId = /^\d+$/.test(order.programId) ? Number(order.programId) : null
+      const paymentId = resolvePaymentIdForBE()
+
+      // customer payload
+      let customerPayload
+      if (buyerType === "person") {
+        const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
+        const assoIdVal = memberMeta.assoId || null
+        if (!memberIdNum && !assoIdVal) {
+          alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id จากผลค้นหา")
+          return
+        }
+        customerPayload = memberIdNum
+          ? { party_type: "individual", member_id: memberIdNum, first_name: firstName || "", last_name: lastName || "" }
+          : { party_type: "individual", asso_id: assoIdVal, first_name: firstName || "", last_name: lastName || "" }
+      } else {
+        const taxId = onlyDigits(customer.taxId)
+        customerPayload = taxId
+          ? { party_type: "company", tax_id: taxId, company_name: customer.companyName || undefined }
+          : memberMeta.assoId
+          ? { party_type: "company", asso_id: memberMeta.assoId, company_name: customer.companyName || undefined }
+          : { party_type: "company", tax_id: "" }
+      }
+
+      // spec สำหรับ BE (ตาม ProductSpecIn)
+      const spec = {
+        product_id: productId,
+        species_id: riceId,
+        variant_id: subriceId,
+        product_year: riceYearId ?? null,
+        condition_id: conditionId ?? null,
+        field_type: fieldTypeId ?? null,
+        program: programId ?? null,
+        business_type: businessTypeId ?? null,
+      }
+
+      const dateISO = toIsoDateTime(order.issueDate)
+      const saleId = ((order.__isCredit ? order.creditInvoiceNo : order.cashReceiptNo) || "").trim() || null
+
+      // ส่งทีละคัน
+      let ok = 0
+      const results = []
+      for (let i = 0; i < trailers.length; i++) {
+        const t = trailers[i]
+        const w1 = toNumber(t.frontWeightKg)
+        const w2 = toNumber(t.backWeightKg)
+        const u1 = toNumber(t.unitPriceFront)
+        const u2 = toNumber(t.unitPriceBack)
+        const g1 = toNumber(t.gramFront)
+        const g2 = toNumber(t.gramBack)
+
+        const price1 = round2(w1 * u1)
+        const price2 = round2(w2 * u2)
+
+        // ค่าเฉลี่ยถ่วงน้ำหนักต่อคัน (ส่งให้ BE)
+        const net = w1 + w2
+        const weightedUnit = net > 0 ? round2((w1 * u1 + w2 * u2) / net) : (u1 || u2 || 0)
+        const weightedGram = net > 0 ? Math.round((w1 * g1 + w2 * g2) / net) : (g1 || g2 || 0)
+
+        const payload = {
+          customer: customerPayload,
+          order: {
+            sale_id: saleId,
+            payment_id: paymentId,
+            spec,
+            license_plate_1: (t.licensePlateFront || "").trim() || null,
+            license_plate_2: (t.licensePlateBack || "").trim() || null,
+            weight_1: w1,
+            weight_2: w2 || 0,
+            gram: weightedGram,
+            price_per_kilo: weightedUnit,
+            price_1: price1,
+            price_2: price2 || 0,
+            order_serial_1: (t.scaleNoFront || "").trim() || null,
+            order_serial_2: (t.scaleNoBack || "").trim() || null,
+            date: dateISO,
+            branch_location: branchId,
+            klang_location: klangId,
+            comment: order.comment?.trim() ? `${order.comment.trim()} (พ่วงที่ ${i + 1})` : null,
+          },
+          // dept แนบเสมอ (ใช้เมื่อ payment_id == 2)
+          dept: { date_created: dateISO, allowed_period: Number(dept.allowedPeriod || 0), postpone: Boolean(dept.postpone), postpone_period: Number(dept.postpone ? (dept.postponePeriod || 0) : 0) },
+        }
+
+        try {
+          const r = await post("/order/customers/save/sell", payload)
+          ok += 1
+          results.push({ index: i + 1, success: true, id: r?.order_id })
+        } catch (err) {
+          console.error("SAVE ERROR (trailer", i + 1, "):", err?.data || err)
+          results.push({ index: i + 1, success: false, message: err?.message || "เกิดข้อผิดพลาด", detail: err?.data?.detail })
+        }
+      }
+
+      const failed = results.filter((x) => !x.success)
+      if (failed.length === 0) {
+        try {
+          const currentTpl = templateOptions.find((o) => String(o.id) === String(formTemplate))
+          const saveTpl = { id: String(formTemplate), label: currentTpl?.label || selectedTemplateLabel || "" }
+          localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl)) // แชร์ให้หน้าอื่นใช้
+          localStorage.setItem("sales.formTemplate", String(formTemplate))
+        } catch {}
+        // ✅ แจ้งเตือนแบบเดียวกับหน้า Buy
+        alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
+        handleReset()
+        requestAnimationFrame(() => scrollToPageTop())
+        try { refs.submitBtn?.current?.blur?.() } catch {}
+      } else {
+        const summary = failed
+          .map((f) => `• คันที่ ${f.index}: ${f.message}${f.detail ? `\nรายละเอียด: ${JSON.stringify(f.detail)}` : ""}`)
+          .join("\n\n")
+        // ❌ แจ้งเตือนแบบเดียวกับหน้า Buy (ล้มเหลว)
+        alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
       
 บันทึกสำเร็จ ${ok}/${trailers.length} รายการ
 
 รายการที่ผิดพลาด:
 ${summary}`)
-    }
+      }
     } finally {
       submitLockRef.current = false
       setSubmitting(false)
@@ -2307,94 +2349,91 @@ ${summary}`)
             />
           </div>
 
-          {/* สรุปสั้น ๆ + ตารางพ่วง + รวมเงิน (แก้แล้ว: กันข้อความยาวล้นกรอบ) */}
-<div className="mt-6 grid gap-4 md:grid-cols-5">
-  {buyerType === "person" ? (
-    <>
-      <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-        <div className="text-slate-600 dark:text-slate-300">ผู้ซื้อ</div>
-        {/* กันชื่อยาวล้นกรอบ */}
-        <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">
-          {customer.fullName || "—"}
-        </div>
-      </div>
-      <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-        <div className="text-slate-600 dark:text-slate-300">member_id</div>
-        <div className="text-lg md:text-xl font-semibold">
-          {memberMeta.memberId ?? (customer.memberId?.trim() || "-")}
-        </div>
-      </div>
-    </>
-  ) : (
-    <>
-      <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-        <div className="text-slate-600 dark:text-slate-300">บริษัท/นิติบุคคล</div>
-        {/* กันข้อความยาวล้นกรอบ */}
-        <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">
-          {customer.companyName || "—"}
-        </div>
-      </div>
-      <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-        <div className="text-slate-600 dark:text-slate-300">เลขที่ผู้เสียภาษี</div>
-        <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">
-          {customer.taxId || "—"}
-        </div>
-      </div>
-    </>
-  )}
+          {/* สรุปสั้น ๆ + ตารางพ่วง + รวมเงิน */}
+          <div className="mt-6 grid gap-4 md:grid-cols-5">
+            {buyerType === "person" ? (
+              <>
+                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                  <div className="text-slate-600 dark:text-slate-300">ผู้ซื้อ</div>
+                  {/* กันชื่อยาวล้นกรอบ */}
+                  <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">
+                    {customer.fullName || "—"}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                  <div className="text-slate-600 dark:text-slate-300">member_id</div>
+                  <div className="text-lg md:text-xl font-semibold">
+                    {memberMeta.memberId ?? (customer.memberId?.trim() || "-")}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                  <div className="text-slate-600 dark:text-slate-300">บริษัท/นิติบุคคล</div>
+                  {/* กันข้อความยาวล้นกรอบ */}
+                  <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">
+                    {customer.companyName || "—"}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                  <div className="text-slate-600 dark:text-slate-300">เลขที่ผู้เสียภาษี</div>
+                  <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">
+                    {customer.taxId || "—"}
+                  </div>
+                </div>
+              </>
+            )}
 
-  {[
-    { label: "ลงวันที่", value: order.issueDate || "—" },
-    { label: "วิธีชำระเงิน", value: order.paymentMethod || "—" },
-    { label: "สินค้า", value: order.productName || "—" },
-    { label: "ชนิดข้าว", value: order.riceType || "—" },
-    { label: "ชั้นย่อย", value: order.subriceName || "—" },
-    { label: "เงื่อนไข", value: order.condition || "—" },
-    { label: "ประเภทนา", value: order.fieldType || "—" },
-    { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
-    {
-      label: "สาขา / คลัง",
-      value: (
-        <ul className="list-disc pl-5">
-          <li className="break-words">{order.branchName || "—"}</li>
-          {order.klangName && <li className="break-words">{order.klangName}</li>}
-        </ul>
-      ),
-    },
-    // ✅ จุดที่มีปัญหา: หมายเหตุ/คอมเมนต์ — ใส่ wrap+break-words
-    { label: "หมายเหตุ / คอมเมนต์", value: order.comment || "—" },
-  ].map((c) => (
-    <div
-      key={c.label}
-      className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
-    >
-      <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
-      {typeof c.value === "string" ? (
-        <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">{c.value}</div>
-      ) : (
-        <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">{c.value}</div>
-      )}
-    </div>
-  ))}
+            {[
+              { label: "ลงวันที่", value: order.issueDate || "—" },
+              { label: "วิธีชำระเงิน", value: order.paymentMethod || "—" },
+              { label: "สินค้า", value: order.productName || "—" },
+              { label: "ชนิดข้าว", value: order.riceType || "—" },
+              { label: "ชั้นย่อย", value: order.subriceName || "—" },
+              { label: "เงื่อนไข", value: order.condition || "—" },
+              { label: "ประเภทนา", value: order.fieldType || "—" },
+              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
+              {
+                label: "สาขา / คลัง",
+                value: (
+                  <ul className="list-disc pl-5">
+                    <li className="break-words">{order.branchName || "—"}</li>
+                    {order.klangName && <li className="break-words">{order.klangName}</li>}
+                  </ul>
+                ),
+              },
+              // ✅ กันข้อความยาวล้น
+              { label: "หมายเหตุ / คอมเมนต์", value: order.comment || "—" },
+            ].map((c) => (
+              <div
+                key={c.label}
+                className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
+              >
+                <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
+                {typeof c.value === "string" ? (
+                  <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">{c.value}</div>
+                ) : (
+                  <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">{c.value}</div>
+                )}
+              </div>
+            ))}
 
-  {/* ตารางสรุปรถพ่วง + รวมเงิน (เหมือนเดิม) */}
-  <div className="md:col-span-5 rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-    <div className="mb-2 flex items-center justify-between">
-      <div className="text-slate-600 dark:text-slate-300">สรุปรถพ่วง</div>
-      <div className="flex items-center gap-4 text-xs md:text-sm opacity-80">
-        <span className="inline-flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />พ่วงหน้า
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-slate-500" />พ่วงหลัง
-        </span>
-      </div>
-    </div>
-
-    {/* … ตารางคงเดิมของคุณ วางต่อจากนี้ได้เลย … */}
-  </div>
-</div>
-
+            {/* … พื้นที่สรุปรถพ่วง/รวมเงิน สามารถต่อยอดได้ … */}
+            <div className="md:col-span-5 rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-slate-600 dark:text-slate-300">สรุปรถพ่วง</div>
+                <div className="flex items-center gap-4 text-xs md:text-sm opacity-80">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />พ่วงหน้า
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-slate-500" />พ่วงหลัง
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* ปุ่มบันทึก/รีเซ็ต */}
           <div className="mt-8 flex flex-wrap items-center gap-3">

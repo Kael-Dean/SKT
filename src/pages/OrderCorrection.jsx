@@ -387,8 +387,7 @@ const OrderCorrection = () => {
   }, [page, totalPages])
 
   /** Reset filters */
-  const resetFilters = () =>
-  {
+  const resetFilters = () => {
     setFilters({
       startDate: firstDayThisMonth,
       endDate: today,
@@ -407,7 +406,7 @@ const OrderCorrection = () => {
   const [draft, setDraft] = useState(null)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)   // flag สำหรับลบ
+  const [deleting, setDeleting] = useState(false)
   const [rowError, setRowError] = useState("")
   const [touched, setTouched] = useState(new Set())
 
@@ -508,7 +507,7 @@ const OrderCorrection = () => {
     setTouched(new Set())
   }
 
-  /** ---- Build changes payloads ---- */
+  /** ---- Build changes payloads (ส่งเฉพาะคีย์ที่แก้) ---- */
   const buildChangesBuy = (d, touchedKeys) => {
     const c = {}
     const put = (k, v) => { if (touchedKeys.has(k)) c[k] = v }
@@ -628,15 +627,15 @@ const OrderCorrection = () => {
     }
   }
 
-  /** -------- ลบออเดอร์ + ยืนยัน -------- */
+  /** -------- NEW: Delete order with confirm + BE DELETE -------- */
   const deleteOrder = async () => {
     const id = draft?.order_id
     if (!id) return
     const prefer = (draft?.type === "sell" ? "sell" : "buy")
     const candidates = [
-      `/order/orders/${id}`,                            // no force_type
-      `/order/orders/${id}?force_type=${prefer}`,      // prefer type
-      `/order/orders/${id}?force_type=${prefer === "buy" ? "sell" : "buy"}`, // opposite
+      `/order/orders/${id}`,
+      `/order/orders/${id}?force_type=${prefer}`,
+      `/order/orders/${id}?force_type=${prefer === "buy" ? "sell" : "buy"}`,
     ]
     let lastErr = null
     for (const url of candidates) {
@@ -958,10 +957,9 @@ const OrderCorrection = () => {
                       วันที่เอกสาร: {draft.date ? new Date(draft.date).toLocaleDateString("th-TH") : "-"}
                     </div>
 
-                    {/* ปุ่มด้านขวา */}
                     {!editing ? (
                       <div className="flex gap-2">
-                        {/* แก้ไข (ซ้าย) */}
+                        {/* ปุ่มแก้ไข (ซ้าย) */}
                         <button
                           type="button"
                           onClick={() => setEditing(true)}
@@ -969,7 +967,7 @@ const OrderCorrection = () => {
                         >
                           แก้ไข
                         </button>
-                        {/* ลบออเดอร์ (ขวา) */}
+                        {/* ปุ่มลบ (อยู่ขวาของปุ่มแก้ไข) */}
                         <button
                           type="button"
                           onClick={confirmAndDelete}
@@ -996,7 +994,7 @@ const OrderCorrection = () => {
                         >
                           ยกเลิก
                         </button>
-                        {/* ซ่อนปุ่มลบระหว่างแก้ไขตามที่ร้องขอ */}
+                        {/* ซ่อนปุ่มลบระหว่างแก้ไขตามที่ขอ */}
                       </div>
                     )}
                   </div>
@@ -1016,13 +1014,17 @@ const OrderCorrection = () => {
                           {draft.edited_by || "-"}
                         </div>
                       ) : (
-                        <input
-                          inputMode="numeric"
-                          className={baseField}
-                          value={draft.edited_by}
-                          onChange={(e) => { setD({ edited_by: onlyDigits(e.target.value) }); touch("edited_by") }}
-                          placeholder="เฉพาะตัวเลข"
-                        />
+                        <>
+                          {/* 🔒 ล็อก input นี้: ห้ามแก้ */}
+                          <input
+                            inputMode="numeric"
+                            className={[baseField, "cursor-not-allowed opacity-80"].join(" ")}
+                            value={draft.edited_by}
+                            readOnly
+                            disabled
+                          />
+                          <div className="mt-1 text-xs text-slate-500 dark:text-slate-300">ล็อกโดยระบบ (ใช้บัญชีผู้ใช้งานปัจจุบัน)</div>
+                        </>
                       )}
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40 md:col-span-2">

@@ -13,7 +13,6 @@ const baht = (n) =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
   )
-
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -23,13 +22,16 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
+/** ---------- class helpers ---------- */
+const cx = (...a) => a.filter(Boolean).join(" ")
+
 /** ---------- Base field style ---------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-/** ---------- Reusable ComboBox ---------- */
+/** ---------- Reusable ComboBox (เหมือนหน้า Buy: รองรับ subLabel) ---------- */
 function ComboBox({
   options = [],
   value,
@@ -37,19 +39,29 @@ function ComboBox({
   placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "",
   getValue = (o) => o?.value ?? o?.id ?? "",
+  /** ⭐ คืนบรรทัดอธิบายย่อยใต้ชื่อ */
+  getSubLabel = (o) => o?.subLabel ?? "",
   disabled = false,
   error = false,
+  buttonRef = null,
+  hintRed = false,
+  clearHint = () => {},
+  onEnterNext,
 }) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
   const boxRef = useRef(null)
   const listRef = useRef(null)
-  const btnRef = useRef(null)
+  const internalBtnRef = useRef(null)
+  const controlRef = buttonRef || internalBtnRef
 
-  const selectedLabel = useMemo(() => {
-    const found = options.find((o) => String(getValue(o)) === String(value))
-    return found ? getLabel(found) : ""
-  }, [options, value, getLabel, getValue])
+  /** เลือกรายการปัจจุบัน (ทั้ง label + sublabel) */
+  const selectedObj = useMemo(
+    () => options.find((o) => String(getValue(o)) === String(value)),
+    [options, value, getValue]
+  )
+  const selectedLabel = selectedObj ? getLabel(selectedObj) : ""
+  const selectedSubLabel = selectedObj ? (getSubLabel(selectedObj) || "") : ""
 
   useEffect(() => {
     const onClick = (e) => {
@@ -68,7 +80,11 @@ function ComboBox({
     onChange?.(v, opt)
     setOpen(false)
     setHighlight(-1)
-    requestAnimationFrame(() => btnRef.current?.focus())
+    clearHint?.()
+    requestAnimationFrame(() => {
+      controlRef.current?.focus()
+      onEnterNext?.()
+    })
   }
 
   const scrollHighlightedIntoView = (index) => {
@@ -91,6 +107,7 @@ function ComboBox({
       e.preventDefault()
       setOpen(true)
       setHighlight((h) => (h >= 0 ? h : 0))
+      clearHint?.()
       return
     }
     if (!open) return
@@ -123,23 +140,34 @@ function ComboBox({
     <div className="relative" ref={boxRef}>
       <button
         type="button"
-        ref={btnRef}
+        ref={controlRef}
         disabled={disabled}
-        onClick={() => !disabled && setOpen((o) => !o)}
+        onClick={() => { if (!disabled) { setOpen((o) => !o); clearHint?.() } }}
         onKeyDown={onKeyDown}
-        className={[
+        onFocus={() => clearHint?.()}
+        className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
           disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
           error
             ? "border-red-400 ring-2 ring-red-300/70"
             : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "text-black placeholder:text-slate-500",
-          "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-700/70 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30",
-        ].join(" ")}
+          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80",
+          hintRed && "ring-2 ring-red-300 animate-pulse"
+        )}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-invalid={error || hintRed ? true : undefined}
       >
-        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
+        {selectedLabel ? (
+          <div className="flex flex-col">
+            <span>{selectedLabel}</span>
+            {selectedSubLabel && (
+              <span className="text-[13px] text-slate-600 dark:text-slate-300">{selectedSubLabel}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-slate-500 dark:text-white/70">{placeholder}</span>
+        )}
       </button>
 
       {open && (
@@ -153,6 +181,7 @@ function ComboBox({
           )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
+            const sub = getSubLabel(opt) || ""
             const isActive = idx === highlight
             const isChosen = String(getValue(opt)) === String(value)
             return (
@@ -163,17 +192,20 @@ function ComboBox({
                 aria-selected={isChosen}
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => commit(opt)}
-                className={[
+                className={cx(
                   "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
                   isActive
                     ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30",
-                ].join(" ")}
+                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                )}
               >
                 {isActive && (
                   <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
                 )}
-                <span className="flex-1">{label}</span>
+                <span className="flex-1">
+                  <div className="">{label}</div>
+                  {sub && <div className="text-sm text-slate-600 dark:text-slate-300">{sub}</div>}
+                </span>
                 {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
               </button>
             )
@@ -195,7 +227,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
       <input
         type="date"
         ref={inputRef}
-        className={[baseField, "pr-12 cursor-pointer", error ? "border-red-400 ring-2 ring-red-300/70" : "", className].join(" ")}
+        className={cx(baseField, "pr-12 cursor-pointer", error && "border-red-400 ring-2 ring-red-300/70", className)}
         {...props}
       />
       <button
@@ -244,6 +276,9 @@ const Order = () => {
   const [specOptions, setSpecOptions] = useState([])
   const [loadingSpecs, setLoadingSpecs] = useState(false)
 
+  // ⭐ เก็บ label ของ variant ไว้ดูชื่อชั้นย่อย
+  const [variantLookup, setVariantLookup] = useState({})
+
   // filters
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
@@ -289,13 +324,24 @@ const Order = () => {
         ])
         setBranchOptions((Array.isArray(branches) ? branches : []).map(x => ({ id: String(x.id), label: x.branch_name })))
 
+        // ⭐ เก็บ spec meta (species_id / variant_id) ไว้ด้วย เพื่อทำ subLabel
         const opts = (Array.isArray(specs) ? specs : [])
           .map(r => ({
             id: String(r.id),
             label: String(r.prod_name || r.name || r.spec_name || `spec #${r.id}`).trim(),
+            spec: {
+              species_id: r.species_id ?? null,
+              variant_id: r.variant_id ?? null,
+              product_id: r.product_id ?? null,
+              product_year: r.product_year ?? null,
+              condition_id: r.condition_id ?? null,
+              field_type: r.field_type ?? null,
+              program: r.program ?? null,
+              business_type: r.business_type ?? null,
+            },
           }))
           .filter(o => o.id && o.label)
-        setSpecOptions(opts) // ⚠️ ไม่ตัดเหลือ 2 รายการ — แสดงทั้งหมด
+        setSpecOptions(opts)
       } catch (e) {
         console.error("load initial options failed:", e)
         setBranchOptions([]); setSpecOptions([])
@@ -305,6 +351,48 @@ const Order = () => {
     }
     loadInitial()
   }, [])
+
+  /** ---------- โหลดชื่อ variant ของ species ที่ปรากฏใน specOptions (เอาไว้ทำบรรทัดย่อย “ชั้นย่อย: …”) ---------- */
+  useEffect(() => {
+    const speciesIds = Array.from(
+      new Set(
+        (specOptions || [])
+          .map((t) => t?.spec?.species_id)
+          .filter(Boolean)
+          .map(String)
+      )
+    )
+    if (speciesIds.length === 0) return
+
+    const fetchAll = async () => {
+      try {
+        const list = await Promise.all(
+          speciesIds.map(async (sid) => {
+            const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)) || []
+            return arr.map((x) => ({
+              id: String(x.id ?? x.variant_id ?? x.value ?? ""),
+              label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
+            }))
+          })
+        )
+        const map = {}
+        list.flat().forEach(({ id, label }) => {
+          if (id && label) map[id] = label
+        })
+        setVariantLookup(map)
+      } catch (e) {
+        console.error("load variants for specs error:", e)
+      }
+    }
+    fetchAll()
+  }, [specOptions])
+
+  /** ---------- คืน subLabel ที่จะโชว์ใต้ label: “ชั้นย่อย: …” ---------- */
+  const templateSubLabel = (opt) => {
+    const vid = String(opt?.spec?.variant_id ?? "")
+    const vLabel = vid ? (variantLookup[vid] || `#${vid}`) : ""
+    return vLabel ? `ชั้นย่อย: ${vLabel}` : ""
+  }
 
   /** ---------- branch → klang ---------- */
   useEffect(() => {
@@ -465,7 +553,7 @@ const Order = () => {
                 value={filters.branchId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" }))}
+                  setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" })) }
                 placeholder="— เลือกสาขา —"
               />
             </div>
@@ -478,26 +566,27 @@ const Order = () => {
                 value={filters.klangId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" }))}
+                  setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" })) }
                 placeholder="— เลือกคลัง —"
                 disabled={!filters.branchId}
               />
             </div>
 
-            {/* รายการสำเร็จรูป (spec) */}
+            {/* รายการสำเร็จรูป (spec) — โชว์ชั้นย่อยแบบหน้า Buy */}
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รายการสำเร็จรูป (spec)</label>
               <ComboBox
                 options={specOptions}
                 value={filters.specId}
                 getValue={(o) => o.id}
+                getSubLabel={(o) => templateSubLabel(o)}   
                 onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, specId: id || "", specLabel: found?.label ?? "" }))}
+                  setFilters((p) => ({ ...p, specId: id || "", specLabel: found?.label ?? "" })) }
                 placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
                 disabled={loadingSpecs || specOptions.length === 0}
               />
               <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                ตัวเลือกนี้มาจาก <code>/order/form/search</code> (prod_name)
+                ตัวเลือกนี้มาจาก <code>/order/form/search</code> • บรรทัดย่อยจะแสดงชื่อ “ชั้นย่อย” จาก <code>/order/variant/search</code>
               </div>
             </div>
 
@@ -517,12 +606,12 @@ const Order = () => {
                 onClick={fetchOrders}
                 type="button"
                 disabled={!!errors.startDate || !!errors.endDate}
-                className={[
+                className={cx(
                   "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-base font-semibold text-white transition-all duration-300 ease-out cursor-pointer",
                   (!!errors.startDate || !!errors.endDate)
                     ? "bg-emerald-400/60 pointer-events-none"
                     : "bg-emerald-600 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97]"
-                ].join(" ")}
+                )}
               >
                 ค้นหา
               </button>
@@ -626,13 +715,13 @@ const Order = () => {
                 type="button"
                 onClick={prevPage}
                 disabled={page <= 1}
-                className={[
+                className={cx(
                   "h-10 rounded-xl px-4 text-sm font-medium",
                   page <= 1
                     ? "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                     : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
                   "border border-slate-300 dark:border-slate-600"
-                ].join(" ")}
+                )}
               >
                 ก่อนหน้า
               </button>
@@ -647,13 +736,13 @@ const Order = () => {
                       key={`p-${it}`}
                       type="button"
                       onClick={() => goToPage(it)}
-                      className={[
+                      className={cx(
                         "h-10 min-w-[40px] rounded-xl px-3 text-sm font-semibold transition",
                         it === page
                           ? "bg-emerald-600 text-white"
                           : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
                         "border border-slate-300 dark:border-slate-600"
-                      ].join(" ")}
+                      )}
                     >
                       {it}
                     </button>
@@ -665,13 +754,13 @@ const Order = () => {
                 type="button"
                 onClick={nextPage}
                 disabled={page >= totalPages}
-                className={[
+                className={cx(
                   "h-10 rounded-xl px-4 text-sm font-medium",
                   page >= totalPages
                     ? "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                     : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
                   "border border-slate-300 dark:border-slate-600"
-                ].join(" ")}
+                )}
               >
                 ถัดไป
               </button>

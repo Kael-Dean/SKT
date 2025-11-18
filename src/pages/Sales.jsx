@@ -294,7 +294,6 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 })
 
 /* ==================== JWT Branch Lock (เหมือนหน้า Buy) ==================== */
-// ดึง token แล้วถอด payload (แบบเดียวกับหน้า Buy.jsx)
 const getToken = () =>
   localStorage.getItem("access_token") ||
   localStorage.getItem("token") ||
@@ -377,6 +376,10 @@ function Sales() {
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const listContainerRef = useRef(null)
   const itemRefs = useRef([])
+
+  // 🔧 เพิ่มธงกันลูปสำหรับ citizenId และ memberId
+  const suppressCitizenSearchRef = useRef(false)
+  const suppressMemberSearchRef = useRef(false)
 
   // ค้นหาบริษัท
   const [companyResults, setCompanyResults] = useState([])
@@ -889,6 +892,11 @@ function Sales() {
   useEffect(() => {
     if (!autoSearchEnabled) { setCustomerFound(null); return }
     if (buyerType !== "person") { setCustomerFound(null); return }
+    // ถ้าเป็นอัปเดตที่มาจากการเลือกชื่อ ให้ข้าม
+    if (suppressMemberSearchRef.current) {
+      suppressMemberSearchRef.current = false
+      return
+    }
     const midStr = onlyDigits(String(debouncedMemberId || ""))
     if (!midStr) return
     const __epoch = searchEpochRef.current
@@ -898,8 +906,12 @@ function Sales() {
         const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(String(midStr))}`)) || []
         if (__epoch !== searchEpochRef.current) return
         const exact = arr.find((r) => r.type === "member" && onlyDigits(String(r.member_id || "")) === midStr) || arr[0]
-        if (exact) await fillFromRecord(exact)
-        else { if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" }) }
+        if (exact) {
+          // กันลูป: ไม่ให้ไปกระตุ้นชื่อ/บัตร ประชาชนอีก
+          suppressNameSearchRef.current = true
+          suppressCitizenSearchRef.current = true
+          await fillFromRecord(exact)
+        } else { if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" }) }
       } catch (e) {
         console.error(e); if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" })
       } finally { if (__epoch === searchEpochRef.current) setLoadingCustomer(false) }
@@ -911,6 +923,11 @@ function Sales() {
   useEffect(() => {
     if (!autoSearchEnabled) { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: "" }); return }
     if (buyerType !== "person") { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: "" }); return }
+    // ถ้าเป็นอัปเดตที่มาจากการเลือกชื่อ ให้ข้าม
+    if (suppressCitizenSearchRef.current) {
+      suppressCitizenSearchRef.current = false
+      return
+    }
     const cid = onlyDigits(debouncedCitizenId)
     if (cid.length !== 13) { setCustomerFound(null); return }
     const __epoch = searchEpochRef.current
@@ -920,7 +937,12 @@ function Sales() {
         const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(cid)}`)) || []
         if (__epoch !== searchEpochRef.current) return
         const exact = arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
-        if (exact) await fillFromRecord(exact)
+        if (exact) {
+          // กันลูป: ไม่ให้ไปกระตุ้นชื่อ/member_id อีก
+          suppressNameSearchRef.current = true
+          suppressMemberSearchRef.current = true
+          await fillFromRecord(exact)
+        }
         else { if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" }) }
       } catch (e) {
         console.error(e); if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" })
@@ -979,7 +1001,10 @@ function Sales() {
     try { itemEl.scrollIntoView({ block: "nearest", inline: "nearest" }) } catch {}
   }
   const pickNameResult = async (rec) => {
+    // กันลูป: เลือกจากชื่อแล้วจะไม่ไปค้นต่อด้วย citizen/member
     suppressNameSearchRef.current = true
+    suppressCitizenSearchRef.current = true
+    suppressMemberSearchRef.current = true
     await fillFromRecord(rec)
     setShowNameList(false); setNameResults([]); setHighlightedIndex(-1)
   }

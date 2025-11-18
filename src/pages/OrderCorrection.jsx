@@ -1,20 +1,30 @@
 // src/pages/OrderCorrection.jsx
-import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+} from "react"
 import { apiAuth } from "../lib/api"
-import { getUser } from "../lib/auth"
 
-/** ---------- Utils ---------- */
+// -------- Utils --------
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
-const cleanDecimal = (s = "") => String(s ?? "").replace(/[^\d.]/g, "")
-const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
+const toNumber = (v) =>
+  v === "" || v === null || v === undefined ? 0 : Number(v)
 const thb = (n) =>
-  new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
-    isFinite(n) ? n : 0
-  )
+  new Intl.NumberFormat("th-TH", {
+    style: "currency",
+    currency: "THB",
+    maximumFractionDigits: 2,
+  }).format(isFinite(n) ? n : 0)
 const baht = (n) =>
-  new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
-    isFinite(n) ? n : 0
-  )
+  new Intl.NumberFormat("th-TH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(isFinite(n) ? n : 0)
+
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -24,13 +34,14 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
-/** ---------- Base field style ---------- */
+const cx = (...a) => a.filter(Boolean).join(" ")
+
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-/** ---------- Reusable ComboBox ---------- */
+// -------- ComboBox (แบบเดียวกับหน้า Order) --------
 function ComboBox({
   options = [],
   value,
@@ -44,13 +55,14 @@ function ComboBox({
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
   const boxRef = useRef(null)
-  const listRef = useRef(null)
   const btnRef = useRef(null)
+  const listRef = useRef(null)
 
-  const selectedLabel = useMemo(() => {
-    const found = options.find((o) => String(getValue(o)) === String(value))
-    return found ? getLabel(found) : ""
-  }, [options, value, getLabel, getValue])
+  const selectedObj = useMemo(
+    () => options.find((o) => String(getValue(o)) === String(value)),
+    [options, value, getValue]
+  )
+  const selectedLabel = selectedObj ? getLabel(selectedObj) : ""
 
   useEffect(() => {
     const onClick = (e) => {
@@ -64,14 +76,6 @@ function ComboBox({
     return () => document.removeEventListener("click", onClick)
   }, [])
 
-  const commit = (opt) => {
-    const v = String(getValue(opt))
-    onChange?.(v, opt)
-    setOpen(false)
-    setHighlight(-1)
-    requestAnimationFrame(() => btnRef.current?.focus())
-  }
-
   const scrollHighlightedIntoView = (index) => {
     const listEl = listRef.current
     const itemEl = listEl?.children?.[index]
@@ -84,6 +88,14 @@ function ComboBox({
     } else if (itemRect.bottom > listRect.bottom - buffer) {
       listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
     }
+  }
+
+  const commit = (opt) => {
+    const v = String(getValue(opt))
+    onChange?.(v, opt)
+    setOpen(false)
+    setHighlight(-1)
+    requestAnimationFrame(() => btnRef.current?.focus())
   }
 
   const onKeyDown = (e) => {
@@ -120,26 +132,27 @@ function ComboBox({
   }
 
   return (
-    <div className="relative" ref={boxRef}>
+    <div ref={boxRef} className="relative">
       <button
         type="button"
         ref={btnRef}
         disabled={disabled}
         onClick={() => !disabled && setOpen((o) => !o)}
         onKeyDown={onKeyDown}
-        className={[
+        className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
+          disabled
+            ? "bg-slate-100 cursor-not-allowed"
+            : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
           error
             ? "border-red-400 ring-2 ring-red-300/70"
             : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "text-black placeholder:text-slate-500",
-          "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-700/70 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30",
-        ].join(" ")}
-        aria-haspopup="listbox"
-        aria-expanded={open}
+          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80"
+        )}
       >
-        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
+        {selectedLabel || (
+          <span className="text-slate-500 dark:text-white/70">{placeholder}</span>
+        )}
       </button>
 
       {open && (
@@ -149,7 +162,9 @@ function ComboBox({
           className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
           {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
+            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">
+              ไม่มีตัวเลือก
+            </div>
           )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
@@ -163,18 +178,20 @@ function ComboBox({
                 aria-selected={isChosen}
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => commit(opt)}
-                className={[
+                className={cx(
                   "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
                   isActive
                     ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30",
-                ].join(" ")}
+                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                )}
               >
                 {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+                  <span className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-emerald-600 dark:bg-emerald-400/70" />
                 )}
                 <span className="flex-1">{label}</span>
-                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
+                {isChosen && (
+                  <span className="text-emerald-600 dark:text-emerald-300">✓</span>
+                )}
               </button>
             )
           })}
@@ -184,17 +201,26 @@ function ComboBox({
   )
 }
 
-/** ---------- DateInput (native; same behavior asหน้า Order) ---------- */
-const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
+// -------- DateInput --------
+const DateInput = forwardRef(function DateInput(
+  { error = false, className = "", ...props },
+  ref
+) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
+
   return (
     <div className="relative">
-      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
+      <style>{`input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}`}</style>
       <input
         type="date"
         ref={inputRef}
-        className={[baseField, "pr-12 cursor-pointer", error ? "border-red-400 ring-2 ring-red-300/70" : "", className].join(" ")}
+        className={cx(
+          baseField,
+          "pr-12 cursor-pointer",
+          error && "border-red-400 ring-2 ring-red-300/70",
+          className
+        )}
         {...props}
       />
       <button
@@ -203,12 +229,22 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
           const el = inputRef.current
           if (!el) return
           if (typeof el.showPicker === "function") el.showPicker()
-          else { el.focus(); el.click?.() }
+          else {
+            el.focus()
+            el.click?.()
+          }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+        className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl bg-transparent
+                   cursor-pointer transition-transform hover:scale-110 active:scale-95 focus:outline-none"
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="currentColor"
+          className="text-slate-600 dark:text-slate-200"
+        >
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
         </svg>
       </button>
@@ -216,111 +252,122 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
-/** ---------- Page ---------- */
 const PAGE_SIZE = 100
 
 const OrderCorrection = () => {
-  /** Dates */
   const today = new Date().toISOString().slice(0, 10)
-  const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+  const firstDayThisMonth = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    1
+  )
+    .toISOString()
+    .slice(0, 10)
 
-  /** List state */
+  // mode ซื้อ/ขาย
+  const [mode, setMode] = useState("buy") // 'buy' | 'sell'
+
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
 
-  /** Pagination */
+  // pagination
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState("1")
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(rows.length / PAGE_SIZE)), [rows.length])
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(rows.length / PAGE_SIZE)),
+    [rows.length]
+  )
   const pagedRows = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
     return rows.slice(start, start + PAGE_SIZE)
   }, [rows, page])
 
-  /** Options */
+  // filters
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
-  const [specOptions, setSpecOptions] = useState([])
-  const [specDict, setSpecDict] = useState({})
-  const [paymentBuy, setPaymentBuy] = useState([])   // 3=เงินสด, 4=เครดิต
-  const [paymentSell, setPaymentSell] = useState([]) // 1=เงินสด, 2=เครดิต
 
-  /** Filters */
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
-    branchId: "", branchName: "",
-    klangId: "", klangName: "",
+    branchId: "",
+    klangId: "",
     q: "",
   })
   const [errors, setErrors] = useState({ startDate: "", endDate: "" })
   const debouncedQ = useDebounce(filters.q, 500)
 
-  /** Validate date range */
+  // edit state
+  const [editing, setEditing] = useState(null) // {mode, row, sub_order?}
+  const [editForm, setEditForm] = useState({})
+  const [editMeta, setEditMeta] = useState({ editedBy: "", reason: "" })
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  // ----- validation date -----
   const validateDates = (s, e) => {
     const out = { startDate: "", endDate: "" }
     if (!s) out.startDate = "กรุณาเลือกวันที่เริ่ม"
     if (!e) out.endDate = "กรุณาเลือกวันที่สิ้นสุด"
     if (s && e) {
-      const sd = new Date(s), ed = new Date(e)
+      const sd = new Date(s)
+      const ed = new Date(e)
       if (ed < sd) out.endDate = "วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น"
     }
     setErrors(out)
     return !out.startDate && !out.endDate
   }
-  useEffect(() => { validateDates(filters.startDate, filters.endDate) }, [filters.startDate, filters.endDate])
 
-  /** Load initial options (branch/spec/payment) */
+  useEffect(() => {
+    validateDates(filters.startDate, filters.endDate)
+  }, [filters.startDate, filters.endDate])
+
+  // ----- load branches -----
   useEffect(() => {
     const loadInitial = async () => {
       try {
-        const [branches, specs, payB, payS] = await Promise.all([
-          apiAuth(`/order/branch/search`),
-          apiAuth(`/order/form/search`),      // ProductSpec list (prod_name)
-          apiAuth(`/order/payment/search/buy`), // 3,4
-          apiAuth(`/order/payment/search/sell`),// 1,2
-        ])
-        setBranchOptions((Array.isArray(branches) ? branches : []).map(x => ({ id: String(x.id), label: x.branch_name })))
-
-        const opts = (Array.isArray(specs) ? specs : [])
-          .map(r => ({
-            id: String(r.id),
-            label: String(r.prod_name || r.name || r.spec_name || `spec #${r.id}`).trim(),
-            raw: r,
+        const branches = await apiAuth(`/order/branch/search`)
+        setBranchOptions(
+          (Array.isArray(branches) ? branches : []).map((b) => ({
+            id: String(b.id),
+            label: b.branch_name,
           }))
-          .filter(o => o.id && o.label)
-        setSpecOptions(opts.map(o => ({ id: o.id, label: o.label })))
-        const dict = {}
-        opts.forEach(o => { dict[o.id] = o.raw })
-        setSpecDict(dict)
-
-        setPaymentBuy((Array.isArray(payB) ? payB : []).map(p => ({ id: String(p.id), label: p.payment })))
-        setPaymentSell((Array.isArray(payS) ? payS : []).map(p => ({ id: String(p.id), label: p.payment })))
+        )
       } catch (e) {
-        console.error("load initial options failed:", e)
-        setBranchOptions([]); setSpecOptions([]); setPaymentBuy([]); setPaymentSell([])
+        console.error(e)
+        setBranchOptions([])
       }
     }
     loadInitial()
   }, [])
 
-  /** branch → klang */
+  // ----- branch -> klang -----
   useEffect(() => {
-    const run = async () => {
-      if (!filters.branchId) { setKlangOptions([]); setFilters(p => ({ ...p, klangId: "", klangName: "" })); return }
+    const loadKlang = async () => {
+      if (!filters.branchId) {
+        setKlangOptions([])
+        setFilters((p) => ({ ...p, klangId: "" }))
+        return
+      }
       try {
-        const data = await apiAuth(`/order/klang/search?branch_id=${filters.branchId}`)
-        setKlangOptions((Array.isArray(data) ? data : []).map(x => ({ id: String(x.id), label: x.klang_name })))
+        const data = await apiAuth(
+          `/order/klang/search?branch_id=${filters.branchId}`
+        )
+        setKlangOptions(
+          (Array.isArray(data) ? data : []).map((k) => ({
+            id: String(k.id),
+            label: k.klang_name,
+          }))
+        )
       } catch (e) {
-        console.error("load klang failed:", e)
+        console.error(e)
         setKlangOptions([])
       }
     }
-    run()
+    loadKlang()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId])
 
-  /** Fetch orders */
+  // ----- fetch orders (ตาม mode) -----
   const fetchOrders = async () => {
     if (!validateDates(filters.startDate, filters.endDate)) return
     try {
@@ -331,48 +378,81 @@ const OrderCorrection = () => {
       if (filters.branchId) params.set("branch_id", filters.branchId)
       if (filters.klangId) params.set("klang_id", filters.klangId)
       if (filters.q?.trim()) params.set("q", filters.q.trim())
-      const data = await apiAuth(`/order/orders/report?${params.toString()}`)
+
+      const endpoint =
+        mode === "buy" ? "/order/orders/buy-report" : "/order/orders/sell-report"
+
+      const data = await apiAuth(`${endpoint}?${params.toString()}`)
       setRows(Array.isArray(data) ? data : [])
-      setPage(1); setPageInput("1")
+      setPage(1)
+      setPageInput("1")
+      setEditing(null)
+      setEditForm({})
     } catch (e) {
       console.error(e)
-      setRows([]); setPage(1); setPageInput("1")
+      setRows([])
     } finally {
       setLoading(false)
     }
   }
-  useEffect(() => { fetchOrders() }, [])
-  useEffect(() => { if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders() }, [debouncedQ])
 
-  /** Totals */
+  // init + on mode change
+  useEffect(() => {
+    fetchOrders()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
+
+  // auto search on q
+  useEffect(() => {
+    if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQ])
+
+  // totals
   const totals = useMemo(() => {
-    let weight = 0, revenue = 0
-    rows.forEach((x) => { weight += toNumber(x.weight); revenue += toNumber(x.price) })
+    let weight = 0
+    let revenue = 0
+    rows.forEach((r) => {
+      weight += toNumber(r.weight)
+      revenue += toNumber(r.price)
+    })
     return { weight, revenue }
   }, [rows])
 
-  /** Pagination helpers */
+  // pagination helpers
   useEffect(() => {
     setPage((p) => Math.min(Math.max(1, p), totalPages))
-    setPageInput((v) => String(Math.min(Math.max(1, toNumber(onlyDigits(v)) || 1), totalPages)))
+    setPageInput((v) =>
+      String(Math.min(Math.max(1, toNumber(onlyDigits(v)) || 1), totalPages))
+    )
   }, [totalPages])
 
   const goToPage = (p) => {
     const n = Math.min(Math.max(1, toNumber(p)), totalPages)
-    setPage(n); setPageInput(String(n))
+    setPage(n)
+    setPageInput(String(n))
     try {
-      const main = document.querySelector('main')
-      if (main && typeof main.scrollTo === 'function') main.scrollTo({ top: 0, behavior: 'smooth' })
-      else window?.scrollTo?.({ top: 0, behavior: 'smooth' })
-    } catch (_) {}
+      const main = document.querySelector("main")
+      if (main && typeof main.scrollTo === "function") {
+        main.scrollTo({ top: 0, behavior: "smooth" })
+      } else {
+        window?.scrollTo?.({ top: 0, behavior: "smooth" })
+      }
+    } catch {
+      /* noop */
+    }
   }
   const nextPage = () => goToPage(page + 1)
   const prevPage = () => goToPage(page - 1)
   const onCommitPageInput = () => {
     const n = toNumber(onlyDigits(pageInput))
-    if (!n) { setPageInput(String(page)); return }
+    if (!n) {
+      setPageInput(String(page))
+      return
+    }
     goToPage(n)
   }
+
   const pageItems = useMemo(() => {
     const items = []
     const delta = 2
@@ -386,378 +466,296 @@ const OrderCorrection = () => {
     return items
   }, [page, totalPages])
 
-  /** Reset filters */
   const resetFilters = () => {
     setFilters({
       startDate: firstDayThisMonth,
       endDate: today,
-      branchId: "", branchName: "",
-      klangId: "", klangName: "",
+      branchId: "",
+      klangId: "",
       q: "",
     })
     setKlangOptions([])
-    setPage(1); setPageInput("1")
+    setPage(1)
+    setPageInput("1")
     setErrors({ startDate: "", endDate: "" })
+    setEditing(null)
+    setEditForm({})
   }
 
-  /** ---------------- Edit Modal ---------------- */
-  const [open, setOpen] = useState(false)
-  const [active, setActive] = useState(null)
-  const [draft, setDraft] = useState(null)
-  const [editing, setEditing] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [rowError, setRowError] = useState("")
-  const [touched, setTouched] = useState(new Set())
+  // ----- when click edit row -----
+  const onEditRow = (row) => {
+    setEditing({ mode, row })
+    setEditMeta((m) => ({ ...m, reason: "" }))
 
-  const touch = (k) => setTouched(prev => new Set([...prev, String(k)]))
-  const setD = (patch) => setDraft(p => ({ ...(p || {}), ...(typeof patch === "function" ? patch(p || {}) : patch) }))
-  const getSpecLabel = (id) => (specOptions.find(o => String(o.id) === String(id))?.label || `#${id}`)
-
-  const tryPrefillBranchKlang = async (row) => {
-    let foundBranch = branchOptions.find(b => (b.label || "").trim() === (row.branch_name || "").trim())
-    let branchId = foundBranch?.id || ""
-    let klangId = ""
-    if (branchId) {
-      try {
-        const data = await apiAuth(`/order/klang/search?branch_id=${branchId}`)
-        const opts = (Array.isArray(data) ? data : []).map(x => ({ id: String(x.id), label: x.klang_name }))
-        setKlangOptions(opts)
-        const foundKlang = opts.find(k => (k.label || "").trim() === (row.klang_name || "").trim())
-        klangId = foundKlang?.id || ""
-      } catch {}
+    if (mode === "buy") {
+      setEditForm({
+        date: row.date ? row.date.slice(0, 10) : today,
+        entry_weight: row.entry_weight ?? 0,
+        exit_weight: row.exit_weight ?? 0,
+        price_per_kilo: row.price_per_kilo ?? 0,
+      })
     } else {
-      setKlangOptions([])
-    }
-    return { branchId, klangId }
-  }
-
-  const buildProductSpecIn = (specId) => {
-    const raw = specDict[String(specId)]
-    if (!raw) return null
-    return {
-      product_id: raw.product_id,
-      species_id: raw.species_id,
-      variant_id: raw.variant_id,
-      product_year: raw.product_year ?? null,
-      condition_id: raw.condition_id ?? null,
-      field_type: raw.field_type ?? null,
-      program: raw.program ?? null,
-      business_type: raw.business_type ?? null,
+      // sell: ต้องรวม row คู่ที่มี id เดียวกัน (sub_order 1 & 2)
+      const siblings = rows.filter((r) => r.id === row.id)
+      const r1 = siblings.find((x) => x.sub_order === 1) || {}
+      const r2 = siblings.find((x) => x.sub_order === 2) || {}
+      setEditForm({
+        date: row.date ? row.date.slice(0, 10) : today,
+        target_sub: row.sub_order, // 1 หรือ 2
+        weight_1: r1.weight ?? 0,
+        weight_2: r2.weight ?? 0,
+        price_1: r1.price ?? 0,
+        price_2: r2.price ?? 0,
+      })
     }
   }
 
-  const openModal = async (row) => {
-    setRowError("")
-    setTouched(new Set())
-    setEditing(false)
-    setActive(row)
-
-    const guessType = (toNumber(row.entry_weight) > 0 || toNumber(row.exit_weight) > 0 || toNumber(row.weight) > 0) ? "buy" : "sell"
-    const { branchId, klangId } = await tryPrefillBranchKlang(row)
-    const editorId = getUser()?.id || ""
-
-    setDraft({
-      order_id: row.id,
-      type: guessType,
-      edited_by: editorId,
-      reason: "",
-
-      // common
-      date: row?.date ? new Date(row.date).toISOString().slice(0, 10) : "",
-      branch_location: branchId,
-      klang_location: klangId,
-      payment_id: "",
-      comment: "",
-
-      // change spec
-      spec_id: "",
-
-      // BUY-like
-      order_serial: row.order_serial || "",
-      entry_weight: row.entry_weight ?? "",
-      exit_weight: row.exit_weight ?? "",
-      weight: row.weight ?? "",
-      price_per_kilo: row.price_per_kilo ?? "",
-      price: row.price ?? "",
-      gram: "", humidity: "", impurity: "",
-
-      // SELL-like
-      order_serial_1: "", order_serial_2: "",
-      license_plate_1: "", license_plate_2: "",
-      weight_1: "", weight_2: "",
-      price_1: "", price_2: "",
-
-      // Credit terms
-      dept_allowed_period: "",
-      dept_postpone: false,
-      dept_postpone_period: "",
-    })
-    setOpen(true)
-  }
-
-  const closeModal = () => {
-    setOpen(false)
-    setActive(null)
-    setDraft(null)
-    setEditing(false)
-    setSaving(false)
-    setDeleting(false)
-    setRowError("")
-    setTouched(new Set())
-  }
-
-  /** ---- Build changes payloads (ส่งเฉพาะคีย์ที่แก้) ---- */
-  const buildChangesBuy = (d, touchedKeys) => {
-    const c = {}
-    const put = (k, v) => { if (touchedKeys.has(k)) c[k] = v }
-    if (touchedKeys.has("spec_id")) {
-      const spec = buildProductSpecIn(d.spec_id)
-      if (spec) c["spec"] = spec
-    }
-    put("payment_id", d.payment_id ? Number(d.payment_id) : undefined)
-    put("humidity", d.humidity === "" ? undefined : Number(cleanDecimal(d.humidity)))
-    put("entry_weight", d.entry_weight === "" ? undefined : Number(cleanDecimal(d.entry_weight)))
-    put("exit_weight", d.exit_weight === "" ? undefined : Number(cleanDecimal(d.exit_weight)))
-    put("weight", d.weight === "" ? undefined : Number(cleanDecimal(d.weight)))
-    put("gram", d.gram === "" ? undefined : Number(onlyDigits(d.gram)))
-    put("price_per_kilo", d.price_per_kilo === "" ? undefined : Number(cleanDecimal(d.price_per_kilo)))
-    put("price", d.price === "" ? undefined : Number(cleanDecimal(d.price)))
-    put("impurity", d.impurity === "" ? undefined : Number(cleanDecimal(d.impurity)))
-    put("order_serial", d.order_serial || undefined)
-    put("date", d.date ? new Date(d.date).toISOString() : undefined)
-    put("branch_location", d.branch_location ? Number(d.branch_location) : undefined)
-    put("klang_location", d.klang_location ? Number(d.klang_location) : undefined)
-    put("comment", d.comment || undefined)
-    Object.keys(c).forEach((k) => c[k] === undefined && delete c[k])
-    return c
-  }
-  const buildChangesSell = (d, touchedKeys) => {
-    const c = {}
-    const put = (k, v) => { if (touchedKeys.has(k)) c[k] = v }
-    if (touchedKeys.has("spec_id")) {
-      const spec = buildProductSpecIn(d.spec_id)
-      if (spec) c["spec"] = spec
-    }
-    put("payment_id", d.payment_id ? Number(d.payment_id) : undefined)
-    put("license_plate_1", d.license_plate_1 || undefined)
-    put("license_plate_2", d.license_plate_2 || undefined)
-    put("weight_1", d.weight_1 === "" ? undefined : Number(cleanDecimal(d.weight_1)))
-    put("weight_2", d.weight_2 === "" ? undefined : Number(cleanDecimal(d.weight_2)))
-    put("gram", d.gram === "" ? undefined : Number(onlyDigits(d.gram)))
-    put("price_per_kilo", d.price_per_kilo === "" ? undefined : Number(cleanDecimal(d.price_per_kilo)))
-    put("price_1", d.price_1 === "" ? undefined : Number(cleanDecimal(d.price_1)))
-    put("price_2", d.price_2 === "" ? undefined : Number(cleanDecimal(d.price_2)))
-    put("order_serial_1", d.order_serial_1 || undefined)
-    put("order_serial_2", d.order_serial_2 || undefined)
-    put("date", d.date ? new Date(d.date).toISOString() : undefined)
-    put("branch_location", d.branch_location ? Number(d.branch_location) : undefined)
-    put("klang_location", d.klang_location ? Number(d.klang_location) : undefined)
-    put("comment", d.comment || undefined)
-    Object.keys(c).forEach((k) => c[k] === undefined && delete c[k])
-    return c
-  }
-  const buildDept = (d, isBuy) => {
-    const wantsCredit = isBuy ? Number(d.payment_id) === 4 : Number(d.payment_id) === 2
-    const anyFilled = d.dept_allowed_period !== "" || d.dept_postpone === true || d.dept_postpone_period !== ""
-    if (!wantsCredit && !anyFilled) return undefined
-    return {
-      allowed_period: d.dept_allowed_period === "" ? undefined : Number(onlyDigits(d.dept_allowed_period)),
-      postpone: !!d.dept_postpone,
-      postpone_period: d.dept_postpone_period === "" ? undefined : Number(onlyDigits(d.dept_postpone_period)),
-    }
-  }
-
-  const save = async () => {
-    if (!active || !draft) return
-    setRowError("")
-
-    const editorId = Number(draft.edited_by)
-    if (!Number.isFinite(editorId) || editorId <= 0) {
-      setRowError("กรุณากรอก 'รหัสพนักงานผู้แก้ไข (edited_by)' เป็นตัวเลขให้ถูกต้อง")
+  // ----- delete order -----
+  const onDeleteRow = async (row) => {
+    if (
+      !window.confirm(
+        `ต้องการลบออเดอร์หมายเลข ${mode === "buy" ? row.order_serial : row.sale_id || row.order_serial
+        } ใช่หรือไม่?`
+      )
+    )
       return
-    }
-
-    setSaving(true)
-    const touchedKeys = new Set(touched)
-
-    const payloadBuy = {
-      meta: { edited_by: editorId, reason: (draft.reason || "").trim() || undefined },
-      changes: buildChangesBuy(draft, touchedKeys),
-      dept: buildDept(draft, true),
-    }
-    if (payloadBuy.dept === undefined) delete payloadBuy.dept
-
-    const payloadSell = {
-      meta: { edited_by: editorId, reason: (draft.reason || "").trim() || undefined },
-      changes: buildChangesSell(draft, touchedKeys),
-      dept: buildDept(draft, false),
-    }
-    if (payloadSell.dept === undefined) delete payloadSell.dept
-
-    const tryPatch = async (primary) => {
-      const id = draft.order_id
-      const patchOnce = async (kind) => {
-        const url = kind === "buy" ? `/order/orders/buy/${id}` : `/order/orders/sell/${id}`
-        const body = kind === "buy" ? payloadBuy : payloadSell
-        return apiAuth(url, { method: "PATCH", body })
-      }
-      try {
-        return await patchOnce(primary)
-      } catch (e1) {
-        const msg = (e1?.message || "").toLowerCase()
-        const is404 = msg.includes("404") || msg.includes("not found")
-        if (!is404) throw e1
-        const secondary = primary === "buy" ? "sell" : "buy"
-        return await patchOnce(secondary)
-      }
-    }
-
     try {
-      const primary = draft.type === "sell" ? "sell" : "buy"
-      await tryPatch(primary)
-      setEditing(false)
-      setOpen(false)
+      setDeleting(true)
+      const force = mode === "buy" ? "buy" : "sell"
+      await apiAuth(`/order/orders/${row.id}?force_type=${force}`, {
+        method: "DELETE",
+      })
       await fetchOrders()
+      setEditing(null)
     } catch (e) {
       console.error(e)
-      setRowError(e?.message || "บันทึกไม่สำเร็จ")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  /** -------- NEW: Delete order with confirm + BE DELETE -------- */
-  const deleteOrder = async () => {
-    const id = draft?.order_id
-    if (!id) return
-    const prefer = (draft?.type === "sell" ? "sell" : "buy")
-    const candidates = [
-      `/order/orders/${id}`,
-      `/order/orders/${id}?force_type=${prefer}`,
-      `/order/orders/${id}?force_type=${prefer === "buy" ? "sell" : "buy"}`,
-    ]
-    let lastErr = null
-    for (const url of candidates) {
-      try {
-        await apiAuth(url, { method: "DELETE" })
-        return
-      } catch (e) {
-        lastErr = e
-      }
-    }
-    throw lastErr
-  }
-
-  const confirmAndDelete = async () => {
-    if (!active || !draft || deleting) return
-    const ok = window.confirm(`ต้องการลบออเดอร์ #${active.id ?? draft.order_id} จริงหรือไม่?\nการลบจะย้อนสต๊อก/เครดิต และไม่สามารถยกเลิกได้`)
-    if (!ok) return
-    setRowError("")
-    setDeleting(true)
-    try {
-      await deleteOrder()
-      setOpen(false)
-      await fetchOrders()
-    } catch (e) {
-      console.error(e)
-      setRowError(e?.message || "ลบออเดอร์ไม่สำเร็จ")
+      alert("ลบออเดอร์ไม่สำเร็จ")
     } finally {
       setDeleting(false)
     }
   }
 
-  /** ----------- UI ----------- */
+  // ----- save edit -----
+  const onSaveEdit = async () => {
+    if (!editing) return
+    if (!editMeta.editedBy || !onlyDigits(editMeta.editedBy)) {
+      alert("กรุณากรอกรหัสผู้แก้ไข (ตัวเลข)")
+      return
+    }
+    const edited_by = Number(onlyDigits(editMeta.editedBy))
+
+    try {
+      setSaving(true)
+      if (editing.mode === "buy") {
+        const { date, entry_weight, exit_weight, price_per_kilo } = editForm
+        const payload = {
+          meta: {
+            edited_by,
+            reason: editMeta.reason || null,
+          },
+          changes: {
+            date: date ? new Date(date).toISOString() : undefined,
+            entry_weight: entry_weight !== "" ? Number(entry_weight) : undefined,
+            exit_weight: exit_weight !== "" ? Number(exit_weight) : undefined,
+            price_per_kilo:
+              price_per_kilo !== "" ? Number(price_per_kilo) : undefined,
+          },
+          dept: null,
+        }
+        await apiAuth(`/order/orders/buy/${editing.row.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      } else {
+        const { date, target_sub, weight_1, weight_2, price_1, price_2 } =
+          editForm
+        const w1 = Number(weight_1 || 0)
+        const w2 = Number(weight_2 || 0)
+        const p1 = Number(price_1 || 0)
+        const p2 = Number(price_2 || 0)
+
+        const payload = {
+          meta: {
+            edited_by,
+            reason: editMeta.reason || null,
+          },
+          changes: {
+            date: date ? new Date(date).toISOString() : undefined,
+            weight_1: w1,
+            weight_2: w2,
+            price_1: p1,
+            price_2: p2,
+            // ไม่ส่ง price_per_kilo ให้ backend คำนวณเองจากยอดรวม
+          },
+          dept: null,
+        }
+        await apiAuth(`/order/orders/sell/${editing.row.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      }
+      await fetchOrders()
+      setEditing(null)
+      setEditForm({})
+    } catch (e) {
+      console.error(e)
+      alert("บันทึกการแก้ไขไม่สำเร็จ")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const startIndex = (page - 1) * PAGE_SIZE + 1
   const endIndex = Math.min(rows.length, page * PAGE_SIZE)
 
+  const isBuyMode = mode === "buy"
+
+  // --- UI ---
   return (
-    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
+    <div className="min-h-screen rounded-2xl bg-white text-black dark:bg-slate-900 dark:text-white">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
-        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🛠️ แก้ไขออเดอร์</h1>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            🛠️ แก้ไขออเดอร์
+          </h1>
+
+          {/* toggle buy/sell */}
+          <div className="inline-flex items-center rounded-2xl border border-slate-300 bg-white p-1 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+            <button
+              type="button"
+              onClick={() => setMode("buy")}
+              className={cx(
+                "px-4 py-2 text-sm font-semibold rounded-xl transition",
+                isBuyMode
+                  ? "bg-emerald-600 text-white shadow"
+                  : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
+              )}
+            >
+              โหมดซื้อ
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("sell")}
+              className={cx(
+                "px-4 py-2 text-sm font-semibold rounded-xl transition",
+                !isBuyMode
+                  ? "bg-emerald-600 text-white shadow"
+                  : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
+              )}
+            >
+              โหมดขาย
+            </button>
+          </div>
+        </div>
 
         {/* Filters */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="grid gap-3 md:grid-cols-6">
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่เริ่ม</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                วันที่เริ่ม
+              </label>
               <DateInput
                 value={filters.startDate}
-                onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
+                onChange={(e) =>
+                  setFilters((p) => ({ ...p, startDate: e.target.value }))
+                }
                 error={!!errors.startDate}
               />
-              {errors.startDate && <div className="mt-1 text-sm text-red-500">{errors.startDate}</div>}
+              {errors.startDate && (
+                <div className="mt-1 text-sm text-red-500">
+                  {errors.startDate}
+                </div>
+              )}
             </div>
-
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่สิ้นสุด</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                วันที่สิ้นสุด
+              </label>
               <DateInput
                 value={filters.endDate}
-                onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
+                onChange={(e) =>
+                  setFilters((p) => ({ ...p, endDate: e.target.value }))
+                }
                 error={!!errors.endDate}
               />
-              {errors.endDate && <div className="mt-1 text-sm text-red-500">{errors.endDate}</div>}
+              {errors.endDate && (
+                <div className="mt-1 text-sm text-red-500">
+                  {errors.endDate}
+                </div>
+              )}
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                สาขา
+              </label>
               <ComboBox
                 options={branchOptions}
                 value={filters.branchId}
                 getValue={(o) => o.id}
-                onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" }))}
+                onChange={(id) =>
+                  setFilters((p) => ({
+                    ...p,
+                    branchId: id || "",
+                    klangId: "",
+                  }))
+                }
                 placeholder="— เลือกสาขา —"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                คลัง
+              </label>
               <ComboBox
                 options={klangOptions}
                 value={filters.klangId}
                 getValue={(o) => o.id}
-                onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" }))}
+                onChange={(id) =>
+                  setFilters((p) => ({ ...p, klangId: id || "" }))
+                }
                 placeholder="— เลือกคลัง —"
                 disabled={!filters.branchId}
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ
+                {isBuyMode ? "" : " / เลขที่ขาย"})
+              </label>
               <input
                 className={baseField}
                 value={filters.q}
-                onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
+                onChange={(e) =>
+                  setFilters((p) => ({ ...p, q: e.target.value }))
+                }
                 placeholder="พิมพ์อย่างน้อย 2 ตัวอักษร แล้วระบบจะค้นหาอัตโนมัติ"
               />
             </div>
 
             <div className="flex items-end gap-2 md:col-span-6">
               <button
-                onClick={fetchOrders}
                 type="button"
+                onClick={fetchOrders}
                 disabled={!!errors.startDate || !!errors.endDate}
-                className={[
+                className={cx(
                   "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-base font-semibold text-white transition-all duration-300 ease-out cursor-pointer",
-                  (!!errors.startDate || !!errors.endDate)
+                  !!errors.startDate || !!errors.endDate
                     ? "bg-emerald-400/60 pointer-events-none"
                     : "bg-emerald-600 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97]"
-                ].join(" ")}
+                )}
               >
                 ค้นหา
               </button>
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex items-center justify-center rounded-2xl 
-                           border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                           shadow-sm transition-all duration-300 ease-out
-                           hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                           active:scale-[.97]
-                           dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                           dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 shadow-sm transition-all duration-300 ease-out hover:bg-slate-100 hover:shadow-md hover:scale-[1.03] active:scale-[.97] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
               >
                 รีเซ็ต
               </button>
@@ -768,16 +766,26 @@ const OrderCorrection = () => {
         {/* Summary */}
         <div className="mb-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-            <div className="text-slate-500 dark:text-slate-400">จำนวนรายการ</div>
-            <div className="text-2xl font-semibold">{rows.length.toLocaleString()}</div>
+            <div className="text-slate-500 dark:text-slate-400">
+              จำนวนรายการ
+            </div>
+            <div className="text-2xl font-semibold">
+              {rows.length.toLocaleString()}
+            </div>
           </div>
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-            <div className="text-slate-500 dark:text-slate-400">น้ำหนักรวม (กก.)</div>
-            <div className="text-2xl font-semibold">{Math.round(toNumber(totals.weight) * 100) / 100}</div>
+            <div className="text-slate-500 dark:text-slate-400">
+              น้ำหนักรวม (กก.)
+            </div>
+            <div className="text-2xl font-semibold">
+              {Math.round(toNumber(totals.weight) * 100) / 100}
+            </div>
           </div>
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
             <div className="text-slate-500 dark:text-slate-400">มูลค่ารวม</div>
-            <div className="text-2xl font-semibold">{thb(toNumber(totals.revenue))}</div>
+            <div className="text-2xl font-semibold">
+              {thb(toNumber(totals.revenue))}
+            </div>
           </div>
         </div>
 
@@ -785,58 +793,181 @@ const OrderCorrection = () => {
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-              <tr>
-                <th className="px-3 py-2">วันที่</th>
-                <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
-                <th className="px-3 py-2">ลูกค้า</th>
-                <th className="px-3 py-2">ชนิดข้าว</th>
-                <th className="px-3 py-2">สาขา</th>
-                <th className="px-3 py-2">คลัง</th>
-                <th className="px-3 py-2 text-right">น้ำหนักขาเข้า</th>
-                <th className="px-3 py-2 text-right">น้ำหนักขาออก</th>
-                <th className="px-3 py-2 text-right">น้ำหนักสุทธิ</th>
-                <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
-                <th className="px-3 py-2 text-right">เป็นเงิน</th>
-                <th className="px-3 py-2 text-right">การกระทำ</th>
-              </tr>
+              {isBuyMode ? (
+                <tr>
+                  <th className="px-3 py-2">วันที่</th>
+                  <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
+                  <th className="px-3 py-2">ลูกค้า</th>
+                  <th className="px-3 py-2">ชนิดข้าว</th>
+                  <th className="px-3 py-2">สาขา</th>
+                  <th className="px-3 py-2">คลัง</th>
+                  <th className="px-3 py-2 text-right">น้ำหนักขาเข้า</th>
+                  <th className="px-3 py-2 text-right">น้ำหนักขาออก</th>
+                  <th className="px-3 py-2 text-right">น้ำหนักสุทธิ</th>
+                  <th className="px-3 py-2 text-right">ราคาต่อกก.</th>
+                  <th className="px-3 py-2 text-right">เป็นเงิน</th>
+                  <th className="px-3 py-2 text-center">การกระทำ</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th className="px-3 py-2">วันที่</th>
+                  <th className="px-3 py-2">เลขที่ขาย</th>
+                  <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
+                  <th className="px-3 py-2">ลูกค้า</th>
+                  <th className="px-3 py-2">ชนิดข้าว</th>
+                  <th className="px-3 py-2">สาขา</th>
+                  <th className="px-3 py-2">คลัง</th>
+                  <th className="px-3 py-2 text-right">น้ำหนัก (กก.)</th>
+                  <th className="px-3 py-2 text-right">ราคาต่อกก.</th>
+                  <th className="px-3 py-2 text-right">เป็นเงิน</th>
+                  <th className="px-3 py-2 text-center">#ย่อย</th>
+                  <th className="px-3 py-2 text-center">การกระทำ</th>
+                </tr>
+              )}
             </thead>
             <tbody>
               {loading ? (
-                <tr><td className="px-3 py-3" colSpan={12}>กำลังโหลด...</td></tr>
+                <tr>
+                  <td className="px-3 py-3" colSpan={12}>
+                    กำลังโหลด...
+                  </td>
+                </tr>
               ) : rows.length === 0 ? (
-                <tr><td className="px-3 py-3" colSpan={12}>ไม่พบข้อมูล</td></tr>
-              ) : (
+                <tr>
+                  <td className="px-3 py-3" colSpan={12}>
+                    ไม่พบข้อมูล
+                  </td>
+                </tr>
+              ) : isBuyMode ? (
                 pagedRows.map((r) => {
                   const entry = toNumber(r.entry_weight ?? 0)
-                  const exit  = toNumber(r.exit_weight  ?? 0)
-                  const net   = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry))
+                  const exit = toNumber(r.exit_weight ?? 0)
+                  const net = toNumber(r.weight ?? 0) || Math.max(0, entry - exit)
                   const price = toNumber(r.price ?? 0)
-                  const pricePerKgRaw = toNumber(r.price_per_kilo ?? 0)
-                  const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)
+                  const ppk =
+                    toNumber(r.price_per_kilo ?? 0) ||
+                    (net > 0 ? price / net : 0)
                   return (
                     <tr
-                      key={r.id ?? `${r.order_serial}-${r.date}-${r.first_name ?? ""}-${r.last_name ?? ""}`}
+                      key={r.id}
                       className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
                     >
-                      <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
-                      <td className="px-3 py-2">{r.order_serial || "—"}</td>
-                      <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "—"}</td>
-                      <td className="px-3 py-2">{r.species || "—"}</td>
-                      <td className="px-3 py-2">{r.branch_name || "—"}</td>
-                      <td className="px-3 py-2">{r.klang_name || "—"}</td>
-                      <td className="px-3 py-2 text-right">{entry.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{exit.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{net.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{baht(pricePerKg)}</td>
-                      <td className="px-3 py-2 text-right">{thb(price)}</td>
+                      <td className="px-3 py-2">
+                        {r.date
+                          ? new Date(r.date).toLocaleDateString("th-TH")
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {r.order_serial || "—"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() ||
+                          "—"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {r.species || "—"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {r.branch_name || "—"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {r.klang_name || "—"}
+                      </td>
                       <td className="px-3 py-2 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openModal(r)}
-                          className="whitespace-nowrap rounded-2xl bg-emerald-600/90 px-4 py-2 text-sm font-semibold text-white shadow-sm ring-1 ring-emerald-700/50 hover:bg-emerald-600 active:scale-[.98] dark:bg-emerald-500/85 dark:hover:bg-emerald-500"
-                        >
-                          แก้ไข
-                        </button>
+                        {entry.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {exit.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {net.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {baht(ppk)}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {thb(price)}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <div className="flex justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onEditRow(r)}
+                            className="rounded-2xl bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-emerald-700"
+                          >
+                            แก้ไข
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDeleteRow(r)}
+                            className="rounded-2xl bg-red-500 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-red-600"
+                            disabled={deleting}
+                          >
+                            ลบ
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              ) : (
+                pagedRows.map((r) => {
+                  const net = toNumber(r.weight ?? 0)
+                  const price = toNumber(r.price ?? 0)
+                  const ppk =
+                    toNumber(r.price_per_kilo ?? 0) ||
+                    (net > 0 ? price / net : 0)
+                  return (
+                    <tr
+                      key={`${r.id}-${r.sub_order}`}
+                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
+                    >
+                      <td className="px-3 py-2">
+                        {r.date
+                          ? new Date(r.date).toLocaleDateString("th-TH")
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2">{r.sale_id || "—"}</td>
+                      <td className="px-3 py-2">{r.order_serial || "—"}</td>
+                      <td className="px-3 py-2">
+                        {`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() ||
+                          "—"}
+                      </td>
+                      <td className="px-3 py-2">{r.species || "—"}</td>
+                      <td className="px-3 py-2">
+                        {r.branch_name || "—"}
+                      </td>
+                      <td className="px-3 py-2">{r.klang_name || "—"}</td>
+                      <td className="px-3 py-2 text-right">
+                        {net.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {baht(ppk)}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {thb(price)}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {r.sub_order ?? "-"}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <div className="flex justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onEditRow(r)}
+                            className="rounded-2xl bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-emerald-700"
+                          >
+                            แก้ไข
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDeleteRow(r)}
+                            className="rounded-2xl bg-red-500 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-red-600"
+                            disabled={deleting}
+                          >
+                            ลบ
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -845,11 +976,13 @@ const OrderCorrection = () => {
             </tbody>
           </table>
 
-          {/* Pagination Bar */}
+          {/* pagination */}
           <div className="flex flex-col gap-3 p-3 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-600 dark:text-slate-300">
-              แสดง <b>{rows.length ? startIndex.toLocaleString() : 0}</b>
-              –<b>{rows.length ? endIndex.toLocaleString() : 0}</b> จาก <b>{rows.length.toLocaleString()}</b> รายการ
+              แสดง{" "}
+              <b>{rows.length ? startIndex.toLocaleString() : 0}</b>–
+              <b>{rows.length ? endIndex.toLocaleString() : 0}</b> จาก{" "}
+              <b>{rows.length.toLocaleString()}</b> รายการ
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -857,34 +990,36 @@ const OrderCorrection = () => {
                 type="button"
                 onClick={prevPage}
                 disabled={page <= 1}
-                className={[
-                  "h-10 rounded-xl px-4 text-sm font-medium",
+                className={cx(
+                  "h-10 rounded-xl px-4 text-sm font-medium border border-slate-300 dark:border-slate-600",
                   page <= 1
                     ? "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
-                    : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
-                  "border border-slate-300 dark:border-slate-600"
-                ].join(" ")}
+                    : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
+                )}
               >
                 ก่อนหน้า
               </button>
 
-              {/* Page numbers */}
               <div className="flex items-center gap-1">
                 {pageItems.map((it, idx) =>
                   it === "..." ? (
-                    <span key={`dots-${idx}`} className="px-2 text-slate-500 dark:text-slate-300">…</span>
+                    <span
+                      key={`dots-${idx}`}
+                      className="px-2 text-slate-500 dark:text-slate-300"
+                    >
+                      …
+                    </span>
                   ) : (
                     <button
                       key={`p-${it}`}
                       type="button"
                       onClick={() => goToPage(it)}
-                      className={[
-                        "h-10 min-w-[40px] rounded-xl px-3 text-sm font-semibold transition",
+                      className={cx(
+                        "h-10 min-w-[40px] rounded-xl px-3 text-sm font-semibold transition border border-slate-300 dark:border-slate-600",
                         it === page
                           ? "bg-emerald-600 text-white"
-                          : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
-                        "border border-slate-300 dark:border-slate-600"
-                      ].join(" ")}
+                          : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
+                      )}
                     >
                       {it}
                     </button>
@@ -896,404 +1031,299 @@ const OrderCorrection = () => {
                 type="button"
                 onClick={nextPage}
                 disabled={page >= totalPages}
-                className={[
-                  "h-10 rounded-xl px-4 text-sm font-medium",
+                className={cx(
+                  "h-10 rounded-xl px-4 text-sm font-medium border border-slate-300 dark:border-slate-600",
                   page >= totalPages
                     ? "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
-                    : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
-                  "border border-slate-300 dark:border-slate-600"
-                ].join(" ")}
+                    : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
+                )}
               >
                 ถัดไป
               </button>
 
-              {/* Jump to page */}
               <div className="ml-2 flex items-center gap-2">
-                <label className="text-sm text-slate-600 dark:text-slate-300">ไปหน้า</label>
+                <span className="text-sm text-slate-600 dark:text-slate-300">
+                  ไปหน้า
+                </span>
                 <input
                   type="number"
                   min={1}
                   max={totalPages}
                   value={pageInput}
                   onChange={(e) => setPageInput(onlyDigits(e.target.value))}
-                  onKeyDown={(e) => e.key === "Enter" && onCommitPageInput()}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && onCommitPageInput()
+                  }
                   onBlur={onCommitPageInput}
-                  className="h-10 w-20 rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none
-                             focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30
-                             dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                  className="h-10 w-20 rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                 />
-                <span className="text-sm text-slate-600 dark:text-slate-300">/ {totalPages.toLocaleString()}</span>
+                <span className="text-sm text-slate-600 dark:text-slate-300">
+                  / {totalPages.toLocaleString()}
+                </span>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* EDIT MODAL */}
-      <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
-        <div className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={closeModal} />
-        <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5">
-          <div className={`h-[88vh] w-[96vw] max-w-[1280px] transform overflow-hidden rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-slate-800 dark:text-white ${open ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
-              <div className="text-xl md:text-2xl font-semibold">
-                {active ? `แก้ไขออเดอร์ #${active.id ?? "-"}` : "แก้ไขออเดอร์"}
-              </div>
+        {/* Edit panel */}
+        {editing && (
+          <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-black shadow-sm dark:border-amber-500/60 dark:bg-amber-900/40 dark:text-white">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold">
+                {isBuyMode
+                  ? `แก้ไขออเดอร์ซื้อ #${editing.row.order_serial || editing.row.id
+                    }`
+                  : `แก้ไขออเดอร์ขาย #${editing.row.sale_id || editing.row.id
+                    } (ย่อย ${editForm.target_sub || editing.row.sub_order || "-"
+                    })`}
+              </h2>
               <button
                 type="button"
-                onClick={closeModal}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
+                onClick={() => {
+                  setEditing(null)
+                  setEditForm({})
+                }}
+                className="text-sm text-slate-700 underline-offset-2 hover:underline dark:text-slate-200"
               >
-                ปิด
+                ปิดฟอร์ม
               </button>
             </div>
 
-            <div className="h-[calc(88vh-64px)] overflow-y-auto p-4 md:p-6 text-base md:text-lg">
-              {!active || !draft ? (
-                <div className="text-slate-600 dark:text-slate-300">ไม่มีข้อมูล</div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                  รหัสผู้แก้ไข (edited_by)
+                </label>
+                <input
+                  className={baseField}
+                  value={editMeta.editedBy}
+                  onChange={(e) =>
+                    setEditMeta((m) => ({ ...m, editedBy: e.target.value }))
+                  }
+                  placeholder="กรอกรหัสพนักงานผู้แก้ไข"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                  เหตุผลการแก้ไข (optional)
+                </label>
+                <input
+                  className={baseField}
+                  value={editMeta.reason}
+                  onChange={(e) =>
+                    setEditMeta((m) => ({ ...m, reason: e.target.value }))
+                  }
+                  placeholder="ระบุคำอธิบายสั้น ๆ"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                  วันที่เอกสาร
+                </label>
+                <DateInput
+                  value={editForm.date || today}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, date: e.target.value }))
+                  }
+                />
+              </div>
+
+              {isBuyMode ? (
+                <>
+                  <div>
+                    <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                      น้ำหนักขาเข้า (กก.)
+                    </label>
+                    <input
+                      className={baseField}
+                      type="number"
+                      value={editForm.entry_weight ?? ""}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          entry_weight: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                      น้ำหนักขาออก (กก.)
+                    </label>
+                    <input
+                      className={baseField}
+                      type="number"
+                      value={editForm.exit_weight ?? ""}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          exit_weight: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                      ราคาต่อกก. (บาท)
+                    </label>
+                    <input
+                      className={baseField}
+                      type="number"
+                      value={editForm.price_per_kilo ?? ""}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          price_per_kilo: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                      น้ำหนักสุทธิ (แสดงจากเข้า-ออก)
+                    </label>
+                    <input
+                      readOnly
+                      className={cx(
+                        baseField,
+                        "bg-slate-100/80 dark:bg-slate-700/80"
+                      )}
+                      value={(() => {
+                        const e = toNumber(editForm.entry_weight ?? 0)
+                        const x = toNumber(editForm.exit_weight ?? 0)
+                        return (e - x).toLocaleString()
+                      })()}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                      เป็นเงิน (คำนวณ)
+                    </label>
+                    <input
+                      readOnly
+                      className={cx(
+                        baseField,
+                        "bg-slate-100/80 dark:bg-slate-700/80"
+                      )}
+                      value={(() => {
+                        const e = toNumber(editForm.entry_weight ?? 0)
+                        const x = toNumber(editForm.exit_weight ?? 0)
+                        const w = Math.max(0, e - x)
+                        const ppk = toNumber(editForm.price_per_kilo ?? 0)
+                        return thb(w * ppk)
+                      })()}
+                    />
+                  </div>
+                </>
               ) : (
                 <>
-                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm md:text-base text-slate-600 dark:text-slate-300">
-                      วันที่เอกสาร: {draft.date ? new Date(draft.date).toLocaleDateString("th-TH") : "-"}
-                    </div>
-
-                    {!editing ? (
-                      <div className="flex gap-2">
-                        {/* ปุ่มแก้ไข (ซ้าย) */}
-                        <button
-                          type="button"
-                          onClick={() => setEditing(true)}
-                          className="rounded-2xl bg-emerald-600 px-4 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98]"
-                        >
-                          แก้ไข
-                        </button>
-                        {/* ปุ่มลบ (อยู่ขวาของปุ่มแก้ไข) */}
-                        <button
-                          type="button"
-                          onClick={confirmAndDelete}
-                          disabled={deleting}
-                          className="rounded-2xl bg-red-600 px-4 py-2 text-base font-semibold text-white hover:bg-red-700 active:scale-[.98] disabled:opacity-60"
-                        >
-                          {deleting ? "กำลังลบ..." : "ลบออเดอร์"}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={save}
-                          disabled={saving}
-                          className="rounded-2xl bg-emerald-600 px-5 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98] disabled:opacity-60"
-                        >
-                          {saving ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setEditing(false); openModal(active) }}
-                          className="rounded-2xl border border-slate-300 px-5 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
-                        >
-                          ยกเลิก
-                        </button>
-                        {/* ซ่อนปุ่มลบระหว่างแก้ไขตามที่ขอ */}
-                      </div>
-                    )}
+                  <div>
+                    <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                      น้ำหนักย่อย 1 (กก.)
+                    </label>
+                    <input
+                      className={baseField}
+                      type="number"
+                      value={editForm.weight_1 ?? ""}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          weight_1: e.target.value,
+                        }))
+                      }
+                    />
                   </div>
-
-                  {rowError && (
-                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-base text-red-700 dark:border-red-400 dark:bg-red-900/20 dark:text-red-200">
-                      {rowError}
-                    </div>
-                  )}
-
-                  {/* ผู้แก้ไข/เหตุผล */}
-                  <div className="mb-5 grid gap-4 md:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
-                      <div className="text-sm text-slate-600 dark:text-slate-300 mb-1">รหัสพนักงานผู้แก้ไข (edited_by) *</div>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.edited_by || "-"}
-                        </div>
-                      ) : (
-                        <>
-                          {/* 🔒 ล็อก input นี้: ห้ามแก้ */}
-                          <input
-                            inputMode="numeric"
-                            className={[baseField, "cursor-not-allowed opacity-80"].join(" ")}
-                            value={draft.edited_by}
-                            readOnly
-                            disabled
-                          />
-                          <div className="mt-1 text-xs text-slate-500 dark:text-slate-300">ล็อกโดยระบบ (ใช้บัญชีผู้ใช้งานปัจจุบัน)</div>
-                        </>
-                      )}
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40 md:col-span-2">
-                      <div className="text-sm text-slate-600 dark:text-slate-300 mb-1">เหตุผลในการแก้ไข (reason)</div>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.reason || "-"}
-                        </div>
-                      ) : (
-                        <input
-                          className={baseField}
-                          value={draft.reason}
-                          onChange={(e) => { setD({ reason: e.target.value }); touch("reason") }}
-                          placeholder="เช่น แก้เลขใบสำคัญ/แก้น้ำหนัก/แก้จำนวนเงิน ฯลฯ"
-                        />
-                      )}
-                    </div>
+                  <div>
+                    <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                      น้ำหนักย่อย 2 (กก.)
+                    </label>
+                    <input
+                      className={baseField}
+                      type="number"
+                      value={editForm.weight_2 ?? ""}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          weight_2: e.target.value,
+                        }))
+                      }
+                    />
                   </div>
-
-                  {/* ค่าพื้นฐานร่วม */}
-                  <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-                    <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ประเภทเอกสาร</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.type === "sell" ? "ขาย (SELL)" : "ซื้อ (BUY)"}
-                        </div>
-                      ) : (
-                        <ComboBox
-                          options={[{ id: "buy", label: "ซื้อ (BUY)" }, { id: "sell", label: "ขาย (SELL)" }]}
-                          value={draft.type}
-                          getValue={(o) => o.id}
-                          onChange={(id) => { setD({ type: id }); touch("type") }}
-                        />
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">วันที่เอกสาร</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.date ? new Date(draft.date).toLocaleDateString("th-TH") : "-"}
-                        </div>
-                      ) : (
-                        <DateInput value={draft.date} onChange={(e) => { setD({ date: e.target.value }); touch("date") }} />
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">รายการสำเร็จรูป (เปลี่ยนสเปก)</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.spec_id ? getSpecLabel(draft.spec_id) : "-"}
-                        </div>
-                      ) : (
-                        <ComboBox
-                          options={specOptions}
-                          value={draft.spec_id}
-                          getValue={(o) => o.id}
-                          onChange={(id) => { setD({ spec_id: id || "" }); touch("spec_id") }}
-                          placeholder="— ไม่เปลี่ยน —"
-                        />
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">สาขา</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.branch_location || "-"}
-                        </div>
-                      ) : (
-                        <ComboBox
-                          options={branchOptions}
-                          value={draft.branch_location}
-                          getValue={(o) => o.id}
-                          onChange={(id) => { setD({ branch_location: id || "", klang_location: "" }); touch("branch_location") }}
-                          placeholder="— เลือกสาขา —"
-                        />
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">คลัง</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.klang_location || "-"}
-                        </div>
-                      ) : (
-                        <ComboBox
-                          options={klangOptions}
-                          value={draft.klang_location}
-                          getValue={(o) => o.id}
-                          onChange={(id) => { setD({ klang_location: id || "" }); touch("klang_location") }}
-                          placeholder="— เลือกคลัง —"
-                          disabled={!draft.branch_location}
-                        />
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">วิธีชำระเงิน</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.payment_id || "-"}
-                        </div>
-                      ) : (
-                        <ComboBox
-                          options={draft.type === "sell" ? paymentSell : paymentBuy}
-                          value={draft.payment_id}
-                          getValue={(o) => o.id}
-                          onChange={(id) => { setD({ payment_id: id || "" }); touch("payment_id") }}
-                          placeholder="— ไม่เปลี่ยน —"
-                        />
-                      )}
-                    </div>
-
-                    <div className="md:col-span-3">
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">หมายเหตุ</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.comment || "-"}
-                        </div>
-                      ) : (
-                        <input
-                          className={baseField}
-                          value={draft.comment}
-                          onChange={(e) => { setD({ comment: e.target.value }); touch("comment") }}
-                          placeholder="บันทึกเพิ่มเติม (ถ้ามี)"
-                        />
-                      )}
-                    </div>
+                  <div>
+                    <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                      ราคาย่อย 1 (บาท)
+                    </label>
+                    <input
+                      className={baseField}
+                      type="number"
+                      value={editForm.price_1 ?? ""}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          price_1: e.target.value,
+                        }))
+                      }
+                    />
                   </div>
-
-                  {/* ฟิลด์เฉพาะ BUY */}
-                  {draft.type !== "sell" && (
-                    <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-                      {[
-                        ["order_serial", "เลขที่ใบสำคัญ"],
-                        ["entry_weight", "น้ำหนักขาเข้า (กก.)", "number"],
-                        ["exit_weight", "น้ำหนักขาออก (กก.)", "number"],
-                        ["weight", "น้ำหนักสุทธิ (กก.)", "number"],
-                        ["price_per_kilo", "ราคาต่อกก. (บาท)", "number"],
-                        ["price", "เป็นเงิน (บาท)", "number"],
-                        ["humidity", "ความชื้น (%)", "number"],
-                        ["impurity", "สิ่งเจือปน (%)", "number"],
-                        ["gram", "แกรม", "number"],
-                      ].map(([key, label, type]) => (
-                        <div key={key}>
-                          <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">{label}</label>
-                          {!editing ? (
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                              {String(draft[key] ?? "") || "-"}
-                            </div>
-                          ) : (
-                            <input
-                              type="text"
-                              inputMode={type === "number" ? "decimal" : undefined}
-                              className={baseField}
-                              value={String(draft[key] ?? "")}
-                              onChange={(e) => {
-                                setD({ [key]: type === "number" ? cleanDecimal(e.target.value) : e.target.value })
-                                touch(key)
-                              }}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* ฟิลด์เฉพาะ SELL */}
-                  {draft.type === "sell" && (
-                    <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-                      {[
-                        ["order_serial_1", "เลขที่ใบสำคัญ 1"],
-                        ["order_serial_2", "เลขที่ใบสำคัญ 2"],
-                        ["license_plate_1", "ทะเบียนรถ 1"],
-                        ["license_plate_2", "ทะเบียนรถ 2"],
-                        ["weight_1", "น้ำหนัก 1 (กก.)", "number"],
-                        ["weight_2", "น้ำหนัก 2 (กก.)", "number"],
-                        ["price_per_kilo", "ราคาต่อกก. (บาท)", "number"],
-                        ["price_1", "เป็นเงิน 1 (บาท)", "number"],
-                        ["price_2", "เป็นเงิน 2 (บาท)", "number"],
-                        ["gram", "แกรม", "number"],
-                      ].map(([key, label, type]) => (
-                        <div key={key}>
-                          <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">{label}</label>
-                          {!editing ? (
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                              {String(draft[key] ?? "") || "-"}
-                            </div>
-                          ) : (
-                            <input
-                              type="text"
-                              inputMode={type === "number" ? "decimal" : undefined}
-                              className={baseField}
-                              value={String(draft[key] ?? "")}
-                              onChange={(e) => {
-                                setD({ [key]: type === "number" ? cleanDecimal(e.target.value) : e.target.value })
-                                touch(key)
-                              }}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* เงื่อนไขเครดิต */}
-                  <div className="mb-2 text-sm text-slate-600 dark:text-slate-300">
-                    เงื่อนไขเครดิต (แนบเมื่อเป็นเครดิต: buy=4, sell=2)
+                  <div>
+                    <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                      ราคาย่อย 2 (บาท)
+                    </label>
+                    <input
+                      className={baseField}
+                      type="number"
+                      value={editForm.price_2 ?? ""}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          price_2: e.target.value,
+                        }))
+                      }
+                    />
                   </div>
-                  <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-3">
-                    <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">อนุญาตเครดิต (วัน)</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.dept_allowed_period || "-"}
-                        </div>
-                      ) : (
-                        <input
-                          inputMode="numeric"
-                          className={baseField}
-                          value={draft.dept_allowed_period}
-                          onChange={(e) => { setD({ dept_allowed_period: onlyDigits(e.target.value) }); touch("dept_allowed_period") }}
-                          placeholder="จำนวนวัน"
-                        />
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-sm text-slate-700 dark:text-slate-200">
+                      รวมเป็นเงิน (แสดง)
+                    </label>
+                    <input
+                      readOnly
+                      className={cx(
+                        baseField,
+                        "bg-slate-100/80 dark:bg-slate-700/80"
                       )}
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">เลื่อนจ่าย/เลื่อนรับ</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.dept_postpone ? "ใช่" : "ไม่"}
-                        </div>
-                      ) : (
-                        <label className="inline-flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={!!draft.dept_postpone}
-                            onChange={(e) => { setD({ dept_postpone: e.target.checked }); touch("dept_postpone") }}
-                          />
-                          <span>เปิดใช้งาน</span>
-                        </label>
+                      value={thb(
+                        toNumber(editForm.price_1 ?? 0) +
+                          toNumber(editForm.price_2 ?? 0)
                       )}
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ระยะเวลาที่เลื่อน (วัน)</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.dept_postpone_period || "-"}
-                        </div>
-                      ) : (
-                        <input
-                          inputMode="numeric"
-                          className={baseField}
-                          value={draft.dept_postpone_period}
-                          onChange={(e) => { setD({ dept_postpone_period: onlyDigits(e.target.value) }); touch("dept_postpone_period") }}
-                          placeholder="จำนวนวัน"
-                        />
-                      )}
-                    </div>
+                    />
                   </div>
                 </>
               )}
             </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={onSaveEdit}
+                disabled={saving}
+                className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400"
+              >
+                บันทึกการแก้ไข
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(null)
+                  setEditForm({})
+                }}
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-6 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700/70 dark:text-white"
+              >
+                ยกเลิก
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

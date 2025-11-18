@@ -346,6 +346,7 @@ const deriveLockedBranch = (opts = []) => {
 // =====================================================================
 //                              Sales Page (ขาย: หลายพ่วง)
 // =====================================================================
+// (ไฟล์นี้แก้ให้ member_id เป็นสตริงเสมอเพื่อคงเลขศูนย์นำหน้า)
 function Sales() {
   // ---------- state พื้นฐาน ----------
   const [errors, setErrors] = useState({})
@@ -461,7 +462,7 @@ function Sales() {
   // ---------- ฟอร์มลูกค้า ----------
   const [customer, setCustomer] = useState({
     citizenId: "",
-    memberId: "",
+    memberId: "", // ⭐ เก็บเป็น string เสมอ
     fullName: "",
     houseNo: "", moo: "", subdistrict: "", district: "", province: "", postalCode: "", phone: "",
     companyName: "", taxId: "", companyPhone: "",
@@ -470,7 +471,7 @@ function Sales() {
   })
 
   // ---------- meta ของบุคคล/ลูกค้า ----------
-  const [memberMeta, setMemberMeta] = useState({ type: "unknown", assoId: null, memberId: null })
+  const [memberMeta, setMemberMeta] = useState({ type: "unknown", assoId: null, memberId: "" }) // memberId เป็น string
 
   // ---------- ฟอร์มออเดอร์ (ค่าใช้ร่วม) ----------
   const [order, setOrder] = useState({
@@ -867,7 +868,8 @@ function Sales() {
       province: S(r.province ?? ""),
       postalCode: onlyDigits(S(r.postal_code ?? r.postalCode ?? "")),
       phone: S(r.phone ?? r.tel ?? r.mobile ?? ""),
-      memberId: r.member_id != null ? toIntOrNull(r.member_id) : null,
+      // ⭐ member_id เก็บเป็น string เลขล้วนเพื่อคง 0 ด้านหน้า
+      memberId: r.member_id != null ? onlyDigits(String(r.member_id)) : "",
     }
   }
   const fillFromRecord = async (raw = {}) => {
@@ -877,29 +879,29 @@ function Sales() {
       citizenId: onlyDigits(data.citizenId || prev.citizenId),
       fullName: data.fullName || prev.fullName,
       phone: data.phone || prev.phone,
-      memberId: data.memberId != null ? String(data.memberId) : prev.memberId,
+      memberId: String(data.memberId || "") || prev.memberId,
     }))
     setMemberMeta({ type: data.type, assoId: data.assoId, memberId: data.memberId })
     setCustomerFound(true)
   }
 
-  // 🔎 member_id
+  // 🔎 member_id (ค้นหาแบบเก็บศูนย์นำหน้าได้)
   useEffect(() => {
     if (!autoSearchEnabled) { setCustomerFound(null); return }
     if (buyerType !== "person") { setCustomerFound(null); return }
-    const mid = toIntOrNull(debouncedMemberId)
-    if (mid == null) return
+    const midStr = onlyDigits(String(debouncedMemberId || ""))
+    if (!midStr) return
     const __epoch = searchEpochRef.current
     const fetchByMemberId = async () => {
       try {
         setLoadingCustomer(true)
-        const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(String(mid))}`)) || []
+        const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(String(midStr))}`)) || []
         if (__epoch !== searchEpochRef.current) return
-        const exact = arr.find((r) => r.type === "member" && toIntOrNull(r.member_id) === mid) || arr[0]
+        const exact = arr.find((r) => r.type === "member" && onlyDigits(String(r.member_id || "")) === midStr) || arr[0]
         if (exact) await fillFromRecord(exact)
-        else { if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null }) }
+        else { if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" }) }
       } catch (e) {
-        console.error(e); if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null })
+        console.error(e); if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" })
       } finally { if (__epoch === searchEpochRef.current) setLoadingCustomer(false) }
     }
     fetchByMemberId()
@@ -907,8 +909,8 @@ function Sales() {
 
   // 🔎 citizen_id
   useEffect(() => {
-    if (!autoSearchEnabled) { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: null }); return }
-    if (buyerType !== "person") { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: null }); return }
+    if (!autoSearchEnabled) { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: "" }); return }
+    if (buyerType !== "person") { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: "" }); return }
     const cid = onlyDigits(debouncedCitizenId)
     if (cid.length !== 13) { setCustomerFound(null); return }
     const __epoch = searchEpochRef.current
@@ -919,9 +921,9 @@ function Sales() {
         if (__epoch !== searchEpochRef.current) return
         const exact = arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
         if (exact) await fillFromRecord(exact)
-        else { if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null }) }
+        else { if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" }) }
       } catch (e) {
-        console.error(e); if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: null })
+        console.error(e); if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" })
       } finally { if (__epoch === searchEpochRef.current) setLoadingCustomer(false) }
     }
     fetchByCid()
@@ -931,7 +933,7 @@ function Sales() {
   useEffect(() => {
     if (!autoSearchEnabled) { setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); return }
     if (buyerType !== "person") {
-      setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); setMemberMeta({ type: "unknown", assoId: null, memberId: null })
+      setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); setMemberMeta({ type: "unknown", assoId: null, memberId: "" })
       return
     }
     const q = (debouncedFullName || "").trim()
@@ -1047,7 +1049,7 @@ function Sales() {
       brSubdistrict: data.brSubdistrict || prev.brSubdistrict, brDistrict: data.brDistrict || prev.brDistrict,
       brProvince: data.brProvince || prev.brProvince, brPostalCode: data.brPostalCode || prev.brPostalCode,
     }))
-    setMemberMeta({ type: "company", assoId: data.assoId ?? null, memberId: null })
+    setMemberMeta({ type: "company", assoId: data.assoId ?? null, memberId: "" })
     setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1)
   }
   useEffect(() => {
@@ -1160,9 +1162,11 @@ function Sales() {
     const e = {}
     if (buyerType === "person") {
       if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
-      if (!toIntOrNull(memberMeta.memberId ?? customer.memberId) && !memberMeta.assoId) {
-        e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id"
-      }
+      const memberIdStrForValidate = onlyDigits(String(customer.memberId || ""))
+if (!memberIdStrForValidate && !memberMeta.assoId) {
+    e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id"
+}
+
     } else {
       if (!customer.companyName.trim()) e.companyName = "กรุณากรอกชื่อบริษัท"
       if (!customer.taxId.trim()) e.taxId = "กรุณากรอกเลขผู้เสียภาษี"
@@ -1270,7 +1274,7 @@ function Sales() {
       hqHouseNo: "", hqMoo: "", hqSubdistrict: "", hqDistrict: "", hqProvince: "", hqPostalCode: "",
       brHouseNo: "", brMoo: "", brSubdistrict: "", brDistrict: "", brProvince: "", brPostalCode: "",
     })
-    setMemberMeta({ type: "unknown", assoId: null, memberId: null })
+    setMemberMeta({ type: "unknown", assoId: null, memberId: "" })
     setOrder((prev) => ({
       productId: prev.productId, productName: prev.productName,
       riceId: prev.riceId, riceType: prev.riceType,
@@ -1345,25 +1349,28 @@ function Sales() {
       // customer payload
       let customerPayload
       if (buyerType === "person") {
-        const memberIdNum = toIntOrNull(memberMeta.memberId ?? customer.memberId)
-        const assoIdVal = memberMeta.assoId || null
-        if (!memberIdNum && !assoIdVal) {
-          alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id จากผลค้นหา")
-          return
-        }
-        customerPayload = memberIdNum
-  ? {
-      party_type: "individual",
-      member_id: String(memberIdNum),   // ⭐ ส่งเป็น string
-      first_name: firstName || "",
-      last_name: lastName || "",
+        const memberIdStr = onlyDigits(String(customer.memberId || ""))
+const assoIdVal = memberMeta.assoId || null
+
+if (!memberIdStr && !assoIdVal) {
+    alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id จากผลค้นหา")
+    return
+}
+
+customerPayload = memberIdStr
+    ? {
+        party_type: "individual",
+        member_id: memberIdStr,   // ⭐ ส่งเป็น string 000123 ได้
+        first_name: firstName || "",
+        last_name: lastName || "",
     }
-  : {
-      party_type: "individual",
-      asso_id: assoIdVal,
-      first_name: firstName || "",
-      last_name: lastName || "",
+    : {
+        party_type: "individual",
+        asso_id: assoIdVal,
+        first_name: firstName || "",
+        last_name: lastName || "",
     }
+
 
       } else {
         const taxId = onlyDigits(customer.taxId)
@@ -1781,7 +1788,7 @@ ${summary}`)
                   onChange={(e) => updateCustomer("memberId", onlyDigits(e.target.value))}
                   onFocus={() => clearError("memberId")}
                   onKeyDown={onEnter("memberId")}
-                  placeholder="เช่น 100234"
+                  placeholder="เช่น 001234" // เปลี่ยนตัวอย่างให้เห็นศูนย์นำหน้า
                   aria-invalid={errors.memberId ? true : undefined}
                 />
                 {!!memberMeta.memberId && <p className={helpTextCls}>พบสมาชิก: member_id {memberMeta.memberId}</p>}
@@ -1943,7 +1950,7 @@ ${summary}`)
                 hintRed={!!missingHints.product}
                 clearHint={() => clearHint("product")}
                 buttonRef={refs.product}
-                disabled={LOCK_SPEC}
+                disabled={true}
               />
               {errors.product && <p className={errorTextCls}>{errors.product}</p>}
             </div>
@@ -1955,7 +1962,7 @@ ${summary}`)
                 value={order.riceId}
                 onChange={(id, found) => setOrder((p) => ({ ...p, riceId: id, riceType: found?.label ?? "", subriceId: "", subriceName: "" }))}
                 placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
-                disabled={LOCK_SPEC}
+                disabled={true}
                 error={!!errors.riceType}
                 hintRed={!!missingHints.riceType}
                 clearHint={() => clearHint("riceType")}
@@ -1971,7 +1978,7 @@ ${summary}`)
                 value={order.subriceId}
                 onChange={(id, found) => setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))}
                 placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
-                disabled={LOCK_SPEC}
+                disabled={true}
                 error={!!errors.subrice}
                 hintRed={!!missingHints.subrice}
                 clearHint={() => clearHint("subrice")}
@@ -1992,7 +1999,7 @@ ${summary}`)
                 hintRed={!!missingHints.condition}
                 clearHint={() => clearHint("condition")}
                 buttonRef={refs.condition}
-                disabled={LOCK_SPEC}
+                disabled={true}
               />
               {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
             </div>
@@ -2009,7 +2016,7 @@ ${summary}`)
                 hintRed={!!missingHints.fieldType}
                 clearHint={() => clearHint("fieldType")}
                 buttonRef={refs.fieldType}
-                disabled={LOCK_SPEC}
+                disabled={true}
               />
               {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
             </div>
@@ -2026,7 +2033,7 @@ ${summary}`)
                 hintRed={!!missingHints.riceYear}
                 clearHint={() => clearHint("riceYear")}
                 buttonRef={refs.riceYear}
-                disabled={LOCK_SPEC}
+                disabled={true}
               />
               {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
             </div>
@@ -2043,7 +2050,7 @@ ${summary}`)
                 hintRed={!!missingHints.businessType}
                 clearHint={() => clearHint("businessType")}
                 buttonRef={refs.businessType}
-                disabled={LOCK_SPEC}
+                disabled={true}
               />
               {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
             </div>
@@ -2057,7 +2064,7 @@ ${summary}`)
                 onChange={(_id, found) => setOrder((p) => ({ ...p, programId: found?.id ?? "", programName: found?.label ?? "" }))}
                 placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
                 buttonRef={refs.program}
-                disabled={LOCK_SPEC}
+                disabled={true}
               />
             </div>
           </div>

@@ -248,6 +248,11 @@ const OrderCorrection = () => {
   const [paymentBuy, setPaymentBuy] = useState([])   // 3=เงินสด, 4=เครดิต
   const [paymentSell, setPaymentSell] = useState([]) // 1=เงินสด, 2=เครดิต
 
+  const getPaymentLabel = (type, id) => {
+    const opts = type === "sell" ? paymentSell : paymentBuy
+    return opts.find(o => String(o.id) === String(id))?.label || (id ? String(id) : "-")
+  }
+
   /** Filters */
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
@@ -462,7 +467,7 @@ const OrderCorrection = () => {
     setEditing(false)
     setActive(row)
 
-    // อ้างอิงจากโหมดรายการปัจจุบัน เพื่อให้แบบฟอร์มชุด SELL โชว์ถูกทันที
+    // เปิด modal ในโหมด/ฟอร์มขาย และ prefill ด้วยค่าจริงจาก BE
     const guessType = mode === "sell" ? "sell" : "buy"
     const { branchId, klangId } = await tryPrefillBranchKlang(row)
     const editorId = getUser()?.id || ""
@@ -473,30 +478,36 @@ const OrderCorrection = () => {
       edited_by: editorId,
       reason: "",
 
-      // common
+      // common (prefill)
       date: row?.date ? new Date(row.date).toISOString().slice(0, 10) : "",
       branch_location: branchId,
       klang_location: klangId,
-      payment_id: "",
-      comment: "",
+      __branch_label: row.branch_name || "",
+      __klang_label: row.klang_name || "",
+      payment_id: row.payment_id ? String(row.payment_id) : "",
+      comment: row.comment || "",
 
       // change spec
-      spec_id: "",
+      spec_id: row.spec_id ? String(row.spec_id) : "",
 
-      // BUY-like
+      // BUY-like (เผื่อเปิดออเดอร์ฝั่งซื้อ)
       order_serial: row.order_serial || "",
       entry_weight: row.entry_weight ?? "",
       exit_weight: row.exit_weight ?? "",
       weight: row.weight ?? "",
       price_per_kilo: row.price_per_kilo ?? "",
       price: row.price ?? "",
-      gram: "", humidity: "", impurity: "",
+      gram: row.gram ?? "", humidity: row.humidity ?? "", impurity: row.impurity ?? "",
 
-      // SELL-like
-      order_serial_1: "", order_serial_2: "",
-      license_plate_1: "", license_plate_2: "",
-      weight_1: "", weight_2: "",
-      price_1: "", price_2: "",
+      // SELL-like (สำคัญ)
+      order_serial_1: row.order_serial_1 || "",
+      order_serial_2: row.order_serial_2 || "",
+      license_plate_1: row.license_plate_1 || "",
+      license_plate_2: row.license_plate_2 || "",
+      weight_1: row.weight_1 ?? "",
+      weight_2: row.weight_2 ?? "",
+      price_1: row.price_1 ?? "",
+      price_2: row.price_2 ?? "",
 
       // Credit terms
       dept_allowed_period: "",
@@ -637,7 +648,7 @@ const OrderCorrection = () => {
     }
   }
 
-  /** -------- NEW: Delete order with confirm + BE DELETE -------- */
+  /** -------- DELETE order -------- */
   const deleteOrder = async () => {
     const id = draft?.order_id
     if (!id) return
@@ -684,7 +695,7 @@ const OrderCorrection = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
-        {/* หัวเรื่อง + สลับโหมด (ยกดีไซน์จากหน้าออเดอร์) */}
+        {/* หัวเรื่อง + สลับโหมด */}
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             🛠️ แก้ไขออเดอร์ {mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}
@@ -1136,18 +1147,9 @@ const OrderCorrection = () => {
                   <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
                     <div>
                       <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ประเภทเอกสาร</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.type === "sell" ? "ขาย (SELL)" : "ซื้อ (BUY)"}
-                        </div>
-                      ) : (
-                        <ComboBox
-                          options={[{ id: "buy", label: "ซื้อ (BUY)" }, { id: "sell", label: "ขาย (SELL)" }]}
-                          value={draft.type}
-                          getValue={(o) => o.id}
-                          onChange={(id) => { setD({ type: id }); touch("type") }}
-                        />
-                      )}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                        {draft.type === "sell" ? "ขาย (SELL)" : "ซื้อ (BUY)"}
+                      </div>
                     </div>
 
                     <div>
@@ -1182,7 +1184,7 @@ const OrderCorrection = () => {
                       <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">สาขา</label>
                       {!editing ? (
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.branch_location || "-"}
+                          {draft.__branch_label || "-"}
                         </div>
                       ) : (
                         <ComboBox
@@ -1199,7 +1201,7 @@ const OrderCorrection = () => {
                       <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">คลัง</label>
                       {!editing ? (
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.klang_location || "-"}
+                          {draft.__klang_label || "-"}
                         </div>
                       ) : (
                         <ComboBox
@@ -1217,7 +1219,7 @@ const OrderCorrection = () => {
                       <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">วิธีชำระเงิน</label>
                       {!editing ? (
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.payment_id || "-"}
+                          {getPaymentLabel(draft.type, draft.payment_id)}
                         </div>
                       ) : (
                         <ComboBox
@@ -1247,7 +1249,7 @@ const OrderCorrection = () => {
                     </div>
                   </div>
 
-                  {/* ฟิลด์เฉพาะ BUY */}
+                  {/* ฟิลด์เฉพาะ BUY (คงไว้ใช้ร่วม) */}
                   {draft.type !== "sell" && (
                     <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
                       {[
@@ -1259,7 +1261,7 @@ const OrderCorrection = () => {
                         ["price", "เป็นเงิน (บาท)", "number"],
                         ["humidity", "ความชื้น (%)", "number"],
                         ["impurity", "สิ่งเจือปน (%)", "number"],
-                        ["gram", "แกรม", "number"],
+                        ["gram", "คุณภาพข้าว (gram)", "number"],
                       ].map(([key, label, type]) => (
                         <div key={key}>
                           <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">{label}</label>
@@ -1284,42 +1286,162 @@ const OrderCorrection = () => {
                     </div>
                   )}
 
-                  {/* ฟิลด์เฉพาะ SELL */}
+                  {/* ฟิลด์เฉพาะ SELL — จัดเป็น พ่วงหน้า/พ่วงหลัง */}
                   {draft.type === "sell" && (
-                    <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-                      {[
-                        ["order_serial_1", "เลขที่ใบสำคัญ 1"],
-                        ["order_serial_2", "เลขที่ใบสำคัญ 2"],
-                        ["license_plate_1", "ทะเบียนรถ 1"],
-                        ["license_plate_2", "ทะเบียนรถ 2"],
-                        ["weight_1", "น้ำหนัก 1 (กก.)", "number"],
-                        ["weight_2", "น้ำหนัก 2 (กก.)", "number"],
-                        ["price_per_kilo", "ราคาต่อกก. (บาท)", "number"],
-                        ["price_1", "เป็นเงิน 1 (บาท)", "number"],
-                        ["price_2", "เป็นเงิน 2 (บาท)", "number"],
-                        ["gram", "แกรม", "number"],
-                      ].map(([key, label, type]) => (
-                        <div key={key}>
-                          <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">{label}</label>
+                    <>
+                      <div className="mb-2 text-sm text-slate-600 dark:text-slate-300">
+                        ข้อมูลรถพ่วงหลายคัน
+                      </div>
+
+                      <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+                        {/* พ่วงหน้า */}
+                        <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                          <div className="mb-3 font-semibold">● พ่วงหน้า</div>
+                          <div className="grid grid-cols-1 gap-4">
+                            <div>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">เลขที่ใบสำคัญ 1</label>
+                              {!editing ? (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
+                                  {draft.order_serial_1 || "-"}
+                                </div>
+                              ) : (
+                                <input className={baseField} value={draft.order_serial_1}
+                                       onChange={(e) => { setD({ order_serial_1: e.target.value }); touch("order_serial_1") }} />
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ทะเบียนพ่วงหน้า</label>
+                              {!editing ? (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
+                                  {draft.license_plate_1 || "-"}
+                                </div>
+                              ) : (
+                                <input className={baseField} value={draft.license_plate_1}
+                                       onChange={(e) => { setD({ license_plate_1: e.target.value }); touch("license_plate_1") }} />
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">น้ำหนักสุทธิพ่วงหน้า (กก.)</label>
+                              {!editing ? (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
+                                  {String(draft.weight_1 ?? "") || "-"}
+                                </div>
+                              ) : (
+                                <input inputMode="decimal" className={baseField} value={String(draft.weight_1 ?? "")}
+                                       onChange={(e) => { setD({ weight_1: cleanDecimal(e.target.value) }); touch("weight_1") }} />
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ราคาต่อกก. (บาท)</label>
+                              {!editing ? (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
+                                  {String(draft.price_per_kilo ?? "") || "-"}
+                                </div>
+                              ) : (
+                                <input inputMode="decimal" className={baseField} value={String(draft.price_per_kilo ?? "")}
+                                       onChange={(e) => { setD({ price_per_kilo: cleanDecimal(e.target.value) }); touch("price_per_kilo") }} />
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">เป็นเงิน (พ่วงหน้า) (บาท)</label>
+                              {!editing ? (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
+                                  {String(draft.price_1 ?? "") || "-"}
+                                </div>
+                              ) : (
+                                <input inputMode="decimal" className={baseField} value={String(draft.price_1 ?? "")}
+                                       onChange={(e) => { setD({ price_1: cleanDecimal(e.target.value) }); touch("price_1") }} />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* พ่วงหลัง */}
+                        <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                          <div className="mb-3 font-semibold">● พ่วงหลัง</div>
+                          <div className="grid grid-cols-1 gap-4">
+                            <div>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">เลขที่ใบสำคัญ 2</label>
+                              {!editing ? (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
+                                  {draft.order_serial_2 || "-"}
+                                </div>
+                              ) : (
+                                <input className={baseField} value={draft.order_serial_2}
+                                       onChange={(e) => { setD({ order_serial_2: e.target.value }); touch("order_serial_2") }} />
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ทะเบียนพ่วงหลัง</label>
+                              {!editing ? (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
+                                  {draft.license_plate_2 || "-"}
+                                </div>
+                              ) : (
+                                <input className={baseField} value={draft.license_plate_2}
+                                       onChange={(e) => { setD({ license_plate_2: e.target.value }); touch("license_plate_2") }} />
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">น้ำหนักสุทธิพ่วงหลัง (กก.)</label>
+                              {!editing ? (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
+                                  {String(draft.weight_2 ?? "") || "-"}
+                                </div>
+                              ) : (
+                                <input inputMode="decimal" className={baseField} value={String(draft.weight_2 ?? "")}
+                                       onChange={(e) => { setD({ weight_2: cleanDecimal(e.target.value) }); touch("weight_2") }} />
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ราคาต่อกก. (บาท)</label>
+                              {!editing ? (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
+                                  {String(draft.price_per_kilo ?? "") || "-"}
+                                </div>
+                              ) : (
+                                <input inputMode="decimal" className={baseField} value={String(draft.price_per_kilo ?? "")}
+                                       onChange={(e) => { setD({ price_per_kilo: cleanDecimal(e.target.value) }); touch("price_per_kilo") }} />
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">เป็นเงิน (พ่วงหลัง) (บาท)</label>
+                              {!editing ? (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
+                                  {String(draft.price_2 ?? "") || "-"}
+                                </div>
+                              ) : (
+                                <input inputMode="decimal" className={baseField} value={String(draft.price_2 ?? "")}
+                                       onChange={(e) => { setD({ price_2: cleanDecimal(e.target.value) }); touch("price_2") }} />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ฟิลด์ส่วนกลางของขาย */}
+                      <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
+                        <div>
+                          <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">คุณภาพข้าว (gram)</label>
                           {!editing ? (
                             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                              {String(draft[key] ?? "") || "-"}
+                              {String(draft.gram ?? "") || "-"}
                             </div>
                           ) : (
-                            <input
-                              type="text"
-                              inputMode={type === "number" ? "decimal" : undefined}
-                              className={baseField}
-                              value={String(draft[key] ?? "")}
-                              onChange={(e) => {
-                                setD({ [key]: type === "number" ? cleanDecimal(e.target.value) : e.target.value })
-                                touch(key)
-                              }}
-                            />
+                            <input inputMode="numeric" className={baseField} value={String(draft.gram ?? "")}
+                                   onChange={(e) => { setD({ gram: onlyDigits(e.target.value) }); touch("gram") }} />
                           )}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    </>
                   )}
 
                   {/* เงื่อนไขเครดิต */}

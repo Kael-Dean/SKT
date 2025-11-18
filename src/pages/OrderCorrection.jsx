@@ -134,7 +134,7 @@ function ComboBox({
             ? "border-red-400 ring-2 ring-red-300/70"
             : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
           "text-black placeholder:text-slate-500",
-          "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-700/70 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30",
+          "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30",
         ].join(" ")}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -500,6 +500,7 @@ const OrderCorrection = () => {
       gram: row.gram ?? "", humidity: row.humidity ?? "", impurity: row.impurity ?? "",
 
       // SELL-like (สำคัญ)
+      sale_id: row.sale_id || row.saleId || "",     // ⭐ เพิ่ม: เอกสารอ้างอิงของขาย (ใบรับเงิน/ใบกำกับ)
       order_serial_1: row.order_serial_1 || "",
       order_serial_2: row.order_serial_2 || "",
       license_plate_1: row.license_plate_1 || "",
@@ -561,6 +562,10 @@ const OrderCorrection = () => {
       if (spec) c["spec"] = spec
     }
     put("payment_id", d.payment_id ? Number(d.payment_id) : undefined)
+
+    // ⭐ เพิ่ม: sale_id ส่งเมื่อแก้ไข
+    put("sale_id", d.sale_id ? String(d.sale_id).trim() : undefined)
+
     put("license_plate_1", d.license_plate_1 || undefined)
     put("license_plate_2", d.license_plate_2 || undefined)
     put("weight_1", d.weight_1 === "" ? undefined : Number(cleanDecimal(d.weight_1)))
@@ -1231,6 +1236,55 @@ const OrderCorrection = () => {
                         />
                       )}
                     </div>
+
+                    {/* ⭐ เอกสารอ้างอิงของขาย: ใบรับเงิน/ใบกำกับ → ส่งเป็น sale_id */}
+                    {draft.type === "sell" && (
+                      <div>
+                        {(() => {
+                          const pid = Number(draft.payment_id)
+                          const isCash = pid === 1
+                          const isCredit = pid === 2
+                          const label = isCredit
+                            ? "เลขที่ใบกำกับสินค้า (ขายเชื่อ)"
+                            : isCash
+                            ? "ใบรับเงินขายสินค้า (ขายสด)"
+                            : "เอกสารอ้างอิง (เลือกวิธีชำระเงินเพื่อกรอก)"
+                          const placeholder = isCredit
+                            ? "เช่น INV-2025-000456 (ไม่บังคับ)"
+                            : isCash
+                            ? "เช่น RC-2025-000789 (ไม่บังคับ)"
+                            : "โปรดเลือกวิธีชำระเงินก่อน"
+                          return (
+                            <>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">{label}</label>
+                              {!editing ? (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                                  {draft.sale_id || "-"}
+                                </div>
+                              ) : isCash || isCredit ? (
+                                <input
+                                  className={baseField}
+                                  value={draft.sale_id}
+                                  onChange={(e) => { setD({ sale_id: e.target.value }); touch("sale_id") }}
+                                  placeholder={placeholder}
+                                />
+                              ) : (
+                                <input
+                                  className={[baseField, "cursor-not-allowed opacity-80"].join(" ")}
+                                  value=""
+                                  readOnly
+                                  disabled
+                                  placeholder={placeholder}
+                                />
+                              )}
+                              <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                                * ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>sale_id</code>
+                              </div>
+                            </>
+                          )
+                        })()}
+                      </div>
+                    )}
 
                     <div className="md:col-span-3">
                       <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">หมายเหตุ</label>

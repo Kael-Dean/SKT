@@ -224,6 +224,9 @@ const OrderCorrection = () => {
   const today = new Date().toISOString().slice(0, 10)
   const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
 
+  /** NEW: Buy/Sell mode toggle (เหมือนหน้าออเดอร์) */
+  const [mode, setMode] = useState("buy") // 'buy' | 'sell'
+
   /** List state */
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
@@ -320,7 +323,7 @@ const OrderCorrection = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId])
 
-  /** Fetch orders */
+  /** Fetch orders (แตกตามโหมดเหมือนหน้าออเดอร์) */
   const fetchOrders = async () => {
     if (!validateDates(filters.startDate, filters.endDate)) return
     try {
@@ -331,7 +334,12 @@ const OrderCorrection = () => {
       if (filters.branchId) params.set("branch_id", filters.branchId)
       if (filters.klangId) params.set("klang_id", filters.klangId)
       if (filters.q?.trim()) params.set("q", filters.q.trim())
-      const data = await apiAuth(`/order/orders/report?${params.toString()}`)
+
+      const endpoint = mode === "buy"
+        ? `/order/orders/buy-report`
+        : `/order/orders/sell-report`
+
+      const data = await apiAuth(`${endpoint}?${params.toString()}`)
       setRows(Array.isArray(data) ? data : [])
       setPage(1); setPageInput("1")
     } catch (e) {
@@ -341,7 +349,8 @@ const OrderCorrection = () => {
       setLoading(false)
     }
   }
-  useEffect(() => { fetchOrders() }, [])
+  useEffect(() => { fetchOrders() }, [])            // init
+  useEffect(() => { fetchOrders() }, [mode])        // เปลี่ยนโหมดแล้วโหลดใหม่
   useEffect(() => { if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders() }, [debouncedQ])
 
   /** Totals */
@@ -453,12 +462,13 @@ const OrderCorrection = () => {
     setEditing(false)
     setActive(row)
 
-    const guessType = (toNumber(row.entry_weight) > 0 || toNumber(row.exit_weight) > 0 || toNumber(row.weight) > 0) ? "buy" : "sell"
+    // อ้างอิงจากโหมดรายการปัจจุบัน เพื่อให้แบบฟอร์มชุด SELL โชว์ถูกทันที
+    const guessType = mode === "sell" ? "sell" : "buy"
     const { branchId, klangId } = await tryPrefillBranchKlang(row)
     const editorId = getUser()?.id || ""
 
     setDraft({
-      order_id: row.id,
+      order_id: row.id ?? row.sale_id ?? row.order_id,
       type: guessType,
       edited_by: editorId,
       reason: "",
@@ -674,7 +684,34 @@ const OrderCorrection = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
-        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🛠️ แก้ไขออเดอร์</h1>
+        {/* หัวเรื่อง + สลับโหมด (ยกดีไซน์จากหน้าออเดอร์) */}
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            🛠️ แก้ไขออเดอร์ {mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}
+          </h1>
+          <div className="inline-flex items-center rounded-2xl border border-slate-300 p-1 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-600">
+            <button
+              type="button"
+              onClick={() => setMode("buy")}
+              className={[
+                "px-4 py-2 rounded-xl text-sm font-semibold transition",
+                mode === "buy" ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
+              ].join(" ")}
+            >
+              โหมดซื้อ
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("sell")}
+              className={[
+                "px-4 py-2 rounded-xl text-sm font-semibold transition",
+                mode === "sell" ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
+              ].join(" ")}
+            >
+              โหมดขาย
+            </button>
+          </div>
+        </div>
 
         {/* Filters */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
@@ -706,7 +743,7 @@ const OrderCorrection = () => {
                 value={filters.branchId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" }))}
+                  setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" })) }
                 placeholder="— เลือกสาขา —"
               />
             </div>
@@ -718,14 +755,18 @@ const OrderCorrection = () => {
                 value={filters.klangId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" }))}
+                  setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" })) }
                 placeholder="— เลือกคลัง —"
                 disabled={!filters.branchId}
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                {mode === "buy"
+                  ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)"
+                  : "ค้นหา (ชื่อ / ปชช. / เลขที่ขาย / เลขที่ใบสำคัญ)"}
+              </label>
               <input
                 className={baseField}
                 value={filters.q}
@@ -785,33 +826,50 @@ const OrderCorrection = () => {
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-              <tr>
-                <th className="px-3 py-2">วันที่</th>
-                <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
-                <th className="px-3 py-2">ลูกค้า</th>
-                <th className="px-3 py-2">ชนิดข้าว</th>
-                <th className="px-3 py-2">สาขา</th>
-                <th className="px-3 py-2">คลัง</th>
-                <th className="px-3 py-2 text-right">น้ำหนักขาเข้า</th>
-                <th className="px-3 py-2 text-right">น้ำหนักขาออก</th>
-                <th className="px-3 py-2 text-right">น้ำหนักสุทธิ</th>
-                <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
-                <th className="px-3 py-2 text-right">เป็นเงิน</th>
-                <th className="px-3 py-2 text-right">การกระทำ</th>
-              </tr>
+              {mode === "buy" ? (
+                <tr>
+                  <th className="px-3 py-2">วันที่</th>
+                  <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
+                  <th className="px-3 py-2">ลูกค้า</th>
+                  <th className="px-3 py-2">ชนิดข้าว</th>
+                  <th className="px-3 py-2">สาขา</th>
+                  <th className="px-3 py-2">คลัง</th>
+                  <th className="px-3 py-2 text-right">น้ำหนักขาเข้า</th>
+                  <th className="px-3 py-2 text-right">น้ำหนักขาออก</th>
+                  <th className="px-3 py-2 text-right">น้ำหนักสุทธิ</th>
+                  <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
+                  <th className="px-3 py-2 text-right">เป็นเงิน</th>
+                  <th className="px-3 py-2 text-right">การกระทำ</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th className="px-3 py-2">วันที่</th>
+                  <th className="px-3 py-2">เลขที่ขาย</th>
+                  <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
+                  <th className="px-3 py-2">ลูกค้า</th>
+                  <th className="px-3 py-2">ชนิดข้าว</th>
+                  <th className="px-3 py-2">สาขา</th>
+                  <th className="px-3 py-2">คลัง</th>
+                  <th className="px-3 py-2 text-right">น้ำหนัก (กก.)</th>
+                  <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
+                  <th className="px-3 py-2 text-right">เป็นเงิน</th>
+                  <th className="px-3 py-2 text-center">#ย่อย</th>
+                  <th className="px-3 py-2 text-right">การกระทำ</th>
+                </tr>
+              )}
             </thead>
             <tbody>
               {loading ? (
                 <tr><td className="px-3 py-3" colSpan={12}>กำลังโหลด...</td></tr>
               ) : rows.length === 0 ? (
                 <tr><td className="px-3 py-3" colSpan={12}>ไม่พบข้อมูล</td></tr>
-              ) : (
+              ) : mode === "buy" ? (
                 pagedRows.map((r) => {
-                  const entry = toNumber(r.entry_weight ?? 0)
-                  const exit  = toNumber(r.exit_weight  ?? 0)
+                  const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
+                  const exit  = toNumber(r.exit_weight  ?? r.exitWeight  ?? r.exit  ?? 0)
                   const net   = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry))
-                  const price = toNumber(r.price ?? 0)
-                  const pricePerKgRaw = toNumber(r.price_per_kilo ?? 0)
+                  const price = toNumber(r.price ?? r.amountTHB ?? 0)
+                  const pricePerKgRaw = toNumber(r.price_per_kilo ?? r.pricePerKilo ?? r.unit_price ?? 0)
                   const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)
                   return (
                     <tr
@@ -819,16 +877,50 @@ const OrderCorrection = () => {
                       className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
                     >
                       <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
-                      <td className="px-3 py-2">{r.order_serial || "—"}</td>
-                      <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "—"}</td>
-                      <td className="px-3 py-2">{r.species || "—"}</td>
-                      <td className="px-3 py-2">{r.branch_name || "—"}</td>
-                      <td className="px-3 py-2">{r.klang_name || "—"}</td>
+                      <td className="px-3 py-2">{r.order_serial || r.paymentRefNo || "—"}</td>
+                      <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.customer_name || "—"}</td>
+                      <td className="px-3 py-2">{r.species || r.rice_type || r.riceType || "—"}</td>
+                      <td className="px-3 py-2">{r.branch_name || r.branchName || "—"}</td>
+                      <td className="px-3 py-2">{r.klang_name || r.klangName || "—"}</td>
                       <td className="px-3 py-2 text-right">{entry.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right">{exit.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right">{net.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right">{baht(pricePerKg)}</td>
                       <td className="px-3 py-2 text-right">{thb(price)}</td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          type="button"
+                          onClick={() => openModal(r)}
+                          className="whitespace-nowrap rounded-2xl bg-emerald-600/90 px-4 py-2 text-sm font-semibold text-white shadow-sm ring-1 ring-emerald-700/50 hover:bg-emerald-600 active:scale-[.98] dark:bg-emerald-500/85 dark:hover:bg-emerald-500"
+                        >
+                          แก้ไข
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
+              ) : (
+                pagedRows.map((r) => {
+                  const net   = toNumber(r.weight ?? 0)
+                  const price = toNumber(r.price ?? 0)
+                  const pricePerKgRaw = toNumber(r.price_per_kilo ?? 0)
+                  const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)
+                  return (
+                    <tr
+                      key={`${r.id ?? r.sale_id}-${r.sub_order ?? 0}`}
+                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
+                    >
+                      <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
+                      <td className="px-3 py-2">{r.sale_id || "—"}</td>
+                      <td className="px-3 py-2">{r.order_serial || "—"}</td>
+                      <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "—"}</td>
+                      <td className="px-3 py-2">{r.species || "—"}</td>
+                      <td className="px-3 py-2">{r.branch_name || "—"}</td>
+                      <td className="px-3 py-2">{r.klang_name || "—"}</td>
+                      <td className="px-3 py-2 text-right">{net.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{baht(pricePerKg)}</td>
+                      <td className="px-3 py-2 text-right">{thb(price)}</td>
+                      <td className="px-3 py-2 text-center">{r.sub_order ?? "-"}</td>
                       <td className="px-3 py-2 text-right">
                         <button
                           type="button"
@@ -959,7 +1051,6 @@ const OrderCorrection = () => {
 
                     {!editing ? (
                       <div className="flex gap-2">
-                        {/* ปุ่มแก้ไข (ซ้าย) */}
                         <button
                           type="button"
                           onClick={() => setEditing(true)}
@@ -967,7 +1058,6 @@ const OrderCorrection = () => {
                         >
                           แก้ไข
                         </button>
-                        {/* ปุ่มลบ (อยู่ขวาของปุ่มแก้ไข) */}
                         <button
                           type="button"
                           onClick={confirmAndDelete}
@@ -994,7 +1084,6 @@ const OrderCorrection = () => {
                         >
                           ยกเลิก
                         </button>
-                        {/* ซ่อนปุ่มลบระหว่างแก้ไขตามที่ขอ */}
                       </div>
                     )}
                   </div>
@@ -1015,7 +1104,6 @@ const OrderCorrection = () => {
                         </div>
                       ) : (
                         <>
-                          {/* 🔒 ล็อก input นี้: ห้ามแก้ */}
                           <input
                             inputMode="numeric"
                             className={[baseField, "cursor-not-allowed opacity-80"].join(" ")}

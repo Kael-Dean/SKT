@@ -1,36 +1,38 @@
 // src/pages/OrderCorrection.jsx
-import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { apiAuth } from "../lib/api"
-import { getUser } from "../lib/auth"
+import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react";
+import { apiAuth } from "../lib/api";
+import { getUser } from "../lib/auth";
 
-/** ---------- Utils ---------- */
-const onlyDigits = (s = "") => s.replace(/\D+/g, "")
-const cleanDecimal = (s = "") => String(s ?? "").replace(/[^\d.]/g, "")
-const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
+/* ---------------- Utilities (ทนทานต่อค่าที่ไม่ใช่สตริง) ---------------- */
+const asString = (v) => (v === null || v === undefined ? "" : String(v));
+const onlyDigits = (s = "") => asString(s).replace(/\D+/g, "");
+const cleanDecimal = (s = "") => asString(s).replace(/[^\d.]/g, "");
+const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v));
 const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
-  )
+  );
 const baht = (n) =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
-  )
+  );
+
 function useDebounce(value, delay = 400) {
-  const [debounced, setDebounced] = useState(value)
+  const [debounced, setDebounced] = useState(value);
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(t)
-  }, [value, delay])
-  return debounced
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
 }
 
-/** ---------- Base field style ---------- */
+/* ---------------- Base field style ---------------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
+  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30";
 
-/** ---------- Reusable ComboBox ---------- */
+/* ---------------- Reusable ComboBox ---------------- */
 function ComboBox({
   options = [],
   value,
@@ -41,83 +43,83 @@ function ComboBox({
   disabled = false,
   error = false,
 }) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(-1)
-  const boxRef = useRef(null)
-  const listRef = useRef(null)
-  const btnRef = useRef(null)
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
+  const boxRef = useRef(null);
+  const listRef = useRef(null);
+  const btnRef = useRef(null);
 
   const selectedLabel = useMemo(() => {
-    const found = options.find((o) => String(getValue(o)) === String(value))
-    return found ? getLabel(found) : ""
-  }, [options, value, getLabel, getValue])
+    const found = options.find((o) => String(getValue(o)) === String(value));
+    return found ? getLabel(found) : "";
+  }, [options, value, getLabel, getValue]);
 
   useEffect(() => {
     const onClick = (e) => {
-      if (!boxRef.current) return
+      if (!boxRef.current) return;
       if (!boxRef.current.contains(e.target)) {
-        setOpen(false)
-        setHighlight(-1)
+        setOpen(false);
+        setHighlight(-1);
       }
-    }
-    document.addEventListener("click", onClick)
-    return () => document.removeEventListener("click", onClick)
-  }, [])
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
 
   const commit = (opt) => {
-    const v = String(getValue(opt))
-    onChange?.(v, opt)
-    setOpen(false)
-    setHighlight(-1)
-    requestAnimationFrame(() => btnRef.current?.focus())
-  }
+    const v = String(getValue(opt));
+    onChange?.(v, opt);
+    setOpen(false);
+    setHighlight(-1);
+    requestAnimationFrame(() => btnRef.current?.focus());
+  };
 
   const scrollHighlightedIntoView = (index) => {
-    const listEl = listRef.current
-    const itemEl = listEl?.children?.[index]
-    if (!listEl || !itemEl) return
-    const itemRect = itemEl.getBoundingClientRect()
-    const listRect = listEl.getBoundingClientRect()
-    const buffer = 6
+    const listEl = listRef.current;
+    const itemEl = listEl?.children?.[index];
+    if (!listEl || !itemEl) return;
+    const itemRect = itemEl.getBoundingClientRect();
+    const listRect = listEl.getBoundingClientRect();
+    const buffer = 6;
     if (itemRect.top < listRect.top + buffer) {
-      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top;
     } else if (itemRect.bottom > listRect.bottom - buffer) {
-      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer);
     }
-  }
+  };
 
   const onKeyDown = (e) => {
-    if (disabled) return
+    if (disabled) return;
     if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault()
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
-      return
+      e.preventDefault();
+      setOpen(true);
+      setHighlight((h) => (h >= 0 ? h : 0));
+      return;
     }
-    if (!open) return
+    if (!open) return;
     if (e.key === "ArrowDown") {
-      e.preventDefault()
+      e.preventDefault();
       setHighlight((h) => {
-        const next = h < options.length - 1 ? h + 1 : 0
-        requestAnimationFrame(() => scrollHighlightedIntoView(next))
-        return next
-      })
+        const next = h < options.length - 1 ? h + 1 : 0;
+        requestAnimationFrame(() => scrollHighlightedIntoView(next));
+        return next;
+      });
     } else if (e.key === "ArrowUp") {
-      e.preventDefault()
+      e.preventDefault();
       setHighlight((h) => {
-        const prev = h > 0 ? h - 1 : options.length - 1
-        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
-        return prev
-      })
+        const prev = h > 0 ? h - 1 : options.length - 1;
+        requestAnimationFrame(() => scrollHighlightedIntoView(prev));
+        return prev;
+      });
     } else if (e.key === "Enter") {
-      e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
+      e.preventDefault();
+      if (highlight >= 0 && highlight < options.length) commit(options[highlight]);
     } else if (e.key === "Escape") {
-      e.preventDefault()
-      setOpen(false)
-      setHighlight(-1)
+      e.preventDefault();
+      setOpen(false);
+      setHighlight(-1);
     }
-  }
+  };
 
   return (
     <div className="relative" ref={boxRef}>
@@ -134,7 +136,7 @@ function ComboBox({
             ? "border-red-400 ring-2 ring-red-300/70"
             : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
           "text-black placeholder:text-slate-500",
-          "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30",
+          "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-700/70 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30",
         ].join(" ")}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -152,9 +154,9 @@ function ComboBox({
             <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
           )}
           {options.map((opt, idx) => {
-            const label = getLabel(opt)
-            const isActive = idx === highlight
-            const isChosen = String(getValue(opt)) === String(value)
+            const label = getLabel(opt);
+            const isActive = idx === highlight;
+            const isChosen = String(getValue(opt)) === String(value);
             return (
               <button
                 key={String(getValue(opt)) || label || idx}
@@ -176,18 +178,18 @@ function ComboBox({
                 <span className="flex-1">{label}</span>
                 {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
               </button>
-            )
+            );
           })}
         </div>
       )}
     </div>
-  )
+  );
 }
 
-/** ---------- DateInput (native; same behavior asหน้า Order) ---------- */
+/* ---------------- DateInput (เหมือนหน้าออเดอร์) ---------------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
-  const inputRef = useRef(null)
-  useImperativeHandle(ref, () => inputRef.current)
+  const inputRef = useRef(null);
+  useImperativeHandle(ref, () => inputRef.current);
   return (
     <div className="relative">
       <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
@@ -200,10 +202,13 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
       <button
         type="button"
         onClick={() => {
-          const el = inputRef.current
-          if (!el) return
-          if (typeof el.showPicker === "function") el.showPicker()
-          else { el.focus(); el.click?.() }
+          const el = inputRef.current;
+          if (!el) return;
+          if (typeof el.showPicker === "function") el.showPicker();
+          else {
+            el.focus();
+            el.click?.();
+          }
         }}
         aria-label="เปิดตัวเลือกวันที่"
         className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
@@ -213,242 +218,273 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
         </svg>
       </button>
     </div>
-  )
-})
+  );
+});
 
-/** ---------- Page ---------- */
-const PAGE_SIZE = 100
+/* ---------------- Page ---------------- */
+const PAGE_SIZE = 100;
 
-const OrderCorrection = () => {
-  /** Dates */
-  const today = new Date().toISOString().slice(0, 10)
-  const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+function OrderCorrection() {
+  /* Dates */
+  const today = new Date().toISOString().slice(0, 10);
+  const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
 
-  /** NEW: Buy/Sell mode toggle (เหมือนหน้าออเดอร์) */
-  const [mode, setMode] = useState("buy") // 'buy' | 'sell'
+  /* Buy/Sell toggle */
+  const [mode, setMode] = useState("buy"); // buy | sell
 
-  /** List state */
-  const [rows, setRows] = useState([])
-  const [loading, setLoading] = useState(false)
-
-  /** Pagination */
-  const [page, setPage] = useState(1)
-  const [pageInput, setPageInput] = useState("1")
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(rows.length / PAGE_SIZE)), [rows.length])
+  /* list + pagination */
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageInput, setPageInput] = useState("1");
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(rows.length / PAGE_SIZE)), [rows.length]);
   const pagedRows = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE
-    return rows.slice(start, start + PAGE_SIZE)
-  }, [rows, page])
+    const start = (page - 1) * PAGE_SIZE;
+    return rows.slice(start, start + PAGE_SIZE);
+  }, [rows, page]);
 
-  /** Options */
-  const [branchOptions, setBranchOptions] = useState([])
-  const [klangOptions, setKlangOptions] = useState([])
-  const [specOptions, setSpecOptions] = useState([])
-  const [specDict, setSpecDict] = useState({})
-  const [paymentBuy, setPaymentBuy] = useState([])   // 3=เงินสด, 4=เครดิต
-  const [paymentSell, setPaymentSell] = useState([]) // 1=เงินสด, 2=เครดิต
-
+  /* dropdown opts */
+  const [branchOptions, setBranchOptions] = useState([]);
+  const [klangOptions, setKlangOptions] = useState([]);
+  const [specOptions, setSpecOptions] = useState([]);
+  const [specDict, setSpecDict] = useState({});
+  const [paymentBuy, setPaymentBuy] = useState([]); // 3,4
+  const [paymentSell, setPaymentSell] = useState([]); // 1,2
   const getPaymentLabel = (type, id) => {
-    const opts = type === "sell" ? paymentSell : paymentBuy
-    return opts.find(o => String(o.id) === String(id))?.label || (id ? String(id) : "-")
-  }
+    const opts = type === "sell" ? paymentSell : paymentBuy;
+    return opts.find((o) => String(o.id) === String(id))?.label || (id ? String(id) : "-");
+  };
 
-  /** Filters */
+  /* filters */
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
-    branchId: "", branchName: "",
-    klangId: "", klangName: "",
+    branchId: "",
+    branchName: "",
+    klangId: "",
+    klangName: "",
     q: "",
-  })
-  const [errors, setErrors] = useState({ startDate: "", endDate: "" })
-  const debouncedQ = useDebounce(filters.q, 500)
+  });
+  const [errors, setErrors] = useState({ startDate: "", endDate: "" });
+  const debouncedQ = useDebounce(filters.q, 500);
 
-  /** Validate date range */
+  /* validate date range */
   const validateDates = (s, e) => {
-    const out = { startDate: "", endDate: "" }
-    if (!s) out.startDate = "กรุณาเลือกวันที่เริ่ม"
-    if (!e) out.endDate = "กรุณาเลือกวันที่สิ้นสุด"
+    const out = { startDate: "", endDate: "" };
+    if (!s) out.startDate = "กรุณาเลือกวันที่เริ่ม";
+    if (!e) out.endDate = "กรุณาเลือกวันที่สิ้นสุด";
     if (s && e) {
-      const sd = new Date(s), ed = new Date(e)
-      if (ed < sd) out.endDate = "วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น"
+      const sd = new Date(s),
+        ed = new Date(e);
+      if (ed < sd) out.endDate = "วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น";
     }
-    setErrors(out)
-    return !out.startDate && !out.endDate
-  }
-  useEffect(() => { validateDates(filters.startDate, filters.endDate) }, [filters.startDate, filters.endDate])
+    setErrors(out);
+    return !out.startDate && !out.endDate;
+  };
+  useEffect(() => {
+    validateDates(filters.startDate, filters.endDate);
+  }, [filters.startDate, filters.endDate]);
 
-  /** Load initial options (branch/spec/payment) */
+  /* load static options */
   useEffect(() => {
     const loadInitial = async () => {
       try {
         const [branches, specs, payB, payS] = await Promise.all([
           apiAuth(`/order/branch/search`),
-          apiAuth(`/order/form/search`),      // ProductSpec list (prod_name)
-          apiAuth(`/order/payment/search/buy`), // 3,4
-          apiAuth(`/order/payment/search/sell`),// 1,2
-        ])
-        setBranchOptions((Array.isArray(branches) ? branches : []).map(x => ({ id: String(x.id), label: x.branch_name })))
+          apiAuth(`/order/form/search`),
+          apiAuth(`/order/payment/search/buy`),
+          apiAuth(`/order/payment/search/sell`),
+        ]);
+
+        setBranchOptions((Array.isArray(branches) ? branches : []).map((x) => ({ id: String(x.id), label: x.branch_name })));
 
         const opts = (Array.isArray(specs) ? specs : [])
-          .map(r => ({
+          .map((r) => ({
             id: String(r.id),
             label: String(r.prod_name || r.name || r.spec_name || `spec #${r.id}`).trim(),
             raw: r,
           }))
-          .filter(o => o.id && o.label)
-        setSpecOptions(opts.map(o => ({ id: o.id, label: o.label })))
-        const dict = {}
-        opts.forEach(o => { dict[o.id] = o.raw })
-        setSpecDict(dict)
+          .filter((o) => o.id && o.label);
+        setSpecOptions(opts.map((o) => ({ id: o.id, label: o.label })));
+        const dict = {};
+        opts.forEach((o) => {
+          dict[o.id] = o.raw;
+        });
+        setSpecDict(dict);
 
-        setPaymentBuy((Array.isArray(payB) ? payB : []).map(p => ({ id: String(p.id), label: p.payment })))
-        setPaymentSell((Array.isArray(payS) ? payS : []).map(p => ({ id: String(p.id), label: p.payment })))
+        setPaymentBuy((Array.isArray(payB) ? payB : []).map((p) => ({ id: String(p.id), label: p.payment })));
+        setPaymentSell((Array.isArray(payS) ? payS : []).map((p) => ({ id: String(p.id), label: p.payment })));
       } catch (e) {
-        console.error("load initial options failed:", e)
-        setBranchOptions([]); setSpecOptions([]); setPaymentBuy([]); setPaymentSell([])
+        console.error("load initial options failed:", e);
+        setBranchOptions([]);
+        setSpecOptions([]);
+        setPaymentBuy([]);
+        setPaymentSell([]);
       }
-    }
-    loadInitial()
-  }, [])
+    };
+    loadInitial();
+  }, []);
 
-  /** branch → klang */
+  /* branch -> klang */
   useEffect(() => {
     const run = async () => {
-      if (!filters.branchId) { setKlangOptions([]); setFilters(p => ({ ...p, klangId: "", klangName: "" })); return }
-      try {
-        const data = await apiAuth(`/order/klang/search?branch_id=${filters.branchId}`)
-        setKlangOptions((Array.isArray(data) ? data : []).map(x => ({ id: String(x.id), label: x.klang_name })))
-      } catch (e) {
-        console.error("load klang failed:", e)
-        setKlangOptions([])
+      if (!filters.branchId) {
+        setKlangOptions([]);
+        setFilters((p) => ({ ...p, klangId: "", klangName: "" }));
+        return;
       }
-    }
-    run()
+      try {
+        const data = await apiAuth(`/order/klang/search?branch_id=${filters.branchId}`);
+        setKlangOptions((Array.isArray(data) ? data : []).map((x) => ({ id: String(x.id), label: x.klang_name })));
+      } catch (e) {
+        console.error("load klang failed:", e);
+        setKlangOptions([]);
+      }
+    };
+    run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.branchId])
+  }, [filters.branchId]);
 
-  /** Fetch orders (แตกตามโหมดเหมือนหน้าออเดอร์) */
+  /* fetch orders */
   const fetchOrders = async () => {
-    if (!validateDates(filters.startDate, filters.endDate)) return
+    if (!validateDates(filters.startDate, filters.endDate)) return;
     try {
-      setLoading(true)
-      const params = new URLSearchParams()
-      params.set("start_date", filters.startDate)
-      params.set("end_date", filters.endDate)
-      if (filters.branchId) params.set("branch_id", filters.branchId)
-      if (filters.klangId) params.set("klang_id", filters.klangId)
-      if (filters.q?.trim()) params.set("q", filters.q.trim())
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set("start_date", filters.startDate);
+      params.set("end_date", filters.endDate);
+      if (filters.branchId) params.set("branch_id", filters.branchId);
+      if (filters.klangId) params.set("klang_id", filters.klangId);
+      if (filters.q?.trim()) params.set("q", filters.q.trim());
 
-      const endpoint = mode === "buy"
-        ? `/order/orders/buy-report`
-        : `/order/orders/sell-report`
-
-      const data = await apiAuth(`${endpoint}?${params.toString()}`)
-      setRows(Array.isArray(data) ? data : [])
-      setPage(1); setPageInput("1")
+      const endpoint = mode === "buy" ? `/order/orders/buy-report` : `/order/orders/sell-report`;
+      const data = await apiAuth(`${endpoint}?${params.toString()}`);
+      setRows(Array.isArray(data) ? data : []);
+      setPage(1);
+      setPageInput("1");
     } catch (e) {
-      console.error(e)
-      setRows([]); setPage(1); setPageInput("1")
+      console.error(e);
+      setRows([]);
+      setPage(1);
+      setPageInput("1");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-  useEffect(() => { fetchOrders() }, [])            // init
-  useEffect(() => { fetchOrders() }, [mode])        // เปลี่ยนโหมดแล้วโหลดใหม่
-  useEffect(() => { if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders() }, [debouncedQ])
-
-  /** Totals */
-  const totals = useMemo(() => {
-    let weight = 0, revenue = 0
-    rows.forEach((x) => { weight += toNumber(x.weight); revenue += toNumber(x.price) })
-    return { weight, revenue }
-  }, [rows])
-
-  /** Pagination helpers */
+  };
   useEffect(() => {
-    setPage((p) => Math.min(Math.max(1, p), totalPages))
-    setPageInput((v) => String(Math.min(Math.max(1, toNumber(onlyDigits(v)) || 1), totalPages)))
-  }, [totalPages])
+    fetchOrders();
+  }, []);
+  useEffect(() => {
+    fetchOrders();
+  }, [mode]);
+  useEffect(() => {
+    if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQ]);
+
+  /* totals */
+  const totals = useMemo(() => {
+    let weight = 0,
+      revenue = 0;
+    rows.forEach((x) => {
+      weight += toNumber(x.weight);
+      revenue += toNumber(x.price);
+    });
+    return { weight, revenue };
+  }, [rows]);
+
+  /* pagination helpers */
+  useEffect(() => {
+    setPage((p) => Math.min(Math.max(1, p), totalPages));
+    setPageInput((v) => String(Math.min(Math.max(1, toNumber(onlyDigits(v)) || 1), totalPages)));
+  }, [totalPages]);
 
   const goToPage = (p) => {
-    const n = Math.min(Math.max(1, toNumber(p)), totalPages)
-    setPage(n); setPageInput(String(n))
+    const n = Math.min(Math.max(1, toNumber(p)), totalPages);
+    setPage(n);
+    setPageInput(String(n));
     try {
-      const main = document.querySelector('main')
-      if (main && typeof main.scrollTo === 'function') main.scrollTo({ top: 0, behavior: 'smooth' })
-      else window?.scrollTo?.({ top: 0, behavior: 'smooth' })
+      const main = document.querySelector("main");
+      if (main && typeof main.scrollTo === "function") main.scrollTo({ top: 0, behavior: "smooth" });
+      else window?.scrollTo?.({ top: 0, behavior: "smooth" });
     } catch (_) {}
-  }
-  const nextPage = () => goToPage(page + 1)
-  const prevPage = () => goToPage(page - 1)
+  };
+  const nextPage = () => goToPage(page + 1);
+  const prevPage = () => goToPage(page - 1);
   const onCommitPageInput = () => {
-    const n = toNumber(onlyDigits(pageInput))
-    if (!n) { setPageInput(String(page)); return }
-    goToPage(n)
-  }
+    const n = toNumber(onlyDigits(pageInput));
+    if (!n) {
+      setPageInput(String(page));
+      return;
+    }
+    goToPage(n);
+  };
   const pageItems = useMemo(() => {
-    const items = []
-    const delta = 2
-    const left = Math.max(1, page - delta)
-    const right = Math.min(totalPages, page + delta)
-    if (left > 1) items.push(1)
-    if (left > 2) items.push("...")
-    for (let i = left; i <= right; i++) items.push(i)
-    if (right < totalPages - 1) items.push("...")
-    if (right < totalPages) items.push(totalPages)
-    return items
-  }, [page, totalPages])
+    const items = [];
+    const delta = 2;
+    const left = Math.max(1, page - delta);
+    const right = Math.min(totalPages, page + delta);
+    if (left > 1) items.push(1);
+    if (left > 2) items.push("...");
+    for (let i = left; i <= right; i++) items.push(i);
+    if (right < totalPages - 1) items.push("...");
+    if (right < totalPages) items.push(totalPages);
+    return items;
+  }, [page, totalPages]);
 
-  /** Reset filters */
+  /* reset filters */
   const resetFilters = () => {
     setFilters({
       startDate: firstDayThisMonth,
       endDate: today,
-      branchId: "", branchName: "",
-      klangId: "", klangName: "",
+      branchId: "",
+      branchName: "",
+      klangId: "",
+      klangName: "",
       q: "",
-    })
-    setKlangOptions([])
-    setPage(1); setPageInput("1")
-    setErrors({ startDate: "", endDate: "" })
-  }
+    });
+    setKlangOptions([]);
+    setPage(1);
+    setPageInput("1");
+    setErrors({ startDate: "", endDate: "" });
+  };
 
-  /** ---------------- Edit Modal ---------------- */
-  const [open, setOpen] = useState(false)
-  const [active, setActive] = useState(null)
-  const [draft, setDraft] = useState(null)
-  const [editing, setEditing] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [rowError, setRowError] = useState("")
-  const [touched, setTouched] = useState(new Set())
+  /* ---------------- Edit Modal ---------------- */
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [rowError, setRowError] = useState("");
+  const [touched, setTouched] = useState(new Set());
 
-  const touch = (k) => setTouched(prev => new Set([...prev, String(k)]))
-  const setD = (patch) => setDraft(p => ({ ...(p || {}), ...(typeof patch === "function" ? patch(p || {}) : patch) }))
-  const getSpecLabel = (id) => (specOptions.find(o => String(o.id) === String(id))?.label || `#${id}`)
+  const touch = (k) => setTouched((prev) => new Set([...prev, String(k)]));
+  const setD = (patch) =>
+    setDraft((p) => ({ ...(p || {}), ...(typeof patch === "function" ? patch(p || {}) : patch) }));
+  const getSpecLabel = (id) => specOptions.find((o) => String(o.id) === String(id))?.label || `#${id}`;
 
   const tryPrefillBranchKlang = async (row) => {
-    let foundBranch = branchOptions.find(b => (b.label || "").trim() === (row.branch_name || "").trim())
-    let branchId = foundBranch?.id || ""
-    let klangId = ""
+    let foundBranch = branchOptions.find((b) => (b.label || "").trim() === (row.branch_name || "").trim());
+    let branchId = foundBranch?.id || "";
+    let klangId = "";
     if (branchId) {
       try {
-        const data = await apiAuth(`/order/klang/search?branch_id=${branchId}`)
-        const opts = (Array.isArray(data) ? data : []).map(x => ({ id: String(x.id), label: x.klang_name }))
-        setKlangOptions(opts)
-        const foundKlang = opts.find(k => (k.label || "").trim() === (row.klang_name || "").trim())
-        klangId = foundKlang?.id || ""
+        const data = await apiAuth(`/order/klang/search?branch_id=${branchId}`);
+        const opts = (Array.isArray(data) ? data : []).map((x) => ({ id: String(x.id), label: x.klang_name }));
+        setKlangOptions(opts);
+        const foundKlang = opts.find((k) => (k.label || "").trim() === (row.klang_name || "").trim());
+        klangId = foundKlang?.id || "";
       } catch {}
     } else {
-      setKlangOptions([])
+      setKlangOptions([]);
     }
-    return { branchId, klangId }
-  }
+    return { branchId, klangId };
+  };
 
   const buildProductSpecIn = (specId) => {
-    const raw = specDict[String(specId)]
-    if (!raw) return null
+    const raw = specDict[String(specId)];
+    if (!raw) return null;
     return {
       product_id: raw.product_id,
       species_id: raw.species_id,
@@ -458,19 +494,18 @@ const OrderCorrection = () => {
       field_type: raw.field_type ?? null,
       program: raw.program ?? null,
       business_type: raw.business_type ?? null,
-    }
-  }
+    };
+  };
 
   const openModal = async (row) => {
-    setRowError("")
-    setTouched(new Set())
-    setEditing(false)
-    setActive(row)
+    setRowError("");
+    setTouched(new Set());
+    setEditing(false);
+    setActive(row);
 
-    // เปิด modal ในโหมด/ฟอร์มขาย และ prefill ด้วยค่าจริงจาก BE
-    const guessType = mode === "sell" ? "sell" : "buy"
-    const { branchId, klangId } = await tryPrefillBranchKlang(row)
-    const editorId = getUser()?.id || ""
+    const guessType = mode === "sell" ? "sell" : "buy";
+    const { branchId, klangId } = await tryPrefillBranchKlang(row);
+    const editorId = getUser()?.id || "";
 
     setDraft({
       order_id: row.id ?? row.sale_id ?? row.order_id,
@@ -478,7 +513,7 @@ const OrderCorrection = () => {
       edited_by: editorId,
       reason: "",
 
-      // common (prefill)
+      // common
       date: row?.date ? new Date(row.date).toISOString().slice(0, 10) : "",
       branch_location: branchId,
       klang_location: klangId,
@@ -490,212 +525,222 @@ const OrderCorrection = () => {
       // change spec
       spec_id: row.spec_id ? String(row.spec_id) : "",
 
-      // BUY-like (เผื่อเปิดออเดอร์ฝั่งซื้อ)
+      // BUY-like
       order_serial: row.order_serial || "",
       entry_weight: row.entry_weight ?? "",
       exit_weight: row.exit_weight ?? "",
       weight: row.weight ?? "",
       price_per_kilo: row.price_per_kilo ?? "",
       price: row.price ?? "",
-      gram: row.gram ?? "", humidity: row.humidity ?? "", impurity: row.impurity ?? "",
+      gram: row.gram ?? "",
+      humidity: row.humidity ?? "",
+      impurity: row.impurity ?? "",
 
-      // SELL-like (สำคัญ)
-      sale_id: row.sale_id || row.saleId || "",     // ⭐ เพิ่ม: เอกสารอ้างอิงของขาย (ใบรับเงิน/ใบกำกับ)
-      order_serial_1: row.order_serial_1 || "",
+      // SELL-like
+      sale_id: row.sale_id || "", // ⭐ ใบรับเงินขาย (ขายสด) / หรือเอกสารขายเชื่อ
+      order_serial_1: row.order_serial_1 || row.order_serial || "",
       order_serial_2: row.order_serial_2 || "",
       license_plate_1: row.license_plate_1 || "",
       license_plate_2: row.license_plate_2 || "",
-      weight_1: row.weight_1 ?? "",
-      weight_2: row.weight_2 ?? "",
-      price_1: row.price_1 ?? "",
-      price_2: row.price_2 ?? "",
-
-      // Credit terms
-      dept_allowed_period: "",
-      dept_postpone: false,
-      dept_postpone_period: "",
-    })
-    setOpen(true)
-  }
+      weight_1: row.weight_1 ?? (row.sub_order === 1 ? row.weight : ""),
+      weight_2: row.weight_2 ?? (row.sub_order === 2 ? row.weight : ""),
+      price_1: row.price_1 ?? (row.sub_order === 1 ? row.price : ""),
+      price_2: row.price_2 ?? (row.sub_order === 2 ? row.price : ""),
+    });
+    setOpen(true);
+  };
 
   const closeModal = () => {
-    setOpen(false)
-    setActive(null)
-    setDraft(null)
-    setEditing(false)
-    setSaving(false)
-    setDeleting(false)
-    setRowError("")
-    setTouched(new Set())
-  }
+    setOpen(false);
+    setActive(null);
+    setDraft(null);
+    setEditing(false);
+    setSaving(false);
+    setDeleting(false);
+    setRowError("");
+    setTouched(new Set());
+  };
 
-  /** ---- Build changes payloads (ส่งเฉพาะคีย์ที่แก้) ---- */
+  /* ---- Build changes payloads ---- */
   const buildChangesBuy = (d, touchedKeys) => {
-    const c = {}
-    const put = (k, v) => { if (touchedKeys.has(k)) c[k] = v }
+    const c = {};
+    const put = (k, v) => {
+      if (touchedKeys.has(k)) c[k] = v;
+    };
     if (touchedKeys.has("spec_id")) {
-      const spec = buildProductSpecIn(d.spec_id)
-      if (spec) c["spec"] = spec
+      const spec = buildProductSpecIn(d.spec_id);
+      if (spec) c["spec"] = spec;
     }
-    put("payment_id", d.payment_id ? Number(d.payment_id) : undefined)
-    put("humidity", d.humidity === "" ? undefined : Number(cleanDecimal(d.humidity)))
-    put("entry_weight", d.entry_weight === "" ? undefined : Number(cleanDecimal(d.entry_weight)))
-    put("exit_weight", d.exit_weight === "" ? undefined : Number(cleanDecimal(d.exit_weight)))
-    put("weight", d.weight === "" ? undefined : Number(cleanDecimal(d.weight)))
-    put("gram", d.gram === "" ? undefined : Number(onlyDigits(d.gram)))
-    put("price_per_kilo", d.price_per_kilo === "" ? undefined : Number(cleanDecimal(d.price_per_kilo)))
-    put("price", d.price === "" ? undefined : Number(cleanDecimal(d.price)))
-    put("impurity", d.impurity === "" ? undefined : Number(cleanDecimal(d.impurity)))
-    put("order_serial", d.order_serial || undefined)
-    put("date", d.date ? new Date(d.date).toISOString() : undefined)
-    put("branch_location", d.branch_location ? Number(d.branch_location) : undefined)
-    put("klang_location", d.klang_location ? Number(d.klang_location) : undefined)
-    put("comment", d.comment || undefined)
-    Object.keys(c).forEach((k) => c[k] === undefined && delete c[k])
-    return c
-  }
+    put("payment_id", d.payment_id ? Number(d.payment_id) : undefined);
+    put("humidity", d.humidity === "" ? undefined : Number(cleanDecimal(d.humidity)));
+    put("entry_weight", d.entry_weight === "" ? undefined : Number(cleanDecimal(d.entry_weight)));
+    put("exit_weight", d.exit_weight === "" ? undefined : Number(cleanDecimal(d.exit_weight)));
+    put("weight", d.weight === "" ? undefined : Number(cleanDecimal(d.weight)));
+    put("gram", d.gram === "" ? undefined : Number(onlyDigits(d.gram)));
+    put("price_per_kilo", d.price_per_kilo === "" ? undefined : Number(cleanDecimal(d.price_per_kilo)));
+    put("price", d.price === "" ? undefined : Number(cleanDecimal(d.price)));
+    put("impurity", d.impurity === "" ? undefined : Number(cleanDecimal(d.impurity)));
+    put("order_serial", d.order_serial || undefined);
+    put("date", d.date ? new Date(d.date).toISOString() : undefined);
+    put("branch_location", d.branch_location ? Number(d.branch_location) : undefined);
+    put("klang_location", d.klang_location ? Number(d.klang_location) : undefined);
+    put("comment", d.comment || undefined);
+
+    Object.keys(c).forEach((k) => c[k] === undefined && delete c[k]);
+    return c;
+  };
+
   const buildChangesSell = (d, touchedKeys) => {
-    const c = {}
-    const put = (k, v) => { if (touchedKeys.has(k)) c[k] = v }
+    const c = {};
+    const put = (k, v) => {
+      if (touchedKeys.has(k)) c[k] = v;
+    };
     if (touchedKeys.has("spec_id")) {
-      const spec = buildProductSpecIn(d.spec_id)
-      if (spec) c["spec"] = spec
+      const spec = buildProductSpecIn(d.spec_id);
+      if (spec) c["spec"] = spec;
     }
-    put("payment_id", d.payment_id ? Number(d.payment_id) : undefined)
 
-    // ⭐ เพิ่ม: sale_id ส่งเมื่อแก้ไข
-    put("sale_id", d.sale_id ? String(d.sale_id).trim() : undefined)
+    // ⭐ รองรับใบรับเงินขาย (ขายสด) / เอกสารขายเชื่อ → ไปที่ sale_id
+    put("sale_id", d.sale_id ? asString(d.sale_id).trim() : undefined);
 
-    put("license_plate_1", d.license_plate_1 || undefined)
-    put("license_plate_2", d.license_plate_2 || undefined)
-    put("weight_1", d.weight_1 === "" ? undefined : Number(cleanDecimal(d.weight_1)))
-    put("weight_2", d.weight_2 === "" ? undefined : Number(cleanDecimal(d.weight_2)))
-    put("gram", d.gram === "" ? undefined : Number(onlyDigits(d.gram)))
-    put("price_per_kilo", d.price_per_kilo === "" ? undefined : Number(cleanDecimal(d.price_per_kilo)))
-    put("price_1", d.price_1 === "" ? undefined : Number(cleanDecimal(d.price_1)))
-    put("price_2", d.price_2 === "" ? undefined : Number(cleanDecimal(d.price_2)))
-    put("order_serial_1", d.order_serial_1 || undefined)
-    put("order_serial_2", d.order_serial_2 || undefined)
-    put("date", d.date ? new Date(d.date).toISOString() : undefined)
-    put("branch_location", d.branch_location ? Number(d.branch_location) : undefined)
-    put("klang_location", d.klang_location ? Number(d.klang_location) : undefined)
-    put("comment", d.comment || undefined)
-    Object.keys(c).forEach((k) => c[k] === undefined && delete c[k])
-    return c
-  }
+    put("payment_id", d.payment_id ? Number(d.payment_id) : undefined);
+    put("license_plate_1", d.license_plate_1 || undefined);
+    put("license_plate_2", d.license_plate_2 || undefined);
+    put("weight_1", d.weight_1 === "" ? undefined : Number(cleanDecimal(d.weight_1)));
+    put("weight_2", d.weight_2 === "" ? undefined : Number(cleanDecimal(d.weight_2)));
+    put("gram", d.gram === "" ? undefined : Number(onlyDigits(d.gram)));
+    put("price_per_kilo", d.price_per_kilo === "" ? undefined : Number(cleanDecimal(d.price_per_kilo)));
+    put("price_1", d.price_1 === "" ? undefined : Number(cleanDecimal(d.price_1)));
+    put("price_2", d.price_2 === "" ? undefined : Number(cleanDecimal(d.price_2)));
+    put("order_serial_1", d.order_serial_1 || undefined);
+    put("order_serial_2", d.order_serial_2 || undefined);
+    put("date", d.date ? new Date(d.date).toISOString() : undefined);
+    put("branch_location", d.branch_location ? Number(d.branch_location) : undefined);
+    put("klang_location", d.klang_location ? Number(d.klang_location) : undefined);
+    put("comment", d.comment || undefined);
+
+    Object.keys(c).forEach((k) => c[k] === undefined && delete c[k]);
+    return c;
+  };
+
   const buildDept = (d, isBuy) => {
-    const wantsCredit = isBuy ? Number(d.payment_id) === 4 : Number(d.payment_id) === 2
-    const anyFilled = d.dept_allowed_period !== "" || d.dept_postpone === true || d.dept_postpone_period !== ""
-    if (!wantsCredit && !anyFilled) return undefined
+    const wantsCredit = isBuy ? Number(d.payment_id) === 4 : Number(d.payment_id) === 2;
+    const anyFilled = d.dept_allowed_period !== "" || d.dept_postpone === true || d.dept_postpone_period !== "";
+    if (!wantsCredit && !anyFilled) return undefined;
     return {
       allowed_period: d.dept_allowed_period === "" ? undefined : Number(onlyDigits(d.dept_allowed_period)),
       postpone: !!d.dept_postpone,
       postpone_period: d.dept_postpone_period === "" ? undefined : Number(onlyDigits(d.dept_postpone_period)),
-    }
-  }
+    };
+  };
 
   const save = async () => {
-    if (!active || !draft) return
-    setRowError("")
+    if (!active || !draft) return;
+    setRowError("");
 
-    const editorId = Number(draft.edited_by)
+    const editorId = Number(draft.edited_by);
     if (!Number.isFinite(editorId) || editorId <= 0) {
-      setRowError("กรุณากรอก 'รหัสพนักงานผู้แก้ไข (edited_by)' เป็นตัวเลขให้ถูกต้อง")
-      return
+      setRowError("กรุณากรอก 'รหัสพนักงานผู้แก้ไข (edited_by)' เป็นตัวเลขให้ถูกต้อง");
+      return;
     }
 
-    setSaving(true)
-    const touchedKeys = new Set(touched)
+    setSaving(true);
+    const touchedKeys = new Set(touched);
 
     const payloadBuy = {
       meta: { edited_by: editorId, reason: (draft.reason || "").trim() || undefined },
       changes: buildChangesBuy(draft, touchedKeys),
       dept: buildDept(draft, true),
-    }
-    if (payloadBuy.dept === undefined) delete payloadBuy.dept
+    };
+    if (payloadBuy.dept === undefined) delete payloadBuy.dept;
 
     const payloadSell = {
       meta: { edited_by: editorId, reason: (draft.reason || "").trim() || undefined },
       changes: buildChangesSell(draft, touchedKeys),
       dept: buildDept(draft, false),
-    }
-    if (payloadSell.dept === undefined) delete payloadSell.dept
+    };
+    if (payloadSell.dept === undefined) delete payloadSell.dept;
 
     const tryPatch = async (primary) => {
-      const id = draft.order_id
+      const id = draft.order_id;
       const patchOnce = async (kind) => {
-        const url = kind === "buy" ? `/order/orders/buy/${id}` : `/order/orders/sell/${id}`
-        const body = kind === "buy" ? payloadBuy : payloadSell
-        return apiAuth(url, { method: "PATCH", body })
-      }
+        const url = kind === "buy" ? `/order/orders/buy/${id}` : `/order/orders/sell/${id}`;
+        const body = kind === "buy" ? payloadBuy : payloadSell;
+        return apiAuth(url, { method: "PATCH", body });
+      };
       try {
-        return await patchOnce(primary)
+        return await patchOnce(primary);
       } catch (e1) {
-        const msg = (e1?.message || "").toLowerCase()
-        const is404 = msg.includes("404") || msg.includes("not found")
-        if (!is404) throw e1
-        const secondary = primary === "buy" ? "sell" : "buy"
-        return await patchOnce(secondary)
+        const msg = (e1?.message || "").toLowerCase();
+        const is404 = msg.includes("404") || msg.includes("not found");
+        if (!is404) throw e1;
+        const secondary = primary === "buy" ? "sell" : "buy";
+        return await patchOnce(secondary);
       }
-    }
+    };
 
     try {
-      const primary = draft.type === "sell" ? "sell" : "buy"
-      await tryPatch(primary)
-      setEditing(false)
-      setOpen(false)
-      await fetchOrders()
+      const primary = draft.type === "sell" ? "sell" : "buy";
+      await tryPatch(primary);
+      setEditing(false);
+      setOpen(false);
+      await fetchOrders();
     } catch (e) {
-      console.error(e)
-      setRowError(e?.message || "บันทึกไม่สำเร็จ")
+      console.error(e);
+      setRowError(e?.message || "บันทึกไม่สำเร็จ");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
-  /** -------- DELETE order -------- */
+  /* -------- DELETE order -------- */
   const deleteOrder = async () => {
-    const id = draft?.order_id
-    if (!id) return
-    const prefer = (draft?.type === "sell" ? "sell" : "buy")
+    const id = draft?.order_id;
+    if (!id) return;
+    const prefer = draft?.type === "sell" ? "sell" : "buy";
     const candidates = [
       `/order/orders/${id}`,
       `/order/orders/${id}?force_type=${prefer}`,
       `/order/orders/${id}?force_type=${prefer === "buy" ? "sell" : "buy"}`,
-    ]
-    let lastErr = null
+    ];
+    let lastErr = null;
     for (const url of candidates) {
       try {
-        await apiAuth(url, { method: "DELETE" })
-        return
+        await apiAuth(url, { method: "DELETE" });
+        return;
       } catch (e) {
-        lastErr = e
+        lastErr = e;
       }
     }
-    throw lastErr
-  }
+    throw lastErr;
+  };
 
   const confirmAndDelete = async () => {
-    if (!active || !draft || deleting) return
-    const ok = window.confirm(`ต้องการลบออเดอร์ #${active.id ?? draft.order_id} จริงหรือไม่?\nการลบจะย้อนสต๊อก/เครดิต และไม่สามารถยกเลิกได้`)
-    if (!ok) return
-    setRowError("")
-    setDeleting(true)
+    if (!active || !draft || deleting) return;
+    const ok = window.confirm(
+      `ต้องการลบออเดอร์ #${active.id ?? draft.order_id} จริงหรือไม่?\nการลบจะย้อนสต๊อก/เครดิต และไม่สามารถยกเลิกได้`
+    );
+    if (!ok) return;
+    setRowError("");
+    setDeleting(true);
     try {
-      await deleteOrder()
-      setOpen(false)
-      await fetchOrders()
+      await deleteOrder();
+      setOpen(false);
+      await fetchOrders();
     } catch (e) {
-      console.error(e)
-      setRowError(e?.message || "ลบออเดอร์ไม่สำเร็จ")
+      console.error(e);
+      setRowError(e?.message || "ลบออเดอร์ไม่สำเร็จ");
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
-  }
+  };
 
-  /** ----------- UI ----------- */
-  const startIndex = (page - 1) * PAGE_SIZE + 1
-  const endIndex = Math.min(rows.length, page * PAGE_SIZE)
+  /* -------------- UI -------------- */
+  const startIndex = (page - 1) * PAGE_SIZE + 1;
+  const endIndex = Math.min(rows.length, page * PAGE_SIZE);
+
+  const isSellCredit = (pid) => Number(pid) === 2;
+  const isSellCash = (pid) => Number(pid) === 1;
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
@@ -711,7 +756,9 @@ const OrderCorrection = () => {
               onClick={() => setMode("buy")}
               className={[
                 "px-4 py-2 rounded-xl text-sm font-semibold transition",
-                mode === "buy" ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
+                mode === "buy"
+                  ? "bg-emerald-600 text-white shadow"
+                  : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700",
               ].join(" ")}
             >
               โหมดซื้อ
@@ -721,7 +768,9 @@ const OrderCorrection = () => {
               onClick={() => setMode("sell")}
               className={[
                 "px-4 py-2 rounded-xl text-sm font-semibold transition",
-                mode === "sell" ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
+                mode === "sell"
+                  ? "bg-emerald-600 text-white shadow"
+                  : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700",
               ].join(" ")}
             >
               โหมดขาย
@@ -759,7 +808,14 @@ const OrderCorrection = () => {
                 value={filters.branchId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" })) }
+                  setFilters((p) => ({
+                    ...p,
+                    branchId: id || "",
+                    branchName: found?.label ?? "",
+                    klangId: "",
+                    klangName: "",
+                  }))
+                }
                 placeholder="— เลือกสาขา —"
               />
             </div>
@@ -770,8 +826,7 @@ const OrderCorrection = () => {
                 options={klangOptions}
                 value={filters.klangId}
                 getValue={(o) => o.id}
-                onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" })) }
+                onChange={(id, found) => setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" }))}
                 placeholder="— เลือกคลัง —"
                 disabled={!filters.branchId}
               />
@@ -779,9 +834,7 @@ const OrderCorrection = () => {
 
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
-                {mode === "buy"
-                  ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)"
-                  : "ค้นหา (ชื่อ / ปชช. / เลขที่ขาย / เลขที่ใบสำคัญ)"}
+                {mode === "buy" ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)" : "ค้นหา (ชื่อ / ปชช. / เลขที่ขาย / เลขที่ใบสำคัญ)"}
               </label>
               <input
                 className={baseField}
@@ -798,9 +851,9 @@ const OrderCorrection = () => {
                 disabled={!!errors.startDate || !!errors.endDate}
                 className={[
                   "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-base font-semibold text-white transition-all duration-300 ease-out cursor-pointer",
-                  (!!errors.startDate || !!errors.endDate)
+                  !!errors.startDate || !!errors.endDate
                     ? "bg-emerald-400/60 pointer-events-none"
-                    : "bg-emerald-600 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97]"
+                    : "bg-emerald-600 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97]",
                 ].join(" ")}
               >
                 ค้นหา
@@ -876,17 +929,25 @@ const OrderCorrection = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td className="px-3 py-3" colSpan={12}>กำลังโหลด...</td></tr>
+                <tr>
+                  <td className="px-3 py-3" colSpan={12}>
+                    กำลังโหลด...
+                  </td>
+                </tr>
               ) : rows.length === 0 ? (
-                <tr><td className="px-3 py-3" colSpan={12}>ไม่พบข้อมูล</td></tr>
+                <tr>
+                  <td className="px-3 py-3" colSpan={12}>
+                    ไม่พบข้อมูล
+                  </td>
+                </tr>
               ) : mode === "buy" ? (
                 pagedRows.map((r) => {
-                  const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
-                  const exit  = toNumber(r.exit_weight  ?? r.exitWeight  ?? r.exit  ?? 0)
-                  const net   = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry))
-                  const price = toNumber(r.price ?? r.amountTHB ?? 0)
-                  const pricePerKgRaw = toNumber(r.price_per_kilo ?? r.pricePerKilo ?? r.unit_price ?? 0)
-                  const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)
+                  const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0);
+                  const exit = toNumber(r.exit_weight ?? r.exitWeight ?? r.exit ?? 0);
+                  const net = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry));
+                  const price = toNumber(r.price ?? r.amountTHB ?? 0);
+                  const pricePerKgRaw = toNumber(r.price_per_kilo ?? r.pricePerKilo ?? r.unit_price ?? 0);
+                  const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0);
                   return (
                     <tr
                       key={r.id ?? `${r.order_serial}-${r.date}-${r.first_name ?? ""}-${r.last_name ?? ""}`}
@@ -894,7 +955,9 @@ const OrderCorrection = () => {
                     >
                       <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
                       <td className="px-3 py-2">{r.order_serial || r.paymentRefNo || "—"}</td>
-                      <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.customer_name || "—"}</td>
+                      <td className="px-3 py-2">
+                        {`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.customer_name || "—"}
+                      </td>
                       <td className="px-3 py-2">{r.species || r.rice_type || r.riceType || "—"}</td>
                       <td className="px-3 py-2">{r.branch_name || r.branchName || "—"}</td>
                       <td className="px-3 py-2">{r.klang_name || r.klangName || "—"}</td>
@@ -913,14 +976,14 @@ const OrderCorrection = () => {
                         </button>
                       </td>
                     </tr>
-                  )
+                  );
                 })
               ) : (
                 pagedRows.map((r) => {
-                  const net   = toNumber(r.weight ?? 0)
-                  const price = toNumber(r.price ?? 0)
-                  const pricePerKgRaw = toNumber(r.price_per_kilo ?? 0)
-                  const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)
+                  const net = toNumber(r.weight ?? 0);
+                  const price = toNumber(r.price ?? 0);
+                  const pricePerKgRaw = toNumber(r.price_per_kilo ?? 0);
+                  const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0);
                   return (
                     <tr
                       key={`${r.id ?? r.sale_id}-${r.sub_order ?? 0}`}
@@ -947,7 +1010,7 @@ const OrderCorrection = () => {
                         </button>
                       </td>
                     </tr>
-                  )
+                  );
                 })
               )}
             </tbody>
@@ -956,8 +1019,8 @@ const OrderCorrection = () => {
           {/* Pagination Bar */}
           <div className="flex flex-col gap-3 p-3 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-600 dark:text-slate-300">
-              แสดง <b>{rows.length ? startIndex.toLocaleString() : 0}</b>
-              –<b>{rows.length ? endIndex.toLocaleString() : 0}</b> จาก <b>{rows.length.toLocaleString()}</b> รายการ
+              แสดง <b>{rows.length ? startIndex.toLocaleString() : 0}</b>–<b>{rows.length ? endIndex.toLocaleString() : 0}</b>{" "}
+              จาก <b>{rows.length.toLocaleString()}</b> รายการ
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -970,7 +1033,7 @@ const OrderCorrection = () => {
                   page <= 1
                     ? "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                     : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
-                  "border border-slate-300 dark:border-slate-600"
+                  "border border-slate-300 dark:border-slate-600",
                 ].join(" ")}
               >
                 ก่อนหน้า
@@ -980,7 +1043,9 @@ const OrderCorrection = () => {
               <div className="flex items-center gap-1">
                 {pageItems.map((it, idx) =>
                   it === "..." ? (
-                    <span key={`dots-${idx}`} className="px-2 text-slate-500 dark:text-slate-300">…</span>
+                    <span key={`dots-${idx}`} className="px-2 text-slate-500 dark:text-slate-300">
+                      …
+                    </span>
                   ) : (
                     <button
                       key={`p-${it}`}
@@ -991,7 +1056,7 @@ const OrderCorrection = () => {
                         it === page
                           ? "bg-emerald-600 text-white"
                           : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
-                        "border border-slate-300 dark:border-slate-600"
+                        "border border-slate-300 dark:border-slate-600",
                       ].join(" ")}
                     >
                       {it}
@@ -1009,7 +1074,7 @@ const OrderCorrection = () => {
                   page >= totalPages
                     ? "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                     : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
-                  "border border-slate-300 dark:border-slate-600"
+                  "border border-slate-300 dark:border-slate-600",
                 ].join(" ")}
               >
                 ถัดไป
@@ -1041,7 +1106,11 @@ const OrderCorrection = () => {
       <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
         <div className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={closeModal} />
         <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5">
-          <div className={`h-[88vh] w-[96vw] max-w-[1280px] transform overflow-hidden rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-slate-800 dark:text-white ${open ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
+          <div
+            className={`h-[88vh] w-[96vw] max-w-[1280px] transform overflow-hidden rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-slate-800 dark:text-white ${
+              open ? "scale-100 opacity-100" : "scale-95 opacity-0"
+            }`}
+          >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
               <div className="text-xl md:text-2xl font-semibold">
                 {active ? `แก้ไขออเดอร์ #${active.id ?? "-"}` : "แก้ไขออเดอร์"}
@@ -1095,7 +1164,10 @@ const OrderCorrection = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => { setEditing(false); openModal(active) }}
+                          onClick={() => {
+                            setEditing(false);
+                            openModal(active);
+                          }}
                           className="rounded-2xl border border-slate-300 px-5 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
                         >
                           ยกเลิก
@@ -1113,7 +1185,9 @@ const OrderCorrection = () => {
                   {/* ผู้แก้ไข/เหตุผล */}
                   <div className="mb-5 grid gap-4 md:grid-cols-3">
                     <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
-                      <div className="text-sm text-slate-600 dark:text-slate-300 mb-1">รหัสพนักงานผู้แก้ไข (edited_by) *</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-300 mb-1">
+                        รหัสพนักงานผู้แก้ไข (edited_by) *
+                      </div>
                       {!editing ? (
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
                           {draft.edited_by || "-"}
@@ -1127,7 +1201,9 @@ const OrderCorrection = () => {
                             readOnly
                             disabled
                           />
-                          <div className="mt-1 text-xs text-slate-500 dark:text-slate-300">ล็อกโดยระบบ (ใช้บัญชีผู้ใช้งานปัจจุบัน)</div>
+                          <div className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                            ล็อกโดยระบบ (ใช้บัญชีผู้ใช้งานปัจจุบัน)
+                          </div>
                         </>
                       )}
                     </div>
@@ -1141,7 +1217,10 @@ const OrderCorrection = () => {
                         <input
                           className={baseField}
                           value={draft.reason}
-                          onChange={(e) => { setD({ reason: e.target.value }); touch("reason") }}
+                          onChange={(e) => {
+                            setD({ reason: e.target.value });
+                            touch("reason");
+                          }}
                           placeholder="เช่น แก้เลขใบสำคัญ/แก้น้ำหนัก/แก้จำนวนเงิน ฯลฯ"
                         />
                       )}
@@ -1164,7 +1243,13 @@ const OrderCorrection = () => {
                           {draft.date ? new Date(draft.date).toLocaleDateString("th-TH") : "-"}
                         </div>
                       ) : (
-                        <DateInput value={draft.date} onChange={(e) => { setD({ date: e.target.value }); touch("date") }} />
+                        <DateInput
+                          value={draft.date}
+                          onChange={(e) => {
+                            setD({ date: e.target.value });
+                            touch("date");
+                          }}
+                        />
                       )}
                     </div>
 
@@ -1179,7 +1264,10 @@ const OrderCorrection = () => {
                           options={specOptions}
                           value={draft.spec_id}
                           getValue={(o) => o.id}
-                          onChange={(id) => { setD({ spec_id: id || "" }); touch("spec_id") }}
+                          onChange={(id) => {
+                            setD({ spec_id: id || "" });
+                            touch("spec_id");
+                          }}
                           placeholder="— ไม่เปลี่ยน —"
                         />
                       )}
@@ -1196,7 +1284,10 @@ const OrderCorrection = () => {
                           options={branchOptions}
                           value={draft.branch_location}
                           getValue={(o) => o.id}
-                          onChange={(id) => { setD({ branch_location: id || "", klang_location: "" }); touch("branch_location") }}
+                          onChange={(id) => {
+                            setD({ branch_location: id || "", klang_location: "" });
+                            touch("branch_location");
+                          }}
                           placeholder="— เลือกสาขา —"
                         />
                       )}
@@ -1213,7 +1304,10 @@ const OrderCorrection = () => {
                           options={klangOptions}
                           value={draft.klang_location}
                           getValue={(o) => o.id}
-                          onChange={(id) => { setD({ klang_location: id || "" }); touch("klang_location") }}
+                          onChange={(id) => {
+                            setD({ klang_location: id || "" });
+                            touch("klang_location");
+                          }}
                           placeholder="— เลือกคลัง —"
                           disabled={!draft.branch_location}
                         />
@@ -1231,60 +1325,14 @@ const OrderCorrection = () => {
                           options={draft.type === "sell" ? paymentSell : paymentBuy}
                           value={draft.payment_id}
                           getValue={(o) => o.id}
-                          onChange={(id) => { setD({ payment_id: id || "" }); touch("payment_id") }}
+                          onChange={(id) => {
+                            setD({ payment_id: id || "" });
+                            touch("payment_id");
+                          }}
                           placeholder="— ไม่เปลี่ยน —"
                         />
                       )}
                     </div>
-
-                    {/* ⭐ เอกสารอ้างอิงของขาย: ใบรับเงิน/ใบกำกับ → ส่งเป็น sale_id */}
-                    {draft.type === "sell" && (
-                      <div>
-                        {(() => {
-                          const pid = Number(draft.payment_id)
-                          const isCash = pid === 1
-                          const isCredit = pid === 2
-                          const label = isCredit
-                            ? "เลขที่ใบกำกับสินค้า (ขายเชื่อ)"
-                            : isCash
-                            ? "ใบรับเงินขายสินค้า (ขายสด)"
-                            : "เอกสารอ้างอิง (เลือกวิธีชำระเงินเพื่อกรอก)"
-                          const placeholder = isCredit
-                            ? "เช่น INV-2025-000456 (ไม่บังคับ)"
-                            : isCash
-                            ? "เช่น RC-2025-000789 (ไม่บังคับ)"
-                            : "โปรดเลือกวิธีชำระเงินก่อน"
-                          return (
-                            <>
-                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">{label}</label>
-                              {!editing ? (
-                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                                  {draft.sale_id || "-"}
-                                </div>
-                              ) : isCash || isCredit ? (
-                                <input
-                                  className={baseField}
-                                  value={draft.sale_id}
-                                  onChange={(e) => { setD({ sale_id: e.target.value }); touch("sale_id") }}
-                                  placeholder={placeholder}
-                                />
-                              ) : (
-                                <input
-                                  className={[baseField, "cursor-not-allowed opacity-80"].join(" ")}
-                                  value=""
-                                  readOnly
-                                  disabled
-                                  placeholder={placeholder}
-                                />
-                              )}
-                              <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                * ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>sale_id</code>
-                              </div>
-                            </>
-                          )
-                        })()}
-                      </div>
-                    )}
 
                     <div className="md:col-span-3">
                       <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">หมายเหตุ</label>
@@ -1296,14 +1344,17 @@ const OrderCorrection = () => {
                         <input
                           className={baseField}
                           value={draft.comment}
-                          onChange={(e) => { setD({ comment: e.target.value }); touch("comment") }}
+                          onChange={(e) => {
+                            setD({ comment: e.target.value });
+                            touch("comment");
+                          }}
                           placeholder="บันทึกเพิ่มเติม (ถ้ามี)"
                         />
                       )}
                     </div>
                   </div>
 
-                  {/* ฟิลด์เฉพาะ BUY (คงไว้ใช้ร่วม) */}
+                  {/* BUY fields */}
                   {draft.type !== "sell" && (
                     <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
                       {[
@@ -1321,17 +1372,17 @@ const OrderCorrection = () => {
                           <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">{label}</label>
                           {!editing ? (
                             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                              {String(draft[key] ?? "") || "-"}
+                              {asString(draft[key] ?? "") || "-"}
                             </div>
                           ) : (
                             <input
                               type="text"
                               inputMode={type === "number" ? "decimal" : undefined}
                               className={baseField}
-                              value={String(draft[key] ?? "")}
+                              value={asString(draft[key] ?? "")}
                               onChange={(e) => {
-                                setD({ [key]: type === "number" ? cleanDecimal(e.target.value) : e.target.value })
-                                touch(key)
+                                setD({ [key]: type === "number" ? cleanDecimal(e.target.value) : e.target.value });
+                                touch(key);
                               }}
                             />
                           )}
@@ -1340,12 +1391,45 @@ const OrderCorrection = () => {
                     </div>
                   )}
 
-                  {/* ฟิลด์เฉพาะ SELL — จัดเป็น พ่วงหน้า/พ่วงหลัง */}
+                  {/* SELL fields */}
                   {draft.type === "sell" && (
                     <>
-                      <div className="mb-2 text-sm text-slate-600 dark:text-slate-300">
-                        ข้อมูลรถพ่วงหลายคัน
+                      {/* เอกสารอ้างอิงการขาย (ตามวิธีชำระเงิน) */}
+                      <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
+                        <div className="md:col-span-3">
+                          <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
+                            {isSellCredit(draft.payment_id)
+                              ? "เลขที่ใบกำกับสินค้า (ขายเชื่อ)"
+                              : isSellCash(draft.payment_id)
+                              ? "ใบรับเงินขายสินค้า (ขายสด)"
+                              : "เอกสารอ้างอิงการขาย (sale_id)"}
+                          </label>
+                          {!editing ? (
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                              {asString(draft.sale_id || "") || "-"}
+                            </div>
+                          ) : (
+                            <input
+                              className={baseField}
+                              value={asString(draft.sale_id || "")}
+                              onChange={(e) => {
+                                setD({ sale_id: e.target.value });
+                                touch("sale_id");
+                              }}
+                              placeholder={
+                                isSellCredit(draft.payment_id)
+                                  ? "เช่น INV-2025-000456 (ไม่บังคับ)"
+                                  : "เช่น RC-2025-000789 (ไม่บังคับ)"
+                              }
+                            />
+                          )}
+                          <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                            * ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>sale_id</code>
+                          </div>
+                        </div>
                       </div>
+
+                      <div className="mb-2 text-sm text-slate-600 dark:text-slate-300">ข้อมูลรถพ่วงหลายคัน</div>
 
                       <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2">
                         {/* พ่วงหน้า */}
@@ -1353,62 +1437,105 @@ const OrderCorrection = () => {
                           <div className="mb-3 font-semibold">● พ่วงหน้า</div>
                           <div className="grid grid-cols-1 gap-4">
                             <div>
-                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">เลขที่ใบสำคัญ 1</label>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
+                                เลขที่ใบสำคัญ 1
+                              </label>
                               {!editing ? (
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
-                                  {draft.order_serial_1 || "-"}
+                                  {asString(draft.order_serial_1 || "") || "-"}
                                 </div>
                               ) : (
-                                <input className={baseField} value={draft.order_serial_1}
-                                       onChange={(e) => { setD({ order_serial_1: e.target.value }); touch("order_serial_1") }} />
+                                <input
+                                  className={baseField}
+                                  value={asString(draft.order_serial_1 || "")}
+                                  onChange={(e) => {
+                                    setD({ order_serial_1: e.target.value });
+                                    touch("order_serial_1");
+                                  }}
+                                />
                               )}
                             </div>
 
                             <div>
-                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ทะเบียนพ่วงหน้า</label>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
+                                ทะเบียนพ่วงหน้า
+                              </label>
                               {!editing ? (
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
-                                  {draft.license_plate_1 || "-"}
+                                  {asString(draft.license_plate_1 || "") || "-"}
                                 </div>
                               ) : (
-                                <input className={baseField} value={draft.license_plate_1}
-                                       onChange={(e) => { setD({ license_plate_1: e.target.value }); touch("license_plate_1") }} />
+                                <input
+                                  className={baseField}
+                                  value={asString(draft.license_plate_1 || "")}
+                                  onChange={(e) => {
+                                    setD({ license_plate_1: e.target.value });
+                                    touch("license_plate_1");
+                                  }}
+                                />
                               )}
                             </div>
 
                             <div>
-                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">น้ำหนักสุทธิพ่วงหน้า (กก.)</label>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
+                                น้ำหนักสุทธิพ่วงหน้า (กก.)
+                              </label>
                               {!editing ? (
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
-                                  {String(draft.weight_1 ?? "") || "-"}
+                                  {asString(draft.weight_1 ?? "") || "-"}
                                 </div>
                               ) : (
-                                <input inputMode="decimal" className={baseField} value={String(draft.weight_1 ?? "")}
-                                       onChange={(e) => { setD({ weight_1: cleanDecimal(e.target.value) }); touch("weight_1") }} />
+                                <input
+                                  inputMode="decimal"
+                                  className={baseField}
+                                  value={asString(draft.weight_1 ?? "")}
+                                  onChange={(e) => {
+                                    setD({ weight_1: cleanDecimal(e.target.value) });
+                                    touch("weight_1");
+                                  }}
+                                />
                               )}
                             </div>
 
                             <div>
-                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ราคาต่อกก. (บาท)</label>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
+                                ราคาต่อกก. (บาท)
+                              </label>
                               {!editing ? (
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
-                                  {String(draft.price_per_kilo ?? "") || "-"}
+                                  {asString(draft.price_per_kilo ?? "") || "-"}
                                 </div>
                               ) : (
-                                <input inputMode="decimal" className={baseField} value={String(draft.price_per_kilo ?? "")}
-                                       onChange={(e) => { setD({ price_per_kilo: cleanDecimal(e.target.value) }); touch("price_per_kilo") }} />
+                                <input
+                                  inputMode="decimal"
+                                  className={baseField}
+                                  value={asString(draft.price_per_kilo ?? "")}
+                                  onChange={(e) => {
+                                    setD({ price_per_kilo: cleanDecimal(e.target.value) });
+                                    touch("price_per_kilo");
+                                  }}
+                                />
                               )}
                             </div>
 
                             <div>
-                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">เป็นเงิน (พ่วงหน้า) (บาท)</label>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
+                                เป็นเงิน (พ่วงหน้า) (บาท)
+                              </label>
                               {!editing ? (
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
-                                  {String(draft.price_1 ?? "") || "-"}
+                                  {asString(draft.price_1 ?? "") || "-"}
                                 </div>
                               ) : (
-                                <input inputMode="decimal" className={baseField} value={String(draft.price_1 ?? "")}
-                                       onChange={(e) => { setD({ price_1: cleanDecimal(e.target.value) }); touch("price_1") }} />
+                                <input
+                                  inputMode="decimal"
+                                  className={baseField}
+                                  value={asString(draft.price_1 ?? "")}
+                                  onChange={(e) => {
+                                    setD({ price_1: cleanDecimal(e.target.value) });
+                                    touch("price_1");
+                                  }}
+                                />
                               )}
                             </div>
                           </div>
@@ -1419,140 +1546,91 @@ const OrderCorrection = () => {
                           <div className="mb-3 font-semibold">● พ่วงหลัง</div>
                           <div className="grid grid-cols-1 gap-4">
                             <div>
-                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">เลขที่ใบสำคัญ 2</label>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
+                                เลขที่ใบสำคัญ 2
+                              </label>
                               {!editing ? (
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
-                                  {draft.order_serial_2 || "-"}
+                                  {asString(draft.order_serial_2 || "") || "-"}
                                 </div>
                               ) : (
-                                <input className={baseField} value={draft.order_serial_2}
-                                       onChange={(e) => { setD({ order_serial_2: e.target.value }); touch("order_serial_2") }} />
+                                <input
+                                  className={baseField}
+                                  value={asString(draft.order_serial_2 || "")}
+                                  onChange={(e) => {
+                                    setD({ order_serial_2: e.target.value });
+                                    touch("order_serial_2");
+                                  }}
+                                />
                               )}
                             </div>
 
                             <div>
-                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ทะเบียนพ่วงหลัง</label>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
+                                ทะเบียนพ่วงหลัง
+                              </label>
                               {!editing ? (
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
-                                  {draft.license_plate_2 || "-"}
+                                  {asString(draft.license_plate_2 || "") || "-"}
                                 </div>
                               ) : (
-                                <input className={baseField} value={draft.license_plate_2}
-                                       onChange={(e) => { setD({ license_plate_2: e.target.value }); touch("license_plate_2") }} />
+                                <input
+                                  className={baseField}
+                                  value={asString(draft.license_plate_2 || "")}
+                                  onChange={(e) => {
+                                    setD({ license_plate_2: e.target.value });
+                                    touch("license_plate_2");
+                                  }}
+                                />
                               )}
                             </div>
 
                             <div>
-                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">น้ำหนักสุทธิพ่วงหลัง (กก.)</label>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
+                                น้ำหนักสุทธิพ่วงหลัง (กก.)
+                              </label>
                               {!editing ? (
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
-                                  {String(draft.weight_2 ?? "") || "-"}
+                                  {asString(draft.weight_2 ?? "") || "-"}
                                 </div>
                               ) : (
-                                <input inputMode="decimal" className={baseField} value={String(draft.weight_2 ?? "")}
-                                       onChange={(e) => { setD({ weight_2: cleanDecimal(e.target.value) }); touch("weight_2") }} />
+                                <input
+                                  inputMode="decimal"
+                                  className={baseField}
+                                  value={asString(draft.weight_2 ?? "")}
+                                  onChange={(e) => {
+                                    setD({ weight_2: cleanDecimal(e.target.value) });
+                                    touch("weight_2");
+                                  }}
+                                />
                               )}
                             </div>
 
                             <div>
-                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ราคาต่อกก. (บาท)</label>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
+                                เป็นเงิน (พ่วงหลัง) (บาท)
+                              </label>
                               {!editing ? (
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
-                                  {String(draft.price_per_kilo ?? "") || "-"}
+                                  {asString(draft.price_2 ?? "") || "-"}
                                 </div>
                               ) : (
-                                <input inputMode="decimal" className={baseField} value={String(draft.price_per_kilo ?? "")}
-                                       onChange={(e) => { setD({ price_per_kilo: cleanDecimal(e.target.value) }); touch("price_per_kilo") }} />
-                              )}
-                            </div>
-
-                            <div>
-                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">เป็นเงิน (พ่วงหลัง) (บาท)</label>
-                              {!editing ? (
-                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
-                                  {String(draft.price_2 ?? "") || "-"}
-                                </div>
-                              ) : (
-                                <input inputMode="decimal" className={baseField} value={String(draft.price_2 ?? "")}
-                                       onChange={(e) => { setD({ price_2: cleanDecimal(e.target.value) }); touch("price_2") }} />
+                                <input
+                                  inputMode="decimal"
+                                  className={baseField}
+                                  value={asString(draft.price_2 ?? "")}
+                                  onChange={(e) => {
+                                    setD({ price_2: cleanDecimal(e.target.value) });
+                                    touch("price_2");
+                                  }}
+                                />
                               )}
                             </div>
                           </div>
                         </div>
                       </div>
-
-                      {/* ฟิลด์ส่วนกลางของขาย */}
-                      <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-                        <div>
-                          <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">คุณภาพข้าว (gram)</label>
-                          {!editing ? (
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                              {String(draft.gram ?? "") || "-"}
-                            </div>
-                          ) : (
-                            <input inputMode="numeric" className={baseField} value={String(draft.gram ?? "")}
-                                   onChange={(e) => { setD({ gram: onlyDigits(e.target.value) }); touch("gram") }} />
-                          )}
-                        </div>
-                      </div>
                     </>
                   )}
-
-                  {/* เงื่อนไขเครดิต */}
-                  <div className="mb-2 text-sm text-slate-600 dark:text-slate-300">
-                    เงื่อนไขเครดิต (แนบเมื่อเป็นเครดิต: buy=4, sell=2)
-                  </div>
-                  <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-3">
-                    <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">อนุญาตเครดิต (วัน)</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.dept_allowed_period || "-"}
-                        </div>
-                      ) : (
-                        <input
-                          inputMode="numeric"
-                          className={baseField}
-                          value={draft.dept_allowed_period}
-                          onChange={(e) => { setD({ dept_allowed_period: onlyDigits(e.target.value) }); touch("dept_allowed_period") }}
-                          placeholder="จำนวนวัน"
-                        />
-                      )}
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">เลื่อนจ่าย/เลื่อนรับ</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.dept_postpone ? "ใช่" : "ไม่"}
-                        </div>
-                      ) : (
-                        <label className="inline-flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={!!draft.dept_postpone}
-                            onChange={(e) => { setD({ dept_postpone: e.target.checked }); touch("dept_postpone") }}
-                          />
-                          <span>เปิดใช้งาน</span>
-                        </label>
-                      )}
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ระยะเวลาที่เลื่อน (วัน)</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.dept_postpone_period || "-"}
-                        </div>
-                      ) : (
-                        <input
-                          inputMode="numeric"
-                          className={baseField}
-                          value={draft.dept_postpone_period}
-                          onChange={(e) => { setD({ dept_postpone_period: onlyDigits(e.target.value) }); touch("dept_postpone_period") }}
-                          placeholder="จำนวนวัน"
-                        />
-                      )}
-                    </div>
-                  </div>
                 </>
               )}
             </div>
@@ -1560,7 +1638,7 @@ const OrderCorrection = () => {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default OrderCorrection
+export default OrderCorrection;

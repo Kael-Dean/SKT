@@ -144,7 +144,7 @@ function ComboBox({
         disabled={disabled}
         onClick={() => { if (!disabled) { setOpen((o) => !o); clearHint?.() } }}
         onKeyDown={onKeyDown}
-        onFocus={() => clearHint?.()}
+        onFocus={() => clearHint?.() }
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
           disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
@@ -258,6 +258,7 @@ const Order = () => {
   const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
 
   /** ---------- State ---------- */
+  const [mode, setMode] = useState("buy") // 'buy' | 'sell'  ← ปุ่มสลับโหมด
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
 
@@ -352,7 +353,7 @@ const Order = () => {
     loadInitial()
   }, [])
 
-  /** ---------- โหลดชื่อ variant ของ species ที่ปรากฏใน specOptions (เอาไว้ทำบรรทัดย่อย “ชั้นย่อย: …”) ---------- */
+  /** ---------- โหลดชื่อ variant ของ species ที่ปรากฏใน specOptions ---------- */
   useEffect(() => {
     const speciesIds = Array.from(
       new Set(
@@ -414,7 +415,7 @@ const Order = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId])
 
-  /** ---------- Fetch orders ---------- */
+  /** ---------- Fetch orders (BUY or SELL) ---------- */
   const fetchOrders = async () => {
     if (!validateDates(filters.startDate, filters.endDate)) return
     try {
@@ -425,9 +426,14 @@ const Order = () => {
       if (filters.branchId) params.set("branch_id", filters.branchId)
       if (filters.klangId) params.set("klang_id", filters.klangId)
       if (filters.q?.trim()) params.set("q", filters.q.trim())
-      if (filters.specId) params.append("spec_id", filters.specId) // 👉 เผื่อ BE รองรับ จะฟิลเตอร์ตาม spec ได้
+      if (filters.specId) params.append("spec_id", filters.specId) // 👉 เผื่อ BE รองรับในอนาคต
 
-      const data = await apiAuth(`/order/orders/report?${params.toString()}`)
+      const endpoint =
+        mode === "buy"
+          ? `/order/orders/buy-report`
+          : `/order/orders/sell-report`
+
+      const data = await apiAuth(`${endpoint}?${params.toString()}`)
       setRows(Array.isArray(data) ? data : [])
       setPage(1); setPageInput("1")
     } catch (e) {
@@ -439,6 +445,7 @@ const Order = () => {
   }
 
   useEffect(() => { fetchOrders() }, []) // init load
+  useEffect(() => { fetchOrders() }, [mode]) // สลับโหมดแล้วโหลดใหม่
 
   /** ---------- Auto refresh on debounced search ---------- */
   useEffect(() => {
@@ -462,7 +469,6 @@ const Order = () => {
   const goToPage = (p) => {
     const n = Math.min(Math.max(1, toNumber(p)), totalPages)
     setPage(n); setPageInput(String(n))
-    // Smooth scroll to top of the main scroll container (with window fallback)
     try {
       const main = document.querySelector('main')
       if (main && typeof main.scrollTo === 'function') {
@@ -470,9 +476,7 @@ const Order = () => {
       } else {
         window?.scrollTo?.({ top: 0, behavior: 'smooth' })
       }
-    } catch (_) {
-      // no-op
-    }
+    } catch (_) { /* no-op */ }
   }
   const nextPage = () => goToPage(page + 1)
   const prevPage = () => goToPage(page - 1)
@@ -518,7 +522,35 @@ const Order = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
-        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">📦 รายการออเดอร์ซื้อข้าวเปลือก</h1>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {mode === "buy" ? "📦 รายการออเดอร์ซื้อข้าวเปลือก" : "🧾 รายการออเดอร์ขายข้าวเปลือก"}
+          </h1>
+
+          {/* Toggle Buy/Sell */}
+          <div className="inline-flex items-center rounded-2xl border border-slate-300 p-1 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-600">
+            <button
+              type="button"
+              onClick={() => setMode("buy")}
+              className={cx(
+                "px-4 py-2 rounded-xl text-sm font-semibold transition",
+                mode === "buy" ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
+              )}
+            >
+              โหมดซื้อ
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("sell")}
+              className={cx(
+                "px-4 py-2 rounded-xl text-sm font-semibold transition",
+                mode === "sell" ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
+              )}
+            >
+              โหมดขาย
+            </button>
+          </div>
+        </div>
 
         {/* Filters */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
@@ -592,7 +624,11 @@ const Order = () => {
 
             {/* Search box */}
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)</label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                {mode === "buy"
+                  ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)"
+                  : "ค้นหา (ชื่อ / ปชช. / เลขที่ขาย / เลขที่ใบสำคัญ)"}
+              </label>
               <input
                 className={baseField}
                 value={filters.q}
@@ -652,26 +688,43 @@ const Order = () => {
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-              <tr>
-                <th className="px-3 py-2">วันที่</th>
-                <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
-                <th className="px-3 py-2">ลูกค้า</th>
-                <th className="px-3 py-2">ชนิดข้าว</th>
-                <th className="px-3 py-2">สาขา</th>
-                <th className="px-3 py-2">คลัง</th>
-                <th className="px-3 py-2 text-right">น้ำหนักขาเข้า</th>
-                <th className="px-3 py-2 text-right">น้ำหนักขาออก</th>
-                <th className="px-3 py-2 text-right">น้ำหนักสุทธิ</th>
-                <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
-                <th className="px-3 py-2 text-right">เป็นเงิน</th>
-              </tr>
+              {mode === "buy" ? (
+                <tr>
+                  <th className="px-3 py-2">วันที่</th>
+                  <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
+                  <th className="px-3 py-2">ลูกค้า</th>
+                  <th className="px-3 py-2">ชนิดข้าว</th>
+                  <th className="px-3 py-2">สาขา</th>
+                  <th className="px-3 py-2">คลัง</th>
+                  <th className="px-3 py-2 text-right">น้ำหนักขาเข้า</th>
+                  <th className="px-3 py-2 text-right">น้ำหนักขาออก</th>
+                  <th className="px-3 py-2 text-right">น้ำหนักสุทธิ</th>
+                  <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
+                  <th className="px-3 py-2 text-right">เป็นเงิน</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th className="px-3 py-2">วันที่</th>
+                  <th className="px-3 py-2">เลขที่ขาย</th>
+                  <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
+                  <th className="px-3 py-2">ลูกค้า</th>
+                  <th className="px-3 py-2">ชนิดข้าว</th>
+                  <th className="px-3 py-2">สาขา</th>
+                  <th className="px-3 py-2">คลัง</th>
+                  <th className="px-3 py-2 text-right">น้ำหนัก (กก.)</th>
+                  <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
+                  <th className="px-3 py-2 text-right">เป็นเงิน</th>
+                  <th className="px-3 py-2 text-center">#ย่อย</th>
+                </tr>
+              )}
             </thead>
+
             <tbody>
               {loading ? (
-                <tr><td className="px-3 py-3" colSpan={11}>กำลังโหลด...</td></tr>
+                <tr><td className="px-3 py-3" colSpan={mode === "buy" ? 11 : 11}>กำลังโหลด...</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td className="px-3 py-3" colSpan={11}>ไม่พบข้อมูล</td></tr>
-              ) : (
+                <tr><td className="px-3 py-3" colSpan={mode === "buy" ? 11 : 11}>ไม่พบข้อมูล</td></tr>
+              ) : mode === "buy" ? (
                 pagedRows.map((r) => {
                   const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
                   const exit  = toNumber(r.exit_weight  ?? r.exitWeight  ?? r.exit  ?? 0)
@@ -696,6 +749,32 @@ const Order = () => {
                       <td className="px-3 py-2 text-right">{net.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right">{baht(pricePerKg)}</td>
                       <td className="px-3 py-2 text-right">{thb(price)}</td>
+                    </tr>
+                  )
+                })
+              ) : (
+                pagedRows.map((r) => {
+                  const net   = toNumber(r.weight ?? 0)
+                  const price = toNumber(r.price ?? 0)
+                  const pricePerKgRaw = toNumber(r.price_per_kilo ?? 0)
+                  const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)
+
+                  return (
+                    <tr
+                      key={`${r.id ?? r.sale_id}-${r.sub_order ?? 0}`}
+                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
+                    >
+                      <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
+                      <td className="px-3 py-2">{r.sale_id || "—"}</td>
+                      <td className="px-3 py-2">{r.order_serial || "—"}</td>
+                      <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "—"}</td>
+                      <td className="px-3 py-2">{r.species || "—"}</td>
+                      <td className="px-3 py-2">{r.branch_name || "—"}</td>
+                      <td className="px-3 py-2">{r.klang_name || "—"}</td>
+                      <td className="px-3 py-2 text-right">{net.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{baht(pricePerKg)}</td>
+                      <td className="px-3 py-2 text-right">{thb(price)}</td>
+                      <td className="px-3 py-2 text-center">{r.sub_order ?? "-"}</td>
                     </tr>
                   )
                 })

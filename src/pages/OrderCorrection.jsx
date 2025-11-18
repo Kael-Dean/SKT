@@ -1,12 +1,5 @@
 // src/pages/OrderCorrection.jsx
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  forwardRef,
-  useImperativeHandle,
-} from "react"
+import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api"
 import { getUser } from "../lib/auth"
 
@@ -14,7 +7,6 @@ import { getUser } from "../lib/auth"
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const cleanDecimal = (s = "") => String(s ?? "").replace(/[^\d.]/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
-const cx = (...a) => a.filter(Boolean).join(" ")
 const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
@@ -38,7 +30,7 @@ const baseField =
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-/** ---------- ComboBox (รองรับ subLabel เหมือนหน้า Order) ---------- */
+/** ---------- Reusable ComboBox ---------- */
 function ComboBox({
   options = [],
   value,
@@ -46,7 +38,6 @@ function ComboBox({
   placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "",
   getValue = (o) => o?.value ?? o?.id ?? "",
-  getSubLabel = (o) => o?.subLabel ?? "",
   disabled = false,
   error = false,
 }) {
@@ -56,12 +47,10 @@ function ComboBox({
   const listRef = useRef(null)
   const btnRef = useRef(null)
 
-  const selectedObj = useMemo(
-    () => options.find((o) => String(getValue(o)) === String(value)),
-    [options, value, getValue]
-  )
-  const selectedLabel = selectedObj ? getLabel(selectedObj) : ""
-  const selectedSubLabel = selectedObj ? (getSubLabel(selectedObj) || "") : ""
+  const selectedLabel = useMemo(() => {
+    const found = options.find((o) => String(getValue(o)) === String(value))
+    return found ? getLabel(found) : ""
+  }, [options, value, getLabel, getValue])
 
   useEffect(() => {
     const onClick = (e) => {
@@ -138,28 +127,19 @@ function ComboBox({
         disabled={disabled}
         onClick={() => !disabled && setOpen((o) => !o)}
         onKeyDown={onKeyDown}
-        className={cx(
+        className={[
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
           disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
           error
             ? "border-red-400 ring-2 ring-red-300/70"
             : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
           "text-black placeholder:text-slate-500",
-          "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-700/70 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
-        )}
+          "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-700/70 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30",
+        ].join(" ")}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        {selectedLabel ? (
-          <div className="flex flex-col">
-            <span>{selectedLabel}</span>
-            {selectedSubLabel && (
-              <span className="text-[13px] text-slate-600 dark:text-slate-300">{selectedSubLabel}</span>
-            )}
-          </div>
-        ) : (
-          <span className="text-slate-500 dark:text-white/70">{placeholder}</span>
-        )}
+        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
       </button>
 
       {open && (
@@ -173,7 +153,6 @@ function ComboBox({
           )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
-            const sub = getSubLabel(opt) || ""
             const isActive = idx === highlight
             const isChosen = String(getValue(opt)) === String(value)
             return (
@@ -184,20 +163,17 @@ function ComboBox({
                 aria-selected={isChosen}
                 onMouseEnter={() => setHighlight(idx)}
                 onClick={() => commit(opt)}
-                className={cx(
+                className={[
                   "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
                   isActive
                     ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                )}
+                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30",
+                ].join(" ")}
               >
                 {isActive && (
                   <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
                 )}
-                <span className="flex-1">
-                  <div>{label}</div>
-                  {sub && <div className="text-sm text-slate-600 dark:text-slate-300">{sub}</div>}
-                </span>
+                <span className="flex-1">{label}</span>
                 {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
               </button>
             )
@@ -208,7 +184,7 @@ function ComboBox({
   )
 }
 
-/** ---------- DateInput ---------- */
+/** ---------- DateInput (native; same behavior asหน้า Order) ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
   useImperativeHandle(ref, () => inputRef.current)
@@ -218,7 +194,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
       <input
         type="date"
         ref={inputRef}
-        className={cx(baseField, "pr-12 cursor-pointer", error && "border-red-400 ring-2 ring-red-300/70", className)}
+        className={[baseField, "pr-12 cursor-pointer", error ? "border-red-400 ring-2 ring-red-300/70" : "", className].join(" ")}
         {...props}
       />
       <button
@@ -230,8 +206,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
           else { el.focus(); el.click?.() }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
@@ -245,15 +220,15 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 const PAGE_SIZE = 100
 
 const OrderCorrection = () => {
+  /** Dates */
   const today = new Date().toISOString().slice(0, 10)
   const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
 
-  /** ---------- State ---------- */
-  const [mode, setMode] = useState("buy") // 'buy' | 'sell'
+  /** List state */
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
 
-  // pagination
+  /** Pagination */
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState("1")
   const totalPages = useMemo(() => Math.max(1, Math.ceil(rows.length / PAGE_SIZE)), [rows.length])
@@ -262,37 +237,32 @@ const OrderCorrection = () => {
     return rows.slice(start, start + PAGE_SIZE)
   }, [rows, page])
 
-  // options
+  /** Options */
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
-  const [klangOptionsEdit, setKlangOptionsEdit] = useState([])
   const [specOptions, setSpecOptions] = useState([])
   const [specDict, setSpecDict] = useState({})
-  const [variantLookup, setVariantLookup] = useState({})
   const [paymentBuy, setPaymentBuy] = useState([])   // 3=เงินสด, 4=เครดิต
   const [paymentSell, setPaymentSell] = useState([]) // 1=เงินสด, 2=เครดิต
-  const [loadingSpecs, setLoadingSpecs] = useState(false)
 
-  // filters
+  /** Filters */
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
     branchId: "", branchName: "",
     klangId: "", klangName: "",
-    specId: "", specLabel: "",
     q: "",
   })
   const [errors, setErrors] = useState({ startDate: "", endDate: "" })
   const debouncedQ = useDebounce(filters.q, 500)
 
-  /** ---------- Validation ---------- */
+  /** Validate date range */
   const validateDates = (s, e) => {
     const out = { startDate: "", endDate: "" }
     if (!s) out.startDate = "กรุณาเลือกวันที่เริ่ม"
     if (!e) out.endDate = "กรุณาเลือกวันที่สิ้นสุด"
     if (s && e) {
-      const sd = new Date(s)
-      const ed = new Date(e)
+      const sd = new Date(s), ed = new Date(e)
       if (ed < sd) out.endDate = "วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น"
     }
     setErrors(out)
@@ -300,16 +270,15 @@ const OrderCorrection = () => {
   }
   useEffect(() => { validateDates(filters.startDate, filters.endDate) }, [filters.startDate, filters.endDate])
 
-  /** ---------- Load initial (branch + spec + payment) ---------- */
+  /** Load initial options (branch/spec/payment) */
   useEffect(() => {
     const loadInitial = async () => {
       try {
-        setLoadingSpecs(true)
         const [branches, specs, payB, payS] = await Promise.all([
           apiAuth(`/order/branch/search`),
-          apiAuth(`/order/form/search`),        // รายการสำเร็จรูป (ProductSpec.prod_name)
+          apiAuth(`/order/form/search`),      // ProductSpec list (prod_name)
           apiAuth(`/order/payment/search/buy`), // 3,4
-          apiAuth(`/order/payment/search/sell`) // 1,2
+          apiAuth(`/order/payment/search/sell`),// 1,2
         ])
         setBranchOptions((Array.isArray(branches) ? branches : []).map(x => ({ id: String(x.id), label: x.branch_name })))
 
@@ -317,20 +286,10 @@ const OrderCorrection = () => {
           .map(r => ({
             id: String(r.id),
             label: String(r.prod_name || r.name || r.spec_name || `spec #${r.id}`).trim(),
-            spec: {
-              species_id: r.species_id ?? null,
-              variant_id: r.variant_id ?? null,
-              product_id: r.product_id ?? null,
-              product_year: r.product_year ?? null,
-              condition_id: r.condition_id ?? null,
-              field_type: r.field_type ?? null,
-              program: r.program ?? null,
-              business_type: r.business_type ?? null,
-            },
-            raw: r
+            raw: r,
           }))
           .filter(o => o.id && o.label)
-        setSpecOptions(opts.map(({id, label, spec}) => ({ id, label, spec })))
+        setSpecOptions(opts.map(o => ({ id: o.id, label: o.label })))
         const dict = {}
         opts.forEach(o => { dict[o.id] = o.raw })
         setSpecDict(dict)
@@ -340,62 +299,15 @@ const OrderCorrection = () => {
       } catch (e) {
         console.error("load initial options failed:", e)
         setBranchOptions([]); setSpecOptions([]); setPaymentBuy([]); setPaymentSell([])
-      } finally {
-        setLoadingSpecs(false)
       }
     }
     loadInitial()
   }, [])
 
-  /** ---------- โหลดชื่อ variant ของ species ที่ปรากฏใน specOptions ---------- */
+  /** branch → klang */
   useEffect(() => {
-    const speciesIds = Array.from(
-      new Set(
-        (specOptions || [])
-          .map((t) => t?.spec?.species_id)
-          .filter(Boolean)
-          .map(String)
-      )
-    )
-    if (speciesIds.length === 0) return
-
-    const fetchAll = async () => {
-      try {
-        const list = await Promise.all(
-          speciesIds.map(async (sid) => {
-            const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)) || []
-            return arr.map((x) => ({
-              id: String(x.id ?? x.variant_id ?? x.value ?? ""),
-              label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
-            }))
-          })
-        )
-        const map = {}
-        list.flat().forEach(({ id, label }) => {
-          if (id && label) map[id] = label
-        })
-        setVariantLookup(map)
-      } catch (e) {
-        console.error("load variants for specs error:", e)
-      }
-    }
-    fetchAll()
-  }, [specOptions])
-
-  const templateSubLabel = (opt) => {
-    const vid = String(opt?.spec?.variant_id ?? "")
-    const vLabel = vid ? (variantLookup[vid] || `#${vid}`) : ""
-    return vLabel ? `ชั้นย่อย: ${vLabel}` : ""
-  }
-
-  /** ---------- branch → klang (filter ส่วนบน) ---------- */
-  useEffect(() => {
-    const loadKlang = async () => {
-      if (!filters.branchId) {
-        setKlangOptions([])
-        setFilters((p) => ({ ...p, klangId: "", klangName: "" }))
-        return
-      }
+    const run = async () => {
+      if (!filters.branchId) { setKlangOptions([]); setFilters(p => ({ ...p, klangId: "", klangName: "" })); return }
       try {
         const data = await apiAuth(`/order/klang/search?branch_id=${filters.branchId}`)
         setKlangOptions((Array.isArray(data) ? data : []).map(x => ({ id: String(x.id), label: x.klang_name })))
@@ -404,28 +316,11 @@ const OrderCorrection = () => {
         setKlangOptions([])
       }
     }
-    loadKlang()
+    run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId])
 
-  /** ---------- klang options ใน modal (กรณีแก้ไขสลับสาขา) ---------- */
-  useEffect(() => {
-    const run = async () => {
-      if (!open) return
-      const bid = draft?.branch_location
-      if (!bid) { setKlangOptionsEdit([]); return }
-      try {
-        const data = await apiAuth(`/order/klang/search?branch_id=${bid}`)
-        setKlangOptionsEdit((Array.isArray(data) ? data : []).map(x => ({ id: String(x.id), label: x.klang_name })))
-      } catch (e) {
-        setKlangOptionsEdit([])
-      }
-    }
-    run()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, draft?.branch_location])
-
-  /** ---------- Fetch orders (BUY or SELL) ---------- */
+  /** Fetch orders */
   const fetchOrders = async () => {
     if (!validateDates(filters.startDate, filters.endDate)) return
     try {
@@ -436,14 +331,7 @@ const OrderCorrection = () => {
       if (filters.branchId) params.set("branch_id", filters.branchId)
       if (filters.klangId) params.set("klang_id", filters.klangId)
       if (filters.q?.trim()) params.set("q", filters.q.trim())
-      if (filters.specId) params.append("spec_id", filters.specId) // เผื่อ BE รองรับ
-
-      const endpoint =
-        mode === "buy"
-          ? `/order/orders/buy-report`
-          : `/order/orders/sell-report`
-
-      const data = await apiAuth(`${endpoint}?${params.toString()}`)
+      const data = await apiAuth(`/order/orders/report?${params.toString()}`)
       setRows(Array.isArray(data) ? data : [])
       setPage(1); setPageInput("1")
     } catch (e) {
@@ -453,22 +341,17 @@ const OrderCorrection = () => {
       setLoading(false)
     }
   }
+  useEffect(() => { fetchOrders() }, [])
+  useEffect(() => { if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders() }, [debouncedQ])
 
-  useEffect(() => { fetchOrders() }, [])          // init
-  useEffect(() => { fetchOrders() }, [mode])      // switch mode
-  useEffect(() => {                               // debounced search
-    if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQ])
-
-  /** ---------- Totals ---------- */
+  /** Totals */
   const totals = useMemo(() => {
     let weight = 0, revenue = 0
     rows.forEach((x) => { weight += toNumber(x.weight); revenue += toNumber(x.price) })
     return { weight, revenue }
   }, [rows])
 
-  /** ---------- Pagination helpers ---------- */
+  /** Pagination helpers */
   useEffect(() => {
     setPage((p) => Math.min(Math.max(1, p), totalPages))
     setPageInput((v) => String(Math.min(Math.max(1, toNumber(onlyDigits(v)) || 1), totalPages)))
@@ -479,11 +362,8 @@ const OrderCorrection = () => {
     setPage(n); setPageInput(String(n))
     try {
       const main = document.querySelector('main')
-      if (main && typeof main.scrollTo === 'function') {
-        main.scrollTo({ top: 0, behavior: 'smooth' })
-      } else {
-        window?.scrollTo?.({ top: 0, behavior: 'smooth' })
-      }
+      if (main && typeof main.scrollTo === 'function') main.scrollTo({ top: 0, behavior: 'smooth' })
+      else window?.scrollTo?.({ top: 0, behavior: 'smooth' })
     } catch (_) {}
   }
   const nextPage = () => goToPage(page + 1)
@@ -506,14 +386,13 @@ const OrderCorrection = () => {
     return items
   }, [page, totalPages])
 
-  /** ---------- Reset ---------- */
+  /** Reset filters */
   const resetFilters = () => {
     setFilters({
       startDate: firstDayThisMonth,
       endDate: today,
       branchId: "", branchName: "",
       klangId: "", klangName: "",
-      specId: "", specLabel: "",
       q: "",
     })
     setKlangOptions([])
@@ -523,13 +402,14 @@ const OrderCorrection = () => {
 
   /** ---------------- Edit Modal ---------------- */
   const [open, setOpen] = useState(false)
-  const [active, setActive] = useState(null) // row object
-  const [draft, setDraft] = useState(null)   // mutable form
+  const [active, setActive] = useState(null)
+  const [draft, setDraft] = useState(null)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [rowError, setRowError] = useState("")
   const [touched, setTouched] = useState(new Set())
+
   const touch = (k) => setTouched(prev => new Set([...prev, String(k)]))
   const setD = (patch) => setDraft(p => ({ ...(p || {}), ...(typeof patch === "function" ? patch(p || {}) : patch) }))
   const getSpecLabel = (id) => (specOptions.find(o => String(o.id) === String(id))?.label || `#${id}`)
@@ -542,9 +422,12 @@ const OrderCorrection = () => {
       try {
         const data = await apiAuth(`/order/klang/search?branch_id=${branchId}`)
         const opts = (Array.isArray(data) ? data : []).map(x => ({ id: String(x.id), label: x.klang_name }))
+        setKlangOptions(opts)
         const foundKlang = opts.find(k => (k.label || "").trim() === (row.klang_name || "").trim())
         klangId = foundKlang?.id || ""
       } catch {}
+    } else {
+      setKlangOptions([])
     }
     return { branchId, klangId }
   }
@@ -565,91 +448,66 @@ const OrderCorrection = () => {
   }
 
   const openModal = async (row) => {
-    setRowError(""); setTouched(new Set()); setEditing(false)
+    setRowError("")
+    setTouched(new Set())
+    setEditing(false)
     setActive(row)
 
+    const guessType = (toNumber(row.entry_weight) > 0 || toNumber(row.exit_weight) > 0 || toNumber(row.weight) > 0) ? "buy" : "sell"
     const { branchId, klangId } = await tryPrefillBranchKlang(row)
     const editorId = getUser()?.id || ""
 
-    if (mode === "buy") {
-      setDraft({
-        kind: "buy",
-        order_id: row.id,
-        edited_by: editorId,
-        reason: "",
+    setDraft({
+      order_id: row.id,
+      type: guessType,
+      edited_by: editorId,
+      reason: "",
 
-        // common
-        date: row?.date ? new Date(row.date).toISOString().slice(0, 10) : today,
-        branch_location: branchId,
-        klang_location: klangId,
-        payment_id: "",
-        comment: "",
+      // common
+      date: row?.date ? new Date(row.date).toISOString().slice(0, 10) : "",
+      branch_location: branchId,
+      klang_location: klangId,
+      payment_id: "",
+      comment: "",
 
-        // change spec
-        spec_id: "",
+      // change spec
+      spec_id: "",
 
-        // BUY
-        order_serial: row.order_serial || "",
-        entry_weight: row.entry_weight ?? "",
-        exit_weight: row.exit_weight ?? "",
-        weight: row.weight ?? "",
-        price_per_kilo: row.price_per_kilo ?? "",
-        price: row.price ?? "",
-        gram: "", humidity: "", impurity: "",
+      // BUY-like
+      order_serial: row.order_serial || "",
+      entry_weight: row.entry_weight ?? "",
+      exit_weight: row.exit_weight ?? "",
+      weight: row.weight ?? "",
+      price_per_kilo: row.price_per_kilo ?? "",
+      price: row.price ?? "",
+      gram: "", humidity: "", impurity: "",
 
-        // Credit terms
-        dept_allowed_period: "",
-        dept_postpone: false,
-        dept_postpone_period: "",
-      })
-    } else {
-      // SELL — รวม sub_order 1/2 เข้าในแบบฟอร์มเดียว
-      const siblings = rows.filter((r) => r.id === row.id)
-      const r1 = siblings.find((x) => x.sub_order === 1) || {}
-      const r2 = siblings.find((x) => x.sub_order === 2) || {}
-      setDraft({
-        kind: "sell",
-        order_id: row.id,
-        edited_by: editorId,
-        reason: "",
+      // SELL-like
+      order_serial_1: "", order_serial_2: "",
+      license_plate_1: "", license_plate_2: "",
+      weight_1: "", weight_2: "",
+      price_1: "", price_2: "",
 
-        // common
-        date: row?.date ? new Date(row.date).toISOString().slice(0, 10) : today,
-        branch_location: branchId,
-        klang_location: klangId,
-        payment_id: "",
-        comment: "",
-
-        // change spec
-        spec_id: "",
-
-        // SELL
-        sale_id: row.sale_id || "",
-        order_serial_1: r1.order_serial || "",
-        order_serial_2: r2.order_serial || "",
-        license_plate_1: "", license_plate_2: "",
-        weight_1: r1.weight ?? "",
-        weight_2: r2.weight ?? "",
-        price_1: r1.price ?? "",
-        price_2: r2.price ?? "",
-        price_per_kilo: row.price_per_kilo ?? "",
-        gram: "",
-
-        // Credit terms
-        dept_allowed_period: "",
-        dept_postpone: false,
-        dept_postpone_period: "",
-      })
-    }
+      // Credit terms
+      dept_allowed_period: "",
+      dept_postpone: false,
+      dept_postpone_period: "",
+    })
     setOpen(true)
   }
 
   const closeModal = () => {
-    setOpen(false); setActive(null); setDraft(null); setEditing(false)
-    setSaving(false); setDeleting(false); setRowError(""); setTouched(new Set())
+    setOpen(false)
+    setActive(null)
+    setDraft(null)
+    setEditing(false)
+    setSaving(false)
+    setDeleting(false)
+    setRowError("")
+    setTouched(new Set())
   }
 
-  /** ---- Build changes payloads (ส่งเฉพาะคีย์ที่ถูกแก้) ---- */
+  /** ---- Build changes payloads (ส่งเฉพาะคีย์ที่แก้) ---- */
   const buildChangesBuy = (d, touchedKeys) => {
     const c = {}
     const put = (k, v) => { if (touchedKeys.has(k)) c[k] = v }
@@ -756,9 +614,10 @@ const OrderCorrection = () => {
     }
 
     try {
-      const primary = draft.kind === "sell" ? "sell" : "buy"
+      const primary = draft.type === "sell" ? "sell" : "buy"
       await tryPatch(primary)
-      setEditing(false); setOpen(false)
+      setEditing(false)
+      setOpen(false)
       await fetchOrders()
     } catch (e) {
       console.error(e)
@@ -768,30 +627,36 @@ const OrderCorrection = () => {
     }
   }
 
-  /** ---- Delete order ---- */
-  const confirmDelete = async () => {
-    if (!draft || deleting) return
-    const ok = window.confirm(`ต้องการลบออเดอร์ #${draft.order_id} จริงหรือไม่?`)
-    if (!ok) return
-    setDeleting(true); setRowError("")
-    try {
-      const prefer = draft.kind === "sell" ? "sell" : "buy"
-      const urls = [
-        `/order/orders/${draft.order_id}?force_type=${prefer}`,
-        `/order/orders/${draft.order_id}?force_type=${prefer === "buy" ? "sell" : "buy"}`,
-        `/order/orders/${draft.order_id}`,
-      ]
-      let lastErr = null
-      for (const url of urls) {
-        try {
-          await apiAuth(url, { method: "DELETE" })
-          lastErr = null
-          break
-        } catch (e) {
-          lastErr = e
-        }
+  /** -------- NEW: Delete order with confirm + BE DELETE -------- */
+  const deleteOrder = async () => {
+    const id = draft?.order_id
+    if (!id) return
+    const prefer = (draft?.type === "sell" ? "sell" : "buy")
+    const candidates = [
+      `/order/orders/${id}`,
+      `/order/orders/${id}?force_type=${prefer}`,
+      `/order/orders/${id}?force_type=${prefer === "buy" ? "sell" : "buy"}`,
+    ]
+    let lastErr = null
+    for (const url of candidates) {
+      try {
+        await apiAuth(url, { method: "DELETE" })
+        return
+      } catch (e) {
+        lastErr = e
       }
-      if (lastErr) throw lastErr
+    }
+    throw lastErr
+  }
+
+  const confirmAndDelete = async () => {
+    if (!active || !draft || deleting) return
+    const ok = window.confirm(`ต้องการลบออเดอร์ #${active.id ?? draft.order_id} จริงหรือไม่?\nการลบจะย้อนสต๊อก/เครดิต และไม่สามารถยกเลิกได้`)
+    if (!ok) return
+    setRowError("")
+    setDeleting(true)
+    try {
+      await deleteOrder()
       setOpen(false)
       await fetchOrders()
     } catch (e) {
@@ -805,43 +670,15 @@ const OrderCorrection = () => {
   /** ----------- UI ----------- */
   const startIndex = (page - 1) * PAGE_SIZE + 1
   const endIndex = Math.min(rows.length, page * PAGE_SIZE)
-  const isBuyMode = mode === "buy"
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">🛠️ แก้ไขออเดอร์</h1>
+        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">🛠️ แก้ไขออเดอร์</h1>
 
-          {/* Toggle Buy/Sell — เหมือนหน้า Order */}
-          <div className="inline-flex items-center rounded-2xl border border-slate-300 p-1 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-600">
-            <button
-              type="button"
-              onClick={() => setMode("buy")}
-              className={cx(
-                "px-4 py-2 rounded-xl text-sm font-semibold transition",
-                isBuyMode ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
-              )}
-            >
-              โหมดซื้อ
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("sell")}
-              className={cx(
-                "px-4 py-2 rounded-xl text-sm font-semibold transition",
-                !isBuyMode ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
-              )}
-            >
-              โหมดขาย
-            </button>
-          </div>
-        </div>
-
-        {/* Filters (โครงเหมือนหน้า Order) */}
+        {/* Filters */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <div className="grid gap-3 md:grid-cols-6">
-            {/* วันที่เริ่ม */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่เริ่ม</label>
               <DateInput
@@ -852,7 +689,6 @@ const OrderCorrection = () => {
               {errors.startDate && <div className="mt-1 text-sm text-red-500">{errors.startDate}</div>}
             </div>
 
-            {/* วันที่สิ้นสุด */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่สิ้นสุด</label>
               <DateInput
@@ -863,7 +699,6 @@ const OrderCorrection = () => {
               {errors.endDate && <div className="mt-1 text-sm text-red-500">{errors.endDate}</div>}
             </div>
 
-            {/* สาขา */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
               <ComboBox
@@ -876,7 +711,6 @@ const OrderCorrection = () => {
               />
             </div>
 
-            {/* คลัง */}
             <div>
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
               <ComboBox
@@ -890,31 +724,8 @@ const OrderCorrection = () => {
               />
             </div>
 
-            {/* รายการสำเร็จรูป (spec) — โชว์ชั้นย่อย */}
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รายการสำเร็จรูป (spec)</label>
-              <ComboBox
-                options={specOptions}
-                value={filters.specId}
-                getValue={(o) => o.id}
-                getSubLabel={(o) => templateSubLabel(o)}
-                onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, specId: id || "", specLabel: found?.label ?? "" }))}
-                placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
-                disabled={loadingSpecs || specOptions.length === 0}
-              />
-              <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                ตัวเลือกจาก <code>/order/form/search</code> • บรรทัดย่อย “ชั้นย่อย” จาก <code>/order/variant/search</code>
-              </div>
-            </div>
-
-            {/* Search box */}
-            <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
-                {isBuyMode
-                  ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)"
-                  : "ค้นหา (ชื่อ / ปชช. / เลขที่ขาย / เลขที่ใบสำคัญ)"}
-              </label>
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)</label>
               <input
                 className={baseField}
                 value={filters.q}
@@ -928,12 +739,12 @@ const OrderCorrection = () => {
                 onClick={fetchOrders}
                 type="button"
                 disabled={!!errors.startDate || !!errors.endDate}
-                className={cx(
+                className={[
                   "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-base font-semibold text-white transition-all duration-300 ease-out cursor-pointer",
                   (!!errors.startDate || !!errors.endDate)
                     ? "bg-emerald-400/60 pointer-events-none"
                     : "bg-emerald-600 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97]"
-                )}
+                ].join(" ")}
               >
                 ค้นหา
               </button>
@@ -974,58 +785,38 @@ const OrderCorrection = () => {
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-              {isBuyMode ? (
-                <tr>
-                  <th className="px-3 py-2">วันที่</th>
-                  <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
-                  <th className="px-3 py-2">ลูกค้า</th>
-                  <th className="px-3 py-2">ชนิดข้าว</th>
-                  <th className="px-3 py-2">สาขา</th>
-                  <th className="px-3 py-2">คลัง</th>
-                  <th className="px-3 py-2 text-right">น้ำหนักขาเข้า</th>
-                  <th className="px-3 py-2 text-right">น้ำหนักขาออก</th>
-                  <th className="px-3 py-2 text-right">น้ำหนักสุทธิ</th>
-                  <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
-                  <th className="px-3 py-2 text-right">เป็นเงิน</th>
-                  <th className="px-3 py-2 text-center">การกระทำ</th>
-                </tr>
-              ) : (
-                <tr>
-                  <th className="px-3 py-2">วันที่</th>
-                  <th className="px-3 py-2">เลขที่ขาย</th>
-                  <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
-                  <th className="px-3 py-2">ลูกค้า</th>
-                  <th className="px-3 py-2">ชนิดข้าว</th>
-                  <th className="px-3 py-2">สาขา</th>
-                  <th className="px-3 py-2">คลัง</th>
-                  <th className="px-3 py-2 text-right">น้ำหนัก (กก.)</th>
-                  <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
-                  <th className="px-3 py-2 text-right">เป็นเงิน</th>
-                  <th className="px-3 py-2 text-center">#ย่อย</th>
-                  <th className="px-3 py-2 text-center">การกระทำ</th>
-                </tr>
-              )}
+              <tr>
+                <th className="px-3 py-2">วันที่</th>
+                <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
+                <th className="px-3 py-2">ลูกค้า</th>
+                <th className="px-3 py-2">ชนิดข้าว</th>
+                <th className="px-3 py-2">สาขา</th>
+                <th className="px-3 py-2">คลัง</th>
+                <th className="px-3 py-2 text-right">น้ำหนักขาเข้า</th>
+                <th className="px-3 py-2 text-right">น้ำหนักขาออก</th>
+                <th className="px-3 py-2 text-right">น้ำหนักสุทธิ</th>
+                <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
+                <th className="px-3 py-2 text-right">เป็นเงิน</th>
+                <th className="px-3 py-2 text-right">การกระทำ</th>
+              </tr>
             </thead>
-
             <tbody>
               {loading ? (
                 <tr><td className="px-3 py-3" colSpan={12}>กำลังโหลด...</td></tr>
               ) : rows.length === 0 ? (
                 <tr><td className="px-3 py-3" colSpan={12}>ไม่พบข้อมูล</td></tr>
-              ) : isBuyMode ? (
+              ) : (
                 pagedRows.map((r) => {
                   const entry = toNumber(r.entry_weight ?? 0)
                   const exit  = toNumber(r.exit_weight  ?? 0)
                   const net   = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry))
                   const price = toNumber(r.price ?? 0)
-                  const ppkRaw = toNumber(r.price_per_kilo ?? 0)
-                  const ppk    = ppkRaw || (net > 0 ? price / net : 0)
-
+                  const pricePerKgRaw = toNumber(r.price_per_kilo ?? 0)
+                  const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)
                   return (
                     <tr
                       key={r.id ?? `${r.order_serial}-${r.date}-${r.first_name ?? ""}-${r.last_name ?? ""}`}
-                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70 cursor-pointer"
-                      onClick={() => openModal(r)}
+                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
                     >
                       <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
                       <td className="px-3 py-2">{r.order_serial || "—"}</td>
@@ -1036,49 +827,13 @@ const OrderCorrection = () => {
                       <td className="px-3 py-2 text-right">{entry.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right">{exit.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right">{net.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{baht(ppk)}</td>
+                      <td className="px-3 py-2 text-right">{baht(pricePerKg)}</td>
                       <td className="px-3 py-2 text-right">{thb(price)}</td>
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-3 py-2 text-right">
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); openModal(r) }}
-                          className="rounded-2xl bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-emerald-700"
-                        >
-                          แก้ไข
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })
-              ) : (
-                pagedRows.map((r) => {
-                  const net   = toNumber(r.weight ?? 0)
-                  const price = toNumber(r.price ?? 0)
-                  const ppkRaw = toNumber(r.price_per_kilo ?? 0)
-                  const ppk    = ppkRaw || (net > 0 ? price / net : 0)
-
-                  return (
-                    <tr
-                      key={`${r.id ?? r.sale_id}-${r.sub_order ?? 0}`}
-                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70 cursor-pointer"
-                      onClick={() => openModal(r)}
-                    >
-                      <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
-                      <td className="px-3 py-2">{r.sale_id || "—"}</td>
-                      <td className="px-3 py-2">{r.order_serial || "—"}</td>
-                      <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "—"}</td>
-                      <td className="px-3 py-2">{r.species || "—"}</td>
-                      <td className="px-3 py-2">{r.branch_name || "—"}</td>
-                      <td className="px-3 py-2">{r.klang_name || "—"}</td>
-                      <td className="px-3 py-2 text-right">{net.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{baht(ppk)}</td>
-                      <td className="px-3 py-2 text-right">{thb(price)}</td>
-                      <td className="px-3 py-2 text-center">{r.sub_order ?? "-"}</td>
-                      <td className="px-3 py-2 text-center">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); openModal(r) }}
-                          className="rounded-2xl bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-emerald-700"
+                          onClick={() => openModal(r)}
+                          className="whitespace-nowrap rounded-2xl bg-emerald-600/90 px-4 py-2 text-sm font-semibold text-white shadow-sm ring-1 ring-emerald-700/50 hover:bg-emerald-600 active:scale-[.98] dark:bg-emerald-500/85 dark:hover:bg-emerald-500"
                         >
                           แก้ไข
                         </button>
@@ -1102,13 +857,13 @@ const OrderCorrection = () => {
                 type="button"
                 onClick={prevPage}
                 disabled={page <= 1}
-                className={cx(
+                className={[
                   "h-10 rounded-xl px-4 text-sm font-medium",
                   page <= 1
                     ? "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                     : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
                   "border border-slate-300 dark:border-slate-600"
-                )}
+                ].join(" ")}
               >
                 ก่อนหน้า
               </button>
@@ -1123,13 +878,13 @@ const OrderCorrection = () => {
                       key={`p-${it}`}
                       type="button"
                       onClick={() => goToPage(it)}
-                      className={cx(
+                      className={[
                         "h-10 min-w-[40px] rounded-xl px-3 text-sm font-semibold transition",
                         it === page
                           ? "bg-emerald-600 text-white"
                           : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
                         "border border-slate-300 dark:border-slate-600"
-                      )}
+                      ].join(" ")}
                     >
                       {it}
                     </button>
@@ -1141,13 +896,13 @@ const OrderCorrection = () => {
                 type="button"
                 onClick={nextPage}
                 disabled={page >= totalPages}
-                className={cx(
+                className={[
                   "h-10 rounded-xl px-4 text-sm font-medium",
                   page >= totalPages
                     ? "cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                     : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
                   "border border-slate-300 dark:border-slate-600"
-                )}
+                ].join(" ")}
               >
                 ถัดไป
               </button>
@@ -1174,74 +929,76 @@ const OrderCorrection = () => {
         </div>
       </div>
 
-      {/* EDIT MODAL (ดีไซน์กลางจอให้เหมือนรูป) */}
+      {/* EDIT MODAL */}
       <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
         <div className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={closeModal} />
         <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5">
           <div className={`h-[88vh] w-[96vw] max-w-[1280px] transform overflow-hidden rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-slate-800 dark:text-white ${open ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
-            {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
               <div className="text-xl md:text-2xl font-semibold">
-                {draft
-                  ? (draft.kind === "sell"
-                      ? `แก้ไขออเดอร์ขาย #${draft.sale_id || draft.order_id}`
-                      : `แก้ไขออเดอร์ซื้อ #${draft.order_serial || draft.order_id}`)
-                  : "แก้ไขออเดอร์"}
+                {active ? `แก้ไขออเดอร์ #${active.id ?? "-"}` : "แก้ไขออเดอร์"}
               </div>
-              <div className="flex gap-2">
-                {!editing ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setEditing(true)}
-                      className="rounded-2xl bg-emerald-600 px-4 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98]"
-                    >
-                      แก้ไข
-                    </button>
-                    <button
-                      type="button"
-                      onClick={confirmDelete}
-                      disabled={deleting}
-                      className="rounded-2xl bg-red-600 px-4 py-2 text-base font-semibold text-white hover:bg-red-700 active:scale-[.98] disabled:opacity-60"
-                    >
-                      {deleting ? "กำลังลบ..." : "ลบออเดอร์"}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={save}
-                      disabled={saving}
-                      className="rounded-2xl bg-emerald-600 px-5 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98] disabled:opacity-60"
-                    >
-                      {saving ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setEditing(false); openModal(active) }}
-                      className="rounded-2xl border border-slate-300 px-5 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
-                    >
-                      ยกเลิก
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="rounded-2xl border border-slate-300 px-4 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
-                >
-                  ปิด
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
+              >
+                ปิด
+              </button>
             </div>
 
-            {/* Body */}
             <div className="h-[calc(88vh-64px)] overflow-y-auto p-4 md:p-6 text-base md:text-lg">
               {!active || !draft ? (
                 <div className="text-slate-600 dark:text-slate-300">ไม่มีข้อมูล</div>
               ) : (
                 <>
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm md:text-base text-slate-600 dark:text-slate-300">
+                      วันที่เอกสาร: {draft.date ? new Date(draft.date).toLocaleDateString("th-TH") : "-"}
+                    </div>
+
+                    {!editing ? (
+                      <div className="flex gap-2">
+                        {/* ปุ่มแก้ไข (ซ้าย) */}
+                        <button
+                          type="button"
+                          onClick={() => setEditing(true)}
+                          className="rounded-2xl bg-emerald-600 px-4 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98]"
+                        >
+                          แก้ไข
+                        </button>
+                        {/* ปุ่มลบ (อยู่ขวาของปุ่มแก้ไข) */}
+                        <button
+                          type="button"
+                          onClick={confirmAndDelete}
+                          disabled={deleting}
+                          className="rounded-2xl bg-red-600 px-4 py-2 text-base font-semibold text-white hover:bg-red-700 active:scale-[.98] disabled:opacity-60"
+                        >
+                          {deleting ? "กำลังลบ..." : "ลบออเดอร์"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={save}
+                          disabled={saving}
+                          className="rounded-2xl bg-emerald-600 px-5 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98] disabled:opacity-60"
+                        >
+                          {saving ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setEditing(false); openModal(active) }}
+                          className="rounded-2xl border border-slate-300 px-5 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
+                        >
+                          ยกเลิก
+                        </button>
+                        {/* ซ่อนปุ่มลบระหว่างแก้ไขตามที่ขอ */}
+                      </div>
+                    )}
+                  </div>
+
                   {rowError && (
                     <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-base text-red-700 dark:border-red-400 dark:bg-red-900/20 dark:text-red-200">
                       {rowError}
@@ -1258,9 +1015,10 @@ const OrderCorrection = () => {
                         </div>
                       ) : (
                         <>
+                          {/* 🔒 ล็อก input นี้: ห้ามแก้ */}
                           <input
                             inputMode="numeric"
-                            className={cx(baseField, "cursor-not-allowed opacity-80")}
+                            className={[baseField, "cursor-not-allowed opacity-80"].join(" ")}
                             value={draft.edited_by}
                             readOnly
                             disabled
@@ -1290,9 +1048,18 @@ const OrderCorrection = () => {
                   <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
                     <div>
                       <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ประเภทเอกสาร</label>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                        {draft.kind === "sell" ? "ขาย (SELL)" : "ซื้อ (BUY)"}
-                      </div>
+                      {!editing ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                          {draft.type === "sell" ? "ขาย (SELL)" : "ซื้อ (BUY)"}
+                        </div>
+                      ) : (
+                        <ComboBox
+                          options={[{ id: "buy", label: "ซื้อ (BUY)" }, { id: "sell", label: "ขาย (SELL)" }]}
+                          value={draft.type}
+                          getValue={(o) => o.id}
+                          onChange={(id) => { setD({ type: id }); touch("type") }}
+                        />
+                      )}
                     </div>
 
                     <div>
@@ -1317,7 +1084,6 @@ const OrderCorrection = () => {
                           options={specOptions}
                           value={draft.spec_id}
                           getValue={(o) => o.id}
-                          getSubLabel={(o) => templateSubLabel(o)}
                           onChange={(id) => { setD({ spec_id: id || "" }); touch("spec_id") }}
                           placeholder="— ไม่เปลี่ยน —"
                         />
@@ -1349,7 +1115,7 @@ const OrderCorrection = () => {
                         </div>
                       ) : (
                         <ComboBox
-                          options={klangOptionsEdit.length ? klangOptionsEdit : klangOptions}
+                          options={klangOptions}
                           value={draft.klang_location}
                           getValue={(o) => o.id}
                           onChange={(id) => { setD({ klang_location: id || "" }); touch("klang_location") }}
@@ -1367,7 +1133,7 @@ const OrderCorrection = () => {
                         </div>
                       ) : (
                         <ComboBox
-                          options={draft.kind === "sell" ? paymentSell : paymentBuy}
+                          options={draft.type === "sell" ? paymentSell : paymentBuy}
                           value={draft.payment_id}
                           getValue={(o) => o.id}
                           onChange={(id) => { setD({ payment_id: id || "" }); touch("payment_id") }}
@@ -1394,7 +1160,7 @@ const OrderCorrection = () => {
                   </div>
 
                   {/* ฟิลด์เฉพาะ BUY */}
-                  {draft.kind !== "sell" && (
+                  {draft.type !== "sell" && (
                     <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
                       {[
                         ["order_serial", "เลขที่ใบสำคัญ"],
@@ -1431,7 +1197,7 @@ const OrderCorrection = () => {
                   )}
 
                   {/* ฟิลด์เฉพาะ SELL */}
-                  {draft.kind === "sell" && (
+                  {draft.type === "sell" && (
                     <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
                       {[
                         ["order_serial_1", "เลขที่ใบสำคัญ 1"],
@@ -1470,7 +1236,7 @@ const OrderCorrection = () => {
 
                   {/* เงื่อนไขเครดิต */}
                   <div className="mb-2 text-sm text-slate-600 dark:text-slate-300">
-                    เงื่อนไขเครดิต (แนบเมื่อเป็นเครดิต: ซื้อ=4, ขาย=2)
+                    เงื่อนไขเครดิต (แนบเมื่อเป็นเครดิต: buy=4, sell=2)
                   </div>
                   <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-3">
                     <div>
@@ -1490,7 +1256,7 @@ const OrderCorrection = () => {
                       )}
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">เลื่อนชำระ</label>
+                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">เลื่อนจ่าย/เลื่อนรับ</label>
                       {!editing ? (
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
                           {draft.dept_postpone ? "ใช่" : "ไม่"}

@@ -243,6 +243,9 @@ function OrderCorrection() {
     return rows.slice(start, start + PAGE_SIZE);
   }, [rows, page]);
 
+  /* --- เพิ่มตัวกันคำขอซ้อน (กันข้อมูลย้อนกลับจากคำขอเก่า) --- */
+  const listReqId = useRef(0);
+
   /* dropdown opts */
   const [branchOptions, setBranchOptions] = useState([]);
   const [klangOptions, setKlangOptions] = useState([]);
@@ -345,9 +348,11 @@ function OrderCorrection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId]);
 
-  /* fetch orders */
+  /* fetch orders (ป้องกันข้อมูลย้อนด้วย reqId) */
   const fetchOrders = async () => {
     if (!validateDates(filters.startDate, filters.endDate)) return;
+
+    const myReq = ++listReqId.current; // ทำให้คำขอเก่ากลายเป็นของเดิมทันที
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -359,24 +364,47 @@ function OrderCorrection() {
 
       const endpoint = mode === "buy" ? `/order/orders/buy-report` : `/order/orders/sell-report`;
       const data = await apiAuth(`${endpoint}?${params.toString()}`);
+
+      // ถ้าไม่ใช่คำขอล่าสุด ให้เมินผลลัพธ์นี้
+      if (listReqId.current !== myReq) return;
+
       setRows(Array.isArray(data) ? data : []);
       setPage(1);
       setPageInput("1");
     } catch (e) {
       console.error(e);
+      if (listReqId.current !== myReq) return;
       setRows([]);
       setPage(1);
       setPageInput("1");
     } finally {
-      setLoading(false);
+      if (listReqId.current === myReq) {
+        setLoading(false);
+      }
     }
   };
+
   useEffect(() => {
     fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // เมื่อเปลี่ยนโหมด: เคลียร์ข้อมูลและขึ้นสถานะโหลดทันที + ตัดคำขอเก่า
+  const switchMode = (next) => {
+    if (next === mode) return;
+    listReqId.current += 1; // invalidate คำขอที่กำลังรออยู่
+    setLoading(true);       // ให้ UI โชว์ "กำลังโหลด..." ทันที
+    setRows([]);            // ป้องกันข้อมูลโหมดเดิมค้างจอ
+    setPage(1);
+    setPageInput("1");
+    setMode(next);          // useEffect ด้านล่างจะเรียก fetchOrders ต่อให้เอง
+  };
+
   useEffect(() => {
     fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
+
   useEffect(() => {
     if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -753,7 +781,7 @@ function OrderCorrection() {
           <div className="inline-flex items-center rounded-2xl border border-slate-300 p-1 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-600">
             <button
               type="button"
-              onClick={() => setMode("buy")}
+              onClick={() => switchMode("buy")}
               className={[
                 "px-4 py-2 rounded-xl text-sm font-semibold transition",
                 mode === "buy"
@@ -765,7 +793,7 @@ function OrderCorrection() {
             </button>
             <button
               type="button"
-              onClick={() => setMode("sell")}
+              onClick={() => switchMode("sell")}
               className={[
                 "px-4 py-2 rounded-xl text-sm font-semibold transition",
                 mode === "sell"
@@ -892,7 +920,10 @@ function OrderCorrection() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+        <div
+          className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          aria-busy={loading ? "true" : "false"}
+        >
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
               {mode === "buy" ? (
@@ -930,8 +961,14 @@ function OrderCorrection() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-3 py-3" colSpan={12}>
-                    กำลังโหลด...
+                  <td className="px-3 py-6 text-center" colSpan={12}>
+                    <span className="inline-flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                      <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
+                      </svg>
+                      กำลังโหลดข้อมูล{mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}...
+                    </span>
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
@@ -1118,7 +1155,7 @@ function OrderCorrection() {
               <button
                 type="button"
                 onClick={closeModal}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
+                className="rounded-2xl border border-slate-300 px-4 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
               >
                 ปิด
               </button>

@@ -25,7 +25,7 @@ function useDebounce(value, delay = 400) {
 /** ---------- class helpers ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-/** ---------- Base field style ---------- */
+/// ---------- Base field style ----------
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
@@ -39,7 +39,6 @@ function ComboBox({
   placeholder = "— เลือก —",
   getLabel = (o) => o?.label ?? "",
   getValue = (o) => o?.value ?? o?.id ?? "",
-  /** ⭐ คืนบรรทัดอธิบายย่อยใต้ชื่อ */
   getSubLabel = (o) => o?.subLabel ?? "",
   disabled = false,
   error = false,
@@ -55,7 +54,6 @@ function ComboBox({
   const internalBtnRef = useRef(null)
   const controlRef = buttonRef || internalBtnRef
 
-  /** เลือกรายการปัจจุบัน (ทั้ง label + sublabel) */
   const selectedObj = useMemo(
     () => options.find((o) => String(getValue(o)) === String(value)),
     [options, value, getValue]
@@ -258,9 +256,12 @@ const Order = () => {
   const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
 
   /** ---------- State ---------- */
-  const [mode, setMode] = useState("buy") // 'buy' | 'sell'  ← ปุ่มสลับโหมด
+  const [mode, setMode] = useState("buy") // 'buy' | 'sell'
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
+
+  // ⭐ Request guard — ทำให้ผลคำขอเก่าถูกเมินเมื่อมีคำขอใหม่กว่า
+  const listReqId = useRef(0)
 
   // pagination
   const [page, setPage] = useState(1)
@@ -277,7 +278,7 @@ const Order = () => {
   const [specOptions, setSpecOptions] = useState([])
   const [loadingSpecs, setLoadingSpecs] = useState(false)
 
-  // ⭐ เก็บ label ของ variant ไว้ดูชื่อชั้นย่อย
+  // เก็บ label ของ variant ไว้ดูชื่อชั้นย่อย
   const [variantLookup, setVariantLookup] = useState({})
 
   // filters
@@ -292,7 +293,6 @@ const Order = () => {
     q: "",
   })
   const [errors, setErrors] = useState({ startDate: "", endDate: "" })
-
   const debouncedQ = useDebounce(filters.q, 500)
 
   /** ---------- Validation ---------- */
@@ -308,7 +308,6 @@ const Order = () => {
     setErrors(out)
     return !out.startDate && !out.endDate
   }
-
   useEffect(() => {
     validateDates(filters.startDate, filters.endDate)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -325,7 +324,6 @@ const Order = () => {
         ])
         setBranchOptions((Array.isArray(branches) ? branches : []).map(x => ({ id: String(x.id), label: x.branch_name })))
 
-        // ⭐ เก็บ spec meta (species_id / variant_id) ไว้ด้วย เพื่อทำ subLabel
         const opts = (Array.isArray(specs) ? specs : [])
           .map(r => ({
             id: String(r.id),
@@ -388,7 +386,7 @@ const Order = () => {
     fetchAll()
   }, [specOptions])
 
-  /** ---------- คืน subLabel ที่จะโชว์ใต้ label: “ชั้นย่อย: …” ---------- */
+  /** ---------- คืน subLabel ใต้ label: “ชั้นย่อย: …” ---------- */
   const templateSubLabel = (opt) => {
     const vid = String(opt?.spec?.variant_id ?? "")
     const vLabel = vid ? (variantLookup[vid] || `#${vid}`) : ""
@@ -415,9 +413,11 @@ const Order = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId])
 
-  /** ---------- Fetch orders (BUY or SELL) ---------- */
+  /** ---------- Fetch orders (BUY or SELL) + Request Guard ---------- */
   const fetchOrders = async () => {
     if (!validateDates(filters.startDate, filters.endDate)) return
+
+    const myReq = ++listReqId.current  // ทำให้คำขอเก่ากลายเป็นของเดิม
     try {
       setLoading(true)
       const params = new URLSearchParams()
@@ -426,26 +426,37 @@ const Order = () => {
       if (filters.branchId) params.set("branch_id", filters.branchId)
       if (filters.klangId) params.set("klang_id", filters.klangId)
       if (filters.q?.trim()) params.set("q", filters.q.trim())
-      if (filters.specId) params.append("spec_id", filters.specId) // 👉 เผื่อ BE รองรับในอนาคต
+      if (filters.specId) params.append("spec_id", filters.specId) // เผื่อ BE รองรับในอนาคต
 
-      const endpoint =
-        mode === "buy"
-          ? `/order/orders/buy-report`
-          : `/order/orders/sell-report`
-
+      const endpoint = mode === "buy" ? `/order/orders/buy-report` : `/order/orders/sell-report`
       const data = await apiAuth(`${endpoint}?${params.toString()}`)
+
+      if (listReqId.current !== myReq) return  // ถ้าไม่ใช่คำขอล่าสุดให้เมินผลนี้
       setRows(Array.isArray(data) ? data : [])
       setPage(1); setPageInput("1")
     } catch (e) {
       console.error(e)
+      if (listReqId.current !== myReq) return
       setRows([]); setPage(1); setPageInput("1")
     } finally {
-      setLoading(false)
+      if (listReqId.current === myReq) {
+        setLoading(false)
+      }
     }
   }
 
   useEffect(() => { fetchOrders() }, []) // init load
-  useEffect(() => { fetchOrders() }, [mode]) // สลับโหมดแล้วโหลดใหม่
+
+  // ⭐ สลับโหมด: เคลียร์จอ + ขึ้นโหลดทันที + ทำให้คำขอเก่าหมดอายุ
+  const switchMode = (next) => {
+    if (next === mode) return
+    listReqId.current += 1        // invalidate คำขอที่ค้างอยู่ทั้งหมด
+    setLoading(true)               // ให้ UI แสดงกำลังโหลดทันที
+    setRows([])                    // กันข้อมูลโหมดเดิมค้างจอ
+    setPage(1); setPageInput("1")
+    setMode(next)                  // useEffect ด้านล่างจะ fetch ใหม่
+  }
+  useEffect(() => { fetchOrders() }, [mode]) // โหลดใหม่เมื่อเปลี่ยนโหมด
 
   /** ---------- Auto refresh on debounced search ---------- */
   useEffect(() => {
@@ -531,7 +542,7 @@ const Order = () => {
           <div className="inline-flex items-center rounded-2xl border border-slate-300 p-1 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-600">
             <button
               type="button"
-              onClick={() => setMode("buy")}
+              onClick={() => switchMode("buy")}
               className={cx(
                 "px-4 py-2 rounded-xl text-sm font-semibold transition",
                 mode === "buy" ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
@@ -541,7 +552,7 @@ const Order = () => {
             </button>
             <button
               type="button"
-              onClick={() => setMode("sell")}
+              onClick={() => switchMode("sell")}
               className={cx(
                 "px-4 py-2 rounded-xl text-sm font-semibold transition",
                 mode === "sell" ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
@@ -611,7 +622,7 @@ const Order = () => {
                 options={specOptions}
                 value={filters.specId}
                 getValue={(o) => o.id}
-                getSubLabel={(o) => templateSubLabel(o)}   
+                getSubLabel={(o) => templateSubLabel(o)}
                 onChange={(id, found) =>
                   setFilters((p) => ({ ...p, specId: id || "", specLabel: found?.label ?? "" })) }
                 placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
@@ -685,7 +696,10 @@ const Order = () => {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+        <div
+          className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          aria-busy={loading ? "true" : "false"}
+        >
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
               {mode === "buy" ? (
@@ -721,9 +735,19 @@ const Order = () => {
 
             <tbody>
               {loading ? (
-                <tr><td className="px-3 py-3" colSpan={mode === "buy" ? 11 : 11}>กำลังโหลด...</td></tr>
+                <tr>
+                  <td className="px-3 py-6 text-center" colSpan={11}>
+                    <span className="inline-flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                      <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
+                      </svg>
+                      กำลังโหลดข้อมูล{mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}...
+                    </span>
+                  </td>
+                </tr>
               ) : rows.length === 0 ? (
-                <tr><td className="px-3 py-3" colSpan={mode === "buy" ? 11 : 11}>ไม่พบข้อมูล</td></tr>
+                <tr><td className="px-3 py-3" colSpan={11}>ไม่พบข้อมูล</td></tr>
               ) : mode === "buy" ? (
                 pagedRows.map((r) => {
                   const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)

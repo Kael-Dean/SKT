@@ -1516,6 +1516,9 @@ function OrderCorrection() {
                                   }}
                                 />
                               )}
+                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                                * ใช้ร่วมกันทั้งพ่วงหน้า/พ่วงหลัง
+                              </div>
                             </div>
 
                             <div>
@@ -1604,6 +1607,31 @@ function OrderCorrection() {
                                   }}
                                 />
                               )}
+                            </div>
+
+                            {/* ✅ เพิ่มราคาต่อกก. (บาท) ในบล็อกพ่วงหลัง (ผูกกับ price_per_kilo เดียวกัน) */}
+                            <div>
+                              <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
+                                ราคาต่อกก. (บาท)
+                              </label>
+                              {!editing ? (
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
+                                  {asString(draft.price_per_kilo ?? "") || "-"}
+                                </div>
+                              ) : (
+                                <input
+                                  inputMode="decimal"
+                                  className={baseField}
+                                  value={asString(draft.price_per_kilo ?? "")}
+                                  onChange={(e) => {
+                                    setD({ price_per_kilo: cleanDecimal(e.target.value) });
+                                    touch("price_per_kilo");
+                                  }}
+                                />
+                              )}
+                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                                * ใช้ร่วมกันทั้งพ่วงหน้า/พ่วงหลัง
+                              </div>
                             </div>
 
                             <div>

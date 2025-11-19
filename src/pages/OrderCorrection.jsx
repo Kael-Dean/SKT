@@ -834,7 +834,7 @@ function OrderCorrection() {
 
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
-                {mode === "buy" ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)" : "ค้นหา (ชื่อ / ปชช. / เลขที่ขาย / เลขที่ใบสำคัญ)"}
+                {mode === "buy" ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)" : "ค้นหา (ชื่อ / ปชช. / ใบรับเงินขายสินค้า / เลขที่ใบชั่ง)"}
               </label>
               <input
                 className={baseField}
@@ -913,8 +913,8 @@ function OrderCorrection() {
               ) : (
                 <tr>
                   <th className="px-3 py-2">วันที่</th>
-                  <th className="px-3 py-2">เลขที่ขาย</th>
-                  <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
+                  <th className="px-3 py-2">ใบรับเงินขายสินค้า</th>
+                  <th className="px-3 py-2">เลขที่ใบชั่ง</th>
                   <th className="px-3 py-2">ลูกค้า</th>
                   <th className="px-3 py-2">ชนิดข้าว</th>
                   <th className="px-3 py-2">สาขา</th>

@@ -1,6 +1,7 @@
 // src/pages/CompanyAdd.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../lib/api"
+import { canSeeAddCompany } from "../lib/auth"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -78,9 +79,13 @@ const useEnterNavigation = (refs) => {
     if (!nextKey) return
     const el = refs[nextKey]?.current
     if (!el) return
-    try { el.scrollIntoView({ block: "center" }) } catch {}
+    try {
+      el.scrollIntoView({ block: "center" })
+    } catch {}
     el.focus?.()
-    try { el.select?.() } catch {}
+    try {
+      el.select?.()
+    } catch {}
   }
 
   const onEnter = (currentKey) => (e) => {
@@ -107,8 +112,8 @@ const useFormGuard = (active) => {
   }, [active])
 }
 
-/** ---------- Component: CompanyAdd ---------- */
-const CompanyAdd = () => {
+/** ---------- Component: CompanyAdd (ตัวจริงใช้ hook) ---------- */
+const CompanyAddInner = () => {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
@@ -603,6 +608,21 @@ const CompanyAdd = () => {
       </div>
     </div>
   )
+}
+
+/** ---------- Wrapper: เช็คสิทธิ์ก่อนเข้า ---------- */
+const CompanyAdd = () => {
+  const allowed = canSeeAddCompany()
+
+  if (!allowed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white text-black dark:bg-slate-900 dark:text-white">
+        <p className="text-lg font-semibold">คุณไม่มีสิทธิ์ใช้งานเมนูนี้</p>
+      </div>
+    )
+  }
+
+  return <CompanyAddInner />
 }
 
 export default CompanyAdd

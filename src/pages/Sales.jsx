@@ -530,6 +530,75 @@ function Sales() {
     setTrailers((prev) => prev.map((t, i) => (i === idx ? { ...t, [key]: value } : t)))
   }
 
+  // น้ำหนัก/ราคา/ยอดเงินของรถพ่วงที่กรอกไว้ (ไว้ใช้สรุปด้านล่าง)
+  const trailerSummary = useMemo(() => {
+    const rows = trailers.map((t, idx) => {
+      const w1 = toNumber(t.frontWeightKg)
+      const w2 = toNumber(t.backWeightKg)
+      const u1 = toNumber(t.unitPriceFront)
+      const u2 = toNumber(t.unitPriceBack)
+      const g1 = toNumber(t.gramFront)
+      const g2 = toNumber(t.gramBack)
+
+      const amount1 = round2(w1 * u1)
+      const amount2 = round2(w2 * u2)
+      const net = w1 + w2
+      const amount = amount1 + amount2
+      const priceNumerator = w1 * u1 + w2 * u2
+      const gramNumerator = w1 * g1 + w2 * g2
+      const weightedUnit = net > 0 ? round2(priceNumerator / net) : 0
+      const weightedGram = net > 0 ? Math.round(gramNumerator / net) : 0
+
+      return {
+        index: idx + 1,
+        net,
+        amount,
+        weightedUnit,
+        weightedGram,
+        priceNumerator,
+        gramNumerator,
+        front: { weight: w1, price: u1, amount: amount1, plate: (t.licensePlateFront || "").trim() },
+        back: { weight: w2, price: u2, amount: amount2, plate: (t.licensePlateBack || "").trim() },
+      }
+    })
+
+    const totals = rows.reduce(
+      (acc, r) => {
+        acc.frontWeight += r.front.weight
+        acc.backWeight += r.back.weight
+        acc.net += r.net
+        acc.amount += r.amount
+        acc.priceNumerator += r.priceNumerator
+        acc.gramNumerator += r.gramNumerator
+        return acc
+      },
+      { frontWeight: 0, backWeight: 0, net: 0, amount: 0, priceNumerator: 0, gramNumerator: 0 }
+    )
+
+    const weightedUnitAll = totals.net > 0 ? round2(totals.priceNumerator / totals.net) : 0
+    const weightedGramAll = totals.net > 0 ? Math.round(totals.gramNumerator / totals.net) : 0
+
+    const hasData = rows.some(
+      (r) =>
+        r.net > 0 ||
+        r.amount > 0 ||
+        r.front.price > 0 ||
+        r.back.price > 0 ||
+        r.front.plate ||
+        r.back.plate
+    )
+
+    return {
+      rows,
+      totals: {
+        ...totals,
+        weightedUnit: weightedUnitAll,
+        weightedGram: weightedGramAll,
+      },
+      hasData,
+    }
+  }, [trailers])
+
   // ---------- Refs สำหรับนำทางด้วย Enter ----------
   const refs = {
     citizenId: useRef(null), memberId: useRef(null), fullName: useRef(null),
@@ -2490,6 +2559,126 @@ ${summary}`)
                   </span>
                 </div>
               </div>
+
+              {!trailerSummary.hasData ? (
+                <div className="text-sm text-slate-500 dark:text-slate-300">ยังไม่มีข้อมูลรถพ่วง</div>
+              ) : (
+                <>
+                  <div className="-mx-2 overflow-x-auto md:mx-0">
+                    <table className="min-w-full text-sm">
+                      <thead className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                        <tr>
+                          <th className="px-2 py-2 text-left">คัน</th>
+                          <th className="px-2 py-2 text-left">ทะเบียน</th>
+                          <th className="px-2 py-2 text-left">น้ำหนัก (กก.)</th>
+                          <th className="px-2 py-2 text-left">ราคา/กก. (บาท)</th>
+                          <th className="px-2 py-2 text-left">เป็นเงิน</th>
+                          <th className="px-2 py-2 text-left">สรุปคัน</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                        {trailerSummary.rows.map((row) => (
+                          <tr key={row.index} className="align-top">
+                            <td className="px-2 py-3 font-semibold">#{row.index}</td>
+                            <td className="px-2 py-3">
+                              <div className="flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                  <span className="break-words">{row.front.plate || "—"}</span>
+                                </span>
+                                <span className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                                  <span className="h-2 w-2 rounded-full bg-slate-500" />
+                                  <span className="break-words">{row.back.plate || "—"}</span>
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-3">
+                              <div className="flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                  <span>{row.front.weight > 0 ? `${round2(row.front.weight)} กก.` : "—"}</span>
+                                </span>
+                                <span className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                                  <span className="h-2 w-2 rounded-full bg-slate-500" />
+                                  <span>{row.back.weight > 0 ? `${round2(row.back.weight)} กก.` : "—"}</span>
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-3">
+                              <div className="flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                  <span>{row.front.price > 0 ? `${round2(row.front.price)} บ.` : "—"}</span>
+                                </span>
+                                <span className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                                  <span className="h-2 w-2 rounded-full bg-slate-500" />
+                                  <span>{row.back.price > 0 ? `${round2(row.back.price)} บ.` : "—"}</span>
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-3">
+                              <div className="flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                  <span>{row.front.amount > 0 ? thb(row.front.amount) : "—"}</span>
+                                </span>
+                                <span className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                                  <span className="h-2 w-2 rounded-full bg-slate-500" />
+                                  <span>{row.back.amount > 0 ? thb(row.back.amount) : "—"}</span>
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-3">
+                              <div className="space-y-1 text-[13px] leading-relaxed md:text-sm">
+                                <div>
+                                  น้ำหนักรวม: <b>{row.net > 0 ? `${round2(row.net)} กก.` : "—"}</b>
+                                </div>
+                                <div>
+                                  ราคาเฉลี่ย: <b>{row.weightedUnit > 0 ? `${round2(row.weightedUnit)} บ./กก.` : "—"}</b>
+                                </div>
+                                <div>
+                                  gram เฉลี่ย: <b>{row.weightedGram > 0 ? row.weightedGram : "—"}</b>
+                                </div>
+                                <div>
+                                  ยอดรวม: <b>{row.amount > 0 ? thb(row.amount) : "—"}</b>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+                    <div className="rounded-xl bg-emerald-50 p-3 text-emerald-900 ring-1 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-100 dark:ring-emerald-700/60">
+                      <div className="text-xs uppercase tracking-wide opacity-70">รวมพ่วงหน้า</div>
+                      <div className="text-lg font-semibold">{round2(trailerSummary.totals.frontWeight)} กก.</div>
+                    </div>
+                    <div className="rounded-xl bg-slate-100 p-3 text-slate-800 ring-1 ring-slate-200 dark:bg-slate-900/40 dark:text-slate-100 dark:ring-slate-700/60">
+                      <div className="text-xs uppercase tracking-wide opacity-70">รวมพ่วงหลัง</div>
+                      <div className="text-lg font-semibold">{round2(trailerSummary.totals.backWeight)} กก.</div>
+                    </div>
+                    <div className="rounded-xl bg-white p-3 text-slate-900 ring-1 ring-slate-200 dark:bg-slate-900/60 dark:text-white dark:ring-slate-700/60">
+                      <div className="text-xs uppercase tracking-wide opacity-70">น้ำหนักสุทธิรวม</div>
+                      <div className="text-lg font-semibold">{round2(trailerSummary.totals.net)} กก.</div>
+                    </div>
+                    <div className="rounded-xl bg-white p-3 text-slate-900 ring-1 ring-amber-200 dark:bg-amber-900/40 dark:text-amber-100 dark:ring-amber-700/60">
+                      <div className="text-xs uppercase tracking-wide opacity-70">ยอดเงินรวม</div>
+                      <div className="text-lg font-semibold">{thb(trailerSummary.totals.amount)}</div>
+                    </div>
+                    <div className="rounded-xl bg-white p-3 text-slate-900 ring-1 ring-emerald-200 dark:bg-slate-900/60 dark:text-white dark:ring-emerald-700/60">
+                      <div className="text-xs uppercase tracking-wide opacity-70">ราคา/คุณภาพเฉลี่ยรวม</div>
+                      <div className="text-lg font-semibold">
+                        {trailerSummary.totals.weightedUnit > 0 ? `${round2(trailerSummary.totals.weightedUnit)} บ./กก.` : "—"}
+                      </div>
+                      <div className="text-sm text-slate-600 dark:text-slate-300">
+                        gram เฉลี่ย: {trailerSummary.totals.weightedGram > 0 ? trailerSummary.totals.weightedGram : "—"}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

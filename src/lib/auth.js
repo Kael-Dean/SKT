@@ -1,8 +1,8 @@
 // src/lib/auth.js
 export function decodeJwt(token) {
   try {
-    const [, payload] = token.split(".");
-    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const [, payload] = token.split('.');
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
     return JSON.parse(json);
   } catch {
     return null;
@@ -14,21 +14,21 @@ export function saveAuth(token) {
   const roleId = payload.role == null ? null : Number(payload.role);
   const user = {
     id: payload.id ?? null,
-    username: payload.sub || "",
+    username: payload.sub || '',
     role_id: Number.isFinite(roleId) ? roleId : null,
     exp: payload.exp || 0,
   };
-  localStorage.setItem("token", token);
-  localStorage.setItem("user", JSON.stringify(user));
+  localStorage.setItem('token', token);
+  localStorage.setItem('user', JSON.stringify(user));
   return user;
 }
 
 export function getToken() {
-  return localStorage.getItem("token");
+  return localStorage.getItem('token');
 }
 
 export function getUser() {
-  const s = localStorage.getItem("user");
+  const s = localStorage.getItem('user');
   if (!s) return null;
   try {
     return JSON.parse(s);
@@ -45,8 +45,8 @@ export function isTokenExpired() {
 }
 
 export function logout() {
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
 }
 
 /** ✅ ดึง role_id แบบทนทาน: ใช้ user.role_id ก่อน ถ้าไม่มีค่อยสกัดจาก JWT */
@@ -60,22 +60,22 @@ export function getRoleId() {
 }
 
 /**
- * ใช้เช็คสิทธิ์แสดงเมนู "เพิ่มบริษัท"
- * - ALLOW_ROLES = role ปกติที่ควรเห็นเมนู
- * - เพิ่มเคสพิเศษ: user ที่ username = "HA" และ role = 4 ให้เห็นเมนูได้ด้วย
+ * ใช้เช็คสิทธิ์แสดง/เข้าเมนู "เพิ่มบริษัท"
+ * - อนุญาตเฉพาะ role 2 (MNG) โดยตรง
+ * - เคสพิเศษ: user ที่ username = "HA" และ role = 4 เห็นได้ด้วย
+ * - role 1 (ADMIN) จะไม่ผ่านเงื่อนไขนี้อีกแล้ว
  */
 export function canSeeAddCompany() {
   const user = getUser();
   const roleId = getRoleId();
 
-  // 👉 แก้รายการ role ให้ตรงกับระบบจริงของโปรเจกต์
-  // เช่น ตอนนี้ถ้า role 1,2 เห็นเมนูอยู่ ก็ใช้ [1, 2]
-  const ALLOW_ROLES = [1, 2];
+  // ตอนนี้ให้สิทธิ์เฉพาะ role 2 เท่านั้น
+  const ALLOW_ROLES = [2];
 
   if (ALLOW_ROLES.includes(roleId)) return true;
 
   // เคสพิเศษ: user HA ที่มี role 4
-  if (user?.username === "HA" && roleId === 4) return true;
+  if (user?.username === 'HA' && roleId === 4) return true;
 
   return false;
 }

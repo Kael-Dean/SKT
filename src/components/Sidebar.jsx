@@ -14,76 +14,97 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const firstMenu = { label: 'หน้าหลัก', path: '/home' };
 
-  const businessBase = useMemo(() => ([
-    { label: 'ยกมา', path: '/bring-in' },
-    { label: 'ยกเข้าโรงสี', path: '/bring-in-mill' },
-    { label: 'ซื้อข้าว', path: '/Buy' },
-    { label: 'ขายข้าว', path: '/sales' },
-    { label: 'รับเข้า', path: '/transfer-in' },
-    { label: 'โอนออก', path: '/transfer-out' },
-    { label: 'ส่งสี', path: '/transfer-mill' },
-    { label: 'ตัดเสียหาย', path: '/damage-out' },
-  ]), []);
+  const businessBase = useMemo(
+    () => [
+      { label: 'ยกมา', path: '/bring-in' },
+      { label: 'ยกเข้าโรงสี', path: '/bring-in-mill' },
+      { label: 'ซื้อข้าว', path: '/Buy' },
+      { label: 'ขายข้าว', path: '/sales' },
+      { label: 'รับเข้า', path: '/transfer-in' },
+      { label: 'โอนออก', path: '/transfer-out' },
+      { label: 'ส่งสี', path: '/transfer-mill' },
+      { label: 'ตัดเสียหาย', path: '/damage-out' },
+    ],
+    []
+  );
 
-  const membersBase = useMemo(() => ([
-    { label: '📝 สมัครสมาชิก', path: '/member-signup' },
-    { label: '📝 เพิ่มลูกค้าทั่วไป', path: '/customer-add' },
-    { label: '📝 เพิ่มบริษัท', path: '/company-add' },
-    { label: '🔎 ค้นหาสมาชิก', path: '/search' },
-    { label: '🔎 ค้นหาลูกค้าทั่วไป', path: '/customer-search' },
-    { label: '🪪 สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)', path: '/member-termination' },
-    { label: '📈 ซื้อหุ้น', path: '/share' },
-  ]), []);
+  const membersBase = useMemo(
+    () => [
+      { label: '📝 สมัครสมาชิก', path: '/member-signup' },
+      { label: '📝 เพิ่มลูกค้าทั่วไป', path: '/customer-add' },
+      { label: '📝 เพิ่มบริษัท', path: '/company-add' },
+      { label: '🔎 ค้นหาสมาชิก', path: '/search' },
+      { label: '🔎 ค้นหาลูกค้าทั่วไป', path: '/customer-search' },
+      { label: '🪪 สมาชิกสิ้นสภาพ (ลาออก/เสียชีวิต)', path: '/member-termination' },
+      { label: '📈 ซื้อหุ้น', path: '/share' },
+    ],
+    []
+  );
 
-  // มี “แก้ไขออเดอร์”
-  const otherMenusBase = useMemo(() => ([
-    { label: '📝 รายงาน', path: '/documents' },
-    { label: '📦 ออเดอร์', path: '/order' },
-    { label: '🛠️ แก้ไขออเดอร์', path: '/order-correction' },
-    { label: '🏭 คลังสินค้า', path: '/stock' },
-  ]), []);
+  const otherMenusBase = useMemo(
+    () => [
+      { label: '📝 รายงาน', path: '/documents' },
+      { label: '📦 ออเดอร์', path: '/order' },
+      { label: '🛠️ แก้ไขออเดอร์', path: '/order-correction' },
+      { label: '🏭 คลังสินค้า', path: '/stock' },
+    ],
+    []
+  );
 
   const ALL_PATHS = useMemo(() => {
     const list = [
       firstMenu.path,
-      ...businessBase.map(i => i.path),
-      ...membersBase.map(i => i.path),
-      ...otherMenusBase.map(i => i.path),
+      ...businessBase.map((i) => i.path),
+      ...membersBase.map((i) => i.path),
+      ...otherMenusBase.map((i) => i.path),
     ];
     return Array.from(new Set(list));
   }, [businessBase, membersBase, otherMenusBase]);
 
-  /** ✅ กำหนดสิทธิ์: อนุญาตเมนู “แก้ไขออเดอร์” ให้ ADMIN(1), MNG(2), HR(3) */
+  // ---------------- สิทธิ์ตาม role ----------------
   const allowedSet = useMemo(() => {
     const allow = new Set(['/home']);
 
-    if (roleId === ROLE.ADMIN || roleId === ROLE.MNG) {
+    // ADMIN (role 1) → เห็นทุกอย่าง ยกเว้น "เพิ่มบริษัท" + "แก้ไขออเดอร์"
+    if (roleId === ROLE.ADMIN) {
       ALL_PATHS.forEach((p) => allow.add(p));
+      allow.delete('/company-add');
+      allow.delete('/order-correction');
       return allow;
     }
 
+    // MNG (role 2) → เห็นทุกเมนู
+    // ถ้าในอนาคตอยากปิด "เพิ่มบริษัท" บางเคส ค่อยใช้ canCompanyAdd มาตัดเพิ่มได้
+    if (roleId === ROLE.MNG) {
+      ALL_PATHS.forEach((p) => allow.add(p));
+      if (!canCompanyAdd) {
+        allow.delete('/company-add');
+      }
+      return allow;
+    }
+
+    // HR (role 3) → เห็นเฉพาะหน้าแก้ไขออเดอร์
     if (roleId === ROLE.HR) {
-      allow.add('/order-correction');   // ← เพิ่มให้ HR
+      allow.add('/order-correction');
       return allow;
     }
 
+    // HA (role 4) → รายงาน + ทะเบียนสมาชิกบางส่วน + ออเดอร์ + แก้ไขออเดอร์ + เพิ่มบริษัทถ้ามีสิทธิ์
     if (roleId === ROLE.HA) {
-      ['/documents', '/share', '/search', '/customer-search', '/order', '/order-correction']
-        .forEach((p) => allow.add(p));
-
-      // เพิ่มเมนู "เพิ่มบริษัท" ให้ HA ตาม canSeeAddCompany()
+      ['/documents', '/share', '/search', '/customer-search', '/order', '/order-correction'].forEach((p) =>
+        allow.add(p)
+      );
       if (canCompanyAdd) {
         allow.add('/company-add');
       }
       return allow;
     }
 
+    // MKT (role 5) → เห็นเกือบทุกเมนู ยกเว้น รายงาน + แก้ไขออเดอร์
     if (roleId === ROLE.MKT) {
       ALL_PATHS.forEach((p) => allow.add(p));
       allow.delete('/documents');
-      allow.delete('/order-correction'); // ซ่อนจาก MKT
-
-      // ถ้าไม่ได้อยู่ในสิทธิ canSeeAddCompany ให้ซ่อนเมนู "เพิ่มบริษัท" ด้วย
+      allow.delete('/order-correction');
       if (!canCompanyAdd) {
         allow.delete('/company-add');
       }
@@ -91,7 +112,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     }
 
     return allow;
-  }, [roleId, ALL_PATHS, canCompanyAdd]); // โครงสร้างเมนูอ้างอิงไฟล์เดิมของโปรเจ็กต์
+  }, [roleId, ALL_PATHS, canCompanyAdd]);
 
   const canSee = useCallback((path) => allowedSet.has(path), [allowedSet]);
 
@@ -126,7 +147,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const handleLogout = () => {
     authLogout();
-    ['userdata', 'profile', 'account'].forEach(k => localStorage.removeItem(k));
+    ['userdata', 'profile', 'account'].forEach((k) => localStorage.removeItem(k));
     navigate('/');
   };
 
@@ -140,8 +161,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     'w-full h-11 flex items-center justify-center rounded-lg px-4 transition-all duration-200 ease-out text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 hover:cursor-pointer';
   const subIdle =
     'text-gray-700 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-200 dark:hover:bg-gray-700';
-  const subActive =
-    'bg-black/90 text-white dark:bg-white/90 dark:text-black font-semibold';
+  const subActive = 'bg-black/90 text-white dark:bg-white/90 dark:text-black font-semibold';
 
   const cardWrapper = 'px-3 py-1';
   const cardBox =
@@ -181,7 +201,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <div className={cardWrapper}>
               <div className={cardBox}>
                 <button
-                  onClick={() => { navigate(firstMenu.path); setIsOpen(false); }}
+                  onClick={() => {
+                    navigate(firstMenu.path);
+                    setIsOpen(false);
+                  }}
                   aria-current={isActive(firstMenu.path) ? 'page' : undefined}
                   className={`${baseBtn} ${isActive(firstMenu.path) ? activeBtn : idleBtn} rounded-2xl`}
                 >
@@ -208,7 +231,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 </button>
 
                 <div className="px-3">
-                  <div className={`mx-1 h-px transition-all duration-300 ${businessOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'}`} />
+                  <div
+                    className={`mx-1 h-px transition-all duration-300 ${
+                      businessOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'
+                    }`}
+                  />
                 </div>
 
                 <div
@@ -221,7 +248,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     {businessMenuItems.map((item) => (
                       <div key={item.path}>
                         <button
-                          onClick={() => { navigate(item.path); setIsOpen(false); }}
+                          onClick={() => {
+                            navigate(item.path);
+                            setIsOpen(false);
+                          }}
                           aria-current={isActive(item.path) ? 'page' : undefined}
                           className={`${subBtnBase} ${isActive(item.path) ? subActive : subIdle}`}
                         >
@@ -253,7 +283,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 </button>
 
                 <div className="px-3">
-                  <div className={`mx-1 h-px transition-all duration-300 ${membersOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'}`} />
+                  <div
+                    className={`mx-1 h-px transition-all duration-300 ${
+                      membersOpen ? 'bg-gray-200/90 dark:bg-gray-700/70' : 'bg-transparent'
+                    }`}
+                  />
                 </div>
 
                 <div
@@ -266,7 +300,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     {memberMenuItems.map((item) => (
                       <div key={item.path}>
                         <button
-                          onClick={() => { navigate(item.path); setIsOpen(false); }}
+                          onClick={() => {
+                            navigate(item.path);
+                            setIsOpen(false);
+                          }}
                           aria-current={isActive(item.path) ? 'page' : undefined}
                           className={`${subBtnBase} ${isActive(item.path) ? subActive : subIdle}`}
                         >
@@ -287,7 +324,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               <div className={cardWrapper} key={item.path}>
                 <div className={cardBox}>
                   <button
-                    onClick={() => { navigate(item.path); setIsOpen(false); }}
+                    onClick={() => {
+                      navigate(item.path);
+                      setIsOpen(false);
+                    }}
                     aria-current={active ? 'page' : undefined}
                     className={`${baseBtn} ${active ? activeBtn : idleBtn} rounded-2xl`}
                   >

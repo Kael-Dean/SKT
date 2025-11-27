@@ -1,7 +1,7 @@
 // src/components/Sidebar.jsx
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { getRoleId, logout as authLogout } from '../lib/auth';
+import { getRoleId, canSeeAddCompany, logout as authLogout } from '../lib/auth';
 
 const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 };
 
@@ -10,6 +10,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const location = useLocation();
 
   const roleId = useMemo(() => getRoleId(), []);
+  const canCompanyAdd = useMemo(() => canSeeAddCompany(), []);
 
   const firstMenu = { label: 'หน้าหลัก', path: '/home' };
 
@@ -69,6 +70,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     if (roleId === ROLE.HA) {
       ['/documents', '/share', '/search', '/customer-search', '/order', '/order-correction']
         .forEach((p) => allow.add(p));
+
+      // เพิ่มเมนู "เพิ่มบริษัท" ให้ HA ตาม canSeeAddCompany()
+      if (canCompanyAdd) {
+        allow.add('/company-add');
+      }
       return allow;
     }
 
@@ -76,11 +82,16 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       ALL_PATHS.forEach((p) => allow.add(p));
       allow.delete('/documents');
       allow.delete('/order-correction'); // ซ่อนจาก MKT
+
+      // ถ้าไม่ได้อยู่ในสิทธิ canSeeAddCompany ให้ซ่อนเมนู "เพิ่มบริษัท" ด้วย
+      if (!canCompanyAdd) {
+        allow.delete('/company-add');
+      }
       return allow;
     }
 
     return allow;
-  }, [roleId, ALL_PATHS]); // โครงสร้างเมนูอ้างอิงไฟล์เดิมของโปรเจ็กต์ :contentReference[oaicite:5]{index=5}
+  }, [roleId, ALL_PATHS, canCompanyAdd]); // โครงสร้างเมนูอ้างอิงไฟล์เดิมของโปรเจ็กต์
 
   const canSee = useCallback((path) => allowedSet.has(path), [allowedSet]);
 

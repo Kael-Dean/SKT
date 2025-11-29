@@ -447,17 +447,7 @@ const Order = () => {
 
   useEffect(() => { fetchOrders() }, []) // init load
 
-    /** ---------- Real-time refresh (polling) ---------- */
-  useEffect(() => {
-    const tick = () => {
-      if (document.hidden) return
-      fetchOrders()
-    }
-    const id = setInterval(tick, 10000)
-    return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, filters.startDate, filters.endDate, filters.branchId, filters.klangId, filters.specId, debouncedQ])
-
+  
 
   // ⭐ สลับโหมด: เคลียร์จอ + ขึ้นโหลดทันที + ทำให้คำขอเก่าหมดอายุ
   const switchMode = (next) => {

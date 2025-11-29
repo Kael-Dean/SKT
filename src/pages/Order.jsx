@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api"  // ✅ helper รวม token/BASE URL
 
-/** ---------- Utils ---------- */
+/** ----------- Utils ----------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
 const thb = (n) =>

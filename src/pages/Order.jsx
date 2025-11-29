@@ -414,11 +414,19 @@ const Order = () => {
   }, [filters.branchId])
 
   /** ---------- Fetch orders (BUY or SELL) + Request Guard ---------- */
+  const isFetching = useRef(false)
+  const pollTimerRef = useRef(null)
+  const POLL_INTERVAL_MS = 15000
+
   const fetchOrders = async () => {
+    if (isFetching.current) return
+    const q = filters.q?.trim() || ""
+    if (q && q.length === 1) return
     if (!validateDates(filters.startDate, filters.endDate)) return
 
     const myReq = ++listReqId.current  // ทำให้คำขอเก่ากลายเป็นของเดิม
     try {
+      isFetching.current = true
       setLoading(true)
       const params = new URLSearchParams()
       params.set("start_date", filters.startDate)
@@ -442,10 +450,9 @@ const Order = () => {
       if (listReqId.current === myReq) {
         setLoading(false)
       }
+      isFetching.current = false
     }
   }
-
-  useEffect(() => { fetchOrders() }, []) // init load
 
   // ⭐ สลับโหมด: เคลียร์จอ + ขึ้นโหลดทันที + ทำให้คำขอเก่าหมดอายุ
   const switchMode = (next) => {
@@ -456,13 +463,22 @@ const Order = () => {
     setPage(1); setPageInput("1")
     setMode(next)                  // useEffect ด้านล่างจะ fetch ใหม่
   }
-  useEffect(() => { fetchOrders() }, [mode]) // โหลดใหม่เมื่อเปลี่ยนโหมด
 
-  /** ---------- Auto refresh on debounced search ---------- */
+  /** ---------- Polling refresh (init + restart on filters/mode/search) ---------- */
   useEffect(() => {
-    if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders()
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current)
+
+    fetchOrders()
+
+    const timer = setInterval(() => {
+      if (isFetching.current) return
+      fetchOrders()
+    }, POLL_INTERVAL_MS)
+
+    pollTimerRef.current = timer
+    return () => clearInterval(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQ])
+  }, [mode, filters.startDate, filters.endDate, filters.branchId, filters.klangId, filters.specId, debouncedQ])
 
   /** ---------- Totals ---------- */
   const totals = useMemo(() => {

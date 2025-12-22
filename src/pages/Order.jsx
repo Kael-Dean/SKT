@@ -712,9 +712,10 @@ const Order = () => {
                   <th className="px-3 py-2">ชนิดข้าว</th>
                   <th className="px-3 py-2">สาขา</th>
                   <th className="px-3 py-2">คลัง</th>
-                  <th className="px-3 py-2 text-right">น้ำหนักขาเข้า</th>
-                  <th className="px-3 py-2 text-right">น้ำหนักขาออก</th>
-                  <th className="px-3 py-2 text-right">น้ำหนักสุทธิ</th>
+                  <th className="px-3 py-2 text-right">นน.ขาเข้า</th>
+                  <th className="px-3 py-2 text-right">นน.ขาออก</th>
+                  <th className="px-3 py-2 text-right">หัก นน.</th>
+                  <th className="px-3 py-2 text-right">นน.สุทธิ</th>
                   <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
                   <th className="px-3 py-2 text-right">เป็นเงิน</th>
                 </tr>
@@ -755,6 +756,7 @@ const Order = () => {
                   const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
                   const exit  = toNumber(r.exit_weight  ?? r.exitWeight  ?? r.exit  ?? 0)
                   const net   = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry))
+                  const deduct = Math.max(0, entry - exit - net)
                   const price = toNumber(r.price ?? r.amountTHB ?? 0)
                   const pricePerKgRaw = toNumber(r.price_per_kilo ?? r.pricePerKilo ?? r.unit_price ?? 0)
                   const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)
@@ -772,6 +774,9 @@ const Order = () => {
                       <td className="px-3 py-2">{r.klang_name || r.klangName || "—"}</td>
                       <td className="px-3 py-2 text-right">{entry.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right">{exit.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right text-amber-700 dark:text-amber-400">
+                          {deduct > 0 ? deduct.toLocaleString() : "—"}
+                      </td>
                       <td className="px-3 py-2 text-right">{net.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right">{baht(pricePerKg)}</td>
                       <td className="px-3 py-2 text-right">{thb(price)}</td>

@@ -689,7 +689,7 @@ const Order = () => {
           </div>
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
             <div className="text-slate-500 dark:text-slate-400">น้ำหนักรวม (กก.)</div>
-            <div className="text-2xl font-semibold">{Math.round(toNumber(totals.weight) * 100) / 100}</div>
+            <div className="text-2xl font-semibold">{(Math.round(toNumber(totals.weight) * 100) / 100).toLocaleString()}</div>
           </div>
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
             <div className="text-slate-500 dark:text-slate-400">มูลค่ารวม</div>

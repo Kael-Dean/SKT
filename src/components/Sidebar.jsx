@@ -45,6 +45,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     () => [
       { label: '📝 รายงาน', path: '/documents' },
       { label: '📦 ออเดอร์', path: '/order' },
+      { label: '🌾 เพิ่มรหัสข้าว', path: '/spec/create' },
       { label: '🛠️ แก้ไขออเดอร์', path: '/order-correction' },
       { label: '🏭 คลังสินค้า', path: '/stock' },
     ],

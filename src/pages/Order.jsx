@@ -561,7 +561,7 @@ const totals = useMemo(() => {
               type="button"
               onClick={() => switchMode("buy")}
               className={cx(
-                "px-4 py-2 rounded-xl text-sm font-semibold transition",
+                "px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer",
                 mode === "buy" ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
               )}
             >
@@ -571,7 +571,7 @@ const totals = useMemo(() => {
               type="button"
               onClick={() => switchMode("sell")}
               className={cx(
-                "px-4 py-2 rounded-xl text-sm font-semibold transition",
+                "px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer",
                 mode === "sell" ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
               )}
             >

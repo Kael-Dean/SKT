@@ -467,11 +467,26 @@ const Order = () => {
   }, [debouncedQ])
 
   /** ---------- Totals ---------- */
-  const totals = useMemo(() => {
-    let weight = 0, revenue = 0
-    rows.forEach((x) => { weight += toNumber(x.weight); revenue += toNumber(x.price) })
-    return { weight, revenue }
-  }, [rows])
+const totals = useMemo(() => {
+  let weight = 0
+  let revenue = 0
+  let deduct = 0
+
+  rows.forEach((x) => {
+    const entry = toNumber(x.entry_weight ?? x.entryWeight ?? x.entry ?? 0)
+    const exit  = toNumber(x.exit_weight  ?? x.exitWeight  ?? x.exit  ?? 0)
+    const net   = toNumber(x.weight ?? 0)
+
+    weight += net
+    revenue += toNumber(x.price ?? 0)
+
+    const d = Math.max(0, entry - exit - net)
+    deduct += d
+  })
+
+  return { weight, revenue, deduct }
+}, [rows])
+
 
   /** ---------- Pagination helpers ---------- */
   useEffect(() => {
@@ -691,6 +706,14 @@ const Order = () => {
             <div className="text-slate-500 dark:text-slate-400">น้ำหนักรวม (กก.)</div>
             <div className="text-2xl font-semibold">{(Math.round(toNumber(totals.weight) * 100) / 100).toLocaleString()}</div>
           </div>
+          <div className="rounded-2xl bg-amber-50 p-4 text-black shadow-sm ring-1 ring-amber-300
+                  dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700">
+            <div className="text-amber-700 dark:text-amber-300">หัก นน.รวม (กก.)</div>
+            <div className="text-2xl font-semibold">
+              {totals.deduct.toLocaleString()}
+            </div>
+          </div>
+
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
             <div className="text-slate-500 dark:text-slate-400">มูลค่ารวม</div>
             <div className="text-2xl font-semibold">{thb(toNumber(totals.revenue))}</div>

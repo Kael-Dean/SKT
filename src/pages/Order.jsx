@@ -645,9 +645,7 @@ const totals = useMemo(() => {
                 placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
                 disabled={loadingSpecs || specOptions.length === 0}
               />
-              <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                ตัวเลือกนี้มาจาก <code>/order/form/search</code> • บรรทัดย่อยจะแสดงชื่อ “ชั้นย่อย” จาก <code>/order/variant/search</code>
-              </div>
+              
             </div>
 
             {/* Search box */}
@@ -727,9 +725,11 @@ const totals = useMemo(() => {
         </div>
 
         {/* 👉 แถวล่าง : มูลค่ารวม (สีเขียว) */}
-        <div className="md:col-span-3 rounded-2xl bg-emerald-50 p-4 text-black shadow-sm
-                        ring-1 ring-emerald-300
-                        dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700">
+        <div className="md:col-span-3 rounded-2xl bg-emerald-50 p-6 text-black shadow-sm
+                ring-1 ring-emerald-300
+                flex flex-col items-center justify-center text-center
+                dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700">
+
           <div className="text-emerald-700 dark:text-emerald-300">มูลค่ารวม</div>
           <div className="text-2xl font-semibold">
             {thb(toNumber(totals.revenue))}

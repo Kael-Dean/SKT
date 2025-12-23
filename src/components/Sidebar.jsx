@@ -66,7 +66,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const allowedSet = useMemo(() => {
     const allow = new Set(['/home']);
 
-    // ADMIN (role 1) → เห็นทุกอย่าง ยกเว้น "เพิ่มบริษัท" + "แก้ไขออเดอร์"
+    // ✅ ADMIN (role 1) → เห็นทุกอย่าง ยกเว้น "เพิ่มบริษัท" + "แก้ไขออเดอร์" (ตามเดิม)
+    //    และ "เพิ่มรหัสข้าว" ให้เห็นได้ (เพราะ BE อนุญาต ADMIN)
     if (roleId === ROLE.ADMIN) {
       ALL_PATHS.forEach((p) => allow.add(p));
       allow.delete('/company-add');
@@ -74,41 +75,60 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       return allow;
     }
 
-    // MNG (role 2) → เห็นทุกเมนู
-    // ถ้าในอนาคตอยากปิด "เพิ่มบริษัท" บางเคส ค่อยใช้ canCompanyAdd มาตัดเพิ่มได้
+    // ✅ MNG (role 2) → เห็นทุกเมนู (ตามเดิม) + แต่ซ่อน "เพิ่มรหัสข้าว" (เพราะ BE อนุญาตเฉพาะ HA/ADMIN)
     if (roleId === ROLE.MNG) {
       ALL_PATHS.forEach((p) => allow.add(p));
       if (!canCompanyAdd) {
         allow.delete('/company-add');
       }
+      allow.delete('/spec/create'); // ⛔ ไม่ให้เห็นเมนูที่กดแล้วจะโดน 403 จาก BE
       return allow;
     }
 
-    // HR (role 3) → เห็นเฉพาะหน้าแก้ไขออเดอร์
+    // ✅ HR (role 3) → ต้องเห็น "ออเดอร์" ด้วย (ตามที่ขอ: ทุก role ยกเว้น MKT)
+    //    และคงสิทธิ์แก้ไขออเดอร์ไว้ตามเดิม
     if (roleId === ROLE.HR) {
+      allow.add('/order');
       allow.add('/order-correction');
       return allow;
     }
 
-    // HA (role 4) → รายงาน + ทะเบียนสมาชิกบางส่วน + ออเดอร์ + แก้ไขออเดอร์ + เพิ่มบริษัทถ้ามีสิทธิ์
+    // ✅ HA (role 4) → เห็นออเดอร์ + แก้ไขออเดอร์ + เพิ่มรหัสข้าว (BE อนุญาต HA)
     if (roleId === ROLE.HA) {
-      ['/documents', '/share', '/search', '/customer-search', '/order', '/order-correction'].forEach((p) =>
-        allow.add(p)
-      );
+      [
+        '/documents',
+        '/share',
+        '/search',
+        '/customer-search',
+        '/order',
+        '/order-correction',
+        '/spec/create',
+      ].forEach((p) => allow.add(p));
+
       if (canCompanyAdd) {
         allow.add('/company-add');
       }
       return allow;
     }
 
-    // MKT (role 5) → เห็นเกือบทุกเมนู ยกเว้น รายงาน + แก้ไขออเดอร์
+    // ⛔ MKT (role 5) → “ห้ามเห็นหน้าออเดอร์” ตามที่คุณสั่ง
+    //    และซ่อนเพิ่มรหัสข้าวด้วย (กันกดแล้ว 403 / เด้ง)
     if (roleId === ROLE.MKT) {
       ALL_PATHS.forEach((p) => allow.add(p));
+
+      // ตามเดิม
       allow.delete('/documents');
       allow.delete('/order-correction');
       if (!canCompanyAdd) {
         allow.delete('/company-add');
       }
+
+      // ✅ ตามที่ขอ: ซ่อน "สร้างออเดอร์"
+      allow.delete('/order');
+
+      // แถม: ซ่อนเพิ่มรหัสข้าว (BE อนุญาตเฉพาะ HA/ADMIN)
+      allow.delete('/spec/create');
+
       return allow;
     }
 

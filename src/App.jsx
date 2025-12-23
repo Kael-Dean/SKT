@@ -26,6 +26,9 @@ import Share from './pages/Share'
 /** ✅ หน้าใหม่: แก้ไขออเดอร์ */
 import OrderCorrection from './pages/OrderCorrection.jsx'
 
+/** ✅ หน้าใหม่: เพิ่มรหัสข้าว (ProductSpec) */
+import RiceSpecCreate from './pages/RiceSpecCreate.jsx'
+
 /* ---------------- role helpers (robust) ---------------- */
 const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
 const ROLE_ALIASES = {
@@ -131,10 +134,22 @@ function RequireUserId17or18({ children }) {
 function RequireMngAdminHA({ children }) {
   const r = getRoleId()
   const ok = r === ROLE.ADMIN || r === ROLE.MNG || r === ROLE.HA
-  if (!ok) {
-    // แสดง 403 แบบ soft redirect ไปหน้า home (ปรับตาม UX ที่คุณต้องการ)
-    return <Navigate to="/home" replace />
-  }
+  if (!ok) return <Navigate to="/home" replace />
+  return children
+}
+
+/* ✅ Route guard: ห้าม Marketing (MKT) — ใช้กับหน้า "สร้างออเดอร์" */
+function RequireNotMarketing({ children }) {
+  const r = getRoleId()
+  if (r === ROLE.MKT) return <Navigate to="/home" replace />
+  return children
+}
+
+/* ✅ Route guard: เฉพาะ ADMIN + HA — ใช้กับหน้า "สร้างรหัสข้าว" */
+function RequireAdminHA({ children }) {
+  const r = getRoleId()
+  const ok = r === ROLE.ADMIN || r === ROLE.HA
+  if (!ok) return <Navigate to="/home" replace />
   return children
 }
 
@@ -147,7 +162,17 @@ function App() {
       <Route element={<AppLayout />}>
         <Route path="/home" element={<Home />} />
         <Route path="/documents" element={<Documents />} />
-        <Route path="/order" element={<Order />} />
+
+        {/* ✅ หน้า "สร้างออเดอร์" → ทุก role ยกเว้น MKT */}
+        <Route
+          path="/order"
+          element={
+            <RequireNotMarketing>
+              <Order />
+            </RequireNotMarketing>
+          }
+        />
+
         <Route path="/sales" element={<Sales />} />
         <Route path="/Buy" element={<Buy />} />
         <Route path="/member-signup" element={<MemberSignup />} />
@@ -182,6 +207,16 @@ function App() {
             <RequireMngAdminHA>
               <OrderCorrection />
             </RequireMngAdminHA>
+          }
+        />
+
+        {/* ✅ หน้าเพิ่มรหัสข้าว — admin/HA เท่านั้น */}
+        <Route
+          path="/spec/create"
+          element={
+            <RequireAdminHA>
+              <RiceSpecCreate />
+            </RequireAdminHA>
           }
         />
       </Route>

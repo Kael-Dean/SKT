@@ -744,9 +744,7 @@ const totals = useMemo(() => {
           aria-busy={loading ? "true" : "false"}
         >
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-700 text-base font-semibold
-                  dark:bg-slate-700 dark:text-slate-200">
-
+            <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
               {mode === "buy" ? (
                 <tr>
                   <th className="px-3 py-2">วันที่</th>

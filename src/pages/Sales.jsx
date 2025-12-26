@@ -1505,10 +1505,13 @@ customerPayload = memberIdStr
         const price1 = round2(w1 * u1)
         const price2 = round2(w2 * u2)
 
-        // ค่าเฉลี่ยถ่วงน้ำหนักต่อคัน (ส่งให้ BE)
+        // gram เฉลี่ยถ่วงน้ำหนักต่อคัน (ส่งให้ BE)
         const net = w1 + w2
-        const weightedUnit = net > 0 ? round2((w1 * u1 + w2 * u2) / net) : (u1 || u2 || 0)
         const weightedGram = net > 0 ? Math.round((w1 * g1 + w2 * g2) / net) : (g1 || g2 || 0)
+
+        // ✅ ตาม BE ใหม่: แยกราคา/กก. พ่วงหน้า-พ่วงหลัง
+        const pricePerKilo1 = u1
+        const pricePerKilo2 = w2 > 0 ? u2 : null
 
         const payload = {
           customer: customerPayload,
@@ -1521,7 +1524,8 @@ customerPayload = memberIdStr
             weight_1: w1,
             weight_2: w2 || 0,
             gram: weightedGram,
-            price_per_kilo: weightedUnit,
+            price_per_kilo: pricePerKilo1,
+            price_per_kilo2: pricePerKilo2,
             price_1: price1,
             price_2: price2 || 0,
             order_serial_1: (t.scaleNoFront || "").trim() || null,

@@ -1,9 +1,25 @@
-// src/pages/Documents.jsx
+  // src/pages/Documents.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth, apiDownload } from "../lib/api"   // helper แนบ token + BASE URL
 
 /** ---------- Utils ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
+
+/** ---------- Icons ---------- */
+const PrinterIcon = ({ className = "", size = 20 }) => (
+  <svg
+    viewBox="0 0 24 24"
+    width={size}
+    height={size}
+    fill="currentColor"
+    className={className}
+    aria-hidden="true"
+  >
+    <path d="M6 9V2h12v7H6zm2-5v3h8V4H8z" />
+    <path d="M6 19h12v3H6v-3zm2 1v1h8v-1H8z" />
+    <path d="M6 14H5a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3h-1v-3H6v3zm13-5a1 1 0 1 0 0 2 1 1 0 0 0 0-2z" />
+  </svg>
+)
 
 /** ---------- Styles ---------- */
 const baseField =
@@ -290,6 +306,82 @@ const REPORTS = [
     require: ["branchId", "productId"],
     optional: ["klangId"],
   },
+  // -----------------------------
+  // PDF (Documint) - เปิดดู/พิมพ์
+  // -----------------------------
+  {
+    key: "buy-by-day",
+    title: "รับซื้อรายวัน (PDF)",
+    desc: "รายงานรับซื้อรายวันจาก Documint (กด 🖨️ เพื่อพิมพ์)",
+    endpoint: "/docs/reports/buy-by-day.pdf", // requires: start_date, end_date; optional: branch_id, klang_id, spec_id
+    type: "pdf",
+    require: ["startDate", "endDate"],
+    optional: ["branchId", "klangId", "specId"],
+  },
+  {
+    key: "by-price",
+    title: "สรุปตามราคาต่อกก. (PDF)",
+    desc: "รายงานสรุปซื้อ/ขายตามราคาต่อกก. (Documint)",
+    endpoint: "/docs/reports/by-price.pdf",
+    type: "pdf",
+    require: ["startDate", "endDate"],
+    optional: ["branchId", "klangId", "specId"],
+  },
+  {
+    key: "sell-by-day",
+    title: "ขายรายวัน (PDF)",
+    desc: "รายงานขายรายวันจาก Documint",
+    endpoint: "/docs/reports/sell-by-day.pdf",
+    type: "pdf",
+    require: ["startDate", "endDate"],
+    optional: ["branchId", "klangId", "specId"],
+  },
+  {
+    key: "rice-summary",
+    title: "สรุปซื้อขายรวม (PDF)",
+    desc: "รายงานสรุปซื้อขายรวมจาก Documint",
+    endpoint: "/docs/reports/rice-summary.pdf",
+    type: "pdf",
+    require: ["startDate", "endDate"],
+    optional: ["branchId", "klangId", "specId"],
+  },
+  {
+    key: "collection-report",
+    title: "รายงานรวบรวม (PDF)",
+    desc: "รายงานรวบรวม/สะสม (Documint)",
+    endpoint: "/docs/reports/collection-report.pdf",
+    type: "pdf",
+    require: ["startDate", "endDate"],
+    optional: ["branchId", "klangId", "specId"],
+  },
+  {
+    key: "daily-report",
+    title: "รายงานประจำวัน (PDF)",
+    desc: "รายงานประจำวันจาก Documint",
+    endpoint: "/docs/reports/daily-report.pdf",
+    type: "pdf",
+    require: ["startDate", "endDate"],
+    optional: ["branchId", "klangId", "specId"],
+  },
+  {
+    key: "control-report",
+    title: "รายงานควบคุม (PDF)",
+    desc: "รายงานควบคุมรวมทุกสาขา (Documint)",
+    endpoint: "/docs/reports/control-report.pdf",
+    type: "pdf",
+    require: ["startDate", "endDate"],
+    optional: ["branchId", "klangId", "specId"],
+  },
+  {
+    key: "branch-summary",
+    title: "สรุปสาขา/คลัง (PDF)",
+    desc: "รายงานสรุปกิจกรรมสาขา/คลัง (Documint)",
+    endpoint: "/docs/reports/branch-summary.pdf",
+    type: "pdf",
+    require: ["startDate", "endDate"],
+    optional: ["branchId", "klangId", "specId"],
+  },
+
 ]
 
 function Documents() {
@@ -446,13 +538,30 @@ function Documents() {
     return p
   }
 
-  /** ---------- Download / Preview ---------- */
+
+  /** ---------- Download / Preview / Print ---------- */
   const doDownload = async (report) => {
     const errs = validate(report)
     if (Object.keys(errs).length) return
+
+    // สำหรับ PDF: เปิดหน้าต่าง “ทันที” (กัน popup ถูก block) แล้วค่อยยัด PDF ทีหลัง
+    const preOpenWin = report.type === "pdf" ? window.open("", "_blank") : null
+    if (preOpenWin && report.type === "pdf") {
+      try {
+        preOpenWin.document.title = report.title || "Report"
+        preOpenWin.document.body.innerHTML = `
+          <div style="font-family: sans-serif; padding: 16px;">
+            <div style="font-size: 16px; font-weight: 600;">กำลังเตรียมรายงาน…</div>
+            <div style="margin-top: 6px; color: #64748b;">ถ้าหน้านี้ไม่เปลี่ยนเป็น PDF ให้ตรวจสอบการเชื่อมต่อ/สิทธิ์การเข้าถึง</div>
+          </div>
+        `
+      } catch (_) {}
+    }
+
     try {
       setDownloading(true)
       const params = buildParams(report)
+
       if (report.type === "excel") {
         const { blob, filename } = await apiDownload(`${report.endpoint}?${params.toString()}`)
         const link = document.createElement("a")
@@ -460,19 +569,57 @@ function Documents() {
         link.download = filename || `${report.key}_${filters.startDate || ""}_${filters.endDate || ""}.xlsx`
         document.body.appendChild(link); link.click(); link.remove()
         setTimeout(() => URL.revokeObjectURL(link.href), 3000)
-      } else {
-        const json = await apiAuth(`${report.endpoint}?${params.toString()}`)
-        setPreviewJson(json)
-        const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" })
-        const link = document.createElement("a")
-        link.href = URL.createObjectURL(blob)
-        link.download = `${report.key}.json`
-        document.body.appendChild(link); link.click(); link.remove()
-        setTimeout(() => URL.revokeObjectURL(link.href), 3000)
+        return
       }
+
+      if (report.type === "pdf") {
+        // ✅ สำคัญ: ตั้ง preview=false เพื่อได้ไฟล์สำหรับพิมพ์ (ปกติ preview=true จะมีลายน้ำ)
+        params.set("preview", "false")
+
+        const { blob } = await apiDownload(`${report.endpoint}?${params.toString()}`)
+        const url = URL.createObjectURL(blob)
+
+        // ถ้าเปิดหน้าต่างไว้ได้ ให้ redirect ไป PDF
+        if (preOpenWin) {
+          try {
+            preOpenWin.location.href = url
+            // พยายามสั่งพิมพ์อัตโนมัติ (บาง browser อาจบล็อก/ไม่รองรับ)
+            const tryPrint = () => {
+              try { preOpenWin.focus(); preOpenWin.print() } catch (_) {}
+            }
+            setTimeout(tryPrint, 1200)
+          } catch (_) {}
+        } else {
+          // fallback
+          const link = document.createElement("a")
+          link.href = url
+          link.target = "_blank"
+          link.rel = "noreferrer"
+          document.body.appendChild(link); link.click(); link.remove()
+        }
+
+        // ค่อย revoke ทีหลัง (เผื่อยังโหลดไม่เสร็จ)
+        setTimeout(() => URL.revokeObjectURL(url), 60_000)
+        return
+      }
+
+      // json
+      const json = await apiAuth(`${report.endpoint}?${params.toString()}`)
+      setPreviewJson(json)
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" })
+      const link = document.createElement("a")
+      link.href = URL.createObjectURL(blob)
+      link.download = `${report.key}.json`
+      document.body.appendChild(link); link.click(); link.remove()
+      setTimeout(() => URL.revokeObjectURL(link.href), 3000)
+
     } catch (err) {
-      console.error(err); alert("เกิดข้อผิดพลาดในการดึงรายงาน")
-    } finally { setDownloading(false) }
+      console.error(err)
+      try { preOpenWin?.close?.() } catch (_) {}
+      alert("เกิดข้อผิดพลาดในการดึงรายงาน")
+    } finally {
+      setDownloading(false)
+    }
   }
 
   const resetForm = () =>
@@ -671,6 +818,23 @@ function Documents() {
       )
     }
 
+
+    // ✅ Documint PDF (พิมพ์)
+    if (report.type === "pdf") {
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <FormDates report={report} />
+            <FormBranchKlang requireBranch={false} />
+            <FormSpecOnly requiredSpec={false} />
+          </div>
+          <p className={helpTextCls}>
+            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์ (ระบบจะเรียก BE <code>/docs/reports/&lt;report_code&gt;.pdf</code>)
+          </p>
+        </>
+      )
+    }
+
     return null
   }
 
@@ -709,7 +873,9 @@ function Documents() {
                     "rounded-full px-2.5 py-1 text-xs font-medium",
                     r.type === "excel"
                       ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60"
-                      : "bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60"
+                      : r.type === "pdf"
+                        ? "bg-fuchsia-50 text-fuchsia-700 ring-1 ring-fuchsia-200 dark:bg-fuchsia-900/20 dark:text-fuchsia-200 dark:ring-fuchsia-700/60"
+                        : "bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60"
                   )}>
                     {r.type.toUpperCase()}
                   </span>
@@ -753,7 +919,16 @@ function Documents() {
                   downloading && "opacity-70 cursor-wait hover:scale-100 hover:shadow-none"
                 )}
               >
-                {reportObj.type === "excel" ? (downloading ? "กำลังเตรียมไฟล์..." : "⬇️ ดาวน์โหลด Excel") : (downloading ? "กำลังดึงข้อมูล..." : "👁️‍🗨️ พรีวิว + ดาวน์โหลด JSON")}
+                {reportObj.type === "excel"
+                  ? (downloading ? "กำลังเตรียมไฟล์..." : "⬇️ ดาวน์โหลด Excel")
+                  : reportObj.type === "pdf"
+                    ? (downloading ? "กำลังเตรียม PDF..." : (
+                        <span className="inline-flex items-center gap-2">
+                          <PrinterIcon className="-ml-0.5" />
+                          พิมพ์ PDF
+                        </span>
+                      ))
+                    : (downloading ? "กำลังดึงข้อมูล..." : "👁️‍🗨️ พรีวิว + ดาวน์โหลด JSON")}
               </button>
 
               <button
@@ -775,7 +950,7 @@ function Documents() {
         <div className="mt-6 rounded-2xl border border-dashed border-slate-300 p-5 text-slate-600 dark:border-slate-600 dark:text-slate-300">
           <div className="font-medium">เพิ่มรายงานใหม่</div>
           <div className="mt-1 text-sm">
-            ให้หลังบ้านเปิด endpoint ภายใต้ <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/report/…</code> แล้วเพิ่มรายการในอาร์เรย์ <code>REPORTS</code> พร้อมกำหนด <code>require</code>/<code>optional</code> ให้ตรงกับพารามิเตอร์ของ BE
+            ให้หลังบ้านเปิด endpoint ภายใต้ <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/report/…</code> (Excel/JSON) หรือ <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/docs/reports/&lt;report_code&gt;.pdf</code> (Documint PDF) แล้วเพิ่มรายการในอาร์เรย์ <code>REPORTS</code> พร้อมกำหนด <code>require</code>/<code>optional</code> ให้ตรงกับพารามิเตอร์ของ BE
           </div>
         </div>
       </div>

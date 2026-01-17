@@ -1,9 +1,56 @@
-  // src/pages/Documents.jsx
+// src/pages/Documents.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth, apiDownload } from "../lib/api"   // helper แนบ token + BASE URL
 
 /** ---------- Utils ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
+
+const safeQS = () => {
+  try {
+    if (typeof window === "undefined") return new URLSearchParams()
+    return new URLSearchParams(window.location.search)
+  } catch (_) {
+    return new URLSearchParams()
+  }
+}
+
+const pickQS = (qs, keys) => {
+  for (const k of keys) {
+    const v = qs.get(k)
+    if (v !== null && v !== undefined && String(v).trim() !== "") return String(v)
+  }
+  return ""
+}
+
+const toggleCsvId = (csv, id) => {
+  const raw = String(csv || "")
+  const tokens = raw
+    .split(/[,\s]+/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+
+  const s = String(id)
+  const has = tokens.includes(s)
+  const next = has ? tokens.filter((x) => x !== s) : [...tokens, s]
+
+  // unique + stable
+  const uniq = Array.from(new Set(next))
+  return uniq.join(",")
+}
+
+const parseCsvInts = (csv) => {
+  const raw = String(csv || "")
+  const out = []
+  for (const token of raw.split(/[,\s]+/)) {
+    const t = token.trim()
+    if (!t) continue
+    // รับเฉพาะเลขจำนวนเต็ม
+    if (!/^\d+$/.test(t)) continue
+    out.push(Number(t))
+  }
+  // unique
+  return Array.from(new Set(out))
+}
 
 /** ---------- Icons ---------- */
 const PrinterIcon = ({ className = "", size = 20 }) => (
@@ -58,13 +105,22 @@ const DateInput = forwardRef(function DateInput(
           const el = inputRef.current
           if (!el) return
           if (typeof el.showPicker === "function") el.showPicker()
-          else { el.focus(); el.click?.() }
+          else {
+            el.focus()
+            el.click?.()
+          }
         }}
         aria-label="เปิดตัวเลือกวันที่"
         className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
                    transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="currentColor"
+          className="text-slate-600 dark:text-slate-200"
+        >
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
         </svg>
       </button>
@@ -116,7 +172,7 @@ function ComboBox({
 
   useEffect(() => {
     if (open) {
-      const idx = selectedIndex >= 0 ? selectedIndex : (options.length ? 0 : -1)
+      const idx = selectedIndex >= 0 ? selectedIndex : options.length ? 0 : -1
       setHighlight(idx)
       if (idx >= 0) {
         requestAnimationFrame(() => {
@@ -127,7 +183,7 @@ function ComboBox({
           const listRect = listEl.getBoundingClientRect()
           const buffer = 6
           if (itemRect.top < listRect.top + buffer) {
-            listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+            listEl.scrollTop -= listRect.top + buffer - itemRect.top
           } else if (itemRect.bottom > listRect.bottom - buffer) {
             listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
           }
@@ -149,9 +205,18 @@ function ComboBox({
 
   const onKeyDown = (e) => {
     if (disabled) return
-    if (!open && e.key === "Enter") { e.preventDefault(); setOpen(true); return }
-    if (!open && (e.key === " " || e.key === "ArrowDown")) { e.preventDefault(); setOpen(true); return }
+    if (!open && e.key === "Enter") {
+      e.preventDefault()
+      setOpen(true)
+      return
+    }
+    if (!open && (e.key === " " || e.key === "ArrowDown")) {
+      e.preventDefault()
+      setOpen(true)
+      return
+    }
     if (!open) return
+
     if (e.key === "ArrowDown") {
       e.preventDefault()
       setHighlight((h) => (h < options.length - 1 ? h + 1 : 0))
@@ -163,7 +228,8 @@ function ComboBox({
       if (highlight >= 0 && highlight < options.length) commit(options[highlight], { navigate: true })
     } else if (e.key === "Escape") {
       e.preventDefault()
-      setOpen(false); setHighlight(-1)
+      setOpen(false)
+      setHighlight(-1)
     }
   }
 
@@ -178,7 +244,7 @@ function ComboBox({
           setOpen((o) => {
             const willOpen = !o
             if (!o) {
-              const idx = selectedIndex >= 0 ? selectedIndex : (options.length ? 0 : -1)
+              const idx = selectedIndex >= 0 ? selectedIndex : options.length ? 0 : -1
               setHighlight(idx)
             }
             return willOpen
@@ -188,8 +254,9 @@ function ComboBox({
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
           disabled ? "bg-slate-200 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          error ? "border-red-400 ring-2 ring-red-300/70"
-                : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
+          error
+            ? "border-red-400 ring-2 ring-red-300/70"
+            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
           "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80"
         )}
         aria-haspopup="listbox"
@@ -241,14 +308,15 @@ function ComboBox({
   )
 }
 
-/** ---------- รายการรายงาน / mapping ไป BE ---------- */
-const REPORTS = [
+/** ---------- รายการรายงาน ---------- */
+const INTERNAL_REPORTS = [
   {
     key: "purchaseGrouped",
     title: "ซื้อ/ขาย แยกราคาต่อกก. (Excel)",
     desc: "สรุปซื้อ-ขายตามราคาต่อกก. ช่วงวันที่ที่กำหนด",
     endpoint: "/report/orders/purchase-excel", // requires: start_date, end_date, spec_id; optional: branch_id, klang_id
     type: "excel",
+    badge: "EXCEL",
     require: ["startDate", "endDate", "specId"],
     optional: ["branchId", "klangId"],
   },
@@ -258,6 +326,7 @@ const REPORTS = [
     desc: "รายการขายแบบแยกวันต่อวัน",
     endpoint: "/report/sales/daily-excel", // requires: start_date, end_date, branch_id; optional: spec_id
     type: "excel",
+    badge: "EXCEL",
     require: ["startDate", "endDate", "branchId"],
     optional: ["specId"],
   },
@@ -267,6 +336,7 @@ const REPORTS = [
     desc: "รายการซื้อแบบแยกวันต่อวัน",
     endpoint: "/report/purchases/daily-excel", // requires: start_date, end_date, branch_id; optional: spec_id
     type: "excel",
+    badge: "EXCEL",
     require: ["startDate", "endDate", "branchId"],
     optional: ["specId"],
   },
@@ -276,6 +346,7 @@ const REPORTS = [
     desc: "ทะเบียนรับซื้อพร้อมค้นหาสายพันธุ์/ที่อยู่",
     endpoint: "/report/orders/register-excel", // requires: start_date, end_date; optional: branch_id, klang_id, species_like, addr_line4, addr_line5
     type: "excel",
+    badge: "EXCEL",
     require: ["startDate", "endDate"],
     optional: ["branchId", "klangId", "speciesLike", "addrLine4", "addrLine5"],
   },
@@ -285,6 +356,7 @@ const REPORTS = [
     desc: "ซื้อ-ขาย-รับโอน-โอน-ส่งสี-ตัดเสียหาย ตามสาขา",
     endpoint: "/report/branch-rx.xlsx", // requires: start_date, end_date, branch_id, spec_id
     type: "excel",
+    badge: "EXCEL",
     require: ["startDate", "endDate", "branchId", "specId"],
     optional: [],
   },
@@ -294,6 +366,7 @@ const REPORTS = [
     desc: "รวมทุกสาขา/ชนิดข้าวหลัก ช่วงวันที่ที่กำหนด",
     endpoint: "/report/rice-summary.xlsx", // requires: start_date, end_date
     type: "excel",
+    badge: "EXCEL",
     require: ["startDate", "endDate"],
     optional: [],
   },
@@ -303,6 +376,7 @@ const REPORTS = [
     desc: "ภาพรวมสต๊อกแบบ Tree (product → species → …)",
     endpoint: "/report/stock/tree", // requires: branch_id, product_id; optional: klang_id
     type: "json",
+    badge: "JSON",
     require: ["branchId", "productId"],
     optional: ["klangId"],
   },
@@ -315,6 +389,7 @@ const REPORTS = [
     desc: "รายงานรับซื้อรายวันจาก Documint (กด 🖨️ เพื่อพิมพ์)",
     endpoint: "/docs/reports/buy-by-day.pdf", // requires: start_date, end_date; optional: branch_id, klang_id, spec_id
     type: "pdf",
+    badge: "PDF",
     require: ["startDate", "endDate"],
     optional: ["branchId", "klangId", "specId"],
   },
@@ -324,6 +399,7 @@ const REPORTS = [
     desc: "รายงานสรุปซื้อ/ขายตามราคาต่อกก. (Documint)",
     endpoint: "/docs/reports/by-price.pdf",
     type: "pdf",
+    badge: "PDF",
     require: ["startDate", "endDate"],
     optional: ["branchId", "klangId", "specId"],
   },
@@ -333,6 +409,7 @@ const REPORTS = [
     desc: "รายงานขายรายวันจาก Documint",
     endpoint: "/docs/reports/sell-by-day.pdf",
     type: "pdf",
+    badge: "PDF",
     require: ["startDate", "endDate"],
     optional: ["branchId", "klangId", "specId"],
   },
@@ -342,6 +419,7 @@ const REPORTS = [
     desc: "รายงานสรุปซื้อขายรวมจาก Documint",
     endpoint: "/docs/reports/rice-summary.pdf",
     type: "pdf",
+    badge: "PDF",
     require: ["startDate", "endDate"],
     optional: ["branchId", "klangId", "specId"],
   },
@@ -351,6 +429,7 @@ const REPORTS = [
     desc: "รายงานรวบรวม/สะสม (Documint)",
     endpoint: "/docs/reports/collection-report.pdf",
     type: "pdf",
+    badge: "PDF",
     require: ["startDate", "endDate"],
     optional: ["branchId", "klangId", "specId"],
   },
@@ -360,6 +439,7 @@ const REPORTS = [
     desc: "รายงานประจำวันจาก Documint",
     endpoint: "/docs/reports/daily-report.pdf",
     type: "pdf",
+    badge: "PDF",
     require: ["startDate", "endDate"],
     optional: ["branchId", "klangId", "specId"],
   },
@@ -369,6 +449,7 @@ const REPORTS = [
     desc: "รายงานควบคุมรวมทุกสาขา (Documint)",
     endpoint: "/docs/reports/control-report.pdf",
     type: "pdf",
+    badge: "PDF",
     require: ["startDate", "endDate"],
     optional: ["branchId", "klangId", "specId"],
   },
@@ -378,13 +459,116 @@ const REPORTS = [
     desc: "รายงานสรุปกิจกรรมสาขา/คลัง (Documint)",
     endpoint: "/docs/reports/branch-summary.pdf",
     type: "pdf",
+    badge: "PDF",
     require: ["startDate", "endDate"],
     optional: ["branchId", "klangId", "specId"],
   },
+]
 
+// -----------------------------
+// PDF (Share) - “รายงานของร้านนี้”
+// ใช้ BE: GET /share/reports/{report_code}.pdf
+// -----------------------------
+const SHOP_REPORTS = [
+  {
+    key: "shop-buy-by-day",
+    reportCode: "buy-by-day",
+    title: "รับซื้อรายวัน (PDF) – ร้านนี้",
+    desc: "ลิงก์แชร์สำหรับร้าน (share) กด 🖨️ เพื่อพิมพ์",
+    endpoint: "/share/reports/buy-by-day.pdf",
+    type: "share_pdf",
+    badge: "SHOP PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds"],
+  },
+  {
+    key: "shop-by-price",
+    reportCode: "by-price",
+    title: "สรุปตามราคาต่อกก. (PDF) – ร้านนี้",
+    desc: "ลิงก์แชร์สำหรับร้าน (share)",
+    endpoint: "/share/reports/by-price.pdf",
+    type: "share_pdf",
+    badge: "SHOP PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds"],
+  },
+  {
+    key: "shop-sell-by-day",
+    reportCode: "sell-by-day",
+    title: "ขายรายวัน (PDF) – ร้านนี้",
+    desc: "ลิงก์แชร์สำหรับร้าน (share)",
+    endpoint: "/share/reports/sell-by-day.pdf",
+    type: "share_pdf",
+    badge: "SHOP PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds"],
+  },
+  {
+    key: "shop-rice-summary",
+    reportCode: "rice-summary",
+    title: "สรุปซื้อขายรวม (PDF) – ร้านนี้",
+    desc: "ลิงก์แชร์สำหรับร้าน (share)",
+    endpoint: "/share/reports/rice-summary.pdf",
+    type: "share_pdf",
+    badge: "SHOP PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds"],
+  },
+  {
+    key: "shop-collection-report",
+    reportCode: "collection-report",
+    title: "รายงานรวบรวม (PDF) – ร้านนี้",
+    desc: "ลิงก์แชร์สำหรับร้าน (share)",
+    endpoint: "/share/reports/collection-report.pdf",
+    type: "share_pdf",
+    badge: "SHOP PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds"],
+  },
+  {
+    key: "shop-daily-report",
+    reportCode: "daily-report",
+    title: "รายงานประจำวัน (PDF) – ร้านนี้",
+    desc: "ลิงก์แชร์สำหรับร้าน (share)",
+    endpoint: "/share/reports/daily-report.pdf",
+    type: "share_pdf",
+    badge: "SHOP PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds"],
+  },
+  {
+    key: "shop-control-report",
+    reportCode: "control-report",
+    title: "รายงานควบคุม (PDF) – ร้านนี้",
+    desc: "ลิงก์แชร์สำหรับร้าน (share)",
+    endpoint: "/share/reports/control-report.pdf",
+    type: "share_pdf",
+    badge: "SHOP PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds"],
+  },
+  {
+    key: "shop-branch-summary",
+    reportCode: "branch-summary",
+    title: "สรุปสาขา/คลัง (PDF) – ร้านนี้",
+    desc: "ลิงก์แชร์สำหรับร้าน (share)",
+    endpoint: "/share/reports/branch-summary.pdf",
+    type: "share_pdf",
+    badge: "SHOP PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds"],
+  },
 ]
 
 function Documents() {
+  const [mode, setMode] = useState(() => {
+    const qs = safeQS()
+    const m = (pickQS(qs, ["mode", "view", "tab"]) || "").toLowerCase()
+    return m === "shop" || m === "share" || m === "store" ? "shop" : "internal"
+  })
+
+  const REPORTS = useMemo(() => (mode === "shop" ? SHOP_REPORTS : INTERNAL_REPORTS), [mode])
+
   /** ---------- โหลดตัวเลือกพื้นฐาน ---------- */
   const [loadingOptions, setLoadingOptions] = useState(false)
   const [loadingSpecs, setLoadingSpecs] = useState(false)
@@ -401,7 +585,9 @@ function Documents() {
 
   const today = new Date().toISOString().slice(0, 10)
   const firstDayThisMonth = useMemo(() => {
-    const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10)
+    const d = new Date()
+    d.setDate(1)
+    return d.toISOString().slice(0, 10)
   }, [])
 
   /** ---------- State ฟิลเตอร์ ---------- */
@@ -412,11 +598,73 @@ function Documents() {
     specId: "",
     branchId: "",
     klangId: "",
+    // share filters
+    memberId: "",
+    assoId: "",
+    klangIds: "", // comma-separated (สำหรับ /share ... klang_ids)
+    // search fields
     speciesLike: "",
     addrLine4: "",
     addrLine5: "",
   })
   const setFilter = (k, v) => setFilters((p) => ({ ...p, [k]: v }))
+
+  /** ---------- Prefill จาก querystring (รองรับลิงก์แชร์) ---------- */
+  useEffect(() => {
+    const qs = safeQS()
+
+    const patch = {}
+
+    // dates
+    const s = pickQS(qs, ["start_date", "startDate"])
+    const e = pickQS(qs, ["end_date", "endDate"])
+    if (s) patch.startDate = s
+    if (e) patch.endDate = e
+
+    // shop identity
+    const memberId = pickQS(qs, ["member_id", "memberId"])
+    const assoId = pickQS(qs, ["asso_id", "assoId"])
+    if (memberId) patch.memberId = memberId
+    if (assoId) patch.assoId = assoId
+
+    // optional filters
+    const branchId = pickQS(qs, ["branch_id", "branchId"])
+    const klangId = pickQS(qs, ["klang_id", "klangId"])
+    const klangIds = pickQS(qs, ["klang_ids", "klangIds"]) // เผื่อส่งมาเป็น "1,2,3"
+    if (branchId) patch.branchId = branchId
+    if (klangId) patch.klangId = klangId
+    if (klangIds) patch.klangIds = klangIds
+
+    // open report by code
+    const code = pickQS(qs, ["report", "report_code", "reportCode"])
+
+    if (Object.keys(patch).length) {
+      setFilters((p) => ({ ...p, ...patch }))
+    }
+
+    if (code) {
+      // ถ้าอยู่โหมดร้าน: key จะเป็น shop-<code>
+      const shopKey = `shop-${code}`
+      const internalKey = code
+      const existsShop = SHOP_REPORTS.some((r) => r.key === shopKey)
+      const existsInternal = INTERNAL_REPORTS.some((r) => r.key === internalKey)
+
+      if (existsShop) {
+        setMode("shop")
+        setActiveReport(shopKey)
+      } else if (existsInternal) {
+        setMode("internal")
+        setActiveReport(internalKey)
+      }
+    }
+  }, [])
+
+  /** ---------- Mode เปลี่ยน: เคลียร์หน้า ---------- */
+  useEffect(() => {
+    setActiveReport(null)
+    setPreviewJson(null)
+    setErrors({})
+  }, [mode])
 
   /** โหลดตัวเลือกพื้นฐาน (product, branch) */
   useEffect(() => {
@@ -440,9 +688,10 @@ function Documents() {
             .map((b) => ({ id: String(b.id), label: b.branch_name }))
             .filter((o) => o.id && o.label)
         )
-      } catch (e) {
-        console.error("loadOptions error:", e)
-        setProductOptions([]); setBranchOptions([])
+      } catch (err) {
+        console.error("loadOptions error:", err)
+        setProductOptions([])
+        setBranchOptions([])
       } finally {
         setLoadingOptions(false)
       }
@@ -463,10 +712,10 @@ function Documents() {
           }))
           .filter((o) => o.id && o.label)
 
-        // 🔧 แสดงเฉพาะ 2 รายการบนสุดเท่านั้น
+        // 🔧 แสดงเฉพาะ 2 รายการบนสุดเท่านั้น (คงตามไฟล์เดิม)
         setSpecOptions(opts.slice(0, 2))
-      } catch (e) {
-        console.error("loadSpecs error:", e)
+      } catch (err) {
+        console.error("loadSpecs error:", err)
         setSpecOptions([])
       } finally {
         setLoadingSpecs(false)
@@ -483,12 +732,16 @@ function Documents() {
       setFilters((p) => ({ ...p, klangId: "" }))
       return
     }
-    (async () => {
+    ;(async () => {
       try {
         const arr = (await apiAuth(`/order/klang/search?branch_id=${encodeURIComponent(bId)}`)) || []
-        setKlangOptions(arr.map((x) => ({ id: String(x.id), label: x.klang_name })).filter((o) => o.id && o.label))
-      } catch (e) {
-        console.error("load klang error:", e)
+        setKlangOptions(
+          arr
+            .map((x) => ({ id: String(x.id), label: x.klang_name }))
+            .filter((o) => o.id && o.label)
+        )
+      } catch (err) {
+        console.error("load klang error:", err)
         setKlangOptions([])
       }
     })()
@@ -509,10 +762,21 @@ function Documents() {
         if (ed < s) e.endDate = "วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น"
       }
     }
+
     for (const field of report.require) {
       if (["startDate", "endDate"].includes(field)) continue
       if (!filters[field]) e[field] = "จำเป็นต้องระบุ"
     }
+
+    // โหมด “รายงานของร้านนี้”: ต้องมีตัวระบุร้านอย่างน้อย 1 อย่าง
+    if (report.type === "share_pdf") {
+      const hasShopId = Boolean(String(filters.memberId || "").trim()) || Boolean(String(filters.assoId || "").trim())
+      if (!hasShopId) {
+        e.memberId = "กรุณาระบุ member_id หรือ asso_id อย่างน้อย 1 อย่าง"
+        e.assoId = "กรุณาระบุ member_id หรือ asso_id อย่างน้อย 1 อย่าง"
+      }
+    }
+
     setErrors(e)
     return e
   }
@@ -520,14 +784,28 @@ function Documents() {
   /** ---------- Map ฟิลด์ → QueryString ---------- */
   const buildParams = (report) => {
     const p = new URLSearchParams()
+
     if (report.require.includes("startDate") || report.optional?.includes?.("startDate")) p.set("start_date", filters.startDate)
     if (report.require.includes("endDate") || report.optional?.includes?.("endDate")) p.set("end_date", filters.endDate)
-    if (filters.branchId) p.set("branch_id", filters.branchId)
-    if (filters.klangId) p.set("klang_id", filters.klangId)
-    if (filters.specId) {
-      // รองรับ BE ที่รับหลายค่า: spec_id=1&spec_id=2 (ตอนนี้เราเลือกเดี่ยว แต่ใช้ append เผื่ออนาคต)
+
+    if (report.optional?.includes?.("memberId") && String(filters.memberId || "").trim()) p.set("member_id", String(filters.memberId).trim())
+    if (report.optional?.includes?.("assoId") && String(filters.assoId || "").trim()) p.set("asso_id", String(filters.assoId).trim())
+
+    if (report.optional?.includes?.("branchId") && filters.branchId) p.set("branch_id", filters.branchId)
+    if (report.optional?.includes?.("klangId") && filters.klangId) p.set("klang_id", filters.klangId)
+
+    // share รองรับ klang_ids เป็น list
+    if (report.optional?.includes?.("klangIds") && String(filters.klangIds || "").trim()) {
+      for (const n of parseCsvInts(filters.klangIds)) {
+        p.append("klang_ids", String(n))
+      }
+    }
+
+    if ((report.require.includes("specId") || report.optional?.includes?.("specId")) && filters.specId) {
+      // รองรับ BE ที่รับหลายค่า: spec_id=1&spec_id=2
       p.append("spec_id", filters.specId)
     }
+
     if (filters.productId && report.key === "stockTree") p.set("product_id", filters.productId)
 
     if (report.key === "registerPurchase") {
@@ -535,9 +813,9 @@ function Documents() {
       if (filters.addrLine4) p.set("addr_line4", filters.addrLine4.trim())
       if (filters.addrLine5) p.set("addr_line5", filters.addrLine5.trim())
     }
+
     return p
   }
-
 
   /** ---------- Download / Preview / Print ---------- */
   const doDownload = async (report) => {
@@ -545,14 +823,16 @@ function Documents() {
     if (Object.keys(errs).length) return
 
     // สำหรับ PDF: เปิดหน้าต่าง “ทันที” (กัน popup ถูก block) แล้วค่อยยัด PDF ทีหลัง
-    const preOpenWin = report.type === "pdf" ? window.open("", "_blank") : null
-    if (preOpenWin && report.type === "pdf") {
+    const isPdf = report.type === "pdf" || report.type === "share_pdf"
+    const preOpenWin = isPdf ? window.open("", "_blank") : null
+
+    if (preOpenWin && isPdf) {
       try {
         preOpenWin.document.title = report.title || "Report"
         preOpenWin.document.body.innerHTML = `
           <div style="font-family: sans-serif; padding: 16px;">
             <div style="font-size: 16px; font-weight: 600;">กำลังเตรียมรายงาน…</div>
-            <div style="margin-top: 6px; color: #64748b;">ถ้าหน้านี้ไม่เปลี่ยนเป็น PDF ให้ตรวจสอบการเชื่อมต่อ/สิทธิ์การเข้าถึง</div>
+            <div style="margin-top: 6px; color: #64748b;">ถ้าหน้านี้ไม่เปลี่ยนเป็น PDF ให้ตรวจสอบสิทธิ์/การเชื่อมต่อ</div>
           </div>
         `
       } catch (_) {}
@@ -567,38 +847,41 @@ function Documents() {
         const link = document.createElement("a")
         link.href = URL.createObjectURL(blob)
         link.download = filename || `${report.key}_${filters.startDate || ""}_${filters.endDate || ""}.xlsx`
-        document.body.appendChild(link); link.click(); link.remove()
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
         setTimeout(() => URL.revokeObjectURL(link.href), 3000)
         return
       }
 
-      if (report.type === "pdf") {
-        // ✅ สำคัญ: ตั้ง preview=false เพื่อได้ไฟล์สำหรับพิมพ์ (ปกติ preview=true จะมีลายน้ำ)
+      if (isPdf) {
+        // ✅ สำคัญ: ตั้ง preview=false เพื่อได้ไฟล์สำหรับพิมพ์
         params.set("preview", "false")
 
         const { blob } = await apiDownload(`${report.endpoint}?${params.toString()}`)
         const url = URL.createObjectURL(blob)
 
-        // ถ้าเปิดหน้าต่างไว้ได้ ให้ redirect ไป PDF
         if (preOpenWin) {
           try {
             preOpenWin.location.href = url
-            // พยายามสั่งพิมพ์อัตโนมัติ (บาง browser อาจบล็อก/ไม่รองรับ)
-            const tryPrint = () => {
-              try { preOpenWin.focus(); preOpenWin.print() } catch (_) {}
-            }
-            setTimeout(tryPrint, 1200)
+            // พยายามสั่งพิมพ์อัตโนมัติ (บาง browser อาจบล็อก)
+            setTimeout(() => {
+              try {
+                preOpenWin.focus()
+                preOpenWin.print()
+              } catch (_) {}
+            }, 1200)
           } catch (_) {}
         } else {
-          // fallback
           const link = document.createElement("a")
           link.href = url
           link.target = "_blank"
           link.rel = "noreferrer"
-          document.body.appendChild(link); link.click(); link.remove()
+          document.body.appendChild(link)
+          link.click()
+          link.remove()
         }
 
-        // ค่อย revoke ทีหลัง (เผื่อยังโหลดไม่เสร็จ)
         setTimeout(() => URL.revokeObjectURL(url), 60_000)
         return
       }
@@ -610,12 +893,15 @@ function Documents() {
       const link = document.createElement("a")
       link.href = URL.createObjectURL(blob)
       link.download = `${report.key}.json`
-      document.body.appendChild(link); link.click(); link.remove()
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
       setTimeout(() => URL.revokeObjectURL(link.href), 3000)
-
     } catch (err) {
       console.error(err)
-      try { preOpenWin?.close?.() } catch (_) {}
+      try {
+        preOpenWin?.close?.()
+      } catch (_) {}
       alert("เกิดข้อผิดพลาดในการดึงรายงาน")
     } finally {
       setDownloading(false)
@@ -630,14 +916,16 @@ function Documents() {
       specId: "",
       branchId: "",
       klangId: "",
+      memberId: "",
+      assoId: "",
+      klangIds: "",
       speciesLike: "",
       addrLine4: "",
       addrLine5: "",
     })
 
   /** ---------- UI helpers ---------- */
-  const FieldError = ({ name }) =>
-    errors[name] ? <div className={errorTextCls}>{errors[name]}</div> : null
+  const FieldError = ({ name }) => (errors[name] ? <div className={errorTextCls}>{errors[name]}</div> : null)
 
   const withEmpty = (opts, emptyLabel = "— เลือก —") => [{ id: "", label: emptyLabel }, ...opts]
 
@@ -647,20 +935,12 @@ function Documents() {
       <>
         <div>
           <label className={labelCls}>วันที่เริ่มต้น</label>
-          <DateInput
-            value={filters.startDate}
-            onChange={(e) => setFilter("startDate", e.target.value)}
-            error={!!errors.startDate}
-          />
+          <DateInput value={filters.startDate} onChange={(e) => setFilter("startDate", e.target.value)} error={!!errors.startDate} />
           <FieldError name="startDate" />
         </div>
         <div>
           <label className={labelCls}>วันที่สิ้นสุด</label>
-          <DateInput
-            value={filters.endDate}
-            onChange={(e) => setFilter("endDate", e.target.value)}
-            error={!!errors.endDate}
-          />
+          <DateInput value={filters.endDate} onChange={(e) => setFilter("endDate", e.target.value)} error={!!errors.endDate} />
           <FieldError name="endDate" />
         </div>
       </>
@@ -673,16 +953,29 @@ function Documents() {
       <label className={labelCls}>
         รายการสำเร็จรูป (spec){requiredSpec && <span className="text-red-500"> *</span>}
       </label>
-      <ComboBox
-        options={withEmpty(specOptions, loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —")}
-        value={filters.specId}
-        onChange={(v) => setFilter("specId", v)}
-        placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
-        disabled={loadingSpecs || specOptions.length === 0}
-        error={!!(requiredSpec && errors.specId)}
-      />
+
+      {specOptions.length > 0 ? (
+        <ComboBox
+          options={withEmpty(specOptions, loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —")}
+          value={filters.specId}
+          onChange={(v) => setFilter("specId", v)}
+          placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
+          disabled={loadingSpecs || specOptions.length === 0}
+          error={!!(requiredSpec && errors.specId)}
+        />
+      ) : (
+        <input
+          className={cx(baseField, requiredSpec && errors.specId && "border-red-400 ring-2 ring-red-300/70")}
+          placeholder="ใส่ spec_id (ถ้าระบบไม่โหลดรายการให้)"
+          value={filters.specId}
+          onChange={(e) => setFilter("specId", e.target.value)}
+        />
+      )}
+
       {requiredSpec && <FieldError name="specId" />}
-      <p className={helpTextCls}>ข้อมูลรายการมาจากฝั่ง BE <code>/order/form/search</code> (prod_name)</p>
+      <p className={helpTextCls}>
+        ถ้าเข้าส่วน “รายงานร้านนี้” แบบไม่ login รายการอาจโหลดไม่ได้ ให้พิมพ์ <code>spec_id</code> เองได้
+      </p>
     </div>
   )
 
@@ -692,26 +985,130 @@ function Documents() {
         <label className={labelCls}>
           สาขา{requireBranch && <span className="text-red-500"> *</span>}
         </label>
-        <ComboBox
-          options={withEmpty(branchOptions, "— เลือก —")}
-          value={filters.branchId}
-          onChange={(v) => setFilter("branchId", v)}
-          placeholder="— เลือก —"
-          error={!!(requireBranch && errors.branchId)}
-        />
+
+        {branchOptions.length > 0 ? (
+          <ComboBox
+            options={withEmpty(branchOptions, "— เลือก —")}
+            value={filters.branchId}
+            onChange={(v) => setFilter("branchId", v)}
+            placeholder="— เลือก —"
+            error={!!(requireBranch && errors.branchId)}
+          />
+        ) : (
+          <input
+            className={cx(baseField, requireBranch && errors.branchId && "border-red-400 ring-2 ring-red-300/70")}
+            placeholder="ใส่ branch_id (ถ้าระบบไม่โหลดรายการให้)"
+            value={filters.branchId}
+            onChange={(e) => setFilter("branchId", e.target.value)}
+          />
+        )}
+
         {requireBranch && <FieldError name="branchId" />}
       </div>
+
       <div>
         <label className={labelCls}>คลัง (ไม่บังคับ)</label>
-        <ComboBox
-          options={withEmpty(klangOptions, "— ทั้งหมด —")}
-          value={filters.klangId}
-          onChange={(v) => setFilter("klangId", v)}
-          placeholder="— ทั้งหมด —"
-          disabled={!filters.branchId || klangOptions.length === 0}
-        />
+
+        {klangOptions.length > 0 ? (
+          <ComboBox
+            options={withEmpty(klangOptions, "— ทั้งหมด —")}
+            value={filters.klangId}
+            onChange={(v) => setFilter("klangId", v)}
+            placeholder="— ทั้งหมด —"
+            disabled={!filters.branchId || klangOptions.length === 0}
+          />
+        ) : (
+          <input
+            className={baseField}
+            placeholder="ใส่ klang_id (ถ้าระบบไม่โหลดรายการให้)"
+            value={filters.klangId}
+            onChange={(e) => setFilter("klangId", e.target.value)}
+          />
+        )}
       </div>
     </>
+  )
+
+  const FormShopIdentity = () => (
+    <>
+      <div>
+        <label className={labelCls}>
+          member_id <span className="text-red-500">*</span>
+        </label>
+        <input
+          className={cx(baseField, errors.memberId && "border-red-400 ring-2 ring-red-300/70")}
+          placeholder="เช่น M12345"
+          value={filters.memberId}
+          onChange={(e) => setFilter("memberId", e.target.value)}
+        />
+        <FieldError name="memberId" />
+        <p className={helpTextCls}>ถ้าเข้ามาจากลิงก์แชร์ ระบบมักจะเติมให้เองจาก querystring</p>
+      </div>
+
+      <div>
+        <label className={labelCls}>
+          asso_id <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="number"
+          inputMode="numeric"
+          className={cx(baseField, errors.assoId && "border-red-400 ring-2 ring-red-300/70")}
+          placeholder="เช่น 1"
+          value={filters.assoId}
+          onChange={(e) => setFilter("assoId", e.target.value)}
+        />
+        <FieldError name="assoId" />
+        <p className={helpTextCls}>กรอกอย่างใดอย่างหนึ่งระหว่าง member_id / asso_id ก็ได้</p>
+      </div>
+    </>
+  )
+
+  const FormShareKlangIds = () => (
+    <div className="md:col-span-3">
+      <label className={labelCls}>คลังหลายรายการ (klang_ids) (ไม่บังคับ)</label>
+      <input
+        className={baseField}
+        placeholder="เช่น 1,2,3 (เว้นวรรคได้)"
+        value={filters.klangIds}
+        onChange={(e) => setFilter("klangIds", e.target.value)}
+      />
+
+      {klangOptions.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {klangOptions.map((k) => {
+            const selected = parseCsvInts(filters.klangIds).includes(Number(k.id))
+            return (
+              <button
+                key={k.id}
+                type="button"
+                onClick={() => setFilter("klangIds", toggleCsvId(filters.klangIds, k.id))}
+                className={cx(
+                  "rounded-full border px-3 py-1 text-sm transition",
+                  selected
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200 dark:border-emerald-700"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-700/50 dark:text-slate-100 dark:border-slate-600"
+                )}
+              >
+                {k.label}
+                {selected ? " ✓" : ""}
+              </button>
+            )
+          })}
+          <button
+            type="button"
+            onClick={() => setFilter("klangIds", "")}
+            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-50 dark:bg-slate-700/50 dark:text-slate-100 dark:border-slate-600"
+            title="ล้าง klang_ids"
+          >
+            ล้าง
+          </button>
+        </div>
+      )}
+
+      <p className={helpTextCls}>
+        ถ้ากรอก <code>klang_ids</code> แล้ว ระบบจะส่งเป็น <code>klang_ids=1&amp;klang_ids=2</code> ไปให้ BE
+      </p>
+    </div>
   )
 
   const renderReportForm = (report) => {
@@ -747,28 +1144,15 @@ function Documents() {
           <FormBranchKlang requireBranch={false} />
           <div>
             <label className={labelCls}>ค้นหาชื่อสายพันธุ์ (`species_like`)</label>
-            <input
-              className={baseField}
-              placeholder="เช่น มะลิ"
-              value={filters.speciesLike}
-              onChange={(e) => setFilter("speciesLike", e.target.value)}
-            />
+            <input className={baseField} placeholder="เช่น มะลิ" value={filters.speciesLike} onChange={(e) => setFilter("speciesLike", e.target.value)} />
           </div>
           <div>
             <label className={labelCls}>ที่อยู่ บรรทัด 4 (`addr_line4`)</label>
-            <input
-              className={baseField}
-              value={filters.addrLine4}
-              onChange={(e) => setFilter("addrLine4", e.target.value)}
-            />
+            <input className={baseField} value={filters.addrLine4} onChange={(e) => setFilter("addrLine4", e.target.value)} />
           </div>
           <div>
             <label className={labelCls}>ที่อยู่ บรรทัด 5 (`addr_line5`)</label>
-            <input
-              className={baseField}
-              value={filters.addrLine5}
-              onChange={(e) => setFilter("addrLine5", e.target.value)}
-            />
+            <input className={baseField} value={filters.addrLine5} onChange={(e) => setFilter("addrLine5", e.target.value)} />
           </div>
         </div>
       )
@@ -785,7 +1169,11 @@ function Documents() {
     }
 
     if (report.key === "riceSummary") {
-      return <div className="grid gap-4 md:grid-cols-3"><FormDates report={report} /></div>
+      return (
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormDates report={report} />
+        </div>
+      )
     }
 
     if (report.key === "stockTree") {
@@ -795,13 +1183,22 @@ function Documents() {
             <FormBranchKlang requireBranch />
             <div>
               <label className={labelCls}>ประเภทสินค้า (product_id) *</label>
-              <ComboBox
-                options={withEmpty(productOptions, "— เลือก —")}
-                value={filters.productId}
-                onChange={(v) => setFilter("productId", v)}
-                placeholder="— เลือก —"
-                error={!!errors.productId}
-              />
+              {productOptions.length > 0 ? (
+                <ComboBox
+                  options={withEmpty(productOptions, "— เลือก —")}
+                  value={filters.productId}
+                  onChange={(v) => setFilter("productId", v)}
+                  placeholder="— เลือก —"
+                  error={!!errors.productId}
+                />
+              ) : (
+                <input
+                  className={cx(baseField, errors.productId && "border-red-400 ring-2 ring-red-300/70")}
+                  placeholder="ใส่ product_id"
+                  value={filters.productId}
+                  onChange={(e) => setFilter("productId", e.target.value)}
+                />
+              )}
               <FieldError name="productId" />
             </div>
           </div>
@@ -809,15 +1206,12 @@ function Documents() {
           {previewJson && (
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-800">
               <div className="mb-2 font-semibold">ตัวอย่างผลลัพธ์ (JSON)</div>
-              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words">
-                {JSON.stringify(previewJson, null, 2)}
-              </pre>
+              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words">{JSON.stringify(previewJson, null, 2)}</pre>
             </div>
           )}
         </>
       )
     }
-
 
     // ✅ Documint PDF (พิมพ์)
     if (report.type === "pdf") {
@@ -829,7 +1223,24 @@ function Documents() {
             <FormSpecOnly requiredSpec={false} />
           </div>
           <p className={helpTextCls}>
-            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์ (ระบบจะเรียก BE <code>/docs/reports/&lt;report_code&gt;.pdf</code>)
+            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์ (เรียก BE <code>/docs/reports/&lt;report_code&gt;.pdf</code>)
+          </p>
+        </>
+      )
+    }
+
+    // ✅ Share PDF (รายงานของร้านนี้)
+    if (report.type === "share_pdf") {
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <FormDates report={report} />
+            <FormShopIdentity />
+            <FormBranchKlang requireBranch={false} />
+            <FormShareKlangIds />
+          </div>
+          <p className={helpTextCls}>
+            โหมดนี้จะเรียก BE <code>/share/reports/&lt;report_code&gt;.pdf</code> (เหมาะสำหรับลิงก์แชร์ให้ร้าน)
           </p>
         </>
       )
@@ -840,6 +1251,13 @@ function Documents() {
 
   const reportObj = REPORTS.find((r) => r.key === activeReport)
 
+  const badgeStyle = (t) => {
+    if (t === "excel") return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60"
+    if (t === "pdf") return "bg-fuchsia-50 text-fuchsia-700 ring-1 ring-fuchsia-200 dark:bg-fuchsia-900/20 dark:text-fuchsia-200 dark:ring-fuchsia-700/60"
+    if (t === "share_pdf") return "bg-violet-50 text-violet-700 ring-1 ring-violet-200 dark:bg-violet-900/20 dark:text-violet-200 dark:ring-violet-700/60"
+    return "bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60"
+  }
+
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base documents-page">
       {/* ให้ปุ่มที่กดได้เป็นเคอร์เซอร์นิ้วชี้เฉพาะตอน hover และไม่ทับ disabled/wait */}
@@ -849,14 +1267,53 @@ function Documents() {
       `}</style>
 
       <div className="mx-auto max-w-6xl p-5 md:p-6 lg:p-8">
-        <div className="mb-6 flex items-center gap-3">
-          <h1 className="text-3xl font-bold">📚 คลังเอกสาร & รายงาน</h1>
-          {!loadingOptions && !loadingSpecs && (
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
-              พร้อมใช้งาน
-            </span>
-          )}
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold">📚 คลังเอกสาร & รายงาน</h1>
+            {!loadingOptions && !loadingSpecs && (
+              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
+                พร้อมใช้งาน
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("internal")}
+              className={cx(
+                "rounded-full border px-4 py-2 text-sm font-semibold transition",
+                mode === "internal"
+                  ? "border-emerald-600 bg-emerald-600 text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-800/70"
+              )}
+            >
+              รายงานระบบ
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("shop")}
+              className={cx(
+                "rounded-full border px-4 py-2 text-sm font-semibold transition",
+                mode === "shop"
+                  ? "border-violet-600 bg-violet-600 text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-800/70"
+              )}
+              title="สำหรับเปิดรายงานผ่าน /share"
+            >
+              รายงานร้านนี้
+            </button>
+          </div>
         </div>
+
+        {mode === "shop" && !reportObj && (
+          <div className="mb-5 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-violet-900 dark:border-violet-700/60 dark:bg-violet-900/20 dark:text-violet-100">
+            <div className="font-semibold">โหมดรายงานร้านนี้</div>
+            <div className="mt-1 text-sm">
+              ใช้ endpoint <code className="px-1 rounded bg-white/60 dark:bg-slate-800">/share/reports/&lt;report_code&gt;.pdf</code> และมักต้องส่ง <code>member_id</code> หรือ <code>asso_id</code>
+            </div>
+          </div>
+        )}
 
         {!reportObj && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -864,23 +1321,35 @@ function Documents() {
               <button
                 key={r.key}
                 type="button"
-                onClick={() => { setActiveReport(r.key); setPreviewJson(null); setErrors({}); }}
+                onClick={() => {
+                  setActiveReport(r.key)
+                  setPreviewJson(null)
+                  setErrors({})
+                }}
                 className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all hover:shadow-md hover:scale-[1.01] dark:border-slate-700 dark:bg-slate-800 cursor-pointer"
               >
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="text-lg font-semibold">{r.title}</div>
-                  <span className={cx(
-                    "rounded-full px-2.5 py-1 text-xs font-medium",
-                    r.type === "excel"
-                      ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60"
-                      : r.type === "pdf"
-                        ? "bg-fuchsia-50 text-fuchsia-700 ring-1 ring-fuchsia-200 dark:bg-fuchsia-900/20 dark:text-fuchsia-200 dark:ring-fuchsia-700/60"
-                        : "bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60"
-                  )}>
-                    {r.type.toUpperCase()}
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="text-lg font-semibold leading-snug">
+                    {r.title}
+                  </div>
+                  <span
+                    className={cx(
+                      "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
+                      badgeStyle(r.type)
+                    )}
+                  >
+                    {r.badge || r.type.toUpperCase()}
                   </span>
                 </div>
+
                 <p className="text-slate-600 dark:text-slate-300">{r.desc}</p>
+
+                {(r.type === "pdf" || r.type === "share_pdf") && (
+                  <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                    <PrinterIcon size={18} />
+                    พิมพ์ได้
+                  </div>
+                )}
               </button>
             ))}
           </div>
@@ -888,17 +1357,25 @@ function Documents() {
 
         {reportObj && (
           <form
-            onSubmit={(e) => { e.preventDefault(); doDownload(reportObj) }}
+            onSubmit={(e) => {
+              e.preventDefault()
+              doDownload(reportObj)
+            }}
             className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white mt-2"
           >
-            <div className="mb-5 flex items-center justify-between gap-3">
+            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="text-xl font-semibold">{reportObj.title}</div>
                 <div className={helpTextCls}>{reportObj.desc}</div>
               </div>
+
               <button
                 type="button"
-                onClick={() => { setActiveReport(null); setPreviewJson(null); setErrors({}); }}
+                onClick={() => {
+                  setActiveReport(null)
+                  setPreviewJson(null)
+                  setErrors({})
+                }}
                 className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 md:px-5 py-3 text-base font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-100 hover:shadow-md hover:scale-[1.02] active:scale-[.98] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 cursor-pointer"
                 title="กลับไปหน้าเลือกรายงาน"
               >
@@ -914,21 +1391,25 @@ function Documents() {
                 disabled={downloading}
                 className={cx(
                   "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-base font-semibold text-white " +
-                  "shadow-[0_6px_16px_rgba(16,185,129,0.35)] transition-all duration-300 ease-out " +
-                  "hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97] cursor-pointer",
+                    "shadow-[0_6px_16px_rgba(16,185,129,0.35)] transition-all duration-300 ease-out " +
+                    "hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97] cursor-pointer",
                   downloading && "opacity-70 cursor-wait hover:scale-100 hover:shadow-none"
                 )}
               >
-                {reportObj.type === "excel"
-                  ? (downloading ? "กำลังเตรียมไฟล์..." : "⬇️ ดาวน์โหลด Excel")
-                  : reportObj.type === "pdf"
-                    ? (downloading ? "กำลังเตรียม PDF..." : (
-                        <span className="inline-flex items-center gap-2">
-                          <PrinterIcon className="-ml-0.5" />
-                          พิมพ์ PDF
-                        </span>
-                      ))
-                    : (downloading ? "กำลังดึงข้อมูล..." : "👁️‍🗨️ พรีวิว + ดาวน์โหลด JSON")}
+                {reportObj.type === "excel" ? (
+                  downloading ? "กำลังเตรียมไฟล์..." : "⬇️ ดาวน์โหลด Excel"
+                ) : reportObj.type === "pdf" || reportObj.type === "share_pdf" ? (
+                  downloading ? (
+                    "กำลังเตรียม PDF..."
+                  ) : (
+                    <span className="inline-flex items-center gap-2">
+                      <PrinterIcon className="-ml-0.5" />
+                      พิมพ์ PDF
+                    </span>
+                  )
+                ) : (
+                  downloading ? "กำลังดึงข้อมูล..." : "👁️‍🗨️ พรีวิว + ดาวน์โหลด JSON"
+                )}
               </button>
 
               <button
@@ -950,7 +1431,20 @@ function Documents() {
         <div className="mt-6 rounded-2xl border border-dashed border-slate-300 p-5 text-slate-600 dark:border-slate-600 dark:text-slate-300">
           <div className="font-medium">เพิ่มรายงานใหม่</div>
           <div className="mt-1 text-sm">
-            ให้หลังบ้านเปิด endpoint ภายใต้ <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/report/…</code> (Excel/JSON) หรือ <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/docs/reports/&lt;report_code&gt;.pdf</code> (Documint PDF) แล้วเพิ่มรายการในอาร์เรย์ <code>REPORTS</code> พร้อมกำหนด <code>require</code>/<code>optional</code> ให้ตรงกับพารามิเตอร์ของ BE
+            <ul className="list-disc pl-5 space-y-1">
+              <li>
+                รายงานภายใน: เปิด endpoint ภายใต้ <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/report/…</code> (Excel/JSON)
+              </li>
+              <li>
+                รายงาน PDF (Documint): <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/docs/reports/&lt;report_code&gt;.pdf</code>
+              </li>
+              <li>
+                รายงานร้านนี้ (Share PDF): <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/share/reports/&lt;report_code&gt;.pdf</code>
+              </li>
+            </ul>
+            <div className="mt-2">
+              แล้วเพิ่มรายการในอาร์เรย์ <code>INTERNAL_REPORTS</code> หรือ <code>SHOP_REPORTS</code> พร้อมกำหนด <code>require</code>/<code>optional</code> ให้ตรงกับพารามิเตอร์ของ BE
+            </div>
           </div>
         </div>
       </div>

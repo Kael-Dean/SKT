@@ -471,6 +471,7 @@ const INTERNAL_REPORTS = [
 // หมายเหตุ: รายการนี้ให้เป็นตัวอย่าง/พื้นฐาน – ฝั่ง BE สามารถเพิ่ม report_code ใหม่ได้
 // -----------------------------
 const SHARE_REPORTS = [
+  // ✅ รายงานทะเบียนหุ้น (Share) – รายงานหลัก
   {
     key: "share-member-signup",
     reportCode: "member-signup",
@@ -480,9 +481,101 @@ const SHARE_REPORTS = [
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate"],
-    // ตัวกรองเพิ่มเติม (ไม่บังคับ) – BE จะรับหรือไม่รับแล้วแต่ builder ฝั่งหลัง
+    // ตัวกรองเพิ่มเติม (ไม่บังคับ) – BE จะรับหรือไม่รับแล้วแต่ report/builder
     optional: ["memberId", "assoId"],
   },
+
+  // ✅ รายงาน PDF ผ่าน /share (ครบชุดที่ใช้บ่อย)
+  {
+    key: "share-buy-by-day",
+    reportCode: "buy-by-day",
+    title: "รับซื้อรายวัน (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share (กด 🖨️ เพื่อพิมพ์)",
+    endpoint: "/share/reports/buy-by-day.pdf",
+    type: "share_pdf",
+    badge: "SHARE PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+  },
+  {
+    key: "share-by-price",
+    reportCode: "by-price",
+    title: "สรุปตามราคาต่อกก. (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
+    endpoint: "/share/reports/by-price.pdf",
+    type: "share_pdf",
+    badge: "SHARE PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+  },
+  {
+    key: "share-sell-by-day",
+    reportCode: "sell-by-day",
+    title: "ขายรายวัน (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
+    endpoint: "/share/reports/sell-by-day.pdf",
+    type: "share_pdf",
+    badge: "SHARE PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+  },
+  {
+    key: "share-rice-summary",
+    reportCode: "rice-summary",
+    title: "สรุปซื้อขายรวม (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
+    endpoint: "/share/reports/rice-summary.pdf",
+    type: "share_pdf",
+    badge: "SHARE PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+  },
+  {
+    key: "share-collection-report",
+    reportCode: "collection-report",
+    title: "รายงานรวบรวม (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
+    endpoint: "/share/reports/collection-report.pdf",
+    type: "share_pdf",
+    badge: "SHARE PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+  },
+  {
+    key: "share-daily-report",
+    reportCode: "daily-report",
+    title: "รายงานประจำวัน (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
+    endpoint: "/share/reports/daily-report.pdf",
+    type: "share_pdf",
+    badge: "SHARE PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+  },
+  {
+    key: "share-control-report",
+    reportCode: "control-report",
+    title: "รายงานควบคุม (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
+    endpoint: "/share/reports/control-report.pdf",
+    type: "share_pdf",
+    badge: "SHARE PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+  },
+  {
+    key: "share-branch-summary",
+    reportCode: "branch-summary",
+    title: "สรุปสาขา/คลัง (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
+    endpoint: "/share/reports/branch-summary.pdf",
+    type: "share_pdf",
+    badge: "SHARE PDF",
+    require: ["startDate", "endDate"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+  },
+
+  // ✅ เพิ่ม report_code เอง (เผื่อ BE เพิ่มใหม่แล้ว FE ยังไม่เพิ่มลิสต์)
   {
     key: "share-custom",
     title: "รายงานทะเบียนหุ้น (ระบุ report_code เอง) (PDF)",
@@ -491,7 +584,7 @@ const SHARE_REPORTS = [
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate", "customReportCode"],
-    optional: ["memberId", "assoId"],
+    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
   },
 ]
 
@@ -658,7 +751,7 @@ function Documents() {
           .filter((o) => o.id && o.label)
 
         // 🔧 แสดงเฉพาะ 2 รายการบนสุดเท่านั้น (คงตามไฟล์เดิม)
-        setSpecOptions(opts.slice(0, 2))
+        setSpecOptions(opts)
       } catch (err) {
         console.error("loadSpecs error:", err)
         setSpecOptions([])
@@ -1216,19 +1309,36 @@ function Documents() {
 
     // ✅ Share PDF (รายงานทะเบียนหุ้น)
     if (report.type === "share_pdf") {
+      const req = report.require || []
+      const opt = report.optional || []
+
+      const needBranchKlang = req.includes("branchId") || opt.includes("branchId") || opt.includes("klangId")
+      const needSpec = req.includes("specId") || opt.includes("specId")
+      const needKlangIds = req.includes("klangIds") || opt.includes("klangIds")
+
       return (
         <>
           <div className="grid gap-4 md:grid-cols-3">
             <FormDates report={report} />
+
             {report.key === "share-custom" ? <FormCustomReportCode /> : null}
+
+            {needBranchKlang ? <FormBranchKlang requireBranch={req.includes("branchId")} /> : null}
+
+            {needSpec ? <FormSpecOnly requiredSpec={req.includes("specId")} /> : null}
+
+            {needKlangIds ? <FormShareKlangIds /> : null}
+
             <FormShareIdentity report={report} />
           </div>
+
           <p className={helpTextCls}>
             โหมดนี้จะเรียก BE <code>/share/reports/&lt;report_code&gt;.pdf</code> (รายงานทะเบียนหุ้น / Share)
           </p>
         </>
       )
     }
+
 
     return null
   }

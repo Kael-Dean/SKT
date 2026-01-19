@@ -485,6 +485,33 @@ const SHARE_REPORTS = [
     optional: ["memberId", "assoId"],
   },
 
+  // ✅ รายงานทะเบียนทุนเรือนหุ้น (สมาชิก 1 คน)
+  // ใช้ builder: build_share_member_history_payload
+  // ต้องกรอกอย่างน้อย 1 อย่าง: member_id หรือ asso_id
+  {
+    key: "share-member-history",
+    reportCode: "member-history", // 🔧 เปลี่ยนให้ตรงกับ BE (reports/registry.py)
+    title: "รายงานทะเบียนทุนเรือนหุ้น (PDF)",
+    desc: "รายงานทะเบียนทุนเรือนหุ้นของสมาชิก 1 คน (ใช้ member_id หรือ asso_id) ช่วงวันที่ที่กำหนด",
+    endpoint: "/share/reports/member-history.pdf", // 🔧 เปลี่ยนให้ตรงกับ BE
+    type: "share_pdf",
+    badge: "SHARE PDF",
+    require: ["startDate", "endDate"],
+    optional: ["branchId", "memberId", "assoId"],
+    requireAny: [["memberId", "assoId"]],
+
+    // สำหรับรายงานนี้ BE ต้องการ member_id จริง ๆ → ไม่ต้องส่ง tgs_id ซ้ำ
+    sendTgsIdAlias: false,
+
+    // ปรับข้อความในฟอร์มให้ตรงกับรายงานนี้
+    memberLabel: "member_id",
+    memberPlaceholder: "เช่น M12345",
+    memberHelp: "กรอก member_id (รหัสสมาชิก) หรือกรอก asso_id อย่างใดอย่างหนึ่ง",
+    assoLabel: "asso_id (UUID)",
+    assoPlaceholder: "เช่น 550e8400-e29b-41d4-a716-446655440000",
+    assoHelp: "กรอก asso_id แทน member_id ได้",
+  },
+
   // ✅ รายงาน PDF ผ่าน /share (ครบชุดที่ใช้บ่อย)
   {
     key: "share-buy-by-day",
@@ -837,28 +864,40 @@ function Documents() {
   const buildParams = (report) => {
     const p = new URLSearchParams()
 
-    if (report.require.includes("startDate") || report.optional?.includes?.("startDate")) p.set("start_date", filters.startDate)
-    if (report.require.includes("endDate") || report.optional?.includes?.("endDate")) p.set("end_date", filters.endDate)
+    const wants = (field) =>
+      (report?.require || []).includes(field) || (report?.optional || []).includes(field)
 
-    if (report.optional?.includes?.("memberId") && String(filters.memberId || "").trim()) {
+    if (wants("startDate")) p.set("start_date", filters.startDate)
+    if (wants("endDate")) p.set("end_date", filters.endDate)
+
+    // share identity
+    if (wants("memberId") && String(filters.memberId || "").trim()) {
       const v = String(filters.memberId).trim()
-      p.set("member_id", v)
-      // รองรับบาง endpoint ที่ใช้ชื่อ tgs_id
-      p.set("tgs_id", v)
-    }
-    if (report.optional?.includes?.("assoId") && String(filters.assoId || "").trim()) p.set("asso_id", String(filters.assoId).trim())
+      const key = String(report?.memberQueryKey || "member_id")
+      p.set(key, v)
 
-    if (report.optional?.includes?.("branchId") && filters.branchId) p.set("branch_id", filters.branchId)
-    if (report.optional?.includes?.("klangId") && filters.klangId) p.set("klang_id", filters.klangId)
+      // รองรับบาง endpoint ที่ใช้ชื่อ tgs_id (ปิดได้ด้วย sendTgsIdAlias=false)
+      if (report?.sendTgsIdAlias !== false) {
+        p.set("tgs_id", v)
+      }
+    }
+
+    if (wants("assoId") && String(filters.assoId || "").trim()) {
+      p.set("asso_id", String(filters.assoId).trim())
+    }
+
+    // common filters
+    if (wants("branchId") && filters.branchId) p.set("branch_id", filters.branchId)
+    if (wants("klangId") && filters.klangId) p.set("klang_id", filters.klangId)
 
     // share รองรับ klang_ids เป็น list
-    if (report.optional?.includes?.("klangIds") && String(filters.klangIds || "").trim()) {
+    if (wants("klangIds") && String(filters.klangIds || "").trim()) {
       for (const n of parseCsvInts(filters.klangIds)) {
         p.append("klang_ids", String(n))
       }
     }
 
-    if ((report.require.includes("specId") || report.optional?.includes?.("specId")) && filters.specId) {
+    if (wants("specId") && filters.specId) {
       // รองรับ BE ที่รับหลายค่า: spec_id=1&spec_id=2
       p.append("spec_id", filters.specId)
     }
@@ -873,6 +912,7 @@ function Documents() {
 
     return p
   }
+
 
   /** ---------- Download / Preview / Print ---------- */
   const doDownload = async (report) => {
@@ -1038,7 +1078,7 @@ function Documents() {
     </div>
   )
 
-  const FormBranchKlang = ({ requireBranch = false }) => (
+  const FormBranchKlang = ({ requireBranch = false, showKlang = true }) => (
     <>
       <div>
         <label className={labelCls}>
@@ -1065,26 +1105,28 @@ function Documents() {
         {requireBranch && <FieldError name="branchId" />}
       </div>
 
-      <div>
-        <label className={labelCls}>คลัง (ไม่บังคับ)</label>
+      {showKlang ? (
+        <div>
+          <label className={labelCls}>คลัง (ไม่บังคับ)</label>
 
-        {klangOptions.length > 0 ? (
-          <ComboBox
-            options={withEmpty(klangOptions, "— ทั้งหมด —")}
-            value={filters.klangId}
-            onChange={(v) => setFilter("klangId", v)}
-            placeholder="— ทั้งหมด —"
-            disabled={!filters.branchId || klangOptions.length === 0}
-          />
-        ) : (
-          <input
-            className={baseField}
-            placeholder="ใส่ klang_id (ถ้าระบบไม่โหลดรายการให้)"
-            value={filters.klangId}
-            onChange={(e) => setFilter("klangId", e.target.value)}
-          />
-        )}
-      </div>
+          {klangOptions.length > 0 ? (
+            <ComboBox
+              options={withEmpty(klangOptions, "— ทั้งหมด —")}
+              value={filters.klangId}
+              onChange={(v) => setFilter("klangId", v)}
+              placeholder="— ทั้งหมด —"
+              disabled={!filters.branchId || klangOptions.length === 0}
+            />
+          ) : (
+            <input
+              className={baseField}
+              placeholder="ใส่ klang_id (ถ้าระบบไม่โหลดรายการให้)"
+              value={filters.klangId}
+              onChange={(e) => setFilter("klangId", e.target.value)}
+            />
+          )}
+        </div>
+      ) : null}
     </>
   )
 
@@ -1092,34 +1134,45 @@ function Documents() {
     const needMember = (report.require || []).includes("memberId") || (report.requireAny || []).some((g) => Array.isArray(g) && g.includes("memberId"))
     const needAsso = (report.require || []).includes("assoId") || (report.requireAny || []).some((g) => Array.isArray(g) && g.includes("assoId"))
 
+    const memberLabel = report?.memberLabel || "tgs_id / member_id"
+    const memberPlaceholder = report?.memberPlaceholder || "เช่น M12345 หรือ TGS001"
+    const memberHelp =
+      report?.memberHelp ||
+      "ใส่เพื่อกรองรายงานเฉพาะสมาชิก (ถ้า report รองรับ) หรือปล่อยว่างเพื่อดึงทั้งหมด"
+
+    const assoLabel = report?.assoLabel || "asso_id"
+    const assoPlaceholder = report?.assoPlaceholder || "เช่น UUID / รหัสสมาคม (แล้วแต่ระบบ)"
+    const assoHelp =
+      report?.assoHelp || "ถ้าระบบใช้ asso_id เป็น UUID ให้กรอกเป็นข้อความได้เลย"
+
     return (
       <>
         <div>
           <label className={labelCls}>
-            tgs_id / member_id {needMember && <span className="text-red-500">*</span>}
+            {memberLabel} {needMember && <span className="text-red-500">*</span>}
           </label>
           <input
             className={cx(baseField, errors.memberId && "border-red-400 ring-2 ring-red-300/70")}
-            placeholder="เช่น M12345 หรือ TGS001"
+            placeholder={memberPlaceholder}
             value={filters.memberId}
             onChange={(e) => setFilter("memberId", e.target.value)}
           />
           <FieldError name="memberId" />
-          <p className={helpTextCls}>ใส่เพื่อกรองรายงานเฉพาะสมาชิก (ถ้า report รองรับ) หรือปล่อยว่างเพื่อดึงทั้งหมด</p>
+          <p className={helpTextCls}>{memberHelp}</p>
         </div>
 
         <div>
           <label className={labelCls}>
-            asso_id {needAsso && <span className="text-red-500">*</span>}
+            {assoLabel} {needAsso && <span className="text-red-500">*</span>}
           </label>
           <input
             className={cx(baseField, errors.assoId && "border-red-400 ring-2 ring-red-300/70")}
-            placeholder="เช่น UUID / รหัสสมาคม (แล้วแต่ระบบ)"
+            placeholder={assoPlaceholder}
             value={filters.assoId}
             onChange={(e) => setFilter("assoId", e.target.value)}
           />
           <FieldError name="assoId" />
-          <p className={helpTextCls}>ถ้าระบบใช้ asso_id เป็น UUID ให้กรอกเป็นข้อความได้เลย</p>
+          <p className={helpTextCls}>{assoHelp}</p>
         </div>
       </>
     )
@@ -1323,7 +1376,7 @@ function Documents() {
 
             {report.key === "share-custom" ? <FormCustomReportCode /> : null}
 
-            {needBranchKlang ? <FormBranchKlang requireBranch={req.includes("branchId")} /> : null}
+            {needBranchKlang ? <FormBranchKlang requireBranch={req.includes("branchId")} showKlang={req.includes("klangId") || opt.includes("klangId")} /> : null}
 
             {needSpec ? <FormSpecOnly requiredSpec={req.includes("specId")} /> : null}
 

@@ -480,9 +480,9 @@ const SHARE_REPORTS = [
     endpoint: "/share/reports/member-signup.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
-    require: ["startDate", "endDate"],
+    require: ["startDate", "endDate", "branchId"],
     // ตัวกรองเพิ่มเติม (ไม่บังคับ) – BE จะรับหรือไม่รับแล้วแต่ report/builder
-    optional: ["memberId", "assoId"],
+    optional: [],
   },
 
   // ✅ รายงานทะเบียนทุนเรือนหุ้น (สมาชิก 1 คน)
@@ -500,7 +500,7 @@ const SHARE_REPORTS = [
     optional: ["branchId", "memberId", "assoId"],
     requireAny: [["memberId", "assoId"]],
 
-    // สำหรับรายงานนี้ BE ต้องการ member_id จริง ๆ → ไม่ต้องส่ง tgs_id ซ้ำ
+    // สำหรับรายงานนี้ BE ต้องการ member_id จริง ๆ → ส่งเฉพาะ member_id
     sendTgsIdAlias: false,
 
     // ปรับข้อความในฟอร์มให้ตรงกับรายงานนี้
@@ -522,7 +522,7 @@ const SHARE_REPORTS = [
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate"],
-    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+    optional: ["branchId", "klangId", "klangIds", "specId"],
   },
   {
     key: "share-by-price",
@@ -533,7 +533,7 @@ const SHARE_REPORTS = [
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate"],
-    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+    optional: ["branchId", "klangId", "klangIds", "specId"],
   },
   {
     key: "share-sell-by-day",
@@ -544,7 +544,7 @@ const SHARE_REPORTS = [
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate"],
-    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+    optional: ["branchId", "klangId", "klangIds", "specId"],
   },
   {
     key: "share-rice-summary",
@@ -555,7 +555,7 @@ const SHARE_REPORTS = [
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate"],
-    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+    optional: ["branchId", "klangId", "klangIds", "specId"],
   },
   {
     key: "share-collection-report",
@@ -566,7 +566,7 @@ const SHARE_REPORTS = [
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate"],
-    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+    optional: ["branchId", "klangId", "klangIds", "specId"],
   },
   {
     key: "share-daily-report",
@@ -577,7 +577,7 @@ const SHARE_REPORTS = [
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate"],
-    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+    optional: ["branchId", "klangId", "klangIds", "specId"],
   },
   {
     key: "share-control-report",
@@ -588,7 +588,7 @@ const SHARE_REPORTS = [
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate"],
-    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+    optional: ["branchId", "klangId", "klangIds", "specId"],
   },
   {
     key: "share-branch-summary",
@@ -599,7 +599,7 @@ const SHARE_REPORTS = [
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate"],
-    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+    optional: ["branchId", "klangId", "klangIds", "specId"],
   },
 
   // ✅ เพิ่ม report_code เอง (เผื่อ BE เพิ่มใหม่แล้ว FE ยังไม่เพิ่มลิสต์)
@@ -611,7 +611,7 @@ const SHARE_REPORTS = [
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate", "customReportCode"],
-    optional: ["memberId", "assoId", "branchId", "klangId", "klangIds", "specId"],
+    optional: ["branchId", "klangId", "klangIds", "specId"],
   },
 ]
 
@@ -681,7 +681,7 @@ function Documents() {
 
     // share identity (รองรับชื่อพารามิเตอร์หลายแบบ)
     const memberId = pickQS(qs, ["member_id", "memberId"]) // บางระบบเรียก member_id
-    const tgsId = pickQS(qs, ["tgs_id", "tgsId"])        // บางระบบเรียก tgs_id
+    const tgsId = pickQS(qs, ["tgs_id", "tgsId"])        // รองรับลิงก์เดิม (alias)
     const assoId = pickQS(qs, ["asso_id", "assoId"])      // อาจเป็น UUID/string
 
     if (memberId) patch.memberId = memberId
@@ -837,7 +837,7 @@ function Documents() {
 
     // requireAny: กลุ่มฟิลด์ที่ต้องกรอกอย่างน้อย 1 ค่า (กำหนดในแต่ละ report)
     const niceField = (f) => {
-      if (f === "memberId") return "tgs_id / member_id"
+      if (f === "memberId") return "member_id"
       if (f === "assoId") return "asso_id"
       if (f === "customReportCode") return "report_code"
       return f
@@ -876,8 +876,8 @@ function Documents() {
       const key = String(report?.memberQueryKey || "member_id")
       p.set(key, v)
 
-      // รองรับบาง endpoint ที่ใช้ชื่อ tgs_id (ปิดได้ด้วย sendTgsIdAlias=false)
-      if (report?.sendTgsIdAlias !== false) {
+      // (optional) ส่ง alias ชื่อ tgs_id เฉพาะรายงานที่ต้องการจริง ๆ
+      if (report?.sendTgsIdAlias === true) {
         p.set("tgs_id", v)
       }
     }
@@ -1131,11 +1131,24 @@ function Documents() {
   )
 
   const FormShareIdentity = ({ report }) => {
-    const needMember = (report.require || []).includes("memberId") || (report.requireAny || []).some((g) => Array.isArray(g) && g.includes("memberId"))
-    const needAsso = (report.require || []).includes("assoId") || (report.requireAny || []).some((g) => Array.isArray(g) && g.includes("assoId"))
+    const req = report?.require || []
+    const opt = report?.optional || []
+    const any = report?.requireAny || []
 
-    const memberLabel = report?.memberLabel || "tgs_id / member_id"
-    const memberPlaceholder = report?.memberPlaceholder || "เช่น M12345 หรือ TGS001"
+    const inAny = (field) =>
+      any.some((g) => Array.isArray(g) && g.includes(field))
+
+    const showMember = req.includes("memberId") || opt.includes("memberId") || inAny("memberId")
+    const showAsso = req.includes("assoId") || opt.includes("assoId") || inAny("assoId")
+
+    // ถ้ารายงานนี้ไม่ใช้ member_id / asso_id เลย → ไม่ต้องแสดงฟอร์มส่วนนี้
+    if (!showMember && !showAsso) return null
+
+    const needMember = req.includes("memberId") || inAny("memberId")
+    const needAsso = req.includes("assoId") || inAny("assoId")
+
+    const memberLabel = report?.memberLabel || "member_id"
+    const memberPlaceholder = report?.memberPlaceholder || "เช่น M12345"
     const memberHelp =
       report?.memberHelp ||
       "ใส่เพื่อกรองรายงานเฉพาะสมาชิก (ถ้า report รองรับ) หรือปล่อยว่างเพื่อดึงทั้งหมด"
@@ -1147,33 +1160,37 @@ function Documents() {
 
     return (
       <>
-        <div>
-          <label className={labelCls}>
-            {memberLabel} {needMember && <span className="text-red-500">*</span>}
-          </label>
-          <input
-            className={cx(baseField, errors.memberId && "border-red-400 ring-2 ring-red-300/70")}
-            placeholder={memberPlaceholder}
-            value={filters.memberId}
-            onChange={(e) => setFilter("memberId", e.target.value)}
-          />
-          <FieldError name="memberId" />
-          <p className={helpTextCls}>{memberHelp}</p>
-        </div>
+        {showMember ? (
+          <div>
+            <label className={labelCls}>
+              {memberLabel} {needMember && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              className={cx(baseField, errors.memberId && "border-red-400 ring-2 ring-red-300/70")}
+              placeholder={memberPlaceholder}
+              value={filters.memberId}
+              onChange={(e) => setFilter("memberId", e.target.value)}
+            />
+            <FieldError name="memberId" />
+            <p className={helpTextCls}>{memberHelp}</p>
+          </div>
+        ) : null}
 
-        <div>
-          <label className={labelCls}>
-            {assoLabel} {needAsso && <span className="text-red-500">*</span>}
-          </label>
-          <input
-            className={cx(baseField, errors.assoId && "border-red-400 ring-2 ring-red-300/70")}
-            placeholder={assoPlaceholder}
-            value={filters.assoId}
-            onChange={(e) => setFilter("assoId", e.target.value)}
-          />
-          <FieldError name="assoId" />
-          <p className={helpTextCls}>{assoHelp}</p>
-        </div>
+        {showAsso ? (
+          <div>
+            <label className={labelCls}>
+              {assoLabel} {needAsso && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              className={cx(baseField, errors.assoId && "border-red-400 ring-2 ring-red-300/70")}
+              placeholder={assoPlaceholder}
+              value={filters.assoId}
+              onChange={(e) => setFilter("assoId", e.target.value)}
+            />
+            <FieldError name="assoId" />
+            <p className={helpTextCls}>{assoHelp}</p>
+          </div>
+        ) : null}
       </>
     )
   }
@@ -1457,7 +1474,7 @@ function Documents() {
           <div className="mb-5 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-violet-900 dark:border-violet-700/60 dark:bg-violet-900/20 dark:text-violet-100">
             <div className="font-semibold">โหมดรายงานทะเบียนหุ้น</div>
             <div className="mt-1 text-sm">
-              ใช้ endpoint <code className="px-1 rounded bg-white/60 dark:bg-slate-800">/share/reports/&lt;report_code&gt;.pdf</code> สำหรับรายงานทะเบียนหุ้น (จะส่ง <code>tgs_id</code>/<code>member_id</code> หรือ <code>asso_id</code> เพิ่มก็ได้ ถ้า report รองรับ)
+              ใช้ endpoint <code className="px-1 rounded bg-white/60 dark:bg-slate-800">/share/reports/&lt;report_code&gt;.pdf</code> สำหรับรายงานทะเบียนหุ้น (ส่งพารามิเตอร์เพิ่มได้ตามที่รายงานรองรับ เช่น <code>branch_id</code>, <code>member_id</code>, <code>asso_id</code>)
             </div>
           </div>
         )}

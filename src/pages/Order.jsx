@@ -447,8 +447,6 @@ const Order = () => {
 
   useEffect(() => { fetchOrders() }, []) // init load
 
-  
-
   // ⭐ สลับโหมด: เคลียร์จอ + ขึ้นโหลดทันที + ทำให้คำขอเก่าหมดอายุ
   const switchMode = (next) => {
     if (next === mode) return
@@ -467,54 +465,52 @@ const Order = () => {
   }, [debouncedQ])
 
   /** ---------- Totals ---------- */
-const totals = useMemo(() => {
-  let weight = 0
-  let revenue = 0
-  let deduct = 0
+  const totals = useMemo(() => {
+    let weight = 0
+    let revenue = 0
+    let deduct = 0
 
-  // ✅ เฉลี่ย “ราคาต่อกก.” แบบเฉลี่ยต่อบิล (ไม่ถ่วงน้ำหนัก)
-  let sumUnitPrice = 0
-  let unitCount = 0
+    // ✅ เฉลี่ย “ราคาต่อกก.” แบบเฉลี่ยต่อบิล (ไม่ถ่วงน้ำหนัก)
+    let sumUnitPrice = 0
+    let unitCount = 0
 
-  rows.forEach((x) => {
-    const entry = toNumber(x.entry_weight ?? x.entryWeight ?? x.entry ?? 0)
-    const exit  = toNumber(x.exit_weight  ?? x.exitWeight  ?? x.exit  ?? 0)
-    const net   = toNumber(x.weight ?? 0)
+    rows.forEach((x) => {
+      const entry = toNumber(x.entry_weight ?? x.entryWeight ?? x.entry ?? 0)
+      const exit = toNumber(x.exit_weight ?? x.exitWeight ?? x.exit ?? 0)
+      const net = toNumber(x.weight ?? 0)
 
-    weight += net
-    revenue += toNumber(x.price ?? 0)
+      weight += net
+      revenue += toNumber(x.price ?? 0)
 
-    const d = Math.max(0, entry - exit - net)
-    deduct += d
+      const d = Math.max(0, entry - exit - net)
+      deduct += d
 
-    // ✅ เอา unit price จากฟิลด์ก่อน ถ้าไม่มีค่อยคำนวณจาก price/weight
-    const rawUnit = toNumber(
-      x.price_per_kilo ??
-      x.price_per_kg ??
-      x.pricePerKilo ??
-      x.pricePerKg ??
-      x.unit_price ??
-      x.unitPrice ??
-      0
-    )
+      // ✅ เอา unit price จากฟิลด์ก่อน ถ้าไม่มีค่อยคำนวณจาก price/weight
+      const rawUnit = toNumber(
+        x.price_per_kilo ??
+        x.price_per_kg ??
+        x.pricePerKilo ??
+        x.pricePerKg ??
+        x.unit_price ??
+        x.unitPrice ??
+        0
+      )
 
-    let unit = rawUnit
-    if (!unit) {
-      const p = toNumber(x.price ?? 0)
-      if (p > 0 && net > 0) unit = p / net
-    }
+      let unit = rawUnit
+      if (!unit) {
+        const p = toNumber(x.price ?? 0)
+        if (p > 0 && net > 0) unit = p / net
+      }
 
-    if (unit > 0 && Number.isFinite(unit)) {
-      sumUnitPrice += unit
-      unitCount += 1
-    }
-  })
+      if (unit > 0 && Number.isFinite(unit)) {
+        sumUnitPrice += unit
+        unitCount += 1
+      }
+    })
 
-  const avgUnitPrice = unitCount > 0 ? (sumUnitPrice / unitCount) : 0
-  return { weight, revenue, deduct, avgUnitPrice, unitCount }
-}, [rows])
-
-
+    const avgUnitPrice = unitCount > 0 ? (sumUnitPrice / unitCount) : 0
+    return { weight, revenue, deduct, avgUnitPrice, unitCount }
+  }, [rows])
 
   /** ---------- Pagination helpers ---------- */
   useEffect(() => {
@@ -526,11 +522,11 @@ const totals = useMemo(() => {
     const n = Math.min(Math.max(1, toNumber(p)), totalPages)
     setPage(n); setPageInput(String(n))
     try {
-      const main = document.querySelector('main')
-      if (main && typeof main.scrollTo === 'function') {
-        main.scrollTo({ top: 0, behavior: 'smooth' })
+      const main = document.querySelector("main")
+      if (main && typeof main.scrollTo === "function") {
+        main.scrollTo({ top: 0, behavior: "smooth" })
       } else {
-        window?.scrollTo?.({ top: 0, behavior: 'smooth' })
+        window?.scrollTo?.({ top: 0, behavior: "smooth" })
       }
     } catch (_) { /* no-op */ }
   }
@@ -641,7 +637,7 @@ const totals = useMemo(() => {
                 value={filters.branchId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" })) }
+                  setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" }))}
                 placeholder="— เลือกสาขา —"
               />
             </div>
@@ -654,7 +650,7 @@ const totals = useMemo(() => {
                 value={filters.klangId}
                 getValue={(o) => o.id}
                 onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" })) }
+                  setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" }))}
                 placeholder="— เลือกคลัง —"
                 disabled={!filters.branchId}
               />
@@ -669,11 +665,10 @@ const totals = useMemo(() => {
                 getValue={(o) => o.id}
                 getSubLabel={(o) => templateSubLabel(o)}
                 onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, specId: id || "", specLabel: found?.label ?? "" })) }
+                  setFilters((p) => ({ ...p, specId: id || "", specLabel: found?.label ?? "" }))}
                 placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
                 disabled={loadingSpecs || specOptions.length === 0}
               />
-              
             </div>
 
             {/* Search box */}
@@ -708,12 +703,12 @@ const totals = useMemo(() => {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex items-center justify-center rounded-2xl 
-                           border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
+                className="inline-flex items-center justify-center rounded-2xl
+                           border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700
                            shadow-sm transition-all duration-300 ease-out
                            hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
                            active:scale-[.97]
-                           dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
+                           dark:border-slate-600 dark:bg-slate-700/60 dark:text-white
                            dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
               >
                 รีเซ็ต
@@ -722,55 +717,73 @@ const totals = useMemo(() => {
           </div>
         </div>
 
-        
         {/* Summary */}
-      <div className="mb-4 grid gap-3 md:grid-cols-3">
-        {/* จำนวนรายการ */}
-        <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200
+        <div className="mb-4 grid gap-3 md:grid-cols-3">
+          {/* จำนวนรายการ */}
+          <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200
                         dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-          <div className="text-slate-500 dark:text-slate-400">จำนวนรายการ</div>
-          <div className="text-2xl font-semibold">
-            {rows.length.toLocaleString()}
+            <div className="text-slate-500 dark:text-slate-400">จำนวนรายการ</div>
+            <div className="text-2xl font-semibold">
+              {rows.length.toLocaleString()}
+            </div>
           </div>
-        </div>
 
-        {/* น้ำหนักรวม */}
-        <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200
+          {/* น้ำหนักรวม */}
+          <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200
                         dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-          <div className="text-slate-500 dark:text-slate-400">น้ำหนักรวม (กก.)</div>
-          <div className="text-2xl font-semibold">
-            {(Math.round(toNumber(totals.weight) * 100) / 100).toLocaleString()}
+            <div className="text-slate-500 dark:text-slate-400">น้ำหนักรวม (กก.)</div>
+            <div className="text-2xl font-semibold">
+              {(Math.round(toNumber(totals.weight) * 100) / 100).toLocaleString()}
+            </div>
           </div>
-        </div>
 
-        {/* หัก นน.รวม */}
-        <div className="rounded-2xl bg-amber-50 p-4 text-black shadow-sm ring-1 ring-amber-300
+          {/* หัก นน.รวม */}
+          <div className="rounded-2xl bg-amber-50 p-4 text-black shadow-sm ring-1 ring-amber-300
                         dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700">
-          <div className="text-amber-700 dark:text-amber-300">หัก นน.รวม (กก.)</div>
-          <div className="text-2xl font-semibold">
-            {totals.deduct.toLocaleString()}
+            <div className="text-amber-700 dark:text-amber-300">หัก นน.รวม (กก.)</div>
+            <div className="text-2xl font-semibold">
+              {totals.deduct.toLocaleString()}
+            </div>
           </div>
-        </div>
 
-        {/* 👉 แถวล่าง : มูลค่ารวม (สีเขียว) */}
-        <div className="md:col-span-3 rounded-2xl bg-emerald-50 p-6 text-black shadow-sm
+          {/* 👉 แถวล่าง : มูลค่ารวม (สีเขียว) */}
+          <div className="md:col-span-3 rounded-2xl bg-emerald-50 p-6 text-black shadow-sm
                 ring-1 ring-emerald-300
                 flex flex-col items-center justify-center text-center
                 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700">
 
-          <div className="text-emerald-700 dark:text-emerald-300">มูลค่ารวม</div>
-          <div className="text-2xl font-semibold">
-            {thb(toNumber(totals.revenue))}
-          </div>
+            <div className="text-emerald-700 dark:text-emerald-300">มูลค่ารวม</div>
+            <div className="text-2xl font-semibold">
+              {thb(toNumber(totals.revenue))}
+            </div>
 
-          {/* ✅ ราคาเฉลี่ยของ “ราคาต่อกก.” ของออเดอร์ทั้งหมดตามฟิลเตอร์ ณ ตอนนั้น */}
-          <div className="mt-2 text-sm text-emerald-700/90 dark:text-emerald-200/90">
-            ราคาเฉลี่ยต่อกก. (เฉลี่ยต่อบิล): <span className="font-semibold">{baht(toNumber(totals.avgUnitPrice))}</span>
-            {totals.unitCount ? <span className="ml-1">({totals.unitCount.toLocaleString()} รายการ)</span> : null}
+            {/* ✅ ราคาเฉลี่ยของ “ราคาต่อกก.” ของออเดอร์ทั้งหมดตามฟิลเตอร์ ณ ตอนนั้น (ทำให้เด่น + มีกล่อง) */}
+            <div
+              className="mt-4 inline-flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1
+                         rounded-2xl border-2 border-emerald-600/60 bg-white/70 px-5 py-3
+                         shadow-sm ring-1 ring-emerald-600/10
+                         dark:border-emerald-400/60 dark:bg-slate-900/30 dark:ring-emerald-400/10"
+            >
+              <span className="text-sm md:text-base font-semibold text-emerald-800 dark:text-emerald-200">
+                ราคาเฉลี่ยต่อกก. (เฉลี่ยต่อบิล)
+              </span>
+
+              <span className="text-xl md:text-2xl font-extrabold text-emerald-900 dark:text-emerald-100">
+                {baht(toNumber(totals.avgUnitPrice))}
+              </span>
+
+              <span className="text-sm md:text-base font-semibold text-emerald-800/90 dark:text-emerald-200/90">
+                บาท/กก.
+              </span>
+
+              {totals.unitCount ? (
+                <span className="text-sm md:text-base text-emerald-800/80 dark:text-emerald-200/80">
+                  ({totals.unitCount.toLocaleString()} รายการ)
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
-
 
         {/* Table */}
         <div
@@ -829,8 +842,8 @@ const totals = useMemo(() => {
               ) : mode === "buy" ? (
                 pagedRows.map((r) => {
                   const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
-                  const exit  = toNumber(r.exit_weight  ?? r.exitWeight  ?? r.exit  ?? 0)
-                  const net   = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry))
+                  const exit = toNumber(r.exit_weight ?? r.exitWeight ?? r.exit ?? 0)
+                  const net = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry))
                   const deduct = Math.max(0, entry - exit - net)
                   const price = toNumber(r.price ?? r.amountTHB ?? 0)
                   const pricePerKgRaw = toNumber(r.price_per_kilo ?? r.pricePerKilo ?? r.unit_price ?? 0)
@@ -850,7 +863,7 @@ const totals = useMemo(() => {
                       <td className="px-3 py-2 text-right">{entry.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right">{exit.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right text-amber-700 dark:text-amber-400">
-                          {deduct > 0 ? deduct.toLocaleString() : "—"}
+                        {deduct > 0 ? deduct.toLocaleString() : "—"}
                       </td>
                       <td className="px-3 py-2 text-right">{net.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right">{baht(pricePerKg)}</td>
@@ -860,7 +873,7 @@ const totals = useMemo(() => {
                 })
               ) : (
                 pagedRows.map((r) => {
-                  const net   = toNumber(r.weight ?? 0)
+                  const net = toNumber(r.weight ?? 0)
                   const price = toNumber(r.price ?? 0)
                   const pricePerKgRaw = toNumber(r.price_per_kilo ?? 0)
                   const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)

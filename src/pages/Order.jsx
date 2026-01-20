@@ -731,7 +731,7 @@ const Order = () => {
           {/* น้ำหนักรวม */}
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200
                         dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-            <div className="text-slate-500 dark:text-slate-400">น้ำหนักรวม (กก.)</div>
+            <div className="text-slate-500 dark:text-slate-400">น้ำหนักสุทธิรวม (กก.)</div>
             <div className="text-2xl font-semibold">
               {(Math.round(toNumber(totals.weight) * 100) / 100).toLocaleString()}
             </div>
@@ -765,7 +765,7 @@ const Order = () => {
                          dark:border-emerald-400/60 dark:bg-slate-900/30 dark:ring-emerald-400/10"
             >
               <span className="text-sm md:text-base font-semibold text-emerald-800 dark:text-emerald-200">
-                ราคาเฉลี่ยต่อกก. (เฉลี่ยต่อบิล)
+                ราคาเฉลี่ยต่อกก.
               </span>
 
               <span className="text-xl md:text-2xl font-extrabold text-emerald-900 dark:text-emerald-100">

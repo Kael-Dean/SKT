@@ -431,7 +431,7 @@ const MemberSearch = () => {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="ค้นหาตามชื่อหรือนามสกุล หรือเลขบัตรประชาชน"
+              placeholder="ค้นหาตามชื่อหรือนามสกุล เลขบัตรประชาชน หรือเลขทะเบียนสมาชิก"
               className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3 pr-12 text-base outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 dark:border-white/10 dark:bg-slate-800 dark:placeholder:text-slate-400 dark:focus:border-emerald-500 dark:focus:ring-emerald-500/20"
             />
             <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">

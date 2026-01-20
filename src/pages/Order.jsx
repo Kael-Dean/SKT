@@ -472,6 +472,10 @@ const totals = useMemo(() => {
   let revenue = 0
   let deduct = 0
 
+  // ✅ เฉลี่ย “ราคาต่อกก.” แบบเฉลี่ยต่อบิล (ไม่ถ่วงน้ำหนัก)
+  let sumUnitPrice = 0
+  let unitCount = 0
+
   rows.forEach((x) => {
     const entry = toNumber(x.entry_weight ?? x.entryWeight ?? x.entry ?? 0)
     const exit  = toNumber(x.exit_weight  ?? x.exitWeight  ?? x.exit  ?? 0)
@@ -482,10 +486,34 @@ const totals = useMemo(() => {
 
     const d = Math.max(0, entry - exit - net)
     deduct += d
+
+    // ✅ เอา unit price จากฟิลด์ก่อน ถ้าไม่มีค่อยคำนวณจาก price/weight
+    const rawUnit = toNumber(
+      x.price_per_kilo ??
+      x.price_per_kg ??
+      x.pricePerKilo ??
+      x.pricePerKg ??
+      x.unit_price ??
+      x.unitPrice ??
+      0
+    )
+
+    let unit = rawUnit
+    if (!unit) {
+      const p = toNumber(x.price ?? 0)
+      if (p > 0 && net > 0) unit = p / net
+    }
+
+    if (unit > 0 && Number.isFinite(unit)) {
+      sumUnitPrice += unit
+      unitCount += 1
+    }
   })
 
-  return { weight, revenue, deduct }
+  const avgUnitPrice = unitCount > 0 ? (sumUnitPrice / unitCount) : 0
+  return { weight, revenue, deduct, avgUnitPrice, unitCount }
 }, [rows])
+
 
 
   /** ---------- Pagination helpers ---------- */
@@ -733,6 +761,12 @@ const totals = useMemo(() => {
           <div className="text-emerald-700 dark:text-emerald-300">มูลค่ารวม</div>
           <div className="text-2xl font-semibold">
             {thb(toNumber(totals.revenue))}
+          </div>
+
+          {/* ✅ ราคาเฉลี่ยของ “ราคาต่อกก.” ของออเดอร์ทั้งหมดตามฟิลเตอร์ ณ ตอนนั้น */}
+          <div className="mt-2 text-sm text-emerald-700/90 dark:text-emerald-200/90">
+            ราคาเฉลี่ยต่อกก. (เฉลี่ยต่อบิล): <span className="font-semibold">{baht(toNumber(totals.avgUnitPrice))}</span>
+            {totals.unitCount ? <span className="ml-1">({totals.unitCount.toLocaleString()} รายการ)</span> : null}
           </div>
         </div>
       </div>

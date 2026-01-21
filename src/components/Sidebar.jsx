@@ -43,6 +43,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const otherMenusBase = useMemo(
     () => [
+      // ✅ เมนูใหม่: ระดับเดียวกับ "ทะเบียนสมาชิก" (เป็นปุ่มหลัก ไม่ใช่ sub menu)
+      { label: '🗺️ แผนปฏิบัติงาน', path: '/operation-plan' },
+
       { label: '📝 รายงาน', path: '/documents' },
       { label: '📦 ออเดอร์', path: '/order' },
       { label: '🌾 เพิ่มรหัสข้าว', path: '/spec/create' },
@@ -64,7 +67,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   // ---------------- สิทธิ์ตาม role ----------------
   const allowedSet = useMemo(() => {
-    const allow = new Set(['/home']);
+    // ✅ ให้ /operation-plan เห็นได้ทุก role (เพราะเป็นหน้า mock ทดสอบ)
+    const allow = new Set(['/home', '/operation-plan']);
 
     // ✅ ADMIN (role 1) → เห็นทุกอย่าง ยกเว้น "เพิ่มบริษัท" + "แก้ไขออเดอร์" (ตามเดิม)
     //    และ "เพิ่มรหัสข้าว" ให้เห็นได้ (เพราะ BE อนุญาต ADMIN)

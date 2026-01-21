@@ -23,6 +23,9 @@ import StockBringInMill from './pages/StockBringInMill'
 import MemberTermination from './pages/MemberTermination'
 import Share from './pages/Share'
 
+/** ✅ หน้าใหม่: Operation Plan (Mock) */
+import OperationPlan from './pages/organization/OperationPlan.jsx'
+
 /** ✅ หน้าใหม่: แก้ไขออเดอร์ */
 import OrderCorrection from './pages/OrderCorrection.jsx'
 
@@ -161,6 +164,10 @@ function App() {
 
       <Route element={<AppLayout />}>
         <Route path="/home" element={<Home />} />
+
+        {/* ✅ Operation Plan (Mock) */}
+        <Route path="/operation-plan" element={<OperationPlan />} />
+
         <Route path="/documents" element={<Documents />} />
 
         {/* ✅ หน้า "สร้างออเดอร์" → ทุก role ยกเว้น MKT */}

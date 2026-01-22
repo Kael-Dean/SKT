@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
-
+/*รายละเอียดแผนการรวบรวมผลผลิตการเกษตร*/
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 const toNumber = (v) => {
@@ -67,11 +67,15 @@ const ITEMS = [
   { id: "corn", name: "ข้าวโพดเลี้ยงสัตว์", unitName: "ตัน", unitPrice: "" },
 ]
 
+/** ✅ แถวที่ “มี input ให้กดลูกศรได้” (ตัด isAuto ออก) */
+const EDITABLE_ITEMS = ITEMS.filter((it) => !it.isAuto)
+
 const RICE_PART_IDS = ["rice_dry_1", "rice_dry_2", "rice_fresh_1", "rice_fresh_2", "rice_offseason"]
 
 function buildInitialQty() {
   const out = {}
-  ITEMS.forEach((it) => {
+  // ✅ สร้าง state เฉพาะแถวที่กรอกได้จริง
+  EDITABLE_ITEMS.forEach((it) => {
     out[it.id] = {}
     MONTHS.forEach((m) => {
       out[it.id][m.key] = "" // qty
@@ -82,7 +86,8 @@ function buildInitialQty() {
 
 function buildInitialPrice() {
   const out = {}
-  ITEMS.forEach((it) => {
+  // ✅ สร้าง state เฉพาะแถวที่กรอกได้จริง
+  EDITABLE_ITEMS.forEach((it) => {
     out[it.id] = String(it.unitPrice ?? "")
   })
   return out
@@ -178,6 +183,13 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
   const qtyCols = MONTHS.length
   const totalCols = 1 + qtyCols
 
+  /** ✅ Map id -> row index เฉพาะแถวที่กรอกได้ */
+  const editableIndexById = useMemo(() => {
+    const m = {}
+    EDITABLE_ITEMS.forEach((it, idx) => (m[it.id] = idx))
+    return m
+  }, [])
+
   const registerInput = useCallback((row, col) => {
     const key = `${row}|${col}`
     return (el) => {
@@ -219,6 +231,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
       const k = e.key
       if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(k)) return
 
+      // ✅ ตอนนี้ data-row คือ index ของ EDITABLE_ITEMS
       const row = Number(e.currentTarget.dataset.row ?? 0)
       const col = Number(e.currentTarget.dataset.col ?? 0)
 
@@ -230,8 +243,9 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
       if (k === "ArrowUp") nextRow = row - 1
       if (k === "ArrowDown") nextRow = row + 1
 
+      // clamp (ใช้ EDITABLE_ITEMS ไม่ใช่ ITEMS)
       if (nextRow < 0) nextRow = 0
-      if (nextRow > ITEMS.length - 1) nextRow = ITEMS.length - 1
+      if (nextRow > EDITABLE_ITEMS.length - 1) nextRow = EDITABLE_ITEMS.length - 1
       if (nextCol < 0) nextCol = 0
       if (nextCol > totalCols - 1) nextCol = totalCols - 1
 
@@ -283,11 +297,10 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
       monthAmtTotals[m.key] = 0
     })
 
-    // helper: qty of an item in a month
     const getQty = (id, mkey) => toNumber(qtyById?.[id]?.[mkey])
     const getPrice = (id) => toNumber(priceById?.[id])
 
-    // compute normal items first
+    // compute normal items first (เฉพาะแถวกรอกได้)
     ITEMS.forEach((it) => {
       if (it.isAuto) return
       itemQty[it.id] = {}
@@ -329,8 +342,8 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
     })
 
     return {
-      itemQty, // per item per month (for editable)
-      itemAmt, // per item per month
+      itemQty,
+      itemAmt,
       riceTotalQty,
       riceTotalAmt,
       riceQtySumAll,
@@ -571,7 +584,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
                 </th>
               </tr>
 
-              {/* row 3: เลขลำดับคอลัมน์แบบในเรฟ (ถ้าไม่อยากใช้ ลบได้เลย) */}
+              {/* row 3: เลขลำดับคอลัมน์แบบในเรฟ */}
               <tr className="bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                 {Array.from({ length: 3 + MONTHS.length + 2 }).map((_, i) => (
                   <th
@@ -594,6 +607,9 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
                 // แถวทึบเพื่อไม่ให้ sticky เห็นทะลุ
                 const rowBg =
                   rowIdx % 2 === 1 ? "bg-slate-50 dark:bg-slate-800" : "bg-white dark:bg-slate-900"
+
+                // ✅ row index สำหรับ arrow-nav (เฉพาะ editable)
+                const navRow = isAuto ? -1 : editableIndexById[it.id]
 
                 // qty per month
                 const qtyByMonth = MONTHS.map((m) => {
@@ -636,8 +652,8 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
                           <div className="text-center text-slate-400 dark:text-slate-500">—</div>
                         ) : (
                           <input
-                            ref={registerInput(rowIdx, 0)}
-                            data-row={rowIdx}
+                            ref={registerInput(navRow, 0)}
+                            data-row={navRow}
                             data-col={0}
                             onKeyDown={handleArrowNav}
                             className={cellInput}
@@ -672,8 +688,8 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
                             className={cx("border border-slate-200 px-2 py-2 dark:border-slate-700", stripe)}
                           >
                             <input
-                              ref={registerInput(rowIdx, col)}
-                              data-row={rowIdx}
+                              ref={registerInput(navRow, col)}
+                              data-row={navRow}
                               data-col={col}
                               onKeyDown={handleArrowNav}
                               className={cellInput}

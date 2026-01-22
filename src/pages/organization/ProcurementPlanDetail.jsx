@@ -24,7 +24,6 @@ const baseField =
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-// ✅ คงขนาดตัวอักษรเดิม
 const cellInput =
   "w-[72px] md:w-[86px] rounded-lg border border-slate-300 bg-white px-2 py-1 text-right text-[13px] md:text-sm " +
   "outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
@@ -87,28 +86,23 @@ function buildInitialPrice() {
   return out
 }
 
-/** ✅ lock width ให้ body+footer ตรงกัน */
+/** ✅ lock width ให้ตรงกันทุกส่วน */
 const COL_W = {
   product: 260,
   unit: 84,
   price: 130,
-  cell: 86, // ช่อง ปร/รับ/พร
+  cell: 86, // ปร/รับ/พร และรวม
 }
 
-/**
- * Props:
- * - branchId (string|number)
- * - branchName (string)
- * - yearBE (string)
- * - onYearBEChange(fn)
- */
+const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
+
 const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange }) => {
   const [priceById, setPriceById] = useState(() => buildInitialPrice())
   const [qtyById, setQtyById] = useState(() => buildInitialQty())
   const [showPayload, setShowPayload] = useState(false)
   const canEdit = !!branchId
 
-  /** ✅ ทำ “กล่องตาราง” ให้สูงขึ้นเต็มจอ */
+  /** ✅ ทำกล่องตารางให้สูงเต็มจอ */
   const tableCardRef = useRef(null)
   const [tableCardHeight, setTableCardHeight] = useState(680)
 
@@ -131,42 +125,28 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
     requestAnimationFrame(() => recalcTableCardHeight())
   }, [showPayload, branchName, yearBE, recalcTableCardHeight])
 
-  /** ✅ sync เลื่อนซ้าย-ขวา ระหว่าง body กับ footer */
+  /** ✅ เก็บ scrollLeft ของ body เพื่อให้ footer ขวาเลื่อนตามแบบ 1:1 */
   const bodyScrollRef = useRef(null)
-  const footerScrollRef = useRef(null)
-  const syncingRef = useRef(false)
-
-  const lockSync = () => {
-    syncingRef.current = true
-    requestAnimationFrame(() => {
-      syncingRef.current = false
-    })
-  }
+  const [scrollLeft, setScrollLeft] = useState(0)
+  const rafRef = useRef(0)
 
   const onBodyScroll = () => {
-    if (syncingRef.current) return
     const b = bodyScrollRef.current
-    const f = footerScrollRef.current
-    if (!b || !f) return
-    lockSync()
-    f.scrollLeft = b.scrollLeft
-  }
-
-  const onFooterScroll = () => {
-    if (syncingRef.current) return
-    const b = bodyScrollRef.current
-    const f = footerScrollRef.current
-    if (!b || !f) return
-    lockSync()
-    b.scrollLeft = f.scrollLeft
+    if (!b) return
+    const x = b.scrollLeft || 0
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => setScrollLeft(x))
   }
 
   useEffect(() => {
+    // sync เริ่มต้น
     requestAnimationFrame(() => {
       const b = bodyScrollRef.current
-      const f = footerScrollRef.current
-      if (b && f) f.scrollLeft = b.scrollLeft
+      if (b) setScrollLeft(b.scrollLeft || 0)
     })
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
   }, [])
 
   const setQtyCell = (itemId, monthKey, metricKey, nextValue) => {
@@ -269,7 +249,6 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
     }
   }
 
-  /** ✅ Sticky left สำหรับ “ประเภทสินค้า” (เฉพาะใน body) */
   const stickyProductHeader =
     "sticky left-0 z-[70] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
   const stickyProductCellBase =
@@ -277,12 +256,6 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
 
   return (
     <div className="space-y-4">
-      {/* CSS hide scrollbar footer */}
-      <style>{`
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { scrollbar-width: none; }
-      `}</style>
-
       {/* Header */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -297,7 +270,9 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
 
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <div>
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ปี (พ.ศ.)</label>
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                  ปี (พ.ศ.)
+                </label>
                 <input
                   className={baseField}
                   value={yearBE}
@@ -307,7 +282,9 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</label>
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                  สาขาที่เลือก
+                </label>
                 <div className={cx(baseField, "flex items-center justify-between", !canEdit && "opacity-70")}>
                   <span className="font-semibold">{branchName ? branchName : "— ยังไม่เลือกสาขา —"}</span>
                   <span className="text-sm text-slate-500 dark:text-slate-300">id: {branchId || "—"}</span>
@@ -322,7 +299,6 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
             </div>
           </div>
 
-          {/* actions */}
           <div className="flex flex-wrap gap-2 md:justify-end">
             <button
               type="button"
@@ -370,7 +346,6 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
         style={{ height: tableCardHeight }}
       >
-        {/* Title */}
         <div className="p-3 md:p-4 shrink-0">
           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
             <div className="text-base md:text-lg font-bold">
@@ -401,10 +376,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
 
             <thead className="sticky top-0 z-[60]">
               <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
-                <th
-                  rowSpan={2}
-                  className={cx("border border-slate-300 px-3 py-2 text-left dark:border-slate-600", stickyProductHeader)}
-                >
+                <th rowSpan={2} className={cx("border border-slate-300 px-3 py-2 text-left dark:border-slate-600", stickyProductHeader)}>
                   ประเภทสินค้า
                 </th>
                 <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-center dark:border-slate-600">
@@ -505,7 +477,9 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                               disabled={!canEdit}
                               inputMode="decimal"
                               placeholder="0"
-                              onChange={(e) => setQtyCell(it.id, m.key, k.key, sanitizeNumberInput(e.target.value))}
+                              onChange={(e) =>
+                                setQtyCell(it.id, m.key, k.key, sanitizeNumberInput(e.target.value))
+                              }
                             />
                           </td>
                         ))
@@ -553,90 +527,112 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
           </table>
         </div>
 
-        {/* FOOTER totals (แก้เส้นแบ่งให้ตรงกับข้างบน) */}
+        {/* FOOTER totals (แบ่งซ้าย-ขวา เพื่อให้ช่องตรงกับข้างบนเป๊ะ) */}
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20">
-          <div
-            ref={footerScrollRef}
-            onScroll={onFooterScroll}
-            className="overflow-x-auto overflow-y-hidden hide-scrollbar"
-          >
-            <table className="min-w-max w-full border-collapse text-sm">
-              <colgroup>
-                <col style={{ width: COL_W.product }} />
-                <col style={{ width: COL_W.unit }} />
-                <col style={{ width: COL_W.price }} />
-                {MONTHS.map((m) =>
-                  METRICS.map((k) => <col key={`fcol-${m.key}-${k.key}`} style={{ width: COL_W.cell }} />)
-                )}
-                {METRICS.map((k) => <col key={`fcol-total-${k.key}`} style={{ width: COL_W.cell }} />)}
-              </colgroup>
-
-              <tbody>
-                {/* รวมจำนวน */}
-                <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
-                  {/* ✅ แยก 3 ช่องจริง เพื่อให้เส้นแบ่งตรงกับด้านบน */}
-                  <td
-                    className="sticky left-0 z-[30] border border-slate-200 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 dark:border-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
-                  >
-                    รวม (จำนวน)
-                  </td>
-                  <td className="border border-slate-200 px-2 py-2 bg-emerald-50 dark:bg-emerald-900/20 dark:border-slate-700" />
-                  <td className="border border-slate-200 px-2 py-2 bg-emerald-50 dark:bg-emerald-900/20 dark:border-slate-700" />
-
-                  {MONTHS.map((m, idx) =>
-                    METRICS.map((k) => (
-                      <td
-                        key={`sum-qty-${m.key}-${k.key}`}
-                        className={cx(
-                          "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
-                          idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
-                        )}
-                      >
-                        {fmtQty(computed.monthQtyTotals?.[m.key]?.[k.key] ?? 0)}
-                      </td>
-                    ))
-                  )}
-
-                  {METRICS.map((k) => (
-                    <td key={`grand-qty-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
-                      {fmtQty(computed.grandQty?.[k.key] ?? 0)}
+          <div className="flex w-full">
+            {/* LEFT fixed (3 cols) */}
+            <div className="shrink-0" style={{ width: LEFT_W }}>
+              <table className="w-full border-collapse text-sm">
+                <colgroup>
+                  <col style={{ width: COL_W.product }} />
+                  <col style={{ width: COL_W.unit }} />
+                  <col style={{ width: COL_W.price }} />
+                </colgroup>
+                <tbody>
+                  <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
+                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700">
+                      รวม (จำนวน)
                     </td>
-                  ))}
-                </tr>
-
-                {/* รวมบาท */}
-                <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
-                  {/* ✅ แยก 3 ช่องจริง เพื่อให้เส้นแบ่งตรงกับด้านบน */}
-                  <td
-                    className="sticky left-0 z-[30] border border-slate-200 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 dark:border-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
-                  >
-                    รวม (บาท)
-                  </td>
-                  <td className="border border-slate-200 px-2 py-2 bg-emerald-50 dark:bg-emerald-900/20 dark:border-slate-700" />
-                  <td className="border border-slate-200 px-2 py-2 bg-emerald-50 dark:bg-emerald-900/20 dark:border-slate-700" />
-
-                  {MONTHS.map((m, idx) =>
-                    METRICS.map((k) => (
-                      <td
-                        key={`sum-amt-${m.key}-${k.key}`}
-                        className={cx(
-                          "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
-                          idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
-                        )}
-                      >
-                        {fmtMoney(computed.monthAmtTotals?.[m.key]?.[k.key] ?? 0)}
-                      </td>
-                    ))
-                  )}
-
-                  {METRICS.map((k) => (
-                    <td key={`grand-amt-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
-                      {fmtMoney(computed.grandAmt?.[k.key] ?? 0)}
+                    <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
+                    <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
+                  </tr>
+                  <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
+                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700">
+                      รวม (บาท)
                     </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
+                    <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
+                    <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* RIGHT follow scrollLeft (months + totals) */}
+            <div className="flex-1 overflow-hidden">
+              <div
+                style={{
+                  transform: `translateX(-${scrollLeft}px)`,
+                  willChange: "transform",
+                }}
+              >
+                <table className="min-w-max w-full border-collapse text-sm">
+                  <colgroup>
+                    {MONTHS.map((m) =>
+                      METRICS.map((k) => (
+                        <col key={`fcol-${m.key}-${k.key}`} style={{ width: COL_W.cell }} />
+                      ))
+                    )}
+                    {METRICS.map((k) => (
+                      <col key={`fcol-total-${k.key}`} style={{ width: COL_W.cell }} />
+                    ))}
+                  </colgroup>
+
+                  <tbody>
+                    {/* รวมจำนวน */}
+                    <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
+                      {MONTHS.map((m, idx) =>
+                        METRICS.map((k) => (
+                          <td
+                            key={`sum-qty-${m.key}-${k.key}`}
+                            className={cx(
+                              "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
+                              idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
+                            )}
+                          >
+                            {fmtQty(computed.monthQtyTotals?.[m.key]?.[k.key] ?? 0)}
+                          </td>
+                        ))
+                      )}
+
+                      {METRICS.map((k) => (
+                        <td
+                          key={`grand-qty-${k.key}`}
+                          className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700"
+                        >
+                          {fmtQty(computed.grandQty?.[k.key] ?? 0)}
+                        </td>
+                      ))}
+                    </tr>
+
+                    {/* รวมบาท */}
+                    <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
+                      {MONTHS.map((m, idx) =>
+                        METRICS.map((k) => (
+                          <td
+                            key={`sum-amt-${m.key}-${k.key}`}
+                            className={cx(
+                              "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
+                              idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
+                            )}
+                          >
+                            {fmtMoney(computed.monthAmtTotals?.[m.key]?.[k.key] ?? 0)}
+                          </td>
+                        ))
+                      )}
+
+                      {METRICS.map((k) => (
+                        <td
+                          key={`grand-amt-${k.key}`}
+                          className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700"
+                        >
+                          {fmtMoney(computed.grandAmt?.[k.key] ?? 0)}
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -120,7 +120,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
   const [showPayload, setShowPayload] = useState(false)
   const canEdit = !!branchId
 
-  /** ✅ ทำกล่องตารางให้สูงเต็มจอ (ปรับให้สูงขึ้น/เห็นยาวขึ้น) */
+  /** ✅ ทำกล่องตารางให้สูงเต็มจอ */
   const tableCardRef = useRef(null)
   const [tableCardHeight, setTableCardHeight] = useState(760)
 
@@ -181,26 +181,35 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
     }
   }, [])
 
+  /** ✅ FIX: หักพื้นที่คอลัมน์ sticky (ประเภทสินค้า) ตอนคำนวนว่า “เห็น/ไม่เห็น” */
   const ensureInView = useCallback((el) => {
     const container = bodyScrollRef.current
     if (!container || !el) return
 
     const pad = 12
+    const frozenLeft = COL_W.product // คอลัมน์ที่ sticky ซ้ายจริง ๆ
+
     const crect = container.getBoundingClientRect()
     const erect = el.getBoundingClientRect()
 
+    // พื้นที่ที่ “มองเห็นจริง” ของตาราง (ซ้ายต้องเริ่มหลังคอลัมน์ sticky)
+    const visibleLeft = crect.left + frozenLeft + pad
+    const visibleRight = crect.right - pad
+    const visibleTop = crect.top + pad
+    const visibleBottom = crect.bottom - pad
+
     // horizontal
-    if (erect.left < crect.left + pad) {
-      container.scrollLeft -= (crect.left + pad) - erect.left
-    } else if (erect.right > crect.right - pad) {
-      container.scrollLeft += erect.right - (crect.right - pad)
+    if (erect.left < visibleLeft) {
+      container.scrollLeft -= visibleLeft - erect.left
+    } else if (erect.right > visibleRight) {
+      container.scrollLeft += erect.right - visibleRight
     }
 
     // vertical
-    if (erect.top < crect.top + pad) {
-      container.scrollTop -= (crect.top + pad) - erect.top
-    } else if (erect.bottom > crect.bottom - pad) {
-      container.scrollTop += erect.bottom - (crect.bottom - pad)
+    if (erect.top < visibleTop) {
+      container.scrollTop -= visibleTop - erect.top
+    } else if (erect.bottom > visibleBottom) {
+      container.scrollTop += erect.bottom - visibleBottom
     }
   }, [])
 
@@ -229,7 +238,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
       const target = inputRefs.current.get(`${nextRow}|${nextCol}`)
       if (!target) return
 
-      e.preventDefault() // กันเคอร์เซอร์ใน input วิ่งแทน
+      e.preventDefault()
       target.focus()
       try {
         target.select()
@@ -343,10 +352,11 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
     }
   }
 
+  /** ✅ FIX: เพิ่ม z-index ของ sticky + ทำพื้นหลังทึบ (ไม่เห็นตารางหลัง) */
   const stickyProductHeader =
-    "sticky left-0 z-[70] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+    "sticky left-0 z-[90] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
   const stickyProductCellBase =
-    "sticky left-0 z-[25] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+    "sticky left-0 z-[60] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
 
   return (
     <div className="space-y-3">
@@ -468,14 +478,11 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
               {METRICS.map((k) => <col key={`col-total-${k.key}`} style={{ width: COL_W.cell }} />)}
             </colgroup>
 
-            <thead className="sticky top-0 z-[60]">
+            <thead className="sticky top-0 z-[80]">
               <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
                 <th
                   rowSpan={2}
-                  className={cx(
-                    "border border-slate-300 px-3 py-2 text-left dark:border-slate-600",
-                    stickyProductHeader
-                  )}
+                  className={cx("border border-slate-300 px-3 py-2 text-left dark:border-slate-600", stickyProductHeader)}
                 >
                   ประเภทสินค้า
                 </th>
@@ -490,10 +497,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                   <th
                     key={m.key}
                     colSpan={METRICS.length}
-                    className={cx(
-                      "border border-slate-300 px-3 py-2 text-center font-bold dark:border-slate-600",
-                      monthStripeHead(idx)
-                    )}
+                    className={cx("border border-slate-300 px-3 py-2 text-center font-bold dark:border-slate-600", monthStripeHead(idx))}
                   >
                     {m.label}
                   </th>
@@ -509,10 +513,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                   METRICS.map((k) => (
                     <th
                       key={`${m.key}-${k.key}`}
-                      className={cx(
-                        "border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600",
-                        monthStripeHead(idx)
-                      )}
+                      className={cx("border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600", monthStripeHead(idx))}
                     >
                       {k.label}
                     </th>
@@ -530,8 +531,12 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
             <tbody>
               {DEFAULT_ITEMS.map((it, rowIdx) => {
                 const price = toNumber(priceById[it.id])
+
+                /** ✅ FIX: แถวทึบ (ไม่โปร่ง) เพื่อไม่เห็น/ไม่กดโดนของข้างหลัง sticky */
                 const rowBg =
-                  rowIdx % 2 === 1 ? "bg-slate-50/70 dark:bg-slate-800/70" : "bg-white dark:bg-slate-800"
+                  rowIdx % 2 === 1
+                    ? "bg-slate-50 dark:bg-slate-800"
+                    : "bg-white dark:bg-slate-900"
 
                 return (
                   <Fragment key={it.id}>
@@ -694,7 +699,10 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                         ))
                       )}
                       {METRICS.map((k) => (
-                        <td key={`grand-qty-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                        <td
+                          key={`grand-qty-${k.key}`}
+                          className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700"
+                        >
                           {fmtQty(computed.grandQty?.[k.key] ?? 0)}
                         </td>
                       ))}
@@ -715,7 +723,10 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                         ))
                       )}
                       {METRICS.map((k) => (
-                        <td key={`grand-amt-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                        <td
+                          key={`grand-amt-${k.key}`}
+                          className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700"
+                        >
                           {fmtMoney(computed.grandAmt?.[k.key] ?? 0)}
                         </td>
                       ))}

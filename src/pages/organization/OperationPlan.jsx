@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import ProcurementPlanDetail from "./ProcurementPlanDetail"
-import AgriCollectionPlanTable from "./AgriCollectionPlanTable" // ✅ เพิ่มตารางใหม่ตามรูป
+import AgriCollectionPlanTable from "./AgriCollectionPlanTable"
+import AgriProcessingPlanTable from "./AgriProcessingPlanTable" // ✅ เพิ่มตารางใหม่: แผนการแปรรูปฯ
 
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -209,13 +210,18 @@ const TABLES = [
     description: "ตารางกรอกข้อมูลตามแบบ Excel (เม.ย.–มี.ค. | ปร/รับ/พร) + คำนวณยอดให้",
     Component: ProcurementPlanDetail,
   },
-
-  // ✅ ตารางใหม่ตามรูป
   {
     key: "agri-collection-plan-detail",
     label: "รายละเอียดแผนการรวบรวมผลผลิตการเกษตร",
     description: "ตารางตามแบบเรฟ (เม.ย.–มี.ค.) กรอกจำนวน/ราคา แล้วระบบคำนวณบาท + รวมรายเดือน/รวมทั้งปี",
     Component: AgriCollectionPlanTable,
+  },
+  // ✅ เพิ่มตารางใหม่: แผนการแปรรูปผลผลิตการเกษตร
+  {
+    key: "agri-processing-plan-detail",
+    label: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร",
+    description: "ตารางตามเรฟ (เม.ย.–มี.ค.) กรอกตัน/ราคา แล้วระบบคำนวณบาท + รวมรายเดือน/รวมทั้งปี",
+    Component: AgriProcessingPlanTable,
   },
 ]
 
@@ -348,7 +354,7 @@ const OperationPlan = () => {
             </div>
           </div>
 
-          {/* Quick summary line */}
+          {/* Quick summary */}
           <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-700 dark:text-slate-200">
               <span className="font-semibold">สาขา:</span> {branchName ? branchName : "—"}
@@ -358,9 +364,7 @@ const OperationPlan = () => {
 
             <button
               type="button"
-              onClick={() => {
-                setBranchId("")
-              }}
+              onClick={() => setBranchId("")}
               className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
                          hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
                          dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"

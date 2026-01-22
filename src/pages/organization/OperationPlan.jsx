@@ -1,115 +1,201 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from "react"
+import { apiAuth } from "../../lib/api"
+import ProcurementPlanDetail from "./ProcurementPlanDetail"
+
+const cx = (...a) => a.filter(Boolean).join(" ")
+
+const baseField =
+  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
+  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
+  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
+
+const TABLES = [
+  {
+    key: "procurement-plan-detail",
+    label: "รายละเอียดแผนการจัดหาสินค้า",
+    description: "ตารางกรอกข้อมูลตามแบบ Excel (เม.ย.–มี.ค. | ปร/รับ/พร) + คำนวณยอดให้",
+    Component: ProcurementPlanDetail,
+  },
+  // เพิ่มตารางอื่นในอนาคตได้ที่นี่:
+  // { key: "xxx", label: "ชื่อตาราง", description: "...", Component: YourTableComponent },
+]
 
 const OperationPlan = () => {
   useEffect(() => {
-    document.title = 'แผนปฏิบัติงาน (Operation Plan)'
+    document.title = "แผนปฏิบัติงาน (Operation Plan)"
   }, [])
 
-  const mockRows = [
-    { no: 1, topic: 'สรุปเป้าหมายรายเดือน', owner: 'ฝ่ายจัดการ', status: 'รอเริ่ม' },
-    { no: 2, topic: 'แผนรับเข้า/โอนออก (ตัวอย่าง)', owner: 'คลังสินค้า', status: 'กำลังทำ' },
-    { no: 3, topic: 'ตรวจสอบรายการสมาชิก/หุ้น (ตัวอย่าง)', owner: 'ทะเบียนสมาชิก', status: 'เสร็จแล้ว' },
-  ]
+  const [yearBE, setYearBE] = useState("2568")
 
-  const statusPill = (s) => {
-    const base =
-      'inline-flex items-center rounded-full px-3 py-1 text-xs md:text-sm font-semibold ring-1'
-    if (s === 'เสร็จแล้ว')
-      return `${base} bg-emerald-100 text-emerald-800 ring-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:ring-emerald-800/60`
-    if (s === 'กำลังทำ')
-      return `${base} bg-amber-100 text-amber-800 ring-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:ring-amber-800/60`
-    return `${base} bg-gray-100 text-gray-800 ring-gray-200 dark:bg-gray-800/60 dark:text-gray-200 dark:ring-gray-700/70`
-  }
+  // branches
+  const [loadingBranches, setLoadingBranches] = useState(false)
+  const [branchOptions, setBranchOptions] = useState([])
+  const [branchId, setBranchId] = useState("")
+
+  // selected table
+  const [tableKey, setTableKey] = useState(TABLES[0]?.key || "")
+
+  useEffect(() => {
+    const loadBranches = async () => {
+      try {
+        setLoadingBranches(true)
+        const branches = await apiAuth(`/order/branch/search`)
+        const opts = (Array.isArray(branches) ? branches : [])
+          .map((x) => ({
+            id: String(x.id),
+            label: String(x.branch_name || x.name || `สาขา #${x.id}`),
+          }))
+          .filter((o) => o.id && o.label)
+
+        setBranchOptions(opts)
+      } catch (e) {
+        console.error("load branches failed:", e)
+        setBranchOptions([])
+      } finally {
+        setLoadingBranches(false)
+      }
+    }
+    loadBranches()
+  }, [])
+
+  const branchName = useMemo(() => {
+    return branchOptions.find((b) => String(b.id) === String(branchId))?.label || ""
+  }, [branchOptions, branchId])
+
+  const activeTable = useMemo(() => {
+    return TABLES.find((t) => t.key === tableKey) || null
+  }, [tableKey])
+
+  const ActiveComponent = activeTable?.Component || null
+
+  const canShowTable = !!branchId && !!ActiveComponent
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-              🗺️ แผนปฏิบัติงาน (Operation Plan)
-            </h1>
-            <p className="mt-1 text-sm md:text-base text-gray-600 dark:text-gray-300">
-              หน้านี้เป็น “หน้าจำลอง” สำหรับทดสอบว่า Route + Sidebar เปิดหน้านี้ได้จริง
-            </p>
-          </div>
-
-          <span className="self-start sm:self-auto rounded-full bg-indigo-100 px-3 py-1 text-xs md:text-sm font-semibold text-indigo-800 ring-1 ring-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200 dark:ring-indigo-800/60">
-            TEST PAGE
-          </span>
-        </div>
-
-        <div className="rounded-2xl bg-white/80 dark:bg-gray-900/50 ring-1 ring-gray-200/80 dark:ring-gray-700/70 shadow-sm p-4 md:p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                สิ่งที่หน้านี้ใช้ทดสอบ
+    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
+      <div className="mx-auto max-w-[1400px] p-4 md:p-6">
+        {/* Header */}
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-extrabold">🗺️ แผนปฏิบัติงาน</h1>
+              <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                เลือกสาขา → เลือกตาราง → กรอกข้อมูล (ตารางถูกแยกเป็นไฟล์ย่อยเรียกใช้งานได้)
               </div>
-              <ul className="mt-3 space-y-2 text-sm md:text-base text-gray-700 dark:text-gray-200">
-                <li>✅ กดเมนู “แผนปฏิบัติงาน” ใน Sidebar แล้วเปิดหน้านี้ได้</li>
-                <li>
-                  ✅ URL เปลี่ยนเป็น{' '}
-                  <span className="font-semibold">/operation-plan</span>
-                </li>
-                <li>✅ รีเฟรชหน้าแล้วยังอยู่หน้าเดิม (ไม่เด้งกลับ)</li>
-                <li>✅ ไม่เรียก API / ไม่มีผลกับระบบจริง</li>
-              </ul>
             </div>
 
-            <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-4">
-              <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                หมายเหตุ
-              </div>
-              <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
-                ถ้าต้องการให้หน้านี้ “ทำงานจริง” ภายหลัง ค่อยเพิ่มฟอร์ม/ตาราง/เรียก API
-                ได้เลย แต่ตอนนี้ตั้งใจทำให้เป็น Mock เพื่อทดสอบการเปิดหน้าเท่านั้นครับ
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-2xl bg-white/80 dark:bg-gray-900/50 ring-1 ring-gray-200/80 dark:ring-gray-700/70 shadow-sm p-4 md:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              ตารางตัวอย่าง (Mock Data)
-            </div>
-            <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-              แสดงข้อมูลจำลอง
+            <div className="inline-flex items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-200">
+              MODE: Form Entry
             </div>
           </div>
 
-          <div className="mt-3 overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-700 dark:text-gray-200">
-                  <th className="py-2 pr-4">ลำดับ</th>
-                  <th className="py-2 pr-4">หัวข้อ</th>
-                  <th className="py-2 pr-4">ผู้รับผิดชอบ</th>
-                  <th className="py-2 pr-4">สถานะ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mockRows.map((r) => (
-                  <tr
-                    key={r.no}
-                    className="border-t border-gray-200/80 dark:border-gray-700/70"
-                  >
-                    <td className="py-3 pr-4 text-gray-900 dark:text-gray-100">{r.no}</td>
-                    <td className="py-3 pr-4 text-gray-900 dark:text-gray-100">{r.topic}</td>
-                    <td className="py-3 pr-4 text-gray-700 dark:text-gray-200">{r.owner}</td>
-                    <td className="py-3 pr-4">
-                      <span className={statusPill(r.status)}>{r.status}</span>
-                    </td>
-                  </tr>
+          {/* Controls */}
+          <div className="mt-4 grid gap-3 md:grid-cols-12">
+            <div className="md:col-span-3">
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                ปี (พ.ศ.)
+              </label>
+              <input
+                className={baseField}
+                value={yearBE}
+                onChange={(e) => setYearBE(e.target.value)}
+                placeholder="เช่น 2568"
+              />
+            </div>
+
+            <div className="md:col-span-5">
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                เลือกสาขา (ดึงจาก API เดิม)
+              </label>
+              <select
+                className={baseField}
+                value={branchId}
+                onChange={(e) => setBranchId(e.target.value)}
+                disabled={loadingBranches}
+              >
+                <option value="">
+                  {loadingBranches ? "กำลังโหลดสาขา..." : "— เลือกสาขา —"}
+                </option>
+                {branchOptions.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.label}
+                  </option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+
+              {!branchId && (
+                <div className="mt-2 text-sm text-red-600 dark:text-red-400">
+                  * กรุณาเลือกสาขาก่อน
+                </div>
+              )}
+            </div>
+
+            <div className="md:col-span-4">
+              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                เลือกตารางที่จะกรอก
+              </label>
+              <select
+                className={baseField}
+                value={tableKey}
+                onChange={(e) => setTableKey(e.target.value)}
+              >
+                {TABLES.map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+
+              <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                {activeTable?.description || ""}
+              </div>
+            </div>
           </div>
 
-          <div className="mt-4 text-xs md:text-sm text-gray-500 dark:text-gray-400">
-            * ถ้าหน้านี้ขึ้นแปลว่า Route ทำงานถูกต้องแล้วครับ
+          {/* Quick summary line */}
+          <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="text-sm text-slate-700 dark:text-slate-200">
+              <span className="font-semibold">สาขา:</span>{" "}
+              {branchName ? branchName : "—"}
+              <span className="mx-2 text-slate-400">|</span>
+              <span className="font-semibold">ตาราง:</span>{" "}
+              {activeTable?.label || "—"}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setBranchId("")
+                // ไม่ reset tableKey เพราะปกติคนจะใช้ตารางเดิม
+              }}
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
+                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
+                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+            >
+              เปลี่ยนสาขา
+            </button>
           </div>
         </div>
+
+        {/* Content */}
+        {!canShowTable ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
+            <div className="mt-2 text-slate-600 dark:text-slate-300">
+              กรุณาเลือก <span className="font-semibold">สาขา</span> ก่อน แล้วระบบจะแสดงตารางที่เลือกไว้ให้กรอก
+            </div>
+          </div>
+        ) : (
+          <div className="mt-2">
+            {/* ✅ เรียกใช้งาน “ไฟล์แยก” ตรงนี้ */}
+            <ActiveComponent
+              key={`${tableKey}-${branchId}-${yearBE}`} // remount เมื่อเปลี่ยนสาขาหรือปี เพื่อไม่ให้ค่าค้าง
+              branchId={branchId}
+              branchName={branchName}
+              yearBE={yearBE}
+              onYearBEChange={setYearBE}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,0 +1,546 @@
+import { useMemo, useState } from "react"
+
+/** ---------------- Utils ---------------- */
+const cx = (...a) => a.filter(Boolean).join(" ")
+const toNumber = (v) => {
+  if (v === "" || v === null || v === undefined) return 0
+  const n = Number(String(v).replace(/,/g, ""))
+  return Number.isFinite(n) ? n : 0
+}
+const sanitizeNumberInput = (s) => {
+  // อนุญาตเฉพาะตัวเลข + จุดทศนิยม 1 จุด
+  const cleaned = String(s ?? "").replace(/[^\d.]/g, "")
+  const parts = cleaned.split(".")
+  if (parts.length <= 2) return cleaned
+  return `${parts[0]}.${parts.slice(1).join("")}`
+}
+const fmtQty = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 3 }).format(toNumber(n))
+const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(toNumber(n))
+
+/** ---------------- UI styles ---------------- */
+const baseField =
+  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
+  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
+  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
+
+const cellInput =
+  "w-[72px] md:w-[86px] rounded-lg border border-slate-300 bg-white px-2 py-1 text-right text-[13px] md:text-sm " +
+  "outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
+  "dark:border-slate-600 dark:bg-slate-900/40 dark:text-slate-100"
+
+/** ---------------- Table definition ---------------- */
+/** ตามรูปเป็นรอบปีงบประมาณ เม.ย. -> มี.ค. */
+const MONTHS = [
+  { key: "m04", label: "เม.ย.", month: 4 },
+  { key: "m05", label: "พ.ค.", month: 5 },
+  { key: "m06", label: "มิ.ย.", month: 6 },
+  { key: "m07", label: "ก.ค.", month: 7 },
+  { key: "m08", label: "ส.ค.", month: 8 },
+  { key: "m09", label: "ก.ย.", month: 9 },
+  { key: "m10", label: "ต.ค.", month: 10 },
+  { key: "m11", label: "พ.ย.", month: 11 },
+  { key: "m12", label: "ธ.ค.", month: 12 },
+  { key: "m01", label: "ม.ค.", month: 1 },
+  { key: "m02", label: "ก.พ.", month: 2 },
+  { key: "m03", label: "มี.ค.", month: 3 },
+]
+
+/** ช่องย่อย 3 ช่องตามหัวตารางในรูป: ปร / รับ / พร */
+const METRICS = [
+  { key: "pr", label: "ปร" },
+  { key: "recv", label: "รับ" },
+  { key: "ph", label: "พร" },
+]
+
+/** รายการสินค้า (ปรับชื่อ/หน่วย/ราคาได้ทีหลัง) */
+const DEFAULT_ITEMS = [
+  { id: "fertilizer", name: "ปุ๋ย", unit: "ตัน", unitPrice: 16.5 },
+  { id: "seed", name: "เมล็ดพันธุ์ (จัดหา)", unit: "ตัน", unitPrice: 25.0 },
+  { id: "chem", name: "เคมีการเกษตร", unit: "ขวด", unitPrice: 0.5 },
+  { id: "agri_machine_vat", name: "จักรกลเกษตร (VAT)", unit: "เครื่อง", unitPrice: 6.0 },
+  { id: "general_vat", name: "สินค้าทั่วไป (VAT)", unit: "ชิ้น", unitPrice: 0.05 },
+  { id: "animal_feed", name: "อาหารสัตว์", unit: "ลัง", unitPrice: 0.6 },
+  { id: "general", name: "สินค้าทั่วไป", unit: "ชิ้น", unitPrice: 0.008 },
+  { id: "fruit", name: "ผลไม้", unit: "กก.", unitPrice: 0.016 },
+  { id: "fuel", name: "น้ำมันเชื้อเพลิง", unit: "ลิตร", unitPrice: 33.0 },
+  { id: "consignment_machine", name: "จักรกลฝากขาย", unit: "เครื่อง", unitPrice: 1.0 },
+]
+
+function buildInitialQty() {
+  const out = {}
+  DEFAULT_ITEMS.forEach((it) => {
+    out[it.id] = {}
+    MONTHS.forEach((m) => {
+      out[it.id][m.key] = {}
+      METRICS.forEach((k) => {
+        out[it.id][m.key][k.key] = ""
+      })
+    })
+  })
+  return out
+}
+
+function buildInitialPrice() {
+  const out = {}
+  DEFAULT_ITEMS.forEach((it) => {
+    out[it.id] = String(it.unitPrice ?? "")
+  })
+  return out
+}
+
+/**
+ * Props:
+ * - branchId (string|number) : มาจาก OperationPlan
+ * - branchName (string)      : มาจาก OperationPlan
+ * - yearBE (string)          : มาจาก OperationPlan
+ * - onYearBEChange(fn)       : มาจาก OperationPlan
+ */
+const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange }) => {
+  const [priceById, setPriceById] = useState(() => buildInitialPrice())
+  const [qtyById, setQtyById] = useState(() => buildInitialQty())
+  const [showPayload, setShowPayload] = useState(false)
+
+  const canEdit = !!branchId
+
+  const setQtyCell = (itemId, monthKey, metricKey, nextValue) => {
+    setQtyById((prev) => {
+      const copy = { ...prev }
+      const a = { ...(copy[itemId] || {}) }
+      const b = { ...(a[monthKey] || {}) }
+      b[metricKey] = nextValue
+      a[monthKey] = b
+      copy[itemId] = a
+      return copy
+    })
+  }
+
+  const setUnitPrice = (itemId, nextValue) => {
+    setPriceById((prev) => ({ ...prev, [itemId]: nextValue }))
+  }
+
+  const computed = useMemo(() => {
+    const itemQtyTotals = {}
+    const itemAmtTotals = {}
+    const monthQtyTotals = {}
+    const monthAmtTotals = {}
+    const grandQty = { pr: 0, recv: 0, ph: 0 }
+    const grandAmt = { pr: 0, recv: 0, ph: 0 }
+
+    MONTHS.forEach((m) => {
+      monthQtyTotals[m.key] = { pr: 0, recv: 0, ph: 0 }
+      monthAmtTotals[m.key] = { pr: 0, recv: 0, ph: 0 }
+    })
+
+    DEFAULT_ITEMS.forEach((it) => {
+      const price = toNumber(priceById[it.id])
+      itemQtyTotals[it.id] = { pr: 0, recv: 0, ph: 0 }
+      itemAmtTotals[it.id] = { pr: 0, recv: 0, ph: 0 }
+
+      MONTHS.forEach((m) => {
+        METRICS.forEach((k) => {
+          const q = toNumber(qtyById?.[it.id]?.[m.key]?.[k.key])
+          const amt = q * price
+
+          itemQtyTotals[it.id][k.key] += q
+          itemAmtTotals[it.id][k.key] += amt
+
+          monthQtyTotals[m.key][k.key] += q
+          monthAmtTotals[m.key][k.key] += amt
+
+          grandQty[k.key] += q
+          grandAmt[k.key] += amt
+        })
+      })
+    })
+
+    return { itemQtyTotals, itemAmtTotals, monthQtyTotals, monthAmtTotals, grandQty, grandAmt }
+  }, [qtyById, priceById])
+
+  const resetAll = () => {
+    if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
+    setPriceById(buildInitialPrice())
+    setQtyById(buildInitialQty())
+  }
+
+  const payload = useMemo(() => {
+    return {
+      table_code: "PROCUREMENT_PLAN_DETAIL",
+      table_name: "รายละเอียดแผนการจัดหาสินค้า",
+      year_be: yearBE,
+      branch_id: branchId ? Number(branchId) : null,
+      branch_name: branchName || null,
+      metrics: METRICS.map((m) => ({ key: m.key, label: m.label })),
+      months: MONTHS.map((m) => ({ key: m.key, label: m.label, month: m.month })),
+      items: DEFAULT_ITEMS.map((it) => ({
+        id: it.id,
+        name: it.name,
+        unit: it.unit,
+        unit_price: toNumber(priceById[it.id]),
+        values: MONTHS.reduce((acc, m) => {
+          acc[m.key] = METRICS.reduce((acc2, k) => {
+            acc2[k.key] = toNumber(qtyById?.[it.id]?.[m.key]?.[k.key])
+            return acc2
+          }, {})
+          return acc
+        }, {}),
+      })),
+      totals: {
+        grand_qty: computed.grandQty,
+        grand_amount: computed.grandAmt,
+      },
+    }
+  }, [yearBE, branchId, branchName, qtyById, priceById, computed.grandQty, computed.grandAmt])
+
+  const copyPayload = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
+      alert("คัดลอก JSON payload แล้ว ✅")
+    } catch (e) {
+      console.error(e)
+      alert("คัดลอกไม่สำเร็จ — เปิด payload แล้ว copy เองได้ครับ")
+      setShowPayload(true)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header (ของตารางนี้) */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="flex-1">
+            <div className="text-center md:text-left">
+              <div className="text-lg font-bold">ยอดขาย</div>
+              <div className="text-xl md:text-2xl font-extrabold">รายละเอียดแผนการจัดหาสินค้า</div>
+              <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                หน่วย: พันบาท (คำนวณจาก จำนวน × ราคา/หน่วย)
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                  ปี (พ.ศ.)
+                </label>
+                <input
+                  className={baseField}
+                  value={yearBE}
+                  onChange={(e) => onYearBEChange?.(e.target.value)}
+                  placeholder="เช่น 2568"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+                  สาขาที่เลือก
+                </label>
+                <div
+                  className={cx(
+                    baseField,
+                    "flex items-center justify-between",
+                    !canEdit && "opacity-70"
+                  )}
+                >
+                  <span className="font-semibold">
+                    {branchName ? branchName : "— ยังไม่เลือกสาขา —"}
+                  </span>
+                  <span className="text-sm text-slate-500 dark:text-slate-300">
+                    id: {branchId || "—"}
+                  </span>
+                </div>
+
+                {!canEdit && (
+                  <div className="mt-2 text-sm text-red-600 dark:text-red-400">
+                    * กลับไปเลือกสาขาด้านบนก่อน ถึงจะเริ่มกรอกได้
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* actions */}
+          <div className="flex flex-wrap gap-2 md:justify-end">
+            <button
+              type="button"
+              onClick={copyPayload}
+              className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white
+                         shadow-[0_6px_16px_rgba(16,185,129,0.35)]
+                         hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition cursor-pointer"
+            >
+              คัดลอก JSON (รอส่ง BE)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowPayload((v) => !v)}
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800
+                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
+                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+            >
+              {showPayload ? "ซ่อน payload" : "ดู payload"}
+            </button>
+
+            <button
+              type="button"
+              onClick={resetAll}
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800
+                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
+                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+            >
+              ล้างข้อมูล
+            </button>
+          </div>
+        </div>
+
+        {showPayload && (
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800
+                          dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
+            <pre className="max-h-72 overflow-auto">{JSON.stringify(payload, null, 2)}</pre>
+          </div>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="p-3 md:p-4">
+          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+            <div className="text-base md:text-lg font-bold">
+              ตารางกรอกข้อมูล (Mock) — {branchName ? `สาขา: ${branchName}` : "ยังไม่เลือกสาขา"}
+            </div>
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              * กรอก “จำนวน” แล้วระบบคำนวณ “บาท” ให้ (ยังไม่ส่ง BE)
+            </div>
+          </div>
+        </div>
+
+        <div className="max-h-[70vh] overflow-auto border-t border-slate-200 dark:border-slate-700">
+          <table className="min-w-max w-full border-collapse text-sm">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
+                <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-left dark:border-slate-600">
+                  ประเภทสินค้า
+                </th>
+                <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-center dark:border-slate-600">
+                  หน่วย
+                </th>
+                <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-center dark:border-slate-600">
+                  ราคา/หน่วย
+                </th>
+
+                {MONTHS.map((m, idx) => (
+                  <th
+                    key={m.key}
+                    colSpan={METRICS.length}
+                    className={cx(
+                      "border border-slate-300 px-3 py-2 text-center font-bold dark:border-slate-600",
+                      idx % 2 === 1 && "bg-slate-200/70 dark:bg-slate-600/60"
+                    )}
+                  >
+                    {m.label}
+                  </th>
+                ))}
+
+                <th colSpan={METRICS.length} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
+                  รวมทั้งหมด
+                </th>
+              </tr>
+
+              <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
+                {MONTHS.map((m, idx) =>
+                  METRICS.map((k) => (
+                    <th
+                      key={`${m.key}-${k.key}`}
+                      className={cx(
+                        "border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600",
+                        idx % 2 === 1 && "bg-slate-200/70 dark:bg-slate-600/60"
+                      )}
+                    >
+                      {k.label}
+                    </th>
+                  ))
+                )}
+
+                {METRICS.map((k) => (
+                  <th
+                    key={`total-${k.key}`}
+                    className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600"
+                  >
+                    {k.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody>
+              {DEFAULT_ITEMS.map((it, rowIdx) => {
+                const price = toNumber(priceById[it.id])
+
+                return (
+                  <>
+                    {/* row: qty */}
+                    <tr
+                      key={`${it.id}-qty`}
+                      className={cx(
+                        "bg-white dark:bg-slate-800",
+                        rowIdx % 2 === 1 && "bg-slate-50/70 dark:bg-slate-800/70"
+                      )}
+                    >
+                      <td rowSpan={2} className="border border-slate-200 px-3 py-2 font-semibold dark:border-slate-700">
+                        {it.name}
+                      </td>
+
+                      <td rowSpan={2} className="border border-slate-200 px-3 py-2 text-center dark:border-slate-700">
+                        {it.unit}
+                      </td>
+
+                      <td rowSpan={2} className="border border-slate-200 px-3 py-2 dark:border-slate-700">
+                        <input
+                          className={cx(cellInput, "w-[92px] md:w-[110px]")}
+                          value={priceById[it.id] ?? ""}
+                          disabled={!canEdit}
+                          inputMode="decimal"
+                          placeholder="0"
+                          onChange={(e) => setUnitPrice(it.id, sanitizeNumberInput(e.target.value))}
+                          title="ราคา/หน่วย (หน่วยเงิน: พันบาท ตามแบบฟอร์ม)"
+                        />
+                      </td>
+
+                      {MONTHS.map((m, idx) =>
+                        METRICS.map((k) => (
+                          <td
+                            key={`${it.id}-${m.key}-${k.key}-qty`}
+                            className={cx(
+                              "border border-slate-200 px-2 py-2 dark:border-slate-700",
+                              idx % 2 === 1 && "bg-slate-100/60 dark:bg-slate-700/30"
+                            )}
+                          >
+                            <input
+                              className={cellInput}
+                              value={qtyById?.[it.id]?.[m.key]?.[k.key] ?? ""}
+                              disabled={!canEdit}
+                              inputMode="decimal"
+                              placeholder="0"
+                              onChange={(e) =>
+                                setQtyCell(it.id, m.key, k.key, sanitizeNumberInput(e.target.value))
+                              }
+                            />
+                          </td>
+                        ))
+                      )}
+
+                      {/* totals qty (per item) */}
+                      {METRICS.map((k) => (
+                        <td
+                          key={`${it.id}-${k.key}-qty-total`}
+                          className="border border-slate-200 px-2 py-2 text-right font-bold dark:border-slate-700"
+                        >
+                          {fmtQty(computed.itemQtyTotals?.[it.id]?.[k.key] ?? 0)}
+                        </td>
+                      ))}
+                    </tr>
+
+                    {/* row: money */}
+                    <tr
+                      key={`${it.id}-amt`}
+                      className={cx(
+                        "bg-white dark:bg-slate-800",
+                        rowIdx % 2 === 1 && "bg-slate-50/70 dark:bg-slate-800/70"
+                      )}
+                    >
+                      {MONTHS.map((m, idx) =>
+                        METRICS.map((k) => {
+                          const q = toNumber(qtyById?.[it.id]?.[m.key]?.[k.key])
+                          const amt = q * price
+                          return (
+                            <td
+                              key={`${it.id}-${m.key}-${k.key}-amt`}
+                              className={cx(
+                                "border border-slate-200 px-2 py-2 text-right text-slate-700 dark:border-slate-700 dark:text-slate-200",
+                                idx % 2 === 1 && "bg-slate-100/60 dark:bg-slate-700/30"
+                              )}
+                              title="บาท (คำนวณอัตโนมัติ)"
+                            >
+                              {fmtMoney(amt)}
+                            </td>
+                          )
+                        })
+                      )}
+
+                      {/* totals money (per item) */}
+                      {METRICS.map((k) => (
+                        <td
+                          key={`${it.id}-${k.key}-amt-total`}
+                          className="border border-slate-200 px-2 py-2 text-right font-extrabold text-slate-800 dark:border-slate-700 dark:text-slate-100"
+                        >
+                          {fmtMoney(computed.itemAmtTotals?.[it.id]?.[k.key] ?? 0)}
+                        </td>
+                      ))}
+                    </tr>
+                  </>
+                )
+              })}
+
+              {/* totals rows */}
+              <tr className="bg-emerald-50 font-extrabold text-slate-900 dark:bg-emerald-900/20 dark:text-emerald-100">
+                <td colSpan={3} className="border border-slate-200 px-3 py-2 dark:border-slate-700">
+                  รวม (จำนวน)
+                </td>
+
+                {MONTHS.map((m, idx) =>
+                  METRICS.map((k) => (
+                    <td
+                      key={`sum-qty-${m.key}-${k.key}`}
+                      className={cx(
+                        "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
+                        idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
+                      )}
+                    >
+                      {fmtQty(computed.monthQtyTotals?.[m.key]?.[k.key] ?? 0)}
+                    </td>
+                  ))
+                )}
+
+                {METRICS.map((k) => (
+                  <td key={`grand-qty-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                    {fmtQty(computed.grandQty?.[k.key] ?? 0)}
+                  </td>
+                ))}
+              </tr>
+
+              <tr className="bg-emerald-50 font-extrabold text-slate-900 dark:bg-emerald-900/20 dark:text-emerald-100">
+                <td colSpan={3} className="border border-slate-200 px-3 py-2 dark:border-slate-700">
+                  รวม (บาท)
+                </td>
+
+                {MONTHS.map((m, idx) =>
+                  METRICS.map((k) => (
+                    <td
+                      key={`sum-amt-${m.key}-${k.key}`}
+                      className={cx(
+                        "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
+                        idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
+                      )}
+                    >
+                      {fmtMoney(computed.monthAmtTotals?.[m.key]?.[k.key] ?? 0)}
+                    </td>
+                  ))
+                )}
+
+                {METRICS.map((k) => (
+                  <td key={`grand-amt-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                    {fmtMoney(computed.grandAmt?.[k.key] ?? 0)}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="p-3 md:p-4 text-sm text-slate-600 dark:text-slate-300">
+          หมายเหตุ: ตอนนี้ยังเป็น Mock สำหรับกรอกข้อมูล/รวมยอด/เตรียม JSON เท่านั้น (ยังไม่บันทึกลง BE)
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default ProcurementPlanDetail

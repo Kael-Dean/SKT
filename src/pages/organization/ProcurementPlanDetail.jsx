@@ -29,7 +29,7 @@ const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
   "text-right text-[13px] md:text-sm outline-none " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-600 dark:bg-slate-900/40 dark:text-slate-100"
+  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
 /** ---------------- Table definition ---------------- */
 const MONTHS = [

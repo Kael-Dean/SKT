@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -14,10 +14,8 @@ const sanitizeNumberInput = (s) => {
   if (parts.length <= 2) return cleaned
   return `${parts[0]}.${parts.slice(1).join("")}`
 }
-const fmtQty = (n) =>
-  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 3 }).format(toNumber(n))
-const fmtMoney = (n) =>
-  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(toNumber(n))
+const fmtQty = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 3 }).format(toNumber(n))
+const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(toNumber(n))
 
 /** ---------------- UI styles ---------------- */
 const baseField =
@@ -25,10 +23,8 @@ const baseField =
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-// ✅ ทำช่องกรอกให้ใหญ่ขึ้น
 const cellInput =
-  "w-[98px] md:w-[120px] h-11 md:h-12 rounded-xl border border-slate-300 bg-white px-3 py-2 " +
-  "text-right text-[15px] md:text-base leading-none " +
+  "w-[72px] md:w-[86px] rounded-lg border border-slate-300 bg-white px-2 py-1 text-right text-[13px] md:text-sm " +
   "outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
   "dark:border-slate-600 dark:bg-slate-900/40 dark:text-slate-100"
 
@@ -94,10 +90,10 @@ function buildInitialPrice() {
 
 /**
  * Props:
- * - branchId (string|number)
- * - branchName (string)
- * - yearBE (string)
- * - onYearBEChange(fn)
+ * - branchId (string|number) : มาจาก OperationPlan
+ * - branchName (string)      : มาจาก OperationPlan
+ * - yearBE (string)          : มาจาก OperationPlan
+ * - onYearBEChange(fn)       : มาจาก OperationPlan
  */
 const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange }) => {
   const [priceById, setPriceById] = useState(() => buildInitialPrice())
@@ -205,20 +201,6 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
       setShowPayload(true)
     }
   }
-
-  /** ✅ Sticky helpers */
-  // คอลัมน์ประเภทสินค้าให้ค้างตอนเลื่อนซ้ายขวา
-  const stickyProductHeader =
-    "sticky left-0 z-[60] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
-  const stickyProductCell =
-    "sticky left-0 z-[20] bg-white dark:bg-slate-800 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
-
-  // แถวรวมให้ค้างด้านล่างตอนเลื่อนขึ้นลง (2 แถวซ้อนกัน)
-  // ใช้ตัวแปรเดียว เพื่อไม่ต้องเดา px หลายจุด
-  const footerCellBase =
-    "sticky z-[40] bg-emerald-50 dark:bg-emerald-900/20 border border-slate-200 dark:border-slate-700"
-  const footerRow1Bottom = "bottom-[var(--tfoot-h)]"
-  const footerRow2Bottom = "bottom-0"
 
   return (
     <div className="space-y-4">
@@ -330,30 +312,17 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
           </div>
         </div>
 
-        {/* ✅ เพิ่มพื้นที่การกรอก + กันโดน sticky footer บัง */}
-        <div
-          className="max-h-[82vh] overflow-auto border-t border-slate-200 dark:border-slate-700 pb-28 relative"
-          style={{ "--tfoot-h": "60px" }}
-        >
-          <table className="min-w-max w-full border-collapse text-[15px] md:text-base">
-            <thead className="sticky top-0 z-[50]">
+        <div className="max-h-[70vh] overflow-auto border-t border-slate-200 dark:border-slate-700">
+          <table className="min-w-max w-full border-collapse text-sm">
+            <thead className="sticky top-0 z-10">
               <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
-                {/* ✅ sticky ซ้ายสำหรับ “ประเภทสินค้า” */}
-                <th
-                  rowSpan={2}
-                  className={cx(
-                    "border border-slate-300 px-4 py-3 text-left font-bold dark:border-slate-600 min-w-[260px]",
-                    stickyProductHeader
-                  )}
-                >
+                <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-left dark:border-slate-600">
                   ประเภทสินค้า
                 </th>
-
-                <th rowSpan={2} className="border border-slate-300 px-3 py-3 text-center dark:border-slate-600 min-w-[90px]">
+                <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-center dark:border-slate-600">
                   หน่วย
                 </th>
-
-                <th rowSpan={2} className="border border-slate-300 px-3 py-3 text-center dark:border-slate-600 min-w-[150px]">
+                <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-center dark:border-slate-600">
                   ราคา/หน่วย
                 </th>
 
@@ -362,7 +331,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                     key={m.key}
                     colSpan={METRICS.length}
                     className={cx(
-                      "border border-slate-300 px-3 py-3 text-center font-extrabold dark:border-slate-600",
+                      "border border-slate-300 px-3 py-2 text-center font-bold dark:border-slate-600",
                       idx % 2 === 1 && "bg-slate-200/70 dark:bg-slate-600/60"
                     )}
                   >
@@ -370,7 +339,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                   </th>
                 ))}
 
-                <th colSpan={METRICS.length} className="border border-slate-300 px-3 py-3 text-center font-extrabold dark:border-slate-600">
+                <th colSpan={METRICS.length} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
                   รวมทั้งหมด
                 </th>
               </tr>
@@ -381,7 +350,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                     <th
                       key={`${m.key}-${k.key}`}
                       className={cx(
-                        "border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600",
+                        "border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600",
                         idx % 2 === 1 && "bg-slate-200/70 dark:bg-slate-600/60"
                       )}
                     >
@@ -393,7 +362,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                 {METRICS.map((k) => (
                   <th
                     key={`total-${k.key}`}
-                    className="border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600"
+                    className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600"
                   >
                     {k.label}
                   </th>
@@ -404,35 +373,28 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
             <tbody>
               {DEFAULT_ITEMS.map((it, rowIdx) => {
                 const price = toNumber(priceById[it.id])
-                const rowBg =
-                  rowIdx % 2 === 1
-                    ? "bg-slate-50/70 dark:bg-slate-800/70"
-                    : "bg-white dark:bg-slate-800"
 
                 return (
-                  <Fragment key={it.id}>
+                  <>
                     {/* row: qty */}
-                    <tr className={cx(rowBg)}>
-                      {/* ✅ sticky ซ้ายสำหรับชื่อสินค้า */}
-                      <td
-                        rowSpan={2}
-                        className={cx(
-                          "border border-slate-200 px-4 py-4 font-semibold dark:border-slate-700",
-                          "min-w-[260px]",
-                          stickyProductCell,
-                          rowBg
-                        )}
-                      >
+                    <tr
+                      key={`${it.id}-qty`}
+                      className={cx(
+                        "bg-white dark:bg-slate-800",
+                        rowIdx % 2 === 1 && "bg-slate-50/70 dark:bg-slate-800/70"
+                      )}
+                    >
+                      <td rowSpan={2} className="border border-slate-200 px-3 py-2 font-semibold dark:border-slate-700">
                         {it.name}
                       </td>
 
-                      <td rowSpan={2} className="border border-slate-200 px-3 py-4 text-center dark:border-slate-700">
+                      <td rowSpan={2} className="border border-slate-200 px-3 py-2 text-center dark:border-slate-700">
                         {it.unit}
                       </td>
 
-                      <td rowSpan={2} className="border border-slate-200 px-3 py-4 dark:border-slate-700">
+                      <td rowSpan={2} className="border border-slate-200 px-3 py-2 dark:border-slate-700">
                         <input
-                          className={cx(cellInput, "w-[140px] md:w-[170px]")}
+                          className={cx(cellInput, "w-[92px] md:w-[110px]")}
                           value={priceById[it.id] ?? ""}
                           disabled={!canEdit}
                           inputMode="decimal"
@@ -447,7 +409,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                           <td
                             key={`${it.id}-${m.key}-${k.key}-qty`}
                             className={cx(
-                              "border border-slate-200 px-3 py-3 dark:border-slate-700",
+                              "border border-slate-200 px-2 py-2 dark:border-slate-700",
                               idx % 2 === 1 && "bg-slate-100/60 dark:bg-slate-700/30"
                             )}
                           >
@@ -469,7 +431,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                       {METRICS.map((k) => (
                         <td
                           key={`${it.id}-${k.key}-qty-total`}
-                          className="border border-slate-200 px-3 py-3 text-right font-extrabold dark:border-slate-700"
+                          className="border border-slate-200 px-2 py-2 text-right font-bold dark:border-slate-700"
                         >
                           {fmtQty(computed.itemQtyTotals?.[it.id]?.[k.key] ?? 0)}
                         </td>
@@ -477,7 +439,13 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                     </tr>
 
                     {/* row: money */}
-                    <tr className={cx(rowBg)}>
+                    <tr
+                      key={`${it.id}-amt`}
+                      className={cx(
+                        "bg-white dark:bg-slate-800",
+                        rowIdx % 2 === 1 && "bg-slate-50/70 dark:bg-slate-800/70"
+                      )}
+                    >
                       {MONTHS.map((m, idx) =>
                         METRICS.map((k) => {
                           const q = toNumber(qtyById?.[it.id]?.[m.key]?.[k.key])
@@ -486,7 +454,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                             <td
                               key={`${it.id}-${m.key}-${k.key}-amt`}
                               className={cx(
-                                "border border-slate-200 px-3 py-3 text-right text-slate-700 dark:border-slate-700 dark:text-slate-200",
+                                "border border-slate-200 px-2 py-2 text-right text-slate-700 dark:border-slate-700 dark:text-slate-200",
                                 idx % 2 === 1 && "bg-slate-100/60 dark:bg-slate-700/30"
                               )}
                               title="บาท (คำนวณอัตโนมัติ)"
@@ -501,29 +469,19 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                       {METRICS.map((k) => (
                         <td
                           key={`${it.id}-${k.key}-amt-total`}
-                          className="border border-slate-200 px-3 py-3 text-right font-extrabold text-slate-800 dark:border-slate-700 dark:text-slate-100"
+                          className="border border-slate-200 px-2 py-2 text-right font-extrabold text-slate-800 dark:border-slate-700 dark:text-slate-100"
                         >
                           {fmtMoney(computed.itemAmtTotals?.[it.id]?.[k.key] ?? 0)}
                         </td>
                       ))}
                     </tr>
-                  </Fragment>
+                  </>
                 )
               })}
 
-              {/* ✅ Sticky footer totals (2 rows) */}
-              {/* Row 1: รวม (จำนวน) — sticky เหนือแถวบาท */}
-              <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
-                <td
-                  colSpan={3}
-                  className={cx(
-                    footerCellBase,
-                    footerRow1Bottom,
-                    "left-0 z-[55] sticky",
-                    "px-4 py-4",
-                    "shadow-[0_-2px_0_rgba(0,0,0,0.06)]"
-                  )}
-                >
+              {/* totals rows */}
+              <tr className="bg-emerald-50 font-extrabold text-slate-900 dark:bg-emerald-900/20 dark:text-emerald-100">
+                <td colSpan={3} className="border border-slate-200 px-3 py-2 dark:border-slate-700">
                   รวม (จำนวน)
                 </td>
 
@@ -532,9 +490,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                     <td
                       key={`sum-qty-${m.key}-${k.key}`}
                       className={cx(
-                        footerCellBase,
-                        footerRow1Bottom,
-                        "px-3 py-4 text-right",
+                        "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
                         idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
                       )}
                     >
@@ -544,27 +500,14 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                 )}
 
                 {METRICS.map((k) => (
-                  <td
-                    key={`grand-qty-${k.key}`}
-                    className={cx(footerCellBase, footerRow1Bottom, "px-3 py-4 text-right")}
-                  >
+                  <td key={`grand-qty-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
                     {fmtQty(computed.grandQty?.[k.key] ?? 0)}
                   </td>
                 ))}
               </tr>
 
-              {/* Row 2: รวม (บาท) — sticky bottom:0 */}
-              <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
-                <td
-                  colSpan={3}
-                  className={cx(
-                    footerCellBase,
-                    footerRow2Bottom,
-                    "left-0 z-[55] sticky",
-                    "px-4 py-4",
-                    "shadow-[0_-10px_20px_rgba(0,0,0,0.06)]"
-                  )}
-                >
+              <tr className="bg-emerald-50 font-extrabold text-slate-900 dark:bg-emerald-900/20 dark:text-emerald-100">
+                <td colSpan={3} className="border border-slate-200 px-3 py-2 dark:border-slate-700">
                   รวม (บาท)
                 </td>
 
@@ -573,9 +516,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                     <td
                       key={`sum-amt-${m.key}-${k.key}`}
                       className={cx(
-                        footerCellBase,
-                        footerRow2Bottom,
-                        "px-3 py-4 text-right",
+                        "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
                         idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
                       )}
                     >
@@ -585,10 +526,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                 )}
 
                 {METRICS.map((k) => (
-                  <td
-                    key={`grand-amt-${k.key}`}
-                    className={cx(footerCellBase, footerRow2Bottom, "px-3 py-4 text-right")}
-                  >
+                  <td key={`grand-amt-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
                     {fmtMoney(computed.grandAmt?.[k.key] ?? 0)}
                   </td>
                 ))}

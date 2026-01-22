@@ -96,6 +96,10 @@ const COL_W = {
 
 const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
 
+// ✅ ความกว้างฝั่งขวา (months*metrics + totals(metrics))
+const RIGHT_W = (MONTHS.length * METRICS.length + METRICS.length) * COL_W.cell
+const TOTAL_W = LEFT_W + RIGHT_W
+
 const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange }) => {
   const [priceById, setPriceById] = useState(() => buildInitialPrice())
   const [qtyById, setQtyById] = useState(() => buildInitialQty())
@@ -363,7 +367,10 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
           onScroll={onBodyScroll}
           className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
         >
-          <table className="min-w-max w-full border-collapse text-sm">
+          <table
+            className="border-collapse text-sm"
+            style={{ width: TOTAL_W, tableLayout: "fixed" }}
+          >
             <colgroup>
               <col style={{ width: COL_W.product }} />
               <col style={{ width: COL_W.unit }} />
@@ -532,7 +539,10 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
           <div className="flex w-full">
             {/* LEFT fixed (3 cols) */}
             <div className="shrink-0" style={{ width: LEFT_W }}>
-              <table className="w-full border-collapse text-sm">
+              <table
+                className="border-collapse text-sm"
+                style={{ width: LEFT_W, tableLayout: "fixed" }}
+              >
                 <colgroup>
                   <col style={{ width: COL_W.product }} />
                   <col style={{ width: COL_W.unit }} />
@@ -561,11 +571,15 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
             <div className="flex-1 overflow-hidden">
               <div
                 style={{
+                  width: RIGHT_W,
                   transform: `translateX(-${scrollLeft}px)`,
                   willChange: "transform",
                 }}
               >
-                <table className="min-w-max w-full border-collapse text-sm">
+                <table
+                  className="border-collapse text-sm"
+                  style={{ width: RIGHT_W, tableLayout: "fixed" }}
+                >
                   <colgroup>
                     {MONTHS.map((m) =>
                       METRICS.map((k) => (

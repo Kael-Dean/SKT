@@ -24,9 +24,11 @@ const baseField =
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
+/** ✅ FIX: ทำให้ input พอดีกับ cell จริง (ไม่ล้น) */
 const cellInput =
-  "w-[72px] md:w-[86px] rounded-lg border border-slate-300 bg-white px-2 py-1 text-right text-[13px] md:text-sm " +
-  "outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
+  "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
+  "text-right text-[13px] md:text-sm outline-none " +
+  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
   "dark:border-slate-600 dark:bg-slate-900/40 dark:text-slate-100"
 
 /** ---------------- Table definition ---------------- */
@@ -95,8 +97,6 @@ const COL_W = {
 }
 
 const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
-
-// ✅ ความกว้างฝั่งขวา (months*metrics + totals(metrics))
 const RIGHT_W = (MONTHS.length * METRICS.length + METRICS.length) * COL_W.cell
 const TOTAL_W = LEFT_W + RIGHT_W
 
@@ -143,7 +143,6 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
   }
 
   useEffect(() => {
-    // sync เริ่มต้น
     requestAnimationFrame(() => {
       const b = bodyScrollRef.current
       if (b) setScrollLeft(b.scrollLeft || 0)
@@ -367,10 +366,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
           onScroll={onBodyScroll}
           className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
         >
-          <table
-            className="border-collapse text-sm"
-            style={{ width: TOTAL_W, tableLayout: "fixed" }}
-          >
+          <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.product }} />
               <col style={{ width: COL_W.unit }} />
@@ -383,7 +379,10 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
 
             <thead className="sticky top-0 z-[60]">
               <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
-                <th rowSpan={2} className={cx("border border-slate-300 px-3 py-2 text-left dark:border-slate-600", stickyProductHeader)}>
+                <th
+                  rowSpan={2}
+                  className={cx("border border-slate-300 px-3 py-2 text-left dark:border-slate-600", stickyProductHeader)}
+                >
                   ประเภทสินค้า
                 </th>
                 <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-center dark:border-slate-600">
@@ -459,8 +458,9 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                       </td>
 
                       <td rowSpan={2} className="border border-slate-200 px-3 py-2 dark:border-slate-700">
+                        {/* ✅ FIX: ราคาใช้ w-full ไม่ fix width */}
                         <input
-                          className={cx(cellInput, "w-[92px] md:w-[110px]")}
+                          className={cellInput}
                           value={priceById[it.id] ?? ""}
                           disabled={!canEdit}
                           inputMode="decimal"
@@ -478,6 +478,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                               idx % 2 === 1 && "bg-slate-100/60 dark:bg-slate-700/30"
                             )}
                           >
+                            {/* ✅ FIX: input = w-full จะไม่ล้น */}
                             <input
                               className={cellInput}
                               value={qtyById?.[it.id]?.[m.key]?.[k.key] ?? ""}
@@ -493,7 +494,10 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                       )}
 
                       {METRICS.map((k) => (
-                        <td key={`${it.id}-${k.key}-qty-total`} className="border border-slate-200 px-2 py-2 text-right font-bold dark:border-slate-700">
+                        <td
+                          key={`${it.id}-${k.key}-qty-total`}
+                          className="border border-slate-200 px-2 py-2 text-right font-bold dark:border-slate-700"
+                        >
                           {fmtQty(computed.itemQtyTotals?.[it.id]?.[k.key] ?? 0)}
                         </td>
                       ))}
@@ -534,15 +538,11 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
           </table>
         </div>
 
-        {/* FOOTER totals (แบ่งซ้าย-ขวา เพื่อให้ช่องตรงกับข้างบนเป๊ะ) */}
+        {/* FOOTER totals */}
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20">
           <div className="flex w-full">
-            {/* LEFT fixed (3 cols) */}
             <div className="shrink-0" style={{ width: LEFT_W }}>
-              <table
-                className="border-collapse text-sm"
-                style={{ width: LEFT_W, tableLayout: "fixed" }}
-              >
+              <table className="border-collapse text-sm" style={{ width: LEFT_W, tableLayout: "fixed" }}>
                 <colgroup>
                   <col style={{ width: COL_W.product }} />
                   <col style={{ width: COL_W.unit }} />
@@ -550,16 +550,12 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                 </colgroup>
                 <tbody>
                   <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
-                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700">
-                      รวม (จำนวน)
-                    </td>
+                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700">รวม (จำนวน)</td>
                     <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
                     <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
                   </tr>
                   <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
-                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700">
-                      รวม (บาท)
-                    </td>
+                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700">รวม (บาท)</td>
                     <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
                     <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
                   </tr>
@@ -567,32 +563,17 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
               </table>
             </div>
 
-            {/* RIGHT follow scrollLeft (months + totals) */}
             <div className="flex-1 overflow-hidden">
-              <div
-                style={{
-                  width: RIGHT_W,
-                  transform: `translateX(-${scrollLeft}px)`,
-                  willChange: "transform",
-                }}
-              >
-                <table
-                  className="border-collapse text-sm"
-                  style={{ width: RIGHT_W, tableLayout: "fixed" }}
-                >
+              <div style={{ width: RIGHT_W, transform: `translateX(-${scrollLeft}px)`, willChange: "transform" }}>
+                <table className="border-collapse text-sm" style={{ width: RIGHT_W, tableLayout: "fixed" }}>
                   <colgroup>
                     {MONTHS.map((m) =>
-                      METRICS.map((k) => (
-                        <col key={`fcol-${m.key}-${k.key}`} style={{ width: COL_W.cell }} />
-                      ))
+                      METRICS.map((k) => <col key={`fcol-${m.key}-${k.key}`} style={{ width: COL_W.cell }} />)
                     )}
-                    {METRICS.map((k) => (
-                      <col key={`fcol-total-${k.key}`} style={{ width: COL_W.cell }} />
-                    ))}
+                    {METRICS.map((k) => <col key={`fcol-total-${k.key}`} style={{ width: COL_W.cell }} />)}
                   </colgroup>
 
                   <tbody>
-                    {/* รวมจำนวน */}
                     <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
                       {MONTHS.map((m, idx) =>
                         METRICS.map((k) => (
@@ -607,18 +588,13 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                           </td>
                         ))
                       )}
-
                       {METRICS.map((k) => (
-                        <td
-                          key={`grand-qty-${k.key}`}
-                          className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700"
-                        >
+                        <td key={`grand-qty-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
                           {fmtQty(computed.grandQty?.[k.key] ?? 0)}
                         </td>
                       ))}
                     </tr>
 
-                    {/* รวมบาท */}
                     <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
                       {MONTHS.map((m, idx) =>
                         METRICS.map((k) => (
@@ -633,12 +609,8 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                           </td>
                         ))
                       )}
-
                       {METRICS.map((k) => (
-                        <td
-                          key={`grand-amt-${k.key}`}
-                          className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700"
-                        >
+                        <td key={`grand-amt-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
                           {fmtMoney(computed.grandAmt?.[k.key] ?? 0)}
                         </td>
                       ))}

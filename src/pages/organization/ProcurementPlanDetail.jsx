@@ -24,7 +24,7 @@ const baseField =
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-/** ✅ FIX: ทำให้ input พอดีกับ cell จริง (ไม่ล้น) */
+/** ✅ input พอดีกับ cell + ทึบ */
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
   "text-right text-[13px] md:text-sm outline-none " +
@@ -100,22 +100,40 @@ const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
 const RIGHT_W = (MONTHS.length * METRICS.length + METRICS.length) * COL_W.cell
 const TOTAL_W = LEFT_W + RIGHT_W
 
+/** ✅ Stripe สีเดือน คู่/คี่ ให้เห็นชัดขึ้น */
+const STRIPE = {
+  headEven: "bg-slate-100/90 dark:bg-slate-700/70",
+  headOdd: "bg-slate-200/95 dark:bg-slate-600/70",
+  cellEven: "bg-slate-50/90 dark:bg-slate-800/70",
+  cellOdd: "bg-slate-200/70 dark:bg-slate-700/55",
+  footEven: "bg-emerald-100/55 dark:bg-emerald-900/15",
+  footOdd: "bg-emerald-200/75 dark:bg-emerald-900/30",
+}
+
+const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEven)
+const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven)
+const monthStripeFoot = (idx) => (idx % 2 === 1 ? STRIPE.footOdd : STRIPE.footEven)
+
 const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange }) => {
   const [priceById, setPriceById] = useState(() => buildInitialPrice())
   const [qtyById, setQtyById] = useState(() => buildInitialQty())
   const [showPayload, setShowPayload] = useState(false)
   const canEdit = !!branchId
 
-  /** ✅ ทำกล่องตารางให้สูงเต็มจอ */
+  /** ✅ ทำกล่องตารางให้สูงเต็มจอ (ปรับให้สูงขึ้น/เห็นยาวขึ้น) */
   const tableCardRef = useRef(null)
-  const [tableCardHeight, setTableCardHeight] = useState(680)
+  const [tableCardHeight, setTableCardHeight] = useState(760)
 
   const recalcTableCardHeight = useCallback(() => {
     const el = tableCardRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     const vh = window.innerHeight || 800
-    const h = Math.max(520, Math.floor(vh - rect.top - 10))
+
+    // ✅ เดิมกันพื้นที่ด้านล่างเยอะไป → ลดเผื่อให้ชิดจอมากขึ้น
+    // ✅ เพิ่ม min height ให้สูงขึ้นเพื่อเห็นตารางยาวขึ้น
+    const bottomPadding = 4 // เดิม ~10
+    const h = Math.max(700, Math.floor(vh - rect.top - bottomPadding))
     setTableCardHeight(h)
   }, [])
 
@@ -258,7 +276,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
     "sticky left-0 z-[25] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -349,7 +367,8 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
         style={{ height: tableCardHeight }}
       >
-        <div className="p-3 md:p-4 shrink-0">
+        {/* ✅ ลด padding header ของ card คืนพื้นที่ให้ตาราง */}
+        <div className="p-2 md:p-3 shrink-0">
           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
             <div className="text-base md:text-lg font-bold">
               ตารางกรอกข้อมูล (Mock) — {branchName ? `สาขา: ${branchName}` : "ยังไม่เลือกสาขา"}
@@ -398,7 +417,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                     colSpan={METRICS.length}
                     className={cx(
                       "border border-slate-300 px-3 py-2 text-center font-bold dark:border-slate-600",
-                      idx % 2 === 1 && "bg-slate-200/70 dark:bg-slate-600/60"
+                      monthStripeHead(idx)
                     )}
                   >
                     {m.label}
@@ -417,7 +436,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                       key={`${m.key}-${k.key}`}
                       className={cx(
                         "border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600",
-                        idx % 2 === 1 && "bg-slate-200/70 dark:bg-slate-600/60"
+                        monthStripeHead(idx)
                       )}
                     >
                       {k.label}
@@ -458,7 +477,6 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                       </td>
 
                       <td rowSpan={2} className="border border-slate-200 px-3 py-2 dark:border-slate-700">
-                        {/* ✅ FIX: ราคาใช้ w-full ไม่ fix width */}
                         <input
                           className={cellInput}
                           value={priceById[it.id] ?? ""}
@@ -475,10 +493,9 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                             key={`${it.id}-${m.key}-${k.key}-qty`}
                             className={cx(
                               "border border-slate-200 px-2 py-2 dark:border-slate-700",
-                              idx % 2 === 1 && "bg-slate-100/60 dark:bg-slate-700/30"
+                              monthStripeCell(idx)
                             )}
                           >
-                            {/* ✅ FIX: input = w-full จะไม่ล้น */}
                             <input
                               className={cellInput}
                               value={qtyById?.[it.id]?.[m.key]?.[k.key] ?? ""}
@@ -513,7 +530,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                               key={`${it.id}-${m.key}-${k.key}-amt`}
                               className={cx(
                                 "border border-slate-200 px-2 py-2 text-right text-slate-700 dark:border-slate-700 dark:text-slate-200",
-                                idx % 2 === 1 && "bg-slate-100/60 dark:bg-slate-700/30"
+                                monthStripeCell(idx)
                               )}
                             >
                               {fmtMoney(amt)}
@@ -581,7 +598,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                             key={`sum-qty-${m.key}-${k.key}`}
                             className={cx(
                               "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
-                              idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
+                              monthStripeFoot(idx)
                             )}
                           >
                             {fmtQty(computed.monthQtyTotals?.[m.key]?.[k.key] ?? 0)}
@@ -602,7 +619,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                             key={`sum-amt-${m.key}-${k.key}`}
                             className={cx(
                               "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
-                              idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
+                              monthStripeFoot(idx)
                             )}
                           >
                             {fmtMoney(computed.monthAmtTotals?.[m.key]?.[k.key] ?? 0)}

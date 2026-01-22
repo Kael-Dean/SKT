@@ -198,21 +198,21 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   return (
     <>
-      {/* ✅ Overlay: อยู่เหนือ content แต่ใต้ sidebar (แก้ปัญหาเห็น/กดตารางด้านหลัง) */}
+      {/* ✅ Overlay: ทำให้ทึบขึ้นเพื่อไม่ให้เห็นตารางทะลุ */}
       {isOpen && (
         <button
           type="button"
           aria-label="Close sidebar overlay"
           onClick={() => setIsOpen(false)}
-          className="fixed inset-0 z-[9990] bg-black/30 backdrop-blur-[1px]"
+          className="fixed inset-0 z-[9990] bg-black/80 backdrop-blur-sm"
         />
       )}
 
-      {/* ✅ Sidebar: ดัน z-index ให้สูงกว่าพวก sticky table (ที่คุณใช้ z-[80]/z-[90]) */}
+      {/* ✅ Sidebar: ทำให้ทึบขึ้น (แก้ปัญหาเห็นตารางทะลุ) + z สูงกว่า sticky table */}
       <div
         className={`fixed z-[9999] top-0 left-0 h-full w-72 transform transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
-        } bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-lg`}
+        } bg-white dark:bg-gray-900 shadow-lg`}
       >
         <div className="flex h-full flex-col">
           <div className="p-4 shrink-0">

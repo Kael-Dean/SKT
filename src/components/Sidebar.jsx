@@ -1,10 +1,9 @@
 // src/components/Sidebar.jsx
 import { useNavigate, useLocation } from "react-router-dom"
-import { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import { getRoleId, canSeeAddCompany, logout as authLogout } from "../lib/auth"
 
 const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
-const ANIM_MS = 300 // ต้องตรงกับ duration-300 ของ overlay + sidebar
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigate = useNavigate()
@@ -147,58 +146,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const [membersOpen, setMembersOpen] = useState(inMembers)
   useEffect(() => setMembersOpen(inMembers), [inMembers])
 
-  // ✅ ล็อก scroll แบบ "ไม่ทำให้หน้ากระตุก" (ชดเชย scrollbar width)
-  const unlockTimerRef = useRef(null)
-  const lockedRef = useRef(false)
-  const prevBodyStyleRef = useRef({ overflow: "", paddingRight: "" })
-
-  const lockBodyScroll = useCallback(() => {
-    if (lockedRef.current) return
-    const body = document.body
-    prevBodyStyleRef.current = {
-      overflow: body.style.overflow || "",
-      paddingRight: body.style.paddingRight || "",
-    }
-
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
-    body.style.overflow = "hidden"
-    if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`
-
-    lockedRef.current = true
-  }, [])
-
-  const unlockBodyScroll = useCallback(() => {
-    if (!lockedRef.current) return
-    const body = document.body
-    body.style.overflow = prevBodyStyleRef.current.overflow
-    body.style.paddingRight = prevBodyStyleRef.current.paddingRight
-    lockedRef.current = false
-  }, [])
-
-  useLayoutEffect(() => {
-    if (unlockTimerRef.current) {
-      clearTimeout(unlockTimerRef.current)
-      unlockTimerRef.current = null
-    }
-
-    if (isOpen) {
-      lockBodyScroll()
-      return
-    }
-
-    // ปิดแล้วค่อยปลดล็อกหลัง animation จบ เพื่อให้เนียนไปพร้อมกัน
-    unlockTimerRef.current = window.setTimeout(() => {
-      unlockBodyScroll()
-      unlockTimerRef.current = null
-    }, ANIM_MS)
-  }, [isOpen, lockBodyScroll, unlockBodyScroll])
-
+  // ✅ ล็อก scroll เวล sidebar เปิด (กันตารางข้างหลังเลื่อน/กวน)
   useEffect(() => {
+    if (!isOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
     return () => {
-      if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current)
-      unlockBodyScroll()
+      document.body.style.overflow = prev
     }
-  }, [unlockBodyScroll])
+  }, [isOpen])
 
   // ✅ ปิดด้วย ESC
   useEffect(() => {
@@ -242,25 +198,21 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   return (
     <>
-      {/* ✅ Overlay: ไม่ mount/unmount แล้ว -> fade เนียนๆ พร้อม sidebar */}
-      <button
-        type="button"
-        aria-label="Close sidebar overlay"
-        aria-hidden={!isOpen}
-        tabIndex={isOpen ? 0 : -1}
-        onClick={() => setIsOpen(false)}
-        className={`fixed inset-0 z-[9998] bg-black/80 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
-          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
-        style={{ willChange: "opacity" }}
-      />
+      {/* ✅ Overlay: ทำให้ทึบขึ้นเพื่อไม่ให้เห็นตารางทะลุ */}
+      {isOpen && (
+        <button
+          type="button"
+          aria-label="Close sidebar overlay"
+          onClick={() => setIsOpen(false)}
+          className="fixed inset-0 z-[9990] bg-black/80 backdrop-blur-sm"
+        />
+      )}
 
-      {/* ✅ Sidebar: slide + fade ไปพร้อม overlay */}
+      {/* ✅ Sidebar: ทำให้ทึบขึ้น (แก้ปัญหาเห็นตารางทะลุ) + z สูงกว่า sticky table */}
       <div
-        className={`fixed z-[9999] top-0 left-0 h-full w-72 transition-[transform,opacity] duration-300 ease-in-out ${
-          isOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
+        className={`fixed z-[9999] top-0 left-0 h-full w-72 transform transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
         } bg-white dark:bg-gray-900 shadow-lg`}
-        style={{ willChange: "transform, opacity" }}
       >
         <div className="flex h-full flex-col">
           <div className="p-4 shrink-0">

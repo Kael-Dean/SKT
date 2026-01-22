@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import ProcurementPlanDetail from "./ProcurementPlanDetail"
+import AgriCollectionPlanTable from "./AgriCollectionPlanTable" // ✅ เพิ่มตารางใหม่ตามรูป
 
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -208,7 +209,14 @@ const TABLES = [
     description: "ตารางกรอกข้อมูลตามแบบ Excel (เม.ย.–มี.ค. | ปร/รับ/พร) + คำนวณยอดให้",
     Component: ProcurementPlanDetail,
   },
-  // เพิ่มตารางอื่นในอนาคตได้ที่นี่:
+
+  // ✅ ตารางใหม่ตามรูป
+  {
+    key: "agri-collection-plan-detail",
+    label: "รายละเอียดแผนการรวบรวมผลผลิตการเกษตร",
+    description: "ตารางตามแบบเรฟ (เม.ย.–มี.ค.) กรอกจำนวน/ราคา แล้วระบบคำนวณบาท + รวมรายเดือน/รวมทั้งปี",
+    Component: AgriCollectionPlanTable,
+  },
 ]
 
 // ---------------- Page ----------------
@@ -261,7 +269,6 @@ const OperationPlan = () => {
   const ActiveComponent = activeTable?.Component || null
   const canShowTable = !!branchId && !!ActiveComponent
 
-  // ทำ option ของตารางให้มี subLabel โชว์เหมือนหน้า Sales
   const tableOptions = useMemo(
     () =>
       TABLES.map((t) => ({
@@ -272,7 +279,6 @@ const OperationPlan = () => {
     []
   )
 
-  // refs (ถ้าต้องการขยับโฟกัสต่อในอนาคต)
   const branchRef = useRef(null)
   const tableRef = useRef(null)
 
@@ -309,7 +315,6 @@ const OperationPlan = () => {
             <div className="md:col-span-5">
               <label className={labelCls}>เลือกสาขา (ดึงจาก API เดิม)</label>
 
-              {/* ✅ ComboBox แบบเดียวกับหน้าขาย */}
               <ComboBox
                 options={branchOptions}
                 value={branchId}
@@ -321,16 +326,13 @@ const OperationPlan = () => {
               />
 
               {!branchId && (
-                <div className="mt-2 text-sm text-red-600 dark:text-red-400">
-                  * กรุณาเลือกสาขาก่อน
-                </div>
+                <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>
               )}
             </div>
 
             <div className="md:col-span-4">
               <label className={labelCls}>เลือกตารางที่จะกรอก</label>
 
-              {/* ✅ ComboBox แบบเดียวกับหน้าขาย + subLabel */}
               <ComboBox
                 options={tableOptions}
                 value={tableKey}
@@ -358,7 +360,6 @@ const OperationPlan = () => {
               type="button"
               onClick={() => {
                 setBranchId("")
-                // ไม่ reset tableKey เพราะปกติคนจะใช้ตารางเดิม
               }}
               className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
                          hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer

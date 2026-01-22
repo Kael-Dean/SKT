@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -14,8 +14,10 @@ const sanitizeNumberInput = (s) => {
   if (parts.length <= 2) return cleaned
   return `${parts[0]}.${parts.slice(1).join("")}`
 }
-const fmtQty = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 3 }).format(toNumber(n))
-const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(toNumber(n))
+const fmtQty = (n) =>
+  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 3 }).format(toNumber(n))
+const fmtMoney = (n) =>
+  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(toNumber(n))
 
 /** ---------------- UI styles ---------------- */
 const baseField =
@@ -23,6 +25,7 @@ const baseField =
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
+// ✅ คงขนาดตัวอักษรเดิม แต่ทำให้ใช้งานดี (ไม่สูง/ไม่กว้างเกินไป)
 const cellInput =
   "w-[72px] md:w-[86px] rounded-lg border border-slate-300 bg-white px-2 py-1 text-right text-[13px] md:text-sm " +
   "outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
@@ -90,10 +93,10 @@ function buildInitialPrice() {
 
 /**
  * Props:
- * - branchId (string|number) : มาจาก OperationPlan
- * - branchName (string)      : มาจาก OperationPlan
- * - yearBE (string)          : มาจาก OperationPlan
- * - onYearBEChange(fn)       : มาจาก OperationPlan
+ * - branchId (string|number)
+ * - branchName (string)
+ * - yearBE (string)
+ * - onYearBEChange(fn)
  */
 const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange }) => {
   const [priceById, setPriceById] = useState(() => buildInitialPrice())
@@ -101,6 +104,31 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
   const [showPayload, setShowPayload] = useState(false)
 
   const canEdit = !!branchId
+
+  /** ✅ ทำกรอบตารางให้ “เต็มจอ” มากขึ้น (ลดการเลื่อน) */
+  const scrollWrapRef = useRef(null)
+  const [scrollHeight, setScrollHeight] = useState(520)
+
+  const recalcScrollHeight = useCallback(() => {
+    const el = scrollWrapRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const vh = window.innerHeight || 800
+    // เว้นขอบล่างนิดนึง กันชนขอบจอ
+    const h = Math.max(320, Math.floor(vh - rect.top - 12))
+    setScrollHeight(h)
+  }, [])
+
+  useEffect(() => {
+    recalcScrollHeight()
+    window.addEventListener("resize", recalcScrollHeight)
+    return () => window.removeEventListener("resize", recalcScrollHeight)
+  }, [recalcScrollHeight])
+
+  useEffect(() => {
+    // เวลา show/hide payload หรือ layout เปลี่ยน ให้คำนวณใหม่อีกรอบ
+    requestAnimationFrame(() => recalcScrollHeight())
+  }, [showPayload, branchName, yearBE, recalcScrollHeight])
 
   const setQtyCell = (itemId, monthKey, metricKey, nextValue) => {
     setQtyById((prev) => {
@@ -201,6 +229,19 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
       setShowPayload(true)
     }
   }
+
+  /** ✅ Sticky helpers */
+  const stickyProductHeader =
+    "sticky left-0 z-[70] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+  const stickyProductCellBase =
+    "sticky left-0 z-[25] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+
+  const footerCellBase =
+    "sticky z-[45] bg-emerald-50 dark:bg-emerald-900/20 border border-slate-200 dark:border-slate-700"
+  const footerRow1Bottom = "bottom-[var(--tfoot-h)]"
+  const footerRow2Bottom = "bottom-0"
+  const footerLabelBase =
+    "sticky left-0 z-[85] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
 
   return (
     <div className="space-y-4">
@@ -312,17 +353,42 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
           </div>
         </div>
 
-        <div className="max-h-[70vh] overflow-auto border-t border-slate-200 dark:border-slate-700">
+        {/* ✅ กรอบตารางเต็มจอขึ้น + sticky footer ไม่บังข้อมูล */}
+        <div
+          ref={scrollWrapRef}
+          className="relative overflow-auto border-t border-slate-200 dark:border-slate-700 pb-28"
+          style={{
+            height: scrollHeight,
+            // ความสูงแถว “รวม” ต่อแถว (ใช้กับ sticky bottom 2 ชั้น)
+            "--tfoot-h": "52px",
+          }}
+        >
           <table className="min-w-max w-full border-collapse text-sm">
-            <thead className="sticky top-0 z-10">
+            {/* Header sticky top */}
+            <thead className="sticky top-0 z-[60]">
               <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
-                <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-left dark:border-slate-600">
+                {/* ✅ Sticky left (ประเภทสินค้า) */}
+                <th
+                  rowSpan={2}
+                  className={cx(
+                    "border border-slate-300 px-3 py-2 text-left dark:border-slate-600 min-w-[240px]",
+                    stickyProductHeader
+                  )}
+                >
                   ประเภทสินค้า
                 </th>
-                <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-center dark:border-slate-600">
+
+                <th
+                  rowSpan={2}
+                  className="border border-slate-300 px-3 py-2 text-center dark:border-slate-600"
+                >
                   หน่วย
                 </th>
-                <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-center dark:border-slate-600">
+
+                <th
+                  rowSpan={2}
+                  className="border border-slate-300 px-3 py-2 text-center dark:border-slate-600"
+                >
                   ราคา/หน่วย
                 </th>
 
@@ -339,7 +405,10 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                   </th>
                 ))}
 
-                <th colSpan={METRICS.length} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
+                <th
+                  colSpan={METRICS.length}
+                  className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600"
+                >
                   รวมทั้งหมด
                 </th>
               </tr>
@@ -373,26 +442,38 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
             <tbody>
               {DEFAULT_ITEMS.map((it, rowIdx) => {
                 const price = toNumber(priceById[it.id])
+                const rowBg =
+                  rowIdx % 2 === 1
+                    ? "bg-slate-50/70 dark:bg-slate-800/70"
+                    : "bg-white dark:bg-slate-800"
 
                 return (
-                  <>
+                  <Fragment key={it.id}>
                     {/* row: qty */}
-                    <tr
-                      key={`${it.id}-qty`}
-                      className={cx(
-                        "bg-white dark:bg-slate-800",
-                        rowIdx % 2 === 1 && "bg-slate-50/70 dark:bg-slate-800/70"
-                      )}
-                    >
-                      <td rowSpan={2} className="border border-slate-200 px-3 py-2 font-semibold dark:border-slate-700">
+                    <tr className={rowBg}>
+                      {/* ✅ Sticky left (ประเภทสินค้า) */}
+                      <td
+                        rowSpan={2}
+                        className={cx(
+                          "border border-slate-200 px-3 py-2 font-semibold dark:border-slate-700 min-w-[240px]",
+                          stickyProductCellBase,
+                          rowBg
+                        )}
+                      >
                         {it.name}
                       </td>
 
-                      <td rowSpan={2} className="border border-slate-200 px-3 py-2 text-center dark:border-slate-700">
+                      <td
+                        rowSpan={2}
+                        className="border border-slate-200 px-3 py-2 text-center dark:border-slate-700"
+                      >
                         {it.unit}
                       </td>
 
-                      <td rowSpan={2} className="border border-slate-200 px-3 py-2 dark:border-slate-700">
+                      <td
+                        rowSpan={2}
+                        className="border border-slate-200 px-3 py-2 dark:border-slate-700"
+                      >
                         <input
                           className={cx(cellInput, "w-[92px] md:w-[110px]")}
                           value={priceById[it.id] ?? ""}
@@ -439,13 +520,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                     </tr>
 
                     {/* row: money */}
-                    <tr
-                      key={`${it.id}-amt`}
-                      className={cx(
-                        "bg-white dark:bg-slate-800",
-                        rowIdx % 2 === 1 && "bg-slate-50/70 dark:bg-slate-800/70"
-                      )}
-                    >
+                    <tr className={rowBg}>
                       {MONTHS.map((m, idx) =>
                         METRICS.map((k) => {
                           const q = toNumber(qtyById?.[it.id]?.[m.key]?.[k.key])
@@ -475,13 +550,22 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                         </td>
                       ))}
                     </tr>
-                  </>
+                  </Fragment>
                 )
               })}
 
-              {/* totals rows */}
-              <tr className="bg-emerald-50 font-extrabold text-slate-900 dark:bg-emerald-900/20 dark:text-emerald-100">
-                <td colSpan={3} className="border border-slate-200 px-3 py-2 dark:border-slate-700">
+              {/* ✅ Sticky footer totals (2 rows) */}
+              {/* Row 1: รวม (จำนวน) — sticky เหนือแถวบาท */}
+              <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
+                <td
+                  colSpan={3}
+                  className={cx(
+                    footerCellBase,
+                    footerRow1Bottom,
+                    footerLabelBase,
+                    "px-3 py-3"
+                  )}
+                >
                   รวม (จำนวน)
                 </td>
 
@@ -490,7 +574,9 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                     <td
                       key={`sum-qty-${m.key}-${k.key}`}
                       className={cx(
-                        "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
+                        footerCellBase,
+                        footerRow1Bottom,
+                        "px-2 py-3 text-right",
                         idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
                       )}
                     >
@@ -500,14 +586,26 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                 )}
 
                 {METRICS.map((k) => (
-                  <td key={`grand-qty-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                  <td
+                    key={`grand-qty-${k.key}`}
+                    className={cx(footerCellBase, footerRow1Bottom, "px-2 py-3 text-right")}
+                  >
                     {fmtQty(computed.grandQty?.[k.key] ?? 0)}
                   </td>
                 ))}
               </tr>
 
-              <tr className="bg-emerald-50 font-extrabold text-slate-900 dark:bg-emerald-900/20 dark:text-emerald-100">
-                <td colSpan={3} className="border border-slate-200 px-3 py-2 dark:border-slate-700">
+              {/* Row 2: รวม (บาท) — sticky bottom:0 */}
+              <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
+                <td
+                  colSpan={3}
+                  className={cx(
+                    footerCellBase,
+                    footerRow2Bottom,
+                    footerLabelBase,
+                    "px-3 py-3 shadow-[0_-10px_20px_rgba(0,0,0,0.06)]"
+                  )}
+                >
                   รวม (บาท)
                 </td>
 
@@ -516,7 +614,9 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                     <td
                       key={`sum-amt-${m.key}-${k.key}`}
                       className={cx(
-                        "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
+                        footerCellBase,
+                        footerRow2Bottom,
+                        "px-2 py-3 text-right",
                         idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
                       )}
                     >
@@ -526,7 +626,10 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                 )}
 
                 {METRICS.map((k) => (
-                  <td key={`grand-amt-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                  <td
+                    key={`grand-amt-${k.key}`}
+                    className={cx(footerCellBase, footerRow2Bottom, "px-2 py-3 text-right")}
+                  >
                     {fmtMoney(computed.grandAmt?.[k.key] ?? 0)}
                   </td>
                 ))}

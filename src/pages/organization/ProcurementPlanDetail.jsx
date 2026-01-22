@@ -24,7 +24,7 @@ const baseField =
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-/** ✅ FIX: ทำให้ input พอดีกับ cell จริง (ไม่ล้น) */
+/** ✅ input พอดีกับ cell + ทึบ */
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
   "text-right text-[13px] md:text-sm outline-none " +
@@ -99,6 +99,23 @@ const COL_W = {
 const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
 const RIGHT_W = (MONTHS.length * METRICS.length + METRICS.length) * COL_W.cell
 const TOTAL_W = LEFT_W + RIGHT_W
+
+/** ✅ Stripe สีเดือน คู่/คี่ ให้เห็นชัดขึ้น */
+const STRIPE = {
+  // header
+  headEven: "bg-slate-100/90 dark:bg-slate-700/70",
+  headOdd: "bg-slate-200/95 dark:bg-slate-600/70",
+  // cells (จำนวน/บาท)
+  cellEven: "bg-slate-50/90 dark:bg-slate-800/70",
+  cellOdd: "bg-slate-200/70 dark:bg-slate-700/55",
+  // footer totals
+  footEven: "bg-emerald-100/55 dark:bg-emerald-900/15",
+  footOdd: "bg-emerald-200/75 dark:bg-emerald-900/30",
+}
+
+const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEven)
+const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven)
+const monthStripeFoot = (idx) => (idx % 2 === 1 ? STRIPE.footOdd : STRIPE.footEven)
 
 const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange }) => {
   const [priceById, setPriceById] = useState(() => buildInitialPrice())
@@ -273,9 +290,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
 
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <div>
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
-                  ปี (พ.ศ.)
-                </label>
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ปี (พ.ศ.)</label>
                 <input
                   className={baseField}
                   value={yearBE}
@@ -285,9 +300,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
-                  สาขาที่เลือก
-                </label>
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</label>
                 <div className={cx(baseField, "flex items-center justify-between", !canEdit && "opacity-70")}>
                   <span className="font-semibold">{branchName ? branchName : "— ยังไม่เลือกสาขา —"}</span>
                   <span className="text-sm text-slate-500 dark:text-slate-300">id: {branchId || "—"}</span>
@@ -381,7 +394,10 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
               <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
                 <th
                   rowSpan={2}
-                  className={cx("border border-slate-300 px-3 py-2 text-left dark:border-slate-600", stickyProductHeader)}
+                  className={cx(
+                    "border border-slate-300 px-3 py-2 text-left dark:border-slate-600",
+                    stickyProductHeader
+                  )}
                 >
                   ประเภทสินค้า
                 </th>
@@ -398,14 +414,17 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                     colSpan={METRICS.length}
                     className={cx(
                       "border border-slate-300 px-3 py-2 text-center font-bold dark:border-slate-600",
-                      idx % 2 === 1 && "bg-slate-200/70 dark:bg-slate-600/60"
+                      monthStripeHead(idx)
                     )}
                   >
                     {m.label}
                   </th>
                 ))}
 
-                <th colSpan={METRICS.length} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
+                <th
+                  colSpan={METRICS.length}
+                  className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600"
+                >
                   รวมทั้งหมด
                 </th>
               </tr>
@@ -417,7 +436,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                       key={`${m.key}-${k.key}`}
                       className={cx(
                         "border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600",
-                        idx % 2 === 1 && "bg-slate-200/70 dark:bg-slate-600/60"
+                        monthStripeHead(idx)
                       )}
                     >
                       {k.label}
@@ -426,7 +445,10 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                 )}
 
                 {METRICS.map((k) => (
-                  <th key={`total-${k.key}`} className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600">
+                  <th
+                    key={`total-${k.key}`}
+                    className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600"
+                  >
                     {k.label}
                   </th>
                 ))}
@@ -441,6 +463,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
 
                 return (
                   <Fragment key={it.id}>
+                    {/* แถวจำนวน */}
                     <tr className={rowBg}>
                       <td
                         rowSpan={2}
@@ -458,7 +481,6 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                       </td>
 
                       <td rowSpan={2} className="border border-slate-200 px-3 py-2 dark:border-slate-700">
-                        {/* ✅ FIX: ราคาใช้ w-full ไม่ fix width */}
                         <input
                           className={cellInput}
                           value={priceById[it.id] ?? ""}
@@ -475,19 +497,16 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                             key={`${it.id}-${m.key}-${k.key}-qty`}
                             className={cx(
                               "border border-slate-200 px-2 py-2 dark:border-slate-700",
-                              idx % 2 === 1 && "bg-slate-100/60 dark:bg-slate-700/30"
+                              monthStripeCell(idx)
                             )}
                           >
-                            {/* ✅ FIX: input = w-full จะไม่ล้น */}
                             <input
                               className={cellInput}
                               value={qtyById?.[it.id]?.[m.key]?.[k.key] ?? ""}
                               disabled={!canEdit}
                               inputMode="decimal"
                               placeholder="0"
-                              onChange={(e) =>
-                                setQtyCell(it.id, m.key, k.key, sanitizeNumberInput(e.target.value))
-                              }
+                              onChange={(e) => setQtyCell(it.id, m.key, k.key, sanitizeNumberInput(e.target.value))}
                             />
                           </td>
                         ))
@@ -503,6 +522,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                       ))}
                     </tr>
 
+                    {/* แถวบาท */}
                     <tr className={rowBg}>
                       {MONTHS.map((m, idx) =>
                         METRICS.map((k) => {
@@ -513,7 +533,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                               key={`${it.id}-${m.key}-${k.key}-amt`}
                               className={cx(
                                 "border border-slate-200 px-2 py-2 text-right text-slate-700 dark:border-slate-700 dark:text-slate-200",
-                                idx % 2 === 1 && "bg-slate-100/60 dark:bg-slate-700/30"
+                                monthStripeCell(idx)
                               )}
                             >
                               {fmtMoney(amt)}
@@ -581,7 +601,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                             key={`sum-qty-${m.key}-${k.key}`}
                             className={cx(
                               "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
-                              idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
+                              monthStripeFoot(idx)
                             )}
                           >
                             {fmtQty(computed.monthQtyTotals?.[m.key]?.[k.key] ?? 0)}
@@ -589,7 +609,10 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                         ))
                       )}
                       {METRICS.map((k) => (
-                        <td key={`grand-qty-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                        <td
+                          key={`grand-qty-${k.key}`}
+                          className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700"
+                        >
                           {fmtQty(computed.grandQty?.[k.key] ?? 0)}
                         </td>
                       ))}
@@ -602,7 +625,7 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                             key={`sum-amt-${m.key}-${k.key}`}
                             className={cx(
                               "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
-                              idx % 2 === 1 && "bg-emerald-100/60 dark:bg-emerald-900/15"
+                              monthStripeFoot(idx)
                             )}
                           >
                             {fmtMoney(computed.monthAmtTotals?.[m.key]?.[k.key] ?? 0)}
@@ -610,7 +633,10 @@ const ProcurementPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange })
                         ))
                       )}
                       {METRICS.map((k) => (
-                        <td key={`grand-amt-${k.key}`} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                        <td
+                          key={`grand-amt-${k.key}`}
+                          className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700"
+                        >
                           {fmtMoney(computed.grandAmt?.[k.key] ?? 0)}
                         </td>
                       ))}

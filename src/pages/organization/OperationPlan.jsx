@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
-
 import ProcurementPlanDetail from "./ProcurementPlanDetail"
 import AgriCollectionPlanTable from "./AgriCollectionPlanTable"
-
-// ✅ ใช้ไฟล์ใหม่ (ชื่อใหม่)
-import AgriProcessingPlanDetail from "./AgriProcessingPlanDetail"
+import AgriProcessingPlanTable from "./AgriProcessingPlanTable" // ✅ เพิ่มตารางใหม่: แผนการแปรรูปฯ
 
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -205,7 +202,7 @@ function ComboBox({
   )
 }
 
-// ---------------- Tables (✅ เพิ่มไฟล์ใหม่ลง dropdown ตรงนี้) ----------------
+// ---------------- Tables ----------------
 const TABLES = [
   {
     key: "procurement-plan-detail",
@@ -219,12 +216,12 @@ const TABLES = [
     description: "ตารางตามแบบเรฟ (เม.ย.–มี.ค.) กรอกจำนวน/ราคา แล้วระบบคำนวณบาท + รวมรายเดือน/รวมทั้งปี",
     Component: AgriCollectionPlanTable,
   },
-  // ✅ ไฟล์ใหม่: แผนการแปรรูปผลผลิตการเกษตร (Detail)
+  // ✅ เพิ่มตารางใหม่: แผนการแปรรูปผลผลิตการเกษตร
   {
     key: "agri-processing-plan-detail",
     label: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร",
-    description: "ตารางตามเรฟ (เม.ย.–มี.ค.) มีหัวข้อกลุ่ม + กรอกจำนวน/ราคา แล้วคำนวณบาท + รวมทั้งปี",
-    Component: AgriProcessingPlanDetail,
+    description: "ตารางตามเรฟ (เม.ย.–มี.ค.) กรอกตัน/ราคา แล้วระบบคำนวณบาท + รวมรายเดือน/รวมทั้งปี",
+    Component: AgriProcessingPlanTable,
   },
 ]
 

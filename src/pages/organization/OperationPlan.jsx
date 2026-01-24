@@ -4,8 +4,9 @@ import { apiAuth } from "../../lib/api"
 import ProcurementPlanDetail from "./ProcurementPlanDetail"
 import AgriCollectionPlanTable from "./AgriCollectionPlanTable"
 
-// ✅ ใช้ไฟล์ใหม่ที่ตั้งชื่อแล้ว
+// ✅ แปรรูป: มีทั้ง 2 ไฟล์ ให้เลือกได้ทั้งคู่
 import AgriProcessingPlanDetail from "./AgriProcessingPlanDetail"
+import AgriProcessingPlanTable from "./AgriProcessingPlanTable"
 
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -205,26 +206,31 @@ function ComboBox({
   )
 }
 
-// ---------------- Tables (✅ เพิ่มไฟล์ใหม่ให้แสดงใน dropdown) ----------------
+// ---------------- Tables (✅ ครบทุกไฟล์ที่คุณมีใน folder) ----------------
 const TABLES = [
   {
     key: "procurement-plan-detail",
     label: "รายละเอียดแผนการจัดหาสินค้า",
-    description: "ตารางกรอกข้อมูลตามแบบ Excel (เม.ย.–มี.ค. | ปร/รับ/พร) + คำนวณยอดให้",
+    description: "ไฟล์: ProcurementPlanDetail.jsx (เม.ย.–มี.ค. | ปร/รับ/พร)",
     Component: ProcurementPlanDetail,
   },
   {
-    key: "agri-collection-plan-detail",
+    key: "agri-collection-plan-table",
     label: "รายละเอียดแผนการรวบรวมผลผลิตการเกษตร",
-    description: "ตารางตามแบบเรฟ (เม.ย.–มี.ค.) กรอกจำนวน/ราคา แล้วระบบคำนวณบาท + รวมรายเดือน/รวมทั้งปี",
+    description: "ไฟล์: AgriCollectionPlanTable.jsx (เม.ย.–มี.ค. | มีแถวรวมอัตโนมัติ)",
     Component: AgriCollectionPlanTable,
   },
-  // ✅ เพิ่มรายการใหม่ใน dropdown: แผนการแปรรูปผลผลิตการเกษตร (ไฟล์ใหม่)
   {
     key: "agri-processing-plan-detail",
-    label: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร",
-    description: "ตารางตามเรฟ (เม.ย.–มี.ค.) มีหัวข้อกลุ่ม + กรอกจำนวน/ราคา แล้วคำนวณบาท + รวมทั้งปี",
+    label: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร (Detail)",
+    description: "ไฟล์: AgriProcessingPlanDetail.jsx (เวอร์ชัน Detail ที่คุณทำใหม่)",
     Component: AgriProcessingPlanDetail,
+  },
+  {
+    key: "agri-processing-plan-table",
+    label: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร (Table)",
+    description: "ไฟล์: AgriProcessingPlanTable.jsx (เวอร์ชัน Table เดิม)",
+    Component: AgriProcessingPlanTable,
   },
 ]
 
@@ -255,7 +261,6 @@ const OperationPlan = () => {
             label: String(x.branch_name || x.name || `สาขา #${x.id}`),
           }))
           .filter((o) => o.id && o.label)
-
         setBranchOptions(opts)
       } catch (e) {
         console.error("load branches failed:", e)
@@ -300,7 +305,7 @@ const OperationPlan = () => {
             <div>
               <h1 className="text-2xl md:text-3xl font-extrabold">🗺️ แผนปฏิบัติงาน</h1>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                เลือกสาขา → เลือกตาราง → กรอกข้อมูล (ตารางถูกแยกเป็นไฟล์ย่อยเรียกใช้งานได้)
+                เลือกสาขา → เลือกตาราง → กรอกข้อมูล
               </div>
             </div>
 
@@ -322,8 +327,7 @@ const OperationPlan = () => {
             </div>
 
             <div className="md:col-span-5">
-              <label className={labelCls}>เลือกสาขา (ดึงจาก API เดิม)</label>
-
+              <label className={labelCls}>เลือกสาขา</label>
               <ComboBox
                 options={branchOptions}
                 value={branchId}
@@ -333,7 +337,6 @@ const OperationPlan = () => {
                 buttonRef={branchRef}
                 onEnterNext={() => tableRef.current?.focus?.()}
               />
-
               {!branchId && (
                 <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>
               )}
@@ -341,7 +344,6 @@ const OperationPlan = () => {
 
             <div className="md:col-span-4">
               <label className={labelCls}>เลือกตารางที่จะกรอก</label>
-
               <ComboBox
                 options={tableOptions}
                 value={tableKey}
@@ -350,7 +352,6 @@ const OperationPlan = () => {
                 getSubLabel={(o) => o?.subLabel || ""}
                 buttonRef={tableRef}
               />
-
               <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 {activeTable?.description || ""}
               </div>
@@ -382,7 +383,7 @@ const OperationPlan = () => {
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
             <div className="mt-2 text-slate-600 dark:text-slate-300">
-              กรุณาเลือก <span className="font-semibold">สาขา</span> ก่อน แล้วระบบจะแสดงตารางที่เลือกไว้ให้กรอก
+              กรุณาเลือก <span className="font-semibold">สาขา</span> ก่อน
             </div>
           </div>
         ) : (

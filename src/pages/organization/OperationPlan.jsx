@@ -8,6 +8,9 @@ import AgriCollectionPlanTable from "./AgriCollectionPlanTable"
 import AgriProcessingPlanDetail from "./AgriProcessingPlanDetail"
 import AgriProcessingPlanTable from "./AgriProcessingPlanTable"
 
+// ✅ ตารางใหม่: รายละเอียดแผนธุรกิจบริการ (ตามรูป Excel)
+import ServiceBusinessPlanDetail from "./ServiceBusinessPlanDetail"
+
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
 const baseField =
@@ -231,6 +234,14 @@ const TABLES = [
     label: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร (Table)",
     description: "ไฟล์: AgriProcessingPlanTable.jsx (เวอร์ชัน Table เดิม)",
     Component: AgriProcessingPlanTable,
+  },
+
+  // ✅ เพิ่มตารางใหม่ที่ทำตามรูป Excel
+  {
+    key: "service-business-plan-detail",
+    label: "รายละเอียดแผนธุรกิจบริการ (ตามแบบฟอร์ม)",
+    description: "ไฟล์: ServiceBusinessPlanDetail.jsx (ตารางรายเดือน เม.ย.–มี.ค. + รวมจำนวน/พันบาท)",
+    Component: ServiceBusinessPlanDetail,
   },
 ]
 

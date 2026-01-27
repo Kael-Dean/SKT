@@ -1,20 +1,26 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-/*รายละเอียดแผนการแปรรูปผลผลิตการเกษตร*/
+/* รายละเอียดแผนโครงการผลิตเมล็ดพันธุ์ — ยอดขาย (ตารางตามภาพ) */
+
 const cx = (...a) => a.filter(Boolean).join(" ")
+
 const toNumber = (v) => {
   if (v === "" || v === null || v === undefined) return 0
   const n = Number(String(v).replace(/,/g, ""))
   return Number.isFinite(n) ? n : 0
 }
+
 const sanitizeNumberInput = (s) => {
   const cleaned = String(s ?? "").replace(/[^\d.]/g, "")
   const parts = cleaned.split(".")
   if (parts.length <= 2) return cleaned
   return `${parts[0]}.${parts.slice(1).join("")}`
 }
+
 const fmtQty = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 3 }).format(toNumber(n))
-const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(toNumber(n))
+const fmtPrice = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(toNumber(n))
+// ตารางนี้ “หน่วย : พันบาท” ตามภาพ -> ปกติเลขมักออกเป็นจำนวนเต็ม
+const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
 
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -27,41 +33,45 @@ const cellInput =
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
   "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
+const cellTextInput =
+  "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
+  "text-left text-[13px] md:text-sm outline-none " +
+  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
+  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+
 const MONTHS = [
-  { key: "m04", label: "เม.ย." },
-  { key: "m05", label: "พ.ค." },
-  { key: "m06", label: "มิ.ย." },
-  { key: "m07", label: "ก.ค." },
-  { key: "m08", label: "ส.ค." },
-  { key: "m09", label: "ก.ย." },
-  { key: "m10", label: "ต.ค." },
-  { key: "m11", label: "พ.ย." },
-  { key: "m12", label: "ธ.ค." },
-  { key: "m01", label: "ม.ค." },
-  { key: "m02", label: "ก.พ." },
-  { key: "m03", label: "มี.ค." },
+  { key: "m04", label: "เม.ย.", colNo: 4 },
+  { key: "m05", label: "พ.ค.", colNo: 5 },
+  { key: "m06", label: "มิ.ย.", colNo: 6 },
+  { key: "m07", label: "ก.ค.", colNo: 7 },
+  { key: "m08", label: "ส.ค.", colNo: 8 },
+  { key: "m09", label: "ก.ย.", colNo: 9 },
+  { key: "m10", label: "ต.ค.", colNo: 10 },
+  { key: "m11", label: "พ.ย.", colNo: 11 },
+  { key: "m12", label: "ธ.ค.", colNo: 12 },
+  { key: "m01", label: "ม.ค.", colNo: 13 },
+  { key: "m02", label: "ก.พ.", colNo: 14 },
+  { key: "m03", label: "มี.ค.", colNo: 15 },
 ]
 
-const ITEMS = [
-  { type: "group", label: "ข้าวสารและผลิตภัณฑ์ (ผลั่วทั่วไป)" },
-  { type: "item", id: "rice_general", name: "ทั่วไป", unit: "ตัน", unitPrice: "" },
-  { type: "item", id: "rice_organic", name: "อินทรีย์", unit: "ตัน", unitPrice: "" },
-  { type: "group", label: "ผลพลอยได้" },
-  { type: "item", id: "byproduct", name: "ผลพลอยได้", unit: "ตัน", unitPrice: "" },
-]
-const EDITABLE_ITEMS = ITEMS.filter((x) => x.type === "item")
+// ให้ “เหมือน Excel ในรูป” = มีหลายบรรทัดว่างให้กรอก
+const DEFAULT_ROWS = 12
+const makeRow = (i) => ({
+  id: `row_${i + 1}`,
+  name: i === 0 ? "เมล็ดพันธุ์ข้าว" : "",
+  unit: "ตัน",
+  unitPrice: "",
+})
 
-function buildInitialQty() {
-  const out = {}
-  EDITABLE_ITEMS.forEach((it) => {
-    out[it.id] = {}
-    MONTHS.forEach((m) => (out[it.id][m.key] = ""))
-  })
-  return out
+function buildInitialRows() {
+  return Array.from({ length: DEFAULT_ROWS }, (_, i) => makeRow(i))
 }
-function buildInitialPrice() {
+function buildInitialQty(rows) {
   const out = {}
-  EDITABLE_ITEMS.forEach((it) => (out[it.id] = String(it.unitPrice ?? "")))
+  rows.forEach((r) => {
+    out[r.id] = {}
+    MONTHS.forEach((m) => (out[r.id][m.key] = ""))
+  })
   return out
 }
 
@@ -73,8 +83,8 @@ const TOTAL_W = LEFT_W + RIGHT_W
 const STRIPE = {
   headEven: "bg-slate-100/90 dark:bg-slate-700/70",
   headOdd: "bg-slate-200/95 dark:bg-slate-600/70",
-  cellEven: "bg-slate-50/90 dark:bg-slate-800/70",
-  cellOdd: "bg-slate-200/70 dark:bg-slate-700/55",
+  cellEven: "bg-white dark:bg-slate-900",
+  cellOdd: "bg-slate-50 dark:bg-slate-800",
   footEven: "bg-emerald-100/55 dark:bg-emerald-900/15",
   footOdd: "bg-emerald-200/75 dark:bg-emerald-900/30",
 }
@@ -82,9 +92,12 @@ const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEv
 const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven)
 const monthStripeFoot = (idx) => (idx % 2 === 1 ? STRIPE.footOdd : STRIPE.footEven)
 
-const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange }) => {
-  const [priceById, setPriceById] = useState(() => buildInitialPrice())
-  const [qtyById, setQtyById] = useState(() => buildInitialQty())
+// “เส้นตารางแบบ Excel” (ประมาณใกล้เคียง) — ใช้ dotted
+const gridCell = "border border-slate-300 border-dotted dark:border-slate-600"
+
+const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange }) => {
+  const [rows, setRows] = useState(() => buildInitialRows())
+  const [qtyById, setQtyById] = useState(() => buildInitialQty(buildInitialRows()))
   const [showPayload, setShowPayload] = useState(false)
   const canEdit = !!branchId
 
@@ -122,15 +135,10 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
     return () => rafRef.current && cancelAnimationFrame(rafRef.current)
   }, [])
 
-  // Arrow nav
+  // Arrow nav (ราคา + เดือนตัน)
   const inputRefs = useRef(new Map())
   const qtyCols = MONTHS.length
-  const totalCols = 1 + qtyCols
-  const editableIndexById = useMemo(() => {
-    const m = {}
-    EDITABLE_ITEMS.forEach((it, idx) => (m[it.id] = idx))
-    return m
-  }, [])
+  const totalCols = 1 + qtyCols // 0=ราคา, 1..=เดือนตัน
   const registerInput = useCallback((row, col) => {
     const key = `${row}|${col}`
     return (el) => {
@@ -169,7 +177,7 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
       if (k === "ArrowUp") nextRow = row - 1
       if (k === "ArrowDown") nextRow = row + 1
       if (nextRow < 0) nextRow = 0
-      if (nextRow > EDITABLE_ITEMS.length - 1) nextRow = EDITABLE_ITEMS.length - 1
+      if (nextRow > rows.length - 1) nextRow = rows.length - 1
       if (nextCol < 0) nextCol = 0
       if (nextCol > totalCols - 1) nextCol = totalCols - 1
       const target = inputRefs.current.get(`${nextRow}|${nextCol}`)
@@ -181,32 +189,35 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
       } catch {}
       requestAnimationFrame(() => ensureInView(target))
     },
-    [ensureInView, totalCols]
+    [ensureInView, rows.length, totalCols]
   )
 
   const getQtyColIndex = (monthIdx) => 1 + monthIdx
 
-  const setUnitPrice = (itemId, nextValue) => setPriceById((prev) => ({ ...prev, [itemId]: nextValue }))
-  const setQtyCell = (itemId, monthKey, nextValue) =>
-    setQtyById((prev) => ({ ...prev, [itemId]: { ...(prev[itemId] || {}), [monthKey]: nextValue } }))
+  const setRowMeta = (rowId, patch) =>
+    setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, ...patch } : r)))
+
+  const setQtyCell = (rowId, monthKey, nextValue) =>
+    setQtyById((prev) => ({ ...prev, [rowId]: { ...(prev[rowId] || {}), [monthKey]: nextValue } }))
 
   const computed = useMemo(() => {
-    const itemTotals = {}
+    const rowTotals = {}
     const monthQtyTotals = {}
     const monthAmtTotals = {}
     let grandQty = 0
     let grandAmt = 0
+
     MONTHS.forEach((m) => {
       monthQtyTotals[m.key] = 0
       monthAmtTotals[m.key] = 0
     })
 
-    EDITABLE_ITEMS.forEach((it) => {
-      const price = toNumber(priceById[it.id])
+    rows.forEach((r) => {
+      const price = toNumber(r.unitPrice)
       let rowQty = 0
       let rowAmt = 0
       MONTHS.forEach((m) => {
-        const q = toNumber(qtyById?.[it.id]?.[m.key])
+        const q = toNumber(qtyById?.[r.id]?.[m.key])
         const amt = q * price
         rowQty += q
         rowAmt += amt
@@ -215,34 +226,38 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
       })
       grandQty += rowQty
       grandAmt += rowAmt
-      itemTotals[it.id] = { qty: rowQty, amt: rowAmt }
+      rowTotals[r.id] = { qty: rowQty, amt: rowAmt }
     })
-    return { itemTotals, monthQtyTotals, monthAmtTotals, grandQty, grandAmt }
-  }, [qtyById, priceById])
+
+    return { rowTotals, monthQtyTotals, monthAmtTotals, grandQty, grandAmt }
+  }, [rows, qtyById])
 
   const resetAll = () => {
     if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
-    setPriceById(buildInitialPrice())
-    setQtyById(buildInitialQty())
+    const freshRows = buildInitialRows()
+    setRows(freshRows)
+    setQtyById(buildInitialQty(freshRows))
   }
 
   const payload = useMemo(() => {
     return {
-      table_code: "AGRI_PROCESSING_PLAN_DETAIL",
-      table_name: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร",
+      table_code: "SEED_PROJECT_SALES_PLAN_DETAIL",
+      table_name: "รายละเอียดแผนโครงการผลิตเมล็ดพันธุ์ (ยอดขาย)",
       year_be: yearBE,
       branch_id: branchId ? Number(branchId) : null,
       branch_name: branchName || null,
+      unit_note: "พันบาท",
       months: MONTHS.map((m) => ({ key: m.key, label: m.label })),
-      items: EDITABLE_ITEMS.map((it) => ({
-        id: it.id,
-        name: it.name,
-        unit: it.unit,
-        unit_price: toNumber(priceById[it.id]),
+      rows: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        unit: r.unit,
+        unit_price: toNumber(r.unitPrice),
         values: MONTHS.reduce((acc, m) => {
-          acc[m.key] = toNumber(qtyById?.[it.id]?.[m.key])
+          acc[m.key] = toNumber(qtyById?.[r.id]?.[m.key])
           return acc
         }, {}),
+        totals: computed.rowTotals?.[r.id] ?? { qty: 0, amt: 0 },
       })),
       totals: {
         month_qty: computed.monthQtyTotals,
@@ -251,7 +266,7 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
         grand_amount: computed.grandAmt,
       },
     }
-  }, [yearBE, branchId, branchName, qtyById, priceById, computed])
+  }, [yearBE, branchId, branchName, rows, qtyById, computed])
 
   const copyPayload = async () => {
     try {
@@ -270,14 +285,25 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
 
   return (
     <div className="space-y-3">
+      {/* header card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="flex-1">
-            <div className="text-center md:text-left">
-              <div className="text-lg font-bold">ยอดขาย</div>
-              <div className="text-xl md:text-2xl font-extrabold">รายละเอียดแผนการแปรรูปผลผลิตการเกษตร</div>
-              <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                * กรอก “ตัน” แล้วระบบคำนวณ “บาท” ให้ (จำนวน × ราคา/หน่วย)
+            <div className="relative">
+              <div className="text-center">
+                <div className="text-lg font-bold">ยอดขาย</div>
+                <div className="text-xl md:text-2xl font-extrabold">
+                  รายละเอียดแผนโครงการผลิตเมล็ดพันธุ์ของ สกต. สุรินทร์ จำกัด
+                </div>
+                <div className="mt-1 text-base font-bold">ปี {yearBE || "—"}</div>
+              </div>
+
+              <div className="absolute right-0 top-0 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                หน่วย : <span className="font-extrabold">พันบาท</span>
+              </div>
+
+              <div className="mt-2 text-center text-sm text-slate-600 dark:text-slate-300">
+                * กรอก “ตัน” แล้วระบบคำนวณ “บาท(พันบาท)” ให้ (จำนวน × ราคา/หน่วย)
               </div>
             </div>
 
@@ -345,6 +371,7 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
         )}
       </div>
 
+      {/* table card */}
       <div
         ref={tableCardRef}
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
@@ -353,13 +380,19 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
         <div className="p-2 md:p-3 shrink-0">
           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
             <div className="text-base md:text-lg font-bold">
-              ตารางกรอกข้อมูล (Mock) — {branchName ? `สาขา: ${branchName}` : "ยังไม่เลือกสาขา"}
+              ตารางกรอกข้อมูล — {branchName ? `สาขา: ${branchName}` : "ยังไม่เลือกสาขา"}
             </div>
-            <div className="text-sm text-slate-600 dark:text-slate-300">* ตัวเลขเริ่มต้นว่างทั้งหมด</div>
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              * ช่อง “ประเภทสินค้า” กรอกชื่อได้เหมือนแบบฟอร์ม Excel
+            </div>
           </div>
         </div>
 
-        <div ref={bodyScrollRef} onScroll={onBodyScroll} className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700">
+        <div
+          ref={bodyScrollRef}
+          onScroll={onBodyScroll}
+          className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
+        >
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.product }} />
@@ -373,130 +406,160 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
             </colgroup>
 
             <thead className="sticky top-0 z-[80]">
+              {/* header row 1 */}
               <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
-                <th rowSpan={2} className={cx("border border-slate-300 px-3 py-2 text-left dark:border-slate-600", stickyProductHeader)}>
+                <th rowSpan={2} className={cx(gridCell, "px-3 py-2 text-left", stickyProductHeader)}>
                   ประเภทสินค้า
                 </th>
-                <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-center dark:border-slate-600">
+                <th rowSpan={2} className={cx(gridCell, "px-3 py-2 text-center")}>
                   หน่วยนับ
                 </th>
-                <th rowSpan={2} className="border border-slate-300 px-3 py-2 text-center dark:border-slate-600">
-                  ราคา/หน่วย<br />
+                <th rowSpan={2} className={cx(gridCell, "px-3 py-2 text-center")}>
+                  ราคา<br />
+                  ต่อหน่วย<br />
                   <span className="text-xs font-medium">(บาท)</span>
                 </th>
 
-                <th colSpan={MONTHS.length} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
-                  มูลค่าสินค้าที่ขายในแต่ละเดือน
+                <th colSpan={MONTHS.length} className={cx(gridCell, "px-3 py-2 text-center font-extrabold")}>
+                  มูลค่าสินค้าที่ขายในแต่ละเดือน <span className="font-bold">(พันบาท)</span>
                 </th>
 
-                <th colSpan={2} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
+                <th colSpan={2} className={cx(gridCell, "px-3 py-2 text-center font-extrabold")}>
                   รวมทั้งหมด
                 </th>
               </tr>
 
+              {/* header row 2 (months + total labels) */}
               <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
                 {MONTHS.map((m, idx) => (
-                  <th key={`h-${m.key}`} className={cx("border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600", monthStripeHead(idx))}>
+                  <th
+                    key={`h-${m.key}`}
+                    className={cx(gridCell, "px-2 py-2 text-center text-xs md:text-sm", monthStripeHead(idx))}
+                  >
                     {m.label}
                   </th>
                 ))}
-                <th className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600">จำนวนหน่วย</th>
-                <th className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600">
+                <th className={cx(gridCell, "px-2 py-2 text-center text-xs md:text-sm")}>จำนวนหน่วย</th>
+                <th className={cx(gridCell, "px-2 py-2 text-center text-xs md:text-sm")}>
                   จำนวนเงิน<br />
-                  <span className="text-xs font-medium">(บาท)</span>
+                  <span className="text-xs font-medium">(พันบาท)</span>
                 </th>
+              </tr>
+
+              {/* header row 3 (column numbers (1)-(17)) */}
+              <tr className="bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                <th className={cx(gridCell, "px-3 py-1 text-center text-[11px]", stickyProductHeader)}>(1)</th>
+                <th className={cx(gridCell, "px-3 py-1 text-center text-[11px]")}>(2)</th>
+                <th className={cx(gridCell, "px-3 py-1 text-center text-[11px]")}>(3)</th>
+                {MONTHS.map((m, idx) => (
+                  <th
+                    key={`no-${m.key}`}
+                    className={cx(gridCell, "px-2 py-1 text-center text-[11px]", monthStripeHead(idx))}
+                  >
+                    ({m.colNo})
+                  </th>
+                ))}
+                <th className={cx(gridCell, "px-2 py-1 text-center text-[11px]")}>(16)</th>
+                <th className={cx(gridCell, "px-2 py-1 text-center text-[11px]")}>(17)</th>
               </tr>
             </thead>
 
             <tbody>
-              {ITEMS.map((row, idxAll) => {
-                if (row.type === "group") {
-                  return (
-                    <tr key={`g-${idxAll}`} className="bg-slate-200/60 dark:bg-slate-700/60">
-                      <td className={cx("border border-slate-200 px-3 py-2 font-extrabold dark:border-slate-700", stickyProductCellBase, "bg-slate-200 dark:bg-slate-700")}>
-                        {row.label}
-                      </td>
-                      <td className="border border-slate-200 px-3 py-2 dark:border-slate-700" />
-                      <td className="border border-slate-200 px-3 py-2 dark:border-slate-700" />
-                      {MONTHS.map((m, mi) => (
-                        <td key={`g-${idxAll}-${m.key}`} className={cx("border border-slate-200 px-2 py-2 dark:border-slate-700", monthStripeCell(mi))} />
-                      ))}
-                      <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
-                      <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
-                    </tr>
-                  )
-                }
-
-                const it = row
-                const r = editableIndexById[it.id]
-                const price = toNumber(priceById[it.id])
-                const rowBg = r % 2 === 1 ? "bg-slate-50 dark:bg-slate-800" : "bg-white dark:bg-slate-900"
-                const totalQty = computed.itemTotals?.[it.id]?.qty ?? 0
-                const totalAmt = computed.itemTotals?.[it.id]?.amt ?? 0
+              {rows.map((r, idx) => {
+                const rowBg = idx % 2 === 1 ? "bg-slate-50 dark:bg-slate-800" : "bg-white dark:bg-slate-900"
+                const totalQty = computed.rowTotals?.[r.id]?.qty ?? 0
+                const totalAmt = computed.rowTotals?.[r.id]?.amt ?? 0
+                const price = toNumber(r.unitPrice)
 
                 return (
-                  <Fragment key={it.id}>
+                  <Fragment key={r.id}>
+                    {/* qty row */}
                     <tr className={rowBg}>
-                      <td rowSpan={2} className={cx("border border-slate-200 px-3 py-2 font-semibold dark:border-slate-700", stickyProductCellBase, rowBg)}>
-                        <span className="pl-4">— {it.name}</span>
-                      </td>
-                      <td className="border border-slate-200 px-3 py-2 text-center dark:border-slate-700">{it.unit}</td>
-                      <td className="border border-slate-200 px-3 py-2 dark:border-slate-700">
+                      <td
+                        rowSpan={2}
+                        className={cx(gridCell, "px-3 py-2 font-semibold", stickyProductCellBase, rowBg)}
+                      >
                         <input
-                          ref={registerInput(r, 0)}
-                          data-row={r}
+                          className={cx(cellTextInput, "font-semibold")}
+                          value={r.name ?? ""}
+                          disabled={!canEdit}
+                          placeholder="พิมพ์ประเภทสินค้า..."
+                          onChange={(e) => setRowMeta(r.id, { name: e.target.value })}
+                        />
+                      </td>
+
+                      <td className={cx(gridCell, "px-3 py-2 text-center font-semibold")}>
+                        {r.unit || "ตัน"}
+                      </td>
+
+                      <td className={cx(gridCell, "px-3 py-2")}>
+                        <input
+                          ref={registerInput(idx, 0)}
+                          data-row={idx}
                           data-col={0}
                           onKeyDown={handleArrowNav}
                           className={cellInput}
-                          value={priceById[it.id] ?? ""}
+                          value={r.unitPrice ?? ""}
                           disabled={!canEdit}
                           inputMode="decimal"
                           placeholder="0"
-                          onChange={(e) => setUnitPrice(it.id, sanitizeNumberInput(e.target.value))}
+                          onChange={(e) => setRowMeta(r.id, { unitPrice: sanitizeNumberInput(e.target.value) })}
                         />
                       </td>
 
                       {MONTHS.map((m, mi) => {
                         const col = getQtyColIndex(mi)
                         return (
-                          <td key={`${it.id}-${m.key}-qty`} className={cx("border border-slate-200 px-2 py-2 dark:border-slate-700", monthStripeCell(mi))}>
+                          <td
+                            key={`${r.id}-${m.key}-qty`}
+                            className={cx(gridCell, "px-2 py-2", monthStripeCell(mi))}
+                          >
                             <input
-                              ref={registerInput(r, col)}
-                              data-row={r}
+                              ref={registerInput(idx, col)}
+                              data-row={idx}
                               data-col={col}
                               onKeyDown={handleArrowNav}
                               className={cellInput}
-                              value={qtyById?.[it.id]?.[m.key] ?? ""}
+                              value={qtyById?.[r.id]?.[m.key] ?? ""}
                               disabled={!canEdit}
                               inputMode="decimal"
-                              placeholder="0"
-                              onChange={(e) => setQtyCell(it.id, m.key, sanitizeNumberInput(e.target.value))}
+                              placeholder={r.name ? "0" : ""}
+                              onChange={(e) => setQtyCell(r.id, m.key, sanitizeNumberInput(e.target.value))}
                             />
                           </td>
                         )
                       })}
 
-                      <td className="border border-slate-200 px-2 py-2 text-right font-extrabold dark:border-slate-700">{fmtQty(totalQty)}</td>
-                      <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
+                      <td className={cx(gridCell, "px-2 py-2 text-right font-extrabold")}>{fmtQty(totalQty)}</td>
+                      <td className={cx(gridCell, "px-2 py-2")} />
                     </tr>
 
+                    {/* amount row */}
                     <tr className={rowBg}>
-                      <td className="border border-slate-200 px-3 py-2 text-center font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">บาท</td>
-                      <td className="border border-slate-200 px-3 py-2 dark:border-slate-700" />
+                      <td className={cx(gridCell, "px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200")}>
+                        บาท
+                      </td>
+                      <td className={cx(gridCell, "px-3 py-2")} />
                       {MONTHS.map((m, mi) => {
-                        const q = toNumber(qtyById?.[it.id]?.[m.key])
+                        const q = toNumber(qtyById?.[r.id]?.[m.key])
                         const amt = q * price
                         return (
                           <td
-                            key={`${it.id}-${m.key}-amt`}
-                            className={cx("border border-slate-200 px-2 py-2 text-right text-slate-700 dark:border-slate-700 dark:text-slate-200", monthStripeCell(mi))}
+                            key={`${r.id}-${m.key}-amt`}
+                            className={cx(
+                              gridCell,
+                              "px-2 py-2 text-right text-slate-700 dark:text-slate-200",
+                              monthStripeCell(mi)
+                            )}
                           >
-                            {fmtMoney(amt)}
+                            {r.name ? fmtMoney(amt) : ""}
                           </td>
                         )
                       })}
-                      <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
-                      <td className="border border-slate-200 px-2 py-2 text-right font-extrabold dark:border-slate-700">{fmtMoney(totalAmt)}</td>
+                      <td className={cx(gridCell, "px-2 py-2")} />
+                      <td className={cx(gridCell, "px-2 py-2 text-right font-extrabold")}>
+                        {r.name ? fmtMoney(totalAmt) : ""}
+                      </td>
                     </tr>
                   </Fragment>
                 )
@@ -505,7 +568,7 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
           </table>
         </div>
 
-        {/* footer totals */}
+        {/* footer totals (ล็อกด้านล่าง + เลื่อนไปพร้อมกัน) */}
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20">
           <div className="flex w-full">
             <div className="shrink-0" style={{ width: LEFT_W }}>
@@ -517,14 +580,20 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
                 </colgroup>
                 <tbody>
                   <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
-                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700">รวม (จำนวนหน่วย)</td>
-                    <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
-                    <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
+                    <td className={cx(gridCell, "px-3 py-2")}>รวม</td>
+                    <td className={cx(gridCell, "px-2 py-2 text-center")}>ตัน</td>
+                    <td className={cx(gridCell, "px-2 py-2 text-right text-slate-600 dark:text-slate-300")}>
+                      {/* ช่องราคาของ “รวม” ในภาพจริงมักไม่ใช้งาน */}
+                      {""}
+                    </td>
                   </tr>
                   <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
-                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700">รวม (จำนวนเงิน)</td>
-                    <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
-                    <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
+                    <td className={cx(gridCell, "px-3 py-2")}>{""}</td>
+                    <td className={cx(gridCell, "px-2 py-2 text-center")}>บาท</td>
+                    <td className={cx(gridCell, "px-2 py-2 text-right text-slate-600 dark:text-slate-300")}>
+                      {/* เว้นว่างให้เหมือนฟอร์ม */}
+                      {""}
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -541,24 +610,26 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
                     <col style={{ width: COL_W.totalAmt }} />
                   </colgroup>
                   <tbody>
+                    {/* totals qty row */}
                     <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
                       {MONTHS.map((m, idx) => (
-                        <td key={`tq-${m.key}`} className={cx("border border-slate-200 px-2 py-2 text-right dark:border-slate-700", monthStripeFoot(idx))}>
+                        <td key={`tq-${m.key}`} className={cx(gridCell, "px-2 py-2 text-right", monthStripeFoot(idx))}>
                           {fmtQty(computed.monthQtyTotals?.[m.key] ?? 0)}
                         </td>
                       ))}
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtQty(computed.grandQty ?? 0)}</td>
-                      <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
+                      <td className={cx(gridCell, "px-2 py-2 text-right")}>{fmtQty(computed.grandQty ?? 0)}</td>
+                      <td className={cx(gridCell, "px-2 py-2")} />
                     </tr>
 
+                    {/* totals amount row */}
                     <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
                       {MONTHS.map((m, idx) => (
-                        <td key={`ta-${m.key}`} className={cx("border border-slate-200 px-2 py-2 text-right dark:border-slate-700", monthStripeFoot(idx))}>
+                        <td key={`ta-${m.key}`} className={cx(gridCell, "px-2 py-2 text-right", monthStripeFoot(idx))}>
                           {fmtMoney(computed.monthAmtTotals?.[m.key] ?? 0)}
                         </td>
                       ))}
-                      <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney(computed.grandAmt ?? 0)}</td>
+                      <td className={cx(gridCell, "px-2 py-2")} />
+                      <td className={cx(gridCell, "px-2 py-2 text-right")}>{fmtMoney(computed.grandAmt ?? 0)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -575,4 +646,4 @@ const AgriProcessingPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
   )
 }
 
-export default AgriProcessingPlanTable
+export default SeedProjectSalesPlanDetail

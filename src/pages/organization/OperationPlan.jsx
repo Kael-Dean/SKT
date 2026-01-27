@@ -8,8 +8,8 @@ import AgriCollectionPlanTable from "./AgriCollectionPlanTable"
 import AgriProcessingPlanDetail from "./AgriProcessingPlanDetail"
 import AgriProcessingPlanTable from "./AgriProcessingPlanTable"
 
-// ✅ ตารางใหม่: รายละเอียดแผนธุรกิจบริการ (ตามรูป Excel)
-import ServiceBusinessPlanDetail from "./ServiceBusinessPlanDetail"
+// ✅ เปลี่ยนจากไฟล์เก่า -> ใช้ไฟล์ใหม่ (ยอดขาย/เมล็ดพันธุ์)
+import SeedProjectSalesPlanDetail from "./SeedProjectSalesPlanDetail"
 
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -209,7 +209,7 @@ function ComboBox({
   )
 }
 
-// ---------------- Tables (✅ ครบทุกไฟล์ที่คุณมีใน folder) ----------------
+// ---------------- Tables ----------------
 const TABLES = [
   {
     key: "procurement-plan-detail",
@@ -236,12 +236,12 @@ const TABLES = [
     Component: AgriProcessingPlanTable,
   },
 
-  // ✅ เพิ่มตารางใหม่ที่ทำตามรูป Excel
+  // ✅ เปลี่ยนเป็นไฟล์ใหม่ที่คุณเพิ่งทำ (ยอดขายเมล็ดพันธุ์)
   {
-    key: "service-business-plan-detail",
-    label: "รายละเอียดแผนธุรกิจบริการ (ตามแบบฟอร์ม)",
-    description: "ไฟล์: ServiceBusinessPlanDetail.jsx (ตารางรายเดือน เม.ย.–มี.ค. + รวมจำนวน/พันบาท)",
-    Component: ServiceBusinessPlanDetail,
+    key: "seed-project-sales-plan-detail",
+    label: "รายละเอียดแผนโครงการผลิตเมล็ดพันธุ์ (ยอดขาย)",
+    description: "ไฟล์: SeedProjectSalesPlanDetail.jsx (ตารางรายเดือน เม.ย.–มี.ค. + รวมจำนวน/พันบาท)",
+    Component: SeedProjectSalesPlanDetail,
   },
 ]
 
@@ -315,9 +315,7 @@ const OperationPlan = () => {
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
               <h1 className="text-2xl md:text-3xl font-extrabold">🗺️ แผนปฏิบัติงาน</h1>
-              <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                เลือกสาขา → เลือกตาราง → กรอกข้อมูล
-              </div>
+              <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">เลือกสาขา → เลือกตาราง → กรอกข้อมูล</div>
             </div>
 
             <div className="inline-flex items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-200">
@@ -348,9 +346,7 @@ const OperationPlan = () => {
                 buttonRef={branchRef}
                 onEnterNext={() => tableRef.current?.focus?.()}
               />
-              {!branchId && (
-                <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>
-              )}
+              {!branchId && <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>}
             </div>
 
             <div className="md:col-span-4">
@@ -363,9 +359,7 @@ const OperationPlan = () => {
                 getSubLabel={(o) => o?.subLabel || ""}
                 buttonRef={tableRef}
               />
-              <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                {activeTable?.description || ""}
-              </div>
+              <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">{activeTable?.description || ""}</div>
             </div>
           </div>
 

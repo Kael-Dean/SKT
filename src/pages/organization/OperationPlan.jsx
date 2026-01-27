@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { apiAuth } from "../../lib/api"
+import { apiAuth } from "../../../lib/api"
 
-import ProcurementPlanDetail from "./ProcurementPlanDetail"
-import AgriCollectionPlanTable from "./AgriCollectionPlanTable"
-import AgriProcessingPlanDetail from "./AgriProcessingPlanDetail"
-import SeedProjectSalesPlanDetail from "./SeedProjectSalesPlanDetail"
-import ServiceBusinessPlanDetail from "./ServiceBusinessPlanDetail"
+import ProcurementPlanDetail from "../ProcurementPlanDetail"
+import AgriCollectionPlanTable from "../AgriCollectionPlanTable"
+import AgriProcessingPlanDetail from "../AgriProcessingPlanDetail"
+import SeedProjectSalesPlanDetail from "../SeedProjectSalesPlanDetail"
+import ServiceBusinessPlanDetail from "../ServiceBusinessPlanDetail"
 
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")

@@ -24,7 +24,8 @@ import MemberTermination from './pages/MemberTermination'
 import Share from './pages/Share'
 
 /** ✅ หน้าใหม่: Operation Plan (Mock) */
-import OperationPlan from './pages/organization/OperationPlan.jsx'
+// ✅ ย้ายไฟล์ไปไว้ใน /pages/organization/sell/OperationPlan.jsx แล้ว
+import OperationPlan from './pages/organization/sell/OperationPlan.jsx'
 
 /** ✅ หน้าใหม่: แก้ไขออเดอร์ */
 import OrderCorrection from './pages/OrderCorrection.jsx'

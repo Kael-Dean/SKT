@@ -7,6 +7,9 @@ import AgriProcessingPlanDetail from "./sell/AgriProcessingPlanDetail"
 import SeedProjectSalesPlanDetail from "./sell/SeedProjectSalesPlanDetail"
 import ServiceBusinessPlanDetail from "./sell/ServiceBusinessPlanDetail"
 
+// ✅ NEW: cost table
+import BusinessPlanExpenseTable from "./cost/BusinessPlanExpenseTable"
+
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
 const baseField =
@@ -205,13 +208,13 @@ function ComboBox({
   )
 }
 
-/* ---------------- ประเภทตาราง (ต้องเลือกก่อน) ---------------- */
+/* ---------------- ประเภทตาราง ---------------- */
 const PLAN_TYPES = [
-  { id: "sell", label: "ยอดขาย", subLabel: "ตารางฝั่งรายได้/ยอดขาย (ที่ทำไว้แล้ว)" },
-  { id: "cost", label: "ค่าใช้จ่าย", subLabel: "เดี๋ยวจะตามมาทีหลัง" },
+  { id: "sell", label: "ยอดขาย", subLabel: "ตารางฝั่งรายได้/ยอดขาย" },
+  { id: "cost", label: "ค่าใช้จ่าย", subLabel: "ตารางฝั่งต้นทุน/ค่าใช้จ่าย" },
 ]
 
-/* ---------------- ตารางฝั่ง “ยอดขาย” (ของเดิมทั้งหมด) ---------------- */
+/* ---------------- ตารางฝั่ง “ยอดขาย” ---------------- */
 const SALES_TABLES = [
   {
     key: "procurement-plan-detail",
@@ -245,6 +248,16 @@ const SALES_TABLES = [
   },
 ]
 
+/* ---------------- ✅ ตารางฝั่ง “ค่าใช้จ่าย (cost)” ---------------- */
+const COST_TABLES = [
+  {
+    key: "business-plan-expense-table",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า",
+    description: "ไฟล์: cost/BusinessPlanExpenseTable.jsx",
+    Component: BusinessPlanExpenseTable,
+  },
+]
+
 // ---------------- Page ----------------
 const OperationPlan = () => {
   useEffect(() => {
@@ -258,7 +271,7 @@ const OperationPlan = () => {
   const [branchOptions, setBranchOptions] = useState([])
   const [branchId, setBranchId] = useState("")
 
-  // ✅ NEW: ประเภทตาราง (ต้องเลือกก่อน)
+  // ประเภทตาราง
   const [planType, setPlanType] = useState("") // "sell" | "cost"
 
   // selected table
@@ -286,10 +299,12 @@ const OperationPlan = () => {
     loadBranches()
   }, [])
 
-  // ✅ เมื่อเปลี่ยนประเภท: รีเซ็ต dropdown ตารางอัตโนมัติ
+  // ✅ เมื่อเปลี่ยนประเภท: ตั้งค่า tableKey อัตโนมัติเป็นตัวแรกของประเภทนั้น
   useEffect(() => {
     if (planType === "sell") {
       setTableKey(SALES_TABLES[0]?.key || "")
+    } else if (planType === "cost") {
+      setTableKey(COST_TABLES[0]?.key || "")
     } else {
       setTableKey("")
     }
@@ -305,7 +320,7 @@ const OperationPlan = () => {
 
   const currentTables = useMemo(() => {
     if (planType === "sell") return SALES_TABLES
-    // cost จะตามมาทีหลัง
+    if (planType === "cost") return COST_TABLES
     return []
   }, [planType])
 
@@ -315,7 +330,7 @@ const OperationPlan = () => {
 
   const ActiveComponent = activeTable?.Component || null
 
-  const canShowTable = !!branchId && planType === "sell" && !!ActiveComponent
+  const canShowTable = !!branchId && !!planType && !!ActiveComponent
 
   const planTypeOptions = useMemo(
     () => PLAN_TYPES.map((p) => ({ id: p.id, label: p.label, subLabel: p.subLabel || "" })),
@@ -336,14 +351,13 @@ const OperationPlan = () => {
 
   const tablePlaceholder = useMemo(() => {
     if (!planType) return "เลือกประเภทตารางก่อน"
-    if (planType === "cost") return "ค่าใช้จ่ายเดี๋ยวจะตามมาทีหลัง"
+    if (planType === "sell") return "— เลือกตารางยอดขาย —"
+    if (planType === "cost") return "— เลือกตารางค่าใช้จ่าย —"
     return "— เลือกตาราง —"
   }, [planType])
 
   const tableDisabled = useMemo(() => {
-    if (!planType) return true
-    if (planType === "cost") return true
-    return false
+    return !planType
   }, [planType])
 
   return (
@@ -367,12 +381,7 @@ const OperationPlan = () => {
           <div className="mt-4 grid gap-3 md:grid-cols-12">
             <div className="md:col-span-3">
               <label className={labelCls}>ปี (พ.ศ.)</label>
-              <input
-                className={baseField}
-                value={yearBE}
-                onChange={(e) => setYearBE(e.target.value)}
-                placeholder="เช่น 2568"
-              />
+              <input className={baseField} value={yearBE} onChange={(e) => setYearBE(e.target.value)} placeholder="เช่น 2568" />
             </div>
 
             <div className="md:col-span-4">
@@ -389,7 +398,7 @@ const OperationPlan = () => {
               {!branchId && <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>}
             </div>
 
-            {/* ✅ NEW: ประเภทตาราง */}
+            {/* ประเภทตาราง */}
             <div className="md:col-span-5">
               <label className={labelCls}>ประเภทตาราง</label>
               <ComboBox
@@ -406,14 +415,9 @@ const OperationPlan = () => {
                   * ต้องเลือก “ประเภทตาราง” ก่อน ถึงจะเลือกตารางย่อยได้
                 </div>
               )}
-              {planType === "cost" && (
-                <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                  โหมดค่าใช้จ่าย: เดี๋ยวจะตามมาทีหลัง (ตอนนี้ยังไม่เปิดให้เลือกตาราง)
-                </div>
-              )}
             </div>
 
-            {/* ✅ ตารางย่อย (จะแสดง/ใช้งานได้เมื่อเลือกประเภทเป็น “ยอดขาย”) */}
+            {/* ตารางย่อย */}
             <div className="md:col-span-12">
               <label className={labelCls}>เลือกตารางที่จะกรอก</label>
               <ComboBox
@@ -426,7 +430,7 @@ const OperationPlan = () => {
                 disabled={tableDisabled}
               />
               <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                {activeTable?.description || (planType === "cost" ? "ตารางค่าใช้จ่ายจะเพิ่มทีหลัง" : "")}
+                {activeTable?.description || (planType ? "—" : "")}
               </div>
             </div>
           </div>
@@ -463,13 +467,6 @@ const OperationPlan = () => {
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
             <div className="mt-2 text-slate-600 dark:text-slate-300">
               กรุณาเลือก <span className="font-semibold">สาขา</span> ก่อน
-            </div>
-          </div>
-        ) : planType === "cost" ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-lg font-bold">โหมดค่าใช้จ่าย</div>
-            <div className="mt-2 text-slate-600 dark:text-slate-300">
-              ตารางค่าใช้จ่าย <span className="font-semibold">เดี๋ยวจะตามมาทีหลัง</span>
             </div>
           </div>
         ) : !planType ? (

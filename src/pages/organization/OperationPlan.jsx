@@ -7,8 +7,9 @@ import AgriProcessingPlanDetail from "./sell/AgriProcessingPlanDetail"
 import SeedProjectSalesPlanDetail from "./sell/SeedProjectSalesPlanDetail"
 import ServiceBusinessPlanDetail from "./sell/ServiceBusinessPlanDetail"
 
-// ✅ NEW: cost table
+// ✅ cost tables
 import BusinessPlanExpenseTable from "./cost/BusinessPlanExpenseTable"
+import BusinessPlanExpenseOilTable from "./cost/BusinessPlanExpenseOilTable"
 
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -256,6 +257,12 @@ const COST_TABLES = [
     description: "ไฟล์: cost/BusinessPlanExpenseTable.jsx",
     Component: BusinessPlanExpenseTable,
   },
+  {
+    key: "business-plan-expense-oil-table",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า น้ำมัน",
+    description: "ไฟล์: cost/BusinessPlanExpenseOilTable.jsx",
+    Component: BusinessPlanExpenseOilTable,
+  },
 ]
 
 // ---------------- Page ----------------
@@ -381,7 +388,12 @@ const OperationPlan = () => {
           <div className="mt-4 grid gap-3 md:grid-cols-12">
             <div className="md:col-span-3">
               <label className={labelCls}>ปี (พ.ศ.)</label>
-              <input className={baseField} value={yearBE} onChange={(e) => setYearBE(e.target.value)} placeholder="เช่น 2568" />
+              <input
+                className={baseField}
+                value={yearBE}
+                onChange={(e) => setYearBE(e.target.value)}
+                placeholder="เช่น 2568"
+              />
             </div>
 
             <div className="md:col-span-4">
@@ -395,7 +407,9 @@ const OperationPlan = () => {
                 buttonRef={branchRef}
                 onEnterNext={() => typeRef.current?.focus?.()}
               />
-              {!branchId && <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>}
+              {!branchId && (
+                <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>
+              )}
             </div>
 
             {/* ประเภทตาราง */}

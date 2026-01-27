@@ -38,38 +38,43 @@ const COLS = [
 ]
 
 const ROWS = [
-  { code: "4", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า ปั๊มน้ำมัน", kind: "section" },
+  { code: "5", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม", kind: "section" },
 
-  { code: "4.1", label: "ค่าใช้จ่ายในการขาย", kind: "item" },
-  { code: "4.2", label: "เงินเดือนและค่าจ้าง", kind: "item" },
-  { code: "4.3", label: "ค่าน้ำมันเชื้อเพลิงใช้ไป", kind: "item" },
-  { code: "4.4", label: "เบี้ยเลี้ยง", kind: "item" },
-  { code: "4.5", label: "ค่าอาหาร", kind: "item" },
-  { code: "4.6", label: "ค่าทำงานในวันหยุด", kind: "item" },
-  { code: "4.7", label: "ค่าลดหย่อนน้ำมันสูญระเหย", kind: "item" },
-  { code: "4.8", label: "ค่าเบี้ยประกันภัย", kind: "item" },
-  { code: "4.9", label: "* ค่าเสื่อมราคา - จาง, อาคาร", kind: "item" },
-  { code: "4.10", label: "* ค่าซ่อมบำรุง - ครุภัณฑ์", kind: "item" },
-  { code: "4.11", label: "หนังสือสะสมลูกหนี้การค้า-น้ำมัน", kind: "item" },
-  { code: "4.12", label: "หนังสือสะสมลูกหนี้บัตรเกษตรสรุปใจ-น้ำมัน", kind: "item" },
-  { code: "4.13", label: "ดอกจ่าย อบจ.", kind: "item" },
-  { code: "4.14", label: "ค่าใช้ภาษี อบจ.", kind: "item" },
-  { code: "4.15", label: "ค่าธรรมเนียมโอนเงินบัตรสินเชื่อ", kind: "item" },
-  { code: "4.16", label: "* ค่าเสื่อมราคา - ครุภัณฑ์", kind: "item" },
-  { code: "4.17", label: "ค่าถ่ายเอกสาร", kind: "item" },
-  { code: "4.18", label: "ค่าส่งเสริมการขาย", kind: "item" },
-  { code: "4.19", label: "ค่าของใช้ สนง.", kind: "item" },
-  { code: "4.20", label: "ค่าธรรมเนียมโอนเงินบัตรเครดิต", kind: "item" },
-  { code: "4.21", label: "ค่าใช้จ่ายงานน้ำมันงานครัว", kind: "item" },
-  { code: "4.22", label: "ค่าโทรศัพท์", kind: "item" },
-  { code: "4.23", label: "ค่าภาษีโรงเรือน", kind: "item" },
-  { code: "4.24", label: "ค่าเบี้ยขยัน", kind: "item" },
-  { code: "4.25", label: "ค่าต่อสัญญาเครื่องรูดบัตร", kind: "item" },
-  { code: "4.26", label: "ค่าประชาสัมพันธ์", kind: "item" },
-  { code: "4.27", label: "ค่าเครื่องเขียนแบบพิมพ์", kind: "item" },
-  { code: "4.28", label: "ค่าซ่อมอาคาร", kind: "item" },
-  { code: "4.29", label: "ค่าตกแต่งภูมิทัศน์", kind: "item" },
-  { code: "4.30", label: "ค่าใช้จ่ายเบ็ดเตล็ด", kind: "item" },
+  { code: "5.1", label: "ค่าใช้จ่ายในการขาย", kind: "item" },
+  { code: "5.2", label: "ดอกเบี้ยจ่าย ธ.ก.ส.เพื่อรวบรวม", kind: "item" },
+  { code: "5.3", label: "หนังสือสะสม", kind: "item" },
+  { code: "5.4", label: "เงินเดือนและค่าจ้าง", kind: "item" },
+  { code: "5.5", label: "เบี้ยเลี้ยง", kind: "item" },
+  { code: "5.6", label: "ทำงานในวันหยุด", kind: "item" },
+  { code: "5.7", label: "ค่าอาหาร", kind: "item" },
+  { code: "5.8", label: "ค่าบำรุงรักษา-ครุภัณฑ์", kind: "item" },
+  { code: "5.9", label: "กรรสอุปใช้ไป", kind: "item" },
+  { code: "5.10", label: "ค่าโทรศัพท์", kind: "item" },
+  { code: "5.11", label: "ค่าใช้จ่ายยานพาหนะ", kind: "item" },
+  { code: "5.12", label: "ค่าน้ำมันเชื้อเพลิงใช้ไป", kind: "item" },
+  { code: "5.13", label: "* ค่าเสื่อมราคา - เครื่องจักรและอุปกรณ์", kind: "item" },
+  { code: "5.14", label: "* ค่าเสื่อมราคา - ครุภัณฑ์", kind: "item" },
+  { code: "5.15", label: "ค่าบำรุงรักษา-อาคาร", kind: "item" },
+  { code: "5.16", label: "ค่าของใช้สำนักงาน", kind: "item" },
+  { code: "5.17", label: "* ค่าลดหย่อนสินค้าขาดบัญชี", kind: "item" },
+  { code: "5.18", label: "* ค่าลดหย่อนสินค้าขาดบัญชี-ยางพารา", kind: "item" },
+  { code: "5.19", label: "ค่าน้ำมันเชื้อเพลิง", kind: "item" },
+  { code: "5.20", label: "* ค่าเสื่อมราคา - จาง, อาคาร", kind: "item" },
+  { code: "5.21", label: "ค่าเบี้ยประกันภัย", kind: "item" },
+  { code: "5.22", label: "* ค่าเสื่อมราคา - ยานพาหนะ", kind: "item" },
+  { code: "5.23", label: "ค่าบำรุงรักษารถ/ยานพาหนะ", kind: "item" },
+  { code: "5.24", label: "ค่าบริการสมาชิก", kind: "item" },
+  { code: "5.25", label: "ค่าเหนื่อเจ้าหน้าที่", kind: "item" },
+  { code: "5.26", label: "ค่าประชาสัมพันธ์", kind: "item" },
+  { code: "5.27", label: "ค่าภาษีโรงเรือน", kind: "item" },
+  { code: "5.28", label: "ค่าใช้จ่ายต่อจ่าย", kind: "item" },
+  { code: "5.29", label: "ดอกเบี้ยจ่าย ธ.ก.ส.เพื่อรอการขาย", kind: "item" },
+  { code: "5.30", label: "ดอกเบี้ยจ่าย กสส", kind: "item" },
+  { code: "5.31", label: "ขาดทุนจากการยกเลิกใช้อาคาร", kind: "item" },
+  { code: "5.32", label: "ค่าเช่าสถานที่รวบรวม", kind: "item" },
+  { code: "5.33", label: "* ค่าลดหย่อนสินค้าขาดบัญชี-ข้าวโพด", kind: "item" },
+  { code: "5.34", label: "ควจ.โครงการชลอข้าวเปลือก", kind: "item" },
+  { code: "5.35", label: "ค่าใช้จ่ายเบ็ดเตล็ด", kind: "item" },
 ]
 
 function buildInitialValues() {
@@ -94,7 +99,7 @@ const STRIPE = {
   foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
 }
 
-const BusinessPlanExpenseOilTable = () => {
+const BusinessPlanExpenseCollectionTable = () => {
   const [period, setPeriod] = useState(PERIOD_DEFAULT)
   const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues())
   const [showPayload, setShowPayload] = useState(false)
@@ -254,8 +259,8 @@ const BusinessPlanExpenseOilTable = () => {
 
   const payload = useMemo(() => {
     return {
-      table_code: "BUSINESS_PLAN_EXPENSES_OIL",
-      table_name: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า น้ำมัน",
+      table_code: "BUSINESS_PLAN_EXPENSES_COLLECTION",
+      table_name: "ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม",
       period,
       columns: [...COLS.map((c) => ({ key: c.key, label: c.label })), { key: "total", label: "รวม" }],
       rows: ROWS.map((r) => {
@@ -304,7 +309,7 @@ const BusinessPlanExpenseOilTable = () => {
               <div className="text-lg font-bold">ประมาณการรายได้/ค่าใช้จ่าย</div>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">({period})</div>
               <div className="mt-2 text-base font-extrabold text-slate-900 dark:text-slate-100">
-                4) ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า น้ำมัน
+                5) ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม
               </div>
             </div>
 
@@ -452,7 +457,7 @@ const BusinessPlanExpenseOilTable = () => {
                       <td
                         className={cx(
                           "border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600",
-                          "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]",
+                          stickyCodeCell,
                           "bg-slate-200/70 dark:bg-slate-700/55"
                         )}
                       >
@@ -481,7 +486,7 @@ const BusinessPlanExpenseOilTable = () => {
                     <td
                       className={cx(
                         "border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600",
-                        "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]",
+                        stickyCodeCell,
                         rowBg
                       )}
                     >
@@ -584,4 +589,4 @@ const BusinessPlanExpenseOilTable = () => {
   )
 }
 
-export default BusinessPlanExpenseOilTable
+export default BusinessPlanExpenseCollectionTable

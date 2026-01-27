@@ -10,6 +10,7 @@ import ServiceBusinessPlanDetail from "./sell/ServiceBusinessPlanDetail"
 // ✅ cost tables
 import BusinessPlanExpenseTable from "./cost/BusinessPlanExpenseTable"
 import BusinessPlanExpenseOilTable from "./cost/BusinessPlanExpenseOilTable"
+import BusinessPlanExpenseCollectionTable from "./cost/BusinessPlanExpenseCollectionTable"
 
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -259,9 +260,15 @@ const COST_TABLES = [
   },
   {
     key: "business-plan-expense-oil-table",
-    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า น้ำมัน",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า ปั๊มน้ำมัน",
     description: "ไฟล์: cost/BusinessPlanExpenseOilTable.jsx",
     Component: BusinessPlanExpenseOilTable,
+  },
+  {
+    key: "business-plan-expense-collection-table",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม",
+    description: "ไฟล์: cost/BusinessPlanExpenseCollectionTable.jsx",
+    Component: BusinessPlanExpenseCollectionTable,
   },
 ]
 
@@ -490,7 +497,11 @@ const OperationPlan = () => {
               กรุณาเลือก <span className="font-semibold">ประเภทตาราง</span> ก่อน
             </div>
           </div>
-        ) : !canShowTable ? (
+        ) : !(
+            !!branchId &&
+            !!planType &&
+            !!(activeTable?.Component || null)
+          ) ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
             <div className="mt-2 text-slate-600 dark:text-slate-300">

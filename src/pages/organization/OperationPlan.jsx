@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { apiAuth } from "../../../lib/api"
+import { apiAuth } from "../../lib/api"
 
-import ProcurementPlanDetail from "../ProcurementPlanDetail"
-import AgriCollectionPlanTable from "../AgriCollectionPlanTable"
-import AgriProcessingPlanDetail from "../AgriProcessingPlanDetail"
-import SeedProjectSalesPlanDetail from "../SeedProjectSalesPlanDetail"
-import ServiceBusinessPlanDetail from "../ServiceBusinessPlanDetail"
+import ProcurementPlanDetail from "./sell/ProcurementPlanDetail"
+import AgriCollectionPlanTable from "./sell/AgriCollectionPlanTable"
+import AgriProcessingPlanDetail from "./sell/AgriProcessingPlanDetail"
+import SeedProjectSalesPlanDetail from "./sell/SeedProjectSalesPlanDetail"
+import ServiceBusinessPlanDetail from "./sell/ServiceBusinessPlanDetail"
 
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -44,7 +44,7 @@ function ComboBox({
     [options, value, getValue]
   )
   const selectedLabel = selectedObj ? getLabel(selectedObj) : ""
-  const selectedSubLabel = selectedObj ? (getSubLabel(selectedObj) || "") : ""
+  const selectedSubLabel = selectedObj ? getSubLabel(selectedObj) || "" : ""
 
   useEffect(() => {
     const onClick = (e) => {
@@ -165,9 +165,7 @@ function ComboBox({
           role="listbox"
           className="absolute z-20 mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
-          {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
-          )}
+          {options.length === 0 && <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
             const sub = getSubLabel(opt) || ""
@@ -205,36 +203,36 @@ function ComboBox({
   )
 }
 
-// ---------------- Tables (ครบทุกไฟล์ในโฟลเดอร์ organization) ----------------
+// ---------------- Tables ----------------
 const TABLES = [
   {
     key: "procurement-plan-detail",
     label: "รายละเอียดแผนการจัดหาสินค้า",
-    description: "ไฟล์: ProcurementPlanDetail.jsx (เม.ย.–มี.ค. | ปร/รับ/พร)",
+    description: "ไฟล์: sell/ProcurementPlanDetail.jsx (เม.ย.–มี.ค. | ปร/รับ/พร)",
     Component: ProcurementPlanDetail,
   },
   {
     key: "agri-collection-plan-table",
     label: "รายละเอียดแผนการรวบรวมผลผลิตการเกษตร",
-    description: "ไฟล์: AgriCollectionPlanTable.jsx (เม.ย.–มี.ค. | มีแถวรวมอัตโนมัติ)",
+    description: "ไฟล์: sell/AgriCollectionPlanTable.jsx (เม.ย.–มี.ค. | มีแถวรวมอัตโนมัติ)",
     Component: AgriCollectionPlanTable,
   },
   {
     key: "agri-processing-plan-detail",
     label: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร (Detail)",
-    description: "ไฟล์: AgriProcessingPlanDetail.jsx (เวอร์ชัน Detail ที่คุณทำใหม่)",
+    description: "ไฟล์: sell/AgriProcessingPlanDetail.jsx",
     Component: AgriProcessingPlanDetail,
   },
   {
     key: "seed-project-sales-plan-detail",
     label: "รายละเอียดแผนโครงการผลิตเมล็ดพันธุ์ (ยอดขาย)",
-    description: "ไฟล์: SeedProjectSalesPlanDetail.jsx (ตารางรายเดือน เม.ย.–มี.ค. + รวมจำนวน/พันบาท)",
+    description: "ไฟล์: sell/SeedProjectSalesPlanDetail.jsx",
     Component: SeedProjectSalesPlanDetail,
   },
   {
     key: "service-business-plan-detail",
     label: "รายละเอียดแผนธุรกิจบริการ",
-    description: "ไฟล์: ServiceBusinessPlanDetail.jsx (ตารางรายเดือน เม.ย.–มี.ค. + เพิ่ม/ลบแถวได้)",
+    description: "ไฟล์: sell/ServiceBusinessPlanDetail.jsx",
     Component: ServiceBusinessPlanDetail,
   },
 ]
@@ -247,12 +245,10 @@ const OperationPlan = () => {
 
   const [yearBE, setYearBE] = useState("2568")
 
-  // branches
   const [loadingBranches, setLoadingBranches] = useState(false)
   const [branchOptions, setBranchOptions] = useState([])
   const [branchId, setBranchId] = useState("")
 
-  // selected table
   const [tableKey, setTableKey] = useState(TABLES[0]?.key || "")
 
   useEffect(() => {
@@ -304,7 +300,6 @@ const OperationPlan = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-[1400px] p-4 md:p-6">
-        {/* Header */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
@@ -317,16 +312,10 @@ const OperationPlan = () => {
             </div>
           </div>
 
-          {/* Controls */}
           <div className="mt-4 grid gap-3 md:grid-cols-12">
             <div className="md:col-span-3">
               <label className={labelCls}>ปี (พ.ศ.)</label>
-              <input
-                className={baseField}
-                value={yearBE}
-                onChange={(e) => setYearBE(e.target.value)}
-                placeholder="เช่น 2568"
-              />
+              <input className={baseField} value={yearBE} onChange={(e) => setYearBE(e.target.value)} placeholder="เช่น 2568" />
             </div>
 
             <div className="md:col-span-5">
@@ -357,7 +346,6 @@ const OperationPlan = () => {
             </div>
           </div>
 
-          {/* Quick summary */}
           <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-700 dark:text-slate-200">
               <span className="font-semibold">สาขา:</span> {branchName ? branchName : "—"}
@@ -377,7 +365,6 @@ const OperationPlan = () => {
           </div>
         </div>
 
-        {/* Content */}
         {!canShowTable ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>

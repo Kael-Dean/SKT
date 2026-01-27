@@ -4,11 +4,10 @@ import { apiAuth } from "../../lib/api"
 import ProcurementPlanDetail from "./ProcurementPlanDetail"
 import AgriCollectionPlanTable from "./AgriCollectionPlanTable"
 
-// ✅ แปรรูป: มีทั้ง 2 ไฟล์ ให้เลือกได้ทั้งคู่
+// ✅ แปรรูป: ใช้ Detail เดิมได้
 import AgriProcessingPlanDetail from "./AgriProcessingPlanDetail"
-import AgriProcessingPlanTable from "./AgriProcessingPlanTable"
 
-// ✅ เปลี่ยนจากไฟล์เก่า -> ใช้ไฟล์ใหม่ (ยอดขาย/เมล็ดพันธุ์)
+// ✅ ใช้ไฟล์ Seed แทนตัวเลือก "Table"
 import SeedProjectSalesPlanDetail from "./SeedProjectSalesPlanDetail"
 
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
@@ -210,6 +209,7 @@ function ComboBox({
 }
 
 // ---------------- Tables ----------------
+// ✅ ตรงนี้คือ “แทนดรอปดาวอัน Table” ให้ชี้ไป Seed แล้ว
 const TABLES = [
   {
     key: "procurement-plan-detail",
@@ -229,18 +229,12 @@ const TABLES = [
     description: "ไฟล์: AgriProcessingPlanDetail.jsx (เวอร์ชัน Detail ที่คุณทำใหม่)",
     Component: AgriProcessingPlanDetail,
   },
+
+  // ✅ “อันนี้” คือที่คุณเห็นในรูป (Table) — ให้เรียก Seed แทน
   {
     key: "agri-processing-plan-table",
     label: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร (Table)",
-    description: "ไฟล์: AgriProcessingPlanTable.jsx (เวอร์ชัน Table เดิม)",
-    Component: AgriProcessingPlanTable,
-  },
-
-  // ✅ เปลี่ยนเป็นไฟล์ใหม่ที่คุณเพิ่งทำ (ยอดขายเมล็ดพันธุ์)
-  {
-    key: "seed-project-sales-plan-detail",
-    label: "รายละเอียดแผนโครงการผลิตเมล็ดพันธุ์ (ยอดขาย)",
-    description: "ไฟล์: SeedProjectSalesPlanDetail.jsx (ตารางรายเดือน เม.ย.–มี.ค. + รวมจำนวน/พันบาท)",
+    description: "ไฟล์: SeedProjectSalesPlanDetail.jsx (ใช้แทน Table เดิม)",
     Component: SeedProjectSalesPlanDetail,
   },
 ]

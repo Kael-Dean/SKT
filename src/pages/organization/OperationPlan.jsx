@@ -165,7 +165,9 @@ function ComboBox({
           role="listbox"
           className="absolute z-20 mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
-          {options.length === 0 && <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>}
+          {options.length === 0 && (
+            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
+          )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
             const sub = getSubLabel(opt) || ""
@@ -203,8 +205,14 @@ function ComboBox({
   )
 }
 
-// ---------------- Tables ----------------
-const TABLES = [
+/* ---------------- ประเภทตาราง (ต้องเลือกก่อน) ---------------- */
+const PLAN_TYPES = [
+  { id: "sell", label: "ยอดขาย", subLabel: "ตารางฝั่งรายได้/ยอดขาย (ที่ทำไว้แล้ว)" },
+  { id: "cost", label: "ค่าใช้จ่าย", subLabel: "เดี๋ยวจะตามมาทีหลัง" },
+]
+
+/* ---------------- ตารางฝั่ง “ยอดขาย” (ของเดิมทั้งหมด) ---------------- */
+const SALES_TABLES = [
   {
     key: "procurement-plan-detail",
     label: "รายละเอียดแผนการจัดหาสินค้า",
@@ -245,11 +253,16 @@ const OperationPlan = () => {
 
   const [yearBE, setYearBE] = useState("2568")
 
+  // branches
   const [loadingBranches, setLoadingBranches] = useState(false)
   const [branchOptions, setBranchOptions] = useState([])
   const [branchId, setBranchId] = useState("")
 
-  const [tableKey, setTableKey] = useState(TABLES[0]?.key || "")
+  // ✅ NEW: ประเภทตาราง (ต้องเลือกก่อน)
+  const [planType, setPlanType] = useState("") // "sell" | "cost"
+
+  // selected table
+  const [tableKey, setTableKey] = useState("")
 
   useEffect(() => {
     const loadBranches = async () => {
@@ -273,29 +286,65 @@ const OperationPlan = () => {
     loadBranches()
   }, [])
 
+  // ✅ เมื่อเปลี่ยนประเภท: รีเซ็ต dropdown ตารางอัตโนมัติ
+  useEffect(() => {
+    if (planType === "sell") {
+      setTableKey(SALES_TABLES[0]?.key || "")
+    } else {
+      setTableKey("")
+    }
+  }, [planType])
+
   const branchName = useMemo(() => {
     return branchOptions.find((b) => String(b.id) === String(branchId))?.label || ""
   }, [branchOptions, branchId])
 
+  const planTypeLabel = useMemo(() => {
+    return PLAN_TYPES.find((p) => p.id === planType)?.label || ""
+  }, [planType])
+
+  const currentTables = useMemo(() => {
+    if (planType === "sell") return SALES_TABLES
+    // cost จะตามมาทีหลัง
+    return []
+  }, [planType])
+
   const activeTable = useMemo(() => {
-    return TABLES.find((t) => t.key === tableKey) || null
-  }, [tableKey])
+    return currentTables.find((t) => t.key === tableKey) || null
+  }, [currentTables, tableKey])
 
   const ActiveComponent = activeTable?.Component || null
-  const canShowTable = !!branchId && !!ActiveComponent
 
-  const tableOptions = useMemo(
-    () =>
-      TABLES.map((t) => ({
-        id: t.key,
-        label: t.label,
-        subLabel: t.description || "",
-      })),
+  const canShowTable = !!branchId && planType === "sell" && !!ActiveComponent
+
+  const planTypeOptions = useMemo(
+    () => PLAN_TYPES.map((p) => ({ id: p.id, label: p.label, subLabel: p.subLabel || "" })),
     []
   )
 
+  const tableOptions = useMemo(() => {
+    return currentTables.map((t) => ({
+      id: t.key,
+      label: t.label,
+      subLabel: t.description || "",
+    }))
+  }, [currentTables])
+
   const branchRef = useRef(null)
+  const typeRef = useRef(null)
   const tableRef = useRef(null)
+
+  const tablePlaceholder = useMemo(() => {
+    if (!planType) return "เลือกประเภทตารางก่อน"
+    if (planType === "cost") return "ค่าใช้จ่ายเดี๋ยวจะตามมาทีหลัง"
+    return "— เลือกตาราง —"
+  }, [planType])
+
+  const tableDisabled = useMemo(() => {
+    if (!planType) return true
+    if (planType === "cost") return true
+    return false
+  }, [planType])
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
@@ -304,7 +353,9 @@ const OperationPlan = () => {
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
               <h1 className="text-2xl md:text-3xl font-extrabold">🗺️ แผนปฏิบัติงาน</h1>
-              <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">เลือกสาขา → เลือกตาราง → กรอกข้อมูล</div>
+              <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                เลือกสาขา → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล
+              </div>
             </div>
 
             <div className="inline-flex items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-200">
@@ -312,13 +363,19 @@ const OperationPlan = () => {
             </div>
           </div>
 
+          {/* Controls */}
           <div className="mt-4 grid gap-3 md:grid-cols-12">
             <div className="md:col-span-3">
               <label className={labelCls}>ปี (พ.ศ.)</label>
-              <input className={baseField} value={yearBE} onChange={(e) => setYearBE(e.target.value)} placeholder="เช่น 2568" />
+              <input
+                className={baseField}
+                value={yearBE}
+                onChange={(e) => setYearBE(e.target.value)}
+                placeholder="เช่น 2568"
+              />
             </div>
 
-            <div className="md:col-span-5">
+            <div className="md:col-span-4">
               <label className={labelCls}>เลือกสาขา</label>
               <ComboBox
                 options={branchOptions}
@@ -327,55 +384,112 @@ const OperationPlan = () => {
                 placeholder={loadingBranches ? "กำลังโหลดสาขา..." : "— เลือกสาขา —"}
                 disabled={loadingBranches}
                 buttonRef={branchRef}
-                onEnterNext={() => tableRef.current?.focus?.()}
+                onEnterNext={() => typeRef.current?.focus?.()}
               />
               {!branchId && <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>}
             </div>
 
-            <div className="md:col-span-4">
+            {/* ✅ NEW: ประเภทตาราง */}
+            <div className="md:col-span-5">
+              <label className={labelCls}>ประเภทตาราง</label>
+              <ComboBox
+                options={planTypeOptions}
+                value={planType}
+                onChange={(id) => setPlanType(String(id))}
+                placeholder="— เลือก: ยอดขาย / ค่าใช้จ่าย —"
+                getSubLabel={(o) => o?.subLabel || ""}
+                buttonRef={typeRef}
+                onEnterNext={() => tableRef.current?.focus?.()}
+              />
+              {!planType && (
+                <div className="mt-2 text-sm text-amber-600 dark:text-amber-300">
+                  * ต้องเลือก “ประเภทตาราง” ก่อน ถึงจะเลือกตารางย่อยได้
+                </div>
+              )}
+              {planType === "cost" && (
+                <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                  โหมดค่าใช้จ่าย: เดี๋ยวจะตามมาทีหลัง (ตอนนี้ยังไม่เปิดให้เลือกตาราง)
+                </div>
+              )}
+            </div>
+
+            {/* ✅ ตารางย่อย (จะแสดง/ใช้งานได้เมื่อเลือกประเภทเป็น “ยอดขาย”) */}
+            <div className="md:col-span-12">
               <label className={labelCls}>เลือกตารางที่จะกรอก</label>
               <ComboBox
                 options={tableOptions}
                 value={tableKey}
                 onChange={(id) => setTableKey(String(id))}
-                placeholder="— เลือกตาราง —"
+                placeholder={tablePlaceholder}
                 getSubLabel={(o) => o?.subLabel || ""}
                 buttonRef={tableRef}
+                disabled={tableDisabled}
               />
-              <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">{activeTable?.description || ""}</div>
+              <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                {activeTable?.description || (planType === "cost" ? "ตารางค่าใช้จ่ายจะเพิ่มทีหลัง" : "")}
+              </div>
             </div>
           </div>
 
+          {/* Quick summary */}
           <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-700 dark:text-slate-200">
-              <span className="font-semibold">สาขา:</span> {branchName ? branchName : "—"}
+              <span className="font-semibold">สาขา:</span> {branchName || "—"}
+              <span className="mx-2 text-slate-400">|</span>
+              <span className="font-semibold">ประเภท:</span> {planTypeLabel || "—"}
               <span className="mx-2 text-slate-400">|</span>
               <span className="font-semibold">ตาราง:</span> {activeTable?.label || "—"}
             </div>
 
             <button
               type="button"
-              onClick={() => setBranchId("")}
+              onClick={() => {
+                setBranchId("")
+                setPlanType("")
+                setTableKey("")
+              }}
               className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
                          hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
                          dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
             >
-              เปลี่ยนสาขา
+              รีเซ็ตการเลือก
             </button>
           </div>
         </div>
 
-        {!canShowTable ? (
+        {/* Content */}
+        {!branchId ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
             <div className="mt-2 text-slate-600 dark:text-slate-300">
               กรุณาเลือก <span className="font-semibold">สาขา</span> ก่อน
             </div>
           </div>
+        ) : planType === "cost" ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-lg font-bold">โหมดค่าใช้จ่าย</div>
+            <div className="mt-2 text-slate-600 dark:text-slate-300">
+              ตารางค่าใช้จ่าย <span className="font-semibold">เดี๋ยวจะตามมาทีหลัง</span>
+            </div>
+          </div>
+        ) : !planType ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
+            <div className="mt-2 text-slate-600 dark:text-slate-300">
+              กรุณาเลือก <span className="font-semibold">ประเภทตาราง</span> ก่อน
+            </div>
+          </div>
+        ) : !canShowTable ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
+            <div className="mt-2 text-slate-600 dark:text-slate-300">
+              กรุณาเลือก <span className="font-semibold">ตาราง</span> ก่อน
+            </div>
+          </div>
         ) : (
           <div className="mt-2">
             <ActiveComponent
-              key={`${tableKey}-${branchId}-${yearBE}`}
+              key={`${planType}-${tableKey}-${branchId}-${yearBE}`}
               branchId={branchId}
               branchName={branchName}
               yearBE={yearBE}

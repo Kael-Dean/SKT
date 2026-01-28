@@ -12,6 +12,7 @@ import BusinessPlanExpenseTable from "./cost/BusinessPlanExpenseTable"
 import BusinessPlanExpenseOilTable from "./cost/BusinessPlanExpenseOilTable"
 import BusinessPlanExpenseCollectionTable from "./cost/BusinessPlanExpenseCollectionTable"
 import BusinessPlanExpenseProcessingTable from "./cost/BusinessPlanExpenseProcessingTable"
+import BusinessPlanExpenseSeedProcessingTable from "./cost/BusinessPlanExpenseSeedProcessingTable"
 
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -276,6 +277,12 @@ const COST_TABLES = [
     label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป",
     description: "ไฟล์: cost/BusinessPlanExpenseProcessingTable.jsx",
     Component: BusinessPlanExpenseProcessingTable,
+  },
+  {
+    key: "business-plan-expense-seed-processing-table",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูปเมล็ดพันธุ์",
+    description: "ไฟล์: cost/BusinessPlanExpenseSeedProcessingTable.jsx",
+    Component: BusinessPlanExpenseSeedProcessingTable,
   },
 ]
 

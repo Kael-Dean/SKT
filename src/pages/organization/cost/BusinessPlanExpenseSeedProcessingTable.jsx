@@ -37,54 +37,52 @@ const COLS = [
   { key: "nonnarai", label: "โนนนารายณ์" },
 ]
 
+/**
+ * หมายเหตุ:
+ * - รายการถูกถอดจากรูปที่ส่งมา (บางคำอาจมีสะกดต่างเล็กน้อย)
+ * - โครง/ฟังก์ชันเหมือนตารางก่อนหน้า 100%
+ */
 const ROWS = [
-  { code: "6", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป", kind: "section" },
+  { code: "7", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูปเมล็ดพันธุ์", kind: "section" },
 
-  { code: "6.1", label: "ค่าใช้จ่ายในการขาย", kind: "item" },
-  { code: "6.2", label: "ค่าใช้จ่ายในการขาย ดวจ", kind: "item" },
-  { code: "6.3", label: "ดอกเบี้ยจ่าย เงินสะสมจนท.", kind: "item" },
-  { code: "6.4", label: "ค่าลดหย่อนสินค้าขาดบัญชี", kind: "item" },
-  { code: "6.5", label: "เงินเดือนและค่าจ้าง", kind: "item" },
-  { code: "6.5b", label: "เบี้ยเลี้ยง", kind: "item" }, // ในรูปเป็น 6.5 ซ้ำ
-  { code: "6.6", label: "ค่าทำงานในวันหยุด", kind: "item" },
-  { code: "6.7", label: "ค่าส่งเสริมการขาย", kind: "item" },
-  { code: "6.8", label: "ค่าใช้จ่ายยานพาหนะ", kind: "item" },
-  { code: "6.9", label: "ค่าน้ำมันเชื้อเพลิง", kind: "item" },
-  { code: "6.10", label: "ค่าโทรศัพท์", kind: "item" },
-  { code: "6.11", label: "ค่าของใช้สำนักงาน", kind: "item" },
-  { code: "6.12", label: "ค่าเบี้ยประกันภัย", kind: "item" },
-  { code: "6.13", label: "* ค่าเสื่อมราคา - ครุภัณฑ์", kind: "item" },
-  { code: "6.14", label: "* ค่าเสื่อมราคา - จาง, อาคาร", kind: "item" },
-  { code: "6.15", label: "* ค่าเสื่อมราคา - ยานพาหนะ", kind: "item" },
-  { code: "6.16", label: "* ค่าเสื่อมราคา - เครื่องจักรและอุปกรณ์", kind: "item" },
-  { code: "6.17", label: "ค่าเครื่องเขียนแบบพิมพ์", kind: "item" },
-  { code: "6.18", label: "ค่าชจ.ในการเคลื่อนย้าย", kind: "item" },
-  { code: "6.19", label: "หนี้สงสัยจะสูญลูกหนี้การค้า", kind: "item" },
-  { code: "6.20", label: "สวัสดิการจนท.", kind: "item" },
-  { code: "6.21", label: "ค่าใช้จ่ายงานบ้านงานครัว", kind: "item" },
-  { code: "6.22", label: "ค่าเบี้ยเลี้ยง จนท", kind: "item" },
-  { code: "6.23", label: "ค่าบำรุงรักษา-รถตัก/ยานพาหนะ", kind: "item" },
-  { code: "6.24", label: "ค่าบำรุงรักษา-ครุภัณฑ์", kind: "item" },
-  { code: "6.25", label: "เงินสมทบประกันสังคม", kind: "item" },
-  { code: "6.26", label: "ค่าธรรมเนียมในการโอนเงิน", kind: "item" },
-  { code: "6.27", label: "ค่าของขวัญสมาคมคุณ", kind: "item" },
-  { code: "6.28", label: "ค่ารับรอง", kind: "item" },
-  { code: "6.29", label: "ค่าบริการสมาชิก", kind: "item" },
+  { code: "7.1", label: "ค่าใช้จ่ายในการขาย", kind: "item" },
+  { code: "7.2", label: "เงินเดือนและค่าจ้าง", kind: "item" },
+  { code: "7.3", label: "เบี้ยเลี้ยง", kind: "item" },
+  { code: "7.4", label: "ค่าทำงานในวันหยุด", kind: "item" },
+  { code: "7.5", label: "ค่าน้ำมันเชื้อเพลิง", kind: "item" },
+  { code: "7.6", label: "ค่าน้ำมัน จนท", kind: "item" },
+  { code: "7.7", label: "ค่าของใช้สำนักงาน", kind: "item" },
+  { code: "7.8", label: "ค่าเครื่องเขียนแบบพิมพ์", kind: "item" },
+  { code: "7.9", label: "น้ำมันเชื้อเพลิงใช้ไป", kind: "item" },
+  { code: "7.10", label: "ค่าบริการสมาชิก", kind: "item" },
+  { code: "7.11", label: "ค่าถ่ายเอกสาร", kind: "item" },
+  { code: "7.12", label: "สวัสดิการจนท.", kind: "item" },
+  { code: "7.13", label: "ค่าส่งเสริมการขาย", kind: "item" },
+  { code: "7.14", label: "ค่าธรรมเนียมในการโอนเงิน", kind: "item" },
+  { code: "7.15", label: "ค่าใช้ภาษีบัตรเครดิต", kind: "item" },
 
-  { code: "6.30", label: "ค่ากิจกรรมสัมพันธ์", kind: "item" },
-  { code: "6.31", label: "ค่าซ่อมแซมอาคาร", kind: "item" },
-  { code: "6.32", label: "ค่าเบี้ยเลี้ยงกรรมการ", kind: "item" },
-  { code: "6.33", label: "ค่าภาษีโรงเรือน", kind: "item" },
-  { code: "6.34", label: "ค่าตามมาตรฐาน", kind: "item" },
-  { code: "6.35", label: "ค่าจ่ายค่าสื่อสาร", kind: "item" },
-  { code: "6.36", label: "ค่าสมาชิกระหว่างสากล", kind: "item" },
-  { code: "6.37", label: "กรรสอุปใช้ไป", kind: "item" },
-  { code: "6.38", label: "ค่าไฟฟ้า", kind: "item" },
-  { code: "6.39", label: "ค่าโฆษณาประชาสัมพันธ์", kind: "item" },
-  { code: "6.40", label: "ค่าเวรปรุงพนักโรงสี", kind: "item" },
-  { code: "6.41", label: "ค่าตกแต่งภูมิทัศน์", kind: "item" },
-  { code: "6.42", label: "ค่าสิทธิการใช้โปรแกรม", kind: "item" },
-  { code: "6.45", label: "ค่าใช้จ่ายเบ็ดเตล็ด", kind: "item" },
+  { code: "7.16", label: "ดอกเบี้ยจ่าย (ชุมชน/ธ.ก.ส.)", kind: "item" },
+  { code: "7.17", label: "ดอกเบี้ยจ่ายเงินกู้ (กท.)", kind: "item" },
+  { code: "7.18", label: "ดอกเบี้ยจ่ายเงินกู้ - เครื่องผสมปุ๋ย", kind: "item" },
+  { code: "7.19", label: "ดอกเบี้ยจ่ายเงินกู้ ธกส.น", kind: "item" },
+  { code: "7.20", label: "ค่าใช้จ่ายโครงการเกษตรกร", kind: "item" },
+
+  { code: "7.21", label: "ค่าโทรศัพท์", kind: "item" },
+  { code: "7.22", label: "เงินสมทบประกันสังคม", kind: "item" },
+  { code: "7.23", label: "ค่าประชาสัมพันธ์", kind: "item" },
+  { code: "7.24", label: "* ค่าเสื่อมราคา - ครุภัณฑ์", kind: "item" },
+  { code: "7.25", label: "* ค่าเสื่อมราคา - เครื่องจักร", kind: "item" },
+  { code: "7.26", label: "ค่าเบี้ยประกันภัย", kind: "item" },
+
+  { code: "7.27", label: "ค่าซ่อมแซมยานพาหนะ", kind: "item" },
+  { code: "7.28", label: "ค่าใช้จ่ายยานพาหนะ", kind: "item" },
+  { code: "7.29", label: "ค่าซ่อมอาคาร", kind: "item" },
+  { code: "7.30", label: "ค่าใช้จ่ายงานบ้านงานครัว", kind: "item" },
+  { code: "7.31", label: "ค่าซ่อมครุภัณฑ์", kind: "item" },
+  { code: "7.32", label: "ค่าลด", kind: "item" },
+  { code: "7.33", label: "ค่าของขวัญ", kind: "item" },
+  { code: "7.34", label: "ดอกเบี้ยจ่ายเงินสด", kind: "item" },
+  { code: "7.35", label: "ค่าใช้จ่ายเบ็ดเตล็ด", kind: "item" },
 ]
 
 function buildInitialValues() {
@@ -109,7 +107,7 @@ const STRIPE = {
   foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
 }
 
-const BusinessPlanExpenseProcessingTable = () => {
+const BusinessPlanExpenseSeedProcessingTable = () => {
   const [period, setPeriod] = useState(PERIOD_DEFAULT)
   const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues())
   const [showPayload, setShowPayload] = useState(false)
@@ -161,16 +159,10 @@ const BusinessPlanExpenseProcessingTable = () => {
     }
   }, [])
 
-  /** ---------------- Arrow navigation (Fix: register refs จริง) ---------------- */
-  const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
-  const rowIndexByCode = useMemo(() => {
-    const m = new Map()
-    itemRows.forEach((r, i) => m.set(r.code, i))
-    return m
-  }, [itemRows])
-
-  const totalCols = COLS.length // นับเฉพาะช่องที่กรอกได้
+  /** Arrow navigation */
   const inputRefs = useRef(new Map())
+  const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
+  const totalCols = COLS.length
 
   const registerInput = useCallback((row, col) => {
     const key = `${row}|${col}`
@@ -186,7 +178,6 @@ const BusinessPlanExpenseProcessingTable = () => {
 
     const pad = 12
     const frozenLeft = LEFT_W
-
     const crect = container.getBoundingClientRect()
     const erect = el.getBoundingClientRect()
 
@@ -195,11 +186,9 @@ const BusinessPlanExpenseProcessingTable = () => {
     const visibleTop = crect.top + pad
     const visibleBottom = crect.bottom - pad
 
-    // horizontal
     if (erect.left < visibleLeft) container.scrollLeft -= visibleLeft - erect.left
     else if (erect.right > visibleRight) container.scrollLeft += erect.right - visibleRight
 
-    // vertical
     if (erect.top < visibleTop) container.scrollTop -= visibleTop - erect.top
     else if (erect.bottom > visibleBottom) container.scrollTop += erect.bottom - visibleBottom
   }, [])
@@ -278,8 +267,8 @@ const BusinessPlanExpenseProcessingTable = () => {
 
   const payload = useMemo(() => {
     return {
-      table_code: "BUSINESS_PLAN_EXPENSES_PROCESSING",
-      table_name: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป",
+      table_code: "BUSINESS_PLAN_EXPENSES_SEED_PROCESSING",
+      table_name: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูปเมล็ดพันธุ์",
       period,
       columns: [...COLS.map((c) => ({ key: c.key, label: c.label })), { key: "total", label: "รวม" }],
       rows: ROWS.map((r) => {
@@ -328,7 +317,7 @@ const BusinessPlanExpenseProcessingTable = () => {
               <div className="text-lg font-bold">ประมาณการรายได้/ค่าใช้จ่าย</div>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">({period})</div>
               <div className="mt-2 text-base font-extrabold text-slate-900 dark:text-slate-100">
-                6) ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป
+                7) ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูปเมล็ดพันธุ์
               </div>
             </div>
 
@@ -496,8 +485,8 @@ const BusinessPlanExpenseProcessingTable = () => {
                   )
                 }
 
-                const rowIdx = rowIndexByCode.get(r.code) ?? 0
-                const rowBg = rowIdx % 2 === 1 ? STRIPE.alt : STRIPE.cell
+                const idx = itemRows.findIndex((x) => x.code === r.code)
+                const rowBg = idx % 2 === 1 ? STRIPE.alt : STRIPE.cell
                 const t = computed.rowTotal[r.code] || { hq: 0, surin: 0, nonnarai: 0, total: 0 }
 
                 return (
@@ -509,7 +498,7 @@ const BusinessPlanExpenseProcessingTable = () => {
                         rowBg
                       )}
                     >
-                      {r.code === "6.5b" ? "6.5" : r.code}
+                      {r.code}
                     </td>
 
                     <td
@@ -526,8 +515,8 @@ const BusinessPlanExpenseProcessingTable = () => {
                     {COLS.map((c, colIdx) => (
                       <td key={`${r.code}-${c.key}`} className="border border-slate-300 px-2 py-2 dark:border-slate-600">
                         <input
-                          ref={registerInput(rowIdx, colIdx)}
-                          data-row={rowIdx}
+                          ref={registerInput(idx, colIdx)}
+                          data-row={idx}
                           data-col={colIdx}
                           onKeyDown={handleArrowNav}
                           className={cellInput}
@@ -561,7 +550,9 @@ const BusinessPlanExpenseProcessingTable = () => {
                 <tbody>
                   <tr className={cx("font-extrabold text-slate-900 dark:text-emerald-100", STRIPE.foot)}>
                     <td className="border border-slate-200 px-2 py-2 text-center dark:border-slate-700" />
-                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700 text-center">รวม</td>
+                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700 text-center">
+                      รวม
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -579,21 +570,16 @@ const BusinessPlanExpenseProcessingTable = () => {
                   <tbody>
                     <tr className={cx("font-extrabold text-slate-900 dark:text-emerald-100", STRIPE.foot)}>
                       <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
-                        {fmtMoney0(Object.values(valuesByCode).reduce((s, r) => s + toNumber(r.hq), 0))}
+                        {fmtMoney0(computed.colTotal.hq)}
                       </td>
                       <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
-                        {fmtMoney0(Object.values(valuesByCode).reduce((s, r) => s + toNumber(r.surin), 0))}
+                        {fmtMoney0(computed.colTotal.surin)}
                       </td>
                       <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
-                        {fmtMoney0(Object.values(valuesByCode).reduce((s, r) => s + toNumber(r.nonnarai), 0))}
+                        {fmtMoney0(computed.colTotal.nonnarai)}
                       </td>
                       <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
-                        {fmtMoney0(
-                          Object.values(valuesByCode).reduce(
-                            (s, r) => s + toNumber(r.hq) + toNumber(r.surin) + toNumber(r.nonnarai),
-                            0
-                          )
-                        )}
+                        {fmtMoney0(computed.grand)}
                       </td>
                     </tr>
                   </tbody>
@@ -611,4 +597,4 @@ const BusinessPlanExpenseProcessingTable = () => {
   )
 }
 
-export default BusinessPlanExpenseProcessingTable
+export default BusinessPlanExpenseSeedProcessingTable

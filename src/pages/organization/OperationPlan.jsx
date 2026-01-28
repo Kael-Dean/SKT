@@ -15,6 +15,9 @@ import BusinessPlanExpenseProcessingTable from "./cost/BusinessPlanExpenseProces
 import BusinessPlanExpenseSeedProcessingTable from "./cost/BusinessPlanExpenseSeedProcessingTable"
 import BusinessPlanExpenseServiceTable from "./cost/BusinessPlanExpenseServiceTable"
 
+// ✅ NEW: cost #9
+import BusinessPlanExpenseSupportWorkTable from "./cost/BusinessPlanExpenseSupportWorkTable"
+
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
 const baseField =
@@ -291,6 +294,12 @@ const COST_TABLES = [
     description: "ไฟล์: cost/BusinessPlanExpenseServiceTable.jsx",
     Component: BusinessPlanExpenseServiceTable,
   },
+  {
+    key: "business-plan-expense-support-work-table",
+    label: "ค่าใช้จ่ายอุดหนุนงาน",
+    description: "ไฟล์: cost/BusinessPlanExpenseSupportWorkTable.jsx",
+    Component: BusinessPlanExpenseSupportWorkTable,
+  },
 ]
 
 // ---------------- Page ----------------
@@ -518,7 +527,7 @@ const OperationPlan = () => {
               กรุณาเลือก <span className="font-semibold">ประเภทตาราง</span> ก่อน
             </div>
           </div>
-        ) : !(!!branchId && !!planType && !!ActiveComponent) ? (
+        ) : !canShowTable ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
             <div className="mt-2 text-slate-600 dark:text-slate-300">

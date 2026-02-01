@@ -8,6 +8,9 @@ import SeedProjectSalesPlanDetail from "./sell/SeedProjectSalesPlanDetail"
 import ServiceBusinessPlanDetail from "./sell/ServiceBusinessPlanDetail"
 import BusinessPlanRevenueByBusinessTable from "./sell/BusinessPlanRevenueByBusinessTable"
 
+// ✅ NEW: รายได้อื่นๆ
+import BusinessPlanOtherIncomeTable from "./sell/BusinessPlanOtherIncomeTable"
+
 // ✅ cost tables
 import BusinessPlanExpenseTable from "./cost/BusinessPlanExpenseTable"
 import BusinessPlanExpenseOilTable from "./cost/BusinessPlanExpenseOilTable"
@@ -263,6 +266,12 @@ const SALES_TABLES = [
     label: "รายได้เฉพาะธุรกิจ (สรุป)",
     description: "ไฟล์: sell/BusinessPlanRevenueByBusinessTable.jsx",
     Component: BusinessPlanRevenueByBusinessTable,
+  },
+  {
+    key: "business-plan-other-income",
+    label: "รายได้อื่นๆ",
+    description: "ไฟล์: sell/BusinessPlanOtherIncomeTable.jsx",
+    Component: BusinessPlanOtherIncomeTable,
   },
 ]
 

@@ -6,6 +6,7 @@ import AgriCollectionPlanTable from "./sell/AgriCollectionPlanTable"
 import AgriProcessingPlanDetail from "./sell/AgriProcessingPlanDetail"
 import SeedProjectSalesPlanDetail from "./sell/SeedProjectSalesPlanDetail"
 import ServiceBusinessPlanDetail from "./sell/ServiceBusinessPlanDetail"
+import BusinessPlanRevenueByBusinessTable from "./sell/BusinessPlanRevenueByBusinessTable"
 
 // ✅ cost tables
 import BusinessPlanExpenseTable from "./cost/BusinessPlanExpenseTable"
@@ -257,6 +258,12 @@ const SALES_TABLES = [
     description: "ไฟล์: sell/ServiceBusinessPlanDetail.jsx",
     Component: ServiceBusinessPlanDetail,
   },
+  {
+    key: "business-plan-revenue-by-business",
+    label: "รายได้เฉพาะธุรกิจ (สรุป)",
+    description: "ไฟล์: sell/BusinessPlanRevenueByBusinessTable.jsx",
+    Component: BusinessPlanRevenueByBusinessTable,
+  },
 ]
 
 /* ---------------- ✅ ตารางฝั่ง “ค่าใช้จ่าย (cost)” ---------------- */
@@ -303,7 +310,6 @@ const COST_TABLES = [
     description: "ไฟล์: cost/BusinessPlanExpenseSupportWorkTable.jsx",
     Component: BusinessPlanExpenseSupportWorkTable,
   },
-  // ✅ NEW
   {
     key: "business-plan-rep-cost-summary",
     label: "ผู้แทนขาย (สรุปค่าใช้จ่ายตามธุรกิจ)",

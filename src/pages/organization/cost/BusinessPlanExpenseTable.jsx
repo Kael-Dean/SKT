@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useParams } from "react-router-dom"
+import { useLocation, useParams } from "react-router-dom"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -18,17 +18,32 @@ const fmtMoney0 = (n) =>
   new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
 
 /** ---------------- API helper (ไม่ผูก lib ภายนอก) ---------------- */
-const API_BASE = import.meta.env.VITE_API_URL || "" // เช่น "https://api.yourdomain.com"
+/**
+ * ✅ FIX: โปรเจกต์คุณใช้ VITE_API_BASE / VITE_API_BASE_CUSTOM
+ * โค้ดเดิมอ่าน VITE_API_URL เลยทำให้ API_BASE = "" และเชื่อมไม่ได้
+ */
+const API_BASE_RAW =
+  import.meta.env.VITE_API_BASE_CUSTOM ||
+  import.meta.env.VITE_API_BASE ||
+  import.meta.env.VITE_API_URL ||
+  ""
+
+const API_BASE = String(API_BASE_RAW || "").replace(/\/+$/, "") // ตัด / ท้าย ๆ กันพลาด
+
 const getAuthHeader = () => {
   const token =
     localStorage.getItem("access_token") ||
     localStorage.getItem("token") ||
     sessionStorage.getItem("access_token") ||
     sessionStorage.getItem("token")
+
   if (!token) return {}
   return { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
 }
+
 async function apiFetch(path, { method = "GET", body } = {}) {
+  if (!API_BASE) throw new Error("ยังไม่ได้ตั้ง API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
+
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: {
@@ -38,6 +53,7 @@ async function apiFetch(path, { method = "GET", body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
     credentials: "include",
   })
+
   const txt = await res.text()
   let data = null
   try {
@@ -45,6 +61,7 @@ async function apiFetch(path, { method = "GET", body } = {}) {
   } catch {
     data = txt
   }
+
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || `HTTP ${res.status}`
     throw new Error(msg)
@@ -160,7 +177,38 @@ const STRIPE = {
 
 const BusinessPlanExpenseTable = () => {
   const params = useParams()
-  const planId = Number(params?.plan_id || params?.planId || 0)
+  const location = useLocation()
+
+  /**
+   * ✅ FIX: plan_id ในโปรเจกต์คุณอาจไม่ได้ชื่อ plan_id เสมอ
+   * เลยหาได้หลายทาง:
+   * - params.plan_id / params.planId / params.id / params.plan
+   * - params ตัวไหนก็ได้ที่เป็นตัวเลข
+   * - querystring ?plan_id=...
+   * - location.state.plan_id
+   * - localStorage fallback
+   */
+  const planId = useMemo(() => {
+    const direct = Number(params?.plan_id || params?.planId || params?.id || params?.plan || 0)
+    if (direct > 0) return direct
+
+    for (const v of Object.values(params || {})) {
+      const n = Number(v)
+      if (Number.isFinite(n) && n > 0) return n
+    }
+
+    const sp = new URLSearchParams(location.search || "")
+    const q = Number(sp.get("plan_id") || sp.get("planId") || sp.get("id") || 0)
+    if (q > 0) return q
+
+    const st = Number(location.state?.plan_id || location.state?.planId || location.state?.id || 0)
+    if (st > 0) return st
+
+    const ls = Number(localStorage.getItem("plan_id") || localStorage.getItem("business_plan_id") || 0)
+    if (ls > 0) return ls
+
+    return 0
+  }, [params, location.search, location.state])
 
   const [period, setPeriod] = useState(PERIOD_DEFAULT)
   const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues())
@@ -322,10 +370,12 @@ const BusinessPlanExpenseTable = () => {
   }
 
   /** ===================== ✅ BE: SAVE / LOAD ===================== */
-  const canTalkBE = planId > 0 && API_BASE
+  const hasApiBase = Boolean(API_BASE)
+  const canTalkBE = hasApiBase && planId > 0
 
   const buildBulkRowsForBE = () => {
-    if (planId <= 0) throw new Error("ยังไม่มี plan_id (เช็ค route params)")
+    if (!hasApiBase) throw new Error("ยังไม่มี API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
+    if (planId <= 0) throw new Error("ยังไม่มี plan_id (เช็ค route params หรือใส่ ?plan_id=xxx)")
     // validate branch ids
     COLS.forEach((c) => {
       if (!BRANCH_ID_BY_KEY[c.key]) throw new Error(`ยังไม่ได้ตั้ง BRANCH_ID_BY_KEY สำหรับคอลัมน์: ${c.key}`)
@@ -365,6 +415,9 @@ const BusinessPlanExpenseTable = () => {
   const loadFromBE = async () => {
     try {
       setIsLoading(true)
+      if (!hasApiBase) throw new Error("ยังไม่มี API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
+      if (planId <= 0) throw new Error("ยังไม่มี plan_id (เช็ค route params หรือใส่ ?plan_id=xxx)")
+
       const res = await apiFetch(`/business-plan/${planId}/costs/branch?business_group_id=${BUSINESS_GROUP_ID}`)
       const list = res?.data || []
 
@@ -405,6 +458,7 @@ const BusinessPlanExpenseTable = () => {
       plan_id: planId || null,
       business_group_id: BUSINESS_GROUP_ID,
       period,
+      api_base: API_BASE || null,
       columns: [...COLS.map((c) => ({ key: c.key, label: c.label })), { key: "total", label: "รวม" }],
       rows: ROWS.map((r) => {
         if (r.kind !== "item") return { code: r.code, label: r.label, kind: r.kind }
@@ -413,7 +467,7 @@ const BusinessPlanExpenseTable = () => {
           code: r.code,
           label: r.label,
           kind: r.kind,
-          cost_id: r.cost_id, // ✅ โชว์ให้ชัด
+          cost_id: r.cost_id,
           values: { hq: t.hq, surin: t.surin, nonnarai: t.nonnarai, total: t.total },
         }
       }),
@@ -425,7 +479,7 @@ const BusinessPlanExpenseTable = () => {
       },
       be_bulk_example: canTalkBE ? buildBulkRowsForBE() : null,
     }
-  }, [period, computed, planId, canTalkBE, itemRows, valuesByCode])
+  }, [period, computed, planId, canTalkBE, itemRows, valuesByCode, hasApiBase])
 
   const copyPayload = async () => {
     try {
@@ -457,9 +511,24 @@ const BusinessPlanExpenseTable = () => {
                 ({period}) • plan_id: <span className="font-semibold">{planId || "-"}</span> • group:{" "}
                 <span className="font-semibold">{BUSINESS_GROUP_ID}</span>
               </div>
-              {!API_BASE && (
+
+              {!hasApiBase && (
                 <div className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                  * ยังไม่ได้ตั้ง VITE_API_URL เลยยิง BE ไม่ได้
+                  * ยังไม่ได้ตั้ง <span className="font-semibold">VITE_API_BASE</span> หรือ{" "}
+                  <span className="font-semibold">VITE_API_BASE_CUSTOM</span> (ตอนนี้ API_BASE ว่าง)
+                </div>
+              )}
+
+              {hasApiBase && planId <= 0 && (
+                <div className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                  * มี API แล้ว แต่ยังไม่เจอ <span className="font-semibold">plan_id</span> — ลองเปิดหน้านี้แบบ{" "}
+                  <span className="font-semibold">?plan_id=123</span> หรือเช็ค route params
+                </div>
+              )}
+
+              {hasApiBase && (
+                <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  API: <span className="font-mono">{API_BASE}</span>
                 </div>
               )}
             </div>
@@ -477,7 +546,9 @@ const BusinessPlanExpenseTable = () => {
 
               <div className="md:col-span-1">
                 <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รวมทั้งหมด (บาท)</label>
-                <div className={cx(baseField, "flex items-center justify-end font-extrabold")}>{fmtMoney0(computed.grand)}</div>
+                <div className={cx(baseField, "flex items-center justify-end font-extrabold")}>
+                  {fmtMoney0(computed.grand)}
+                </div>
               </div>
             </div>
           </div>
@@ -722,7 +793,7 @@ const BusinessPlanExpenseTable = () => {
         </div>
 
         <div className="shrink-0 p-3 md:p-4 text-sm text-slate-600 dark:text-slate-300">
-          หมายเหตุ: ตอนนี้ผูก BE แล้ว — ปุ่มบันทึกจะส่ง cost_id + business_group_id ให้ BE หา mapping id แล้ว upsert ลง BranchCosts/UnitCosts
+          หมายเหตุ: ปุ่ม “โหลด/บันทึก” จะทำงานเมื่อมี API_BASE และมี plan_id แล้ว
         </div>
       </div>
     </div>

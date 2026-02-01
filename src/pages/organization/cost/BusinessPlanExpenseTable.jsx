@@ -1,4 +1,5 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useParams } from "react-router-dom"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -16,6 +17,41 @@ const sanitizeNumberInput = (s) => {
 const fmtMoney0 = (n) =>
   new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
 
+/** ---------------- API helper (ไม่ผูก lib ภายนอก) ---------------- */
+const API_BASE = import.meta.env.VITE_API_URL || "" // เช่น "https://api.yourdomain.com"
+const getAuthHeader = () => {
+  const token =
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token") ||
+    sessionStorage.getItem("access_token") ||
+    sessionStorage.getItem("token")
+  if (!token) return {}
+  return { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+}
+async function apiFetch(path, { method = "GET", body } = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: "include",
+  })
+  const txt = await res.text()
+  let data = null
+  try {
+    data = txt ? JSON.parse(txt) : null
+  } catch {
+    data = txt
+  }
+  if (!res.ok) {
+    const msg = (data && (data.detail || data.message)) || `HTTP ${res.status}`
+    throw new Error(msg)
+  }
+  return data
+}
+
 /** ---------------- UI styles ---------------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -32,50 +68,67 @@ const cellInput =
 /** ---------------- Table definition ---------------- */
 const PERIOD_DEFAULT = "1 เม.ย.68-31 มี.ค.69"
 
+/**
+ * ✅ สำคัญ:
+ * - key hq/surin/nonnarai ต้อง map ไป branch_id ใน DB ให้ถูก
+ * - แก้เลขให้ตรงกับ branchdata.id ของคุณ
+ */
+const BRANCH_ID_BY_KEY = {
+  hq: 1,
+  surin: 2,
+  nonnarai: 3,
+}
+
+const BUSINESS_GROUP_ID = 1 // ✅ ตารางนี้: ธุรกิจจัดหาสินค้า (ตาม mapping ที่คุณให้)
+
 const COLS = [
   { key: "hq", label: "สาขา" },
   { key: "surin", label: "สุรินทร์" },
   { key: "nonnarai", label: "โนนนารายณ์" },
 ]
 
+/**
+ * ✅ ผูก cost_id = auxcosts.id (ตามรูปที่คุณส่ง)
+ * 3.1 -> id 2, 3.2 -> id 3, ... 3.35 -> id 36
+ */
 const ROWS = [
   { code: "3", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", kind: "section" },
 
-  { code: "3.1", label: "ค่าใช้จ่ายในการขาย", kind: "item" },
-  { code: "3.2", label: "ค่าใช้สถานที่ทำการค้าที่สินค้า", kind: "item" },
-  { code: "3.3", label: "หนังสือสะสม-ลูกหนี้การค้า", kind: "item" },
-  { code: "3.4", label: "ค่าส่งเสริมการขาย", kind: "item" },
-  { code: "3.5", label: "ขาดทุนจากจากการจัดราคาสินค้าลดลง", kind: "item" },
-  { code: "3.6", label: "เงินเดือนและค่าจ้าง", kind: "item" },
-  { code: "3.7", label: "ทำงานในวันหยุด", kind: "item" },
-  { code: "3.8", label: "ค่าเบี้ยประกันภัย", kind: "item" },
-  { code: "3.9", label: "ค่าซ่อมบำรุง-ครุภัณฑ์", kind: "item" },
-  { code: "3.10", label: "ค่าใช้จ่ายยานพาหนะ", kind: "item" },
-  { code: "3.11", label: "ค่าถ่ายเอกสาร", kind: "item" },
-  { code: "3.12", label: "ค่าน้ำมันเชื้อเพลิงใช้ไป", kind: "item" },
-  { code: "3.13", label: "ค่าโทรศัพท์", kind: "item" },
-  { code: "3.14", label: "ค่าธรรมเนียมโอนเงิน ภก.", kind: "item" },
-  { code: "3.15", label: "ค่าไฟฟ้า", kind: "item" },
-  { code: "3.16", label: "ดอกเบี้ยจ่าย ธ.ก.ส.", kind: "item" },
-  { code: "3.17", label: "ค่าเสื่อมราคา - ครุภัณฑ์", kind: "item" },
-  { code: "3.18", label: "ค่าเสื่อมราคา - จาง, อาคาร", kind: "item" },
-  { code: "3.19", label: "ค่าเสื่อมราคา - ยานพาหนะ", kind: "item" },
-  { code: "3.20", label: "ค่าเหนื่อเจ้าหน้าที่", kind: "item" },
-  { code: "3.21", label: "ค่าน้ำประปา", kind: "item" },
-  { code: "3.22", label: "ค่าน้ำมันเชื้อเพลิง", kind: "item" },
-  { code: "3.23", label: "ค่าประชาสัมพันธ์", kind: "item" },
-  { code: "3.24", label: "ค่าเสียหายสินค้าเสื่อมสภาพ", kind: "item" },
-  { code: "3.25", label: "ค่าของใช้ สนง", kind: "item" },
-  { code: "3.26", label: "ค่าบริการสมาชิก", kind: "item" },
-  { code: "3.27", label: "ค่าซ่อมบำรุง-ยานพาหนะ", kind: "item" },
-  { code: "3.28", label: "ค่าเคลื่อนย้ายสินค้า", kind: "item" },
-  { code: "3.29", label: "ค่าธรรมเนียมโอนเงินบัตรสินเชื่อ", kind: "item" },
-  { code: "3.30", label: "ค่าซ่อมบำรุง-อาคาร", kind: "item" },
-  { code: "3.31", label: "หนังสือสะสม-ลูกหนี้ตั๋วแทน", kind: "item" },
-  { code: "3.32", label: "หนังสือสะสม-บัตรเกษตรสรุปใจ", kind: "item" },
-  { code: "3.33", label: "ค่าเครื่องเขียนแบบพิมพ์", kind: "item" },
-  { code: "3.34", label: "ค่าภาษีโรงเรือน", kind: "item" },
-  { code: "3.35", label: "ค่าใช้จ่ายเบ็ดเตล็ด", kind: "item" },
+  { code: "3.1", label: "ค่าใช้จ่ายในการขาย", kind: "item", cost_id: 2 },
+  { code: "3.2", label: "ค่าใช้สถานที่ทำการค้าที่สินค้า", kind: "item", cost_id: 3 },
+  { code: "3.3", label: "หนี้สงสัยจะสูญ-ลูกหนี้การค้า", kind: "item", cost_id: 4 },
+  { code: "3.4", label: "ค่าส่งเสริมการขาย", kind: "item", cost_id: 5 },
+  { code: "3.5", label: "ขาดทุนจากการตีราคาสินค้าลดลง", kind: "item", cost_id: 6 },
+  { code: "3.6", label: "เงินเดือนและค่าจ้าง", kind: "item", cost_id: 7 },
+  { code: "3.7", label: "ทำงานในวันหยุด", kind: "item", cost_id: 8 },
+  { code: "3.8", label: "ค่าเบี้ยประกันภัย", kind: "item", cost_id: 9 },
+  { code: "3.9", label: "ค่าซ่อมบำรุง-ครุภัณฑ์", kind: "item", cost_id: 10 },
+  { code: "3.10", label: "ค่าใช้จ่ายยานพาหนะ", kind: "item", cost_id: 11 },
+  { code: "3.11", label: "ค่าถ่ายเอกสาร", kind: "item", cost_id: 12 },
+  { code: "3.12", label: "ค่าน้ำมันเชื้อเพลิงใช้ไป", kind: "item", cost_id: 13 },
+  { code: "3.13", label: "ค่าโทรศัพท์", kind: "item", cost_id: 14 },
+  { code: "3.14", label: "ค่าธรรมเนียมโอนเงิน ธก.", kind: "item", cost_id: 15 },
+  { code: "3.15", label: "ค่าไฟฟ้า", kind: "item", cost_id: 16 },
+  { code: "3.16", label: "ดอกเบี้ยจ่าย ธ.ก.ส.", kind: "item", cost_id: 17 },
+  { code: "3.17", label: "ค่าเสื่อมราคา-ครุภัณฑ์", kind: "item", cost_id: 18 },
+  { code: "3.18", label: "ค่าเสื่อมราคา-งาน/อาคาร", kind: "item", cost_id: 19 },
+  { code: "3.19", label: "ค่าเสื่อมราคา-ยานพาหนะ", kind: "item", cost_id: 20 },
+  { code: "3.20", label: "ค่าเหนื่อยเจ้าหน้าที่", kind: "item", cost_id: 21 },
+  { code: "3.21", label: "ค่าน้ำประปา", kind: "item", cost_id: 22 },
+  { code: "3.22", label: "ค่าเชื้อเพลิง", kind: "item", cost_id: 23 },
+  { code: "3.23", label: "ค่าประชาสัมพันธ์", kind: "item", cost_id: 24 },
+  { code: "3.24", label: "ค่าเสียหายสินค้าเสื่อมสภาพ", kind: "item", cost_id: 25 },
+  { code: "3.25", label: "ค่าของใช้สำนักงาน", kind: "item", cost_id: 26 },
+  { code: "3.26", label: "ค่าบริการสมาชิก", kind: "item", cost_id: 27 },
+  { code: "3.27", label: "ค่าซ่อมบำรุง-ยานพาหนะ", kind: "item", cost_id: 28 },
+  { code: "3.28", label: "ค่าเคลื่อนย้ายสินค้า", kind: "item", cost_id: 29 },
+  { code: "3.29", label: "ค่าธรรมเนียมโอนเงินบัตรสินเชื่อ", kind: "item", cost_id: 30 },
+  { code: "3.30", label: "ค่าซ่อมบำรุง-อาคาร", kind: "item", cost_id: 31 },
+  { code: "3.31", label: "หนี้สงสัยจะสูญ-ลูกหนี้ตั๋วแทน", kind: "item", cost_id: 32 },
+  { code: "3.32", label: "หนี้สงสัยจะสูญ-บัตรเกษตรสุขใจ", kind: "item", cost_id: 33 },
+  { code: "3.33", label: "ค่าเครื่องเขียนแบบพิมพ์", kind: "item", cost_id: 34 },
+  { code: "3.34", label: "ค่าภาษีโรงเรือน", kind: "item", cost_id: 35 },
+  { code: "3.35", label: "ค่าใช้จ่ายเบ็ดเตล็ด", kind: "item", cost_id: 36 },
 ]
 
 function buildInitialValues() {
@@ -106,9 +159,15 @@ const STRIPE = {
 }
 
 const BusinessPlanExpenseTable = () => {
+  const params = useParams()
+  const planId = Number(params?.plan_id || params?.planId || 0)
+
   const [period, setPeriod] = useState(PERIOD_DEFAULT)
   const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues())
   const [showPayload, setShowPayload] = useState(false)
+
+  const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   /** ✅ ขยายความสูงตารางให้มากขึ้น */
   const tableCardRef = useRef(null)
@@ -120,7 +179,6 @@ const BusinessPlanExpenseTable = () => {
     const rect = el.getBoundingClientRect()
     const vh = window.innerHeight || 900
     const bottomPadding = 6
-    // ✅ ดัน min height ให้สูงขึ้น (ยาวขึ้นตามที่ขอ)
     const h = Math.max(860, Math.floor(vh - rect.top - bottomPadding))
     setTableCardHeight(h)
   }, [])
@@ -160,7 +218,6 @@ const BusinessPlanExpenseTable = () => {
 
   /** ================== ✅ Arrow navigation + auto scroll ================== */
   const inputRefs = useRef(new Map())
-
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
   const totalCols = COLS.length // hq/surin/nonnarai
 
@@ -177,8 +234,7 @@ const BusinessPlanExpenseTable = () => {
     if (!container || !el) return
 
     const pad = 12
-    const frozenLeft = LEFT_W // ✅ ซ้าย sticky 2 คอลัมน์
-
+    const frozenLeft = LEFT_W
     const crect = container.getBoundingClientRect()
     const erect = el.getBoundingClientRect()
 
@@ -204,7 +260,6 @@ const BusinessPlanExpenseTable = () => {
 
       let nextRow = row
       let nextCol = col
-
       if (k === "ArrowLeft") nextCol = col - 1
       if (k === "ArrowRight") nextCol = col + 1
       if (k === "ArrowUp") nextRow = row - 1
@@ -223,7 +278,6 @@ const BusinessPlanExpenseTable = () => {
       try {
         target.select()
       } catch {}
-
       requestAnimationFrame(() => ensureInView(target))
     },
     [ensureInView, itemRows.length, totalCols]
@@ -267,10 +321,89 @@ const BusinessPlanExpenseTable = () => {
     setValuesByCode(buildInitialValues())
   }
 
+  /** ===================== ✅ BE: SAVE / LOAD ===================== */
+  const canTalkBE = planId > 0 && API_BASE
+
+  const buildBulkRowsForBE = () => {
+    if (planId <= 0) throw new Error("ยังไม่มี plan_id (เช็ค route params)")
+    // validate branch ids
+    COLS.forEach((c) => {
+      if (!BRANCH_ID_BY_KEY[c.key]) throw new Error(`ยังไม่ได้ตั้ง BRANCH_ID_BY_KEY สำหรับคอลัมน์: ${c.key}`)
+    })
+
+    const rows = []
+    itemRows.forEach((r) => {
+      COLS.forEach((c) => {
+        rows.push({
+          branch_id: BRANCH_ID_BY_KEY[c.key],
+          // ✅ ส่งแบบใหม่: cost_id + business_group_id (ให้ BE หา mapping id เอง)
+          cost_id: r.cost_id,
+          business_group_id: BUSINESS_GROUP_ID,
+          unit_values: [],
+          branch_total: toNumber(valuesByCode?.[r.code]?.[c.key] ?? 0),
+          comment: period,
+        })
+      })
+    })
+    return { rows }
+  }
+
+  const saveToBE = async () => {
+    try {
+      setIsSaving(true)
+      const body = buildBulkRowsForBE()
+      const res = await apiFetch(`/business-plan/${planId}/costs/bulk`, { method: "POST", body })
+      alert(`บันทึกสำเร็จ ✅ (branch totals upserted: ${res?.branch_totals_upserted ?? "-"})`)
+    } catch (e) {
+      console.error(e)
+      alert(`บันทึกไม่สำเร็จ: ${e.message || e}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const loadFromBE = async () => {
+    try {
+      setIsLoading(true)
+      const res = await apiFetch(`/business-plan/${planId}/costs/branch?business_group_id=${BUSINESS_GROUP_ID}`)
+      const list = res?.data || []
+
+      // invert branch map: branch_id -> colKey
+      const colKeyByBranchId = Object.fromEntries(
+        Object.entries(BRANCH_ID_BY_KEY).map(([k, id]) => [String(id), k])
+      )
+
+      // code by cost_id
+      const codeByCostId = {}
+      itemRows.forEach((r) => (codeByCostId[String(r.cost_id)] = r.code))
+
+      const next = buildInitialValues()
+
+      list.forEach((x) => {
+        const code = codeByCostId[String(x.cost_id)]
+        const colKey = colKeyByBranchId[String(x.branch_id)]
+        if (!code || !colKey) return
+        const v = x.amount ?? 0
+        next[code][colKey] = v === 0 ? "" : String(v)
+      })
+
+      setValuesByCode(next)
+      alert("โหลดข้อมูลจากระบบแล้ว ✅")
+    } catch (e) {
+      console.error(e)
+      alert(`โหลดไม่สำเร็จ: ${e.message || e}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  /** ============================================================ */
+
   const payload = useMemo(() => {
     return {
       table_code: "BUSINESS_PLAN_EXPENSES",
       table_name: "ประมาณการค่าใช้จ่ายแผนธุรกิจ",
+      plan_id: planId || null,
+      business_group_id: BUSINESS_GROUP_ID,
       period,
       columns: [...COLS.map((c) => ({ key: c.key, label: c.label })), { key: "total", label: "รวม" }],
       rows: ROWS.map((r) => {
@@ -280,6 +413,7 @@ const BusinessPlanExpenseTable = () => {
           code: r.code,
           label: r.label,
           kind: r.kind,
+          cost_id: r.cost_id, // ✅ โชว์ให้ชัด
           values: { hq: t.hq, surin: t.surin, nonnarai: t.nonnarai, total: t.total },
         }
       }),
@@ -289,8 +423,9 @@ const BusinessPlanExpenseTable = () => {
         nonnarai: computed.colTotal.nonnarai,
         total: computed.grand,
       },
+      be_bulk_example: canTalkBE ? buildBulkRowsForBE() : null,
     }
-  }, [period, computed])
+  }, [period, computed, planId, canTalkBE, itemRows, valuesByCode])
 
   const copyPayload = async () => {
     try {
@@ -309,7 +444,6 @@ const BusinessPlanExpenseTable = () => {
   const stickyCodeHeader =
     "sticky left-0 z-[95] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
   const stickyCodeCell = "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
-  const stickyItemCell = `sticky left-[${COL_W.code}px] z-[60] shadow-[2px_0_0_rgba(0,0,0,0.06)]`
 
   return (
     <div className="space-y-3">
@@ -318,17 +452,21 @@ const BusinessPlanExpenseTable = () => {
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="flex-1">
             <div className="text-center md:text-left">
-              <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ</div>
+              <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ (ธุรกิจจัดหาสินค้า)</div>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                ({period})
+                ({period}) • plan_id: <span className="font-semibold">{planId || "-"}</span> • group:{" "}
+                <span className="font-semibold">{BUSINESS_GROUP_ID}</span>
               </div>
+              {!API_BASE && (
+                <div className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                  * ยังไม่ได้ตั้ง VITE_API_URL เลยยิง BE ไม่ได้
+                </div>
+              )}
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <div className="md:col-span-2">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
-                  ช่วงเวลา (แก้ได้)
-                </label>
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ช่วงเวลา (แก้ได้)</label>
                 <input
                   className={baseField}
                   value={period}
@@ -338,12 +476,8 @@ const BusinessPlanExpenseTable = () => {
               </div>
 
               <div className="md:col-span-1">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
-                  รวมทั้งหมด (บาท)
-                </label>
-                <div className={cx(baseField, "flex items-center justify-end font-extrabold")}>
-                  {fmtMoney0(computed.grand)}
-                </div>
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รวมทั้งหมด (บาท)</label>
+                <div className={cx(baseField, "flex items-center justify-end font-extrabold")}>{fmtMoney0(computed.grand)}</div>
               </div>
             </div>
           </div>
@@ -351,10 +485,37 @@ const BusinessPlanExpenseTable = () => {
           <div className="flex flex-wrap gap-2 md:justify-end">
             <button
               type="button"
+              disabled={!canTalkBE || isLoading || isSaving}
+              onClick={loadFromBE}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800",
+                "hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer",
+                "dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40",
+                (!canTalkBE || isLoading || isSaving) && "opacity-60 cursor-not-allowed hover:scale-100"
+              )}
+            >
+              {isLoading ? "กำลังโหลด..." : "โหลดจากระบบ"}
+            </button>
+
+            <button
+              type="button"
+              disabled={!canTalkBE || isLoading || isSaving}
+              onClick={saveToBE}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white",
+                "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition cursor-pointer",
+                (!canTalkBE || isLoading || isSaving) && "opacity-60 cursor-not-allowed hover:scale-100"
+              )}
+            >
+              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
+            </button>
+
+            <button
+              type="button"
               onClick={copyPayload}
-              className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white
-                         shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                         hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition cursor-pointer"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800
+                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
+                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
             >
               คัดลอก JSON
             </button>
@@ -399,7 +560,7 @@ const BusinessPlanExpenseTable = () => {
           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
             <div className="text-base md:text-lg font-bold">ตารางค่าใช้จ่าย (กรอกได้)</div>
             <div className="text-sm text-slate-600 dark:text-slate-300">
-              * พิมพ์ตัวเลขได้เลย (Arrow keys วิ่งข้ามช่องได้)
+              * Arrow keys วิ่งข้ามช่องได้ • บันทึก = ส่ง cost_id ไปให้ BE หา mapping id เอง
             </div>
           </div>
         </div>
@@ -424,39 +585,23 @@ const BusinessPlanExpenseTable = () => {
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
                 <th
                   rowSpan={2}
-                  className={cx(
-                    "border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600",
-                    stickyCodeHeader
-                  )}
-                >
-                  {/* ช่องเลขข้อ */}
-                </th>
+                  className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeHeader)}
+                />
                 <th
                   rowSpan={2}
-                  className={cx(
-                    "border border-slate-300 px-3 py-2 text-left font-bold dark:border-slate-600",
-                    stickyLeftHeader,
-                    "left-[72px]"
-                  )}
+                  className={cx("border border-slate-300 px-3 py-2 text-left font-bold dark:border-slate-600", stickyLeftHeader, "left-[72px]")}
                   style={{ left: COL_W.code }}
                 >
                   รายการ
                 </th>
-
-                <th
-                  colSpan={COLS.length + 1}
-                  className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600"
-                >
+                <th colSpan={COLS.length + 1} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
                   สกต. สาขา
                 </th>
               </tr>
 
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
                 {COLS.map((c) => (
-                  <th
-                    key={c.key}
-                    className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600"
-                  >
+                  <th key={c.key} className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600">
                     {c.label}
                   </th>
                 ))}
@@ -471,13 +616,7 @@ const BusinessPlanExpenseTable = () => {
                 if (r.kind === "section") {
                   return (
                     <tr key={r.code} className="bg-slate-200/70 dark:bg-slate-700/55">
-                      <td
-                        className={cx(
-                          "border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600",
-                          stickyCodeCell,
-                          "bg-slate-200/70 dark:bg-slate-700/55"
-                        )}
-                      >
+                      <td className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeCell, "bg-slate-200/70 dark:bg-slate-700/55")}>
                         {r.code}
                       </td>
                       <td
@@ -500,25 +639,19 @@ const BusinessPlanExpenseTable = () => {
 
                 return (
                   <tr key={r.code} className={rowBg}>
-                    <td
-                      className={cx(
-                        "border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600",
-                        stickyCodeCell,
-                        rowBg
-                      )}
-                    >
+                    <td className={cx("border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600", stickyCodeCell, rowBg)}>
                       {r.code}
                     </td>
 
                     <td
-                      className={cx(
-                        "border border-slate-300 px-3 py-2 text-left font-semibold dark:border-slate-600",
-                        "sticky z-[50]",
-                        rowBg
-                      )}
+                      className={cx("border border-slate-300 px-3 py-2 text-left font-semibold dark:border-slate-600", "sticky z-[50]", rowBg)}
                       style={{ left: COL_W.code }}
+                      title={`cost_id: ${r.cost_id}`}
                     >
-                      {r.label}
+                      {r.label}{" "}
+                      <span className="ml-2 text-[11px] text-slate-500 dark:text-slate-300">
+                        (id:{r.cost_id})
+                      </span>
                     </td>
 
                     {COLS.map((c, colIdx) => (
@@ -547,10 +680,9 @@ const BusinessPlanExpenseTable = () => {
           </table>
         </div>
 
-        {/* FOOTER totals (sticky-ish area, sync horizontal) */}
+        {/* FOOTER totals (sync horizontal) */}
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20">
           <div className="flex w-full">
-            {/* LEFT footer */}
             <div className="shrink-0" style={{ width: LEFT_W }}>
               <table className="border-collapse text-sm" style={{ width: LEFT_W, tableLayout: "fixed" }}>
                 <colgroup>
@@ -560,15 +692,12 @@ const BusinessPlanExpenseTable = () => {
                 <tbody>
                   <tr className={cx("font-extrabold text-slate-900 dark:text-emerald-100", STRIPE.foot)}>
                     <td className="border border-slate-200 px-2 py-2 text-center dark:border-slate-700" />
-                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700 text-center">
-                      รวม
-                    </td>
+                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700 text-center">รวม</td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
-            {/* RIGHT footer (transform sync) */}
             <div className="flex-1 overflow-hidden">
               <div style={{ width: RIGHT_W, transform: `translateX(-${scrollLeft}px)`, willChange: "transform" }}>
                 <table className="border-collapse text-sm" style={{ width: RIGHT_W, tableLayout: "fixed" }}>
@@ -580,18 +709,10 @@ const BusinessPlanExpenseTable = () => {
                   </colgroup>
                   <tbody>
                     <tr className={cx("font-extrabold text-slate-900 dark:text-emerald-100", STRIPE.foot)}>
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
-                        {fmtMoney0(computed.colTotal.hq)}
-                      </td>
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
-                        {fmtMoney0(computed.colTotal.surin)}
-                      </td>
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
-                        {fmtMoney0(computed.colTotal.nonnarai)}
-                      </td>
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
-                        {fmtMoney0(computed.grand)}
-                      </td>
+                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.colTotal.hq)}</td>
+                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.colTotal.surin)}</td>
+                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.colTotal.nonnarai)}</td>
+                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.grand)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -601,7 +722,7 @@ const BusinessPlanExpenseTable = () => {
         </div>
 
         <div className="shrink-0 p-3 md:p-4 text-sm text-slate-600 dark:text-slate-300">
-          หมายเหตุ: ตารางนี้เป็น mock สำหรับกรอก/รวมยอด/เตรียม JSON (ยังไม่ผูก BE)
+          หมายเหตุ: ตอนนี้ผูก BE แล้ว — ปุ่มบันทึกจะส่ง cost_id + business_group_id ให้ BE หา mapping id แล้ว upsert ลง BranchCosts/UnitCosts
         </div>
       </div>
     </div>

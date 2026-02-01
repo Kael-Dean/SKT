@@ -321,7 +321,7 @@ const COST_TABLES = [
   },
   {
     key: "business-plan-rep-cost-summary",
-    label: "ผู้แทนขาย (สรุปค่าใช้จ่ายตามธุรกิจ)",
+    label: "ต้นทุนขายเฉพาะธุรกิจ",
     description: "ไฟล์: cost/BusinessPlanRepCostSummaryTable.jsx",
     Component: BusinessPlanRepCostSummaryTable,
   },

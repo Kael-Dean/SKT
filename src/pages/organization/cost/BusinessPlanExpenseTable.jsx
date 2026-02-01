@@ -19,8 +19,7 @@ const fmtMoney0 = (n) =>
 
 /** ---------------- API helper (ไม่ผูก lib ภายนอก) ---------------- */
 /**
- * ✅ FIX: โปรเจกต์คุณใช้ VITE_API_BASE / VITE_API_BASE_CUSTOM
- * โค้ดเดิมอ่าน VITE_API_URL เลยทำให้ API_BASE = "" และเชื่อมไม่ได้
+ * ✅ โปรเจกต์คุณใช้ .env: VITE_API_BASE / VITE_API_BASE_CUSTOM
  */
 const API_BASE_RAW =
   import.meta.env.VITE_API_BASE_CUSTOM ||
@@ -28,7 +27,7 @@ const API_BASE_RAW =
   import.meta.env.VITE_API_URL ||
   ""
 
-const API_BASE = String(API_BASE_RAW || "").replace(/\/+$/, "") // ตัด / ท้าย ๆ กันพลาด
+const API_BASE = String(API_BASE_RAW || "").replace(/\/+$/, "") // ตัด / ท้าย ๆ
 
 const getAuthHeader = () => {
   const token =
@@ -75,7 +74,6 @@ const baseField =
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-/** ✅ input พอดีกับ cell + ทึบ */
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
   "text-right text-[13px] md:text-sm outline-none " +
@@ -86,9 +84,7 @@ const cellInput =
 const PERIOD_DEFAULT = "1 เม.ย.68-31 มี.ค.69"
 
 /**
- * ✅ สำคัญ:
- * - key hq/surin/nonnarai ต้อง map ไป branch_id ใน DB ให้ถูก
- * - แก้เลขให้ตรงกับ branchdata.id ของคุณ
+ * ✅ ต้อง map ให้ตรงกับ branchdata.id ของคุณ
  */
 const BRANCH_ID_BY_KEY = {
   hq: 1,
@@ -96,7 +92,7 @@ const BRANCH_ID_BY_KEY = {
   nonnarai: 3,
 }
 
-const BUSINESS_GROUP_ID = 1 // ✅ ตารางนี้: ธุรกิจจัดหาสินค้า (ตาม mapping ที่คุณให้)
+const BUSINESS_GROUP_ID = 1 // ธุรกิจจัดหาสินค้า
 
 const COLS = [
   { key: "hq", label: "สาขา" },
@@ -105,8 +101,7 @@ const COLS = [
 ]
 
 /**
- * ✅ ผูก cost_id = auxcosts.id (ตามรูปที่คุณส่ง)
- * 3.1 -> id 2, 3.2 -> id 3, ... 3.35 -> id 36
+ * ✅ cost_id = auxcosts.id (ตามรูปที่คุณส่ง)
  */
 const ROWS = [
   { code: "3", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", kind: "section" },
@@ -158,12 +153,7 @@ function buildInitialValues() {
 }
 
 /** ✅ lock width ให้ตรงกันทุกส่วน */
-const COL_W = {
-  code: 72,
-  item: 380,
-  cell: 120,
-  total: 120,
-}
+const COL_W = { code: 72, item: 380, cell: 120, total: 120 }
 const LEFT_W = COL_W.code + COL_W.item
 const RIGHT_W = COLS.length * COL_W.cell + COL_W.total
 const TOTAL_W = LEFT_W + RIGHT_W
@@ -175,20 +165,21 @@ const STRIPE = {
   foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
 }
 
+/**
+ * ✅ BE ของคุณต้องการ business_cost_id (id ของตาราง mapping)
+ * จากตารางที่คุณส่งมา (business_group=1): business_cost_id = cost_id - 1
+ */
+const resolveBusinessCostId = (costId, businessGroupId) => {
+  if (businessGroupId === 1 && costId >= 2 && costId <= 36) return costId - 1
+  return null
+}
+
 const BusinessPlanExpenseTable = () => {
   const params = useParams()
   const location = useLocation()
 
-  /**
-   * ✅ FIX: plan_id ในโปรเจกต์คุณอาจไม่ได้ชื่อ plan_id เสมอ
-   * เลยหาได้หลายทาง:
-   * - params.plan_id / params.planId / params.id / params.plan
-   * - params ตัวไหนก็ได้ที่เป็นตัวเลข
-   * - querystring ?plan_id=...
-   * - location.state.plan_id
-   * - localStorage fallback
-   */
-  const planId = useMemo(() => {
+  /** หา plan_id ให้ได้หลายทาง + มีช่องให้กรอกเอง */
+  const derivedPlanId = useMemo(() => {
     const direct = Number(params?.plan_id || params?.planId || params?.id || params?.plan || 0)
     if (direct > 0) return direct
 
@@ -204,22 +195,57 @@ const BusinessPlanExpenseTable = () => {
     const st = Number(location.state?.plan_id || location.state?.planId || location.state?.id || 0)
     if (st > 0) return st
 
-    const ls = Number(localStorage.getItem("plan_id") || localStorage.getItem("business_plan_id") || 0)
+    const ls = Number(
+      localStorage.getItem("plan_id") ||
+        localStorage.getItem("business_plan_id") ||
+        localStorage.getItem("businessPlanId") ||
+        localStorage.getItem("selected_plan_id") ||
+        0
+    )
     if (ls > 0) return ls
 
     return 0
   }, [params, location.search, location.state])
+
+  const [planIdInput, setPlanIdInput] = useState(() => {
+    const saved =
+      localStorage.getItem("business_plan_id") ||
+      localStorage.getItem("plan_id") ||
+      localStorage.getItem("businessPlanId") ||
+      localStorage.getItem("selected_plan_id") ||
+      ""
+    return String(saved || "")
+  })
+
+  useEffect(() => {
+    // ถ้ามี derivedPlanId แล้ว แต่ยังไม่เคยกรอก ให้โชว์ใน input แบบ placeholder (ไม่ทับค่า)
+    // แต่ถ้าผู้ใช้กรอกเอง จะเก็บค่าไว้
+  }, [derivedPlanId])
+
+  const effectivePlanId = useMemo(() => {
+    const n = Number(planIdInput || 0)
+    return n > 0 ? n : derivedPlanId
+  }, [planIdInput, derivedPlanId])
+
+  useEffect(() => {
+    if (planIdInput !== undefined) {
+      const n = Number(planIdInput || 0)
+      if (n > 0) {
+        localStorage.setItem("business_plan_id", String(n))
+        localStorage.setItem("plan_id", String(n))
+      }
+    }
+  }, [planIdInput])
 
   const [period, setPeriod] = useState(PERIOD_DEFAULT)
   const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues())
   const [showPayload, setShowPayload] = useState(false)
 
   const [isSaving, setIsSaving] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
 
-  /** ✅ ขยายความสูงตารางให้มากขึ้น */
+  /** ✅ ขยายความสูงตาราง */
   const tableCardRef = useRef(null)
-  const [tableCardHeight, setTableCardHeight] = useState(900) // base
+  const [tableCardHeight, setTableCardHeight] = useState(900)
 
   const recalcTableCardHeight = useCallback(() => {
     const el = tableCardRef.current
@@ -241,7 +267,7 @@ const BusinessPlanExpenseTable = () => {
     requestAnimationFrame(() => recalcTableCardHeight())
   }, [showPayload, period, recalcTableCardHeight])
 
-  /** ✅ เก็บ scrollLeft ของ body เพื่อให้ footer ขวาเลื่อนตาม 1:1 */
+  /** ✅ sync footer scroll */
   const bodyScrollRef = useRef(null)
   const [scrollLeft, setScrollLeft] = useState(0)
   const rafRef = useRef(0)
@@ -264,10 +290,10 @@ const BusinessPlanExpenseTable = () => {
     }
   }, [])
 
-  /** ================== ✅ Arrow navigation + auto scroll ================== */
+  /** ✅ Arrow navigation */
   const inputRefs = useRef(new Map())
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
-  const totalCols = COLS.length // hq/surin/nonnarai
+  const totalCols = COLS.length
 
   const registerInput = useCallback((row, col) => {
     const key = `${row}|${col}`
@@ -280,7 +306,6 @@ const BusinessPlanExpenseTable = () => {
   const ensureInView = useCallback((el) => {
     const container = bodyScrollRef.current
     if (!container || !el) return
-
     const pad = 12
     const frozenLeft = LEFT_W
     const crect = container.getBoundingClientRect()
@@ -330,7 +355,6 @@ const BusinessPlanExpenseTable = () => {
     },
     [ensureInView, itemRows.length, totalCols]
   )
-  /** ===================================================================== */
 
   const setCell = (code, colKey, nextValue) => {
     setValuesByCode((prev) => {
@@ -369,32 +393,36 @@ const BusinessPlanExpenseTable = () => {
     setValuesByCode(buildInitialValues())
   }
 
-  /** ===================== ✅ BE: SAVE / LOAD ===================== */
+  /** ✅ Build payload ให้ตรงกับ BE (ต้องส่ง business_cost_id) */
   const hasApiBase = Boolean(API_BASE)
-  const canTalkBE = hasApiBase && planId > 0
+  const canTalkBE = hasApiBase && effectivePlanId > 0
 
   const buildBulkRowsForBE = () => {
     if (!hasApiBase) throw new Error("ยังไม่มี API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
-    if (planId <= 0) throw new Error("ยังไม่มี plan_id (เช็ค route params หรือใส่ ?plan_id=xxx)")
-    // validate branch ids
+    if (effectivePlanId <= 0) throw new Error("ยังไม่มี plan_id (กรอก plan_id ด้านบน)")
+
     COLS.forEach((c) => {
       if (!BRANCH_ID_BY_KEY[c.key]) throw new Error(`ยังไม่ได้ตั้ง BRANCH_ID_BY_KEY สำหรับคอลัมน์: ${c.key}`)
     })
 
     const rows = []
     itemRows.forEach((r) => {
+      const businessCostId = resolveBusinessCostId(r.cost_id, BUSINESS_GROUP_ID)
+      if (!businessCostId) {
+        throw new Error(`หา business_cost_id ไม่เจอสำหรับ cost_id=${r.cost_id} group=${BUSINESS_GROUP_ID}`)
+      }
+
       COLS.forEach((c) => {
         rows.push({
           branch_id: BRANCH_ID_BY_KEY[c.key],
-          // ✅ ส่งแบบใหม่: cost_id + business_group_id (ให้ BE หา mapping id เอง)
-          cost_id: r.cost_id,
-          business_group_id: BUSINESS_GROUP_ID,
+          business_cost_id: businessCostId, // ✅ ตรงกับ BE
           unit_values: [],
           branch_total: toNumber(valuesByCode?.[r.code]?.[c.key] ?? 0),
           comment: period,
         })
       })
     })
+
     return { rows }
   }
 
@@ -402,7 +430,7 @@ const BusinessPlanExpenseTable = () => {
     try {
       setIsSaving(true)
       const body = buildBulkRowsForBE()
-      const res = await apiFetch(`/business-plan/${planId}/costs/bulk`, { method: "POST", body })
+      const res = await apiFetch(`/business-plan/${effectivePlanId}/costs/bulk`, { method: "POST", body })
       alert(`บันทึกสำเร็จ ✅ (branch totals upserted: ${res?.branch_totals_upserted ?? "-"})`)
     } catch (e) {
       console.error(e)
@@ -412,65 +440,29 @@ const BusinessPlanExpenseTable = () => {
     }
   }
 
-  const loadFromBE = async () => {
-    try {
-      setIsLoading(true)
-      if (!hasApiBase) throw new Error("ยังไม่มี API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
-      if (planId <= 0) throw new Error("ยังไม่มี plan_id (เช็ค route params หรือใส่ ?plan_id=xxx)")
-
-      const res = await apiFetch(`/business-plan/${planId}/costs/branch?business_group_id=${BUSINESS_GROUP_ID}`)
-      const list = res?.data || []
-
-      // invert branch map: branch_id -> colKey
-      const colKeyByBranchId = Object.fromEntries(
-        Object.entries(BRANCH_ID_BY_KEY).map(([k, id]) => [String(id), k])
-      )
-
-      // code by cost_id
-      const codeByCostId = {}
-      itemRows.forEach((r) => (codeByCostId[String(r.cost_id)] = r.code))
-
-      const next = buildInitialValues()
-
-      list.forEach((x) => {
-        const code = codeByCostId[String(x.cost_id)]
-        const colKey = colKeyByBranchId[String(x.branch_id)]
-        if (!code || !colKey) return
-        const v = x.amount ?? 0
-        next[code][colKey] = v === 0 ? "" : String(v)
-      })
-
-      setValuesByCode(next)
-      alert("โหลดข้อมูลจากระบบแล้ว ✅")
-    } catch (e) {
-      console.error(e)
-      alert(`โหลดไม่สำเร็จ: ${e.message || e}`)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-  /** ============================================================ */
-
   const payload = useMemo(() => {
+    const rows = ROWS.map((r) => {
+      if (r.kind !== "item") return { code: r.code, label: r.label, kind: r.kind }
+      const t = computed.rowTotal[r.code] || { hq: 0, surin: 0, nonnarai: 0, total: 0 }
+      const business_cost_id = resolveBusinessCostId(r.cost_id, BUSINESS_GROUP_ID)
+      return {
+        code: r.code,
+        label: r.label,
+        kind: r.kind,
+        cost_id: r.cost_id,
+        business_cost_id,
+        values: { hq: t.hq, surin: t.surin, nonnarai: t.nonnarai, total: t.total },
+      }
+    })
+
     return {
       table_code: "BUSINESS_PLAN_EXPENSES",
       table_name: "ประมาณการค่าใช้จ่ายแผนธุรกิจ",
-      plan_id: planId || null,
+      plan_id: effectivePlanId || null,
       business_group_id: BUSINESS_GROUP_ID,
       period,
       api_base: API_BASE || null,
-      columns: [...COLS.map((c) => ({ key: c.key, label: c.label })), { key: "total", label: "รวม" }],
-      rows: ROWS.map((r) => {
-        if (r.kind !== "item") return { code: r.code, label: r.label, kind: r.kind }
-        const t = computed.rowTotal[r.code] || { hq: 0, surin: 0, nonnarai: 0, total: 0 }
-        return {
-          code: r.code,
-          label: r.label,
-          kind: r.kind,
-          cost_id: r.cost_id,
-          values: { hq: t.hq, surin: t.surin, nonnarai: t.nonnarai, total: t.total },
-        }
-      }),
+      rows,
       totals: {
         hq: computed.colTotal.hq,
         surin: computed.colTotal.surin,
@@ -479,7 +471,7 @@ const BusinessPlanExpenseTable = () => {
       },
       be_bulk_example: canTalkBE ? buildBulkRowsForBE() : null,
     }
-  }, [period, computed, planId, canTalkBE, itemRows, valuesByCode, hasApiBase])
+  }, [period, computed, effectivePlanId, canTalkBE, itemRows, valuesByCode, hasApiBase])
 
   const copyPayload = async () => {
     try {
@@ -492,7 +484,7 @@ const BusinessPlanExpenseTable = () => {
     }
   }
 
-  /** ✅ sticky ซ้ายทึบ + z-index */
+  /** ✅ sticky */
   const stickyLeftHeader =
     "sticky left-0 z-[90] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
   const stickyCodeHeader =
@@ -508,21 +500,14 @@ const BusinessPlanExpenseTable = () => {
             <div className="text-center md:text-left">
               <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ (ธุรกิจจัดหาสินค้า)</div>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                ({period}) • plan_id: <span className="font-semibold">{planId || "-"}</span> • group:{" "}
+                ({period}) • plan_id: <span className="font-semibold">{effectivePlanId || "-"}</span> • group:{" "}
                 <span className="font-semibold">{BUSINESS_GROUP_ID}</span>
               </div>
 
               {!hasApiBase && (
                 <div className="mt-2 text-xs text-amber-700 dark:text-amber-300">
                   * ยังไม่ได้ตั้ง <span className="font-semibold">VITE_API_BASE</span> หรือ{" "}
-                  <span className="font-semibold">VITE_API_BASE_CUSTOM</span> (ตอนนี้ API_BASE ว่าง)
-                </div>
-              )}
-
-              {hasApiBase && planId <= 0 && (
-                <div className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                  * มี API แล้ว แต่ยังไม่เจอ <span className="font-semibold">plan_id</span> — ลองเปิดหน้านี้แบบ{" "}
-                  <span className="font-semibold">?plan_id=123</span> หรือเช็ค route params
+                  <span className="font-semibold">VITE_API_BASE_CUSTOM</span>
                 </div>
               )}
 
@@ -533,49 +518,55 @@ const BusinessPlanExpenseTable = () => {
               )}
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
               <div className="md:col-span-2">
                 <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ช่วงเวลา (แก้ได้)</label>
+                <input className={baseField} value={period} onChange={(e) => setPeriod(e.target.value)} />
+              </div>
+
+              <div className="md:col-span-1">
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">plan_id (ถ้าไม่ขึ้น)</label>
                 <input
                   className={baseField}
-                  value={period}
-                  onChange={(e) => setPeriod(e.target.value)}
-                  placeholder="เช่น 1 เม.ย.68-31 มี.ค.69"
+                  value={planIdInput}
+                  placeholder={derivedPlanId > 0 ? String(derivedPlanId) : "เช่น 123"}
+                  inputMode="numeric"
+                  onChange={(e) => setPlanIdInput(sanitizeNumberInput(e.target.value))}
                 />
+                <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  * กรอกครั้งเดียว ระบบจะจำไว้ในเครื่อง
+                </div>
               </div>
 
               <div className="md:col-span-1">
                 <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รวมทั้งหมด (บาท)</label>
-                <div className={cx(baseField, "flex items-center justify-end font-extrabold")}>
-                  {fmtMoney0(computed.grand)}
-                </div>
+                <div className={cx(baseField, "flex items-center justify-end font-extrabold")}>{fmtMoney0(computed.grand)}</div>
               </div>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2 md:justify-end">
+            {/* ✅ BE ไม่มี endpoint โหลดในไฟล์ที่คุณให้มา เลยปิดไว้ก่อน */}
             <button
               type="button"
-              disabled={!canTalkBE || isLoading || isSaving}
-              onClick={loadFromBE}
+              disabled
               className={cx(
                 "inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800",
-                "hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer",
-                "dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40",
-                (!canTalkBE || isLoading || isSaving) && "opacity-60 cursor-not-allowed hover:scale-100"
+                "opacity-60 cursor-not-allowed dark:border-slate-600 dark:bg-slate-700/60 dark:text-white"
               )}
+              title="Backend ยังไม่มี endpoint โหลด (GET) สำหรับตารางนี้"
             >
-              {isLoading ? "กำลังโหลด..." : "โหลดจากระบบ"}
+              โหลดจากระบบ
             </button>
 
             <button
               type="button"
-              disabled={!canTalkBE || isLoading || isSaving}
+              disabled={!canTalkBE || isSaving}
               onClick={saveToBE}
               className={cx(
                 "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white",
                 "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition cursor-pointer",
-                (!canTalkBE || isLoading || isSaving) && "opacity-60 cursor-not-allowed hover:scale-100"
+                (!canTalkBE || isSaving) && "opacity-60 cursor-not-allowed hover:scale-100"
               )}
             >
               {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
@@ -614,8 +605,7 @@ const BusinessPlanExpenseTable = () => {
         </div>
 
         {showPayload && (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800
-                          dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
             <pre className="max-h-72 overflow-auto">{JSON.stringify(payload, null, 2)}</pre>
           </div>
         )}
@@ -631,17 +621,12 @@ const BusinessPlanExpenseTable = () => {
           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
             <div className="text-base md:text-lg font-bold">ตารางค่าใช้จ่าย (กรอกได้)</div>
             <div className="text-sm text-slate-600 dark:text-slate-300">
-              * Arrow keys วิ่งข้ามช่องได้ • บันทึก = ส่ง cost_id ไปให้ BE หา mapping id เอง
+              * Arrow keys วิ่งข้ามช่องได้ • บันทึก = ส่ง <span className="font-semibold">business_cost_id</span> ให้ BE
             </div>
           </div>
         </div>
 
-        {/* BODY scroll */}
-        <div
-          ref={bodyScrollRef}
-          onScroll={onBodyScroll}
-          className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
-        >
+        <div ref={bodyScrollRef} onScroll={onBodyScroll} className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700">
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.code }} />
@@ -654,10 +639,7 @@ const BusinessPlanExpenseTable = () => {
 
             <thead className="sticky top-0 z-[80]">
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
-                <th
-                  rowSpan={2}
-                  className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeHeader)}
-                />
+                <th rowSpan={2} className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeHeader)} />
                 <th
                   rowSpan={2}
                   className={cx("border border-slate-300 px-3 py-2 text-left font-bold dark:border-slate-600", stickyLeftHeader, "left-[72px]")}
@@ -707,6 +689,7 @@ const BusinessPlanExpenseTable = () => {
                 const idx = itemRows.findIndex((x) => x.code === r.code)
                 const rowBg = idx % 2 === 1 ? STRIPE.alt : STRIPE.cell
                 const t = computed.rowTotal[r.code] || { hq: 0, surin: 0, nonnarai: 0, total: 0 }
+                const bcId = resolveBusinessCostId(r.cost_id, BUSINESS_GROUP_ID)
 
                 return (
                   <tr key={r.code} className={rowBg}>
@@ -717,11 +700,11 @@ const BusinessPlanExpenseTable = () => {
                     <td
                       className={cx("border border-slate-300 px-3 py-2 text-left font-semibold dark:border-slate-600", "sticky z-[50]", rowBg)}
                       style={{ left: COL_W.code }}
-                      title={`cost_id: ${r.cost_id}`}
+                      title={`cost_id=${r.cost_id} -> business_cost_id=${bcId ?? "?"}`}
                     >
                       {r.label}{" "}
                       <span className="ml-2 text-[11px] text-slate-500 dark:text-slate-300">
-                        (id:{r.cost_id})
+                        (cost:{r.cost_id} → map:{bcId ?? "?"})
                       </span>
                     </td>
 
@@ -751,7 +734,7 @@ const BusinessPlanExpenseTable = () => {
           </table>
         </div>
 
-        {/* FOOTER totals (sync horizontal) */}
+        {/* footer totals */}
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20">
           <div className="flex w-full">
             <div className="shrink-0" style={{ width: LEFT_W }}>
@@ -793,7 +776,7 @@ const BusinessPlanExpenseTable = () => {
         </div>
 
         <div className="shrink-0 p-3 md:p-4 text-sm text-slate-600 dark:text-slate-300">
-          หมายเหตุ: ปุ่ม “โหลด/บันทึก” จะทำงานเมื่อมี API_BASE และมี plan_id แล้ว
+          หมายเหตุ: ตอนนี้ส่งขึ้น BE ได้แล้ว (ใช้ business_cost_id ตามตาราง mapping) — ส่วน “โหลดจากระบบ” ต้องมี GET endpoint ฝั่ง BE ก่อนถึงจะทำได้
         </div>
       </div>
     </div>

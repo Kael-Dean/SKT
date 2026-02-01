@@ -38,7 +38,7 @@ const COLS = [
 ]
 
 const ROWS = [
-  { code: "9", label: "ค่าใช้จ่ายอุดหนุนงาน", kind: "section" },
+  { code: "9", label: "ค่าใช้จ่ายดำเนินงาน", kind: "section" },
 
   { code: "9.1", label: "เงินเดือนและค่าจ้าง", kind: "item" },
   { code: "9.2", label: "ค่าเบี้ยประชุม-กรรมการ", kind: "item" },
@@ -278,7 +278,7 @@ const BusinessPlanExpenseSupportWorkTable = () => {
   const payload = useMemo(() => {
     return {
       table_code: "BUSINESS_PLAN_EXPENSES_SUPPORT_WORK",
-      table_name: "ค่าใช้จ่ายอุดหนุนงาน",
+      table_name: "ค่าใช้จ่ายดำเนินงาน",
       period,
       columns: [...COLS.map((c) => ({ key: c.key, label: c.label })), { key: "total", label: "รวม" }],
       rows: ROWS.map((r) => {
@@ -328,7 +328,7 @@ const BusinessPlanExpenseSupportWorkTable = () => {
               <div className="text-lg font-bold">ประมาณการรายได้/ค่าใช้จ่าย</div>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">({period})</div>
               <div className="mt-2 text-base font-extrabold text-slate-900 dark:text-slate-100">
-                9) ค่าใช้จ่ายอุดหนุนงาน
+                9) ค่าใช้จ่ายดำเนินงาน
               </div>
             </div>
 

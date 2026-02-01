@@ -315,7 +315,7 @@ const COST_TABLES = [
   },
   {
     key: "business-plan-expense-support-work-table",
-    label: "ค่าใช้จ่ายอุดหนุนงาน",
+    label: "ค่าใช้จ่ายดำเนินงาน",
     description: "ไฟล์: cost/BusinessPlanExpenseSupportWorkTable.jsx",
     Component: BusinessPlanExpenseSupportWorkTable,
   },

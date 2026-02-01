@@ -33,61 +33,60 @@ const PERIOD_DEFAULT = "1 เม.ย.68-31 มี.ค.69"
 
 const COLS = [
   { key: "hq", label: "สาขา" },
-  { key: "surin", label: "สุรินทร์" },
+  { key: "surin", label: "รัตนบุรี" },
   { key: "nonnarai", label: "โนนนารายณ์" },
 ]
 
-/**
- * ตารางตามรูป “ผู้แทนขาย ...” (อยู่ในไฟล์ dropdown cost ตามที่ขอ)
- * หมายเหตุ: บางข้อความอาจสะกดต่างเล็กน้อยตามความชัดของรูป แต่โครง/ฟังก์ชันเหมือนตารางเดิมทั้งหมด
- */
+// ตามรูป: “ประมาณการต้นทุนสินค้า”
 const ROWS = [
-  { code: "REP", label: "ผู้แทนขาย (สรุปค่าใช้จ่ายตามธุรกิจ)", kind: "title" },
+  { code: "COGS", label: "ประมาณการต้นทุนสินค้า", kind: "title" },
 
-  { code: "1", label: "ผู้แทนขาย ธุรกิจจัดหา", kind: "section" },
-  { code: "1.1", label: "ค่าใช้จ่ายในการขาย", kind: "item" },
-  { code: "1.2", label: "หนี้สงสัยจะสูญ-ลูกหนี้การค้า", kind: "item" },
-  { code: "1.T", label: "รวมธุรกิจจัดหา", kind: "subtotal" },
+  { code: "1", label: "ต้นทุนขาย ธุรกิจจัดหาฯ", kind: "section" },
+  { code: "1.1", label: "ค่าใช้จ่ายในการซื้อ", kind: "item" },
+  { code: "1.2", label: "หักสินค้าเสื่อมสภาพ", kind: "item" },
+  { code: "1.T", label: "รวมธุรกิจจัดหาฯ", kind: "subtotal" },
 
-  { code: "2", label: "ผู้แทนขาย ธุรกิจจัดหาน้ำมัน", kind: "section" },
-  { code: "2.1", label: "ค่าใช้จ่ายในการขาย", kind: "item" },
-  { code: "2.2", label: "หนี้สงสัยจะสูญ-ลูกหนี้การค้า", kind: "item" },
-  { code: "2.T", label: "รวมธุรกิจจัดหาน้ำมัน", kind: "subtotal" },
+  { code: "2", label: "ต้นทุนขาย ธุรกิจจัดหาฯ-ปั๊มน้ำมัน", kind: "section" },
+  { code: "2.1", label: "ค่าใช้จ่ายในการซื้อ", kind: "item" },
+  { code: "2.2", label: "หักสินค้าเบิกใช้", kind: "item" },
+  { code: "2.T", label: "รวมธุรกิจจัดหาฯ-ปั๊มน้ำมัน", kind: "subtotal" },
 
-  { code: "3", label: "ผู้แทนขาย ธุรกิจรวบรวม", kind: "section" },
-  { code: "3.1", label: "ค่าใช้จ่ายในการขาย", kind: "item" },
+  { code: "3", label: "ต้นทุนขาย ธุรกิจรวบรวม", kind: "section" },
+  { code: "3.1", label: "ค่าใช้จ่ายในการซื้อ", kind: "item" },
   { code: "3.T", label: "รวมธุรกิจรวบรวม", kind: "subtotal" },
 
-  { code: "4", label: "ผู้แทนขาย ธุรกิจแปรรูป", kind: "section" },
-  { code: "4.1", label: "ค่าใช้จ่ายในการขาย", kind: "item" },
+  { code: "4", label: "ต้นทุนขาย ธุรกิจแปรรูป", kind: "section" },
+  { code: "4.1", label: "ค่าใช้จ่ายในการซื้อ", kind: "item" },
   { code: "4.2", label: "ค่าใช้จ่ายในการผลิต", kind: "item" },
   { code: "4.3", label: "ค่าเสื่อมราคาโรงสี", kind: "item" },
   { code: "4.4", label: "ค่าเสื่อมราคาเครื่องจักร", kind: "item" },
-  { code: "4.5", label: "เบี้ยเลี้ยง", kind: "item" },
-  { code: "4.6", label: "ค่าน้ำมันเชื้อเพลิง", kind: "item" },
-  { code: "4.7", label: "ค่าซ่อมแซมเครื่องโรงสี", kind: "item" },
-  { code: "4.8", label: "ค่าสวัสดิการ", kind: "item" },
-  { code: "4.9", label: "ค่าไฟฟ้า", kind: "item" },
-  { code: "4.10", label: "ค่ากระสอบ", kind: "item" },
-  { code: "4.11", label: "ค่าจ้างสี", kind: "item" },
-  { code: "4.12", label: "ค่าน้ำประปา", kind: "item" },
-  { code: "4.13", label: "ค่าเคลื่อนย้าย", kind: "item" },
-  { code: "4.14", label: "ค่าจัดทำมาตรฐาน", kind: "item" },
+  { code: "4.5", label: "เงินเดือนจนท.ผลิต", kind: "item" },
+  { code: "4.6", label: "ค่าซ่อมเครื่องจักรโรงสี", kind: "item" },
+  { code: "4.7", label: "ค่าวัสดุโรงสี", kind: "item" },
+  { code: "4.8", label: "ค่าไฟฟ้า", kind: "item" },
+  { code: "4.9", label: "ค่ากระสอบ", kind: "item" },
+  { code: "4.10", label: "ค่าจ้างสี", kind: "item" },
+  { code: "4.11", label: "ค่าน้ำมัน", kind: "item" },
+  { code: "4.12", label: "ค่าเคลื่อนย้าย", kind: "item" },
+  { code: "4.13", label: "ค่าจัดเก็บ", kind: "item" },
+  { code: "4.14", label: "ค่าอบข้าวเปลือก", kind: "item" },
   { code: "4.T", label: "รวมธุรกิจแปรรูป", kind: "subtotal" },
 
-  { code: "5", label: "ผู้แทนขาย ธุรกิจแปรรูปเมล็ดพันธุ์", kind: "section" },
-  { code: "5.1", label: "ค่าใช้จ่ายในการขาย", kind: "item" },
+  { code: "5", label: "ต้นทุนขาย ธุรกิจแปรรูป-เมล็ดพันธุ์", kind: "section" },
+  { code: "5.1", label: "ค่าใช้จ่ายในการซื้อ", kind: "item" },
   { code: "5.2", label: "ค่าใช้จ่ายในการผลิต", kind: "item" },
   { code: "5.3", label: "ค่าไฟฟ้า", kind: "item" },
-  { code: "5.4", label: "ค่าเสื่อมราคา", kind: "item" },
-  { code: "5.5", label: "ค่าเสื่อมราคาเครื่องโรงสี", kind: "item" },
+  { code: "5.4", label: "ค่าเสื่อมอาคาร", kind: "item" },
+  { code: "5.5", label: "ค่าเสื่อมเครื่องจักรโรงคัด", kind: "item" },
   { code: "5.6", label: "ค่าน้ำมัน", kind: "item" },
   { code: "5.7", label: "ค่ากระสอบ", kind: "item" },
-  { code: "5.T", label: "รวมธุรกิจแปรรูปเมล็ดพันธุ์", kind: "subtotal" },
+  { code: "5.T", label: "รวมธุรกิจแปรรูป-เมล็ดพันธุ์", kind: "subtotal" },
 
-  { code: "6", label: "ศูนย์โคออม", kind: "section" },
-  { code: "6.1", label: "ค่าใช้จ่ายศูนย์โคออม", kind: "item" },
-  { code: "6.T", label: "รวมศูนย์โคออม", kind: "subtotal" },
+  { code: "6", label: "คชจ.ศูนย์ฝึกอบรม", kind: "section" },
+  { code: "6.1", label: "คชจ.ศูนย์ฝึกอบรม", kind: "item" },
+  { code: "6.T", label: "รวมศูนย์ฝึกอบรม", kind: "subtotal" },
+
+  { code: "G.T", label: "รวมต้นทุน", kind: "grandtotal" },
 ]
 
 function buildInitialValues() {
@@ -117,7 +116,7 @@ const BusinessPlanRepCostSummaryTable = () => {
   const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues())
   const [showPayload, setShowPayload] = useState(false)
 
-  /** ✅ ขยายความสูงตารางให้มากขึ้น */
+  /** ✅ height ยาวขึ้น */
   const tableCardRef = useRef(null)
   const [tableCardHeight, setTableCardHeight] = useState(900)
 
@@ -141,7 +140,7 @@ const BusinessPlanRepCostSummaryTable = () => {
     requestAnimationFrame(() => recalcTableCardHeight())
   }, [showPayload, period, recalcTableCardHeight])
 
-  /** ✅ sync scroll footer */
+  /** ✅ sync footer scroll */
   const bodyScrollRef = useRef(null)
   const [scrollLeft, setScrollLeft] = useState(0)
   const rafRef = useRef(0)
@@ -164,7 +163,7 @@ const BusinessPlanRepCostSummaryTable = () => {
     }
   }, [])
 
-  /** ================== ✅ Arrow navigation ================== */
+  /** ✅ Arrow navigation */
   const inputRefs = useRef(new Map())
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
   const totalCols = COLS.length
@@ -207,7 +206,6 @@ const BusinessPlanRepCostSummaryTable = () => {
 
       let nextRow = row
       let nextCol = col
-
       if (k === "ArrowLeft") nextCol = col - 1
       if (k === "ArrowRight") nextCol = col + 1
       if (k === "ArrowUp") nextRow = row - 1
@@ -230,7 +228,6 @@ const BusinessPlanRepCostSummaryTable = () => {
     },
     [ensureInView, itemRows.length, totalCols]
   )
-  /** ===================================================================== */
 
   const setCell = (code, colKey, nextValue) => {
     setValuesByCode((prev) => {
@@ -242,7 +239,7 @@ const BusinessPlanRepCostSummaryTable = () => {
     })
   }
 
-  const sumRow = (codes) => {
+  const sumCodes = (codes) => {
     let hq = 0,
       surin = 0,
       nonnarai = 0
@@ -255,64 +252,44 @@ const BusinessPlanRepCostSummaryTable = () => {
     return { hq, surin, nonnarai, total: hq + surin + nonnarai }
   }
 
-  const sectionMap = useMemo(() => {
-    const sec = {
+  const sectionMap = useMemo(
+    () => ({
       "1.T": ["1.1", "1.2"],
       "2.T": ["2.1", "2.2"],
       "3.T": ["3.1"],
-      "4.T": [
-        "4.1",
-        "4.2",
-        "4.3",
-        "4.4",
-        "4.5",
-        "4.6",
-        "4.7",
-        "4.8",
-        "4.9",
-        "4.10",
-        "4.11",
-        "4.12",
-        "4.13",
-        "4.14",
-      ],
+      "4.T": ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6", "4.7", "4.8", "4.9", "4.10", "4.11", "4.12", "4.13", "4.14"],
       "5.T": ["5.1", "5.2", "5.3", "5.4", "5.5", "5.6", "5.7"],
       "6.T": ["6.1"],
-    }
-    return sec
-  }, [])
+    }),
+    []
+  )
 
   const computed = useMemo(() => {
     const rowTotal = {}
-    const colTotal = { hq: 0, surin: 0, nonnarai: 0 }
-    let grand = 0
 
-    // item rows
+    // items
     itemRows.forEach((r) => {
       const v = valuesByCode[r.code] || { hq: 0, surin: 0, nonnarai: 0 }
       const a = toNumber(v.hq)
       const b = toNumber(v.surin)
       const c = toNumber(v.nonnarai)
-      const sum = a + b + c
-      rowTotal[r.code] = { hq: a, surin: b, nonnarai: c, total: sum }
+      rowTotal[r.code] = { hq: a, surin: b, nonnarai: c, total: a + b + c }
     })
 
     // subtotals
     Object.keys(sectionMap).forEach((k) => {
-      rowTotal[k] = sumRow(sectionMap[k])
+      rowTotal[k] = sumCodes(sectionMap[k])
     })
 
-    // grand totals (sum all subtotals)
-    const allSub = Object.keys(sectionMap)
-    const gt = sumRow(
-      allSub.flatMap((k) => sectionMap[k])
-    )
-    colTotal.hq = gt.hq
-    colTotal.surin = gt.surin
-    colTotal.nonnarai = gt.nonnarai
-    grand = gt.total
+    // grand total
+    const allItems = Object.values(sectionMap).flat()
+    rowTotal["G.T"] = sumCodes(allItems)
 
-    return { rowTotal, colTotal, grand }
+    return {
+      rowTotal,
+      colTotal: { hq: rowTotal["G.T"].hq, surin: rowTotal["G.T"].surin, nonnarai: rowTotal["G.T"].nonnarai },
+      grand: rowTotal["G.T"].total,
+    }
   }, [valuesByCode, itemRows, sectionMap])
 
   const resetAll = () => {
@@ -322,26 +299,16 @@ const BusinessPlanRepCostSummaryTable = () => {
 
   const payload = useMemo(() => {
     return {
-      table_code: "BUSINESS_PLAN_REP_COST_SUMMARY",
-      table_name: "ผู้แทนขาย (สรุปค่าใช้จ่ายตามธุรกิจ)",
+      table_code: "BUSINESS_PLAN_COGS_ESTIMATE",
+      table_name: "ประมาณการต้นทุนสินค้า",
       period,
       columns: [...COLS.map((c) => ({ key: c.key, label: c.label })), { key: "total", label: "รวม" }],
       rows: ROWS.map((r) => {
         const t = computed.rowTotal[r.code]
         if (!t) return { code: r.code, label: r.label, kind: r.kind }
-        return {
-          code: r.code,
-          label: r.label,
-          kind: r.kind,
-          values: { hq: t.hq, surin: t.surin, nonnarai: t.nonnarai, total: t.total },
-        }
+        return { code: r.code, label: r.label, kind: r.kind, values: { hq: t.hq, surin: t.surin, nonnarai: t.nonnarai, total: t.total } }
       }),
-      totals: {
-        hq: computed.colTotal.hq,
-        surin: computed.colTotal.surin,
-        nonnarai: computed.colTotal.nonnarai,
-        total: computed.grand,
-      },
+      totals: { hq: computed.colTotal.hq, surin: computed.colTotal.surin, nonnarai: computed.colTotal.nonnarai, total: computed.grand },
     }
   }, [period, computed])
 
@@ -364,15 +331,13 @@ const BusinessPlanRepCostSummaryTable = () => {
 
   return (
     <div className="space-y-3">
+      {/* Header */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="flex-1">
             <div className="text-center md:text-left">
-              <div className="text-lg font-bold">ประมาณการรายได้/ค่าใช้จ่าย</div>
+              <div className="text-lg font-bold">ประมาณการต้นทุนสินค้า</div>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">({period})</div>
-              <div className="mt-2 text-base font-extrabold text-slate-900 dark:text-slate-100">
-                ผู้แทนขาย (สรุปค่าใช้จ่ายตามธุรกิจ)
-              </div>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -382,10 +347,8 @@ const BusinessPlanRepCostSummaryTable = () => {
               </div>
 
               <div className="md:col-span-1">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รวมทั้งหมด (บาท)</label>
-                <div className={cx(baseField, "flex items-center justify-end font-extrabold")}>
-                  {fmtMoney0(computed.grand)}
-                </div>
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รวมต้นทุน (บาท)</label>
+                <div className={cx(baseField, "flex items-center justify-end font-extrabold")}>{fmtMoney0(computed.grand)}</div>
               </div>
             </div>
           </div>
@@ -424,13 +387,13 @@ const BusinessPlanRepCostSummaryTable = () => {
         </div>
 
         {showPayload && (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800
-                          dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
             <pre className="max-h-72 overflow-auto">{JSON.stringify(payload, null, 2)}</pre>
           </div>
         )}
       </div>
 
+      {/* Table Card */}
       <div
         ref={tableCardRef}
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
@@ -438,7 +401,7 @@ const BusinessPlanRepCostSummaryTable = () => {
       >
         <div className="p-2 md:p-3 shrink-0">
           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-            <div className="text-base md:text-lg font-bold">ตาราง (กรอกได้)</div>
+            <div className="text-base md:text-lg font-bold">ตารางต้นทุน (กรอกได้)</div>
             <div className="text-sm text-slate-600 dark:text-slate-300">* Arrow keys วิ่งข้ามช่องได้</div>
           </div>
         </div>
@@ -466,7 +429,7 @@ const BusinessPlanRepCostSummaryTable = () => {
                 </th>
 
                 <th colSpan={COLS.length + 1} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
-                  สกต. สาขา
+                  สกต.สาขา
                 </th>
               </tr>
 
@@ -482,10 +445,12 @@ const BusinessPlanRepCostSummaryTable = () => {
 
             <tbody>
               {ROWS.map((r) => {
+                const t = computed.rowTotal[r.code]
+
                 if (r.kind === "title") {
                   return (
                     <tr key={r.code} className="bg-slate-200/70 dark:bg-slate-700/55">
-                      <td className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeCell)}> </td>
+                      <td className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeCell)} />
                       <td
                         colSpan={COLS.length + 2}
                         className={cx(
@@ -522,16 +487,19 @@ const BusinessPlanRepCostSummaryTable = () => {
 
                 const idx = itemRows.findIndex((x) => x.code === r.code)
                 const rowBg = idx % 2 === 1 ? STRIPE.alt : STRIPE.cell
-                const t = computed.rowTotal[r.code] || { hq: 0, surin: 0, nonnarai: 0, total: 0 }
-
                 const isSubtotal = r.kind === "subtotal"
-                const rowCls = isSubtotal ? "bg-emerald-50 dark:bg-emerald-900/20" : rowBg
-                const font = isSubtotal ? "font-extrabold" : "font-semibold"
+                const isGrand = r.kind === "grandtotal"
+                const rowCls = isGrand
+                  ? "bg-emerald-200/60 dark:bg-emerald-900/35"
+                  : isSubtotal
+                  ? "bg-emerald-50 dark:bg-emerald-900/20"
+                  : rowBg
+                const font = isGrand || isSubtotal ? "font-extrabold" : "font-semibold"
 
                 return (
                   <tr key={r.code} className={rowCls}>
-                    <td className={cx("border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600", stickyCodeCell, rowCls, isSubtotal && "font-bold")}>
-                      {isSubtotal ? "" : r.code}
+                    <td className={cx("border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600", stickyCodeCell, rowCls, font)}>
+                      {isSubtotal || isGrand ? "" : r.code}
                     </td>
 
                     <td
@@ -556,13 +524,13 @@ const BusinessPlanRepCostSummaryTable = () => {
                             onChange={(e) => setCell(r.code, c.key, sanitizeNumberInput(e.target.value))}
                           />
                         ) : (
-                          <div className={cx("text-right", font)}>{fmtMoney0(t[c.key])}</div>
+                          <div className={cx("text-right", font)}>{fmtMoney0(t?.[c.key] ?? 0)}</div>
                         )}
                       </td>
                     ))}
 
                     <td className={cx("border border-slate-300 px-2 py-2 text-right dark:border-slate-600", font)}>
-                      {fmtMoney0(t.total)}
+                      {fmtMoney0(t?.total ?? 0)}
                     </td>
                   </tr>
                 )
@@ -571,6 +539,7 @@ const BusinessPlanRepCostSummaryTable = () => {
           </table>
         </div>
 
+        {/* footer totals */}
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20">
           <div className="flex w-full">
             <div className="shrink-0" style={{ width: LEFT_W }}>
@@ -582,7 +551,7 @@ const BusinessPlanRepCostSummaryTable = () => {
                 <tbody>
                   <tr className={cx("font-extrabold text-slate-900 dark:text-emerald-100", STRIPE.foot)}>
                     <td className="border border-slate-200 px-2 py-2 text-center dark:border-slate-700" />
-                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700 text-center">รวม</td>
+                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700 text-center">รวมต้นทุน</td>
                   </tr>
                 </tbody>
               </table>

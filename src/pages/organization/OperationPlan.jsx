@@ -15,8 +15,11 @@ import BusinessPlanExpenseProcessingTable from "./cost/BusinessPlanExpenseProces
 import BusinessPlanExpenseSeedProcessingTable from "./cost/BusinessPlanExpenseSeedProcessingTable"
 import BusinessPlanExpenseServiceTable from "./cost/BusinessPlanExpenseServiceTable"
 
-// ✅ NEW: cost #9
+// ✅ cost #9
 import BusinessPlanExpenseSupportWorkTable from "./cost/BusinessPlanExpenseSupportWorkTable"
+
+// ✅ NEW: ผู้แทนขาย (สรุปค่าใช้จ่ายตามธุรกิจ)
+import BusinessPlanRepCostSummaryTable from "./cost/BusinessPlanRepCostSummaryTable"
 
 // ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -299,6 +302,13 @@ const COST_TABLES = [
     label: "ค่าใช้จ่ายอุดหนุนงาน",
     description: "ไฟล์: cost/BusinessPlanExpenseSupportWorkTable.jsx",
     Component: BusinessPlanExpenseSupportWorkTable,
+  },
+  // ✅ NEW
+  {
+    key: "business-plan-rep-cost-summary",
+    label: "ผู้แทนขาย (สรุปค่าใช้จ่ายตามธุรกิจ)",
+    description: "ไฟล์: cost/BusinessPlanRepCostSummaryTable.jsx",
+    Component: BusinessPlanRepCostSummaryTable,
   },
 ]
 

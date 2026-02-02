@@ -8,12 +8,26 @@ const toNumber = (v) => {
   const n = Number(String(v).replace(/,/g, ""))
   return Number.isFinite(n) ? n : 0
 }
-const sanitizeNumberInput = (s) => {
+
+/**
+ * จำกัดทศนิยมไม่ให้เกิน 3 (BE = condecimal(decimal_places=3))
+ */
+const sanitizeNumberInput = (s, { maxDecimals = 3 } = {}) => {
   const cleaned = String(s ?? "").replace(/[^\d.]/g, "")
+  if (!cleaned) return ""
+
   const parts = cleaned.split(".")
-  if (parts.length <= 2) return cleaned
-  return `${parts[0]}.${parts.slice(1).join("")}`
+  const intPart = parts[0] ?? ""
+  if (parts.length <= 1) return intPart
+
+  // รวมทุกส่วนหลังจุดให้เหลือจุดเดียว
+  const decRaw = parts.slice(1).join("")
+  const dec = decRaw.slice(0, Math.max(0, maxDecimals))
+  if (maxDecimals <= 0) return intPart
+
+  return `${intPart}.${dec}`
 }
+
 const fmtMoney0 = (n) =>
   new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
 
@@ -40,18 +54,41 @@ const getAuthHeader = () => {
   return { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
 }
 
+class ApiError extends Error {
+  constructor(message, meta = {}) {
+    super(message)
+    this.name = "ApiError"
+    Object.assign(this, meta)
+  }
+}
+
 async function apiFetch(path, { method = "GET", body } = {}) {
   if (!API_BASE) throw new Error("ยังไม่ได้ตั้ง API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeader(),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    credentials: "include",
-  })
+  const url = `${API_BASE}${path}`
+
+  let res
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: "include",
+    })
+  } catch (err) {
+    // network / CORS / DNS
+    throw new ApiError("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (Network/CORS)", {
+      status: 0,
+      url,
+      method,
+      requestBody: body ?? null,
+      responseBody: null,
+      cause: err,
+    })
+  }
 
   const txt = await res.text()
   let data = null
@@ -63,7 +100,14 @@ async function apiFetch(path, { method = "GET", body } = {}) {
 
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || `HTTP ${res.status}`
-    throw new Error(msg)
+    throw new ApiError(msg, {
+      status: res.status,
+      url,
+      method,
+      requestBody: body ?? null,
+      responseBody: data,
+      responseText: txt,
+    })
   }
   return data
 }
@@ -92,7 +136,7 @@ const BRANCH_ID_BY_KEY = {
   nonnarai: 3,
 }
 
-const BUSINESS_GROUP_ID = 1 // ธุรกิจจัดหาสินค้า
+const BUSINESS_GROUP_ID = 1 // ธุรกิจจัดหา (businessgroups.id = 1)
 
 const COLS = [
   { key: "hq", label: "สาขา" },
@@ -101,7 +145,7 @@ const COLS = [
 ]
 
 /**
- * ✅ cost_id = auxcosts.id (ตามรูปที่คุณส่ง)
+ * ✅ cost_id ใน Excel = costtypes.id (2–106)
  */
 const ROWS = [
   { code: "3", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", kind: "section" },
@@ -166,12 +210,29 @@ const STRIPE = {
 }
 
 /**
- * ✅ BE ของคุณต้องการ business_cost_id (id ของตาราง mapping)
- * จากตารางที่คุณส่งมา (business_group=1): business_cost_id = cost_id - 1
+ * ✅ สำคัญ: FE ต้องหา BusinessCost.id (ตาราง businesscosts)
+ * จากคู่ค่า (cost_id, business_group) แล้วส่งให้ BE เป็น business_cost_id
+ *
+ * ไฟล์นี้ล็อก business_group = 1 (ตามที่คุณบอกว่าเป็น business id 1)
+ * หมายเหตุ: seed ของ group 1 ใน DB ของคุณคือ:
+ *   (id 1..35) <-> (cost_id 2..36, business_group 1)
  */
+const BUSINESS_COSTS_SEED = (() => {
+  const out = []
+  // group 1: id 1..35 maps cost_id 2..36
+  for (let costId = 2; costId <= 36; costId++) {
+    out.push({ id: costId - 1, cost_id: costId, business_group: 1 })
+  }
+  return out
+})()
+
+const BUSINESS_COST_ID_MAP = new Map(
+  BUSINESS_COSTS_SEED.map((r) => [`${r.cost_id}:${r.business_group}`, r.id])
+)
+
 const resolveBusinessCostId = (costId, businessGroupId) => {
-  if (businessGroupId === 1 && costId >= 2 && costId <= 36) return costId - 1
-  return null
+  const key = `${Number(costId)}:${Number(businessGroupId)}`
+  return BUSINESS_COST_ID_MAP.get(key) ?? null
 }
 
 const BusinessPlanExpenseTable = () => {
@@ -217,11 +278,6 @@ const BusinessPlanExpenseTable = () => {
     return String(saved || "")
   })
 
-  useEffect(() => {
-    // ถ้ามี derivedPlanId แล้ว แต่ยังไม่เคยกรอก ให้โชว์ใน input แบบ placeholder (ไม่ทับค่า)
-    // แต่ถ้าผู้ใช้กรอกเอง จะเก็บค่าไว้
-  }, [derivedPlanId])
-
   const effectivePlanId = useMemo(() => {
     const n = Number(planIdInput || 0)
     return n > 0 ? n : derivedPlanId
@@ -240,7 +296,6 @@ const BusinessPlanExpenseTable = () => {
   const [period, setPeriod] = useState(PERIOD_DEFAULT)
   const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues())
   const [showPayload, setShowPayload] = useState(false)
-
   const [isSaving, setIsSaving] = useState(false)
 
   /** ✅ ขยายความสูงตาราง */
@@ -393,12 +448,18 @@ const BusinessPlanExpenseTable = () => {
     setValuesByCode(buildInitialValues())
   }
 
-  /** ✅ Build payload ให้ตรงกับ BE (ต้องส่ง business_cost_id) */
-  const hasApiBase = Boolean(API_BASE)
-  const canTalkBE = hasApiBase && effectivePlanId > 0
+  /** ✅ เงื่อนไขคุยกับ BE + reason ไว้โชว์/ล็อก */
+  const canTalkBEReason = useMemo(() => {
+    if (!API_BASE) return "ยังไม่ได้ตั้ง API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)"
+    if (effectivePlanId <= 0) return "ยังไม่มี plan_id (กรอก plan_id ด้านบน)"
+    return ""
+  }, [effectivePlanId])
 
+  const canTalkBE = !canTalkBEReason
+
+  /** ✅ Build payload ให้ตรงกับ BE: /business-plan/{plan_id}/costs/bulk */
   const buildBulkRowsForBE = () => {
-    if (!hasApiBase) throw new Error("ยังไม่มี API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
+    if (!API_BASE) throw new Error("ยังไม่มี API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
     if (effectivePlanId <= 0) throw new Error("ยังไม่มี plan_id (กรอก plan_id ด้านบน)")
 
     COLS.forEach((c) => {
@@ -409,13 +470,15 @@ const BusinessPlanExpenseTable = () => {
     itemRows.forEach((r) => {
       const businessCostId = resolveBusinessCostId(r.cost_id, BUSINESS_GROUP_ID)
       if (!businessCostId) {
-        throw new Error(`หา business_cost_id ไม่เจอสำหรับ cost_id=${r.cost_id} group=${BUSINESS_GROUP_ID}`)
+        throw new Error(
+          `หา businesscosts.id ไม่เจอจาก (cost_id=${r.cost_id}, business_group=${BUSINESS_GROUP_ID}) — ตรวจ seed/mapping`
+        )
       }
 
       COLS.forEach((c) => {
         rows.push({
           branch_id: BRANCH_ID_BY_KEY[c.key],
-          business_cost_id: businessCostId, // ✅ ตรงกับ BE
+          business_cost_id: businessCostId, // ✅ ตรงกับ BE (SaveCostRowIn.business_cost_id)
           unit_values: [],
           branch_total: toNumber(valuesByCode?.[r.code]?.[c.key] ?? 0),
           comment: period,
@@ -427,14 +490,58 @@ const BusinessPlanExpenseTable = () => {
   }
 
   const saveToBE = async () => {
+    let builtBody = null
     try {
+      if (canTalkBEReason) throw new Error(canTalkBEReason)
+
       setIsSaving(true)
-      const body = buildBulkRowsForBE()
-      const res = await apiFetch(`/business-plan/${effectivePlanId}/costs/bulk`, { method: "POST", body })
+      builtBody = buildBulkRowsForBE()
+
+      const res = await apiFetch(`/business-plan/${effectivePlanId}/costs/bulk`, {
+        method: "POST",
+        body: builtBody,
+      })
+
+      console.groupCollapsed("%c[BusinessPlanExpenseTable] Save OK ✅", "color:#10b981;font-weight:800;")
+      console.log("plan_id:", effectivePlanId)
+      console.log("business_group_id:", BUSINESS_GROUP_ID)
+      console.log("response:", res)
+      console.groupEnd()
+
       alert(`บันทึกสำเร็จ ✅ (branch totals upserted: ${res?.branch_totals_upserted ?? "-"})`)
     } catch (e) {
+      // ✅ ต้องขึ้น console + บอกเหตุผล (ตามที่ขอ)
+      const hasAuth = Boolean(getAuthHeader().Authorization)
+
+      console.groupCollapsed("%c[BusinessPlanExpenseTable] Save failed ❌", "color:#ef4444;font-weight:800;")
+      console.error("เหตุผล:", e?.message || e)
+      console.error("hasAuthToken:", hasAuth)
+      console.error("API_BASE:", API_BASE || "(missing)")
+      console.error("plan_id:", effectivePlanId || "(missing)")
+      console.error("business_group_id:", BUSINESS_GROUP_ID)
+      console.error("BRANCH_ID_BY_KEY:", BRANCH_ID_BY_KEY)
+
+      if (e?.name === "ApiError") {
+        console.error("status:", e.status)
+        console.error("url:", e.url)
+        console.error("method:", e.method)
+        console.error("responseBody:", e.responseBody)
+        if (typeof e.responseText === "string" && e.responseText) {
+          console.error("responseText:", e.responseText.slice(0, 2000))
+        }
+      } else if (e?.cause) {
+        console.error("cause:", e.cause)
+      }
+
+      if (builtBody?.rows) {
+        console.error("payload rows:", builtBody.rows.length)
+        console.error("payload preview (first 5):", builtBody.rows.slice(0, 5))
+      }
+
       console.error(e)
-      alert(`บันทึกไม่สำเร็จ: ${e.message || e}`)
+      console.groupEnd()
+
+      alert(`บันทึกไม่สำเร็จ ❌\nเหตุผล: ${e?.message || e}\n(ดูรายละเอียดใน console)`)
     } finally {
       setIsSaving(false)
     }
@@ -455,6 +562,16 @@ const BusinessPlanExpenseTable = () => {
       }
     })
 
+    let be_bulk_example = null
+    let be_bulk_example_error = null
+    if (canTalkBE) {
+      try {
+        be_bulk_example = buildBulkRowsForBE()
+      } catch (err) {
+        be_bulk_example_error = err?.message || String(err)
+      }
+    }
+
     return {
       table_code: "BUSINESS_PLAN_EXPENSES",
       table_name: "ประมาณการค่าใช้จ่ายแผนธุรกิจ",
@@ -469,9 +586,10 @@ const BusinessPlanExpenseTable = () => {
         nonnarai: computed.colTotal.nonnarai,
         total: computed.grand,
       },
-      be_bulk_example: canTalkBE ? buildBulkRowsForBE() : null,
+      be_bulk_example,
+      be_bulk_example_error,
     }
-  }, [period, computed, effectivePlanId, canTalkBE, itemRows, valuesByCode, hasApiBase])
+  }, [period, computed, effectivePlanId, canTalkBE, itemRows, valuesByCode])
 
   const copyPayload = async () => {
     try {
@@ -504,16 +622,22 @@ const BusinessPlanExpenseTable = () => {
                 <span className="font-semibold">{BUSINESS_GROUP_ID}</span>
               </div>
 
-              {!hasApiBase && (
+              {!API_BASE && (
                 <div className="mt-2 text-xs text-amber-700 dark:text-amber-300">
                   * ยังไม่ได้ตั้ง <span className="font-semibold">VITE_API_BASE</span> หรือ{" "}
                   <span className="font-semibold">VITE_API_BASE_CUSTOM</span>
                 </div>
               )}
 
-              {hasApiBase && (
+              {API_BASE && (
                 <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
                   API: <span className="font-mono">{API_BASE}</span>
+                </div>
+              )}
+
+              {!canTalkBE && (
+                <div className="mt-2 text-xs text-rose-700 dark:text-rose-300">
+                  * ส่งขึ้นระบบไม่ได้ตอนนี้: <span className="font-semibold">{canTalkBEReason}</span>
                 </div>
               )}
             </div>
@@ -531,7 +655,7 @@ const BusinessPlanExpenseTable = () => {
                   value={planIdInput}
                   placeholder={derivedPlanId > 0 ? String(derivedPlanId) : "เช่น 123"}
                   inputMode="numeric"
-                  onChange={(e) => setPlanIdInput(sanitizeNumberInput(e.target.value))}
+                  onChange={(e) => setPlanIdInput(sanitizeNumberInput(e.target.value, { maxDecimals: 0 }))}
                 />
                 <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                   * กรอกครั้งเดียว ระบบจะจำไว้ในเครื่อง
@@ -561,12 +685,13 @@ const BusinessPlanExpenseTable = () => {
 
             <button
               type="button"
-              disabled={!canTalkBE || isSaving}
+              disabled={isSaving}
               onClick={saveToBE}
+              title={!canTalkBE ? canTalkBEReason : "ส่งขึ้น BE: POST /business-plan/{plan_id}/costs/bulk"}
               className={cx(
                 "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white",
                 "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition cursor-pointer",
-                (!canTalkBE || isSaving) && "opacity-60 cursor-not-allowed hover:scale-100"
+                (isSaving || !canTalkBE) && "opacity-60 hover:scale-100"
               )}
             >
               {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
@@ -606,6 +731,11 @@ const BusinessPlanExpenseTable = () => {
 
         {showPayload && (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
+            {payload.be_bulk_example_error && (
+              <div className="mb-2 rounded-xl border border-rose-200 bg-rose-50 p-2 text-rose-700 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200">
+                be_bulk_example_error: <span className="font-semibold">{payload.be_bulk_example_error}</span>
+              </div>
+            )}
             <pre className="max-h-72 overflow-auto">{JSON.stringify(payload, null, 2)}</pre>
           </div>
         )}
@@ -719,7 +849,7 @@ const BusinessPlanExpenseTable = () => {
                           value={valuesByCode?.[r.code]?.[c.key] ?? ""}
                           inputMode="numeric"
                           placeholder="0"
-                          onChange={(e) => setCell(r.code, c.key, sanitizeNumberInput(e.target.value))}
+                          onChange={(e) => setCell(r.code, c.key, sanitizeNumberInput(e.target.value, { maxDecimals: 3 }))}
                         />
                       </td>
                     ))}
@@ -776,7 +906,8 @@ const BusinessPlanExpenseTable = () => {
         </div>
 
         <div className="shrink-0 p-3 md:p-4 text-sm text-slate-600 dark:text-slate-300">
-          หมายเหตุ: ตอนนี้ส่งขึ้น BE ได้แล้ว (ใช้ business_cost_id ตามตาราง mapping) — ส่วน “โหลดจากระบบ” ต้องมี GET endpoint ฝั่ง BE ก่อนถึงจะทำได้
+          หมายเหตุ: ไฟล์นี้ล็อก business_group = 1 และส่งขึ้น BE ผ่าน{" "}
+          <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span> • ถ้าส่งไม่สำเร็จให้ดูรายละเอียดใน console
         </div>
       </div>
     </div>

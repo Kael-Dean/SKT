@@ -20,7 +20,6 @@ const sanitizeNumberInput = (s, { maxDecimals = 3 } = {}) => {
   const intPart = parts[0] ?? ""
   if (parts.length <= 1) return intPart
 
-  // รวมทุกส่วนหลังจุดให้เหลือจุดเดียว
   const decRaw = parts.slice(1).join("")
   const dec = decRaw.slice(0, Math.max(0, maxDecimals))
   if (maxDecimals <= 0) return intPart
@@ -31,17 +30,14 @@ const sanitizeNumberInput = (s, { maxDecimals = 3 } = {}) => {
 const fmtMoney0 = (n) =>
   new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
 
-/** ---------------- API helper (ไม่ผูก lib ภายนอก) ---------------- */
-/**
- * ✅ โปรเจกต์คุณใช้ .env: VITE_API_BASE / VITE_API_BASE_CUSTOM
- */
+/** ---------------- API helper ---------------- */
 const API_BASE_RAW =
   import.meta.env.VITE_API_BASE_CUSTOM ||
   import.meta.env.VITE_API_BASE ||
   import.meta.env.VITE_API_URL ||
   ""
 
-const API_BASE = String(API_BASE_RAW || "").replace(/\/+$/, "") // ตัด / ท้าย ๆ
+const API_BASE = String(API_BASE_RAW || "").replace(/\/+$/, "")
 
 const getAuthHeader = () => {
   const token =
@@ -49,7 +45,6 @@ const getAuthHeader = () => {
     localStorage.getItem("token") ||
     sessionStorage.getItem("access_token") ||
     sessionStorage.getItem("token")
-
   if (!token) return {}
   return { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
 }
@@ -63,7 +58,7 @@ class ApiError extends Error {
 }
 
 async function apiFetch(path, { method = "GET", body } = {}) {
-  if (!API_BASE) throw new Error("ยังไม่ได้ตั้ง API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
+  if (!API_BASE) throw new Error("FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
 
   const url = `${API_BASE}${path}`
 
@@ -79,8 +74,7 @@ async function apiFetch(path, { method = "GET", body } = {}) {
       credentials: "include",
     })
   } catch (err) {
-    // network / CORS / DNS
-    throw new ApiError("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (Network/CORS)", {
+    throw new ApiError("FE: เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (Network/CORS/DNS)", {
       status: 0,
       url,
       method,
@@ -113,11 +107,6 @@ async function apiFetch(path, { method = "GET", body } = {}) {
 }
 
 /** ---------------- UI styles ---------------- */
-const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
-  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
-
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
   "text-right text-[13px] md:text-sm outline-none " +
@@ -125,18 +114,15 @@ const cellInput =
   "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
 /** ---------------- Table definition ---------------- */
-const PERIOD_DEFAULT = "1 เม.ย.68-31 มี.ค.69"
+const PERIOD_LABEL = "1 เม.ย.68-31 มี.ค.69" // แสดงเฉยๆ ไม่ต้องกรอก
 
-/**
- * ✅ ต้อง map ให้ตรงกับ branchdata.id ของคุณ
- */
 const BRANCH_ID_BY_KEY = {
   hq: 1,
   surin: 2,
   nonnarai: 3,
 }
 
-const BUSINESS_GROUP_ID = 1 // ธุรกิจจัดหา (businessgroups.id = 1)
+const BUSINESS_GROUP_ID = 1 // ล็อก group 1 ตามที่ต้องการ
 
 const COLS = [
   { key: "hq", label: "สาขา" },
@@ -144,9 +130,6 @@ const COLS = [
   { key: "nonnarai", label: "โนนนารายณ์" },
 ]
 
-/**
- * ✅ cost_id ใน Excel = costtypes.id (2–106)
- */
 const ROWS = [
   { code: "3", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", kind: "section" },
 
@@ -210,16 +193,10 @@ const STRIPE = {
 }
 
 /**
- * ✅ สำคัญ: FE ต้องหา BusinessCost.id (ตาราง businesscosts)
- * จากคู่ค่า (cost_id, business_group) แล้วส่งให้ BE เป็น business_cost_id
- *
- * ไฟล์นี้ล็อก business_group = 1 (ตามที่คุณบอกว่าเป็น business id 1)
- * หมายเหตุ: seed ของ group 1 ใน DB ของคุณคือ:
- *   (id 1..35) <-> (cost_id 2..36, business_group 1)
+ * group 1 seed: (id 1..35) <-> (cost_id 2..36, business_group 1)
  */
 const BUSINESS_COSTS_SEED = (() => {
   const out = []
-  // group 1: id 1..35 maps cost_id 2..36
   for (let costId = 2; costId <= 36; costId++) {
     out.push({ id: costId - 1, cost_id: costId, business_group: 1 })
   }
@@ -239,8 +216,8 @@ const BusinessPlanExpenseTable = () => {
   const params = useParams()
   const location = useLocation()
 
-  /** หา plan_id ให้ได้หลายทาง + มีช่องให้กรอกเอง */
-  const derivedPlanId = useMemo(() => {
+  /** ✅ หา plan_id จาก route/query/state/localStorage (ไม่มีช่องให้กรอกแล้ว) */
+  const planId = useMemo(() => {
     const direct = Number(params?.plan_id || params?.planId || params?.id || params?.plan || 0)
     if (direct > 0) return direct
 
@@ -268,35 +245,20 @@ const BusinessPlanExpenseTable = () => {
     return 0
   }, [params, location.search, location.state])
 
-  const [planIdInput, setPlanIdInput] = useState(() => {
-    const saved =
-      localStorage.getItem("business_plan_id") ||
-      localStorage.getItem("plan_id") ||
-      localStorage.getItem("businessPlanId") ||
-      localStorage.getItem("selected_plan_id") ||
-      ""
-    return String(saved || "")
-  })
-
-  const effectivePlanId = useMemo(() => {
-    const n = Number(planIdInput || 0)
-    return n > 0 ? n : derivedPlanId
-  }, [planIdInput, derivedPlanId])
-
+  // เก็บ plan_id ที่หาได้ไว้เผื่อหน้าอื่น ๆ ใช้ต่อ
   useEffect(() => {
-    if (planIdInput !== undefined) {
-      const n = Number(planIdInput || 0)
-      if (n > 0) {
-        localStorage.setItem("business_plan_id", String(n))
-        localStorage.setItem("plan_id", String(n))
-      }
+    if (planId > 0) {
+      localStorage.setItem("business_plan_id", String(planId))
+      localStorage.setItem("plan_id", String(planId))
     }
-  }, [planIdInput])
+  }, [planId])
 
-  const [period, setPeriod] = useState(PERIOD_DEFAULT)
   const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues())
   const [showPayload, setShowPayload] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+
+  // ✅ แจ้งเหตุผลฝั่ง FE แบบเห็นชัด
+  const [saveNotice, setSaveNotice] = useState(null) // {type:'success'|'error'|'info', title, detail}
 
   /** ✅ ขยายความสูงตาราง */
   const tableCardRef = useRef(null)
@@ -320,7 +282,7 @@ const BusinessPlanExpenseTable = () => {
 
   useEffect(() => {
     requestAnimationFrame(() => recalcTableCardHeight())
-  }, [showPayload, period, recalcTableCardHeight])
+  }, [showPayload, recalcTableCardHeight])
 
   /** ✅ sync footer scroll */
   const bodyScrollRef = useRef(null)
@@ -446,24 +408,24 @@ const BusinessPlanExpenseTable = () => {
   const resetAll = () => {
     if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
     setValuesByCode(buildInitialValues())
+    setSaveNotice({ type: "info", title: "ล้างข้อมูลแล้ว", detail: "ข้อมูลที่กรอกถูกรีเซ็ตเป็น 0" })
   }
 
-  /** ✅ เงื่อนไขคุยกับ BE + reason ไว้โชว์/ล็อก */
+  /** ✅ เหตุผลบล็อกฝั่ง FE */
   const canTalkBEReason = useMemo(() => {
-    if (!API_BASE) return "ยังไม่ได้ตั้ง API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)"
-    if (effectivePlanId <= 0) return "ยังไม่มี plan_id (กรอก plan_id ด้านบน)"
+    if (!API_BASE) return "FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)"
+    if (planId <= 0)
+      return "FE: ยังไม่มี plan_id — หน้านี้ต้องเข้ามาพร้อม plan_id (จากหน้าเลือกแผน หรือ URL เช่น ?plan_id=123)"
     return ""
-  }, [effectivePlanId])
+  }, [planId])
 
-  const canTalkBE = !canTalkBEReason
-
-  /** ✅ Build payload ให้ตรงกับ BE: /business-plan/{plan_id}/costs/bulk */
+  /** ✅ Build payload ให้ตรงกับ BE: POST /business-plan/{plan_id}/costs/bulk */
   const buildBulkRowsForBE = () => {
-    if (!API_BASE) throw new Error("ยังไม่มี API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
-    if (effectivePlanId <= 0) throw new Error("ยังไม่มี plan_id (กรอก plan_id ด้านบน)")
+    if (!API_BASE) throw new Error("FE: ยังไม่มี API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
+    if (planId <= 0) throw new Error("FE: ไม่มี plan_id (ต้องเข้าหน้านี้ผ่านหน้าเลือกแผน)")
 
     COLS.forEach((c) => {
-      if (!BRANCH_ID_BY_KEY[c.key]) throw new Error(`ยังไม่ได้ตั้ง BRANCH_ID_BY_KEY สำหรับคอลัมน์: ${c.key}`)
+      if (!BRANCH_ID_BY_KEY[c.key]) throw new Error(`FE: ยังไม่ได้ตั้ง BRANCH_ID_BY_KEY สำหรับคอลัมน์: ${c.key}`)
     })
 
     const rows = []
@@ -471,17 +433,17 @@ const BusinessPlanExpenseTable = () => {
       const businessCostId = resolveBusinessCostId(r.cost_id, BUSINESS_GROUP_ID)
       if (!businessCostId) {
         throw new Error(
-          `หา businesscosts.id ไม่เจอจาก (cost_id=${r.cost_id}, business_group=${BUSINESS_GROUP_ID}) — ตรวจ seed/mapping`
+          `FE: หา businesscosts.id ไม่เจอจาก (cost_id=${r.cost_id}, business_group=${BUSINESS_GROUP_ID}) — ตรวจ seed/mapping`
         )
       }
 
       COLS.forEach((c) => {
         rows.push({
           branch_id: BRANCH_ID_BY_KEY[c.key],
-          business_cost_id: businessCostId, // ✅ ตรงกับ BE (SaveCostRowIn.business_cost_id)
+          business_cost_id: businessCostId,
           unit_values: [],
           branch_total: toNumber(valuesByCode?.[r.code]?.[c.key] ?? 0),
-          comment: period,
+          comment: PERIOD_LABEL,
         })
       })
     })
@@ -492,36 +454,60 @@ const BusinessPlanExpenseTable = () => {
   const saveToBE = async () => {
     let builtBody = null
     try {
-      if (canTalkBEReason) throw new Error(canTalkBEReason)
+      setSaveNotice(null)
+
+      // ✅ ถ้า FE บล็อก ให้แจ้งชัดๆ (แทนที่จะเงียบ)
+      if (canTalkBEReason) {
+        setSaveNotice({ type: "error", title: "บันทึกไม่ได้ (ฝั่ง FE)", detail: canTalkBEReason })
+        console.groupCollapsed("%c[BusinessPlanExpenseTable] Save blocked (FE) ⛔", "color:#f97316;font-weight:800;")
+        console.error("reason:", canTalkBEReason)
+        console.error("plan_id:", planId)
+        console.error("API_BASE:", API_BASE || "(missing)")
+        console.groupEnd()
+        return
+      }
 
       setIsSaving(true)
       builtBody = buildBulkRowsForBE()
 
-      const res = await apiFetch(`/business-plan/${effectivePlanId}/costs/bulk`, {
+      const res = await apiFetch(`/business-plan/${planId}/costs/bulk`, {
         method: "POST",
         body: builtBody,
       })
 
+      setSaveNotice({
+        type: "success",
+        title: "บันทึกสำเร็จ ✅",
+        detail: `ส่งข้อมูลขึ้นระบบแล้ว (branch totals upserted: ${res?.branch_totals_upserted ?? "-"})`,
+      })
+
       console.groupCollapsed("%c[BusinessPlanExpenseTable] Save OK ✅", "color:#10b981;font-weight:800;")
-      console.log("plan_id:", effectivePlanId)
+      console.log("plan_id:", planId)
       console.log("business_group_id:", BUSINESS_GROUP_ID)
       console.log("response:", res)
       console.groupEnd()
-
-      alert(`บันทึกสำเร็จ ✅ (branch totals upserted: ${res?.branch_totals_upserted ?? "-"})`)
     } catch (e) {
-      // ✅ ต้องขึ้น console + บอกเหตุผล (ตามที่ขอ)
       const hasAuth = Boolean(getAuthHeader().Authorization)
 
+      // ✅ แยกให้เห็นว่า “FE พัง” หรือ “BE ตอบ error”
+      const isApiErr = e?.name === "ApiError"
+      const title = isApiErr ? "บันทึกไม่สำเร็จ (Server/BE)" : "บันทึกไม่สำเร็จ (ฝั่ง FE)"
+      const detail = isApiErr
+        ? `BE ตอบกลับ: ${e?.message || "error"} (HTTP ${e?.status ?? "-"})`
+        : `${e?.message || e}`
+
+      setSaveNotice({ type: "error", title, detail })
+
       console.groupCollapsed("%c[BusinessPlanExpenseTable] Save failed ❌", "color:#ef4444;font-weight:800;")
-      console.error("เหตุผล:", e?.message || e)
+      console.error("title:", title)
+      console.error("detail:", detail)
       console.error("hasAuthToken:", hasAuth)
       console.error("API_BASE:", API_BASE || "(missing)")
-      console.error("plan_id:", effectivePlanId || "(missing)")
+      console.error("plan_id:", planId || "(missing)")
       console.error("business_group_id:", BUSINESS_GROUP_ID)
       console.error("BRANCH_ID_BY_KEY:", BRANCH_ID_BY_KEY)
 
-      if (e?.name === "ApiError") {
+      if (isApiErr) {
         console.error("status:", e.status)
         console.error("url:", e.url)
         console.error("method:", e.method)
@@ -540,8 +526,6 @@ const BusinessPlanExpenseTable = () => {
 
       console.error(e)
       console.groupEnd()
-
-      alert(`บันทึกไม่สำเร็จ ❌\nเหตุผล: ${e?.message || e}\n(ดูรายละเอียดใน console)`)
     } finally {
       setIsSaving(false)
     }
@@ -562,22 +546,12 @@ const BusinessPlanExpenseTable = () => {
       }
     })
 
-    let be_bulk_example = null
-    let be_bulk_example_error = null
-    if (canTalkBE) {
-      try {
-        be_bulk_example = buildBulkRowsForBE()
-      } catch (err) {
-        be_bulk_example_error = err?.message || String(err)
-      }
-    }
-
     return {
       table_code: "BUSINESS_PLAN_EXPENSES",
       table_name: "ประมาณการค่าใช้จ่ายแผนธุรกิจ",
-      plan_id: effectivePlanId || null,
+      plan_id: planId || null,
       business_group_id: BUSINESS_GROUP_ID,
-      period,
+      period: PERIOD_LABEL,
       api_base: API_BASE || null,
       rows,
       totals: {
@@ -586,48 +560,56 @@ const BusinessPlanExpenseTable = () => {
         nonnarai: computed.colTotal.nonnarai,
         total: computed.grand,
       },
-      be_bulk_example,
-      be_bulk_example_error,
     }
-  }, [period, computed, effectivePlanId, canTalkBE, itemRows, valuesByCode])
+  }, [computed, planId, valuesByCode])
 
   const copyPayload = async () => {
     try {
       await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
-      alert("คัดลอก JSON payload แล้ว ✅")
+      setSaveNotice({ type: "success", title: "คัดลอกแล้ว ✅", detail: "คัดลอก JSON payload ลง clipboard แล้ว" })
     } catch (e) {
       console.error(e)
-      alert("คัดลอกไม่สำเร็จ — เปิด payload แล้ว copy เองได้ครับ")
+      setSaveNotice({ type: "error", title: "คัดลอกไม่สำเร็จ", detail: "เปิดดู payload แล้ว copy เองได้" })
       setShowPayload(true)
     }
   }
 
-  /** ✅ sticky */
   const stickyLeftHeader =
     "sticky left-0 z-[90] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
   const stickyCodeHeader =
     "sticky left-0 z-[95] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
   const stickyCodeCell = "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
 
+  const NoticeBox = ({ notice }) => {
+    if (!notice) return null
+    const isErr = notice.type === "error"
+    const isOk = notice.type === "success"
+    const cls = isErr
+      ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200"
+      : isOk
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200"
+      : "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100"
+
+    return (
+      <div className={cx("mb-3 rounded-2xl border p-3 text-sm", cls)}>
+        <div className="font-extrabold">{notice.title}</div>
+        {notice.detail && <div className="mt-1 text-[13px] opacity-95">{notice.detail}</div>}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-3">
-      {/* Header */}
+      {/* ✅ Header (ไม่มีช่องให้กรอกแล้ว) */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="flex-1">
             <div className="text-center md:text-left">
               <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ (ธุรกิจจัดหาสินค้า)</div>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                ({period}) • plan_id: <span className="font-semibold">{effectivePlanId || "-"}</span> • group:{" "}
+                ({PERIOD_LABEL}) • plan_id: <span className="font-semibold">{planId || "-"}</span> • group:{" "}
                 <span className="font-semibold">{BUSINESS_GROUP_ID}</span>
               </div>
-
-              {!API_BASE && (
-                <div className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                  * ยังไม่ได้ตั้ง <span className="font-semibold">VITE_API_BASE</span> หรือ{" "}
-                  <span className="font-semibold">VITE_API_BASE_CUSTOM</span>
-                </div>
-              )}
 
               {API_BASE && (
                 <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
@@ -635,68 +617,21 @@ const BusinessPlanExpenseTable = () => {
                 </div>
               )}
 
-              {!canTalkBE && (
+              {/* ✅ แจ้งชัด ๆ ว่า FE บล็อกเพราะอะไร */}
+              {canTalkBEReason && (
                 <div className="mt-2 text-xs text-rose-700 dark:text-rose-300">
-                  * ส่งขึ้นระบบไม่ได้ตอนนี้: <span className="font-semibold">{canTalkBEReason}</span>
+                  * บันทึกไม่ได้ตอนนี้: <span className="font-semibold">{canTalkBEReason}</span>
                 </div>
               )}
-            </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-4">
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ช่วงเวลา (แก้ได้)</label>
-                <input className={baseField} value={period} onChange={(e) => setPeriod(e.target.value)} />
-              </div>
-
-              <div className="md:col-span-1">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">plan_id (ถ้าไม่ขึ้น)</label>
-                <input
-                  className={baseField}
-                  value={planIdInput}
-                  placeholder={derivedPlanId > 0 ? String(derivedPlanId) : "เช่น 123"}
-                  inputMode="numeric"
-                  onChange={(e) => setPlanIdInput(sanitizeNumberInput(e.target.value, { maxDecimals: 0 }))}
-                />
-                <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  * กรอกครั้งเดียว ระบบจะจำไว้ในเครื่อง
-                </div>
-              </div>
-
-              <div className="md:col-span-1">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รวมทั้งหมด (บาท)</label>
-                <div className={cx(baseField, "flex items-center justify-end font-extrabold")}>{fmtMoney0(computed.grand)}</div>
+              <div className="mt-3 text-sm text-slate-700 dark:text-slate-200">
+                รวมทั้งหมด (บาท): <span className="font-extrabold">{fmtMoney0(computed.grand)}</span>
               </div>
             </div>
           </div>
 
+          {/* ปุ่มด้านบน เอาเฉพาะพวกดู/คัดลอก/ล้าง */}
           <div className="flex flex-wrap gap-2 md:justify-end">
-            {/* ✅ BE ไม่มี endpoint โหลดในไฟล์ที่คุณให้มา เลยปิดไว้ก่อน */}
-            <button
-              type="button"
-              disabled
-              className={cx(
-                "inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800",
-                "opacity-60 cursor-not-allowed dark:border-slate-600 dark:bg-slate-700/60 dark:text-white"
-              )}
-              title="Backend ยังไม่มี endpoint โหลด (GET) สำหรับตารางนี้"
-            >
-              โหลดจากระบบ
-            </button>
-
-            <button
-              type="button"
-              disabled={isSaving}
-              onClick={saveToBE}
-              title={!canTalkBE ? canTalkBEReason : "ส่งขึ้น BE: POST /business-plan/{plan_id}/costs/bulk"}
-              className={cx(
-                "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white",
-                "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition cursor-pointer",
-                (isSaving || !canTalkBE) && "opacity-60 hover:scale-100"
-              )}
-            >
-              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
-            </button>
-
             <button
               type="button"
               onClick={copyPayload}
@@ -731,11 +666,6 @@ const BusinessPlanExpenseTable = () => {
 
         {showPayload && (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
-            {payload.be_bulk_example_error && (
-              <div className="mb-2 rounded-xl border border-rose-200 bg-rose-50 p-2 text-rose-700 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200">
-                be_bulk_example_error: <span className="font-semibold">{payload.be_bulk_example_error}</span>
-              </div>
-            )}
             <pre className="max-h-72 overflow-auto">{JSON.stringify(payload, null, 2)}</pre>
           </div>
         )}
@@ -905,9 +835,30 @@ const BusinessPlanExpenseTable = () => {
           </div>
         </div>
 
-        <div className="shrink-0 p-3 md:p-4 text-sm text-slate-600 dark:text-slate-300">
-          หมายเหตุ: ไฟล์นี้ล็อก business_group = 1 และส่งขึ้น BE ผ่าน{" "}
-          <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span> • ถ้าส่งไม่สำเร็จให้ดูรายละเอียดใน console
+        {/* ✅ Action bar (ย้ายปุ่มบันทึกมาไว้ล่าง) */}
+        <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
+          <NoticeBox notice={saveNotice} />
+
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              หมายเหตุ: group=1 • ส่งขึ้น BE:{" "}
+            <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span> • ถ้าพังดู console ได้เลย
+            </div>
+
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={saveToBE}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white",
+                "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",
+                isSaving && "opacity-60 hover:scale-100 cursor-not-allowed"
+              )}
+              title={canTalkBEReason ? canTalkBEReason : "บันทึกลงระบบ"}
+            >
+              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useLocation, useParams } from "react-router-dom"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -9,21 +8,15 @@ const toNumber = (v) => {
   return Number.isFinite(n) ? n : 0
 }
 
-/**
- * จำกัดทศนิยมไม่ให้เกิน 3 (BE = condecimal(decimal_places=3))
- */
 const sanitizeNumberInput = (s, { maxDecimals = 3 } = {}) => {
   const cleaned = String(s ?? "").replace(/[^\d.]/g, "")
   if (!cleaned) return ""
-
   const parts = cleaned.split(".")
   const intPart = parts[0] ?? ""
   if (parts.length <= 1) return intPart
-
   const decRaw = parts.slice(1).join("")
   const dec = decRaw.slice(0, Math.max(0, maxDecimals))
   if (maxDecimals <= 0) return intPart
-
   return `${intPart}.${dec}`
 }
 
@@ -59,7 +52,6 @@ class ApiError extends Error {
 
 async function apiFetch(path, { method = "GET", body } = {}) {
   if (!API_BASE) throw new Error("FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
-
   const url = `${API_BASE}${path}`
 
   let res
@@ -107,15 +99,42 @@ async function apiFetch(path, { method = "GET", body } = {}) {
 }
 
 /** ---------------- UI styles ---------------- */
+const baseField =
+  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
+  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
+  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
+
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
   "text-right text-[13px] md:text-sm outline-none " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
   "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
-/** ---------------- Table definition ---------------- */
-const PERIOD_LABEL = "1 เม.ย.68-31 มี.ค.69" // แสดงเฉยๆ ไม่ต้องกรอก
+/** ---------------- Plan year -> plan_id ---------------- */
+/**
+ * ตามที่คุณกำหนด:
+ * ปี 2569 => plan_id 1
+ * ปี 2570 => plan_id 2
+ * ...
+ * สูตร: plan_id = year - 2568
+ */
+const YEAR_BASE = 2569
+const YEAR_COUNT = 11 // 2569..2579 (อีกสิบปี)
+const yearOptions = Array.from({ length: YEAR_COUNT }, (_, i) => YEAR_BASE + i)
 
+const yearToPlanId = (yearBE) => {
+  const y = Number(yearBE || 0)
+  if (!Number.isFinite(y) || y <= 0) return 0
+  return y - 2568
+}
+
+const planIdToYear = (planId) => {
+  const p = Number(planId || 0)
+  if (!Number.isFinite(p) || p <= 0) return 0
+  return p + 2568
+}
+
+/** ---------------- Table definition ---------------- */
 const BRANCH_ID_BY_KEY = {
   hq: 1,
   surin: 2,
@@ -130,6 +149,10 @@ const COLS = [
   { key: "nonnarai", label: "โนนนารายณ์" },
 ]
 
+/**
+ * ✅ cost_id ใน Excel = costtypes.id (2–106)
+ * ไฟล์นี้ทำ group 1 (จัดหา) ตามรายการที่คุณใช้
+ */
 const ROWS = [
   { code: "3", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", kind: "section" },
 
@@ -193,7 +216,11 @@ const STRIPE = {
 }
 
 /**
- * group 1 seed: (id 1..35) <-> (cost_id 2..36, business_group 1)
+ * ✅ สำคัญ: FE ต้องหา BusinessCost.id (ตาราง businesscosts)
+ * จากคู่ค่า (cost_id, business_group=1) แล้วส่งไป BE เป็น business_cost_id
+ *
+ * group 1 seed ใน DB ของคุณ:
+ *   businesscosts.id 1..35  <-> cost_id 2..36
  */
 const BUSINESS_COSTS_SEED = (() => {
   const out = []
@@ -213,52 +240,36 @@ const resolveBusinessCostId = (costId, businessGroupId) => {
 }
 
 const BusinessPlanExpenseTable = () => {
-  const params = useParams()
-  const location = useLocation()
+  /** ---------------- Year selection ---------------- */
+  const [selectedYear, setSelectedYear] = useState(() => {
+    // พยายามดึงปีที่เคยเลือกไว้
+    const saved = Number(localStorage.getItem("business_plan_year") || 0)
+    if (saved && yearOptions.includes(saved)) return saved
+    return YEAR_BASE
+  })
 
-  /** ✅ หา plan_id จาก route/query/state/localStorage (ไม่มีช่องให้กรอกแล้ว) */
-  const planId = useMemo(() => {
-    const direct = Number(params?.plan_id || params?.planId || params?.id || params?.plan || 0)
-    if (direct > 0) return direct
+  const planId = useMemo(() => yearToPlanId(selectedYear), [selectedYear])
 
-    for (const v of Object.values(params || {})) {
-      const n = Number(v)
-      if (Number.isFinite(n) && n > 0) return n
-    }
+  // สร้าง label ช่วงเวลาแบบง่าย (ปรับได้ภายหลัง)
+  // ตัวอย่าง: ปี 2569 => (1 เม.ย.69 - 31 มี.ค.70)
+  const periodLabel = useMemo(() => {
+    const yy = String(selectedYear).slice(-2) // 69
+    const yyNext = String(selectedYear + 1).slice(-2) // 70
+    return `1 เม.ย.${yy}-31 มี.ค.${yyNext}`
+  }, [selectedYear])
 
-    const sp = new URLSearchParams(location.search || "")
-    const q = Number(sp.get("plan_id") || sp.get("planId") || sp.get("id") || 0)
-    if (q > 0) return q
-
-    const st = Number(location.state?.plan_id || location.state?.planId || location.state?.id || 0)
-    if (st > 0) return st
-
-    const ls = Number(
-      localStorage.getItem("plan_id") ||
-        localStorage.getItem("business_plan_id") ||
-        localStorage.getItem("businessPlanId") ||
-        localStorage.getItem("selected_plan_id") ||
-        0
-    )
-    if (ls > 0) return ls
-
-    return 0
-  }, [params, location.search, location.state])
-
-  // เก็บ plan_id ที่หาได้ไว้เผื่อหน้าอื่น ๆ ใช้ต่อ
   useEffect(() => {
-    if (planId > 0) {
-      localStorage.setItem("business_plan_id", String(planId))
-      localStorage.setItem("plan_id", String(planId))
-    }
-  }, [planId])
+    localStorage.setItem("business_plan_year", String(selectedYear))
+    // เผื่อหน้าอื่น ๆ ใช้ plan_id ต่อ
+    localStorage.setItem("business_plan_id", String(planId))
+    localStorage.setItem("plan_id", String(planId))
+  }, [selectedYear, planId])
 
+  /** ---------------- State ---------------- */
   const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues())
   const [showPayload, setShowPayload] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-
-  // ✅ แจ้งเหตุผลฝั่ง FE แบบเห็นชัด
-  const [saveNotice, setSaveNotice] = useState(null) // {type:'success'|'error'|'info', title, detail}
+  const [saveNotice, setSaveNotice] = useState(null) // {type, title, detail}
 
   /** ✅ ขยายความสูงตาราง */
   const tableCardRef = useRef(null)
@@ -282,7 +293,7 @@ const BusinessPlanExpenseTable = () => {
 
   useEffect(() => {
     requestAnimationFrame(() => recalcTableCardHeight())
-  }, [showPayload, recalcTableCardHeight])
+  }, [showPayload, selectedYear, recalcTableCardHeight])
 
   /** ✅ sync footer scroll */
   const bodyScrollRef = useRef(null)
@@ -414,15 +425,14 @@ const BusinessPlanExpenseTable = () => {
   /** ✅ เหตุผลบล็อกฝั่ง FE */
   const canTalkBEReason = useMemo(() => {
     if (!API_BASE) return "FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)"
-    if (planId <= 0)
-      return "FE: ยังไม่มี plan_id — หน้านี้ต้องเข้ามาพร้อม plan_id (จากหน้าเลือกแผน หรือ URL เช่น ?plan_id=123)"
+    if (!planId || planId <= 0) return `FE: plan_id ไม่ถูกต้อง (year=${selectedYear} -> plan_id=${planId})`
     return ""
-  }, [planId])
+  }, [planId, selectedYear])
 
   /** ✅ Build payload ให้ตรงกับ BE: POST /business-plan/{plan_id}/costs/bulk */
   const buildBulkRowsForBE = () => {
     if (!API_BASE) throw new Error("FE: ยังไม่มี API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
-    if (planId <= 0) throw new Error("FE: ไม่มี plan_id (ต้องเข้าหน้านี้ผ่านหน้าเลือกแผน)")
+    if (!planId || planId <= 0) throw new Error("FE: ไม่มี plan_id (เลือกปีให้ถูกต้อง)")
 
     COLS.forEach((c) => {
       if (!BRANCH_ID_BY_KEY[c.key]) throw new Error(`FE: ยังไม่ได้ตั้ง BRANCH_ID_BY_KEY สำหรับคอลัมน์: ${c.key}`)
@@ -443,7 +453,7 @@ const BusinessPlanExpenseTable = () => {
           business_cost_id: businessCostId,
           unit_values: [],
           branch_total: toNumber(valuesByCode?.[r.code]?.[c.key] ?? 0),
-          comment: PERIOD_LABEL,
+          comment: periodLabel,
         })
       })
     })
@@ -456,11 +466,11 @@ const BusinessPlanExpenseTable = () => {
     try {
       setSaveNotice(null)
 
-      // ✅ ถ้า FE บล็อก ให้แจ้งชัดๆ (แทนที่จะเงียบ)
       if (canTalkBEReason) {
         setSaveNotice({ type: "error", title: "บันทึกไม่ได้ (ฝั่ง FE)", detail: canTalkBEReason })
         console.groupCollapsed("%c[BusinessPlanExpenseTable] Save blocked (FE) ⛔", "color:#f97316;font-weight:800;")
         console.error("reason:", canTalkBEReason)
+        console.error("year:", selectedYear)
         console.error("plan_id:", planId)
         console.error("API_BASE:", API_BASE || "(missing)")
         console.groupEnd()
@@ -478,18 +488,17 @@ const BusinessPlanExpenseTable = () => {
       setSaveNotice({
         type: "success",
         title: "บันทึกสำเร็จ ✅",
-        detail: `ส่งข้อมูลขึ้นระบบแล้ว (branch totals upserted: ${res?.branch_totals_upserted ?? "-"})`,
+        detail: `ปี ${selectedYear} (plan_id=${planId}) ถูกส่งขึ้นระบบแล้ว (upserted: ${res?.branch_totals_upserted ?? "-"})`,
       })
 
       console.groupCollapsed("%c[BusinessPlanExpenseTable] Save OK ✅", "color:#10b981;font-weight:800;")
+      console.log("year:", selectedYear)
       console.log("plan_id:", planId)
       console.log("business_group_id:", BUSINESS_GROUP_ID)
       console.log("response:", res)
       console.groupEnd()
     } catch (e) {
       const hasAuth = Boolean(getAuthHeader().Authorization)
-
-      // ✅ แยกให้เห็นว่า “FE พัง” หรือ “BE ตอบ error”
       const isApiErr = e?.name === "ApiError"
       const title = isApiErr ? "บันทึกไม่สำเร็จ (Server/BE)" : "บันทึกไม่สำเร็จ (ฝั่ง FE)"
       const detail = isApiErr
@@ -503,6 +512,7 @@ const BusinessPlanExpenseTable = () => {
       console.error("detail:", detail)
       console.error("hasAuthToken:", hasAuth)
       console.error("API_BASE:", API_BASE || "(missing)")
+      console.error("year:", selectedYear)
       console.error("plan_id:", planId || "(missing)")
       console.error("business_group_id:", BUSINESS_GROUP_ID)
       console.error("BRANCH_ID_BY_KEY:", BRANCH_ID_BY_KEY)
@@ -549,9 +559,11 @@ const BusinessPlanExpenseTable = () => {
     return {
       table_code: "BUSINESS_PLAN_EXPENSES",
       table_name: "ประมาณการค่าใช้จ่ายแผนธุรกิจ",
-      plan_id: planId || null,
+      fiscal_year_be: selectedYear,
+      plan_id: planId,
+      plan_id_formula: "plan_id = year - 2568",
       business_group_id: BUSINESS_GROUP_ID,
-      period: PERIOD_LABEL,
+      period: periodLabel,
       api_base: API_BASE || null,
       rows,
       totals: {
@@ -561,7 +573,7 @@ const BusinessPlanExpenseTable = () => {
         total: computed.grand,
       },
     }
-  }, [computed, planId, valuesByCode])
+  }, [computed, selectedYear, planId, valuesByCode, periodLabel])
 
   const copyPayload = async () => {
     try {
@@ -573,12 +585,6 @@ const BusinessPlanExpenseTable = () => {
       setShowPayload(true)
     }
   }
-
-  const stickyLeftHeader =
-    "sticky left-0 z-[90] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
-  const stickyCodeHeader =
-    "sticky left-0 z-[95] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
-  const stickyCodeCell = "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
 
   const NoticeBox = ({ notice }) => {
     if (!notice) return null
@@ -598,16 +604,24 @@ const BusinessPlanExpenseTable = () => {
     )
   }
 
+  /** ✅ sticky */
+  const stickyLeftHeader =
+    "sticky left-0 z-[90] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+  const stickyCodeHeader =
+    "sticky left-0 z-[95] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+  const stickyCodeCell = "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+
   return (
     <div className="space-y-3">
-      {/* ✅ Header (ไม่มีช่องให้กรอกแล้ว) */}
+      {/* Header */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="flex-1">
             <div className="text-center md:text-left">
               <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ (ธุรกิจจัดหาสินค้า)</div>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                ({PERIOD_LABEL}) • plan_id: <span className="font-semibold">{planId || "-"}</span> • group:{" "}
+                ({periodLabel}) • ปี: <span className="font-semibold">{selectedYear}</span> • plan_id:{" "}
+                <span className="font-semibold">{planId}</span> • group:{" "}
                 <span className="font-semibold">{BUSINESS_GROUP_ID}</span>
               </div>
 
@@ -617,7 +631,6 @@ const BusinessPlanExpenseTable = () => {
                 </div>
               )}
 
-              {/* ✅ แจ้งชัด ๆ ว่า FE บล็อกเพราะอะไร */}
               {canTalkBEReason && (
                 <div className="mt-2 text-xs text-rose-700 dark:text-rose-300">
                   * บันทึกไม่ได้ตอนนี้: <span className="font-semibold">{canTalkBEReason}</span>
@@ -628,9 +641,43 @@ const BusinessPlanExpenseTable = () => {
                 รวมทั้งหมด (บาท): <span className="font-extrabold">{fmtMoney0(computed.grand)}</span>
               </div>
             </div>
+
+            {/* ✅ Dropdown เลือกปี */}
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="md:col-span-1">
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลือกปีแผน (พ.ศ.)</label>
+                <select
+                  className={baseField}
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                >
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y}>
+                      {y} (plan_id {yearToPlanId(y)})
+                    </option>
+                  ))}
+                </select>
+                <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  สูตร: plan_id = ปี - 2568 (เช่น 2569→1)
+                </div>
+              </div>
+
+              <div className="md:col-span-1">
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">plan_id (คำนวณอัตโนมัติ)</label>
+                <div className={cx(baseField, "flex items-center justify-end font-extrabold")}>{planId}</div>
+                <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  ปีที่ย้อนกลับจาก plan_id = {planIdToYear(planId) || "-"}
+                </div>
+              </div>
+
+              <div className="md:col-span-1">
+                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ช่วงเวลา</label>
+                <div className={cx(baseField, "flex items-center justify-center font-semibold")}>{periodLabel}</div>
+              </div>
+            </div>
           </div>
 
-          {/* ปุ่มด้านบน เอาเฉพาะพวกดู/คัดลอก/ล้าง */}
+          {/* ปุ่มด้านบน */}
           <div className="flex flex-wrap gap-2 md:justify-end">
             <button
               type="button"
@@ -686,7 +733,11 @@ const BusinessPlanExpenseTable = () => {
           </div>
         </div>
 
-        <div ref={bodyScrollRef} onScroll={onBodyScroll} className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700">
+        <div
+          ref={bodyScrollRef}
+          onScroll={onBodyScroll}
+          className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
+        >
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.code }} />
@@ -699,7 +750,10 @@ const BusinessPlanExpenseTable = () => {
 
             <thead className="sticky top-0 z-[80]">
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
-                <th rowSpan={2} className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeHeader)} />
+                <th
+                  rowSpan={2}
+                  className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeHeader)}
+                />
                 <th
                   rowSpan={2}
                   className={cx("border border-slate-300 px-3 py-2 text-left font-bold dark:border-slate-600", stickyLeftHeader, "left-[72px]")}
@@ -707,7 +761,10 @@ const BusinessPlanExpenseTable = () => {
                 >
                   รายการ
                 </th>
-                <th colSpan={COLS.length + 1} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
+                <th
+                  colSpan={COLS.length + 1}
+                  className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600"
+                >
                   สกต. สาขา
                 </th>
               </tr>
@@ -729,7 +786,13 @@ const BusinessPlanExpenseTable = () => {
                 if (r.kind === "section") {
                   return (
                     <tr key={r.code} className="bg-slate-200/70 dark:bg-slate-700/55">
-                      <td className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeCell, "bg-slate-200/70 dark:bg-slate-700/55")}>
+                      <td
+                        className={cx(
+                          "border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600",
+                          stickyCodeCell,
+                          "bg-slate-200/70 dark:bg-slate-700/55"
+                        )}
+                      >
                         {r.code}
                       </td>
                       <td
@@ -835,14 +898,14 @@ const BusinessPlanExpenseTable = () => {
           </div>
         </div>
 
-        {/* ✅ Action bar (ย้ายปุ่มบันทึกมาไว้ล่าง) */}
+        {/* ✅ Action bar (ปุ่มบันทึกอยู่ล่าง) */}
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
           <NoticeBox notice={saveNotice} />
 
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-600 dark:text-slate-300">
-              หมายเหตุ: group=1 • ส่งขึ้น BE:{" "}
-            <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span> • ถ้าพังดู console ได้เลย
+              ปี {selectedYear} → plan_id {planId} • group=1 • ส่งขึ้น BE:{" "}
+              <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span>
             </div>
 
             <button

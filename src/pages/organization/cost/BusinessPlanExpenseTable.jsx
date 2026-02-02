@@ -32,12 +32,86 @@ const API_BASE_RAW =
 
 const API_BASE = String(API_BASE_RAW || "").replace(/\/+$/, "")
 
-const getAuthHeader = () => {
-  const token =
+const safeJsonParse = (s) => {
+  try {
+    return JSON.parse(s)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * ✅ ดึง token แบบ “เอาให้เจอ”
+ * - รองรับ key หลายแบบ
+ * - รองรับเก็บเป็น JSON string (เช่น localStorage.auth = {"access_token":"..."})
+ */
+const extractToken = () => {
+  // 1) keys ตรง ๆ ที่พบบ่อย
+  const direct =
     localStorage.getItem("access_token") ||
     localStorage.getItem("token") ||
+    localStorage.getItem("jwt") ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("authToken") ||
     sessionStorage.getItem("access_token") ||
-    sessionStorage.getItem("token")
+    sessionStorage.getItem("token") ||
+    sessionStorage.getItem("jwt") ||
+    sessionStorage.getItem("accessToken") ||
+    sessionStorage.getItem("authToken")
+
+  if (direct && typeof direct === "string") return direct
+
+  // 2) บางโปรเจกต์เก็บเป็น JSON object
+  const blobs = [
+    localStorage.getItem("auth"),
+    localStorage.getItem("user"),
+    localStorage.getItem("session"),
+    localStorage.getItem("profile"),
+    localStorage.getItem("userdata"),
+    sessionStorage.getItem("auth"),
+    sessionStorage.getItem("user"),
+    sessionStorage.getItem("session"),
+    sessionStorage.getItem("profile"),
+    sessionStorage.getItem("userdata"),
+  ].filter(Boolean)
+
+  for (const raw of blobs) {
+    const obj = safeJsonParse(raw)
+    if (!obj) continue
+    const t =
+      obj.access_token ||
+      obj.token ||
+      obj.jwt ||
+      obj?.data?.access_token ||
+      obj?.data?.token ||
+      obj?.data?.jwt ||
+      obj?.user?.access_token ||
+      obj?.user?.token ||
+      obj?.user?.jwt
+    if (t) return String(t)
+  }
+
+  return ""
+}
+
+// JWT decode แบบเบา ๆ (เพื่อโชว์ role/user/exp เฉย ๆ ไม่ได้ใช้ verify)
+const decodeJwtPayload = (token) => {
+  try {
+    const t = String(token || "")
+    const pure = t.startsWith("Bearer ") ? t.slice(7) : t
+    const parts = pure.split(".")
+    if (parts.length < 2) return null
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/")
+    const pad = b64.length % 4 ? "=".repeat(4 - (b64.length % 4)) : ""
+    const json = atob(b64 + pad)
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
+
+const getAuthHeader = () => {
+  const token = extractToken()
   if (!token) return {}
   return { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
 }
@@ -56,11 +130,17 @@ async function apiFetch(path, { method = "GET", body } = {}) {
 
   let res
   try {
+    const _auth = getAuthHeader()
+    const _hasAuth = Boolean(_auth?.Authorization)
+    if (!_hasAuth) {
+      console.warn("[API DEBUG] Missing Authorization header for", url)
+    }
+
     res = await fetch(url, {
       method,
       headers: {
         "Content-Type": "application/json",
-        ...getAuthHeader(),
+        ..._auth,
       },
       body: body ? JSON.stringify(body) : undefined,
       credentials: "include",
@@ -242,7 +322,6 @@ const resolveBusinessCostId = (costId, businessGroupId) => {
 const BusinessPlanExpenseTable = () => {
   /** ---------------- Year selection ---------------- */
   const [selectedYear, setSelectedYear] = useState(() => {
-    // พยายามดึงปีที่เคยเลือกไว้
     const saved = Number(localStorage.getItem("business_plan_year") || 0)
     if (saved && yearOptions.includes(saved)) return saved
     return YEAR_BASE
@@ -250,26 +329,43 @@ const BusinessPlanExpenseTable = () => {
 
   const planId = useMemo(() => yearToPlanId(selectedYear), [selectedYear])
 
-  // สร้าง label ช่วงเวลาแบบง่าย (ปรับได้ภายหลัง)
-  // ตัวอย่าง: ปี 2569 => (1 เม.ย.69 - 31 มี.ค.70)
   const periodLabel = useMemo(() => {
-    const yy = String(selectedYear).slice(-2) // 69
-    const yyNext = String(selectedYear + 1).slice(-2) // 70
+    const yy = String(selectedYear).slice(-2)
+    const yyNext = String(selectedYear + 1).slice(-2)
     return `1 เม.ย.${yy}-31 มี.ค.${yyNext}`
   }, [selectedYear])
 
   useEffect(() => {
     localStorage.setItem("business_plan_year", String(selectedYear))
-    // เผื่อหน้าอื่น ๆ ใช้ plan_id ต่อ
     localStorage.setItem("business_plan_id", String(planId))
     localStorage.setItem("plan_id", String(planId))
   }, [selectedYear, planId])
+
+  const authDebug = (() => {
+    const token = extractToken()
+    const jwt = token ? decodeJwtPayload(token) : null
+    const role =
+      jwt?.role_id ??
+      jwt?.role ??
+      jwt?.roleId ??
+      jwt?.roleID ??
+      jwt?.user?.role_id ??
+      null
+    const userId = jwt?.user_id ?? jwt?.sub ?? null
+    const exp = jwt?.exp ?? null
+    return {
+      tokenFound: Boolean(token),
+      role,
+      userId,
+      exp,
+    }
+  })()
 
   /** ---------------- State ---------------- */
   const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues())
   const [showPayload, setShowPayload] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [saveNotice, setSaveNotice] = useState(null) // {type, title, detail}
+  const [saveNotice, setSaveNotice] = useState(null)
 
   /** ✅ ขยายความสูงตาราง */
   const tableCardRef = useRef(null)
@@ -422,14 +518,12 @@ const BusinessPlanExpenseTable = () => {
     setSaveNotice({ type: "info", title: "ล้างข้อมูลแล้ว", detail: "ข้อมูลที่กรอกถูกรีเซ็ตเป็น 0" })
   }
 
-  /** ✅ เหตุผลบล็อกฝั่ง FE */
   const canTalkBEReason = useMemo(() => {
     if (!API_BASE) return "FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)"
     if (!planId || planId <= 0) return `FE: plan_id ไม่ถูกต้อง (year=${selectedYear} -> plan_id=${planId})`
     return ""
   }, [planId, selectedYear])
 
-  /** ✅ Build payload ให้ตรงกับ BE: POST /business-plan/{plan_id}/costs/bulk */
   const buildBulkRowsForBE = () => {
     if (!API_BASE) throw new Error("FE: ยังไม่มี API Base (VITE_API_BASE / VITE_API_BASE_CUSTOM)")
     if (!planId || planId <= 0) throw new Error("FE: ไม่มี plan_id (เลือกปีให้ถูกต้อง)")
@@ -477,6 +571,33 @@ const BusinessPlanExpenseTable = () => {
         return
       }
 
+      // ✅ เช็ค token ก่อนยิงไป BE (401 ส่วนใหญ่เกิดจากตรงนี้)
+      const _token = extractToken()
+      const _jwt = _token ? decodeJwtPayload(_token) : null
+      const _role =
+        _jwt?.role_id ??
+        _jwt?.role ??
+        _jwt?.roleId ??
+        _jwt?.roleID ??
+        _jwt?.user?.role_id ??
+        null
+
+      if (!_token) {
+        const msg = "FE: ไม่พบ token ในเครื่อง → ต้อง Login ก่อน (หรือ token ถูกเก็บคนละ key)"
+        setSaveNotice({ type: "error", title: "บันทึกไม่ได้ (ฝั่ง FE)", detail: msg })
+        console.groupCollapsed("%c[BusinessPlanExpenseTable] Save blocked (No token) ⛔", "color:#f97316;font-weight:800;")
+        console.error("reason:", msg)
+        console.error("year:", selectedYear, "plan_id:", planId)
+        console.error("localStorage keys:", Object.keys(localStorage || {}))
+        console.groupEnd()
+        return
+      }
+
+      // ถ้ามี token แต่ยังโดน 403 จะได้เห็น role ใน console
+      if (_jwt) {
+        console.log("[AUTH DEBUG] role_id:", _role, "user_id:", (_jwt?.user_id ?? _jwt?.sub ?? null), "exp:", _jwt?.exp ?? null)
+      }
+
       setIsSaving(true)
       builtBody = buildBulkRowsForBE()
 
@@ -498,14 +619,42 @@ const BusinessPlanExpenseTable = () => {
       console.log("response:", res)
       console.groupEnd()
     } catch (e) {
-      const hasAuth = Boolean(getAuthHeader().Authorization)
+      const token = extractToken()
+      const jwt = token ? decodeJwtPayload(token) : null
+      const role =
+        jwt?.role_id ??
+        jwt?.role ??
+        jwt?.roleId ??
+        jwt?.roleID ??
+        jwt?.user?.role_id ??
+        null
+
       const isApiErr = e?.name === "ApiError"
-      const title = isApiErr ? "บันทึกไม่สำเร็จ (Server/BE)" : "บันทึกไม่สำเร็จ (ฝั่ง FE)"
-      const detail = isApiErr
+      const status = isApiErr ? Number(e?.status || 0) : 0
+
+      let title = isApiErr ? "บันทึกไม่สำเร็จ (Server/BE)" : "บันทึกไม่สำเร็จ (ฝั่ง FE)"
+      let detail = isApiErr
         ? `BE ตอบกลับ: ${e?.message || "error"} (HTTP ${e?.status ?? "-"})`
         : `${e?.message || e}`
 
+      if (isApiErr && status === 401) {
+        title = "บันทึกไม่ได้ (401 Unauthorized)"
+        detail = token
+          ? "ส่งไปถึง BE แล้ว แต่ BE ปฏิเสธ token (หมดอายุ/ไม่ถูกต้อง) → ลอง Logout/Login ใหม่"
+          : "FE ไม่ได้แนบ Authorization (ไม่พบ token) → ต้อง Login ก่อน"
+      }
+
+      if (isApiErr && status === 403) {
+        title = "บันทึกไม่ได้ (403 Forbidden)"
+        detail =
+          role !== null
+            ? `token ผ่านแล้ว แต่สิทธิ์ไม่พอ (role_id=${role}) → ต้องใช้ผู้ใช้ที่มีสิทธิ์หรือให้ BE เปิดสิทธิ์`
+            : "token ผ่านแล้ว แต่สิทธิ์ไม่พอ (role ไม่อนุญาต) → ต้องใช้ผู้ใช้ที่มีสิทธิ์"
+      }
+
       setSaveNotice({ type: "error", title, detail })
+
+      const hasAuth = Boolean(getAuthHeader().Authorization)
 
       console.groupCollapsed("%c[BusinessPlanExpenseTable] Save failed ❌", "color:#ef4444;font-weight:800;")
       console.error("title:", title)
@@ -626,9 +775,19 @@ const BusinessPlanExpenseTable = () => {
               </div>
 
               {API_BASE && (
-                <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                  API: <span className="font-mono">{API_BASE}</span>
-                </div>
+                <>
+                  <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    API: <span className="font-mono">{API_BASE}</span>
+                  </div>
+
+                  <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    Auth: <span className="font-semibold">{authDebug.tokenFound ? "มี token" : "ไม่มี token"}</span>
+                    {" • "}
+                    role_id: <span className="font-semibold">{authDebug.role ?? "-"}</span>
+                    {" • "}
+                    user: <span className="font-semibold">{authDebug.userId ?? "-"}</span>
+                  </div>
+                </>
               )}
 
               {canTalkBEReason && (
@@ -771,7 +930,10 @@ const BusinessPlanExpenseTable = () => {
 
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
                 {COLS.map((c) => (
-                  <th key={c.key} className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600">
+                  <th
+                    key={c.key}
+                    className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600"
+                  >
                     {c.label}
                   </th>
                 ))}
@@ -816,12 +978,22 @@ const BusinessPlanExpenseTable = () => {
 
                 return (
                   <tr key={r.code} className={rowBg}>
-                    <td className={cx("border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600", stickyCodeCell, rowBg)}>
+                    <td
+                      className={cx(
+                        "border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600",
+                        stickyCodeCell,
+                        rowBg
+                      )}
+                    >
                       {r.code}
                     </td>
 
                     <td
-                      className={cx("border border-slate-300 px-3 py-2 text-left font-semibold dark:border-slate-600", "sticky z-[50]", rowBg)}
+                      className={cx(
+                        "border border-slate-300 px-3 py-2 text-left font-semibold dark:border-slate-600",
+                        "sticky z-[50]",
+                        rowBg
+                      )}
                       style={{ left: COL_W.code }}
                       title={`cost_id=${r.cost_id} -> business_cost_id=${bcId ?? "?"}`}
                     >
@@ -842,7 +1014,9 @@ const BusinessPlanExpenseTable = () => {
                           value={valuesByCode?.[r.code]?.[c.key] ?? ""}
                           inputMode="numeric"
                           placeholder="0"
-                          onChange={(e) => setCell(r.code, c.key, sanitizeNumberInput(e.target.value, { maxDecimals: 3 }))}
+                          onChange={(e) =>
+                            setCell(r.code, c.key, sanitizeNumberInput(e.target.value, { maxDecimals: 3 }))
+                          }
                         />
                       </td>
                     ))}
@@ -886,10 +1060,18 @@ const BusinessPlanExpenseTable = () => {
                   </colgroup>
                   <tbody>
                     <tr className={cx("font-extrabold text-slate-900 dark:text-emerald-100", STRIPE.foot)}>
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.colTotal.hq)}</td>
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.colTotal.surin)}</td>
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.colTotal.nonnarai)}</td>
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.grand)}</td>
+                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                        {fmtMoney0(computed.colTotal.hq)}
+                      </td>
+                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                        {fmtMoney0(computed.colTotal.surin)}
+                      </td>
+                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                        {fmtMoney0(computed.colTotal.nonnarai)}
+                      </td>
+                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                        {fmtMoney0(computed.grand)}
+                      </td>
                     </tr>
                   </tbody>
                 </table>

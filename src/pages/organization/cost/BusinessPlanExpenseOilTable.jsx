@@ -87,7 +87,6 @@ const readonlyField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black shadow-none dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100"
 
-// input ให้กระชับ + รองรับตัวเลข
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-1.5 py-1 " +
   "text-right text-[12px] md:text-[13px] outline-none " +
@@ -98,11 +97,10 @@ const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
 
 /** ---------------- Mapping: cost_id + business_group -> businesscosts.id ----------------
  * business_group: 2 = จัดหา-ปั๊มน้ำมัน
- * อ้างอิงจากไฟล์ businesscosts.csv ที่คุณให้มา
  */
 const BUSINESS_GROUP_ID = 2
 
-// ⚠️ cost_id=103 ใน CSV มีซ้ำ 2 แถว (id 48,49) เลยมีบาง row ที่เราจะ override business_cost_id ตรง ๆ
+// seed จาก businesscosts.csv (group=2)
 const BUSINESS_COSTS_SEED = [
   { id: 36, cost_id: 2, business_group: 2 },
   { id: 37, cost_id: 7, business_group: 2 },
@@ -116,8 +114,8 @@ const BUSINESS_COSTS_SEED = [
   { id: 45, cost_id: 10, business_group: 2 },
   { id: 46, cost_id: 4, business_group: 2 },
   { id: 47, cost_id: 33, business_group: 2 },
-  { id: 48, cost_id: 103, business_group: 2 },
-  { id: 49, cost_id: 103, business_group: 2 },
+  { id: 48, cost_id: 103, business_group: 2 }, // ซ้ำ
+  { id: 49, cost_id: 103, business_group: 2 }, // ซ้ำ
   { id: 50, cost_id: 30, business_group: 2 },
   { id: 51, cost_id: 18, business_group: 2 },
   { id: 52, cost_id: 12, business_group: 2 },
@@ -140,8 +138,7 @@ const BUSINESS_COST_ID_MAP = (() => {
   const m = new Map()
   for (const r of BUSINESS_COSTS_SEED) {
     const key = `${Number(r.cost_id)}:${Number(r.business_group)}`
-    // ถ้าซ้ำ ให้เก็บตัวแรกไว้ (id เล็กกว่า) เพื่อให้ deterministic
-    if (!m.has(key)) m.set(key, Number(r.id))
+    if (!m.has(key)) m.set(key, Number(r.id)) // เก็บตัวแรก (กันซ้ำ)
   }
   return m
 })()
@@ -149,7 +146,6 @@ const BUSINESS_COST_ID_MAP = (() => {
 const resolveBusinessCostId = (costId, businessGroupId) =>
   BUSINESS_COST_ID_MAP.get(`${Number(costId)}:${Number(businessGroupId)}`) ?? null
 
-// helper: row -> businesscosts.id (รองรับ override business_cost_id)
 const resolveRowBusinessCostId = (row) => {
   if (row?.business_cost_id) return Number(row.business_cost_id)
   return resolveBusinessCostId(row?.cost_id, BUSINESS_GROUP_ID)
@@ -167,23 +163,22 @@ const ROWS = [
   { code: "4.6", label: "ค่าทำงานในวันหยุด", kind: "item", cost_id: 8 },
   { code: "4.7", label: "ค่าลดหย่อนน้ำมันสูญระเหย", kind: "item", cost_id: 101 },
   { code: "4.8", label: "ค่าเบี้ยประกันภัย", kind: "item", cost_id: 9 },
-  { code: "4.9", label: "* ค่าเสื่อมราคา - จาง, อาคาร", kind: "item", cost_id: 19 },
+  { code: "4.9", label: "* ค่าเสื่อมราคา - งาน/อาคาร", kind: "item", cost_id: 19 },
   { code: "4.10", label: "* ค่าซ่อมบำรุง - ครุภัณฑ์", kind: "item", cost_id: 10 },
-  { code: "4.11", label: "หนังสือสะสมลูกหนี้การค้า-น้ำมัน", kind: "item", cost_id: 4 },
-  { code: "4.12", label: "หนังสือสะสมลูกหนี้บัตรเกษตรสรุปใจ-น้ำมัน", kind: "item", cost_id: 33 },
+  { code: "4.11", label: "หนี้สงสัยจะสูญ-ลูกหนี้การค้า (น้ำมัน)", kind: "item", cost_id: 4 },
+  { code: "4.12", label: "หนี้สงสัยจะสูญ-บัตรเกษตรสุขใจ (น้ำมัน)", kind: "item", cost_id: 33 },
 
-  // ⚠️ 2 รายการนี้ ใน businesscosts.csv มี cost_id=103 ซ้ำ 2 แถว (id 48 และ 49)
-  // เลย map ด้วย business_cost_id โดยตรง เพื่อให้บันทึกคนละแถวได้แน่นอน
-  { code: "4.13", label: "ดอกจ่าย อบจ.", kind: "item", cost_id: 103, business_cost_id: 48 },
-  { code: "4.14", label: "ค่าใช้ภาษี อบจ.", kind: "item", cost_id: 102, business_cost_id: 49 },
+  // ⚠️ cost_id=103 ใน CSV ซ้ำ 2 แถว → แยกด้วย business_cost_id ตรงๆ
+  { code: "4.13", label: "ดอกจ่าย อบจ.", kind: "item", business_cost_id: 48, cost_id: 103 },
+  { code: "4.14", label: "ค่าใช้ภาษี อบจ.", kind: "item", business_cost_id: 49, cost_id: 103 },
 
   { code: "4.15", label: "ค่าธรรมเนียมโอนเงินบัตรสินเชื่อ", kind: "item", cost_id: 30 },
   { code: "4.16", label: "* ค่าเสื่อมราคา - ครุภัณฑ์", kind: "item", cost_id: 18 },
   { code: "4.17", label: "ค่าถ่ายเอกสาร", kind: "item", cost_id: 12 },
   { code: "4.18", label: "ค่าส่งเสริมการขาย", kind: "item", cost_id: 5 },
-  { code: "4.19", label: "ค่าของใช้ สนง.", kind: "item", cost_id: 26 },
+  { code: "4.19", label: "ค่าของใช้สำนักงาน", kind: "item", cost_id: 26 },
   { code: "4.20", label: "ค่าธรรมเนียมโอนเงินบัตรเครดิต", kind: "item", cost_id: 104 },
-  { code: "4.21", label: "ค่าใช้จ่ายงานน้ำมันงานครัว", kind: "item", cost_id: 65 },
+  { code: "4.21", label: "ค่าใช้จ่ายงานบ้านงานครัว", kind: "item", cost_id: 65 },
   { code: "4.22", label: "ค่าโทรศัพท์", kind: "item", cost_id: 14 },
   { code: "4.23", label: "ค่าภาษีโรงเรือน", kind: "item", cost_id: 35 },
   { code: "4.24", label: "ค่าเบี้ยขยัน", kind: "item", cost_id: 105 },
@@ -207,14 +202,10 @@ const STRIPE = {
 }
 
 /**
- * ✅ Props จาก OperationPlan (เหมือนตารางอื่นๆ)
- * - branchId, branchName, yearBE, planId
- *
- * ✅ ตามที่บอก: plan_id ธุรกิจน้ำมัน = 2
- * ถ้าไม่ได้ส่ง planId มา จะ default เป็น 2 ให้เอง
+ * ✅ รับค่าจาก OperationPlan
+ * - branchId: สาขาที่เลือก (เอาไปโหลด units)
+ * - planId/yearBE: ใช้ยิง /business-plan/{plan_id}/costs...
  */
-const DEFAULT_OIL_PLAN_ID = 2
-
 const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) => {
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
 
@@ -227,14 +218,16 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
   const effectivePlanId = useMemo(() => {
     const p = Number(planId || 0)
     if (Number.isFinite(p) && p > 0) return p
-    return DEFAULT_OIL_PLAN_ID
-  }, [planId])
+    const y = Number(yearBE || 0)
+    return Number.isFinite(y) ? y - 2568 : 0
+  }, [planId, yearBE])
 
   const effectiveYear = useMemo(() => {
     const y = Number(yearBE || 0)
     if (Number.isFinite(y) && y >= 2500) return y
-    return 2569
-  }, [yearBE])
+    const p = Number(planId || 0)
+    return Number.isFinite(p) && p > 0 ? p + 2568 : 2569
+  }, [yearBE, planId])
 
   const periodLabel = useMemo(() => {
     const yy = String(effectiveYear).slice(-2)
@@ -251,9 +244,13 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
       setUnits([])
       return
     }
+
     let alive = true
     ;(async () => {
       setIsLoadingUnits(true)
+      // ✅ เคลียร์ก่อน เพื่อให้เห็นว่าเปลี่ยนสาขาแล้วคอลัมน์กำลังรีเฟรช
+      setUnits([])
+
       try {
         const data = await apiAuth(`/lists/unit/search?branch_id=${effectiveBranchId}`)
         const rows = Array.isArray(data) ? data : []
@@ -263,6 +260,7 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
             name: r.unit_name || r.klang_name || r.unit || r.name || `หน่วย ${r.id}`,
           }))
           .filter((r) => r.id > 0)
+
         if (!alive) return
         setUnits(normalized)
       } catch (e) {
@@ -273,6 +271,7 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
         if (alive) setIsLoadingUnits(false)
       }
     })()
+
     return () => {
       alive = false
     }
@@ -281,6 +280,9 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
   /** ---------------- Values (grid) ---------------- */
   const [valuesByCode, setValuesByCode] = useState({})
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
+  const [notice, setNotice] = useState(null)
+  const [showPayload, setShowPayload] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   const normalizeGrid = useCallback(
     (seed = {}) => {
@@ -296,7 +298,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
     [itemRows, units]
   )
 
-  // ปรับ shape ให้ตรงกับ units ที่เปลี่ยน
   useEffect(() => {
     setValuesByCode((prev) => normalizeGrid(prev))
   }, [normalizeGrid])
@@ -311,7 +312,7 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs?branch_id=${effectiveBranchId}`)
       const unitCells = Array.isArray(data?.unit_cells) ? data.unit_cells : []
 
-      // map business_cost_id -> row.code (กัน case cost_id ซ้ำ)
+      // map business_cost_id -> row.code (กันกรณี cost_id ซ้ำ)
       const bcToCode = new Map()
       for (const r of itemRows) {
         const bcId = resolveRowBusinessCostId(r)
@@ -396,7 +397,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
   }, [recalcTableCardHeight])
 
   const bodyScrollRef = useRef(null)
-
   const inputRefs = useRef(new Map())
   const totalCols = units.length
 
@@ -456,29 +456,20 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
   )
 
   /** ---------------- Save (bulk) ---------------- */
-  const [notice, setNotice] = useState(null)
-  const [isSaving, setIsSaving] = useState(false)
-
   const buildBulkRowsForBE = useCallback(() => {
-    if (!effectivePlanId || effectivePlanId <= 0)
-      throw new Error(`FE: plan_id ไม่ถูกต้อง (plan_id=${effectivePlanId})`)
+    if (!effectivePlanId || effectivePlanId <= 0) throw new Error("FE: plan_id ไม่ถูกต้อง")
     if (!effectiveBranchId) throw new Error("FE: ยังไม่ได้เลือกสาขา")
     if (!units.length) throw new Error("FE: สาขานี้ไม่มีหน่วย หรือโหลดหน่วยไม่สำเร็จ")
 
     const rows = []
     for (const r of itemRows) {
       const businessCostId = resolveRowBusinessCostId(r)
-      if (!businessCostId) {
-        throw new Error(
-          `FE: หา business_cost_id ไม่เจอ (code=${r.code}, cost_id=${r.cost_id}, group=${BUSINESS_GROUP_ID})`
-        )
-      }
+      if (!businessCostId) throw new Error(`FE: หา business_cost_id ไม่เจอ (code=${r.code})`)
 
       const row = valuesByCode[r.code] || {}
       const unit_values = []
       let branch_total = 0
 
-      // ✅ ส่งครบทุกหน่วย (รวม 0) เพื่อให้แก้เป็น 0 แล้ว BE ตามทัน
       for (const u of units) {
         const amount = toNumber(row[u.id])
         branch_total += amount
@@ -493,77 +484,55 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
         comment: periodLabel,
       })
     }
+
     return { rows }
   }, [effectivePlanId, effectiveBranchId, units, itemRows, valuesByCode, periodLabel])
 
+  const payloadPreview = useMemo(() => {
+    try {
+      const body = buildBulkRowsForBE()
+      return { plan_id: effectivePlanId, endpoint: `/business-plan/${effectivePlanId}/costs/bulk`, body }
+    } catch (e) {
+      return { error: e?.message || String(e) }
+    }
+  }, [buildBulkRowsForBE, effectivePlanId])
+
+  const copyPayload = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(payloadPreview, null, 2))
+      setNotice({ type: "success", title: "คัดลอก JSON แล้ว ✅", detail: "คัดลอก payload ที่ส่งเข้า BE แล้ว" })
+    } catch (e) {
+      setNotice({ type: "error", title: "คัดลอกไม่สำเร็จ", detail: e?.message || String(e) })
+      setShowPayload(true)
+    }
+  }
+
   const saveToBE = async () => {
-    let payload = null
     try {
       setNotice(null)
       const token = getToken()
       if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
 
-      payload = buildBulkRowsForBE()
+      const body = buildBulkRowsForBE()
       setIsSaving(true)
 
-      const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/bulk`, {
+      await apiAuth(`/business-plan/${effectivePlanId}/costs/bulk`, {
         method: "POST",
-        body: payload,
+        body,
       })
 
       setNotice({
         type: "success",
         title: "บันทึกสำเร็จ ✅",
-        detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName} • upserted: ${
-          res?.branch_totals_upserted ?? "-"
-        }`,
+        detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName}`,
       })
 
       await loadSavedFromBE()
     } catch (e) {
-      const status = e?.status || 0
-      let title = "บันทึกไม่สำเร็จ ❌"
-      let detail = e?.message || String(e)
-
-      if (status === 401) {
-        title = "401 Unauthorized"
-        detail = "Token ไม่ผ่าน/หมดอายุ → Logout/Login ใหม่"
-      } else if (status === 403) {
-        title = "403 Forbidden"
-        detail = "สิทธิ์ไม่พอ (role ไม่อนุญาต)"
-      } else if (status === 404) {
-        title = "404 Not Found"
-        detail = `ไม่พบ plan หรือ route ไม่ตรง — plan_id=${effectivePlanId}`
-      } else if (status === 422) {
-        title = "422 Validation Error"
-        detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู console)"
-      }
-
-      setNotice({ type: "error", title, detail })
-
-      console.groupCollapsed(
-        "%c[BusinessPlanExpenseOilTable] Save failed ❌",
-        "color:#ef4444;font-weight:800;"
-      )
-      console.error("status:", status, "title:", title, "detail:", detail)
-      console.error("plan_id:", effectivePlanId)
-      console.error("branch_id:", effectiveBranchId, "branch:", effectiveBranchName)
-      console.error("units:", units)
-      if (payload) console.error("payload preview:", payload.rows?.slice(0, 2))
-      console.error("raw error:", e)
-      console.groupEnd()
+      setNotice({ type: "error", title: "บันทึกไม่สำเร็จ ❌", detail: e?.message || String(e) })
+      console.error("[Oil Save] failed:", e)
     } finally {
       setIsSaving(false)
-    }
-  }
-
-  const copyPayload = async () => {
-    try {
-      const payload = buildBulkRowsForBE()
-      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
-      setNotice({ type: "success", title: "คัดลอกแล้ว ✅", detail: "คัดลอก payload สำหรับ BE แล้ว" })
-    } catch (e) {
-      setNotice({ type: "error", title: "คัดลอกไม่สำเร็จ", detail: e?.message || String(e) })
     }
   }
 
@@ -627,11 +596,21 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
             <button
               type="button"
               onClick={copyPayload}
+              className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white
+                         shadow-[0_6px_16px_rgba(16,185,129,0.35)]
+                         hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition cursor-pointer"
+            >
+              คัดลอก JSON
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowPayload((v) => !v)}
               className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
                          hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
                          dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
             >
-              คัดลอก payload
+              {showPayload ? "ซ่อน payload" : "ดู payload"}
             </button>
 
             <button
@@ -659,6 +638,13 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
           </div>
         </div>
 
+        {showPayload && (
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800
+                          dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
+            <pre className="max-h-72 overflow-auto">{JSON.stringify(payloadPreview, null, 2)}</pre>
+          </div>
+        )}
+
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div>
             <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</div>
@@ -675,7 +661,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
         </div>
       </div>
 
-      {/* Notice */}
       <NoticeBox notice={notice} />
 
       {/* Table */}
@@ -684,6 +669,15 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
         style={{ height: tableCardHeight }}
       >
+        <div className="p-2 md:p-3 shrink-0">
+          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+            <div className="text-base md:text-lg font-bold">ตารางค่าใช้จ่าย (กรอกได้)</div>
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              * พิมพ์ตัวเลขได้เลย (Arrow keys วิ่งข้ามช่องได้)
+            </div>
+          </div>
+        </div>
+
         <div
           ref={bodyScrollRef}
           className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
@@ -713,7 +707,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
                     trunc
                   )}
                   style={{ left: COL_W.code }}
-                  title="รายการ"
                 >
                   รายการ
                 </th>
@@ -721,7 +714,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
                 <th
                   colSpan={(units.length ? units.length : 1) + 1}
                   className="border border-slate-300 px-2 py-2 text-center font-extrabold text-xs dark:border-slate-600"
-                  title={`สกต. ${effectiveBranchName}`}
                 >
                   <span className={trunc}>สกต. {effectiveBranchName}</span>
                 </th>
@@ -891,26 +883,10 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
           </table>
         </div>
 
-        {/* Action bar */}
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="text-sm text-slate-600 dark:text-slate-300">
-              บันทึก: <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span> • plan_id=
-              {effectivePlanId} • branch_id={effectiveBranchId || "-"}
-            </div>
-
-            <button
-              type="button"
-              disabled={isSaving}
-              onClick={saveToBE}
-              className={cx(
-                "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white",
-                "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",
-                isSaving && "opacity-60 hover:scale-100 cursor-not-allowed"
-              )}
-            >
-              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
-            </button>
+          <div className="text-sm text-slate-600 dark:text-slate-300">
+            ยิงหน่วยจาก: <span className="font-mono">GET /lists/unit/search?branch_id=...</span> •
+            บันทึก: <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span>
           </div>
         </div>
       </div>

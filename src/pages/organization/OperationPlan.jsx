@@ -193,7 +193,7 @@ const PLAN_TYPES = [
   { id: "cost", label: "ค่าใช้จ่าย", subLabel: "ตารางฝั่งต้นทุน/ค่าใช้จ่าย" },
 ]
 
-/* ---------------- ตารางฝั่ง “ยอดขาย” (เพิ่ม file) ---------------- */
+/* ---------------- ตาราง (เพิ่ม file ตามรูปโฟลเดอร์จริง) ---------------- */
 const SALES_TABLES = [
   { key: "procurement-plan-detail", label: "รายละเอียดแผนการจัดหาสินค้า", file: "sell/ProcurementPlanDetail.jsx", Component: ProcurementPlanDetail },
   { key: "agri-collection-plan-table", label: "รายละเอียดแผนการรวบรวมผลผลิตการเกษตร", file: "sell/AgriCollectionPlanTable.jsx", Component: AgriCollectionPlanTable },
@@ -204,7 +204,6 @@ const SALES_TABLES = [
   { key: "business-plan-other-income", label: "รายได้อื่นๆ", file: "sell/BusinessPlanOtherIncomeTable.jsx", Component: BusinessPlanOtherIncomeTable },
 ]
 
-/* ---------------- ตารางฝั่ง “ค่าใช้จ่าย (cost)” (เพิ่ม file) ---------------- */
 const COST_TABLES = [
   { key: "business-plan-expense-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", file: "cost/BusinessPlanExpenseTable.jsx", Component: BusinessPlanExpenseTable },
   { key: "business-plan-expense-oil-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า ปั๊มน้ำมัน", file: "cost/BusinessPlanExpenseOilTable.jsx", Component: BusinessPlanExpenseOilTable },
@@ -239,12 +238,10 @@ const OperationPlan = () => {
     return Number.isFinite(y) ? y - 2568 : 0
   }, [yearBE])
 
-  // branches
   const [loadingBranches, setLoadingBranches] = useState(false)
   const [branchOptions, setBranchOptions] = useState([])
   const [branchId, setBranchId] = useState("")
 
-  // type & table
   const [planType, setPlanType] = useState("")
   const [tableKey, setTableKey] = useState("")
 
@@ -276,7 +273,6 @@ const OperationPlan = () => {
     return []
   }, [planType])
 
-  // ถ้าเปลี่ยนประเภท แล้ว tableKey ไม่อยู่ในประเภทนั้น ให้เซ็ตเป็นตัวแรก
   useEffect(() => {
     if (!planType) {
       setTableKey("")
@@ -301,7 +297,7 @@ const OperationPlan = () => {
     []
   )
 
-  // ✅ ดรอปดาวเลือกตาราง + subLabel เป็นชื่อไฟล์
+  // ✅ ดรอปดาวเลือกตาราง: subLabel = ไฟล์ที่มา
   const tableOptions = useMemo(() => {
     return currentTables.map((t) => ({
       id: t.key,
@@ -373,7 +369,6 @@ const OperationPlan = () => {
             </div>
           </div>
 
-          {/* เลือกตาราง + แสดงชื่อไฟล์ใต้ชื่อ */}
           <div className="mt-3 grid gap-3 md:grid-cols-12">
             <div className="md:col-span-12">
               <label className={labelCls}>เลือกตาราง</label>
@@ -425,6 +420,7 @@ const OperationPlan = () => {
           </div>
         </div>
 
+        {/* Content */}
         {!branchId ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>

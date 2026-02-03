@@ -18,14 +18,11 @@ import BusinessPlanExpenseServiceTable from "./cost/BusinessPlanExpenseServiceTa
 import BusinessPlanExpenseSupportWorkTable from "./cost/BusinessPlanExpenseSupportWorkTable"
 import BusinessPlanRepCostSummaryTable from "./cost/BusinessPlanRepCostSummaryTable"
 
+// ---------------- Styles ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
-const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
-  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
-
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 
+// ---------------- Reusable ComboBox ----------------
 function ComboBox({
   options = [],
   value,
@@ -65,7 +62,8 @@ function ComboBox({
   }, [])
 
   const commit = (opt) => {
-    onChange?.(String(getValue(opt)), opt)
+    const v = String(getValue(opt))
+    onChange?.(v, opt)
     setOpen(false)
     setHighlight(-1)
     requestAnimationFrame(() => {
@@ -128,9 +126,9 @@ function ComboBox({
         onClick={() => !disabled && setOpen((o) => !o)}
         onKeyDown={onKeyDown}
         className={cx(
-          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed opacity-95" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
+          "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
+          disabled ? "cursor-not-allowed opacity-80" : "hover:bg-slate-200 cursor-pointer",
+          "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
           "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80"
         )}
         aria-haspopup="listbox"
@@ -154,6 +152,9 @@ function ComboBox({
           role="listbox"
           className="absolute z-20 mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
+          {options.length === 0 && (
+            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
+          )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
             const sub = getSubLabel(opt) || ""
@@ -186,11 +187,13 @@ function ComboBox({
   )
 }
 
+/* ---------------- ประเภทตาราง ---------------- */
 const PLAN_TYPES = [
   { id: "sell", label: "ยอดขาย", subLabel: "ตารางฝั่งรายได้/ยอดขาย" },
   { id: "cost", label: "ค่าใช้จ่าย", subLabel: "ตารางฝั่งต้นทุน/ค่าใช้จ่าย" },
 ]
 
+/* ---------------- ตารางฝั่ง “ยอดขาย” ---------------- */
 const SALES_TABLES = [
   { key: "procurement-plan-detail", label: "รายละเอียดแผนการจัดหาสินค้า", Component: ProcurementPlanDetail },
   { key: "agri-collection-plan-table", label: "รายละเอียดแผนการรวบรวมผลผลิตการเกษตร", Component: AgriCollectionPlanTable },
@@ -201,6 +204,7 @@ const SALES_TABLES = [
   { key: "business-plan-other-income", label: "รายได้อื่นๆ", Component: BusinessPlanOtherIncomeTable },
 ]
 
+/* ---------------- ตารางฝั่ง “ค่าใช้จ่าย (cost)” ---------------- */
 const COST_TABLES = [
   { key: "business-plan-expense-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", Component: BusinessPlanExpenseTable },
   { key: "business-plan-expense-oil-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า ปั๊มน้ำมัน", Component: BusinessPlanExpenseOilTable },
@@ -240,7 +244,7 @@ const OperationPlan = () => {
   const [branchOptions, setBranchOptions] = useState([])
   const [branchId, setBranchId] = useState("")
 
-  // table type
+  // table type & table selection
   const [planType, setPlanType] = useState("")
   const [tableKey, setTableKey] = useState("")
 
@@ -266,11 +270,21 @@ const OperationPlan = () => {
     loadBranches()
   }, [])
 
-  useEffect(() => {
-    if (planType === "sell") setTableKey(SALES_TABLES[0]?.key || "")
-    else if (planType === "cost") setTableKey(COST_TABLES[0]?.key || "")
-    else setTableKey("")
+  const currentTables = useMemo(() => {
+    if (planType === "sell") return SALES_TABLES
+    if (planType === "cost") return COST_TABLES
+    return []
   }, [planType])
+
+  // ✅ ถ้าเปลี่ยนประเภท แล้ว tableKey ไม่อยู่ในประเภทนั้น ให้เซ็ตเป็นตัวแรก
+  useEffect(() => {
+    if (!planType) {
+      setTableKey("")
+      return
+    }
+    const has = currentTables.some((t) => t.key === tableKey)
+    if (!has) setTableKey(currentTables[0]?.key || "")
+  }, [planType, currentTables, tableKey])
 
   const branchName = useMemo(() => {
     return branchOptions.find((b) => String(b.id) === String(branchId))?.label || ""
@@ -280,13 +294,10 @@ const OperationPlan = () => {
     return PLAN_TYPES.find((p) => p.id === planType)?.label || ""
   }, [planType])
 
-  const currentTables = useMemo(() => {
-    if (planType === "sell") return SALES_TABLES
-    if (planType === "cost") return COST_TABLES
-    return []
-  }, [planType])
+  const activeTable = useMemo(() => {
+    return currentTables.find((t) => t.key === tableKey) || null
+  }, [currentTables, tableKey])
 
-  const activeTable = useMemo(() => currentTables.find((t) => t.key === tableKey) || null, [currentTables, tableKey])
   const ActiveComponent = activeTable?.Component || null
   const canShowTable = !!branchId && !!planType && !!ActiveComponent
 
@@ -295,8 +306,14 @@ const OperationPlan = () => {
     []
   )
 
+  const tableOptions = useMemo(() => {
+    return currentTables.map((t) => ({ id: t.key, label: t.label }))
+  }, [currentTables])
+
+  const yearRef = useRef(null)
   const branchRef = useRef(null)
   const typeRef = useRef(null)
+  const tableRef = useRef(null)
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
@@ -306,7 +323,7 @@ const OperationPlan = () => {
             <div>
               <h1 className="text-2xl md:text-3xl font-extrabold">🗺️ แผนปฏิบัติงาน</h1>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                เลือกสาขา → เลือกประเภทตาราง → กรอกข้อมูล
+                เลือกปี → เลือกสาขา → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล
               </div>
             </div>
 
@@ -318,7 +335,14 @@ const OperationPlan = () => {
           <div className="mt-4 grid gap-3 md:grid-cols-12">
             <div className="md:col-span-3">
               <label className={labelCls}>ปี (พ.ศ.)</label>
-              <ComboBox options={yearOptions} value={yearBE} onChange={(id) => setYearBE(String(id))} placeholder="— เลือกปี —" />
+              <ComboBox
+                options={yearOptions}
+                value={yearBE}
+                onChange={(id) => setYearBE(String(id))}
+                placeholder="— เลือกปี —"
+                buttonRef={yearRef}
+                onEnterNext={() => branchRef.current?.focus?.()}
+              />
             </div>
 
             <div className="md:col-span-4">
@@ -344,16 +368,38 @@ const OperationPlan = () => {
                 placeholder="— เลือก: ยอดขาย / ค่าใช้จ่าย —"
                 getSubLabel={(o) => o?.subLabel || ""}
                 buttonRef={typeRef}
+                onEnterNext={() => tableRef.current?.focus?.()}
+              />
+              {!planType && (
+                <div className="mt-2 text-sm text-amber-600 dark:text-amber-300">
+                  * ต้องเลือก “ประเภทตาราง” ก่อน
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ✅ เพิ่มกลับมา: เลือกตารางย่อย */}
+          <div className="mt-3 grid gap-3 md:grid-cols-12">
+            <div className="md:col-span-12">
+              <label className={labelCls}>เลือกตาราง</label>
+              <ComboBox
+                options={tableOptions}
+                value={tableKey}
+                onChange={(id) => setTableKey(String(id))}
+                placeholder={planType ? "— เลือกตาราง —" : "ต้องเลือกประเภทตารางก่อน"}
+                disabled={!planType}
+                buttonRef={tableRef}
               />
             </div>
           </div>
 
-          <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-200">
-            <span className="font-semibold">ตารางที่เลือก:</span> {activeTable?.label || "—"}
-          </div>
-
+          {/* summary */}
           <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-700 dark:text-slate-200">
+              <span className="font-semibold">ปี:</span> {yearBE}{" "}
+              <span className="mx-2 text-slate-400">|</span>
+              <span className="font-semibold">plan_id:</span> {planId || "-"}
+              <span className="mx-2 text-slate-400">|</span>
               <span className="font-semibold">สาขา:</span> {branchName || "—"}
               <span className="mx-2 text-slate-400">|</span>
               <span className="font-semibold">ประเภท:</span> {planTypeLabel || "—"}
@@ -378,6 +424,7 @@ const OperationPlan = () => {
           </div>
         </div>
 
+        {/* Content */}
         {!branchId ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
@@ -392,6 +439,13 @@ const OperationPlan = () => {
               กรุณาเลือก <span className="font-semibold">ประเภทตาราง</span> ก่อน
             </div>
           </div>
+        ) : !tableKey ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
+            <div className="mt-2 text-slate-600 dark:text-slate-300">
+              กรุณาเลือก <span className="font-semibold">ตาราง</span> ก่อน
+            </div>
+          </div>
         ) : !canShowTable ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
@@ -404,7 +458,7 @@ const OperationPlan = () => {
               branchId={branchId}
               branchName={branchName}
               yearBE={yearBE}
-              planId={planId} // ✅ ส่ง planId หลักจาก OperationPlan
+              planId={planId}
             />
           </div>
         )}

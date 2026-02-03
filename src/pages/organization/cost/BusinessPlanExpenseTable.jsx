@@ -87,26 +87,38 @@ const readonlyField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black shadow-none dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100"
 
+// ✅ ทำ input เล็กลง (กระชับขึ้น)
 const cellInput =
-  "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
-  "text-right text-[13px] md:text-sm outline-none " +
+  "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-1.5 py-1 " +
+  "text-right text-[12px] md:text-[13px] outline-none " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
   "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
+// ✅ ให้หัวคอลัมน์/รายการตัดคำและไม่ดันความกว้าง
+const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
+
 /** ---------------- Mapping: cost_id + business_group -> businesscosts.id ---------------- */
 const BUSINESS_GROUP_ID = 1
+
 // group 1 seed: businesscosts.id 1..35 <-> cost_id 2..36
 const BUSINESS_COSTS_SEED = (() => {
   const out = []
-  for (let costId = 2; costId <= 36; costId++) out.push({ id: costId - 1, cost_id: costId, business_group: 1 })
+  for (let costId = 2; costId <= 36; costId++) {
+    out.push({ id: costId - 1, cost_id: costId, business_group: 1 })
+  }
   return out
 })()
-const BUSINESS_COST_ID_MAP = new Map(BUSINESS_COSTS_SEED.map((r) => [`${r.cost_id}:${r.business_group}`, r.id]))
+
+const BUSINESS_COST_ID_MAP = new Map(
+  BUSINESS_COSTS_SEED.map((r) => [`${r.cost_id}:${r.business_group}`, r.id])
+)
 const resolveBusinessCostId = (costId, businessGroupId) =>
   BUSINESS_COST_ID_MAP.get(`${Number(costId)}:${Number(businessGroupId)}`) ?? null
 
-/** inverse: business_cost_id -> cost_id (ใช้ตอนโหลดจาก BE) */
-const BUSINESS_COST_TO_COSTID = new Map(BUSINESS_COSTS_SEED.map((r) => [Number(r.id), Number(r.cost_id)]))
+// inverse: business_cost_id -> cost_id (ใช้ตอนโหลดจาก BE)
+const BUSINESS_COST_TO_COSTID = new Map(
+  BUSINESS_COSTS_SEED.map((r) => [Number(r.id), Number(r.cost_id)])
+)
 
 /** ---------------- Rows (รายการค่าใช้จ่าย) ---------------- */
 const ROWS = [
@@ -149,9 +161,13 @@ const ROWS = [
   { code: "3.35", label: "ค่าใช้จ่ายเบ็ดเตล็ด", kind: "item", cost_id: 36 },
 ]
 
-/** ---------------- Table sizing ---------------- */
-const COL_W = { code: 72, item: 380, unit: 180, total: 120 }
+/** ---------------- ✅ Table sizing (ลดความกว้างตามที่ขอ) ----------------
+ * เดิม: code 72, item 380, unit 180, total 120
+ * ใหม่: code 56, item 260, unit 130, total 90  (กระชับขึ้น)
+ */
+const COL_W = { code: 56, item: 260, unit: 130, total: 90 }
 const LEFT_W = COL_W.code + COL_W.item
+
 const STRIPE = {
   head: "bg-slate-100/90 dark:bg-slate-700/70",
   cell: "bg-white dark:bg-slate-900",
@@ -161,7 +177,7 @@ const STRIPE = {
 
 /**
  * Props from OperationPlan:
- * - branchId, branchName, yearBE, planId (สำคัญ)
+ * - branchId, branchName, yearBE, planId
  */
 const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
@@ -172,7 +188,6 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
     [branchName, effectiveBranchId]
   )
 
-  // ✅ plan_id ใช้จาก OperationPlan เป็นหลัก
   const effectivePlanId = useMemo(() => {
     const p = Number(planId || 0)
     if (Number.isFinite(p) && p > 0) return p
@@ -214,6 +229,7 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
             name: r.unit_name || r.klang_name || r.unit || r.name || `หน่วย ${r.id}`,
           }))
           .filter((r) => r.id > 0)
+
         if (!alive) return
         setUnits(normalized)
       } catch (e) {
@@ -229,11 +245,10 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
     }
   }, [effectiveBranchId])
 
-  /** ---------------- Values: row_code -> { unitId: "..." } ---------------- */
+  /** ---------------- Values ---------------- */
   const [valuesByCode, setValuesByCode] = useState({})
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
 
-  // ✅ helper: reset structure to match current units
   const normalizeGrid = useCallback(
     (seed = {}) => {
       const next = {}
@@ -248,8 +263,6 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
     [itemRows, units]
   )
 
-  // ✅ โหลดค่าที่เคยบันทึกจาก BE:
-  // GET /business-plan/{plan_id}/costs?branch_id=... => unit_cells + branch_totals:contentReference[oaicite:2]{index=2}
   const loadSavedFromBE = useCallback(async () => {
     if (!effectivePlanId || effectivePlanId <= 0) return
     if (!effectiveBranchId) return
@@ -258,19 +271,15 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
     setIsLoadingSaved(true)
     try {
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs?branch_id=${effectiveBranchId}`)
-
       const unitCells = Array.isArray(data?.unit_cells) ? data.unit_cells : []
 
-      // build seed: code -> { unitId: "amount" }
       const seed = {}
       for (const cell of unitCells) {
         const uId = Number(cell.unit_id || 0)
         const bCostId = Number(cell.business_cost_id || 0)
         const amount = Number(cell.amount || 0)
-
         if (!uId || !bCostId) continue
 
-        // business_cost_id -> cost_id -> row.code
         const costId = BUSINESS_COST_TO_COSTID.get(bCostId)
         if (!costId) continue
 
@@ -282,29 +291,18 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
       }
 
       setValuesByCode(normalizeGrid(seed))
-
-      console.groupCollapsed("%c[BusinessPlanExpenseTable] Loaded saved values ✅", "color:#10b981;font-weight:800;")
-      console.log("plan_id:", effectivePlanId, "branch_id:", effectiveBranchId)
-      console.log("unit_cells:", unitCells.length)
-      console.groupEnd()
     } catch (e) {
-      console.groupCollapsed("%c[BusinessPlanExpenseTable] Load saved failed ❌", "color:#ef4444;font-weight:800;")
-      console.error("plan_id:", effectivePlanId, "branch_id:", effectiveBranchId)
-      console.error(e)
-      console.groupEnd()
-      // ถ้าโหลดไม่สำเร็จ อย่างน้อยให้มี grid เปล่า
+      console.error("[Load saved] failed:", e)
       setValuesByCode(normalizeGrid({}))
     } finally {
       setIsLoadingSaved(false)
     }
   }, [effectivePlanId, effectiveBranchId, units.length, itemRows, normalizeGrid])
 
-  // 1) เมื่อ units เปลี่ยน ให้ normalize grid ก่อน (กัน key หาย)
   useEffect(() => {
     setValuesByCode((prev) => normalizeGrid(prev))
   }, [units, normalizeGrid])
 
-  // 2) เมื่อ (plan, branch, units) พร้อม -> โหลดค่าจาก BE
   useEffect(() => {
     loadSavedFromBE()
   }, [loadSavedFromBE])
@@ -382,7 +380,7 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
   const ensureInView = useCallback((el) => {
     const container = bodyScrollRef.current
     if (!container || !el) return
-    const pad = 12
+    const pad = 10
     const frozenLeft = LEFT_W
     const crect = container.getBoundingClientRect()
     const erect = el.getBoundingClientRect()
@@ -439,7 +437,8 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
     const rows = []
     for (const r of itemRows) {
       const businessCostId = resolveBusinessCostId(r.cost_id, BUSINESS_GROUP_ID)
-      if (!businessCostId) throw new Error(`FE: หา business_cost_id ไม่เจอ (cost_id=${r.cost_id}, group=${BUSINESS_GROUP_ID})`)
+      if (!businessCostId)
+        throw new Error(`FE: หา business_cost_id ไม่เจอ (cost_id=${r.cost_id}, group=${BUSINESS_GROUP_ID})`)
 
       const row = valuesByCode[r.code] || {}
       const unit_values = []
@@ -472,24 +471,37 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
       payload = buildBulkRowsForBE()
       setIsSaving(true)
 
-      const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/bulk`, { method: "POST", body: payload })
+      const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/bulk`, {
+        method: "POST",
+        body: payload,
+      })
 
       setSaveNotice({
         type: "success",
         title: "บันทึกสำเร็จ ✅",
-        detail: `สาขา ${effectiveBranchName} • ปี ${effectiveYear} • upserted: ${res?.branch_totals_upserted ?? "-"}`,
+        detail: `สาขา ${effectiveBranchName} • ปี ${effectiveYear} • upserted: ${
+          res?.branch_totals_upserted ?? "-"
+        }`,
       })
 
-      // ✅ สำคัญ: หลังบันทึก ให้โหลดค่าล่าสุดจาก BE อีกรอบ
       await loadSavedFromBE()
     } catch (e) {
       const status = e?.status || 0
       let title = "บันทึกไม่สำเร็จ ❌"
       let detail = e?.message || String(e)
-      if (status === 401) { title = "401 Unauthorized"; detail = "Token ไม่ผ่าน/หมดอายุ → Logout/Login ใหม่" }
-      else if (status === 403) { title = "403 Forbidden"; detail = "สิทธิ์ไม่พอ (role ไม่อนุญาต)" }
-      else if (status === 404) { title = "404 Not Found"; detail = `ไม่พบแผน หรือ route ไม่ตรง — plan_id=${effectivePlanId}` }
-      else if (status === 422) { title = "422 Validation Error"; detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู console)" }
+      if (status === 401) {
+        title = "401 Unauthorized"
+        detail = "Token ไม่ผ่าน/หมดอายุ → Logout/Login ใหม่"
+      } else if (status === 403) {
+        title = "403 Forbidden"
+        detail = "สิทธิ์ไม่พอ (role ไม่อนุญาต)"
+      } else if (status === 404) {
+        title = "404 Not Found"
+        detail = `ไม่พบแผน หรือ route ไม่ตรง — plan_id=${effectivePlanId}`
+      } else if (status === 422) {
+        title = "422 Validation Error"
+        detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู console)"
+      }
 
       setSaveNotice({ type: "error", title, detail })
       console.groupCollapsed("%c[BusinessPlanExpenseTable] Save failed ❌", "color:#ef4444;font-weight:800;")
@@ -517,19 +529,15 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
 
   const resetAll = () => {
     if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
-    setValuesByCode(normalizeEmpty())
-    setSaveNotice({ type: "info", title: "ล้างข้อมูลแล้ว", detail: "รีเซ็ตค่าที่กรอกเป็นว่าง" })
-  }
-
-  const normalizeEmpty = useCallback(() => {
-    const next = {}
+    const empty = {}
     for (const r of itemRows) {
       const keep = {}
       for (const u of units) keep[u.id] = ""
-      next[r.code] = keep
+      empty[r.code] = keep
     }
-    return next
-  }, [itemRows, units])
+    setValuesByCode(empty)
+    setSaveNotice({ type: "info", title: "ล้างข้อมูลแล้ว", detail: "รีเซ็ตค่าที่กรอกเป็นว่าง" })
+  }
 
   const NoticeBox = ({ notice }) => {
     if (!notice) return null
@@ -551,8 +559,10 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
   /** widths depend on units */
   const RIGHT_W = Math.max(1, units.length) * COL_W.unit + COL_W.total
   const TOTAL_W = LEFT_W + RIGHT_W
-  const stickyLeftHeader = "sticky left-0 z-[90] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
-  const stickyCodeHeader = "sticky left-0 z-[95] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+  const stickyLeftHeader =
+    "sticky left-0 z-[90] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+  const stickyCodeHeader =
+    "sticky left-0 z-[95] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
   const stickyCodeCell = "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
 
   return (
@@ -565,7 +575,7 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
               ({periodLabel}) • ปี {effectiveYear} • สาขา {effectiveBranchName} • หน่วย{" "}
               {isLoadingUnits ? "กำลังโหลด..." : units.length}
-              {isLoadingSaved ? " • กำลังโหลดค่าที่บันทึกไว้..." : ""}
+              {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
             </div>
             <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
               รวมทั้งหมด (บาท): <span className="font-extrabold">{fmtMoney0(computed.grand)}</span>
@@ -595,10 +605,9 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
           </div>
         </div>
 
-        {/* แสดงสาขาแบบ read-only (ไม่ต้องมี UI ซ้ำกับ OperationPlan) */}
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div>
-            <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก (จาก OperationPlan)</div>
+            <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</div>
             <div className={readonlyField}>{effectiveBranchName}</div>
           </div>
           <div>
@@ -618,43 +627,71 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
         style={{ height: tableCardHeight }}
       >
-        <div ref={bodyScrollRef} onScroll={onBodyScroll} className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700">
+        <div
+          ref={bodyScrollRef}
+          onScroll={onBodyScroll}
+          className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
+        >
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.code }} />
               <col style={{ width: COL_W.item }} />
-              {units.length ? units.map((u) => <col key={u.id} style={{ width: COL_W.unit }} />) : <col style={{ width: COL_W.unit }} />}
+              {units.length
+                ? units.map((u) => <col key={u.id} style={{ width: COL_W.unit }} />)
+                : <col style={{ width: COL_W.unit }} />}
               <col style={{ width: COL_W.total }} />
             </colgroup>
 
             <thead className="sticky top-0 z-[80]">
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
-                <th rowSpan={2} className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeHeader)} />
                 <th
                   rowSpan={2}
-                  className={cx("border border-slate-300 px-3 py-2 text-left font-bold dark:border-slate-600", stickyLeftHeader)}
+                  className={cx(
+                    "border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600",
+                    stickyCodeHeader
+                  )}
+                />
+                <th
+                  rowSpan={2}
+                  className={cx(
+                    "border border-slate-300 px-2 py-2 text-left font-bold text-xs dark:border-slate-600",
+                    stickyLeftHeader,
+                    trunc
+                  )}
                   style={{ left: COL_W.code }}
+                  title="รายการ"
                 >
                   รายการ
                 </th>
-                <th colSpan={(units.length ? units.length : 1) + 1} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
-                  สกต. {effectiveBranchName}
+                <th
+                  colSpan={(units.length ? units.length : 1) + 1}
+                  className="border border-slate-300 px-2 py-2 text-center font-extrabold text-xs dark:border-slate-600"
+                  title={`สกต. ${effectiveBranchName}`}
+                >
+                  <span className={trunc}>สกต. {effectiveBranchName}</span>
                 </th>
               </tr>
 
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
                 {units.length ? (
                   units.map((u) => (
-                    <th key={u.id} className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600">
+                    <th
+                      key={u.id}
+                      className={cx(
+                        "border border-slate-300 px-1 py-2 text-center text-[11px] md:text-xs dark:border-slate-600",
+                        trunc
+                      )}
+                      title={u.name}
+                    >
                       {u.name}
                     </th>
                   ))
                 ) : (
-                  <th className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600">
-                    {isLoadingUnits ? "กำลังโหลดหน่วย..." : "ไม่มีหน่วย"}
+                  <th className="border border-slate-300 px-2 py-2 text-center text-xs dark:border-slate-600">
+                    {isLoadingUnits ? "กำลังโหลด..." : "ไม่มีหน่วย"}
                   </th>
                 )}
-                <th className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm font-extrabold dark:border-slate-600">
+                <th className="border border-slate-300 px-1 py-2 text-center text-[11px] md:text-xs font-extrabold dark:border-slate-600">
                   รวม
                 </th>
               </tr>
@@ -665,13 +702,24 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
                 if (r.kind === "section") {
                   return (
                     <tr key={r.code} className="bg-slate-200/70 dark:bg-slate-700/55">
-                      <td className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeCell, "bg-slate-200/70 dark:bg-slate-700/55")}>
+                      <td
+                        className={cx(
+                          "border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600",
+                          stickyCodeCell,
+                          "bg-slate-200/70 dark:bg-slate-700/55"
+                        )}
+                      >
                         {r.code}
                       </td>
                       <td
                         colSpan={(units.length ? units.length : 1) + 2}
-                        className={cx("border border-slate-300 px-3 py-2 font-extrabold dark:border-slate-600", "sticky z-[55] bg-slate-200/70 dark:bg-slate-700/55")}
+                        className={cx(
+                          "border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600",
+                          "sticky z-[55] bg-slate-200/70 dark:bg-slate-700/55",
+                          trunc
+                        )}
                         style={{ left: COL_W.code }}
+                        title={r.label}
                       >
                         {r.label}
                       </td>
@@ -682,22 +730,44 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
                 const idx = itemRows.findIndex((x) => x.code === r.code)
                 const rowBg = idx % 2 === 1 ? STRIPE.alt : STRIPE.cell
                 const rowSum = computed.rowTotal[r.code] || 0
+                const bcId = resolveBusinessCostId(r.cost_id, BUSINESS_GROUP_ID)
 
                 return (
                   <tr key={r.code} className={rowBg}>
-                    <td className={cx("border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600", stickyCodeCell, rowBg)}>
+                    <td
+                      className={cx(
+                        "border border-slate-300 px-1 py-2 text-center text-xs dark:border-slate-600",
+                        stickyCodeCell,
+                        rowBg
+                      )}
+                    >
                       {r.code}
                     </td>
 
-                    <td className={cx("border border-slate-300 px-3 py-2 text-left font-semibold dark:border-slate-600", "sticky z-[50]", rowBg)} style={{ left: COL_W.code }}>
+                    <td
+                      className={cx(
+                        "border border-slate-300 px-2 py-2 text-left font-semibold text-xs dark:border-slate-600",
+                        "sticky z-[50]",
+                        rowBg,
+                        trunc
+                      )}
+                      style={{ left: COL_W.code }}
+                      title={r.label}
+                    >
                       {r.label}
                     </td>
 
                     {units.length ? (
                       units.map((u, colIdx) => (
-                        <td key={`${r.code}-${u.id}`} className="border border-slate-300 px-2 py-2 dark:border-slate-600">
+                        <td key={`${r.code}-${u.id}`} className="border border-slate-300 px-1 py-2 dark:border-slate-600">
                           <input
-                            ref={registerInput(idx, colIdx)}
+                            ref={(() => {
+                              const key = `${idx}|${colIdx}`
+                              return (el) => {
+                                if (!el) inputRefs.current.delete(key)
+                                else inputRefs.current.set(key, el)
+                              }
+                            })()}
                             data-row={idx}
                             data-col={colIdx}
                             onKeyDown={handleArrowNav}
@@ -705,15 +775,19 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
                             value={valuesByCode?.[r.code]?.[u.id] ?? ""}
                             inputMode="numeric"
                             placeholder="0"
-                            onChange={(e) => setCell(r.code, u.id, sanitizeNumberInput(e.target.value, { maxDecimals: 3 }))}
+                            onChange={(e) =>
+                              setCell(r.code, u.id, sanitizeNumberInput(e.target.value, { maxDecimals: 3 }))
+                            }
                           />
                         </td>
                       ))
                     ) : (
-                      <td className="border border-slate-300 px-2 py-2 dark:border-slate-600 text-center text-xs text-slate-500">—</td>
+                      <td className="border border-slate-300 px-2 py-2 dark:border-slate-600 text-center text-xs text-slate-500">
+                        —
+                      </td>
                     )}
 
-                    <td className="border border-slate-300 px-2 py-2 text-right font-extrabold dark:border-slate-600">
+                    <td className="border border-slate-300 px-1 py-2 text-right font-extrabold text-xs dark:border-slate-600">
                       {fmtMoney0(rowSum)}
                     </td>
                   </tr>
@@ -725,7 +799,21 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
 
         {/* Action bar */}
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
-          <NoticeBox notice={saveNotice} />
+          {saveNotice && (
+            <div
+              className={cx(
+                "mb-3 rounded-2xl border p-3 text-sm",
+                saveNotice.type === "error"
+                  ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200"
+                  : saveNotice.type === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200"
+                  : "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100"
+              )}
+            >
+              <div className="font-extrabold">{saveNotice.title}</div>
+              {saveNotice.detail && <div className="mt-1 text-[13px] opacity-95">{saveNotice.detail}</div>}
+            </div>
+          )}
 
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-600 dark:text-slate-300">
@@ -735,7 +823,84 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
             <button
               type="button"
               disabled={isSaving}
-              onClick={saveToBE}
+              onClick={async () => {
+                let payload = null
+                try {
+                  setSaveNotice(null)
+                  const token = getToken()
+                  if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
+
+                  // build bulk rows
+                  if (!effectivePlanId || effectivePlanId <= 0) throw new Error(`FE: plan_id ไม่ถูกต้อง (plan_id=${effectivePlanId})`)
+                  if (!effectiveBranchId) throw new Error("FE: ยังไม่ได้เลือกสาขา")
+                  if (!units.length) throw new Error("FE: สาขานี้ไม่มีหน่วย หรือโหลดหน่วยไม่สำเร็จ")
+
+                  const rows = []
+                  for (const r of itemRows) {
+                    const businessCostId = resolveBusinessCostId(r.cost_id, BUSINESS_GROUP_ID)
+                    if (!businessCostId) throw new Error(`FE: หา business_cost_id ไม่เจอ (cost_id=${r.cost_id})`)
+
+                    const row = valuesByCode[r.code] || {}
+                    const unit_values = []
+                    let branch_total = 0
+
+                    for (const u of units) {
+                      const amount = toNumber(row[u.id])
+                      branch_total += amount
+                      if (amount !== 0) unit_values.push({ unit_id: u.id, amount })
+                    }
+
+                    rows.push({
+                      branch_id: effectiveBranchId,
+                      business_cost_id: businessCostId,
+                      unit_values,
+                      branch_total,
+                      comment: periodLabel,
+                    })
+                  }
+                  payload = { rows }
+
+                  setIsSaving(true)
+                  const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/bulk`, {
+                    method: "POST",
+                    body: payload,
+                  })
+
+                  setSaveNotice({
+                    type: "success",
+                    title: "บันทึกสำเร็จ ✅",
+                    detail: `upserted: ${res?.branch_totals_upserted ?? "-"}`,
+                  })
+
+                  await loadSavedFromBE()
+                } catch (e) {
+                  const status = e?.status || 0
+                  let title = "บันทึกไม่สำเร็จ ❌"
+                  let detail = e?.message || String(e)
+                  if (status === 401) {
+                    title = "401 Unauthorized"
+                    detail = "Token ไม่ผ่าน/หมดอายุ → Logout/Login ใหม่"
+                  } else if (status === 403) {
+                    title = "403 Forbidden"
+                    detail = "สิทธิ์ไม่พอ (role ไม่อนุญาต)"
+                  } else if (status === 404) {
+                    title = "404 Not Found"
+                    detail = `ไม่พบแผน หรือ route ไม่ตรง — plan_id=${effectivePlanId}`
+                  } else if (status === 422) {
+                    title = "422 Validation Error"
+                    detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู console)"
+                  }
+                  setSaveNotice({ type: "error", title, detail })
+
+                  console.groupCollapsed("%c[BusinessPlanExpenseTable] Save failed ❌", "color:#ef4444;font-weight:800;")
+                  console.error("status:", status, "title:", title, "detail:", detail)
+                  console.error("payload preview:", payload?.rows?.slice(0, 2))
+                  console.error(e)
+                  console.groupEnd()
+                } finally {
+                  setIsSaving(false)
+                }
+              }}
               className={cx(
                 "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white",
                 "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",

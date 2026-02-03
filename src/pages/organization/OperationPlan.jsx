@@ -193,27 +193,27 @@ const PLAN_TYPES = [
   { id: "cost", label: "ค่าใช้จ่าย", subLabel: "ตารางฝั่งต้นทุน/ค่าใช้จ่าย" },
 ]
 
-/* ---------------- ตารางฝั่ง “ยอดขาย” ---------------- */
+/* ---------------- ตารางฝั่ง “ยอดขาย” (เพิ่ม file) ---------------- */
 const SALES_TABLES = [
-  { key: "procurement-plan-detail", label: "รายละเอียดแผนการจัดหาสินค้า", Component: ProcurementPlanDetail },
-  { key: "agri-collection-plan-table", label: "รายละเอียดแผนการรวบรวมผลผลิตการเกษตร", Component: AgriCollectionPlanTable },
-  { key: "agri-processing-plan-detail", label: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร (Detail)", Component: AgriProcessingPlanDetail },
-  { key: "seed-project-sales-plan-detail", label: "รายละเอียดแผนโครงการผลิตเมล็ดพันธุ์ (ยอดขาย)", Component: SeedProjectSalesPlanDetail },
-  { key: "service-business-plan-detail", label: "รายละเอียดแผนธุรกิจบริการ", Component: ServiceBusinessPlanDetail },
-  { key: "business-plan-revenue-by-business", label: "รายได้เฉพาะธุรกิจ (สรุป)", Component: BusinessPlanRevenueByBusinessTable },
-  { key: "business-plan-other-income", label: "รายได้อื่นๆ", Component: BusinessPlanOtherIncomeTable },
+  { key: "procurement-plan-detail", label: "รายละเอียดแผนการจัดหาสินค้า", file: "sell/ProcurementPlanDetail.jsx", Component: ProcurementPlanDetail },
+  { key: "agri-collection-plan-table", label: "รายละเอียดแผนการรวบรวมผลผลิตการเกษตร", file: "sell/AgriCollectionPlanTable.jsx", Component: AgriCollectionPlanTable },
+  { key: "agri-processing-plan-detail", label: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร (Detail)", file: "sell/AgriProcessingPlanDetail.jsx", Component: AgriProcessingPlanDetail },
+  { key: "seed-project-sales-plan-detail", label: "รายละเอียดแผนโครงการผลิตเมล็ดพันธุ์ (ยอดขาย)", file: "sell/SeedProjectSalesPlanDetail.jsx", Component: SeedProjectSalesPlanDetail },
+  { key: "service-business-plan-detail", label: "รายละเอียดแผนธุรกิจบริการ", file: "sell/ServiceBusinessPlanDetail.jsx", Component: ServiceBusinessPlanDetail },
+  { key: "business-plan-revenue-by-business", label: "รายได้เฉพาะธุรกิจ (สรุป)", file: "sell/BusinessPlanRevenueByBusinessTable.jsx", Component: BusinessPlanRevenueByBusinessTable },
+  { key: "business-plan-other-income", label: "รายได้อื่นๆ", file: "sell/BusinessPlanOtherIncomeTable.jsx", Component: BusinessPlanOtherIncomeTable },
 ]
 
-/* ---------------- ตารางฝั่ง “ค่าใช้จ่าย (cost)” ---------------- */
+/* ---------------- ตารางฝั่ง “ค่าใช้จ่าย (cost)” (เพิ่ม file) ---------------- */
 const COST_TABLES = [
-  { key: "business-plan-expense-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", Component: BusinessPlanExpenseTable },
-  { key: "business-plan-expense-oil-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า ปั๊มน้ำมัน", Component: BusinessPlanExpenseOilTable },
-  { key: "business-plan-expense-collection-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม", Component: BusinessPlanExpenseCollectionTable },
-  { key: "business-plan-expense-processing-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป", Component: BusinessPlanExpenseProcessingTable },
-  { key: "business-plan-expense-seed-processing-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูปเมล็ดพันธุ์", Component: BusinessPlanExpenseSeedProcessingTable },
-  { key: "business-plan-expense-service-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจบริการ", Component: BusinessPlanExpenseServiceTable },
-  { key: "business-plan-expense-support-work-table", label: "ค่าใช้จ่ายดำเนินงาน", Component: BusinessPlanExpenseSupportWorkTable },
-  { key: "business-plan-rep-cost-summary", label: "ต้นทุนขายเฉพาะธุรกิจ", Component: BusinessPlanRepCostSummaryTable },
+  { key: "business-plan-expense-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", file: "cost/BusinessPlanExpenseTable.jsx", Component: BusinessPlanExpenseTable },
+  { key: "business-plan-expense-oil-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า ปั๊มน้ำมัน", file: "cost/BusinessPlanExpenseOilTable.jsx", Component: BusinessPlanExpenseOilTable },
+  { key: "business-plan-expense-collection-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม", file: "cost/BusinessPlanExpenseCollectionTable.jsx", Component: BusinessPlanExpenseCollectionTable },
+  { key: "business-plan-expense-processing-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป", file: "cost/BusinessPlanExpenseProcessingTable.jsx", Component: BusinessPlanExpenseProcessingTable },
+  { key: "business-plan-expense-seed-processing-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูปเมล็ดพันธุ์", file: "cost/BusinessPlanExpenseSeedProcessingTable.jsx", Component: BusinessPlanExpenseSeedProcessingTable },
+  { key: "business-plan-expense-service-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจบริการ", file: "cost/BusinessPlanExpenseServiceTable.jsx", Component: BusinessPlanExpenseServiceTable },
+  { key: "business-plan-expense-support-work-table", label: "ค่าใช้จ่ายดำเนินงาน", file: "cost/BusinessPlanExpenseSupportWorkTable.jsx", Component: BusinessPlanExpenseSupportWorkTable },
+  { key: "business-plan-rep-cost-summary", label: "ต้นทุนขายเฉพาะธุรกิจ", file: "cost/BusinessPlanRepCostSummaryTable.jsx", Component: BusinessPlanRepCostSummaryTable },
 ]
 
 const OperationPlan = () => {
@@ -221,7 +221,7 @@ const OperationPlan = () => {
     document.title = "แผนปฏิบัติงาน (Operation Plan)"
   }, [])
 
-  // ✅ ปีเริ่ม 2569..2579
+  // ปี 2569..2579
   const yearOptions = useMemo(() => {
     const start = 2569
     const count = 11
@@ -233,7 +233,7 @@ const OperationPlan = () => {
 
   const [yearBE, setYearBE] = useState("2569")
 
-  // ✅ planId หลักมาจาก OperationPlan: 2569=>1 ไล่ไปเรื่อยๆ
+  // planId: 2569=>1
   const planId = useMemo(() => {
     const y = Number(yearBE || 0)
     return Number.isFinite(y) ? y - 2568 : 0
@@ -244,7 +244,7 @@ const OperationPlan = () => {
   const [branchOptions, setBranchOptions] = useState([])
   const [branchId, setBranchId] = useState("")
 
-  // table type & table selection
+  // type & table
   const [planType, setPlanType] = useState("")
   const [tableKey, setTableKey] = useState("")
 
@@ -276,7 +276,7 @@ const OperationPlan = () => {
     return []
   }, [planType])
 
-  // ✅ ถ้าเปลี่ยนประเภท แล้ว tableKey ไม่อยู่ในประเภทนั้น ให้เซ็ตเป็นตัวแรก
+  // ถ้าเปลี่ยนประเภท แล้ว tableKey ไม่อยู่ในประเภทนั้น ให้เซ็ตเป็นตัวแรก
   useEffect(() => {
     if (!planType) {
       setTableKey("")
@@ -290,14 +290,9 @@ const OperationPlan = () => {
     return branchOptions.find((b) => String(b.id) === String(branchId))?.label || ""
   }, [branchOptions, branchId])
 
-  const planTypeLabel = useMemo(() => {
-    return PLAN_TYPES.find((p) => p.id === planType)?.label || ""
-  }, [planType])
+  const planTypeLabel = useMemo(() => PLAN_TYPES.find((p) => p.id === planType)?.label || "", [planType])
 
-  const activeTable = useMemo(() => {
-    return currentTables.find((t) => t.key === tableKey) || null
-  }, [currentTables, tableKey])
-
+  const activeTable = useMemo(() => currentTables.find((t) => t.key === tableKey) || null, [currentTables, tableKey])
   const ActiveComponent = activeTable?.Component || null
   const canShowTable = !!branchId && !!planType && !!ActiveComponent
 
@@ -306,8 +301,13 @@ const OperationPlan = () => {
     []
   )
 
+  // ✅ ดรอปดาวเลือกตาราง + subLabel เป็นชื่อไฟล์
   const tableOptions = useMemo(() => {
-    return currentTables.map((t) => ({ id: t.key, label: t.label }))
+    return currentTables.map((t) => ({
+      id: t.key,
+      label: t.label,
+      subLabel: t.file ? `ไฟล์: ${t.file}` : "",
+    }))
   }, [currentTables])
 
   const yearRef = useRef(null)
@@ -370,15 +370,10 @@ const OperationPlan = () => {
                 buttonRef={typeRef}
                 onEnterNext={() => tableRef.current?.focus?.()}
               />
-              {!planType && (
-                <div className="mt-2 text-sm text-amber-600 dark:text-amber-300">
-                  * ต้องเลือก “ประเภทตาราง” ก่อน
-                </div>
-              )}
             </div>
           </div>
 
-          {/* ✅ เพิ่มกลับมา: เลือกตารางย่อย */}
+          {/* เลือกตาราง + แสดงชื่อไฟล์ใต้ชื่อ */}
           <div className="mt-3 grid gap-3 md:grid-cols-12">
             <div className="md:col-span-12">
               <label className={labelCls}>เลือกตาราง</label>
@@ -388,15 +383,15 @@ const OperationPlan = () => {
                 onChange={(id) => setTableKey(String(id))}
                 placeholder={planType ? "— เลือกตาราง —" : "ต้องเลือกประเภทตารางก่อน"}
                 disabled={!planType}
+                getSubLabel={(o) => o?.subLabel || ""}
                 buttonRef={tableRef}
               />
             </div>
           </div>
 
-          {/* summary */}
           <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-700 dark:text-slate-200">
-              <span className="font-semibold">ปี:</span> {yearBE}{" "}
+              <span className="font-semibold">ปี:</span> {yearBE}
               <span className="mx-2 text-slate-400">|</span>
               <span className="font-semibold">plan_id:</span> {planId || "-"}
               <span className="mx-2 text-slate-400">|</span>
@@ -405,6 +400,12 @@ const OperationPlan = () => {
               <span className="font-semibold">ประเภท:</span> {planTypeLabel || "—"}
               <span className="mx-2 text-slate-400">|</span>
               <span className="font-semibold">ตาราง:</span> {activeTable?.label || "—"}
+              {activeTable?.file ? (
+                <>
+                  <span className="mx-2 text-slate-400">|</span>
+                  <span className="font-semibold">ไฟล์:</span> {activeTable.file}
+                </>
+              ) : null}
             </div>
 
             <button
@@ -424,7 +425,6 @@ const OperationPlan = () => {
           </div>
         </div>
 
-        {/* Content */}
         {!branchId ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>

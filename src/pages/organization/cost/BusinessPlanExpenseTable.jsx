@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-/** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 const toNumber = (v) => {
   if (v === "" || v === null || v === undefined) return 0
@@ -21,7 +20,6 @@ const sanitizeNumberInput = (s, { maxDecimals = 3 } = {}) => {
 const fmtMoney0 = (n) =>
   new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
 
-/** ---------------- API (token = localStorage.token) ---------------- */
 const API_BASE_RAW =
   import.meta.env.VITE_API_BASE_CUSTOM ||
   import.meta.env.VITE_API_BASE ||
@@ -36,7 +34,6 @@ class ApiError extends Error {
     Object.assign(this, meta)
   }
 }
-
 const getToken = () => localStorage.getItem("token") || ""
 
 async function apiAuth(path, { method = "GET", body } = {}) {
@@ -82,12 +79,6 @@ async function apiAuth(path, { method = "GET", body } = {}) {
   return data
 }
 
-/** ---------------- UI styles ---------------- */
-const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
-  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
-
 const readonlyField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black shadow-none dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100"
@@ -98,16 +89,6 @@ const cellInput =
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
   "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
-/** ---------------- Year -> plan_id ----------------
- * ปีเริ่มจาก 2569 ไปอีกสิบปี (2569..2579)
- * plan_id = year - 2568 (2569 -> 1)
- */
-const YEAR_BASE = 2569
-const YEAR_COUNT = 11
-const yearOptions = Array.from({ length: YEAR_COUNT }, (_, i) => YEAR_BASE + i)
-const yearToPlanId = (yearBE) => Number(yearBE || 0) - 2568
-
-/** ---------------- Business group / costs mapping ---------------- */
 const BUSINESS_GROUP_ID = 1
 const BUSINESS_COSTS_SEED = (() => {
   const out = []
@@ -118,10 +99,8 @@ const BUSINESS_COST_ID_MAP = new Map(BUSINESS_COSTS_SEED.map((r) => [`${r.cost_i
 const resolveBusinessCostId = (costId, businessGroupId) =>
   BUSINESS_COST_ID_MAP.get(`${Number(costId)}:${Number(businessGroupId)}`) ?? null
 
-/** ---------------- Rows ---------------- */
 const ROWS = [
   { code: "3", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", kind: "section" },
-
   { code: "3.1", label: "ค่าใช้จ่ายในการขาย", kind: "item", cost_id: 2 },
   { code: "3.2", label: "ค่าใช้สถานที่ทำการค้าที่สินค้า", kind: "item", cost_id: 3 },
   { code: "3.3", label: "หนี้สงสัยจะสูญ-ลูกหนี้การค้า", kind: "item", cost_id: 4 },
@@ -159,7 +138,6 @@ const ROWS = [
   { code: "3.35", label: "ค่าใช้จ่ายเบ็ดเตล็ด", kind: "item", cost_id: 36 },
 ]
 
-/** ---------------- Table sizing ---------------- */
 const COL_W = { code: 72, item: 380, unit: 180, total: 120 }
 const LEFT_W = COL_W.code + COL_W.item
 const STRIPE = {
@@ -169,52 +147,35 @@ const STRIPE = {
   foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
 }
 
-/**
- * Props จาก OperationPlan:
- * - branchId, branchName
- * (ปีจะเลือกเองจาก dropdown ในหน้านี้)
- */
-const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNameProp }) => {
-  /** ---------------- Year: dropdown 2569..2579 ---------------- */
-  const [selectedYear, setSelectedYear] = useState(() => {
-    const saved = Number(localStorage.getItem("business_plan_year") || 0)
-    if (saved >= 2569 && yearOptions.includes(saved)) return saved
-    return 2569
-  })
+const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
+  // ✅ ยึด planId จาก OperationPlan เป็นหลัก
+  const effectivePlanId = useMemo(() => {
+    const p = Number(planId || 0)
+    if (Number.isFinite(p) && p > 0) return p
+    const y = Number(yearBE || 0)
+    return Number.isFinite(y) ? y - 2568 : 0
+  }, [planId, yearBE])
 
-  useEffect(() => {
-    // ถ้า localStorage เคยเป็น 2568 ให้ดันขึ้นมา 2569
-    const saved = Number(localStorage.getItem("business_plan_year") || 0)
-    if (saved && saved < 2569) {
-      localStorage.setItem("business_plan_year", "2569")
-      setSelectedYear(2569)
-    }
-  }, [])
-
-  const planId = useMemo(() => yearToPlanId(selectedYear), [selectedYear])
+  const effectiveYear = useMemo(() => {
+    const y = Number(yearBE || 0)
+    if (Number.isFinite(y) && y >= 2569) return y
+    // ถ้าไม่ได้ส่ง year มา ให้ derive จาก planId
+    const p = Number(planId || 0)
+    return Number.isFinite(p) && p > 0 ? p + 2568 : 2569
+  }, [yearBE, planId])
 
   const periodLabel = useMemo(() => {
-    const yy = String(selectedYear).slice(-2)
-    const yyNext = String(selectedYear + 1).slice(-2)
+    const yy = String(effectiveYear).slice(-2)
+    const yyNext = String(effectiveYear + 1).slice(-2)
     return `1 เม.ย.${yy}-31 มี.ค.${yyNext}`
-  }, [selectedYear])
+  }, [effectiveYear])
 
-  useEffect(() => {
-    localStorage.setItem("business_plan_year", String(selectedYear))
-    localStorage.setItem("plan_id", String(planId))
-  }, [selectedYear, planId])
-
-  /** ---------------- Branch (locked from parent) ---------------- */
-  const effectiveBranchId = useMemo(() => {
-    const n = Number(branchIdProp || 0)
-    return Number.isFinite(n) ? n : 0
-  }, [branchIdProp])
-  const effectiveBranchName = useMemo(() => branchNameProp || (effectiveBranchId ? `สาขา id: ${effectiveBranchId}` : "-"), [
-    branchNameProp,
+  const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
+  const effectiveBranchName = useMemo(() => branchName || (effectiveBranchId ? `สาขา id: ${effectiveBranchId}` : "-"), [
+    branchName,
     effectiveBranchId,
   ])
 
-  /** ---------------- Units (columns) from BE by branch ---------------- */
   const [units, setUnits] = useState([])
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)
 
@@ -250,7 +211,6 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
     }
   }, [effectiveBranchId])
 
-  /** ---------------- Values: row_code -> { unitId: \"...\" } ---------------- */
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
   const [valuesByCode, setValuesByCode] = useState({})
 
@@ -277,7 +237,6 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
     })
   }
 
-  /** ---------------- Computed totals ---------------- */
   const computed = useMemo(() => {
     const rowTotal = {}
     const unitTotal = {}
@@ -297,7 +256,6 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
     return { rowTotal, unitTotal, grand }
   }, [valuesByCode, itemRows, units])
 
-  /** ---------------- Table height + scroll sync + arrow nav ---------------- */
   const tableCardRef = useRef(null)
   const [tableCardHeight, setTableCardHeight] = useState(900)
   const recalcTableCardHeight = useCallback(() => {
@@ -327,7 +285,6 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
   useEffect(() => () => rafRef.current && cancelAnimationFrame(rafRef.current), [])
 
   const inputRefs = useRef(new Map())
-  const totalCols = units.length
   const registerInput = useCallback((row, col) => {
     const key = `${row}|${col}`
     return (el) => {
@@ -335,7 +292,6 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
       else inputRefs.current.set(key, el)
     }
   }, [])
-
   const ensureInView = useCallback((el) => {
     const container = bodyScrollRef.current
     if (!container || !el) return
@@ -352,7 +308,7 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
     if (erect.top < visibleTop) container.scrollTop -= visibleTop - erect.top
     else if (erect.bottom > visibleBottom) container.scrollTop += erect.bottom - visibleBottom
   }, [])
-
+  const totalCols = units.length
   const handleArrowNav = useCallback(
     (e) => {
       const k = e.key
@@ -379,12 +335,11 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
     [ensureInView, itemRows.length, totalCols]
   )
 
-  /** ---------------- Save ---------------- */
   const [saveNotice, setSaveNotice] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
 
   const buildBulkRowsForBE = () => {
-    if (!planId || planId <= 0) throw new Error(`FE: plan_id ไม่ถูกต้อง (year=${selectedYear} -> plan_id=${planId})`)
+    if (!effectivePlanId || effectivePlanId <= 0) throw new Error(`FE: plan_id ไม่ถูกต้อง (plan_id=${effectivePlanId})`)
     if (!effectiveBranchId) throw new Error("FE: ยังไม่ได้เลือกสาขา")
     if (!units.length) throw new Error("FE: สาขานี้ไม่มีหน่วย หรือโหลดหน่วยไม่สำเร็จ")
 
@@ -392,14 +347,17 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
     for (const r of itemRows) {
       const businessCostId = resolveBusinessCostId(r.cost_id, BUSINESS_GROUP_ID)
       if (!businessCostId) throw new Error(`FE: หา business_cost_id ไม่เจอ (cost_id=${r.cost_id}, group=${BUSINESS_GROUP_ID})`)
+
       const row = valuesByCode[r.code] || {}
       const unit_values = []
       let branch_total = 0
+
       for (const u of units) {
         const amount = toNumber(row[u.id])
         branch_total += amount
         if (amount !== 0) unit_values.push({ unit_id: u.id, amount })
       }
+
       rows.push({
         branch_id: effectiveBranchId,
         business_cost_id: businessCostId,
@@ -417,13 +375,15 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
       setSaveNotice(null)
       const token = getToken()
       if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
+
       payload = buildBulkRowsForBE()
       setIsSaving(true)
-      const res = await apiAuth(`/business-plan/${planId}/costs/bulk`, { method: "POST", body: payload })
+      const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/bulk`, { method: "POST", body: payload })
+
       setSaveNotice({
         type: "success",
         title: "บันทึกสำเร็จ ✅",
-        detail: `สาขา ${effectiveBranchName} • ปี ${selectedYear} (plan_id=${planId}) • upserted: ${res?.branch_totals_upserted ?? "-"}`,
+        detail: `สาขา ${effectiveBranchName} • ปี ${effectiveYear} • upserted: ${res?.branch_totals_upserted ?? "-"}`,
       })
     } catch (e) {
       const status = e?.status || 0
@@ -431,12 +391,12 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
       let detail = e?.message || String(e)
       if (status === 401) { title = "401 Unauthorized"; detail = "Token ไม่ผ่าน/หมดอายุ → Logout/Login ใหม่" }
       else if (status === 403) { title = "403 Forbidden"; detail = "สิทธิ์ไม่พอ (role ไม่อนุญาต)" }
-      else if (status === 404) { title = "404 Not Found"; detail = `ไม่พบแผน (BusinessPlan not found) หรือ route ไม่ตรง — plan_id=${planId}` }
+      else if (status === 404) { title = "404 Not Found"; detail = `ไม่พบแผน หรือ route ไม่ตรง — plan_id=${effectivePlanId}` }
       else if (status === 422) { title = "422 Validation Error"; detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู console)" }
       setSaveNotice({ type: "error", title, detail })
       console.groupCollapsed("%c[BusinessPlanExpenseTable] Save failed ❌", "color:#ef4444;font-weight:800;")
       console.error("status:", status, "title:", title, "detail:", detail)
-      console.error("year:", selectedYear, "plan_id:", planId)
+      console.error("year:", effectiveYear, "plan_id:", effectivePlanId)
       console.error("branch_id:", effectiveBranchId, "branch:", effectiveBranchName)
       console.error("units:", units)
       if (payload) console.error("payload preview:", payload.rows?.slice(0, 2))
@@ -480,54 +440,25 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
     )
   }
 
-  /** widths depend on units */
   const RIGHT_W = Math.max(1, units.length) * COL_W.unit + COL_W.total
   const TOTAL_W = LEFT_W + RIGHT_W
-
   const stickyLeftHeader = "sticky left-0 z-[90] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
   const stickyCodeHeader = "sticky left-0 z-[95] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
   const stickyCodeCell = "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
 
   return (
     <div className="space-y-3">
-      {/* Header */}
+      {/* ✅ Header แบบสั้น: ไม่โชว์ dropdown/plan_id ซ้ำ */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="flex-1">
-            <div className="text-center md:text-left">
-              <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ (ธุรกิจจัดหาสินค้า)</div>
-              <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                ({periodLabel}) • ปี: <span className="font-semibold">{selectedYear}</span> • สาขา:{" "}
-                <span className="font-semibold">{effectiveBranchName}</span> • หน่วย:{" "}
-                <span className="font-semibold">{isLoadingUnits ? "กำลังโหลด..." : units.length}</span>
-              </div>
-              <div className="mt-3 text-sm text-slate-700 dark:text-slate-200">
-                รวมทั้งหมด (บาท): <span className="font-extrabold">{fmtMoney0(computed.grand)}</span>
-              </div>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ (ธุรกิจจัดหาสินค้า)</div>
+            <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              ({periodLabel}) • ปี {effectiveYear} • สาขา {effectiveBranchName} • หน่วย{" "}
+              {isLoadingUnits ? "กำลังโหลด..." : units.length}
             </div>
-
-            {/* Controls (ปีเป็นดรอปดาว + สาขาแสดงอย่างเดียว) */}
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">เลือกปีแผน (พ.ศ.)</label>
-                <select className={baseField} value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
-                  {yearOptions.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก (จากข้างบน)</label>
-                <div className={readonlyField}>{effectiveBranchName}</div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">หมายเหตุ</label>
-                <div className={readonlyField}>{isLoadingUnits ? "กำลังโหลดหน่วย..." : `มี ${units.length} หน่วย`}</div>
-              </div>
+            <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
+              รวมทั้งหมด (บาท): <span className="font-extrabold">{fmtMoney0(computed.grand)}</span>
             </div>
           </div>
 
@@ -535,7 +466,7 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
             <button
               type="button"
               onClick={copyPayload}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
                          hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
                          dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
             >
@@ -545,7 +476,7 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
             <button
               type="button"
               onClick={resetAll}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
                          hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
                          dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
             >
@@ -555,21 +486,12 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
         </div>
       </div>
 
-      {/* Table Card */}
+      {/* Table */}
       <div
         ref={tableCardRef}
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
         style={{ height: tableCardHeight }}
       >
-        <div className="p-2 md:p-3 shrink-0">
-          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-            <div className="text-base md:text-lg font-bold">ตารางค่าใช้จ่าย (คอลัมน์เปลี่ยนตามสาขา)</div>
-            <div className="text-sm text-slate-600 dark:text-slate-300">
-              * คอลัมน์ = หน่วยทั้งหมดของสาขาที่เลือก • Arrow keys วิ่งข้ามช่องได้
-            </div>
-          </div>
-        </div>
-
         <div ref={bodyScrollRef} onScroll={onBodyScroll} className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700">
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
@@ -589,10 +511,7 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
                 >
                   รายการ
                 </th>
-                <th
-                  colSpan={(units.length ? units.length : 1) + 1}
-                  className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600"
-                >
+                <th colSpan={(units.length ? units.length : 1) + 1} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
                   สกต. {effectiveBranchName}
                 </th>
               </tr>
@@ -625,10 +544,7 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
                       </td>
                       <td
                         colSpan={(units.length ? units.length : 1) + 2}
-                        className={cx(
-                          "border border-slate-300 px-3 py-2 font-extrabold dark:border-slate-600",
-                          "sticky z-[55] bg-slate-200/70 dark:bg-slate-700/55"
-                        )}
+                        className={cx("border border-slate-300 px-3 py-2 font-extrabold dark:border-slate-600", "sticky z-[55] bg-slate-200/70 dark:bg-slate-700/55")}
                         style={{ left: COL_W.code }}
                       >
                         {r.label}
@@ -640,7 +556,6 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
                 const idx = itemRows.findIndex((x) => x.code === r.code)
                 const rowBg = idx % 2 === 1 ? STRIPE.alt : STRIPE.cell
                 const rowSum = computed.rowTotal[r.code] || 0
-                const bcId = resolveBusinessCostId(r.cost_id, BUSINESS_GROUP_ID)
 
                 return (
                   <tr key={r.code} className={rowBg}>
@@ -648,11 +563,7 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
                       {r.code}
                     </td>
 
-                    <td
-                      className={cx("border border-slate-300 px-3 py-2 text-left font-semibold dark:border-slate-600", "sticky z-[50]", rowBg)}
-                      style={{ left: COL_W.code }}
-                      title={`cost_id=${r.cost_id} -> business_cost_id=${bcId ?? "?"}`}
-                    >
+                    <td className={cx("border border-slate-300 px-3 py-2 text-left font-semibold dark:border-slate-600", "sticky z-[50]", rowBg)} style={{ left: COL_W.code }}>
                       {r.label}
                     </td>
 
@@ -692,7 +603,7 @@ const BusinessPlanExpenseTable = ({ branchId: branchIdProp, branchName: branchNa
 
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-600 dark:text-slate-300">
-              บันทึก: <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span> • ปี={selectedYear} • สาขา={effectiveBranchName}
+              บันทึก: <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span> • ปี={effectiveYear} • สาขา={effectiveBranchName}
             </div>
 
             <button

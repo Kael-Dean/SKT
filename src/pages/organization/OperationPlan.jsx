@@ -7,25 +7,17 @@ import AgriProcessingPlanDetail from "./sell/AgriProcessingPlanDetail"
 import SeedProjectSalesPlanDetail from "./sell/SeedProjectSalesPlanDetail"
 import ServiceBusinessPlanDetail from "./sell/ServiceBusinessPlanDetail"
 import BusinessPlanRevenueByBusinessTable from "./sell/BusinessPlanRevenueByBusinessTable"
-
-// ✅ NEW: รายได้อื่นๆ
 import BusinessPlanOtherIncomeTable from "./sell/BusinessPlanOtherIncomeTable"
 
-// ✅ cost tables
 import BusinessPlanExpenseTable from "./cost/BusinessPlanExpenseTable"
 import BusinessPlanExpenseOilTable from "./cost/BusinessPlanExpenseOilTable"
 import BusinessPlanExpenseCollectionTable from "./cost/BusinessPlanExpenseCollectionTable"
 import BusinessPlanExpenseProcessingTable from "./cost/BusinessPlanExpenseProcessingTable"
 import BusinessPlanExpenseSeedProcessingTable from "./cost/BusinessPlanExpenseSeedProcessingTable"
 import BusinessPlanExpenseServiceTable from "./cost/BusinessPlanExpenseServiceTable"
-
-// ✅ cost #9
 import BusinessPlanExpenseSupportWorkTable from "./cost/BusinessPlanExpenseSupportWorkTable"
-
-// ✅ NEW: ผู้แทนขาย (สรุปค่าใช้จ่ายตามธุรกิจ)
 import BusinessPlanRepCostSummaryTable from "./cost/BusinessPlanRepCostSummaryTable"
 
-// ---------------- Styles (ให้เหมือนหน้า Sales) ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -34,7 +26,6 @@ const baseField =
 
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 
-// ---------------- Reusable ComboBox (ยกทรงเดียวกับหน้า Sales) ----------------
 function ComboBox({
   options = [],
   value,
@@ -44,9 +35,6 @@ function ComboBox({
   getValue = (o) => o?.value ?? o?.id ?? "",
   getSubLabel = (o) => o?.subLabel ?? "",
   disabled = false,
-  error = false,
-  hintRed = false,
-  clearHint = () => {},
   buttonRef = null,
   onEnterNext,
 }) {
@@ -77,11 +65,9 @@ function ComboBox({
   }, [])
 
   const commit = (opt) => {
-    const v = String(getValue(opt))
-    onChange?.(v, opt)
+    onChange?.(String(getValue(opt)), opt)
     setOpen(false)
     setHighlight(-1)
-    clearHint?.()
     requestAnimationFrame(() => {
       controlRef.current?.focus()
       onEnterNext?.()
@@ -95,11 +81,8 @@ function ComboBox({
     const itemRect = itemEl.getBoundingClientRect()
     const listRect = listEl.getBoundingClientRect()
     const buffer = 6
-    if (itemRect.top < listRect.top + buffer) {
-      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
-    } else if (itemRect.bottom > listRect.bottom - buffer) {
-      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
-    }
+    if (itemRect.top < listRect.top + buffer) listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+    else if (itemRect.bottom > listRect.bottom - buffer) listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
   }
 
   const onKeyDown = (e) => {
@@ -108,7 +91,6 @@ function ComboBox({
       e.preventDefault()
       setOpen(true)
       setHighlight((h) => (h >= 0 ? h : 0))
-      clearHint?.()
       return
     }
     if (!open) return
@@ -143,27 +125,16 @@ function ComboBox({
         type="button"
         ref={controlRef}
         disabled={disabled}
-        onClick={() => {
-          if (!disabled) {
-            setOpen((o) => !o)
-            clearHint?.()
-            setHighlight((h) => (h >= 0 ? h : 0))
-          }
-        }}
+        onClick={() => !disabled && setOpen((o) => !o)}
         onKeyDown={onKeyDown}
-        onFocus={() => clearHint?.()}
         className={cx(
           "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
           disabled ? "bg-slate-100 cursor-not-allowed opacity-95" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          error
-            ? "border-red-400 ring-2 ring-red-300/70"
-            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80",
-          hintRed && "ring-2 ring-red-300 animate-pulse"
+          "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
+          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80"
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-invalid={error || hintRed ? true : undefined}
       >
         {selectedLabel ? (
           <div className="flex flex-col">
@@ -183,9 +154,6 @@ function ComboBox({
           role="listbox"
           className="absolute z-20 mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
-          {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
-          )}
           {options.map((opt, idx) => {
             const label = getLabel(opt)
             const sub = getSubLabel(opt) || ""
@@ -201,14 +169,9 @@ function ComboBox({
                 onClick={() => commit(opt)}
                 className={cx(
                   "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
-                  isActive
-                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                  isActive ? "bg-emerald-100 dark:bg-emerald-400/20" : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
                 )}
               >
-                {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-                )}
                 <span className="flex-1">
                   <div>{label}</div>
                   {sub && <div className="text-sm text-slate-600 dark:text-slate-300">{sub}</div>}
@@ -223,13 +186,11 @@ function ComboBox({
   )
 }
 
-/* ---------------- ประเภทตาราง ---------------- */
 const PLAN_TYPES = [
   { id: "sell", label: "ยอดขาย", subLabel: "ตารางฝั่งรายได้/ยอดขาย" },
   { id: "cost", label: "ค่าใช้จ่าย", subLabel: "ตารางฝั่งต้นทุน/ค่าใช้จ่าย" },
 ]
 
-/* ---------------- ตารางฝั่ง “ยอดขาย” ---------------- */
 const SALES_TABLES = [
   { key: "procurement-plan-detail", label: "รายละเอียดแผนการจัดหาสินค้า", Component: ProcurementPlanDetail },
   { key: "agri-collection-plan-table", label: "รายละเอียดแผนการรวบรวมผลผลิตการเกษตร", Component: AgriCollectionPlanTable },
@@ -240,7 +201,6 @@ const SALES_TABLES = [
   { key: "business-plan-other-income", label: "รายได้อื่นๆ", Component: BusinessPlanOtherIncomeTable },
 ]
 
-/* ---------------- ตารางฝั่ง “ค่าใช้จ่าย (cost)” ---------------- */
 const COST_TABLES = [
   { key: "business-plan-expense-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", Component: BusinessPlanExpenseTable },
   { key: "business-plan-expense-oil-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า ปั๊มน้ำมัน", Component: BusinessPlanExpenseOilTable },
@@ -252,15 +212,12 @@ const COST_TABLES = [
   { key: "business-plan-rep-cost-summary", label: "ต้นทุนขายเฉพาะธุรกิจ", Component: BusinessPlanRepCostSummaryTable },
 ]
 
-// ---------------- Page ----------------
 const OperationPlan = () => {
   useEffect(() => {
     document.title = "แผนปฏิบัติงาน (Operation Plan)"
   }, [])
 
-  const [yearBE, setYearBE] = useState("2569")
-
-  // ปีให้เริ่มจาก 2569 ถึง 2579
+  // ✅ ปีเริ่ม 2569..2579
   const yearOptions = useMemo(() => {
     const start = 2569
     const count = 11
@@ -270,9 +227,12 @@ const OperationPlan = () => {
     })
   }, [])
 
-  // กันไม่ให้หลุดไป 2568/ค่าอื่น
-  useEffect(() => {
-    if (!yearBE || Number(yearBE) < 2569) setYearBE("2569")
+  const [yearBE, setYearBE] = useState("2569")
+
+  // ✅ planId หลักมาจาก OperationPlan: 2569=>1 ไล่ไปเรื่อยๆ
+  const planId = useMemo(() => {
+    const y = Number(yearBE || 0)
+    return Number.isFinite(y) ? y - 2568 : 0
   }, [yearBE])
 
   // branches
@@ -280,10 +240,8 @@ const OperationPlan = () => {
   const [branchOptions, setBranchOptions] = useState([])
   const [branchId, setBranchId] = useState("")
 
-  // ประเภทตาราง
-  const [planType, setPlanType] = useState("") // "sell" | "cost"
-
-  // selected table (ออโต้)
+  // table type
+  const [planType, setPlanType] = useState("")
   const [tableKey, setTableKey] = useState("")
 
   useEffect(() => {
@@ -308,7 +266,6 @@ const OperationPlan = () => {
     loadBranches()
   }, [])
 
-  // ✅ เมื่อเปลี่ยนประเภท: ตั้งค่า tableKey อัตโนมัติเป็นตัวแรกของประเภทนั้น
   useEffect(() => {
     if (planType === "sell") setTableKey(SALES_TABLES[0]?.key || "")
     else if (planType === "cost") setTableKey(COST_TABLES[0]?.key || "")
@@ -329,10 +286,7 @@ const OperationPlan = () => {
     return []
   }, [planType])
 
-  const activeTable = useMemo(() => {
-    return currentTables.find((t) => t.key === tableKey) || null
-  }, [currentTables, tableKey])
-
+  const activeTable = useMemo(() => currentTables.find((t) => t.key === tableKey) || null, [currentTables, tableKey])
   const ActiveComponent = activeTable?.Component || null
   const canShowTable = !!branchId && !!planType && !!ActiveComponent
 
@@ -361,16 +315,10 @@ const OperationPlan = () => {
             </div>
           </div>
 
-          {/* Controls */}
           <div className="mt-4 grid gap-3 md:grid-cols-12">
             <div className="md:col-span-3">
               <label className={labelCls}>ปี (พ.ศ.)</label>
-              <ComboBox
-                options={yearOptions}
-                value={yearBE}
-                onChange={(id) => setYearBE(String(id))}
-                placeholder="— เลือกปี —"
-              />
+              <ComboBox options={yearOptions} value={yearBE} onChange={(id) => setYearBE(String(id))} placeholder="— เลือกปี —" />
             </div>
 
             <div className="md:col-span-4">
@@ -384,9 +332,7 @@ const OperationPlan = () => {
                 buttonRef={branchRef}
                 onEnterNext={() => typeRef.current?.focus?.()}
               />
-              {!branchId && (
-                <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>
-              )}
+              {!branchId && <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>}
             </div>
 
             <div className="md:col-span-5">
@@ -398,22 +344,14 @@ const OperationPlan = () => {
                 placeholder="— เลือก: ยอดขาย / ค่าใช้จ่าย —"
                 getSubLabel={(o) => o?.subLabel || ""}
                 buttonRef={typeRef}
-                onEnterNext={() => {}}
               />
-              {!planType && (
-                <div className="mt-2 text-sm text-amber-600 dark:text-amber-300">
-                  * ต้องเลือก “ประเภทตาราง” ก่อน ถึงจะเริ่มกรอกได้
-                </div>
-              )}
             </div>
           </div>
 
-          {/* ตารางที่เลือก (ออโต้) */}
           <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-200">
             <span className="font-semibold">ตารางที่เลือก:</span> {activeTable?.label || "—"}
           </div>
 
-          {/* Quick summary */}
           <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-700 dark:text-slate-200">
               <span className="font-semibold">สาขา:</span> {branchName || "—"}
@@ -429,6 +367,7 @@ const OperationPlan = () => {
                 setBranchId("")
                 setPlanType("")
                 setTableKey("")
+                setYearBE("2569")
               }}
               className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
                          hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
@@ -439,7 +378,6 @@ const OperationPlan = () => {
           </div>
         </div>
 
-        {/* Content */}
         {!branchId ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
@@ -457,9 +395,7 @@ const OperationPlan = () => {
         ) : !canShowTable ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
-            <div className="mt-2 text-slate-600 dark:text-slate-300">
-              กรุณาเลือก <span className="font-semibold">ประเภทตาราง</span> ก่อน
-            </div>
+            <div className="mt-2 text-slate-600 dark:text-slate-300">กรุณาเลือกให้ครบ</div>
           </div>
         ) : (
           <div className="mt-2">
@@ -468,7 +404,7 @@ const OperationPlan = () => {
               branchId={branchId}
               branchName={branchName}
               yearBE={yearBE}
-              onYearBEChange={setYearBE}
+              planId={planId} // ✅ ส่ง planId หลักจาก OperationPlan
             />
           </div>
         )}

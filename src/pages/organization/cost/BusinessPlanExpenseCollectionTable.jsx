@@ -639,19 +639,6 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
             >
               ล้างข้อมูล
             </button>
-
-            <button
-              type="button"
-              disabled={isSaving}
-              onClick={saveToBE}
-              className={cx(
-                "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white",
-                "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",
-                isSaving && "opacity-60 hover:scale-100 cursor-not-allowed"
-              )}
-            >
-              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
-            </button>
           </div>
         </div>
 
@@ -670,8 +657,6 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
           </div>
         </div>
       </div>
-
-      <NoticeBox notice={notice} />
 
       {/* Table */}
       <div
@@ -888,10 +873,28 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
         </div>
 
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
-          <div className="text-sm text-slate-600 dark:text-slate-300">
-            โหลดหน่วยจาก: <span className="font-mono">GET /lists/unit/search?branch_id=...</span> • โหลดค่าล่าสุดจาก:{" "}
-            <span className="font-mono">GET /business-plan/{`{plan_id}`}/costs?branch_id=...</span> • บันทึก:{" "}
-            <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span>
+          <NoticeBox notice={notice} />
+
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              โหลดหน่วยจาก: <span className="font-mono">GET /lists/unit/search?branch_id=...</span> • โหลดค่าล่าสุดจาก:{" "}
+              <span className="font-mono">GET /business-plan/{`{plan_id}`}/costs?branch_id=...</span> • บันทึก:{" "}
+              <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span> • ปี {effectiveYear} • สาขา{" "}
+              {effectiveBranchName}
+            </div>
+
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={saveToBE}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white",
+                "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",
+                isSaving && "opacity-60 hover:scale-100 cursor-not-allowed"
+              )}
+            >
+              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
+            </button>
           </div>
         </div>
       </div>

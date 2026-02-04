@@ -100,8 +100,7 @@ const cellInput =
 
 const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
 
-/** ---------------- Plan/Business constants ---------------- */
-const DEFAULT_SEED_PLAN_ID = 5
+/** ---------------- Business constants ---------------- */
 const BUSINESS_GROUP_ID = 5 // เมล็ดพันธุ์
 
 /** ---------------- Mapping: cost_id + business_group -> businesscosts.id ----------------
@@ -150,8 +149,7 @@ const BUSINESS_COST_ID_MAP = (() => {
   const m = new Map()
   for (const r of BUSINESS_COSTS_SEED) {
     const key = `${Number(r.cost_id)}:${Number(r.business_group)}`
-    // ถ้าซ้ำ เก็บตัวแรก (id น้อยกว่า) เพื่อให้ deterministic
-    if (!m.has(key)) m.set(key, Number(r.id))
+    if (!m.has(key)) m.set(key, Number(r.id)) // ซ้ำเก็บตัวแรก
   }
   return m
 })()
@@ -175,11 +173,12 @@ const ROWS = [
 
   // ⚠️ cost_id=13 ซ้ำ 2 แถว (150/154) → override เพื่อกันชนกัน
   { code: "7.5", label: "ค่าน้ำมันเชื้อเพลิง", kind: "item", cost_id: 13, business_cost_id: 150 },
-  { code: "7.6", label: "ค่าใช้จ่ายเจ้าหน้าที่", kind: "item", cost_id: 21 },
+  { code: "7.6", label: "ค่าเหนื่อยเจ้าหน้าที่", kind: "item", cost_id: 21 },
 
   { code: "7.7", label: "ค่าของใช้สำนักงาน", kind: "item", cost_id: 26 },
   { code: "7.8", label: "ค่าเครื่องเขียนแบบพิมพ์", kind: "item", cost_id: 34 },
-  { code: "7.9", label: "น้ำมันเชื้อเพลิงใช้ไป", kind: "item", cost_id: 13, business_cost_id: 154 },
+
+  { code: "7.9", label: "ค่าน้ำมันเชื้อเพลิงใช้ไป", kind: "item", cost_id: 13, business_cost_id: 154 },
 
   { code: "7.10", label: "ค่าบริการสมาชิก", kind: "item", cost_id: 27 },
   { code: "7.11", label: "ค่าถ่ายเอกสาร", kind: "item", cost_id: 12 },
@@ -213,10 +212,9 @@ const ROWS = [
   { code: "7.35", label: "ค่าใช้จ่ายเบ็ดเตล็ด", kind: "item", cost_id: 36 },
 ]
 
-/** ---------------- Table sizing (เหมือนชุด BE อื่นๆ) ---------------- */
+/** ---------------- Table sizing ---------------- */
 const COL_W = { code: 56, item: 260, unit: 130, total: 90 }
 const LEFT_W = COL_W.code + COL_W.item
-
 const STRIPE = {
   head: "bg-slate-100/90 dark:bg-slate-700/70",
   cell: "bg-white dark:bg-slate-900",
@@ -225,13 +223,12 @@ const STRIPE = {
 }
 
 /**
- * ✅ รับ props จาก OperationPlan:
- * - branchId, branchName, yearBE, planId (แต่ไฟล์นี้ล็อก plan_id = 5)
+ * ✅ รับ props จากตัวแม่ (OperationPlan):
+ * - planId ใช้ตามตัวแม่ (ไม่ล็อก)
+ * - branchId ใช้โหลด units
  */
-const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }) => {
+const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, planId }) => {
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
-
-  const effectivePlanId = DEFAULT_SEED_PLAN_ID
 
   const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
   const effectiveBranchName = useMemo(
@@ -239,9 +236,19 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
     [branchName, effectiveBranchId]
   )
 
+  // ✅ ใช้ planId จากตัวแม่ (fallback: yearBE-2568)
+  const effectivePlanId = useMemo(() => {
+    const p = Number(planId || 0)
+    if (Number.isFinite(p) && p > 0) return p
+    const y = Number(yearBE || 0)
+    if (Number.isFinite(y) && y >= 2500) return y - 2568
+    return 0
+  }, [planId, yearBE])
+
   const effectiveYear = useMemo(() => {
     const y = Number(yearBE || 0)
     if (Number.isFinite(y) && y >= 2500) return y
+    // fallback แบบไม่เดาเยอะ
     return 2569
   }, [yearBE])
 
@@ -254,7 +261,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
   const [period, setPeriod] = useState(defaultPeriodLabel)
   useEffect(() => setPeriod(defaultPeriodLabel), [defaultPeriodLabel])
 
-  /** ---------------- Units (columns) ---------------- */
+  /** ---------------- Units ---------------- */
   const [units, setUnits] = useState([])
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)
 
@@ -267,7 +274,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
     let alive = true
     ;(async () => {
       setIsLoadingUnits(true)
-      setUnits([]) // เคลียร์ก่อนเพื่อเห็นว่าเปลี่ยนสาขาแล้วรีเฟรช
+      setUnits([]) // เคลียร์ก่อนเพื่อให้เห็นว่าเปลี่ยนสาขาแล้วรีเฟรชคอลัมน์
       try {
         const data = await apiAuth(`/lists/unit/search?branch_id=${effectiveBranchId}`)
         const rows = Array.isArray(data) ? data : []
@@ -294,7 +301,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
     }
   }, [effectiveBranchId])
 
-  /** ---------------- Values (grid) ---------------- */
+  /** ---------------- Values ---------------- */
   const [valuesByCode, setValuesByCode] = useState({})
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
 
@@ -317,6 +324,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
   }, [normalizeGrid])
 
   const loadSavedFromBE = useCallback(async () => {
+    if (!effectivePlanId || effectivePlanId <= 0) return
     if (!effectiveBranchId) return
     if (!units.length) return
 
@@ -409,7 +417,6 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
   }, [recalcTableCardHeight])
 
   const bodyScrollRef = useRef(null)
-
   const inputRefs = useRef(new Map())
   const totalCols = units.length
 
@@ -474,6 +481,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
   const [showPayload, setShowPayload] = useState(false)
 
   const buildBulkRowsForBE = useCallback(() => {
+    if (!effectivePlanId || effectivePlanId <= 0) throw new Error("FE: plan_id ไม่ถูกต้อง/ยังไม่ถูกส่งมา")
     if (!effectiveBranchId) throw new Error("FE: ยังไม่ได้เลือกสาขา")
     if (!units.length) throw new Error("FE: สาขานี้ไม่มีหน่วย หรือโหลดหน่วยไม่สำเร็จ")
 
@@ -490,7 +498,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
       const unit_values = []
       let branch_total = 0
 
-      // ส่งครบทุกหน่วย (รวม 0) เพื่อให้แก้เป็น 0 ได้จริง
+      // ส่งครบทุกหน่วย (รวม 0) เพื่อให้แก้เป็น 0 แล้ว BE ตามทัน
       for (const u of units) {
         const amount = toNumber(row[u.id])
         branch_total += amount
@@ -507,7 +515,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
     }
 
     return { rows }
-  }, [effectiveBranchId, units, itemRows, valuesByCode, period])
+  }, [effectivePlanId, effectiveBranchId, units, itemRows, valuesByCode, period])
 
   const payloadPreview = useMemo(() => {
     try {
@@ -578,17 +586,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
       }
 
       setNotice({ type: "error", title, detail })
-
-      console.groupCollapsed(
-        "%c[BusinessPlanExpenseSeedProcessingTable] Save failed ❌",
-        "color:#ef4444;font-weight:800;"
-      )
-      console.error("status:", status, "title:", title, "detail:", detail)
-      console.error("plan_id:", effectivePlanId)
-      console.error("branch_id:", effectiveBranchId, "branch:", effectiveBranchName)
-      if (payload) console.error("payload preview:", payload.rows?.slice(0, 2))
-      console.error("raw error:", e)
-      console.groupEnd()
+      console.error("[BusinessPlanExpenseSeedProcessingTable] Save failed:", e, payload)
     } finally {
       setIsSaving(false)
     }
@@ -614,7 +612,6 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
   /** widths depend on units */
   const RIGHT_W = Math.max(1, units.length) * COL_W.unit + COL_W.total
   const TOTAL_W = LEFT_W + RIGHT_W
-
   const stickyLeftHeader =
     "sticky left-0 z-[90] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
   const stickyCodeHeader =
@@ -633,7 +630,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
                 7) ค่าใช้จ่ายเฉพาะ ธุรกิจเมล็ดพันธุ์
               </div>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                ปี {effectiveYear} • plan_id {effectivePlanId} • สาขา {effectiveBranchName} • หน่วย{" "}
+                ปี {effectiveYear} • plan_id {effectivePlanId || "-"} • สาขา {effectiveBranchName} • หน่วย{" "}
                 {isLoadingUnits ? "กำลังโหลด..." : units.length}
                 {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
               </div>
@@ -659,7 +656,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
             </div>
           </div>
 
-          {/* ปุ่มด้านบน (ไม่มีปุ่มบันทึก — ย้ายไปล่างสุดเหมือนไฟล์จัดหา) */}
+          {/* ด้านบน (ไม่มีปุ่มบันทึก — ปุ่มบันทึกอยู่ล่างสุดเหมือนไฟล์จัดหา) */}
           <div className="flex flex-wrap gap-2 md:justify-end">
             <button
               type="button"
@@ -726,7 +723,9 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
             <colgroup>
               <col style={{ width: COL_W.code }} />
               <col style={{ width: COL_W.item }} />
-              {units.length ? units.map((u) => <col key={u.id} style={{ width: COL_W.unit }} />) : <col style={{ width: COL_W.unit }} />}
+              {units.length
+                ? units.map((u) => <col key={u.id} style={{ width: COL_W.unit }} />)
+                : <col style={{ width: COL_W.unit }} />}
               <col style={{ width: COL_W.total }} />
             </colgroup>
 
@@ -924,12 +923,12 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE }
           </table>
         </div>
 
-        {/* ✅ แถบล่างสุดเหมือนไฟล์จัดหา: route ซ้าย / ปุ่มบันทึกขวา */}
+        {/* ✅ แถบล่างสุดเหมือนไฟล์จัดหา */}
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-600 dark:text-slate-300">
               บันทึก: <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span> • plan_id=
-              {effectivePlanId} • ปี={effectiveYear} • สาขา={effectiveBranchName}
+              {effectivePlanId || "-"} • ปี={effectiveYear} • สาขา={effectiveBranchName}
             </div>
 
             <button

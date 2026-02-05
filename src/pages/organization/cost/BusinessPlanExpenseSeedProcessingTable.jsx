@@ -230,6 +230,16 @@ const STRIPE = {
 const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, planId }) => {
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
 
+  // ✅ แสดงรายการที่ยังไม่แมพ (เหมือนหน้าค่าใช้จ่ายดำเนินงาน)
+  const unmappedStatic = useMemo(() => {
+    const miss = []
+    for (const r of itemRows) {
+      const bcId = resolveRowBusinessCostId(r)
+      if (!bcId) miss.push({ code: r.code, label: r.label, cost_id: r.cost_id })
+    }
+    return miss
+  }, [itemRows])
+
   const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
   const effectiveBranchName = useMemo(
     () => branchName || (effectiveBranchId ? `สาขา id: ${effectiveBranchId}` : "-"),
@@ -485,22 +495,31 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, 
     if (!effectiveBranchId) throw new Error("FE: ยังไม่ได้เลือกสาขา")
     if (!units.length) throw new Error("FE: สาขานี้ไม่มีหน่วย หรือโหลดหน่วยไม่สำเร็จ")
 
+
     const rows = []
+    const skipped = []
+    const blocked = []
+
     for (const r of itemRows) {
       const businessCostId = resolveRowBusinessCostId(r)
+
+      const rowObj = valuesByCode[r.code] || {}
+      let rowSum = 0
+      for (const u of units) rowSum += toNumber(rowObj[u.id])
+
+      // ยังไม่แมพ → ข้ามได้เฉพาะกรณีแถวนี้เป็น 0 ทั้งหมด
       if (!businessCostId) {
-        throw new Error(
-          `FE: หา business_cost_id ไม่เจอ (code=${r.code}, cost_id=${r.cost_id}, group=${BUSINESS_GROUP_ID})`
-        )
+        skipped.push({ code: r.code, label: r.label, cost_id: r.cost_id })
+        if (rowSum !== 0) blocked.push({ code: r.code, label: r.label, cost_id: r.cost_id })
+        continue
       }
 
-      const row = valuesByCode[r.code] || {}
       const unit_values = []
       let branch_total = 0
 
-      // ส่งครบทุกหน่วย (รวม 0) เพื่อให้แก้เป็น 0 แล้ว BE ตามทัน
+      // ส่งครบทุกหน่วย (รวม 0) เพื่อให้ล้างค่าแล้วทับของเดิมได้แน่นอน
       for (const u of units) {
-        const amount = toNumber(row[u.id])
+        const amount = toNumber(rowObj[u.id])
         branch_total += amount
         unit_values.push({ unit_id: u.id, amount })
       }
@@ -514,13 +533,23 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, 
       })
     }
 
-    return { rows }
+    if (blocked.length) {
+      throw new Error("FE: มีรายการยังไม่แมพ แต่คุณกรอกตัวเลขแล้ว: " + blocked.map((x) => `${x.code}`).join(", "))
+    }
+
+    return { rows, skipped }
+
   }, [effectivePlanId, effectiveBranchId, units, itemRows, valuesByCode, period])
 
   const payloadPreview = useMemo(() => {
     try {
-      const body = buildBulkRowsForBE()
-      return { plan_id: effectivePlanId, endpoint: `/business-plan/${effectivePlanId}/costs/bulk`, body }
+      const built = buildBulkRowsForBE()
+      return {
+        plan_id: effectivePlanId,
+        endpoint: `/business-plan/${effectivePlanId}/costs/bulk`,
+        body: { rows: built.rows },
+        skipped: built.skipped,
+      }
     } catch (e) {
       return { error: e?.message || String(e) }
     }
@@ -549,7 +578,8 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, 
       const token = getToken()
       if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
 
-      payload = buildBulkRowsForBE()
+      const built = buildBulkRowsForBE()
+      payload = { rows: built.rows }
       setIsSaving(true)
 
       const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/bulk`, {
@@ -562,7 +592,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, 
         title: "บันทึกสำเร็จ ✅",
         detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName} • upserted: ${
           res?.branch_totals_upserted ?? "-"
-        }`,
+        }${built?.skipped?.length ? ` • skipped: ${built.skipped.length}` : ""}`,
       })
 
       await loadSavedFromBE()
@@ -654,6 +684,26 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, 
                 </div>
               </div>
             </div>
+
+            {unmappedStatic.length > 0 ? (
+              <div
+                className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900
+                           dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100"
+              >
+                <div className="font-extrabold">⚠️ รายการที่ยังไม่แมพ (จะข้ามตอนบันทึกถ้าเป็น 0)</div>
+                <div className="mt-1 text-[13px] opacity-95">
+                  {unmappedStatic.map((x) => `${x.code} (cost_id=${x.cost_id})`).join(" • ")}
+                </div>
+              </div>
+            ) : (
+              <div
+                className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900
+                           dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100"
+              >
+                <div className="font-extrabold">✅ แมพครบแล้ว</div>
+                <div className="mt-1 text-[13px] opacity-95">ไม่มีรายการที่ยังไม่แมพ (ทั้งหมด {itemRows.length} รายการ)</div>
+              </div>
+            )}
           </div>
 
           {/* ด้านบน (ไม่มีปุ่มบันทึก — ปุ่มบันทึกอยู่ล่างสุดเหมือนไฟล์จัดหา) */}
@@ -818,6 +868,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, 
                 const idx = itemRows.findIndex((x) => x.code === r.code)
                 const rowBg = idx % 2 === 1 ? STRIPE.alt : STRIPE.cell
                 const rowSum = computed.rowTotal[r.code] || 0
+                const isUnmapped = !resolveRowBusinessCostId(r)
 
                 return (
                   <tr key={r.code} className={rowBg}>
@@ -827,6 +878,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, 
                         stickyCodeCell,
                         rowBg
                       )}
+                      title={isUnmapped ? "ยังไม่แมพ (businesscosts)" : ""}
                     >
                       {r.code}
                     </td>
@@ -839,9 +891,9 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, 
                         trunc
                       )}
                       style={{ left: COL_W.code }}
-                      title={r.label}
+                      title={isUnmapped ? `${r.label} (ยังไม่แมพ cost_id=${r.cost_id})` : r.label}
                     >
-                      {r.label}
+                      <span className={cx(isUnmapped && "text-amber-700 dark:text-amber-200")}>{r.label}</span>
                     </td>
 
                     {units.length ? (

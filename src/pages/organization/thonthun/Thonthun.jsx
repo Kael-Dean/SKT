@@ -130,11 +130,13 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
     return Number.isFinite(y) ? y - 2568 : 0
   }, [planId, yearBE])
 
+  // ต้นทุนสินค้า = ใช้ร่วมทุกสาขา → ไม่บังคับเลือกสาขา
   const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
-  const effectiveBranchName = useMemo(
-    () => branchName || (effectiveBranchId ? `สาขา id: ${effectiveBranchId}` : "-"),
-    [branchName, effectiveBranchId]
-  )
+  const effectiveBranchName = useMemo(() => {
+    if (branchName) return branchName
+    if (effectiveBranchId) return `สาขา id: ${effectiveBranchId}`
+    return "ทุกสาขา"
+  }, [branchName, effectiveBranchId])
 
   const periodLabel = useMemo(() => {
     const yy = String(effectiveYear).slice(-2)
@@ -160,7 +162,10 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
       .map((r) => {
         const id = Number(r?.id ?? r?.product_id ?? r?.product ?? r?.value ?? 0)
         const name =
+          // ✅ ตาม BE ที่ส่งมา (/lists/product/search)
           r?.product_name ||
+          r?.product_type ||
+          // เผื่อบาง endpoint ส่งฟิลด์อื่นมา
           r?.name ||
           r?.label ||
           r?.title ||
@@ -173,15 +178,30 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
   }
 
   const loadItems = useCallback(async () => {
-    // ลองตามลำดับ: ถ้ามี endpoint เฉพาะ → ใช้ก่อน
-    const tries = [
-      "/unit-prices/items", // ถ้า BE ทำไว้
-      "/unit-prices/products", // บางคนตั้งชื่อแบบนี้
-      "/order/product/search", // ที่ใช้ในระบบซื้อ/ขาย
-      "/lists/product/search", // fallback
+    // ✅ ใช้ลิสที่ BE ส่งมาเป็นหลัก
+    // router prefix='/lists' → /lists/product/search
+    const primary = "/lists/product/search"
+
+    try {
+      const data = await apiAuth(primary)
+      const normalized = normalizeItems(data)
+      if (normalized.length) {
+        setItems(normalized)
+        setItemsSource(primary)
+        return
+      }
+    } catch (e) {
+      // fallback ข้างล่าง
+    }
+
+    // fallback เผื่อบาง env ยังไม่เปิด /lists
+    const fallbacks = [
+      "/order/product/search",
+      "/lists/products/search",
+      "/list/product/search",
     ]
 
-    for (const path of tries) {
+    for (const path of fallbacks) {
       try {
         const data = await apiAuth(path)
         const normalized = normalizeItems(data)
@@ -190,10 +210,7 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
           setItemsSource(path)
           return
         }
-        // ถ้า endpoint ตอบแต่ไม่มี list → ลองตัวถัดไป
-      } catch (e) {
-        // ลองตัวถัดไป
-      }
+      } catch {}
     }
 
     setItems([])

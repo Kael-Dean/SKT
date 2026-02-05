@@ -375,6 +375,14 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
     })
   }
 
+  /** ---------------- Unmapped static list (แจ้งเหมือนไฟล์ค่าใช้จ่ายดำเนินงาน) ---------------- */
+  const unmappedStatic = useMemo(() => {
+    return itemRows
+      .filter((r) => !resolveRowBusinessCostId(r))
+      .map((r) => ({ code: r.code, label: r.label, cost_id: r.cost_id }))
+  }, [itemRows])
+
+
   /** ---------------- Totals ---------------- */
   const computed = useMemo(() => {
     const rowTotal = {}
@@ -716,6 +724,30 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
           </div>
         </div>
 
+
+        {unmappedStatic.length > 0 ? (
+          <div
+            className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900
+                       dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100"
+          >
+            <div className="font-extrabold">⚠️ รายการที่ยังไม่แมพ (จะข้ามตอนบันทึกถ้าเป็น 0)</div>
+            <div className="mt-1 text-[13px] opacity-95">
+              {unmappedStatic.map((x) => `${x.code} (cost_id=${x.cost_id})`).join(" • ")}
+            </div>
+          </div>
+        ) : (
+          <div
+            className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900
+                       dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100"
+          >
+            <div className="font-extrabold">✅ แมพครบแล้ว</div>
+            <div className="mt-1 text-[13px] opacity-95">
+              ไม่มีรายการที่ยังไม่แมพ (ทั้งหมด {itemRows.length} รายการ)
+            </div>
+          </div>
+        )}
+
+
         {showPayload && (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800
                           dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
@@ -844,6 +876,7 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
                 const idx = itemRows.findIndex((x) => x.code === r.code)
                 const rowBg = idx % 2 === 1 ? STRIPE.alt : STRIPE.cell
                 const rowSum = computed.rowTotal[r.code] || 0
+                const isUnmapped = !resolveRowBusinessCostId(r)
 
                 return (
                   <tr key={r.code} className={rowBg}>
@@ -853,6 +886,7 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
                         stickyCodeCell,
                         rowBg
                       )}
+                      title={isUnmapped ? "ยังไม่แมพ (businesscosts)" : ""}
                     >
                       {r.code}
                     </td>
@@ -865,9 +899,9 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
                         trunc
                       )}
                       style={{ left: COL_W.code }}
-                      title={r.label}
+                      title={isUnmapped ? `${r.label} (ยังไม่แมพ cost_id=${r.cost_id})` : r.label}
                     >
-                      {r.label}
+                      <span className={cx(isUnmapped && "text-amber-700 dark:text-amber-200")}>{r.label}</span>
                     </td>
 
                     {units.length ? (

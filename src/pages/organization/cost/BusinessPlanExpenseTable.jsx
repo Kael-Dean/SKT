@@ -671,7 +671,7 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
           </div>
         </div>
 
-        {unmappedStatic.length > 0 && (
+        {unmappedStatic.length > 0 ? (
           <div
             className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900
                        dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100"
@@ -680,6 +680,14 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
             <div className="mt-1 text-[13px] opacity-95">
               {unmappedStatic.map((x) => `${x.code} (cost_id=${x.cost_id})`).join(" • ")}
             </div>
+          </div>
+        ) : (
+          <div
+            className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900
+                       dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100"
+          >
+            <div className="font-extrabold">✅ แมพครบแล้ว</div>
+            <div className="mt-1 text-[13px] opacity-95">ไม่มีรายการที่ยังไม่แมพ (ทั้งหมด {itemRows.length} รายการ)</div>
           </div>
         )}
 

@@ -97,29 +97,68 @@ const cellInput =
 // ✅ ให้หัวคอลัมน์/รายการตัดคำและไม่ดันความกว้าง
 const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
 
-/** ---------------- Mapping: cost_id + business_group -> businesscosts.id ---------------- */
+/** ---------------- Business group ----------------
+ * ทำแนวเดียวกับหน้าค่าใช้จ่ายดำเนินงาน
+ */
 const BUSINESS_GROUP_ID = 1
 
-// group 1 seed: businesscosts.id 1..35 <-> cost_id 2..36
-const BUSINESS_COSTS_SEED = (() => {
-  const out = []
-  for (let costId = 2; costId <= 36; costId++) {
-    out.push({ id: costId - 1, cost_id: costId, business_group: 1 })
+/** ---------------- Mapping: cost_id + business_group -> businesscosts.id ----------------
+ * จาก businesscosts.csv (business_group=1) id 1..35
+ */
+const BUSINESS_COSTS_SEED = [
+  { id: 1, cost_id: 2, business_group: 1 },
+  { id: 2, cost_id: 3, business_group: 1 },
+  { id: 3, cost_id: 4, business_group: 1 },
+  { id: 4, cost_id: 5, business_group: 1 },
+  { id: 5, cost_id: 6, business_group: 1 },
+  { id: 6, cost_id: 7, business_group: 1 },
+  { id: 7, cost_id: 8, business_group: 1 },
+  { id: 8, cost_id: 9, business_group: 1 },
+  { id: 9, cost_id: 10, business_group: 1 },
+  { id: 10, cost_id: 11, business_group: 1 },
+  { id: 11, cost_id: 12, business_group: 1 },
+  { id: 12, cost_id: 13, business_group: 1 },
+  { id: 13, cost_id: 14, business_group: 1 },
+  { id: 14, cost_id: 15, business_group: 1 },
+  { id: 15, cost_id: 16, business_group: 1 },
+  { id: 16, cost_id: 17, business_group: 1 },
+  { id: 17, cost_id: 18, business_group: 1 },
+  { id: 18, cost_id: 19, business_group: 1 },
+  { id: 19, cost_id: 20, business_group: 1 },
+  { id: 20, cost_id: 21, business_group: 1 },
+  { id: 21, cost_id: 22, business_group: 1 },
+  { id: 22, cost_id: 23, business_group: 1 },
+  { id: 23, cost_id: 24, business_group: 1 },
+  { id: 24, cost_id: 25, business_group: 1 },
+  { id: 25, cost_id: 26, business_group: 1 },
+  { id: 26, cost_id: 27, business_group: 1 },
+  { id: 27, cost_id: 28, business_group: 1 },
+  { id: 28, cost_id: 29, business_group: 1 },
+  { id: 29, cost_id: 30, business_group: 1 },
+  { id: 30, cost_id: 31, business_group: 1 },
+  { id: 31, cost_id: 32, business_group: 1 },
+  { id: 32, cost_id: 33, business_group: 1 },
+  { id: 33, cost_id: 34, business_group: 1 },
+  { id: 34, cost_id: 35, business_group: 1 },
+  { id: 35, cost_id: 36, business_group: 1 },
+]
+
+const BUSINESS_COST_ID_MAP = (() => {
+  const m = new Map()
+  for (const r of BUSINESS_COSTS_SEED) {
+    const key = `${Number(r.cost_id)}:${Number(r.business_group)}`
+    if (!m.has(key)) m.set(key, Number(r.id)) // ซ้ำเก็บตัวแรก
   }
-  return out
+  return m
 })()
 
-const BUSINESS_COST_ID_MAP = new Map(
-  BUSINESS_COSTS_SEED.map((r) => [`${r.cost_id}:${r.business_group}`, r.id])
-)
 const resolveBusinessCostId = (costId, businessGroupId) =>
   BUSINESS_COST_ID_MAP.get(`${Number(costId)}:${Number(businessGroupId)}`) ?? null
 
-// inverse: business_cost_id -> cost_id (ใช้ตอนโหลดจาก BE)
-const BUSINESS_COST_TO_COSTID = new Map(
-  BUSINESS_COSTS_SEED.map((r) => [Number(r.id), Number(r.cost_id)])
-)
-
+const resolveRowBusinessCostId = (row) => {
+  if (row?.business_cost_id) return Number(row.business_cost_id)
+  return resolveBusinessCostId(row?.cost_id, BUSINESS_GROUP_ID)
+}
 /** ---------------- Rows (รายการค่าใช้จ่าย) ---------------- */
 const ROWS = [
   { code: "3", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", kind: "section" },
@@ -272,6 +311,11 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
     try {
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs?branch_id=${effectiveBranchId}`)
       const unitCells = Array.isArray(data?.unit_cells) ? data.unit_cells : []
+      const bcToCode = new Map()
+      for (const r of itemRows) {
+        const bcId = resolveRowBusinessCostId(r)
+        if (bcId) bcToCode.set(Number(bcId), r.code)
+      }
 
       const seed = {}
       for (const cell of unitCells) {
@@ -280,17 +324,15 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
         const amount = Number(cell.amount || 0)
         if (!uId || !bCostId) continue
 
-        const costId = BUSINESS_COST_TO_COSTID.get(bCostId)
-        if (!costId) continue
+        const code = bcToCode.get(bCostId)
+        if (!code) continue
 
-        const row = itemRows.find((r) => Number(r.cost_id) === Number(costId))
-        if (!row) continue
-
-        if (!seed[row.code]) seed[row.code] = {}
-        seed[row.code][uId] = String(amount)
+        if (!seed[code]) seed[code] = {}
+        seed[code][uId] = String(amount)
       }
 
       setValuesByCode(normalizeGrid(seed))
+
     } catch (e) {
       console.error("[Load saved] failed:", e)
       setValuesByCode(normalizeGrid({}))
@@ -316,6 +358,14 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
       return next
     })
   }
+
+
+  /** ---------------- Unmapped static list (แจ้งเหมือนไฟล์ค่าใช้จ่ายดำเนินงาน) ---------------- */
+  const unmappedStatic = useMemo(() => {
+    return itemRows
+      .filter((r) => !resolveRowBusinessCostId(r))
+      .map((r) => ({ code: r.code, label: r.label, cost_id: r.cost_id }))
+  }, [itemRows])
 
   /** ---------------- Totals ---------------- */
   const computed = useMemo(() => {
@@ -435,19 +485,31 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
     if (!units.length) throw new Error("FE: สาขานี้ไม่มีหน่วย หรือโหลดหน่วยไม่สำเร็จ")
 
     const rows = []
-    for (const r of itemRows) {
-      const businessCostId = resolveBusinessCostId(r.cost_id, BUSINESS_GROUP_ID)
-      if (!businessCostId)
-        throw new Error(`FE: หา business_cost_id ไม่เจอ (cost_id=${r.cost_id}, group=${BUSINESS_GROUP_ID})`)
+    const skipped = []
+    const blocked = []
 
-      const row = valuesByCode[r.code] || {}
+    for (const r of itemRows) {
+      const businessCostId = resolveRowBusinessCostId(r)
+
+      const rowObj = valuesByCode[r.code] || {}
+      let rowSum = 0
+      for (const u of units) rowSum += toNumber(rowObj[u.id])
+
+      // ยังไม่แมพ → ข้ามได้เฉพาะกรณีแถวนี้เป็น 0 ทั้งหมด
+      if (!businessCostId) {
+        skipped.push({ code: r.code, label: r.label, cost_id: r.cost_id })
+        if (rowSum !== 0) blocked.push({ code: r.code, label: r.label, cost_id: r.cost_id })
+        continue
+      }
+
       const unit_values = []
       let branch_total = 0
 
+      // ส่งครบทุก unit (รวม 0) เพื่อให้ล้างค่าแล้วทับของเดิมได้แน่นอน
       for (const u of units) {
-        const amount = toNumber(row[u.id])
+        const amount = toNumber(rowObj[u.id])
         branch_total += amount
-        if (amount !== 0) unit_values.push({ unit_id: u.id, amount })
+        unit_values.push({ unit_id: u.id, amount })
       }
 
       rows.push({
@@ -458,7 +520,12 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
         comment: periodLabel,
       })
     }
-    return { rows }
+
+    if (blocked.length) {
+      throw new Error("FE: มีรายการยังไม่แมพ แต่คุณกรอกตัวเลขแล้ว: " + blocked.map((x) => `${x.code}`).join(", "))
+    }
+
+    return { rows, skipped }
   }
 
   const saveToBE = async () => {
@@ -468,7 +535,8 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
       const token = getToken()
       if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
 
-      payload = buildBulkRowsForBE()
+      const built = buildBulkRowsForBE()
+      payload = { rows: built.rows }
       setIsSaving(true)
 
       const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/bulk`, {
@@ -479,9 +547,7 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
       setSaveNotice({
         type: "success",
         title: "บันทึกสำเร็จ ✅",
-        detail: `สาขา ${effectiveBranchName} • ปี ${effectiveYear} • upserted: ${
-          res?.branch_totals_upserted ?? "-"
-        }`,
+        detail: `สาขา ${effectiveBranchName} • ปี ${effectiveYear} • upserted: ${res?.branch_totals_upserted ?? "-"}${built?.skipped?.length ? ` • skipped: ${built.skipped.length}` : ""}`,
       })
 
       await loadSavedFromBE()
@@ -604,6 +670,18 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
             </button>
           </div>
         </div>
+
+        {unmappedStatic.length > 0 && (
+          <div
+            className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900
+                       dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100"
+          >
+            <div className="font-extrabold">⚠️ รายการที่ยังไม่แมพ (จะข้ามตอนบันทึกถ้าเป็น 0)</div>
+            <div className="mt-1 text-[13px] opacity-95">
+              {unmappedStatic.map((x) => `${x.code} (cost_id=${x.cost_id})`).join(" • ")}
+            </div>
+          </div>
+        )}
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div>
@@ -730,7 +808,7 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
                 const idx = itemRows.findIndex((x) => x.code === r.code)
                 const rowBg = idx % 2 === 1 ? STRIPE.alt : STRIPE.cell
                 const rowSum = computed.rowTotal[r.code] || 0
-                const bcId = resolveBusinessCostId(r.cost_id, BUSINESS_GROUP_ID)
+                const isUnmapped = !resolveRowBusinessCostId(r)
 
                 return (
                   <tr key={r.code} className={rowBg}>
@@ -740,6 +818,7 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
                         stickyCodeCell,
                         rowBg
                       )}
+                      title={isUnmapped ? "ยังไม่แมพ (businesscosts)" : ""}
                     >
                       {r.code}
                     </td>
@@ -752,9 +831,9 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
                         trunc
                       )}
                       style={{ left: COL_W.code }}
-                      title={r.label}
+                      title={isUnmapped ? `${r.label} (ยังไม่แมพ cost_id=${r.cost_id})` : r.label}
                     >
-                      {r.label}
+                      <span className={cx(isUnmapped && "text-amber-700 dark:text-amber-200")}>{r.label}</span>
                     </td>
 
                     {units.length ? (

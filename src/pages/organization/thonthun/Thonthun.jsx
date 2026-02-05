@@ -42,8 +42,13 @@ class ApiError extends Error {
   }
 }
 
-const getToken = () => localStorage.getItem("token") || ""
-
+const getToken = () => (
+  localStorage.getItem("token") ||
+  localStorage.getItem("access_token") ||
+  localStorage.getItem("accessToken") ||
+  localStorage.getItem("jwt") ||
+  ""
+)
 // apiAuth: default ใช้ Bearer token (กัน 401/403)
 // แต่สำหรับบาง GET ที่ไม่ต้อง auth (เช่น /unit-prices/{year}) จะตั้ง auth:false เพื่อลด CORS preflight
 async function apiAuth(path, { method = "GET", body, auth = true } = {}) {
@@ -186,6 +191,15 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
     const p = Number(planId || 0)
     return Number.isFinite(p) && p > 0 ? p + 2568 : 2569
   }, [yearBE, planId, planFiscalYear])
+
+  // plan_id: BE จะเป็นคนกำหนดจริง (autoincrement) และส่งกลับมาใน plan.id / save response
+  // แต่ถ้าปียังไม่มี plan ในระบบ ให้โชว์ค่าประมาณแบบ "ปี 2569 => 1" เพื่อให้ user เข้าใจ flow
+  const computedPlanId = useMemo(() => {
+    const y = Number(effectiveYear)
+    if (!Number.isFinite(y)) return null
+    return Math.max(1, y - 2568)
+  }, [effectiveYear])
+
 
   // ต้นทุนสินค้า = ใช้ร่วมทุกสาขา → ไม่บังคับเลือกสาขา
   const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
@@ -557,29 +571,19 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
       payload = buildPayloadForBE()
       setIsSaving(true)
 
-      let res = null
-      let used = ""
+let res = null
+let used = ""
 
-      // ✅ ตาม BE ที่คุณส่ง: PUT /unit-prices/bulk (admin only)
-      // เผื่อบาง env เปลี่ยนเป็น POST/ต้องมี query year เลยเตรียม fallback ให้
-      const candidates = [
-        { path: `/unit-prices/bulk`, method: "PUT" },
-        { path: `/unit-prices/bulk?year=${effectiveYear}`, method: "PUT" },
-        { path: `/unit-prices/bulk`, method: "POST" },
-        { path: `/unit-prices/bulk?year=${effectiveYear}`, method: "POST" },
-      ]
+// ✅ ตาม BE ล่าสุด: PUT /unit-prices/bulk (admin only)
+// Body ต้องเป็น { year, items } เท่านั้น (ไม่ต้องส่ง query ?year และไม่ต้อง POST)
+try {
+  res = await apiAuth(`/unit-prices/bulk`, { method: "PUT", body: payload, auth: true })
+  used = "PUT /unit-prices/bulk"
+} catch (e) {
+  throw e
+}
 
-      let lastErr = null
-      for (const c of candidates) {
-        try {
-          res = await apiAuth(c.path, { method: c.method, body: payload, auth: true })
-          used = `${c.method} ${c.path}`
-          break
-        } catch (e) {
-          lastErr = e
-        }
-      }
-      if (res == null) throw lastErr || new Error("บันทึกไม่สำเร็จ")
+if (res == null) throw new Error("บันทึกไม่สำเร็จ")
 
       setSaveNotice({
         type: "success",
@@ -667,7 +671,7 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
           <div>
             <div className="text-lg font-bold">ประมาณการต้นทุนสินค้า (ต้นทุนซื้อ/ต้นทุนการขาย)</div>
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              ({periodLabel}) • ปี {effectiveYear} • plan_id {planInfo?.id ?? (effectivePlanId || "-")} • สาขา {effectiveBranchName}
+              ({periodLabel}) • ปี {effectiveYear} • plan_id {planInfo?.id ?? (computedPlanId ?? "-")} • สาขา {effectiveBranchName}
               {planYearSource ? ` • yearSource=${planYearSource}` : ""}
               {isLoadingItems ? " • โหลดรายการ..." : items.length ? ` • รายการ ${items.length}` : " • ไม่มีรายการ"}
               {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
@@ -933,7 +937,7 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
 
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-600 dark:text-slate-300">
-              โหลด: <span className="font-mono">{savedSource || `GET /unit-prices/{year}`}</span> • บันทึก: <span className="font-mono">PUT /unit-prices/bulk</span> • ปี={effectiveYear} • plan_id={planInfo?.id ?? (effectivePlanId || "-")}{planYearSource ? ` • yearSource=${planYearSource}` : ""}
+              โหลด: <span className="font-mono">{savedSource || `GET /unit-prices/{year}`}</span> • บันทึก: <span className="font-mono">PUT /unit-prices/bulk</span> • ปี={effectiveYear} • plan_id(BE)={planInfo?.id ?? (computedPlanId ?? "-")}{planYearSource ? ` • yearSource=${planYearSource}` : ""}
             </div>
 
             <button

@@ -19,6 +19,12 @@ const sanitizeNumberInput = (s, { maxDecimals = 3 } = {}) => {
   return `${intPart}.${dec}`
 }
 const fmtMoney0 = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
+const fmtDec3Str = (v) => {
+  const n = toNumber(v)
+  if (!Number.isFinite(n)) return "0.000"
+  // ส่งเป็น string เพื่อลดปัญหา floating ของ JS ทำให้ BE (condecimal) 422
+  return n.toFixed(3)
+}
 
 /** ---------------- API (token = localStorage.token) ---------------- */
 const API_BASE_RAW =
@@ -189,11 +195,19 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
     return "ทุกสาขา"
   }, [branchName, effectiveBranchId])
 
+  /**
+   * หมายเหตุ:
+   * BE ใหม่สร้าง/ส่ง start_end มากับ BusinessPlan แล้ว (เช่น "1 เม.ย. 2568 - 31 มี.ค. 2569")
+   * เพื่อให้ UI/Comment ตรงกับ BE — ถ้ายังไม่มี plan จะ fallback เป็น label แบบเดิม
+   */
+  const [planInfo, setPlanInfo] = useState(null)
+
   const periodLabel = useMemo(() => {
+    if (planInfo?.start_end) return String(planInfo.start_end)
     const yy = String(effectiveYear).slice(-2)
     const yyNext = String(effectiveYear + 1).slice(-2)
     return `1 เม.ย.${yy}-31 มี.ค.${yyNext}`
-  }, [effectiveYear])
+  }, [effectiveYear, planInfo])
 
   /** ---------------- Load items list (rows) ---------------- */
   const [items, setItems] = useState([]) // {id,name,raw}
@@ -273,7 +287,9 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
           setItemsSource(path)
           return
         }
-      } catch {}
+      } catch {
+        /* ignore fetch failure and try next fallback */
+      }
     }
 
     setItems([])
@@ -333,10 +349,16 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
       try {
         data = await apiAuth(`/unit-prices/${effectiveYear}`, { method: "GET", auth: false })
         used = `GET /unit-prices/${effectiveYear} (no-auth)`
-      } catch (e1) {
+      } catch {
         // ถ้า BE ล็อกไว้ค่อยลองแบบมี token
         data = await apiAuth(`/unit-prices/${effectiveYear}`, { method: "GET", auth: true })
         used = `GET /unit-prices/${effectiveYear} (auth)`
+      }
+
+      // ✅ BE ใหม่คืน { ok, exists, year, plan, items }
+      // เก็บ plan ไว้ใช้แสดง start_end ให้ตรง BE
+      if (data && typeof data === "object") {
+        setPlanInfo(data?.plan ?? null)
       }
 
       // normalize
@@ -356,6 +378,7 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
     } catch (e) {
       console.error("[Thonthun] load saved failed:", e)
       setSavedSource("")
+      setPlanInfo(null)
       setValuesById(normalizeGrid({}))
     } finally {
       setIsLoadingSaved(false)
@@ -477,7 +500,9 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
       target.focus()
       try {
         target.select()
-      } catch {}
+      } catch {
+        /* ignore if browser blocks select */
+      }
       requestAnimationFrame(() => ensureInView(target))
     },
     [ensureInView, items.length]
@@ -497,8 +522,9 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
       const row = valuesById[it.id] || {}
       return {
         product_id: it.id,
-        sell_price: toNumber(row.sell),
-        buy_price: toNumber(row.buy),
+        // ✅ ส่งเป็น string(3dp) ให้ตรง condecimal(decimal_places=3)
+        sell_price: fmtDec3Str(row.sell),
+        buy_price: fmtDec3Str(row.buy),
         comment: periodLabel,
       }
     })
@@ -641,7 +667,7 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
           <div>
             <div className="text-lg font-bold">ประมาณการต้นทุนสินค้า (ต้นทุนซื้อ/ต้นทุนการขาย)</div>
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              ({periodLabel}) • ปี {effectiveYear} • plan_id {effectivePlanId || "-"} • สาขา {effectiveBranchName}
+              ({periodLabel}) • ปี {effectiveYear} • plan_id {planInfo?.id ?? (effectivePlanId || "-")} • สาขา {effectiveBranchName}
               {planYearSource ? ` • yearSource=${planYearSource}` : ""}
               {isLoadingItems ? " • โหลดรายการ..." : items.length ? ` • รายการ ${items.length}` : " • ไม่มีรายการ"}
               {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
@@ -907,7 +933,7 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
 
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-600 dark:text-slate-300">
-              โหลด: <span className="font-mono">{savedSource || `GET /unit-prices/{year}`}</span> • บันทึก: <span className="font-mono">PUT /unit-prices/bulk</span> • ปี={effectiveYear} • plan_id={effectivePlanId || "-"}{planYearSource ? ` • yearSource=${planYearSource}` : ""}
+              โหลด: <span className="font-mono">{savedSource || `GET /unit-prices/{year}`}</span> • บันทึก: <span className="font-mono">PUT /unit-prices/bulk</span> • ปี={effectiveYear} • plan_id={planInfo?.id ?? (effectivePlanId || "-")}{planYearSource ? ` • yearSource=${planYearSource}` : ""}
             </div>
 
             <button

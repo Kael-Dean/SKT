@@ -38,7 +38,9 @@ class ApiError extends Error {
 
 const getToken = () => localStorage.getItem("token") || ""
 
-async function apiAuth(path, { method = "GET", body } = {}) {
+// apiAuth: default ใช้ Bearer token (กัน 401/403)
+// แต่สำหรับบาง GET ที่ไม่ต้อง auth (เช่น /unit-prices/{year}) จะตั้ง auth:false เพื่อลด CORS preflight
+async function apiAuth(path, { method = "GET", body, auth = true } = {}) {
   if (!API_BASE) throw new ApiError("FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE...)", { status: 0 })
   const token = getToken()
   const url = `${API_BASE}${path}`
@@ -49,10 +51,11 @@ async function apiAuth(path, { method = "GET", body } = {}) {
       method,
       headers: {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: body != null ? JSON.stringify(body) : undefined,
-      credentials: "include",
+      // ✅ ไม่ส่ง cookie เพื่อลดปัญหา session เก่าทับ + ลด CORS complexity
+      credentials: "omit",
     })
   } catch (e) {
     throw new ApiError("FE: เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (Network/CORS/DNS)", {
@@ -116,19 +119,67 @@ const STRIPE = {
  * - branchId, branchName, yearBE, planId
  */
 const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
-  const effectiveYear = useMemo(() => {
-    const y = Number(yearBE || 0)
-    if (Number.isFinite(y) && y >= 2500) return y
-    const p = Number(planId || 0)
-    return Number.isFinite(p) && p > 0 ? p + 2568 : 2569
-  }, [yearBE, planId])
-
   const effectivePlanId = useMemo(() => {
     const p = Number(planId || 0)
     if (Number.isFinite(p) && p > 0) return p
+    return 0
+  }, [planId])
+
+  // ✅ บางหน้าส่ง planId เป็น PK (เช่น businessplans.id) ไม่ใช่ index ของปี
+  // เลยพยายามอ่าน fiscal_year จาก BE ถ้าทำได้
+  const [planFiscalYear, setPlanFiscalYear] = useState(null)
+  const [planYearSource, setPlanYearSource] = useState("")
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      // ถ้า yearBE มาแล้ว ไม่ต้องหาเพิ่ม
+      const y = Number(yearBE || 0)
+      if (Number.isFinite(y) && y >= 2500) {
+        if (!alive) return
+        setPlanFiscalYear(null)
+        setPlanYearSource("yearBE")
+        return
+      }
+
+      if (!effectivePlanId) {
+        if (!alive) return
+        setPlanFiscalYear(null)
+        setPlanYearSource("")
+        return
+      }
+
+      // 1) ลองดึงจาก /business-plan/{id} ถ้ามี
+      try {
+        const data = await apiAuth(`/business-plan/${effectivePlanId}`, { method: "GET", auth: true })
+        const fy = Number(data?.fiscal_year ?? data?.plan?.fiscal_year ?? data?.data?.fiscal_year ?? 0)
+        if (alive && Number.isFinite(fy) && fy >= 2500) {
+          setPlanFiscalYear(fy)
+          setPlanYearSource("business-plan")
+          return
+        }
+      } catch {
+        // ignore
+      }
+
+      // 2) fallback: เดิม (planId + 2568) เผื่อ planId เป็น index (1=2569)
+      if (alive) {
+        setPlanFiscalYear(null)
+        setPlanYearSource("planId+2568")
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [effectivePlanId, yearBE])
+
+  const effectiveYear = useMemo(() => {
     const y = Number(yearBE || 0)
-    return Number.isFinite(y) ? y - 2568 : 0
-  }, [planId, yearBE])
+    if (Number.isFinite(y) && y >= 2500) return y
+    if (planFiscalYear && Number.isFinite(planFiscalYear) && planFiscalYear >= 2500) return planFiscalYear
+    const p = Number(planId || 0)
+    return Number.isFinite(p) && p > 0 ? p + 2568 : 2569
+  }, [yearBE, planId, planFiscalYear])
 
   // ต้นทุนสินค้า = ใช้ร่วมทุกสาขา → ไม่บังคับเลือกสาขา
   const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
@@ -183,14 +234,21 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
     const primary = "/lists/product/search"
 
     try {
-      const data = await apiAuth(primary)
+      // ลองแบบไม่ส่ง token ก่อน (ลด CORS preflight)
+      let data
+      try {
+        data = await apiAuth(primary, { method: "GET", auth: false })
+      } catch {
+        data = await apiAuth(primary, { method: "GET", auth: true })
+      }
+
       const normalized = normalizeItems(data)
       if (normalized.length) {
         setItems(normalized)
         setItemsSource(primary)
         return
       }
-    } catch (e) {
+    } catch {
       // fallback ข้างล่าง
     }
 
@@ -203,7 +261,12 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
 
     for (const path of fallbacks) {
       try {
-        const data = await apiAuth(path)
+        let data
+        try {
+          data = await apiAuth(path, { method: "GET", auth: false })
+        } catch {
+          data = await apiAuth(path, { method: "GET", auth: true })
+        }
         const normalized = normalizeItems(data)
         if (normalized.length) {
           setItems(normalized)
@@ -257,76 +320,47 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
   }, [items, normalizeGrid])
 
   const loadSavedFromBE = useCallback(async () => {
-  if (!effectiveYear) return
-  if (!items.length) return
+    if (!effectiveYear) return
+    if (!items.length) return
 
-  setIsLoadingSaved(true)
-  try {
-    let data = null
-    let used = ""
-
-    const candidates = []
-
-    // ✅ 1) พยายามโหลดแบบอิง plan_id ก่อน (แนวเดียวกับหน้าค่าใช้จ่าย)
-    if (effectivePlanId && effectivePlanId > 0) {
-      // บาง BE อาจ require year อยู่ใน path / query
-      candidates.push({ path: `/business-plan/${effectivePlanId}/unit-prices/${effectiveYear}`, method: "GET" })
-      candidates.push({ path: `/business-plan/${effectivePlanId}/unit-prices?year=${effectiveYear}`, method: "GET" })
-      candidates.push({ path: `/business-plan/${effectivePlanId}/unit-prices`, method: "GET" })
-      // เผื่อ BE ต้องการ branch_id (บางระบบแยกสาขา)
-      if (effectiveBranchId) {
-        candidates.push({
-          path: `/business-plan/${effectivePlanId}/unit-prices/${effectiveYear}?branch_id=${effectiveBranchId}`,
-          method: "GET",
-        })
-        candidates.push({
-          path: `/business-plan/${effectivePlanId}/unit-prices?year=${effectiveYear}&branch_id=${effectiveBranchId}`,
-          method: "GET",
-        })
-        candidates.push({
-          path: `/business-plan/${effectivePlanId}/unit-prices?branch_id=${effectiveBranchId}`,
-          method: "GET",
-        })
-      }
-    }
-
-    // ✅ 2) fallback แบบเดิม (อาจจะติด 403 ในบางระบบ — แต่ยังเผื่อไว้)
-    candidates.push({ path: `/unit-prices/${effectiveYear}`, method: "GET" })
-
-    let lastErr = null
-    for (const c of candidates) {
+    setIsLoadingSaved(true)
+    try {
+      // ⚠️ จาก log ที่คุณส่งมา: /business-plan/{plan_id}/unit-prices... ไม่มีอยู่จริง (404)
+      // ดังนั้นให้ยึดตาม BE จริง: GET /unit-prices/{year}
+      // และลองแบบไม่ส่ง token ก่อนเพื่อลด CORS preflight
+      let data
+      let used = ""
       try {
-        data = await apiAuth(c.path, { method: c.method })
-        used = `${c.method} ${c.path}`
-        break
-      } catch (e) {
-        lastErr = e
+        data = await apiAuth(`/unit-prices/${effectiveYear}`, { method: "GET", auth: false })
+        used = `GET /unit-prices/${effectiveYear} (no-auth)`
+      } catch (e1) {
+        // ถ้า BE ล็อกไว้ค่อยลองแบบมี token
+        data = await apiAuth(`/unit-prices/${effectiveYear}`, { method: "GET", auth: true })
+        used = `GET /unit-prices/${effectiveYear} (auth)`
       }
-    }
-    if (data == null) throw lastErr || new Error("โหลดข้อมูลไม่สำเร็จ")
 
-    // normalize
-    const rows = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []
-    const seed = {}
-    for (const r of rows) {
-      const pid = Number(r?.product_id ?? r?.product ?? 0)
-      if (!pid) continue
-      seed[pid] = {
-        buy: r?.buy_price != null ? String(r.buy_price) : "",
-        sell: r?.sell_price != null ? String(r.sell_price) : "",
+      // normalize
+      const rows = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []
+      const seed = {}
+      for (const r of rows) {
+        const pid = Number(r?.product_id ?? r?.product ?? 0)
+        if (!pid) continue
+        seed[pid] = {
+          buy: r?.buy_price != null ? String(r.buy_price) : "",
+          sell: r?.sell_price != null ? String(r.sell_price) : "",
+        }
       }
-    }
 
-    setSavedSource(used || "")
-    setValuesById(normalizeGrid(seed))
-  } catch (e) {
-    console.error("[Thonthun] load saved failed:", e)
-    setSavedSource("")
-    setValuesById(normalizeGrid({}))
-  } finally {
-    setIsLoadingSaved(false)
-  }
-}, [effectiveYear, items.length, normalizeGrid, effectivePlanId, effectiveBranchId])
+      setSavedSource(used || "")
+      setValuesById(normalizeGrid(seed))
+    } catch (e) {
+      console.error("[Thonthun] load saved failed:", e)
+      setSavedSource("")
+      setValuesById(normalizeGrid({}))
+    } finally {
+      setIsLoadingSaved(false)
+    }
+  }, [effectiveYear, items.length, normalizeGrid])
 
   useEffect(() => {
     loadSavedFromBE()
@@ -491,103 +525,78 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
   }
 
   const saveToBE = async () => {
-  let payload = null
-  try {
-    setSaveNotice(null)
-    payload = buildPayloadForBE()
-    setIsSaving(true)
+    let payload = null
+    try {
+      setSaveNotice(null)
+      payload = buildPayloadForBE()
+      setIsSaving(true)
 
-    let res = null
-    let used = ""
+      let res = null
+      let used = ""
 
-    const candidates = []
+      // ✅ ตาม BE ที่คุณส่ง: PUT /unit-prices/bulk (admin only)
+      // เผื่อบาง env เปลี่ยนเป็น POST/ต้องมี query year เลยเตรียม fallback ให้
+      const candidates = [
+        { path: `/unit-prices/bulk`, method: "PUT" },
+        { path: `/unit-prices/bulk?year=${effectiveYear}`, method: "PUT" },
+        { path: `/unit-prices/bulk`, method: "POST" },
+        { path: `/unit-prices/bulk?year=${effectiveYear}`, method: "POST" },
+      ]
 
-    // ✅ 1) พยายามบันทึกแบบอิง plan_id ก่อน (เหมือนหน้าค่าใช้จ่าย)
-    if (effectivePlanId && effectivePlanId > 0) {
-      candidates.push({
-        path: `/business-plan/${effectivePlanId}/unit-prices/bulk`,
-        method: "POST",
-      })
-      candidates.push({
-        path: `/business-plan/${effectivePlanId}/unit-prices/bulk`,
-        method: "PUT",
-      })
-      // เผื่อ BE ต้องการ year/branch ผ่าน query
-      candidates.push({
-        path: `/business-plan/${effectivePlanId}/unit-prices/bulk?year=${effectiveYear}`,
-        method: "POST",
-      })
-      candidates.push({
-        path: `/business-plan/${effectivePlanId}/unit-prices/bulk?year=${effectiveYear}`,
-        method: "PUT",
-      })
-      if (effectiveBranchId) {
-        candidates.push({
-          path: `/business-plan/${effectivePlanId}/unit-prices/bulk?year=${effectiveYear}&branch_id=${effectiveBranchId}`,
-          method: "POST",
-        })
-        candidates.push({
-          path: `/business-plan/${effectivePlanId}/unit-prices/bulk?year=${effectiveYear}&branch_id=${effectiveBranchId}`,
-          method: "PUT",
-        })
+      let lastErr = null
+      for (const c of candidates) {
+        try {
+          res = await apiAuth(c.path, { method: c.method, body: payload, auth: true })
+          used = `${c.method} ${c.path}`
+          break
+        } catch (e) {
+          lastErr = e
+        }
       }
-    }
+      if (res == null) throw lastErr || new Error("บันทึกไม่สำเร็จ")
 
-    // ✅ 2) fallback แบบเดิม
-    candidates.push({ path: `/unit-prices/bulk?year=${effectiveYear}`, method: "PUT" })
-    candidates.push({ path: `/unit-prices/bulk`, method: "PUT" })
+      setSaveNotice({
+        type: "success",
+        title: "บันทึกสำเร็จ ✅",
+        detail: `ปี ${effectiveYear} • inserted: ${res?.inserted ?? "-"} • updated: ${res?.updated ?? "-"} • via ${used || "-"}`,
+      })
 
-    let lastErr = null
-    for (const c of candidates) {
-      try {
-        res = await apiAuth(c.path, { method: c.method, body: payload })
-        used = `${c.method} ${c.path}`
-        break
-      } catch (e) {
-        lastErr = e
+      // ✅ reload เพื่อให้เห็น “ค่าปัจจุบัน” หลังบันทึก
+      await loadSavedFromBE()
+    } catch (e) {
+      const status = e?.status || 0
+      let title = "บันทึกไม่สำเร็จ ❌"
+      let detail = e?.message || String(e)
+      if (status === 401) {
+        title = "401 Unauthorized"
+        detail = "Token ไม่ผ่าน/หมดอายุ → Logout/Login ใหม่"
+      } else if (status === 403) {
+        title = "403 Forbidden"
+        detail = "สิทธิ์ไม่พอ (BE บังคับ Admin) → เช็คว่า token ที่ใช้อยู่เป็น Admin จริงไหม"
+      } else if (status === 404) {
+        title = "404 Not Found"
+        detail = "ไม่พบ route /unit-prices/bulk หรือ API_BASE ไม่ตรง"
+      } else if (status === 422) {
+        title = "422 Validation Error"
+        detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู console)"
+      } else if (status === 0) {
+        title = "เชื่อมต่อไม่ได้ (CORS/Network)"
+        detail = "เบราว์เซอร์บล็อก CORS หรือ API ตอบ 500 แบบไม่ส่ง Access-Control-Allow-Origin"
       }
+
+      setSaveNotice({ type: "error", title, detail })
+
+      console.groupCollapsed("%c[Thonthun] Save failed ❌", "color:#ef4444;font-weight:800;")
+      console.error("status:", status, "title:", title, "detail:", detail)
+      console.error("year:", effectiveYear, "plan_id:", effectivePlanId, "yearSource:", planYearSource)
+      console.error("branch_id:", effectiveBranchId, "branch:", effectiveBranchName)
+      if (payload) console.error("payload preview:", payload.items?.slice(0, 3))
+      console.error("raw error:", e)
+      console.groupEnd()
+    } finally {
+      setIsSaving(false)
     }
-    if (res == null) throw lastErr || new Error("บันทึกไม่สำเร็จ")
-
-    setSaveNotice({
-      type: "success",
-      title: "บันทึกสำเร็จ ✅",
-      detail: `ปี ${effectiveYear} • inserted: ${res?.inserted ?? "-"} • updated: ${res?.updated ?? "-"} • via ${used || "-"}`,
-    })
-
-    // ✅ reload เพื่อให้เห็น “ค่าปัจจุบัน” หลังบันทึก
-    await loadSavedFromBE()
-  } catch (e) {
-    const status = e?.status || 0
-    let title = "บันทึกไม่สำเร็จ ❌"
-    let detail = e?.message || String(e)
-    if (status === 401) {
-      title = "401 Unauthorized"
-      detail = "Token ไม่ผ่าน/หมดอายุ → Logout/Login ใหม่"
-    } else if (status === 403) {
-      title = "403 Forbidden"
-      detail = "สิทธิ์ไม่พอ (BE บังคับ Admin) — แนะนำให้ใช้ route แบบ plan_id ถ้ามี"
-    } else if (status === 404) {
-      title = "404 Not Found"
-      detail = "ไม่พบ route (ลองเช็ค API_BASE หรือชื่อ route ของ BE)"
-    } else if (status === 422) {
-      title = "422 Validation Error"
-      detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู console)"
-    }
-
-    setSaveNotice({ type: "error", title, detail })
-
-    console.groupCollapsed("%c[Thonthun] Save failed ❌", "color:#ef4444;font-weight:800;")
-    console.error("status:", status, "title:", title, "detail:", detail)
-    console.error("year:", effectiveYear, "plan_id:", effectivePlanId)
-    console.error("branch_id:", effectiveBranchId, "branch:", effectiveBranchName)
-    if (payload) console.error("payload preview:", payload.items?.slice(0, 3))
-    console.error("raw error:", e)
-    console.groupEnd()
-  } finally {
-    setIsSaving(false)
   }
-}
 
   const copyPayload = async () => {
     try {
@@ -633,6 +642,7 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
             <div className="text-lg font-bold">ประมาณการต้นทุนสินค้า (ต้นทุนซื้อ/ต้นทุนการขาย)</div>
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
               ({periodLabel}) • ปี {effectiveYear} • plan_id {effectivePlanId || "-"} • สาขา {effectiveBranchName}
+              {planYearSource ? ` • yearSource=${planYearSource}` : ""}
               {isLoadingItems ? " • โหลดรายการ..." : items.length ? ` • รายการ ${items.length}` : " • ไม่มีรายการ"}
               {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
             </div>
@@ -697,7 +707,10 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
           </div>
           <div>
             <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">หมายเหตุ</div>
-            <div className={readonlyField}>{items.length ? `มี ${items.length} รายการ` : "ไม่มีรายการ"}</div>
+            <div className={readonlyField}>
+              {items.length ? `มี ${items.length} รายการ` : "ไม่มีรายการ"}
+              {savedSource ? ` • ${savedSource}` : ""}
+            </div>
           </div>
         </div>
 
@@ -894,7 +907,7 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
 
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-600 dark:text-slate-300">
-              โหลด: <span className="font-mono">{savedSource || `GET /unit-prices/{year}`}</span> • บันทึก: <span className="font-mono">{`(try) /business-plan/{plan_id}/unit-prices/bulk → fallback /unit-prices/bulk`}</span> • ปี={effectiveYear} • plan_id={effectivePlanId || "-"}
+              โหลด: <span className="font-mono">{savedSource || `GET /unit-prices/{year}`}</span> • บันทึก: <span className="font-mono">PUT /unit-prices/bulk</span> • ปี={effectiveYear} • plan_id={effectivePlanId || "-"}{planYearSource ? ` • yearSource=${planYearSource}` : ""}
             </div>
 
             <button

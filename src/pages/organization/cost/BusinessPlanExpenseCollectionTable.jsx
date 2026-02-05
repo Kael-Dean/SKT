@@ -359,6 +359,15 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
     })
   }
 
+
+
+  /** ---------------- Unmapped static list (แจ้งเหมือนไฟล์ค่าใช้จ่ายดำเนินงาน) ---------------- */
+  const unmappedStatic = useMemo(() => {
+    return itemRows
+      .filter((r) => !resolveRowBusinessCostId(r))
+      .map((r) => ({ code: r.code, label: r.label, cost_id: r.cost_id }))
+  }, [itemRows])
+
   /** ---------------- Totals ---------------- */
   const computed = useMemo(() => {
     const rowTotal = {}
@@ -463,21 +472,29 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
     if (!units.length) throw new Error("FE: สาขานี้ไม่มีหน่วย หรือโหลดหน่วยไม่สำเร็จ")
 
     const rows = []
+    const skipped = []
+    const blocked = []
+
     for (const r of itemRows) {
       const businessCostId = resolveRowBusinessCostId(r)
+
+      const rowObj = valuesByCode[r.code] || {}
+      let rowSum = 0
+      for (const u of units) rowSum += toNumber(rowObj[u.id])
+
+      // ยังไม่แมพ → ข้ามได้เฉพาะกรณีแถวนี้เป็น 0 ทั้งหมด
       if (!businessCostId) {
-        throw new Error(
-          `FE: หา business_cost_id ไม่เจอ (code=${r.code}, cost_id=${r.cost_id}, group=${BUSINESS_GROUP_ID})`
-        )
+        skipped.push({ code: r.code, label: r.label, cost_id: r.cost_id })
+        if (rowSum !== 0) blocked.push({ code: r.code, label: r.label, cost_id: r.cost_id })
+        continue
       }
 
-      const row = valuesByCode[r.code] || {}
       const unit_values = []
       let branch_total = 0
 
       // ✅ ส่งครบทุกหน่วย (รวม 0) เพื่อให้ “ค่าล่าสุด” ตรงกับตารางจริงเสมอ
       for (const u of units) {
-        const amount = toNumber(row[u.id])
+        const amount = toNumber(rowObj[u.id])
         branch_total += amount
         unit_values.push({ unit_id: u.id, amount })
       }
@@ -491,7 +508,13 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
       })
     }
 
-    return { rows }
+    if (blocked.length) {
+      throw new Error(
+        "FE: มีรายการยังไม่แมพ แต่คุณกรอกตัวเลขแล้ว: " + blocked.map((x) => `${x.code}`).join(", ")
+      )
+    }
+
+    return { rows, skipped }
   }, [effectivePlanId, effectiveBranchId, units, itemRows, valuesByCode, periodLabel])
 
   const saveToBE = async () => {
@@ -501,7 +524,8 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
       const token = getToken()
       if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
 
-      payload = buildBulkRowsForBE()
+      const built = buildBulkRowsForBE()
+      payload = { rows: built.rows }
       setIsSaving(true)
 
       const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/bulk`, {
@@ -514,7 +538,7 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
         title: "บันทึกสำเร็จ ✅",
         detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName} • upserted: ${
           res?.branch_totals_upserted ?? "-"
-        }`,
+        }${built?.skipped?.length ? ` • skipped: ${built.skipped.length}` : ""}`,
       })
 
       await loadSavedFromBE()
@@ -641,6 +665,28 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
             </button>
           </div>
         </div>
+
+
+
+        {unmappedStatic.length > 0 ? (
+          <div
+            className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900
+                       dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100"
+          >
+            <div className="font-extrabold">⚠️ รายการที่ยังไม่แมพ (จะข้ามตอนบันทึกถ้าเป็น 0)</div>
+            <div className="mt-1 text-[13px] opacity-95">
+              {unmappedStatic.map((x) => `${x.code} (cost_id=${x.cost_id})`).join(" • ")}
+            </div>
+          </div>
+        ) : (
+          <div
+            className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900
+                       dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100"
+          >
+            <div className="font-extrabold">✅ แมพครบแล้ว</div>
+            <div className="mt-1 text-[13px] opacity-95">ไม่มีรายการที่ยังไม่แมพ (ทั้งหมด {itemRows.length} รายการ)</div>
+          </div>
+        )}
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div>

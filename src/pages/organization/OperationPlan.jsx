@@ -23,6 +23,11 @@ import Thonthun from "./thonthun/Thonthun"
 const cx = (...a) => a.filter(Boolean).join(" ")
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
 
+const readonlyField =
+  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
+  "text-black shadow-none dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100"
+
+
 // ---------------- Reusable ComboBox ----------------
 function ComboBox({
   options = [],
@@ -251,6 +256,12 @@ const OperationPlan = () => {
   const [planType, setPlanType] = useState("")
   const [tableKey, setTableKey] = useState("")
 
+  // ต้นทุนสินค้า = รวมทุกสาขา → ไม่บังคับเลือกสาขา
+  useEffect(() => {
+    if (planType === "thonthun") setBranchId("")
+  }, [planType])
+
+
   useEffect(() => {
     const loadBranches = async () => {
       try {
@@ -293,11 +304,19 @@ const OperationPlan = () => {
     return branchOptions.find((b) => String(b.id) === String(branchId))?.label || ""
   }, [branchOptions, branchId])
 
+  const isThonthun = planType === "thonthun"
+  const branchRequired = planType === "sell" || planType === "cost"
+
+  const branchNameDisplay = useMemo(() => {
+    if (isThonthun) return "ทุกสาขา"
+    return branchName || "—"
+  }, [isThonthun, branchName])
+
   const planTypeLabel = useMemo(() => PLAN_TYPES.find((p) => p.id === planType)?.label || "", [planType])
 
   const activeTable = useMemo(() => currentTables.find((t) => t.key === tableKey) || null, [currentTables, tableKey])
   const ActiveComponent = activeTable?.Component || null
-  const canShowTable = !!branchId && !!planType && !!ActiveComponent
+  const canShowTable = !!planType && !!ActiveComponent && (!branchRequired || !!branchId)
 
   const planTypeOptions = useMemo(
     () => PLAN_TYPES.map((p) => ({ id: p.id, label: p.label, subLabel: p.subLabel || "" })),
@@ -326,7 +345,7 @@ const OperationPlan = () => {
             <div>
               <h1 className="text-2xl md:text-3xl font-extrabold">🗺️ แผนปฏิบัติงาน</h1>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                เลือกปี → เลือกสาขา → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล
+                {planType === "thonthun" ? "เลือกปี → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล" : "เลือกปี → เลือกสาขา → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล"}
               </div>
             </div>
 
@@ -344,22 +363,33 @@ const OperationPlan = () => {
                 onChange={(id) => setYearBE(String(id))}
                 placeholder="— เลือกปี —"
                 buttonRef={yearRef}
-                onEnterNext={() => branchRef.current?.focus?.()}
+                onEnterNext={() => (planType === "thonthun" ? typeRef.current?.focus?.() : branchRef.current?.focus?.())}
               />
             </div>
 
             <div className="md:col-span-4">
               <label className={labelCls}>เลือกสาขา</label>
-              <ComboBox
-                options={branchOptions}
-                value={branchId}
-                onChange={(id) => setBranchId(String(id))}
-                placeholder={loadingBranches ? "กำลังโหลดสาขา..." : "— เลือกสาขา —"}
-                disabled={loadingBranches}
-                buttonRef={branchRef}
-                onEnterNext={() => typeRef.current?.focus?.()}
-              />
-              {!branchId && <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>}
+
+              {planType === "thonthun" ? (
+                <div className={readonlyField}>
+                  <span>ทุกสาขา</span>
+                  <span className="ml-2 text-[13px] text-slate-600 dark:text-slate-300">(ไม่ต้องเลือก)</span>
+                </div>
+              ) : (
+                <ComboBox
+                  options={branchOptions}
+                  value={branchId}
+                  onChange={(id) => setBranchId(String(id))}
+                  placeholder={loadingBranches ? "กำลังโหลดสาขา..." : "— เลือกสาขา —"}
+                  disabled={loadingBranches}
+                  buttonRef={branchRef}
+                  onEnterNext={() => typeRef.current?.focus?.()}
+                />
+              )}
+
+              {branchRequired && !branchId && (
+                <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>
+              )}
             </div>
 
             <div className="md:col-span-5">
@@ -397,7 +427,7 @@ const OperationPlan = () => {
               <span className="mx-2 text-slate-400">|</span>
               <span className="font-semibold">plan_id:</span> {planId || "-"}
               <span className="mx-2 text-slate-400">|</span>
-              <span className="font-semibold">สาขา:</span> {branchName || "—"}
+              <span className="font-semibold">สาขา:</span> {branchNameDisplay}
               <span className="mx-2 text-slate-400">|</span>
               <span className="font-semibold">ประเภท:</span> {planTypeLabel || "—"}
               <span className="mx-2 text-slate-400">|</span>
@@ -427,15 +457,9 @@ const OperationPlan = () => {
           </div>
         </div>
 
+
         {/* Content */}
-        {!branchId ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
-            <div className="mt-2 text-slate-600 dark:text-slate-300">
-              กรุณาเลือก <span className="font-semibold">สาขา</span> ก่อน
-            </div>
-          </div>
-        ) : !planType ? (
+        {!planType ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
             <div className="mt-2 text-slate-600 dark:text-slate-300">
@@ -449,6 +473,13 @@ const OperationPlan = () => {
               กรุณาเลือก <span className="font-semibold">ตาราง</span> ก่อน
             </div>
           </div>
+        ) : branchRequired && !branchId ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
+            <div className="mt-2 text-slate-600 dark:text-slate-300">
+              กรุณาเลือก <span className="font-semibold">สาขา</span> ก่อน
+            </div>
+          </div>
         ) : !canShowTable ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
@@ -457,14 +488,15 @@ const OperationPlan = () => {
         ) : (
           <div className="mt-2">
             <ActiveComponent
-              key={`${planType}-${tableKey}-${branchId}-${yearBE}`}
+              key={`${planType}-${tableKey}-${branchRequired ? branchId : "all"}-${yearBE}`}
               branchId={branchId}
-              branchName={branchName}
+              branchName={branchNameDisplay}
               yearBE={yearBE}
               planId={planId}
             />
           </div>
         )}
+
       </div>
     </div>
   )

@@ -17,6 +17,7 @@ import BusinessPlanExpenseSeedProcessingTable from "./cost/BusinessPlanExpenseSe
 import BusinessPlanExpenseServiceTable from "./cost/BusinessPlanExpenseServiceTable"
 import BusinessPlanExpenseSupportWorkTable from "./cost/BusinessPlanExpenseSupportWorkTable"
 import BusinessPlanRepCostSummaryTable from "./cost/BusinessPlanRepCostSummaryTable"
+import Thonthun from "./thonthun/Thonthun"
 
 // ---------------- Styles ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -191,6 +192,7 @@ function ComboBox({
 const PLAN_TYPES = [
   { id: "sell", label: "ยอดขาย", subLabel: "ตารางฝั่งรายได้/ยอดขาย" },
   { id: "cost", label: "ค่าใช้จ่าย", subLabel: "ตารางฝั่งต้นทุน/ค่าใช้จ่าย" },
+  { id: "thonthun", label: "ต้นทุนสินค้า", subLabel: "ตารางฝั่งต้นทุนสินค้า" },
 ]
 
 /* ---------------- ตาราง (เพิ่ม file ตามรูปโฟลเดอร์จริง) ---------------- */
@@ -213,6 +215,10 @@ const COST_TABLES = [
   { key: "business-plan-expense-service-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจบริการ", file: "cost/BusinessPlanExpenseServiceTable.jsx", Component: BusinessPlanExpenseServiceTable },
   { key: "business-plan-expense-support-work-table", label: "ค่าใช้จ่ายดำเนินงาน", file: "cost/BusinessPlanExpenseSupportWorkTable.jsx", Component: BusinessPlanExpenseSupportWorkTable },
   { key: "business-plan-rep-cost-summary", label: "ต้นทุนขายเฉพาะธุรกิจ", file: "cost/BusinessPlanRepCostSummaryTable.jsx", Component: BusinessPlanRepCostSummaryTable },
+]
+
+const THONTHUN_TABLES = [
+  { key: "thonthun", label: "ประมาณการต้นทุนสินค้า", file: "thonthun/Thonthun.jsx", Component: Thonthun },
 ]
 
 const OperationPlan = () => {
@@ -270,6 +276,7 @@ const OperationPlan = () => {
   const currentTables = useMemo(() => {
     if (planType === "sell") return SALES_TABLES
     if (planType === "cost") return COST_TABLES
+    if (planType === "thonthun") return THONTHUN_TABLES
     return []
   }, [planType])
 
@@ -361,7 +368,7 @@ const OperationPlan = () => {
                 options={planTypeOptions}
                 value={planType}
                 onChange={(id) => setPlanType(String(id))}
-                placeholder="— เลือก: ยอดขาย / ค่าใช้จ่าย —"
+                placeholder="— เลือก: ยอดขาย / ค่าใช้จ่าย / ต้นทุนสินค้า —"
                 getSubLabel={(o) => o?.subLabel || ""}
                 buttonRef={typeRef}
                 onEnterNext={() => tableRef.current?.focus?.()}

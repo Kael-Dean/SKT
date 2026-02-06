@@ -574,9 +574,14 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
       // try bulk first
       try {
         await apiAuth(`/unit-prices/bulk`, {
-          method: "PUT",
-          body: { plan_id: effectivePlanId, items: priceItems },
-        })
+  method: "PUT",
+  body: {
+    year: Number(effectiveYearBE),      // ✅ เพิ่ม year
+    plan_id: Number(effectivePlanId),   // ✅ ส่งไปด้วยเพื่อ backward compatible
+    items: priceItems,
+  },
+})
+
       } catch (e) {
         const st = e?.status
         if (st === 404 || st === 405) {

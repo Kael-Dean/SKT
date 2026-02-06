@@ -578,6 +578,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
   body: {
     year: Number(effectiveYearBE),      // ✅ เพิ่ม year
     plan_id: Number(effectivePlanId),   // ✅ ส่งไปด้วยเพื่อ backward compatible
+    branch_id: Number(branchId),
     items: priceItems,
   },
 })

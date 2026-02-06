@@ -13,10 +13,8 @@ const sanitizeNumberInput = (s) => {
   if (parts.length <= 2) return cleaned
   return `${parts[0]}.${parts.slice(1).join("")}`
 }
-const fmtQty = (n) =>
-  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 3 }).format(toNumber(n))
-const fmtMoney = (n) =>
-  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(toNumber(n))
+const fmtQty = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 3 }).format(toNumber(n))
+const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(toNumber(n))
 
 /** ---------------- API (token = localStorage.token) ---------------- */
 const API_BASE_RAW =
@@ -84,7 +82,6 @@ const baseField =
   "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
   "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-/** ✅ input พอดีกับ cell + ทึบ */
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
   "text-right text-[13px] md:text-sm outline-none " +
@@ -107,24 +104,20 @@ const MONTHS = [
   { key: "m03", label: "มี.ค.", month: 3 },
 ]
 
-/** fallback (ถ้าโหลดหน่วยไม่ได้) */
 const FALLBACK_UNITS = [
   { id: -1, short: "ปร", name: "ปร" },
   { id: -2, short: "รับ", name: "รับ" },
   { id: -3, short: "พร", name: "พร" },
 ]
 
-/** ✅ lock width ให้ตรงกันทุกส่วน */
 const COL_W = {
   product: 260,
   unit: 84,
   price: 130,
-  cell: 86, // ช่องย่อยใต้เดือน และช่องรวม
+  cell: 86,
 }
-
 const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
 
-/** ✅ Stripe สีเดือน คู่/คี่ ให้เห็นชัดขึ้น */
 const STRIPE = {
   headEven: "bg-slate-100/90 dark:bg-slate-700/70",
   headOdd: "bg-slate-200/95 dark:bg-slate-600/70",
@@ -136,9 +129,7 @@ const STRIPE = {
 
 const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEven)
 const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven)
-const monthStripeFoot = (idx) => (idx % 2 === 1 ? STRIPE.footOdd : STRIPE.footEven)
 
-/** business_group=1 = จัดหา */
 const PROCUREMENT_GROUP_ID = 1
 
 /** ---------------- helpers ---------------- */
@@ -150,7 +141,6 @@ const normalizeUnitName = (s) =>
 const shortUnit = (name, idx) => {
   const s = normalizeUnitName(name)
   if (!s) return `หน่วย${idx + 1}`
-  // เอา 3 ตัวแรกพอ (กันยาว)
   return s.length <= 4 ? s : s.slice(0, 4)
 }
 
@@ -169,16 +159,12 @@ function buildEmptyQtyGrid(productIds, unitList) {
 }
 
 /** =======================================================================
- *  ProcurementPlanDetail
- *  - ใช้ลิสสินค้า: /lists/products-by-group-latest?plan_id=...
- *  - โหลด/บันทึกจำนวน: /revenue/sale-goals + /revenue/sale-goals/bulk
- *  - บันทึกราคา: /unit-prices/bulk (fallback /unit-prices)
- *  - plan_id = yearBE-2568 (แบบหน้าค่าใช้จ่าย)
+ * ProcurementPlanDetail
  * ======================================================================= */
-function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEChange }) {
+function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
   const canEdit = !!branchId
 
-  /** Plan แบบแปลงปีเหมือนหน้าค่าใช้จ่าย */
+  /** Plan แบบแปลงปีเหมือนหน้าค่าใช้จ่าย: 2569 => 1 */
   const effectivePlanId = useMemo(() => {
     const p = Number(planId || 0)
     if (Number.isFinite(p) && p > 0) return p
@@ -199,7 +185,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
     return `1 เม.ย.${yy}-31 มี.ค.${yyNext}`
   }, [effectiveYearBE])
 
-  /** ---------------- Units (sub columns under month) ---------------- */
+  /** Units */
   const [units, setUnits] = useState(FALLBACK_UNITS)
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)
 
@@ -237,22 +223,18 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
     }
   }, [branchId])
 
-  /** ---------------- Products + latest prices (from list) ---------------- */
-  const [products, setProducts] = useState([]) // each: {product_id, product_type, unit, sell_price, buy_price, unitprice_id, created_date}
+  /** Products + latest prices */
+  const [products, setProducts] = useState([])
   const [isLoadingProducts, setIsLoadingProducts] = useState(false)
 
-  const [priceByPid, setPriceByPid] = useState({}) // pid => { sell_price, buy_price, comment }
-  const [qtyByPid, setQtyByPid] = useState({}) // pid => monthKey => unitId => qty string
+  const [priceByPid, setPriceByPid] = useState({})
+  const [qtyByPid, setQtyByPid] = useState({})
 
-  const productIds = useMemo(() => products.map((p) => String(p.product_id)), [products])
-
-  /** widths depend on units */
   const qtyCols = useMemo(() => MONTHS.length * units.length, [units.length])
-  const totalCols = useMemo(() => 1 + qtyCols, [qtyCols]) // col 0=ราคา, ที่เหลือ=จำนวน
+  const totalCols = useMemo(() => 1 + qtyCols, [qtyCols])
   const RIGHT_W = useMemo(() => (MONTHS.length * units.length + units.length) * COL_W.cell, [units.length])
   const TOTAL_W = useMemo(() => LEFT_W + RIGHT_W, [RIGHT_W])
 
-  /** ---------------- load products list ---------------- */
   const loadProducts = useCallback(async () => {
     if (!effectivePlanId || effectivePlanId <= 0) {
       setProducts([])
@@ -282,7 +264,6 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
 
       setProducts(normalized)
 
-      // init price state from latest list
       const pMap = {}
       for (const it of normalized) {
         pMap[String(it.product_id)] = {
@@ -293,7 +274,6 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
       }
       setPriceByPid(pMap)
 
-      // init qty grid skeleton (keep existing values if already loaded)
       setQtyByPid((prev) => {
         const next = { ...prev }
         const uList = units.length ? units : FALLBACK_UNITS
@@ -301,7 +281,6 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
         for (const pid of Object.keys(empty)) {
           if (!next[pid]) next[pid] = empty[pid]
           else {
-            // ensure all months/units exist
             for (const m of MONTHS) {
               if (!next[pid][m.key]) next[pid][m.key] = {}
               for (const u of uList) {
@@ -321,7 +300,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
     }
   }, [effectivePlanId, units.length])
 
-  /** ---------------- load saved sale goals (quantities) ---------------- */
+  /** Load saved quantities */
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
 
   const loadSavedFromBE = useCallback(async () => {
@@ -338,7 +317,6 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
       const uSet = new Set(uList.map((u) => Number(u.id)))
       const pSet = new Set(products.map((p) => Number(p.product_id)))
 
-      // seed empty then fill
       const empty = buildEmptyQtyGrid(products.map((p) => String(p.product_id)), uList)
 
       for (const c of cells) {
@@ -358,23 +336,20 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
       setQtyByPid(empty)
     } catch (e) {
       console.error("[Load saved sale-goals] failed:", e)
-      // ถ้าโหลดไม่ได้ ก็ยังให้กรอกได้
     } finally {
       setIsLoadingSaved(false)
     }
   }, [branchId, effectiveYearBE, products.length, units.length])
 
-  /** load sequence */
   useEffect(() => {
     loadProducts()
   }, [loadProducts])
 
   useEffect(() => {
-    // เมื่อได้สินค้าแล้ว ค่อยโหลดค่าที่เคยบันทึก
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  /** ---------------- table height ---------------- */
+  /** table height */
   const tableCardRef = useRef(null)
   const [tableCardHeight, setTableCardHeight] = useState(760)
 
@@ -417,9 +392,8 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
     }
   }, [])
 
-  /** ================== Arrow navigation + auto scroll ================== */
+  /** arrow nav */
   const inputRefs = useRef(new Map())
-
   const registerInput = useCallback((row, col) => {
     const key = `${row}|${col}`
     return (el) => {
@@ -431,7 +405,6 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
   const ensureInView = useCallback((el) => {
     const container = bodyScrollRef.current
     if (!container || !el) return
-
     const pad = 12
     const frozenLeft = COL_W.product
 
@@ -487,7 +460,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
     [products.length, totalCols, ensureInView]
   )
 
-  /** ---------------- setters ---------------- */
+  /** setters */
   const setPriceField = (pid, field, value) => {
     setPriceByPid((prev) => {
       const next = { ...prev }
@@ -510,9 +483,8 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
     })
   }
 
-  /** ---------------- totals ---------------- */
+  /** totals */
   const computed = useMemo(() => {
-    // รวมต่อแถว: qtySum, valueSum (sell), costSum (buy)
     const row = {}
     let grandValue = 0
     let grandCost = 0
@@ -543,7 +515,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
     return { row, grandQty, grandValue, grandCost }
   }, [products, priceByPid, qtyByPid, units])
 
-  /** ---------------- save ---------------- */
+  /** notice + save */
   const [notice, setNotice] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -559,7 +531,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
 
       setIsSaving(true)
 
-      /** 1) save unit prices (sell/buy) */
+      /** 1) save unit prices (sell/buy) ✅ เพิ่ม year + branch_id */
       const priceItems = products.map((p) => {
         const pid = String(p.product_id)
         const cur = priceByPid[pid] || {}
@@ -574,24 +546,25 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
       // try bulk first
       try {
         await apiAuth(`/unit-prices/bulk`, {
-  method: "PUT",
-  body: {
-    year: Number(effectiveYearBE),      // ✅ เพิ่ม year
-    plan_id: Number(effectivePlanId),   // ✅ ส่งไปด้วยเพื่อ backward compatible
-    branch_id: Number(branchId),
-    items: priceItems,
-  },
-})
-
+          method: "PUT",
+          body: {
+            year: Number(effectiveYearBE),           // ✅ สำคัญ
+            plan_id: Number(effectivePlanId),
+            branch_id: Number(branchId),             // ✅ สำคัญ
+            items: priceItems,
+          },
+        })
       } catch (e) {
         const st = e?.status
         if (st === 404 || st === 405) {
-          // fallback: post per item
+          // fallback: post per item ✅ เพิ่ม year + branch_id
           for (const it of priceItems) {
             await apiAuth(`/unit-prices`, {
               method: "POST",
               body: {
-                plan_id: effectivePlanId,
+                year: Number(effectiveYearBE),
+                plan_id: Number(effectivePlanId),
+                branch_id: Number(branchId),
                 product_id: it.product_id,
                 sell_price: it.sell_price,
                 buy_price: it.buy_price,
@@ -604,14 +577,13 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
         }
       }
 
-      /** 2) save sale goals quantities */
+      /** 2) save sale goals quantities (เดิมส่ง branch_id อยู่แล้ว) */
       const cells = []
       for (const p of products) {
         const pid = String(p.product_id)
         for (const m of MONTHS) {
           for (const u of units) {
             const amt = toNumber(qtyByPid?.[pid]?.[m.key]?.[String(u.id)])
-            // ส่ง 0 ด้วย เพื่อให้ล้างค่าแล้วทับของเดิมได้แน่นอน
             cells.push({
               unit_id: Number(u.id),
               product_id: Number(p.product_id),
@@ -637,13 +609,13 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
         detail: `สาขา ${branchName || branchId} • ปี ${effectiveYearBE} (plan_id=${effectivePlanId}) • สินค้า ${products.length} รายการ`,
       })
 
-      // reload latest price list + saved values
       await loadProducts()
       await loadSavedFromBE()
     } catch (e) {
       const status = e?.status || 0
       let title = "บันทึกไม่สำเร็จ ❌"
       let detail = e?.message || String(e)
+
       if (status === 401) {
         title = "401 Unauthorized"
         detail = "Token ไม่ผ่าน/หมดอายุ → Logout/Login ใหม่"
@@ -652,19 +624,17 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
         detail = "สิทธิ์ไม่พอ (role ไม่อนุญาต)"
       } else if (status === 404) {
         title = "404 Not Found"
-        detail = "ไม่พบ route / ไม่พบข้อมูลที่เกี่ยวข้อง (ดู console)"
+        detail = "ไม่พบ route / ไม่พบข้อมูลที่เกี่ยวข้อง"
       } else if (status === 422) {
         title = "422 Validation Error"
-        detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู console)"
+        detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู response/console)"
       }
 
       setNotice({ type: "error", title, detail })
       console.groupCollapsed("%c[ProcurementPlanDetail] Save failed ❌", "color:#ef4444;font-weight:800;")
-      console.error("status:", status, "title:", title, "detail:", detail)
+      console.error("status:", status, "detail:", detail)
       console.error("yearBE:", effectiveYearBE, "plan_id:", effectivePlanId)
       console.error("branch_id:", branchId, "branch:", branchName)
-      console.error("units:", units)
-      console.error("products:", products?.slice(0, 3))
       console.error("raw error:", e)
       console.groupEnd()
     } finally {
@@ -692,13 +662,10 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
   /** ---------------- Render ---------------- */
   return (
     <div className="space-y-3">
-      {/* Header */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-lg font-bold">
-              ประมาณการรายได้ — ธุรกิจจัดหา (รายเดือน)
-            </div>
+            <div className="text-lg font-bold">ประมาณการรายได้ — ธุรกิจจัดหา (รายเดือน)</div>
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
               ({periodLabel}) • ปี {effectiveYearBE} • plan_id {effectivePlanId} • สาขา {branchName || "-"} • หน่วย{" "}
               {isLoadingUnits ? "กำลังโหลด..." : units.length}
@@ -707,9 +674,8 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
             </div>
 
             <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
-              รวมทั้งปี (โดยประมาณ):{" "}
-              <span className="font-extrabold">{fmtMoney(computed.grandValue)}</span>{" "}
-              บาท • ต้นทุน <span className="font-extrabold">{fmtMoney(computed.grandCost)}</span> บาท
+              รวมทั้งปี (โดยประมาณ): <span className="font-extrabold">{fmtMoney(computed.grandValue)}</span> บาท • ต้นทุน{" "}
+              <span className="font-extrabold">{fmtMoney(computed.grandCost)}</span> บาท
             </div>
             <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               * กรอก “จำนวน” ระบบคำนวณ “บาท” ให้ (ตามราคาล่าสุดจาก UnitPrice)
@@ -765,7 +731,6 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
 
       <NoticeBox notice={notice} />
 
-      {/* Table */}
       <div
         ref={tableCardRef}
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
@@ -781,22 +746,11 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
               <col style={{ width: COL_W.product }} />
               <col style={{ width: COL_W.unit }} />
               <col style={{ width: COL_W.price }} />
-
-              {/* month cells */}
-              {MONTHS.map((m) =>
-                units.map((u) => (
-                  <col key={`${m.key}-${u.id}`} style={{ width: COL_W.cell }} />
-                ))
-              )}
-
-              {/* summary per unit at right */}
-              {units.map((u) => (
-                <col key={`sum-${u.id}`} style={{ width: COL_W.cell }} />
-              ))}
+              {MONTHS.map((m) => units.map((u) => <col key={`${m.key}-${u.id}`} style={{ width: COL_W.cell }} />))}
+              {units.map((u) => <col key={`sum-${u.id}`} style={{ width: COL_W.cell }} />)}
             </colgroup>
 
             <thead className="sticky top-0 z-20">
-              {/* Row 1: month group headers */}
               <tr className="text-slate-800 dark:text-slate-100">
                 <th
                   rowSpan={2}
@@ -838,7 +792,6 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
                 </th>
               </tr>
 
-              {/* Row 2: unit headers under each month */}
               <tr className="text-slate-800 dark:text-slate-100">
                 {MONTHS.map((m, idx) => (
                   <Fragment key={`u-${m.key}`}>
@@ -881,9 +834,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
                   const pid = String(p.product_id)
                   const prices = priceByPid[pid] || {}
                   const sell = prices.sell_price ?? ""
-                  const rowComputed = computed.row[pid] || { qtySum: 0, value: 0, cost: 0 }
 
-                  // sum per unit (both months)
                   const sumByUnit = {}
                   for (const u of units) sumByUnit[String(u.id)] = 0
                   for (const m of MONTHS) {
@@ -896,9 +847,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
                     <tr key={pid} className="border-b border-slate-200 dark:border-slate-700">
                       <td className="sticky left-0 z-10 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2">
                         <div className="font-bold">{p.product_type}</div>
-                        <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                          product_id: {p.product_id}
-                        </div>
+                        <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">product_id: {p.product_id}</div>
                       </td>
 
                       <td className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-center font-semibold">
@@ -919,15 +868,9 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
                           disabled={!canEdit}
                           title="ราคาขาย/หน่วย (แก้ได้)"
                         />
-                        {/* buy_price เก็บไว้ ไม่โชว์ใน UI เพื่อให้ BE คำนวณ cost ได้ */}
-                        <input
-                          type="hidden"
-                          value={String(prices.buy_price ?? p.buy_price ?? 0)}
-                          readOnly
-                        />
+                        <input type="hidden" value={String(prices.buy_price ?? p.buy_price ?? 0)} readOnly />
                       </td>
 
-                      {/* months cells */}
                       {MONTHS.map((m, mIdx) => (
                         <Fragment key={`${pid}-${m.key}`}>
                           {units.map((u, uIdx) => {
@@ -935,10 +878,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
                             return (
                               <td
                                 key={`${pid}-${m.key}-${u.id}`}
-                                className={cx(
-                                  "border border-slate-200 dark:border-slate-700 px-2 py-2",
-                                  monthStripeCell(mIdx)
-                                )}
+                                className={cx("border border-slate-200 dark:border-slate-700 px-2 py-2", monthStripeCell(mIdx))}
                               >
                                 <input
                                   ref={registerInput(rIdx, col)}
@@ -949,9 +889,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
                                   value={qtyByPid?.[pid]?.[m.key]?.[String(u.id)] ?? ""}
                                   inputMode="decimal"
                                   placeholder="0"
-                                  onChange={(e) =>
-                                    setQtyCell(pid, m.key, String(u.id), sanitizeNumberInput(e.target.value))
-                                  }
+                                  onChange={(e) => setQtyCell(pid, m.key, String(u.id), sanitizeNumberInput(e.target.value))}
                                   disabled={!canEdit}
                                 />
                               </td>
@@ -960,7 +898,6 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
                         </Fragment>
                       ))}
 
-                      {/* sum per unit */}
                       {units.map((u) => (
                         <td
                           key={`${pid}-sum-${u.id}`}
@@ -978,9 +915,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
 
             <tfoot className="sticky bottom-0 z-20">
               <tr className="text-slate-900 dark:text-slate-100">
-                <td
-                  className="sticky left-0 z-30 border border-slate-300 px-3 py-3 font-extrabold dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900/20"
-                >
+                <td className="sticky left-0 z-30 border border-slate-300 px-3 py-3 font-extrabold dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900/20">
                   รวมทั้งตาราง
                 </td>
                 <td className="border border-slate-300 px-2 py-3 text-center font-bold dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900/20">
@@ -990,11 +925,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
                   {fmtMoney(computed.grandValue)}
                 </td>
 
-                {/* keep footer scroll with body */}
-                <td
-                  colSpan={MONTHS.length * units.length}
-                  className="border border-slate-300 px-2 py-3 dark:border-slate-600"
-                >
+                <td colSpan={MONTHS.length * units.length} className="border border-slate-300 px-2 py-3 dark:border-slate-600">
                   <div
                     style={{
                       transform: `translateX(-${scrollLeft}px)`,
@@ -1011,7 +942,6 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId, onYearBEC
                     key={`grand-sum-${u.id}`}
                     className="border border-slate-300 px-2 py-3 text-right font-extrabold dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900/20"
                   >
-                    {/* รวมหน่วยทั้งปี (แสดงเป็นจำนวนรวมของทุกสินค้า) */}
                     {(() => {
                       let s = 0
                       for (const p of products) {

@@ -16,7 +16,7 @@ const sanitizeNumberInput = (s) => {
 const fmtQty = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 3 }).format(toNumber(n))
 const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(toNumber(n))
 
-/** ---------------- API (token = localStorage.token) ---------------- */
+/** ---------------- API ---------------- */
 const API_BASE_RAW =
   import.meta.env.VITE_API_BASE_CUSTOM ||
   import.meta.env.VITE_API_BASE ||
@@ -31,7 +31,27 @@ class ApiError extends Error {
     Object.assign(this, meta)
   }
 }
-const getToken = () => localStorage.getItem("token") || ""
+
+/** ✅ token robust: รองรับหลาย key + กัน Bearer ซ้ำ */
+const getToken = () => {
+  const raw =
+    localStorage.getItem("token") ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("jwt") ||
+    localStorage.getItem("auth_token") ||
+    ""
+  return String(raw || "").trim()
+}
+
+const buildAuthHeader = (tokenRaw) => {
+  const t = String(tokenRaw || "").trim()
+  if (!t) return {}
+  // ถ้าเก็บมาเป็น "Bearer xxx" ก็ใช้ตรงๆ
+  if (t.toLowerCase().startsWith("bearer ")) return { Authorization: t }
+  // กันเคสพลาด: tokenRaw ดันมี bearer ปน
+  const cleaned = t.replace(/^bearer\s+/i, "").trim()
+  return { Authorization: `Bearer ${cleaned}` }
+}
 
 async function apiAuth(path, { method = "GET", body } = {}) {
   if (!API_BASE) throw new ApiError("FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE...)", { status: 0 })
@@ -44,7 +64,7 @@ async function apiAuth(path, { method = "GET", body } = {}) {
       method,
       headers: {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...buildAuthHeader(token),
       },
       body: body != null ? JSON.stringify(body) : undefined,
       credentials: "include",
@@ -172,7 +192,6 @@ function ProcurementPlanDetail(props) {
     if (v === null || v === undefined || v === "") return null
     const n = Number(v)
     if (Number.isFinite(n) && n > 0) return n
-    // sometimes "1" or "สาขา 1" slips in
     const digits = String(v).match(/\d+/g)
     if (!digits) return null
     const nd = Number(digits.join(""))
@@ -185,7 +204,6 @@ function ProcurementPlanDetail(props) {
       const n = _pickNumber(c)
       if (n) return n
     }
-    // fallback from localStorage (some pages store this)
     const ls = _pickNumber(localStorage.getItem("branch_id") || localStorage.getItem("selected_branch_id"))
     return ls || null
   }, [branchId, branch_id, branch, selectedBranch, _pickNumber])
@@ -193,25 +211,21 @@ function ProcurementPlanDetail(props) {
   const branchIdEff = resolvedBranchId || incomingBranchId || null
 
   useEffect(() => {
-    // keep name in sync if parent passes it later
     if (branchName) setResolvedBranchName(branchName)
   }, [branchName])
 
   useEffect(() => {
-    // if we already have numeric branch id, done
     if (incomingBranchId) {
       setResolvedBranchId(incomingBranchId)
       return
     }
 
-    // if no id but have branch name, try resolve by searching BE
     const name = String(branchName || resolvedBranchName || "").trim()
     if (!name) return
 
     let alive = true
     ;(async () => {
       try {
-        // try a couple of common branch search endpoints
         const tryPaths = [
           `/lists/branch/search?branch_name=${encodeURIComponent(name)}`,
           `/lists/branch/search?name=${encodeURIComponent(name)}`,
@@ -227,9 +241,7 @@ function ProcurementPlanDetail(props) {
             else if (Array.isArray(data?.items)) rows = data.items
             else if (Array.isArray(data?.rows)) rows = data.rows
             if (rows && rows.length) break
-          } catch {
-            // ignore and try next
-          }
+          } catch {}
         }
 
         if (!alive) return
@@ -444,26 +456,6 @@ function ProcurementPlanDetail(props) {
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  /** table height */
-  const tableCardRef = useRef(null)
-  const [tableCardHeight, setTableCardHeight] = useState(760)
-
-  const recalcTableCardHeight = useCallback(() => {
-    const el = tableCardRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const vh = window.innerHeight || 800
-    const bottomPadding = 4
-    const h = Math.max(700, Math.floor(vh - rect.top - bottomPadding))
-    setTableCardHeight(h)
-  }, [])
-
-  useEffect(() => {
-    recalcTableCardHeight()
-    window.addEventListener("resize", recalcTableCardHeight)
-    return () => window.removeEventListener("resize", recalcTableCardHeight)
-  }, [recalcTableCardHeight])
-
   /** scroll sync */
   const bodyScrollRef = useRef(null)
   const [scrollLeft, setScrollLeft] = useState(0)
@@ -535,7 +527,7 @@ function ProcurementPlanDetail(props) {
       if (k === "ArrowDown") nextRow = row + 1
 
       const maxRow = Math.max(0, products.length - 1)
-      const maxCol = Math.max(0, totalCols - 1)
+      const maxCol = Math.max(0, (1 + MONTHS.length * units.length) - 1)
 
       if (nextRow < 0) nextRow = 0
       if (nextRow > maxRow) nextRow = maxRow
@@ -552,7 +544,7 @@ function ProcurementPlanDetail(props) {
       } catch {}
       requestAnimationFrame(() => ensureInView(target))
     },
-    [products.length, totalCols, ensureInView]
+    [products.length, units.length, ensureInView]
   )
 
   /** setters */
@@ -580,7 +572,6 @@ function ProcurementPlanDetail(props) {
 
   /** totals */
   const computed = useMemo(() => {
-    const row = {}
     let grandValue = 0
     let grandCost = 0
     let grandQty = 0
@@ -598,16 +589,12 @@ function ProcurementPlanDetail(props) {
         }
       }
 
-      const value = qtySum * sell
-      const cost = qtySum * buy
-
-      row[pid] = { qtySum, value, cost }
       grandQty += qtySum
-      grandValue += value
-      grandCost += cost
+      grandValue += qtySum * sell
+      grandCost += qtySum * buy
     }
 
-    return { row, grandQty, grandValue, grandCost }
+    return { grandQty, grandValue, grandCost }
   }, [products, priceByPid, qtyByPid, units])
 
   /** notice + save */
@@ -626,7 +613,7 @@ function ProcurementPlanDetail(props) {
 
       setIsSaving(true)
 
-      /** 1) save unit prices (sell/buy) ✅ เพิ่ม year + branch_id */
+      /** 1) save unit prices (sell/buy) */
       const priceItems = products.map((p) => {
         const pid = String(p.product_id)
         const cur = priceByPid[pid] || {}
@@ -638,21 +625,19 @@ function ProcurementPlanDetail(props) {
         }
       })
 
-      // try bulk first
       try {
         await apiAuth(`/unit-prices/bulk`, {
           method: "PUT",
           body: {
-            year: Number(effectiveYearBE), // ✅ สำคัญ
+            year: Number(effectiveYearBE),
             plan_id: Number(effectivePlanId),
-            branch_id: Number(branchIdEff), // ✅ สำคัญ
+            branch_id: Number(branchIdEff),
             items: priceItems,
           },
         })
       } catch (e) {
         const st = e?.status
         if (st === 404 || st === 405) {
-          // fallback: post per item ✅ เพิ่ม year + branch_id
           for (const it of priceItems) {
             await apiAuth(`/unit-prices`, {
               method: "POST",
@@ -708,12 +693,14 @@ function ProcurementPlanDetail(props) {
       await loadSavedFromBE()
     } catch (e) {
       const status = e?.status || 0
+      const rawMsg = String(e?.message || e || "")
       let title = "บันทึกไม่สำเร็จ ❌"
-      let detail = e?.message || String(e)
+      let detail = rawMsg
 
       if (status === 401) {
-        title = "401 Unauthorized"
-        detail = "Token ไม่ผ่าน/หมดอายุ → Logout/Login ใหม่"
+        title = "401 Invalid authentication credentials"
+        detail =
+          "Token ไม่ผ่าน/หมดอายุ หรือ Authorization ผิดรูปแบบ → ลอง Logout/Login ใหม่ แล้วเช็คว่ามี token ใน localStorage (token/access_token) และไม่มี 'Bearer Bearer ...'"
       } else if (status === 403) {
         title = "403 Forbidden"
         detail = "สิทธิ์ไม่พอ (role ไม่อนุญาต)"
@@ -723,6 +710,10 @@ function ProcurementPlanDetail(props) {
       } else if (status === 422) {
         title = "422 Validation Error"
         detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู response/console)"
+      } else if (status === 400 && rawMsg.toLowerCase().includes("branch_id missing")) {
+        title = "400 branch_id missing"
+        detail =
+          "BE มองว่า user นี้ไม่ใช่ admin → มันจะเมิน branch_id ที่ส่งมา แล้วไปใช้ user.branch_location แทน (แต่ user ไม่มี) \nวิธีแก้: ต้อง Login ด้วย user ที่ role เป็น admin/superadmin จริง หรือให้ user มี branch_location"
       }
 
       setNotice({ type: "error", title, detail })
@@ -730,6 +721,7 @@ function ProcurementPlanDetail(props) {
       console.error("status:", status, "detail:", detail)
       console.error("yearBE:", effectiveYearBE, "plan_id:", effectivePlanId)
       console.error("branch_id:", branchIdEff, "branch:", resolvedBranchName)
+      console.error("token startswith:", getToken()?.slice(0, 12))
       console.error("raw error:", e)
       console.groupEnd()
     } finally {
@@ -747,7 +739,7 @@ function ProcurementPlanDetail(props) {
       ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200"
       : "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100"
     return (
-      <div className={cx("mb-3 rounded-2xl border p-3 text-sm", cls)}>
+      <div className={cx("mb-3 whitespace-pre-line rounded-2xl border p-3 text-sm", cls)}>
         <div className="font-extrabold">{notice.title}</div>
         {notice.detail && <div className="mt-1 text-[13px] opacity-95">{notice.detail}</div>}
       </div>
@@ -826,11 +818,7 @@ function ProcurementPlanDetail(props) {
 
       <NoticeBox notice={notice} />
 
-      <div
-        ref={tableCardRef}
-        className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
-        style={{ height: 760 }}
-      >
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700" ref={bodyScrollRef} onScroll={onBodyScroll}>
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>

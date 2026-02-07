@@ -161,8 +161,103 @@ function buildEmptyQtyGrid(productIds, unitList) {
 /** =======================================================================
  * ProcurementPlanDetail
  * ======================================================================= */
-function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
-  const canEdit = !!branchId
+function ProcurementPlanDetail(props) {
+  const { branchId, branch_id, branch, selectedBranch, branchName, yearBE, planId } = props || {}
+
+  /** ---------------- Branch resolver (BE now requires branch_id for admin users) ---------------- */
+  const [resolvedBranchId, setResolvedBranchId] = useState(null)
+  const [resolvedBranchName, setResolvedBranchName] = useState(branchName || "")
+
+  const _pickNumber = useCallback((v) => {
+    if (v === null || v === undefined || v === "") return null
+    const n = Number(v)
+    if (Number.isFinite(n) && n > 0) return n
+    // sometimes "1" or "สาขา 1" slips in
+    const digits = String(v).match(/\d+/g)
+    if (!digits) return null
+    const nd = Number(digits.join(""))
+    return Number.isFinite(nd) && nd > 0 ? nd : null
+  }, [])
+
+  const incomingBranchId = useMemo(() => {
+    const cands = [branchId, branch_id, branch?.id, selectedBranch?.id, branch?.branch_id, selectedBranch?.branch_id]
+    for (const c of cands) {
+      const n = _pickNumber(c)
+      if (n) return n
+    }
+    // fallback from localStorage (some pages store this)
+    const ls = _pickNumber(localStorage.getItem("branch_id") || localStorage.getItem("selected_branch_id"))
+    return ls || null
+  }, [branchId, branch_id, branch, selectedBranch, _pickNumber])
+
+  const branchIdEff = resolvedBranchId || incomingBranchId || null
+
+  useEffect(() => {
+    // keep name in sync if parent passes it later
+    if (branchName) setResolvedBranchName(branchName)
+  }, [branchName])
+
+  useEffect(() => {
+    // if we already have numeric branch id, done
+    if (incomingBranchId) {
+      setResolvedBranchId(incomingBranchId)
+      return
+    }
+
+    // if no id but have branch name, try resolve by searching BE
+    const name = String(branchName || resolvedBranchName || "").trim()
+    if (!name) return
+
+    let alive = true
+    ;(async () => {
+      try {
+        // try a couple of common branch search endpoints
+        const tryPaths = [
+          `/lists/branch/search?branch_name=${encodeURIComponent(name)}`,
+          `/lists/branch/search?name=${encodeURIComponent(name)}`,
+          `/lists/branches/search?name=${encodeURIComponent(name)}`,
+          `/lists/branch/search?q=${encodeURIComponent(name)}`,
+        ]
+
+        let rows = null
+        for (const path of tryPaths) {
+          try {
+            const data = await apiAuth(path)
+            if (Array.isArray(data)) rows = data
+            else if (Array.isArray(data?.items)) rows = data.items
+            else if (Array.isArray(data?.rows)) rows = data.rows
+            if (rows && rows.length) break
+          } catch {
+            // ignore and try next
+          }
+        }
+
+        if (!alive) return
+        if (!rows || !rows.length) return
+
+        const norm = (s) => String(s ?? "").trim().replace(/\s+/g, " ")
+        const target = norm(name)
+        const found =
+          rows.find((r) => norm(r.branch_name || r.name).includes(target)) ||
+          rows.find((r) => norm(r.branch_name || r.name) === target) ||
+          rows[0]
+
+        const id = _pickNumber(found?.id || found?.branch_id)
+        if (id) {
+          setResolvedBranchId(id)
+          setResolvedBranchName(found?.branch_name || found?.name || name)
+        }
+      } catch (e) {
+        console.warn("[Branch resolve] failed:", e)
+      }
+    })()
+
+    return () => {
+      alive = false
+    }
+  }, [incomingBranchId, branchName, resolvedBranchName, _pickNumber])
+
+  const canEdit = !!branchIdEff
 
   /** Plan แบบแปลงปีเหมือนหน้าค่าใช้จ่าย: 2569 => 1 */
   const effectivePlanId = useMemo(() => {
@@ -190,7 +285,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)
 
   useEffect(() => {
-    if (!branchId) {
+    if (!branchIdEff) {
       setUnits(FALLBACK_UNITS)
       return
     }
@@ -198,7 +293,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
     ;(async () => {
       setIsLoadingUnits(true)
       try {
-        const data = await apiAuth(`/lists/unit/search?branch_id=${Number(branchId)}`)
+        const data = await apiAuth(`/lists/unit/search?branch_id=${Number(branchIdEff)}`)
         const rows = Array.isArray(data) ? data : []
         const normalized = rows
           .map((r, idx) => {
@@ -221,7 +316,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
     return () => {
       alive = false
     }
-  }, [branchId])
+  }, [branchIdEff])
 
   /** Products + latest prices */
   const [products, setProducts] = useState([])
@@ -304,13 +399,13 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
 
   const loadSavedFromBE = useCallback(async () => {
-    if (!branchId) return
+    if (!branchIdEff) return
     if (!effectiveYearBE) return
     if (!products.length) return
 
     setIsLoadingSaved(true)
     try {
-      const data = await apiAuth(`/revenue/sale-goals?year=${effectiveYearBE}&branch_id=${Number(branchId)}`)
+      const data = await apiAuth(`/revenue/sale-goals?year=${effectiveYearBE}&branch_id=${Number(branchIdEff)}`)
       const cells = Array.isArray(data?.cells) ? data.cells : []
 
       const uList = units.length ? units : FALLBACK_UNITS
@@ -339,7 +434,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
     } finally {
       setIsLoadingSaved(false)
     }
-  }, [branchId, effectiveYearBE, products.length, units.length])
+  }, [branchIdEff, effectiveYearBE, products.length, units.length])
 
   useEffect(() => {
     loadProducts()
@@ -524,7 +619,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
       setNotice(null)
       const token = getToken()
       if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
-      if (!branchId) throw new Error("FE: ยังไม่ได้เลือกสาขา")
+      if (!branchIdEff) throw new Error("FE: ยังไม่ได้เลือกสาขา (branch_id หาย) → ตรวจว่าหน้าแม่ส่ง branchId มาหรือยัง")
       if (!effectivePlanId || effectivePlanId <= 0) throw new Error(`FE: plan_id ไม่ถูกต้อง (${effectivePlanId})`)
       if (!effectiveYearBE) throw new Error("FE: yearBE ไม่ถูกต้อง")
       if (!products.length) throw new Error("FE: ไม่มีสินค้าในธุรกิจจัดหา")
@@ -548,9 +643,9 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
         await apiAuth(`/unit-prices/bulk`, {
           method: "PUT",
           body: {
-            year: Number(effectiveYearBE),           // ✅ สำคัญ
+            year: Number(effectiveYearBE), // ✅ สำคัญ
             plan_id: Number(effectivePlanId),
-            branch_id: Number(branchId),             // ✅ สำคัญ
+            branch_id: Number(branchIdEff), // ✅ สำคัญ
             items: priceItems,
           },
         })
@@ -564,7 +659,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
               body: {
                 year: Number(effectiveYearBE),
                 plan_id: Number(effectivePlanId),
-                branch_id: Number(branchId),
+                branch_id: Number(branchIdEff),
                 product_id: it.product_id,
                 sell_price: it.sell_price,
                 buy_price: it.buy_price,
@@ -577,7 +672,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
         }
       }
 
-      /** 2) save sale goals quantities (เดิมส่ง branch_id อยู่แล้ว) */
+      /** 2) save sale goals quantities */
       const cells = []
       for (const p of products) {
         const pid = String(p.product_id)
@@ -598,7 +693,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
         method: "PUT",
         body: {
           year: Number(effectiveYearBE),
-          branch_id: Number(branchId),
+          branch_id: Number(branchIdEff),
           cells,
         },
       })
@@ -606,7 +701,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
       setNotice({
         type: "success",
         title: "บันทึกสำเร็จ ✅",
-        detail: `สาขา ${branchName || branchId} • ปี ${effectiveYearBE} (plan_id=${effectivePlanId}) • สินค้า ${products.length} รายการ`,
+        detail: `สาขา ${resolvedBranchName || branchIdEff} • ปี ${effectiveYearBE} (plan_id=${effectivePlanId}) • สินค้า ${products.length} รายการ`,
       })
 
       await loadProducts()
@@ -634,7 +729,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
       console.groupCollapsed("%c[ProcurementPlanDetail] Save failed ❌", "color:#ef4444;font-weight:800;")
       console.error("status:", status, "detail:", detail)
       console.error("yearBE:", effectiveYearBE, "plan_id:", effectivePlanId)
-      console.error("branch_id:", branchId, "branch:", branchName)
+      console.error("branch_id:", branchIdEff, "branch:", resolvedBranchName)
       console.error("raw error:", e)
       console.groupEnd()
     } finally {
@@ -667,7 +762,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
           <div>
             <div className="text-lg font-bold">ประมาณการรายได้ — ธุรกิจจัดหา (รายเดือน)</div>
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              ({periodLabel}) • ปี {effectiveYearBE} • plan_id {effectivePlanId} • สาขา {branchName || "-"} • หน่วย{" "}
+              ({periodLabel}) • ปี {effectiveYearBE} • plan_id {effectivePlanId} • สาขา {resolvedBranchName || "-"} • หน่วย{" "}
               {isLoadingUnits ? "กำลังโหลด..." : units.length}
               {isLoadingProducts ? " • โหลดสินค้า/ราคา..." : ""}
               {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
@@ -712,7 +807,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div>
             <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</div>
-            <div className={baseField}>{branchName || (branchId ? `สาขา id: ${branchId}` : "-")}</div>
+            <div className={baseField}>{resolvedBranchName || (branchIdEff ? `สาขา id: ${branchIdEff}` : "-")}</div>
           </div>
 
           <div>
@@ -734,13 +829,9 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
       <div
         ref={tableCardRef}
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
-        style={{ height: tableCardHeight }}
+        style={{ height: 760 }}
       >
-        <div
-          ref={bodyScrollRef}
-          onScroll={onBodyScroll}
-          className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
-        >
+        <div className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700" ref={bodyScrollRef} onScroll={onBodyScroll}>
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.product }} />
@@ -926,13 +1017,7 @@ function ProcurementPlanDetail({ branchId, branchName, yearBE, planId }) {
                 </td>
 
                 <td colSpan={MONTHS.length * units.length} className="border border-slate-300 px-2 py-3 dark:border-slate-600">
-                  <div
-                    style={{
-                      transform: `translateX(-${scrollLeft}px)`,
-                      width: RIGHT_W - units.length * COL_W.cell,
-                    }}
-                    className="text-xs text-slate-600 dark:text-slate-300"
-                  >
+                  <div className="text-xs text-slate-600 dark:text-slate-300">
                     รวมรายได้ทั้งปี (คำนวณจากจำนวน × ราคาขาย) • รวมต้นทุน (จำนวน × ราคาซื้อ)
                   </div>
                 </td>

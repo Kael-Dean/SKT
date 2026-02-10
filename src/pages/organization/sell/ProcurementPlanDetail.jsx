@@ -46,9 +46,7 @@ const getToken = () => {
 const buildAuthHeader = (tokenRaw) => {
   const t = String(tokenRaw || "").trim()
   if (!t) return {}
-  // ถ้าเก็บมาเป็น "Bearer xxx" ก็ใช้ตรงๆ
   if (t.toLowerCase().startsWith("bearer ")) return { Authorization: t }
-  // กันเคสพลาด: tokenRaw ดันมี bearer ปน
   const cleaned = t.replace(/^bearer\s+/i, "").trim()
   return { Authorization: `Bearer ${cleaned}` }
 }
@@ -184,7 +182,11 @@ function buildEmptyQtyGrid(productIds, unitList) {
 function ProcurementPlanDetail(props) {
   const { branchId, branch_id, branch, selectedBranch, branchName, yearBE, planId } = props || {}
 
-  /** ---------------- Branch resolver (BE now requires branch_id for admin users) ---------------- */
+  /** Units (✅ ต้องประกาศก่อนใช้ useMemo ที่อ้างถึง units) */
+  const [units, setUnits] = useState(FALLBACK_UNITS)
+  const [isLoadingUnits, setIsLoadingUnits] = useState(false)
+
+  /** ---------------- Branch resolver ---------------- */
   const [resolvedBranchId, setResolvedBranchId] = useState(null)
   const [resolvedBranchName, setResolvedBranchName] = useState(branchName || "")
 
@@ -271,6 +273,9 @@ function ProcurementPlanDetail(props) {
 
   const canEdit = !!branchIdEff
 
+  // ✅ BE validate unit belong to branch + unit_id ต้องเป็นของจริง (>0)
+  const savableUnits = useMemo(() => (units || []).filter((u) => Number(u?.id) > 0), [units])
+
   /** Plan แบบแปลงปีเหมือนหน้าค่าใช้จ่าย: 2569 => 1 */
   const effectivePlanId = useMemo(() => {
     const p = Number(planId || 0)
@@ -292,10 +297,7 @@ function ProcurementPlanDetail(props) {
     return `1 เม.ย.${yy}-31 มี.ค.${yyNext}`
   }, [effectiveYearBE])
 
-  /** Units */
-  const [units, setUnits] = useState(FALLBACK_UNITS)
-  const [isLoadingUnits, setIsLoadingUnits] = useState(false)
-
+  /** Units loader */
   useEffect(() => {
     if (!branchIdEff) {
       setUnits(FALLBACK_UNITS)
@@ -337,8 +339,6 @@ function ProcurementPlanDetail(props) {
   const [priceByPid, setPriceByPid] = useState({})
   const [qtyByPid, setQtyByPid] = useState({})
 
-  const qtyCols = useMemo(() => MONTHS.length * units.length, [units.length])
-  const totalCols = useMemo(() => 1 + qtyCols, [qtyCols])
   const RIGHT_W = useMemo(() => (MONTHS.length * units.length + units.length) * COL_W.cell, [units.length])
   const TOTAL_W = useMemo(() => LEFT_W + RIGHT_W, [RIGHT_W])
 
@@ -383,7 +383,7 @@ function ProcurementPlanDetail(props) {
 
       setQtyByPid((prev) => {
         const next = { ...prev }
-        const uList = units.length ? units : FALLBACK_UNITS
+        const uList = savableUnits.length ? savableUnits : []
         const empty = buildEmptyQtyGrid(normalized.map((x) => String(x.product_id)), uList)
         for (const pid of Object.keys(empty)) {
           if (!next[pid]) next[pid] = empty[pid]
@@ -405,22 +405,24 @@ function ProcurementPlanDetail(props) {
     } finally {
       setIsLoadingProducts(false)
     }
-  }, [effectivePlanId, units.length])
+  }, [effectivePlanId, savableUnits])
 
   /** Load saved quantities */
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
 
   const loadSavedFromBE = useCallback(async () => {
     if (!branchIdEff) return
-    if (!effectiveYearBE) return
+    if (!effectivePlanId || effectivePlanId <= 0) return
     if (!products.length) return
 
     setIsLoadingSaved(true)
     try {
-      const data = await apiAuth(`/revenue/sale-goals?year=${effectiveYearBE}&branch_id=${Number(branchIdEff)}`)
+      const data = await apiAuth(
+        `/revenue/sale-goals?plan_id=${Number(effectivePlanId)}&branch_id=${Number(branchIdEff)}`
+      )
       const cells = Array.isArray(data?.cells) ? data.cells : []
 
-      const uList = units.length ? units : FALLBACK_UNITS
+      const uList = savableUnits.length ? savableUnits : []
       const uSet = new Set(uList.map((u) => Number(u.id)))
       const pSet = new Set(products.map((p) => Number(p.product_id)))
 
@@ -446,7 +448,7 @@ function ProcurementPlanDetail(props) {
     } finally {
       setIsLoadingSaved(false)
     }
-  }, [branchIdEff, effectiveYearBE, products.length, units.length])
+  }, [branchIdEff, effectivePlanId, products, savableUnits])
 
   useEffect(() => {
     loadProducts()
@@ -527,7 +529,7 @@ function ProcurementPlanDetail(props) {
       if (k === "ArrowDown") nextRow = row + 1
 
       const maxRow = Math.max(0, products.length - 1)
-      const maxCol = Math.max(0, (1 + MONTHS.length * units.length) - 1)
+      const maxCol = Math.max(0, 1 + MONTHS.length * units.length - 1)
 
       if (nextRow < 0) nextRow = 0
       if (nextRow > maxRow) nextRow = maxRow
@@ -606,14 +608,13 @@ function ProcurementPlanDetail(props) {
       setNotice(null)
       const token = getToken()
       if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
-      if (!branchIdEff) throw new Error("FE: ยังไม่ได้เลือกสาขา (branch_id หาย) → ตรวจว่าหน้าแม่ส่ง branchId มาหรือยัง")
+      if (!branchIdEff) throw new Error("FE: ยังไม่ได้เลือกสาขา (branch_id หาย)")
       if (!effectivePlanId || effectivePlanId <= 0) throw new Error(`FE: plan_id ไม่ถูกต้อง (${effectivePlanId})`)
-      if (!effectiveYearBE) throw new Error("FE: yearBE ไม่ถูกต้อง")
       if (!products.length) throw new Error("FE: ไม่มีสินค้าในธุรกิจจัดหา")
+      if (!savableUnits.length) throw new Error("FE: units ยังไม่โหลด หรือไม่มี unit id จริง (>0)")
 
       setIsSaving(true)
 
-      /** 1) save unit prices (sell/buy) */
       const priceItems = products.map((p) => {
         const pid = String(p.product_id)
         const cur = priceByPid[pid] || {}
@@ -657,12 +658,11 @@ function ProcurementPlanDetail(props) {
         }
       }
 
-      /** 2) save sale goals quantities */
       const cells = []
       for (const p of products) {
         const pid = String(p.product_id)
         for (const m of MONTHS) {
-          for (const u of units) {
+          for (const u of savableUnits) {
             const amt = toNumber(qtyByPid?.[pid]?.[m.key]?.[String(u.id)])
             cells.push({
               unit_id: Number(u.id),
@@ -677,7 +677,7 @@ function ProcurementPlanDetail(props) {
       await apiAuth(`/revenue/sale-goals/bulk`, {
         method: "PUT",
         body: {
-          year: Number(effectiveYearBE),
+          plan_id: Number(effectivePlanId),
           branch_id: Number(branchIdEff),
           cells,
         },
@@ -697,33 +697,13 @@ function ProcurementPlanDetail(props) {
       let title = "บันทึกไม่สำเร็จ ❌"
       let detail = rawMsg
 
-      if (status === 401) {
-        title = "401 Invalid authentication credentials"
-        detail =
-          "Token ไม่ผ่าน/หมดอายุ หรือ Authorization ผิดรูปแบบ → ลอง Logout/Login ใหม่ แล้วเช็คว่ามี token ใน localStorage (token/access_token) และไม่มี 'Bearer Bearer ...'"
-      } else if (status === 403) {
-        title = "403 Forbidden"
-        detail = "สิทธิ์ไม่พอ (role ไม่อนุญาต)"
-      } else if (status === 404) {
-        title = "404 Not Found"
-        detail = "ไม่พบ route / ไม่พบข้อมูลที่เกี่ยวข้อง"
-      } else if (status === 422) {
+      if (status === 422) {
         title = "422 Validation Error"
         detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู response/console)"
-      } else if (status === 400 && rawMsg.toLowerCase().includes("branch_id missing")) {
-        title = "400 branch_id missing"
-        detail =
-          "BE มองว่า user นี้ไม่ใช่ admin → มันจะเมิน branch_id ที่ส่งมา แล้วไปใช้ user.branch_location แทน (แต่ user ไม่มี) \nวิธีแก้: ต้อง Login ด้วย user ที่ role เป็น admin/superadmin จริง หรือให้ user มี branch_location"
       }
 
       setNotice({ type: "error", title, detail })
-      console.groupCollapsed("%c[ProcurementPlanDetail] Save failed ❌", "color:#ef4444;font-weight:800;")
-      console.error("status:", status, "detail:", detail)
-      console.error("yearBE:", effectiveYearBE, "plan_id:", effectivePlanId)
-      console.error("branch_id:", branchIdEff, "branch:", resolvedBranchName)
-      console.error("token startswith:", getToken()?.slice(0, 12))
-      console.error("raw error:", e)
-      console.groupEnd()
+      console.error("[ProcurementPlanDetail] Save failed:", e)
     } finally {
       setIsSaving(false)
     }
@@ -746,7 +726,6 @@ function ProcurementPlanDetail(props) {
     )
   }
 
-  /** ---------------- Render ---------------- */
   return (
     <div className="space-y-3">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -819,7 +798,11 @@ function ProcurementPlanDetail(props) {
       <NoticeBox notice={notice} />
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700" ref={bodyScrollRef} onScroll={onBodyScroll}>
+        <div
+          className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
+          ref={bodyScrollRef}
+          onScroll={onBodyScroll}
+        >
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.product }} />

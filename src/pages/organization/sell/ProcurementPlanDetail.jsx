@@ -271,9 +271,6 @@ function ProcurementPlanDetail(props) {
 
   const canEdit = !!branchIdEff
 
-  // ✅ BE validate unit belong to branch + unit_id ต้องเป็นของจริง (>0)
-  const savableUnits = useMemo(() => (units || []).filter((u) => Number(u?.id) > 0), [units])
-
   /** Plan แบบแปลงปีเหมือนหน้าค่าใช้จ่าย: 2569 => 1 */
   const effectivePlanId = useMemo(() => {
     const p = Number(planId || 0)
@@ -386,8 +383,7 @@ function ProcurementPlanDetail(props) {
 
       setQtyByPid((prev) => {
         const next = { ...prev }
-        // ✅ กันเคส units fallback (id ติดลบ) ทำให้ save ไม่ผ่าน validate
-        const uList = savableUnits.length ? savableUnits : []
+        const uList = units.length ? units : FALLBACK_UNITS
         const empty = buildEmptyQtyGrid(normalized.map((x) => String(x.product_id)), uList)
         for (const pid of Object.keys(empty)) {
           if (!next[pid]) next[pid] = empty[pid]
@@ -409,23 +405,22 @@ function ProcurementPlanDetail(props) {
     } finally {
       setIsLoadingProducts(false)
     }
-  }, [effectivePlanId, savableUnits.length])
+  }, [effectivePlanId, units.length])
 
   /** Load saved quantities */
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
 
   const loadSavedFromBE = useCallback(async () => {
     if (!branchIdEff) return
-    if (!effectivePlanId || effectivePlanId <= 0) return
+    if (!effectiveYearBE) return
     if (!products.length) return
 
     setIsLoadingSaved(true)
     try {
-      // ✅ BE เปลี่ยนมาใช้ plan_id (ไม่รับ year แล้ว)
-      const data = await apiAuth(`/revenue/sale-goals?plan_id=${Number(effectivePlanId)}&branch_id=${Number(branchIdEff)}`)
+      const data = await apiAuth(`/revenue/sale-goals?year=${effectiveYearBE}&branch_id=${Number(branchIdEff)}`)
       const cells = Array.isArray(data?.cells) ? data.cells : []
 
-      const uList = savableUnits.length ? savableUnits : []
+      const uList = units.length ? units : FALLBACK_UNITS
       const uSet = new Set(uList.map((u) => Number(u.id)))
       const pSet = new Set(products.map((p) => Number(p.product_id)))
 
@@ -451,7 +446,7 @@ function ProcurementPlanDetail(props) {
     } finally {
       setIsLoadingSaved(false)
     }
-  }, [branchIdEff, effectivePlanId, products.length, savableUnits.length])
+  }, [branchIdEff, effectiveYearBE, products.length, units.length])
 
   useEffect(() => {
     loadProducts()
@@ -613,8 +608,8 @@ function ProcurementPlanDetail(props) {
       if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
       if (!branchIdEff) throw new Error("FE: ยังไม่ได้เลือกสาขา (branch_id หาย) → ตรวจว่าหน้าแม่ส่ง branchId มาหรือยัง")
       if (!effectivePlanId || effectivePlanId <= 0) throw new Error(`FE: plan_id ไม่ถูกต้อง (${effectivePlanId})`)
+      if (!effectiveYearBE) throw new Error("FE: yearBE ไม่ถูกต้อง")
       if (!products.length) throw new Error("FE: ไม่มีสินค้าในธุรกิจจัดหา")
-      if (!savableUnits.length) throw new Error("FE: ยังโหลดหน่วย (units) ไม่ได้ หรือ units ไม่ใช่ของจริง → ลองรีเฟรช/ตรวจ API /lists/unit/search")
 
       setIsSaving(true)
 
@@ -667,7 +662,7 @@ function ProcurementPlanDetail(props) {
       for (const p of products) {
         const pid = String(p.product_id)
         for (const m of MONTHS) {
-          for (const u of savableUnits) {
+          for (const u of units) {
             const amt = toNumber(qtyByPid?.[pid]?.[m.key]?.[String(u.id)])
             cells.push({
               unit_id: Number(u.id),
@@ -682,8 +677,7 @@ function ProcurementPlanDetail(props) {
       await apiAuth(`/revenue/sale-goals/bulk`, {
         method: "PUT",
         body: {
-          // ✅ BE schema: { plan_id, branch_id?, cells[] }
-          plan_id: Number(effectivePlanId),
+          year: Number(effectiveYearBE),
           branch_id: Number(branchIdEff),
           cells,
         },

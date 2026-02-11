@@ -27,7 +27,6 @@ const readonlyField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
   "text-black shadow-none dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100"
 
-
 // ---------------- Reusable ComboBox ----------------
 function ComboBox({
   options = [],
@@ -124,7 +123,8 @@ function ComboBox({
   }
 
   return (
-    <div className="relative" ref={boxRef}>
+    // ✅ ตอนเปิด dropdown ให้ยก z-index ของ wrapper ขึ้นมาชนะ sticky/table
+    <div className={cx("relative", open && "z-[1000]")} ref={boxRef}>
       <button
         type="button"
         ref={controlRef}
@@ -156,7 +156,7 @@ function ComboBox({
         <div
           ref={listRef}
           role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="absolute z-[1100] mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         >
           {options.length === 0 && (
             <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
@@ -202,29 +202,102 @@ const PLAN_TYPES = [
 
 /* ---------------- ตาราง (เพิ่ม file ตามรูปโฟลเดอร์จริง) ---------------- */
 const SALES_TABLES = [
-  { key: "procurement-plan-detail", label: "รายละเอียดแผนการจัดหาสินค้า", file: "sell/ProcurementPlanDetail.jsx", Component: ProcurementPlanDetail },
-  { key: "agri-collection-plan-table", label: "รายละเอียดแผนการรวบรวมผลผลิตการเกษตร", file: "sell/AgriCollectionPlanTable.jsx", Component: AgriCollectionPlanTable },
-  { key: "agri-processing-plan-detail", label: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร (Detail)", file: "sell/AgriProcessingPlanDetail.jsx", Component: AgriProcessingPlanDetail },
-  { key: "seed-project-sales-plan-detail", label: "รายละเอียดแผนโครงการผลิตเมล็ดพันธุ์ (ยอดขาย)", file: "sell/SeedProjectSalesPlanDetail.jsx", Component: SeedProjectSalesPlanDetail },
-  { key: "service-business-plan-detail", label: "รายละเอียดแผนธุรกิจบริการ", file: "sell/ServiceBusinessPlanDetail.jsx", Component: ServiceBusinessPlanDetail },
-  { key: "business-plan-revenue-by-business", label: "รายได้เฉพาะธุรกิจ (สรุป)", file: "sell/BusinessPlanRevenueByBusinessTable.jsx", Component: BusinessPlanRevenueByBusinessTable },
-  { key: "business-plan-other-income", label: "รายได้อื่นๆ", file: "sell/BusinessPlanOtherIncomeTable.jsx", Component: BusinessPlanOtherIncomeTable },
+  {
+    key: "procurement-plan-detail",
+    label: "รายละเอียดแผนการจัดหาสินค้า",
+    file: "sell/ProcurementPlanDetail.jsx",
+    Component: ProcurementPlanDetail,
+  },
+  {
+    key: "agri-collection-plan-table",
+    label: "รายละเอียดแผนการรวบรวมผลผลิตการเกษตร",
+    file: "sell/AgriCollectionPlanTable.jsx",
+    Component: AgriCollectionPlanTable,
+  },
+  {
+    key: "agri-processing-plan-detail",
+    label: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร (Detail)",
+    file: "sell/AgriProcessingPlanDetail.jsx",
+    Component: AgriProcessingPlanDetail,
+  },
+  {
+    key: "seed-project-sales-plan-detail",
+    label: "รายละเอียดแผนโครงการผลิตเมล็ดพันธุ์ (ยอดขาย)",
+    file: "sell/SeedProjectSalesPlanDetail.jsx",
+    Component: SeedProjectSalesPlanDetail,
+  },
+  {
+    key: "service-business-plan-detail",
+    label: "รายละเอียดแผนธุรกิจบริการ",
+    file: "sell/ServiceBusinessPlanDetail.jsx",
+    Component: ServiceBusinessPlanDetail,
+  },
+  {
+    key: "business-plan-revenue-by-business",
+    label: "รายได้เฉพาะธุรกิจ (สรุป)",
+    file: "sell/BusinessPlanRevenueByBusinessTable.jsx",
+    Component: BusinessPlanRevenueByBusinessTable,
+  },
+  {
+    key: "business-plan-other-income",
+    label: "รายได้อื่นๆ",
+    file: "sell/BusinessPlanOtherIncomeTable.jsx",
+    Component: BusinessPlanOtherIncomeTable,
+  },
 ]
 
 const COST_TABLES = [
-  { key: "business-plan-expense-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า", file: "cost/BusinessPlanExpenseTable.jsx", Component: BusinessPlanExpenseTable },
-  { key: "business-plan-expense-oil-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า ปั๊มน้ำมัน", file: "cost/BusinessPlanExpenseOilTable.jsx", Component: BusinessPlanExpenseOilTable },
-  { key: "business-plan-expense-collection-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม", file: "cost/BusinessPlanExpenseCollectionTable.jsx", Component: BusinessPlanExpenseCollectionTable },
-  { key: "business-plan-expense-processing-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป", file: "cost/BusinessPlanExpenseProcessingTable.jsx", Component: BusinessPlanExpenseProcessingTable },
-  { key: "business-plan-expense-seed-processing-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูปเมล็ดพันธุ์", file: "cost/BusinessPlanExpenseSeedProcessingTable.jsx", Component: BusinessPlanExpenseSeedProcessingTable },
-  { key: "business-plan-expense-service-table", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจบริการ", file: "cost/BusinessPlanExpenseServiceTable.jsx", Component: BusinessPlanExpenseServiceTable },
-  { key: "business-plan-expense-support-work-table", label: "ค่าใช้จ่ายดำเนินงาน", file: "cost/BusinessPlanExpenseSupportWorkTable.jsx", Component: BusinessPlanExpenseSupportWorkTable },
-  { key: "business-plan-rep-cost-summary", label: "ต้นทุนขายเฉพาะธุรกิจ", file: "cost/BusinessPlanRepCostSummaryTable.jsx", Component: BusinessPlanRepCostSummaryTable },
+  {
+    key: "business-plan-expense-table",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า",
+    file: "cost/BusinessPlanExpenseTable.jsx",
+    Component: BusinessPlanExpenseTable,
+  },
+  {
+    key: "business-plan-expense-oil-table",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า ปั๊มน้ำมัน",
+    file: "cost/BusinessPlanExpenseOilTable.jsx",
+    Component: BusinessPlanExpenseOilTable,
+  },
+  {
+    key: "business-plan-expense-collection-table",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม",
+    file: "cost/BusinessPlanExpenseCollectionTable.jsx",
+    Component: BusinessPlanExpenseCollectionTable,
+  },
+  {
+    key: "business-plan-expense-processing-table",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป",
+    file: "cost/BusinessPlanExpenseProcessingTable.jsx",
+    Component: BusinessPlanExpenseProcessingTable,
+  },
+  {
+    key: "business-plan-expense-seed-processing-table",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูปเมล็ดพันธุ์",
+    file: "cost/BusinessPlanExpenseSeedProcessingTable.jsx",
+    Component: BusinessPlanExpenseSeedProcessingTable,
+  },
+  {
+    key: "business-plan-expense-service-table",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจบริการ",
+    file: "cost/BusinessPlanExpenseServiceTable.jsx",
+    Component: BusinessPlanExpenseServiceTable,
+  },
+  {
+    key: "business-plan-expense-support-work-table",
+    label: "ค่าใช้จ่ายดำเนินงาน",
+    file: "cost/BusinessPlanExpenseSupportWorkTable.jsx",
+    Component: BusinessPlanExpenseSupportWorkTable,
+  },
+  {
+    key: "business-plan-rep-cost-summary",
+    label: "ต้นทุนขายเฉพาะธุรกิจ",
+    file: "cost/BusinessPlanRepCostSummaryTable.jsx",
+    Component: BusinessPlanRepCostSummaryTable,
+  },
 ]
 
-const THONTHUN_TABLES = [
-  { key: "thonthun", label: "ประมาณการต้นทุนสินค้า", file: "thonthun/Thonthun.jsx", Component: Thonthun },
-]
+const THONTHUN_TABLES = [{ key: "thonthun", label: "ประมาณการต้นทุนสินค้า", file: "thonthun/Thonthun.jsx", Component: Thonthun }]
 
 const OperationPlan = () => {
   useEffect(() => {
@@ -260,7 +333,6 @@ const OperationPlan = () => {
   useEffect(() => {
     if (planType === "thonthun") setBranchId("")
   }, [planType])
-
 
   useEffect(() => {
     const loadBranches = async () => {
@@ -318,10 +390,7 @@ const OperationPlan = () => {
   const ActiveComponent = activeTable?.Component || null
   const canShowTable = !!planType && !!ActiveComponent && (!branchRequired || !!branchId)
 
-  const planTypeOptions = useMemo(
-    () => PLAN_TYPES.map((p) => ({ id: p.id, label: p.label, subLabel: p.subLabel || "" })),
-    []
-  )
+  const planTypeOptions = useMemo(() => PLAN_TYPES.map((p) => ({ id: p.id, label: p.label, subLabel: p.subLabel || "" })), [])
 
   // ✅ ดรอปดาวเลือกตาราง: subLabel = ไฟล์ที่มา
   const tableOptions = useMemo(() => {
@@ -345,7 +414,9 @@ const OperationPlan = () => {
             <div>
               <h1 className="text-2xl md:text-3xl font-extrabold">🗺️ แผนปฏิบัติงาน</h1>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                {planType === "thonthun" ? "เลือกปี → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล" : "เลือกปี → เลือกสาขา → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล"}
+                {planType === "thonthun"
+                  ? "เลือกปี → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล"
+                  : "เลือกปี → เลือกสาขา → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล"}
               </div>
             </div>
 
@@ -387,9 +458,7 @@ const OperationPlan = () => {
                 />
               )}
 
-              {branchRequired && !branchId && (
-                <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>
-              )}
+              {branchRequired && !branchId && <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>}
             </div>
 
             <div className="md:col-span-5">
@@ -457,7 +526,6 @@ const OperationPlan = () => {
           </div>
         </div>
 
-
         {/* Content */}
         {!planType ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -496,7 +564,6 @@ const OperationPlan = () => {
             />
           </div>
         )}
-
       </div>
     </div>
   )

@@ -1,5 +1,6 @@
 // src/pages/operation-plan/AgriProcessingPlanDetail.jsx
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { apiAuth } from "../../lib/api"
 
 /* รายละเอียดแผนการแปรรูปผลผลิตการเกษตร (ตารางรูปแบบ Excel) */
 
@@ -48,29 +49,30 @@ const MONTHS = [
   { key: "m03", label: "มี.ค.", month: 3 },
 ]
 
-// โครงตามรูป (มีหัวข้อกลุ่ม)
-const ITEMS = [
+/** ✅ ใช้ลิสประเภทสินค้าจาก BE ของ “แปรรูป” */
+const PROCESSING_GROUP_ID = 4
+
+/** fallback เผื่อ BE ยังไม่พร้อม */
+const FALLBACK_ITEMS = [
   { type: "group", label: "ข้าวสารและผลิตภัณฑ์ (ผลั่วทั่วไป)" },
-  { type: "item", id: "rice_general", name: "ทั่วไป", unit: "ตัน", unitPrice: "" },
-  { type: "item", id: "rice_organic", name: "อินทรีย์", unit: "ตัน", unitPrice: "" },
+  { type: "item", id: "rice_general", product_id: null, name: "ทั่วไป", unit: "ตัน", unitPrice: "" },
+  { type: "item", id: "rice_organic", product_id: null, name: "อินทรีย์", unit: "ตัน", unitPrice: "" },
   { type: "group", label: "ผลพลอยได้" },
-  { type: "item", id: "byproduct", name: "ผลพลอยได้", unit: "ตัน", unitPrice: "" },
+  { type: "item", id: "byproduct", product_id: null, name: "ผลพลอยได้", unit: "ตัน", unitPrice: "" },
 ]
 
-const EDITABLE_ITEMS = ITEMS.filter((x) => x.type === "item")
-
-function buildInitialQty() {
+function buildInitialQty(editableItems) {
   const out = {}
-  EDITABLE_ITEMS.forEach((it) => {
+  ;(editableItems || []).forEach((it) => {
     out[it.id] = {}
     MONTHS.forEach((m) => (out[it.id][m.key] = ""))
   })
   return out
 }
 
-function buildInitialPrice() {
+function buildInitialPrice(editableItems) {
   const out = {}
-  EDITABLE_ITEMS.forEach((it) => (out[it.id] = String(it.unitPrice ?? "")))
+  ;(editableItems || []).forEach((it) => (out[it.id] = String(it.unitPrice ?? "")))
   return out
 }
 
@@ -100,14 +102,90 @@ const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEv
 const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven)
 const monthStripeFoot = (idx) => (idx % 2 === 1 ? STRIPE.footOdd : STRIPE.footEven)
 
-const dashIfEmpty = (raw, formatted) => (String(raw ?? "") !== "" ? formatted : "-")
 const dashIfAny = (any, formatted) => (any ? formatted : "-")
 
 const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange }) => {
-  const [priceById, setPriceById] = useState(() => buildInitialPrice())
-  const [qtyById, setQtyById] = useState(() => buildInitialQty())
+  /** ✅ items from BE (fallback ได้) */
+  const [items, setItems] = useState(FALLBACK_ITEMS)
+  const editableItems = useMemo(() => (Array.isArray(items) ? items.filter((x) => x.type === "item") : []), [items])
+
+  const [priceById, setPriceById] = useState(() => buildInitialPrice(editableItems.length ? editableItems : FALLBACK_ITEMS.filter((x) => x.type === "item")))
+  const [qtyById, setQtyById] = useState(() => buildInitialQty(editableItems.length ? editableItems : FALLBACK_ITEMS.filter((x) => x.type === "item")))
   const [showPayload, setShowPayload] = useState(false)
   const canEdit = !!branchId
+
+  /** ✅ plan_id: 2569 => 1 */
+  const planId = useMemo(() => {
+    const y = Number(yearBE || 0)
+    return Number.isFinite(y) ? y - 2568 : 0
+  }, [yearBE])
+
+  /** ✅ โหลดลิสประเภทสินค้า “แปรรูป” จาก BE */
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        if (!planId || planId <= 0) return
+
+        const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${Number(planId)}`)
+        const group = data?.[String(PROCESSING_GROUP_ID)] || data?.[PROCESSING_GROUP_ID]
+        const list = Array.isArray(group?.items) ? group.items : []
+
+        const normalizedItems = list
+          .filter((x) => Number(x.business_group || 0) === PROCESSING_GROUP_ID)
+          .map((x) => ({
+            type: "item",
+            id: String(x.product_id || x.id || "").trim(),
+            product_id: Number(x.product_id || x.id || 0) || null,
+            name: String(x.product_type || x.name || "").trim(),
+            unit: String(x.unit || "ตัน").trim(),
+            unitPrice: x.sell_price ?? "",
+          }))
+          .filter((x) => x.id && x.name)
+
+        if (!alive) return
+
+        if (normalizedItems.length) {
+          const headerLabel =
+            String(group?.group_name || group?.name || "รายการสินค้าแปรรูป").trim() || "รายการสินค้าแปรรูป"
+
+          setItems([{ type: "group", label: headerLabel }, ...normalizedItems])
+        } else {
+          setItems(FALLBACK_ITEMS)
+        }
+      } catch (e) {
+        console.warn("[AgriProcessing] load products failed:", e)
+        if (!alive) return
+        setItems(FALLBACK_ITEMS)
+      }
+    })()
+
+    return () => {
+      alive = false
+    }
+  }, [planId])
+
+  /** ✅ sync state ตาม items (เพิ่ม/ลดแถวแล้วกรอกได้ต่อเนื่อง) */
+  useEffect(() => {
+    setPriceById((prev) => {
+      const next = buildInitialPrice(editableItems)
+      for (const k of Object.keys(prev || {})) {
+        if (next[k] !== undefined) next[k] = prev[k]
+      }
+      return next
+    })
+
+    setQtyById((prev) => {
+      const next = buildInitialQty(editableItems)
+      for (const id of Object.keys(next)) {
+        if (!prev?.[id]) continue
+        for (const m of MONTHS) {
+          if (prev[id][m.key] !== undefined) next[id][m.key] = prev[id][m.key]
+        }
+      }
+      return next
+    })
+  }, [editableItems])
 
   // height full screen like other tables
   const tableCardRef = useRef(null)
@@ -157,9 +235,9 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
 
   const editableIndexById = useMemo(() => {
     const m = {}
-    EDITABLE_ITEMS.forEach((it, idx) => (m[it.id] = idx))
+    editableItems.forEach((it, idx) => (m[it.id] = idx))
     return m
-  }, [])
+  }, [editableItems])
 
   const registerInput = useCallback((row, col) => {
     const key = `${row}|${col}`
@@ -206,7 +284,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
       if (k === "ArrowDown") nextRow = row + 1
 
       if (nextRow < 0) nextRow = 0
-      if (nextRow > EDITABLE_ITEMS.length - 1) nextRow = EDITABLE_ITEMS.length - 1
+      if (nextRow > editableItems.length - 1) nextRow = editableItems.length - 1
       if (nextCol < 0) nextCol = 0
       if (nextCol > totalCols - 1) nextCol = totalCols - 1
 
@@ -221,7 +299,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
 
       requestAnimationFrame(() => ensureInView(target))
     },
-    [ensureInView, totalCols]
+    [ensureInView, totalCols, editableItems.length]
   )
 
   const getQtyColIndex = (monthIdx) => 1 + monthIdx
@@ -252,7 +330,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
       monthAny[m.key] = false
     })
 
-    EDITABLE_ITEMS.forEach((it) => {
+    editableItems.forEach((it) => {
       const priceRaw = priceById[it.id] ?? ""
       const price = toNumber(priceRaw)
       let rowQty = 0
@@ -277,21 +355,16 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
       grandQty += rowQty
       grandAmt += rowAmt
 
-      itemTotals[it.id] = {
-        qty: rowQty,
-        amt: rowAmt,
-        any: rowAny,
-        priceRaw,
-      }
+      itemTotals[it.id] = { qty: rowQty, amt: rowAmt, any: rowAny, priceRaw }
     })
 
     return { itemTotals, monthQtyTotals, monthAmtTotals, monthAny, anyAll, grandQty, grandAmt }
-  }, [qtyById, priceById])
+  }, [qtyById, priceById, editableItems])
 
   const resetAll = () => {
     if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
-    setPriceById(buildInitialPrice())
-    setQtyById(buildInitialQty())
+    setPriceById(buildInitialPrice(editableItems))
+    setQtyById(buildInitialQty(editableItems))
   }
 
   const payload = useMemo(() => {
@@ -299,11 +372,13 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
       table_code: "AGRI_PROCESSING_PLAN_DETAIL",
       table_name: "รายละเอียดแผนการแปรรูปผลผลิตการเกษตร",
       year_be: yearBE,
+      plan_id: planId,
       branch_id: branchId ? Number(branchId) : null,
       branch_name: branchName || null,
       months: MONTHS.map((m) => ({ key: m.key, label: m.label, month: m.month })),
-      items: EDITABLE_ITEMS.map((it) => ({
+      items: editableItems.map((it) => ({
         id: it.id,
+        product_id: it.product_id ?? null,
         name: it.name,
         unit: it.unit,
         unit_price: toNumber(priceById[it.id]),
@@ -319,7 +394,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
         grand_amount: computed.grandAmt,
       },
     }
-  }, [yearBE, branchId, branchName, qtyById, priceById, computed])
+  }, [yearBE, planId, branchId, branchName, qtyById, priceById, computed, editableItems])
 
   const copyPayload = async () => {
     try {
@@ -343,7 +418,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
 
   return (
     <div className="space-y-3">
-      {/* Header Card (เหมือนไฟล์อื่น) */}
+      {/* Header Card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="flex-1">
@@ -428,7 +503,11 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
         style={{ height: tableCardHeight }}
       >
-        <div className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700" ref={bodyScrollRef} onScroll={onBodyScroll}>
+        <div
+          className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
+          ref={bodyScrollRef}
+          onScroll={onBodyScroll}
+        >
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.product }} />
@@ -442,7 +521,6 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
             </colgroup>
 
             <thead className="sticky top-0 z-[80]">
-              {/* ===== Excel-like title rows ===== */}
               <tr className="bg-white dark:bg-slate-800">
                 <th colSpan={colCount} className="border border-slate-300 px-3 py-2 dark:border-slate-600">
                   <div className="flex items-center justify-between">
@@ -462,7 +540,6 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
                 </th>
               </tr>
 
-              {/* ===== Main header row 1 ===== */}
               <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
                 <th
                   rowSpan={3}
@@ -490,7 +567,6 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
                 </th>
               </tr>
 
-              {/* ===== Main header row 2 (month labels + totals headers) ===== */}
               <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
                 {MONTHS.map((m, idx) => (
                   <th
@@ -512,7 +588,6 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
                 </th>
               </tr>
 
-              {/* ===== Main header row 3 (index 1..17) ===== */}
               <tr className="bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                 {Array.from({ length: colCount }).map((_, i) => (
                   <th
@@ -529,7 +604,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
             </thead>
 
             <tbody>
-              {ITEMS.map((row, idxAll) => {
+              {items.map((row, idxAll) => {
                 if (row.type === "group") {
                   return (
                     <tr key={`g-${idxAll}`} className="bg-slate-200/70 dark:bg-slate-700/60">
@@ -545,7 +620,10 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
                       <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
                       <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
                       {MONTHS.map((m, mi) => (
-                        <td key={`g-${idxAll}-${m.key}`} className={cx("border border-slate-200 px-2 py-2 dark:border-slate-700", monthStripeCell(mi))} />
+                        <td
+                          key={`g-${idxAll}-${m.key}`}
+                          className={cx("border border-slate-200 px-2 py-2 dark:border-slate-700", monthStripeCell(mi))}
+                        />
                       ))}
                       <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
                       <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
@@ -554,7 +632,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
                 }
 
                 const it = row
-                const navRow = editableIndexById[it.id]
+                const navRow = editableIndexById[it.id] ?? 0
                 const rowBg = navRow % 2 === 1 ? "bg-slate-50 dark:bg-slate-800" : "bg-white dark:bg-slate-900"
 
                 const priceRaw = priceById[it.id] ?? ""
@@ -577,6 +655,9 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
                         )}
                       >
                         <span className="pl-3">— {it.name}</span>
+                        {Number(it.product_id || 0) > 0 ? (
+                          <div className="text-xs text-slate-500 dark:text-slate-400">product_id: {it.product_id}</div>
+                        ) : null}
                       </td>
 
                       <td className="border border-slate-200 px-2 py-2 text-center font-semibold dark:border-slate-700">
@@ -641,7 +722,6 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
                         const rawQty = qtyById?.[it.id]?.[m.key] ?? ""
                         const q = toNumber(rawQty)
                         const amt = q * priceNum
-                        // Excel style: ถ้าไม่ได้กรอก ให้เป็น "-"
                         const show = rawQty !== "" && String(priceRaw ?? "") !== ""
                         return (
                           <td
@@ -669,7 +749,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
           </table>
         </div>
 
-        {/* ===== Footer totals (เหมือนไฟล์อื่น) ===== */}
+        {/* ===== Footer totals ===== */}
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20">
           <div className="flex w-full">
             {/* LEFT fixed */}
@@ -708,15 +788,11 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
                   </colgroup>
 
                   <tbody>
-                    {/* total qty */}
                     <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
                       {MONTHS.map((m, idx) => (
                         <td
                           key={`tq-${m.key}`}
-                          className={cx(
-                            "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
-                            monthStripeFoot(idx)
-                          )}
+                          className={cx("border border-slate-200 px-2 py-2 text-right dark:border-slate-700", monthStripeFoot(idx))}
                         >
                           {computed.monthAny[m.key] ? fmtQty(computed.monthQtyTotals[m.key] ?? 0) : "-"}
                         </td>
@@ -727,15 +803,11 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, onYearBEChange
                       <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
                     </tr>
 
-                    {/* total amount */}
                     <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
                       {MONTHS.map((m, idx) => (
                         <td
                           key={`ta-${m.key}`}
-                          className={cx(
-                            "border border-slate-200 px-2 py-2 text-right dark:border-slate-700",
-                            monthStripeFoot(idx)
-                          )}
+                          className={cx("border border-slate-200 px-2 py-2 text-right dark:border-slate-700", monthStripeFoot(idx))}
                         >
                           {computed.monthAny[m.key] ? fmtMoney(computed.monthAmtTotals[m.key] ?? 0) : "-"}
                         </td>

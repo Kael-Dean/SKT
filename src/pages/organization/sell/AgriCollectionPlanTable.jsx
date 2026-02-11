@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { apiAuth } from "../../lib/api"
 /*รายละเอียดแผนการรวบรวมผลผลิตการเกษตร*/
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -49,45 +50,42 @@ const MONTHS = [
 ]
 
 /**
- * ✅ รายการสินค้า ตามรูป (เริ่มต้นไม่ใส่ตัวเลข)
- * - rice_total = รวมข้าวเปลือก (ทำเป็นแถวคำนวณรวมอัตโนมัติ ไม่ให้กรอก)
+ * ✅ รายการสินค้า
+ * เปลี่ยนให้ใช้ลิสจาก BE ของหน้ารวบรวม (group=3) เป็นหลัก
+ * - fallback ไว้เผื่อ BE ยังไม่พร้อม/ยิงไม่ได้
  */
-const ITEMS = [
+const COLLECTION_GROUP_ID = 3
+
+const FALLBACK_ITEMS = [
   { id: "rice_dry_1", name: "ข้าวเปลือกแห้ง 1", unitName: "ตัน", unitPrice: "" },
   { id: "rice_dry_2", name: "ข้าวเปลือกแห้ง 2", unitName: "ตัน", unitPrice: "" },
   { id: "rice_fresh_1", name: "ข้าวเปลือกสด1", unitName: "ตัน", unitPrice: "" },
   { id: "rice_fresh_2", name: "ข้าวเปลือกสด2", unitName: "ตัน", unitPrice: "" },
   { id: "rice_offseason", name: "ข้าวเปลือกนาปรัง", unitName: "ตัน", unitPrice: "" },
-
-  // subtotal row
-  { id: "rice_total", name: "รวมข้าวเปลือก", unitName: "ตัน", unitPrice: "", isAuto: true },
-
   { id: "rubber", name: "ยางพารา", unitName: "ตัน", unitPrice: "" },
   { id: "cassava", name: "มันสำปะหลัง", unitName: "ตัน", unitPrice: "" },
   { id: "corn", name: "ข้าวโพดเลี้ยงสัตว์", unitName: "ตัน", unitPrice: "" },
 ]
 
-/** ✅ แถวที่ “มี input ให้กดลูกศรได้” (ตัด isAuto ออก) */
-const EDITABLE_ITEMS = ITEMS.filter((it) => !it.isAuto)
-
-const RICE_PART_IDS = ["rice_dry_1", "rice_dry_2", "rice_fresh_1", "rice_fresh_2", "rice_offseason"]
-
-function buildInitialQty() {
+/**
+ * สร้าง state ตามรายการสินค้า (key = item.id)
+ * - qtyById[itemId][monthKey] = string
+ * - priceById[itemId] = string
+ */
+function buildInitialQty(items) {
   const out = {}
-  // ✅ สร้าง state เฉพาะแถวที่กรอกได้จริง
-  EDITABLE_ITEMS.forEach((it) => {
+  ;(items || []).forEach((it) => {
     out[it.id] = {}
     MONTHS.forEach((m) => {
-      out[it.id][m.key] = "" // qty
+      out[it.id][m.key] = ""
     })
   })
   return out
 }
 
-function buildInitialPrice() {
+function buildInitialPrice(items) {
   const out = {}
-  // ✅ สร้าง state เฉพาะแถวที่กรอกได้จริง
-  EDITABLE_ITEMS.forEach((it) => {
+  ;(items || []).forEach((it) => {
     out[it.id] = String(it.unitPrice ?? "")
   })
   return out
@@ -124,10 +122,83 @@ const monthStripeFoot = (idx) => (idx % 2 === 1 ? STRIPE.footOdd : STRIPE.footEv
  * Component: แผนการรวบรวมผลผลิตการเกษตร (ตามรูป)
  */
 const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange }) => {
-  const [priceById, setPriceById] = useState(() => buildInitialPrice())
-  const [qtyById, setQtyById] = useState(() => buildInitialQty())
+  // ✅ ใช้ลิสสินค้าจาก BE (fallback ได้)
+  const [items, setItems] = useState(FALLBACK_ITEMS)
+
+  const editableItems = useMemo(() => (Array.isArray(items) ? items : []), [items])
+
+  const [priceById, setPriceById] = useState(() => buildInitialPrice(FALLBACK_ITEMS))
+  const [qtyById, setQtyById] = useState(() => buildInitialQty(FALLBACK_ITEMS))
   const [showPayload, setShowPayload] = useState(false)
   const canEdit = !!branchId
+
+  /** ✅ plan_id: 2569 => 1 */
+  const planId = useMemo(() => {
+    const y = Number(yearBE || 0)
+    return Number.isFinite(y) ? y - 2568 : 0
+  }, [yearBE])
+
+  /** ✅ โหลดลิส “ประเภทสินค้า” จาก BE ของหน้ารวบรวม (business_group=3) */
+  useEffect(() => {
+    let alive = true
+
+    ;(async () => {
+      try {
+        if (!planId || planId <= 0) return
+
+        const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${Number(planId)}`)
+        const group = data?.[String(COLLECTION_GROUP_ID)] || data?.[COLLECTION_GROUP_ID]
+        const list = Array.isArray(group?.items) ? group.items : []
+
+        const normalized = list
+          .filter((x) => Number(x.business_group || 0) === COLLECTION_GROUP_ID)
+          .map((x) => ({
+            id: String(x.product_id || x.id || "").trim(),
+            product_id: Number(x.product_id || x.id || 0),
+            name: String(x.product_type || x.name || "").trim(),
+            unitName: String(x.unit || "ตัน").trim(),
+            // ใช้เป็นค่าเริ่มต้นได้ แต่หลัก ๆ คือ “ลิสประเภทสินค้า”
+            unitPrice: x.sell_price ?? "",
+          }))
+          .filter((x) => x.id && x.name)
+
+        if (!alive) return
+        if (normalized.length) setItems(normalized)
+        else setItems(FALLBACK_ITEMS)
+      } catch (e) {
+        console.warn("[AgriCollection] load products failed:", e)
+        if (!alive) return
+        setItems(FALLBACK_ITEMS)
+      }
+    })()
+
+    return () => {
+      alive = false
+    }
+  }, [planId])
+
+  /** ✅ sync state ตาม items (กัน key หาย/เพิ่มแล้วกรอกไม่ได้) */
+  useEffect(() => {
+    setPriceById((prev) => {
+      const next = buildInitialPrice(editableItems)
+      // preserve ที่กรอกไว้
+      for (const k of Object.keys(prev || {})) {
+        if (next[k] !== undefined) next[k] = prev[k]
+      }
+      return next
+    })
+
+    setQtyById((prev) => {
+      const next = buildInitialQty(editableItems)
+      for (const id of Object.keys(next)) {
+        if (!prev?.[id]) continue
+        for (const m of MONTHS) {
+          if (prev[id][m.key] !== undefined) next[id][m.key] = prev[id][m.key]
+        }
+      }
+      return next
+    })
+  }, [editableItems])
 
   /** ✅ ความสูงตารางเต็มจอ */
   const tableCardRef = useRef(null)
@@ -186,9 +257,9 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
   /** ✅ Map id -> row index เฉพาะแถวที่กรอกได้ */
   const editableIndexById = useMemo(() => {
     const m = {}
-    EDITABLE_ITEMS.forEach((it, idx) => (m[it.id] = idx))
+    editableItems.forEach((it, idx) => (m[it.id] = idx))
     return m
-  }, [])
+  }, [editableItems])
 
   const registerInput = useCallback((row, col) => {
     const key = `${row}|${col}`
@@ -245,7 +316,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
 
       // clamp (ใช้ EDITABLE_ITEMS ไม่ใช่ ITEMS)
       if (nextRow < 0) nextRow = 0
-      if (nextRow > EDITABLE_ITEMS.length - 1) nextRow = EDITABLE_ITEMS.length - 1
+      if (nextRow > editableItems.length - 1) nextRow = editableItems.length - 1
       if (nextCol < 0) nextCol = 0
       if (nextCol > totalCols - 1) nextCol = totalCols - 1
 
@@ -260,7 +331,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
 
       requestAnimationFrame(() => ensureInView(target))
     },
-    [ensureInView, totalCols]
+    [ensureInView, totalCols, editableItems.length]
   )
 
   const getQtyColIndex = (monthIdx) => 1 + monthIdx
@@ -280,11 +351,6 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
     setPriceById((prev) => ({ ...prev, [itemId]: nextValue }))
   }
 
-  /**
-   * ✅ สร้าง view ของ "รวมข้าวเปลือก" แบบ auto:
-   * - qty = sum ของ 5 แถวข้าว
-   * - amount = qty * price ของแต่ละแถว แล้วค่อยรวม
-   */
   const computed = useMemo(() => {
     const itemQty = {}
     const itemAmt = {}
@@ -300,15 +366,14 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
     const getQty = (id, mkey) => toNumber(qtyById?.[id]?.[mkey])
     const getPrice = (id) => toNumber(priceById?.[id])
 
-    // compute normal items first (เฉพาะแถวกรอกได้)
-    ITEMS.forEach((it) => {
-      if (it.isAuto) return
+    for (const it of editableItems) {
       itemQty[it.id] = {}
       itemAmt[it.id] = {}
 
       MONTHS.forEach((m) => {
         const q = getQty(it.id, m.key)
         const amt = q * getPrice(it.id)
+
         itemQty[it.id][m.key] = q
         itemAmt[it.id][m.key] = amt
 
@@ -318,46 +383,15 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
         grand.qty += q
         grand.amt += amt
       })
-    })
-
-    // compute rice_total (auto)
-    const riceTotalQty = {}
-    const riceTotalAmt = {}
-    let riceQtySumAll = 0
-    let riceAmtSumAll = 0
-
-    MONTHS.forEach((m) => {
-      let qsum = 0
-      let amtsum = 0
-      RICE_PART_IDS.forEach((rid) => {
-        const q = getQty(rid, m.key)
-        const amt = q * getPrice(rid)
-        qsum += q
-        amtsum += amt
-      })
-      riceTotalQty[m.key] = qsum
-      riceTotalAmt[m.key] = amtsum
-      riceQtySumAll += qsum
-      riceAmtSumAll += amtsum
-    })
-
-    return {
-      itemQty,
-      itemAmt,
-      riceTotalQty,
-      riceTotalAmt,
-      riceQtySumAll,
-      riceAmtSumAll,
-      monthQtyTotals,
-      monthAmtTotals,
-      grand,
     }
-  }, [qtyById, priceById])
+
+    return { itemQty, itemAmt, monthQtyTotals, monthAmtTotals, grand }
+  }, [qtyById, priceById, editableItems])
 
   const resetAll = () => {
     if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
-    setPriceById(buildInitialPrice())
-    setQtyById(buildInitialQty())
+    setPriceById(buildInitialPrice(editableItems))
+    setQtyById(buildInitialQty(editableItems))
   }
 
   /** payload (คงไว้เหมือนเดิม เผื่อส่ง BE) */
@@ -366,19 +400,18 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
       table_code: "AGRI_COLLECTION_PLAN_DETAIL",
       table_name: "รายละเอียดแผนการรวบรวมผลผลิตการเกษตร",
       year_be: yearBE,
+      plan_id: planId,
       branch_id: branchId ? Number(branchId) : null,
       branch_name: branchName || null,
       months: MONTHS.map((m) => ({ key: m.key, label: m.label })),
-      items: ITEMS.map((it) => ({
+      items: editableItems.map((it) => ({
         id: it.id,
+        product_id: it.product_id ?? null,
         name: it.name,
         unit: it.unitName,
         unit_price: toNumber(priceById[it.id]),
-        is_auto: !!it.isAuto,
         values: MONTHS.reduce((acc, m) => {
-          acc[m.key] = it.isAuto
-            ? toNumber(computed.riceTotalQty[m.key] ?? 0)
-            : toNumber(qtyById?.[it.id]?.[m.key])
+          acc[m.key] = toNumber(qtyById?.[it.id]?.[m.key])
           return acc
         }, {}),
       })),
@@ -389,7 +422,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
         grand_amount: computed.grand.amt,
       },
     }
-  }, [yearBE, branchId, branchName, qtyById, priceById, computed])
+  }, [yearBE, planId, branchId, branchName, qtyById, priceById, computed, editableItems])
 
   const copyPayload = async () => {
     try {
@@ -530,11 +563,11 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
             </colgroup>
 
             <thead className="sticky top-0 z-[80]">
-              {/* row 1 */}
+              {/* row 1: headers */}
               <tr className="bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">
                 <th
                   rowSpan={3}
-                  className={cx("border border-slate-300 px-3 py-2 text-left dark:border-slate-600", stickyProductHeader)}
+                  className={cx("border border-slate-300 px-3 py-2 text-center dark:border-slate-600", stickyProductHeader)}
                 >
                   ประเภทสินค้า
                 </th>
@@ -601,26 +634,19 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
             </thead>
 
             <tbody>
-              {ITEMS.map((it, rowIdx) => {
-                const isAuto = !!it.isAuto
+              {editableItems.map((it, rowIdx) => {
+                const isAuto = false
 
                 // แถวทึบเพื่อไม่ให้ sticky เห็นทะลุ
                 const rowBg =
                   rowIdx % 2 === 1 ? "bg-slate-50 dark:bg-slate-800" : "bg-white dark:bg-slate-900"
 
                 // ✅ row index สำหรับ arrow-nav (เฉพาะ editable)
-                const navRow = isAuto ? -1 : editableIndexById[it.id]
+                const navRow = editableIndexById[it.id] ?? rowIdx
 
                 // qty per month
-                const qtyByMonth = MONTHS.map((m) => {
-                  if (isAuto) return computed.riceTotalQty[m.key] ?? 0
-                  return toNumber(qtyById?.[it.id]?.[m.key])
-                })
-                const amtByMonth = MONTHS.map((m, idx) => {
-                  const q = qtyByMonth[idx]
-                  if (isAuto) return computed.riceTotalAmt[m.key] ?? 0
-                  return q * toNumber(priceById[it.id])
-                })
+                const qtyByMonth = MONTHS.map((m) => computed.itemQty?.[it.id]?.[m.key] ?? toNumber(qtyById?.[it.id]?.[m.key]))
+                const amtByMonth = MONTHS.map((m) => computed.itemAmt?.[it.id]?.[m.key] ?? (toNumber(qtyById?.[it.id]?.[m.key]) * toNumber(priceById[it.id])))
 
                 const totalQty = qtyByMonth.reduce((a, b) => a + toNumber(b), 0)
                 const totalAmt = amtByMonth.reduce((a, b) => a + toNumber(b), 0)
@@ -638,49 +664,39 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
                           rowBg
                         )}
                       >
-                        {it.name}
+                        <div className="font-semibold">{it.name}</div>
+                        {Number(it.product_id || 0) > 0 ? (
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            product_id: {it.product_id}
+                          </div>
+                        ) : null}
                       </td>
 
-                      {/* unit: ตัน */}
+                      {/* unit */}
                       <td className="border border-slate-200 px-3 py-2 text-center dark:border-slate-700">
                         {it.unitName}
                       </td>
 
-                      {/* price: input เฉพาะแถวจำนวน (ยกเว้น auto row) */}
+                      {/* price */}
                       <td className="border border-slate-200 px-3 py-2 dark:border-slate-700">
-                        {isAuto ? (
-                          <div className="text-center text-slate-400 dark:text-slate-500">—</div>
-                        ) : (
-                          <input
-                            ref={registerInput(navRow, 0)}
-                            data-row={navRow}
-                            data-col={0}
-                            onKeyDown={handleArrowNav}
-                            className={cellInput}
-                            value={priceById[it.id] ?? ""}
-                            disabled={!canEdit}
-                            inputMode="decimal"
-                            placeholder="0"
-                            onChange={(e) => setUnitPrice(it.id, sanitizeNumberInput(e.target.value))}
-                          />
-                        )}
+                        <input
+                          ref={registerInput(navRow, 0)}
+                          data-row={navRow}
+                          data-col={0}
+                          onKeyDown={handleArrowNav}
+                          className={cellInput}
+                          value={priceById[it.id] ?? ""}
+                          disabled={!canEdit}
+                          inputMode="decimal"
+                          placeholder="0"
+                          onChange={(e) => setUnitPrice(it.id, sanitizeNumberInput(e.target.value))}
+                        />
                       </td>
 
                       {/* months qty */}
                       {MONTHS.map((m, monthIdx) => {
                         const col = getQtyColIndex(monthIdx)
                         const stripe = monthStripeCell(monthIdx)
-
-                        if (isAuto) {
-                          return (
-                            <td
-                              key={`${it.id}-${m.key}-qty-auto`}
-                              className={cx("border border-slate-200 px-2 py-2 text-right dark:border-slate-700", stripe)}
-                            >
-                              {fmtQty(qtyByMonth[monthIdx])}
-                            </td>
-                          )
-                        }
 
                         return (
                           <td
@@ -703,7 +719,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
                         )
                       })}
 
-                      {/* totals: qty (ใส่ในแถวจำนวน) */}
+                      {/* totals: qty */}
                       <td className="border border-slate-200 px-2 py-2 text-right font-extrabold dark:border-slate-700">
                         {fmtQty(totalQty)}
                       </td>
@@ -753,7 +769,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
           </table>
         </div>
 
-        {/* FOOTER totals (เหมือนเดิม: split ซ้าย/ขวา + เลื่อนตาม scrollLeft) */}
+        {/* FOOTER totals */}
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20">
           <div className="flex w-full">
             {/* LEFT fixed */}

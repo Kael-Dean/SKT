@@ -853,7 +853,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
         </div>
 
         <div className="shrink-0 p-3 md:p-4 text-sm text-slate-600 dark:text-slate-300">
-          หมายเหตุ: ตอนนี้ยังเป็น Mock สำหรับกรอกข้อมูล/รวมยอด/เตรียม JSON เท่านั้น (ยังไม่บันทึกลง BE)
+          หมายเหตุ: ตอนนี้ยังเป็น Mock สำหรับกรอกข้อมูล/รวมยอด/เตรียม JSON เท่านั้น (ยังไม่บันทึกลง )
         </div>
       </div>
     </div>

@@ -188,6 +188,13 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
     return Number.isFinite(p) && p > 0 ? 2568 + p : 2569
   }, [yearBE, planId])
 
+  // ✅ กันจอขาว: ใช้ใน footer/info bar
+  const periodLabel = useMemo(() => {
+    const endY = Number(effectiveYearBE || 0)
+    const startY = endY ? endY - 1 : "-"
+    return `เม.ย. ${startY} – มี.ค. ${endY || "-"}`
+  }, [effectiveYearBE])
+
   /** -------- Units by branch -------- */
   const [units, setUnits] = useState([])
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)

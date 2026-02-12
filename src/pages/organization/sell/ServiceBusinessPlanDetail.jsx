@@ -188,6 +188,13 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
     return Number.isFinite(p) && p > 0 ? 2568 + p : 2569
   }, [yearBE, planId])
 
+
+  const periodLabel = useMemo(() => {
+    const yy = String(effectiveYearBE).slice(-2)
+    const yyNext = String(effectiveYearBE + 1).slice(-2)
+    return `1 เม.ย.${yy}-31 มี.ค.${yyNext}`
+  }, [effectiveYearBE])
+
   /** -------- Units by branch -------- */
   const [units, setUnits] = useState([])
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)

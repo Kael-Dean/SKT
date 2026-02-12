@@ -1,4 +1,4 @@
-// src/pages/operation-plan/sell/AgriProcessingPlanDetail.jsx
+// src/pages/operation-plan/AgriProcessingPlanDetail.jsx
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
 
@@ -49,7 +49,7 @@ const MONTHS = [
   { key: "m03", label: "มี.ค.", month: 3 },
 ]
 
-/** ใช้ลิสประเภทสินค้าจาก BE ของ “แปรรูป” */
+/** ✅ ใช้ลิสประเภทสินค้าจาก BE ของ “แปรรูป” */
 const PROCESSING_GROUP_ID = 4
 
 /** fallback เผื่อ BE ยังไม่พร้อม */
@@ -111,11 +111,11 @@ const monthStripeFoot = (idx) => (idx % 2 === 1 ? STRIPE.footOdd : STRIPE.footEv
 const dashIfAny = (any, formatted) => (any ? formatted : "-")
 
 const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
-  /** items from BE (fallback ได้) */
+  /** ✅ items from BE (fallback ได้) */
   const [items, setItems] = useState(FALLBACK_ITEMS)
   const editableItems = useMemo(() => (Array.isArray(items) ? items.filter((x) => x.type === "item") : []), [items])
 
-  /** plan_id: 2569 => 1 (รองรับ prop planId จาก OperationPlan) */
+  /** ✅ plan_id: 2569 => 1 (รองรับ prop planId จาก OperationPlan) */
   const effectivePlanId = useMemo(() => {
     const p = Number(planId || 0)
     if (Number.isFinite(p) && p > 0) return p
@@ -130,7 +130,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
     return Number.isFinite(p) && p > 0 ? 2568 + p : 2569
   }, [yearBE, planId])
 
-  /** unit ของสาขา */
+  /** ✅ unit ของสาขา (ใช้ unit_id ตัวแรกในการบันทึก เพราะตารางนี้ไม่มีคอลัมน์แยกหน่วยเหมือนจัดหา) */
   const [units, setUnits] = useState([])
   const defaultUnitId = useMemo(() => {
     const u = (units || []).find((x) => Number(x?.id) > 0)
@@ -139,7 +139,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
 
   const canEdit = !!branchId && !!defaultUnitId
 
-  /** map ต้นทุนการขายจาก /unit-prices/{year} */
+  /** ✅ map ต้นทุนการขายจาก /unit-prices/{year} (เอา buy_price มาโชว์เหมือนหน้าจัดหา) */
   const [unitPriceMap, setUnitPriceMap] = useState({})
   const [isLoadingUnitPrices, setIsLoadingUnitPrices] = useState(false)
 
@@ -176,8 +176,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
     loadUnitPricesForYear()
   }, [loadUnitPricesForYear])
 
-  /** load units of branch */
-  const [isLoadingUnits, setIsLoadingUnits] = useState(false)
+  /** ✅ load units of branch */
   useEffect(() => {
     if (!branchId) {
       setUnits([])
@@ -186,7 +185,6 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
     let alive = true
     ;(async () => {
       try {
-        setIsLoadingUnits(true)
         const data = await apiAuth(`/lists/unit/search?branch_id=${Number(branchId)}`)
         const rows = Array.isArray(data) ? data : []
         const normalized = rows
@@ -201,8 +199,6 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
         console.warn("[AgriProcessing] load units failed:", e)
         if (!alive) return
         setUnits([])
-      } finally {
-        if (alive) setIsLoadingUnits(false)
       }
     })()
     return () => {
@@ -210,22 +206,18 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
     }
   }, [branchId])
 
-  /** state grid */
-  const [priceById, setPriceById] = useState(() =>
-    buildInitialPrice(FALLBACK_ITEMS.filter((x) => x.type === "item"))
-  )
+  /** ✅ state grid */
+  const [priceById, setPriceById] = useState(() => buildInitialPrice(FALLBACK_ITEMS.filter((x) => x.type === "item")))
   const [qtyById, setQtyById] = useState(() => buildInitialQty(FALLBACK_ITEMS.filter((x) => x.type === "item")))
   const [showPayload, setShowPayload] = useState(false)
 
-  /** โหลดลิสประเภทสินค้า “แปรรูป” จาก BE + merge sell/buy จาก unitPriceMap */
-  const [isLoadingProducts, setIsLoadingProducts] = useState(false)
+  /** ✅ โหลดลิสประเภทสินค้า “แปรรูป” จาก BE + merge sell/buy จาก unitPriceMap */
   useEffect(() => {
     let alive = true
     ;(async () => {
       try {
         if (!effectivePlanId || effectivePlanId <= 0) return
 
-        setIsLoadingProducts(true)
         const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${Number(effectivePlanId)}`)
         const group = data?.[String(PROCESSING_GROUP_ID)] || data?.[PROCESSING_GROUP_ID]
         const list = Array.isArray(group?.items) ? group.items : []
@@ -264,8 +256,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
         if (!alive) return
 
         if (normalizedItems.length) {
-          const headerLabel =
-            String(group?.group_name || group?.name || "รายการสินค้าแปรรูป").trim() || "รายการสินค้าแปรรูป"
+          const headerLabel = String(group?.group_name || group?.name || "รายการสินค้าแปรรูป").trim() || "รายการสินค้าแปรรูป"
           setItems([{ type: "group", label: headerLabel }, ...normalizedItems])
         } else {
           setItems(FALLBACK_ITEMS)
@@ -274,8 +265,6 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
         console.warn("[AgriProcessing] load products failed:", e)
         if (!alive) return
         setItems(FALLBACK_ITEMS)
-      } finally {
-        if (alive) setIsLoadingProducts(false)
       }
     })()
 
@@ -284,7 +273,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
     }
   }, [effectivePlanId, unitPriceMap])
 
-  /** sync state ตาม items */
+  /** ✅ sync state ตาม items (เพิ่ม/ลดแถวแล้วกรอกได้ต่อเนื่อง) */
   useEffect(() => {
     setPriceById((prev) => {
       const next = buildInitialPrice(editableItems.length ? editableItems : FALLBACK_ITEMS.filter((x) => x.type === "item"))
@@ -306,7 +295,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
     })
   }, [editableItems])
 
-  /** โหลดค่าที่เคยบันทึกไว้จาก BE (แสดงล่าสุดเหมือนหน้าเดิม) */
+  /** ✅ โหลดค่าที่เคยบันทึกไว้จาก BE (แสดงล่าสุดเหมือนหน้าจัดหา) */
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
   const loadSavedFromBE = useCallback(async () => {
     if (!branchId) return
@@ -570,7 +559,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
     }
   }
 
-  /** SAVE */
+  /** ✅ SAVE like Procurement */
   const [isSaving, setIsSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
 
@@ -599,7 +588,10 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
         })
 
       try {
-        await apiAuth(`/unit-prices/bulk`, { method: "PUT", body: { year: Number(effectiveYearBE), items: priceItems } })
+        await apiAuth(`/unit-prices/bulk`, {
+          method: "PUT",
+          body: { year: Number(effectiveYearBE), items: priceItems },
+        })
       } catch (e) {
         try {
           for (const it of priceItems) {
@@ -619,7 +611,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
         }
       }
 
-      // 2) Save sale goals (qty)
+      // 2) Save sale goals (qty) => unit_id ใช้ defaultUnitId
       const cells = []
       for (const it of editableItems) {
         const pid = Number(it.product_id || 0)
@@ -639,7 +631,11 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
 
       await apiAuth(`/revenue/sale-goals/bulk`, {
         method: "PUT",
-        body: { plan_id: Number(effectivePlanId), branch_id: Number(branchId), cells },
+        body: {
+          plan_id: Number(effectivePlanId),
+          branch_id: Number(branchId),
+          cells,
+        },
       })
 
       setSaveMsg({
@@ -648,7 +644,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
         detail: `สาขา ${branchName || branchId} • ปี ${effectiveYearBE} (plan_id=${effectivePlanId})`,
       })
 
-      // reload latest values
+      // ✅ reload latest values like Procurement
       await loadUnitPricesForYear()
       await loadSavedFromBE()
     } catch (e) {
@@ -735,7 +731,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
             )}
           </div>
 
-          {/* ✅ เอาปุ่มบันทึกออกจากด้านบน (ตามที่ขอ) */}
+          {/* ✅ ด้านบนเหลือแค่ปุ่มเสริม (ไม่มีปุ่มบันทึก) */}
           <div className="flex flex-wrap gap-2 md:justify-end">
             <button
               type="button"
@@ -861,6 +857,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
 
                     <td className={cx("px-2 py-2 text-center", idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)}>{it.unit}</td>
 
+                    {/* sell price */}
                     <td className={cx("px-2 py-2", idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)}>
                       <input
                         className={cellInput}
@@ -868,11 +865,13 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
                         disabled={!canEdit}
                         data-row={editableItems.findIndex((x) => x.id === it.id)}
                         data-col={0}
+                        ref={registerInput(editableItems.findIndex((x) => x.id === it.id), 0)}
                         onKeyDown={handleArrowNav}
                         onChange={(e) => setPriceField(it.id, "sell_price", sanitizeNumberInput(e.target.value))}
                       />
                     </td>
 
+                    {/* buy cost */}
                     <td className={cx("px-2 py-2", idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)}>
                       <input
                         className={cellInput}
@@ -880,12 +879,15 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
                         disabled={!canEdit}
                         data-row={editableItems.findIndex((x) => x.id === it.id)}
                         data-col={1}
+                        ref={registerInput(editableItems.findIndex((x) => x.id === it.id), 1)}
                         onKeyDown={handleArrowNav}
                         onChange={(e) => setPriceField(it.id, "buy_price", sanitizeNumberInput(e.target.value))}
                       />
                     </td>
 
+                    {/* months qty */}
                     {MONTHS.map((m, mi) => {
+                      const col = getQtyColIndex(mi)
                       const raw = qtyById?.[it.id]?.[m.key] ?? ""
                       return (
                         <td key={`c-${it.id}-${m.key}`} className={cx("px-1 py-1", monthStripeCell(mi))}>
@@ -894,7 +896,8 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
                             value={raw}
                             disabled={!canEdit}
                             data-row={editableItems.findIndex((x) => x.id === it.id)}
-                            data-col={2 + mi}
+                            data-col={col}
+                            ref={registerInput(editableItems.findIndex((x) => x.id === it.id), col)}
                             onKeyDown={handleArrowNav}
                             onChange={(e) => setQtyCell(it.id, m.key, sanitizeNumberInput(e.target.value))}
                           />
@@ -926,12 +929,8 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
                   </td>
                 ))}
 
-                <td className={cx("px-2 py-3 text-right font-extrabold", STRIPE.footEven)}>
-                  {dashIfAny(computed.anyAll, fmtQty(computed.grandQty))}
-                </td>
-                <td className={cx("px-2 py-3 text-right font-extrabold", STRIPE.footEven)}>
-                  {dashIfAny(computed.anyAll, fmtMoney(computed.grandAmt))}
-                </td>
+                <td className={cx("px-2 py-3 text-right font-extrabold", STRIPE.footEven)}>{dashIfAny(computed.anyAll, fmtQty(computed.grandQty))}</td>
+                <td className={cx("px-2 py-3 text-right font-extrabold", STRIPE.footEven)}>{dashIfAny(computed.anyAll, fmtMoney(computed.grandAmt))}</td>
               </tr>
             </tfoot>
           </table>

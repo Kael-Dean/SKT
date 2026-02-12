@@ -110,21 +110,17 @@ const MONTHS = [
   { key: "m03", label: "มี.ค.", month: 3 },
 ]
 
-// ✅ ธุรกิจบริการ (ถ้าของคุณเป็น 6=ฝึกอบรม ให้เปลี่ยนเลขตรงนี้)
-const SERVICE_GROUP_ID = 7
+// ✅ ธุรกิจบริการ: ใช้รายการบริการ-ศูนย์ฝึกตามลิสต์
+const SERVICE_GROUP_ID = 7 // เผื่อ fallback ยิง BE
 const SERVICE_TITLE = "ยอดขายธุรกิจบริการ"
+const SERVICE_ITEM_NAME = "บริการ-ศูนย์ฝึก"
 
 const COL_W = {
   product: 320,
   unit: 80,
   price: 130,
-  month: 86,
-  totalQty: 110,
-  totalAmt: 150,
+  cell: 86,
 }
-const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
-const RIGHT_W = MONTHS.length * COL_W.month + COL_W.totalQty + COL_W.totalAmt
-const TOTAL_W = LEFT_W + RIGHT_W
 
 const STRIPE = {
   headEven: "bg-slate-100/90 dark:bg-slate-700/70",
@@ -134,10 +130,9 @@ const STRIPE = {
   footEven: "bg-emerald-100/55 dark:bg-emerald-900/15",
   footOdd: "bg-emerald-200/75 dark:bg-emerald-900/30",
 }
+
 const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEven)
 const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven)
-const monthStripeFoot = (idx) => (idx % 2 === 1 ? STRIPE.footOdd : STRIPE.footEven)
-const dashIfAny = (any, formatted) => (any ? formatted : "-")
 
 /** ---------------- Styles ---------------- */
 const baseField =
@@ -152,12 +147,29 @@ const cellInput =
   "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
 /** ---------------- helpers ---------------- */
-function buildInitialQty(items) {
+const normalizeUnitName = (s) =>
+  String(s ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+
+const shortUnit = (name, idx) => {
+  const s = normalizeUnitName(name)
+  if (!s) return `หน่วย${idx + 1}`
+  return s.length <= 4 ? s : s.slice(0, 4)
+}
+
+function buildEmptyQtyGrid(items, unitList) {
   const out = {}
-  ;(items || []).forEach((it) => {
-    out[it.id] = {}
-    MONTHS.forEach((m) => (out[it.id][m.key] = ""))
-  })
+  for (const it of items || []) {
+    const rowId = String(it.id)
+    out[rowId] = {}
+    for (const m of MONTHS) {
+      out[rowId][m.key] = {}
+      for (const u of unitList || []) {
+        out[rowId][m.key][String(u.id)] = ""
+      }
+    }
+  }
   return out
 }
 
@@ -173,7 +185,41 @@ function buildInitialPrice(items) {
   return out
 }
 
-const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
+function getProductsByGroupLatestPricesFromAnySource(props) {
+  const fromProps = props?.products_by_group_latest_prices
+  if (fromProps) return fromProps
+
+  try {
+    const w = typeof window !== "undefined" ? window : undefined
+    const direct = w?.products_by_group_latest_prices
+    if (direct) return direct
+    const nested = w?.LISTS?.products_by_group_latest_prices
+    if (nested) return nested
+  } catch {}
+
+  return null
+}
+
+function normalizeStaticListToItems(staticList, groupId) {
+  if (!staticList) return null
+  if (Array.isArray(staticList)) return staticList
+
+  const g = staticList?.[String(groupId)] || staticList?.[groupId]
+  if (Array.isArray(g)) return g
+  if (Array.isArray(g?.items)) return g.items
+
+  if (Array.isArray(staticList?.items)) return staticList.items
+
+  return null
+}
+
+/** =====================================================================
+ * ServiceBusinessPlanDetail
+ * ===================================================================== */
+const ServiceBusinessPlanDetail = (props) => {
+  const { branchId, branchName, yearBE, planId } = props || {}
+
+  /** Plan แบบแปลงปีเหมือนหน้าอื่น: 2569 => 1 */
   const effectivePlanId = useMemo(() => {
     const p = Number(planId || 0)
     if (Number.isFinite(p) && p > 0) return p
@@ -188,14 +234,13 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
     return Number.isFinite(p) && p > 0 ? 2568 + p : 2569
   }, [yearBE, planId])
 
-
   const periodLabel = useMemo(() => {
     const yy = String(effectiveYearBE).slice(-2)
     const yyNext = String(effectiveYearBE + 1).slice(-2)
     return `1 เม.ย.${yy}-31 มี.ค.${yyNext}`
   }, [effectiveYearBE])
 
-  /** -------- Units by branch -------- */
+  /** -------- Units by branch (เหมือนธุรกิจจัดหา) -------- */
   const [units, setUnits] = useState([])
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)
 
@@ -209,10 +254,11 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
       const data = await apiAuth(`/lists/unit/search?branch_id=${Number(branchId)}`)
       const rows = Array.isArray(data) ? data : []
       const normalized = rows
-        .map((r) => ({
-          id: Number(r.id || 0),
-          name: String(r.klang_name || r.unit_name || r.unit || r.name || "").trim(),
-        }))
+        .map((r, idx) => {
+          const id = Number(r.id || 0)
+          const name = r.klang_name || r.unit_name || r.unit || r.name || `หน่วย ${idx + 1}`
+          return { id, name: normalizeUnitName(name), short: shortUnit(name, idx) }
+        })
         .filter((x) => x.id > 0)
       setUnits(normalized)
     } catch (e) {
@@ -227,12 +273,9 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
     loadUnits()
   }, [loadUnits])
 
-  const defaultUnitId = useMemo(() => {
-    const u = (units || []).find((x) => Number(x?.id) > 0)
-    return u ? Number(u.id) : null
-  }, [units])
+  const savableUnits = useMemo(() => (units || []).filter((u) => Number(u?.id) > 0), [units])
 
-  /** -------- Load products list (business service) -------- */
+  /** -------- Load service items: only "บริการ-ศูนย์ฝึก" -------- */
   const [items, setItems] = useState([])
   const [isLoadingItems, setIsLoadingItems] = useState(false)
 
@@ -243,7 +286,7 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
   const [saveMsg, setSaveMsg] = useState(null)
   const [showPayload, setShowPayload] = useState(false)
 
-  const canEdit = !!branchId && !!defaultUnitId && !!effectivePlanId && effectivePlanId > 0
+  const canEdit = !!branchId && !!effectivePlanId && effectivePlanId > 0 && savableUnits.length > 0
 
   const loadItems = useCallback(async () => {
     if (!effectivePlanId || effectivePlanId <= 0) {
@@ -255,40 +298,52 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
 
     setIsLoadingItems(true)
     try {
-      // โหลดลิสสินค้า/รายการตาม business_group
-      const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${Number(effectivePlanId)}`)
-      const group = data?.[String(SERVICE_GROUP_ID)] || data?.[SERVICE_GROUP_ID]
-      const rows = Array.isArray(group?.items) ? group.items : []
+      // 1) พยายามใช้ลิสต์จาก FE ก่อน
+      const staticList = getProductsByGroupLatestPricesFromAnySource(props)
+      let rows = normalizeStaticListToItems(staticList, SERVICE_GROUP_ID)
 
-      const normalized = rows
-        .filter((x) => Number(x.business_group || 0) === SERVICE_GROUP_ID)
+      // 2) fallback ยิง BE ถ้าไม่มีลิสต์
+      if (!rows) {
+        const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${Number(effectivePlanId)}`)
+        const group = data?.[String(SERVICE_GROUP_ID)] || data?.[SERVICE_GROUP_ID]
+        rows = Array.isArray(group?.items) ? group.items : []
+      }
+
+      const normalized = (rows || [])
         .map((x, idx) => {
-          const pid = Number(x.product_id || x.id || 0) || null
+          const pid = Number(x.product_id || x.product || x.id || 0)
+          const name = String(x.product_type || x.name || x.product_name || x.product || "").trim()
           return {
-            type: "item",
             id: String(pid || `svc_${idx}`),
             product_id: pid,
-            name: String(x.product_type || x.name || x.product || "").trim(),
-            unit: String(x.unit || "หน่วย").trim(),
+            name,
+            unit: String(x.unit || x.unit_name || "-").trim() || "-",
             sell_price: x.sell_price ?? "",
             buy_price: x.buy_price ?? "",
             comment: x.comment ?? "",
+            business_group: Number(x.business_group || SERVICE_GROUP_ID),
           }
         })
-        .filter((x) => x.product_id)
+        .filter((x) => x.product_id > 0)
+        // ✅ คัดเฉพาะรายการชื่อ “บริการ-ศูนย์ฝึก”
+        .filter((x) => String(x.name || "").trim() === SERVICE_ITEM_NAME)
 
       setItems(normalized)
       setPriceById(buildInitialPrice(normalized))
       setQtyById((prev) => {
-        const next = buildInitialQty(normalized)
+        const empty = buildEmptyQtyGrid(normalized, savableUnits)
         // merge เดิมถ้ามี
-        for (const id of Object.keys(next)) {
-          if (!prev?.[id]) continue
+        for (const rowId of Object.keys(empty)) {
+          if (!prev?.[rowId]) continue
           for (const m of MONTHS) {
-            if (prev[id][m.key] !== undefined) next[id][m.key] = prev[id][m.key]
+            for (const u of savableUnits) {
+              const uk = String(u.id)
+              const v = prev?.[rowId]?.[m.key]?.[uk]
+              if (v !== undefined) empty[rowId][m.key][uk] = v
+            }
           }
         }
-        return next
+        return empty
       })
     } catch (e) {
       console.error("[service] load items failed:", e)
@@ -298,17 +353,17 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
     } finally {
       setIsLoadingItems(false)
     }
-  }, [effectivePlanId])
+  }, [effectivePlanId, props, savableUnits])
 
   useEffect(() => {
     loadItems()
   }, [loadItems])
 
-  /** -------- Load saved sale-goals (อ่านที่ default unit ของสาขา) -------- */
+  /** -------- Load saved sale-goals (ทุกหน่วยของสาขา) -------- */
   const loadSaved = useCallback(async () => {
     if (!branchId || !effectivePlanId || effectivePlanId <= 0) return
     if (!items.length) return
-    if (!defaultUnitId) return
+    if (!savableUnits.length) return
 
     setIsLoadingSaved(true)
     try {
@@ -320,18 +375,20 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
       const pidToRowId = {}
       for (const it of items) pidToRowId[String(it.product_id)] = it.id
 
-      const next = buildInitialQty(items)
+      const uSet = new Set(savableUnits.map((u) => Number(u.id)))
+
+      const next = buildEmptyQtyGrid(items, savableUnits)
       for (const c of cells) {
         const pid = Number(c.product_id || 0)
         const uid = Number(c.unit_id || 0)
         if (!pid || !uid) continue
-        if (uid !== Number(defaultUnitId)) continue
+        if (!uSet.has(uid)) continue
         const rowId = pidToRowId[String(pid)]
         if (!rowId) continue
         const mo = Number(c.month || 0)
         const mObj = MONTHS.find((m) => m.month === mo)
         if (!mObj) continue
-        next[rowId][mObj.key] = String(Number(c.amount ?? c.value ?? 0))
+        next[rowId][mObj.key][String(uid)] = String(Number(c.amount ?? c.value ?? 0))
       }
 
       setQtyById(next)
@@ -340,7 +397,7 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
     } finally {
       setIsLoadingSaved(false)
     }
-  }, [branchId, effectivePlanId, items, defaultUnitId])
+  }, [branchId, effectivePlanId, items, savableUnits])
 
   useEffect(() => {
     loadSaved()
@@ -353,63 +410,53 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
       [rowId]: { ...(prev[rowId] || { sell_price: "", buy_price: "", comment: "" }), [field]: v },
     }))
   }
-  const setQtyCell = (rowId, monthKey, v) => {
+  const setQtyCell = (rowId, monthKey, unitKey, v) => {
     setQtyById((prev) => ({
       ...prev,
-      [rowId]: { ...(prev[rowId] || {}), [monthKey]: v },
+      [rowId]: { ...(prev[rowId] || {}), [monthKey]: { ...(prev[rowId]?.[monthKey] || {}), [unitKey]: v } },
     }))
   }
 
-  /** -------- Computed -------- */
+  /** -------- Computed (เหมือนธุรกิจจัดหา) -------- */
   const computed = useMemo(() => {
-    const rowTotals = {}
-    const monthTotals = {}
-    const monthAny = {}
-    let anyAll = false
-    let grandQty = 0
-    let grandAmt = 0
+    const perUnitGrand = {}
+    for (const u of savableUnits) perUnitGrand[String(u.id)] = 0
 
-    MONTHS.forEach((m) => {
-      monthTotals[m.key] = { qty: 0, amt: 0 }
-      monthAny[m.key] = false
-    })
+    const perRowUnit = {} // {rowId:{uid:sumQty}}
+    let grandQty = 0
+    let grandValue = 0
 
     for (const it of items) {
-      const pr = priceById[it.id] || {}
+      const rowId = String(it.id)
+      perRowUnit[rowId] = {}
+      for (const u of savableUnits) perRowUnit[rowId][String(u.id)] = 0
+
+      const pr = priceById[rowId] || {}
       const sell = toNumber(pr.sell_price ?? it.sell_price ?? 0)
-      let rowQty = 0
-      let rowAmt = 0
-      let rowAny = false
 
       for (const m of MONTHS) {
-        const raw = qtyById?.[it.id]?.[m.key] ?? ""
-        if (raw !== "") {
-          rowAny = true
-          anyAll = true
-          monthAny[m.key] = true
-        }
-        const q = toNumber(raw)
-        const amt = q * sell
-        rowQty += q
-        rowAmt += amt
-        monthTotals[m.key].qty += q
-        monthTotals[m.key].amt += amt
-      }
+        for (const u of savableUnits) {
+          const uid = String(u.id)
+          const raw = qtyById?.[rowId]?.[m.key]?.[uid] ?? ""
+          const q = toNumber(raw)
+          if (!q) continue
 
-      grandQty += rowQty
-      grandAmt += rowAmt
-      rowTotals[it.id] = { qty: rowQty, amt: rowAmt, any: rowAny }
+          perRowUnit[rowId][uid] += q
+          perUnitGrand[uid] = (perUnitGrand[uid] || 0) + q
+          grandQty += q
+          grandValue += q * sell
+        }
+      }
     }
 
-    return { rowTotals, monthTotals, monthAny, anyAll, grandQty, grandAmt }
-  }, [items, qtyById, priceById])
+    return { perUnitGrand, perRowUnit, grandQty, grandValue }
+  }, [items, qtyById, priceById, savableUnits])
 
   /** -------- Save -------- */
   const payload = useMemo(() => {
     return {
       plan_id: Number(effectivePlanId || 0),
       branch_id: branchId ? Number(branchId) : null,
-      default_unit_id: defaultUnitId,
       prices: items.map((it) => {
         const pr = priceById[it.id] || {}
         return {
@@ -421,16 +468,18 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
       }),
       cells: items
         .flatMap((it) =>
-          MONTHS.map((m) => ({
-            unit_id: Number(defaultUnitId || 0),
-            product_id: Number(it.product_id || 0),
-            month: Number(m.month),
-            amount: toNumber(qtyById?.[it.id]?.[m.key] ?? 0),
-          }))
+          MONTHS.flatMap((m) =>
+            savableUnits.map((u) => ({
+              unit_id: Number(u.id),
+              product_id: Number(it.product_id || 0),
+              month: Number(m.month),
+              amount: toNumber(qtyById?.[it.id]?.[m.key]?.[String(u.id)] ?? 0),
+            }))
+          )
         )
         .filter((x) => x.amount !== 0),
     }
-  }, [effectivePlanId, branchId, defaultUnitId, items, priceById, qtyById])
+  }, [effectivePlanId, branchId, items, priceById, qtyById, savableUnits])
 
   const saveAll = useCallback(async () => {
     if (!canEdit) {
@@ -441,7 +490,7 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
     setIsSaving(true)
     setSaveMsg(null)
     try {
-      // 1) prices
+      // 1) prices (พยายามส่งแบบ plan_id ก่อน ถ้า BE รุ่นเก่าใช้ year)
       try {
         await apiAuth(`/unit-prices/bulk`, {
           method: "PUT",
@@ -467,7 +516,7 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
       setSaveMsg({
         ok: true,
         title: "บันทึกสำเร็จ",
-        detail: `ธุรกิจบริการ • ปี ${effectiveYearBE} (plan_id=${effectivePlanId}) • สาขา ${branchName || branchId} • unit_id=${defaultUnitId}`,
+        detail: `ธุรกิจบริการ • ปี ${effectiveYearBE} (plan_id=${effectivePlanId}) • สาขา ${branchName || branchId}`,
       })
 
       await loadSaved()
@@ -478,9 +527,9 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
     } finally {
       setIsSaving(false)
     }
-  }, [canEdit, effectivePlanId, effectiveYearBE, branchId, branchName, defaultUnitId, payload, loadSaved, loadItems, loadUnits])
+  }, [canEdit, effectivePlanId, effectiveYearBE, branchId, branchName, payload, loadSaved, loadItems, loadUnits])
 
-  /** -------- table height -------- */
+  /** -------- table sizing -------- */
   const tableCardRef = useRef(null)
   const [tableCardHeight, setTableCardHeight] = useState(760)
   const recalcTableCardHeight = useCallback(() => {
@@ -491,6 +540,7 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
     const h = Math.max(700, Math.floor(vh - rect.top - 4))
     setTableCardHeight(h)
   }, [])
+
   useEffect(() => {
     recalcTableCardHeight()
     window.addEventListener("resize", recalcTableCardHeight)
@@ -499,8 +549,12 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
 
   const resetAll = () => {
     if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
-    setQtyById(buildInitialQty(items))
+    setQtyById(buildEmptyQtyGrid(items, savableUnits))
   }
+
+  const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
+  const RIGHT_W = (MONTHS.length + 1) * savableUnits.length * COL_W.cell
+  const TOTAL_W = LEFT_W + RIGHT_W
 
   return (
     <div className="space-y-3">
@@ -517,9 +571,7 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
                 <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ปี (พ.ศ.)</label>
                 <div className={cx(baseField, "flex items-center justify-between")}>
                   <span className="font-semibold">{effectiveYearBE}</span>
-                  <span className="text-sm text-slate-500 dark:text-slate-300">
-                    plan_id: {effectivePlanId || "—"}
-                  </span>
+                  <span className="text-sm text-slate-500 dark:text-slate-300">plan_id: {effectivePlanId || "—"}</span>
                 </div>
               </div>
 
@@ -527,16 +579,13 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
                 <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</label>
                 <div className={cx(baseField, "flex items-center justify-between", !canEdit && "opacity-70")}>
                   <span className="font-semibold">{branchName ? branchName : "— ยังไม่เลือกสาขา —"}</span>
-                  <span className="text-sm text-slate-500 dark:text-slate-300">
-                    branch_id: {branchId || "—"} • unit_id: {defaultUnitId || "—"}
-                  </span>
+                  <span className="text-sm text-slate-500 dark:text-slate-300">branch_id: {branchId || "—"}</span>
                 </div>
               </div>
             </div>
 
             <div className="mt-2 text-sm text-slate-500 dark:text-slate-300">
-              ({periodLabel}) • หน่วย: {isLoadingUnits ? "กำลังโหลด..." : (units || []).length} • รายการ:{" "}
-              {isLoadingItems ? "กำลังโหลด..." : items.length} • โหลดค่าที่บันทึก: {isLoadingSaved ? "กำลังโหลด..." : "พร้อม"}
+              ({periodLabel}) • หน่วย: {isLoadingUnits ? "กำลังโหลด..." : savableUnits.length} • รายการ: {isLoadingItems ? "กำลังโหลด..." : items.length} • โหลดค่าที่บันทึก: {isLoadingSaved ? "กำลังโหลด..." : "พร้อม"}
             </div>
           </div>
 
@@ -559,6 +608,20 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
                          dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
             >
               ล้างข้อมูล
+            </button>
+
+            <button
+              type="button"
+              onClick={saveAll}
+              disabled={isSaving || !canEdit}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold shadow-sm transition",
+                isSaving || !canEdit
+                  ? "bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-300 cursor-not-allowed"
+                  : "bg-emerald-600 text-white hover:bg-emerald-700"
+              )}
+            >
+              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
           </div>
         </div>
@@ -596,137 +659,178 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
               <col style={{ width: COL_W.product }} />
               <col style={{ width: COL_W.unit }} />
               <col style={{ width: COL_W.price }} />
-              {MONTHS.map((m) => (
-                <col key={`c-${m.key}`} style={{ width: COL_W.month }} />
-              ))}
-              <col style={{ width: COL_W.totalQty }} />
-              <col style={{ width: COL_W.totalAmt }} />
+              {MONTHS.map((m) =>
+                savableUnits.map((u) => <col key={`c-${m.key}-${u.id}`} style={{ width: COL_W.cell }} />)
+              )}
+              {savableUnits.map((u) => <col key={`c-sum-${u.id}`} style={{ width: COL_W.cell }} />)}
             </colgroup>
 
             <thead>
               <tr>
-                <th className={cx("px-3 py-3 text-left text-sm font-bold", STRIPE.headEven)} rowSpan={2}>
-                  รายการ/บริการ
+                <th className={cx("px-3 py-2 font-semibold border-b border-slate-200 dark:border-slate-700", STRIPE.headEven)}>
+                  ประเภทบริการ
                 </th>
-                <th className={cx("px-2 py-3 text-center text-sm font-bold", STRIPE.headEven)} rowSpan={2}>
+                <th className={cx("px-2 py-2 font-semibold border-b border-slate-200 dark:border-slate-700 text-center", STRIPE.headEven)}>
                   หน่วย
                 </th>
-                <th className={cx("px-2 py-3 text-center text-sm font-bold", STRIPE.headEven)} rowSpan={2}>
+                <th className={cx("px-2 py-2 font-semibold border-b border-slate-200 dark:border-slate-700 text-center", STRIPE.headEven)}>
                   ราคา/หน่วย
                 </th>
-                <th className={cx("px-2 py-2 text-center text-sm font-bold", STRIPE.headEven)} colSpan={MONTHS.length}>
-                  เดือน
-                </th>
-                <th className={cx("px-2 py-3 text-center text-sm font-bold", STRIPE.headEven)} rowSpan={2}>
+
+                {MONTHS.map((m, idx) => (
+                  <th
+                    key={m.key}
+                    className={cx(
+                      "px-2 py-2 font-semibold border-b border-slate-200 dark:border-slate-700 text-center",
+                      monthStripeHead(idx)
+                    )}
+                    colSpan={savableUnits.length || 1}
+                  >
+                    {m.label}
+                  </th>
+                ))}
+
+                <th className={cx("px-2 py-2 font-semibold border-b border-slate-200 dark:border-slate-700 text-center", STRIPE.headEven)} colSpan={savableUnits.length || 1}>
                   รวม
                 </th>
-                <th className={cx("px-2 py-3 text-center text-sm font-bold", STRIPE.headEven)} rowSpan={2}>
-                  รวม (บาท)
-                </th>
               </tr>
+
               <tr>
-                {MONTHS.map((m, idx) => (
-                  <th key={`h-${m.key}`} className={cx("px-2 py-2 text-center text-sm font-semibold", monthStripeHead(idx))}>
-                    {m.label}
+                <th className={cx("px-3 py-2 border-b border-slate-200 dark:border-slate-700", STRIPE.headEven)} />
+                <th className={cx("px-2 py-2 border-b border-slate-200 dark:border-slate-700", STRIPE.headEven)} />
+                <th className={cx("px-2 py-2 border-b border-slate-200 dark:border-slate-700", STRIPE.headEven)} />
+
+                {MONTHS.map((m, mi) => (
+                  <Fragment key={`sub-${m.key}`}>
+                    {(savableUnits.length ? savableUnits : [{ id: "_" }]).map((u, ui) => (
+                      <th
+                        key={`sub-${m.key}-${u.id}`}
+                        className={cx(
+                          "px-2 py-2 font-semibold border-b border-slate-200 dark:border-slate-700 text-center",
+                          monthStripeHead(mi)
+                        )}
+                      >
+                        {savableUnits.length ? (u.short || `U${ui + 1}`) : "—"}
+                      </th>
+                    ))}
+                  </Fragment>
+                ))}
+
+                {(savableUnits.length ? savableUnits : [{ id: "_" }]).map((u, ui) => (
+                  <th
+                    key={`sumh-${u.id}`}
+                    className={cx("px-2 py-2 font-semibold border-b border-slate-200 dark:border-slate-700 text-center", STRIPE.headEven)}
+                  >
+                    {savableUnits.length ? (u.short || `U${ui + 1}`) : "—"}
                   </th>
                 ))}
               </tr>
             </thead>
 
             <tbody>
-              {items.map((it, idx) => {
+              {items.map((it, rowIdx) => {
                 const pr = priceById[it.id] || {}
-                const sell = pr.sell_price ?? ""
-                const t = computed.rowTotals[it.id] || { qty: 0, amt: 0, any: false }
-
                 return (
-                  <tr key={it.id}>
-                    <td className={cx("px-3 py-2", idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)}>
+                  <tr key={it.id} className={rowIdx % 2 === 0 ? STRIPE.cellEven : STRIPE.cellOdd}>
+                    <td className="px-3 py-2 border-b border-slate-200 dark:border-slate-700">
                       <div className="font-semibold">{it.name || "-"}</div>
-                      <div className="text-xs text-slate-500">product_id: {it.product_id}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">product_id: {it.product_id}</div>
                     </td>
 
-                    <td className={cx("px-2 py-2 text-center font-semibold", idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)}>
+                    <td className="px-2 py-2 border-b border-slate-200 dark:border-slate-700 text-center font-semibold">
                       {it.unit || "-"}
                     </td>
 
-                    <td className={cx("px-2 py-2", idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)}>
+                    <td className="px-2 py-2 border-b border-slate-200 dark:border-slate-700">
                       <input
                         className={cellInput}
-                        value={sell}
-                        disabled={!canEdit}
+                        inputMode="decimal"
+                        value={String(pr.sell_price ?? "")}
+                        placeholder={String(it.sell_price ?? 0)}
                         onChange={(e) => setPriceField(it.id, "sell_price", sanitizeNumberInput(e.target.value))}
                       />
+                      <input type="hidden" value={String(pr.buy_price ?? it.buy_price ?? 0)} readOnly />
                     </td>
 
-                    {MONTHS.map((m, mi) => {
-                      const raw = qtyById?.[it.id]?.[m.key] ?? ""
+                    {MONTHS.map((m, mi) => (
+                      <Fragment key={`${it.id}-${m.key}`}>
+                        {(savableUnits.length ? savableUnits : [{ id: "_" }]).map((u) => {
+                          const uid = String(u.id)
+                          const v = qtyById?.[String(it.id)]?.[m.key]?.[uid] ?? ""
+                          return (
+                            <td
+                              key={`${it.id}-${m.key}-${uid}`}
+                              className={cx(
+                                "px-1 py-1 border-b border-slate-200 dark:border-slate-700",
+                                monthStripeCell(mi)
+                              )}
+                            >
+                              <input
+                                className={cellInput}
+                                inputMode="decimal"
+                                value={String(v ?? "")}
+                                onChange={(e) =>
+                                  setQtyCell(String(it.id), m.key, uid, sanitizeNumberInput(e.target.value))
+                                }
+                              />
+                            </td>
+                          )
+                        })}
+                      </Fragment>
+                    ))}
+
+                    {(savableUnits.length ? savableUnits : [{ id: "_" }]).map((u) => {
+                      const uid = String(u.id)
+                      const sumU = computed.perRowUnit?.[String(it.id)]?.[uid] || 0
                       return (
-                        <td key={`${it.id}-${m.key}`} className={cx("px-1 py-1", monthStripeCell(mi))}>
-                          <input
-                            className={cellInput}
-                            value={raw}
-                            disabled={!canEdit}
-                            onChange={(e) => setQtyCell(it.id, m.key, sanitizeNumberInput(e.target.value))}
-                          />
+                        <td
+                          key={`${it.id}-sum-${uid}`}
+                          className={cx(
+                            "px-2 py-2 border-b border-slate-200 dark:border-slate-700 text-right font-semibold",
+                            STRIPE.footEven
+                          )}
+                        >
+                          {fmtQty(sumU)}
                         </td>
                       )
                     })}
-
-                    <td className={cx("px-2 py-2 text-right font-semibold", idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)}>
-                      {dashIfAny(t.any, fmtQty(t.qty))}
-                    </td>
-                    <td className={cx("px-2 py-2 text-right font-semibold", idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)}>
-                      {dashIfAny(t.any, fmtMoney(t.amt))}
-                    </td>
                   </tr>
                 )
               })}
-            </tbody>
 
-            <tfoot>
-              <tr>
-                <td className={cx("px-3 py-3 font-extrabold", STRIPE.footEven)} colSpan={3}>
-                  รวมทั้งสิ้น
+              <tr className={STRIPE.footOdd}>
+                <td className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 font-bold">รวมทั้งสิ้น</td>
+                <td className="px-2 py-2 border-b border-slate-200 dark:border-slate-700" />
+                <td className="px-2 py-2 border-b border-slate-200 dark:border-slate-700 text-right font-bold">
+                  {fmtMoney(computed.grandValue)}
                 </td>
 
-                {MONTHS.map((m, idx) => (
-                  <td key={`f-${m.key}`} className={cx("px-2 py-3 text-right font-bold", monthStripeFoot(idx))}>
-                    {dashIfAny(computed.monthAny[m.key], fmtQty(computed.monthTotals[m.key].qty))}
-                  </td>
+                {MONTHS.map((m) => (
+                  <Fragment key={`g-${m.key}`}>
+                    {(savableUnits.length ? savableUnits : [{ id: "_" }]).map((u) => (
+                      <td key={`g-${m.key}-${u.id}`} className="px-2 py-2 border-b border-slate-200 dark:border-slate-700" />
+                    ))}
+                  </Fragment>
                 ))}
 
-                <td className={cx("px-2 py-3 text-right font-extrabold", STRIPE.footEven)}>
-                  {dashIfAny(computed.anyAll, fmtQty(computed.grandQty))}
-                </td>
-                <td className={cx("px-2 py-3 text-right font-extrabold", STRIPE.footEven)}>
-                  {dashIfAny(computed.anyAll, fmtMoney(computed.grandAmt))}
-                </td>
+                {(savableUnits.length ? savableUnits : [{ id: "_" }]).map((u) => (
+                  <td
+                    key={`g-sum-${u.id}`}
+                    className="px-2 py-2 border-b border-slate-200 dark:border-slate-700 text-right font-bold"
+                  >
+                    {fmtQty(computed.perUnitGrand?.[String(u.id)] || 0)}
+                  </td>
+                ))}
               </tr>
-            </tfoot>
+            </tbody>
           </table>
         </div>
 
-        {/* ✅ แถบบันทึกตำแหน่งเดียวกับหน้าค่าใช้จ่ายจัดหา */}
-        <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between gap-3">
-          <div className="text-sm text-slate-500 dark:text-slate-300">
-            บันทึก: PUT /unit-prices/bulk + PUT /revenue/sale-goals/bulk • ปี={effectiveYearBE} • plan_id={effectivePlanId} • สาขา={branchName || "-"} • unit_id={defaultUnitId || "-"}
+        {!canEdit && (
+          <div className="p-3 text-sm text-amber-900 bg-amber-50 border-t border-amber-200 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+            ยังไม่พร้อมบันทึก — กรุณาเลือกสาขา และรอโหลดหน่วย/รายการให้ครบ
           </div>
-
-          <button
-            type="button"
-            className={cx(
-              "rounded-2xl px-6 py-3 font-semibold shadow-lg transition",
-              isSaving || !canEdit
-                ? "bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-300 cursor-not-allowed"
-                : "bg-emerald-600 text-white hover:bg-emerald-700"
-            )}
-            disabled={isSaving || !canEdit}
-            onClick={saveAll}
-          >
-            {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
-          </button>
-        </div>
+        )}
       </div>
     </div>
   )

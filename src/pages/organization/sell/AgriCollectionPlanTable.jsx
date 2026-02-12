@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { apiAuth } from "../../lib/api"
+import { apiAuth } from "../../../lib/api"
 /*รายละเอียดแผนการรวบรวมผลผลิตการเกษตร*/
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")

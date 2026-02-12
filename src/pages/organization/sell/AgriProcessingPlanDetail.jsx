@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -32,7 +32,6 @@ class ApiError extends Error {
   }
 }
 
-/** ✅ token robust: รองรับหลาย key + กัน Bearer ซ้ำ */
 const getToken = () => {
   const raw =
     localStorage.getItem("token") ||
@@ -110,11 +109,8 @@ const MONTHS = [
   { key: "m03", label: "มี.ค.", month: 3 },
 ]
 
-const FALLBACK_UNITS = [
-  { id: -1, short: "ปร", name: "ปร" },
-  { id: -2, short: "รับ", name: "รับ" },
-  { id: -3, short: "พร", name: "พร" },
-]
+// ถ้าหน่วยยังโหลดไม่ได้จริง ๆ อย่างน้อยต้องมี 1 คอลัมน์ ไม่งั้น subheader จะไม่แสดง
+const PLACEHOLDER_UNITS = [{ id: 0, name: "—", short: "—" }]
 
 const COL_W = {
   product: 260,
@@ -157,30 +153,39 @@ function buildEmptyQtyGrid(productIds, unitList) {
     out[pid] = {}
     for (const m of MONTHS) {
       out[pid][m.key] = {}
-      for (const u of unitList) {
-        out[pid][m.key][String(u.id)] = ""
-      }
+      for (const u of unitList) out[pid][m.key][String(u.id)] = ""
     }
   }
   return out
 }
 
 /** =======================================================================
- * AgriProcessingPlanDetail (STYLE + SAVE LIKE PROCUREMENT)
+ * AgriProcessingPlanDetail
  * ======================================================================= */
 function AgriProcessingPlanDetail(props) {
-  const { branchId, branch_id, branch, selectedBranch, branchName, yearBE, planId } = props || {}
+  const {
+    branchId,
+    branch_id,
+    branch,
+    selectedBranch,
+    selected_branch,
+    branchName,
+    yearBE,
+    planId,
+  } = props || {}
 
   /** Units */
-  const [units, setUnits] = useState(FALLBACK_UNITS)
+  const [units, setUnits] = useState([])
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)
 
-  /** ---------------- Branch resolver ---------------- */
-  const [resolvedBranchId, setResolvedBranchId] = useState(null)
-  const [resolvedBranchName, setResolvedBranchName] = useState(branchName || "")
-
-  const _pickNumber = useCallback((v) => {
+  /** ---------------- Branch resolver (โหดขึ้น: ไล่หา key branch*id ทั้ง props) ---------------- */
+  const pickNumber = useCallback((v) => {
     if (v === null || v === undefined || v === "") return null
+    if (typeof v === "object") {
+      // รองรับ object ที่มี id/branch_id
+      const tryId = v?.id ?? v?.branch_id ?? v?.branchId
+      if (tryId !== undefined) return pickNumber(tryId)
+    }
     const n = Number(v)
     if (Number.isFinite(n) && n > 0) return n
     const digits = String(v).match(/\d+/g)
@@ -189,20 +194,51 @@ function AgriProcessingPlanDetail(props) {
     return Number.isFinite(nd) && nd > 0 ? nd : null
   }, [])
 
-  useEffect(() => {
-    const bId =
-      _pickNumber(branchId) ||
-      _pickNumber(branch_id) ||
-      _pickNumber(branch?.id) ||
-      _pickNumber(selectedBranch?.id) ||
-      _pickNumber(selectedBranch?.branch_id) ||
-      null
+  const [resolvedBranchId, setResolvedBranchId] = useState(null)
+  const [resolvedBranchName, setResolvedBranchName] = useState(branchName || "")
 
-    setResolvedBranchId(bId)
-    setResolvedBranchName(
-      String(branchName || branch?.branch_name || selectedBranch?.branch_name || selectedBranch?.name || "").trim()
-    )
-  }, [_pickNumber, branchId, branch_id, branch, selectedBranch, branchName])
+  useEffect(() => {
+    // 1) ลองจาก field ที่รู้จักก่อน
+    const direct =
+      pickNumber(branchId) ||
+      pickNumber(branch_id) ||
+      pickNumber(branch?.id) ||
+      pickNumber(branch?.branch_id) ||
+      pickNumber(selectedBranch?.id) ||
+      pickNumber(selectedBranch?.branch_id) ||
+      pickNumber(selected_branch?.id) ||
+      pickNumber(selected_branch?.branch_id)
+
+    // 2) ถ้ายังไม่เจอ ไล่ค้นทั้ง props
+    let guessed = direct
+    if (!guessed && props && typeof props === "object") {
+      for (const [k, v] of Object.entries(props)) {
+        if (!/branch/i.test(k)) continue
+        if (!/id/i.test(k)) continue
+        const maybe = pickNumber(v)
+        if (maybe) {
+          guessed = maybe
+          break
+        }
+      }
+    }
+
+    setResolvedBranchId(guessed || null)
+
+    const bName =
+      String(
+        branchName ||
+          branch?.branch_name ||
+          branch?.name ||
+          selectedBranch?.branch_name ||
+          selectedBranch?.name ||
+          selected_branch?.branch_name ||
+          selected_branch?.name ||
+          ""
+      ).trim()
+
+    setResolvedBranchName(bName)
+  }, [props, branchId, branch_id, branch, selectedBranch, selected_branch, branchName, pickNumber])
 
   const branchIdEff = resolvedBranchId
 
@@ -221,16 +257,12 @@ function AgriProcessingPlanDetail(props) {
     return Number.isFinite(p) && p > 0 ? 2568 + p : 2569
   }, [yearBE, planId])
 
-  /** label */
-  const periodLabel = useMemo(() => {
-    // แผนปีบัญชี 1 เม.ย. - 31 มี.ค. (ใช้แบบเดิม)
-    return "เม.ย.–มี.ค."
-  }, [])
+  const periodLabel = "เม.ย.–มี.ค."
 
-  /** ---------------- load units by branch ---------------- */
+  /** ---------------- load units by branch (เหมือนหน้าจัดหา) ---------------- */
   const loadUnits = useCallback(async () => {
     if (!branchIdEff) {
-      setUnits(FALLBACK_UNITS)
+      setUnits([])
       return
     }
     setIsLoadingUnits(true)
@@ -238,17 +270,16 @@ function AgriProcessingPlanDetail(props) {
       const data = await apiAuth(`/lists/unit/search?branch_id=${Number(branchIdEff)}`)
       const rows = Array.isArray(data) ? data : []
       const normalized = rows
-        .map((r, idx) => {
-          const id = Number(r.id || 0)
-          const nm = normalizeUnitName(r.unit_name || r.unit || r.name || "")
-          return { id, name: nm, short: shortUnit(nm, idx) }
-        })
-        .filter((x) => x.id > 0)
+        .map((r) => ({
+          id: Number(r.id || 0),
+          name: String(r.unit_name || r.unit || r.name || "").trim(),
+        }))
+        .filter((x) => x.id > 0 && x.name)
 
-      setUnits(normalized.length ? normalized : FALLBACK_UNITS)
+      setUnits(normalized)
     } catch (e) {
       console.error("[Units load] failed:", e)
-      setUnits(FALLBACK_UNITS)
+      setUnits([])
     } finally {
       setIsLoadingUnits(false)
     }
@@ -258,28 +289,33 @@ function AgriProcessingPlanDetail(props) {
     loadUnits()
   }, [loadUnits])
 
-  /** ---------------- unit prices map (latest cost/sell) ---------------- */
+  /** map ต้นทุนการขายจาก /unit-prices/{year} */
   const [unitPriceMap, setUnitPriceMap] = useState({})
   const [isLoadingUnitPrices, setIsLoadingUnitPrices] = useState(false)
 
   const loadUnitPricesForYear = useCallback(async () => {
+    const y = Number(effectiveYearBE || 0)
+    if (!Number.isFinite(y) || y <= 0) {
+      setUnitPriceMap({})
+      return
+    }
     setIsLoadingUnitPrices(true)
     try {
-      const data = await apiAuth(`/unit-prices?year=${Number(effectiveYearBE)}`)
-      const rows = Array.isArray(data) ? data : []
+      const data = await apiAuth(`/unit-prices/${y}`)
+      const list = Array.isArray(data?.items) ? data.items : []
       const map = {}
-      for (const r of rows) {
-        const pid = Number(r.product_id || r.product || 0)
+      for (const it of list) {
+        const pid = Number(it.product_id || it.product || 0)
         if (!pid) continue
         map[String(pid)] = {
-          sell_price: toNumber(r.sell_price ?? 0),
-          buy_price: toNumber(r.buy_price ?? 0),
-          comment: String(r.comment ?? ""),
+          sell_price: String(it.sell_price ?? ""),
+          buy_price: String(it.buy_price ?? ""),
+          comment: String(it.comment ?? ""),
         }
       }
       setUnitPriceMap(map)
     } catch (e) {
-      console.warn("[Load unit-prices] failed:", e)
+      console.warn("[AgriProcessing] load unit-prices failed:", e)
       setUnitPriceMap({})
     } finally {
       setIsLoadingUnitPrices(false)
@@ -290,87 +326,115 @@ function AgriProcessingPlanDetail(props) {
     loadUnitPricesForYear()
   }, [loadUnitPricesForYear])
 
-  /** ---------------- products + grid state ---------------- */
-  const [products, setProducts] = useState([])
-  const [isLoadingProducts, setIsLoadingProducts] = useState(false)
-
-  // savableUnits: ใช้ units จริงเท่านั้น (id > 0)
+  /** savableUnits: หน่วยจริง (id>0) */
   const savableUnits = useMemo(() => (units || []).filter((u) => Number(u.id) > 0), [units])
 
-  const [priceByPid, setPriceByPid] = useState({})
-  const [qtyByPid, setQtyByPid] = useState({})
+  /** ---------------- unitCols (ห้ามว่าง) ---------------- */
+  const unitCols = useMemo(() => {
+    const list = (units || []).slice().filter((u) => Number(u?.id) > 0)
+    if (!list.length) return PLACEHOLDER_UNITS
+    return list.map((u, idx) => {
+      const name = normalizeUnitName(u.name || u.unit_name || u.unit || "")
+      return { id: Number(u.id), name, short: shortUnit(name, idx) }
+    })
+  }, [units])
 
-  const loadProducts = useCallback(async () => {
-    if (!effectivePlanId) return
-    setIsLoadingProducts(true)
-    try {
-      const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${effectivePlanId}`)
-      const g = data?.[String(PROCESSING_GROUP_ID)] || data?.[PROCESSING_GROUP_ID]
-      const items = Array.isArray(g?.items) ? g.items : []
-
-      // ✅ merge ราคาจาก unitPriceMap (ต้นทุนการขายที่เคยบันทึกไว้)
-      const normalized = items
-        .filter((x) => Number(x.business_group) === PROCESSING_GROUP_ID)
-        .map((x) => {
-          const pid = Number(x.product_id || x.id || 0)
-          const fromCost = unitPriceMap[String(pid)] || {}
-          return {
-            product_id: pid,
-            product_type: String(x.product_type || x.name || x.product || "").trim(),
-            unit: String(x.unit || x.unit_name || "-").trim() || "-",
-            business_group: Number(x.business_group || PROCESSING_GROUP_ID),
-            sell_price: fromCost.sell_price ?? toNumber(x.sell_price ?? 0),
-            buy_price: fromCost.buy_price ?? toNumber(x.buy_price ?? 0),
-            comment: fromCost.comment ?? String(x.comment ?? ""),
-          }
-        })
-        .filter((x) => x.product_id > 0)
-
-      setProducts(normalized)
-
-      const pMap = {}
-      for (const it of normalized) {
-        pMap[String(it.product_id)] = {
-          sell_price: String(it.sell_price ?? ""),
-          buy_price: String(it.buy_price ?? ""),
-          comment: String(it.comment ?? ""),
-        }
-      }
-      setPriceByPid(pMap)
-
-      setQtyByPid((prev) => {
-        const next = { ...prev }
-        const uList = savableUnits.length ? savableUnits : []
-        const empty = buildEmptyQtyGrid(normalized.map((x) => String(x.product_id)), uList)
-        for (const pid of Object.keys(empty)) {
-          if (!next[pid]) next[pid] = empty[pid]
-          else {
-            for (const m of MONTHS) {
-              if (!next[pid][m.key]) next[pid][m.key] = {}
-              for (const u of uList) {
-                const uk = String(u.id)
-                if (next[pid][m.key][uk] === undefined) next[pid][m.key][uk] = ""
-              }
-            }
-          }
-        }
-        return next
-      })
-    } catch (e) {
-      console.error("[Products load] failed:", e)
-      setProducts([])
-    } finally {
-      setIsLoadingProducts(false)
-    }
-  }, [effectivePlanId, savableUnits, unitPriceMap])
-
-  /** Load saved quantities */
+  /** state grid */
+  const [priceById, setPriceById] = useState({})
+  const [qtyById, setQtyById] = useState({})
+  const [items, setItems] = useState([])
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false)
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
 
+  /** โหลดสินค้าแปรรูป */
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        if (!effectivePlanId || effectivePlanId <= 0) return
+        setIsLoadingProducts(true)
+
+        const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${Number(effectivePlanId)}`)
+        const group = data?.[String(PROCESSING_GROUP_ID)] || data?.[PROCESSING_GROUP_ID]
+        const list = Array.isArray(group?.items) ? group.items : []
+
+        const normalizedItems = list
+          .filter((x) => Number(x.business_group || 0) === PROCESSING_GROUP_ID)
+          .map((x) => {
+            const pid = Number(x.product_id || x.id || 0) || null
+            const fallback = pid ? unitPriceMap[String(pid)] : null
+
+            const sellFromList = x.sell_price ?? ""
+            const buyFromList = x.buy_price ?? ""
+
+            const sellMerged =
+              (sellFromList === null || sellFromList === undefined || Number(sellFromList) === 0) && fallback
+                ? fallback.sell_price
+                : sellFromList
+            const buyMerged =
+              (buyFromList === null || buyFromList === undefined || Number(buyFromList) === 0) && fallback
+                ? fallback.buy_price
+                : buyFromList
+
+            return {
+              product_id: pid,
+              name: String(x.product_type || x.name || "").trim(),
+              unit: String(x.unit || "ตัน").trim(),
+              sell_price: sellMerged ?? "",
+              buy_price: buyMerged ?? "",
+              comment: String((fallback?.comment ?? x.comment ?? "") || ""),
+            }
+          })
+          .filter((x) => x.product_id)
+
+        if (!alive) return
+
+        setItems(normalizedItems)
+
+        const pmap = {}
+        for (const it of normalizedItems) {
+          pmap[String(it.product_id)] = {
+            sell_price: String(it.sell_price ?? ""),
+            buy_price: String(it.buy_price ?? ""),
+            comment: String(it.comment ?? ""),
+          }
+        }
+        setPriceById(pmap)
+
+        const uList = savableUnits.length ? savableUnits : []
+        const empty = buildEmptyQtyGrid(normalizedItems.map((x) => String(x.product_id)), uList)
+        setQtyById((prev) => {
+          const next = { ...empty }
+          for (const pid of Object.keys(prev || {})) {
+            if (!next[pid]) continue
+            for (const m of MONTHS) {
+              if (!prev?.[pid]?.[m.key]) continue
+              next[pid][m.key] = { ...next[pid][m.key], ...prev[pid][m.key] }
+            }
+          }
+          return next
+        })
+      } catch (e) {
+        console.warn("[AgriProcessing] load products failed:", e)
+        if (!alive) return
+        setItems([])
+        setPriceById({})
+        setQtyById({})
+      } finally {
+        if (alive) setIsLoadingProducts(false)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [effectivePlanId, unitPriceMap, savableUnits])
+
+  /** โหลดค่าที่เคยบันทึก */
   const loadSavedFromBE = useCallback(async () => {
     if (!branchIdEff) return
     if (!effectivePlanId || effectivePlanId <= 0) return
-    if (!products.length) return
+    if (!items.length) return
+    if (!savableUnits.length) return
 
     setIsLoadingSaved(true)
     try {
@@ -379,11 +443,10 @@ function AgriProcessingPlanDetail(props) {
       )
       const cells = Array.isArray(data?.cells) ? data.cells : []
 
-      const uList = savableUnits.length ? savableUnits : []
-      const uSet = new Set(uList.map((u) => Number(u.id)))
-      const pSet = new Set(products.map((p) => Number(p.product_id)))
+      const uSet = new Set(savableUnits.map((u) => Number(u.id)))
+      const pSet = new Set(items.map((p) => Number(p.product_id)))
 
-      const empty = buildEmptyQtyGrid(products.map((p) => String(p.product_id)), uList)
+      const empty = buildEmptyQtyGrid(items.map((p) => String(p.product_id)), savableUnits)
 
       for (const c of cells) {
         const pid = Number(c.product_id || 0)
@@ -399,116 +462,84 @@ function AgriProcessingPlanDetail(props) {
         empty[String(pid)][monthObj.key][String(uid)] = String(Number(amt || 0))
       }
 
-      setQtyByPid(empty)
+      setQtyById(empty)
     } catch (e) {
-      console.error("[Load saved sale-goals] failed:", e)
+      console.warn("[AgriProcessing] load saved failed:", e)
     } finally {
       setIsLoadingSaved(false)
     }
-  }, [branchIdEff, effectivePlanId, products, savableUnits])
-
-  useEffect(() => {
-    loadProducts()
-  }, [loadProducts])
+  }, [branchIdEff, effectivePlanId, items, savableUnits])
 
   useEffect(() => {
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  /** ---------------- table computed ---------------- */
-  const unitCols = useMemo(() => {
-    const list = (units || []).slice()
-    if (!list.length) return FALLBACK_UNITS
-    return list.map((u, idx) => ({ ...u, short: u.short || shortUnit(u.name || u.unit || u.unit_name || "", idx) }))
-  }, [units])
+  /** setters */
+  const setPriceField = useCallback((productId, field, nextValue) => {
+    setPriceById((prev) => ({
+      ...prev,
+      [String(productId)]: {
+        ...(prev[String(productId)] || { sell_price: "", buy_price: "", comment: "" }),
+        [field]: nextValue,
+      },
+    }))
+  }, [])
 
-  const productRows = useMemo(() => {
-    const list = Array.isArray(products) ? products : []
-    return list
-      .filter((p) => Number(p.business_group) === PROCESSING_GROUP_ID)
-      .map((p) => ({
-        ...p,
-        product_id: Number(p.product_id),
-        product_type: String(p.product_type || "").trim(),
-        unit: String(p.unit || "-").trim() || "-",
-      }))
-  }, [products])
-
-  const setPriceField = useCallback((pid, field, value) => {
-    setPriceByPid((prev) => {
-      const next = { ...prev }
-      const cur = next[String(pid)] || { sell_price: "", buy_price: "", comment: "" }
-      next[String(pid)] = { ...cur, [field]: value }
-      return next
+  const setQtyField = useCallback((productId, monthKey, unitId, nextValue) => {
+    setQtyById((prev) => {
+      const pid = String(productId)
+      const uid = String(unitId)
+      return {
+        ...prev,
+        [pid]: {
+          ...(prev[pid] || {}),
+          [monthKey]: { ...(prev?.[pid]?.[monthKey] || {}), [uid]: nextValue },
+        },
+      }
     })
   }, [])
 
-  const setQtyField = useCallback((pid, mKey, uKey, value) => {
-    setQtyByPid((prev) => {
-      const next = { ...prev }
-      const pKey = String(pid)
-      if (!next[pKey]) next[pKey] = {}
-      if (!next[pKey][mKey]) next[pKey][mKey] = {}
-      next[pKey][mKey] = { ...next[pKey][mKey], [uKey]: value }
-      return next
-    })
-  }, [])
-
+  /** sums */
   const sums = useMemo(() => {
     const perUnit = {}
     for (const u of unitCols) perUnit[String(u.id)] = 0
-    const perMonth = {}
-    for (const m of MONTHS) perMonth[m.key] = 0
-    let grandQty = 0
     let grandValue = 0
-    let grandCost = 0
 
-    for (const p of productRows) {
+    for (const p of items) {
       const pid = String(p.product_id)
-      const prices = priceByPid[pid] || {}
+      const prices = priceById[pid] || {}
       const sell = toNumber(prices.sell_price ?? p.sell_price ?? 0)
-      const buy = toNumber(prices.buy_price ?? p.buy_price ?? 0)
 
       for (const m of MONTHS) {
-        let sumMonth = 0
         for (const u of unitCols) {
           const uid = String(u.id)
-          const v = qtyByPid?.[pid]?.[m.key]?.[uid] ?? ""
+          const v = qtyById?.[pid]?.[m.key]?.[uid] ?? ""
           const n = toNumber(v)
-          sumMonth += n
           perUnit[uid] = (perUnit[uid] || 0) + n
+          grandValue += n * sell
         }
-        perMonth[m.key] += sumMonth
-        grandQty += sumMonth
-        grandValue += sumMonth * sell
-        grandCost += sumMonth * buy
       }
     }
+    return { perUnit, grandValue }
+  }, [items, priceById, qtyById, unitCols])
 
-    return { perUnit, perMonth, grandQty, grandValue, grandCost }
-  }, [productRows, priceByPid, qtyByPid, unitCols])
-
-  /** ---------------- Save ---------------- */
+  /** Save */
   const [isSaving, setIsSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
-
   const canEdit = !!branchIdEff && !!savableUnits.length
 
   const saveAll = useCallback(async () => {
     if (!branchIdEff) throw new Error("FE: ยังไม่มี branch_id")
     if (!effectivePlanId || effectivePlanId <= 0) throw new Error(`FE: plan_id ไม่ถูกต้อง (${effectivePlanId})`)
-    if (!productRows.length) throw new Error("FE: ไม่มีรายการสินค้าให้บันทึก")
-    const uList = savableUnits.length ? savableUnits : []
-    if (!uList.length) throw new Error("FE: ไม่มีหน่วยของสาขาให้บันทึก")
+    if (!items.length) throw new Error("FE: ไม่มีรายการสินค้าให้บันทึก")
+    if (!savableUnits.length) throw new Error("FE: ไม่มีหน่วยของสาขาให้บันทึก")
 
     setIsSaving(true)
     setSaveMsg(null)
-
     try {
-      // 1) Save unit prices
-      const priceItems = products.map((p) => {
+      const priceItems = items.map((p) => {
         const pid = Number(p.product_id)
-        const cur = priceByPid[String(pid)] || {}
+        const cur = priceById[String(pid)] || {}
         return {
           product_id: pid,
           sell_price: toNumber(cur.sell_price ?? p.sell_price ?? 0),
@@ -517,77 +548,58 @@ function AgriProcessingPlanDetail(props) {
         }
       })
 
-      // bulk first
+      // save prices
       try {
         await apiAuth(`/unit-prices/bulk`, {
           method: "PUT",
           body: { year: Number(effectiveYearBE), items: priceItems },
         })
-      } catch (e) {
-        // fallback single
-        try {
-          for (const it of priceItems) {
-            await apiAuth(`/unit-prices`, {
-              method: "PUT",
-              body: {
-                year: Number(effectiveYearBE),
-                product_id: it.product_id,
-                sell_price: it.sell_price,
-                buy_price: it.buy_price,
-                comment: it.comment,
-              },
-            })
-          }
-        } catch (e2) {
-          console.warn("[Save unit-prices fallback] failed:", e2)
+      } catch {
+        for (const it of priceItems) {
+          await apiAuth(`/unit-prices`, {
+            method: "PUT",
+            body: {
+              year: Number(effectiveYearBE),
+              product_id: it.product_id,
+              sell_price: it.sell_price,
+              buy_price: it.buy_price,
+              comment: it.comment,
+            },
+          })
         }
       }
 
-      // 2) Save sale goals (qty grid)
+      // save goals
       const cells = []
-      for (const p of productRows) {
+      for (const p of items) {
         const pid = Number(p.product_id)
         for (const m of MONTHS) {
-          for (const u of uList) {
+          for (const u of savableUnits) {
             const uid = Number(u.id)
-            const v = qtyByPid?.[String(pid)]?.[m.key]?.[String(uid)] ?? ""
+            const v = qtyById?.[String(pid)]?.[m.key]?.[String(uid)] ?? ""
             const n = toNumber(v)
             if (!n) continue
-            cells.push({
-              unit_id: uid,
-              product_id: pid,
-              month: Number(m.month),
-              amount: n,
-            })
+            cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n })
           }
         }
       }
 
       await apiAuth(`/revenue/sale-goals/bulk`, {
         method: "PUT",
-        body: {
-          plan_id: Number(effectivePlanId),
-          branch_id: Number(branchIdEff),
-          cells,
-        },
+        body: { plan_id: Number(effectivePlanId), branch_id: Number(branchIdEff), cells },
       })
 
       setSaveMsg({
         ok: true,
         title: "บันทึกสำเร็จ",
-        detail: `สาขา ${resolvedBranchName || branchIdEff} • ปี ${effectiveYearBE} (plan_id=${effectivePlanId}) • สินค้า ${products.length} รายการ`,
+        detail: `สาขา ${resolvedBranchName || branchIdEff} • ปี ${effectiveYearBE} (plan_id=${effectivePlanId})`,
       })
 
       await loadSavedFromBE()
-      await loadProducts()
+      await loadUnits()
       await loadUnitPricesForYear()
     } catch (e) {
-      console.error("[Save] failed:", e)
-      setSaveMsg({
-        ok: false,
-        title: "บันทึกไม่สำเร็จ",
-        detail: e?.message || String(e),
-      })
+      setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally {
       setIsSaving(false)
     }
@@ -595,30 +607,17 @@ function AgriProcessingPlanDetail(props) {
     branchIdEff,
     effectivePlanId,
     effectiveYearBE,
-    productRows,
-    products,
-    priceByPid,
-    qtyByPid,
+    items,
+    priceById,
+    qtyById,
     savableUnits,
     resolvedBranchName,
     loadSavedFromBE,
-    loadProducts,
+    loadUnits,
     loadUnitPricesForYear,
   ])
 
-  /** ---------------- rendering helpers ---------------- */
-  const tableWrapRef = useRef(null)
-
-  const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
-  const headCell =
-    "px-2 py-2 text-sm font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-300/70 dark:border-slate-600/60"
-  const leftHeadCell = cx(headCell, "sticky left-0 z-20", stickyShadow)
-  const leftCell =
-    "px-2 py-2 text-sm text-slate-900 dark:text-slate-100 border-b border-slate-200/70 dark:border-slate-700/60"
-  const leftCellSticky = cx(leftCell, "sticky left-0 z-10", stickyShadow)
-  const cellClass =
-    "px-1 py-1 border-b border-slate-200/70 dark:border-slate-700/60 text-slate-900 dark:text-slate-100"
-
+  /** styles */
   const inputClass =
     "w-full rounded-xl border border-slate-300 bg-white px-2 py-1 text-right text-[13px] outline-none " +
     "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
@@ -630,21 +629,17 @@ function AgriProcessingPlanDetail(props) {
     return LEFT_W + monthCells + sumCells
   }, [unitCols])
 
-  const sectionTitle = "text-[18px] font-bold text-slate-900 dark:text-slate-100"
-  const subText = "text-sm text-slate-600 dark:text-slate-300"
-
   return (
     <div className="w-full">
-      <div className="mb-4 flex flex-col gap-2">
-        <div className="flex flex-col gap-1">
-          <div className={sectionTitle}>ยอดขายธุรกิจแปรรูป</div>
-          <div className={subText}>
-            ({periodLabel}) • ปี {effectiveYearBE} • plan_id {effectivePlanId} • สาขา {resolvedBranchName || "-"} • หน่วย{" "}
-            {isLoadingUnits ? "กำลังโหลด..." : units.length}
-            {isLoadingProducts ? " • โหลดสินค้า/ราคา..." : ""}
-            {isLoadingUnitPrices ? " • โหลดต้นทุนการขาย..." : ""}
-            {isLoadingSaved ? " • โหลดค่าที่เคยบันทึก..." : ""}
-          </div>
+      <div className="mb-3">
+        <div className="text-[18px] font-bold text-slate-900 dark:text-slate-100">ยอดขายธุรกิจแปรรูป</div>
+        <div className="text-sm text-slate-600 dark:text-slate-300">
+          ({periodLabel}) • ปี {effectiveYearBE} • plan_id {effectivePlanId} • สาขา {resolvedBranchName || "-"} • branch_id{" "}
+          {branchIdEff || "—"}
+          {isLoadingUnits ? " • โหลดหน่วย..." : ""}
+          {isLoadingProducts ? " • โหลดสินค้า..." : ""}
+          {isLoadingUnitPrices ? " • โหลดต้นทุน..." : ""}
+          {isLoadingSaved ? " • โหลดค่าที่บันทึก..." : ""}
         </div>
       </div>
 
@@ -663,52 +658,46 @@ function AgriProcessingPlanDetail(props) {
       )}
 
       <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-        <div className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700" ref={tableWrapRef}>
-          <table className="min-w-full border-collapse" style={{ width: TOTAL_W }}>
+        <div className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700">
+          <table className="border-collapse" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.product }} />
               <col style={{ width: COL_W.unit }} />
               <col style={{ width: COL_W.price }} />
-              {MONTHS.map((m) =>
-                unitCols.map((u) => <col key={`${m.key}-${u.id}`} style={{ width: COL_W.cell }} />)
-              )}
-              {unitCols.map((u) => (
-                <col key={`sum-${u.id}`} style={{ width: COL_W.cell }} />
-              ))}
+              {MONTHS.map((m) => unitCols.map((u) => <col key={`${m.key}-${u.id}`} style={{ width: COL_W.cell }} />))}
+              {unitCols.map((u) => <col key={`sum-${u.id}`} style={{ width: COL_W.cell }} />)}
             </colgroup>
 
             <thead>
               <tr>
-                <th className={cx(leftHeadCell, STRIPE.headEven)} style={{ width: COL_W.product }}>
-                  ประเภทสินค้า
-                </th>
-                <th className={cx(headCell, STRIPE.headEven)} style={{ width: COL_W.unit }}>
-                  หน่วย
-                </th>
-                <th className={cx(headCell, STRIPE.headEven)} style={{ width: COL_W.price }}>
-                  ราคา/หน่วย
-                </th>
+                <th className={cx("px-2 py-2 text-sm font-semibold", STRIPE.headEven)}>ประเภทสินค้า</th>
+                <th className={cx("px-2 py-2 text-sm font-semibold", STRIPE.headEven)}>หน่วย</th>
+                <th className={cx("px-2 py-2 text-sm font-semibold", STRIPE.headEven)}>ราคา/หน่วย</th>
 
                 {MONTHS.map((m, mi) => (
-                  <th key={m.key} className={cx(headCell, monthStripeHead(mi))} colSpan={unitCols.length}>
+                  <th key={m.key} className={cx("px-2 py-2 text-sm font-semibold", monthStripeHead(mi))} colSpan={unitCols.length}>
                     {m.label}
                   </th>
                 ))}
 
-                <th className={cx(headCell, STRIPE.headEven)} colSpan={unitCols.length}>
+                <th className={cx("px-2 py-2 text-sm font-semibold", STRIPE.headEven)} colSpan={unitCols.length}>
                   รวม
                 </th>
               </tr>
 
+              {/* ✅ แถวหน่วยใต้เดือน (แก้ให้ “ต้องแสดง” แน่นอน) */}
               <tr>
-                <th className={cx(leftHeadCell, STRIPE.headEven)} style={{ width: COL_W.product }} />
-                <th className={cx(headCell, STRIPE.headEven)} style={{ width: COL_W.unit }} />
-                <th className={cx(headCell, STRIPE.headEven)} style={{ width: COL_W.price }} />
+                <th className={cx("px-2 py-2", STRIPE.headEven)} />
+                <th className={cx("px-2 py-2", STRIPE.headEven)} />
+                <th className={cx("px-2 py-2", STRIPE.headEven)} />
 
                 {MONTHS.map((m, mi) => (
                   <Fragment key={`sub-${m.key}`}>
                     {unitCols.map((u) => (
-                      <th key={`${m.key}-${u.id}-sub`} className={cx(headCell, monthStripeCell(mi))}>
+                      <th
+                        key={`${m.key}-${u.id}-sub`}
+                        className={cx("px-2 py-2 text-sm font-semibold text-slate-900 dark:text-slate-100", monthStripeCell(mi))}
+                      >
                         {u.short}
                       </th>
                     ))}
@@ -716,7 +705,7 @@ function AgriProcessingPlanDetail(props) {
                 ))}
 
                 {unitCols.map((u) => (
-                  <th key={`sum-h-${u.id}`} className={cx(headCell, STRIPE.headEven)}>
+                  <th key={`sum-h-${u.id}`} className={cx("px-2 py-2 text-sm font-semibold", STRIPE.headEven)}>
                     {u.short}
                   </th>
                 ))}
@@ -724,24 +713,23 @@ function AgriProcessingPlanDetail(props) {
             </thead>
 
             <tbody>
-              {productRows.map((p, idx) => {
+              {items.map((p, idx) => {
                 const pid = String(p.product_id)
-                const prices = priceByPid[pid] || {}
+                const prices = priceById[pid] || {}
                 const sellPrice = prices.sell_price ?? ""
-                const rowKey = `row-${pid}`
 
                 return (
-                  <tr key={rowKey}>
-                    <td className={cx(leftCellSticky, idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)} style={{ width: COL_W.product }}>
-                      <div className="font-semibold">{p.product_type || "-"}</div>
+                  <tr key={`row-${pid}`}>
+                    <td className={cx("px-2 py-2", idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)}>
+                      <div className="font-semibold">{p.name || "-"}</div>
                       <div className="text-xs text-slate-500">product_id: {p.product_id}</div>
                     </td>
 
-                    <td className={cx(cellClass, idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)} style={{ width: COL_W.unit }}>
-                      <div className="text-center font-semibold">{p.unit || "-"}</div>
+                    <td className={cx("px-2 py-2 text-center font-semibold", idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)}>
+                      {p.unit || "-"}
                     </td>
 
-                    <td className={cx(cellClass, idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)} style={{ width: COL_W.price }}>
+                    <td className={cx("px-2 py-2", idx % 2 ? STRIPE.cellOdd : STRIPE.cellEven)}>
                       <input
                         className={inputClass}
                         value={String(sellPrice)}
@@ -754,13 +742,13 @@ function AgriProcessingPlanDetail(props) {
                       <Fragment key={`${pid}-${m.key}`}>
                         {unitCols.map((u) => {
                           const uid = String(u.id)
-                          const v = qtyByPid?.[pid]?.[m.key]?.[uid] ?? ""
+                          const v = qtyById?.[pid]?.[m.key]?.[uid] ?? ""
                           return (
-                            <td key={`${pid}-${m.key}-${uid}`} className={cx(cellClass, monthStripeCell(mi))}>
+                            <td key={`${pid}-${m.key}-${uid}`} className={cx("px-1 py-1", monthStripeCell(mi))}>
                               <input
                                 className={inputClass}
                                 value={String(v)}
-                                disabled={!canEdit}
+                                disabled={!canEdit || Number(u.id) <= 0}
                                 onChange={(e) => setQtyField(pid, m.key, uid, sanitizeNumberInput(e.target.value))}
                               />
                             </td>
@@ -772,12 +760,10 @@ function AgriProcessingPlanDetail(props) {
                     {unitCols.map((u) => {
                       const uid = String(u.id)
                       let sumU = 0
-                      for (const m of MONTHS) {
-                        sumU += toNumber(qtyByPid?.[pid]?.[m.key]?.[uid] ?? 0)
-                      }
+                      for (const m of MONTHS) sumU += toNumber(qtyById?.[pid]?.[m.key]?.[uid] ?? 0)
                       return (
-                        <td key={`${pid}-sum-${uid}`} className={cx(cellClass, STRIPE.footEven)}>
-                          <div className="text-right font-semibold">{fmtQty(sumU)}</div>
+                        <td key={`${pid}-sum-${uid}`} className={cx("px-2 py-2 text-right font-semibold", STRIPE.footEven)}>
+                          {fmtQty(sumU)}
                         </td>
                       )
                     })}
@@ -785,28 +771,22 @@ function AgriProcessingPlanDetail(props) {
                 )
               })}
 
-              {/* totals row */}
               <tr>
-                <td className={cx(leftCellSticky, STRIPE.footOdd)} style={{ width: COL_W.product }}>
-                  <div className="font-bold">รวมทั้งสิ้น</div>
-                </td>
+                <td className={cx("px-2 py-2 font-bold", STRIPE.footOdd)}>รวมทั้งสิ้น</td>
+                <td className={cx("px-2 py-2", STRIPE.footOdd)} />
+                <td className={cx("px-2 py-2 text-right font-bold", STRIPE.footOdd)}>{fmtMoney(sums.grandValue)}</td>
 
-                <td className={cx(cellClass, STRIPE.footOdd)} style={{ width: COL_W.unit }} />
-                <td className={cx(cellClass, STRIPE.footOdd)} style={{ width: COL_W.price }}>
-                  <div className="text-right font-bold">{fmtMoney(sums.grandValue)}</div>
-                </td>
-
-                {MONTHS.map((m, mi) => (
-                  <Fragment key={`total-${m.key}`}>
+                {MONTHS.map((m) => (
+                  <Fragment key={`t-${m.key}`}>
                     {unitCols.map((u) => (
-                      <td key={`total-${m.key}-${u.id}`} className={cx(cellClass, STRIPE.footOdd)} />
+                      <td key={`t-${m.key}-${u.id}`} className={cx("px-2 py-2", STRIPE.footOdd)} />
                     ))}
                   </Fragment>
                 ))}
 
                 {unitCols.map((u) => (
-                  <td key={`g-sum-${u.id}`} className={cx(cellClass, STRIPE.footOdd)}>
-                    <div className="text-right font-bold">{fmtQty(sums.perUnit[String(u.id)] || 0)}</div>
+                  <td key={`g-sum-${u.id}`} className={cx("px-2 py-2 text-right font-bold", STRIPE.footOdd)}>
+                    {fmtQty(sums.perUnit[String(u.id)] || 0)}
                   </td>
                 ))}
               </tr>
@@ -816,7 +796,7 @@ function AgriProcessingPlanDetail(props) {
 
         {!canEdit && (
           <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
-            ยังไม่พบสาขา/branch_id — กรุณาเลือกสาขาก่อน ถึงจะบันทึกได้
+            ยังไม่พบสาขา/branch_id หรือยังไม่มีหน่วยของสาขา — กรุณาเลือกสาขาก่อน ถึงจะบันทึกได้
           </div>
         )}
       </div>

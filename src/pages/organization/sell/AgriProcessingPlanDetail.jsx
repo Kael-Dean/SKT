@@ -1,6 +1,6 @@
-// src/pages/operation-plan/AgriProcessingPlanDetail.jsx
+// src/pages/organization/sell/AgriProcessingPlanDetail.jsx
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { apiAuth } from "../../lib/api"
+import { apiAuth } from "../../../lib/api"
 
 /* รายละเอียดแผนการแปรรูปผลผลิตการเกษตร (ตารางรูปแบบ Excel) */
 
@@ -731,7 +731,7 @@ const AgriProcessingPlanDetail = ({ branchId, branchName, yearBE, planId }) => {
             )}
           </div>
 
-          {/* ✅ ด้านบนเหลือแค่ปุ่มเสริม (ไม่มีปุ่มบันทึก) */}
+          {/* ✅ เอาปุ่มบันทึกออกจากด้านบน (ตามที่ขอ) */}
           <div className="flex flex-wrap gap-2 md:justify-end">
             <button
               type="button"

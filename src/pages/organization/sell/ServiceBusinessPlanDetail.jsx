@@ -111,9 +111,16 @@ const MONTHS = [
 ]
 
 // ✅ ธุรกิจบริการ: ใช้รายการบริการ-ศูนย์ฝึกตามลิสต์
-const SERVICE_GROUP_ID = 7 // เผื่อ fallback ยิง BE
+// เปลี่ยน group เป็น 6 (ฝึกอบรม) เพื่อให้ดึง “บริการ-ศูนย์ฝึก” ได้ตรง
+const SERVICE_GROUP_ID = 6 // เผื่อ fallback ยิง BE
 const SERVICE_TITLE = "ยอดขายธุรกิจบริการ"
 const SERVICE_ITEM_NAME = "บริการ-ศูนย์ฝึก"
+
+const normalizeServiceName = (s) =>
+  String(s ?? "")
+    .trim()
+    .replace(/[–—−]/g, "-")
+    .replace(/\s+/g, " ")
 
 const COL_W = {
   product: 320,
@@ -213,6 +220,19 @@ function normalizeStaticListToItems(staticList, groupId) {
   return null
 }
 
+function flattenAnyGroupItems(staticList) {
+  if (!staticList) return []
+  if (Array.isArray(staticList)) return staticList
+  const out = []
+  for (const k of Object.keys(staticList)) {
+    const v = staticList[k]
+    if (Array.isArray(v)) out.push(...v)
+    else if (Array.isArray(v?.items)) out.push(...v.items)
+  }
+  if (Array.isArray(staticList?.items)) out.push(...staticList.items)
+  return out
+}
+
 /** =====================================================================
  * ServiceBusinessPlanDetail
  * ===================================================================== */
@@ -301,12 +321,14 @@ const ServiceBusinessPlanDetail = (props) => {
       // 1) พยายามใช้ลิสต์จาก FE ก่อน
       const staticList = getProductsByGroupLatestPricesFromAnySource(props)
       let rows = normalizeStaticListToItems(staticList, SERVICE_GROUP_ID)
+      // ถ้ากลุ่มนี้ไม่มีในลิสต์ ให้ไล่หาจากทุกกลุ่ม (เผื่อ BE ย้ายกลุ่ม/คนละ group)
+      if (!rows || !rows.length) rows = flattenAnyGroupItems(staticList)
 
       // 2) fallback ยิง BE ถ้าไม่มีลิสต์
-      if (!rows) {
+      if (!rows || !rows.length) {
         const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${Number(effectivePlanId)}`)
         const group = data?.[String(SERVICE_GROUP_ID)] || data?.[SERVICE_GROUP_ID]
-        rows = Array.isArray(group?.items) ? group.items : []
+        rows = Array.isArray(group?.items) ? group.items : flattenAnyGroupItems(data)
       }
 
       const normalized = (rows || [])
@@ -326,7 +348,7 @@ const ServiceBusinessPlanDetail = (props) => {
         })
         .filter((x) => x.product_id > 0)
         // ✅ คัดเฉพาะรายการชื่อ “บริการ-ศูนย์ฝึก”
-        .filter((x) => String(x.name || "").trim() === SERVICE_ITEM_NAME)
+        .filter((x) => normalizeServiceName(x.name) === normalizeServiceName(SERVICE_ITEM_NAME))
 
       setItems(normalized)
       setPriceById(buildInitialPrice(normalized))
@@ -481,6 +503,24 @@ const ServiceBusinessPlanDetail = (props) => {
     }
   }, [effectivePlanId, branchId, items, priceById, qtyById, savableUnits])
 
+  const [isLoadingUnitsPrices, setIsLoadingUnitsPrices] = useState(false)
+
+  const loadLatestPricesIntoRow = useCallback(async () => {
+    if (!effectivePlanId || effectivePlanId <= 0) return
+    if (!items.length) return
+    setIsLoadingUnitsPrices(true)
+    try {
+      // optional: ถ้ามี endpoint list ล่าสุดแล้วจะเอามาทับ
+      // ปล่อยไว้เป็นโครง — หน้านี้เน้นกรอกยอดขายรายเดือน/หน่วย
+    } finally {
+      setIsLoadingUnitsPrices(false)
+    }
+  }, [effectivePlanId, items])
+
+  useEffect(() => {
+    loadLatestPricesIntoRow()
+  }, [loadLatestPricesIntoRow])
+
   const saveAll = useCallback(async () => {
     if (!canEdit) {
       setSaveMsg({ ok: false, title: "บันทึกไม่ได้", detail: "ยังไม่มีสาขา/หน่วยของสาขา/plan_id" })
@@ -518,106 +558,121 @@ const ServiceBusinessPlanDetail = (props) => {
         title: "บันทึกสำเร็จ",
         detail: `ธุรกิจบริการ • ปี ${effectiveYearBE} (plan_id=${effectivePlanId}) • สาขา ${branchName || branchId}`,
       })
+      // reload saved to ensure latest numbers shown
+      setTimeout(() => {
+        // fire and forget
+        ;(async () => {
+          try {
+            const data = await apiAuth(
+              `/revenue/sale-goals?plan_id=${Number(effectivePlanId)}&branch_id=${Number(branchId)}`
+            )
+            const cells = Array.isArray(data?.cells) ? data.cells : []
 
-      await loadSaved()
-      await loadItems()
-      await loadUnits()
+            const pidToRowId = {}
+            for (const it of items) pidToRowId[String(it.product_id)] = it.id
+
+            const uSet = new Set(savableUnits.map((u) => Number(u.id)))
+
+            const next = buildEmptyQtyGrid(items, savableUnits)
+            for (const c of cells) {
+              const pid = Number(c.product_id || 0)
+              const uid = Number(c.unit_id || 0)
+              if (!pid || !uid) continue
+              if (!uSet.has(uid)) continue
+              const rowId = pidToRowId[String(pid)]
+              if (!rowId) continue
+              const mo = Number(c.month || 0)
+              const mObj = MONTHS.find((m) => m.month === mo)
+              if (!mObj) continue
+              next[rowId][mObj.key][String(uid)] = String(Number(c.amount ?? c.value ?? 0))
+            }
+
+            setQtyById(next)
+          } catch {}
+        })()
+      }, 300)
     } catch (e) {
-      setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
+      console.error("[service] save failed:", e)
+      setSaveMsg({
+        ok: false,
+        title: "บันทึกไม่สำเร็จ",
+        detail: e?.message || "Unknown error",
+      })
     } finally {
       setIsSaving(false)
     }
-  }, [canEdit, effectivePlanId, effectiveYearBE, branchId, branchName, payload, loadSaved, loadItems, loadUnits])
+  }, [
+    canEdit,
+    effectivePlanId,
+    effectiveYearBE,
+    payload.prices,
+    payload.cells,
+    branchId,
+    branchName,
+    items,
+    savableUnits,
+  ])
 
-  /** -------- table sizing -------- */
+  /** -------- UI sizes -------- */
   const tableCardRef = useRef(null)
-  const [tableCardHeight, setTableCardHeight] = useState(760)
-  const recalcTableCardHeight = useCallback(() => {
-    const el = tableCardRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const vh = window.innerHeight || 800
-    const h = Math.max(700, Math.floor(vh - rect.top - 4))
-    setTableCardHeight(h)
-  }, [])
+  const [tableCardHeight, setTableCardHeight] = useState(520)
 
   useEffect(() => {
-    recalcTableCardHeight()
-    window.addEventListener("resize", recalcTableCardHeight)
-    return () => window.removeEventListener("resize", recalcTableCardHeight)
-  }, [recalcTableCardHeight])
+    const calc = () => {
+      const vh = window.innerHeight || 800
+      // เผื่อ header + form
+      setTableCardHeight(Math.max(420, Math.min(760, vh - 280)))
+    }
+    calc()
+    window.addEventListener("resize", calc)
+    return () => window.removeEventListener("resize", calc)
+  }, [])
 
-  const resetAll = () => {
-    if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
-    setQtyById(buildEmptyQtyGrid(items, savableUnits))
-  }
-
-  const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
-  const RIGHT_W = (MONTHS.length + 1) * savableUnits.length * COL_W.cell
-  const TOTAL_W = LEFT_W + RIGHT_W
+  const TOTAL_W = useMemo(() => {
+    const unitsCount = Math.max(1, savableUnits.length || 0)
+    // 3 fixed + (12 months * units) + (sum * units)
+    return (
+      COL_W.product +
+      COL_W.unit +
+      COL_W.price +
+      MONTHS.length * unitsCount * COL_W.cell +
+      unitsCount * COL_W.cell
+    )
+  }, [savableUnits.length])
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="flex-1">
-            <div className="text-center md:text-left">
-              <div className="text-lg font-bold">{SERVICE_TITLE}</div>
-              <div className="text-xl md:text-2xl font-extrabold">รายละเอียดแผนธุรกิจบริการ</div>
-            </div>
-
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ปี (พ.ศ.)</label>
-                <div className={cx(baseField, "flex items-center justify-between")}>
-                  <span className="font-semibold">{effectiveYearBE}</span>
-                  <span className="text-sm text-slate-500 dark:text-slate-300">plan_id: {effectivePlanId || "—"}</span>
-                </div>
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</label>
-                <div className={cx(baseField, "flex items-center justify-between", !canEdit && "opacity-70")}>
-                  <span className="font-semibold">{branchName ? branchName : "— ยังไม่เลือกสาขา —"}</span>
-                  <span className="text-sm text-slate-500 dark:text-slate-300">branch_id: {branchId || "—"}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-2 text-sm text-slate-500 dark:text-slate-300">
-              ({periodLabel}) • หน่วย: {isLoadingUnits ? "กำลังโหลด..." : savableUnits.length} • รายการ: {isLoadingItems ? "กำลังโหลด..." : items.length} • โหลดค่าที่บันทึก: {isLoadingSaved ? "กำลังโหลด..." : "พร้อม"}
+    <div className="w-full">
+      <div className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="text-lg font-bold">{SERVICE_TITLE}</div>
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              ({periodLabel}) • หน่วย: {savableUnits.length} • รายการ: {items.length} • โหลดค่าที่บันทึก:{" "}
+              {isLoadingSaved ? "กำลังโหลด..." : "พร้อม"}
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 md:justify-end">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowPayload((v) => !v)}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800
-                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
-                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+              onClick={() => setShowPayload((s) => !s)}
+              className={cx(
+                "rounded-xl border px-3 py-2 text-sm",
+                "border-slate-200 bg-slate-50 hover:bg-slate-100",
+                "dark:border-slate-700 dark:bg-slate-900/40 dark:hover:bg-slate-900/60"
+              )}
             >
               {showPayload ? "ซ่อน payload" : "ดู payload"}
             </button>
 
             <button
               type="button"
-              onClick={resetAll}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800
-                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
-                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              ล้างข้อมูล
-            </button>
-
-            <button
-              type="button"
               onClick={saveAll}
-              disabled={isSaving || !canEdit}
+              disabled={!canEdit || isSaving}
               className={cx(
-                "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold shadow-sm transition",
-                isSaving || !canEdit
-                  ? "bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-300 cursor-not-allowed"
+                "rounded-xl px-4 py-2 text-sm font-semibold transition",
+                !canEdit || isSaving
+                  ? "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 cursor-not-allowed"
                   : "bg-emerald-600 text-white hover:bg-emerald-700"
               )}
             >

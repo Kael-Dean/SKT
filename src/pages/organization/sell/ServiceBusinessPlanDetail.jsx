@@ -53,6 +53,10 @@ const buildAuthHeader = (tokenRaw) => {
 async function apiAuth(path, { method = "GET", body } = {}) {
   if (!API_BASE) throw new ApiError("FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE...)", { status: 0 })
   const token = getToken()
+  // กันยิงซ้ำ ๆ จน Console แดงทั้งหน้า: ถ้าไม่มี token ให้หยุดตั้งแต่ FE
+  if (!token) {
+    throw new ApiError("กรุณาเข้าสู่ระบบใหม่ (ไม่พบ token)", { status: 401, url: `${API_BASE}${path}`, method })
+  }
   const url = `${API_BASE}${path}`
 
   let res
@@ -88,6 +92,14 @@ async function apiAuth(path, { method = "GET", body } = {}) {
       (data && (data.detail || data.message)) ||
       (typeof data === "string" && data) ||
       `HTTP ${res.status}`
+    // ถ้า 401 ให้เคลียร์ token กัน loop เรียก API แบบเดิมซ้ำ ๆ
+    if (res.status === 401) {
+      try {
+        ;["token", "access_token", "jwt", "auth_token"].forEach((k) => localStorage.removeItem(k))
+      } catch {
+        // ignore
+      }
+    }
     throw new ApiError(msg, { status: res.status, url, method, data })
   }
   return data
@@ -188,11 +200,24 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
     return Number.isFinite(p) && p > 0 ? 2568 + p : 2569
   }, [yearBE, planId])
 
+  // ใช้โชว์หัวตาราง (กัน crash: periodLabel is not defined)
+  const periodLabel = useMemo(() => {
+    const y = Number(effectiveYearBE || 0)
+    if (!Number.isFinite(y) || y <= 0) return "-"
+    // ปีบัญชี เม.ย.(ปีก่อน) – มี.ค.(ปีนี้)
+    return `เม.ย. ${y - 1} – มี.ค. ${y}`
+  }, [effectiveYearBE])
+
+
   /** -------- Units by branch -------- */
   const [units, setUnits] = useState([])
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)
 
   const loadUnits = useCallback(async () => {
+    if (!getToken()) {
+      setUnits([])
+      return
+    }
     if (!branchId) {
       setUnits([])
       return
@@ -239,6 +264,12 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
   const canEdit = !!branchId && !!defaultUnitId && !!effectivePlanId && effectivePlanId > 0
 
   const loadItems = useCallback(async () => {
+    if (!getToken()) {
+      setItems([])
+      setPriceById({})
+      setQtyById({})
+      return
+    }
     if (!effectivePlanId || effectivePlanId <= 0) {
       setItems([])
       setPriceById({})
@@ -299,6 +330,7 @@ const ServiceBusinessPlanDetail = ({ branchId, branchName, yearBE, planId }) => 
 
   /** -------- Load saved sale-goals (อ่านที่ default unit ของสาขา) -------- */
   const loadSaved = useCallback(async () => {
+    if (!getToken()) return
     if (!branchId || !effectivePlanId || effectivePlanId <= 0) return
     if (!items.length) return
     if (!defaultUnitId) return

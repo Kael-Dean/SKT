@@ -109,7 +109,7 @@ const MONTHS = [
   { key: "m03", label: "มี.ค.", month: 3 },
 ]
 
-// ถ้าหน่วยยังโหลดไม่ได้จริง ๆ อย่างน้อยต้องมี 1 คอลัมน์ ไม่งั้น subheader จะไม่แสดง
+// ✅ สำคัญ: ถ้ายังโหลดหน่วยไม่ได้ ต้องมี 1 คอลัมน์ไว้ก่อน ไม่งั้น sub header “หน่วย” จะหาย
 const PLACEHOLDER_UNITS = [{ id: 0, name: "—", short: "—" }]
 
 const COL_W = {
@@ -128,7 +128,6 @@ const STRIPE = {
   footEven: "bg-emerald-100/55 dark:bg-emerald-900/15",
   footOdd: "bg-emerald-200/75 dark:bg-emerald-900/30",
 }
-
 const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEven)
 const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven)
 
@@ -178,14 +177,9 @@ function AgriProcessingPlanDetail(props) {
   const [units, setUnits] = useState([])
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)
 
-  /** ---------------- Branch resolver (โหดขึ้น: ไล่หา key branch*id ทั้ง props) ---------------- */
-  const pickNumber = useCallback((v) => {
+  /** ---------------- Branch resolver (ทำเหมือนหน้าจัดหา) ---------------- */
+  const _pickNumber = useCallback((v) => {
     if (v === null || v === undefined || v === "") return null
-    if (typeof v === "object") {
-      // รองรับ object ที่มี id/branch_id
-      const tryId = v?.id ?? v?.branch_id ?? v?.branchId
-      if (tryId !== undefined) return pickNumber(tryId)
-    }
     const n = Number(v)
     if (Number.isFinite(n) && n > 0) return n
     const digits = String(v).match(/\d+/g)
@@ -195,52 +189,100 @@ function AgriProcessingPlanDetail(props) {
   }, [])
 
   const [resolvedBranchId, setResolvedBranchId] = useState(null)
-  const [resolvedBranchName, setResolvedBranchName] = useState(branchName || "")
+  const [resolvedBranchName, setResolvedBranchName] = useState(String(branchName || "").trim())
+
+  // ✅ ดึง branch_id จาก props + localStorage เหมือนหน้าจัดหา
+  const incomingBranchId = useMemo(() => {
+    const cands = [
+      branchId,
+      branch_id,
+      branch?.id,
+      branch?.branch_id,
+      selectedBranch?.id,
+      selectedBranch?.branch_id,
+      selected_branch?.id,
+      selected_branch?.branch_id,
+    ]
+    for (const c of cands) {
+      const n = _pickNumber(c)
+      if (n) return n
+    }
+    const ls = _pickNumber(
+      localStorage.getItem("branch_id") ||
+        localStorage.getItem("selected_branch_id") ||
+        localStorage.getItem("selectedBranchId") ||
+        localStorage.getItem("selected_branch") ||
+        ""
+    )
+    return ls || null
+  }, [branchId, branch_id, branch, selectedBranch, selected_branch, _pickNumber])
+
+  const branchIdEff = resolvedBranchId || incomingBranchId || null
 
   useEffect(() => {
-    // 1) ลองจาก field ที่รู้จักก่อน
-    const direct =
-      pickNumber(branchId) ||
-      pickNumber(branch_id) ||
-      pickNumber(branch?.id) ||
-      pickNumber(branch?.branch_id) ||
-      pickNumber(selectedBranch?.id) ||
-      pickNumber(selectedBranch?.branch_id) ||
-      pickNumber(selected_branch?.id) ||
-      pickNumber(selected_branch?.branch_id)
+    if (branchName) setResolvedBranchName(String(branchName).trim())
+  }, [branchName])
 
-    // 2) ถ้ายังไม่เจอ ไล่ค้นทั้ง props
-    let guessed = direct
-    if (!guessed && props && typeof props === "object") {
-      for (const [k, v] of Object.entries(props)) {
-        if (!/branch/i.test(k)) continue
-        if (!/id/i.test(k)) continue
-        const maybe = pickNumber(v)
-        if (maybe) {
-          guessed = maybe
-          break
-        }
-      }
+  // ✅ ถ้ายังไม่มี id แต่มีชื่อสาขา ให้ resolve id ผ่าน branch search (เหมือนหน้าจัดหา)
+  useEffect(() => {
+    if (incomingBranchId) {
+      setResolvedBranchId(incomingBranchId)
+      return
     }
 
-    setResolvedBranchId(guessed || null)
+    const name = String(branchName || resolvedBranchName || "").trim()
+    if (!name) return
 
-    const bName =
-      String(
-        branchName ||
-          branch?.branch_name ||
-          branch?.name ||
-          selectedBranch?.branch_name ||
-          selectedBranch?.name ||
-          selected_branch?.branch_name ||
-          selected_branch?.name ||
-          ""
-      ).trim()
+    let alive = true
+    ;(async () => {
+      try {
+        const tryPaths = [
+          `/lists/branch/search?branch_name=${encodeURIComponent(name)}`,
+          `/lists/branch/search?name=${encodeURIComponent(name)}`,
+          `/lists/branches/search?name=${encodeURIComponent(name)}`,
+          `/lists/branch/search?q=${encodeURIComponent(name)}`,
+        ]
 
-    setResolvedBranchName(bName)
-  }, [props, branchId, branch_id, branch, selectedBranch, selected_branch, branchName, pickNumber])
+        let rows = null
+        for (const path of tryPaths) {
+          try {
+            const data = await apiAuth(path)
+            if (Array.isArray(data)) rows = data
+            else if (Array.isArray(data?.items)) rows = data.items
+            else if (Array.isArray(data?.rows)) rows = data.rows
+            if (rows && rows.length) break
+          } catch {}
+        }
 
-  const branchIdEff = resolvedBranchId
+        if (!alive) return
+        if (!rows || !rows.length) return
+
+        const norm = (s) => String(s ?? "").trim().replace(/\s+/g, " ")
+        const target = norm(name)
+        const found =
+          rows.find((r) => norm(r.branch_name || r.name).includes(target)) ||
+          rows.find((r) => norm(r.branch_name || r.name) === target) ||
+          rows[0]
+
+        const id = _pickNumber(found?.id || found?.branch_id)
+        if (id) {
+          setResolvedBranchId(id)
+          setResolvedBranchName(found?.branch_name || found?.name || name)
+          // ✅ กันเหนียว: เก็บลง localStorage เหมือนหน้าอื่น
+          try {
+            localStorage.setItem("selected_branch_id", String(id))
+            localStorage.setItem("branch_id", String(id))
+          } catch {}
+        }
+      } catch (e) {
+        console.warn("[Branch resolve] failed:", e)
+      }
+    })()
+
+    return () => {
+      alive = false
+    }
+  }, [incomingBranchId, branchName, resolvedBranchName, _pickNumber])
 
   /** ---------------- plan/year ---------------- */
   const effectivePlanId = useMemo(() => {
@@ -259,7 +301,7 @@ function AgriProcessingPlanDetail(props) {
 
   const periodLabel = "เม.ย.–มี.ค."
 
-  /** ---------------- load units by branch (เหมือนหน้าจัดหา) ---------------- */
+  /** ---------------- load units by branch (route เดียวกับหน้าจัดหา) ---------------- */
   const loadUnits = useCallback(async () => {
     if (!branchIdEff) {
       setUnits([])
@@ -267,14 +309,16 @@ function AgriProcessingPlanDetail(props) {
     }
     setIsLoadingUnits(true)
     try {
+      // ✅ route เดียวกับหน้าจัดหา
       const data = await apiAuth(`/lists/unit/search?branch_id=${Number(branchIdEff)}`)
       const rows = Array.isArray(data) ? data : []
       const normalized = rows
-        .map((r) => ({
-          id: Number(r.id || 0),
-          name: String(r.unit_name || r.unit || r.name || "").trim(),
-        }))
-        .filter((x) => x.id > 0 && x.name)
+        .map((r, idx) => {
+          const id = Number(r.id || 0)
+          const name = r.unit_name || r.klang_name || r.unit || r.name || `หน่วย ${id || idx + 1}`
+          return { id, name: normalizeUnitName(name) }
+        })
+        .filter((x) => x.id > 0)
 
       setUnits(normalized)
     } catch (e) {
@@ -289,7 +333,20 @@ function AgriProcessingPlanDetail(props) {
     loadUnits()
   }, [loadUnits])
 
-  /** map ต้นทุนการขายจาก /unit-prices/{year} */
+  /** savableUnits: หน่วยจริง (id>0) */
+  const savableUnits = useMemo(() => (units || []).filter((u) => Number(u.id) > 0), [units])
+
+  /** ---------------- unitCols (ห้ามว่าง) ---------------- */
+  const unitCols = useMemo(() => {
+    const list = (units || []).slice().filter((u) => Number(u?.id) > 0)
+    if (!list.length) return PLACEHOLDER_UNITS
+    return list.map((u, idx) => {
+      const name = normalizeUnitName(u.name || u.unit_name || u.unit || "")
+      return { id: Number(u.id), name, short: shortUnit(name, idx) }
+    })
+  }, [units])
+
+  /** ---------------- load unit prices ---------------- */
   const [unitPriceMap, setUnitPriceMap] = useState({})
   const [isLoadingUnitPrices, setIsLoadingUnitPrices] = useState(false)
 
@@ -326,27 +383,13 @@ function AgriProcessingPlanDetail(props) {
     loadUnitPricesForYear()
   }, [loadUnitPricesForYear])
 
-  /** savableUnits: หน่วยจริง (id>0) */
-  const savableUnits = useMemo(() => (units || []).filter((u) => Number(u.id) > 0), [units])
-
-  /** ---------------- unitCols (ห้ามว่าง) ---------------- */
-  const unitCols = useMemo(() => {
-    const list = (units || []).slice().filter((u) => Number(u?.id) > 0)
-    if (!list.length) return PLACEHOLDER_UNITS
-    return list.map((u, idx) => {
-      const name = normalizeUnitName(u.name || u.unit_name || u.unit || "")
-      return { id: Number(u.id), name, short: shortUnit(name, idx) }
-    })
-  }, [units])
-
-  /** state grid */
-  const [priceById, setPriceById] = useState({})
-  const [qtyById, setQtyById] = useState({})
+  /** ---------------- products + grid ---------------- */
   const [items, setItems] = useState([])
   const [isLoadingProducts, setIsLoadingProducts] = useState(false)
-  const [isLoadingSaved, setIsLoadingSaved] = useState(false)
 
-  /** โหลดสินค้าแปรรูป */
+  const [priceById, setPriceById] = useState({})
+  const [qtyById, setQtyById] = useState({})
+
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -365,23 +408,16 @@ function AgriProcessingPlanDetail(props) {
             const fallback = pid ? unitPriceMap[String(pid)] : null
 
             const sellFromList = x.sell_price ?? ""
-            const buyFromList = x.buy_price ?? ""
-
             const sellMerged =
               (sellFromList === null || sellFromList === undefined || Number(sellFromList) === 0) && fallback
                 ? fallback.sell_price
                 : sellFromList
-            const buyMerged =
-              (buyFromList === null || buyFromList === undefined || Number(buyFromList) === 0) && fallback
-                ? fallback.buy_price
-                : buyFromList
 
             return {
               product_id: pid,
               name: String(x.product_type || x.name || "").trim(),
               unit: String(x.unit || "ตัน").trim(),
               sell_price: sellMerged ?? "",
-              buy_price: buyMerged ?? "",
               comment: String((fallback?.comment ?? x.comment ?? "") || ""),
             }
           })
@@ -395,7 +431,6 @@ function AgriProcessingPlanDetail(props) {
         for (const it of normalizedItems) {
           pmap[String(it.product_id)] = {
             sell_price: String(it.sell_price ?? ""),
-            buy_price: String(it.buy_price ?? ""),
             comment: String(it.comment ?? ""),
           }
         }
@@ -403,6 +438,7 @@ function AgriProcessingPlanDetail(props) {
 
         const uList = savableUnits.length ? savableUnits : []
         const empty = buildEmptyQtyGrid(normalizedItems.map((x) => String(x.product_id)), uList)
+
         setQtyById((prev) => {
           const next = { ...empty }
           for (const pid of Object.keys(prev || {})) {
@@ -429,7 +465,9 @@ function AgriProcessingPlanDetail(props) {
     }
   }, [effectivePlanId, unitPriceMap, savableUnits])
 
-  /** โหลดค่าที่เคยบันทึก */
+  /** ---------------- load saved ---------------- */
+  const [isLoadingSaved, setIsLoadingSaved] = useState(false)
+
   const loadSavedFromBE = useCallback(async () => {
     if (!branchIdEff) return
     if (!effectivePlanId || effectivePlanId <= 0) return
@@ -478,10 +516,7 @@ function AgriProcessingPlanDetail(props) {
   const setPriceField = useCallback((productId, field, nextValue) => {
     setPriceById((prev) => ({
       ...prev,
-      [String(productId)]: {
-        ...(prev[String(productId)] || { sell_price: "", buy_price: "", comment: "" }),
-        [field]: nextValue,
-      },
+      [String(productId)]: { ...(prev[String(productId)] || { sell_price: "", comment: "" }), [field]: nextValue },
     }))
   }, [])
 
@@ -520,35 +555,38 @@ function AgriProcessingPlanDetail(props) {
         }
       }
     }
+
     return { perUnit, grandValue }
   }, [items, priceById, qtyById, unitCols])
 
   /** Save */
   const [isSaving, setIsSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
+
   const canEdit = !!branchIdEff && !!savableUnits.length
 
   const saveAll = useCallback(async () => {
     if (!branchIdEff) throw new Error("FE: ยังไม่มี branch_id")
     if (!effectivePlanId || effectivePlanId <= 0) throw new Error(`FE: plan_id ไม่ถูกต้อง (${effectivePlanId})`)
     if (!items.length) throw new Error("FE: ไม่มีรายการสินค้าให้บันทึก")
-    if (!savableUnits.length) throw new Error("FE: ไม่มีหน่วยของสาขาให้บันทึก")
+    if (!savableUnits.length) throw new Error("FE: ยังไม่มีหน่วยของสาขาให้บันทึก")
 
     setIsSaving(true)
     setSaveMsg(null)
+
     try {
+      // 1) save unit prices (sell_price)
       const priceItems = items.map((p) => {
         const pid = Number(p.product_id)
         const cur = priceById[String(pid)] || {}
         return {
           product_id: pid,
           sell_price: toNumber(cur.sell_price ?? p.sell_price ?? 0),
-          buy_price: toNumber(cur.buy_price ?? p.buy_price ?? 0),
+          buy_price: 0,
           comment: String(cur.comment ?? p.comment ?? ""),
         }
       })
 
-      // save prices
       try {
         await apiAuth(`/unit-prices/bulk`, {
           method: "PUT",
@@ -562,14 +600,14 @@ function AgriProcessingPlanDetail(props) {
               year: Number(effectiveYearBE),
               product_id: it.product_id,
               sell_price: it.sell_price,
-              buy_price: it.buy_price,
+              buy_price: 0,
               comment: it.comment,
             },
           })
         }
       }
 
-      // save goals
+      // 2) save sale goals
       const cells = []
       for (const p of items) {
         const pid = Number(p.product_id)
@@ -685,7 +723,6 @@ function AgriProcessingPlanDetail(props) {
                 </th>
               </tr>
 
-              {/* ✅ แถวหน่วยใต้เดือน (แก้ให้ “ต้องแสดง” แน่นอน) */}
               <tr>
                 <th className={cx("px-2 py-2", STRIPE.headEven)} />
                 <th className={cx("px-2 py-2", STRIPE.headEven)} />

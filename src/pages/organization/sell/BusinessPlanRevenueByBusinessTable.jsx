@@ -15,6 +15,83 @@ const sanitizeNumberInput = (s) => {
 }
 const fmtMoney0 = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
 
+/** ---------------- API (เหมือนหน้าธุรกิจจัดหา) ---------------- */
+const API_BASE_RAW =
+  import.meta.env.VITE_API_BASE_CUSTOM ||
+  import.meta.env.VITE_API_BASE ||
+  import.meta.env.VITE_API_URL ||
+  ""
+const API_BASE = String(API_BASE_RAW || "").replace(/\/+$/, "")
+
+class ApiError extends Error {
+  constructor(message, meta = {}) {
+    super(message)
+    this.name = "ApiError"
+    Object.assign(this, meta)
+  }
+}
+
+const getToken = () => {
+  const raw =
+    localStorage.getItem("token") ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("jwt") ||
+    localStorage.getItem("auth_token") ||
+    ""
+  return String(raw || "").trim()
+}
+
+const buildAuthHeader = (tokenRaw) => {
+  const t = String(tokenRaw || "").trim()
+  if (!t) return {}
+  if (t.toLowerCase().startsWith("bearer ")) return { Authorization: t }
+  const cleaned = t.replace(/^bearer\s+/i, "").trim()
+  return { Authorization: `Bearer ${cleaned}` }
+}
+
+async function apiAuth(path, { method = "GET", body } = {}) {
+  if (!API_BASE) throw new ApiError("FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE...)", { status: 0 })
+  const token = getToken()
+  const url = `${API_BASE}${path}`
+
+  let res
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...buildAuthHeader(token),
+      },
+      body: body != null ? JSON.stringify(body) : undefined,
+      credentials: "include",
+    })
+  } catch (e) {
+    throw new ApiError("FE: เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (Network/CORS/DNS)", {
+      status: 0,
+      url,
+      method,
+      cause: e,
+    })
+  }
+
+  const text = await res.text()
+  let data = null
+  try {
+    data = text ? JSON.parse(text) : null
+  } catch {
+    data = text
+  }
+
+  if (!res.ok) {
+    const msg =
+      (data && (data.detail || data.message)) ||
+      (typeof data === "string" && data) ||
+      `HTTP ${res.status}`
+    throw new ApiError(msg, { status: res.status, url, method, data })
+  }
+  return data
+}
+
 /** ---------------- UI styles ---------------- */
 const baseField =
   "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
@@ -30,16 +107,6 @@ const cellInput =
 /** ---------------- Table definition ---------------- */
 const PERIOD_DEFAULT = "1 เม.ย.68-31 มี.ค.69"
 
-const COLS = [
-  { key: "hq", label: "สาขา" },
-  { key: "surin", label: "สุรินทร์" },
-  { key: "nonnarai", label: "โนนนารายณ์" },
-]
-
-/**
- * หมายเหตุ: รายการถอดตามรูปที่ส่งมา (บางคำอาจต่างเล็กน้อย)
- * โครง/ฟังก์ชันเหมือนตารางเดิมทุกอย่าง
- */
 const ROWS = [
   { code: "REV", label: "ประมาณการ รายได้เฉพาะธุรกิจ", kind: "title" },
 
@@ -103,20 +170,9 @@ const ROWS = [
   { code: "G.T", label: "รวมรายได้", kind: "grandtotal" },
 ]
 
-function buildInitialValues() {
-  const out = {}
-  ROWS.forEach((r) => {
-    if (r.kind !== "item") return
-    out[r.code] = { hq: "", surin: "", nonnarai: "" }
-  })
-  return out
-}
-
 /** lock width ให้ตรงกันทุกส่วน */
 const COL_W = { code: 72, item: 420, cell: 120, total: 120 }
 const LEFT_W = COL_W.code + COL_W.item
-const RIGHT_W = COLS.length * COL_W.cell + COL_W.total
-const TOTAL_W = LEFT_W + RIGHT_W
 
 const STRIPE = {
   head: "bg-slate-100/90 dark:bg-slate-700/70",
@@ -125,10 +181,88 @@ const STRIPE = {
   foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
 }
 
-const BusinessPlanRevenueByBusinessTable = () => {
+/** fallback units ถ้ายังไม่ได้เลือกสาขา/ดึงไม่สำเร็จ */
+const FALLBACK_UNITS = [
+  { id: 1, name: "สุรินทร์" },
+  { id: 2, name: "โนนนารายณ์" },
+]
+
+function buildInitialValues(unitIds) {
+  const out = {}
+  ROWS.forEach((r) => {
+    if (r.kind !== "item") return
+    const row = {}
+    unitIds.forEach((uid) => (row[String(uid)] = ""))
+    out[r.code] = row
+  })
+  return out
+}
+
+const BusinessPlanRevenueByBusinessTable = (props) => {
+  // รองรับได้ทั้ง branchId / branch_id
+  const branchId = Number(props?.branchId ?? props?.branch_id ?? 0) || 0
+
   const [period, setPeriod] = useState(PERIOD_DEFAULT)
-  const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues())
+  const [units, setUnits] = useState(FALLBACK_UNITS)
+  const [isLoadingUnits, setIsLoadingUnits] = useState(false)
+
+  const unitIds = useMemo(() => units.map((u) => Number(u.id)).filter((x) => x > 0), [units])
+  const cols = useMemo(() => units.map((u) => ({ key: String(u.id), label: String(u.name || `หน่วย ${u.id}`) })), [units])
+
+  const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues(unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id)))
   const [showPayload, setShowPayload] = useState(false)
+
+  /** ✅ โหลดหน่วยตามสาขา (เหมือนหน้าธุรกิจจัดหา) */
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      if (!branchId) {
+        setUnits(FALLBACK_UNITS)
+        return
+      }
+      setIsLoadingUnits(true)
+      try {
+        const data = await apiAuth(`/lists/unit/search?branch_id=${Number(branchId)}`)
+        const rows = Array.isArray(data) ? data : []
+        const normalized = rows
+          .map((r, idx) => {
+            const id = Number(r.id || 0)
+            const name = r.unit_name || r.klang_name || r.unit || r.name || `หน่วย ${id || idx + 1}`
+            return { id, name: String(name || "").trim() }
+          })
+          .filter((x) => x.id > 0)
+
+        if (!alive) return
+        setUnits(normalized.length ? normalized : FALLBACK_UNITS)
+      } catch (e) {
+        console.error("[Revenue Specific Units load] failed:", e)
+        if (!alive) return
+        setUnits(FALLBACK_UNITS)
+      } finally {
+        if (alive) setIsLoadingUnits(false)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [branchId])
+
+  /** ✅ เมื่อ units เปลี่ยน: preserve ค่าเดิมเท่าที่ map ได้ */
+  useEffect(() => {
+    const ids = unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id)
+    setValuesByCode((prev) => {
+      const next = buildInitialValues(ids)
+      for (const code of Object.keys(next)) {
+        const prevRow = prev?.[code] || {}
+        for (const uid of ids) {
+          const k = String(uid)
+          if (prevRow[k] !== undefined) next[code][k] = prevRow[k]
+        }
+      }
+      return next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitIds.join("|")])
 
   /** ✅ ขยายความสูงตารางให้มากขึ้น */
   const tableCardRef = useRef(null)
@@ -180,7 +314,7 @@ const BusinessPlanRevenueByBusinessTable = () => {
   /** ================== ✅ Arrow navigation ================== */
   const inputRefs = useRef(new Map())
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
-  const totalCols = COLS.length
+  const totalCols = cols.length
 
   const registerInput = useCallback((row, col) => {
     const key = `${row}|${col}`
@@ -198,412 +332,472 @@ const BusinessPlanRevenueByBusinessTable = () => {
     const crect = container.getBoundingClientRect()
     const erect = el.getBoundingClientRect()
 
-    const visibleLeft = crect.left + frozenLeft + pad
-    const visibleRight = crect.right - pad
-    const visibleTop = crect.top + pad
-    const visibleBottom = crect.bottom - pad
+    // vertical
+    const topHidden = erect.top < crect.top + pad
+    const bottomHidden = erect.bottom > crect.bottom - pad
+    if (topHidden) container.scrollTop -= crect.top + pad - erect.top
+    else if (bottomHidden) container.scrollTop += erect.bottom - (crect.bottom - pad)
 
-    if (erect.left < visibleLeft) container.scrollLeft -= visibleLeft - erect.left
-    else if (erect.right > visibleRight) container.scrollLeft += erect.right - visibleRight
-
-    if (erect.top < visibleTop) container.scrollTop -= visibleTop - erect.top
-    else if (erect.bottom > visibleBottom) container.scrollTop += erect.bottom - visibleBottom
+    // horizontal
+    const leftHidden = erect.left < crect.left + frozenLeft + pad
+    const rightHidden = erect.right > crect.right - pad
+    if (leftHidden) container.scrollLeft -= crect.left + frozenLeft + pad - erect.left
+    else if (rightHidden) container.scrollLeft += erect.right - (crect.right - pad)
   }, [])
 
-  const handleArrowNav = useCallback(
-    (e) => {
-      const k = e.key
-      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(k)) return
-
-      const row = Number(e.currentTarget.dataset.row ?? 0)
-      const col = Number(e.currentTarget.dataset.col ?? 0)
-
-      let nextRow = row
-      let nextCol = col
-
-      if (k === "ArrowLeft") nextCol = col - 1
-      if (k === "ArrowRight") nextCol = col + 1
-      if (k === "ArrowUp") nextRow = row - 1
-      if (k === "ArrowDown") nextRow = row + 1
-
-      if (nextRow < 0) nextRow = 0
-      if (nextRow > itemRows.length - 1) nextRow = itemRows.length - 1
-      if (nextCol < 0) nextCol = 0
-      if (nextCol > totalCols - 1) nextCol = totalCols - 1
-
-      const target = inputRefs.current.get(`${nextRow}|${nextCol}`)
-      if (!target) return
-
-      e.preventDefault()
-      target.focus()
-      try {
-        target.select()
-      } catch {}
-      requestAnimationFrame(() => ensureInView(target))
+  const focusCell = useCallback(
+    (rowIndex, colIndex) => {
+      const r = itemRows[rowIndex]
+      const c = cols[colIndex]
+      if (!r || !c) return
+      const el = inputRefs.current.get(`${r.code}|${c.key}`)
+      if (el) {
+        el.focus()
+        el.select?.()
+        ensureInView(el)
+      }
     },
-    [ensureInView, itemRows.length, totalCols]
-  )
-  /** ===================================================================== */
-
-  const setCell = (code, colKey, nextValue) => {
-    setValuesByCode((prev) => {
-      const next = { ...prev }
-      const row = { ...(next[code] || { hq: "", surin: "", nonnarai: "" }) }
-      row[colKey] = nextValue
-      next[code] = row
-      return next
-    })
-  }
-
-  const sumCodes = (codes) => {
-    let hq = 0,
-      surin = 0,
-      nonnarai = 0
-    codes.forEach((c) => {
-      const v = valuesByCode[c] || { hq: 0, surin: 0, nonnarai: 0 }
-      hq += toNumber(v.hq)
-      surin += toNumber(v.surin)
-      nonnarai += toNumber(v.nonnarai)
-    })
-    return { hq, surin, nonnarai, total: hq + surin + nonnarai }
-  }
-
-  const sectionMap = useMemo(
-    () => ({
-      "1.T": ["1.1", "1.2", "1.3", "1.4", "1.5", "1.6"],
-      "2.T": ["2.1", "2.2", "2.3", "2.4"],
-      "3.T": ["3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8"],
-      "4.T": ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6", "4.7", "4.8", "4.9", "4.10", "4.11"],
-      "5.T": ["5.1", "5.2", "5.3", "5.4", "5.5", "5.6", "5.7"],
-      "6.T": ["6.1", "6.2", "6.3"],
-    }),
-    []
+    [cols, ensureInView, itemRows]
   )
 
+  const onKeyDownCell = useCallback(
+    (e, rowIndex, colIndex) => {
+      const key = e.key
+      if (key === "Enter") {
+        e.preventDefault()
+        if (colIndex < totalCols - 1) focusCell(rowIndex, colIndex + 1)
+        else focusCell(Math.min(itemRows.length - 1, rowIndex + 1), 0)
+        return
+      }
+      if (key === "ArrowLeft") {
+        e.preventDefault()
+        focusCell(rowIndex, Math.max(0, colIndex - 1))
+        return
+      }
+      if (key === "ArrowRight") {
+        e.preventDefault()
+        focusCell(rowIndex, Math.min(totalCols - 1, colIndex + 1))
+        return
+      }
+      if (key === "ArrowUp") {
+        e.preventDefault()
+        focusCell(Math.max(0, rowIndex - 1), colIndex)
+        return
+      }
+      if (key === "ArrowDown") {
+        e.preventDefault()
+        focusCell(Math.min(itemRows.length - 1, rowIndex + 1), colIndex)
+      }
+    },
+    [focusCell, itemRows.length, totalCols]
+  )
+
+  /** ---------------- computed totals ---------------- */
   const computed = useMemo(() => {
     const rowTotal = {}
+    const colTotal = {}
+    cols.forEach((c) => (colTotal[c.key] = 0))
 
-    // item rows
-    itemRows.forEach((r) => {
-      const v = valuesByCode[r.code] || { hq: 0, surin: 0, nonnarai: 0 }
-      const a = toNumber(v.hq)
-      const b = toNumber(v.surin)
-      const c = toNumber(v.nonnarai)
-      rowTotal[r.code] = { hq: a, surin: b, nonnarai: c, total: a + b + c }
-    })
+    // per item row
+    for (const r of ROWS) {
+      if (r.kind !== "item") continue
+      const v = valuesByCode[r.code] || {}
+      let sum = 0
+      for (const c of cols) {
+        const n = toNumber(v[c.key])
+        sum += n
+        colTotal[c.key] += n
+      }
+      rowTotal[r.code] = sum
+    }
 
-    // subtotals
-    Object.keys(sectionMap).forEach((k) => {
-      rowTotal[k] = sumCodes(sectionMap[k])
-    })
+    // helper: sum item rows within section
+    const sectionSum = (startCode, endCode) => {
+      const codes = itemRows
+        .map((x) => x.code)
+        .filter((code) => code >= startCode && code <= endCode)
+      const perCol = {}
+      cols.forEach((c) => (perCol[c.key] = 0))
+      let total = 0
+      for (const code of codes) {
+        const v = valuesByCode[code] || {}
+        for (const c of cols) {
+          const n = toNumber(v[c.key])
+          perCol[c.key] += n
+          total += n
+        }
+      }
+      return { perCol, total }
+    }
 
-    // grand total
-    const allItems = Object.values(sectionMap).flat()
-    rowTotal["G.T"] = sumCodes(allItems)
+    const subtotals = {
+      "1.T": sectionSum("1.1", "1.6"),
+      "2.T": sectionSum("2.1", "2.4"),
+      "3.T": sectionSum("3.1", "3.8"),
+      "4.T": sectionSum("4.1", "4.11"),
+      "5.T": sectionSum("5.1", "5.7"),
+      "6.T": sectionSum("6.1", "6.3"),
+    }
 
-    const colTotal = { hq: rowTotal["G.T"].hq, surin: rowTotal["G.T"].surin, nonnarai: rowTotal["G.T"].nonnarai }
-    const grand = rowTotal["G.T"].total
+    // grand
+    const grandPerCol = {}
+    cols.forEach((c) => (grandPerCol[c.key] = 0))
+    let grand = 0
+    for (const k of Object.keys(subtotals)) {
+      const s = subtotals[k]
+      cols.forEach((c) => (grandPerCol[c.key] += s.perCol[c.key]))
+      grand += s.total
+    }
 
-    return { rowTotal, colTotal, grand }
-  }, [valuesByCode, itemRows, sectionMap])
+    return { rowTotal, colTotal, subtotals, grandPerCol, grand }
+  }, [cols, itemRows, valuesByCode])
 
-  const resetAll = () => {
-    if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
-    setValuesByCode(buildInitialValues())
+  const RIGHT_W = useMemo(() => cols.length * COL_W.cell + COL_W.total, [cols.length])
+  const TOTAL_W = useMemo(() => LEFT_W + RIGHT_W, [RIGHT_W])
+
+  /** ---------------- handlers ---------------- */
+  const setCell = (code, colKey, raw) => {
+    const v = sanitizeNumberInput(raw)
+    setValuesByCode((prev) => ({
+      ...prev,
+      [code]: {
+        ...(prev[code] || {}),
+        [colKey]: v,
+      },
+    }))
   }
 
   const payload = useMemo(() => {
-    return {
-      table_code: "BUSINESS_PLAN_REVENUE_BY_BUSINESS",
-      table_name: "รายได้เฉพาะธุรกิจ",
+    const out = {
       period,
-      columns: [...COLS.map((c) => ({ key: c.key, label: c.label })), { key: "total", label: "รวม" }],
-      rows: ROWS.map((r) => {
-        const t = computed.rowTotal[r.code]
-        if (!t) return { code: r.code, label: r.label, kind: r.kind }
-        return {
-          code: r.code,
-          label: r.label,
-          kind: r.kind,
-          values: { hq: t.hq, surin: t.surin, nonnarai: t.nonnarai, total: t.total },
-        }
-      }),
-      totals: {
-        hq: computed.colTotal.hq,
-        surin: computed.colTotal.surin,
-        nonnarai: computed.colTotal.nonnarai,
-        total: computed.grand,
-      },
+      branch_id: branchId || null,
+      units: cols.map((c) => ({ unit_id: Number(c.key), unit_name: c.label })),
+      items: [],
     }
-  }, [period, computed])
-
-  const copyPayload = async () => {
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
-      alert("คัดลอก JSON payload แล้ว ✅")
-    } catch (e) {
-      console.error(e)
-      alert("คัดลอกไม่สำเร็จ — เปิด payload แล้ว copy เองได้ครับ")
-      setShowPayload(true)
+    for (const r of ROWS) {
+      if (r.kind !== "item") continue
+      const v = valuesByCode[r.code] || {}
+      const perUnit = {}
+      cols.forEach((c) => (perUnit[c.key] = toNumber(v[c.key])))
+      out.items.push({
+        code: r.code,
+        label: r.label,
+        per_unit: perUnit,
+        total: computed.rowTotal[r.code] || 0,
+      })
     }
-  }
-
-  const stickyLeftHeader =
-    "sticky left-0 z-[90] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
-  const stickyCodeHeader =
-    "sticky left-0 z-[95] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
-  const stickyCodeCell = "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+    out.subtotals = Object.fromEntries(
+      Object.entries(computed.subtotals).map(([k, s]) => [
+        k,
+        { per_unit: s.perCol, total: s.total },
+      ])
+    )
+    out.grand_total = { per_unit: computed.grandPerCol, total: computed.grand }
+    return out
+  }, [branchId, cols, computed, period, valuesByCode])
 
   return (
-    <div className="space-y-3">
-      {/* Header */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div className="w-full">
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="flex-1">
-            <div className="text-center md:text-left">
-              <div className="text-lg font-bold">ประมาณการรายได้เฉพาะธุรกิจ</div>
-              <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">({period})</div>
+            <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              รายได้เฉพาะ (ดึงหน่วยตามสาขา)
             </div>
-
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ช่วงเวลา (แก้ได้)</label>
-                <input className={baseField} value={period} onChange={(e) => setPeriod(e.target.value)} />
-              </div>
-
-              <div className="md:col-span-1">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รวมรายได้ (บาท)</label>
-                <div className={cx(baseField, "flex items-center justify-end font-extrabold")}>{fmtMoney0(computed.grand)}</div>
-              </div>
+            <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              สาขา: {branchId ? `#${branchId}` : "— ยังไม่ได้เลือกสาขา —"}{" "}
+              {isLoadingUnits ? (
+                <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-100">
+                  กำลังโหลดหน่วย...
+                </span>
+              ) : null}
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 md:justify-end">
-            <button
-              type="button"
-              onClick={copyPayload}
-              className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white
-                         shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                         hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition cursor-pointer"
-            >
-              คัดลอก JSON
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowPayload((v) => !v)}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800
-                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
-                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              {showPayload ? "ซ่อน payload" : "ดู payload"}
-            </button>
-
-            <button
-              type="button"
-              onClick={resetAll}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800
-                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
-                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              ล้างข้อมูล
-            </button>
-          </div>
-        </div>
-
-        {showPayload && (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
-            <pre className="max-h-72 overflow-auto">{JSON.stringify(payload, null, 2)}</pre>
-          </div>
-        )}
-      </div>
-
-      {/* Table Card */}
-      <div
-        ref={tableCardRef}
-        className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
-        style={{ height: tableCardHeight }}
-      >
-        <div className="p-2 md:p-3 shrink-0">
-          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-            <div className="text-base md:text-lg font-bold">ตารางรายได้ (กรอกได้)</div>
-            <div className="text-sm text-slate-600 dark:text-slate-300">* Arrow keys วิ่งข้ามช่องได้</div>
-          </div>
-        </div>
-
-        <div ref={bodyScrollRef} onScroll={onBodyScroll} className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700">
-          <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
-            <colgroup>
-              <col style={{ width: COL_W.code }} />
-              <col style={{ width: COL_W.item }} />
-              {COLS.map((c) => (
-                <col key={c.key} style={{ width: COL_W.cell }} />
-              ))}
-              <col style={{ width: COL_W.total }} />
-            </colgroup>
-
-            <thead className="sticky top-0 z-[80]">
-              <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
-                <th rowSpan={2} className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeHeader)} />
-                <th
-                  rowSpan={2}
-                  className={cx("border border-slate-300 px-3 py-2 text-left font-bold dark:border-slate-600", stickyLeftHeader, "left-[72px]")}
-                  style={{ left: COL_W.code }}
-                >
-                  รายการ
-                </th>
-
-                <th colSpan={COLS.length + 1} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
-                  สกต. สาขา
-                </th>
-              </tr>
-
-              <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
-                {COLS.map((c) => (
-                  <th key={c.key} className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600">
-                    {c.label}
-                  </th>
-                ))}
-                <th className="border border-slate-300 px-2 py-2 text-center text-xs md:text-sm font-extrabold dark:border-slate-600">รวม</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {ROWS.map((r) => {
-                const t = computed.rowTotal[r.code]
-
-                if (r.kind === "title") {
-                  return (
-                    <tr key={r.code} className="bg-slate-200/70 dark:bg-slate-700/55">
-                      <td className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeCell)} />
-                      <td
-                        colSpan={COLS.length + 2}
-                        className={cx(
-                          "border border-slate-300 px-3 py-2 font-extrabold dark:border-slate-600",
-                          "sticky left-[72px] z-[55] bg-slate-200/70 dark:bg-slate-700/55"
-                        )}
-                        style={{ left: COL_W.code }}
-                      >
-                        {r.label}
-                      </td>
-                    </tr>
-                  )
-                }
-
-                if (r.kind === "section") {
-                  return (
-                    <tr key={r.code} className="bg-slate-200/70 dark:bg-slate-700/55">
-                      <td className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeCell)}>
-                        {r.code}
-                      </td>
-                      <td
-                        colSpan={COLS.length + 2}
-                        className={cx(
-                          "border border-slate-300 px-3 py-2 font-extrabold dark:border-slate-600",
-                          "sticky left-[72px] z-[55] bg-slate-200/70 dark:bg-slate-700/55"
-                        )}
-                        style={{ left: COL_W.code }}
-                      >
-                        {r.label}
-                      </td>
-                    </tr>
-                  )
-                }
-
-                const idx = itemRows.findIndex((x) => x.code === r.code)
-                const isSubtotal = r.kind === "subtotal"
-                const isGrand = r.kind === "grandtotal"
-
-                const rowBg = idx % 2 === 1 ? STRIPE.alt : STRIPE.cell
-                const rowCls = isGrand ? "bg-emerald-200/60 dark:bg-emerald-900/35" : isSubtotal ? "bg-emerald-50 dark:bg-emerald-900/20" : rowBg
-                const font = isGrand || isSubtotal ? "font-extrabold" : "font-semibold"
-
-                return (
-                  <tr key={r.code} className={rowCls}>
-                    <td className={cx("border border-slate-300 px-2 py-2 text-center text-xs md:text-sm dark:border-slate-600", stickyCodeCell, rowCls, font)}>
-                      {isSubtotal || isGrand ? "" : r.code}
-                    </td>
-
-                    <td
-                      className={cx("border border-slate-300 px-3 py-2 text-left dark:border-slate-600", "sticky z-[50]", rowCls, font)}
-                      style={{ left: COL_W.code }}
-                    >
-                      {r.label}
-                    </td>
-
-                    {COLS.map((c, colIdx) => (
-                      <td key={`${r.code}-${c.key}`} className="border border-slate-300 px-2 py-2 dark:border-slate-600">
-                        {r.kind === "item" ? (
-                          <input
-                            ref={registerInput(idx, colIdx)}
-                            data-row={idx}
-                            data-col={colIdx}
-                            onKeyDown={handleArrowNav}
-                            className={cellInput}
-                            value={valuesByCode?.[r.code]?.[c.key] ?? ""}
-                            inputMode="numeric"
-                            placeholder="0"
-                            onChange={(e) => setCell(r.code, c.key, sanitizeNumberInput(e.target.value))}
-                          />
-                        ) : (
-                          <div className={cx("text-right", font)}>{fmtMoney0(t?.[c.key] ?? 0)}</div>
-                        )}
-                      </td>
-                    ))}
-
-                    <td className={cx("border border-slate-300 px-2 py-2 text-right dark:border-slate-600", font)}>
-                      {fmtMoney0(t?.total ?? 0)}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* FOOTER totals */}
-        <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20">
-          <div className="flex w-full">
-            <div className="shrink-0" style={{ width: LEFT_W }}>
-              <table className="border-collapse text-sm" style={{ width: LEFT_W, tableLayout: "fixed" }}>
-                <colgroup>
-                  <col style={{ width: COL_W.code }} />
-                  <col style={{ width: COL_W.item }} />
-                </colgroup>
-                <tbody>
-                  <tr className={cx("font-extrabold text-slate-900 dark:text-emerald-100", STRIPE.foot)}>
-                    <td className="border border-slate-200 px-2 py-2 text-center dark:border-slate-700" />
-                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700 text-center">รวมรายได้</td>
-                  </tr>
-                </tbody>
-              </table>
+          <div className="flex w-full flex-col gap-2 md:w-[520px] md:flex-row md:justify-end">
+            <div className="flex-1">
+              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">ช่วงแผน</label>
+              <input className={baseField} value={period} onChange={(e) => setPeriod(e.target.value)} />
             </div>
 
-            <div className="flex-1 overflow-hidden">
-              <div style={{ width: RIGHT_W, transform: `translateX(-${scrollLeft}px)`, willChange: "transform" }}>
-                <table className="border-collapse text-sm" style={{ width: RIGHT_W, tableLayout: "fixed" }}>
+            <div className="flex items-end gap-2">
+              <button
+                className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                onClick={() => setShowPayload((s) => !s)}
+                type="button"
+              >
+                {showPayload ? "ซ่อน JSON" : "ดู JSON"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+          {/* HEADER */}
+          <div className={cx("border-b border-slate-200 dark:border-slate-700", STRIPE.head)}>
+            <div className="flex w-full">
+              {/* left frozen */}
+              <div className="shrink-0" style={{ width: LEFT_W }}>
+                <table className="border-collapse text-sm" style={{ width: LEFT_W, tableLayout: "fixed" }}>
                   <colgroup>
-                    {COLS.map((c) => (
-                      <col key={`f-${c.key}`} style={{ width: COL_W.cell }} />
-                    ))}
-                    <col style={{ width: COL_W.total }} />
+                    <col style={{ width: COL_W.code }} />
+                    <col style={{ width: COL_W.item }} />
+                  </colgroup>
+                  <thead>
+                    <tr className="font-bold text-slate-800 dark:text-slate-100">
+                      <th className="border border-slate-300 px-2 py-2 text-center dark:border-slate-600">รหัส</th>
+                      <th className="border border-slate-300 px-3 py-2 text-left dark:border-slate-600">รายการ</th>
+                    </tr>
+                  </thead>
+                </table>
+              </div>
+
+              {/* right scrollable */}
+              <div className="flex-1 overflow-hidden">
+                <div style={{ width: RIGHT_W }}>
+                  <table className="border-collapse text-sm" style={{ width: RIGHT_W, tableLayout: "fixed" }}>
+                    <colgroup>
+                      {cols.map((c) => (
+                        <col key={`h-${c.key}`} style={{ width: COL_W.cell }} />
+                      ))}
+                      <col style={{ width: COL_W.total }} />
+                    </colgroup>
+                    <thead>
+                      <tr className="font-bold text-slate-800 dark:text-slate-100">
+                        {cols.map((c) => (
+                          <th key={c.key} className="border border-slate-300 px-2 py-2 text-center dark:border-slate-600">
+                            {c.label}
+                          </th>
+                        ))}
+                        <th className="border border-slate-300 px-2 py-2 text-center dark:border-slate-600">รวม</th>
+                      </tr>
+                    </thead>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* BODY */}
+          <div
+            ref={tableCardRef}
+            className="relative w-full"
+            style={{ height: tableCardHeight, maxHeight: tableCardHeight }}
+          >
+            <div
+              ref={bodyScrollRef}
+              onScroll={onBodyScroll}
+              className="absolute inset-0 overflow-auto overscroll-contain"
+            >
+              <div style={{ width: TOTAL_W }}>
+                <div className="flex w-full">
+                  {/* left frozen */}
+                  <div className="shrink-0" style={{ width: LEFT_W }}>
+                    <table className="border-collapse text-sm" style={{ width: LEFT_W, tableLayout: "fixed" }}>
+                      <colgroup>
+                        <col style={{ width: COL_W.code }} />
+                        <col style={{ width: COL_W.item }} />
+                      </colgroup>
+                      <tbody>
+                        {ROWS.map((r, idx) => {
+                          const isAlt = idx % 2 === 1
+                          const bg = r.kind === "title" ? STRIPE.head : isAlt ? STRIPE.alt : STRIPE.cell
+                          const font =
+                            r.kind === "title"
+                              ? "font-extrabold"
+                              : r.kind === "section"
+                                ? "font-bold"
+                                : r.kind === "subtotal" || r.kind === "grandtotal"
+                                  ? "font-extrabold"
+                                  : "font-medium"
+                          return (
+                            <tr key={`L-${r.code}`} className={cx(bg, font)}>
+                              <td className="border border-slate-300 px-2 py-2 text-center dark:border-slate-600">
+                                {r.kind === "title" ? "" : r.code}
+                              </td>
+                              <td className="border border-slate-300 px-3 py-2 text-left dark:border-slate-600">
+                                {r.label}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* right scrollable */}
+                  <div className="flex-1 overflow-hidden">
+                    <div style={{ width: RIGHT_W }}>
+                      <table className="border-collapse text-sm" style={{ width: RIGHT_W, tableLayout: "fixed" }}>
+                        <colgroup>
+                          {cols.map((c) => (
+                            <col key={`b-${c.key}`} style={{ width: COL_W.cell }} />
+                          ))}
+                          <col style={{ width: COL_W.total }} />
+                        </colgroup>
+
+                        <tbody>
+                          {ROWS.map((r, idx) => {
+                            const isAlt = idx % 2 === 1
+                            const bg = r.kind === "title" ? STRIPE.head : isAlt ? STRIPE.alt : STRIPE.cell
+                            const font =
+                              r.kind === "title"
+                                ? "font-extrabold"
+                                : r.kind === "section"
+                                  ? "font-bold"
+                                  : r.kind === "subtotal" || r.kind === "grandtotal"
+                                    ? "font-extrabold"
+                                    : "font-medium"
+
+                            // item row index for navigation
+                            const itemIndex = r.kind === "item" ? itemRows.findIndex((x) => x.code === r.code) : -1
+
+                            if (r.kind === "title" || r.kind === "section") {
+                              return (
+                                <tr key={`R-${r.code}`} className={cx(bg, font)}>
+                                  {cols.map((c) => (
+                                    <td
+                                      key={`${r.code}-${c.key}`}
+                                      className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600"
+                                    />
+                                  ))}
+                                  <td className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600" />
+                                </tr>
+                              )
+                            }
+
+                            if (r.kind === "subtotal") {
+                              const s = computed.subtotals[r.code] || { perCol: {}, total: 0 }
+                              return (
+                                <tr key={`R-${r.code}`} className={cx(bg, font)}>
+                                  {cols.map((c) => (
+                                    <td
+                                      key={`${r.code}-${c.key}`}
+                                      className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600"
+                                    >
+                                      {fmtMoney0(s.perCol?.[c.key] ?? 0)}
+                                    </td>
+                                  ))}
+                                  <td className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600">
+                                    {fmtMoney0(s.total ?? 0)}
+                                  </td>
+                                </tr>
+                              )
+                            }
+
+                            if (r.kind === "grandtotal") {
+                              return (
+                                <tr key={`R-${r.code}`} className={cx(bg, font, STRIPE.foot)}>
+                                  {cols.map((c) => (
+                                    <td
+                                      key={`${r.code}-${c.key}`}
+                                      className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600"
+                                    >
+                                      {fmtMoney0(computed.grandPerCol?.[c.key] ?? 0)}
+                                    </td>
+                                  ))}
+                                  <td className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600">
+                                    {fmtMoney0(computed.grand ?? 0)}
+                                  </td>
+                                </tr>
+                              )
+                            }
+
+                            // item row
+                            const v = valuesByCode[r.code] || {}
+                            return (
+                              <tr key={`R-${r.code}`} className={cx(bg, font)}>
+                                {cols.map((c, colIndex) => (
+                                  <td
+                                    key={`${r.code}-${c.key}`}
+                                    className="border border-slate-300 px-2 py-1.5 dark:border-slate-600"
+                                  >
+                                    <input
+                                      ref={registerInput(r.code, c.key)}
+                                      className={cellInput}
+                                      inputMode="decimal"
+                                      value={v[c.key] ?? ""}
+                                      onChange={(e) => setCell(r.code, c.key, e.target.value)}
+                                      onKeyDown={(e) => onKeyDownCell(e, itemIndex, colIndex)}
+                                      placeholder="0"
+                                    />
+                                  </td>
+                                ))}
+                                <td className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600">
+                                  {fmtMoney0(computed.rowTotal[r.code] ?? 0)}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* FOOTER totals */}
+          <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20">
+            <div className="flex w-full">
+              <div className="shrink-0" style={{ width: LEFT_W }}>
+                <table className="border-collapse text-sm" style={{ width: LEFT_W, tableLayout: "fixed" }}>
+                  <colgroup>
+                    <col style={{ width: COL_W.code }} />
+                    <col style={{ width: COL_W.item }} />
                   </colgroup>
                   <tbody>
                     <tr className={cx("font-extrabold text-slate-900 dark:text-emerald-100", STRIPE.foot)}>
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.colTotal.hq)}</td>
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.colTotal.surin)}</td>
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.colTotal.nonnarai)}</td>
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.grand)}</td>
+                      <td className="border border-slate-200 px-2 py-2 text-center dark:border-slate-700" />
+                      <td className="border border-slate-200 px-3 py-2 dark:border-slate-700 text-center">รวมรายได้</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
+
+              <div className="flex-1 overflow-hidden">
+                <div style={{ width: RIGHT_W, transform: `translateX(-${scrollLeft}px)`, willChange: "transform" }}>
+                  <table className="border-collapse text-sm" style={{ width: RIGHT_W, tableLayout: "fixed" }}>
+                    <colgroup>
+                      {cols.map((c) => (
+                        <col key={`f-${c.key}`} style={{ width: COL_W.cell }} />
+                      ))}
+                      <col style={{ width: COL_W.total }} />
+                    </colgroup>
+                    <tbody>
+                      <tr className={cx("font-extrabold text-slate-900 dark:text-emerald-100", STRIPE.foot)}>
+                        {cols.map((c) => (
+                          <td
+                            key={`ft-${c.key}`}
+                            className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700"
+                          >
+                            {fmtMoney0(computed.colTotal?.[c.key] ?? 0)}
+                          </td>
+                        ))}
+                        <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                          {fmtMoney0(computed.grand ?? 0)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="shrink-0 p-3 md:p-4 text-sm text-slate-600 dark:text-slate-300">
-          หมายเหตุ: ตารางนี้เป็น mock สำหรับกรอก/รวมยอด/เตรียม JSON (ยังไม่ผูก BE)
+          {showPayload ? (
+            <div className="p-3 md:p-4">
+              <div className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Payload (debug)</div>
+              <pre className="max-h-[420px] overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+                {JSON.stringify(payload, null, 2)}
+              </pre>
+            </div>
+          ) : null}
+
+          <div className="shrink-0 p-3 md:p-4 text-sm text-slate-600 dark:text-slate-300">
+            หมายเหตุ: ตอนนี้เพิ่ม “ดึงหน่วยตามสาขา” แล้ว (เหมือนหน้าธุรกิจจัดหา) — ถ้าจะผูก BE บันทึก/โหลดค่าล่าสุด เดี๋ยวต่อ endpoint ได้ต่อเลย
+          </div>
         </div>
       </div>
     </div>

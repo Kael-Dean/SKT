@@ -110,9 +110,7 @@ const MONTHS = [
   { key: "m03", label: "มี.ค.", month: 3 },
 ]
 
-// ✅ ธุรกิจบริการ: ใช้รายการบริการ-ศูนย์ฝึกตามลิสต์
-// เปลี่ยน group เป็น 6 (ฝึกอบรม) เพื่อให้ดึง “บริการ-ศูนย์ฝึก” ได้ตรง
-const SERVICE_GROUP_ID = 6 // เผื่อ fallback ยิง BE
+const SERVICE_GROUP_ID = 6
 const SERVICE_TITLE = "ยอดขายธุรกิจบริการ"
 const SERVICE_ITEM_NAME = "บริการ-ศูนย์ฝึก"
 
@@ -140,12 +138,6 @@ const STRIPE = {
 
 const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEven)
 const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven)
-
-/** ---------------- Styles ---------------- */
-const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
-  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
@@ -239,7 +231,6 @@ function flattenAnyGroupItems(staticList) {
 const ServiceBusinessPlanDetail = (props) => {
   const { branchId, branchName, yearBE, planId } = props || {}
 
-  /** Plan แบบแปลงปีเหมือนหน้าอื่น: 2569 => 1 */
   const effectivePlanId = useMemo(() => {
     const p = Number(planId || 0)
     if (Number.isFinite(p) && p > 0) return p
@@ -260,7 +251,7 @@ const ServiceBusinessPlanDetail = (props) => {
     return `1 เม.ย.${yy}-31 มี.ค.${yyNext}`
   }, [effectiveYearBE])
 
-  /** -------- Units by branch (เหมือนธุรกิจจัดหา) -------- */
+  /** -------- Units by branch -------- */
   const [units, setUnits] = useState([])
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)
 
@@ -295,7 +286,7 @@ const ServiceBusinessPlanDetail = (props) => {
 
   const savableUnits = useMemo(() => (units || []).filter((u) => Number(u?.id) > 0), [units])
 
-  /** -------- Load service items: only "บริการ-ศูนย์ฝึก" -------- */
+  /** -------- Load service items -------- */
   const [items, setItems] = useState([])
   const [isLoadingItems, setIsLoadingItems] = useState(false)
 
@@ -318,13 +309,10 @@ const ServiceBusinessPlanDetail = (props) => {
 
     setIsLoadingItems(true)
     try {
-      // 1) พยายามใช้ลิสต์จาก FE ก่อน
       const staticList = getProductsByGroupLatestPricesFromAnySource(props)
       let rows = normalizeStaticListToItems(staticList, SERVICE_GROUP_ID)
-      // ถ้ากลุ่มนี้ไม่มีในลิสต์ ให้ไล่หาจากทุกกลุ่ม (เผื่อ BE ย้ายกลุ่ม/คนละ group)
       if (!rows || !rows.length) rows = flattenAnyGroupItems(staticList)
 
-      // 2) fallback ยิง BE ถ้าไม่มีลิสต์
       if (!rows || !rows.length) {
         const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${Number(effectivePlanId)}`)
         const group = data?.[String(SERVICE_GROUP_ID)] || data?.[SERVICE_GROUP_ID]
@@ -347,14 +335,12 @@ const ServiceBusinessPlanDetail = (props) => {
           }
         })
         .filter((x) => x.product_id > 0)
-        // ✅ คัดเฉพาะรายการชื่อ “บริการ-ศูนย์ฝึก”
         .filter((x) => normalizeServiceName(x.name) === normalizeServiceName(SERVICE_ITEM_NAME))
 
       setItems(normalized)
       setPriceById(buildInitialPrice(normalized))
       setQtyById((prev) => {
         const empty = buildEmptyQtyGrid(normalized, savableUnits)
-        // merge เดิมถ้ามี
         for (const rowId of Object.keys(empty)) {
           if (!prev?.[rowId]) continue
           for (const m of MONTHS) {
@@ -381,7 +367,7 @@ const ServiceBusinessPlanDetail = (props) => {
     loadItems()
   }, [loadItems])
 
-  /** -------- Load saved sale-goals (ทุกหน่วยของสาขา) -------- */
+  /** -------- Load saved sale-goals -------- */
   const loadSaved = useCallback(async () => {
     if (!branchId || !effectivePlanId || effectivePlanId <= 0) return
     if (!items.length) return
@@ -439,12 +425,12 @@ const ServiceBusinessPlanDetail = (props) => {
     }))
   }
 
-  /** -------- Computed (เหมือนธุรกิจจัดหา) -------- */
+  /** -------- Computed -------- */
   const computed = useMemo(() => {
     const perUnitGrand = {}
     for (const u of savableUnits) perUnitGrand[String(u.id)] = 0
 
-    const perRowUnit = {} // {rowId:{uid:sumQty}}
+    const perRowUnit = {}
     let grandQty = 0
     let grandValue = 0
 
@@ -503,24 +489,6 @@ const ServiceBusinessPlanDetail = (props) => {
     }
   }, [effectivePlanId, branchId, items, priceById, qtyById, savableUnits])
 
-  const [isLoadingUnitsPrices, setIsLoadingUnitsPrices] = useState(false)
-
-  const loadLatestPricesIntoRow = useCallback(async () => {
-    if (!effectivePlanId || effectivePlanId <= 0) return
-    if (!items.length) return
-    setIsLoadingUnitsPrices(true)
-    try {
-      // optional: ถ้ามี endpoint list ล่าสุดแล้วจะเอามาทับ
-      // ปล่อยไว้เป็นโครง — หน้านี้เน้นกรอกยอดขายรายเดือน/หน่วย
-    } finally {
-      setIsLoadingUnitsPrices(false)
-    }
-  }, [effectivePlanId, items])
-
-  useEffect(() => {
-    loadLatestPricesIntoRow()
-  }, [loadLatestPricesIntoRow])
-
   const saveAll = useCallback(async () => {
     if (!canEdit) {
       setSaveMsg({ ok: false, title: "บันทึกไม่ได้", detail: "ยังไม่มีสาขา/หน่วยของสาขา/plan_id" })
@@ -530,7 +498,6 @@ const ServiceBusinessPlanDetail = (props) => {
     setIsSaving(true)
     setSaveMsg(null)
     try {
-      // 1) prices (พยายามส่งแบบ plan_id ก่อน ถ้า BE รุ่นเก่าใช้ year)
       try {
         await apiAuth(`/unit-prices/bulk`, {
           method: "PUT",
@@ -543,7 +510,6 @@ const ServiceBusinessPlanDetail = (props) => {
         })
       }
 
-      // 2) goals
       await apiAuth(`/revenue/sale-goals/bulk`, {
         method: "PUT",
         body: {
@@ -558,9 +524,8 @@ const ServiceBusinessPlanDetail = (props) => {
         title: "บันทึกสำเร็จ",
         detail: `ธุรกิจบริการ • ปี ${effectiveYearBE} (plan_id=${effectivePlanId}) • สาขา ${branchName || branchId}`,
       })
-      // reload saved to ensure latest numbers shown
+
       setTimeout(() => {
-        // fire and forget
         ;(async () => {
           try {
             const data = await apiAuth(
@@ -586,7 +551,6 @@ const ServiceBusinessPlanDetail = (props) => {
               if (!mObj) continue
               next[rowId][mObj.key][String(uid)] = String(Number(c.amount ?? c.value ?? 0))
             }
-
             setQtyById(next)
           } catch {}
         })()
@@ -620,7 +584,6 @@ const ServiceBusinessPlanDetail = (props) => {
   useEffect(() => {
     const calc = () => {
       const vh = window.innerHeight || 800
-      // เผื่อ header + form
       setTableCardHeight(Math.max(420, Math.min(760, vh - 280)))
     }
     calc()
@@ -630,7 +593,6 @@ const ServiceBusinessPlanDetail = (props) => {
 
   const TOTAL_W = useMemo(() => {
     const unitsCount = Math.max(1, savableUnits.length || 0)
-    // 3 fixed + (12 months * units) + (sum * units)
     return (
       COL_W.product +
       COL_W.unit +
@@ -664,26 +626,11 @@ const ServiceBusinessPlanDetail = (props) => {
             >
               {showPayload ? "ซ่อน payload" : "ดู payload"}
             </button>
-
-            <button
-              type="button"
-              onClick={saveAll}
-              disabled={!canEdit || isSaving}
-              className={cx(
-                "rounded-xl px-4 py-2 text-sm font-semibold transition",
-                !canEdit || isSaving
-                  ? "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 cursor-not-allowed"
-                  : "bg-emerald-600 text-white hover:bg-emerald-700"
-              )}
-            >
-              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
-            </button>
           </div>
         </div>
 
         {showPayload && (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800
-                          dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
             <pre className="max-h-72 overflow-auto">{JSON.stringify(payload, null, 2)}</pre>
           </div>
         )}
@@ -745,7 +692,13 @@ const ServiceBusinessPlanDetail = (props) => {
                   </th>
                 ))}
 
-                <th className={cx("px-2 py-2 font-semibold border-b border-slate-200 dark:border-slate-700 text-center", STRIPE.headEven)} colSpan={savableUnits.length || 1}>
+                <th
+                  className={cx(
+                    "px-2 py-2 font-semibold border-b border-slate-200 dark:border-slate-700 text-center",
+                    STRIPE.headEven
+                  )}
+                  colSpan={savableUnits.length || 1}
+                >
                   รวม
                 </th>
               </tr>
@@ -774,7 +727,10 @@ const ServiceBusinessPlanDetail = (props) => {
                 {(savableUnits.length ? savableUnits : [{ id: "_" }]).map((u, ui) => (
                   <th
                     key={`sumh-${u.id}`}
-                    className={cx("px-2 py-2 font-semibold border-b border-slate-200 dark:border-slate-700 text-center", STRIPE.headEven)}
+                    className={cx(
+                      "px-2 py-2 font-semibold border-b border-slate-200 dark:border-slate-700 text-center",
+                      STRIPE.headEven
+                    )}
                   >
                     {savableUnits.length ? (u.short || `U${ui + 1}`) : "—"}
                   </th>
@@ -886,6 +842,28 @@ const ServiceBusinessPlanDetail = (props) => {
             ยังไม่พร้อมบันทึก — กรุณาเลือกสาขา และรอโหลดหน่วย/รายการให้ครบ
           </div>
         )}
+
+        {/* ✅ แถบบันทึก: ตำแหน่งเดียวกับหน้ายอดขายธุรกิจแปรรูป (อยู่ในกรอบการ์ด ล่างสุด ขวา) */}
+        <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-4 flex items-center justify-between gap-3">
+          <div className="text-sm text-slate-500 dark:text-slate-300">
+            บันทึก: PUT /unit-prices/bulk + PUT /revenue/sale-goals/bulk • ปี={effectiveYearBE} • สาขา=
+            {branchName || branchId || "-"}
+          </div>
+
+          <button
+            type="button"
+            className={cx(
+              "rounded-2xl px-6 py-3 font-semibold shadow-lg transition",
+              isSaving || !canEdit
+                ? "bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-300 cursor-not-allowed"
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
+            )}
+            disabled={isSaving || !canEdit}
+            onClick={saveAll}
+          >
+            {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
+          </button>
+        </div>
       </div>
     </div>
   )

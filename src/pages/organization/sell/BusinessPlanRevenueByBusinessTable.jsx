@@ -117,8 +117,8 @@ const cellInput =
 /** ---------------- Table definition ---------------- */
 const PERIOD_DEFAULT = "1 เม.ย.68-31 มี.ค.69"
 
-/** lock width ให้ตรงกันทุกส่วน */
-const COL_W = { code: 72, item: 420, cell: 120, total: 120 }
+/** lock width ให้ตรงกันทุกส่วน (ย่อให้เห็นได้ในหน้าเดียวมากขึ้น) */
+const COL_W = { code: 60, item: 360, cell: 96, total: 96 }
 const LEFT_W = COL_W.code + COL_W.item
 
 const STRIPE = {
@@ -885,7 +885,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
 
         {/* Table */}
         <div className="mt-4 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-          {/* HEADER */}
+          {/* HEADER (sync horizontal scroll with body) */}
           <div className={cx("border-b border-slate-200 dark:border-slate-700", STRIPE.head)}>
             <div className="flex w-full">
               {/* left frozen */}
@@ -897,8 +897,8 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                   </colgroup>
                   <thead>
                     <tr className="font-bold text-slate-800 dark:text-slate-100">
-                      <th className="border border-slate-300 px-2 py-2 text-center dark:border-slate-600">รหัส</th>
-                      <th className="border border-slate-300 px-3 py-2 text-left dark:border-slate-600">รายการ</th>
+                      <th className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">รหัส</th>
+                      <th className="border border-slate-300 px-3 py-2 text-left align-middle dark:border-slate-600">รายการ</th>
                     </tr>
                   </thead>
                 </table>
@@ -906,7 +906,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
 
               {/* right scrollable */}
               <div className="flex-1 overflow-hidden">
-                <div style={{ width: RIGHT_W }}>
+                <div style={{ width: RIGHT_W, transform: `translateX(-${scrollLeft}px)`, willChange: "transform" }}>
                   <table className="border-collapse text-sm" style={{ width: RIGHT_W, tableLayout: "fixed" }}>
                     <colgroup>
                       {cols.map((c) => (
@@ -917,11 +917,11 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                     <thead>
                       <tr className="font-bold text-slate-800 dark:text-slate-100">
                         {cols.map((c) => (
-                          <th key={c.key} className="border border-slate-300 px-2 py-2 text-center dark:border-slate-600">
+                          <th key={c.key} className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">
                             {c.label}
                           </th>
                         ))}
-                        <th className="border border-slate-300 px-2 py-2 text-center dark:border-slate-600">รวม</th>
+                        <th className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">รวม</th>
                       </tr>
                     </thead>
                   </table>
@@ -959,11 +959,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                           const isUnmapped = r.kind === "item" && !resolveRowBusinessEarningId(r)
 
                           return (
-                            <tr
-                              key={`L-${r.code}`}
-                              className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/70")}
-                              style={{ height: h }}
-                            >
+                            <tr key={`L-${r.code}`} className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/70")} style={{ height: h }}>
                               <td className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">
                                 {r.kind === "title" ? "" : r.code}
                               </td>
@@ -1015,10 +1011,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                               return (
                                 <tr key={`R-${r.code}`} className={cx(bg, font)} style={{ height: h }}>
                                   {cols.map((c) => (
-                                    <td
-                                      key={`${r.code}-${c.key}`}
-                                      className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600"
-                                    />
+                                    <td key={`${r.code}-${c.key}`} className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600" />
                                   ))}
                                   <td className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600" />
                                 </tr>
@@ -1065,27 +1058,20 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                             // item row
                             const v = valuesByCode[r.code] || {}
                             return (
-                              <tr
-                                key={`R-${r.code}`}
-                                className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/40")}
-                                style={{ height: h }}
-                              >
+                              <tr key={`R-${r.code}`} className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/40")} style={{ height: h }}>
                                 {cols.map((c, colIndex) => (
-                                  <td
-                                    key={`${r.code}-${c.key}`}
-                                    className="border border-slate-300 px-2 py-1.5 align-middle dark:border-slate-600"
-                                  >
+                                  <td key={`${r.code}-${c.key}`} className="border border-slate-300 px-2 py-1.5 align-middle dark:border-slate-600">
                                     <div className="h-full flex items-center">
-                                      <input
-                                        ref={registerInput(r.code, c.key)}
-                                        className={cellInput}
-                                        inputMode="decimal"
-                                        value={v[c.key] ?? ""}
-                                        onChange={(e) => setCell(r.code, c.key, e.target.value)}
-                                        onKeyDown={(e) => onKeyDownCell(e, itemIndex, colIndex)}
-                                        placeholder="0"
-                                        title={isUnmapped ? "แถวนี้ยังไม่แมพ (จะบันทึกไม่ได้ถ้ามีตัวเลข)" : ""}
-                                      />
+                                    <input
+                                      ref={registerInput(r.code, c.key)}
+                                      className={cellInput}
+                                      inputMode="decimal"
+                                      value={v[c.key] ?? ""}
+                                      onChange={(e) => setCell(r.code, c.key, e.target.value)}
+                                      onKeyDown={(e) => onKeyDownCell(e, itemIndex, colIndex)}
+                                      placeholder="0"
+                                      title={isUnmapped ? "แถวนี้ยังไม่แมพ (จะบันทึกไม่ได้ถ้ามีตัวเลข)" : ""}
+                                    />
                                     </div>
                                   </td>
                                 ))}

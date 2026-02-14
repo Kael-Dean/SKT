@@ -108,10 +108,11 @@ const readonlyField =
   "text-black shadow-none dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100"
 
 const cellInput =
-  "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
+  "w-full h-9 min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 " +
   "text-right text-[13px] md:text-sm outline-none " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
   "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+
 
 /** ---------------- Table definition ---------------- */
 const PERIOD_DEFAULT = "1 เม.ย.68-31 มี.ค.69"
@@ -126,6 +127,15 @@ const STRIPE = {
   alt: "bg-slate-50 dark:bg-slate-800",
   foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
 }
+
+const ROW_H = {
+  title: 44,
+  section: 44,
+  item: 52,
+  subtotal: 44,
+  grandtotal: 44,
+}
+const rowH = (kind) => ROW_H[kind] ?? 44
 
 /** fallback units ถ้ายังไม่ได้เลือกสาขา/ดึงไม่สำเร็จ */
 const FALLBACK_UNITS = [
@@ -935,6 +945,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                       <tbody>
                         {ROWS.map((r, idx) => {
                           const isAlt = idx % 2 === 1
+                          const h = rowH(r.kind)
                           const bg = r.kind === "title" ? STRIPE.head : isAlt ? STRIPE.alt : STRIPE.cell
                           const font =
                             r.kind === "title"
@@ -948,12 +959,16 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                           const isUnmapped = r.kind === "item" && !resolveRowBusinessEarningId(r)
 
                           return (
-                            <tr key={`L-${r.code}`} className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/70")}>
-                              <td className="border border-slate-300 px-2 py-2 text-center dark:border-slate-600">
+                            <tr
+                              key={`L-${r.code}`}
+                              className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/70")}
+                              style={{ height: h }}
+                            >
+                              <td className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">
                                 {r.kind === "title" ? "" : r.code}
                               </td>
                               <td
-                                className="border border-slate-300 px-3 py-2 text-left dark:border-slate-600"
+                                className="border border-slate-300 px-3 py-2 text-left align-middle dark:border-slate-600"
                                 title={isUnmapped ? `${r.label} (ยังไม่แมพ)` : r.label}
                               >
                                 <span className={cx(isUnmapped && "text-amber-700 dark:text-amber-200")}>
@@ -982,6 +997,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                         <tbody>
                           {ROWS.map((r, idx) => {
                             const isAlt = idx % 2 === 1
+                            const h = rowH(r.kind)
                             const bg = r.kind === "title" ? STRIPE.head : isAlt ? STRIPE.alt : STRIPE.cell
                             const font =
                               r.kind === "title"
@@ -997,11 +1013,14 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
 
                             if (r.kind === "title" || r.kind === "section") {
                               return (
-                                <tr key={`R-${r.code}`} className={cx(bg, font)}>
+                                <tr key={`R-${r.code}`} className={cx(bg, font)} style={{ height: h }}>
                                   {cols.map((c) => (
-                                    <td key={`${r.code}-${c.key}`} className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600" />
+                                    <td
+                                      key={`${r.code}-${c.key}`}
+                                      className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600"
+                                    />
                                   ))}
-                                  <td className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600" />
+                                  <td className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600" />
                                 </tr>
                               )
                             }
@@ -1009,16 +1028,16 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                             if (r.kind === "subtotal") {
                               const s = computed.subtotals[r.code] || { perCol: {}, total: 0 }
                               return (
-                                <tr key={`R-${r.code}`} className={cx(bg, font)}>
+                                <tr key={`R-${r.code}`} className={cx(bg, font)} style={{ height: h }}>
                                   {cols.map((c) => (
                                     <td
                                       key={`${r.code}-${c.key}`}
-                                      className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600"
+                                      className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600"
                                     >
                                       {fmtMoney0(s.perCol?.[c.key] ?? 0)}
                                     </td>
                                   ))}
-                                  <td className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600">
+                                  <td className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600">
                                     {fmtMoney0(s.total ?? 0)}
                                   </td>
                                 </tr>
@@ -1027,16 +1046,16 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
 
                             if (r.kind === "grandtotal") {
                               return (
-                                <tr key={`R-${r.code}`} className={cx(bg, font, STRIPE.foot)}>
+                                <tr key={`R-${r.code}`} className={cx(bg, font, STRIPE.foot)} style={{ height: h }}>
                                   {cols.map((c) => (
                                     <td
                                       key={`${r.code}-${c.key}`}
-                                      className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600"
+                                      className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600"
                                     >
                                       {fmtMoney0(computed.grandPerCol?.[c.key] ?? 0)}
                                     </td>
                                   ))}
-                                  <td className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600">
+                                  <td className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600">
                                     {fmtMoney0(computed.grand ?? 0)}
                                   </td>
                                 </tr>
@@ -1046,22 +1065,31 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                             // item row
                             const v = valuesByCode[r.code] || {}
                             return (
-                              <tr key={`R-${r.code}`} className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/40")}>
+                              <tr
+                                key={`R-${r.code}`}
+                                className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/40")}
+                                style={{ height: h }}
+                              >
                                 {cols.map((c, colIndex) => (
-                                  <td key={`${r.code}-${c.key}`} className="border border-slate-300 px-2 py-1.5 dark:border-slate-600">
-                                    <input
-                                      ref={registerInput(r.code, c.key)}
-                                      className={cellInput}
-                                      inputMode="decimal"
-                                      value={v[c.key] ?? ""}
-                                      onChange={(e) => setCell(r.code, c.key, e.target.value)}
-                                      onKeyDown={(e) => onKeyDownCell(e, itemIndex, colIndex)}
-                                      placeholder="0"
-                                      title={isUnmapped ? "แถวนี้ยังไม่แมพ (จะบันทึกไม่ได้ถ้ามีตัวเลข)" : ""}
-                                    />
+                                  <td
+                                    key={`${r.code}-${c.key}`}
+                                    className="border border-slate-300 px-2 py-1.5 align-middle dark:border-slate-600"
+                                  >
+                                    <div className="h-full flex items-center">
+                                      <input
+                                        ref={registerInput(r.code, c.key)}
+                                        className={cellInput}
+                                        inputMode="decimal"
+                                        value={v[c.key] ?? ""}
+                                        onChange={(e) => setCell(r.code, c.key, e.target.value)}
+                                        onKeyDown={(e) => onKeyDownCell(e, itemIndex, colIndex)}
+                                        placeholder="0"
+                                        title={isUnmapped ? "แถวนี้ยังไม่แมพ (จะบันทึกไม่ได้ถ้ามีตัวเลข)" : ""}
+                                      />
+                                    </div>
                                   </td>
                                 ))}
-                                <td className="border border-slate-300 px-2 py-2 text-right dark:border-slate-600">
+                                <td className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600">
                                   {fmtMoney0(computed.rowTotal[r.code] ?? 0)}
                                 </td>
                               </tr>

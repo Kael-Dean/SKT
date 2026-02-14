@@ -236,7 +236,7 @@ const ROWS = [
 
   { code: "3", label: "รายได้เฉพาะธุรกิจรวบรวม", kind: "section" },
   // ⚠️ รายได้จากบริการ: ยังไม่มีชื่อในไฟล์ earnings ชัดเจน → ตั้งเป็น null ให้ขึ้น “ยังไม่แมพ”
-  { code: "3.1", label: "รายได้จากบริการ", kind: "item", business_group: 3, earning_id: null },
+  { code: "3.1", label: "รายได้รถบรรทุก", kind: "item", business_group: 3, earning_id: 9 },
   { code: "3.2", label: "รายได้จากการชะลอ", kind: "item", business_group: 3, earning_id: 10 },
   { code: "3.3", label: "รายได้จากการส่งออกคุณภาพข้าวเปลือก", kind: "item", business_group: 3, earning_id: 11 },
   { code: "3.4", label: "รายได้จากกระสอบ", kind: "item", business_group: 3, earning_id: 12 },
@@ -270,12 +270,12 @@ const ROWS = [
   { code: "5.7", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 5, earning_id: 6 },
   { code: "5.T", label: "รวมธุรกิจแปรรูป-เมล็ดพันธุ์", kind: "subtotal" },
 
-  { code: "6", label: "รายได้ศูนย์โคออม", kind: "section" },
-  { code: "6.1", label: "ดอกเบี้ยเงินฝาก", kind: "item", business_group: 6, earning_id: 22 },
+  { code: "6", label: "รายได้ศูนย์อบรม", kind: "section" },
+  { code: "6.1", label: "ดอกเบี้ยเงินฝาก", kind: "item", business_group: 8, earning_id: 22 },
   // ⚠️ ค่าจัดการ (earning_id=23) มีใน earnings แต่ businessearnings ยังไม่แมพให้ business_group=6 → จะขึ้น “ยังไม่แมพ”
-  { code: "6.2", label: "รายได้ค่าจัดการ", kind: "item", business_group: 6, earning_id: 23 },
-  { code: "6.3", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 6, earning_id: 6 },
-  { code: "6.T", label: "รวมศูนย์โคออม", kind: "subtotal" },
+  { code: "6.2", label: "รายได้ค่าจัดการ", kind: "item", business_group: 8, earning_id: 23 },
+  { code: "6.3", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 8, earning_id: 6 },
+  { code: "6.T", label: "รายได้ศูนย์อบรม", kind: "subtotal" },
 
   { code: "G.T", label: "รวมรายได้", kind: "grandtotal" },
 ]

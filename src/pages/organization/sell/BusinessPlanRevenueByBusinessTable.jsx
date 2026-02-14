@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 /** ---------------- Utils ---------------- */
@@ -113,11 +114,10 @@ const cellInput =
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
   "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
-
 /** ---------------- Table definition ---------------- */
 const PERIOD_DEFAULT = "1 เม.ย.68-31 มี.ค.69"
 
-/** lock width ให้ตรงกันทุกส่วน (ย่อให้เห็นได้ในหน้าเดียวมากขึ้น) */
+// ปรับให้แคบลงเพื่อเห็นในหน้าเดียวมากขึ้น
 const COL_W = { code: 60, item: 360, cell: 96, total: 96 }
 const LEFT_W = COL_W.code + COL_W.item
 
@@ -143,9 +143,7 @@ const FALLBACK_UNITS = [
   { id: 2, name: "โนนนารายณ์" },
 ]
 
-/** ---------------- Mapping: (earning_id + business_group) -> businessearnings.id ----------------
- * จากไฟล์ businessearnings
- */
+/** ---------------- Mapping: (earning_id + business_group) -> businessearnings.id ---------------- */
 const BUSINESS_EARNINGS_SEED = [
   { id: 1, earning_id: 1, business_group: 1 },
   { id: 2, earning_id: 2, business_group: 1 },
@@ -153,10 +151,12 @@ const BUSINESS_EARNINGS_SEED = [
   { id: 4, earning_id: 4, business_group: 1 },
   { id: 5, earning_id: 5, business_group: 1 },
   { id: 6, earning_id: 6, business_group: 1 },
+
   { id: 7, earning_id: 6, business_group: 2 },
   { id: 8, earning_id: 8, business_group: 2 },
   { id: 9, earning_id: 2, business_group: 2 },
   { id: 10, earning_id: 7, business_group: 2 },
+
   { id: 11, earning_id: 6, business_group: 3 },
   { id: 12, earning_id: 15, business_group: 3 },
   { id: 13, earning_id: 14, business_group: 3 },
@@ -165,6 +165,7 @@ const BUSINESS_EARNINGS_SEED = [
   { id: 16, earning_id: 11, business_group: 3 },
   { id: 17, earning_id: 10, business_group: 3 },
   { id: 18, earning_id: 9, business_group: 3 },
+
   { id: 19, earning_id: 6, business_group: 4 },
   { id: 20, earning_id: 18, business_group: 4 },
   { id: 21, earning_id: 17, business_group: 4 },
@@ -176,6 +177,7 @@ const BUSINESS_EARNINGS_SEED = [
   { id: 27, earning_id: 9, business_group: 4 },
   { id: 28, earning_id: 22, business_group: 4 },
   { id: 29, earning_id: 4, business_group: 4 },
+
   { id: 30, earning_id: 6, business_group: 5 },
   { id: 31, earning_id: 4, business_group: 5 },
   { id: 32, earning_id: 21, business_group: 5 },
@@ -183,6 +185,7 @@ const BUSINESS_EARNINGS_SEED = [
   { id: 34, earning_id: 10, business_group: 5 },
   { id: 35, earning_id: 9, business_group: 5 },
   { id: 36, earning_id: 19, business_group: 5 },
+
   { id: 37, earning_id: 6, business_group: 6 },
   { id: 38, earning_id: 29, business_group: 6 },
   { id: 39, earning_id: 28, business_group: 6 },
@@ -202,8 +205,26 @@ const BUSINESS_EARNING_ID_MAP = (() => {
   return m
 })()
 
-const resolveBusinessEarningId = (earningId, businessGroupId) =>
-  BUSINESS_EARNING_ID_MAP.get(`${Number(earningId)}:${Number(businessGroupId)}`) ?? null
+// รองรับกรณี FE ใช้ business_group ใหม่ แต่ BE ยังอ้างอิง mapping เดิม
+// ตัวอย่าง: ผู้ใช้ตั้งใจใช้ group=8 (ศูนย์อบรม) แต่ในตาราง businessearnings ของ BE ยังอยู่ที่ group=6
+const BUSINESS_GROUP_ALIAS = new Map([
+  [8, 6], // 8 -> 6 (ฝึกอบรม)
+])
+
+const resolveBusinessEarningId = (earningId, businessGroupId) => {
+  const e = Number(earningId)
+  const g = Number(businessGroupId)
+
+  const direct = BUSINESS_EARNING_ID_MAP.get(`${e}:${g}`)
+  if (direct != null) return direct
+
+  const alias = BUSINESS_GROUP_ALIAS.get(g)
+  if (alias != null) {
+    const aliased = BUSINESS_EARNING_ID_MAP.get(`${e}:${Number(alias)}`)
+    if (aliased != null) return aliased
+  }
+  return null
+}
 
 const resolveRowBusinessEarningId = (row) => {
   if (row?.business_earning_id) return Number(row.business_earning_id)
@@ -211,10 +232,7 @@ const resolveRowBusinessEarningId = (row) => {
   return resolveBusinessEarningId(row.earning_id, row.business_group)
 }
 
-/** ---------------- Rows (รายการรายได้) ----------------
- * ใส่ earning_id ให้ตรงกับไฟล์ earnings เท่าที่แมพได้
- * ถ้ายังไม่ชัวร์/ไม่มีใน earnings → ปล่อย earning_id = null (จะขึ้น “ยังไม่แมพ” เหมือนหน้า Expense)
- */
+/** ---------------- Rows ---------------- */
 const ROWS = [
   { code: "REV", label: "ประมาณการ รายได้เฉพาะธุรกิจ", kind: "title" },
 
@@ -235,8 +253,7 @@ const ROWS = [
   { code: "2.T", label: "รวมธุรกิจจัดหา-ปั๊มน้ำมัน", kind: "subtotal" },
 
   { code: "3", label: "รายได้เฉพาะธุรกิจรวบรวม", kind: "section" },
-  // ⚠️ รายได้จากบริการ: ยังไม่มีชื่อในไฟล์ earnings ชัดเจน → ตั้งเป็น null ให้ขึ้น “ยังไม่แมพ”
-  { code: "3.1", label: "รายได้รถบรรทุก", kind: "item", business_group: 3, earning_id: 9 },
+  { code: "3.1", label: "รายได้จากบริการ", kind: "item", business_group: 3, earning_id: null },
   { code: "3.2", label: "รายได้จากการชะลอ", kind: "item", business_group: 3, earning_id: 10 },
   { code: "3.3", label: "รายได้จากการส่งออกคุณภาพข้าวเปลือก", kind: "item", business_group: 3, earning_id: 11 },
   { code: "3.4", label: "รายได้จากกระสอบ", kind: "item", business_group: 3, earning_id: 12 },
@@ -270,12 +287,12 @@ const ROWS = [
   { code: "5.7", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 5, earning_id: 6 },
   { code: "5.T", label: "รวมธุรกิจแปรรูป-เมล็ดพันธุ์", kind: "subtotal" },
 
+  // ✅ ศูนย์อบรม (ผู้ใช้ตั้งใจ group=8)
   { code: "6", label: "รายได้ศูนย์อบรม", kind: "section" },
   { code: "6.1", label: "ดอกเบี้ยเงินฝาก", kind: "item", business_group: 8, earning_id: 22 },
-  // ⚠️ ค่าจัดการ (earning_id=23) มีใน earnings แต่ businessearnings ยังไม่แมพให้ business_group=6 → จะขึ้น “ยังไม่แมพ”
   { code: "6.2", label: "รายได้ค่าจัดการ", kind: "item", business_group: 8, earning_id: 23 },
   { code: "6.3", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 8, earning_id: 6 },
-  { code: "6.T", label: "รายได้ศูนย์อบรม", kind: "subtotal" },
+  { code: "6.T", label: "รวมรายได้ศูนย์อบรม", kind: "subtotal" },
 
   { code: "G.T", label: "รวมรายได้", kind: "grandtotal" },
 ]
@@ -292,7 +309,6 @@ function buildInitialValues(unitIds) {
 }
 
 const BusinessPlanRevenueByBusinessTable = (props) => {
-  // รองรับได้ทั้ง branchId / branch_id
   const branchId = Number(props?.branchId ?? props?.branch_id ?? 0) || 0
   const branchName = String(props?.branchName ?? props?.branch_name ?? "").trim()
   const yearBE = props?.yearBE ?? props?.year_be ?? props?.year ?? null
@@ -319,7 +335,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
   )
   const [showPayload, setShowPayload] = useState(false)
 
-  /** ✅ โหลดหน่วยตามสาขา (เหมือนหน้าธุรกิจจัดหา) */
+  /** ✅ โหลดหน่วยตามสาขา */
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -368,10 +384,9 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
       }
       return next
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unitIds.join("|")])
 
-  /** ---------------- ✅ Unmapped static list (แจ้งเหมือนหน้า Expense) ---------------- */
+  /** ---------------- ✅ Unmapped list ---------------- */
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
   const unmappedStatic = useMemo(() => {
     return itemRows
@@ -443,7 +458,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  /** ---------------- ✅ Height + Scroll + Arrow nav (เหมือนเดิม) ---------------- */
+  /** ---------------- ✅ Height + Scroll + Arrow nav ---------------- */
   const tableCardRef = useRef(null)
   const [tableCardHeight, setTableCardHeight] = useState(900)
 
@@ -495,13 +510,11 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
     const crect = container.getBoundingClientRect()
     const erect = el.getBoundingClientRect()
 
-    // vertical
     const topHidden = erect.top < crect.top + pad
     const bottomHidden = erect.bottom > crect.bottom - pad
     if (topHidden) container.scrollTop -= crect.top + pad - erect.top
     else if (bottomHidden) container.scrollTop += erect.bottom - (crect.bottom - pad)
 
-    // horizontal
     const leftHidden = erect.left < crect.left + frozenLeft + pad
     const rightHidden = erect.right > crect.right - pad
     if (leftHidden) container.scrollLeft -= crect.left + frozenLeft + pad - erect.left
@@ -555,13 +568,12 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
     [focusCell, itemRows.length, totalCols]
   )
 
-  /** ---------------- computed totals (คงเดิม) ---------------- */
+  /** ---------------- computed totals ---------------- */
   const computed = useMemo(() => {
     const rowTotal = {}
     const colTotal = {}
     cols.forEach((c) => (colTotal[c.key] = 0))
 
-    // per item row
     for (const r of ROWS) {
       if (r.kind !== "item") continue
       const v = valuesByCode[r.code] || {}
@@ -574,7 +586,6 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
       rowTotal[r.code] = sum
     }
 
-    // helper: sum item rows within section
     const sectionSum = (startCode, endCode) => {
       const codes = itemRows
         .map((x) => x.code)
@@ -602,7 +613,6 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
       "6.T": sectionSum("6.1", "6.3"),
     }
 
-    // grand
     const grandPerCol = {}
     cols.forEach((c) => (grandPerCol[c.key] = 0))
     let grand = 0
@@ -650,7 +660,6 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
       let rowSum = 0
       for (const u of units) rowSum += toNumber(rowObj[String(u.id)])
 
-      // ยังไม่แมพ → ข้ามได้เฉพาะกรณีแถวนี้เป็น 0 ทั้งหมด
       if (!businessEarningId) {
         skipped.push({
           code: r.code,
@@ -665,7 +674,6 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
       const unit_values = []
       let branch_total = 0
 
-      // ส่งครบทุก unit (รวม 0) เพื่อให้ล้างค่าแล้วทับของเดิมได้แน่นอน
       for (const u of units) {
         const amount = toNumber(rowObj[String(u.id)])
         branch_total += amount
@@ -885,7 +893,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
 
         {/* Table */}
         <div className="mt-4 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-          {/* HEADER (sync horizontal scroll with body) */}
+          {/* HEADER */}
           <div className={cx("border-b border-slate-200 dark:border-slate-700", STRIPE.head)}>
             <div className="flex w-full">
               {/* left frozen */}
@@ -897,14 +905,14 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                   </colgroup>
                   <thead>
                     <tr className="font-bold text-slate-800 dark:text-slate-100">
-                      <th className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">รหัส</th>
-                      <th className="border border-slate-300 px-3 py-2 text-left align-middle dark:border-slate-600">รายการ</th>
+                      <th className="border border-slate-300 px-2 py-2 text-center dark:border-slate-600">รหัส</th>
+                      <th className="border border-slate-300 px-3 py-2 text-left dark:border-slate-600">รายการ</th>
                     </tr>
                   </thead>
                 </table>
               </div>
 
-              {/* right scrollable */}
+              {/* right header (sync scrollLeft) */}
               <div className="flex-1 overflow-hidden">
                 <div style={{ width: RIGHT_W, transform: `translateX(-${scrollLeft}px)`, willChange: "transform" }}>
                   <table className="border-collapse text-sm" style={{ width: RIGHT_W, tableLayout: "fixed" }}>
@@ -917,11 +925,11 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                     <thead>
                       <tr className="font-bold text-slate-800 dark:text-slate-100">
                         {cols.map((c) => (
-                          <th key={c.key} className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">
+                          <th key={c.key} className="border border-slate-300 px-2 py-2 text-center dark:border-slate-600">
                             {c.label}
                           </th>
                         ))}
-                        <th className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">รวม</th>
+                        <th className="border border-slate-300 px-2 py-2 text-center dark:border-slate-600">รวม</th>
                       </tr>
                     </thead>
                   </table>
@@ -959,7 +967,11 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                           const isUnmapped = r.kind === "item" && !resolveRowBusinessEarningId(r)
 
                           return (
-                            <tr key={`L-${r.code}`} className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/70")} style={{ height: h }}>
+                            <tr
+                              key={`L-${r.code}`}
+                              className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/70")}
+                              style={{ height: h }}
+                            >
                               <td className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">
                                 {r.kind === "title" ? "" : r.code}
                               </td>
@@ -1011,7 +1023,10 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                               return (
                                 <tr key={`R-${r.code}`} className={cx(bg, font)} style={{ height: h }}>
                                   {cols.map((c) => (
-                                    <td key={`${r.code}-${c.key}`} className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600" />
+                                    <td
+                                      key={`${r.code}-${c.key}`}
+                                      className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600"
+                                    />
                                   ))}
                                   <td className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600" />
                                 </tr>
@@ -1058,20 +1073,27 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                             // item row
                             const v = valuesByCode[r.code] || {}
                             return (
-                              <tr key={`R-${r.code}`} className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/40")} style={{ height: h }}>
+                              <tr
+                                key={`R-${r.code}`}
+                                className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/40")}
+                                style={{ height: h }}
+                              >
                                 {cols.map((c, colIndex) => (
-                                  <td key={`${r.code}-${c.key}`} className="border border-slate-300 px-2 py-1.5 align-middle dark:border-slate-600">
+                                  <td
+                                    key={`${r.code}-${c.key}`}
+                                    className="border border-slate-300 px-2 py-1.5 align-middle dark:border-slate-600"
+                                  >
                                     <div className="h-full flex items-center">
-                                    <input
-                                      ref={registerInput(r.code, c.key)}
-                                      className={cellInput}
-                                      inputMode="decimal"
-                                      value={v[c.key] ?? ""}
-                                      onChange={(e) => setCell(r.code, c.key, e.target.value)}
-                                      onKeyDown={(e) => onKeyDownCell(e, itemIndex, colIndex)}
-                                      placeholder="0"
-                                      title={isUnmapped ? "แถวนี้ยังไม่แมพ (จะบันทึกไม่ได้ถ้ามีตัวเลข)" : ""}
-                                    />
+                                      <input
+                                        ref={registerInput(r.code, c.key)}
+                                        className={cellInput}
+                                        inputMode="decimal"
+                                        value={v[c.key] ?? ""}
+                                        onChange={(e) => setCell(r.code, c.key, e.target.value)}
+                                        onKeyDown={(e) => onKeyDownCell(e, itemIndex, colIndex)}
+                                        placeholder="0"
+                                        title={isUnmapped ? "แถวนี้ยังไม่แมพ (จะบันทึกไม่ได้ถ้ามีตัวเลข)" : ""}
+                                      />
                                     </div>
                                   </td>
                                 ))}
@@ -1145,7 +1167,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
             </div>
           ) : null}
 
-          {/* Action bar (เหมือนหน้า Expense) */}
+          {/* Action bar */}
           <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
             {saveNotice && (
               <div

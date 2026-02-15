@@ -135,9 +135,7 @@ const LEFT_W = COL_W.code + COL_W.item
 const RIGHT_W = COL_W.cell * 3 + COL_W.total
 const TOTAL_W = LEFT_W + RIGHT_W
 
-/** ---------------- Mapping: (earning_id + business_group) -> businessearnings.id ----------------
- * จากไฟล์ businessesearnings (ล่าสุด)
- */
+/** ---------------- Mapping: (earning_id + business_group) -> businessearnings.id ---------------- */
 const BUSINESS_EARNINGS_SEED = [
   { id: 1, earning_id: 1, business_group: 1 },
   { id: 2, earning_id: 2, business_group: 1 },
@@ -206,7 +204,7 @@ const ROWS = [
   { code: "2.1", label: "รายได้ดอกเบี้ยรับ", kind: "item", business_group: 7, earning_id: 24 },
   { code: "2.2", label: "รายได้เงินฝาก/ผลประโยชน์จากเงินฝาก", kind: "item", business_group: 7, earning_id: 25 },
   { code: "2.3", label: "รายได้ค่าธรรมเนียม", kind: "item", business_group: 7, earning_id: 26 },
-  { code: "2.4", label: "รายได้จากการบริจาค", kind: "item", business_group: 7, earning_id: 5 },
+  { code: "2.4", label: "รายได้จากการบริจาค", kind: "item", business_group: 7, earning_id: 5 }, // ⚠️ ถ้า BE ยังไม่มี mapping (5,7) จะ skip
   { code: "2.5", label: "รายได้เงินอุดหนุนจากรัฐ", kind: "item", business_group: 7, earning_id: 27 },
   { code: "2.6", label: "รายได้จากการรับรู้", kind: "item", business_group: 7, earning_id: 28 },
   { code: "2.7", label: "รายได้จากการขายซองประมูล", kind: "item", business_group: 7, earning_id: 29 },
@@ -229,15 +227,39 @@ const resolveBranchesFromList = (list) => {
   const arr = Array.isArray(list) ? list : Array.isArray(list?.data) ? list.data : []
   const norm = arr.map((b) => ({ id: findId(b), name: findName(b), raw: b })).filter((b) => b.id > 0)
 
-  const pickByIncludes = (includesAny = []) => {
-    const found = norm.find((b) => includesAny.some((k) => b.name.includes(k)))
-    return found || null
-  }
+  const pickByIncludes = (includesAny = []) => norm.find((b) => includesAny.some((k) => b.name.includes(k))) || null
 
   const surin = pickByIncludes(["สุรินทร์"])
   const nonnarai = pickByIncludes(["โนนนารายณ์", "โนนนาราย", "nonnarai"])
   const hq = pickByIncludes(["สำนักงานใหญ่", "สหกรณ์", "สกต", "สาขา"])
   return { hq, surin, nonnarai, all: norm }
+}
+
+/** ---------------- BE parsing (robust) ---------------- */
+const pickBusinessEarningId = (o) => {
+  if (!o) return 0
+  return (
+    Number(o.business_earning_id ?? o.business_earning ?? o.b_earnings ?? o.businessEarningId ?? o.businessEarning ?? 0) || 0
+  )
+}
+const pickAmount = (o) => {
+  if (!o) return 0
+  return toNumber(o.amount ?? o.branch_total ?? o.total ?? o.value ?? 0)
+}
+const normalizeBranchTotals = (data) => {
+  const totals = Array.isArray(data?.branch_totals) ? data.branch_totals : []
+  if (totals.length) return totals.map((t) => ({ id: pickBusinessEarningId(t), amount: pickAmount(t) })).filter((x) => x.id)
+
+  // fallback: sum from unit_cells
+  const unitCells = Array.isArray(data?.unit_cells) ? data.unit_cells : []
+  const map = new Map()
+  for (const u of unitCells) {
+    const id = pickBusinessEarningId(u)
+    const amt = pickAmount(u)
+    if (!id) continue
+    map.set(id, (map.get(id) || 0) + amt)
+  }
+  return Array.from(map.entries()).map(([id, amount]) => ({ id, amount }))
 }
 
 const BusinessPlanOtherIncomeTable = (props) => {
@@ -261,9 +283,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
   const pushNotice = useCallback((notice, { autoHideMs = 0 } = {}) => {
     if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current)
     setSaveNotice(notice || null)
-    if (autoHideMs && autoHideMs > 0) {
-      noticeTimerRef.current = setTimeout(() => setSaveNotice(null), autoHideMs)
-    }
+    if (autoHideMs && autoHideMs > 0) noticeTimerRef.current = setTimeout(() => setSaveNotice(null), autoHideMs)
   }, [])
 
   useEffect(() => {
@@ -343,13 +363,13 @@ const BusinessPlanOtherIncomeTable = (props) => {
     }
   }, [])
 
-  const applyBranchTotalsToState = useCallback(
+  const applyTotalsToState = useCallback(
     (branchKey, totals) => {
       const map = new Map()
       for (const t of totals || []) {
-        const id = Number(t?.business_earning_id ?? t?.b_earnings ?? 0) || 0
-        const amt = toNumber(t?.amount ?? 0)
-        if (id) map.set(id, amt)
+        const id = Number(t?.id ?? t?.business_earning_id ?? t?.b_earnings ?? 0) || 0
+        if (!id) continue
+        map.set(id, toNumber(t?.amount ?? 0))
       }
 
       setValuesByCode((prev) => {
@@ -387,7 +407,8 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
         for (const b of branchCalls) {
           const data = await apiAuth(`/business-plan/${planId}/earnings?branch_id=${Number(b.id)}`)
-          applyBranchTotalsToState(b.key, data?.branch_totals || [])
+          const totals = normalizeBranchTotals(data)
+          applyTotalsToState(b.key, totals)
         }
 
         setLastLoadedAt(new Date())
@@ -401,11 +422,12 @@ const BusinessPlanOtherIncomeTable = (props) => {
         setLoading(false)
       }
     },
-    [applyBranchTotalsToState, branches._resolved, branches.hq.id, branches.nonnarai.id, branches.surin.id, planId]
+    [applyTotalsToState, branches._resolved, branches.hq.id, branches.nonnarai.id, branches.surin.id, planId]
   )
 
   useEffect(() => {
     if (!branches._resolved) return
+    // ✅ initial load: reset แล้วดึงล่าสุด
     loadSavedFromBE({ silent: true, forceReset: true })
   }, [branches._resolved, loadSavedFromBE])
 
@@ -503,7 +525,8 @@ const BusinessPlanOtherIncomeTable = (props) => {
         { autoHideMs: 0 }
       )
 
-      await loadSavedFromBE({ silent: true, forceReset: true })
+      // ✅ หลังบันทึก: อย่า force reset เป็น 0 (ให้มันค้างค่าที่กรอกไว้) แล้วโหลดล่าสุดมาทับ
+      await loadSavedFromBE({ silent: true, forceReset: false })
     } catch (e) {
       console.error(e)
       const status = e?.status || 0
@@ -608,7 +631,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
                 "dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white",
                 (loading || saving) && "opacity-60 cursor-not-allowed"
               )}
-              onClick={() => loadSavedFromBE({ silent: false, forceReset: true })}
+              onClick={() => loadSavedFromBE({ silent: false, forceReset: false })}
               disabled={loading || saving}
               title="โหลดค่าที่บันทึกไว้"
             >
@@ -725,10 +748,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
                     style={{ minHeight: r.kind === "item" ? 56 : 44 }}
                   >
                     <div style={{ width: LEFT_W }} className="flex">
-                      <div
-                        style={{ width: COL_W.code }}
-                        className={cx("px-3 py-3 text-right font-semibold", r.kind === "title" && "text-lg")}
-                      >
+                      <div style={{ width: COL_W.code }} className={cx("px-3 py-3 text-right font-semibold", r.kind === "title" && "text-lg")}>
                         {r.kind === "item" ? r.code : ""}
                       </div>
 
@@ -743,33 +763,17 @@ const BusinessPlanOtherIncomeTable = (props) => {
                     <div className="flex-1">
                       {r.kind === "item" ? (
                         <div className="flex items-center">
-                          <div style={{ width: COL_W.cell }} className="px-3 py-3">
-                            {renderCell(r, "hq")}
-                          </div>
-                          <div style={{ width: COL_W.cell }} className="px-3 py-3">
-                            {renderCell(r, "surin")}
-                          </div>
-                          <div style={{ width: COL_W.cell }} className="px-3 py-3">
-                            {renderCell(r, "nonnarai")}
-                          </div>
-                          <div style={{ width: COL_W.total }} className="px-3 py-3">
-                            {renderRowTotal(r)}
-                          </div>
+                          <div style={{ width: COL_W.cell }} className="px-3 py-3">{renderCell(r, "hq")}</div>
+                          <div style={{ width: COL_W.cell }} className="px-3 py-3">{renderCell(r, "surin")}</div>
+                          <div style={{ width: COL_W.cell }} className="px-3 py-3">{renderCell(r, "nonnarai")}</div>
+                          <div style={{ width: COL_W.total }} className="px-3 py-3">{renderRowTotal(r)}</div>
                         </div>
                       ) : r.kind === "subtotal" ? (
                         <div className="flex items-center">
-                          <div style={{ width: COL_W.cell }} className="px-3 py-3 text-right font-bold">
-                            {fmtMoney0(computed.colSum.hq)}
-                          </div>
-                          <div style={{ width: COL_W.cell }} className="px-3 py-3 text-right font-bold">
-                            {fmtMoney0(computed.colSum.surin)}
-                          </div>
-                          <div style={{ width: COL_W.cell }} className="px-3 py-3 text-right font-bold">
-                            {fmtMoney0(computed.colSum.nonnarai)}
-                          </div>
-                          <div style={{ width: COL_W.total }} className="px-3 py-3 text-right font-extrabold">
-                            {fmtMoney0(computed.grand)}
-                          </div>
+                          <div style={{ width: COL_W.cell }} className="px-3 py-3 text-right font-bold">{fmtMoney0(computed.colSum.hq)}</div>
+                          <div style={{ width: COL_W.cell }} className="px-3 py-3 text-right font-bold">{fmtMoney0(computed.colSum.surin)}</div>
+                          <div style={{ width: COL_W.cell }} className="px-3 py-3 text-right font-bold">{fmtMoney0(computed.colSum.nonnarai)}</div>
+                          <div style={{ width: COL_W.total }} className="px-3 py-3 text-right font-extrabold">{fmtMoney0(computed.grand)}</div>
                         </div>
                       ) : (
                         <div className="px-3 py-3"></div>

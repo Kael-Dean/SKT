@@ -79,7 +79,12 @@ async function apiAuth(path, { method = "GET", body } = {}) {
       credentials: "include",
     })
   } catch (e) {
-    throw new ApiError("FE: เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (Network/CORS/DNS)", { status: 0, url, method, cause: e })
+    throw new ApiError("FE: เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (Network/CORS/DNS)", {
+      status: 0,
+      url,
+      method,
+      cause: e,
+    })
   }
 
   const text = await res.text()
@@ -91,7 +96,10 @@ async function apiAuth(path, { method = "GET", body } = {}) {
   }
 
   if (!res.ok) {
-    const msg = (data && (data.detail || data.message)) || (typeof data === "string" && data) || `HTTP ${res.status}`
+    const msg =
+      (data && (data.detail || data.message)) ||
+      (typeof data === "string" && data) ||
+      `HTTP ${res.status}`
     throw new ApiError(msg, { status: res.status, url, method, data })
   }
   return data
@@ -179,8 +187,9 @@ const ROWS = [
 const itemRows = ROWS.filter((r) => r.kind === "item")
 
 function buildInitialValues() {
+  // ✅ ให้เหมือนหน้า RevenueByBusiness: เริ่มต้นเป็น "0"
   const out = {}
-  for (const r of itemRows) out[r.code] = { hq: "", surin: "", nonnarai: "" }
+  for (const r of itemRows) out[r.code] = { hq: "0", surin: "0", nonnarai: "0" }
   return out
 }
 
@@ -323,8 +332,9 @@ const BusinessPlanOtherIncomeTable = (props) => {
         for (const r of itemRows) {
           const bid = rowIdByCode[r.code]
           if (!bid) continue
-          const val = map.get(bid) ?? 0
-          next[r.code] = { ...(next[r.code] || { hq: "", surin: "", nonnarai: "" }), [branchKey]: String(val || "") }
+          const val = map.has(bid) ? map.get(bid) : 0
+          // ✅ เก็บ "0" ไว้ด้วย ไม่ให้กลายเป็น ""
+          next[r.code] = { ...(next[r.code] || { hq: "0", surin: "0", nonnarai: "0" }), [branchKey]: String(val ?? 0) }
         }
         return next
       })
@@ -332,15 +342,19 @@ const BusinessPlanOtherIncomeTable = (props) => {
     [rowIdByCode]
   )
 
-  // ✅ loadFromBE แบบไม่ฆ่า saveNotice
+  /**
+   * ✅ loadFromBE แบบเหมือน RevenueByBusiness:
+   * - หลัง save ต้อง refresh ล่าสุด "เสมอ" และ reset ก่อนโหลด เพื่อไม่ให้ค้างค่าเก่า
+   * - แต่ไม่ฆ่า saveNotice
+   */
   const loadFromBE = useCallback(
-    async ({ silent = false } = {}) => {
+    async ({ silent = false, forceReset = true } = {}) => {
       if (!planId || planId <= 0) return
       setLoading(true)
       setErrorMsg("")
       if (!silent) setInfoMsg("")
       try {
-        if (!silent) setValuesByCode(buildInitialValues())
+        if (forceReset) setValuesByCode(buildInitialValues())
 
         const branchCalls = [
           { key: "hq", id: branches.hq.id },
@@ -366,7 +380,8 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
   useEffect(() => {
     if (!branches._resolved) return
-    loadFromBE({ silent: true })
+    // ✅ initial load ก็ reset แล้วดึงจาก BE
+    loadFromBE({ silent: true, forceReset: true })
   }, [branches._resolved, loadFromBE])
 
   /** ---------------- Computed totals ---------------- */
@@ -393,7 +408,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
     const nextVal = sanitizeNumberInput(raw, { maxDecimals: 3 })
     setValuesByCode((prev) => ({
       ...prev,
-      [code]: { ...(prev[code] || { hq: "", surin: "", nonnarai: "" }), [key]: nextVal },
+      [code]: { ...(prev[code] || { hq: "0", surin: "0", nonnarai: "0" }), [key]: nextVal },
     }))
   }
 
@@ -453,7 +468,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
         body: { rows: payload.rows },
       })
 
-      // ✅ แจ้งผลบันทึกจาก response BE ชัด ๆ
       setLastSaveMeta({ ok: true, at: new Date(), res })
       pushNotice(
         {
@@ -466,8 +480,8 @@ const BusinessPlanOtherIncomeTable = (props) => {
         { autoHideMs: 0 }
       )
 
-      // ✅ โหลดค่าล่าสุดกลับมาโชว์ (แต่ไม่ฆ่า notice)
-      await loadFromBE({ silent: true })
+      // ✅ สำคัญ: หลังบันทึกสำเร็จ ต้องเอาค่าล่าสุดจาก BE มาแสดง "เสมอ" (reset ก่อนโหลด)
+      await loadFromBE({ silent: true, forceReset: true })
     } catch (e) {
       console.error(e)
       const status = e?.status || 0
@@ -500,7 +514,10 @@ const BusinessPlanOtherIncomeTable = (props) => {
     try {
       const p = buildPayload()
       await navigator.clipboard?.writeText(JSON.stringify({ rows: p.rows }, null, 2))
-      pushNotice({ type: "success", title: "คัดลอกแล้ว ✅", detail: "คัดลอก payload (rows) สำหรับ BE แล้ว" }, { autoHideMs: 4000 })
+      pushNotice(
+        { type: "success", title: "คัดลอกแล้ว ✅", detail: "คัดลอก payload (rows) สำหรับ BE แล้ว" },
+        { autoHideMs: 4000 }
+      )
     } catch (e) {
       pushNotice({ type: "error", title: "คัดลอกไม่สำเร็จ", detail: e?.message || String(e) }, { autoHideMs: 6000 })
     }
@@ -513,7 +530,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
     return (
       <input
         className={cx(cellInput, isDisabled && "opacity-50 cursor-not-allowed")}
-        value={valuesByCode[r.code]?.[key] ?? ""}
+        value={valuesByCode[r.code]?.[key] ?? "0"}
         onChange={(e) => onChangeCell(r.code, key, e.target.value)}
         placeholder={isDisabled ? "—" : "0"}
         disabled={isDisabled}
@@ -564,7 +581,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
                 "dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white",
                 (loading || saving) && "opacity-60 cursor-not-allowed"
               )}
-              onClick={() => loadFromBE({ silent: false })}
+              onClick={() => loadFromBE({ silent: false, forceReset: true })}
               disabled={loading || saving}
               title="โหลดค่าที่บันทึกไว้"
             >
@@ -597,7 +614,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
         </div>
       </div>
 
-      {/* ✅ unmapped banner */}
       {unmapped.length > 0 && (
         <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
           <div className="font-semibold">⚠️ รายการที่ยังไม่แมพ (ถ้ามีตัวเลขจะบันทึกไม่ได้)</div>
@@ -618,7 +634,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
         </div>
       )}
 
-      {/* ✅ save result notice (ไม่หายตอนโหลดล่าสุด) */}
       {saveNotice && (
         <div
           className={cx(

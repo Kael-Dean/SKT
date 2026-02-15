@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -11,107 +11,137 @@ const sanitizeNumberInput = (s, { maxDecimals = 3 } = {}) => {
   const cleaned = String(s ?? "").replace(/[^\d.]/g, "")
   if (!cleaned) return ""
   const parts = cleaned.split(".")
-  if (parts.length === 1) return parts[0]
-  return `${parts[0]}.${parts.slice(1).join("").slice(0, maxDecimals)}`
+  const intPart = parts[0] ?? ""
+  if (parts.length <= 1) return intPart
+  const decRaw = parts.slice(1).join("")
+  const dec = decRaw.slice(0, Math.max(0, maxDecimals))
+  if (maxDecimals <= 0) return intPart
+  return `${intPart}.${dec}`
 }
-const fmtMoney = (n) =>
-  new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(toNumber(n))
-const fmtInt = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
+const fmtMoney0 = (n) =>
+  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
 
-/** ---------------- API Helper ---------------- */
-async function apiAuth(path, { method = "GET", body, headers } = {}) {
-  const token = localStorage.getItem("token")
-  const res = await fetch(path, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(headers || {}),
-    },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  })
+/** ---------------- API (copy pattern from หน้ารายได้เฉพาะธุรกิจ) ---------------- */
+const API_BASE_RAW =
+  import.meta.env.VITE_API_BASE_CUSTOM ||
+  import.meta.env.VITE_API_BASE ||
+  import.meta.env.VITE_API_URL ||
+  ""
+const API_BASE = String(API_BASE_RAW || "").replace(/\/+$/, "")
 
-  if (!res.ok) {
-    let detail = ""
-    try {
-      const j = await res.json()
-      detail = j?.detail ? (typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail)) : JSON.stringify(j)
-    } catch {
-      try {
-        detail = await res.text()
-      } catch {
-        detail = ""
-      }
-    }
-    const err = new Error(detail || `HTTP ${res.status}`)
-    err.status = res.status
-    throw err
+class ApiError extends Error {
+  constructor(message, meta = {}) {
+    super(message)
+    this.name = "ApiError"
+    Object.assign(this, meta)
+  }
+}
+
+const getToken = () => {
+  const raw =
+    localStorage.getItem("token") ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("jwt") ||
+    localStorage.getItem("auth_token") ||
+    ""
+  return String(raw || "").trim()
+}
+
+const buildAuthHeader = (tokenRaw) => {
+  const t = String(tokenRaw || "").trim()
+  if (!t) return {}
+  if (t.toLowerCase().startsWith("bearer ")) return { Authorization: t }
+  const cleaned = t.replace(/^bearer\s+/i, "").trim()
+  return { Authorization: `Bearer ${cleaned}` }
+}
+
+async function apiAuth(path, { method = "GET", body } = {}) {
+  if (!API_BASE) throw new ApiError("FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE...)", { status: 0 })
+  const token = getToken()
+  const url = `${API_BASE}${path}`
+
+  let res
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...buildAuthHeader(token),
+      },
+      body: body != null ? JSON.stringify(body) : undefined,
+      credentials: "include",
+    })
+  } catch (e) {
+    throw new ApiError("FE: เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (Network/CORS/DNS)", {
+      status: 0,
+      url,
+      method,
+      cause: e,
+    })
   }
 
-  const ct = res.headers.get("content-type") || ""
-  if (ct.includes("application/json")) return await res.json()
-  return await res.text()
+  const text = await res.text()
+  let data = null
+  try {
+    data = text ? JSON.parse(text) : null
+  } catch {
+    data = text
+  }
+
+  if (!res.ok) {
+    const msg =
+      (data && (data.detail || data.message)) ||
+      (typeof data === "string" && data) ||
+      `HTTP ${res.status}`
+    throw new ApiError(msg, { status: res.status, url, method, data })
+  }
+  return data
 }
 
-/** ---------------- Constants ---------------- */
-const MONTHS = [
-  { k: 1, label: "ม.ค." },
-  { k: 2, label: "ก.พ." },
-  { k: 3, label: "มี.ค." },
-  { k: 4, label: "เม.ย." },
-  { k: 5, label: "พ.ค." },
-  { k: 6, label: "มิ.ย." },
-  { k: 7, label: "ก.ค." },
-  { k: 8, label: "ส.ค." },
-  { k: 9, label: "ก.ย." },
-  { k: 10, label: "ต.ค." },
-  { k: 11, label: "พ.ย." },
-  { k: 12, label: "ธ.ค." },
-]
+/** ---------------- UI styles ---------------- */
+const baseField =
+  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
+  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
+  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
-/** ---------------- Mapping: (earning_id + business_group) -> businessearnings.id ----------------
- * จากไฟล์ businessearnings (businessesearnings)
+const readonlyField =
+  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
+  "text-black shadow-none dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100"
+
+const cellInput =
+  "w-full h-9 min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 " +
+  "text-right text-[13px] md:text-sm outline-none " +
+  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
+  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+
+/** ---------------- Table definition ---------------- */
+const PERIOD_DEFAULT = "1 เม.ย.68-31 มี.ค.69"
+
+/** lock width ให้ตรงกันทุกส่วน */
+const COL_W = { code: 72, item: 420, cell: 120, total: 120 }
+const LEFT_W = COL_W.code + COL_W.item
+const RIGHT_W = 3 * COL_W.cell + COL_W.total
+const TOTAL_W = LEFT_W + RIGHT_W
+
+const STRIPE = {
+  head: "bg-slate-100/90 dark:bg-slate-700/70",
+  cell: "bg-white dark:bg-slate-900",
+  alt: "bg-slate-50 dark:bg-slate-800",
+  foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
+}
+
+/** ---------------- Mapping: (earning_id + business_group=7) -> businessearnings.id ----------------
+ * จากไฟล์ businessearnings (business_group=7 = อื่นๆ)
  */
 const BUSINESS_EARNINGS_SEED = [
-  { id: 1, earning_id: 1, business_group: 1 },
-  { id: 2, earning_id: 2, business_group: 1 },
-  { id: 3, earning_id: 3, business_group: 1 },
-  { id: 4, earning_id: 4, business_group: 1 },
-  { id: 5, earning_id: 5, business_group: 1 },
-  { id: 6, earning_id: 6, business_group: 1 },
-  { id: 7, earning_id: 6, business_group: 2 },
-  { id: 8, earning_id: 8, business_group: 2 },
-  { id: 9, earning_id: 2, business_group: 2 },
-  { id: 10, earning_id: 7, business_group: 2 },
-  { id: 11, earning_id: 6, business_group: 3 },
-  { id: 12, earning_id: 15, business_group: 3 },
-  { id: 13, earning_id: 14, business_group: 3 },
-  { id: 14, earning_id: 13, business_group: 3 },
-  { id: 15, earning_id: 12, business_group: 3 },
-  { id: 16, earning_id: 11, business_group: 3 },
-  { id: 17, earning_id: 10, business_group: 3 },
-  { id: 18, earning_id: 9, business_group: 3 },
-  { id: 19, earning_id: 6, business_group: 4 },
-  { id: 20, earning_id: 18, business_group: 4 },
-  { id: 21, earning_id: 17, business_group: 4 },
-  { id: 22, earning_id: 16, business_group: 4 },
-  { id: 23, earning_id: 14, business_group: 4 },
-  { id: 24, earning_id: 12, business_group: 4 },
-  { id: 25, earning_id: 11, business_group: 4 },
-  { id: 26, earning_id: 10, business_group: 4 },
-  { id: 27, earning_id: 9, business_group: 4 },
-  { id: 28, earning_id: 22, business_group: 4 },
-  { id: 29, earning_id: 4, business_group: 4 },
-  { id: 30, earning_id: 6, business_group: 5 },
-  { id: 31, earning_id: 4, business_group: 5 },
-  { id: 32, earning_id: 21, business_group: 5 },
-  { id: 33, earning_id: 20, business_group: 5 },
-  { id: 34, earning_id: 10, business_group: 5 },
-  { id: 35, earning_id: 9, business_group: 5 },
-  { id: 36, earning_id: 19, business_group: 5 },
-  { id: 45, earning_id: 22, business_group: 8 },
-  { id: 46, earning_id: 23, business_group: 8 },
-  { id: 47, earning_id: 6, business_group: 8 },
+  { id: 37, earning_id: 6, business_group: 7 },
+  { id: 38, earning_id: 29, business_group: 7 },
+  { id: 39, earning_id: 28, business_group: 7 },
+  { id: 40, earning_id: 27, business_group: 7 },
+  { id: 41, earning_id: 26, business_group: 7 },
+  { id: 42, earning_id: 25, business_group: 7 },
+  { id: 43, earning_id: 24, business_group: 7 },
+  { id: 44, earning_id: 22, business_group: 7 },
 ]
 
 const BUSINESS_EARNING_ID_MAP = (() => {
@@ -126,410 +156,572 @@ const BUSINESS_EARNING_ID_MAP = (() => {
 const resolveBusinessEarningId = (earningId, businessGroupId) =>
   BUSINESS_EARNING_ID_MAP.get(`${Number(earningId)}:${Number(businessGroupId)}`) ?? null
 
-const resolveRowBusinessEarningId = (row) => {
-  if (row?.business_earning_id) return Number(row.business_earning_id)
-  if (!row?.earning_id || !row?.business_group) return null
-  return resolveBusinessEarningId(row.earning_id, row.business_group)
-}
-
-/** ---------------- Rows (รายการรายได้) ---------------- */
+/** ---------------- Rows (รายการรายได้อื่นๆ) ---------------- */
 const ROWS = [
-  { code: "REV", label: "ประมาณการ รายได้เฉพาะธุรกิจ", kind: "title" },
+  { code: "OTHER", label: "ประมาณการ รายได้อื่นๆ", kind: "title" },
 
-  { code: "1", label: "รายได้เฉพาะ ธุรกิจจัดหา", kind: "section" },
-  { code: "1.1", label: "ค่าตอบแทนจัดหาวัสดุ", kind: "item", business_group: 1, earning_id: 1 },
-  { code: "1.2", label: "รายได้จากส่งเสริมการขาย", kind: "item", business_group: 1, earning_id: 2 },
-  { code: "1.3", label: "ดอกเบี้ยรับ-ลูกหนี้การค้า", kind: "item", business_group: 1, earning_id: 3 },
-  { code: "1.4", label: "ค่าธรรมเนียมอื่น ๆ", kind: "item", business_group: 1, earning_id: 4 },
-  { code: "1.5", label: "กำไรจากการขายสินค้า", kind: "item", business_group: 1, earning_id: 5 },
-  { code: "1.6", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 1, earning_id: 6 },
-  { code: "1.T", label: "รวมรายได้ธุรกิจจัดหา", kind: "subtotal", group: 1 },
-
-  { code: "2", label: "รายได้เฉพาะ ธุรกิจจัดหา-ปั๊มน้ำมัน", kind: "section" },
-  { code: "2.1", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 2, earning_id: 6 },
-  { code: "2.2", label: "รายได้ค่าบริการ", kind: "item", business_group: 2, earning_id: 8 },
-  { code: "2.3", label: "รายได้จากส่งเสริมการขาย", kind: "item", business_group: 2, earning_id: 2 },
-  { code: "2.4", label: "กำไรจากการขายน้ำมัน", kind: "item", business_group: 2, earning_id: 7 },
-  { code: "2.T", label: "รวมรายได้ธุรกิจจัดหา-ปั๊มน้ำมัน", kind: "subtotal", group: 2 },
-
-  { code: "3", label: "รายได้เฉพาะ ธุรกิจรวบรวม", kind: "section" },
-  { code: "3.1", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 3, earning_id: 6 },
-  { code: "3.2", label: "รายได้ค่าฝากเก็บ/ค่ารักษาสภาพสินค้า", kind: "item", business_group: 3, earning_id: 15 },
-  { code: "3.3", label: "รายได้ค่าตรวจคุณภาพ/ตรวจชื้น", kind: "item", business_group: 3, earning_id: 14 },
-  { code: "3.4", label: "รายได้ค่าชั่ง/ค่าบริการชั่ง", kind: "item", business_group: 3, earning_id: 13 },
-  { code: "3.5", label: "รายได้ค่ากระสอบ/วัสดุประกอบ", kind: "item", business_group: 3, earning_id: 12 },
-  { code: "3.6", label: "รายได้ค่าธรรมเนียมอื่น ๆ", kind: "item", business_group: 3, earning_id: 11 },
-  { code: "3.7", label: "รายได้ค่าบริการอื่น ๆ", kind: "item", business_group: 3, earning_id: 10 },
-  { code: "3.8", label: "รายได้ค่าจัดการ", kind: "item", business_group: 3, earning_id: 9 },
-  { code: "3.T", label: "รวมรายได้ธุรกิจรวบรวม", kind: "subtotal", group: 3 },
-
-  { code: "4", label: "รายได้เฉพาะ ธุรกิจแปรรูป", kind: "section" },
-  { code: "4.1", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 4, earning_id: 6 },
-  { code: "4.2", label: "รายได้ค่าบริการสีแปรสภาพ/แปรรูป", kind: "item", business_group: 4, earning_id: 18 },
-  { code: "4.3", label: "รายได้ค่าบริการบรรจุ/แพ็ค", kind: "item", business_group: 4, earning_id: 17 },
-  { code: "4.4", label: "รายได้ค่าบริการอบ/ลดความชื้น", kind: "item", business_group: 4, earning_id: 16 },
-  { code: "4.5", label: "รายได้ค่าตรวจคุณภาพ/ตรวจชื้น", kind: "item", business_group: 4, earning_id: 14 },
-  { code: "4.6", label: "รายได้ค่ากระสอบ/วัสดุประกอบ", kind: "item", business_group: 4, earning_id: 12 },
-  { code: "4.7", label: "รายได้ค่าธรรมเนียมอื่น ๆ", kind: "item", business_group: 4, earning_id: 11 },
-  { code: "4.8", label: "รายได้ค่าบริการอื่น ๆ", kind: "item", business_group: 4, earning_id: 10 },
-  { code: "4.9", label: "รายได้ค่าจัดการ", kind: "item", business_group: 4, earning_id: 9 },
-  { code: "4.10", label: "ดอกเบี้ยเงินฝาก", kind: "item", business_group: 4, earning_id: 22 },
-  { code: "4.11", label: "รายได้จากส่งเสริมการขาย", kind: "item", business_group: 4, earning_id: 4 },
-  { code: "4.T", label: "รวมรายได้ธุรกิจแปรรูป", kind: "subtotal", group: 4 },
-
-  { code: "5", label: "รายได้เฉพาะ ธุรกิจเมล็ดพันธุ์", kind: "section" },
-  { code: "5.1", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 5, earning_id: 6 },
-  { code: "5.2", label: "รายได้จากส่งเสริมการขาย", kind: "item", business_group: 5, earning_id: 4 },
-  { code: "5.3", label: "รายได้ค่าบริการตรวจรับรอง/มาตรฐาน", kind: "item", business_group: 5, earning_id: 21 },
-  { code: "5.4", label: "รายได้ค่าจัดการโครงการ", kind: "item", business_group: 5, earning_id: 20 },
-  { code: "5.5", label: "รายได้ค่าบริการอื่น ๆ", kind: "item", business_group: 5, earning_id: 10 },
-  { code: "5.6", label: "รายได้ค่าจัดการ", kind: "item", business_group: 5, earning_id: 9 },
-  { code: "5.7", label: "รายได้จากรับรอง/สาธิต", kind: "item", business_group: 5, earning_id: 19 },
-  { code: "5.T", label: "รวมรายได้ธุรกิจเมล็ดพันธุ์", kind: "subtotal", group: 5 },
-
-  { code: "6", label: "รายได้เฉพาะ ธุรกิจบริการ", kind: "section" },
-  { code: "6.1", label: "ดอกเบี้ยเงินฝาก", kind: "item", business_group: 8, earning_id: 22 },
-  { code: "6.2", label: "รายได้ค่าจัดการ", kind: "item", business_group: 8, earning_id: 23 },
-  { code: "6.3", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 8, earning_id: 6 },
-  { code: "6.T", label: "รวมรายได้ธุรกิจบริการ", kind: "subtotal", group: 8 },
-
-  { code: "GT", label: "รวมรายได้เฉพาะธุรกิจทั้งหมด", kind: "grand" },
+  { code: "2", label: "รายได้อื่นๆ", kind: "section" },
+  { code: "2.1", label: "ดอกเบี้ยเงินฝากธนาคาร", kind: "item", business_group: 7, earning_id: 22 },
+  { code: "2.2", label: "ค่าธรรมเนียมแรกเข้า", kind: "item", business_group: 7, earning_id: 24 },
+  { code: "2.3", label: "ผลตอบแทนการถือหุ้น", kind: "item", business_group: 7, earning_id: 25 },
+  { code: "2.4", label: "เงินรางวัลจากการลงทุน-ทวีสิน", kind: "item", business_group: 7, earning_id: 26 },
+  { code: "2.5", label: "รายได้เงินอุดหนุนจากรัฐ", kind: "item", business_group: 7, earning_id: 27 },
+  { code: "2.6", label: "รายได้จากการรับรู้", kind: "item", business_group: 7, earning_id: 28 },
+  { code: "2.7", label: "รายได้จากการขายซองประมูล", kind: "item", business_group: 7, earning_id: 29 },
+  { code: "2.8", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 7, earning_id: 6 },
+  { code: "2.T", label: "รวม", kind: "subtotal" },
 ]
 
-/** ---------------- Component (ตามฟอร์มที่ขอ: const ... = (props) => { ... } + export default ต่อท้าย) ---------------- */
+const itemRows = ROWS.filter((r) => r.kind === "item")
+
+function buildInitialValues() {
+  const out = {}
+  for (const r of itemRows) {
+    out[r.code] = { hq: "", surin: "", nonnarai: "" }
+  }
+  return out
+}
+
+const findName = (b) =>
+  String(b?.name ?? b?.branch ?? b?.branch_name ?? b?.label ?? "").trim()
+const findId = (b) => Number(b?.id ?? b?.branch_id ?? b?.value ?? 0) || 0
+
+const resolveBranchesFromList = (list) => {
+  const arr = Array.isArray(list) ? list : Array.isArray(list?.data) ? list.data : []
+  const norm = arr
+    .map((b) => ({ id: findId(b), name: findName(b), raw: b }))
+    .filter((b) => b.id > 0)
+
+  const pickByIncludes = (includesAny = []) => {
+    const found = norm.find((b) => includesAny.some((k) => b.name.includes(k)))
+    return found || null
+  }
+
+  const surin = pickByIncludes(["สุรินทร์"])
+  const nonnarai = pickByIncludes(["โนนนารายณ์", "โนนนาราย", "nonnarai"])
+  const hq =
+    pickByIncludes(["สำนักงานใหญ่", "สหกรณ์", "สกต", "สาขา"])
+
+  return { hq, surin, nonnarai, all: norm }
+}
+
 const BusinessPlanOtherIncomeTable = (props) => {
-  const { planId, branchId, yearBE } = props
+  const planId = Number(props?.planId ?? props?.plan_id ?? 0) || 0
 
-  const [loading, setLoading] = useState(false)
+  const [period, setPeriod] = useState(PERIOD_DEFAULT)
+  const [valuesByCode, setValuesByCode] = useState(() => buildInitialValues())
+  const [showPayload, setShowPayload] = useState(false)
+
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState("")
-  const [rowsData, setRowsData] = useState(() => {
-    // state shape: { [rowCode]: { [month]: number } }
-    const s = {}
-    for (const r of ROWS) {
-      if (r.kind === "item") {
-        s[r.code] = {}
-        for (const m of MONTHS) s[r.code][m.k] = 0
-      }
-    }
-    return s
-  })
-  const [lastSavedAt, setLastSavedAt] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState("")
+  const [infoMsg, setInfoMsg] = useState("")
 
-  const yearLabel = useMemo(() => {
-    if (!yearBE) return ""
-    return String(yearBE)
-  }, [yearBE])
+  /** branches (columns) */
+  const [branches, setBranches] = useState(() => ({
+    hq: { id: 1, label: "สาขา", name: "" },
+    surin: { id: 2, label: "สุรินทร์", name: "" },
+    nonnarai: { id: 3, label: "โนนนารายณ์", name: "" },
+    _resolved: false,
+    _fromApi: false,
+  }))
 
-  const unmappedList = useMemo(() => {
-    const misses = []
-    for (const r of ROWS) {
-      if (r.kind !== "item") continue
-      const beId = resolveBusinessEarningId(r.earning_id, r.business_group)
-      if (!beId) misses.push(`${r.code} (earning_id=${r.earning_id}, group=${r.business_group})`)
-    }
-    return misses
+  /** ✅ height ยาวขึ้น */
+  const tableCardRef = useRef(null)
+  const [tableCardHeight, setTableCardHeight] = useState(900)
+
+  const recalcTableCardHeight = useCallback(() => {
+    const el = tableCardRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const vh = window.innerHeight || 900
+    const bottomPadding = 6
+    const h = Math.max(860, Math.floor(vh - rect.top - bottomPadding))
+    setTableCardHeight(h)
   }, [])
 
-  const totalsByRow = useMemo(() => {
-    const totals = {}
-    for (const r of ROWS) {
-      if (r.kind === "item") {
-        totals[r.code] = MONTHS.reduce((acc, m) => acc + toNumber(rowsData?.[r.code]?.[m.k]), 0)
-      }
+  useEffect(() => {
+    recalcTableCardHeight()
+    window.addEventListener("resize", recalcTableCardHeight)
+    return () => window.removeEventListener("resize", recalcTableCardHeight)
+  }, [recalcTableCardHeight])
+
+  useEffect(() => {
+    requestAnimationFrame(() => recalcTableCardHeight())
+  }, [showPayload, period, recalcTableCardHeight])
+
+  /** ✅ sync footer scroll */
+  const bodyScrollRef = useRef(null)
+  const [scrollLeft, setScrollLeft] = useState(0)
+  const rafRef = useRef(0)
+
+  const onBodyScroll = () => {
+    const b = bodyScrollRef.current
+    if (!b) return
+    const x = b.scrollLeft || 0
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => setScrollLeft(x))
+  }
+
+  /** ---------------- Map rows -> business_earning_id ---------------- */
+  const rowIdByCode = useMemo(() => {
+    const m = {}
+    for (const r of itemRows) {
+      const id = resolveBusinessEarningId(r.earning_id, r.business_group)
+      m[r.code] = id
     }
-    return totals
-  }, [rowsData])
-
-  const subtotalByGroup = useMemo(() => {
-    const map = {}
-    for (const r of ROWS) {
-      if (r.kind !== "item") continue
-      const g = r.business_group
-      if (!map[g]) map[g] = 0
-      map[g] += toNumber(totalsByRow[r.code])
-    }
-    return map
-  }, [totalsByRow])
-
-  const grandTotal = useMemo(() => Object.values(subtotalByGroup).reduce((a, b) => a + toNumber(b), 0), [subtotalByGroup])
-
-  const onChange = useCallback((rowCode, month, v) => {
-    const cleaned = sanitizeNumberInput(v, { maxDecimals: 2 })
-    setRowsData((prev) => ({
-      ...prev,
-      [rowCode]: { ...(prev[rowCode] || {}), [month]: cleaned === "" ? 0 : toNumber(cleaned) },
-    }))
+    return m
   }, [])
 
-  const fetchLatest = useCallback(async () => {
-    if (!planId || !branchId) return
-    setLoading(true)
-    setError("")
-    try {
-      // NOTE: เปลี่ยน path ให้ตรงกับ BE ของคุณได้เลย
-      const data = await apiAuth(`/revenue/business-inputs/latest?plan_id=${planId}&branch_id=${branchId}`)
-      // expected: array rows with fields { business_earning_id, month, value, earning_id?, business_group? }
+  const unmapped = useMemo(() => {
+    const list = []
+    for (const r of itemRows) {
+      const id = rowIdByCode[r.code]
+      if (!id) list.push({ code: r.code, earning_id: r.earning_id, group: r.business_group, label: r.label })
+    }
+    return list
+  }, [rowIdByCode])
 
-      const next = {}
-      for (const r of ROWS) {
-        if (r.kind === "item") {
-          next[r.code] = {}
-          for (const m of MONTHS) next[r.code][m.k] = 0
+  /** ---------------- Load branches list (best effort) ---------------- */
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const data = await apiAuth(`/lists/branch/search`, { method: "GET" })
+        const r = resolveBranchesFromList(data)
+
+        const next = {
+          hq: { id: r.hq?.id || branches.hq.id, label: "สาขา", name: r.hq?.name || "" },
+          surin: { id: r.surin?.id || branches.surin.id, label: "สุรินทร์", name: r.surin?.name || "" },
+          nonnarai: { id: r.nonnarai?.id || branches.nonnarai.id, label: "โนนนารายณ์", name: r.nonnarai?.name || "" },
+          _resolved: true,
+          _fromApi: true,
         }
+        if (alive) setBranches(next)
+      } catch {
+        // ไม่เป็นไร ใช้ fallback 1,2,3
+        if (alive) setBranches((p) => ({ ...p, _resolved: true, _fromApi: false }))
+      }
+    })()
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /** ---------------- Load saved values from BE (branch_totals only) ---------------- */
+  const applyBranchTotalsToState = useCallback((branchKey, totals) => {
+    const map = new Map()
+    for (const t of totals || []) {
+      const id = Number(t?.business_earning_id ?? t?.b_earnings ?? 0) || 0
+      const amt = toNumber(t?.amount ?? 0)
+      if (id) map.set(id, amt)
+    }
+
+    setValuesByCode((prev) => {
+      const next = { ...prev }
+      for (const r of itemRows) {
+        const bid = rowIdByCode[r.code]
+        if (!bid) continue
+        const val = map.get(bid) ?? 0
+        next[r.code] = { ...(next[r.code] || { hq: "", surin: "", nonnarai: "" }), [branchKey]: String(val || "") }
+      }
+      return next
+    })
+  }, [rowIdByCode])
+
+  const loadFromBE = useCallback(async () => {
+    if (!planId || planId <= 0) return
+    setLoading(true)
+    setErrorMsg("")
+    setInfoMsg("")
+    try {
+      // reset values first
+      setValuesByCode(buildInitialValues())
+
+      const branchCalls = [
+        { key: "hq", id: branches.hq.id },
+        { key: "surin", id: branches.surin.id },
+        { key: "nonnarai", id: branches.nonnarai.id },
+      ]
+
+      for (const b of branchCalls) {
+        const data = await apiAuth(`/business-plan/${planId}/earnings?branch_id=${Number(b.id)}`)
+        applyBranchTotalsToState(b.key, data?.branch_totals || [])
       }
 
-      const items = Array.isArray(data) ? data : data?.items || []
-      for (const it of items) {
-        const month = Number(it?.month)
-        if (!month || month < 1 || month > 12) continue
-
-        const beId = it?.business_earning_id ? Number(it.business_earning_id) : resolveRowBusinessEarningId(it)
-        if (!beId) continue
-
-        const row = ROWS.find((r) => r.kind === "item" && resolveBusinessEarningId(r.earning_id, r.business_group) === beId)
-        if (!row) continue
-
-        next[row.code][month] = toNumber(it?.value)
-      }
-
-      setRowsData(next)
-      setLastSavedAt(new Date().toISOString())
+      setInfoMsg("โหลดค่าที่บันทึกล่าสุดแล้ว")
     } catch (e) {
-      setError(e?.message || "โหลดข้อมูลไม่สำเร็จ")
+      console.error(e)
+      setErrorMsg(e?.message || "โหลดข้อมูลไม่สำเร็จ")
     } finally {
       setLoading(false)
     }
-  }, [planId, branchId])
+  }, [applyBranchTotalsToState, branches.hq.id, branches.nonnarai.id, branches.surin.id, planId])
 
   useEffect(() => {
-    fetchLatest()
-  }, [fetchLatest])
+    if (!branches._resolved) return
+    loadFromBE()
+  }, [branches._resolved, loadFromBE])
+
+  /** ---------------- Computed totals ---------------- */
+  const computed = useMemo(() => {
+    const colSum = { hq: 0, surin: 0, nonnarai: 0 }
+    const rowSum = {}
+
+    for (const r of itemRows) {
+      const v = valuesByCode[r.code] || {}
+      const s = {
+        hq: toNumber(v.hq),
+        surin: toNumber(v.surin),
+        nonnarai: toNumber(v.nonnarai),
+      }
+      const rt = s.hq + s.surin + s.nonnarai
+      rowSum[r.code] = { ...s, total: rt }
+      colSum.hq += s.hq
+      colSum.surin += s.surin
+      colSum.nonnarai += s.nonnarai
+    }
+
+    const grand = colSum.hq + colSum.surin + colSum.nonnarai
+
+    return { rowSum, colSum, grand }
+  }, [valuesByCode])
+
+  /** ---------------- Handlers ---------------- */
+  const onChangeCell = (code, key, raw) => {
+    const nextVal = sanitizeNumberInput(raw, { maxDecimals: 3 })
+    setValuesByCode((prev) => ({
+      ...prev,
+      [code]: { ...(prev[code] || { hq: "", surin: "", nonnarai: "" }), [key]: nextVal },
+    }))
+  }
 
   const buildPayload = useCallback(() => {
-    const payload = []
-    for (const r of ROWS) {
-      if (r.kind !== "item") continue
-      const business_earning_id = resolveBusinessEarningId(r.earning_id, r.business_group)
-      if (!business_earning_id) continue
+    if (!planId || planId <= 0) throw new Error(`FE: plan_id ไม่ถูกต้อง (plan_id=${planId})`)
 
-      for (const m of MONTHS) {
-        payload.push({
-          plan_id: Number(planId),
-          branch_id: Number(branchId),
-          business_earning_id: Number(business_earning_id),
-          month: Number(m.k),
-          value: toNumber(rowsData?.[r.code]?.[m.k]),
+    const branchCalls = [
+      { key: "hq", id: branches.hq.id },
+      { key: "surin", id: branches.surin.id },
+      { key: "nonnarai", id: branches.nonnarai.id },
+    ]
+
+    const rows = []
+    for (const r of itemRows) {
+      const businessEarningId = rowIdByCode[r.code]
+      if (!businessEarningId) continue
+      const v = valuesByCode[r.code] || {}
+
+      for (const b of branchCalls) {
+        rows.push({
+          branch_id: Number(b.id),
+          business_earning_id: Number(businessEarningId),
+          unit_values: [],
+          branch_total: toNumber(v[b.key]),
+          comment: null,
         })
       }
     }
-    return payload
-  }, [planId, branchId, rowsData])
 
-  const saveAll = useCallback(async () => {
-    if (!planId || !branchId) return
+    return {
+      plan_id: planId,
+      period,
+      rows,
+    }
+  }, [branches.hq.id, branches.nonnarai.id, branches.surin.id, period, planId, rowIdByCode, valuesByCode])
+
+  const onSave = useCallback(async () => {
     setSaving(true)
-    setError("")
+    setErrorMsg("")
+    setInfoMsg("")
     try {
       const payload = buildPayload()
-      await apiAuth(`/revenue/business-inputs/bulk`, { method: "PUT", body: payload })
-      setLastSavedAt(new Date().toISOString())
-      await fetchLatest()
+      await apiAuth(`/business-plan/${planId}/earnings/bulk`, {
+        method: "POST",
+        body: { rows: payload.rows },
+      })
+      setInfoMsg("บันทึกสำเร็จ")
+      // reload latest
+      await loadFromBE()
     } catch (e) {
-      setError(e?.message || "บันทึกไม่สำเร็จ")
+      console.error(e)
+      setErrorMsg(e?.message || "บันทึกไม่สำเร็จ")
     } finally {
       setSaving(false)
     }
-  }, [planId, branchId, buildPayload, fetchLatest])
+  }, [buildPayload, loadFromBE, planId])
 
+  /** ---------------- Render helpers ---------------- */
+  const renderCell = (r, key) => {
+    if (r.kind !== "item") return null
+
+    const isDisabled = !rowIdByCode[r.code]
+
+    return (
+      <input
+        className={cx(cellInput, isDisabled && "opacity-50 cursor-not-allowed")}
+        value={valuesByCode[r.code]?.[key] ?? ""}
+        onChange={(e) => onChangeCell(r.code, key, e.target.value)}
+        placeholder={isDisabled ? "—" : "0"}
+        disabled={isDisabled}
+        inputMode="decimal"
+      />
+    )
+  }
+
+  const renderRowTotal = (r) => {
+    if (r.kind !== "item") return null
+    const t = computed.rowSum?.[r.code]?.total ?? 0
+    return <div className="text-right font-semibold">{fmtMoney0(t)}</div>
+  }
+
+  /** ---------------- UI ---------------- */
   return (
-    <div className="w-full">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-1">
-            <div className="text-lg font-semibold text-slate-900">ประมาณการรายได้ (แยกตามธุรกิจ)</div>
-            <div className="text-sm text-slate-500">
-              plan_id: <span className="font-medium text-slate-700">{planId || "-"}</span> · branch_id:{" "}
-              <span className="font-medium text-slate-700">{branchId || "-"}</span>
-              {yearLabel ? (
-                <>
-                  {" "}
-                  · ปี: <span className="font-medium text-slate-700">{yearLabel}</span>
-                </>
-              ) : null}
-              {lastSavedAt ? (
-                <>
-                  {" "}
-                  · อัปเดตล่าสุด:{" "}
-                  <span className="font-medium text-slate-700">{new Date(lastSavedAt).toLocaleString("th-TH")}</span>
-                </>
-              ) : null}
-            </div>
+    <div className="w-full px-3 md:px-6 py-5">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="text-xl md:text-2xl font-bold">รายได้อื่นๆ</div>
+          <div className="text-slate-600 dark:text-slate-300 text-sm">
+            เชื่อม BE: <span className="font-mono">/business-plan/{`{plan_id}`}/earnings</span> และบันทึก
+            <span className="font-mono"> POST /business-plan/{`{plan_id}`}/earnings/bulk</span>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-[720px]">
+          <div>
+            <div className="mb-1 text-sm text-slate-600 dark:text-slate-300">ช่วงเวลา</div>
+            <input className={baseField} value={period} onChange={(e) => setPeriod(e.target.value)} />
+          </div>
+          <div>
+            <div className="mb-1 text-sm text-slate-600 dark:text-slate-300">plan_id</div>
+            <div className={readonlyField}>{planId || "—"}</div>
+          </div>
+          <div className="flex items-end gap-2">
             <button
-              type="button"
-              onClick={fetchLatest}
-              disabled={loading || saving}
               className={cx(
-                "rounded-2xl border px-4 py-2 text-sm font-medium transition",
-                loading || saving
-                  ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                "w-full rounded-2xl px-4 py-3 font-semibold",
+                "bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950",
+                "dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white",
+                (loading || saving) && "opacity-60 cursor-not-allowed"
               )}
+              onClick={loadFromBE}
+              disabled={loading || saving}
+              title="โหลดค่าที่บันทึกไว้"
             >
-              โหลดข้อมูลล่าสุด
+              {loading ? "กำลังโหลด..." : "โหลดล่าสุด"}
             </button>
+            <button
+              className={cx(
+                "rounded-2xl px-4 py-3 font-semibold",
+                "bg-white border border-slate-300 text-slate-900 hover:bg-slate-50",
+                "dark:bg-slate-900 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
+              )}
+              onClick={() => setShowPayload((s) => !s)}
+            >
+              ดู JSON
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {unmapped.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+          <div className="font-semibold">⚠️ รายการที่ยังไม่แมพ (จะบันทึกตอนนี้ได้เป็น 0)</div>
+          <div className="mt-1 text-sm">
+            {unmapped.map((u) => `${u.code} (earning_id=${u.earning_id}, group=${u.group})`).join(" • ")}
+          </div>
+        </div>
+      )}
+
+      {(errorMsg || infoMsg) && (
+        <div
+          className={cx(
+            "mb-4 rounded-2xl border px-4 py-3",
+            errorMsg ? "border-rose-300 bg-rose-50 text-rose-900" : "border-emerald-300 bg-emerald-50 text-emerald-900"
+          )}
+        >
+          <div className="text-sm">{errorMsg || infoMsg}</div>
+        </div>
+      )}
+
+      <div
+        ref={tableCardRef}
+        className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-sm"
+      >
+        {/* save bar */}
+        <div className="sticky top-0 z-20 border-b border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-950/95 backdrop-blur">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              บันทึก: <span className="font-mono">POST /business-plan/{`{plan_id}`}/earnings/bulk</span> • plan_id={planId || "—"}
+              {branches._fromApi ? (
+                <span className="ml-2">• สาขา: {branches.hq.name || branches.hq.label}, {branches.surin.name || branches.surin.label}, {branches.nonnarai.name || branches.nonnarai.label}</span>
+              ) : (
+                <span className="ml-2">• สาขา: (fallback id=1,2,3)</span>
+              )}
+            </div>
 
             <button
-              type="button"
-              onClick={saveAll}
-              disabled={loading || saving}
               className={cx(
-                "rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm transition",
-                loading || saving ? "cursor-not-allowed bg-slate-300" : "bg-slate-900 hover:bg-slate-800"
+                "rounded-2xl px-5 py-2.5 font-semibold",
+                "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
+                (saving || loading || !planId) && "opacity-60 cursor-not-allowed"
               )}
+              onClick={onSave}
+              disabled={saving || loading || !planId}
+              title={!planId ? "ต้องมี plan_id" : "บันทึก"}
             >
               {saving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
           </div>
         </div>
 
-        {unmappedList.length > 0 ? (
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            <div className="font-semibold">⚠️ รายการที่ยังไม่แมพ (จะข้ามตอนบันทึกถ้าเป็น 0)</div>
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-              {unmappedList.map((t) => (
-                <span key={t} className="font-medium">
-                  {t}
-                </span>
-              ))}
+        {/* table */}
+        <div className="overflow-hidden" style={{ height: tableCardHeight }}>
+          <div
+            className={cx("border-b border-slate-200 dark:border-slate-700", STRIPE.head)}
+            style={{ width: TOTAL_W }}
+          >
+            <div className="flex">
+              <div style={{ width: LEFT_W }} className="flex">
+                <div style={{ width: COL_W.code }} className="px-3 py-3 font-semibold">
+                  
+                </div>
+                <div style={{ width: COL_W.item }} className="px-3 py-3 font-semibold">
+                  รายการ
+                </div>
+              </div>
+
+              <div className="flex-1">
+                <div className="px-3 py-2 text-center font-semibold">สกต.สาขา</div>
+                <div className="flex border-t border-slate-200 dark:border-slate-700">
+                  <div style={{ width: COL_W.cell }} className="px-3 py-2 text-center font-semibold">
+                    {branches.hq.label}
+                  </div>
+                  <div style={{ width: COL_W.cell }} className="px-3 py-2 text-center font-semibold">
+                    {branches.surin.label}
+                  </div>
+                  <div style={{ width: COL_W.cell }} className="px-3 py-2 text-center font-semibold">
+                    {branches.nonnarai.label}
+                  </div>
+                  <div style={{ width: COL_W.total }} className="px-3 py-2 text-center font-semibold">
+                    รวม
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        ) : null}
 
-        {error ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div> : null}
-
-        <div className="mt-4 overflow-auto rounded-2xl border border-slate-200">
-          <table className="min-w-[1100px] w-full border-collapse">
-            <thead className="sticky top-0 z-10 bg-slate-50">
-              <tr className="border-b border-slate-200">
-                <th className="w-[320px] px-3 py-3 text-left text-sm font-semibold text-slate-700">รายการ</th>
-                {MONTHS.map((m) => (
-                  <th key={m.k} className="min-w-[110px] px-3 py-3 text-right text-sm font-semibold text-slate-700">
-                    {m.label}
-                  </th>
-                ))}
-                <th className="min-w-[140px] px-3 py-3 text-right text-sm font-semibold text-slate-900">รวม (บาท)</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {ROWS.map((r) => {
-                if (r.kind === "title") {
-                  return (
-                    <tr key={r.code} className="bg-white">
-                      <td colSpan={MONTHS.length + 2} className="px-3 py-4 text-sm font-semibold text-slate-900">
-                        {r.label}
-                      </td>
-                    </tr>
-                  )
-                }
-
-                if (r.kind === "section") {
-                  return (
-                    <tr key={r.code} className="bg-slate-50">
-                      <td colSpan={MONTHS.length + 2} className="px-3 py-3 text-sm font-semibold text-slate-800">
-                        {r.label}
-                      </td>
-                    </tr>
-                  )
-                }
-
-                if (r.kind === "subtotal") {
-                  const g = r.group
-                  const val = subtotalByGroup[g] || 0
-                  return (
-                    <tr key={r.code} className="bg-white border-t border-slate-100">
-                      <td className="px-3 py-3 text-sm font-semibold text-slate-900">{r.label}</td>
-                      {MONTHS.map((m) => (
-                        <td key={m.k} className="px-3 py-3 text-right text-sm text-slate-400">
-                          —
-                        </td>
-                      ))}
-                      <td className="px-3 py-3 text-right text-sm font-semibold text-slate-900">{fmtMoney(val)}</td>
-                    </tr>
-                  )
-                }
-
-                if (r.kind === "grand") {
-                  return (
-                    <tr key={r.code} className="bg-slate-900">
-                      <td className="px-3 py-3 text-sm font-semibold text-white">{r.label}</td>
-                      {MONTHS.map((m) => (
-                        <td key={m.k} className="px-3 py-3 text-right text-sm text-slate-400">
-                          —
-                        </td>
-                      ))}
-                      <td className="px-3 py-3 text-right text-sm font-semibold text-white">{fmtMoney(grandTotal)}</td>
-                    </tr>
-                  )
-                }
-
-                // item
-                const rowSum = totalsByRow[r.code] || 0
-                const beId = resolveBusinessEarningId(r.earning_id, r.business_group)
-                const missing = !beId
+          <div
+            ref={bodyScrollRef}
+            onScroll={onBodyScroll}
+            className="overflow-auto"
+            style={{ height: tableCardHeight - 58 }}
+          >
+            <div style={{ width: TOTAL_W }}>
+              {ROWS.map((r, idx) => {
+                const isAlt = idx % 2 === 1
+                const rowBg = r.kind === "subtotal" ? STRIPE.foot : isAlt ? STRIPE.alt : STRIPE.cell
 
                 return (
-                  <tr key={r.code} className={cx("bg-white border-t border-slate-100", missing && "bg-amber-50/40")}>
-                    <td className="px-3 py-2 text-sm text-slate-700">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-900">{r.code}</span>
-                        <span>{r.label}</span>
-                        {missing ? (
-                          <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
-                            ยังไม่แมพ
-                          </span>
-                        ) : null}
+                  <div
+                    key={r.code}
+                    className={cx("flex border-b border-slate-200 dark:border-slate-700", rowBg)}
+                    style={{ minHeight: r.kind === "item" ? 56 : 44 }}
+                  >
+                    <div style={{ width: LEFT_W }} className="flex">
+                      <div
+                        style={{ width: COL_W.code }}
+                        className={cx(
+                          "px-3 py-3 text-right font-semibold",
+                          r.kind === "title" && "text-lg",
+                          r.kind === "section" && "text-base",
+                          r.kind === "subtotal" && "text-base"
+                        )}
+                      >
+                        {r.kind === "item" ? r.code : r.kind === "section" ? r.code : r.kind === "subtotal" ? "" : ""}
                       </div>
-                    </td>
+                      <div
+                        style={{ width: COL_W.item }}
+                        className={cx(
+                          "px-3 py-3 font-semibold",
+                          r.kind === "title" && "text-lg",
+                          r.kind === "section" && "text-base",
+                          r.kind === "subtotal" && "text-base"
+                        )}
+                      >
+                        {r.label}
+                      </div>
+                    </div>
 
-                    {MONTHS.map((m) => (
-                      <td key={m.k} className="px-3 py-2 text-right">
-                        <input
-                          value={rowsData?.[r.code]?.[m.k] ?? 0}
-                          onChange={(e) => onChange(r.code, m.k, e.target.value)}
-                          inputMode="decimal"
-                          className={cx(
-                            "w-full rounded-2xl border px-3 py-2 text-right text-sm outline-none transition",
-                            missing
-                              ? "border-amber-200 bg-amber-50 text-slate-700 placeholder:text-slate-400"
-                              : "border-slate-200 bg-white text-slate-700 placeholder:text-slate-400 focus:border-slate-400"
-                          )}
-                          placeholder="0"
-                          disabled={loading || saving}
-                        />
-                      </td>
-                    ))}
-
-                    <td className="px-3 py-2 text-right text-sm font-semibold text-slate-900">{fmtMoney(rowSum)}</td>
-                  </tr>
+                    <div className="flex-1">
+                      {r.kind === "title" ? (
+                        <div className="px-3 py-3" />
+                      ) : r.kind === "section" ? (
+                        <div className="px-3 py-3" />
+                      ) : r.kind === "subtotal" ? (
+                        <div className="flex">
+                          <div style={{ width: COL_W.cell }} className="px-3 py-3 text-right font-semibold">
+                            {fmtMoney0(computed.colSum.hq)}
+                          </div>
+                          <div style={{ width: COL_W.cell }} className="px-3 py-3 text-right font-semibold">
+                            {fmtMoney0(computed.colSum.surin)}
+                          </div>
+                          <div style={{ width: COL_W.cell }} className="px-3 py-3 text-right font-semibold">
+                            {fmtMoney0(computed.colSum.nonnarai)}
+                          </div>
+                          <div style={{ width: COL_W.total }} className="px-3 py-3 text-right font-semibold">
+                            {fmtMoney0(computed.grand)}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <div style={{ width: COL_W.cell }} className="px-3 py-2">
+                            {renderCell(r, "hq")}
+                          </div>
+                          <div style={{ width: COL_W.cell }} className="px-3 py-2">
+                            {renderCell(r, "surin")}
+                          </div>
+                          <div style={{ width: COL_W.cell }} className="px-3 py-2">
+                            {renderCell(r, "nonnarai")}
+                          </div>
+                          <div style={{ width: COL_W.total }} className="px-3 py-2">
+                            {renderRowTotal(r)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )
               })}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
 
-        <div className="mt-3 text-xs text-slate-500">
-          * ถ้าเห็น “ยังไม่แมพ” แปลว่า FE หา business_earning_id ไม่เจอ (ต้องมีคู่ค่า earning_id + business_group อยู่ในตาราง businessearnings)
+          {/* footer shadow sync */}
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white dark:from-slate-950" />
         </div>
+      </div>
 
-        {/* debug */}
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-          <div className="mb-2 text-xs font-semibold text-slate-600">debug buildPayload()</div>
-          <pre className="max-h-[520px] overflow-auto text-[11px] leading-5 text-slate-700">
+      {showPayload && (
+        <div className="mt-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="font-semibold">Payload (preview)</div>
+            <button
+              className={cx(
+                "rounded-xl px-3 py-2 text-sm font-semibold",
+                "bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950",
+                "dark:bg-slate-100 dark:text-slate-900"
+              )}
+              onClick={() => {
+                try {
+                  const p = buildPayload()
+                  navigator.clipboard?.writeText(JSON.stringify(p, null, 2))
+                } catch {}
+              }}
+            >
+              คัดลอก payload
+            </button>
+          </div>
+          <pre className="max-h-[520px] overflow-auto rounded-xl bg-slate-950 text-slate-100 p-3 text-xs">
             {(() => {
               try {
                 return JSON.stringify(buildPayload(), null, 2)
@@ -539,7 +731,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
             })()}
           </pre>
         </div>
-      </div>
+      )}
     </div>
   )
 }

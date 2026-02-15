@@ -191,6 +191,9 @@ const BUSINESS_EARNINGS_SEED = [
   { id: 42, earning_id: 25, business_group: 6 },
   { id: 43, earning_id: 24, business_group: 6 },
   { id: 44, earning_id: 22, business_group: 6 },
+  { id: 45, earning_id: 22, business_group: 8 },
+  { id: 46, earning_id: 23, business_group: 8 },
+  { id: 47, earning_id: 6, business_group: 8 },
 ]
 
 const BUSINESS_EARNING_ID_MAP = (() => {

@@ -135,19 +135,70 @@ const LEFT_W = COL_W.code + COL_W.item
 const RIGHT_W = COL_W.cell * 3 + COL_W.total
 const TOTAL_W = LEFT_W + RIGHT_W
 
-/** ---------------- BusinessEarnings mapping (latest) ---------------- */
-const BUSINESS_EARNINGS_MAP = (() => {
-  //  earning_id + group => business_earning_id
-  //  NOTE: ในโปรเจกต์จริงคุณอาจ import จากไฟล์ mapping ได้
-  //  ตอนนี้ให้ map แบบเบสที่มีอยู่แล้วในไฟล์เดิมของคุณ
-  //  (ปล่อยไว้เหมือนเดิม)
-  return {}
+/** ---------------- Mapping: (earning_id + business_group) -> businessearnings.id ----------------
+ * จากไฟล์ businessesearnings (ล่าสุด)
+ */
+const BUSINESS_EARNINGS_SEED = [
+  { id: 1, earning_id: 1, business_group: 1 },
+  { id: 2, earning_id: 2, business_group: 1 },
+  { id: 3, earning_id: 3, business_group: 1 },
+  { id: 4, earning_id: 4, business_group: 1 },
+  { id: 5, earning_id: 5, business_group: 1 },
+  { id: 6, earning_id: 6, business_group: 1 },
+  { id: 7, earning_id: 6, business_group: 2 },
+  { id: 8, earning_id: 8, business_group: 2 },
+  { id: 9, earning_id: 2, business_group: 2 },
+  { id: 10, earning_id: 7, business_group: 2 },
+  { id: 11, earning_id: 6, business_group: 3 },
+  { id: 12, earning_id: 15, business_group: 3 },
+  { id: 13, earning_id: 14, business_group: 3 },
+  { id: 14, earning_id: 13, business_group: 3 },
+  { id: 15, earning_id: 12, business_group: 3 },
+  { id: 16, earning_id: 11, business_group: 3 },
+  { id: 17, earning_id: 10, business_group: 3 },
+  { id: 18, earning_id: 9, business_group: 3 },
+  { id: 19, earning_id: 6, business_group: 4 },
+  { id: 20, earning_id: 18, business_group: 4 },
+  { id: 21, earning_id: 17, business_group: 4 },
+  { id: 22, earning_id: 16, business_group: 4 },
+  { id: 23, earning_id: 14, business_group: 4 },
+  { id: 24, earning_id: 12, business_group: 4 },
+  { id: 25, earning_id: 11, business_group: 4 },
+  { id: 26, earning_id: 10, business_group: 4 },
+  { id: 27, earning_id: 9, business_group: 4 },
+  { id: 28, earning_id: 22, business_group: 4 },
+  { id: 29, earning_id: 4, business_group: 4 },
+  { id: 30, earning_id: 6, business_group: 5 },
+  { id: 31, earning_id: 4, business_group: 5 },
+  { id: 32, earning_id: 21, business_group: 5 },
+  { id: 33, earning_id: 20, business_group: 5 },
+  { id: 34, earning_id: 10, business_group: 5 },
+  { id: 35, earning_id: 9, business_group: 5 },
+  { id: 36, earning_id: 19, business_group: 5 },
+  { id: 37, earning_id: 6, business_group: 7 },
+  { id: 38, earning_id: 29, business_group: 7 },
+  { id: 39, earning_id: 28, business_group: 7 },
+  { id: 40, earning_id: 27, business_group: 7 },
+  { id: 41, earning_id: 26, business_group: 7 },
+  { id: 42, earning_id: 25, business_group: 7 },
+  { id: 43, earning_id: 24, business_group: 7 },
+  { id: 44, earning_id: 22, business_group: 7 },
+  { id: 45, earning_id: 22, business_group: 8 },
+  { id: 46, earning_id: 23, business_group: 8 },
+  { id: 47, earning_id: 6, business_group: 8 },
+]
+
+const BUSINESS_EARNING_ID_MAP = (() => {
+  const m = new Map()
+  for (const r of BUSINESS_EARNINGS_SEED) {
+    const key = `${Number(r.earning_id)}:${Number(r.business_group)}`
+    if (!m.has(key)) m.set(key, Number(r.id))
+  }
+  return m
 })()
 
-const resolveBusinessEarningId = (earningId, businessGroup) => {
-  const key = `${Number(earningId || 0)}:${Number(businessGroup || 0)}`
-  return Number(BUSINESS_EARNINGS_MAP[key] || 0) || 0
-}
+const resolveBusinessEarningId = (earningId, businessGroupId) =>
+  BUSINESS_EARNING_ID_MAP.get(`${Number(earningId)}:${Number(businessGroupId)}`) ?? null
 
 /** ---------------- Rows ---------------- */
 const ROWS = [
@@ -166,7 +217,6 @@ const ROWS = [
 const itemRows = ROWS.filter((r) => r.kind === "item")
 
 function buildInitialValues() {
-  // ✅ ให้เหมือนหน้า RevenueByBusiness: เริ่มต้นเป็น "0"
   const out = {}
   for (const r of itemRows) out[r.code] = { hq: "0", surin: "0", nonnarai: "0" }
   return out
@@ -200,13 +250,12 @@ const BusinessPlanOtherIncomeTable = (props) => {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
-  const [lastLoadedAt, setLastLoadedAt] = useState(null) // Date
+  const [lastLoadedAt, setLastLoadedAt] = useState(null)
   const [errorMsg, setErrorMsg] = useState("")
   const [infoMsg, setInfoMsg] = useState("")
 
-  // ✅ notice ต้องไม่หายตอนโหลดล่าสุด
-  const [saveNotice, setSaveNotice] = useState(null) // {type:'success'|'error'|'info', title, detail}
-  const [lastSaveMeta, setLastSaveMeta] = useState(null) // { ok, at: Date, res }
+  const [saveNotice, setSaveNotice] = useState(null)
+  const [lastSaveMeta, setLastSaveMeta] = useState(null)
 
   const noticeTimerRef = useRef(0)
   const pushNotice = useCallback((notice, { autoHideMs = 0 } = {}) => {
@@ -223,7 +272,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     }
   }, [])
 
-  /** branches (columns) */
   const [branches, setBranches] = useState(() => ({
     hq: { id: 1, label: "สาขา", name: "" },
     surin: { id: 2, label: "สุรินทร์", name: "" },
@@ -232,7 +280,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     _fromApi: false,
   }))
 
-  /** ✅ height ยาวขึ้น */
   const tableCardRef = useRef(null)
   const [tableCardHeight, setTableCardHeight] = useState(900)
 
@@ -256,7 +303,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     requestAnimationFrame(() => recalcTableCardHeight())
   }, [showPayload, period, recalcTableCardHeight])
 
-  /** ---------------- Map rows -> business_earning_id ---------------- */
   const rowIdByCode = useMemo(() => {
     const m = {}
     for (const r of itemRows) m[r.code] = resolveBusinessEarningId(r.earning_id, r.business_group)
@@ -274,7 +320,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
   const isRowMapped = useCallback((code) => !!rowIdByCode[code], [rowIdByCode])
 
-  /** ---------------- Load branches list (best effort) ---------------- */
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -298,7 +343,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     }
   }, [])
 
-  /** ---------------- Load saved values from BE (branch_totals only) ---------------- */
   const applyBranchTotalsToState = useCallback(
     (branchKey, totals) => {
       const map = new Map()
@@ -314,27 +358,21 @@ const BusinessPlanOtherIncomeTable = (props) => {
           const bid = rowIdByCode[r.code]
           if (!bid) continue
           const val = map.has(bid) ? map.get(bid) : 0
-          // ✅ เก็บ "0" ไว้ด้วย ไม่ให้กลายเป็น ""
           next[r.code] = { ...(next[r.code] || { hq: "0", surin: "0", nonnarai: "0" }), [branchKey]: String(val ?? 0) }
         }
         return next
       })
     },
-    [itemRows, rowIdByCode]
+    [rowIdByCode]
   )
 
-  /**
-   * ✅ loadSavedFromBE แบบเหมือน RevenueByBusiness:
-   * - หลัง save ต้อง refresh ล่าสุด "เสมอ" และ reset ก่อนโหลด เพื่อไม่ให้ค้างค่าเก่า
-   * - แต่ไม่ฆ่า saveNotice
-   */
   const loadSavedFromBE = useCallback(
     async ({ silent = false, forceReset = true } = {}) => {
       if (!planId || planId <= 0) return
       if (!branches._resolved) return
 
       setIsLoadingSaved(true)
-      setLoading(true) // คงไว้ให้ปุ่ม/สถานะเดิมใช้ได้
+      setLoading(true)
       setErrorMsg("")
       if (!silent) setInfoMsg("")
 
@@ -357,7 +395,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
       } catch (e) {
         console.error("[OtherIncome loadSavedFromBE] failed:", e)
         setErrorMsg(e?.message || "โหลดข้อมูลไม่สำเร็จ")
-        // ✅ กันค้างค่ามั่ว: ถ้าโหลดพังให้กลับค่าเริ่มต้น
         if (forceReset) setValuesByCode(buildInitialValues())
       } finally {
         setIsLoadingSaved(false)
@@ -369,11 +406,9 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
   useEffect(() => {
     if (!branches._resolved) return
-    // ✅ initial load ก็ reset แล้วดึงจาก BE
     loadSavedFromBE({ silent: true, forceReset: true })
   }, [branches._resolved, loadSavedFromBE])
 
-  /** ---------------- Computed totals ---------------- */
   const computed = useMemo(() => {
     const colSum = { hq: 0, surin: 0, nonnarai: 0 }
     const rowSum = {}
@@ -392,7 +427,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     return { rowSum, colSum, grand }
   }, [valuesByCode])
 
-  /** ---------------- Handlers ---------------- */
   const onChangeCell = (code, key, raw) => {
     const nextVal = sanitizeNumberInput(raw, { maxDecimals: 3 })
     setValuesByCode((prev) => ({
@@ -469,7 +503,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
         { autoHideMs: 0 }
       )
 
-      // ✅ สำคัญ: หลังบันทึกสำเร็จ ต้องเอาค่าล่าสุดจาก BE มาแสดง "เสมอ" (reset ก่อนโหลด)
       await loadSavedFromBE({ silent: true, forceReset: true })
     } catch (e) {
       console.error(e)
@@ -509,7 +542,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     }
   }, [buildPayload, pushNotice])
 
-  /** ---------------- Render helpers ---------------- */
   const renderCell = (r, key) => {
     if (r.kind !== "item") return null
     const isDisabled = !rowIdByCode[r.code]
@@ -544,7 +576,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     return { cls: badgeOk, text: `โหลดล่าสุด • ${fmtTimeTH(lastLoadedAt)}` }
   }, [isLoadingSaved, lastLoadedAt])
 
-  /** ---------------- UI ---------------- */
   return (
     <div className="w-full px-3 md:px-6 py-5">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -646,9 +677,11 @@ const BusinessPlanOtherIncomeTable = (props) => {
         </div>
       )}
 
-      <div ref={tableCardRef} className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-sm">
+      <div
+        ref={tableCardRef}
+        className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-sm"
+      >
         <div className="overflow-hidden" style={{ height: tableCardHeight }}>
-          {/* header */}
           <div className={cx("border-b border-slate-200 dark:border-slate-700", STRIPE.head)} style={{ width: TOTAL_W }}>
             <div className="flex">
               <div style={{ width: LEFT_W }} className="flex">
@@ -678,7 +711,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
             </div>
           </div>
 
-          {/* body */}
           <div className="overflow-auto" style={{ height: tableCardHeight - 58 - 64 }}>
             <div style={{ width: TOTAL_W }}>
               {ROWS.map((r, idx) => {
@@ -695,14 +727,9 @@ const BusinessPlanOtherIncomeTable = (props) => {
                     <div style={{ width: LEFT_W }} className="flex">
                       <div
                         style={{ width: COL_W.code }}
-                        className={cx(
-                          "px-3 py-3 text-right font-semibold",
-                          r.kind === "title" && "text-lg",
-                          r.kind === "section" && "text-base",
-                          r.kind === "subtotal" && "text-base"
-                        )}
+                        className={cx("px-3 py-3 text-right font-semibold", r.kind === "title" && "text-lg")}
                       >
-                        {r.kind === "item" ? r.code : r.kind === "section" ? r.code : ""}
+                        {r.kind === "item" ? r.code : ""}
                       </div>
 
                       <div style={{ width: COL_W.item }} className="px-3 py-3 font-semibold">
@@ -754,7 +781,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
             </div>
           </div>
 
-          {/* footer */}
           <div className={cx("border-t border-slate-200 dark:border-slate-700", STRIPE.foot)} style={{ width: TOTAL_W }}>
             <div className="flex items-center justify-between px-3 py-3">
               <div className="text-sm text-slate-600 dark:text-slate-300">

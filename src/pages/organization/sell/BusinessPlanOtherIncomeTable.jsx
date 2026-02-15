@@ -18,8 +18,7 @@ const sanitizeNumberInput = (s, { maxDecimals = 3 } = {}) => {
   if (maxDecimals <= 0) return intPart
   return `${intPart}.${dec}`
 }
-const fmtMoney0 = (n) =>
-  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
+const fmtMoney0 = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
 
 /** ---------------- API (copy pattern from หน้ารายได้เฉพาะธุรกิจ) ---------------- */
 const API_BASE_RAW =
@@ -182,8 +181,7 @@ function buildInitialValues() {
   return out
 }
 
-const findName = (b) =>
-  String(b?.name ?? b?.branch ?? b?.branch_name ?? b?.label ?? "").trim()
+const findName = (b) => String(b?.name ?? b?.branch ?? b?.branch_name ?? b?.label ?? "").trim()
 const findId = (b) => Number(b?.id ?? b?.branch_id ?? b?.value ?? 0) || 0
 
 const resolveBranchesFromList = (list) => {
@@ -199,8 +197,7 @@ const resolveBranchesFromList = (list) => {
 
   const surin = pickByIncludes(["สุรินทร์"])
   const nonnarai = pickByIncludes(["โนนนารายณ์", "โนนนาราย", "nonnarai"])
-  const hq =
-    pickByIncludes(["สำนักงานใหญ่", "สหกรณ์", "สกต", "สาขา"])
+  const hq = pickByIncludes(["สำนักงานใหญ่", "สหกรณ์", "สกต", "สาขา"])
 
   return { hq, surin, nonnarai, all: norm }
 }
@@ -216,6 +213,9 @@ const BusinessPlanOtherIncomeTable = (props) => {
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
   const [infoMsg, setInfoMsg] = useState("")
+
+  // ให้ฟีลเหมือนหน้า BusinessPlanRevenueByBusinessTable (มี notice แบบสั้น ๆ)
+  const [saveNotice, setSaveNotice] = useState(null) // {type:'success'|'error'|'info', title, detail}
 
   /** branches (columns) */
   const [branches, setBranches] = useState(() => ({
@@ -310,31 +310,35 @@ const BusinessPlanOtherIncomeTable = (props) => {
   }, [])
 
   /** ---------------- Load saved values from BE (branch_totals only) ---------------- */
-  const applyBranchTotalsToState = useCallback((branchKey, totals) => {
-    const map = new Map()
-    for (const t of totals || []) {
-      const id = Number(t?.business_earning_id ?? t?.b_earnings ?? 0) || 0
-      const amt = toNumber(t?.amount ?? 0)
-      if (id) map.set(id, amt)
-    }
-
-    setValuesByCode((prev) => {
-      const next = { ...prev }
-      for (const r of itemRows) {
-        const bid = rowIdByCode[r.code]
-        if (!bid) continue
-        const val = map.get(bid) ?? 0
-        next[r.code] = { ...(next[r.code] || { hq: "", surin: "", nonnarai: "" }), [branchKey]: String(val || "") }
+  const applyBranchTotalsToState = useCallback(
+    (branchKey, totals) => {
+      const map = new Map()
+      for (const t of totals || []) {
+        const id = Number(t?.business_earning_id ?? t?.b_earnings ?? 0) || 0
+        const amt = toNumber(t?.amount ?? 0)
+        if (id) map.set(id, amt)
       }
-      return next
-    })
-  }, [rowIdByCode])
+
+      setValuesByCode((prev) => {
+        const next = { ...prev }
+        for (const r of itemRows) {
+          const bid = rowIdByCode[r.code]
+          if (!bid) continue
+          const val = map.get(bid) ?? 0
+          next[r.code] = { ...(next[r.code] || { hq: "", surin: "", nonnarai: "" }), [branchKey]: String(val || "") }
+        }
+        return next
+      })
+    },
+    [rowIdByCode]
+  )
 
   const loadFromBE = useCallback(async () => {
     if (!planId || planId <= 0) return
     setLoading(true)
     setErrorMsg("")
     setInfoMsg("")
+    setSaveNotice(null)
     try {
       // reset values first
       setValuesByCode(buildInitialValues())
@@ -407,26 +411,41 @@ const BusinessPlanOtherIncomeTable = (props) => {
     ]
 
     const rows = []
+    const skipped = []
+    const blocked = []
+
     for (const r of itemRows) {
       const businessEarningId = rowIdByCode[r.code]
-      if (!businessEarningId) continue
       const v = valuesByCode[r.code] || {}
+      const rowSum = toNumber(v.hq) + toNumber(v.surin) + toNumber(v.nonnarai)
+
+      // ยังไม่แมพ → อนุญาตข้ามได้เฉพาะแถวที่เป็น 0 ทั้งหมด
+      if (!businessEarningId) {
+        skipped.push({ code: r.code, label: r.label, earning_id: r.earning_id, business_group: r.business_group })
+        if (rowSum !== 0) blocked.push({ code: r.code, label: r.label })
+        continue
+      }
 
       for (const b of branchCalls) {
         rows.push({
           branch_id: Number(b.id),
           business_earning_id: Number(businessEarningId),
-          unit_values: [],
+          unit_values: [], // หน้านี้ไม่มีรายหน่วย
           branch_total: toNumber(v[b.key]),
-          comment: null,
+          comment: period, // ให้เหมือนหน้า BusinessPlanRevenueByBusinessTable
         })
       }
+    }
+
+    if (blocked.length) {
+      throw new Error("FE: มีรายการยังไม่แมพ แต่คุณกรอกตัวเลขแล้ว: " + blocked.map((x) => x.code).join(", "))
     }
 
     return {
       plan_id: planId,
       period,
       rows,
+      skipped,
     }
   }, [branches.hq.id, branches.nonnarai.id, branches.surin.id, period, planId, rowIdByCode, valuesByCode])
 
@@ -434,22 +453,58 @@ const BusinessPlanOtherIncomeTable = (props) => {
     setSaving(true)
     setErrorMsg("")
     setInfoMsg("")
+    setSaveNotice(null)
     try {
       const payload = buildPayload()
       await apiAuth(`/business-plan/${planId}/earnings/bulk`, {
         method: "POST",
         body: { rows: payload.rows },
       })
+
+      setSaveNotice({
+        type: "success",
+        title: "บันทึกสำเร็จ ✅",
+        detail: `upserted: ${payload.rows.length} แถว${payload?.skipped?.length ? ` • skipped: ${payload.skipped.length}` : ""}`,
+      })
       setInfoMsg("บันทึกสำเร็จ")
       // reload latest
       await loadFromBE()
     } catch (e) {
       console.error(e)
-      setErrorMsg(e?.message || "บันทึกไม่สำเร็จ")
+
+      const status = e?.status || 0
+      let title = "บันทึกไม่สำเร็จ ❌"
+      let detail = e?.message || "บันทึกไม่สำเร็จ"
+      if (status === 401) {
+        title = "401 Unauthorized"
+        detail = "Token ไม่ผ่าน/หมดอายุ → Logout/Login ใหม่"
+      } else if (status === 403) {
+        title = "403 Forbidden"
+        detail = "สิทธิ์ไม่พอ (role ไม่อนุญาต)"
+      } else if (status === 404) {
+        title = "404 Not Found"
+        detail = `ไม่พบแผน หรือ route ไม่ตรง — plan_id=${planId}`
+      } else if (status === 422) {
+        title = "422 Validation Error"
+        detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู console)"
+      }
+
+      setSaveNotice({ type: "error", title, detail })
+      setErrorMsg(detail)
     } finally {
       setSaving(false)
     }
   }, [buildPayload, loadFromBE, planId])
+
+  const copyPayload = useCallback(async () => {
+    try {
+      const p = buildPayload()
+      await navigator.clipboard?.writeText(JSON.stringify({ rows: p.rows }, null, 2))
+      setSaveNotice({ type: "success", title: "คัดลอกแล้ว ✅", detail: "คัดลอก payload สำหรับ BE แล้ว" })
+    } catch (e) {
+      setSaveNotice({ type: "error", title: "คัดลอกไม่สำเร็จ", detail: e?.message || String(e) })
+    }
+  }, [buildPayload])
 
   /** ---------------- Render helpers ---------------- */
   const renderCell = (r, key) => {
@@ -520,13 +575,24 @@ const BusinessPlanOtherIncomeTable = (props) => {
             >
               ดู JSON
             </button>
+            <button
+              className={cx(
+                "rounded-2xl px-4 py-3 font-semibold",
+                "bg-white border border-slate-300 text-slate-900 hover:bg-slate-50",
+                "dark:bg-slate-900 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
+              )}
+              onClick={copyPayload}
+              title="คัดลอก payload (rows)"
+            >
+              คัดลอก
+            </button>
           </div>
         </div>
       </div>
 
       {unmapped.length > 0 && (
         <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
-          <div className="font-semibold">⚠️ รายการที่ยังไม่แมพ (จะบันทึกตอนนี้ได้เป็น 0)</div>
+          <div className="font-semibold">⚠️ รายการที่ยังไม่แมพ (ถ้ามีตัวเลขจะบันทึกไม่ได้)</div>
           <div className="mt-1 text-sm">
             {unmapped.map((u) => `${u.code} (earning_id=${u.earning_id}, group=${u.group})`).join(" • ")}
           </div>
@@ -544,37 +610,26 @@ const BusinessPlanOtherIncomeTable = (props) => {
         </div>
       )}
 
+      {saveNotice && (
+        <div
+          className={cx(
+            "mb-4 rounded-2xl border px-4 py-3",
+            saveNotice.type === "success"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+              : saveNotice.type === "error"
+              ? "border-rose-300 bg-rose-50 text-rose-900"
+              : "border-slate-200 bg-slate-50 text-slate-800"
+          )}
+        >
+          <div className="font-semibold">{saveNotice.title}</div>
+          {saveNotice.detail ? <div className="text-sm mt-0.5">{saveNotice.detail}</div> : null}
+        </div>
+      )}
+
       <div
         ref={tableCardRef}
         className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-sm"
       >
-        {/* save bar */}
-        <div className="sticky top-0 z-20 border-b border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-950/95 backdrop-blur">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="text-sm text-slate-600 dark:text-slate-300">
-              บันทึก: <span className="font-mono">POST /business-plan/{`{plan_id}`}/earnings/bulk</span> • plan_id={planId || "—"}
-              {branches._fromApi ? (
-                <span className="ml-2">• สาขา: {branches.hq.name || branches.hq.label}, {branches.surin.name || branches.surin.label}, {branches.nonnarai.name || branches.nonnarai.label}</span>
-              ) : (
-                <span className="ml-2">• สาขา: (fallback id=1,2,3)</span>
-              )}
-            </div>
-
-            <button
-              className={cx(
-                "rounded-2xl px-5 py-2.5 font-semibold",
-                "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
-                (saving || loading || !planId) && "opacity-60 cursor-not-allowed"
-              )}
-              onClick={onSave}
-              disabled={saving || loading || !planId}
-              title={!planId ? "ต้องมี plan_id" : "บันทึก"}
-            >
-              {saving ? "กำลังบันทึก..." : "บันทึก"}
-            </button>
-          </div>
-        </div>
-
         {/* table */}
         <div className="overflow-hidden" style={{ height: tableCardHeight }}>
           <div
@@ -583,9 +638,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
           >
             <div className="flex">
               <div style={{ width: LEFT_W }} className="flex">
-                <div style={{ width: COL_W.code }} className="px-3 py-3 font-semibold">
-                  
-                </div>
+                <div style={{ width: COL_W.code }} className="px-3 py-3 font-semibold"></div>
                 <div style={{ width: COL_W.item }} className="px-3 py-3 font-semibold">
                   รายการ
                 </div>
@@ -615,7 +668,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
             ref={bodyScrollRef}
             onScroll={onBodyScroll}
             className="overflow-auto"
-            style={{ height: tableCardHeight - 58 }}
+            style={{ height: tableCardHeight - 58 - 64 }}
           >
             <div style={{ width: TOTAL_W }}>
               {ROWS.map((r, idx) => {
@@ -698,6 +751,35 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
           {/* footer shadow sync */}
           <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white dark:from-slate-950" />
+        </div>
+
+        {/* save bar (เหมือนหน้าเฉพาะธุรกิจ: อยู่แถบล่างขวา) */}
+        <div className="sticky bottom-0 z-20 border-t border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-950/95 backdrop-blur">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              บันทึก: <span className="font-mono">POST /business-plan/{`{plan_id}`}/earnings/bulk</span> • plan_id={planId || "—"} • group=7
+              {branches._fromApi ? (
+                <span className="ml-2">
+                  • สาขา: {branches.hq.name || branches.hq.label}, {branches.surin.name || branches.surin.label}, {branches.nonnarai.name || branches.nonnarai.label}
+                </span>
+              ) : (
+                <span className="ml-2">• สาขา: (fallback id=1,2,3)</span>
+              )}
+            </div>
+
+            <button
+              className={cx(
+                "rounded-2xl px-5 py-2.5 font-semibold",
+                "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
+                (saving || loading || !planId) && "opacity-60 cursor-not-allowed"
+              )}
+              onClick={onSave}
+              disabled={saving || loading || !planId}
+              title={!planId ? "ต้องมี plan_id" : "บันทึก"}
+            >
+              {saving ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+          </div>
         </div>
       </div>
 

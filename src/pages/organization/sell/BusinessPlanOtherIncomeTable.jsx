@@ -110,10 +110,10 @@ const readonlyField =
   "text-black shadow-none dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100"
 
 const cellInput =
-  "w-full h-9 min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 " +
-  "text-right text-[13px] md:text-sm outline-none tabular-nums " +
-  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+  "w-full h-8 min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-1 "
+  + "text-right text-[12px] md:text-[13px] leading-4 outline-none tabular-nums "
+  + "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 "
+  + "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
 const badgeOk =
   "inline-flex items-center rounded-full bg-emerald-100 text-emerald-900 px-2.5 py-1 text-xs font-semibold dark:bg-emerald-900/40 dark:text-emerald-100"
@@ -130,7 +130,7 @@ const STRIPE = {
 }
 
 const PERIOD_DEFAULT = "2568"
-const COL_W = { code: 60, item: 360, cell: 110, total: 120 } // total กว้างขึ้นนิด
+const COL_W = { code: 52, item: 300, cell: 86, total: 90 } // ปรับให้เห็นครบ ลดการเลื่อน
 const LEFT_W = COL_W.code + COL_W.item
 
 /** fallback units (ถ้าโหลดหน่วยไม่ได้) */
@@ -717,8 +717,8 @@ const BusinessPlanOtherIncomeTable = (props) => {
           <div className={cx("border-b border-slate-200 dark:border-slate-700", STRIPE.head)} style={{ width: TOTAL_W }}>
             <div className="flex">
               <div style={{ width: LEFT_W }} className="flex">
-                <div style={{ width: COL_W.code }} className="px-3 py-3 font-semibold"></div>
-                <div style={{ width: COL_W.item }} className="px-3 py-3 font-semibold">
+                <div style={{ width: COL_W.code }} className="px-2 py-2 font-semibold"></div>
+                <div style={{ width: COL_W.item }} className="px-2 py-2 font-extrabold text-lg md:text-xl">
                   รายการ
                 </div>
               </div>
@@ -729,11 +729,11 @@ const BusinessPlanOtherIncomeTable = (props) => {
                 </div>
                 <div className="flex border-t border-slate-200 dark:border-slate-700">
                   {cols.map((c) => (
-                    <div key={c.key} style={{ width: COL_W.cell }} className="px-2 py-2 text-center font-semibold">
+                    <div key={c.key} style={{ width: COL_W.cell }} className="px-1 py-2 text-center font-semibold text-xs md:text-sm leading-4 truncate" title={c.label}>
                       {c.label}
                     </div>
                   ))}
-                  <div style={{ width: COL_W.total }} className="px-2 py-2 text-center font-semibold">
+                  <div style={{ width: COL_W.total }} className="px-1 py-2 text-center font-semibold text-xs md:text-sm">
                     รวม
                   </div>
                 </div>
@@ -753,17 +753,17 @@ const BusinessPlanOtherIncomeTable = (props) => {
                   <div
                     key={r.code}
                     className={cx("flex border-b border-slate-200 dark:border-slate-700", rowBg)}
-                    style={{ minHeight: r.kind === "item" ? 56 : 44 }}
+                    style={{ minHeight: r.kind === "item" ? 44 : 36 }}
                   >
                     <div style={{ width: LEFT_W }} className="flex">
                       <div
                         style={{ width: COL_W.code }}
-                        className={cx("px-3 py-3 text-right font-semibold", r.kind === "title" && "text-lg")}
+                        className={cx("px-2 py-2 text-right font-semibold", r.kind === "title" && "text-lg")}
                       >
                         {r.kind === "item" ? r.code : ""}
                       </div>
 
-                      <div style={{ width: COL_W.item }} className="px-3 py-3 font-semibold">
+                      <div style={{ width: COL_W.item }} className="px-2 py-2 font-semibold">
                         <div className="flex items-center gap-2">
                           <span className={cx(r.kind === "title" && "text-lg")}>{r.label}</span>
                           {r.kind === "item" && !mapped ? <span className={badgeWarn}>ยังไม่แมพ</span> : null}
@@ -775,7 +775,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
                       {r.kind === "item" ? (
                         <div className="flex items-center">
                           {cols.map((c) => (
-                            <div key={c.key} style={{ width: COL_W.cell }} className="px-2 py-3">
+                            <div key={c.key} style={{ width: COL_W.cell }} className="px-1 py-2">
                               <input
                                 className={cx(cellInput, !mapped && "opacity-50 cursor-not-allowed")}
                                 disabled={!mapped}
@@ -785,10 +785,9 @@ const BusinessPlanOtherIncomeTable = (props) => {
                               />
                             </div>
                           ))}
-                          {/* ✅ รวมไม่ชิดขอบ: pr-5 */}
                           <div
                             style={{ width: COL_W.total }}
-                            className="px-2 py-3 pr-5 text-right font-semibold tabular-nums"
+                            className="px-1 py-2 pr-3 text-right font-semibold tabular-nums"
                           >
                             {fmtMoney0(computed.rowSum?.[r.code]?.total ?? 0)}
                           </div>
@@ -799,33 +798,36 @@ const BusinessPlanOtherIncomeTable = (props) => {
                             <div
                               key={c.key}
                               style={{ width: COL_W.cell }}
-                              className="px-2 py-3 text-right font-bold tabular-nums"
+                              className="px-1 py-2 text-right font-bold tabular-nums"
                             >
                               {fmtMoney0(computed.colSum?.[c.key] ?? 0)}
                             </div>
                           ))}
                           <div
                             style={{ width: COL_W.total }}
-                            className="px-2 py-3 pr-5 text-right font-extrabold tabular-nums"
+                            className="px-1 py-2 pr-3 text-right font-extrabold tabular-nums"
                           >
                             {fmtMoney0(computed.grand)}
                           </div>
                         </div>
                       ) : (
-                        <div className="px-3 py-3"></div>
+                        <div className="px-2 py-2"></div>
                       )}
                     </div>
                   </div>
                 )
               })}
-              {/* ✅ เผื่อท้าย scroll กันโดน footer บัง */}
               <div className="h-4" />
             </div>
           </div>
 
-          {/* Footer (ชัวร์ว่าเห็นเต็ม) */}
+          {/* Footer */}
           <div
-            className={cx("border-t border-slate-200 dark:border-slate-700", STRIPE.foot, "shadow-[0_-8px_20px_-16px_rgba(0,0,0,0.35)]")}
+            className={cx(
+              "border-t border-slate-200 dark:border-slate-700",
+              STRIPE.foot,
+              "shadow-[0_-8px_20px_-16px_rgba(0,0,0,0.35)]"
+            )}
             style={{ width: TOTAL_W }}
           >
             <div className="flex items-center justify-between px-3 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">

@@ -110,10 +110,10 @@ const readonlyField =
   "text-black shadow-none dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100"
 
 const cellInput =
-  "w-full h-8 min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-1 "
-  + "text-right text-[12px] md:text-[13px] leading-4 outline-none tabular-nums "
-  + "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 "
-  + "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+  "w-full h-8 rounded-lg border border-slate-300 bg-white px-1 " +
+  "text-right text-[12px] md:text-[13px] leading-4 outline-none tabular-nums " +
+  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
+  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
 const badgeOk =
   "inline-flex items-center rounded-full bg-emerald-100 text-emerald-900 px-2.5 py-1 text-xs font-semibold dark:bg-emerald-900/40 dark:text-emerald-100"
@@ -130,8 +130,14 @@ const STRIPE = {
 }
 
 const PERIOD_DEFAULT = "2568"
-const COL_W = { code: 52, item: 300, cell: 86, total: 90 } // ปรับให้เห็นครบ ลดการเลื่อน
-const LEFT_W = COL_W.code + COL_W.item
+
+/** Grid sizing: ทำให้ “เต็มกรอบ” */
+const GRID = {
+  code: "52px",
+  item: "minmax(240px, 1.8fr)",
+  unit: "minmax(72px, 1fr)",
+  total: "minmax(78px, 0.9fr)",
+}
 
 /** fallback units (ถ้าโหลดหน่วยไม่ได้) */
 const FALLBACK_UNITS = [{ id: 1, name: "หน่วย 1" }]
@@ -228,14 +234,12 @@ function buildInitialValues(unitIds) {
 /** ---------------- normalizers ---------------- */
 const normBranchName = (b) => String(b?.branch_name ?? b?.name ?? b?.label ?? b?.branch ?? "").trim()
 const normBranchId = (b) => Number(b?.id ?? b?.branch_id ?? b?.value ?? 0) || 0
-
 const normUnit = (u, idx = 0) => {
   const id = Number(u?.id ?? 0) || 0
   const name = u?.klang_name ?? u?.unit_name ?? u?.unit ?? u?.name ?? `หน่วย ${id || idx + 1}`
   return { id, name: String(name || "").trim() }
 }
 
-/** ---------------- Component ---------------- */
 const BusinessPlanOtherIncomeTable = (props) => {
   const planId = Number(props?.planId ?? props?.plan_id ?? 0) || 0
   const yearBE = props?.yearBE ?? props?.year_be ?? props?.year ?? null
@@ -257,6 +261,11 @@ const BusinessPlanOtherIncomeTable = (props) => {
     () => units.map((u) => ({ key: String(u.id), label: String(u.name || `หน่วย ${u.id}`) })),
     [units]
   )
+
+  const gridTemplate = useMemo(() => {
+    // code + item + units... + total
+    return `${GRID.code} ${GRID.item} ${cols.map(() => GRID.unit).join(" ")} ${GRID.total}`
+  }, [cols])
 
   const [valuesByCode, setValuesByCode] = useState(() =>
     buildInitialValues(unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id))
@@ -280,7 +289,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     return () => noticeTimerRef.current && clearTimeout(noticeTimerRef.current)
   }, [])
 
-  /** unmapped rows info */
   const rowIdByCode = useMemo(() => {
     const m = {}
     for (const r of itemRows) m[r.code] = resolveBusinessEarningId(r.earning_id, r.business_group)
@@ -289,13 +297,11 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
   const unmapped = useMemo(() => {
     const list = []
-    for (const r of itemRows)
-      if (!rowIdByCode[r.code])
-        list.push({ code: r.code, earning_id: r.earning_id, group: r.business_group })
+    for (const r of itemRows) if (!rowIdByCode[r.code]) list.push({ code: r.code, earning_id: r.earning_id, group: r.business_group })
     return list
   }, [rowIdByCode])
 
-  /** ✅ load branches list */
+  /** load branches */
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -303,9 +309,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
       try {
         const data = await apiAuth(`/lists/branch/search`)
         const arr = Array.isArray(data) ? data : []
-        const norm = arr
-          .map((b) => ({ id: normBranchId(b), name: normBranchName(b) }))
-          .filter((x) => x.id > 0)
+        const norm = arr.map((b) => ({ id: normBranchId(b), name: normBranchName(b) })).filter((x) => x.id > 0)
         if (!alive) return
         setBranches(norm)
         if (!branchId && norm.length) setBranchId(norm[0].id)
@@ -321,7 +325,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** ✅ load units for selected branch */
+  /** load units for selected branch */
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -349,7 +353,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
     }
   }, [branchId])
 
-  /** ✅ when units change -> preserve existing values */
+  /** when units change -> preserve existing values */
   useEffect(() => {
     const ids = unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id)
     setValuesByCode((prev) => {
@@ -366,7 +370,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unitIds.join("|")])
 
-  /** ✅ load latest saved values per unit for selected branch */
   const normalizeGrid = useCallback(
     (seed) => {
       const ids = unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id)
@@ -395,7 +398,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
       const data = await apiAuth(`/business-plan/${planId}/earnings?branch_id=${Number(branchId)}`)
       const unitCells = Array.isArray(data?.unit_cells) ? data.unit_cells : []
 
-      // map business_earning_id -> code
       const beToCode = new Map()
       for (const r of itemRows) {
         const beId = rowIdByCode[r.code]
@@ -429,7 +431,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  /** computed totals */
   const computed = useMemo(() => {
     const rowSum = {}
     const colSum = {}
@@ -451,7 +452,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     return { rowSum, colSum, grand }
   }, [valuesByCode, cols])
 
-  /** handlers */
   const onChangeCell = (code, unitKey, raw) => {
     const nextVal = sanitizeNumberInput(raw, { maxDecimals: 3 })
     setValuesByCode((prev) => ({
@@ -496,7 +496,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     }
 
     if (blocked.length) throw new Error("FE: มีแถวที่ยังไม่แมพ แต่กรอกตัวเลขแล้ว: " + blocked.join(", "))
-
     return { rows, skipped }
   }, [planId, branchId, cols, period, rowIdByCode, valuesByCode])
 
@@ -522,7 +521,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
         },
         { autoHideMs: 0 }
       )
-
       await loadSavedFromBE()
     } catch (e) {
       console.error(e)
@@ -544,9 +542,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     }
   }, [buildPayload, loadSavedFromBE, planId, pushNotice])
 
-  /** layout calc */
-  const TOTAL_W = LEFT_W + cols.length * COL_W.cell + COL_W.total
-
   const saveStatusPill = useMemo(() => {
     if (saving) return { cls: badgeWarn, text: "กำลังบันทึก..." }
     if (!lastSaveMeta) return { cls: "text-xs text-slate-500", text: "ยังไม่เคยบันทึก" }
@@ -560,17 +555,14 @@ const BusinessPlanOtherIncomeTable = (props) => {
     return { cls: badgeOk, text: `โหลดล่าสุด • ${fmtTimeTH(lastLoadedAt)}` }
   }, [loading, isLoadingUnits, lastLoadedAt])
 
-  /** scroll/height: เพิ่ม margin เผื่อ safe-area และปุ่ม/แถบล่าง */
   const tableCardRef = useRef(null)
-  const [tableCardHeight, setTableCardHeight] = useState(860)
+  const [tableCardHeight, setTableCardHeight] = useState(820)
   const recalcTableCardHeight = useCallback(() => {
     const el = tableCardRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     const vh = window.innerHeight || 900
-    // เผื่อด้านล่างมากขึ้น กันถูกตัด
-    const bottomGap = 18
-    setTableCardHeight(Math.max(720, Math.floor(vh - rect.top - bottomGap)))
+    setTableCardHeight(Math.max(640, Math.floor(vh - rect.top - 10)))
   }, [])
   useEffect(() => {
     recalcTableCardHeight()
@@ -589,8 +581,8 @@ const BusinessPlanOtherIncomeTable = (props) => {
   }, [buildPayload, pushNotice])
 
   return (
-    <div className="w-full px-3 md:px-6 pt-5 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
-      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <div className="w-full px-3 md:px-6 pt-5 pb-3">
+      <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="text-xl md:text-2xl font-bold">รายได้อื่นๆ</div>
           <div className="text-slate-600 dark:text-slate-300 text-sm">
@@ -676,7 +668,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
       </div>
 
       {unmapped.length > 0 && (
-        <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+        <div className="mb-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
           <div className="font-semibold">⚠️ รายการที่ยังไม่แมพ (ถ้ามีตัวเลขจะบันทึกไม่ได้)</div>
           <div className="mt-1 text-sm">
             {unmapped.map((u) => `${u.code} (earning_id=${u.earning_id}, group=${u.group})`).join(" • ")}
@@ -685,7 +677,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
       )}
 
       {errorMsg && (
-        <div className="mb-4 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-rose-900">
+        <div className="mb-3 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-rose-900">
           <div className="text-sm">{errorMsg}</div>
         </div>
       )}
@@ -693,7 +685,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
       {saveNotice && (
         <div
           className={cx(
-            "mb-4 rounded-2xl border px-4 py-3",
+            "mb-3 rounded-2xl border px-4 py-3",
             saveNotice.type === "success"
               ? "border-emerald-300 bg-emerald-50 text-emerald-900"
               : saveNotice.type === "error"
@@ -706,131 +698,118 @@ const BusinessPlanOtherIncomeTable = (props) => {
         </div>
       )}
 
-      {/* ✅ เปลี่ยนเป็น flex-col: footer ไม่โดนตัด */}
+      {/* ✅ ตาราง “เต็มกรอบ” + footer ชิดตาราง (ไม่มี gap) */}
       <div
         ref={tableCardRef}
-        className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-sm overflow-hidden"
+        className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-sm overflow-hidden"
         style={{ height: tableCardHeight }}
       >
         <div className="h-full flex flex-col">
           {/* Header */}
-          <div className={cx("border-b border-slate-200 dark:border-slate-700", STRIPE.head)} style={{ width: TOTAL_W }}>
-            <div className="flex">
-              <div style={{ width: LEFT_W }} className="flex">
-                <div style={{ width: COL_W.code }} className="px-2 py-2 font-semibold"></div>
-                <div style={{ width: COL_W.item }} className="px-2 py-2 font-extrabold text-lg md:text-xl">
-                  รายการ
-                </div>
+          <div className={cx("border-b border-slate-200 dark:border-slate-700", STRIPE.head)}>
+            <div
+              className="grid items-center"
+              style={{ gridTemplateColumns: gridTemplate }}
+            >
+              <div className="px-2 py-2"></div>
+              <div className="px-2 py-2 font-extrabold text-lg md:text-xl">รายการ</div>
+              <div className="px-2 py-2 text-center font-semibold col-span-1" style={{ gridColumn: `span ${cols.length + 1}` }}>
+                หน่วยของสาขา {yearBE ? `(ปี ${yearBE})` : ""}
               </div>
+            </div>
 
-              <div className="flex-1">
-                <div className="px-3 py-2 text-center font-semibold">
-                  หน่วยของสาขา {yearBE ? `(ปี ${yearBE})` : ""}
+            <div
+              className="grid border-t border-slate-200 dark:border-slate-700 items-center"
+              style={{ gridTemplateColumns: gridTemplate }}
+            >
+              <div className="px-2 py-2"></div>
+              <div className="px-2 py-2 font-semibold text-sm"></div>
+              {cols.map((c) => (
+                <div
+                  key={c.key}
+                  className="px-1 py-2 text-center font-semibold text-xs md:text-sm truncate"
+                  title={c.label}
+                >
+                  {c.label}
                 </div>
-                <div className="flex border-t border-slate-200 dark:border-slate-700">
-                  {cols.map((c) => (
-                    <div key={c.key} style={{ width: COL_W.cell }} className="px-1 py-2 text-center font-semibold text-xs md:text-sm leading-4 truncate" title={c.label}>
-                      {c.label}
-                    </div>
-                  ))}
-                  <div style={{ width: COL_W.total }} className="px-1 py-2 text-center font-semibold text-xs md:text-sm">
-                    รวม
-                  </div>
-                </div>
-              </div>
+              ))}
+              <div className="px-1 py-2 text-center font-semibold text-xs md:text-sm">รวม</div>
             </div>
           </div>
 
-          {/* Body (flex-1) */}
+          {/* Body */}
           <div className="flex-1 overflow-auto">
-            <div style={{ width: TOTAL_W }}>
-              {ROWS.map((r, idx) => {
-                const isAlt = idx % 2 === 1
-                const rowBg = r.kind === "subtotal" ? STRIPE.foot : isAlt ? STRIPE.alt : STRIPE.cell
-                const mapped = r.kind === "item" ? !!rowIdByCode[r.code] : true
+            {ROWS.map((r, idx) => {
+              const isAlt = idx % 2 === 1
+              const rowBg = r.kind === "subtotal" ? STRIPE.foot : isAlt ? STRIPE.alt : STRIPE.cell
+              const mapped = r.kind === "item" ? !!rowIdByCode[r.code] : true
+              const rowH = r.kind === "item" ? "min-h-[44px]" : "min-h-[36px]"
 
-                return (
-                  <div
-                    key={r.code}
-                    className={cx("flex border-b border-slate-200 dark:border-slate-700", rowBg)}
-                    style={{ minHeight: r.kind === "item" ? 44 : 36 }}
-                  >
-                    <div style={{ width: LEFT_W }} className="flex">
-                      <div
-                        style={{ width: COL_W.code }}
-                        className={cx("px-2 py-2 text-right font-semibold", r.kind === "title" && "text-lg")}
-                      >
-                        {r.kind === "item" ? r.code : ""}
-                      </div>
+              return (
+                <div
+                  key={r.code}
+                  className={cx("grid border-b border-slate-200 dark:border-slate-700 items-center", rowBg, rowH)}
+                  style={{ gridTemplateColumns: gridTemplate }}
+                >
+                  <div className={cx("px-2 py-2 text-right font-semibold", r.kind === "title" && "text-lg")}>
+                    {r.kind === "item" ? r.code : ""}
+                  </div>
 
-                      <div style={{ width: COL_W.item }} className="px-2 py-2 font-semibold">
-                        <div className="flex items-center gap-2">
-                          <span className={cx(r.kind === "title" && "text-lg")}>{r.label}</span>
-                          {r.kind === "item" && !mapped ? <span className={badgeWarn}>ยังไม่แมพ</span> : null}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex-1">
-                      {r.kind === "item" ? (
-                        <div className="flex items-center">
-                          {cols.map((c) => (
-                            <div key={c.key} style={{ width: COL_W.cell }} className="px-1 py-2">
-                              <input
-                                className={cx(cellInput, !mapped && "opacity-50 cursor-not-allowed")}
-                                disabled={!mapped}
-                                inputMode="decimal"
-                                value={valuesByCode[r.code]?.[c.key] ?? ""}
-                                onChange={(e) => onChangeCell(r.code, c.key, e.target.value)}
-                              />
-                            </div>
-                          ))}
-                          <div
-                            style={{ width: COL_W.total }}
-                            className="px-1 py-2 pr-3 text-right font-semibold tabular-nums"
-                          >
-                            {fmtMoney0(computed.rowSum?.[r.code]?.total ?? 0)}
-                          </div>
-                        </div>
-                      ) : r.kind === "subtotal" ? (
-                        <div className="flex items-center">
-                          {cols.map((c) => (
-                            <div
-                              key={c.key}
-                              style={{ width: COL_W.cell }}
-                              className="px-1 py-2 text-right font-bold tabular-nums"
-                            >
-                              {fmtMoney0(computed.colSum?.[c.key] ?? 0)}
-                            </div>
-                          ))}
-                          <div
-                            style={{ width: COL_W.total }}
-                            className="px-1 py-2 pr-3 text-right font-extrabold tabular-nums"
-                          >
-                            {fmtMoney0(computed.grand)}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="px-2 py-2"></div>
-                      )}
+                  <div className="px-2 py-2 font-semibold">
+                    <div className="flex items-center gap-2">
+                      <span className={cx(r.kind === "title" && "text-lg")}>{r.label}</span>
+                      {r.kind === "item" && !mapped ? <span className={badgeWarn}>ยังไม่แมพ</span> : null}
                     </div>
                   </div>
-                )
-              })}
-              <div className="h-4" />
-            </div>
+
+                  {r.kind === "item" ? (
+                    <>
+                      {cols.map((c) => (
+                        <div key={c.key} className="px-1 py-2">
+                          <input
+                            className={cx(cellInput, !mapped && "opacity-50 cursor-not-allowed")}
+                            disabled={!mapped}
+                            inputMode="decimal"
+                            value={valuesByCode[r.code]?.[c.key] ?? ""}
+                            onChange={(e) => onChangeCell(r.code, c.key, e.target.value)}
+                          />
+                        </div>
+                      ))}
+                      <div className="px-1 py-2 pr-3 text-right font-semibold tabular-nums">
+                        {fmtMoney0(computed.rowSum?.[r.code]?.total ?? 0)}
+                      </div>
+                    </>
+                  ) : r.kind === "subtotal" ? (
+                    <>
+                      {cols.map((c) => (
+                        <div key={c.key} className="px-1 py-2 text-right font-bold tabular-nums">
+                          {fmtMoney0(computed.colSum?.[c.key] ?? 0)}
+                        </div>
+                      ))}
+                      <div className="px-1 py-2 pr-3 text-right font-extrabold tabular-nums">{fmtMoney0(computed.grand)}</div>
+                    </>
+                  ) : (
+                    <>
+                      {cols.map((c) => (
+                        <div key={c.key} className="px-1 py-2"></div>
+                      ))}
+                      <div className="px-1 py-2"></div>
+                    </>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
-          {/* Footer */}
+          {/* Footer (ชิดตาราง ไม่มีกั้น gap) */}
           <div
             className={cx(
               "border-t border-slate-200 dark:border-slate-700",
               STRIPE.foot,
               "shadow-[0_-8px_20px_-16px_rgba(0,0,0,0.35)]"
             )}
-            style={{ width: TOTAL_W }}
           >
-            <div className="flex items-center justify-between px-3 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+            <div className="flex items-center justify-between px-3 py-3">
               <div className="text-sm text-slate-600 dark:text-slate-300">
                 plan_id=<span className="font-mono">{planId || "—"}</span> • branch_id=
                 <span className="font-mono">{branchId || "—"}</span> • period=<span className="font-mono">{period}</span>

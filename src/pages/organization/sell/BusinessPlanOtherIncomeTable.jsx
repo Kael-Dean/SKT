@@ -207,7 +207,6 @@ const resolveBusinessEarningId = (earningId, businessGroupId) =>
 
 /** ---------------- Rows ---------------- */
 const ROWS = [
-  { code: "2", label: "รายได้อื่นๆ", kind: "title" },
   { code: "2.1", label: "รายได้ดอกเบี้ยรับ", kind: "item", business_group: 7, earning_id: 24 },
   { code: "2.2", label: "รายได้เงินฝาก/ผลประโยชน์จากเงินฝาก", kind: "item", business_group: 7, earning_id: 25 },
   { code: "2.3", label: "รายได้ค่าธรรมเนียม", kind: "item", business_group: 7, earning_id: 26 },
@@ -263,7 +262,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
   )
 
   const gridTemplate = useMemo(() => {
-    // code + item + units... + total
     return `${GRID.code} ${GRID.item} ${cols.map(() => GRID.unit).join(" ")} ${GRID.total}`
   }, [cols])
 
@@ -297,7 +295,8 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
   const unmapped = useMemo(() => {
     const list = []
-    for (const r of itemRows) if (!rowIdByCode[r.code]) list.push({ code: r.code, earning_id: r.earning_id, group: r.business_group })
+    for (const r of itemRows)
+      if (!rowIdByCode[r.code]) list.push({ code: r.code, earning_id: r.earning_id, group: r.business_group })
     return list
   }, [rowIdByCode])
 
@@ -707,10 +706,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
         <div className="h-full flex flex-col">
           {/* Header */}
           <div className={cx("border-b border-slate-200 dark:border-slate-700", STRIPE.head)}>
-            <div
-              className="grid items-center"
-              style={{ gridTemplateColumns: gridTemplate }}
-            >
+            <div className="grid items-center" style={{ gridTemplateColumns: gridTemplate }}>
               <div className="px-2 py-2"></div>
               <div className="px-2 py-2 font-extrabold text-lg md:text-xl">รายการ</div>
               <div className="px-2 py-2 text-center font-semibold col-span-1" style={{ gridColumn: `span ${cols.length + 1}` }}>
@@ -718,18 +714,11 @@ const BusinessPlanOtherIncomeTable = (props) => {
               </div>
             </div>
 
-            <div
-              className="grid border-t border-slate-200 dark:border-slate-700 items-center"
-              style={{ gridTemplateColumns: gridTemplate }}
-            >
+            <div className="grid border-t border-slate-200 dark:border-slate-700 items-center" style={{ gridTemplateColumns: gridTemplate }}>
               <div className="px-2 py-2"></div>
               <div className="px-2 py-2 font-semibold text-sm"></div>
               {cols.map((c) => (
-                <div
-                  key={c.key}
-                  className="px-1 py-2 text-center font-semibold text-xs md:text-sm truncate"
-                  title={c.label}
-                >
+                <div key={c.key} className="px-1 py-2 text-center font-semibold text-xs md:text-sm truncate" title={c.label}>
                   {c.label}
                 </div>
               ))}
@@ -751,13 +740,11 @@ const BusinessPlanOtherIncomeTable = (props) => {
                   className={cx("grid border-b border-slate-200 dark:border-slate-700 items-center", rowBg, rowH)}
                   style={{ gridTemplateColumns: gridTemplate }}
                 >
-                  <div className={cx("px-2 py-2 text-right font-semibold", r.kind === "title" && "text-lg")}>
-                    {r.kind === "item" ? r.code : ""}
-                  </div>
+                  <div className="px-2 py-2 text-right font-semibold">{r.kind === "item" ? r.code : ""}</div>
 
-                  <div className="px-2 py-2 font-semibold">
+                  <div className="px-2 py-2 font-semibold overflow-hidden">
                     <div className="flex items-center gap-2">
-                      <span className={cx(r.kind === "title" && "text-lg")}>{r.label}</span>
+                      <span className={cx("text-[13px] md:text-sm whitespace-nowrap overflow-hidden text-ellipsis")}>{r.label}</span>
                       {r.kind === "item" && !mapped ? <span className={badgeWarn}>ยังไม่แมพ</span> : null}
                     </div>
                   </div>
@@ -775,11 +762,9 @@ const BusinessPlanOtherIncomeTable = (props) => {
                           />
                         </div>
                       ))}
-                      <div className="px-1 py-2 pr-3 text-right font-semibold tabular-nums">
-                        {fmtMoney0(computed.rowSum?.[r.code]?.total ?? 0)}
-                      </div>
+                      <div className="px-1 py-2 pr-3 text-right font-semibold tabular-nums">{fmtMoney0(computed.rowSum?.[r.code]?.total ?? 0)}</div>
                     </>
-                  ) : r.kind === "subtotal" ? (
+                  ) : (
                     <>
                       {cols.map((c) => (
                         <div key={c.key} className="px-1 py-2 text-right font-bold tabular-nums">
@@ -787,13 +772,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
                         </div>
                       ))}
                       <div className="px-1 py-2 pr-3 text-right font-extrabold tabular-nums">{fmtMoney0(computed.grand)}</div>
-                    </>
-                  ) : (
-                    <>
-                      {cols.map((c) => (
-                        <div key={c.key} className="px-1 py-2"></div>
-                      ))}
-                      <div className="px-1 py-2"></div>
                     </>
                   )}
                 </div>

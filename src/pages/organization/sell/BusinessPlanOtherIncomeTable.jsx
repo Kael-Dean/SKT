@@ -111,7 +111,7 @@ const readonlyField =
 
 const cellInput =
   "w-full h-9 min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 " +
-  "text-right text-[13px] md:text-sm outline-none " +
+  "text-right text-[13px] md:text-sm outline-none tabular-nums " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
   "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
@@ -130,7 +130,7 @@ const STRIPE = {
 }
 
 const PERIOD_DEFAULT = "2568"
-const COL_W = { code: 60, item: 360, cell: 110, total: 110 }
+const COL_W = { code: 60, item: 360, cell: 110, total: 120 } // total กว้างขึ้นนิด
 const LEFT_W = COL_W.code + COL_W.item
 
 /** fallback units (ถ้าโหลดหน่วยไม่ได้) */
@@ -289,7 +289,9 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
   const unmapped = useMemo(() => {
     const list = []
-    for (const r of itemRows) if (!rowIdByCode[r.code]) list.push({ code: r.code, earning_id: r.earning_id, group: r.business_group })
+    for (const r of itemRows)
+      if (!rowIdByCode[r.code])
+        list.push({ code: r.code, earning_id: r.earning_id, group: r.business_group })
     return list
   }, [rowIdByCode])
 
@@ -306,7 +308,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
           .filter((x) => x.id > 0)
         if (!alive) return
         setBranches(norm)
-        // auto select first if not set
         if (!branchId && norm.length) setBranchId(norm[0].id)
       } catch (e) {
         console.error("[OtherIncome branches] failed:", e)
@@ -559,7 +560,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
     return { cls: badgeOk, text: `โหลดล่าสุด • ${fmtTimeTH(lastLoadedAt)}` }
   }, [loading, isLoadingUnits, lastLoadedAt])
 
-  /** scroll/height */
+  /** scroll/height: เพิ่ม margin เผื่อ safe-area และปุ่ม/แถบล่าง */
   const tableCardRef = useRef(null)
   const [tableCardHeight, setTableCardHeight] = useState(860)
   const recalcTableCardHeight = useCallback(() => {
@@ -567,7 +568,9 @@ const BusinessPlanOtherIncomeTable = (props) => {
     if (!el) return
     const rect = el.getBoundingClientRect()
     const vh = window.innerHeight || 900
-    setTableCardHeight(Math.max(760, Math.floor(vh - rect.top - 6)))
+    // เผื่อด้านล่างมากขึ้น กันถูกตัด
+    const bottomGap = 18
+    setTableCardHeight(Math.max(720, Math.floor(vh - rect.top - bottomGap)))
   }, [])
   useEffect(() => {
     recalcTableCardHeight()
@@ -586,7 +589,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
   }, [buildPayload, pushNotice])
 
   return (
-    <div className="w-full px-3 md:px-6 py-5">
+    <div className="w-full px-3 md:px-6 pt-5 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="text-xl md:text-2xl font-bold">รายได้อื่นๆ</div>
@@ -703,8 +706,13 @@ const BusinessPlanOtherIncomeTable = (props) => {
         </div>
       )}
 
-      <div ref={tableCardRef} className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-sm">
-        <div className="overflow-hidden" style={{ height: tableCardHeight }}>
+      {/* ✅ เปลี่ยนเป็น flex-col: footer ไม่โดนตัด */}
+      <div
+        ref={tableCardRef}
+        className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-sm overflow-hidden"
+        style={{ height: tableCardHeight }}
+      >
+        <div className="h-full flex flex-col">
           {/* Header */}
           <div className={cx("border-b border-slate-200 dark:border-slate-700", STRIPE.head)} style={{ width: TOTAL_W }}>
             <div className="flex">
@@ -733,8 +741,8 @@ const BusinessPlanOtherIncomeTable = (props) => {
             </div>
           </div>
 
-          {/* Body */}
-          <div className="overflow-auto" style={{ height: tableCardHeight - 58 - 64 }}>
+          {/* Body (flex-1) */}
+          <div className="flex-1 overflow-auto">
             <div style={{ width: TOTAL_W }}>
               {ROWS.map((r, idx) => {
                 const isAlt = idx % 2 === 1
@@ -742,9 +750,16 @@ const BusinessPlanOtherIncomeTable = (props) => {
                 const mapped = r.kind === "item" ? !!rowIdByCode[r.code] : true
 
                 return (
-                  <div key={r.code} className={cx("flex border-b border-slate-200 dark:border-slate-700", rowBg)} style={{ minHeight: r.kind === "item" ? 56 : 44 }}>
+                  <div
+                    key={r.code}
+                    className={cx("flex border-b border-slate-200 dark:border-slate-700", rowBg)}
+                    style={{ minHeight: r.kind === "item" ? 56 : 44 }}
+                  >
                     <div style={{ width: LEFT_W }} className="flex">
-                      <div style={{ width: COL_W.code }} className={cx("px-3 py-3 text-right font-semibold", r.kind === "title" && "text-lg")}>
+                      <div
+                        style={{ width: COL_W.code }}
+                        className={cx("px-3 py-3 text-right font-semibold", r.kind === "title" && "text-lg")}
+                      >
                         {r.kind === "item" ? r.code : ""}
                       </div>
 
@@ -770,18 +785,29 @@ const BusinessPlanOtherIncomeTable = (props) => {
                               />
                             </div>
                           ))}
-                          <div style={{ width: COL_W.total }} className="px-2 py-3 text-right font-semibold">
+                          {/* ✅ รวมไม่ชิดขอบ: pr-5 */}
+                          <div
+                            style={{ width: COL_W.total }}
+                            className="px-2 py-3 pr-5 text-right font-semibold tabular-nums"
+                          >
                             {fmtMoney0(computed.rowSum?.[r.code]?.total ?? 0)}
                           </div>
                         </div>
                       ) : r.kind === "subtotal" ? (
                         <div className="flex items-center">
                           {cols.map((c) => (
-                            <div key={c.key} style={{ width: COL_W.cell }} className="px-2 py-3 text-right font-bold">
+                            <div
+                              key={c.key}
+                              style={{ width: COL_W.cell }}
+                              className="px-2 py-3 text-right font-bold tabular-nums"
+                            >
                               {fmtMoney0(computed.colSum?.[c.key] ?? 0)}
                             </div>
                           ))}
-                          <div style={{ width: COL_W.total }} className="px-2 py-3 text-right font-extrabold">
+                          <div
+                            style={{ width: COL_W.total }}
+                            className="px-2 py-3 pr-5 text-right font-extrabold tabular-nums"
+                          >
                             {fmtMoney0(computed.grand)}
                           </div>
                         </div>
@@ -792,18 +818,24 @@ const BusinessPlanOtherIncomeTable = (props) => {
                   </div>
                 )
               })}
+              {/* ✅ เผื่อท้าย scroll กันโดน footer บัง */}
+              <div className="h-4" />
             </div>
           </div>
 
-          {/* Footer */}
-          <div className={cx("border-t border-slate-200 dark:border-slate-700", STRIPE.foot)} style={{ width: TOTAL_W }}>
-            <div className="flex items-center justify-between px-3 py-3">
+          {/* Footer (ชัวร์ว่าเห็นเต็ม) */}
+          <div
+            className={cx("border-t border-slate-200 dark:border-slate-700", STRIPE.foot, "shadow-[0_-8px_20px_-16px_rgba(0,0,0,0.35)]")}
+            style={{ width: TOTAL_W }}
+          >
+            <div className="flex items-center justify-between px-3 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
               <div className="text-sm text-slate-600 dark:text-slate-300">
-                plan_id=<span className="font-mono">{planId || "—"}</span> • branch_id=<span className="font-mono">{branchId || "—"}</span> • period=<span className="font-mono">{period}</span>
+                plan_id=<span className="font-mono">{planId || "—"}</span> • branch_id=
+                <span className="font-mono">{branchId || "—"}</span> • period=<span className="font-mono">{period}</span>
               </div>
               <button
                 className={cx(
-                  "rounded-2xl px-5 py-3 font-semibold",
+                  "rounded-2xl px-6 py-3 font-semibold",
                   "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
                   "disabled:opacity-60 disabled:cursor-not-allowed"
                 )}

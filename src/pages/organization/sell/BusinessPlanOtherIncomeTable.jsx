@@ -207,10 +207,11 @@ const resolveBusinessEarningId = (earningId, businessGroupId) =>
 
 /** ---------------- Rows ---------------- */
 const ROWS = [
-  { code: "2.1", label: "รายได้ดอกเบี้ยรับ", kind: "item", business_group: 7, earning_id: 24 },
+  // หมายเหตุ: earning_id อิงจากไฟล์ earnings ล่าสุด
+  { code: "2.1", label: "รายได้ดอกเบี้ยรับ", kind: "item", business_group: 7, earning_id: 22 },
   { code: "2.2", label: "รายได้เงินฝาก/ผลประโยชน์จากเงินฝาก", kind: "item", business_group: 7, earning_id: 25 },
-  { code: "2.3", label: "รายได้ค่าธรรมเนียม", kind: "item", business_group: 7, earning_id: 26 },
-  { code: "2.4", label: "รายได้จากการบริจาค", kind: "item", business_group: 7, earning_id: 5 }, // ⚠️ ถ้า BE ยังไม่มี mapping (5,7) จะ skip
+  { code: "2.3", label: "รายได้ค่าธรรมเนียม", kind: "item", business_group: 7, earning_id: 24 },
+  { code: "2.4", label: "เงินรางวัลจากการลงทุน-ทวีสิน", kind: "item", business_group: 7, earning_id: 26 },
   { code: "2.5", label: "รายได้เงินอุดหนุนจากรัฐ", kind: "item", business_group: 7, earning_id: 27 },
   { code: "2.6", label: "รายได้จากการรับรู้", kind: "item", business_group: 7, earning_id: 28 },
   { code: "2.7", label: "รายได้จากการขายซองประมูล", kind: "item", business_group: 7, earning_id: 29 },
@@ -262,6 +263,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
   )
 
   const gridTemplate = useMemo(() => {
+    // code + item + units... + total
     return `${GRID.code} ${GRID.item} ${cols.map(() => GRID.unit).join(" ")} ${GRID.total}`
   }, [cols])
 
@@ -295,8 +297,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
   const unmapped = useMemo(() => {
     const list = []
-    for (const r of itemRows)
-      if (!rowIdByCode[r.code]) list.push({ code: r.code, earning_id: r.earning_id, group: r.business_group })
+    for (const r of itemRows) if (!rowIdByCode[r.code]) list.push({ code: r.code, earning_id: r.earning_id, group: r.business_group })
     return list
   }, [rowIdByCode])
 

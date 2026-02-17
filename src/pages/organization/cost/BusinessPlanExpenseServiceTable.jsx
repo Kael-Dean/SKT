@@ -99,81 +99,60 @@ const cellInput =
 
 const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
 
-/** ---------------- Business group: ฝึกอบรม (ตาม BusinessGroups id=6) ---------------- */
-const BUSINESS_GROUP_ID = 6
-
-/** ---------------- Mapping: cost_id + business_group -> businesscosts.id ----------------
- * จาก businesscosts.csv (business_group=6) id 181..230
- * ⚠️ cost_id=23 ซ้ำ 2 แถว (id 207,212) -> map จะเลือกตัวแรก (207) ถ้าอยากใช้ตัวที่สองค่อย override business_cost_id
+/** ---------------- Business group ----------------
+ * ✅ หน้านี้ให้ใช้ business id = 8 (ตามที่ขอ)
+ * หมายเหตุ: ระบบ BE ใช้ mapping ผ่านตาราง businesscosts ด้วยคู่ค่า (cost_id + business_group)
  */
-const BUSINESS_COSTS_SEED = [
-  { id: 181, cost_id: 7, business_group: 6 },
-  { id: 182, cost_id: 78, business_group: 6 },
-  { id: 183, cost_id: 79, business_group: 6 },
-  { id: 184, cost_id: 77, business_group: 6 },
-  { id: 185, cost_id: 8, business_group: 6 },
-  { id: 186, cost_id: 61, business_group: 6 },
-  { id: 187, cost_id: 21, business_group: 6 },
-  { id: 188, cost_id: 34, business_group: 6 },
-  { id: 189, cost_id: 81, business_group: 6 },
-  { id: 190, cost_id: 19, business_group: 6 },
-  { id: 191, cost_id: 20, business_group: 6 },
-  { id: 192, cost_id: 18, business_group: 6 },
-  { id: 193, cost_id: 31, business_group: 6 },
-  { id: 194, cost_id: 22, business_group: 6 },
-  { id: 195, cost_id: 68, business_group: 6 },
-  { id: 196, cost_id: 16, business_group: 6 },
-  { id: 197, cost_id: 14, business_group: 6 },
-  { id: 198, cost_id: 26, business_group: 6 },
-  { id: 199, cost_id: 66, business_group: 6 },
-  { id: 200, cost_id: 64, business_group: 6 },
-  { id: 201, cost_id: 82, business_group: 6 },
-  { id: 202, cost_id: 11, business_group: 6 },
-  { id: 203, cost_id: 9, business_group: 6 },
-  { id: 204, cost_id: 83, business_group: 6 },
-  { id: 205, cost_id: 84, business_group: 6 },
-  { id: 206, cost_id: 85, business_group: 6 },
-  { id: 207, cost_id: 23, business_group: 6 }, // ซ้ำ
-  { id: 208, cost_id: 86, business_group: 6 },
-  { id: 209, cost_id: 10, business_group: 6 },
-  { id: 210, cost_id: 63, business_group: 6 },
-  { id: 211, cost_id: 87, business_group: 6 },
-  { id: 212, cost_id: 23, business_group: 6 }, // ซ้ำ
-  { id: 213, cost_id: 24, business_group: 6 },
-  { id: 214, cost_id: 88, business_group: 6 },
-  { id: 215, cost_id: 89, business_group: 6 },
-  { id: 216, cost_id: 90, business_group: 6 },
-  { id: 217, cost_id: 28, business_group: 6 },
-  { id: 218, cost_id: 62, business_group: 6 },
-  { id: 219, cost_id: 54, business_group: 6 },
-  { id: 220, cost_id: 91, business_group: 6 },
-  { id: 221, cost_id: 65, business_group: 6 },
-  { id: 222, cost_id: 56, business_group: 6 },
-  { id: 223, cost_id: 27, business_group: 6 },
-  { id: 224, cost_id: 35, business_group: 6 },
-  { id: 225, cost_id: 92, business_group: 6 },
-  { id: 226, cost_id: 93, business_group: 6 },
-  { id: 227, cost_id: 94, business_group: 6 },
-  { id: 228, cost_id: 95, business_group: 6 },
-  { id: 229, cost_id: 96, business_group: 6 },
-  { id: 230, cost_id: 36, business_group: 6 },
-]
+const BUSINESS_GROUP_ID = 8
 
-const BUSINESS_COST_ID_MAP = (() => {
-  const m = new Map()
-  for (const r of BUSINESS_COSTS_SEED) {
-    const key = `${Number(r.cost_id)}:${Number(r.business_group)}`
-    if (!m.has(key)) m.set(key, Number(r.id)) // ซ้ำเก็บตัวแรกเสมอ
+/** ---------------- Dynamic Mapping: cost_id + business_group -> businesscosts.id ----------------
+ * พยายามดึง mapping จาก BE โดยตรงเพื่อให้ "แมพครบ" ตาม DB ล่าสุด
+ * (ถ้า BE ไม่มี endpoint นี้จริง ๆ จะเห็นรายการยังไม่แมพ และจะบล็อกตอนบันทึกถ้ามีการกรอกตัวเลข)
+ */
+async function fetchBusinessCostsByGroup(businessGroupId) {
+  const candidates = [
+    `/lists/businesscosts/search?business_group=${businessGroupId}`,
+    `/lists/businesscosts/search?business_group_id=${businessGroupId}`,
+    `/lists/business-costs/search?business_group=${businessGroupId}`,
+    `/lists/business-costs/search?business_group_id=${businessGroupId}`,
+    `/businesscosts/search?business_group=${businessGroupId}`,
+    `/businesscosts/search?business_group_id=${businessGroupId}`,
+  ]
+
+  let lastErr = null
+  for (const path of candidates) {
+    try {
+      const data = await apiAuth(path)
+      // รองรับหลายรูปแบบ: list ตรง ๆ หรือ {rows: []} หรือ {data: []}
+      const rows = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.rows)
+        ? data.rows
+        : Array.isArray(data?.data)
+        ? data.data
+        : []
+
+      const normalized = rows
+        .map((r) => ({
+          id: Number(r.id || 0),
+          cost_id: Number(r.cost_id || r.costId || 0),
+          business_group: Number(r.business_group || r.businessGroup || r.business_group_id || businessGroupId || 0),
+        }))
+        .filter((r) => r.id > 0 && r.cost_id > 0)
+
+      // ถ้า endpoint ตอบมาเป็นลิสว่าง เราถือว่ายังไม่เจอ → ลองตัวถัดไป
+      if (!normalized.length) continue
+      return { rows: normalized, from: path }
+    } catch (e) {
+      lastErr = e
+      // ลอง endpoint ถัดไป
+    }
   }
-  return m
-})()
 
-const resolveBusinessCostId = (costId, businessGroupId) =>
-  BUSINESS_COST_ID_MAP.get(`${Number(costId)}:${Number(businessGroupId)}`) ?? null
-
-const resolveRowBusinessCostId = (row) => {
-  if (row?.business_cost_id) return Number(row.business_cost_id)
-  return resolveBusinessCostId(row?.cost_id, BUSINESS_GROUP_ID)
+  const msg =
+    lastErr?.message ||
+    "ไม่พบ endpoint สำหรับโหลด mapping businesscosts (ลองหลาย path แล้ว)"
+  throw new ApiError(msg, { status: lastErr?.status || 0, cause: lastErr })
 }
 
 /** ---------------- Rows: ค่าใช้จ่ายเฉพาะ ธุรกิจบริการ ---------------- */
@@ -185,8 +164,6 @@ const ROWS = [
   { code: "8.3", label: "ค่าเครื่องเขียนแบบพิมพ์", kind: "item", cost_id: 34 },
   { code: "8.4", label: "ค่าของใช้สำนักงาน", kind: "item", cost_id: 26 },
 
-  // ⚠️ หมายเหตุ: cost_id=71 (ค่าวัสดุ) ยังไม่มีใน businesscosts group=6 ตามไฟล์ csv
-  // ถ้าอยากให้แถวนี้บันทึกได้ ต้องมี businesscosts (cost_id=71, business_group=6) ใน DB
   { code: "8.5", label: "ค่าวัสดุสนง.", kind: "item", cost_id: 71 },
 
   { code: "8.6", label: "ค่าโทรศัพท์", kind: "item", cost_id: 14 },
@@ -258,6 +235,61 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
 
   const [period, setPeriod] = useState(defaultPeriodLabel)
   useEffect(() => setPeriod(defaultPeriodLabel), [defaultPeriodLabel])
+
+  /** ---------------- BusinessCosts mapping (จาก DB) ---------------- */
+  const [businessCosts, setBusinessCosts] = useState([])
+  const [isLoadingBusinessCosts, setIsLoadingBusinessCosts] = useState(false)
+  const [businessCostsFrom, setBusinessCostsFrom] = useState("")
+  const [businessCostsErr, setBusinessCostsErr] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      setIsLoadingBusinessCosts(true)
+      setBusinessCostsErr(null)
+      try {
+        const out = await fetchBusinessCostsByGroup(BUSINESS_GROUP_ID)
+        if (!alive) return
+        setBusinessCosts(out.rows || [])
+        setBusinessCostsFrom(out.from || "")
+      } catch (e) {
+        console.error("[BusinessCosts mapping load] failed:", e)
+        if (!alive) return
+        setBusinessCosts([])
+        setBusinessCostsFrom("")
+        setBusinessCostsErr(e?.message || String(e))
+      } finally {
+        if (alive) setIsLoadingBusinessCosts(false)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const businessCostIdMap = useMemo(() => {
+    const m = new Map()
+    for (const r of businessCosts) {
+      const key = `${Number(r.cost_id)}:${Number(r.business_group)}`
+      // ถ้าซ้ำ ให้เก็บตัวแรก (เหมือนเดิม)
+      if (!m.has(key)) m.set(key, Number(r.id))
+    }
+    return m
+  }, [businessCosts])
+
+  const resolveBusinessCostId = useCallback(
+    (costId, businessGroupId) =>
+      businessCostIdMap.get(`${Number(costId)}:${Number(businessGroupId)}`) ?? null,
+    [businessCostIdMap]
+  )
+
+  const resolveRowBusinessCostId = useCallback(
+    (row) => {
+      if (row?.business_cost_id) return Number(row.business_cost_id)
+      return resolveBusinessCostId(row?.cost_id, BUSINESS_GROUP_ID)
+    },
+    [resolveBusinessCostId]
+  )
 
   /** ---------------- Units (columns) ---------------- */
   const [units, setUnits] = useState([])
@@ -359,7 +391,7 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
     } finally {
       setIsLoadingSaved(false)
     }
-  }, [effectivePlanId, effectiveBranchId, units.length, itemRows, normalizeGrid])
+  }, [effectivePlanId, effectiveBranchId, units.length, itemRows, normalizeGrid, resolveRowBusinessCostId])
 
   useEffect(() => {
     loadSavedFromBE()
@@ -380,8 +412,7 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
     return itemRows
       .filter((r) => !resolveRowBusinessCostId(r))
       .map((r) => ({ code: r.code, label: r.label, cost_id: r.cost_id }))
-  }, [itemRows])
-
+  }, [itemRows, resolveRowBusinessCostId])
 
   /** ---------------- Totals ---------------- */
   const computed = useMemo(() => {
@@ -537,7 +568,7 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
     }
 
     return { rows, skipped }
-  }, [effectivePlanId, effectiveBranchId, units, itemRows, valuesByCode, period])
+  }, [effectivePlanId, effectiveBranchId, units, itemRows, valuesByCode, period, resolveRowBusinessCostId])
 
   const payloadPreview = useMemo(() => {
     try {
@@ -668,6 +699,14 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
                 {isLoadingUnits ? "กำลังโหลด..." : units.length}
                 {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
               </div>
+              <div className="mt-1 text-[12px] text-slate-500 dark:text-slate-300">
+                ธุรกิจ={BUSINESS_GROUP_ID} • mapping:{" "}
+                {isLoadingBusinessCosts
+                  ? "กำลังโหลด..."
+                  : businessCostsErr
+                  ? `โหลดไม่สำเร็จ (${businessCostsErr})`
+                  : `เจอ ${businessCosts.length} รายการ${businessCostsFrom ? ` • ${businessCostsFrom}` : ""}`}
+              </div>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -724,7 +763,6 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
           </div>
         </div>
 
-
         {unmappedStatic.length > 0 ? (
           <div
             className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900
@@ -746,7 +784,6 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
             </div>
           </div>
         )}
-
 
         {showPayload && (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800
@@ -920,22 +957,20 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
                             data-col={colIdx}
                             onKeyDown={handleArrowNav}
                             className={cellInput}
-                            value={valuesByCode?.[r.code]?.[u.id] ?? ""}
                             inputMode="decimal"
+                            value={valuesByCode?.[r.code]?.[u.id] ?? ""}
+                            onChange={(e) => setCell(r.code, u.id, sanitizeNumberInput(e.target.value))}
                             placeholder="0"
-                            onChange={(e) =>
-                              setCell(r.code, u.id, sanitizeNumberInput(e.target.value, { maxDecimals: 3 }))
-                            }
                           />
                         </td>
                       ))
                     ) : (
-                      <td className="border border-slate-300 px-2 py-2 dark:border-slate-600 text-center text-xs text-slate-500">
-                        —
+                      <td className="border border-slate-300 px-1 py-2 text-center text-xs dark:border-slate-600">
+                        -
                       </td>
                     )}
 
-                    <td className="border border-slate-300 px-1 py-2 text-right font-extrabold text-xs dark:border-slate-600">
+                    <td className="border border-slate-300 px-2 py-2 text-right font-bold text-xs dark:border-slate-600">
                       {fmtMoney0(rowSum)}
                     </td>
                   </tr>
@@ -943,11 +978,11 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
               })}
             </tbody>
 
-            <tfoot className="sticky bottom-0 z-[75]">
+            <tfoot className="sticky bottom-0 z-[60]">
               <tr className={cx("text-slate-900 dark:text-slate-100", STRIPE.foot)}>
                 <td
                   className={cx(
-                    "border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600",
+                    "border border-slate-300 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-600",
                     stickyCodeCell,
                     STRIPE.foot
                   )}
@@ -956,8 +991,8 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
                 </td>
                 <td
                   className={cx(
-                    "border border-slate-300 px-2 py-2 text-left font-extrabold text-xs dark:border-slate-600",
-                    "sticky z-[60]",
+                    "border border-slate-300 px-2 py-2 text-left text-xs font-extrabold dark:border-slate-600",
+                    "sticky z-[55]",
                     STRIPE.foot,
                     trunc
                   )}
@@ -969,18 +1004,19 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
                 {units.length ? (
                   units.map((u) => (
                     <td
-                      key={`total-${u.id}`}
-                      className="border border-slate-300 px-1 py-2 text-right font-bold text-xs dark:border-slate-600"
-                      title={u.name}
+                      key={`foot-${u.id}`}
+                      className="border border-slate-300 px-2 py-2 text-right text-xs font-extrabold dark:border-slate-600"
                     >
                       {fmtMoney0(computed.unitTotal[u.id] || 0)}
                     </td>
                   ))
                 ) : (
-                  <td className="border border-slate-300 px-2 py-2 dark:border-slate-600" />
+                  <td className="border border-slate-300 px-2 py-2 text-right text-xs font-extrabold dark:border-slate-600">
+                    0
+                  </td>
                 )}
 
-                <td className="border border-slate-300 px-1 py-2 text-right font-extrabold text-xs dark:border-slate-600">
+                <td className="border border-slate-300 px-2 py-2 text-right text-xs font-extrabold dark:border-slate-600">
                   {fmtMoney0(computed.grand)}
                 </td>
               </tr>
@@ -988,26 +1024,29 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
           </table>
         </div>
 
-        {/* ✅ แถบล่างสุดเหมือนไฟล์จัดหา */}
-        <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="text-sm text-slate-600 dark:text-slate-300">
-              บันทึก: <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span> • plan_id=
-              {effectivePlanId || "-"} • ปี={effectiveYear} • สาขา={effectiveBranchName}
+        {/* Save bar (bottom right like other pages) */}
+        <div className="shrink-0 border-t border-slate-200 dark:border-slate-700">
+          <div className="flex flex-col gap-2 p-2 md:flex-row md:items-center md:justify-between md:p-3">
+            <div className="text-xs text-slate-600 dark:text-slate-300">
+              endpoint: <span className="font-mono">{`/business-plan/${effectivePlanId || "-"}/costs/bulk`}</span> • ธุรกิจ{" "}
+              {BUSINESS_GROUP_ID} • ปี {effectiveYear} • สาขา {effectiveBranchName}
             </div>
 
-            <button
-              type="button"
-              disabled={isSaving}
-              onClick={saveToBE}
-              className={cx(
-                "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white",
-                "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",
-                isSaving && "opacity-60 hover:scale-100 cursor-not-allowed"
-              )}
-            >
-              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
-            </button>
+            <div className="flex items-center gap-2 md:justify-end">
+              <button
+                type="button"
+                onClick={saveToBE}
+                disabled={isSaving || !effectiveBranchId || !effectivePlanId}
+                className={cx(
+                  "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-extrabold text-white transition shadow-[0_10px_24px_rgba(16,185,129,0.35)]",
+                  isSaving || !effectiveBranchId || !effectivePlanId
+                    ? "bg-slate-400 cursor-not-allowed"
+                    : "bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.02] active:scale-[.98]"
+                )}
+              >
+                {isSaving ? "กำลังบันทึก..." : "บันทึก"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

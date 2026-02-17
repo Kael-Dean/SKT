@@ -100,63 +100,67 @@ const cellInput =
 const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
 
 /** ---------------- Business group: ฝึกอบรม (ตาม BusinessGroups id=6) ---------------- */
-const BUSINESS_GROUP_ID = 6
+/** ---------------- Business group: (กำหนดให้ใช้ business_group / business id = 8) ---------------- */
+const BUSINESS_GROUP_ID = 8
 
 /** ---------------- Mapping: cost_id + business_group -> businesscosts.id ----------------
- * จาก businesscosts.csv (business_group=6) id 181..230
+ * (กลุ่มธุรกิจ=8)
  * ⚠️ cost_id=23 ซ้ำ 2 แถว (id 207,212) -> map จะเลือกตัวแรก (207) ถ้าอยากใช้ตัวที่สองค่อย override business_cost_id
  */
 const BUSINESS_COSTS_SEED = [
-  { id: 181, cost_id: 7, business_group: 6 },
-  { id: 182, cost_id: 78, business_group: 6 },
-  { id: 183, cost_id: 79, business_group: 6 },
-  { id: 184, cost_id: 77, business_group: 6 },
-  { id: 185, cost_id: 8, business_group: 6 },
-  { id: 186, cost_id: 61, business_group: 6 },
-  { id: 187, cost_id: 21, business_group: 6 },
-  { id: 188, cost_id: 34, business_group: 6 },
-  { id: 189, cost_id: 81, business_group: 6 },
-  { id: 190, cost_id: 19, business_group: 6 },
-  { id: 191, cost_id: 20, business_group: 6 },
-  { id: 192, cost_id: 18, business_group: 6 },
-  { id: 193, cost_id: 31, business_group: 6 },
-  { id: 194, cost_id: 22, business_group: 6 },
-  { id: 195, cost_id: 68, business_group: 6 },
-  { id: 196, cost_id: 16, business_group: 6 },
-  { id: 197, cost_id: 14, business_group: 6 },
-  { id: 198, cost_id: 26, business_group: 6 },
-  { id: 199, cost_id: 66, business_group: 6 },
-  { id: 200, cost_id: 64, business_group: 6 },
-  { id: 201, cost_id: 82, business_group: 6 },
-  { id: 202, cost_id: 11, business_group: 6 },
-  { id: 203, cost_id: 9, business_group: 6 },
-  { id: 204, cost_id: 83, business_group: 6 },
-  { id: 205, cost_id: 84, business_group: 6 },
-  { id: 206, cost_id: 85, business_group: 6 },
-  { id: 207, cost_id: 23, business_group: 6 }, // ซ้ำ
-  { id: 208, cost_id: 86, business_group: 6 },
-  { id: 209, cost_id: 10, business_group: 6 },
-  { id: 210, cost_id: 63, business_group: 6 },
-  { id: 211, cost_id: 87, business_group: 6 },
-  { id: 212, cost_id: 23, business_group: 6 }, // ซ้ำ
-  { id: 213, cost_id: 24, business_group: 6 },
-  { id: 214, cost_id: 88, business_group: 6 },
-  { id: 215, cost_id: 89, business_group: 6 },
-  { id: 216, cost_id: 90, business_group: 6 },
-  { id: 217, cost_id: 28, business_group: 6 },
-  { id: 218, cost_id: 62, business_group: 6 },
-  { id: 219, cost_id: 54, business_group: 6 },
-  { id: 220, cost_id: 91, business_group: 6 },
-  { id: 221, cost_id: 65, business_group: 6 },
-  { id: 222, cost_id: 56, business_group: 6 },
-  { id: 223, cost_id: 27, business_group: 6 },
-  { id: 224, cost_id: 35, business_group: 6 },
-  { id: 225, cost_id: 92, business_group: 6 },
-  { id: 226, cost_id: 93, business_group: 6 },
-  { id: 227, cost_id: 94, business_group: 6 },
-  { id: 228, cost_id: 95, business_group: 6 },
-  { id: 229, cost_id: 96, business_group: 6 },
-  { id: 230, cost_id: 36, business_group: 6 },
+  { id: 181, cost_id: 7, business_group: 8 },
+  { id: 182, cost_id: 78, business_group: 8 },
+  { id: 183, cost_id: 79, business_group: 8 },
+  { id: 184, cost_id: 77, business_group: 8 },
+  { id: 185, cost_id: 8, business_group: 8 },
+  { id: 186, cost_id: 61, business_group: 8 },
+  { id: 187, cost_id: 21, business_group: 8 },
+  { id: 188, cost_id: 34, business_group: 8 },
+  { id: 189, cost_id: 81, business_group: 8 },
+  { id: 190, cost_id: 19, business_group: 8 },
+  { id: 191, cost_id: 20, business_group: 8 },
+  { id: 192, cost_id: 18, business_group: 8 },
+  { id: 193, cost_id: 31, business_group: 8 },
+  { id: 194, cost_id: 22, business_group: 8 },
+  { id: 195, cost_id: 68, business_group: 8 },
+  { id: 196, cost_id: 16, business_group: 8 },
+  { id: 197, cost_id: 14, business_group: 8 },
+  { id: 198, cost_id: 26, business_group: 8 },
+  { id: 199, cost_id: 66, business_group: 8 },
+  { id: 200, cost_id: 64, business_group: 8 },
+  { id: 201, cost_id: 82, business_group: 8 },
+  { id: 202, cost_id: 11, business_group: 8 },
+  { id: 203, cost_id: 9, business_group: 8 },
+  { id: 204, cost_id: 83, business_group: 8 },
+  { id: 205, cost_id: 84, business_group: 8 },
+  { id: 206, cost_id: 85, business_group: 8 },
+  { id: 207, cost_id: 23, business_group: 8 }, // ซ้ำ
+  { id: 208, cost_id: 86, business_group: 8 },
+  { id: 209, cost_id: 10, business_group: 8 },
+  { id: 210, cost_id: 63, business_group: 8 },
+  { id: 211, cost_id: 87, business_group: 8 },
+  { id: 212, cost_id: 23, business_group: 8 }, // ซ้ำ
+  { id: 213, cost_id: 24, business_group: 8 },
+  { id: 214, cost_id: 88, business_group: 8 },
+  { id: 215, cost_id: 89, business_group: 8 },
+  { id: 216, cost_id: 90, business_group: 8 },
+  { id: 217, cost_id: 28, business_group: 8 },
+  { id: 218, cost_id: 62, business_group: 8 },
+  { id: 219, cost_id: 54, business_group: 8 },
+  { id: 220, cost_id: 91, business_group: 8 },
+  { id: 221, cost_id: 65, business_group: 8 },
+  { id: 222, cost_id: 56, business_group: 8 },
+  { id: 223, cost_id: 27, business_group: 8 },
+  { id: 224, cost_id: 35, business_group: 8 },
+  { id: 225, cost_id: 92, business_group: 8 },
+  { id: 226, cost_id: 93, business_group: 8 },
+  { id: 227, cost_id: 94, business_group: 8 },
+  { id: 228, cost_id: 95, business_group: 8 },
+  { id: 229, cost_id: 96, business_group: 8 },
+  { id: 230, cost_id: 36, business_group: 8 },
+
+  // ✅ ตามที่กำหนด: ค่าวัสดุสนง. ให้แมพเป็น business_cost_id = 71
+  { id: 71, cost_id: 71, business_group: 8 },
 ]
 
 const BUSINESS_COST_ID_MAP = (() => {
@@ -172,9 +176,12 @@ const resolveBusinessCostId = (costId, businessGroupId) =>
   BUSINESS_COST_ID_MAP.get(`${Number(costId)}:${Number(businessGroupId)}`) ?? null
 
 const resolveRowBusinessCostId = (row) => {
+  // ✅ บังคับแมพ “ค่าวัสดุสนง.” เป็น id 71 (business_cost_id)
+  if (Number(row?.cost_id) === 71) return 71
   if (row?.business_cost_id) return Number(row.business_cost_id)
   return resolveBusinessCostId(row?.cost_id, BUSINESS_GROUP_ID)
 }
+
 
 /** ---------------- Rows: ค่าใช้จ่ายเฉพาะ ธุรกิจบริการ ---------------- */
 const ROWS = [

@@ -118,7 +118,8 @@ const cellInput =
 const PERIOD_DEFAULT = "1 เม.ย.68-31 มี.ค.69"
 
 /** lock width ให้ตรงกันทุกส่วน (ย่อให้เห็นได้ในหน้าเดียวมากขึ้น) */
-const COL_W = { code: 60, item: 360, cell: 96, total: 96 }
+// ขยายคอลัมน์หน่วยเล็กน้อย เพื่อให้ชื่อยาว (เช่น "เขวาสินรินทร์") อยู่บรรทัดเดียว
+const COL_W = { code: 60, item: 360, cell: 104, total: 104 }
 const LEFT_W = COL_W.code + COL_W.item
 
 const STRIPE = {
@@ -889,7 +890,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
         {/* Table */}
         <div className="mt-4 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
           {/* HEADER (sync horizontal scroll with body) */}
-          <div className={cx("border-b border-slate-200 dark:border-slate-700", STRIPE.head)}>
+          <div className={cx(STRIPE.head)}>
             <div className="flex w-full">
               {/* left frozen */}
               <div className="shrink-0" style={{ width: LEFT_W }}>
@@ -900,8 +901,8 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                   </colgroup>
                   <thead>
                     <tr className="font-bold text-slate-800 dark:text-slate-100">
-                      <th className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">รหัส</th>
-                      <th className="border border-slate-300 px-3 py-2 text-left align-middle dark:border-slate-600">รายการ</th>
+                      <th className="border border-slate-300 px-2 py-2 text-center align-middle whitespace-nowrap dark:border-slate-600">รหัส</th>
+                      <th className="border border-slate-300 border-r-0 px-3 py-2 text-left align-middle whitespace-nowrap dark:border-slate-600">รายการ</th>
                     </tr>
                   </thead>
                 </table>
@@ -920,11 +921,14 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                     <thead>
                       <tr className="font-bold text-slate-800 dark:text-slate-100">
                         {cols.map((c) => (
-                          <th key={c.key} className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">
+                          <th
+                            key={c.key}
+                            className="border border-slate-300 px-2 py-2 text-center align-middle whitespace-nowrap dark:border-slate-600"
+                          >
                             {c.label}
                           </th>
                         ))}
-                        <th className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">รวม</th>
+                        <th className="border border-slate-300 px-2 py-2 text-center align-middle whitespace-nowrap dark:border-slate-600">รวม</th>
                       </tr>
                     </thead>
                   </table>
@@ -960,14 +964,19 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                               : "font-medium"
 
                           const isUnmapped = r.kind === "item" && !resolveRowBusinessEarningId(r)
+                          // กันเส้นซ้อนระหว่างหัวตารางกับแถวแรก (เอาเส้นบนของแถวแรกออก)
+                          const topOff = idx === 0 ? "border-t-0" : ""
 
                           return (
                             <tr key={`L-${r.code}`} className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/70")} style={{ height: h }}>
-                              <td className="border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600">
+                              <td className={cx("border border-slate-300 px-2 py-2 text-center align-middle dark:border-slate-600", topOff)}>
                                 {r.kind === "title" ? "" : r.code}
                               </td>
                               <td
-                                className="border border-slate-300 px-3 py-2 text-left align-middle dark:border-slate-600"
+                                className={cx(
+                                  "border border-slate-300 border-r-0 px-3 py-2 text-left align-middle dark:border-slate-600",
+                                  topOff
+                                )}
                                 title={isUnmapped ? `${r.label} (ยังไม่แมพ)` : r.label}
                               >
                                 <span className={cx(isUnmapped && "text-amber-700 dark:text-amber-200")}>
@@ -1009,14 +1018,19 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
 
                             const itemIndex = r.kind === "item" ? itemRows.findIndex((x) => x.code === r.code) : -1
                             const isUnmapped = r.kind === "item" && !resolveRowBusinessEarningId(r)
+                            // กันเส้นซ้อนระหว่างหัวตารางกับแถวแรก (เอาเส้นบนของแถวแรกออก)
+                            const topOff = idx === 0 ? "border-t-0" : ""
 
                             if (r.kind === "title" || r.kind === "section") {
                               return (
                                 <tr key={`R-${r.code}`} className={cx(bg, font)} style={{ height: h }}>
                                   {cols.map((c) => (
-                                    <td key={`${r.code}-${c.key}`} className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600" />
+                                    <td
+                                      key={`${r.code}-${c.key}`}
+                                      className={cx("border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600", topOff)}
+                                    />
                                   ))}
-                                  <td className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600" />
+                                  <td className={cx("border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600", topOff)} />
                                 </tr>
                               )
                             }
@@ -1028,12 +1042,12 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                                   {cols.map((c) => (
                                     <td
                                       key={`${r.code}-${c.key}`}
-                                      className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600"
+                                      className={cx("border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600", topOff)}
                                     >
                                       {fmtMoney0(s.perCol?.[c.key] ?? 0)}
                                     </td>
                                   ))}
-                                  <td className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600">
+                                  <td className={cx("border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600", topOff)}>
                                     {fmtMoney0(s.total ?? 0)}
                                   </td>
                                 </tr>
@@ -1046,12 +1060,12 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                                   {cols.map((c) => (
                                     <td
                                       key={`${r.code}-${c.key}`}
-                                      className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600"
+                                      className={cx("border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600", topOff)}
                                     >
                                       {fmtMoney0(computed.grandPerCol?.[c.key] ?? 0)}
                                     </td>
                                   ))}
-                                  <td className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600">
+                                  <td className={cx("border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600", topOff)}>
                                     {fmtMoney0(computed.grand ?? 0)}
                                   </td>
                                 </tr>
@@ -1063,7 +1077,10 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                             return (
                               <tr key={`R-${r.code}`} className={cx(bg, font, isUnmapped && "ring-1 ring-amber-300/40")} style={{ height: h }}>
                                 {cols.map((c, colIndex) => (
-                                  <td key={`${r.code}-${c.key}`} className="border border-slate-300 px-2 py-1.5 align-middle dark:border-slate-600">
+                                  <td
+                                    key={`${r.code}-${c.key}`}
+                                    className={cx("border border-slate-300 px-2 py-1.5 align-middle dark:border-slate-600", topOff)}
+                                  >
                                     <div className="h-full flex items-center">
                                     <input
                                       ref={registerInput(r.code, c.key)}
@@ -1078,7 +1095,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                                     </div>
                                   </td>
                                 ))}
-                                <td className="border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600">
+                                <td className={cx("border border-slate-300 px-2 py-2 text-right align-middle dark:border-slate-600", topOff)}>
                                   {fmtMoney0(computed.rowTotal[r.code] ?? 0)}
                                 </td>
                               </tr>
@@ -1105,7 +1122,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
                   <tbody>
                     <tr className={cx("font-extrabold text-slate-900 dark:text-emerald-100", STRIPE.foot)}>
                       <td className="border border-slate-200 px-2 py-2 text-center dark:border-slate-700" />
-                      <td className="border border-slate-200 px-3 py-2 dark:border-slate-700 text-center">รวมรายได้</td>
+                      <td className="border border-slate-200 border-r-0 px-3 py-2 dark:border-slate-700 text-center">รวมรายได้</td>
                     </tr>
                   </tbody>
                 </table>

@@ -211,7 +211,8 @@ const STRIPE = {
   head: "bg-slate-100/90 dark:bg-slate-700/70",
   cell: "bg-white dark:bg-slate-900",
   alt: "bg-slate-50 dark:bg-slate-800",
-  foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
+  // ✅ แถวสรุป (รวมทั้งสิ้น) ให้พื้นหลังทึบ ไม่โปร่งใส
+  foot: "bg-emerald-100 dark:bg-emerald-900",
 }
 
 /**

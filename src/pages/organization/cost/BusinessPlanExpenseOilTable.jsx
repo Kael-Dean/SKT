@@ -320,7 +320,7 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
     setIsLoadingSaved(true)
     try {
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs?branch_id=${effectiveBranchId}`)
-      const unitCells = Array.isArray(data?.unit_cells) ? data.unit_cells : []
+      const unitCells = Array.isArray(data?.unit_costs) ? data.unit_cells : []
 
       // map business_cost_id -> row.code (กันกรณี cost_id ซ้ำ)
       const bcToCode = new Map()

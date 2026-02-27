@@ -311,7 +311,7 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
     setIsLoadingSaved(true)
     try {
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs?branch_id=${effectiveBranchId}`)
-      const unitCells = Array.isArray(data?.unit_cells) ? data.unit_cells : []
+      const unitCells = Array.isArray(data?.unit_costs) ? data.unit_costs : []
       const bcToCode = new Map()
       for (const r of itemRows) {
         const bcId = resolveRowBusinessCostId(r)

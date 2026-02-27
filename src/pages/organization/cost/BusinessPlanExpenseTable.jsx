@@ -199,8 +199,9 @@ const ROWS = [
 const COL_W = { code: 56, item: 260, unit: 130, total: 90 }
 const LEFT_W = COL_W.code + COL_W.item
 
+// ✅ แก้ไข: ลบ /90 /70 /55 ออกให้หมด เพื่อไม่ให้สีโปร่งแสง
 const STRIPE = {
-  head: "bg-slate-100/90 dark:bg-slate-700/70",
+  head: "bg-slate-100 dark:bg-slate-700",
   cell: "bg-white dark:bg-slate-900",
   alt: "bg-slate-50 dark:bg-slate-800",
   foot: "bg-emerald-100 dark:bg-emerald-900",
@@ -648,7 +649,7 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
       <div
         ref={tableCardRef}
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
-        style={{ maxHeight: tableCardHeight }} // ✅ แก้ไขตรงนี้เป็น maxHeight ป้องกันการ์ดยืดจนเกิดช่องว่าง
+        style={{ maxHeight: tableCardHeight }}
       >
         {/* Table Scrolling Box */}
         <div
@@ -713,13 +714,14 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
               {ROWS.map((r) => {
                 if (r.kind === "section") {
                   return (
-                    <tr key={r.code} className="bg-slate-200/70 dark:bg-slate-700/55">
-                      <td className={cx("border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600", stickyCodeCell, "bg-slate-200/70 dark:bg-slate-700/55")}>
+                    // ✅ แก้ไข: กำหนดสีพื้นหลังให้ทึบ (bg-slate-200 dark:bg-slate-700) ไม่ใช้ /70 หรือ /55
+                    <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">
+                      <td className={cx("border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600", stickyCodeCell, "bg-slate-200 dark:bg-slate-700")}>
                         {r.code}
                       </td>
                       <td
                         colSpan={(units.length ? units.length : 1) + 2}
-                        className={cx("border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600", "sticky z-[55] bg-slate-200/70 dark:bg-slate-700/55", trunc)}
+                        className={cx("border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600", "sticky z-[55] bg-slate-200 dark:bg-slate-700", trunc)}
                         style={{ left: COL_W.code }}
                       >
                         {r.label}
@@ -777,7 +779,7 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
           </table>
         </div>
 
-        {/* ✅ Fix 2: แถวสรุปรวมถูกแยกออกมาด้านล่าง เพื่อหลีกเลี่ยง Scrollbar แนบสนิทช่อง action bar */}
+        {/* แถวสรุปรวม */}
         <div className="shrink-0 bg-emerald-100 dark:bg-emerald-900 border-t border-slate-300 dark:border-slate-700">
           <div className="flex w-full">
             {/* ซ้าย (พาร์ทที่ถูกตรึง) */}

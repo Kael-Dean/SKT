@@ -213,7 +213,7 @@ const ROWS = [
   { code: "9.23", label: "ค่าเบี้ยประกันภัย", kind: "item", cost_id: 9 },
 
   // ❌ ยังไม่แมพ (group 6 ไม่มี cost_id=71)
-  { code: "9.24", label: "ค่าวัสดุสำนักงาน", kind: "item", cost_id: 71 },
+  { code: "9.24", label: "ค่าเช่าสำนักงาน", kind: "item", cost_id: 71 },
 
   { code: "9.25", label: "ค่าแบบฟอร์ม-กรรมการ", kind: "item", cost_id: 84 },
   { code: "9.26", label: "ค่าใช้จ่ายในการประชุมคณะกรรมการ", kind: "item", cost_id: 85 },
@@ -225,7 +225,7 @@ const ROWS = [
   { code: "9.30", label: "ค่าธรรมเนียมโอนเงินธนาคาร", kind: "item", cost_id: 63 },
 
   // ❌ ยังไม่แมพ (group 6 ไม่มี cost_id=49)
-  { code: "9.31", label: "ขาดทุนจากการยกเลิกใช้อาคาร", kind: "item", cost_id: 49 },
+  { code: "9.31", label: "ขาดทุนจากการยกเลิกใช้ครุภัณฑ์", kind: "item", cost_id: 49 },
 
   { code: "9.32", label: "ค่าน้ำมันเชื้อเพลิง - 4 ล้อ", kind: "item", cost_id: 23, business_cost_id: 212 },
   { code: "9.33", label: "ค่ากิจกรรมสัมพันธ์", kind: "item", cost_id: 24 },
@@ -237,7 +237,7 @@ const ROWS = [
   { code: "9.39", label: "ค่าตกแต่งภูมิทัศน์", kind: "item", cost_id: 54 },
 
   // ❌ ยังไม่แมพ (group 6 ไม่มี cost_id=46)
-  { code: "9.40", label: "ค่าใช้จ่ายตัดจ่าย", kind: "item", cost_id: 46 },
+  { code: "9.40", label: "ค่าใช้จ่ายสำรอง", kind: "item", cost_id: 46 },
 
   { code: "9.41", label: "ค่าใช้จ่ายงานบ้านงานครัว", kind: "item", cost_id: 65 },
   { code: "9.42", label: "ค่าประชาสัมพันธ์", kind: "item", cost_id: 56 },

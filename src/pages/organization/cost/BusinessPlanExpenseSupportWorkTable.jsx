@@ -181,7 +181,6 @@ const resolveRowBusinessCostId = (row) => {
 
 /** ---------------- Rows (ค่าใช้จ่ายดำเนินงาน) ----------------
  * ใส่ cost_id ให้ครบเพื่อผูก BE
- * แถวที่ยังไม่อยู่ใน mapping จะถูก “แจ้ง/ข้าม” และถ้ากรอกเลขจะบันทึกไม่ได้
  */
 const ROWS = [
   { code: "9", label: "ค่าใช้จ่ายดำเนินงาน", kind: "section" },
@@ -212,20 +211,20 @@ const ROWS = [
   { code: "9.22", label: "ค่าใช้จ่ายยานพาหนะ", kind: "item", cost_id: 11 },
   { code: "9.23", label: "ค่าเบี้ยประกันภัย", kind: "item", cost_id: 9 },
 
-  // ❌ ยังไม่แมพ (group 6 ไม่มี cost_id=71)
-  { code: "9.24", label: "ค่าเช่าสำนักงาน", kind: "item", cost_id: 71 },
+  // ✅ แมพใหม่ตามแจ้ง
+  { code: "9.24", label: "ค่าเช่าสำนักงาน", kind: "item", cost_id: 82, business_cost_id: 204 },
 
   { code: "9.25", label: "ค่าแบบฟอร์ม-กรรมการ", kind: "item", cost_id: 84 },
   { code: "9.26", label: "ค่าใช้จ่ายในการประชุมคณะกรรมการ", kind: "item", cost_id: 85 },
 
-  // ✅ fuel มีซ้ำใน mapping (cost_id=23) -> override ให้แยกได้ 2 บรรทัด
+  // fuel มีซ้ำใน mapping (cost_id=23) -> override ให้แยกได้ 2 บรรทัด
   { code: "9.27", label: "ค่าน้ำมันเชื้อเพลิงใช้ไป - 4 ล้อ", kind: "item", cost_id: 23, business_cost_id: 207 },
   { code: "9.28", label: "ค่าใช้จ่ายในการประชุมระดับอำเภอ", kind: "item", cost_id: 86 },
   { code: "9.29", label: "ค่าซ่อมบำรุงครุภัณฑ์", kind: "item", cost_id: 10 },
   { code: "9.30", label: "ค่าธรรมเนียมโอนเงินธนาคาร", kind: "item", cost_id: 63 },
 
-  // ❌ ยังไม่แมพ (group 6 ไม่มี cost_id=49)
-  { code: "9.31", label: "ขาดทุนจากการยกเลิกใช้ครุภัณฑ์", kind: "item", cost_id: 49 },
+  // ✅ แมพใหม่ตามแจ้ง
+  { code: "9.31", label: "ขาดทุนจากการยกเลิกใช้ครุภัณฑ์", kind: "item", cost_id: 86, business_cost_id: 211 },
 
   { code: "9.32", label: "ค่าน้ำมันเชื้อเพลิง - 4 ล้อ", kind: "item", cost_id: 23, business_cost_id: 212 },
   { code: "9.33", label: "ค่ากิจกรรมสัมพันธ์", kind: "item", cost_id: 24 },
@@ -236,8 +235,8 @@ const ROWS = [
   { code: "9.38", label: "ค่าของขวัญสมานคุณ", kind: "item", cost_id: 62 },
   { code: "9.39", label: "ค่าตกแต่งภูมิทัศน์", kind: "item", cost_id: 54 },
 
-  // ❌ ยังไม่แมพ (group 6 ไม่มี cost_id=46)
-  { code: "9.40", label: "ค่าใช้จ่ายสำรอง", kind: "item", cost_id: 46 },
+  // ✅ แมพใหม่ตามแจ้ง
+  { code: "9.40", label: "ค่าใช้จ่ายสำรอง", kind: "item", cost_id: 91, business_cost_id: 220 },
 
   { code: "9.41", label: "ค่าใช้จ่ายงานบ้านงานครัว", kind: "item", cost_id: 65 },
   { code: "9.42", label: "ค่าประชาสัมพันธ์", kind: "item", cost_id: 56 },
@@ -369,6 +368,8 @@ const BusinessPlanExpenseSupportWorkTable = ({ branchId, branchName, yearBE, pla
     setIsLoadingSaved(true)
     try {
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs?branch_id=${effectiveBranchId}`)
+      
+      // ✅ แก้เป็น data.unit_costs ให้ตรงกับ Backend
       const unitCells = Array.isArray(data?.unit_costs) ? data.unit_costs : []
 
       const bcToCode = new Map()
@@ -388,7 +389,9 @@ const BusinessPlanExpenseSupportWorkTable = ({ branchId, branchName, yearBE, pla
         if (!code) continue
 
         if (!seed[code]) seed[code] = {}
-        seed[code][uId] = String(amount)
+        
+        // ✅ เปลี่ยนค่า 0 ให้เป็นช่องว่างเพื่อให้พิมพ์ง่ายขึ้น
+        seed[code][uId] = amount === 0 ? "" : String(amount)
       }
 
       setValuesByCode(normalizeGrid(seed))

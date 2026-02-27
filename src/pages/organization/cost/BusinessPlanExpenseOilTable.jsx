@@ -168,7 +168,6 @@ const ROWS = [
   { code: "4.11", label: "หนี้สงสัยจะสูญ-ลูกหนี้การค้า (น้ำมัน)", kind: "item", cost_id: 4 },
   { code: "4.12", label: "หนี้สงสัยจะสูญ-บัตรเกษตรสุขใจ (น้ำมัน)", kind: "item", cost_id: 33 },
 
-  // ⚠️ cost_id=103 ใน CSV ซ้ำ 2 แถว → แยกด้วย business_cost_id ตรงๆ
   { code: "4.13", label: "ดอกจ่าย อบจ.", kind: "item", business_cost_id: 48, cost_id: 103 },
   { code: "4.14", label: "ค่าใช้ภาษี อบจ.", kind: "item", business_cost_id: 49, cost_id: 103 },
 
@@ -190,26 +189,21 @@ const ROWS = [
   { code: "4.30", label: "ค่าใช้จ่ายเบ็ดเตล็ด", kind: "item", cost_id: 36 },
 ]
 
-/** ---------------- Table sizing (กระชับ) ---------------- */
+/** ---------------- Table sizing ---------------- */
 const COL_W = { code: 56, item: 260, unit: 130, total: 90 }
 const LEFT_W = COL_W.code + COL_W.item
 
+// ✅ ทึบ 100%
 const STRIPE = {
-  head: "bg-slate-100/90 dark:bg-slate-700/70",
+  head: "bg-slate-100 dark:bg-slate-700",
   cell: "bg-white dark:bg-slate-900",
   alt: "bg-slate-50 dark:bg-slate-800",
-  foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
+  foot: "bg-emerald-100 dark:bg-emerald-900",
 }
 
-/**
- * ✅ รับค่าจาก OperationPlan
- * - branchId: สาขาที่เลือก (เอาไปโหลด units)
- * - planId/yearBE: ใช้ยิง /business-plan/{plan_id}/costs...
- */
 const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) => {
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
 
-  // ✅ บอกสถานะการแมพ (เหมือนหน้าค่าใช้จ่ายดำเนินงาน)
   const unmappedStatic = useMemo(() => {
     const missing = []
     for (const r of itemRows) {
@@ -258,7 +252,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
     let alive = true
     ;(async () => {
       setIsLoadingUnits(true)
-      // ✅ เคลียร์ก่อน เพื่อให้เห็นว่าเปลี่ยนสาขาแล้วคอลัมน์กำลังรีเฟรช
       setUnits([])
 
       try {
@@ -322,7 +315,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs?branch_id=${effectiveBranchId}`)
       const unitCells = Array.isArray(data?.unit_costs) ? data.unit_costs : []
 
-      // map business_cost_id -> row.code (กันกรณี cost_id ซ้ำ)
       const bcToCode = new Map()
       for (const r of itemRows) {
         const bcId = resolveRowBusinessCostId(r)
@@ -406,7 +398,19 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
     return () => window.removeEventListener("resize", recalcTableCardHeight)
   }, [recalcTableCardHeight])
 
+  // ✅ Scroll sync logic
   const bodyScrollRef = useRef(null)
+  const [scrollLeft, setScrollLeft] = useState(0)
+  const rafRef = useRef(0)
+  const onBodyScroll = () => {
+    const b = bodyScrollRef.current
+    if (!b) return
+    const x = b.scrollLeft || 0
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => setScrollLeft(x))
+  }
+  useEffect(() => () => rafRef.current && cancelAnimationFrame(rafRef.current), [])
+
   const inputRefs = useRef(new Map())
   const totalCols = units.length
 
@@ -681,7 +685,7 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
       <div
         ref={tableCardRef}
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
-        style={{ height: tableCardHeight }}
+        style={{ maxHeight: tableCardHeight }} // ✅ แก้เป็น maxHeight
       >
         <div className="p-2 md:p-3 shrink-0">
           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
@@ -694,6 +698,7 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
 
         <div
           ref={bodyScrollRef}
+          onScroll={onBodyScroll} // ✅ Sync scroll แนวนอน
           className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
         >
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
@@ -708,18 +713,11 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
                 <th
                   rowSpan={2}
-                  className={cx(
-                    "border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600",
-                    stickyCodeHeader
-                  )}
+                  className={cx("border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600", stickyCodeHeader)}
                 />
                 <th
                   rowSpan={2}
-                  className={cx(
-                    "border border-slate-300 px-2 py-2 text-left font-bold text-xs dark:border-slate-600",
-                    stickyLeftHeader,
-                    trunc
-                  )}
+                  className={cx("border border-slate-300 px-2 py-2 text-left font-bold text-xs dark:border-slate-600", stickyLeftHeader, trunc)}
                   style={{ left: COL_W.code }}
                 >
                   รายการ
@@ -738,10 +736,7 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
                   units.map((u) => (
                     <th
                       key={u.id}
-                      className={cx(
-                        "border border-slate-300 px-1 py-2 text-center text-[11px] md:text-xs dark:border-slate-600",
-                        trunc
-                      )}
+                      className={cx("border border-slate-300 px-1 py-2 text-center text-[11px] md:text-xs dark:border-slate-600", trunc)}
                       title={u.name}
                     >
                       {u.name}
@@ -763,23 +758,14 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
               {ROWS.map((r) => {
                 if (r.kind === "section") {
                   return (
-                    <tr key={r.code} className="bg-slate-200/70 dark:bg-slate-700/55">
-                      <td
-                        className={cx(
-                          "border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600",
-                          stickyCodeCell,
-                          "bg-slate-200/70 dark:bg-slate-700/55"
-                        )}
-                      >
+                    // ✅ แก้สีพื้นหลังทึบ 100%
+                    <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">
+                      <td className={cx("border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600", stickyCodeCell, "bg-slate-200 dark:bg-slate-700")}>
                         {r.code}
                       </td>
                       <td
                         colSpan={(units.length ? units.length : 1) + 2}
-                        className={cx(
-                          "border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600",
-                          "sticky z-[55] bg-slate-200/70 dark:bg-slate-700/55",
-                          trunc
-                        )}
+                        className={cx("border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600", "sticky z-[55] bg-slate-200 dark:bg-slate-700", trunc)}
                         style={{ left: COL_W.code }}
                         title={r.label}
                       >
@@ -795,23 +781,12 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
 
                 return (
                   <tr key={r.code} className={rowBg}>
-                    <td
-                      className={cx(
-                        "border border-slate-300 px-1 py-2 text-center text-xs dark:border-slate-600",
-                        stickyCodeCell,
-                        rowBg
-                      )}
-                    >
+                    <td className={cx("border border-slate-300 px-1 py-2 text-center text-xs dark:border-slate-600", stickyCodeCell, rowBg)}>
                       {r.code}
                     </td>
 
                     <td
-                      className={cx(
-                        "border border-slate-300 px-2 py-2 text-left font-semibold text-xs dark:border-slate-600",
-                        "sticky z-[50]",
-                        rowBg,
-                        trunc
-                      )}
+                      className={cx("border border-slate-300 px-2 py-2 text-left font-semibold text-xs dark:border-slate-600", "sticky z-[50]", rowBg, trunc)}
                       style={{ left: COL_W.code }}
                       title={r.label}
                     >
@@ -851,53 +826,67 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
                 )
               })}
             </tbody>
-
-            <tfoot className="sticky bottom-0 z-[75]">
-              <tr className={cx("text-slate-900 dark:text-slate-100", STRIPE.foot)}>
-                <td
-                  className={cx(
-                    "border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600",
-                    stickyCodeCell,
-                    STRIPE.foot
-                  )}
-                >
-                  รวม
-                </td>
-                <td
-                  className={cx(
-                    "border border-slate-300 px-2 py-2 text-left font-extrabold text-xs dark:border-slate-600",
-                    "sticky z-[60]",
-                    STRIPE.foot,
-                    trunc
-                  )}
-                  style={{ left: COL_W.code }}
-                >
-                  รวมทั้งสิ้น
-                </td>
-
-                {units.length ? (
-                  units.map((u) => (
-                    <td
-                      key={`total-${u.id}`}
-                      className="border border-slate-300 px-1 py-2 text-right font-bold text-xs dark:border-slate-600"
-                      title={u.name}
-                    >
-                      {fmtMoney0(computed.unitTotal[u.id] || 0)}
-                    </td>
-                  ))
-                ) : (
-                  <td className="border border-slate-300 px-2 py-2 dark:border-slate-600" />
-                )}
-
-                <td className="border border-slate-300 px-1 py-2 text-right font-extrabold text-xs dark:border-slate-600">
-                  {fmtMoney0(computed.grand)}
-                </td>
-              </tr>
-            </tfoot>
           </table>
         </div>
 
-        <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
+        {/* ✅ Fix 2: แถวสรุปรวมถูกแยกออกมาด้านล่าง เพื่อหลีกเลี่ยง Scrollbar */}
+        <div className="shrink-0 bg-emerald-100 dark:bg-emerald-900 border-t border-slate-300 dark:border-slate-700">
+          <div className="flex w-full">
+            {/* ซ้าย (พาร์ทที่ถูกตรึง) */}
+            <div className="shrink-0" style={{ width: LEFT_W }}>
+              <table className="border-collapse text-sm" style={{ width: LEFT_W, tableLayout: "fixed" }}>
+                <colgroup>
+                  <col style={{ width: COL_W.code }} />
+                  <col style={{ width: COL_W.item }} />
+                </colgroup>
+                <tbody>
+                  <tr className="text-slate-900 dark:text-slate-100">
+                    <td className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900">
+                      รวม
+                    </td>
+                    <td className="border border-slate-300 px-2 py-2 text-left font-extrabold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900">
+                      รวมทั้งสิ้น
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* ขวา (พาร์ทที่เลื่อนตามตารางด้วย Scroll แนวนอน) */}
+            <div className="flex-1 overflow-hidden">
+              <div style={{ width: RIGHT_W, transform: `translateX(-${scrollLeft}px)`, willChange: "transform" }}>
+                <table className="border-collapse text-sm" style={{ width: RIGHT_W, tableLayout: "fixed" }}>
+                  <colgroup>
+                    {units.length ? units.map((u) => <col key={`f-${u.id}`} style={{ width: COL_W.unit }} />) : <col style={{ width: COL_W.unit }} />}
+                    <col style={{ width: COL_W.total }} />
+                  </colgroup>
+                  <tbody>
+                    <tr className="text-slate-900 dark:text-slate-100">
+                      {units.length ? (
+                        units.map((u) => (
+                          <td
+                            key={`total-${u.id}`}
+                            className="border border-slate-300 px-1 py-2 text-right font-bold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900"
+                            title={u.name}
+                          >
+                            {fmtMoney0(computed.unitTotal[u.id] || 0)}
+                          </td>
+                        ))
+                      ) : (
+                        <td className="border border-slate-300 px-2 py-2 dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900" />
+                      )}
+                      <td className="border border-slate-300 px-1 py-2 text-right font-extrabold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900">
+                        {fmtMoney0(computed.grand)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="shrink-0 p-3 md:p-4">
           <NoticeBox notice={notice} />
 
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">

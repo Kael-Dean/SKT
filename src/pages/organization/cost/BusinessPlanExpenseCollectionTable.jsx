@@ -98,10 +98,7 @@ const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
 /** ---------------- Business group (รวบรวม) ---------------- */
 const BUSINESS_GROUP_ID = 3
 
-/** ---------------- Mapping: cost_id + business_group -> businesscosts.id ----------------
- * อ้างอิงจาก businesscosts.csv (business_group=3) id 66..100
- * ⚠️ cost_id=13 ซ้ำ 2 แถว (id 77 และ 84) → row ที่ซ้ำจะ override business_cost_id โดยตรง
- */
+/** ---------------- Mapping: cost_id + business_group -> businesscosts.id ---------------- */
 const BUSINESS_COSTS_SEED = [
   { id: 66, cost_id: 2, business_group: 3 },
   { id: 67, cost_id: 37, business_group: 3 },
@@ -180,7 +177,6 @@ const ROWS = [
   { code: "5.17", label: "ค่าลดหย่อนสินค้าขาดบัญชี", kind: "item", cost_id: 43 },
   { code: "5.18", label: "ค่าลดหย่อนสินค้าขาดบัญชี-ยางพารา", kind: "item", cost_id: 44 },
 
-  // ⚠️ cost_id 13 ซ้ำใน businesscosts group 3 (id 84) → override เพื่อให้บันทึกแยกได้
   { code: "5.19", label: "ค่าน้ำมันเชื้อเพลิงใช้ไป (รายการซ้ำ)", kind: "item", cost_id: 13, business_cost_id: 84 },
 
   { code: "5.20", label: "ค่าเสื่อมราคา-งาน/อาคาร", kind: "item", cost_id: 19 },
@@ -204,17 +200,15 @@ const ROWS = [
 /** ---------------- Table sizing (กระชับ) ---------------- */
 const COL_W = { code: 56, item: 260, unit: 130, total: 90 }
 const LEFT_W = COL_W.code + COL_W.item
+
+// ✅ แก้ไข: ลบ /90 /70 /55 ออกให้หมด เพื่อไม่ให้สีโปร่งแสง
 const STRIPE = {
-  head: "bg-slate-100/90 dark:bg-slate-700/70",
+  head: "bg-slate-100 dark:bg-slate-700",
   cell: "bg-white dark:bg-slate-900",
   alt: "bg-slate-50 dark:bg-slate-800",
-  foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
+  foot: "bg-emerald-100 dark:bg-emerald-900",
 }
 
-/**
- * Props from OperationPlan:
- * - branchId, branchName, yearBE, planId
- */
 const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, planId }) => {
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
 
@@ -315,7 +309,6 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs?branch_id=${effectiveBranchId}`)
       const unitCells = Array.isArray(data?.unit_costs) ? data.unit_costs : []
 
-      // ✅ map business_cost_id -> row.code (รองรับ cost_id ซ้ำ)
       const bcToCode = new Map()
       for (const r of itemRows) {
         const bcId = resolveRowBusinessCostId(r)
@@ -359,9 +352,6 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
     })
   }
 
-
-
-  /** ---------------- Unmapped static list (แจ้งเหมือนไฟล์ค่าใช้จ่ายดำเนินงาน) ---------------- */
   const unmappedStatic = useMemo(() => {
     return itemRows
       .filter((r) => !resolveRowBusinessCostId(r))
@@ -391,9 +381,10 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
     return { rowTotal, unitTotal, grand }
   }, [valuesByCode, itemRows, units])
 
-  /** ---------------- Height + Arrow nav ---------------- */
+  /** ---------------- Height + Arrow nav + Scroll ---------------- */
   const tableCardRef = useRef(null)
   const [tableCardHeight, setTableCardHeight] = useState(900)
+  
   const recalcTableCardHeight = useCallback(() => {
     const el = tableCardRef.current
     if (!el) return
@@ -402,13 +393,26 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
     const bottomPadding = 6
     setTableCardHeight(Math.max(860, Math.floor(vh - rect.top - bottomPadding)))
   }, [])
+  
   useEffect(() => {
     recalcTableCardHeight()
     window.addEventListener("resize", recalcTableCardHeight)
     return () => window.removeEventListener("resize", recalcTableCardHeight)
   }, [recalcTableCardHeight])
 
+  // ✅ Scroll sync logic
   const bodyScrollRef = useRef(null)
+  const [scrollLeft, setScrollLeft] = useState(0)
+  const rafRef = useRef(0)
+  const onBodyScroll = () => {
+    const b = bodyScrollRef.current
+    if (!b) return
+    const x = b.scrollLeft || 0
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => setScrollLeft(x))
+  }
+  useEffect(() => () => rafRef.current && cancelAnimationFrame(rafRef.current), [])
+
   const inputRefs = useRef(new Map())
   const totalCols = units.length
 
@@ -482,7 +486,6 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
       let rowSum = 0
       for (const u of units) rowSum += toNumber(rowObj[u.id])
 
-      // ยังไม่แมพ → ข้ามได้เฉพาะกรณีแถวนี้เป็น 0 ทั้งหมด
       if (!businessCostId) {
         skipped.push({ code: r.code, label: r.label, cost_id: r.cost_id })
         if (rowSum !== 0) blocked.push({ code: r.code, label: r.label, cost_id: r.cost_id })
@@ -492,7 +495,6 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
       const unit_values = []
       let branch_total = 0
 
-      // ✅ ส่งครบทุกหน่วย (รวม 0) เพื่อให้ “ค่าล่าสุด” ตรงกับตารางจริงเสมอ
       for (const u of units) {
         const amount = toNumber(rowObj[u.id])
         branch_total += amount
@@ -666,8 +668,6 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
           </div>
         </div>
 
-
-
         {unmappedStatic.length > 0 ? (
           <div
             className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900
@@ -708,10 +708,11 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
       <div
         ref={tableCardRef}
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
-        style={{ height: tableCardHeight }}
+        style={{ maxHeight: tableCardHeight }} // ✅ ใช้ maxHeight
       >
         <div
           ref={bodyScrollRef}
+          onScroll={onBodyScroll} // ✅ ใส่ scroll sync Event
           className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
         >
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
@@ -782,12 +783,13 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
               {ROWS.map((r) => {
                 if (r.kind === "section") {
                   return (
-                    <tr key={r.code} className="bg-slate-200/70 dark:bg-slate-700/55">
+                    // ✅ สีพื้นหลังทึบ
+                    <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">
                       <td
                         className={cx(
                           "border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600",
                           stickyCodeCell,
-                          "bg-slate-200/70 dark:bg-slate-700/55"
+                          "bg-slate-200 dark:bg-slate-700"
                         )}
                       >
                         {r.code}
@@ -796,7 +798,7 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
                         colSpan={(units.length ? units.length : 1) + 2}
                         className={cx(
                           "border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600",
-                          "sticky z-[55] bg-slate-200/70 dark:bg-slate-700/55",
+                          "sticky z-[55] bg-slate-200 dark:bg-slate-700",
                           trunc
                         )}
                         style={{ left: COL_W.code }}
@@ -872,53 +874,67 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
                 )
               })}
             </tbody>
-
-            <tfoot className="sticky bottom-0 z-[75]">
-              <tr className={cx("text-slate-900 dark:text-slate-100", STRIPE.foot)}>
-                <td
-                  className={cx(
-                    "border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600",
-                    stickyCodeCell,
-                    STRIPE.foot
-                  )}
-                >
-                  รวม
-                </td>
-                <td
-                  className={cx(
-                    "border border-slate-300 px-2 py-2 text-left font-extrabold text-xs dark:border-slate-600",
-                    "sticky z-[60]",
-                    STRIPE.foot,
-                    trunc
-                  )}
-                  style={{ left: COL_W.code }}
-                >
-                  รวมทั้งสิ้น
-                </td>
-
-                {units.length ? (
-                  units.map((u) => (
-                    <td
-                      key={`total-${u.id}`}
-                      className="border border-slate-300 px-1 py-2 text-right font-bold text-xs dark:border-slate-600"
-                      title={u.name}
-                    >
-                      {fmtMoney0(computed.unitTotal[u.id] || 0)}
-                    </td>
-                  ))
-                ) : (
-                  <td className="border border-slate-300 px-2 py-2 dark:border-slate-600" />
-                )}
-
-                <td className="border border-slate-300 px-1 py-2 text-right font-extrabold text-xs dark:border-slate-600">
-                  {fmtMoney0(computed.grand)}
-                </td>
-              </tr>
-            </tfoot>
           </table>
         </div>
 
-        <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
+        {/* ✅ Fix 2: ดึง Footer ลงมาอยู่ใต้ Scrollable div และซิงค์ตำแหน่งแกน X */}
+        <div className="shrink-0 bg-emerald-100 dark:bg-emerald-900 border-t border-slate-300 dark:border-slate-700">
+          <div className="flex w-full">
+            {/* ซ้าย (พาร์ทที่ถูกตรึง) */}
+            <div className="shrink-0" style={{ width: LEFT_W }}>
+              <table className="border-collapse text-sm" style={{ width: LEFT_W, tableLayout: "fixed" }}>
+                <colgroup>
+                  <col style={{ width: COL_W.code }} />
+                  <col style={{ width: COL_W.item }} />
+                </colgroup>
+                <tbody>
+                  <tr className="text-slate-900 dark:text-slate-100">
+                    <td className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900">
+                      รวม
+                    </td>
+                    <td className="border border-slate-300 px-2 py-2 text-left font-extrabold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900">
+                      รวมทั้งสิ้น
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* ขวา (พาร์ทที่เลื่อนตามตารางด้วย Scroll แนวนอน) */}
+            <div className="flex-1 overflow-hidden">
+              <div style={{ width: RIGHT_W, transform: `translateX(-${scrollLeft}px)`, willChange: "transform" }}>
+                <table className="border-collapse text-sm" style={{ width: RIGHT_W, tableLayout: "fixed" }}>
+                  <colgroup>
+                    {units.length ? units.map((u) => <col key={`f-${u.id}`} style={{ width: COL_W.unit }} />) : <col style={{ width: COL_W.unit }} />}
+                    <col style={{ width: COL_W.total }} />
+                  </colgroup>
+                  <tbody>
+                    <tr className="text-slate-900 dark:text-slate-100">
+                      {units.length ? (
+                        units.map((u) => (
+                          <td
+                            key={`total-${u.id}`}
+                            className="border border-slate-300 px-1 py-2 text-right font-bold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900"
+                            title={u.name}
+                          >
+                            {fmtMoney0(computed.unitTotal[u.id] || 0)}
+                          </td>
+                        ))
+                      ) : (
+                        <td className="border border-slate-300 px-2 py-2 dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900" />
+                      )}
+                      <td className="border border-slate-300 px-1 py-2 text-right font-extrabold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900">
+                        {fmtMoney0(computed.grand)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="shrink-0 p-3 md:p-4">
           <NoticeBox notice={notice} />
 
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">

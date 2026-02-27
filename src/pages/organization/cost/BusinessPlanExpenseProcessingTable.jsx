@@ -337,7 +337,7 @@ const BusinessPlanExpenseProcessingTable = ({ branchId, branchName, yearBE, plan
     setIsLoadingSaved(true)
     try {
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs?branch_id=${effectiveBranchId}`)
-      const unitCells = Array.isArray(data?.unit_cells) ? data.unit_cells : []
+      const unitCells = Array.isArray(data?.unit_costs) ? data.unit_costs : []
 
       // business_cost_id -> row.code (กัน mapping ผิด)
       const bcToCode = new Map()

@@ -98,7 +98,7 @@ const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
   "text-right text-[13px] md:text-sm outline-none " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+  "dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-emerald-500"
 
 /** ---------------- Table definition ---------------- */
 const MONTHS = [
@@ -131,13 +131,14 @@ const COL_W = {
 }
 const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
 
+// ปรับสีให้เป็นสีทึบ (Solid Colors) เพื่อให้เส้นขอบตัดกันชัดเจน
 const STRIPE = {
-  headEven: "bg-slate-100/90 dark:bg-slate-700/70",
-  headOdd: "bg-slate-200/95 dark:bg-slate-600/70",
-  cellEven: "bg-slate-50/90 dark:bg-slate-800/70",
-  cellOdd: "bg-slate-200/70 dark:bg-slate-700/55",
-  footEven: "bg-emerald-100/55 dark:bg-emerald-900/15",
-  footOdd: "bg-emerald-200/75 dark:bg-emerald-900/30",
+  headEven: "bg-slate-100 dark:bg-slate-800",
+  headOdd: "bg-slate-200 dark:bg-slate-700",
+  cellEven: "bg-white dark:bg-slate-900",
+  cellOdd: "bg-slate-50 dark:bg-slate-800",
+  footEven: "bg-emerald-50 dark:bg-emerald-950",
+  footOdd: "bg-emerald-100 dark:bg-emerald-900",
 }
 
 const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEven)
@@ -542,13 +543,17 @@ function ProcurementPlanDetail(props) {
     } finally { setIsSaving(false) }
   }, [branchIdEff, effectivePlanId, effectiveYearBE, productRows, products, priceByPid, qtyByPid, unitCols, resolvedBranchName, loadSavedFromBE, loadProducts, loadUnitPricesForYear])
 
-  /** ---------------- rendering helpers ---------------- */
-  const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
-  const headCell = "px-2 py-2 text-sm font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-300/70 dark:border-slate-600/60"
+  /** ---------------- rendering helpers (Grid Full Borders) ---------------- */
+  // สร้างเงาอ่อนๆ ตรงคอลัมน์ที่ถูก Fixed (Sticky) เพื่อให้ดูมีมิติ
+  const stickyShadow = "shadow-[2px_0_0_rgba(0,0,0,0.06)] dark:shadow-[2px_0_0_rgba(0,0,0,0.3)]"
+  
+  // ใช้ border รอบด้านสำหรับหัวตาราง
+  const headCell = "px-2 py-2 text-sm font-semibold text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600"
   const leftHeadCell = cx(headCell, "sticky left-0 z-20", stickyShadow)
-  const leftCell = "px-2 py-2 text-sm text-slate-900 dark:text-slate-100 border-b border-slate-200/70 dark:border-slate-700/60"
-  const leftCellSticky = cx(leftCell, "sticky left-0 z-10", stickyShadow)
-  const cellClass = "px-1 py-1 border-b border-slate-200/70 dark:border-slate-700/60 text-slate-900 dark:text-slate-100"
+  
+  // ใช้ border รอบด้านสำหรับข้อมูล
+  const cellClass = "px-1 py-1 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100"
+  const leftCellSticky = cx(cellClass, "px-2 py-2 text-sm sticky left-0 z-10", stickyShadow)
 
   return (
     <div className="w-full">
@@ -576,7 +581,8 @@ function ProcurementPlanDetail(props) {
       )}
 
       <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-        <div className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700" ref={tableWrapRef}>
+        {/* Table Container สั่งใส่ขอบเผื่อการคลุม Grid */}
+        <div className="overflow-auto rounded-lg border border-slate-300 dark:border-slate-600" ref={tableWrapRef}>
           <table className="min-w-full border-collapse" style={{ width: TOTAL_W }}>
             <colgroup>
               <col style={{ width: COL_W.product }} />

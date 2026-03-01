@@ -94,9 +94,10 @@ async function apiAuth(path, { method = "GET", body } = {}) {
 }
 
 /** ---------------- UI styles ---------------- */
+// ปรับขนาด font และ padding ใน input ให้เล็กลง
 const cellInput =
-  "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
-  "text-right text-[13px] md:text-sm outline-none " +
+  "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
+  "text-right text-[12px] outline-none " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
   "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
@@ -122,11 +123,12 @@ const FALLBACK_UNITS = [
   { id: -3, short: "พร", name: "พร" },
 ]
 
+// ลดความกว้างของแต่ละคอลัมน์เพื่อให้เห็นข้อมูลในหน้าจอได้มากขึ้น
 const COL_W = {
-  product: 260,
-  unit: 84,
-  price: 130,
-  cell: 130, // ปรับขยายความกว้างเพื่อให้เห็นชื่อหน่วยได้เต็มๆ
+  product: 200,
+  unit: 64,
+  price: 90,
+  cell: 100, 
 }
 const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
 
@@ -567,11 +569,13 @@ function ProcurementPlanDetail(props) {
 
   /** ---------------- rendering helpers ---------------- */
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
-  const headCell = "px-2 py-2 text-sm font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-300/70 dark:border-slate-600/60"
+  // ปรับขนาด font ใน Header ให้เป็น text-[12px]
+  const headCell = "px-1.5 py-1.5 text-[12px] font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-300/70 dark:border-slate-600/60"
   const leftHeadCell = cx(headCell, "sticky left-0 z-20", stickyShadow)
-  const leftCell = "px-2 py-2 text-sm text-slate-900 dark:text-slate-100 border-r border-slate-200/70 dark:border-slate-700/60"
+  // ปรับขนาด font ใน Cell ให้เป็น text-[12px]
+  const leftCell = "px-1.5 py-1.5 text-[12px] text-slate-900 dark:text-slate-100 border-r border-slate-200/70 dark:border-slate-700/60"
   const leftCellSticky = cx(leftCell, "sticky left-0 z-10", stickyShadow)
-  const cellClass = "px-1 py-1 border-r border-slate-200/70 dark:border-slate-700/60 text-slate-900 dark:text-slate-100"
+  const cellClass = "px-1 py-1 text-[12px] border-r border-slate-200/70 dark:border-slate-700/60 text-slate-900 dark:text-slate-100"
   const rowDivider = "border-b-[2px] border-b-slate-300 dark:border-b-slate-600"
   const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
@@ -579,13 +583,13 @@ function ProcurementPlanDetail(props) {
     <div className="w-full">
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <div className="text-[18px] font-bold">ยอดขายธุรกิจจัดหา</div>
-          <div className="text-sm text-slate-600 dark:text-slate-300">
+          <div className="text-[16px] font-bold">ยอดขายธุรกิจจัดหา</div>
+          <div className="text-[12px] text-slate-600 dark:text-slate-300">
             ({periodLabel}) • ปี {effectiveYearBE} • สาขา {resolvedBranchName || "-"}
           </div>
         </div>
         <button
-          className={cx("rounded-2xl px-4 py-2 font-semibold shadow-sm transition", (isSaving || !canEdit) ? "bg-slate-300 text-slate-700 cursor-not-allowed" : "bg-emerald-600 text-white hover:bg-emerald-700")}
+          className={cx("rounded-xl px-4 py-1.5 text-[13px] font-semibold shadow-sm transition", (isSaving || !canEdit) ? "bg-slate-300 text-slate-700 cursor-not-allowed" : "bg-emerald-600 text-white hover:bg-emerald-700")}
           disabled={isSaving || !canEdit}
           onClick={saveAll}
         >
@@ -594,14 +598,14 @@ function ProcurementPlanDetail(props) {
       </div>
 
       {saveMsg && (
-        <div className={cx("mb-4 rounded-2xl border p-4 text-sm", saveMsg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900")}>
+        <div className={cx("mb-4 rounded-xl border p-3 text-[12px]", saveMsg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900")}>
           <div className="font-semibold">{saveMsg.title}</div>
           <div className="opacity-90">{saveMsg.detail}</div>
         </div>
       )}
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-        <div className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700" ref={tableWrapRef}>
+      <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700" ref={tableWrapRef}>
           <table className="min-w-full border-collapse" style={{ width: TOTAL_W }}>
             <colgroup>
               <col style={{ width: COL_W.product }} />
@@ -678,7 +682,7 @@ function ProcurementPlanDetail(props) {
                         <div className="font-semibold">{p.product_type || "-"}</div>
                       </td>
                       <td className={cx(cellClass, stripeCls)}>
-                        <div className="text-[14px] font-semibold text-center">{p.unit}</div>
+                        <div className="font-semibold text-center">{p.unit}</div>
                       </td>
                       <td rowSpan={2} className={cx(cellClass, stripeCls, rowDivider, "align-middle")}>
                         <input
@@ -731,7 +735,7 @@ function ProcurementPlanDetail(props) {
                     {/* ข้อมูล 2: แถวจำนวนเงิน/บาท (Calculated) */}
                     <tr className="group">
                       <td className={cx(cellClass, stripeCls, rowDivider)}>
-                        <div className="text-[13px] text-center text-slate-500 dark:text-slate-400">บาท</div>
+                        <div className="text-[11px] text-center text-slate-500 dark:text-slate-400">บาท</div>
                       </td>
                       {MONTHS.map((m, mi) => (
                         <Fragment key={`${pid}-b-${m.key}`}>
@@ -741,7 +745,7 @@ function ProcurementPlanDetail(props) {
                             const b = n * sell
                             return (
                               <td key={`${pid}-b-${m.key}-${uid}`} className={cx(cellClass, monthStripeCell(mi), rowDivider)}>
-                                <div className="px-2 py-1 text-right text-[13px] text-slate-600 dark:text-slate-300">
+                                <div className="px-1.5 text-right text-slate-600 dark:text-slate-300">
                                   {b > 0 ? fmtMoney(b) : "-"}
                                 </div>
                               </td>
@@ -761,10 +765,10 @@ function ProcurementPlanDetail(props) {
               {/* Footer 1: ผลรวมจำนวนหน่วย */}
               <tr>
                 <td rowSpan={2} className={cx(leftCellSticky, STRIPE.footOdd, footerBorder, "align-middle")}>
-                  <div className="font-bold text-center text-[15px]">รวม</div>
+                  <div className="font-bold text-center text-[13px]">รวม</div>
                 </td>
                 <td className={cx(cellClass, STRIPE.footOdd, footerBorder)}>
-                  <div className="text-[14px] font-semibold text-center">หน่วย</div>
+                  <div className="font-semibold text-center">หน่วย</div>
                 </td>
                 <td rowSpan={2} className={cx(cellClass, STRIPE.footOdd, footerBorder, "align-middle")} />
                 
@@ -772,7 +776,7 @@ function ProcurementPlanDetail(props) {
                   <Fragment key={`ft-q-${m.key}`}>
                     {unitCols.map((u) => (
                       <td key={`ft-q-${m.key}-${u.id}`} className={cx(cellClass, monthStripeHead(mi), footerBorder)}>
-                        <div className="px-2 py-1 text-right font-semibold text-slate-800 dark:text-slate-200">
+                        <div className="px-1.5 text-right font-semibold text-slate-800 dark:text-slate-200">
                           {fmtQty(sums.perMonth[m.key][String(u.id)].qty)}
                         </div>
                       </td>
@@ -783,12 +787,12 @@ function ProcurementPlanDetail(props) {
                 {unitCols.map((u) => (
                   <Fragment key={`ft-sum-${u.id}`}>
                     <td className={cx(cellClass, STRIPE.footOdd, footerBorder)}>
-                      <div className="text-right font-bold text-[15px] text-slate-900 dark:text-slate-100">
+                      <div className="text-right font-bold text-[13px] text-slate-900 dark:text-slate-100">
                         {fmtQty(sums.grandUnitTotals[String(u.id)].qty)}
                       </div>
                     </td>
                     <td rowSpan={2} className={cx(cellClass, STRIPE.footOdd, footerBorder, "align-middle")}>
-                      <div className="text-right font-bold text-[16px] text-emerald-800 dark:text-emerald-300">
+                      <div className="text-right font-bold text-[14px] text-emerald-800 dark:text-emerald-300">
                         {fmtMoney(sums.grandUnitTotals[String(u.id)].baht)}
                       </div>
                     </td>
@@ -799,13 +803,13 @@ function ProcurementPlanDetail(props) {
               {/* Footer 2: ผลรวมจำนวนเงิน */}
               <tr>
                 <td className={cx(cellClass, STRIPE.footOdd)}>
-                  <div className="text-[13px] font-semibold text-center text-slate-600 dark:text-slate-300">บาท</div>
+                  <div className="text-[11px] font-semibold text-center text-slate-600 dark:text-slate-300">บาท</div>
                 </td>
                 {MONTHS.map((m, mi) => (
                   <Fragment key={`ft-b-${m.key}`}>
                     {unitCols.map((u) => (
                       <td key={`ft-b-${m.key}-${u.id}`} className={cx(cellClass, monthStripeHead(mi))}>
-                        <div className="px-2 py-1 text-right font-semibold text-emerald-700 dark:text-emerald-400">
+                        <div className="px-1.5 text-right font-semibold text-emerald-700 dark:text-emerald-400">
                           {fmtMoney(sums.perMonth[m.key][String(u.id)].baht)}
                         </div>
                       </td>
@@ -821,7 +825,7 @@ function ProcurementPlanDetail(props) {
           </table>
         </div>
         {!canEdit && (
-          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[12px] text-amber-900">
             ยังไม่พบสาขา — กรุณาเลือกสาขาก่อน
           </div>
         )}

@@ -95,10 +95,10 @@ async function apiAuth(path, { method = "GET", body } = {}) {
 
 /** ---------------- UI styles ---------------- */
 const cellInput =
-  "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-2 py-1 " +
-  "text-right text-[13px] md:text-sm outline-none " +
-  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+  "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-200 bg-white px-2 py-1 " +
+  "text-right text-[13px] md:text-sm outline-none transition-all " +
+  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/10 " +
+  "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-emerald-500"
 
 /** ---------------- Table definition ---------------- */
 const MONTHS = [
@@ -127,21 +127,21 @@ const COL_W = {
   unit: 84,
   price: 110,
   cell: 86,
-  total: 100, // สำหรับช่องรวมจำนวนหน่วย และรวมจำนวนเงิน
+  total: 100, 
 }
 const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
 
 const STRIPE = {
-  headEven: "bg-slate-100/90 dark:bg-slate-700/70",
-  headOdd: "bg-slate-200/95 dark:bg-slate-600/70",
-  cellEven: "bg-slate-50/90 dark:bg-slate-800/70",
-  cellOdd: "bg-slate-200/70 dark:bg-slate-700/55",
-  footEven: "bg-emerald-100/55 dark:bg-emerald-900/15",
-  footOdd: "bg-emerald-200/75 dark:bg-emerald-900/30",
+  headEven: "bg-slate-50 dark:bg-slate-800/80",
+  headOdd: "bg-slate-100 dark:bg-slate-700/80",
+  cellEven: "bg-white dark:bg-slate-900",
+  cellOdd: "bg-slate-50/50 dark:bg-slate-800/30",
+  footEven: "bg-emerald-50/80 dark:bg-emerald-950/20",
+  footOdd: "bg-emerald-100/60 dark:bg-emerald-900/40",
 }
 
 const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEven)
-const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven)
+const monthStripeCell = (idx) => (idx % 2 === 1 ? "bg-slate-100/30 dark:bg-slate-800/20" : "bg-white dark:bg-slate-900")
 
 const PROCUREMENT_GROUP_ID = 1
 
@@ -543,41 +543,43 @@ function ProcurementPlanDetail(props) {
   }, [branchIdEff, effectivePlanId, effectiveYearBE, productRows, products, priceByPid, qtyByPid, unitCols, resolvedBranchName, loadSavedFromBE, loadProducts, loadUnitPricesForYear])
 
   /** ---------------- rendering helpers ---------------- */
-  const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
-  const headCell = "px-2 py-2 text-sm font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-300/70 dark:border-slate-600/60"
+  const stickyShadow = "shadow-[2px_0_10px_-2px_rgba(0,0,0,0.1)] dark:shadow-[2px_0_10px_-2px_rgba(0,0,0,0.3)] border-r border-slate-200 dark:border-slate-700"
+  const headCell = "px-2 py-3 text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700"
   const leftHeadCell = cx(headCell, "sticky left-0 z-20", stickyShadow)
-  const leftCell = "px-2 py-2 text-sm text-slate-900 dark:text-slate-100 border-b border-slate-200/70 dark:border-slate-700/60"
+  const leftCell = "px-2 py-3 text-xs md:text-sm text-slate-800 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800"
   const leftCellSticky = cx(leftCell, "sticky left-0 z-10", stickyShadow)
-  const cellClass = "px-1 py-1 border-b border-slate-200/70 dark:border-slate-700/60 text-slate-900 dark:text-slate-100"
+  const cellClass = "px-1 py-1 border-b border-slate-100 dark:border-slate-800/60"
 
   return (
     <div className="w-full">
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <div className="text-[18px] font-bold">ยอดขายธุรกิจจัดหา</div>
-          <div className="text-sm text-slate-600 dark:text-slate-300">
+          <div className="text-[18px] font-bold text-slate-900 dark:text-white">ยอดขายธุรกิจจัดหา</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">
             ({periodLabel}) • ปี {effectiveYearBE} • สาขา {resolvedBranchName || "-"}
           </div>
         </div>
         <button
-          className={cx("rounded-2xl px-4 py-2 font-semibold shadow-sm transition", (isSaving || !canEdit) ? "bg-slate-300 text-slate-700 cursor-not-allowed" : "bg-emerald-600 text-white hover:bg-emerald-700")}
+          className={cx("rounded-2xl px-6 py-2.5 font-bold shadow-md transition-all active:scale-95", (isSaving || !canEdit) ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-emerald-500/20")}
           disabled={isSaving || !canEdit}
           onClick={saveAll}
         >
-          {isSaving ? "กำลังบันทึก..." : "บันทึก"}
+          {isSaving ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
         </button>
       </div>
 
       {saveMsg && (
-        <div className={cx("mb-4 rounded-2xl border p-4 text-sm", saveMsg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900")}>
-          <div className="font-semibold">{saveMsg.title}</div>
-          <div className="opacity-90">{saveMsg.detail}</div>
+        <div className={cx("mb-4 rounded-2xl border p-4 text-sm animate-in fade-in slide-in-from-top-2", saveMsg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:bg-emerald-900/10 dark:text-emerald-400" : "border-rose-200 bg-rose-50 text-rose-900 dark:bg-rose-900/10 dark:text-rose-400")}>
+          <div className="font-bold flex items-center gap-2">
+             {saveMsg.ok ? "✓" : "✕"} {saveMsg.title}
+          </div>
+          <div className="opacity-90 ml-6">{saveMsg.detail}</div>
         </div>
       )}
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-        <div className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700" ref={tableWrapRef}>
-          <table className="min-w-full border-collapse" style={{ width: TOTAL_W }}>
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="overflow-auto rounded-xl border border-slate-100 dark:border-slate-900" ref={tableWrapRef}>
+          <table className="min-w-full border-separate border-spacing-0" style={{ width: TOTAL_W }}>
             <colgroup>
               <col style={{ width: COL_W.product }} />
               <col style={{ width: COL_W.unit }} />
@@ -587,23 +589,23 @@ function ProcurementPlanDetail(props) {
               <col style={{ width: COL_W.total }} />
             </colgroup>
             <thead>
-              <tr>
+              <tr className="text-center">
                 <th className={cx(leftHeadCell, STRIPE.headEven)} rowSpan={2}>ประเภทสินค้า</th>
                 <th className={cx(headCell, STRIPE.headEven)} rowSpan={2}>หน่วย<br/>นับ</th>
                 <th className={cx(headCell, STRIPE.headEven)} rowSpan={2}>ราคา<br/>ต่อหน่วย<br/>(บาท)</th>
                 <th className={cx(headCell, STRIPE.headEven)} colSpan={MONTHS.length * unitCols.length}>มูลค่าสินค้าที่ขายในแต่ละเดือน (พันบาท)</th>
-                <th className={cx(headCell, STRIPE.headEven)} colSpan={2}>รวมทั้งหมด</th>
+                <th className={cx(headCell, STRIPE.headEven, "border-l border-slate-200 dark:border-slate-700")} colSpan={2}>รวมทั้งหมด</th>
               </tr>
-              <tr>
+              <tr className="text-center">
                 {MONTHS.map((m, mi) => (
                   unitCols.map(u => (
-                    <th key={`h2-${m.key}-${u.id}`} className={cx(headCell, monthStripeHead(mi))}>
+                    <th key={`h2-${m.key}-${u.id}`} className={cx(headCell, monthStripeHead(mi), "text-[11px]")}>
                       {unitCols.length > 1 ? `${m.label} (${u.short})` : m.label}
                     </th>
                   ))
                 ))}
-                <th className={cx(headCell, STRIPE.headEven)}>จำนวน<br/>หน่วย</th>
-                <th className={cx(headCell, STRIPE.headEven)}>จำนวนเงิน<br/>(บาท)</th>
+                <th className={cx(headCell, STRIPE.headEven, "border-l border-slate-200 dark:border-slate-700")}>จำนวนหน่วย</th>
+                <th className={cx(headCell, STRIPE.headEven)}>จำนวนเงิน(บาท)</th>
               </tr>
             </thead>
             <tbody>
@@ -621,14 +623,14 @@ function ProcurementPlanDetail(props) {
                 return (
                   <Fragment key={pid}>
                     {/* Row 1: Quantity */}
-                    <tr className="group hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                      <td className={cx(leftCellSticky, STRIPE.cellEven, "align-top")} rowSpan={2}>
-                        <div className="font-semibold">{p.product_type || "-"}</div>
+                    <tr className="group">
+                      <td className={cx(leftCellSticky, STRIPE.cellEven, "align-middle py-4")} rowSpan={2}>
+                        <div className="font-bold text-slate-700 dark:text-slate-200">{p.product_type || "-"}</div>
                       </td>
-                      <td className={cx(cellClass, STRIPE.cellEven)}>
-                        <div className="text-sm font-semibold text-center">{p.unit}</div>
+                      <td className={cx(cellClass, STRIPE.cellEven, "py-2")}>
+                        <div className="text-xs font-semibold text-center text-slate-500">{p.unit}</div>
                       </td>
-                      <td className={cx(cellClass, STRIPE.cellEven, "align-top")} rowSpan={2}>
+                      <td className={cx(cellClass, STRIPE.cellEven, "align-middle")} rowSpan={2}>
                         <input
                           ref={registerInput(rowIdx, 0)}
                           data-row={rowIdx} data-col={0}
@@ -652,6 +654,7 @@ function ProcurementPlanDetail(props) {
                                   onKeyDown={handleArrowNav}
                                   className={cellInput}
                                   value={String(v)}
+                                  placeholder="0"
                                   onChange={(e) => setQtyField(pid, m.key, uid, sanitizeNumberInput(e.target.value))}
                                 />
                               </td>
@@ -659,20 +662,20 @@ function ProcurementPlanDetail(props) {
                           })}
                         </Fragment>
                       ))}
-                      <td className={cx(cellClass, STRIPE.footEven)}>
-                        <div className="text-right font-semibold">{productTotalQty > 0 ? fmtQty(productTotalQty) : "-"}</div>
+                      <td className={cx(cellClass, STRIPE.footEven, "border-l border-slate-200 dark:border-slate-800")}>
+                        <div className="text-right font-bold text-slate-700 dark:text-slate-300 pr-2">{productTotalQty > 0 ? fmtQty(productTotalQty) : "-"}</div>
                       </td>
-                      <td className={cx(cellClass, STRIPE.footEven, "align-top")} rowSpan={2}>
-                        <div className="text-right font-semibold text-emerald-700 dark:text-emerald-400 pr-1">
+                      <td className={cx(cellClass, STRIPE.footEven, "align-middle")} rowSpan={2}>
+                        <div className="text-right font-bold text-emerald-600 dark:text-emerald-400 pr-2">
                           {productTotalBaht > 0 ? fmtMoney(productTotalBaht) : "-"}
                         </div>
                       </td>
                     </tr>
                     
                     {/* Row 2: Baht */}
-                    <tr className="group hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                      <td className={cx(cellClass, STRIPE.cellEven)}>
-                        <div className="text-sm font-semibold text-center">บาท</div>
+                    <tr className="group border-b border-slate-200 dark:border-slate-800">
+                      <td className={cx(cellClass, "bg-slate-50/50 dark:bg-slate-900/50")}>
+                        <div className="text-[10px] font-bold text-center text-slate-400 uppercase tracking-tighter">บาท</div>
                       </td>
                       {MONTHS.map((m, mi) => {
                         let monthQty = 0
@@ -681,15 +684,15 @@ function ProcurementPlanDetail(props) {
                         }
                         const monthBaht = monthQty * sell
                         return (
-                          <td key={`${pid}-${m.key}-baht`} colSpan={unitCols.length} className={cx(cellClass, monthStripeCell(mi))}>
-                            <div className="text-right text-sm text-slate-600 dark:text-slate-400 pr-2">
+                          <td key={`${pid}-${m.key}-baht`} colSpan={unitCols.length} className={cx(cellClass, monthStripeCell(mi), "opacity-80")}>
+                            <div className="text-right text-[11px] font-medium text-slate-500 dark:text-slate-400 pr-2 italic">
                               {monthBaht > 0 ? fmtMoney(monthBaht) : "-"}
                             </div>
                           </td>
                         )
                       })}
-                      <td className={cx(cellClass, STRIPE.footEven)}>
-                        <div className="text-right text-sm text-slate-500 pr-2">-</div>
+                      <td className={cx(cellClass, STRIPE.footEven, "border-l border-slate-200 dark:border-slate-800 opacity-50")}>
+                        <div className="text-right text-[11px] text-slate-400 pr-2">-</div>
                       </td>
                     </tr>
                   </Fragment>
@@ -697,24 +700,24 @@ function ProcurementPlanDetail(props) {
               })}
               
               {/* Footer Row 1: Total Qty */}
-              <tr>
-                <td className={cx(leftCellSticky, STRIPE.footOdd)} rowSpan={2}>
-                  <div className="font-bold text-center">รวมทั้งสิ้น</div>
+              <tr className="border-t-2 border-slate-200 dark:border-slate-700">
+                <td className={cx(leftCellSticky, STRIPE.footOdd, "py-4")} rowSpan={2}>
+                  <div className="font-bold text-center text-emerald-900 dark:text-emerald-300 uppercase tracking-widest">รวมทั้งสิ้น</div>
                 </td>
                 <td className={cx(cellClass, STRIPE.footOdd)}>
-                  <div className="font-bold text-center">หน่วย</div>
+                  <div className="font-bold text-center text-xs text-emerald-800 dark:text-emerald-400">หน่วย</div>
                 </td>
                 <td className={cx(cellClass, STRIPE.footOdd)} rowSpan={2}></td>
                 {MONTHS.map((m, mi) => (
                   <td key={`total-qty-${m.key}`} colSpan={unitCols.length} className={cx(cellClass, STRIPE.footOdd)}>
-                    <div className="text-right font-bold pr-2">{grandTotals.mQty[m.key] > 0 ? fmtQty(grandTotals.mQty[m.key]) : "-"}</div>
+                    <div className="text-right font-bold text-emerald-900 dark:text-emerald-100 pr-2">{grandTotals.mQty[m.key] > 0 ? fmtQty(grandTotals.mQty[m.key]) : "-"}</div>
                   </td>
                 ))}
-                <td className={cx(cellClass, STRIPE.footOdd)}>
-                  <div className="text-right font-bold pr-2">{grandTotals.sumAllQty > 0 ? fmtQty(grandTotals.sumAllQty) : "-"}</div>
+                <td className={cx(cellClass, STRIPE.footOdd, "border-l border-emerald-200 dark:border-emerald-800")}>
+                  <div className="text-right font-bold text-emerald-900 dark:text-emerald-100 pr-2">{grandTotals.sumAllQty > 0 ? fmtQty(grandTotals.sumAllQty) : "-"}</div>
                 </td>
-                <td className={cx(cellClass, STRIPE.footOdd)} rowSpan={2}>
-                  <div className="text-right font-bold text-emerald-700 dark:text-emerald-400 pr-1">
+                <td className={cx(cellClass, STRIPE.footOdd, "align-middle")} rowSpan={2}>
+                  <div className="text-right font-extrabold text-emerald-600 dark:text-emerald-400 text-base pr-2 underline decoration-double underline-offset-4">
                     {grandTotals.sumAllBaht > 0 ? fmtMoney(grandTotals.sumAllBaht) : "-"}
                   </div>
                 </td>
@@ -723,25 +726,26 @@ function ProcurementPlanDetail(props) {
               {/* Footer Row 2: Total Baht */}
               <tr>
                 <td className={cx(cellClass, STRIPE.footOdd)}>
-                  <div className="font-bold text-center">บาท</div>
+                  <div className="font-bold text-center text-[10px] text-emerald-800/60 dark:text-emerald-400/60 tracking-tighter">บาท</div>
                 </td>
                 {MONTHS.map((m, mi) => (
                   <td key={`total-baht-${m.key}`} colSpan={unitCols.length} className={cx(cellClass, STRIPE.footOdd)}>
-                    <div className="text-right font-bold text-emerald-700 dark:text-emerald-400 pr-2">
+                    <div className="text-right font-bold text-emerald-600 dark:text-emerald-400 pr-2 italic text-xs">
                       {grandTotals.mBaht[m.key] > 0 ? fmtMoney(grandTotals.mBaht[m.key]) : "-"}
                     </div>
                   </td>
                 ))}
-                <td className={cx(cellClass, STRIPE.footOdd)}>
-                  <div className="text-right text-sm text-slate-500 pr-2">-</div>
+                <td className={cx(cellClass, STRIPE.footOdd, "border-l border-emerald-200 dark:border-emerald-800")}>
+                  <div className="text-right text-sm text-slate-400 pr-2">-</div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
         {!canEdit && (
-          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            ยังไม่พบสาขา — กรุณาเลือกสาขาก่อน
+          <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/50 p-4 text-sm text-amber-700 flex items-center gap-3">
+             <span className="text-lg">⚠</span>
+             <span>ยังไม่ได้ระบุสาขา กรุณาเลือกสาขาจากเมนูด้านบนเพื่อเริ่มบันทึกข้อมูล</span>
           </div>
         )}
       </div>

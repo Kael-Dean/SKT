@@ -139,6 +139,16 @@ const STRIPE = {
   footOdd: "bg-emerald-200/75 dark:bg-emerald-900/30",
 }
 
+// สีทึบสำหรับคอลัมน์ที่ถูกตรึง (Sticky) เพื่อไม่ให้เห็นด้านหลัง
+const STICKY_SOLID_BG = {
+  headEven: "bg-slate-100 dark:bg-slate-700",
+  headOdd: "bg-slate-200 dark:bg-slate-600",
+  cellEven: "bg-slate-50 dark:bg-slate-800",
+  cellOdd: "bg-slate-200 dark:bg-slate-700",
+  footEven: "bg-emerald-100 dark:bg-emerald-900",
+  footOdd: "bg-emerald-200 dark:bg-emerald-900",
+}
+
 const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEven)
 const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven)
 
@@ -612,7 +622,8 @@ function ProcurementPlanDetail(props) {
             <thead>
               {/* Header Row 1 */}
               <tr>
-                <th className={cx(leftHeadCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={3}>
+                {/* แก้ไข: ใช้สีพื้นหลังแบบทึบ STICKY_SOLID_BG.headEven แทน STRIPE.headEven */}
+                <th className={cx(leftHeadCell, STICKY_SOLID_BG.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={3}>
                   ประเภทสินค้า
                 </th>
                 <th className={cx(headCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={3}>
@@ -657,13 +668,18 @@ function ProcurementPlanDetail(props) {
             <tbody>
               {productRows.map((p, rowIdx) => {
                 const pid = String(p.product_id), prices = priceByPid[pid] || {}, sell = toNumber(prices.sell_price ?? p.sell_price ?? 0)
-                const stripeCls = rowIdx % 2 === 0 ? STRIPE.cellEven : STRIPE.cellOdd
+                
+                // กำหนดคลาสสีพื้นหลังแบบปกติ และแบบทึบ (สำหรับคอลัมน์ Sticky)
+                const isEven = rowIdx % 2 === 0;
+                const stripeCls = isEven ? STRIPE.cellEven : STRIPE.cellOdd
+                const stickyStripeCls = isEven ? STICKY_SOLID_BG.cellEven : STICKY_SOLID_BG.cellOdd
 
                 return (
                   <Fragment key={pid}>
                     {/* ข้อมูล 1: แถวจำนวนหน่วย (Inputs) */}
                     <tr className="group">
-                      <td rowSpan={2} className={cx(leftCellSticky, stripeCls, rowDivider, "align-middle")}>
+                      {/* แก้ไข: ใช้สีพื้นหลังแบบทึบ stickyStripeCls แทน stripeCls */}
+                      <td rowSpan={2} className={cx(leftCellSticky, stickyStripeCls, rowDivider, "align-middle")}>
                         <div className="font-semibold">{p.product_type || "-"}</div>
                       </td>
                       <td className={cx(cellClass, stripeCls)}>
@@ -744,7 +760,8 @@ function ProcurementPlanDetail(props) {
               {/* ----- FOOTER: สรุปยอดรวมทั้งหมด ด้านล่าง ----- */}
               {/* Footer 1: ผลรวมจำนวนหน่วย */}
               <tr>
-                <td rowSpan={2} className={cx(leftCellSticky, STRIPE.footOdd, footerBorder, "align-middle")}>
+                {/* แก้ไข: ใช้สีพื้นหลังแบบทึบ STICKY_SOLID_BG.footOdd แทน STRIPE.footOdd */}
+                <td rowSpan={2} className={cx(leftCellSticky, STICKY_SOLID_BG.footOdd, footerBorder, "align-middle")}>
                   <div className="font-bold text-center text-[13px]">รวม</div>
                 </td>
                 <td className={cx(cellClass, STRIPE.footOdd, footerBorder)}>

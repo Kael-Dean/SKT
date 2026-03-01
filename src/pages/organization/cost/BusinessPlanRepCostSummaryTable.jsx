@@ -156,11 +156,12 @@ const ROWS = [
 const COL_W = { code: 72, item: 320, cell: 120, total: 120 }
 const LEFT_W = COL_W.code + COL_W.item
 
+// ✅ แก้ไขให้สีทึบ 100% ไม่มี /xx
 const STRIPE = {
-  head: "bg-slate-100/90 dark:bg-slate-700/70",
+  head: "bg-slate-100 dark:bg-slate-700",
   cell: "bg-white dark:bg-slate-900",
   alt: "bg-slate-50 dark:bg-slate-800",
-  foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
+  foot: "bg-emerald-100 dark:bg-emerald-900",
 }
 
 const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId }) => {
@@ -347,20 +348,17 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
   const computed = useMemo(() => {
     const rowTotal = {}
 
-    // สำหรับแถวที่มีให้กรอก (items) ไม่จำยอดรวมไว้ที่นี่เพราะมันจะดึงไปโชว์ในตารางยาก เก็บเป็นผลรวมรายบรรทัด
     for (const r of itemRows) {
       const row = valuesByCode[r.code] || {}
       let sum = 0
       for (const u of units) sum += toNumber(row[u.id])
-      rowTotal[r.code] = { total: sum } // ไม่เก็บแยกยูนิต เพราะ render หยิบตรงๆ จาก input เลย
+      rowTotal[r.code] = { total: sum } 
     }
 
-    // subtotals
     for (const k of Object.keys(sectionMap)) {
       rowTotal[k] = sumCodes(sectionMap[k])
     }
 
-    // grand total
     const allItems = Object.values(sectionMap).flat()
     rowTotal["G.T"] = sumCodes(allItems)
 
@@ -487,12 +485,11 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
     const cells = []
 
     for (const r of itemRows) {
-      if (!r.aux_id) continue // ข้ามอันที่ไม่มี (กรณีตกหล่น)
+      if (!r.aux_id) continue 
 
       const rowObj = valuesByCode[r.code] || {}
       for (const u of units) {
         const amount = toNumber(rowObj[u.id])
-        // ตาม BE รับค่า "ทุกช่อง" ไปทับเพื่อให้เรากดลบ (0) ได้
         cells.push({
           unit_id: u.id,
           aux_id: r.aux_id,
@@ -694,7 +691,7 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
       <div
         ref={tableCardRef}
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
-        style={{ height: tableCardHeight }}
+        style={{ maxHeight: tableCardHeight }} // ✅ แก้เป็น maxHeight
       >
         <div className="p-2 md:p-3 shrink-0">
           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
@@ -750,15 +747,15 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
 
                 if (r.kind === "title" || r.kind === "section") {
                   return (
-                    <tr key={r.code} className="bg-slate-200/70 dark:bg-slate-700/55">
-                      <td className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeCell)}>
+                    <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">
+                      <td className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeCell, "bg-slate-200 dark:bg-slate-700")}>
                         {r.kind === "section" ? r.code : ""}
                       </td>
                       <td
                         colSpan={(units.length ? units.length : 1) + 2}
                         className={cx(
                           "border border-slate-300 px-3 py-2 font-extrabold dark:border-slate-600",
-                          "sticky z-[55] bg-slate-200/70 dark:bg-slate-700/55",
+                          "sticky z-[55] bg-slate-200 dark:bg-slate-700",
                           trunc
                         )}
                         style={{ left: COL_W.code }}
@@ -773,10 +770,12 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
                 const rowBg = idx % 2 === 1 ? STRIPE.alt : STRIPE.cell
                 const isSubtotal = r.kind === "subtotal"
                 const isGrand = r.kind === "grandtotal"
+                
+                // ✅ สีทึบ 100% สำหรับ Subtotal/Grandtotal
                 const rowCls = isGrand
-                  ? "bg-emerald-200/60 dark:bg-emerald-900/35"
+                  ? "bg-emerald-200 dark:bg-emerald-800"
                   : isSubtotal
-                  ? "bg-emerald-50 dark:bg-emerald-900/20"
+                  ? "bg-emerald-100 dark:bg-emerald-900"
                   : rowBg
                 const font = isGrand || isSubtotal ? "font-extrabold" : "font-semibold"
 
@@ -832,8 +831,8 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
           </table>
         </div>
 
-        {/* footer totals */}
-        <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900/20">
+        {/* ✅ footer totals แยกและซิงค์การเลื่อน */}
+        <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-emerald-100 dark:bg-emerald-900">
           <div className="flex w-full">
             <div className="shrink-0" style={{ width: LEFT_W }}>
               <table className="border-collapse text-sm" style={{ width: LEFT_W, tableLayout: "fixed" }}>
@@ -842,9 +841,9 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
                   <col style={{ width: COL_W.item }} />
                 </colgroup>
                 <tbody>
-                  <tr className={cx("font-extrabold text-slate-900 dark:text-emerald-100", STRIPE.foot)}>
-                    <td className="border border-slate-200 px-2 py-2 text-center dark:border-slate-700" />
-                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700 text-center">รวมต้นทุน</td>
+                  <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
+                    <td className="border border-slate-200 px-2 py-2 text-center dark:border-slate-700 bg-emerald-100 dark:bg-emerald-900" />
+                    <td className="border border-slate-200 px-3 py-2 dark:border-slate-700 text-center bg-emerald-100 dark:bg-emerald-900">รวมต้นทุน</td>
                   </tr>
                 </tbody>
               </table>
@@ -858,17 +857,17 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
                     <col style={{ width: COL_W.total }} />
                   </colgroup>
                   <tbody>
-                    <tr className={cx("font-extrabold text-slate-900 dark:text-emerald-100", STRIPE.foot)}>
+                    <tr className="font-extrabold text-slate-900 dark:text-emerald-100">
                       {units.length ? (
                         units.map((u) => (
-                          <td key={u.id} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">
+                          <td key={u.id} className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700 bg-emerald-100 dark:bg-emerald-900">
                             {fmtMoney0(computed.colTotal[u.id] || 0)}
                           </td>
                         ))
                       ) : (
-                        <td className="border border-slate-200 px-2 py-2 dark:border-slate-700" />
+                        <td className="border border-slate-200 px-2 py-2 dark:border-slate-700 bg-emerald-100 dark:bg-emerald-900" />
                       )}
-                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700">{fmtMoney0(computed.grand)}</td>
+                      <td className="border border-slate-200 px-2 py-2 text-right dark:border-slate-700 bg-emerald-100 dark:bg-emerald-900">{fmtMoney0(computed.grand)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -878,7 +877,7 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
         </div>
 
         {/* Action bar (bottom) */}
-        <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
+        <div className="shrink-0 p-3 md:p-4">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="text-sm text-slate-600 dark:text-slate-300">
               บันทึก: <span className="font-mono">PUT /business-plan/{`{plan_id}`}/aux-costs/bulk</span> • plan_id=

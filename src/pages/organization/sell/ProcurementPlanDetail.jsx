@@ -126,7 +126,7 @@ const COL_W = {
   product: 260,
   unit: 84,
   price: 130,
-  cell: 86,
+  cell: 130, // ปรับขยายความกว้างเพื่อให้เห็นชื่อหน่วยได้เต็มๆ
 }
 const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
 
@@ -619,31 +619,39 @@ function ProcurementPlanDetail(props) {
             <thead>
               {/* Header Row 1 */}
               <tr>
-                <th className={cx(leftHeadCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={2}>
+                <th className={cx(leftHeadCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={3}>
                   ประเภทสินค้า
                 </th>
-                <th className={cx(headCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={2}>
+                <th className={cx(headCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={3}>
                   หน่วยนับ
                 </th>
-                <th className={cx(headCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={2}>
+                <th className={cx(headCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={3}>
                   ราคาต่อหน่วย<br/>(บาท)
                 </th>
                 <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")} colSpan={MONTHS.length * unitCols.length}>
                   มูลค่าสินค้าที่ขายในแต่ละเดือน (พันบาท)
                 </th>
                 {unitCols.map((u, i) => (
-                  <th key={`superh-tot-${u.id}`} className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")} colSpan={2}>
-                    รวมทั้งหมด {unitCols.length > 1 ? `(${u.short})` : ''}
+                  <th key={`superh-tot-${u.id}`} className={cx(headCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} colSpan={2} rowSpan={2}>
+                    รวมทั้งหมด {unitCols.length > 1 ? `(${u.name})` : ''}
                   </th>
                 ))}
               </tr>
-              {/* Header Row 2 */}
+              {/* Header Row 2: รวมชื่อเดือน */}
               <tr>
                 {MONTHS.map((m, mi) => (
-                  <Fragment key={`h-${m.key}`}>
+                  <th key={`h2-${m.key}`} className={cx(headCell, monthStripeHead(mi), "border-b border-b-slate-300 dark:border-b-slate-600 text-center")} colSpan={unitCols.length}>
+                    {m.label}
+                  </th>
+                ))}
+              </tr>
+              {/* Header Row 3: ชื่อหน่วยย่อยตามเดือน */}
+              <tr>
+                {MONTHS.map((m, mi) => (
+                  <Fragment key={`h3-${m.key}`}>
                     {unitCols.map((u) => (
-                      <th key={`${m.key}-${u.id}`} className={cx(headCell, monthStripeHead(mi), "border-b border-b-slate-300 dark:border-b-slate-600")}>
-                        {m.label} {unitCols.length > 1 ? u.short : ''}
+                      <th key={`h3-${m.key}-${u.id}`} className={cx(headCell, monthStripeHead(mi), "border-b border-b-slate-300 dark:border-b-slate-600 font-medium text-slate-700 dark:text-slate-200")}>
+                        {u.name}
                       </th>
                     ))}
                   </Fragment>

@@ -710,36 +710,49 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
             </colgroup>
 
             <thead className="sticky top-0 z-[80]">
-              <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
-                <th rowSpan={2} className={cx("border border-slate-300 px-2 py-2 text-center font-bold dark:border-slate-600", stickyCodeHeader)} />
-                <th
-                  rowSpan={2}
-                  className={cx("border border-slate-300 px-3 py-2 text-left font-bold dark:border-slate-600", stickyLeftHeader, trunc)}
-                  style={{ left: COL_W.code }}
-                >
-                  รายการ
-                </th>
+  {/* ลบ STRIPE.head ออกจาก tr */}
+  <tr className="text-slate-800 dark:text-slate-100">
+    <th
+      rowSpan={2}
+      
+      className={cx("border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600", stickyCodeHeader, STRIPE.head)}
+    />
+    <th
+      rowSpan={2}
+      className={cx("border border-slate-300 px-2 py-2 text-left font-bold text-xs dark:border-slate-600", stickyLeftHeader, STRIPE.head, trunc)}
+      style={{ left: COL_W.code }}
+    >
+      รายการ
+    </th>
+    <th
+      colSpan={(units.length ? units.length : 1) + 1}
+      className={cx("border border-slate-300 px-2 py-2 text-center font-extrabold text-xs dark:border-slate-600", STRIPE.head)}
+    >
+      <span className={trunc}>สกต. {effectiveBranchName}</span>
+    </th>
+  </tr>
 
-                <th colSpan={(units.length ? units.length : 1) + 1} className="border border-slate-300 px-3 py-2 text-center font-extrabold dark:border-slate-600">
-                  <span className={trunc}>สกต. {effectiveBranchName}</span>
-                </th>
-              </tr>
-
-              <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
-                {units.length ? (
-                  units.map((u) => (
-                    <th key={u.id} className="border border-slate-300 px-2 py-2 text-center text-[11px] md:text-sm dark:border-slate-600" title={u.name}>
-                      <div className={trunc}>{u.name}</div>
-                    </th>
-                  ))
-                ) : (
-                  <th className="border border-slate-300 px-2 py-2 text-center text-xs dark:border-slate-600">
-                    {isLoadingUnits ? "กำลังโหลด..." : "ไม่มีหน่วย"}
-                  </th>
-                )}
-                <th className="border border-slate-300 px-2 py-2 text-center text-[11px] md:text-sm font-extrabold dark:border-slate-600">รวม</th>
-              </tr>
-            </thead>
+  <tr className="text-slate-800 dark:text-slate-100">
+    {units.length ? (
+      units.map((u) => (
+        <th
+          key={u.id}
+          className={cx("border border-slate-300 px-1 py-2 text-center text-[11px] md:text-xs dark:border-slate-600", STRIPE.head, trunc)}
+          title={u.name}
+        >
+          {u.name}
+        </th>
+      ))
+    ) : (
+      <th className={cx("border border-slate-300 px-2 py-2 text-center text-xs dark:border-slate-600", STRIPE.head)}>
+        {isLoadingUnits ? "กำลังโหลด..." : "ไม่มีหน่วย"}
+      </th>
+    )}
+    <th className={cx("border border-slate-300 px-1 py-2 text-center text-[11px] md:text-xs font-extrabold dark:border-slate-600", STRIPE.head)}>
+      รวม
+    </th>
+  </tr>
+</thead>
 
             <tbody>
               {ROWS.map((r) => {

@@ -667,7 +667,7 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
               <col style={{ width: COL_W.total }} />
             </colgroup>
 
-            <thead className="sticky top-0 z-[80]">
+            <thead className={cx("sticky top-0 z-[80]", STRIPE.head)}>
   {/* ลบ STRIPE.head ออกจาก tr */}
   <tr className="text-slate-800 dark:text-slate-100">
     <th

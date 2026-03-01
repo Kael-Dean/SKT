@@ -14,7 +14,7 @@ const sanitizeNumberInput = (s) => {
   return `${parts[0]}.${parts.slice(1).join("")}`
 }
 const fmtQty = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 3 }).format(toNumber(n))
-const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(toNumber(n))
+const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(toNumber(n))
 
 /** ---------------- API ---------------- */
 const API_BASE_RAW =
@@ -324,7 +324,12 @@ function ProcurementPlanDetail(props) {
     return list.map((u, idx) => ({ ...u, short: u.short || shortUnit(u.name || "", idx) }))
   }, [units])
 
-  const RIGHT_W = useMemo(() => (MONTHS.length * unitCols.length + unitCols.length) * COL_W.cell, [unitCols.length])
+  const RIGHT_W = useMemo(() => {
+    const monthColsW = MONTHS.length * unitCols.length * COL_W.cell
+    const totalColsW = unitCols.length * (COL_W.cell + COL_W.price) // Space for Qty + Baht totals
+    return monthColsW + totalColsW
+  }, [unitCols.length])
+  
   const TOTAL_W = useMemo(() => LEFT_W + RIGHT_W, [RIGHT_W])
 
   const loadProducts = useCallback(async () => {
@@ -424,27 +429,52 @@ function ProcurementPlanDetail(props) {
     })
   }, [])
 
+  // Calculate all sums: per month per unit, per product per unit, and grand totals
   const sums = useMemo(() => {
-    const perUnit = {}, perMonth = {}
-    for (const u of unitCols) perUnit[String(u.id)] = 0
-    for (const m of MONTHS) perMonth[m.key] = 0
-    let grandQty = 0, grandValue = 0
+    const perMonth = {} 
+    const perProduct = {} 
+    const grandUnitTotals = {} 
+
+    // Initialize objects
+    for (const m of MONTHS) {
+      perMonth[m.key] = {}
+      for (const u of unitCols) perMonth[m.key][String(u.id)] = { qty: 0, baht: 0 }
+    }
     for (const p of productRows) {
-      const pid = String(p.product_id), prices = priceByPid[pid] || {}
+      const pid = String(p.product_id)
+      perProduct[pid] = {}
+      for (const u of unitCols) perProduct[pid][String(u.id)] = { qty: 0, baht: 0 }
+    }
+    for (const u of unitCols) grandUnitTotals[String(u.id)] = { qty: 0, baht: 0 }
+
+    let grandValue = 0
+
+    // Accumulate values
+    for (const p of productRows) {
+      const pid = String(p.product_id)
+      const prices = priceByPid[pid] || {}
       const sell = toNumber(prices.sell_price ?? p.sell_price ?? 0)
+
       for (const m of MONTHS) {
-        let sumMonth = 0
         for (const u of unitCols) {
-          const uid = String(u.id), n = toNumber(qtyByPid?.[pid]?.[m.key]?.[uid] ?? "")
-          sumMonth += n
-          perUnit[uid] = (perUnit[uid] || 0) + n
+          const uid = String(u.id)
+          const n = toNumber(qtyByPid?.[pid]?.[m.key]?.[uid] ?? "")
+          const baht = n * sell
+
+          perMonth[m.key][uid].qty += n
+          perMonth[m.key][uid].baht += baht
+
+          perProduct[pid][uid].qty += n
+          perProduct[pid][uid].baht += baht
+
+          grandUnitTotals[uid].qty += n
+          grandUnitTotals[uid].baht += baht
+
+          grandValue += baht
         }
-        perMonth[m.key] += sumMonth
-        grandQty += sumMonth
-        grandValue += sumMonth * sell
       }
     }
-    return { perUnit, perMonth, grandQty, grandValue }
+    return { perMonth, perProduct, grandUnitTotals, grandValue }
   }, [productRows, priceByPid, qtyByPid, unitCols])
 
   /** ---------------- Arrow Navigation Logic ---------------- */
@@ -471,7 +501,6 @@ function ProcurementPlanDetail(props) {
     if (erect.left < visibleLeft) container.scrollLeft -= (visibleLeft - erect.left)
     else if (erect.right > visibleRight) container.scrollLeft += (erect.right - visibleRight)
     
-    // Vertical scroll
     if (erect.top < crect.top + pad) container.scrollTop -= (crect.top + pad - erect.top)
     else if (erect.bottom > crect.bottom - pad) container.scrollTop += (erect.bottom - (crect.bottom - pad))
   }, [])
@@ -482,7 +511,7 @@ function ProcurementPlanDetail(props) {
     
     const rIdx = Number(e.currentTarget.dataset.row ?? 0)
     const cIdx = Number(e.currentTarget.dataset.col ?? 0)
-    const totalCols = 1 + (MONTHS.length * unitCols.length) // Price + Qty Grid
+    const totalCols = 1 + (MONTHS.length * unitCols.length) 
 
     let nextR = rIdx, nextC = cIdx
     if (k === "ArrowLeft") nextC = cIdx - 1
@@ -538,11 +567,13 @@ function ProcurementPlanDetail(props) {
 
   /** ---------------- rendering helpers ---------------- */
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
-  const headCell = "px-2 py-2 text-sm font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-300/70 dark:border-slate-600/60"
+  const headCell = "px-2 py-2 text-sm font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-300/70 dark:border-slate-600/60"
   const leftHeadCell = cx(headCell, "sticky left-0 z-20", stickyShadow)
-  const leftCell = "px-2 py-2 text-sm text-slate-900 dark:text-slate-100 border-b border-slate-200/70 dark:border-slate-700/60"
+  const leftCell = "px-2 py-2 text-sm text-slate-900 dark:text-slate-100 border-r border-slate-200/70 dark:border-slate-700/60"
   const leftCellSticky = cx(leftCell, "sticky left-0 z-10", stickyShadow)
-  const cellClass = "px-1 py-1 border-b border-slate-200/70 dark:border-slate-700/60 text-slate-900 dark:text-slate-100"
+  const cellClass = "px-1 py-1 border-r border-slate-200/70 dark:border-slate-700/60 text-slate-900 dark:text-slate-100"
+  const rowDivider = "border-b-[2px] border-b-slate-300 dark:border-b-slate-600"
+  const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
   return (
     <div className="w-full">
@@ -573,78 +604,211 @@ function ProcurementPlanDetail(props) {
         <div className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700" ref={tableWrapRef}>
           <table className="min-w-full border-collapse" style={{ width: TOTAL_W }}>
             <colgroup>
-              <col style={{ width: COL_W.product }} /><col style={{ width: COL_W.unit }} /><col style={{ width: COL_W.price }} />
+              <col style={{ width: COL_W.product }} />
+              <col style={{ width: COL_W.unit }} />
+              <col style={{ width: COL_W.price }} />
               {MONTHS.map((m) => unitCols.map((u) => <col key={`${m.key}-${u.id}`} style={{ width: COL_W.cell }} />))}
-              {unitCols.map((u) => <col key={`sum-${u.id}`} style={{ width: COL_W.cell }} />)}
+              {unitCols.map((u) => (
+                <Fragment key={`totcol-${u.id}`}>
+                  <col style={{ width: COL_W.cell }} />
+                  <col style={{ width: COL_W.price }} />
+                </Fragment>
+              ))}
             </colgroup>
+            
             <thead>
+              {/* Header Row 1 */}
               <tr>
-                <th className={cx(leftHeadCell, STRIPE.headEven)}>ประเภทสินค้า</th>
-                <th className={cx(headCell, STRIPE.headEven)}>หน่วย</th>
-                <th className={cx(headCell, STRIPE.headEven)}>ราคา/หน่วย</th>
-                {MONTHS.map((m, mi) => (<th key={m.key} className={cx(headCell, monthStripeHead(mi))} colSpan={unitCols.length}>{m.label}</th>))}
-                <th className={cx(headCell, STRIPE.headEven)} colSpan={unitCols.length}>รวม</th>
+                <th className={cx(leftHeadCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={2}>
+                  ประเภทสินค้า
+                </th>
+                <th className={cx(headCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={2}>
+                  หน่วยนับ
+                </th>
+                <th className={cx(headCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={2}>
+                  ราคาต่อหน่วย<br/>(บาท)
+                </th>
+                <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")} colSpan={MONTHS.length * unitCols.length}>
+                  มูลค่าสินค้าที่ขายในแต่ละเดือน (พันบาท)
+                </th>
+                {unitCols.map((u, i) => (
+                  <th key={`superh-tot-${u.id}`} className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")} colSpan={2}>
+                    รวมทั้งหมด {unitCols.length > 1 ? `(${u.short})` : ''}
+                  </th>
+                ))}
               </tr>
+              {/* Header Row 2 */}
               <tr>
-                <th className={cx(leftHeadCell, STRIPE.headEven)} /><th className={cx(headCell, STRIPE.headEven)} /><th className={cx(headCell, STRIPE.headEven)} />
-                {MONTHS.map((m, mi) => (<Fragment key={`sub-${m.key}`}>{unitCols.map((u, ui) => (<th key={`${m.key}-${u.id}`} className={cx(headCell, monthStripeHead(mi))}>{u.short}</th>))}</Fragment>))}
-                {unitCols.map((u) => (<th key={`sumh-${u.id}`} className={cx(headCell, STRIPE.headEven)}>{u.short}</th>))}
+                {MONTHS.map((m, mi) => (
+                  <Fragment key={`h-${m.key}`}>
+                    {unitCols.map((u) => (
+                      <th key={`${m.key}-${u.id}`} className={cx(headCell, monthStripeHead(mi), "border-b border-b-slate-300 dark:border-b-slate-600")}>
+                        {m.label} {unitCols.length > 1 ? u.short : ''}
+                      </th>
+                    ))}
+                  </Fragment>
+                ))}
+                {unitCols.map((u) => (
+                  <Fragment key={`sumh-${u.id}`}>
+                    <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")}>จำนวนหน่วย</th>
+                    <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")}>จำนวนเงิน (บาท)</th>
+                  </Fragment>
+                ))}
               </tr>
             </thead>
+            
             <tbody>
               {productRows.map((p, rowIdx) => {
-                const pid = String(p.product_id), prices = priceByPid[pid] || {}, sell = prices.sell_price ?? ""
+                const pid = String(p.product_id), prices = priceByPid[pid] || {}, sell = toNumber(prices.sell_price ?? p.sell_price ?? 0)
+                const stripeCls = rowIdx % 2 === 0 ? STRIPE.cellEven : STRIPE.cellOdd
+
                 return (
-                  <tr key={pid} className="group">
-                    <td className={cx(leftCellSticky, STRIPE.cellEven)}>
-                      <div className="font-semibold">{p.product_type || "-"}</div>
-                    </td>
-                    <td className={cx(cellClass, STRIPE.cellEven)}><div className="text-sm font-semibold text-center">{p.unit}</div></td>
-                    <td className={cx(cellClass, STRIPE.cellEven)}>
-                      <input
-                        ref={registerInput(rowIdx, 0)}
-                        data-row={rowIdx} data-col={0}
-                        onKeyDown={handleArrowNav}
-                        className={cellInput}
-                        value={String(sell)}
-                        placeholder={String(p.sell_price ?? 0)}
-                        onChange={(e) => setPriceField(pid, "sell_price", sanitizeNumberInput(e.target.value))}
-                      />
-                    </td>
-                    {MONTHS.map((m, mi) => (
-                      <Fragment key={`${pid}-${m.key}`}>
-                        {unitCols.map((u, ui) => {
-                          const uid = String(u.id), v = qtyByPid?.[pid]?.[m.key]?.[uid] ?? ""
-                          const colIdx = 1 + (mi * unitCols.length) + ui
-                          return (
-                            <td key={`${pid}-${m.key}-${uid}`} className={cx(cellClass, monthStripeCell(mi))}>
-                              <input
-                                ref={registerInput(rowIdx, colIdx)}
-                                data-row={rowIdx} data-col={colIdx}
-                                onKeyDown={handleArrowNav}
-                                className={cellInput}
-                                value={String(v)}
-                                onChange={(e) => setQtyField(pid, m.key, uid, sanitizeNumberInput(e.target.value))}
-                              />
-                            </td>
-                          )
-                        })}
-                      </Fragment>
-                    ))}
-                    {unitCols.map((u) => (
-                      <td key={`${pid}-sum-${u.id}`} className={cx(cellClass, STRIPE.footEven)}>
-                        <div className="text-right font-semibold">{fmtQty(sums.perUnit[String(u.id)] || 0)}</div>
+                  <Fragment key={pid}>
+                    {/* ข้อมูล 1: แถวจำนวนหน่วย (Inputs) */}
+                    <tr className="group">
+                      <td rowSpan={2} className={cx(leftCellSticky, stripeCls, rowDivider, "align-middle")}>
+                        <div className="font-semibold">{p.product_type || "-"}</div>
                       </td>
-                    ))}
-                  </tr>
+                      <td className={cx(cellClass, stripeCls)}>
+                        <div className="text-[14px] font-semibold text-center">{p.unit}</div>
+                      </td>
+                      <td rowSpan={2} className={cx(cellClass, stripeCls, rowDivider, "align-middle")}>
+                        <input
+                          ref={registerInput(rowIdx, 0)}
+                          data-row={rowIdx} data-col={0}
+                          onKeyDown={handleArrowNav}
+                          className={cellInput}
+                          value={String(prices.sell_price ?? "")}
+                          placeholder={String(p.sell_price ?? 0)}
+                          onChange={(e) => setPriceField(pid, "sell_price", sanitizeNumberInput(e.target.value))}
+                        />
+                      </td>
+                      {MONTHS.map((m, mi) => (
+                        <Fragment key={`${pid}-q-${m.key}`}>
+                          {unitCols.map((u, ui) => {
+                            const uid = String(u.id), v = qtyByPid?.[pid]?.[m.key]?.[uid] ?? ""
+                            const colIdx = 1 + (mi * unitCols.length) + ui
+                            return (
+                              <td key={`${pid}-q-${m.key}-${uid}`} className={cx(cellClass, monthStripeCell(mi))}>
+                                <input
+                                  ref={registerInput(rowIdx, colIdx)}
+                                  data-row={rowIdx} data-col={colIdx}
+                                  onKeyDown={handleArrowNav}
+                                  className={cellInput}
+                                  value={String(v)}
+                                  onChange={(e) => setQtyField(pid, m.key, uid, sanitizeNumberInput(e.target.value))}
+                                />
+                              </td>
+                            )
+                          })}
+                        </Fragment>
+                      ))}
+                      {/* ผลรวมของสินค้านั้น (หน่วย และ บาท) */}
+                      {unitCols.map((u) => (
+                        <Fragment key={`${pid}-sum-${u.id}`}>
+                          <td className={cx(cellClass, STRIPE.footEven)}>
+                            <div className="text-right font-semibold text-slate-800 dark:text-slate-200">
+                              {fmtQty(sums.perProduct[pid]?.[String(u.id)]?.qty || 0)}
+                            </div>
+                          </td>
+                          <td rowSpan={2} className={cx(cellClass, STRIPE.footEven, rowDivider, "align-middle")}>
+                            <div className="text-right font-bold text-emerald-700 dark:text-emerald-400">
+                              {fmtMoney(sums.perProduct[pid]?.[String(u.id)]?.baht || 0)}
+                            </div>
+                          </td>
+                        </Fragment>
+                      ))}
+                    </tr>
+
+                    {/* ข้อมูล 2: แถวจำนวนเงิน/บาท (Calculated) */}
+                    <tr className="group">
+                      <td className={cx(cellClass, stripeCls, rowDivider)}>
+                        <div className="text-[13px] text-center text-slate-500 dark:text-slate-400">บาท</div>
+                      </td>
+                      {MONTHS.map((m, mi) => (
+                        <Fragment key={`${pid}-b-${m.key}`}>
+                          {unitCols.map((u) => {
+                            const uid = String(u.id)
+                            const n = toNumber(qtyByPid?.[pid]?.[m.key]?.[uid] ?? "")
+                            const b = n * sell
+                            return (
+                              <td key={`${pid}-b-${m.key}-${uid}`} className={cx(cellClass, monthStripeCell(mi), rowDivider)}>
+                                <div className="px-2 py-1 text-right text-[13px] text-slate-600 dark:text-slate-300">
+                                  {b > 0 ? fmtMoney(b) : "-"}
+                                </div>
+                              </td>
+                            )
+                          })}
+                        </Fragment>
+                      ))}
+                      {unitCols.map((u) => (
+                        <td key={`${pid}-sum-pad-${u.id}`} className={cx(cellClass, STRIPE.footEven, rowDivider)} />
+                      ))}
+                    </tr>
+                  </Fragment>
                 )
               })}
+
+              {/* ----- FOOTER: สรุปยอดรวมทั้งหมด ด้านล่าง ----- */}
+              {/* Footer 1: ผลรวมจำนวนหน่วย */}
               <tr>
-                <td className={cx(leftCellSticky, STRIPE.footOdd)}><div className="font-bold">รวมทั้งสิ้น</div></td>
-                <td className={cx(cellClass, STRIPE.footOdd)} /><td className={cx(cellClass, STRIPE.footOdd)}><div className="text-right font-bold">{fmtMoney(sums.grandValue)}</div></td>
-                {MONTHS.map((m, mi) => <Fragment key={`total-${m.key}`}>{unitCols.map((u) => <td key={`total-${m.key}-${u.id}`} className={cx(cellClass, STRIPE.footOdd)} />)}</Fragment>)}
-                {unitCols.map((u) => (<td key={`g-sum-${u.id}`} className={cx(cellClass, STRIPE.footOdd)}><div className="text-right font-bold">{fmtQty(sums.perUnit[String(u.id)] || 0)}</div></td>))}
+                <td rowSpan={2} className={cx(leftCellSticky, STRIPE.footOdd, footerBorder, "align-middle")}>
+                  <div className="font-bold text-center text-[15px]">รวม</div>
+                </td>
+                <td className={cx(cellClass, STRIPE.footOdd, footerBorder)}>
+                  <div className="text-[14px] font-semibold text-center">หน่วย</div>
+                </td>
+                <td rowSpan={2} className={cx(cellClass, STRIPE.footOdd, footerBorder, "align-middle")} />
+                
+                {MONTHS.map((m, mi) => (
+                  <Fragment key={`ft-q-${m.key}`}>
+                    {unitCols.map((u) => (
+                      <td key={`ft-q-${m.key}-${u.id}`} className={cx(cellClass, monthStripeHead(mi), footerBorder)}>
+                        <div className="px-2 py-1 text-right font-semibold text-slate-800 dark:text-slate-200">
+                          {fmtQty(sums.perMonth[m.key][String(u.id)].qty)}
+                        </div>
+                      </td>
+                    ))}
+                  </Fragment>
+                ))}
+                
+                {unitCols.map((u) => (
+                  <Fragment key={`ft-sum-${u.id}`}>
+                    <td className={cx(cellClass, STRIPE.footOdd, footerBorder)}>
+                      <div className="text-right font-bold text-[15px] text-slate-900 dark:text-slate-100">
+                        {fmtQty(sums.grandUnitTotals[String(u.id)].qty)}
+                      </div>
+                    </td>
+                    <td rowSpan={2} className={cx(cellClass, STRIPE.footOdd, footerBorder, "align-middle")}>
+                      <div className="text-right font-bold text-[16px] text-emerald-800 dark:text-emerald-300">
+                        {fmtMoney(sums.grandUnitTotals[String(u.id)].baht)}
+                      </div>
+                    </td>
+                  </Fragment>
+                ))}
               </tr>
+
+              {/* Footer 2: ผลรวมจำนวนเงิน */}
+              <tr>
+                <td className={cx(cellClass, STRIPE.footOdd)}>
+                  <div className="text-[13px] font-semibold text-center text-slate-600 dark:text-slate-300">บาท</div>
+                </td>
+                {MONTHS.map((m, mi) => (
+                  <Fragment key={`ft-b-${m.key}`}>
+                    {unitCols.map((u) => (
+                      <td key={`ft-b-${m.key}-${u.id}`} className={cx(cellClass, monthStripeHead(mi))}>
+                        <div className="px-2 py-1 text-right font-semibold text-emerald-700 dark:text-emerald-400">
+                          {fmtMoney(sums.perMonth[m.key][String(u.id)].baht)}
+                        </div>
+                      </td>
+                    ))}
+                  </Fragment>
+                ))}
+                {unitCols.map((u) => (
+                  <td key={`ft-pad-${u.id}`} className={cx(cellClass, STRIPE.footOdd)} />
+                ))}
+              </tr>
+
             </tbody>
           </table>
         </div>

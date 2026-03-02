@@ -507,33 +507,55 @@ function ProcurementPlanDetail(props) {
     else if (erect.bottom > crect.bottom - pad) container.scrollTop += (erect.bottom - (crect.bottom - pad))
   }, [])
 
-  const handleArrowNav = useCallback((e) => {
-    const k = e.key
-    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(k)) return
-    
-    const rIdx = Number(e.currentTarget.dataset.row ?? 0)
-    const cIdx = Number(e.currentTarget.dataset.col ?? 0)
-    const totalCols = 1 + (MONTHS.length * unitCols.length) 
+  const handleArrowNav = useCallback(
+    (e) => {
+      const k = e.key
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(k)) return
+      const row = Number(e.currentTarget.dataset.row ?? 0)
+      const col = Number(e.currentTarget.dataset.col ?? 0)
 
-    let nextR = rIdx, nextC = cIdx
-    if (k === "ArrowLeft") nextC = cIdx - 1
-    if (k === "ArrowRight") nextC = cIdx + 1
-    if (k === "ArrowUp") nextR = rIdx - 1
-    if (k === "ArrowDown") nextR = rIdx + 1
+      let nextRow = row
+      let nextCol = col
 
-    if (nextR < 0) nextR = 0
-    if (nextR > productRows.length - 1) nextR = productRows.length - 1
-    if (nextC < 0) nextC = 0
-    if (nextC > totalCols - 1) nextC = totalCols - 1
+      if (k === "ArrowLeft") {
+        if (col === 0) {
+          // ถ้าอยู่ซ้ายสุด ให้ขึ้นไปแถวบนสุดขอบขวา
+          if (row > 0) {
+            nextRow = row - 1
+            nextCol = totalCols - 1
+          }
+        } else {
+          nextCol = col - 1
+        }
+      }
 
-    const target = inputRefs.current.get(`${nextR}|${nextC}`)
-    if (target) {
+      if (k === "ArrowRight") {
+        if (col === totalCols - 1) {
+          // ถ้าอยู่ขวาสุด ให้ลงไปแถวล่างสุดขอบซ้าย
+          if (row < itemRows.length - 1) {
+            nextRow = row + 1
+            nextCol = 0
+          }
+        } else {
+          nextCol = col + 1
+        }
+      }
+
+      if (k === "ArrowUp") nextRow = Math.max(0, row - 1)
+      if (k === "ArrowDown") nextRow = Math.min(itemRows.length - 1, row + 1)
+
+      const target = inputRefs.current.get(`${nextRow}|${nextCol}`)
+      if (!target) return
+      
       e.preventDefault()
       target.focus()
-      try { target.select() } catch {}
+      try {
+        target.select()
+      } catch {}
       requestAnimationFrame(() => ensureInView(target))
-    }
-  }, [productRows.length, unitCols.length, ensureInView])
+    },
+    [ensureInView, itemRows.length, totalCols]
+  )
 
   /** ---------------- Save ---------------- */
   const [isSaving, setIsSaving] = useState(false)

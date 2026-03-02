@@ -94,6 +94,7 @@ async function apiAuth(path, { method = "GET", body } = {}) {
 }
 
 /** ---------------- UI styles ---------------- */
+// ปรับขนาด font และ padding ใน input ให้เล็กลง
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
   "text-right text-[12px] outline-none " +
@@ -122,6 +123,7 @@ const FALLBACK_UNITS = [
   { id: -3, short: "พร", name: "พร" },
 ]
 
+// ลดความกว้างของแต่ละคอลัมน์เพื่อให้เห็นข้อมูลในหน้าจอได้มากขึ้น
 const COL_W = {
   product: 200,
   unit: 64,
@@ -137,16 +139,6 @@ const STRIPE = {
   cellOdd: "bg-slate-200/70 dark:bg-slate-700/55",
   footEven: "bg-emerald-100/55 dark:bg-emerald-900/15",
   footOdd: "bg-emerald-200/75 dark:bg-emerald-900/30",
-}
-
-// สีทึบสำหรับคอลัมน์ที่ถูกตรึง (Sticky) เพื่อไม่ให้เห็นด้านหลัง
-const STICKY_SOLID_BG = {
-  headEven: "bg-slate-100 dark:bg-slate-700",
-  headOdd: "bg-slate-200 dark:bg-slate-600",
-  cellEven: "bg-slate-50 dark:bg-slate-800",
-  cellOdd: "bg-slate-200 dark:bg-slate-700",
-  footEven: "bg-emerald-100 dark:bg-emerald-900",
-  footOdd: "bg-emerald-200 dark:bg-emerald-900",
 }
 
 const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEven)
@@ -336,7 +328,7 @@ function ProcurementPlanDetail(props) {
 
   const RIGHT_W = useMemo(() => {
     const monthColsW = MONTHS.length * unitCols.length * COL_W.cell
-    const totalColsW = COL_W.cell + COL_W.price // มีแค่รวมก้อนเดียวเท่านั้น
+    const totalColsW = unitCols.length * (COL_W.cell + COL_W.price) // Space for Qty + Baht totals
     return monthColsW + totalColsW
   }, [unitCols.length])
   
@@ -439,11 +431,11 @@ function ProcurementPlanDetail(props) {
     })
   }, [])
 
-  // Calculate all sums: per month, per product (รวบทุกหน่วย), and grand totals
+  // Calculate all sums: per month per unit, per product per unit, and grand totals
   const sums = useMemo(() => {
     const perMonth = {} 
-    const perProductTotal = {} // รวมทุกหน่วยของแต่ละสินค้า
-    const grandTotal = { qty: 0, baht: 0 } // รวมทั้งหมดของทั้งตาราง
+    const perProduct = {} 
+    const grandUnitTotals = {} 
 
     // Initialize objects
     for (const m of MONTHS) {
@@ -451,8 +443,13 @@ function ProcurementPlanDetail(props) {
       for (const u of unitCols) perMonth[m.key][String(u.id)] = { qty: 0, baht: 0 }
     }
     for (const p of productRows) {
-      perProductTotal[String(p.product_id)] = { qty: 0, baht: 0 }
+      const pid = String(p.product_id)
+      perProduct[pid] = {}
+      for (const u of unitCols) perProduct[pid][String(u.id)] = { qty: 0, baht: 0 }
     }
+    for (const u of unitCols) grandUnitTotals[String(u.id)] = { qty: 0, baht: 0 }
+
+    let grandValue = 0
 
     // Accumulate values
     for (const p of productRows) {
@@ -466,21 +463,20 @@ function ProcurementPlanDetail(props) {
           const n = toNumber(qtyByPid?.[pid]?.[m.key]?.[uid] ?? "")
           const baht = n * sell
 
-          // รวมรายเดือนแยกตามหน่วย (เพื่อแสดงในช่องเดือน)
           perMonth[m.key][uid].qty += n
           perMonth[m.key][uid].baht += baht
 
-          // รวมรายสินค้า (รวบทุกหน่วยเข้าด้วยกัน)
-          perProductTotal[pid].qty += n
-          perProductTotal[pid].baht += baht
+          perProduct[pid][uid].qty += n
+          perProduct[pid][uid].baht += baht
 
-          // รวมยอดสุดของตารางทั้งหมด
-          grandTotal.qty += n
-          grandTotal.baht += baht
+          grandUnitTotals[uid].qty += n
+          grandUnitTotals[uid].baht += baht
+
+          grandValue += baht
         }
       }
     }
-    return { perMonth, perProductTotal, grandTotal }
+    return { perMonth, perProduct, grandUnitTotals, grandValue }
   }, [productRows, priceByPid, qtyByPid, unitCols])
 
   /** ---------------- Arrow Navigation Logic ---------------- */
@@ -573,8 +569,10 @@ function ProcurementPlanDetail(props) {
 
   /** ---------------- rendering helpers ---------------- */
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
+  // ปรับขนาด font ใน Header ให้เป็น text-[12px]
   const headCell = "px-1.5 py-1.5 text-[12px] font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-300/70 dark:border-slate-600/60"
   const leftHeadCell = cx(headCell, "sticky left-0 z-20", stickyShadow)
+  // ปรับขนาด font ใน Cell ให้เป็น text-[12px]
   const leftCell = "px-1.5 py-1.5 text-[12px] text-slate-900 dark:text-slate-100 border-r border-slate-200/70 dark:border-slate-700/60"
   const leftCellSticky = cx(leftCell, "sticky left-0 z-10", stickyShadow)
   const cellClass = "px-1 py-1 text-[12px] border-r border-slate-200/70 dark:border-slate-700/60 text-slate-900 dark:text-slate-100"
@@ -614,16 +612,18 @@ function ProcurementPlanDetail(props) {
               <col style={{ width: COL_W.unit }} />
               <col style={{ width: COL_W.price }} />
               {MONTHS.map((m) => unitCols.map((u) => <col key={`${m.key}-${u.id}`} style={{ width: COL_W.cell }} />))}
-              {/* คอลัมน์รวมทั้งหมด มีแค่ 2 คอลัมน์ (หน่วย และ บาท) */}
-              <col style={{ width: COL_W.cell }} />
-              <col style={{ width: COL_W.price }} />
+              {unitCols.map((u) => (
+                <Fragment key={`totcol-${u.id}`}>
+                  <col style={{ width: COL_W.cell }} />
+                  <col style={{ width: COL_W.price }} />
+                </Fragment>
+              ))}
             </colgroup>
             
             <thead>
               {/* Header Row 1 */}
               <tr>
-                {/* แก้ไข: ใช้สีพื้นหลังแบบทึบ STICKY_SOLID_BG.headEven แทน STRIPE.headEven */}
-                <th className={cx(leftHeadCell, STICKY_SOLID_BG.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={3}>
+                <th className={cx(leftHeadCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={3}>
                   ประเภทสินค้า
                 </th>
                 <th className={cx(headCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={3}>
@@ -635,10 +635,11 @@ function ProcurementPlanDetail(props) {
                 <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")} colSpan={MONTHS.length * unitCols.length}>
                   มูลค่าสินค้าที่ขายในแต่ละเดือน (พันบาท)
                 </th>
-                {/* รวมทั้งหมด เป็น 1 หัวข้อ รวบทุกหน่วย */}
-                <th className={cx(headCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} colSpan={2} rowSpan={2}>
-                  รวมทั้งหมด
-                </th>
+                {unitCols.map((u, i) => (
+                  <th key={`superh-tot-${u.id}`} className={cx(headCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} colSpan={2} rowSpan={2}>
+                    รวมทั้งหมด {unitCols.length > 1 ? `(${u.name})` : ''}
+                  </th>
+                ))}
               </tr>
               {/* Header Row 2: รวมชื่อเดือน */}
               <tr>
@@ -648,7 +649,7 @@ function ProcurementPlanDetail(props) {
                   </th>
                 ))}
               </tr>
-              {/* Header Row 3: ชื่อหน่วยย่อยตามเดือน และส่วนท้ายของรวมทั้งหมด */}
+              {/* Header Row 3: ชื่อหน่วยย่อยตามเดือน */}
               <tr>
                 {MONTHS.map((m, mi) => (
                   <Fragment key={`h3-${m.key}`}>
@@ -659,27 +660,25 @@ function ProcurementPlanDetail(props) {
                     ))}
                   </Fragment>
                 ))}
-                {/* หัวคอลัมน์ย่อยของส่วนรวมทั้งหมด */}
-                <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")}>จำนวนหน่วย</th>
-                <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")}>จำนวนเงิน (บาท)</th>
+                {unitCols.map((u) => (
+                  <Fragment key={`sumh-${u.id}`}>
+                    <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")}>จำนวนหน่วย</th>
+                    <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")}>จำนวนเงิน (บาท)</th>
+                  </Fragment>
+                ))}
               </tr>
             </thead>
             
             <tbody>
               {productRows.map((p, rowIdx) => {
                 const pid = String(p.product_id), prices = priceByPid[pid] || {}, sell = toNumber(prices.sell_price ?? p.sell_price ?? 0)
-                
-                // กำหนดคลาสสีพื้นหลังแบบปกติ และแบบทึบ (สำหรับคอลัมน์ Sticky)
-                const isEven = rowIdx % 2 === 0;
-                const stripeCls = isEven ? STRIPE.cellEven : STRIPE.cellOdd
-                const stickyStripeCls = isEven ? STICKY_SOLID_BG.cellEven : STICKY_SOLID_BG.cellOdd
+                const stripeCls = rowIdx % 2 === 0 ? STRIPE.cellEven : STRIPE.cellOdd
 
                 return (
                   <Fragment key={pid}>
                     {/* ข้อมูล 1: แถวจำนวนหน่วย (Inputs) */}
                     <tr className="group">
-                      {/* แก้ไข: ใช้สีพื้นหลังแบบทึบ stickyStripeCls แทน stripeCls */}
-                      <td rowSpan={2} className={cx(leftCellSticky, stickyStripeCls, rowDivider, "align-middle")}>
+                      <td rowSpan={2} className={cx(leftCellSticky, stripeCls, rowDivider, "align-middle")}>
                         <div className="font-semibold">{p.product_type || "-"}</div>
                       </td>
                       <td className={cx(cellClass, stripeCls)}>
@@ -716,17 +715,21 @@ function ProcurementPlanDetail(props) {
                           })}
                         </Fragment>
                       ))}
-                      {/* ผลรวมของสินค้านั้นๆ (รวบทุกหน่วย) */}
-                      <td className={cx(cellClass, STRIPE.footEven)}>
-                        <div className="text-right font-semibold text-slate-800 dark:text-slate-200">
-                          {fmtQty(sums.perProductTotal[pid]?.qty || 0)}
-                        </div>
-                      </td>
-                      <td rowSpan={2} className={cx(cellClass, STRIPE.footEven, rowDivider, "align-middle")}>
-                        <div className="text-right font-bold text-emerald-700 dark:text-emerald-400">
-                          {fmtMoney(sums.perProductTotal[pid]?.baht || 0)}
-                        </div>
-                      </td>
+                      {/* ผลรวมของสินค้านั้น (หน่วย และ บาท) */}
+                      {unitCols.map((u) => (
+                        <Fragment key={`${pid}-sum-${u.id}`}>
+                          <td className={cx(cellClass, STRIPE.footEven)}>
+                            <div className="text-right font-semibold text-slate-800 dark:text-slate-200">
+                              {fmtQty(sums.perProduct[pid]?.[String(u.id)]?.qty || 0)}
+                            </div>
+                          </td>
+                          <td rowSpan={2} className={cx(cellClass, STRIPE.footEven, rowDivider, "align-middle")}>
+                            <div className="text-right font-bold text-emerald-700 dark:text-emerald-400">
+                              {fmtMoney(sums.perProduct[pid]?.[String(u.id)]?.baht || 0)}
+                            </div>
+                          </td>
+                        </Fragment>
+                      ))}
                     </tr>
 
                     {/* ข้อมูล 2: แถวจำนวนเงิน/บาท (Calculated) */}
@@ -750,8 +753,9 @@ function ProcurementPlanDetail(props) {
                           })}
                         </Fragment>
                       ))}
-                      {/* ช่องว่างรองรับแถวบาท เนื่องจาก col เงินรวมใช้ rowSpan=2 ไปแล้ว เราใส่ empty td เติมช่องหน่วยให้เต็ม */}
-                      <td className={cx(cellClass, STRIPE.footEven, rowDivider)} />
+                      {unitCols.map((u) => (
+                        <td key={`${pid}-sum-pad-${u.id}`} className={cx(cellClass, STRIPE.footEven, rowDivider)} />
+                      ))}
                     </tr>
                   </Fragment>
                 )
@@ -760,8 +764,7 @@ function ProcurementPlanDetail(props) {
               {/* ----- FOOTER: สรุปยอดรวมทั้งหมด ด้านล่าง ----- */}
               {/* Footer 1: ผลรวมจำนวนหน่วย */}
               <tr>
-                {/* แก้ไข: ใช้สีพื้นหลังแบบทึบ STICKY_SOLID_BG.footOdd แทน STRIPE.footOdd */}
-                <td rowSpan={2} className={cx(leftCellSticky, STICKY_SOLID_BG.footOdd, footerBorder, "align-middle")}>
+                <td rowSpan={2} className={cx(leftCellSticky, STRIPE.footOdd, footerBorder, "align-middle")}>
                   <div className="font-bold text-center text-[13px]">รวม</div>
                 </td>
                 <td className={cx(cellClass, STRIPE.footOdd, footerBorder)}>
@@ -781,17 +784,20 @@ function ProcurementPlanDetail(props) {
                   </Fragment>
                 ))}
                 
-                {/* ผลรวมสุดยอดทั้งหมด (Grand Total) */}
-                <td className={cx(cellClass, STRIPE.footOdd, footerBorder)}>
-                  <div className="text-right font-bold text-[13px] text-slate-900 dark:text-slate-100">
-                    {fmtQty(sums.grandTotal.qty)}
-                  </div>
-                </td>
-                <td rowSpan={2} className={cx(cellClass, STRIPE.footOdd, footerBorder, "align-middle")}>
-                  <div className="text-right font-bold text-[14px] text-emerald-800 dark:text-emerald-300">
-                    {fmtMoney(sums.grandTotal.baht)}
-                  </div>
-                </td>
+                {unitCols.map((u) => (
+                  <Fragment key={`ft-sum-${u.id}`}>
+                    <td className={cx(cellClass, STRIPE.footOdd, footerBorder)}>
+                      <div className="text-right font-bold text-[13px] text-slate-900 dark:text-slate-100">
+                        {fmtQty(sums.grandUnitTotals[String(u.id)].qty)}
+                      </div>
+                    </td>
+                    <td rowSpan={2} className={cx(cellClass, STRIPE.footOdd, footerBorder, "align-middle")}>
+                      <div className="text-right font-bold text-[14px] text-emerald-800 dark:text-emerald-300">
+                        {fmtMoney(sums.grandUnitTotals[String(u.id)].baht)}
+                      </div>
+                    </td>
+                  </Fragment>
+                ))}
               </tr>
 
               {/* Footer 2: ผลรวมจำนวนเงิน */}
@@ -810,8 +816,9 @@ function ProcurementPlanDetail(props) {
                     ))}
                   </Fragment>
                 ))}
-                {/* ช่องว่างสำหรับช่องหน่วย */}
-                <td className={cx(cellClass, STRIPE.footOdd)} />
+                {unitCols.map((u) => (
+                  <td key={`ft-pad-${u.id}`} className={cx(cellClass, STRIPE.footOdd)} />
+                ))}
               </tr>
 
             </tbody>

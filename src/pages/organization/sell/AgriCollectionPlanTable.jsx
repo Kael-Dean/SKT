@@ -133,6 +133,9 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
   const [qtyById, setQtyById] = useState(() => buildInitialQty(FALLBACK_ITEMS, FALLBACK_UNITS))
   
   const [showPayload, setShowPayload] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState(null)
+  
   const canEdit = !!branchId
 
   const planId = useMemo(() => {
@@ -165,38 +168,84 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
   }, [branchId])
 
   /** ✅ โหลดลิส “ประเภทสินค้า” */
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      try {
-        if (!planId || planId <= 0) return
-        const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${Number(planId)}`)
-        const group = data?.[String(COLLECTION_GROUP_ID)] || data?.[COLLECTION_GROUP_ID]
-        const list = Array.isArray(group?.items) ? group.items : []
+  const loadProducts = useCallback(async () => {
+    try {
+      if (!planId || planId <= 0) return
+      const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${Number(planId)}`)
+      const group = data?.[String(COLLECTION_GROUP_ID)] || data?.[COLLECTION_GROUP_ID]
+      const list = Array.isArray(group?.items) ? group.items : []
 
-        const normalized = list
-          .filter((x) => Number(x.business_group || 0) === COLLECTION_GROUP_ID)
-          .map((x) => ({
-            id: String(x.product_id || x.id || "").trim(),
-            product_id: Number(x.product_id || x.id || 0),
-            name: String(x.product_type || x.name || "").trim(),
-            unitName: String(x.unit || "ตัน").trim(),
-            unitPrice: x.sell_price ?? "",
-          }))
-          .filter((x) => x.id && x.name)
+      const normalized = list
+        .filter((x) => Number(x.business_group || 0) === COLLECTION_GROUP_ID)
+        .map((x) => ({
+          id: String(x.product_id || x.id || "").trim(),
+          product_id: Number(x.product_id || x.id || 0),
+          name: String(x.product_type || x.name || "").trim(),
+          unitName: String(x.unit || "ตัน").trim(),
+          unitPrice: x.sell_price ?? "",
+        }))
+        .filter((x) => x.id && x.name)
 
-        if (!alive) return
-        if (normalized.length) setItems(normalized)
-        else setItems(FALLBACK_ITEMS)
-      } catch (e) {
-        if (!alive) return
-        setItems(FALLBACK_ITEMS)
-      }
-    })()
-    return () => { alive = false }
+      if (normalized.length) setItems(normalized)
+      else setItems(FALLBACK_ITEMS)
+    } catch (e) {
+      setItems(FALLBACK_ITEMS)
+    }
   }, [planId])
 
-  /** ✅ sync state ตาม items & units */
+  useEffect(() => {
+    loadProducts()
+  }, [loadProducts])
+
+  /** ✅ โหลดราคา (Unit Prices) ที่เคยเซฟไว้ในระบบ */
+  const loadUnitPricesForYear = useCallback(async () => {
+    const y = Number(yearBE || 0)
+    if (!Number.isFinite(y) || y <= 0 || !editableItems.length) return
+    try {
+      const data = await apiAuth(`/unit-prices/${y}`)
+      const remoteItems = Array.isArray(data?.items) ? data.items : []
+      setPriceById((prev) => {
+        const next = { ...prev }
+        for (const remoteIt of remoteItems) {
+          const pid = String(remoteIt.product_id || remoteIt.product || 0)
+          const matchedItem = editableItems.find((x) => String(x.product_id) === pid)
+          if (matchedItem) {
+            next[matchedItem.id] = String(remoteIt.sell_price ?? "")
+          }
+        }
+        return next
+      })
+    } catch {}
+  }, [yearBE, editableItems])
+
+  /** ✅ โหลดจำนวนปริมาณ (Sale Goals/Cells) ที่เคยเซฟไว้ในระบบ */
+  const loadSavedFromBE = useCallback(async () => {
+    if (!branchId || !planId || planId <= 0 || !editableItems.length) return
+    try {
+      const data = await apiAuth(`/revenue/sale-goals?plan_id=${Number(planId)}&branch_id=${Number(branchId)}`)
+      const cells = Array.isArray(data?.cells) ? data.cells : []
+      setQtyById((prev) => {
+        const next = { ...prev }
+        for (const c of cells) {
+          const pid = String(c.product_id || 0)
+          const matchedItem = editableItems.find((x) => String(x.product_id) === pid)
+          if (matchedItem) {
+            const uid = String(c.unit_id || 0)
+            const mo = Number(c.month || 0)
+            const monthObj = MONTHS.find((m) => Number(m.month) === mo)
+            if (monthObj) {
+              if (!next[matchedItem.id]) next[matchedItem.id] = {}
+              if (!next[matchedItem.id][monthObj.key]) next[matchedItem.id][monthObj.key] = {}
+              next[matchedItem.id][monthObj.key][uid] = String(Number(c.amount || 0))
+            }
+          }
+        }
+        return next
+      })
+    } catch {}
+  }, [branchId, planId, editableItems])
+
+  /** ✅ sync state เบื้องต้นเมื่อเริ่ม หรือเมื่อ items/unitCols เปลี่ยนแปลง */
   useEffect(() => {
     setPriceById((prev) => {
       const next = buildInitialPrice(editableItems)
@@ -222,6 +271,67 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
       return next
     })
   }, [editableItems, unitCols])
+
+  /** ✅ โหลดข้อมูลจาก BE ทับลงมา */
+  useEffect(() => { loadUnitPricesForYear() }, [loadUnitPricesForYear])
+  useEffect(() => { loadSavedFromBE() }, [loadSavedFromBE])
+
+  /** ================== ✅ Save to BE ================== */
+  const saveAll = useCallback(async () => {
+    if (!branchId || !planId || !editableItems.length) return
+    setIsSaving(true)
+    setSaveMsg(null)
+
+    try {
+      // 1. เตรียมข้อมูลราคา (Unit Prices)
+      const priceItems = editableItems.map((it) => {
+        return {
+          product_id: Number(it.product_id || 0),
+          sell_price: toNumber(priceById[it.id]),
+          buy_price: 0,
+          comment: "",
+        }
+      }).filter(p => p.product_id > 0)
+
+      await apiAuth(`/unit-prices/bulk`, {
+        method: "PUT",
+        body: { year: Number(yearBE), items: priceItems }
+      })
+
+      // 2. เตรียมข้อมูลจำนวนหน่วย (Cells)
+      const cells = []
+      for (const it of editableItems) {
+        const pid = Number(it.product_id || 0)
+        if (pid <= 0) continue
+        for (const m of MONTHS) {
+          for (const u of unitCols) {
+            const uid = Number(u.id)
+            const v = qtyById?.[it.id]?.[m.key]?.[String(uid)] ?? ""
+            const n = toNumber(v)
+            if (n > 0) {
+              cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n })
+            }
+          }
+        }
+      }
+
+      await apiAuth(`/revenue/sale-goals/bulk`, {
+        method: "PUT",
+        body: { plan_id: Number(planId), branch_id: Number(branchId), cells }
+      })
+
+      setSaveMsg({ ok: true, title: "บันทึกสำเร็จ", detail: `สาขา ${branchName || ""} • ปี ${yearBE}` })
+      
+      // อัปเดตข้อมูลล่าสุดหลังจากบันทึก
+      await loadSavedFromBE()
+      await loadUnitPricesForYear()
+
+    } catch (e) {
+      setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
+    } finally {
+      setIsSaving(false)
+    }
+  }, [branchId, planId, yearBE, editableItems, priceById, qtyById, unitCols, branchName, loadSavedFromBE, loadUnitPricesForYear])
 
   /** ================== ✅ Arrow navigation ================== */
   const inputRefs = useRef(new Map())
@@ -394,17 +504,6 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
       },
     }
   }, [yearBE, planId, branchId, branchName, qtyById, priceById, computed, editableItems, unitCols])
-
-  const copyPayload = async () => {
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
-      alert("คัดลอก JSON payload แล้ว ✅")
-    } catch (e) {
-      console.error(e)
-      alert("คัดลอกไม่สำเร็จ — เปิด payload แล้ว copy เองได้ครับ")
-      setShowPayload(true)
-    }
-  }
 
   const RIGHT_W = useMemo(() => {
     const monthColsW = MONTHS.length * unitCols.length * COL_W.cell
@@ -699,8 +798,16 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
           </table>
         </div>
         
-        {/* Action Buttons (ย้ายมาขวาล่าง) */}
+        {/* Action Buttons (UI ด้านล่าง และปุ่มบันทึก) */}
         <div className="shrink-0 pt-4 mt-2 border-t border-slate-200 dark:border-slate-700">
+          {/* กล่องข้อความแจ้งเตือนหลังกดบันทึก */}
+          {saveMsg && (
+            <div className={cx("mb-3 rounded-xl border p-3 text-[13px]", saveMsg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200" : "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200")}>
+              <div className="font-bold">{saveMsg.title}</div>
+              <div className="opacity-90 mt-0.5">{saveMsg.detail}</div>
+            </div>
+          )}
+
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
             <button
               type="button"
@@ -718,18 +825,19 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
               {showPayload ? "ซ่อน payload" : "ดู payload"}
             </button>
 
+            {/* ปุ่มบันทึกลงระบบใหม่ */}
             <button
               type="button"
-              onClick={copyPayload}
-              disabled={!canEdit}
+              onClick={saveAll}
+              disabled={isSaving || !canEdit}
               className={cx(
                 "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition",
-                !canEdit
+                (isSaving || !canEdit)
                   ? "bg-slate-300 text-slate-700 cursor-not-allowed dark:bg-slate-700 dark:text-slate-400"
                   : "bg-emerald-600 hover:bg-emerald-700 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:scale-[1.03] active:scale-[.98] cursor-pointer"
               )}
             >
-              คัดลอก JSON (รอส่ง BE)
+              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
             </button>
           </div>
         </div>

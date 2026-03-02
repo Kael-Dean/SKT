@@ -513,18 +513,38 @@ function ProcurementPlanDetail(props) {
     
     const rIdx = Number(e.currentTarget.dataset.row ?? 0)
     const cIdx = Number(e.currentTarget.dataset.col ?? 0)
+    
+    // คำนวณจำนวนคอลัมน์ทั้งหมดที่สามารถ Focus ได้ (1 ราคาต่อหน่วย + [จำนวนเดือน * จำนวนหน่วย])
     const totalCols = 1 + (MONTHS.length * unitCols.length) 
 
     let nextR = rIdx, nextC = cIdx
-    if (k === "ArrowLeft") nextC = cIdx - 1
-    if (k === "ArrowRight") nextC = cIdx + 1
-    if (k === "ArrowUp") nextR = rIdx - 1
-    if (k === "ArrowDown") nextR = rIdx + 1
 
-    if (nextR < 0) nextR = 0
-    if (nextR > productRows.length - 1) nextR = productRows.length - 1
-    if (nextC < 0) nextC = 0
-    if (nextC > totalCols - 1) nextC = totalCols - 1
+    if (k === "ArrowLeft") {
+      if (cIdx === 0) {
+        // ถ้าอยู่เซลล์ซ้ายสุด (ราคา) ให้ขึ้นไปแถวบน คอลัมน์ขวาสุด
+        if (rIdx > 0) {
+          nextR = rIdx - 1
+          nextC = totalCols - 1
+        }
+      } else {
+        nextC = cIdx - 1
+      }
+    }
+
+    if (k === "ArrowRight") {
+      if (cIdx === totalCols - 1) {
+        // ถ้าอยู่เซลล์ขวาสุด ให้ลงไปแถวถัดไป คอลัมน์แรก (ราคา)
+        if (rIdx < productRows.length - 1) {
+          nextR = rIdx + 1
+          nextC = 0
+        }
+      } else {
+        nextC = cIdx + 1
+      }
+    }
+
+    if (k === "ArrowUp") nextR = Math.max(0, rIdx - 1)
+    if (k === "ArrowDown") nextR = Math.min(productRows.length - 1, rIdx + 1)
 
     const target = inputRefs.current.get(`${nextR}|${nextC}`)
     if (target) {

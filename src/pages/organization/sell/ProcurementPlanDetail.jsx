@@ -132,13 +132,14 @@ const COL_W = {
 }
 const LEFT_W = COL_W.product + COL_W.unit + COL_W.price
 
+// ✅ แก้ไข: ลบ opacity ออกทั้งหมด เพื่อให้คอลัมน์ที่ sticky พื้นหลังทึบ ไม่โปร่งแสง
 const STRIPE = {
-  headEven: "bg-slate-100/90 dark:bg-slate-700/70",
-  headOdd: "bg-slate-200/95 dark:bg-slate-600/70",
-  cellEven: "bg-slate-50/90 dark:bg-slate-800/70",
-  cellOdd: "bg-slate-200/70 dark:bg-slate-700/55",
-  footEven: "bg-emerald-100/55 dark:bg-emerald-900/15",
-  footOdd: "bg-emerald-200/75 dark:bg-emerald-900/30",
+  headEven: "bg-slate-100 dark:bg-slate-700",
+  headOdd: "bg-slate-200 dark:bg-slate-600",
+  cellEven: "bg-white dark:bg-slate-900",
+  cellOdd: "bg-slate-50 dark:bg-slate-800",
+  footEven: "bg-emerald-100 dark:bg-emerald-900",
+  footOdd: "bg-emerald-200 dark:bg-emerald-800",
 }
 
 const monthStripeHead = (idx) => (idx % 2 === 1 ? STRIPE.headOdd : STRIPE.headEven)
@@ -590,17 +591,18 @@ function ProcurementPlanDetail(props) {
   /** ---------------- rendering helpers ---------------- */
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
   // ปรับขนาด font ใน Header ให้เป็น text-[12px]
-  const headCell = "px-1.5 py-1.5 text-[12px] font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-300/70 dark:border-slate-600/60"
+  const headCell = "px-1.5 py-1.5 text-[12px] font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-300 dark:border-slate-600"
   const leftHeadCell = cx(headCell, "sticky left-0 z-20", stickyShadow)
   // ปรับขนาด font ใน Cell ให้เป็น text-[12px]
-  const leftCell = "px-1.5 py-1.5 text-[12px] text-slate-900 dark:text-slate-100 border-r border-slate-200/70 dark:border-slate-700/60"
+  const leftCell = "px-1.5 py-1.5 text-[12px] text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700"
   const leftCellSticky = cx(leftCell, "sticky left-0 z-10", stickyShadow)
-  const cellClass = "px-1 py-1 text-[12px] border-r border-slate-200/70 dark:border-slate-700/60 text-slate-900 dark:text-slate-100"
+  const cellClass = "px-1 py-1 text-[12px] border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
   const rowDivider = "border-b-[2px] border-b-slate-300 dark:border-b-slate-600"
   const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
   return (
     <div className="w-full">
+      {/* 🟢 แก้ไข: นำปุ่มบันทึกและข้อความแจ้งเตือนออกจากส่วน Header ด้านบน */}
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="text-[16px] font-bold">ยอดขายธุรกิจจัดหา</div>
@@ -608,21 +610,7 @@ function ProcurementPlanDetail(props) {
             ({periodLabel}) • ปี {effectiveYearBE} • สาขา {resolvedBranchName || "-"}
           </div>
         </div>
-        <button
-          className={cx("rounded-xl px-4 py-1.5 text-[13px] font-semibold shadow-sm transition", (isSaving || !canEdit) ? "bg-slate-300 text-slate-700 cursor-not-allowed" : "bg-emerald-600 text-white hover:bg-emerald-700")}
-          disabled={isSaving || !canEdit}
-          onClick={saveAll}
-        >
-          {isSaving ? "กำลังบันทึก..." : "บันทึก"}
-        </button>
       </div>
-
-      {saveMsg && (
-        <div className={cx("mb-4 rounded-xl border p-3 text-[12px]", saveMsg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900")}>
-          <div className="font-semibold">{saveMsg.title}</div>
-          <div className="opacity-90">{saveMsg.detail}</div>
-        </div>
-      )}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700" ref={tableWrapRef}>
@@ -844,11 +832,37 @@ function ProcurementPlanDetail(props) {
             </tbody>
           </table>
         </div>
+
         {!canEdit && (
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[12px] text-amber-900">
             ยังไม่พบสาขา — กรุณาเลือกสาขาก่อน
           </div>
         )}
+        
+        {/* 🟢 แก้ไข: ย้ายปุ่มบันทึกและ Alert มาไว้ด้านล่างเหมือนหน้า BusinessPlanExpenseTable */}
+        <div className="shrink-0 pt-4 mt-2 border-t border-slate-200 dark:border-slate-700">
+          {saveMsg && (
+            <div className={cx("mb-3 rounded-xl border p-3 text-[13px]", saveMsg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200" : "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200")}>
+              <div className="font-bold">{saveMsg.title}</div>
+              <div className="opacity-90 mt-0.5">{saveMsg.detail}</div>
+            </div>
+          )}
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
+            <button
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition",
+                (isSaving || !canEdit)
+                  ? "bg-slate-300 text-slate-700 cursor-not-allowed dark:bg-slate-700 dark:text-slate-400"
+                  : "bg-emerald-600 hover:bg-emerald-700 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:scale-[1.03] active:scale-[.98]"
+              )}
+              disabled={isSaving || !canEdit}
+              onClick={saveAll}
+            >
+              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   )

@@ -215,26 +215,101 @@ const normUnit = (u, idx = 0) => {
  * BusinessPlanOtherIncomeTable
  * ===================================================================== */
 const BusinessPlanOtherIncomeTable = (props) => {
-  const planId = Number(props?.planId ?? props?.plan_id ?? 0) || 0
-  const yearBE = props?.yearBE ?? props?.year_be ?? props?.year ?? null
-  const initialBranchId = Number(props?.branchId ?? props?.branch_id ?? 0) || 0
-  const branchName = String(props?.branchName ?? props?.branch_name ?? "").trim()
-
-  const effectiveBranchName = branchName || (initialBranchId ? `#${initialBranchId}` : "— ยังไม่ได้เลือกสาขา —")
-
-  const [period, setPeriod] = useState(props?.periodLabel || props?.period_label || PERIOD_DEFAULT)
-  const [branchId, setBranchId] = useState(initialBranchId)
-
-  // Update internal branchId if props change
-  useEffect(() => {
-    if (initialBranchId) setBranchId(initialBranchId)
-  }, [initialBranchId])
-
-  const canEdit = !!branchId
+  const { 
+    branchId, branch_id, branch, selectedBranch, 
+    branchName: pBranchName, 
+    yearBE, year_be, year, 
+    planId, plan_id, 
+    periodLabel, period_label 
+  } = props || {}
 
   const [units, setUnits] = useState(FALLBACK_UNITS)
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
+
+  // 1) จัดการ ID ให้โหลดแบบยืดหยุ่นเหมือน ProcurementPlanDetail
+  const _pickNumber = useCallback((v) => {
+    if (v === null || v === undefined || v === "") return null
+    const n = Number(v)
+    if (Number.isFinite(n) && n > 0) return n
+    const digits = String(v).match(/\d+/g)
+    if (!digits) return null
+    const nd = Number(digits.join(""))
+    return Number.isFinite(nd) && nd > 0 ? nd : null
+  }, [])
+
+  const incomingBranchId = useMemo(() => {
+    const cands = [branchId, branch_id, branch?.id, selectedBranch?.id, branch?.branch_id, selectedBranch?.branch_id]
+    for (const c of cands) {
+      const n = _pickNumber(c)
+      if (n) return n
+    }
+    const ls = _pickNumber(localStorage.getItem("branch_id") || localStorage.getItem("selected_branch_id"))
+    return ls || null
+  }, [branchId, branch_id, branch, selectedBranch, _pickNumber])
+
+  const [resolvedBranchId, setResolvedBranchId] = useState(null)
+  const [resolvedBranchName, setResolvedBranchName] = useState(pBranchName || "")
+
+  const branchIdEff = resolvedBranchId || incomingBranchId || null
+
+  useEffect(() => {
+    if (pBranchName) setResolvedBranchName(pBranchName)
+  }, [pBranchName])
+
+  useEffect(() => {
+    if (incomingBranchId) {
+      setResolvedBranchId(incomingBranchId)
+      return
+    }
+    const name = String(pBranchName || resolvedBranchName || "").trim()
+    if (!name) return
+    let alive = true
+    ;(async () => {
+      try {
+        const tryPaths = [`/lists/branch/search?branch_name=${encodeURIComponent(name)}`]
+        let rows = null
+        for (const path of tryPaths) {
+          try {
+            const data = await apiAuth(path)
+            if (Array.isArray(data)) rows = data
+            else if (Array.isArray(data?.items)) rows = data.items
+            if (rows && rows.length) break
+          } catch {}
+        }
+        if (!alive || !rows || !rows.length) return
+        const norm = (s) => String(s ?? "").trim().replace(/\s+/g, " ")
+        const target = norm(name)
+        const found = rows.find((r) => norm(r.branch_name || r.name).includes(target)) || rows[0]
+        const id = _pickNumber(found?.id || found?.branch_id)
+        if (id) {
+          setResolvedBranchId(id)
+          setResolvedBranchName(found?.branch_name || found?.name || name)
+        }
+      } catch {}
+    })()
+    return () => { alive = false }
+  }, [incomingBranchId, pBranchName, resolvedBranchName, _pickNumber])
+
+  const canEdit = !!branchIdEff
+
+  const effectivePlanId = useMemo(() => {
+    const p = Number(planId || plan_id || 0)
+    if (Number.isFinite(p) && p > 0) return p
+    const y = Number(yearBE || year_be || year || 0)
+    return Number.isFinite(y) ? y - 2568 : 0
+  }, [planId, plan_id, yearBE, year_be, year])
+
+  const effectiveYearBE = useMemo(() => {
+    const y = Number(yearBE || year_be || year || 0)
+    if (Number.isFinite(y) && y >= 2569) return y
+    const p = Number(effectivePlanId || 0)
+    return Number.isFinite(p) && p > 0 ? 2568 + p : 2569
+  }, [yearBE, year_be, year, effectivePlanId])
+
+  const effectiveBranchDisplay = resolvedBranchName || (branchIdEff ? `#${branchIdEff}` : "— ยังไม่ได้เลือกสาขา —")
+
+  const [period, setPeriod] = useState(periodLabel || period_label || PERIOD_DEFAULT)
 
   const unitIds = useMemo(() => units.map((u) => Number(u.id)).filter((x) => x > 0), [units])
   const cols = useMemo(
@@ -266,13 +341,13 @@ const BusinessPlanOtherIncomeTable = (props) => {
   useEffect(() => {
     let alive = true
     ;(async () => {
-      if (!branchId) {
+      if (!branchIdEff) {
         setUnits(FALLBACK_UNITS)
         return
       }
       setIsLoadingUnits(true)
       try {
-        const data = await apiAuth(`/lists/unit/search?branch_id=${Number(branchId)}`)
+        const data = await apiAuth(`/lists/unit/search?branch_id=${Number(branchIdEff)}`)
         const arr = Array.isArray(data) ? data : []
         const normalized = arr.map((u, idx) => normUnit(u, idx)).filter((x) => x.id > 0)
         if (!alive) return
@@ -285,7 +360,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
       }
     })()
     return () => { alive = false }
-  }, [branchId])
+  }, [branchIdEff])
 
   /** Preserve existing values on unit change */
   useEffect(() => {
@@ -320,12 +395,13 @@ const BusinessPlanOtherIncomeTable = (props) => {
     [unitIds]
   )
 
+  // โหลดข้อมูลล่าสุด (ใช้ branchIdEff และ effectivePlanId ที่คำนวณใหม่)
   const loadSavedFromBE = useCallback(async () => {
-    if (!planId || planId <= 0 || !branchId || !units?.length) return
+    if (!effectivePlanId || effectivePlanId <= 0 || !branchIdEff || !units?.length) return
 
     setIsLoadingSaved(true)
     try {
-      const data = await apiAuth(`/business-plan/${planId}/earnings?branch_id=${Number(branchId)}`)
+      const data = await apiAuth(`/business-plan/${effectivePlanId}/earnings?branch_id=${Number(branchIdEff)}`)
       const unitCells = Array.isArray(data?.unit_cells) ? data.unit_cells : []
 
       const beToCode = new Map()
@@ -352,7 +428,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
     } finally {
       setIsLoadingSaved(false)
     }
-  }, [planId, branchId, units?.length, normalizeGrid, rowIdByCode])
+  }, [effectivePlanId, branchIdEff, units?.length, normalizeGrid, rowIdByCode])
 
   useEffect(() => { loadSavedFromBE() }, [loadSavedFromBE])
 
@@ -450,8 +526,8 @@ const BusinessPlanOtherIncomeTable = (props) => {
   }
 
   const buildPayload = useCallback(() => {
-    if (!planId || planId <= 0) throw new Error("FE: plan_id ไม่ถูกต้อง")
-    if (!branchId) throw new Error("FE: ยังไม่ได้เลือกสาขา")
+    if (!effectivePlanId || effectivePlanId <= 0) throw new Error("FE: plan_id ไม่ถูกต้อง")
+    if (!branchIdEff) throw new Error("FE: ยังไม่ได้เลือกสาขา")
     if (!cols.length) throw new Error("FE: ยังไม่มีหน่วย")
 
     const rows = []
@@ -476,7 +552,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
       }
 
       rows.push({
-        branch_id: Number(branchId),
+        branch_id: Number(branchIdEff),
         business_earning_id: Number(beId),
         unit_values,
         branch_total,
@@ -486,7 +562,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
     if (blocked.length) throw new Error("FE: มีแถวที่ยังไม่แมพ แต่กรอกตัวเลขแล้ว: " + blocked.join(", "))
     return { rows, skipped }
-  }, [planId, branchId, cols, period, rowIdByCode, valuesByCode])
+  }, [effectivePlanId, branchIdEff, cols, period, rowIdByCode, valuesByCode])
 
   const onSave = useCallback(async () => {
     if (!canEdit) return
@@ -494,7 +570,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
     setSaveMsg(null)
     try {
       const payload = buildPayload()
-      const res = await apiAuth(`/business-plan/${planId}/earnings/bulk`, {
+      const res = await apiAuth(`/business-plan/${effectivePlanId}/earnings/bulk`, {
         method: "POST",
         body: { rows: payload.rows },
       })
@@ -502,7 +578,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
       setSaveMsg({
         ok: true,
         title: "บันทึกสำเร็จ ✅",
-        detail: `สาขา ${effectiveBranchName} • ปี ${yearBE} • rows=${res?.rows ?? payload.rows.length}`,
+        detail: `สาขา ${effectiveBranchDisplay} • ปี ${effectiveYearBE} • rows=${res?.rows ?? payload.rows.length}`,
       })
       await loadSavedFromBE()
     } catch (e) {
@@ -514,7 +590,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
     } finally {
       setSaving(false)
     }
-  }, [buildPayload, loadSavedFromBE, planId, canEdit, effectiveBranchName, yearBE])
+  }, [buildPayload, loadSavedFromBE, effectivePlanId, canEdit, effectiveBranchDisplay, effectiveYearBE])
 
   const onCopyPayload = useCallback(async () => {
     try {
@@ -555,7 +631,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
             (เชื่อม BE: business-plan/earnings)
           </div>
           <div className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
-            หน่วย: พันบาท • ปี {yearBE || "-"} • สาขา {effectiveBranchName}
+            หน่วย: พันบาท • ปี {effectiveYearBE || "-"} • สาขา {effectiveBranchDisplay}
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-3 max-w-3xl">
@@ -566,8 +642,8 @@ const BusinessPlanOtherIncomeTable = (props) => {
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</label>
               <div className={cx(baseField, "flex items-center justify-between", !canEdit && "opacity-70")}>
-                <span className="font-semibold">{effectiveBranchName}</span>
-                <span className="text-sm text-slate-500 dark:text-slate-300">id: {branchId || "—"}</span>
+                <span className="font-semibold">{effectiveBranchDisplay}</span>
+                <span className="text-sm text-slate-500 dark:text-slate-300">id: {branchIdEff || "—"}</span>
               </div>
             </div>
           </div>
@@ -676,6 +752,12 @@ const BusinessPlanOtherIncomeTable = (props) => {
             </tbody>
           </table>
         </div>
+
+        {!canEdit && (
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[12px] text-amber-900">
+            ยังไม่พบสาขา — กรุณาเลือกสาขาก่อน
+          </div>
+        )}
 
         {/* Action Buttons (ล่างขวา) */}
         <div className="shrink-0 pt-4 mt-2 border-t border-slate-200 dark:border-slate-700">

@@ -580,19 +580,13 @@ const PLAN_REPORTS = Array.from({ length: 16 }, (_, i) => {
   const num = String(i + 1).padStart(2, "0")
   return {
     key: `plan-${num}`,
-    title: `รายงานแผนดำเนินงานประจำปี ${num} (PDF)`,
+    title: `รายงานแผนดำเนินงานประจำปี รูปแบบที่ ${num} (PDF)`,
     endpoint: `/plan/reports/${num}.pdf`, 
     type: "pdf", 
     badge: "PLAN",
     require: ["startDate", "endDate"],
     optional: ["branchId"],
   }
-})
-
-// สร้างตัวเลือกสำหรับ Dropdown
-const planNumberOptions = Array.from({ length: 16 }, (_, i) => {
-  const num = String(i + 1).padStart(2, "0")
-  return { id: `plan-${num}`, label: `รายงานแผนดำเนินงานประจำปี รูปแบบที่ ${num}` }
 })
 
 function Documents() {
@@ -712,13 +706,6 @@ function Documents() {
       }
     }
   }, [])
-
-  /** ---------- Mode เปลี่ยน: เคลียร์หน้า ---------- */
-  useEffect(() => {
-    setActiveReport(null)
-    setPreviewJson(null)
-    setErrors({})
-  }, [mode])
 
   /** โหลดตัวเลือกพื้นฐาน (product, branch) */
   useEffect(() => {
@@ -1388,14 +1375,6 @@ function Documents() {
 
   const reportObj = REPORTS.find((r) => r.key === activeReport)
 
-  const badgeStyle = (t, badgeName) => {
-    if (badgeName === "PLAN") return "bg-blue-50 text-blue-700 ring-1 ring-blue-200 dark:bg-blue-900/20 dark:text-blue-200 dark:ring-blue-700/60"
-    if (t === "excel") return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60"
-    if (t === "pdf") return "bg-fuchsia-50 text-fuchsia-700 ring-1 ring-fuchsia-200 dark:bg-fuchsia-900/20 dark:text-fuchsia-200 dark:ring-fuchsia-700/60"
-    if (t === "share_pdf") return "bg-violet-50 text-violet-700 ring-1 ring-violet-200 dark:bg-violet-900/20 dark:text-violet-200 dark:ring-violet-700/60"
-    return "bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60"
-  }
-
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base documents-page">
       <style>{`
@@ -1404,140 +1383,105 @@ function Documents() {
       `}</style>
 
       <div className="mx-auto max-w-6xl p-5 md:p-6 lg:p-8">
-        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold">📚 คลังเอกสาร & รายงาน</h1>
-            {!loadingOptions && !loadingSpecs && (
-              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
-                พร้อมใช้งาน
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setMode("internal")}
-              className={cx(
-                "rounded-full border px-4 py-2 text-sm font-semibold transition",
-                mode === "internal"
-                  ? "border-emerald-600 bg-emerald-600 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-800/70"
-              )}
-            >
-              รายงานระบบ
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMode("share")}
-              className={cx(
-                "rounded-full border px-4 py-2 text-sm font-semibold transition",
-                mode === "share"
-                  ? "border-violet-600 bg-violet-600 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-800/70"
-              )}
-              title="สำหรับเปิดรายงานทะเบียนหุ้นผ่าน /share"
-            >
-              รายงานทะเบียนหุ้น
-            </button>
-
-            {/* เพิ่มปุ่ม รายงานแผนดำเนินงานประจำปี */}
-            <button
-              type="button"
-              onClick={() => {
-                setMode("plan")
-                setActiveReport(null) // Reset active report on tab switch
-              }}
-              className={cx(
-                "rounded-full border px-4 py-2 text-sm font-semibold transition",
-                mode === "plan"
-                  ? "border-blue-600 bg-blue-600 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-800/70"
-              )}
-            >
-              รายงานแผนดำเนินงานประจำปี
-            </button>
-          </div>
+        
+        {/* Header - เอาปุ่มเลือก Mode ทั้ง 3 อันด้านบนออกไปแล้ว */}
+        <div className="mb-8 flex items-center gap-3">
+          <h1 className="text-3xl font-bold">📚 คลังเอกสาร & รายงาน</h1>
+          {!loadingOptions && !loadingSpecs && (
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
+              พร้อมใช้งาน
+            </span>
+          )}
         </div>
 
-        {/* --- ส่วนแสดง Dropdown สำหรับแท็บ รายงานแผนดำเนินงานประจำปี --- */}
-        {mode === "plan" && !reportObj && (
-          <div className="flex flex-col items-center justify-center min-h-[40vh] bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-8 text-center">
-            <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-6 mx-auto dark:bg-blue-900/30 dark:text-blue-400">
-              <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v6h6v10H6z" />
-                <path d="M8 12h8v2H8zm0 4h5v2H8z" />
-              </svg>
-            </div>
+        {/* --- หน้าแรก: กล่องหมวดหมู่ 3 กล่อง พร้อม Dropdown ประจำกล่อง --- */}
+        {!reportObj && (
+          <div className="grid gap-6 md:grid-cols-3">
             
-            <h2 className="text-2xl font-bold mb-2">เลือกรายงานแผนดำเนินงานประจำปี</h2>
-            <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md">
-              กรุณาเลือกรูปแบบรายงานที่ต้องการจัดพิมพ์ จากรายการตัวเลือกด้านล่าง
-            </p>
-
-            <div className="w-full max-w-md mx-auto text-left shadow-lg rounded-2xl bg-white dark:bg-slate-800 p-1 ring-1 ring-slate-200 dark:ring-slate-700">
-              <ComboBox
-                options={planNumberOptions}
-                value={null} 
-                onChange={(v) => {
-                  if (v) {
+            {/* กล่อง 1: รายงานระบบ */}
+            <div className="flex flex-col rounded-2xl border border-emerald-200 bg-emerald-50/40 p-6 shadow-sm dark:border-emerald-800/50 dark:bg-emerald-900/10 transition-all hover:shadow-md">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 3h18v2H3V3zm0 4h18v14H3V7zm2 2v10h14V9H5z" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-emerald-800 dark:text-emerald-300">รายงานระบบ</h2>
+              </div>
+              <p className="mb-6 text-sm text-emerald-700/80 dark:text-emerald-400/80">
+                เอกสารสรุปซื้อ-ขาย, สต๊อกสินค้า และการดำเนินการภายในสาขา (PDF/Excel)
+              </p>
+              <div className="mt-auto relative z-30">
+                <ComboBox
+                  options={INTERNAL_REPORTS.map((r) => ({ ...r, id: r.key, label: r.title }))}
+                  placeholder="คลิกเพื่อเลือกรายงาน..."
+                  value={null}
+                  onChange={(v) => {
+                    setMode("internal")
                     setActiveReport(v)
                     setPreviewJson(null)
                     setErrors({})
-                  }
-                }}
-                placeholder="คลิกเพื่อเลือกรูปแบบรายงาน (01 - 16)"
-              />
+                  }}
+                />
+              </div>
             </div>
-          </div>
-        )}
 
-        {mode === "share" && !reportObj && (
-          <div className="mb-5 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-violet-900 dark:border-violet-700/60 dark:bg-violet-900/20 dark:text-violet-100">
-            <div className="font-semibold">โหมดรายงานทะเบียนหุ้น</div>
-            <div className="mt-1 text-sm">
-              ใช้ endpoint <code className="px-1 rounded bg-white/60 dark:bg-slate-800">/share/reports/&lt;report_code&gt;.pdf</code> สำหรับรายงานทะเบียนหุ้น (ส่งพารามิเตอร์เพิ่มได้ตามที่รายงานรองรับ เช่น <code>branch_id</code>, <code>member_id</code>, <code>asso_id</code>)
-            </div>
-          </div>
-        )}
-
-        {/* --- Grid views for Internal and Share mode --- */}
-        {mode !== "plan" && !reportObj && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {REPORTS.map((r) => (
-              <button
-                key={r.key}
-                type="button"
-                onClick={() => {
-                  setActiveReport(r.key)
-                  setPreviewJson(null)
-                  setErrors({})
-                }}
-                className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all hover:shadow-md hover:scale-[1.01] dark:border-slate-700 dark:bg-slate-800 cursor-pointer"
-              >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <div className="text-lg font-semibold leading-snug">
-                    {r.title}
-                  </div>
-                  <span
-                    className={cx(
-                      "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
-                      badgeStyle(r.type, r.badge)
-                    )}
-                  >
-                    {r.badge || r.type.toUpperCase()}
-                  </span>
+            {/* กล่อง 2: รายงานทะเบียนหุ้น */}
+            <div className="flex flex-col rounded-2xl border border-violet-200 bg-violet-50/40 p-6 shadow-sm dark:border-violet-800/50 dark:bg-violet-900/10 transition-all hover:shadow-md">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                  </svg>
                 </div>
+                <h2 className="text-xl font-bold text-violet-800 dark:text-violet-300">รายงานทะเบียนหุ้น</h2>
+              </div>
+              <p className="mb-6 text-sm text-violet-700/80 dark:text-violet-400/80">
+                เอกสารข้อมูลสมาชิกสมาคม, ทุนเรือนหุ้น และประวัติการทำรายการ (Share PDF)
+              </p>
+              <div className="mt-auto relative z-20">
+                <ComboBox
+                  options={SHARE_REPORTS.map((r) => ({ ...r, id: r.key, label: r.title }))}
+                  placeholder="คลิกเพื่อเลือกรายงาน..."
+                  value={null}
+                  onChange={(v) => {
+                    setMode("share")
+                    setActiveReport(v)
+                    setPreviewJson(null)
+                    setErrors({})
+                  }}
+                />
+              </div>
+            </div>
 
-                {(r.type === "pdf" || r.type === "share_pdf") && (
-                  <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-                    <PrinterIcon size={18} />
-                    พิมพ์ได้
-                  </div>
-                )}
-              </button>
-            ))}
+            {/* กล่อง 3: รายงานแผนดำเนินงานประจำปี */}
+            <div className="flex flex-col rounded-2xl border border-blue-200 bg-blue-50/40 p-6 shadow-sm dark:border-blue-800/50 dark:bg-blue-900/10 transition-all hover:shadow-md">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-blue-800 dark:text-blue-300">รายงานแผนดำเนินงาน</h2>
+              </div>
+              <p className="mb-6 text-sm text-blue-700/80 dark:text-blue-400/80">
+                เอกสารแผนดำเนินงานประจำปี เลือกรูปแบบรายงานที่ต้องการ (รูปแบบที่ 01 ถึง 16)
+              </p>
+              <div className="mt-auto relative z-10">
+                <ComboBox
+                  options={PLAN_REPORTS.map((r) => ({ ...r, id: r.key, label: r.title }))}
+                  placeholder="คลิกเพื่อเลือกรูปแบบ..."
+                  value={null}
+                  onChange={(v) => {
+                    setMode("plan")
+                    setActiveReport(v)
+                    setPreviewJson(null)
+                    setErrors({})
+                  }}
+                />
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -1563,9 +1507,9 @@ function Documents() {
                   setErrors({})
                 }}
                 className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 md:px-5 py-3 text-base font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-100 hover:shadow-md hover:scale-[1.02] active:scale-[.98] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 cursor-pointer"
-                title={mode === "plan" ? "กลับไปเลือกรูปแบบแผนฯ" : "กลับไปหน้าเลือกรายงาน"}
+                title="กลับไปหน้าเลือกรายงาน"
               >
-                ← {mode === "plan" ? "เลือกรูปแบบอื่น" : "เลือกรายงานอื่น"}
+                ← กลับไปเลือกรายงาน
               </button>
             </div>
 
@@ -1615,7 +1559,7 @@ function Documents() {
         )}
 
         <div className="mt-6 rounded-2xl border border-dashed border-slate-300 p-5 text-slate-600 dark:border-slate-600 dark:text-slate-300">
-          <div className="font-medium">เพิ่มรายงานใหม่</div>
+          <div className="font-medium">คำแนะนำสำหรับนักพัฒนา</div>
           <div className="mt-1 text-sm">
             <ul className="list-disc pl-5 space-y-1">
               <li>

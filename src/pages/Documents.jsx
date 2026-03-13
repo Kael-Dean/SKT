@@ -1558,25 +1558,6 @@ function Documents() {
           </form>
         )}
 
-        <div className="mt-6 rounded-2xl border border-dashed border-slate-300 p-5 text-slate-600 dark:border-slate-600 dark:text-slate-300">
-          <div className="font-medium">คำแนะนำสำหรับนักพัฒนา</div>
-          <div className="mt-1 text-sm">
-            <ul className="list-disc pl-5 space-y-1">
-              <li>
-                รายงานภายใน: เปิด endpoint ภายใต้ <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/report/…</code> (Excel/JSON)
-              </li>
-              <li>
-                รายงาน PDF (Documint): <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/docs/reports/&lt;report_code&gt;.pdf</code>
-              </li>
-              <li>
-                รายงานทะเบียนหุ้น (Share PDF): <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/share/reports/&lt;report_code&gt;.pdf</code>
-              </li>
-              <li>
-                รายงานแผนดำเนินงาน: <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/plan/reports/&lt;number&gt;.pdf</code>
-              </li>
-            </ul>
-          </div>
-        </div>
       </div>
     </div>
   )

@@ -314,7 +314,7 @@ const INTERNAL_REPORTS = [
     key: "purchaseGrouped",
     title: "ซื้อ/ขาย แยกราคาต่อกก. (Excel)",
     desc: "สรุปซื้อ-ขายตามราคาต่อกก. ช่วงวันที่ที่กำหนด",
-    endpoint: "/report/orders/purchase-excel", // requires: start_date, end_date, spec_id; optional: branch_id, klang_id
+    endpoint: "/report/orders/purchase-excel", 
     type: "excel",
     badge: "EXCEL",
     require: ["startDate", "endDate", "specId"],
@@ -324,7 +324,7 @@ const INTERNAL_REPORTS = [
     key: "salesDaily",
     title: "ขายรายวัน (Excel)",
     desc: "รายการขายแบบแยกวันต่อวัน",
-    endpoint: "/report/sales/daily-excel", // requires: start_date, end_date, branch_id; optional: spec_id
+    endpoint: "/report/sales/daily-excel",
     type: "excel",
     badge: "EXCEL",
     require: ["startDate", "endDate", "branchId"],
@@ -334,7 +334,7 @@ const INTERNAL_REPORTS = [
     key: "purchasesDaily",
     title: "ซื้อรายวัน (Excel)",
     desc: "รายการซื้อแบบแยกวันต่อวัน",
-    endpoint: "/report/purchases/daily-excel", // requires: start_date, end_date, branch_id; optional: spec_id
+    endpoint: "/report/purchases/daily-excel",
     type: "excel",
     badge: "EXCEL",
     require: ["startDate", "endDate", "branchId"],
@@ -344,7 +344,7 @@ const INTERNAL_REPORTS = [
     key: "registerPurchase",
     title: "ทะเบียนรับซื้อ (Excel)",
     desc: "ทะเบียนรับซื้อพร้อมค้นหาสายพันธุ์/ที่อยู่",
-    endpoint: "/report/orders/register-excel", // requires: start_date, end_date; optional: branch_id, klang_id, species_like, addr_line4, addr_line5
+    endpoint: "/report/orders/register-excel", 
     type: "excel",
     badge: "EXCEL",
     require: ["startDate", "endDate"],
@@ -354,7 +354,7 @@ const INTERNAL_REPORTS = [
     key: "branchRx",
     title: "สรุปสาขา (RX) (Excel)",
     desc: "ซื้อ-ขาย-รับโอน-โอน-ส่งสี-ตัดเสียหาย ตามสาขา",
-    endpoint: "/report/branch-rx.xlsx", // requires: start_date, end_date, branch_id, spec_id
+    endpoint: "/report/branch-rx.xlsx", 
     type: "excel",
     badge: "EXCEL",
     require: ["startDate", "endDate", "branchId", "specId"],
@@ -364,7 +364,7 @@ const INTERNAL_REPORTS = [
     key: "riceSummary",
     title: "สรุปซื้อขายรวม (Excel)",
     desc: "รวมทุกสาขา/ชนิดข้าวหลัก ช่วงวันที่ที่กำหนด",
-    endpoint: "/report/rice-summary.xlsx", // requires: start_date, end_date
+    endpoint: "/report/rice-summary.xlsx", 
     type: "excel",
     badge: "EXCEL",
     require: ["startDate", "endDate"],
@@ -374,7 +374,7 @@ const INTERNAL_REPORTS = [
     key: "stockTree",
     title: "โครงสร้างสต๊อก (JSON)",
     desc: "ภาพรวมสต๊อกแบบ Tree (product → species → …)",
-    endpoint: "/report/stock/tree", // requires: branch_id, product_id; optional: klang_id
+    endpoint: "/report/stock/tree", 
     type: "json",
     badge: "JSON",
     require: ["branchId", "productId"],
@@ -387,7 +387,7 @@ const INTERNAL_REPORTS = [
     key: "buy-by-day",
     title: "รับซื้อรายวัน (PDF)",
     desc: "รายงานรับซื้อรายวันจาก Documint (กด 🖨️ เพื่อพิมพ์)",
-    endpoint: "/docs/reports/buy-by-day.pdf", // requires: start_date, end_date; optional: branch_id, klang_id, spec_id
+    endpoint: "/docs/reports/buy-by-day.pdf", 
     type: "pdf",
     badge: "PDF",
     require: ["startDate", "endDate"],
@@ -467,11 +467,8 @@ const INTERNAL_REPORTS = [
 
 // -----------------------------
 // PDF (Share) - “รายงานทะเบียนหุ้น”
-// ใช้ BE: GET /share/reports/{report_code}.pdf
-// หมายเหตุ: รายการนี้ให้เป็นตัวอย่าง/พื้นฐาน – ฝั่ง BE สามารถเพิ่ม report_code ใหม่ได้
 // -----------------------------
 const SHARE_REPORTS = [
-  // ✅ รายงานทะเบียนหุ้น (Share) – รายงานหลัก
   {
     key: "share-member-signup",
     reportCode: "member-signup",
@@ -481,29 +478,20 @@ const SHARE_REPORTS = [
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate", "branchId"],
-    // ตัวกรองเพิ่มเติม (ไม่บังคับ) – BE จะรับหรือไม่รับแล้วแต่ report/builder
     optional: [],
   },
-
-  // ✅ รายงานทะเบียนทุนเรือนหุ้น (สมาชิก 1 คน)
-  // ใช้ builder: build_share_member_history_payload
-  // ต้องกรอกอย่างน้อย 1 อย่าง: member_id หรือ asso_id
   {
     key: "share-member-history",
-    reportCode: "member-history", // 🔧 เปลี่ยนให้ตรงกับ BE (reports/registry.py)
+    reportCode: "member-history", 
     title: "รายงานทะเบียนทุนเรือนหุ้น (PDF)",
     desc: "รายงานทะเบียนทุนเรือนหุ้นของสมาชิก 1 คน (ใช้ member_id หรือ asso_id) ช่วงวันที่ที่กำหนด",
-    endpoint: "/share/reports/member-history.pdf", // 🔧 เปลี่ยนให้ตรงกับ BE
+    endpoint: "/share/reports/member-history.pdf", 
     type: "share_pdf",
     badge: "SHARE PDF",
     require: ["startDate", "endDate"],
     optional: ["branchId", "memberId", "assoId"],
     requireAny: [["memberId", "assoId"]],
-
-    // สำหรับรายงานนี้ BE ต้องการ member_id จริง ๆ → ส่งเฉพาะ member_id
     sendTgsIdAlias: false,
-
-    // ปรับข้อความในฟอร์มให้ตรงกับรายงานนี้
     memberLabel: "member_id",
     memberPlaceholder: "เช่น M12345",
     memberHelp: "กรอก member_id (รหัสสมาชิก) หรือกรอก asso_id อย่างใดอย่างหนึ่ง",
@@ -511,8 +499,6 @@ const SHARE_REPORTS = [
     assoPlaceholder: "เช่น 550e8400-e29b-41d4-a716-446655440000",
     assoHelp: "กรอก asso_id แทน member_id ได้",
   },
-
-  // ✅ รายงาน PDF ผ่าน /share (ครบชุดที่ใช้บ่อย)
   {
     key: "share-buy-by-day",
     reportCode: "buy-by-day",
@@ -601,8 +587,6 @@ const SHARE_REPORTS = [
     require: ["startDate", "endDate"],
     optional: ["branchId", "klangId", "klangIds", "specId"],
   },
-
-  // ✅ เพิ่ม report_code เอง (เผื่อ BE เพิ่มใหม่แล้ว FE ยังไม่เพิ่มลิสต์)
   {
     key: "share-custom",
     title: "รายงานทะเบียนหุ้น (ระบุ report_code เอง) (PDF)",
@@ -615,16 +599,39 @@ const SHARE_REPORTS = [
   },
 ]
 
+// -----------------------------
+// PDF (Plan) - “รายงานแผนดำเนินงานประจำปี” (01 - 16)
+// -----------------------------
+const PLAN_REPORTS = Array.from({ length: 16 }, (_, i) => {
+  const num = String(i + 1).padStart(2, "0")
+  return {
+    key: `plan-${num}`,
+    title: `รายงานแผนดำเนินงานประจำปี ${num} (PDF)`,
+    desc: `เอกสารรายงานแผนดำเนินงานประจำปี รูปแบบที่ ${num}`,
+    endpoint: `/plan/reports/${num}.pdf`, 
+    type: "pdf", 
+    badge: "PLAN",
+    require: ["startDate", "endDate"],
+    optional: ["branchId"],
+  }
+})
 
 function Documents() {
   const [mode, setMode] = useState(() => {
     const qs = safeQS()
     const m = (pickQS(qs, ["mode", "view", "tab"]) || "").toLowerCase()
-    // รองรับลิงก์เดิม: mode=shop/store แต่ให้ไปโหมด "share" (รายงานทะเบียนหุ้น)
-    return m === "share" || m === "registry" || m === "shares" || m === "shop" || m === "store" ? "share" : "internal"
+    
+    if (m === "plan") return "plan"
+    if (m === "share" || m === "registry" || m === "shares" || m === "shop" || m === "store") return "share"
+    
+    return "internal"
   })
 
-  const REPORTS = useMemo(() => (mode === "share" ? SHARE_REPORTS : INTERNAL_REPORTS), [mode])
+  const REPORTS = useMemo(() => {
+    if (mode === "share") return SHARE_REPORTS
+    if (mode === "plan") return PLAN_REPORTS
+    return INTERNAL_REPORTS
+  }, [mode])
 
   /** ---------- โหลดตัวเลือกพื้นฐาน ---------- */
   const [loadingOptions, setLoadingOptions] = useState(false)
@@ -634,7 +641,7 @@ function Documents() {
   const [activeReport, setActiveReport] = useState(null)
 
   const [productOptions, setProductOptions] = useState([])
-  const [specOptions, setSpecOptions] = useState([]) // รายการสำเร็จรูป (spec)
+  const [specOptions, setSpecOptions] = useState([]) 
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
 
@@ -658,8 +665,8 @@ function Documents() {
     // share filters
     memberId: "",
     assoId: "",
-    klangIds: "", // comma-separated (สำหรับ /share ... klang_ids)
-    customReportCode: "", // สำหรับโหมด share-custom
+    klangIds: "", 
+    customReportCode: "", 
     // search fields
     speciesLike: "",
     addrLine4: "",
@@ -679,10 +686,10 @@ function Documents() {
     if (s) patch.startDate = s
     if (e) patch.endDate = e
 
-    // share identity (รองรับชื่อพารามิเตอร์หลายแบบ)
-    const memberId = pickQS(qs, ["member_id", "memberId"]) // บางระบบเรียก member_id
-    const tgsId = pickQS(qs, ["tgs_id", "tgsId"])        // รองรับลิงก์เดิม (alias)
-    const assoId = pickQS(qs, ["asso_id", "assoId"])      // อาจเป็น UUID/string
+    // share identity
+    const memberId = pickQS(qs, ["member_id", "memberId"]) 
+    const tgsId = pickQS(qs, ["tgs_id", "tgsId"])        
+    const assoId = pickQS(qs, ["asso_id", "assoId"])      
 
     if (memberId) patch.memberId = memberId
     else if (tgsId) patch.memberId = tgsId
@@ -692,7 +699,7 @@ function Documents() {
     // optional filters
     const branchId = pickQS(qs, ["branch_id", "branchId"])
     const klangId = pickQS(qs, ["klang_id", "klangId"])
-    const klangIds = pickQS(qs, ["klang_ids", "klangIds"]) // เผื่อส่งมาเป็น "1,2,3"
+    const klangIds = pickQS(qs, ["klang_ids", "klangIds"]) 
     if (branchId) patch.branchId = branchId
     if (klangId) patch.klangId = klangId
     if (klangIds) patch.klangIds = klangIds
@@ -707,16 +714,19 @@ function Documents() {
     if (code) {
       const foundShare = SHARE_REPORTS.find((r) => r.reportCode === code || r.key === code)
       const foundInternal = INTERNAL_REPORTS.find((r) => r.key === code)
+      const foundPlan = PLAN_REPORTS.find((r) => r.key === code)
       const custom = SHARE_REPORTS.find((r) => r.key === "share-custom")
 
       if (foundShare) {
         setMode("share")
         setActiveReport(foundShare.key)
+      } else if (foundPlan) {
+        setMode("plan")
+        setActiveReport(foundPlan.key)
       } else if (foundInternal) {
         setMode("internal")
         setActiveReport(foundInternal.key)
       } else if (custom) {
-        // ถ้า report_code ไม่อยู่ในลิสต์ ให้ใช้แบบกำหนดเอง แล้วเติมค่าให้
         setMode("share")
         setActiveReport(custom.key)
         setFilters((p) => ({ ...p, customReportCode: code }))
@@ -737,8 +747,8 @@ function Documents() {
       try {
         setLoadingOptions(true)
         const [products, branches] = await Promise.all([
-          apiAuth("/order/product/search"),
-          apiAuth("/order/branch/search"),
+          apiAuth("/order/product/search").catch(() => []),
+          apiAuth("/order/branch/search").catch(() => []),
         ])
         setProductOptions(
           (products || [])
@@ -769,7 +779,7 @@ function Documents() {
     const loadSpecs = async () => {
       try {
         setLoadingSpecs(true)
-        const rows = await apiAuth("/order/form/search") // คืน ProductSpec ที่มี prod_name แล้ว
+        const rows = await apiAuth("/order/form/search").catch(() => [])
         const opts = (rows || [])
           .map((r) => ({
             id: String(r.id),
@@ -777,7 +787,6 @@ function Documents() {
           }))
           .filter((o) => o.id && o.label)
 
-        // 🔧 แสดงเฉพาะ 2 รายการบนสุดเท่านั้น (คงตามไฟล์เดิม)
         setSpecOptions(opts)
       } catch (err) {
         console.error("loadSpecs error:", err)
@@ -835,7 +844,6 @@ function Documents() {
       if (!ok) e[field] = "จำเป็นต้องระบุ"
     }
 
-    // requireAny: กลุ่มฟิลด์ที่ต้องกรอกอย่างน้อย 1 ค่า (กำหนดในแต่ละ report)
     const niceField = (f) => {
       if (f === "memberId") return "member_id"
       if (f === "assoId") return "asso_id"
@@ -870,13 +878,11 @@ function Documents() {
     if (wants("startDate")) p.set("start_date", filters.startDate)
     if (wants("endDate")) p.set("end_date", filters.endDate)
 
-    // share identity
     if (wants("memberId") && String(filters.memberId || "").trim()) {
       const v = String(filters.memberId).trim()
       const key = String(report?.memberQueryKey || "member_id")
       p.set(key, v)
 
-      // (optional) ส่ง alias ชื่อ tgs_id เฉพาะรายงานที่ต้องการจริง ๆ
       if (report?.sendTgsIdAlias === true) {
         p.set("tgs_id", v)
       }
@@ -886,11 +892,9 @@ function Documents() {
       p.set("asso_id", String(filters.assoId).trim())
     }
 
-    // common filters
     if (wants("branchId") && filters.branchId) p.set("branch_id", filters.branchId)
     if (wants("klangId") && filters.klangId) p.set("klang_id", filters.klangId)
 
-    // share รองรับ klang_ids เป็น list
     if (wants("klangIds") && String(filters.klangIds || "").trim()) {
       for (const n of parseCsvInts(filters.klangIds)) {
         p.append("klang_ids", String(n))
@@ -898,7 +902,6 @@ function Documents() {
     }
 
     if (wants("specId") && filters.specId) {
-      // รองรับ BE ที่รับหลายค่า: spec_id=1&spec_id=2
       p.append("spec_id", filters.specId)
     }
 
@@ -913,13 +916,11 @@ function Documents() {
     return p
   }
 
-
   /** ---------- Download / Preview / Print ---------- */
   const doDownload = async (report) => {
     const errs = validate(report)
     if (Object.keys(errs).length) return
 
-    // สำหรับ PDF: เปิดหน้าต่าง “ทันที” (กัน popup ถูก block) แล้วค่อยยัด PDF ทีหลัง
     const isPdf = report.type === "pdf" || report.type === "share_pdf"
     const preOpenWin = isPdf ? window.open("", "_blank") : null
 
@@ -953,7 +954,6 @@ function Documents() {
       }
 
       if (isPdf) {
-        // ✅ สำคัญ: ตั้ง preview=false เพื่อได้ไฟล์สำหรับพิมพ์
         params.set("preview", "false")
 
         const { blob } = await apiDownload(`${endpoint}?${params.toString()}`)
@@ -962,7 +962,6 @@ function Documents() {
         if (preOpenWin) {
           try {
             preOpenWin.location.href = url
-            // พยายามสั่งพิมพ์อัตโนมัติ (บาง browser อาจบล็อก)
             setTimeout(() => {
               try {
                 preOpenWin.focus()
@@ -1046,7 +1045,6 @@ function Documents() {
     )
   }
 
-  /** ดรอปดาว “รายการสำเร็จรูป (spec)” จาก BE */
   const FormSpecOnly = ({ requiredSpec = false }) => (
     <div>
       <label className={labelCls}>
@@ -1141,7 +1139,6 @@ function Documents() {
     const showMember = req.includes("memberId") || opt.includes("memberId") || inAny("memberId")
     const showAsso = req.includes("assoId") || opt.includes("assoId") || inAny("assoId")
 
-    // ถ้ารายงานนี้ไม่ใช้ member_id / asso_id เลย → ไม่ต้องแสดงฟอร์มส่วนนี้
     if (!showMember && !showAsso) return null
 
     const needMember = req.includes("memberId") || inAny("memberId")
@@ -1361,8 +1358,7 @@ function Documents() {
       )
     }
 
-    // ✅ Documint PDF (พิมพ์)
-    if (report.type === "pdf") {
+    if (report.type === "pdf" || report.badge === "PLAN") {
       return (
         <>
           <div className="grid gap-4 md:grid-cols-3">
@@ -1371,13 +1367,12 @@ function Documents() {
             <FormSpecOnly requiredSpec={false} />
           </div>
           <p className={helpTextCls}>
-            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์ (เรียก BE <code>/docs/reports/&lt;report_code&gt;.pdf</code>)
+            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์ (ระบบจะเรียกเส้นทางตามที่กำหนดในชุดรายงาน)
           </p>
         </>
       )
     }
 
-    // ✅ Share PDF (รายงานทะเบียนหุ้น)
     if (report.type === "share_pdf") {
       const req = report.require || []
       const opt = report.optional || []
@@ -1409,13 +1404,13 @@ function Documents() {
       )
     }
 
-
     return null
   }
 
   const reportObj = REPORTS.find((r) => r.key === activeReport)
 
-  const badgeStyle = (t) => {
+  const badgeStyle = (t, badgeName) => {
+    if (badgeName === "PLAN") return "bg-blue-50 text-blue-700 ring-1 ring-blue-200 dark:bg-blue-900/20 dark:text-blue-200 dark:ring-blue-700/60"
     if (t === "excel") return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60"
     if (t === "pdf") return "bg-fuchsia-50 text-fuchsia-700 ring-1 ring-fuchsia-200 dark:bg-fuchsia-900/20 dark:text-fuchsia-200 dark:ring-fuchsia-700/60"
     if (t === "share_pdf") return "bg-violet-50 text-violet-700 ring-1 ring-violet-200 dark:bg-violet-900/20 dark:text-violet-200 dark:ring-violet-700/60"
@@ -1424,7 +1419,6 @@ function Documents() {
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base documents-page">
-      {/* ให้ปุ่มที่กดได้เป็นเคอร์เซอร์นิ้วชี้เฉพาะตอน hover และไม่ทับ disabled/wait */}
       <style>{`
         .documents-page button:not(:disabled):not(.cursor-not-allowed):not(.cursor-wait):hover { cursor: pointer; }
         .documents-page [role="button"]:hover, .documents-page [role="option"]:hover { cursor: pointer; }
@@ -1454,6 +1448,7 @@ function Documents() {
             >
               รายงานระบบ
             </button>
+
             <button
               type="button"
               onClick={() => setMode("share")}
@@ -1466,6 +1461,20 @@ function Documents() {
               title="สำหรับเปิดรายงานทะเบียนหุ้นผ่าน /share"
             >
               รายงานทะเบียนหุ้น
+            </button>
+
+            {/* เพิ่มปุ่ม รายงานแผนดำเนินงานประจำปี */}
+            <button
+              type="button"
+              onClick={() => setMode("plan")}
+              className={cx(
+                "rounded-full border px-4 py-2 text-sm font-semibold transition",
+                mode === "plan"
+                  ? "border-blue-600 bg-blue-600 text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-800/70"
+              )}
+            >
+              รายงานแผนดำเนินงานประจำปี
             </button>
           </div>
         </div>
@@ -1499,7 +1508,7 @@ function Documents() {
                   <span
                     className={cx(
                       "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
-                      badgeStyle(r.type)
+                      badgeStyle(r.type, r.badge)
                     )}
                   >
                     {r.badge || r.type.toUpperCase()}
@@ -1605,10 +1614,10 @@ function Documents() {
               <li>
                 รายงานทะเบียนหุ้น (Share PDF): <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/share/reports/&lt;report_code&gt;.pdf</code>
               </li>
+              <li>
+                รายงานแผนดำเนินงาน: <code className="px-1 rounded bg-slate-100 dark:bg-slate-700">/plan/reports/&lt;number&gt;.pdf</code>
+              </li>
             </ul>
-            <div className="mt-2">
-              แล้วเพิ่มรายการในอาร์เรย์ <code>INTERNAL_REPORTS</code> หรือ <code>SHARE_REPORTS</code> พร้อมกำหนด <code>require</code>/<code>optional</code> ให้ตรงกับพารามิเตอร์ของ BE
-            </div>
           </div>
         </div>
       </div>

@@ -1515,7 +1515,7 @@ function Documents() {
                   </span>
                 </div>
 
-                <p className="text-slate-600 dark:text-slate-300">{r.desc}</p>
+                {/* เอาข้อความอธิบาย (desc) ด้านล่างชื่อรายงานออกไปตามที่ผู้ใช้ต้องการ */}
 
                 {(r.type === "pdf" || r.type === "share_pdf") && (
                   <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
@@ -1539,7 +1539,7 @@ function Documents() {
             <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="text-xl font-semibold">{reportObj.title}</div>
-                <div className={helpTextCls}>{reportObj.desc}</div>
+                {/* เอาข้อความอธิบาย (desc) ใต้ชื่อรายงานออกไปในหน้ารายละเอียดด้วยเช่นกัน */}
               </div>
 
               <button

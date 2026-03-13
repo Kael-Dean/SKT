@@ -313,6 +313,7 @@ const INTERNAL_REPORTS = [
   {
     key: "purchaseGrouped",
     title: "ซื้อ/ขาย แยกราคาต่อกก. (Excel)",
+    desc: "สรุปซื้อ-ขายตามราคาต่อกก. ช่วงวันที่ที่กำหนด",
     endpoint: "/report/orders/purchase-excel", 
     type: "excel",
     badge: "EXCEL",
@@ -322,6 +323,7 @@ const INTERNAL_REPORTS = [
   {
     key: "salesDaily",
     title: "ขายรายวัน (Excel)",
+    desc: "รายการขายแบบแยกวันต่อวัน",
     endpoint: "/report/sales/daily-excel",
     type: "excel",
     badge: "EXCEL",
@@ -331,6 +333,7 @@ const INTERNAL_REPORTS = [
   {
     key: "purchasesDaily",
     title: "ซื้อรายวัน (Excel)",
+    desc: "รายการซื้อแบบแยกวันต่อวัน",
     endpoint: "/report/purchases/daily-excel",
     type: "excel",
     badge: "EXCEL",
@@ -340,6 +343,7 @@ const INTERNAL_REPORTS = [
   {
     key: "registerPurchase",
     title: "ทะเบียนรับซื้อ (Excel)",
+    desc: "ทะเบียนรับซื้อพร้อมค้นหาสายพันธุ์/ที่อยู่",
     endpoint: "/report/orders/register-excel", 
     type: "excel",
     badge: "EXCEL",
@@ -349,6 +353,7 @@ const INTERNAL_REPORTS = [
   {
     key: "branchRx",
     title: "สรุปสาขา (RX) (Excel)",
+    desc: "ซื้อ-ขาย-รับโอน-โอน-ส่งสี-ตัดเสียหาย ตามสาขา",
     endpoint: "/report/branch-rx.xlsx", 
     type: "excel",
     badge: "EXCEL",
@@ -358,6 +363,7 @@ const INTERNAL_REPORTS = [
   {
     key: "riceSummary",
     title: "สรุปซื้อขายรวม (Excel)",
+    desc: "รวมทุกสาขา/ชนิดข้าวหลัก ช่วงวันที่ที่กำหนด",
     endpoint: "/report/rice-summary.xlsx", 
     type: "excel",
     badge: "EXCEL",
@@ -367,6 +373,7 @@ const INTERNAL_REPORTS = [
   {
     key: "stockTree",
     title: "โครงสร้างสต๊อก (JSON)",
+    desc: "ภาพรวมสต๊อกแบบ Tree (product → species → …)",
     endpoint: "/report/stock/tree", 
     type: "json",
     badge: "JSON",
@@ -379,6 +386,7 @@ const INTERNAL_REPORTS = [
   {
     key: "buy-by-day",
     title: "รับซื้อรายวัน (PDF)",
+    desc: "รายงานรับซื้อรายวันจาก Documint (กด 🖨️ เพื่อพิมพ์)",
     endpoint: "/docs/reports/buy-by-day.pdf", 
     type: "pdf",
     badge: "PDF",
@@ -388,6 +396,7 @@ const INTERNAL_REPORTS = [
   {
     key: "by-price",
     title: "สรุปตามราคาต่อกก. (PDF)",
+    desc: "รายงานสรุปซื้อ/ขายตามราคาต่อกก. (Documint)",
     endpoint: "/docs/reports/by-price.pdf",
     type: "pdf",
     badge: "PDF",
@@ -397,6 +406,7 @@ const INTERNAL_REPORTS = [
   {
     key: "sell-by-day",
     title: "ขายรายวัน (PDF)",
+    desc: "รายงานขายรายวันจาก Documint",
     endpoint: "/docs/reports/sell-by-day.pdf",
     type: "pdf",
     badge: "PDF",
@@ -406,6 +416,7 @@ const INTERNAL_REPORTS = [
   {
     key: "rice-summary",
     title: "สรุปซื้อขายรวม (PDF)",
+    desc: "รายงานสรุปซื้อขายรวมจาก Documint",
     endpoint: "/docs/reports/rice-summary.pdf",
     type: "pdf",
     badge: "PDF",
@@ -415,6 +426,7 @@ const INTERNAL_REPORTS = [
   {
     key: "collection-report",
     title: "รายงานรวบรวม (PDF)",
+    desc: "รายงานรวบรวม/สะสม (Documint)",
     endpoint: "/docs/reports/collection-report.pdf",
     type: "pdf",
     badge: "PDF",
@@ -424,6 +436,7 @@ const INTERNAL_REPORTS = [
   {
     key: "daily-report",
     title: "รายงานประจำวัน (PDF)",
+    desc: "รายงานประจำวันจาก Documint",
     endpoint: "/docs/reports/daily-report.pdf",
     type: "pdf",
     badge: "PDF",
@@ -433,6 +446,7 @@ const INTERNAL_REPORTS = [
   {
     key: "control-report",
     title: "รายงานควบคุม (PDF)",
+    desc: "รายงานควบคุมรวมทุกสาขา (Documint)",
     endpoint: "/docs/reports/control-report.pdf",
     type: "pdf",
     badge: "PDF",
@@ -442,6 +456,7 @@ const INTERNAL_REPORTS = [
   {
     key: "branch-summary",
     title: "สรุปสาขา/คลัง (PDF)",
+    desc: "รายงานสรุปกิจกรรมสาขา/คลัง (Documint)",
     endpoint: "/docs/reports/branch-summary.pdf",
     type: "pdf",
     badge: "PDF",
@@ -458,6 +473,7 @@ const SHARE_REPORTS = [
     key: "share-member-signup",
     reportCode: "member-signup",
     title: "รายงานทะเบียนหุ้น (PDF)",
+    desc: "รายงานทะเบียนหุ้นจาก BE (Documint) – พิมพ์ได้",
     endpoint: "/share/reports/member-signup.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -468,6 +484,7 @@ const SHARE_REPORTS = [
     key: "share-member-history",
     reportCode: "member-history", 
     title: "รายงานทะเบียนทุนเรือนหุ้น (PDF)",
+    desc: "รายงานทะเบียนทุนเรือนหุ้นของสมาชิก 1 คน (ใช้ member_id หรือ asso_id) ช่วงวันที่ที่กำหนด",
     endpoint: "/share/reports/member-history.pdf", 
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -486,6 +503,7 @@ const SHARE_REPORTS = [
     key: "share-buy-by-day",
     reportCode: "buy-by-day",
     title: "รับซื้อรายวัน (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share (กด 🖨️ เพื่อพิมพ์)",
     endpoint: "/share/reports/buy-by-day.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -496,6 +514,7 @@ const SHARE_REPORTS = [
     key: "share-by-price",
     reportCode: "by-price",
     title: "สรุปตามราคาต่อกก. (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
     endpoint: "/share/reports/by-price.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -506,6 +525,7 @@ const SHARE_REPORTS = [
     key: "share-sell-by-day",
     reportCode: "sell-by-day",
     title: "ขายรายวัน (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
     endpoint: "/share/reports/sell-by-day.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -516,6 +536,7 @@ const SHARE_REPORTS = [
     key: "share-rice-summary",
     reportCode: "rice-summary",
     title: "สรุปซื้อขายรวม (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
     endpoint: "/share/reports/rice-summary.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -526,6 +547,7 @@ const SHARE_REPORTS = [
     key: "share-collection-report",
     reportCode: "collection-report",
     title: "รายงานรวบรวม (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
     endpoint: "/share/reports/collection-report.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -536,6 +558,7 @@ const SHARE_REPORTS = [
     key: "share-daily-report",
     reportCode: "daily-report",
     title: "รายงานประจำวัน (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
     endpoint: "/share/reports/daily-report.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -546,6 +569,7 @@ const SHARE_REPORTS = [
     key: "share-control-report",
     reportCode: "control-report",
     title: "รายงานควบคุม (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
     endpoint: "/share/reports/control-report.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -556,6 +580,7 @@ const SHARE_REPORTS = [
     key: "share-branch-summary",
     reportCode: "branch-summary",
     title: "สรุปสาขา/คลัง (Share PDF)",
+    desc: "ลิงก์แชร์ผ่าน /share",
     endpoint: "/share/reports/branch-summary.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -565,6 +590,7 @@ const SHARE_REPORTS = [
   {
     key: "share-custom",
     title: "รายงานทะเบียนหุ้น (ระบุ report_code เอง) (PDF)",
+    desc: "ใช้เมื่อฝั่ง BE เพิ่ม report_code ใหม่ แต่หน้า FE ยังไม่ได้เพิ่มลิสต์",
     endpoint: (f) => `/share/reports/${encodeURIComponent(String(f.customReportCode || "").trim())}.pdf`,
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -574,24 +600,20 @@ const SHARE_REPORTS = [
 ]
 
 // -----------------------------
-// PDF (Plan) - ยุบรวม “รายงานแผนดำเนินงานประจำปี” (01 - 16) เป็น 1 การ์ด
+// PDF (Plan) - “รายงานแผนดำเนินงานประจำปี” (01 - 16)
 // -----------------------------
-const PLAN_REPORTS = [
-  {
-    key: "plan-grouped",
-    title: "รายงานแผนดำเนินงานประจำปี (PDF)",
-    endpoint: (f) => `/plan/reports/${f.planNumber || "01"}.pdf`, 
+const PLAN_REPORTS = Array.from({ length: 16 }, (_, i) => {
+  const num = String(i + 1).padStart(2, "0")
+  return {
+    key: `plan-${num}`,
+    title: `รายงานแผนดำเนินงานประจำปี ${num} (PDF)`,
+    desc: `เอกสารรายงานแผนดำเนินงานประจำปี รูปแบบที่ ${num}`,
+    endpoint: `/plan/reports/${num}.pdf`, 
     type: "pdf", 
     badge: "PLAN",
-    require: ["startDate", "endDate", "planNumber"],
+    require: ["startDate", "endDate"],
     optional: ["branchId"],
   }
-]
-
-// ตัวเลือกรูปแบบรายงานแผนดำเนินงาน (01-16)
-const planNumberOptions = Array.from({ length: 16 }, (_, i) => {
-  const num = String(i + 1).padStart(2, "0")
-  return { id: num, label: `รูปแบบที่ ${num}` }
 })
 
 function Documents() {
@@ -649,8 +671,6 @@ function Documents() {
     speciesLike: "",
     addrLine4: "",
     addrLine5: "",
-    // plan filters
-    planNumber: "01",
   })
   const setFilter = (k, v) => setFilters((p) => ({ ...p, [k]: v }))
 
@@ -694,7 +714,7 @@ function Documents() {
     if (code) {
       const foundShare = SHARE_REPORTS.find((r) => r.reportCode === code || r.key === code)
       const foundInternal = INTERNAL_REPORTS.find((r) => r.key === code)
-      const foundPlan = PLAN_REPORTS.find((r) => r.key === code || code.startsWith("plan-"))
+      const foundPlan = PLAN_REPORTS.find((r) => r.key === code)
       const custom = SHARE_REPORTS.find((r) => r.key === "share-custom")
 
       if (foundShare) {
@@ -703,10 +723,6 @@ function Documents() {
       } else if (foundPlan) {
         setMode("plan")
         setActiveReport(foundPlan.key)
-        // Extract number if code is like "plan-05"
-        if (code.startsWith("plan-") && code.length === 7) {
-          setFilters((p) => ({ ...p, planNumber: code.split("-")[1] }))
-        }
       } else if (foundInternal) {
         setMode("internal")
         setActiveReport(foundInternal.key)
@@ -832,7 +848,6 @@ function Documents() {
       if (f === "memberId") return "member_id"
       if (f === "assoId") return "asso_id"
       if (f === "customReportCode") return "report_code"
-      if (f === "planNumber") return "รูปแบบรายงานแผนฯ"
       return f
     }
 
@@ -1005,7 +1020,6 @@ function Documents() {
       speciesLike: "",
       addrLine4: "",
       addrLine5: "",
-      planNumber: "01",
     })
 
   /** ---------- UI helpers ---------- */
@@ -1242,23 +1256,6 @@ function Documents() {
     </div>
   )
 
-  // เพิ่มคอมโพเนนต์สำหรับเลือกรูปแบบรายงานแผนฯ
-  const FormPlanNumber = () => (
-    <div>
-      <label className={labelCls}>
-        รูปแบบรายงาน <span className="text-red-500">*</span>
-      </label>
-      <ComboBox
-        options={planNumberOptions}
-        value={filters.planNumber}
-        onChange={(v) => setFilter("planNumber", v)}
-        placeholder="— เลือกรูปแบบ —"
-        error={!!errors.planNumber}
-      />
-      <FieldError name="planNumber" />
-    </div>
-  )
-
   const renderReportForm = (report) => {
     if (!report) return null
 
@@ -1361,23 +1358,7 @@ function Documents() {
       )
     }
 
-    // กรณีเป็น รายงานแผนดำเนินงานประจำปี
-    if (report.key === "plan-grouped") {
-      return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-            <FormPlanNumber />
-            <FormBranchKlang requireBranch={report.require.includes("branchId")} showKlang={false} />
-          </div>
-          <p className={helpTextCls}>
-            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์ (ระบบจะเรียกเส้นทางตามรูปแบบที่เลือก)
-          </p>
-        </>
-      )
-    }
-
-    if (report.type === "pdf") {
+    if (report.type === "pdf" || report.badge === "PLAN") {
       return (
         <>
           <div className="grid gap-4 md:grid-cols-3">
@@ -1482,7 +1463,7 @@ function Documents() {
               รายงานทะเบียนหุ้น
             </button>
 
-            {/* ปุ่ม รายงานแผนดำเนินงานประจำปี */}
+            {/* เพิ่มปุ่ม รายงานแผนดำเนินงานประจำปี */}
             <button
               type="button"
               onClick={() => setMode("plan")}
@@ -1534,7 +1515,7 @@ function Documents() {
                   </span>
                 </div>
 
-                {/* ข้อความอธิบาย (desc) ใต้ชื่อรายงานถูกเอาออก */}
+                {/* เอาข้อความอธิบาย (desc) ด้านล่างชื่อรายงานออกไปตามที่ผู้ใช้ต้องการ */}
 
                 {(r.type === "pdf" || r.type === "share_pdf") && (
                   <div className="mt-3 inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
@@ -1558,7 +1539,7 @@ function Documents() {
             <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="text-xl font-semibold">{reportObj.title}</div>
-                {/* ข้อความอธิบาย (desc) ในหน้ารายละเอียดถูกเอาออก */}
+                {/* เอาข้อความอธิบาย (desc) ใต้ชื่อรายงานออกไปในหน้ารายละเอียดด้วยเช่นกัน */}
               </div>
 
               <button

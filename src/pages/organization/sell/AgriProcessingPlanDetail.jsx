@@ -504,7 +504,7 @@ function AgriProcessingPlanDetail(props) {
 
   const handleArrowNav = useCallback((e) => {
     const k = e.key
-    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(k)) return
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter"].includes(k)) return
     
     const rIdx = Number(e.currentTarget.dataset.row ?? 0)
     const cIdx = Number(e.currentTarget.dataset.col ?? 0)
@@ -524,7 +524,7 @@ function AgriProcessingPlanDetail(props) {
       }
     }
 
-    if (k === "ArrowRight") {
+    if (k === "ArrowRight" || k === "Enter") {
       if (cIdx === totalCols - 1) {
         if (rIdx < items.length - 1) {
           nextR = rIdx + 1

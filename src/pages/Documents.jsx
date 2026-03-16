@@ -593,6 +593,12 @@ const PLAN_REPORTS = [
   { key: "plan-16", title: "รูปแบบที่ 16 - Org Financial Summary", endpoint: "/repgen/report/org-financial-summary", type: "pdf", badge: "PLAN", require: ["planId"] },
 ]
 
+const YEAR_OPTIONS = Array.from({ length: 15 }, (_, i) => {
+  const y = String(2569 + i)
+  const pid = String(1 + i) // 2569 - 2568 = 1
+  return { id: pid, label: y }
+})
+
 function Documents() {
   const [mode, setMode] = useState(() => {
     const qs = safeQS()
@@ -1027,14 +1033,14 @@ function Documents() {
   const FormPlanId = () => (
     <div>
       <label className={labelCls}>
-        รหัสแผนงาน (Plan ID) <span className="text-red-500">*</span>
+        ปีแผนงาน (พ.ศ.) <span className="text-red-500">*</span>
       </label>
-      <input
-        type="number"
-        className={cx(baseField, errors.planId && "border-red-400 ring-2 ring-red-300/70")}
-        placeholder="ระบุตัวเลข Plan ID"
+      <ComboBox
+        options={withEmpty(YEAR_OPTIONS, "— เลือกปี —")}
         value={filters.planId}
-        onChange={(e) => setFilter("planId", e.target.value)}
+        onChange={(v) => setFilter("planId", v)}
+        placeholder="— เลือกปี —"
+        error={!!errors.planId}
       />
       <FieldError name="planId" />
     </div>

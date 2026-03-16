@@ -26,6 +26,7 @@ import Share from "./pages/Share"
 /** ✅ หน้าใหม่: Operation Plan (Mock) */
 // ✅ ไฟล์ OperationPlan.jsx ตอนนี้อยู่ที่ /pages/organization/OperationPlan.jsx
 import OperationPlan from "./pages/organization/OperationPlan.jsx"
+import BusinessEdit from "./pages/organization/BusinessEdit.jsx"
 
 /** ✅ หน้าใหม่: แก้ไขออเดอร์ */
 import OrderCorrection from "./pages/OrderCorrection.jsx"
@@ -188,6 +189,7 @@ function App() {
 
         {/* ✅ Operation Plan (Mock) */}
         <Route path="/operation-plan" element={<OperationPlan />} />
+        <Route path="/business-edit" element={<BusinessEdit />} />
 
         <Route path="/documents" element={<Documents />} />
 

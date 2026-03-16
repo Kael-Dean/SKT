@@ -41,9 +41,16 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     []
   )
 
+  const planBase = useMemo(
+    () => [
+      { label: "🗺️ แผนปฏิบัติงานรายปี", path: "/operation-plan" },
+      { label: "⚙️ แก้ไขข้อมูลธุรกิจ", path: "/business-edit" },
+    ],
+    []
+  )
+
   const otherMenusBase = useMemo(
     () => [
-      { label: "🗺️ แผนปฏิบัติงาน", path: "/operation-plan" },
       { label: "📝 รายงาน", path: "/documents" },
       { label: "📦 ออเดอร์", path: "/order" },
       { label: "🌾 เพิ่มรหัสข้าว", path: "/spec/create" },
@@ -58,14 +65,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       firstMenu.path,
       ...businessBase.map((i) => i.path),
       ...membersBase.map((i) => i.path),
+      ...planBase.map((i) => i.path),
       ...otherMenusBase.map((i) => i.path),
     ]
     return Array.from(new Set(list))
-  }, [businessBase, membersBase, otherMenusBase])
+  }, [businessBase, membersBase, planBase, otherMenusBase])
 
   // ---------------- สิทธิ์ตาม role ----------------
   const allowedSet = useMemo(() => {
-    const allow = new Set(["/home", "/operation-plan"])
+    const allow = new Set(["/home", "/operation-plan", "/business-edit"])
 
     if (roleId === ROLE.ADMIN) {
       ALL_PATHS.forEach((p) => allow.add(p))
@@ -146,6 +154,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const [membersOpen, setMembersOpen] = useState(inMembers)
   useEffect(() => setMembersOpen(inMembers), [inMembers])
 
+  const inPlan = useMemo(
+    () =>
+      location.pathname.startsWith("/operation-plan") ||
+      location.pathname.startsWith("/business-edit"),
+    [location.pathname]
+  )
+  const [planOpen, setPlanOpen] = useState(inPlan)
+  useEffect(() => setPlanOpen(inPlan), [inPlan])
+
   // ✅ ล็อก scroll เวล sidebar เปิด (กันตารางข้างหลังเลื่อน/กวน)
   useEffect(() => {
     if (!isOpen) return
@@ -191,10 +208,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const businessMenuItems = useMemo(() => businessBase.filter((item) => canSee(item.path)), [businessBase, canSee])
   const memberMenuItems = useMemo(() => membersBase.filter((item) => canSee(item.path)), [membersBase, canSee])
+  const planMenuItems = useMemo(() => planBase.filter((item) => canSee(item.path)), [planBase, canSee])
   const otherMenus = useMemo(() => otherMenusBase.filter((item) => canSee(item.path)), [otherMenusBase, canSee])
 
   const showBusinessGroup = businessMenuItems.length > 0
   const showMemberGroup = memberMenuItems.length > 0
+  const showPlanGroup = planMenuItems.length > 0
 
   return (
     <>
@@ -321,6 +340,58 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                   >
                     <div className="px-3 pb-3 pt-2 space-y-2">
                       {memberMenuItems.map((item) => (
+                        <div key={item.path}>
+                          <button
+                            onClick={() => {
+                              navigate(item.path)
+                              setIsOpen(false)
+                            }}
+                            aria-current={isActive(item.path) ? "page" : undefined}
+                            className={`${subBtnBase} ${isActive(item.path) ? subActive : subIdle}`}
+                          >
+                            {item.label}
+                          </button>
+                          <div className="mx-2 h-px bg-gray-200/80 dark:bg-gray-700/70" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showPlanGroup && (
+              <div className={cardWrapper}>
+                <div className={cardBox}>
+                  <button
+                    type="button"
+                    aria-expanded={planOpen}
+                    aria-controls="plan-submenu"
+                    onClick={() => setPlanOpen((v) => !v)}
+                    className={`${baseBtn} ${inPlan ? activeBtn : idleBtn} rounded-2xl`}
+                  >
+                    <span className="flex items-center gap-2">
+                      🗺️ แผนปฏิบัติงาน
+                      <span className={`transition-transform ${planOpen ? "rotate-180" : ""}`}>▾</span>
+                    </span>
+                  </button>
+
+                  <div className="px-3">
+                    <div
+                      className={`mx-1 h-px transition-all duration-300 ${
+                        planOpen ? "bg-gray-200/90 dark:bg-gray-700/70" : "bg-transparent"
+                      }`}
+                    />
+                  </div>
+
+                  <div
+                    id="plan-submenu"
+                    className={`transition-[max-height,opacity] duration-300 ease-out ${
+                      planOpen ? "max-h-[70vh] opacity-100" : "max-h-0 opacity-0 overflow-hidden"
+                    }`}
+                  >
+                    <div className="px-3 pb-3 pt-2 space-y-2">
+                      {planMenuItems.map((item) => (
                         <div key={item.path}>
                           <button
                             onClick={() => {

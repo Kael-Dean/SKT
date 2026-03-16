@@ -440,7 +440,7 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
   const handleArrowNav = useCallback(
     (e) => {
       const k = e.key
-      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(k)) return
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter"].includes(k)) return
 
       const row = Number(e.currentTarget.dataset.row ?? 0)
       const col = Number(e.currentTarget.dataset.col ?? 0)

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react"
-// นำเข้า API helper ของคุณ (ปรับแก้ path ให้ตรงกับโปรเจกต์ของคุณ)
-import { apiAuth } from "../lib/api" 
+import { apiAuth } from "../../lib/api" 
 
 /** ---------- Configuration สำหรับแต่ละ Entity ---------- */
 const TABS = [

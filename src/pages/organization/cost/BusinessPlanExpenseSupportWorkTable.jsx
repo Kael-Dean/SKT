@@ -499,8 +499,16 @@ const BusinessPlanExpenseSupportWorkTable = ({ branchId, branchName, yearBE, pla
       let nextRow = row
       let nextCol = col
 
-      if (k === "ArrowLeft") nextCol = col - 1
-      if (k === "ArrowRight" || k === "Enter") nextCol = col + 1
+      if (k === "ArrowLeft") {
+        if (col === 0) {
+          if (row > 0) { nextRow = row - 1; nextCol = totalCols - 1 }
+        } else nextCol = col - 1
+      }
+      if (k === "ArrowRight" || k === "Enter") {
+        if (col === totalCols - 1) {
+          if (row < itemRows.length - 1) { nextRow = row + 1; nextCol = 0 }
+        } else nextCol = col + 1
+      }
       if (k === "ArrowUp") nextRow = row - 1
       if (k === "ArrowDown") nextRow = row + 1
 

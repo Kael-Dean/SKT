@@ -460,7 +460,7 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
   const handleArrowNav = useCallback(
     (e) => {
       const k = e.key
-      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(k)) return
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter"].includes(k)) return
 
       const row = Number(e.currentTarget.dataset.row ?? 0)
       const col = Number(e.currentTarget.dataset.col ?? 0)
@@ -468,7 +468,7 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
       let nextRow = row
       let nextCol = col
       if (k === "ArrowLeft") nextCol = col - 1
-      if (k === "ArrowRight") nextCol = col + 1
+      if (k === "ArrowRight" || k === "Enter") nextCol = col + 1
       if (k === "ArrowUp") nextRow = row - 1
       if (k === "ArrowDown") nextRow = row + 1
 

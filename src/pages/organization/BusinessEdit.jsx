@@ -88,7 +88,7 @@ const TABS = [
 ]
 
 /** ---------- Styles ---------- */
-const baseInput = "w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:focus:border-emerald-400"
+const baseInput = "w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:focus:border-emerald-400 transition-all"
 const labelCls = "mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
 
 const BusinessEdit = () => {
@@ -98,12 +98,11 @@ const BusinessEdit = () => {
 
   // Form State
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingId, setEditingId] = useState(null) // null = สร้างใหม่, มีค่า = แก้ไข
+  const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState({})
 
   const currentConfig = useMemo(() => TABS.find((t) => t.key === activeTab), [activeTab])
 
-  /** โหลดข้อมูลเมื่อเปลี่ยน Tab */
   useEffect(() => {
     fetchData()
   }, [activeTab])
@@ -111,7 +110,6 @@ const BusinessEdit = () => {
   const fetchData = async () => {
     setLoading(true)
     try {
-      // ดึงข้อมูลเฉพาะรายการที่ is_active = true (ตามค่า default ของ BE)
       const res = await apiAuth(`${currentConfig.endpoint}`)
       setData(res || [])
     } catch (err) {
@@ -122,7 +120,6 @@ const BusinessEdit = () => {
     }
   }
 
-  /** เปิด Modal สำหรับสร้างใหม่ */
   const handleAdd = () => {
     const initialData = {}
     currentConfig.fields.forEach(f => {
@@ -133,7 +130,6 @@ const BusinessEdit = () => {
     setIsModalOpen(true)
   }
 
-  /** เปิด Modal สำหรับแก้ไข */
   const handleEdit = (item) => {
     const initialData = {}
     currentConfig.fields.forEach(f => {
@@ -144,20 +140,18 @@ const BusinessEdit = () => {
     setIsModalOpen(true)
   }
 
-  /** ลบข้อมูล (Soft Delete) */
   const handleDelete = async (id) => {
     if (!window.confirm("คุณแน่ใจหรือไม่ที่จะลบรายการนี้? (ระบบจะเปลี่ยนสถานะเป็น Inactive)")) return
     
     try {
       await apiAuth(`${currentConfig.endpoint}/${id}`, { method: "DELETE" })
-      fetchData() // รีโหลดข้อมูลหลังลบสำเร็จ
+      fetchData()
     } catch (err) {
       console.error(err)
       alert("เกิดข้อผิดพลาดในการลบข้อมูล หรือคุณไม่มีสิทธิ์ (Admin Only)")
     }
   }
 
-  /** เปลี่ยนแปลงค่าใน Form */
   const handleChange = (e) => {
     const { name, value, type } = e.target
     setFormData(prev => ({
@@ -166,11 +160,8 @@ const BusinessEdit = () => {
     }))
   }
 
-  /** บันทึกข้อมูล (Create / Update) */
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
-    // Clean payload: เอาฟิลด์ที่เป็นค่าว่าง "" สำหรับ number ออกให้เป็น null (ถ้าจำเป็น)
     const payload = { ...formData }
     currentConfig.fields.forEach(f => {
       if (f.type === "number" && payload[f.name] === "") {
@@ -180,14 +171,12 @@ const BusinessEdit = () => {
 
     try {
       if (editingId) {
-        // อัปเดตข้อมูล (PUT)
         await apiAuth(`${currentConfig.endpoint}/${editingId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         })
       } else {
-        // สร้างใหม่ (POST)
         await apiAuth(`${currentConfig.endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -221,9 +210,9 @@ const BusinessEdit = () => {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer transform hover:scale-105 active:scale-95 ${
                 activeTab === tab.key
-                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 shadow-sm"
                   : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
               }`}
             >
@@ -239,7 +228,7 @@ const BusinessEdit = () => {
             <h2 className="text-lg font-bold">{currentConfig.label}</h2>
             <button
               onClick={handleAdd}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
             >
               + เพิ่มข้อมูล
             </button>
@@ -271,7 +260,7 @@ const BusinessEdit = () => {
                   </tr>
                 ) : (
                   data.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                    <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                       <td className="p-4">{row.id}</td>
                       {currentConfig.fields.map((f) => (
                         <td key={f.name} className="p-4">
@@ -282,14 +271,14 @@ const BusinessEdit = () => {
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleEdit(row)}
-                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1 bg-blue-50 dark:bg-blue-900/20 rounded-md"
+                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md transition-all cursor-pointer transform hover:scale-125 active:scale-90"
                             title="แก้ไข"
                           >
                             ✏️
                           </button>
                           <button
                             onClick={() => handleDelete(row.id)}
-                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1 bg-red-50 dark:bg-red-900/20 rounded-md"
+                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-2 bg-red-50 dark:bg-red-900/20 rounded-md transition-all cursor-pointer transform hover:scale-125 active:scale-90"
                             title="ลบ"
                           >
                             🗑️
@@ -309,7 +298,7 @@ const BusinessEdit = () => {
       {/* --- MODAL FORM --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800 transform transition-all animate-in zoom-in-95 duration-200">
             <h2 className="mb-4 text-xl font-bold border-b border-slate-100 dark:border-slate-700 pb-3">
               {editingId ? "✏️ แก้ไขข้อมูล" : "+ เพิ่มข้อมูลใหม่"} - {currentConfig.label.split(" ")[1]}
             </h2>
@@ -336,13 +325,13 @@ const BusinessEdit = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+                  className="rounded-xl border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-all cursor-pointer transform hover:scale-105 active:scale-95"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm"
+                  className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm transition-all cursor-pointer transform hover:scale-105 active:scale-95"
                 >
                   บันทึกข้อมูล
                 </button>

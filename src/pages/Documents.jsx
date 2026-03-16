@@ -373,9 +373,6 @@ const INTERNAL_REPORTS = [
     require: ["branchId", "productId"],
     optional: ["klangId"],
   },
-  // -----------------------------
-  // PDF (Documint) - เปิดดู/พิมพ์
-  // -----------------------------
   {
     key: "buy-by-day",
     title: "รับซื้อรายวัน (PDF)",
@@ -575,19 +572,26 @@ const SHARE_REPORTS = [
 
 // -----------------------------
 // PDF (Plan) - “รายงานแผนดำเนินงานประจำปี” (01 - 16)
+// แมพเข้ากับ Backend (report_router.py) ซึ่งบังคับใช้ `plan_id` และบางเส้นทางใช้ `branch_id`
 // -----------------------------
-const PLAN_REPORTS = Array.from({ length: 16 }, (_, i) => {
-  const num = String(i + 1).padStart(2, "0")
-  return {
-    key: `plan-${num}`,
-    title: `รายงานแผนดำเนินงานประจำปี รูปแบบที่ ${num} (PDF)`,
-    endpoint: `/plan/reports/${num}.pdf`, 
-    type: "pdf", 
-    badge: "PLAN",
-    require: ["startDate", "endDate"],
-    optional: ["branchId"],
-  }
-})
+const PLAN_REPORTS = [
+  { key: "plan-01", title: "รูปแบบที่ 01 - Sale Goal (รวมกลุ่ม)", endpoint: "/repgen/report/sale-goal", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-02", title: "รูปแบบที่ 02 - Branch Sale Goal", endpoint: "/repgen/report/branch-sale-goal", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-03", title: "รูปแบบที่ 03 - Business Costs", endpoint: "/repgen/report/business-costs", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-04", title: "รูปแบบที่ 04 - Business Earnings", endpoint: "/repgen/report/business-earnings", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-05", title: "รูปแบบที่ 05 - Unit Aux Cost", endpoint: "/repgen/report/unit-aux-cost", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-06", title: "รูปแบบที่ 06 - Unit Purchase Cost", endpoint: "/repgen/report/unit-purchase-cost", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-07", title: "รูปแบบที่ 07 - Branch Financial Summary", endpoint: "/repgen/report/branch-financial-summary", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-08", title: "รูปแบบที่ 08 - Org Sale Goal (รวม Product)", endpoint: "/repgen/report/org-salegoal", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-09", title: "รูปแบบที่ 09 - Org Purchase Cost", endpoint: "/repgen/report/org-purchase-cost", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-10", title: "รูปแบบที่ 10 - Org Sale Goal Product", endpoint: "/repgen/report/org-salegoal-product", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-11", title: "รูปแบบที่ 11 - Org Business Costs", endpoint: "/repgen/report/org-business-costs", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-12", title: "รูปแบบที่ 12 - Org Business Earnings", endpoint: "/repgen/report/org-business-earnings", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-13", title: "รูปแบบที่ 13 - Org Aux Costs", endpoint: "/repgen/report/org-aux-costs", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-14", title: "รูปแบบที่ 14 - Org Purchase Summary", endpoint: "/repgen/report/org-purchase-summary", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-15", title: "รูปแบบที่ 15 - Org Profit By Group", endpoint: "/repgen/report/org-profit-by-group", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-16", title: "รูปแบบที่ 16 - Org Financial Summary", endpoint: "/repgen/report/org-financial-summary", type: "pdf", badge: "PLAN", require: ["planId"] },
+]
 
 function Documents() {
   const [mode, setMode] = useState(() => {
@@ -644,6 +648,8 @@ function Documents() {
     speciesLike: "",
     addrLine4: "",
     addrLine5: "",
+    // Plan filters
+    planId: "",
   })
   const setFilter = (k, v) => setFilters((p) => ({ ...p, [k]: v }))
 
@@ -673,9 +679,12 @@ function Documents() {
     const branchId = pickQS(qs, ["branch_id", "branchId"])
     const klangId = pickQS(qs, ["klang_id", "klangId"])
     const klangIds = pickQS(qs, ["klang_ids", "klangIds"]) 
+    const planId = pickQS(qs, ["plan_id", "planId"])
+
     if (branchId) patch.branchId = branchId
     if (klangId) patch.klangId = klangId
     if (klangIds) patch.klangIds = klangIds
+    if (planId) patch.planId = planId
 
     // open report by code
     const code = pickQS(qs, ["report", "report_code", "reportCode"])
@@ -814,6 +823,7 @@ function Documents() {
       if (f === "memberId") return "member_id"
       if (f === "assoId") return "asso_id"
       if (f === "customReportCode") return "report_code"
+      if (f === "planId") return "plan_id"
       return f
     }
 
@@ -843,6 +853,8 @@ function Documents() {
 
     if (wants("startDate")) p.set("start_date", filters.startDate)
     if (wants("endDate")) p.set("end_date", filters.endDate)
+
+    if (wants("planId") && filters.planId) p.set("plan_id", filters.planId)
 
     if (wants("memberId") && String(filters.memberId || "").trim()) {
       const v = String(filters.memberId).trim()
@@ -986,6 +998,7 @@ function Documents() {
       speciesLike: "",
       addrLine4: "",
       addrLine5: "",
+      planId: "",
     })
 
   /** ---------- UI helpers ---------- */
@@ -1010,6 +1023,22 @@ function Documents() {
       </>
     )
   }
+
+  const FormPlanId = () => (
+    <div>
+      <label className={labelCls}>
+        รหัสแผนงาน (Plan ID) <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="number"
+        className={cx(baseField, errors.planId && "border-red-400 ring-2 ring-red-300/70")}
+        placeholder="ระบุตัวเลข Plan ID"
+        value={filters.planId}
+        onChange={(e) => setFilter("planId", e.target.value)}
+      />
+      <FieldError name="planId" />
+    </div>
+  )
 
   const FormSpecOnly = ({ requiredSpec = false }) => (
     <div>
@@ -1225,6 +1254,22 @@ function Documents() {
   const renderReportForm = (report) => {
     if (!report) return null
 
+    // จัดการฟอร์มสำหรับ Plan Reports
+    if (report.badge === "PLAN") {
+      const requireBranch = report.require.includes("branchId")
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <FormPlanId />
+            {requireBranch && <FormBranchKlang requireBranch={true} showKlang={false} />}
+          </div>
+          <p className={helpTextCls}>
+            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์ (ระบบดึงข้อมูลตาม Plan ID ที่ระบุ)
+          </p>
+        </>
+      )
+    }
+
     if (report.key === "purchaseGrouped") {
       return (
         <div className="grid gap-4 md:grid-cols-3">
@@ -1324,7 +1369,7 @@ function Documents() {
       )
     }
 
-    if (report.type === "pdf" || report.badge === "PLAN") {
+    if (report.type === "pdf") {
       return (
         <>
           <div className="grid gap-4 md:grid-cols-3">

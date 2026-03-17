@@ -110,7 +110,8 @@ const BusinessEdit = () => {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const res = await apiAuth(`${currentConfig.endpoint}`)
+      // แก้ไข: ระบุ method GET ให้ชัดเจนสำหรับการดึงข้อมูล (BE)
+      const res = await apiAuth(`${currentConfig.endpoint}`, { method: "GET" })
       setData(res || [])
     } catch (err) {
       console.error(err)
@@ -145,7 +146,7 @@ const BusinessEdit = () => {
     
     try {
       await apiAuth(`${currentConfig.endpoint}/${id}`, { method: "DELETE" })
-      fetchData()
+      fetchData() // โหลดข้อมูลใหม่หลังจากลบ
     } catch (err) {
       console.error(err)
       alert("เกิดข้อผิดพลาดในการลบข้อมูล หรือคุณไม่มีสิทธิ์ (Admin Only)")
@@ -184,7 +185,7 @@ const BusinessEdit = () => {
         })
       }
       setIsModalOpen(false)
-      fetchData()
+      fetchData() // โหลดข้อมูลใหม่มาแสดงผล
     } catch (err) {
       console.error(err)
       alert(err.message || "เกิดข้อผิดพลาด กรุณาตรวจสอบสิทธิ์ (Admin Only) หรือความถูกต้องของข้อมูล")

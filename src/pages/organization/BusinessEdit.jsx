@@ -23,31 +23,11 @@ const TABS = [
     ],
   },
   {
-    key: "business-costs",
-    label: "📉 ต้นทุนธุรกิจ (Business Costs)",
-    endpoint: "/business-costs",
-    fields: [
-      { name: "cost_id", label: "ประเภทต้นทุน (Cost ID)", type: "number", required: true },
-      { name: "business_group", label: "กลุ่มธุรกิจ (ID)", type: "number", required: true },
-      { name: "comment", label: "หมายเหตุ", type: "text" },
-    ],
-  },
-  {
     key: "earning-types",
     label: "💵 ประเภทรายได้ (Earning Types)",
     endpoint: "/earning-types",
     fields: [
       { name: "name", label: "ชื่อประเภทรายได้", type: "text", required: true },
-      { name: "comment", label: "หมายเหตุ", type: "text" },
-    ],
-  },
-  {
-    key: "business-earnings",
-    label: "📈 รายได้ธุรกิจ (Business Earnings)",
-    endpoint: "/business-earnings",
-    fields: [
-      { name: "earning_id", label: "ประเภทรายได้ (Earning ID)", type: "number", required: true },
-      { name: "business_group", label: "กลุ่มธุรกิจ (ID)", type: "number", required: true },
       { name: "comment", label: "หมายเหตุ", type: "text" },
     ],
   },

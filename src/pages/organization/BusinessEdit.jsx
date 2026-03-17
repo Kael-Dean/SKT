@@ -61,30 +61,6 @@ const TABS = [
       { name: "comment", label: "หมายเหตุ", type: "text" },
     ],
   },
-  {
-    key: "branches",
-    label: "🏢 สาขา (Branches)",
-    endpoint: "/branches",
-    fields: [
-      { name: "branch_name", label: "ชื่อสาขา", type: "text", required: true },
-      { name: "address", label: "ที่อยู่", type: "text" },
-      { name: "mhoo", label: "หมู่", type: "text" },
-      { name: "sub_district", label: "ตำบล", type: "text" },
-      { name: "district", label: "อำเภอ", type: "text" },
-      { name: "province", label: "จังหวัด", type: "text" },
-      { name: "postal_code", label: "รหัสไปรษณีย์", type: "number" },
-    ],
-  },
-  {
-    key: "units",
-    label: "🏘️ หน่วยงาน (Units)",
-    endpoint: "/units",
-    fields: [
-      { name: "branch_id", label: "สาขา (Branch ID)", type: "number", required: true },
-      { name: "unit", label: "ชื่อหน่วยงาน", type: "text", required: true },
-      { name: "abbreviation", label: "ตัวย่อ", type: "text", required: true },
-    ],
-  },
 ]
 
 /** ---------- Styles ---------- */

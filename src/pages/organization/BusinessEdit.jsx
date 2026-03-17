@@ -1,6 +1,22 @@
 import React, { useState, useEffect, useMemo } from "react"
 import { apiAuth } from "../../lib/api" 
 
+/** ---------- Mapping ---------- */
+const BUSINESS_GROUP_MAP = {
+  1: "ธุรกิจจัดหา",
+  2: "ธุรกิจจัดหา-ปั้มน้ำมัน",
+  3: "ธุรกิจรวบรวม",
+  4: "ธุรกิจแปรรูป",
+  5: "ธุรกิจเมล็ดพันธ์ุ",
+  6: "ฝึกอบรมณ์",
+  7: "อื่นๆ",
+}
+
+const BUSINESS_GROUP_OPTIONS = Object.entries(BUSINESS_GROUP_MAP).map(([val, label]) => ({
+  value: Number(val),
+  label,
+}))
+
 /** ---------- Configuration สำหรับแต่ละ Entity ---------- */
 const TABS = [
   {
@@ -10,7 +26,7 @@ const TABS = [
     fields: [
       { name: "product_type", label: "ประเภทสินค้า", type: "text", required: true },
       { name: "unit", label: "หน่วยนับ", type: "text", required: true },
-      { name: "business_group", label: "กลุ่มธุรกิจ (ID)", type: "number" },
+      { name: "business_group", label: "กลุ่มธุรกิจ", type: "select", options: BUSINESS_GROUP_OPTIONS },
     ],
   },
   {
@@ -37,7 +53,7 @@ const TABS = [
     endpoint: "/aux-costs",
     fields: [
       { name: "name", label: "ชื่อต้นทุน", type: "text", required: true },
-      { name: "business_group", label: "กลุ่มธุรกิจ (ID)", type: "number" },
+      { name: "business_group", label: "กลุ่มธุรกิจ", type: "select", options: BUSINESS_GROUP_OPTIONS },
       { name: "comment", label: "หมายเหตุ", type: "text" },
     ],
   },
@@ -111,9 +127,14 @@ const BusinessEdit = () => {
 
   const handleChange = (e) => {
     const { name, value, type } = e.target
+    const fieldConfig = currentConfig.fields.find(f => f.name === name)
+    let parsedValue = value
+    if (fieldConfig?.type === "number" || fieldConfig?.type === "select") {
+      parsedValue = value === "" ? "" : Number(value)
+    }
     setFormData(prev => ({
       ...prev,
-      [name]: type === "number" ? (value === "" ? "" : Number(value)) : value
+      [name]: parsedValue
     }))
   }
 
@@ -121,7 +142,7 @@ const BusinessEdit = () => {
     e.preventDefault()
     const payload = { ...formData }
     currentConfig.fields.forEach(f => {
-      if (f.type === "number" && payload[f.name] === "") {
+      if ((f.type === "number" || f.type === "select") && payload[f.name] === "") {
         payload[f.name] = null
       }
     })
@@ -154,7 +175,7 @@ const BusinessEdit = () => {
         
         <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-white">⚙️ จัดการข้อมูลระบบ (Master Data)</h1>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-white">⚙️ แก้ไขข้อมูลธุรกิจ (Master Data)</h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               เพิ่ม/แก้ไข/ลบ ข้อมูลพื้นฐานที่ใช้ในระบบ (เฉพาะ Admin เท่านั้นที่สามารถจัดการได้)
             </p>
@@ -221,7 +242,9 @@ const BusinessEdit = () => {
                       <td className="p-4">{row.id}</td>
                       {currentConfig.fields.map((f) => (
                         <td key={f.name} className="p-4">
-                          {row[f.name] !== null && row[f.name] !== undefined ? String(row[f.name]) : "-"}
+                          {f.name === "business_group" && row[f.name] != null
+                            ? BUSINESS_GROUP_MAP[row[f.name]] || row[f.name]
+                            : (row[f.name] !== null && row[f.name] !== undefined ? String(row[f.name]) : "-")}
                         </td>
                       ))}
                       <td className="p-4 text-center">
@@ -266,15 +289,32 @@ const BusinessEdit = () => {
                   <label className={labelCls}>
                     {f.label} {f.required && <span className="text-red-500">*</span>}
                   </label>
-                  <input
-                    type={f.type === "number" ? "number" : "text"}
-                    name={f.name}
-                    value={formData[f.name]}
-                    onChange={handleChange}
-                    required={f.required}
-                    className={baseInput}
-                    placeholder={`ระบุ${f.label}...`}
-                  />
+                  {f.type === "select" ? (
+                    <select
+                      name={f.name}
+                      value={formData[f.name] ?? ""}
+                      onChange={handleChange}
+                      required={f.required}
+                      className={baseInput}
+                    >
+                      <option value="">— เลือก{f.label} —</option>
+                      {f.options.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={f.type === "number" ? "number" : "text"}
+                      name={f.name}
+                      value={formData[f.name] ?? ""}
+                      onChange={handleChange}
+                      required={f.required}
+                      className={baseInput}
+                      placeholder={`ระบุ${f.label}...`}
+                    />
+                  )}
                 </div>
               ))}
 

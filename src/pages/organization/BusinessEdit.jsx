@@ -82,7 +82,6 @@ const BusinessEdit = () => {
   const fetchData = async () => {
     setLoading(true)
     try {
-      // แก้ไข: ระบุ method GET ให้ชัดเจนสำหรับการดึงข้อมูล (BE)
       const res = await apiAuth(`${currentConfig.endpoint}`, { method: "GET" })
       setData(res || [])
     } catch (err) {
@@ -149,16 +148,16 @@ const BusinessEdit = () => {
 
     try {
       if (editingId) {
+        // แก้ไข: ส่ง payload ไปโดยไม่ครอบ JSON.stringify
         await apiAuth(`${currentConfig.endpoint}/${editingId}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: payload 
         })
       } else {
+        // แก้ไข: ส่ง payload ไปโดยไม่ครอบ JSON.stringify
         await apiAuth(`${currentConfig.endpoint}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: payload 
         })
       }
       setIsModalOpen(false)

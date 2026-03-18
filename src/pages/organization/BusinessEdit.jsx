@@ -62,13 +62,8 @@ const TABS = [
     label: "🏢 สาขา (Branches)",
     endpoint: "/branches",
     fields: [
+      // ปรับลดเหลือแค่ชื่อสาขาตามที่ต้องการ
       { name: "branch_name", label: "ชื่อสาขา", type: "text", required: true },
-      { name: "address", label: "ที่อยู่", type: "text" },
-      { name: "mhoo", label: "หมู่", type: "text" },
-      { name: "sub_district", label: "ตำบล/แขวง", type: "text" },
-      { name: "district", label: "อำเภอ/เขต", type: "text" },
-      { name: "province", label: "จังหวัด", type: "text" },
-      { name: "postal_code", label: "รหัสไปรษณีย์", type: "number" },
     ],
   },
 ]
@@ -298,13 +293,11 @@ const BusinessEdit = () => {
 
     try {
       if (editingId) {
-        // แก้ไข: ส่ง payload ไปโดยไม่ครอบ JSON.stringify
         await apiAuth(`${currentConfig.endpoint}/${editingId}`, {
           method: "PUT",
           body: payload 
         })
       } else {
-        // แก้ไข: ส่ง payload ไปโดยไม่ครอบ JSON.stringify
         await apiAuth(`${currentConfig.endpoint}`, {
           method: "POST",
           body: payload 
@@ -332,7 +325,7 @@ const BusinessEdit = () => {
         </div>
 
         {/* --- TABS --- */}
-        <div className="mb-6 flex flex-wrap gap-2 rounded-xl bg-white p-2 shadow-sm dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+        <div className="mb-6 flex flex-wrap gap-2 rounded-xl bg-white p-2 shadow-sm dark:bg-slate-800 border border-slate-300 dark:border-slate-700">
           {TABS.map((tab) => (
             <button
               key={tab.key}
@@ -349,9 +342,9 @@ const BusinessEdit = () => {
         </div>
 
         {/* --- MAIN CONTENT --- */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden">
+        <div className="rounded-2xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden">
           
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 p-4">
+          <div className="flex items-center justify-between border-b border-slate-300 dark:border-slate-700 p-4">
             <h2 className="text-lg font-bold">{currentConfig.label}</h2>
             <button
               onClick={handleAdd}
@@ -361,53 +354,54 @@ const BusinessEdit = () => {
             </button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-slate-200 text-left text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
-              <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700/50 dark:text-slate-200">
+          <div className="overflow-x-auto p-4">
+            {/* ตารางที่มีเส้นกั้นตัดกันอย่างชัดเจนตามที่ผู้ใช้ต้องการ */}
+            <table className="w-full border-collapse border border-slate-300 text-left text-sm text-slate-700 dark:border-slate-600 dark:text-slate-300">
+              <thead className="bg-slate-100 dark:bg-slate-700/80 text-slate-800 dark:text-slate-200">
                 <tr>
-                  <th className="border border-slate-200 p-4 font-semibold w-16 dark:border-slate-700">ID</th>
+                  <th className="border border-slate-300 p-3 font-semibold w-16 text-center dark:border-slate-600">ID</th>
                   {currentConfig.fields.map((f) => (
-                    <th key={f.name} className="border border-slate-200 p-4 font-semibold dark:border-slate-700">{f.label}</th>
+                    <th key={f.name} className="border border-slate-300 p-3 font-semibold dark:border-slate-600">{f.label}</th>
                   ))}
-                  <th className="border border-slate-200 p-4 font-semibold text-center w-32 dark:border-slate-700">จัดการ</th>
+                  <th className="border border-slate-300 p-3 font-semibold text-center w-32 dark:border-slate-600">จัดการ</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={currentConfig.fields.length + 2} className="border border-slate-200 p-8 text-center text-slate-500 dark:border-slate-700">
+                    <td colSpan={currentConfig.fields.length + 2} className="border border-slate-300 p-8 text-center text-slate-500 dark:border-slate-600">
                       กำลังโหลดข้อมูล...
                     </td>
                   </tr>
                 ) : data.length === 0 ? (
                   <tr>
-                    <td colSpan={currentConfig.fields.length + 2} className="border border-slate-200 p-8 text-center text-slate-500 dark:border-slate-700">
+                    <td colSpan={currentConfig.fields.length + 2} className="border border-slate-300 p-8 text-center text-slate-500 dark:border-slate-600">
                       ไม่พบข้อมูล
                     </td>
                   </tr>
                 ) : (
                   data.map((row) => (
                     <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                      <td className="border border-slate-200 p-4 dark:border-slate-700">{row.id}</td>
+                      <td className="border border-slate-300 p-3 text-center dark:border-slate-600">{row.id}</td>
                       {currentConfig.fields.map((f) => (
-                        <td key={f.name} className="border border-slate-200 p-4 dark:border-slate-700">
+                        <td key={f.name} className="border border-slate-300 p-3 dark:border-slate-600">
                           {f.name === "business_group" && row[f.name] != null
                             ? BUSINESS_GROUP_MAP[row[f.name]] || row[f.name]
                             : (row[f.name] !== null && row[f.name] !== undefined ? String(row[f.name]) : "-")}
                         </td>
                       ))}
-                      <td className="border border-slate-200 p-4 text-center dark:border-slate-700">
+                      <td className="border border-slate-300 p-3 text-center dark:border-slate-600">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleEdit(row)}
-                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md transition-all cursor-pointer transform hover:scale-125 active:scale-90"
+                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-md transition-all cursor-pointer transform hover:scale-110 active:scale-95"
                             title="แก้ไข"
                           >
                             ✏️
                           </button>
                           <button
                             onClick={() => handleDelete(row.id)}
-                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-2 bg-red-50 dark:bg-red-900/20 rounded-md transition-all cursor-pointer transform hover:scale-125 active:scale-90"
+                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1.5 bg-red-50 dark:bg-red-900/20 rounded-md transition-all cursor-pointer transform hover:scale-110 active:scale-95"
                             title="ลบ"
                           >
                             🗑️

@@ -57,6 +57,20 @@ const TABS = [
       { name: "comment", label: "หมายเหตุ", type: "text" },
     ],
   },
+  {
+    key: "branches",
+    label: "🏢 สาขา (Branches)",
+    endpoint: "/branches",
+    fields: [
+      { name: "branch_name", label: "ชื่อสาขา", type: "text", required: true },
+      { name: "address", label: "ที่อยู่", type: "text" },
+      { name: "mhoo", label: "หมู่", type: "text" },
+      { name: "sub_district", label: "ตำบล/แขวง", type: "text" },
+      { name: "district", label: "อำเภอ/เขต", type: "text" },
+      { name: "province", label: "จังหวัด", type: "text" },
+      { name: "postal_code", label: "รหัสไปรษณีย์", type: "number" },
+    ],
+  },
 ]
 
 /** ---------- Styles ---------- */
@@ -348,41 +362,41 @@ const BusinessEdit = () => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+            <table className="w-full border-collapse border border-slate-200 text-left text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
               <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700/50 dark:text-slate-200">
                 <tr>
-                  <th className="p-4 font-semibold w-16">ID</th>
+                  <th className="border border-slate-200 p-4 font-semibold w-16 dark:border-slate-700">ID</th>
                   {currentConfig.fields.map((f) => (
-                    <th key={f.name} className="p-4 font-semibold">{f.label}</th>
+                    <th key={f.name} className="border border-slate-200 p-4 font-semibold dark:border-slate-700">{f.label}</th>
                   ))}
-                  <th className="p-4 font-semibold text-center w-32">จัดการ</th>
+                  <th className="border border-slate-200 p-4 font-semibold text-center w-32 dark:border-slate-700">จัดการ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+              <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={currentConfig.fields.length + 2} className="p-8 text-center text-slate-500">
+                    <td colSpan={currentConfig.fields.length + 2} className="border border-slate-200 p-8 text-center text-slate-500 dark:border-slate-700">
                       กำลังโหลดข้อมูล...
                     </td>
                   </tr>
                 ) : data.length === 0 ? (
                   <tr>
-                    <td colSpan={currentConfig.fields.length + 2} className="p-8 text-center text-slate-500">
+                    <td colSpan={currentConfig.fields.length + 2} className="border border-slate-200 p-8 text-center text-slate-500 dark:border-slate-700">
                       ไม่พบข้อมูล
                     </td>
                   </tr>
                 ) : (
                   data.map((row) => (
                     <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                      <td className="p-4">{row.id}</td>
+                      <td className="border border-slate-200 p-4 dark:border-slate-700">{row.id}</td>
                       {currentConfig.fields.map((f) => (
-                        <td key={f.name} className="p-4">
+                        <td key={f.name} className="border border-slate-200 p-4 dark:border-slate-700">
                           {f.name === "business_group" && row[f.name] != null
                             ? BUSINESS_GROUP_MAP[row[f.name]] || row[f.name]
                             : (row[f.name] !== null && row[f.name] !== undefined ? String(row[f.name]) : "-")}
                         </td>
                       ))}
-                      <td className="p-4 text-center">
+                      <td className="border border-slate-200 p-4 text-center dark:border-slate-700">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleEdit(row)}

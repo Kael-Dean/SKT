@@ -422,9 +422,9 @@ const BusinessPlanOtherIncomeTable = (props) => {
         seed[code][String(uId)] = String(amount)
       }
 
-      setValuesByCode(normalizeGrid(seed))
+      setValuesByCode(prev => normalizeGrid(seed))
     } catch (e) {
-      setValuesByCode(normalizeGrid({}))
+      setValuesByCode(prev => normalizeGrid({}))
     } finally {
       setIsLoadingSaved(false)
     }

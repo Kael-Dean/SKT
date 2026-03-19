@@ -38,21 +38,15 @@ async function apiAuth(path, { method = "GET", body } = {}) {
   const token = getToken()
   const url = `${API_BASE}${path}`
 
-  let res
-  try {
-    res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: body != null ? JSON.stringify(body) : undefined,
-    })
-  } catch (e) {
-    throw new ApiError("FE: Network/CORS/DNS failure", { status: 0, cause: e })
-  }
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: body != null ? JSON.stringify(body) : undefined,
+  }).catch(e => { throw new ApiError("FE: Network/CORS/DNS failure", { status: 0, cause: e }) })
 
   const text = await res.text()
   let data = null
-    try { data = text ? JSON.parse(text) : null } catch {}
-
+  try { data = text ? JSON.parse(text) : null } catch {}
 
   if (!res.ok) {
     const msg = (data && (data.detail || data.message)) || `HTTP ${res.status}`
@@ -226,21 +220,6 @@ const BusinessPlanExpenseSupportWorkTableDetail = (props) => {
     })
   }
 
-  const computed = useMemo(() => {
-    const rowSums = {}
-    for (const r of itemRows) {
-        rowSums[r.code] = {}
-        for (const u of units) {
-            let sum = 0;
-            for(const m of MONTHS) {
-                sum += toNumber(monthlyValues[r.code]?.[m.key]?.[u.id])
-            }
-            rowSums[r.code][u.id] = sum
-        }
-    }
-    return { rowSums }
-  }, [monthlyValues, itemRows, units])
-
   const [notice, setNotice] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -266,8 +245,8 @@ const BusinessPlanExpenseSupportWorkTableDetail = (props) => {
                   monthValues[beMonthKey] = val
               }
 
-              if (Math.abs(yearlyVal - monthlySum) > 0.01) {
-                  errors.push(`แถว ${r.code} (${r.label}) หน่วย ${u.unit_name}: ยอดรวมรายเดือน (${fmtMoney(monthlySum)}) ไม่เท่ากับยอดรวมปี (${fmtMoney(yearlyVal)})`)
+              if (yearlyVal > 0 && Math.abs(yearlyVal - monthlySum) > 0.01) {
+                  errors.push(`แถว ${r.code} (${u.name}): ยอดรวมรายเดือน (${fmtMoney(monthlySum)}) ไม่เท่ากับยอดปี (${fmtMoney(yearlyVal)})`)
               }
 
               if (yearlyVal > 0) {
@@ -281,7 +260,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = (props) => {
       }
 
       if(errors.length > 0) {
-          throw new Error("ยอดรวมไม่ตรงกัน:\n" + errors.join("\n"))
+          throw new Error("ยอดรวมไม่ตรงกัน:\n- " + errors.join("\n- "))
       }
 
       const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly`, {
@@ -308,47 +287,47 @@ const BusinessPlanExpenseSupportWorkTableDetail = (props) => {
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto">
           <table className="border-collapse text-sm w-full">
-            <thead>
-              <tr className="bg-slate-100 dark:bg-slate-700">
-                <th rowSpan={2} className="p-2 border sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รายการ</th>
-                <th rowSpan={2} className="p-2 border">หน่วย</th>
-                <th rowSpan={2} className="p-2 border">ยอดรวม<br/>(ทั้งปี)</th>
-                {MONTHS.map(m => <th key={m.key} className="p-2 border">{m.label}</th>)}
-                <th rowSpan={2} className="p-2 border">ยอดรวม<br/>(รายเดือน)</th>
-                 <th rowSpan={2} className="p-2 border">ผลต่าง</th>
+            <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-700">
+              <tr>
+                <th rowSpan={2} className="p-2 border">รายการ</th>
+                <th rowSpan={2} className="p-2 border">ยอดรวมปี</th>
+                {MONTHS.map(m => <th key={m.key} colSpan={units.length || 1} className="p-2 border font-semibold">{m.label}</th>)}
+              </tr>
+              <tr>
+                {MONTHS.map(m => (
+                    units.length > 0 ? units.map(u => (
+                        <th key={`${m.key}-${u.id}`} className="p-1 border text-[11px] font-medium" title={u.name}>{u.short}</th>
+                    )) : <th key={`${m.key}-unit`} className="p-1 border text-[11px] font-medium">-</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {itemRows.flatMap((r, rIdx) => 
-                units.map((u, uIdx) => {
-                  const yearlyTotal = yearlyTotals[r.code]?.[u.id] ?? 0
-                  const monthlyTotal = computed.rowSums[r.code]?.[u.id] ?? 0
-                  const diff = yearlyTotal - monthlyTotal
-                  const isDiff = Math.abs(diff) > 0.01
-
+              {itemRows.map((r, rIdx) => {
+                  const yearlyTotal = Object.values(yearlyTotals[r.code] || {}).reduce((a, b) => a + b, 0);
                   return (
-                    <tr key={`${r.code}-${u.id}`} className={uIdx % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-800/50"}>
-                      {uIdx === 0 && <td rowSpan={units.length} className="p-2 border sticky left-0 bg-inherit z-10">{r.label}</td>}
-                      <td className="p-2 border">{u.unit_name}</td>
-                      <td className="p-2 border text-right">{fmtMoney(yearlyTotal)}</td>
+                    <tr key={r.code} className={rIdx % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-800/50"}>
+                      <td className="p-2 border sticky left-0 bg-inherit z-10 font-semibold">{r.label}</td>
+                      <td className="p-2 border text-right font-bold">{fmtMoney(yearlyTotal)}</td>
                       {MONTHS.map(m => (
-                        <td key={m.key} className="p-1 border">
-                           <input 
-                              type="text"
-                              className="w-full text-right bg-white dark:bg-slate-900 px-1 py-0.5 rounded-md border-slate-300"
-                              placeholder="0.00"
-                              value={monthlyValues[r.code]?.[m.key]?.[u.id] ?? ""}
-                              onChange={e => setCell(r.code, m.key, u.id, sanitizeNumberInput(e.target.value))}
-                              disabled={yearlyTotal === 0}
-                           />
-                        </td>
-                      ))}
-                      <td className={`p-2 border text-right font-semibold ${isDiff ? 'text-red-500' : ''}`}>{fmtMoney(monthlyTotal)}</td>
-                      <td className={`p-2 border text-right font-semibold ${isDiff ? 'text-red-500' : ''}`}>{fmtMoney(diff)}</td>
+                        units.length > 0 ? units.map(u => {
+                            const val = monthlyValues[r.code]?.[m.key]?.[u.id] ?? ""
+                            return (
+                                <td key={`${m.key}-${u.id}`} className="p-1 border">
+                                    <input 
+                                        type="text"
+                                        className="w-24 text-right bg-white dark:bg-slate-900 px-1 py-0.5 rounded-md border-slate-300"
+                                        placeholder="0.00"
+                                        value={val}
+                                        onChange={e => setCell(r.code, m.key, u.id, sanitizeNumberInput(e.target.value))}
+                                        disabled={!yearlyTotals[r.code] || yearlyTotals[r.code][u.id] === 0}
+                                    />
+                                </td>
+                            )
+                        }) : <td key={`${m.key}-unit`} className="p-1 border text-center text-slate-400">-</td>
+                    ))}
                     </tr>
                   )
-                })
-              )}
+              })}
             </tbody>
           </table>
         </div>

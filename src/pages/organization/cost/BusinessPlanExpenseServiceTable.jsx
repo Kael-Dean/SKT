@@ -372,15 +372,12 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  const setCell = (code, unitId, nextValue) => {
-    setValuesByCode((prev) => {
-      const next = { ...prev }
-      const row = { ...(next[code] || {}) }
-      row[unitId] = nextValue
-      next[code] = row
-      return next
-    })
-  }
+  const setCell = useCallback((code, unitId, nextValue) => {
+    setValuesByCode((prev) => ({
+      ...prev,
+      [code]: { ...(prev[code] || {}), [unitId]: nextValue }
+    }))
+  }, [])
 
   /** ---------------- Unmapped static list (แจ้งเหมือนไฟล์ค่าใช้จ่ายดำเนินงาน) ---------------- */
   const unmappedStatic = useMemo(() => {
@@ -611,8 +608,6 @@ const BusinessPlanExpenseServiceTable = (props = {}) => {
           res?.branch_totals_upserted ?? "-"
         }${skippedMsg}`,
       })
-
-      await loadSavedFromBE()
     } catch (e) {
       const status = e?.status || 0
       let title = "บันทึกไม่สำเร็จ ❌"

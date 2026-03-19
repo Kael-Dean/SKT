@@ -317,15 +317,18 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  const setCell = (code, monthKey, unitId, nextValue) => {
-    setValuesByCode((prev) => {
-        const next = {...prev}
-        if (!next[code]) next[code] = {}
-        if (!next[code][monthKey]) next[code][monthKey] = {}
-        next[code][monthKey][unitId] = nextValue
-        return next
-    })
-  }
+  const setCell = useCallback((code, monthKey, unitId, nextValue) => {
+    setValuesByCode((prev) => ({
+      ...prev,
+      [code]: {
+        ...(prev[code] || {}),
+        [monthKey]: {
+          ...(prev[code]?.[monthKey] || {}),
+          [unitId]: nextValue
+        }
+      }
+    }))
+  }, [])
   
   const sectionMap = useMemo(() => ({
       "1.T": ["1.1", "1.2"],
@@ -447,8 +450,6 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             title: "บันทึกสำเร็จ ✅",
             detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName} • บันทึก ${res?.saved_count ?? built.cells.length} รายการ`,
         })
-
-        await loadSavedFromBE()
 
     } catch (e) {
         const status = e?.status || 0

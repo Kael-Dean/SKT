@@ -376,15 +376,12 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, 
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  const setCell = (code, unitId, nextValue) => {
-    setValuesByCode((prev) => {
-      const next = { ...prev }
-      const row = { ...(next[code] || {}) }
-      row[unitId] = nextValue
-      next[code] = row
-      return next
-    })
-  }
+  const setCell = useCallback((code, unitId, nextValue) => {
+    setValuesByCode((prev) => ({
+      ...prev,
+      [code]: { ...(prev[code] || {}), [unitId]: nextValue }
+    }))
+  }, [])
 
   /** ---------------- Totals ---------------- */
   const computed = useMemo(() => {

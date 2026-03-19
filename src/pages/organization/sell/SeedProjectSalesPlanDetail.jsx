@@ -339,11 +339,14 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
 
   const setQtyField = useCallback((pid, mKey, uKey, value) => {
     setQtyByPid((prev) => {
-      const next = { ...prev }, pKey = String(pid)
-      if (!next[pKey]) next[pKey] = {}
-      if (!next[pKey][mKey]) next[pKey][mKey] = {}
-      next[pKey][mKey] = { ...next[pKey][mKey], [uKey]: value }
-      return next
+      const pKey = String(pid)
+      return {
+        ...prev,
+        [pKey]: {
+          ...(prev[pKey] || {}),
+          [mKey]: { ...(prev?.[pKey]?.[mKey] || {}), [uKey]: value }
+        }
+      }
     })
   }, [])
 
@@ -492,7 +495,6 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
       }
       await apiAuth(`/revenue/sale-goals/bulk`, { method: "PUT", body: { plan_id: Number(planId), branch_id: Number(branchId), cells } })
       setSaveMsg({ ok: true, title: "บันทึกสำเร็จ", detail: `สาขา ${branchName || branchId} • ปี ${effectiveYearBE}` })
-      await loadSavedFromBE(); await loadProducts(); await loadUnitPricesForYear()
     } catch (e) {
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally { setIsSaving(false) }

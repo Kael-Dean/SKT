@@ -342,15 +342,12 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  const setCell = (code, unitId, nextValue) => {
-    setValuesByCode((prev) => {
-      const next = { ...prev }
-      const row = { ...(next[code] || {}) }
-      row[unitId] = nextValue
-      next[code] = row
-      return next
-    })
-  }
+  const setCell = useCallback((code, unitId, nextValue) => {
+    setValuesByCode((prev) => ({
+      ...prev,
+      [code]: { ...(prev[code] || {}), [unitId]: nextValue }
+    }))
+  }, [])
 
   const unmappedStatic = useMemo(() => {
     return itemRows
@@ -550,8 +547,6 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
           res?.branch_totals_upserted ?? "-"
         }${built?.skipped?.length ? ` • skipped: ${built.skipped.length}` : ""}`,
       })
-
-      await loadSavedFromBE()
     } catch (e) {
       const status = e?.status || 0
       let title = "บันทึกไม่สำเร็จ ❌"

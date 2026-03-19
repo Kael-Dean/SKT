@@ -338,15 +338,12 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  const setCell = (code, unitId, nextValue) => {
-    setValuesByCode((prev) => {
-      const next = { ...prev }
-      const row = { ...(next[code] || {}) }
-      row[unitId] = nextValue
-      next[code] = row
-      return next
-    })
-  }
+  const setCell = useCallback((code, unitId, nextValue) => {
+    setValuesByCode((prev) => ({
+      ...prev,
+      [code]: { ...(prev[code] || {}), [unitId]: nextValue }
+    }))
+  }, [])
 
   const unmappedStatic = useMemo(() => {
     return itemRows

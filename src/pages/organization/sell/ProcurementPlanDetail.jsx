@@ -424,11 +424,14 @@ function ProcurementPlanDetail(props) {
 
   const setQtyField = useCallback((pid, mKey, uKey, value) => {
     setQtyByPid((prev) => {
-      const next = { ...prev }, pKey = String(pid)
-      if (!next[pKey]) next[pKey] = {}
-      if (!next[pKey][mKey]) next[pKey][mKey] = {}
-      next[pKey][mKey] = { ...next[pKey][mKey], [uKey]: value }
-      return next
+      const pKey = String(pid)
+      return {
+        ...prev,
+        [pKey]: {
+          ...(prev[pKey] || {}),
+          [mKey]: { ...(prev?.[pKey]?.[mKey] || {}), [uKey]: value }
+        }
+      }
     })
   }, [])
 
@@ -582,7 +585,6 @@ function ProcurementPlanDetail(props) {
       }
       await apiAuth(`/revenue/sale-goals/bulk`, { method: "PUT", body: { plan_id: Number(effectivePlanId), branch_id: Number(branchIdEff), cells } })
       setSaveMsg({ ok: true, title: "บันทึกสำเร็จ", detail: `สาขา ${resolvedBranchName} • ปี ${effectiveYearBE}` })
-      await loadSavedFromBE(); await loadProducts(); await loadUnitPricesForYear()
     } catch (e) {
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally { setIsSaving(false) }

@@ -348,15 +348,12 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  const setCell = (code, unitId, nextValue) => {
-    setValuesByCode((prev) => {
-      const next = { ...prev }
-      const row = { ...(next[code] || {}) }
-      row[unitId] = nextValue
-      next[code] = row
-      return next
-    })
-  }
+  const setCell = useCallback((code, unitId, nextValue) => {
+    setValuesByCode((prev) => ({
+      ...prev,
+      [code]: { ...(prev[code] || {}), [unitId]: nextValue }
+    }))
+  }, [])
 
   /** ---------------- Totals ---------------- */
   const computed = useMemo(() => {
@@ -548,8 +545,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
         title: "บันทึกสำเร็จ ✅",
         detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName}`,
       })
-
-      await loadSavedFromBE()
     } catch (e) {
       setNotice({ type: "error", title: "บันทึกไม่สำเร็จ ❌", detail: e?.message || String(e) })
       console.error("[Oil Save] failed:", e)

@@ -361,16 +361,18 @@ const BusinessPlanExpenseProcessingTableDetail = ({ branchId, branchName, yearBE
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  const setCell = (code, monthKey, unitId, nextValue) => {
-    setValuesByCode((prev) => {
-      const next = { ...prev }
-      const row = { ...(next[code] || {}) }
-      if (!row[monthKey]) row[monthKey] = {}
-      row[monthKey][unitId] = nextValue
-      next[code] = row
-      return next
-    })
-  }
+  const setCell = useCallback((code, monthKey, unitId, nextValue) => {
+    setValuesByCode((prev) => ({
+      ...prev,
+      [code]: {
+        ...(prev[code] || {}),
+        [monthKey]: {
+          ...(prev[code]?.[monthKey] || {}),
+          [unitId]: nextValue
+        }
+      }
+    }))
+  }, [])
   
   const computed = useMemo(() => {
     const rowSums = {}
@@ -514,8 +516,6 @@ const BusinessPlanExpenseProcessingTableDetail = ({ branchId, branchName, yearBE
             title: "บันทึกสำเร็จ ✅",
             detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName} • บันทึก ${res?.saved_count ?? built.costs.length} รายการ`,
         })
-
-        await loadSavedFromBE()
 
     } catch (e) {
         const status = e?.status || 0

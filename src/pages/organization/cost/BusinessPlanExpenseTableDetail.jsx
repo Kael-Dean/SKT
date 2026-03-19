@@ -297,15 +297,18 @@ const BusinessPlanExpenseTableDetail = (props) => {
 
   useEffect(() => { loadSavedFromBE() }, [loadSavedFromBE])
 
-  const setCell = (code, monthKey, unitId, nextValue) => {
-    setValuesByCode((prev) => {
-      const next = {...prev}
-      if (!next[code]) next[code] = {}
-      if (!next[code][monthKey]) next[code][monthKey] = {}
-      next[code][monthKey][unitId] = nextValue
-      return next
-    })
-  }
+  const setCell = useCallback((code, monthKey, unitId, nextValue) => {
+    setValuesByCode((prev) => ({
+      ...prev,
+      [code]: {
+        ...(prev[code] || {}),
+        [monthKey]: {
+          ...(prev[code]?.[monthKey] || {}),
+          [unitId]: nextValue
+        }
+      }
+    }))
+  }, [])
 
   const computed = useMemo(() => {
     const rowSums = {}
@@ -441,7 +444,6 @@ const BusinessPlanExpenseTableDetail = (props) => {
         })
 
         setNotice({ type: "success", title: "บันทึกสำเร็จ ✅", detail: `บันทึก ${res?.saved_count ?? built.costs.length} รายการ` })
-        await loadSavedFromBE()
     } catch (e) {
         setNotice({ type: "error", title: "บันทึกไม่สำเร็จ ❌", detail: e?.message || String(e) })
     } finally {

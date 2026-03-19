@@ -328,7 +328,8 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
     setIsLoadingSaved(true)
     try {
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly?branch_id=${effectiveBranchId}&business_group_id=${BUSINESS_GROUP_ID}`)
-      const .i
+      const rowsData = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data?.monthly_costs) ? data.monthly_costs : (Array.isArray(data) ? data : []))
+
       const bcToCode = new Map()
       for (const r of itemRows) {
         const bcId = resolveRowBusinessCostId(r)
@@ -336,19 +337,28 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
       }
 
       const seed = {}
-      for (const cell
+      for (const cell of rowsData) {
+        const bCostId = Number(cell.b_cost || cell.business_cost_id || 0)
+        const unitId = Number(cell.unit_id || 0)
+        
         if (!bCostId || !unitId) continue
 
         const code = bcToCode.get(bCostId)
-             for (const m of MONTHS) {
-          const valKey = h}_value`
+        if (!code) continue
+
+        if (!seed[code]) seed[code] = {}
+        
+        for (const m of MONTHS) {
+          const valKey = `m${m.month}_value`
           const amount = cell.months?.[valKey] ?? cell[valKey] ?? (Number(cell.month) === m.month ? cell.amount : 0)
 
           if (amount !== undefined && amount !== null && amount !== 0) {
             if (!seed[code][m.key]) seed[code][m.key] = {}
             seed[code][m.key][unitId] = String(amount)
-     
-        
+          }
+        }
+      }
+
       setValuesByCode(normalizeGrid(seed))
     } catch (e) {
       console.error("Load saved failed:", e)
@@ -476,13 +486,26 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
           if (u.id <= 0) continue
 
           const monthsData = {
+              m1_value: 0, m2_value: 0, m3_value: 0, m4_value: 0,
               m5_value: 0, m6_value: 0, m7_value: 0, m8_value: 0,
               m9_value: 0, m10_value: 0, m11_value: 0, m12_value: 0
           }
 
           let hasValue = false
           for (const m of MONTHS) {
-              const amount = toNumber(rowData
+              const amount = toNumber(rowData?.[m.key]?.[u.id])
+              if (amount !== 0) hasValue = true
+              monthsData[`m${m.month}_value`] = amount
+          }
+
+          if (hasValue) {
+              rows.push({
+                  unit_id: u.id,
+                  b_cost: businessCostId,
+                  months: monthsData
+              })
+          }
+      }
     }
 
     return { rows }
@@ -545,7 +568,8 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
             </colgroup>
 
             <thead className="sticky top-0 z-20">
-              <tr className={cx("text-slate-800 da-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รหัส</th>
+              <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
+                <th rowSpan={2} className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รหัส</th>
                 <th rowSpan={2} className="border border-slate-300 px-2 py-2 text-left font-bold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-100 dark:bg-slate-700">รายการ</th>
                 {MONTHS.map((m, mIdx) => (
                     <th key={m.key} colSpan={unitCols.length} className={cx("border border-slate-300 px-1 py-2 text-center text-xs font-semibold dark:border-slate-600", monthStripeHead(mIdx))}>{m.label}</th>

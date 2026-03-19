@@ -571,7 +571,7 @@ const SHARE_REPORTS = [
 ]
 
 // -----------------------------
-// PDF (Plan) - “รายงานแผนดำเนินงานประจำปี” (01 - 16)
+// PDF (Plan) - “รายงานแผนดำเนินงานประจำปี” (01 - 18)
 // แมพเข้ากับ Backend (report_router.py) ซึ่งบังคับใช้ `plan_id` และบางเส้นทางใช้ `branch_id`
 // -----------------------------
 const PLAN_REPORTS = [
@@ -591,6 +591,8 @@ const PLAN_REPORTS = [
   { key: "plan-14", title: "รูปแบบที่ 14 - Org Purchase Summary", endpoint: "/repgen/report/org-purchase-summary", type: "pdf", badge: "PLAN", require: ["planId"] },
   { key: "plan-15", title: "รูปแบบที่ 15 - Org Profit By Group", endpoint: "/repgen/report/org-profit-by-group", type: "pdf", badge: "PLAN", require: ["planId"] },
   { key: "plan-16", title: "รูปแบบที่ 16 - Org Financial Summary", endpoint: "/repgen/report/org-financial-summary", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-17", title: "รูปแบบที่ 17 - Monthly Costs", endpoint: "/repgen/report/monthly-costs", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-18", title: "รูปแบบที่ 18 - Monthly Earnings & Aux", endpoint: "/repgen/report/monthly-earnings-aux", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
 ]
 
 const YEAR_OPTIONS = Array.from({ length: 15 }, (_, i) => {
@@ -1431,6 +1433,13 @@ function Documents() {
       <style>{`
         .documents-page button:not(:disabled):not(.cursor-not-allowed):not(.cursor-wait):hover { cursor: pointer; }
         .documents-page [role="button"]:hover, .documents-page [role="option"]:hover { cursor: pointer; }
+        
+        /* สไตล์ตารางเพื่อให้มองแต่ละเซลล์ง่ายขึ้น */
+        .documents-page table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+        .documents-page th, .documents-page td { border: 1px solid #cbd5e1; padding: 0.75rem; text-align: left; }
+        .documents-page th { background-color: #f8fafc; font-weight: 600; }
+        .dark .documents-page th, .dark .documents-page td { border-color: #475569; }
+        .dark .documents-page th { background-color: #1e293b; }
       `}</style>
 
       <div className="mx-auto max-w-6xl p-5 md:p-6 lg:p-8">
@@ -1516,7 +1525,7 @@ function Documents() {
                 <h2 className="text-xl font-bold text-blue-800 dark:text-blue-300">รายงานแผนดำเนินงาน</h2>
               </div>
               <p className="mb-6 text-sm text-blue-700/80 dark:text-blue-400/80">
-                เอกสารแผนดำเนินงานประจำปี เลือกรูปแบบรายงานที่ต้องการ (รูปแบบที่ 01 ถึง 16)
+                เอกสารแผนดำเนินงานประจำปี เลือกรูปแบบรายงานที่ต้องการ (รูปแบบที่ 01 ถึง 18)
               </p>
               <div className="mt-auto relative z-10">
                 <ComboBox

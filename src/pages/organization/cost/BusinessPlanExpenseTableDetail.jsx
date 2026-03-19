@@ -261,7 +261,7 @@ const BusinessPlanExpenseTableDetail = (props) => {
     if (!effectivePlanId || effectivePlanId <= 0 || !effectiveBranchId || !unitCols.length || unitCols[0].id === 0) return
     setIsLoadingSaved(true)
     try {
-      const data = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly?branch_id=${effectiveBranchId}&business_group_id=${BUSINESS_GROUP_ID}`)
+      const data = await apiAuth(`/business-plan/${effectivePlanId}/business-inputs/monthly?branch_id=${effectiveBranchId}&business_group_id=${BUSINESS_GROUP_ID}`)
       const monthlyCosts = Array.isArray(data?.monthly_costs) ? data.monthly_costs : []
 
       const bcToCode = new Map()
@@ -430,8 +430,8 @@ const BusinessPlanExpenseTableDetail = (props) => {
         const built = buildBulkRowsForBE()
         setIsSaving(true)
 
-        const res = await apiAuth(`/business-plan/costs/bulk-monthly`, {
-            method: "POST",
+        const res = await apiAuth(`/business-plan/${effectivePlanId}/business-inputs/bulk-monthly`, {
+            method: "PUT",
             body: {
                 plan_id: effectivePlanId,
                 branch_id: effectiveBranchId,

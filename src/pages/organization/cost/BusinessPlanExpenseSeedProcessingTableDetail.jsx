@@ -359,7 +359,7 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
   }
   
   const computed = useMemo(() => {
-    const rowTotal = {}
+    const rowSums = {}
     const monthUnitSums = {}
     const unitGrandSums = {}
     let grandTotal = 0

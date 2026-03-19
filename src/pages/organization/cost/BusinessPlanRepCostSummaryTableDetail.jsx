@@ -20,8 +20,6 @@ const sanitizeNumberInput = (s, { maxDecimals = 3 } = {}) => {
 }
 const fmtMoney0 = (n) =>
   new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
-const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(toNumber(n))
-
 
 /** ---------------- API (token = localStorage.token) ---------------- */
 const API_BASE_RAW =
@@ -153,20 +151,22 @@ const ROWS = [
     { code: "G.T", label: "รวมต้นทุน", kind: "grandtotal" },
 ]
 
+const PLACEHOLDER_UNITS = [{ id: 0, name: "—", short: "—" }]
+
 /** ---------------- Table sizing ---------------- */
-const COL_W = { code: 60, item: 300, month: 90, total: 100 }
+const COL_W = { code: 60, item: 260, cell: 90, total: 100 }
 const LEFT_W = COL_W.code + COL_W.item
-const RIGHT_W = MONTHS.length * COL_W.month + COL_W.total
-const TOTAL_W = LEFT_W + RIGHT_W
 
 const STRIPE = {
   head: "bg-slate-100/90 dark:bg-slate-700/70",
   cell: "bg-white dark:bg-slate-900",
   alt: "bg-slate-50 dark:bg-slate-800",
-  foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
   subtotal: "bg-emerald-100 dark:bg-emerald-900",
   grandtotal: "bg-emerald-200 dark:bg-emerald-800"
 }
+const monthStripeHead = (idx) => (idx % 2 === 1 ? "bg-slate-200 dark:bg-slate-600" : "bg-slate-100 dark:bg-slate-700");
+const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.alt : STRIPE.cell);
+
 
 const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, planId }) => {
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
@@ -196,6 +196,53 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
     return `1 เม.ย.${yy}-31 มี.ค.${yyNext}`
   }, [effectiveYear])
 
+  /** ---------------- Units (columns) ---------------- */
+  const [units, setUnits] = useState([])
+  const [isLoadingUnits, setIsLoadingUnits] = useState(false)
+
+  useEffect(() => {
+    if (!effectiveBranchId) {
+      setUnits([])
+      return
+    }
+
+    let alive = true
+    ;(async () => {
+      setIsLoadingUnits(true)
+      try {
+        const data = await apiAuth(`/lists/unit/search?branch_id=${effectiveBranchId}`)
+        const rows = Array.isArray(data) ? data : []
+        const normalized = rows
+          .map((r) => ({
+            id: Number(r.id || 0),
+            name: r.unit_name || r.klang_name || r.unit || r.name || `หน่วย ${r.id}`,
+            short: (r.unit_name || r.klang_name || r.unit || r.name || "").slice(0, 4)
+          }))
+          .filter((r) => r.id > 0)
+
+        if (!alive) return
+        setUnits(normalized)
+      } catch (e) {
+        console.error("[AuxCost Units load] failed:", e)
+        if (!alive) return
+        setUnits([])
+      } finally {
+        if (alive) setIsLoadingUnits(false)
+      }
+    })()
+
+    return () => {
+      alive = false
+    }
+  }, [effectiveBranchId])
+  
+  const unitCols = useMemo(() => {
+    if (!units.length) return PLACEHOLDER_UNITS
+    return units
+  }, [units])
+
+
+  /** ---------------- Values (grid) ---------------- */
   const [valuesByCode, setValuesByCode] = useState({})
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
 
@@ -206,13 +253,17 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
         const rowSeed = seed?.[r.code] || {}
         const monthValues = {}
         for (const m of MONTHS) {
-            monthValues[m.key] = rowSeed[m.key] ?? ""
+            const unitValues = {}
+            for (const u of unitCols) {
+                unitValues[u.id] = rowSeed?.[m.key]?.[u.id] ?? ""
+            }
+            monthValues[m.key] = unitValues
         }
         next[r.code] = monthValues
       }
       return next
     },
-    [itemRows]
+    [itemRows, unitCols]
   )
 
   useEffect(() => {
@@ -220,12 +271,13 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
   }, [normalizeGrid])
 
   const loadSavedFromBE = useCallback(async () => {
-    if (!effectivePlanId || effectivePlanId <= 0 || !effectiveBranchId) return
+    if (!effectivePlanId || effectivePlanId <= 0 || !effectiveBranchId || !unitCols.length || unitCols[0].id === 0) return
 
     setIsLoadingSaved(true)
     try {
+      // Assuming the endpoint returns unit_id
       const data = await apiAuth(`/business-plan/${effectivePlanId}/aux-costs/monthly?branch_id=${effectiveBranchId}`)
-      const monthlyCosts = Array.isArray(data?.monthly_costs) ? data.monthly_costs : []
+      const monthlyCosts = Array.isArray(data?.cells) ? data.cells : (Array.isArray(data) ? data : [])
 
       const auxToCode = new Map()
       for (const r of itemRows) {
@@ -236,16 +288,20 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
       for (const cell of monthlyCosts) {
         const auxId = Number(cell.aux_id || 0)
         const monthNum = Number(cell.month || 0)
+        const unitId = Number(cell.unit_id || 0)
         const amount = Number(cell.amount || 0)
+        
         const month = MONTHS.find(m => m.month === monthNum)
+        const unit = unitCols.find(u => u.id === unitId)
 
-        if (!auxId || !month) continue
+        if (!auxId || !month || !unit) continue
 
         const code = auxToCode.get(auxId)
         if (!code) continue
 
         if (!seed[code]) seed[code] = {}
-        seed[code][month.key] = String(amount)
+        if (!seed[code][month.key]) seed[code][month.key] = {}
+        seed[code][month.key][unit.id] = String(amount)
       }
 
       setValuesByCode(normalizeGrid(seed))
@@ -255,19 +311,19 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
     } finally {
       setIsLoadingSaved(false)
     }
-  }, [effectivePlanId, effectiveBranchId, itemRows, normalizeGrid])
+  }, [effectivePlanId, effectiveBranchId, itemRows, unitCols, normalizeGrid])
 
   useEffect(() => {
     loadSavedFromBE()
   }, [loadSavedFromBE])
 
-  const setCell = (code, monthKey, nextValue) => {
+  const setCell = (code, monthKey, unitId, nextValue) => {
     setValuesByCode((prev) => {
-      const next = { ...prev }
-      const row = { ...(next[code] || {}) }
-      row[monthKey] = nextValue
-      next[code] = row
-      return next
+        const next = {...prev}
+        if (!next[code]) next[code] = {}
+        if (!next[code][monthKey]) next[code][monthKey] = {}
+        next[code][monthKey][unitId] = nextValue
+        return next
     })
   }
   
@@ -283,53 +339,56 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
   const computed = useMemo(() => {
     const totals = {}
     
-    // Initialize totals
+    // Initialize
     for (const r of ROWS) {
         totals[r.code] = {
-            monthly: MONTHS.reduce((acc, m) => ({...acc, [m.key]: 0}), {}),
+            byUnit: unitCols.reduce((acc, u) => ({...acc, [u.id]: 0}), {}),
             total: 0
         }
     }
 
-    // Calculate item rows
+    // Calculate item rows and sum up
     for (const r of itemRows) {
         let rowTotal = 0
-        for (const m of MONTHS) {
-            const val = toNumber(valuesByCode[r.code]?.[m.key])
-            totals[r.code].monthly[m.key] = val
-            rowTotal += val
+        for (const u of unitCols) {
+            let unitTotal = 0
+            for (const m of MONTHS) {
+                unitTotal += toNumber(valuesByCode[r.code]?.[m.key]?.[u.id])
+            }
+            totals[r.code].byUnit[u.id] = unitTotal
+            rowTotal += unitTotal
         }
         totals[r.code].total = rowTotal
     }
 
     // Calculate subtotals
     for (const subtotalCode of Object.keys(sectionMap)) {
-        let subtotalRowTotal = 0
-        for (const m of MONTHS) {
-            let monthSum = 0
+        let grandSubTotal = 0
+        for (const u of unitCols) {
+            let unitSubTotal = 0
             for (const itemCode of sectionMap[subtotalCode]) {
-                monthSum += totals[itemCode].monthly[m.key]
+                unitSubTotal += totals[itemCode].byUnit[u.id]
             }
-            totals[subtotalCode].monthly[m.key] = monthSum
-            subtotalRowTotal += monthSum
+            totals[subtotalCode].byUnit[u.id] = unitSubTotal
+            grandSubTotal += unitSubTotal
         }
-        totals[subtotalCode].total = subtotalRowTotal
+        totals[subtotalCode].total = grandSubTotal
     }
 
     // Calculate Grand Total
     let grandTotalValue = 0
-    for (const m of MONTHS) {
-        let grandMonthSum = 0
+    for (const u of unitCols) {
+        let unitGrandTotal = 0
         for (const subtotalCode of Object.keys(sectionMap)) {
-            grandMonthSum += totals[subtotalCode].monthly[m.key]
+            unitGrandTotal += totals[subtotalCode].byUnit[u.id]
         }
-        totals["G.T"].monthly[m.key] = grandMonthSum
-        grandTotalValue += grandMonthSum
+        totals["G.T"].byUnit[u.id] = unitGrandTotal
+        grandTotalValue += unitGrandTotal
     }
     totals["G.T"].total = grandTotalValue
 
     return totals
-  }, [valuesByCode, itemRows, sectionMap])
+  }, [valuesByCode, itemRows, unitCols, sectionMap])
 
   const [notice, setNotice] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -337,6 +396,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
   const buildBulkRowsForBE = useCallback(() => {
     if (!effectivePlanId || effectivePlanId <= 0) throw new Error("FE: plan_id ไม่ถูกต้อง")
     if (!effectiveBranchId) throw new Error("FE: ยังไม่ได้เลือกสาขา")
+    if (!unitCols.length || unitCols[0].id === 0) throw new Error("FE: ไม่พบหน่วยในสาขา")
     
     const cells = []
     
@@ -345,14 +405,17 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
         const rowData = valuesByCode[r.code] || {}
         for (const m of MONTHS) {
-            const amount = toNumber(rowData[m.key])
-            if (amount > 0) {
-                cells.push({
-                    aux_id: r.aux_id,
-                    month: m.month,
-                    amount: amount,
-                    comment: periodLabel,
-                })
+            for (const u of unitCols) {
+                const amount = toNumber(rowData?.[m.key]?.[u.id])
+                // Only send non-zero values
+                if (amount !== 0) {
+                    cells.push({
+                        aux_id: r.aux_id,
+                        month: m.month,
+                        unit_id: u.id,
+                        amount: amount,
+                    })
+                }
             }
         }
     }
@@ -361,7 +424,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
         branch_id: effectiveBranchId,
         cells,
     }
-  }, [effectivePlanId, effectiveBranchId, itemRows, valuesByCode, periodLabel])
+  }, [effectivePlanId, effectiveBranchId, itemRows, valuesByCode, unitCols])
 
   const saveToBE = async () => {
     let payload = null
@@ -396,22 +459,26 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             detail = "ข้อมูลไม่ถูกต้อง (ดู console)"
         }
         setNotice({ type: "error", title, detail })
-        console.error("[Save RepCost Summary Detail] failed:", e)
+        console.error("[Save RepCost Summary Detail] failed:", e, payload)
     } finally {
         setIsSaving(false)
     }
   }
 
+  const RIGHT_W = (MONTHS.length * unitCols.length * COL_W.cell) + (unitCols.length * COL_W.total)
+  const TOTAL_W = LEFT_W + RIGHT_W
+
   return (
     <div className="space-y-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-lg font-bold">ประมาณการต้นทุนสินค้า - รายเดือน</div>
+            <div className="text-lg font-bold">ประมาณการต้นทุนสินค้า - รายเดือน/รายหน่วย</div>
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                 ({periodLabel}) • ปี {effectiveYear} • plan_id {effectivePlanId} • สาขา {effectiveBranchName}
+                {isLoadingUnits ? " • กำลังโหลดหน่วย..." : ` • ${unitCols.length} หน่วย`}
                 {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
             </div>
              <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
-              รวมทั้งหมด (บาท): <span className="font-extrabold">{fmtMoney(computed["G.T"]?.total ?? 0)}</span>
+              รวมทั้งหมด (บาท): <span className="font-extrabold">{fmtMoney0(computed["G.T"]?.total ?? 0)}</span>
             </div>
         </div>
 
@@ -421,62 +488,95 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             <colgroup>
               <col style={{ width: COL_W.code }} />
               <col style={{ width: COL_W.item }} />
-              {MONTHS.map((m) => <col key={m.key} style={{ width: COL_W.month }} />)}
-              <col style={{ width: COL_W.total }} />
+              {MONTHS.map(m => unitCols.map(u => <col key={`${m.key}-${u.id}`} style={{ width: COL_W.cell }} />))}
+              {unitCols.map(u => <col key={`total-${u.id}`} style={{ width: COL_W.total }} />)}
             </colgroup>
 
             <thead className="sticky top-0 z-20">
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
-                <th className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รหัส</th>
-                <th className="border border-slate-300 px-2 py-2 text-left font-bold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-100 dark:bg-slate-700">รายการ</th>
-                {MONTHS.map(m => (
-                    <th key={m.key} className="border border-slate-300 px-1 py-2 text-center text-xs font-semibold dark:border-slate-600">{m.label}</th>
+                <th rowSpan={2} className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รหัส</th>
+                <th rowSpan={2} className="border border-slate-300 px-2 py-2 text-left font-bold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-100 dark:bg-slate-700">รายการ</th>
+                {MONTHS.map((m, mIdx) => (
+                    <th key={m.key} colSpan={unitCols.length} className={cx("border border-slate-300 px-1 py-2 text-center text-xs font-semibold dark:border-slate-600", monthStripeHead(mIdx))}>{m.label}</th>
                 ))}
-                <th className="border border-slate-300 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-600">รวม</th>
+                <th colSpan={unitCols.length} className="border border-slate-300 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-600">รวม</th>
+              </tr>
+              <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
+                {MONTHS.map((m, mIdx) => unitCols.map(u => (
+                    <th key={`${m.key}-${u.id}`} className={cx("border border-slate-300 px-1 py-1 text-center text-[11px] font-medium dark:border-slate-600", monthStripeHead(mIdx))} title={u.name}>{u.short}</th>
+                )))}
+                {unitCols.map(u => (
+                    <th key={`total-h-${u.id}`} className="border border-slate-300 px-1 py-1 text-center text-[11px] font-semibold dark:border-slate-600" title={u.name}>{u.short}</th>
+                ))}
               </tr>
             </thead>
 
             <tbody>
               {ROWS.map((r, rIdx) => {
                 const totalInfo = computed[r.code]
-                const rowBg = r.kind === 'subtotal' ? STRIPE.subtotal : r.kind === 'grandtotal' ? STRIPE.grandtotal : (rIdx % 2 === 1 ? STRIPE.alt : STRIPE.cell)
-                const font = r.kind === 'subtotal' || r.kind === 'grandtotal' ? 'font-extrabold' : ''
+                const isSpecialRow = r.kind === 'subtotal' || r.kind === 'grandtotal'
+                const rowBg = r.kind === 'grandtotal' ? STRIPE.grandtotal : r.kind === 'subtotal' ? STRIPE.subtotal : (rIdx % 2 === 1 ? STRIPE.alt : STRIPE.cell)
+                const font = isSpecialRow ? 'font-extrabold' : ''
 
                 if (r.kind === 'title' || r.kind === 'section') {
                     return (
                         <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">
                           <td className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-200 dark:bg-slate-700">{r.kind==='section' ? r.code: ''}</td>
-                          <td colSpan={MONTHS.length + 2} className="border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700">{r.label}</td>
+                          <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 1} className="border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700">{r.label}</td>
                         </tr>
                     )
                 }
 
                 return (
                   <tr key={r.code} className={cx(rowBg, font)}>
-                    <td className={cx("border border-slate-300 px-1 py-2 text-center text-xs dark:border-slate-600 sticky left-0 z-10", rowBg)}>{r.code}</td>
+                    <td className={cx("border border-slate-300 px-1 py-2 text-center text-xs dark:border-slate-600 sticky left-0 z-10", rowBg)}>{isSpecialRow ? '' : r.code}</td>
                     <td className={cx("border border-slate-300 px-2 py-2 text-left font-semibold text-xs dark:border-slate-600 sticky left-[60px] z-10", rowBg, trunc)} title={r.label}>{r.label}</td>
                     
-                    {MONTHS.map((m) => (
-                        <td key={`${r.code}-${m.key}`} className="border border-slate-300 px-1 py-1 dark:border-slate-600">
+                    {MONTHS.map((m, mIdx) => unitCols.map((u) => (
+                        <td key={`${r.code}-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1 py-1 dark:border-slate-600", monthStripeCell(mIdx))}>
                            {r.kind === 'item' ? (
                                 <input
                                     className={cellInput}
-                                    value={valuesByCode?.[r.code]?.[m.key] ?? ""}
+                                    value={valuesByCode?.[r.code]?.[m.key]?.[u.id] ?? ""}
                                     inputMode="decimal"
                                     placeholder="0"
-                                    onChange={(e) => setCell(r.code, m.key, sanitizeNumberInput(e.target.value, { maxDecimals: 2 }))}
+                                    onChange={(e) => setCell(r.code, m.key, u.id, sanitizeNumberInput(e.target.value, { maxDecimals: 2 }))}
                                 />
                            ) : (
-                               <div className="px-1.5 py-1 text-right">{fmtMoney0(totalInfo?.monthly[m.key] ?? 0)}</div>
+                               <div className="px-1.5 py-1 text-right text-xs">
+                                { /* Monthly sub-totals can go here if needed */ }
+                               </div>
                            )}
                         </td>
-                    ))}
+                    )))}
 
-                    <td className="border border-slate-300 px-1 py-2 text-right font-extrabold text-xs dark:border-slate-600">{fmtMoney0(totalInfo?.total ?? 0)}</td>
+                    {unitCols.map(u => (
+                        <td key={`total-${r.code}-${u.id}`} className="border border-slate-300 px-1.5 py-1 text-right font-semibold text-xs dark:border-slate-600">
+                            {fmtMoney0(totalInfo?.byUnit[u.id] ?? 0)}
+                        </td>
+                    ))}
                   </tr>
                 )
               })}
             </tbody>
+             <tfoot>
+                <tr className={STRIPE.grandtotal}>
+                    <td colSpan={2} className="border border-slate-300 px-2 py-2 text-center font-extrabold dark:border-slate-600 sticky left-0 z-10">รวมทั้งหมด</td>
+                    {MONTHS.map((m, mIdx) => unitCols.map(u => {
+                        let monthUnitTotal = 0;
+                        for (const subtotalCode of Object.keys(sectionMap)) {
+                            for(const itemCode of sectionMap[subtotalCode]) {
+                                monthUnitTotal += toNumber(valuesByCode[itemCode]?.[m.key]?.[u.id])
+                            }
+                        }
+                        return <td key={`tf-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600", monthStripeCell(mIdx))}>{fmtMoney0(monthUnitTotal)}</td>
+                    }))}
+
+                    {unitCols.map(u => (
+                        <td key={`tf-total-${u.id}`} className="border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600">{fmtMoney0(computed["G.T"]?.byUnit[u.id] ?? 0)}</td>
+                    ))}
+                </tr>
+            </tfoot>
           </table>
         </div>
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
@@ -489,12 +589,12 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             <div className="flex justify-end">
                 <button
                 type="button"
-                disabled={isSaving}
+                disabled={isSaving || !unitCols.length || unitCols[0].id === 0}
                 onClick={saveToBE}
                 className={cx(
                     "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white",
                     "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",
-                    isSaving && "opacity-60 hover:scale-100 cursor-not-allowed"
+                    (isSaving || !unitCols.length || unitCols[0].id === 0) && "opacity-60 hover:scale-100 cursor-not-allowed"
                 )}
                 >
                 {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}

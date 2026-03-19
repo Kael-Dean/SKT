@@ -503,7 +503,7 @@ const BusinessPlanExpenseTableDetail = (props) => {
                 return (
                   <tr key={r.code} className={rowBg}>
                     <td className={cx("border border-slate-300 px-1 py-2 text-center text-xs dark:border-slate-600 sticky left-0 z-10", rowBg)}>{r.code}</td>
-                    <td className={cx("border border-slate-300 px-2 py-2 text-left font-semibold text-xs dark:border-slate-600 sticky left-[60px] z-10", rowBg, trunc)} title={r.label}>{r.label}</td>
+                    <td className={cx("border border-slate-300 px-2 py-2 text-left font-semibold text-xs dark:border-slate-600 sticky left-[60px] z-10", rowBg, "truncate")} title={r.label}>{r.label}</td>
                     
                     {MONTHS.map((m, mIdx) => unitCols.map((u, ui) => {
                         const colIdx = mIdx * unitCols.length + ui

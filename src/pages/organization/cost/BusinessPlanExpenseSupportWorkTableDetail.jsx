@@ -328,8 +328,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
     setIsLoadingSaved(true)
     try {
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly?branch_id=${effectiveBranchId}&business_group_id=${BUSINESS_GROUP_ID}`)
-      const monthlyCosts = Array.isArray(data?.monthly_costs) ? data.monthly_costs : (Array.isArray(data) ? data : [])
-
+      const .i
       const bcToCode = new Map()
       for (const r of itemRows) {
         const bcId = resolveRowBusinessCostId(r)
@@ -337,26 +336,22 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
       }
 
       const seed = {}
-      for (const cell of monthlyCosts) {
-        const bCostId = Number(cell.business_cost_id || 0)
-        const monthNum = Number(cell.month || 0)
-        const unitId = Number(cell.unit_id || 0)
-        const amount = Number(cell.amount || 0)
-        const month = MONTHS.find(m => m.month === monthNum)
-
-        if (!bCostId || !month || !unitId) continue
+      for (const cell
+        if (!bCostId || !unitId) continue
 
         const code = bcToCode.get(bCostId)
-        if (!code) continue
+             for (const m of MONTHS) {
+          const valKey = h}_value`
+          const amount = cell.months?.[valKey] ?? cell[valKey] ?? (Number(cell.month) === m.month ? cell.amount : 0)
 
-        if (!seed[code]) seed[code] = {}
-        if (!seed[code][month.key]) seed[code][month.key] = {}
-        seed[code][month.key][unitId] = String(amount)
-      }
-
+          if (amount !== undefined && amount !== null && amount !== 0) {
+            if (!seed[code][m.key]) seed[code][m.key] = {}
+            seed[code][m.key][unitId] = String(amount)
+     
+        
       setValuesByCode(normalizeGrid(seed))
     } catch (e) {
-      console.error("[Support Work Detail Load saved] failed:", e)
+      console.error("Load saved failed:", e)
       setValuesByCode(normalizeGrid({}))
     } finally {
       setIsLoadingSaved(false)
@@ -365,8 +360,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
 
   useEffect(() => {
     loadSavedFromBE()
-  }, [loadSavedFromBE])
-
+  }, [loadSavedFr
   const setCell = useCallback((code, monthKey, unitId, nextValue) => {
     setValuesByCode((prev) => ({
       ...prev,
@@ -471,87 +465,70 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
     if (!effectiveBranchId) throw new Error("FE: ยังไม่ได้เลือกสาขา")
     if (!unitCols.length || unitCols[0].id === 0) throw new Error("FE: ไม่พบหน่วยในสาขา")
     
-    const costs = []
+    const rows = []
 
     for (const r of itemRows) {
       const businessCostId = resolveRowBusinessCostId(r)
       if (!businessCostId) continue
 
       const rowData = valuesByCode[r.code] || {}
-      for (const m of MONTHS) {
-        for (const u of unitCols) {
-            const amount = toNumber(rowData?.[m.key]?.[u.id])
-            if(amount !== 0) {
-                costs.push({
-                    business_cost_id: businessCostId,
-                    month: m.month,
-                    unit_id: u.id,
-                    amount: amount,
-                })
-            }
-        }
-      }
+      for (const u of unitCols) {
+          if (u.id <= 0) continue
+
+          const monthsData = {
+              m5_value: 0, m6_value: 0, m7_value: 0, m8_value: 0,
+              m9_value: 0, m10_value: 0, m11_value: 0, m12_value: 0
+          }
+
+          let hasValue = false
+          for (const m of MONTHS) {
+              const amount = toNumber(rowData
     }
 
-    return { costs }
+    return { rows }
   }, [effectivePlanId, effectiveBranchId, itemRows, valuesByCode, unitCols])
 
   const saveToBE = async () => {
-    let payload = null
     try {
         setNotice(null)
         const token = getToken()
         if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
 
         const built = buildBulkRowsForBE()
-        payload = {
-            plan_id: effectivePlanId,
-            branch_id: effectiveBranchId,
-            business_group_id: BUSINESS_GROUP_ID,
-            costs: built.costs
-        }
         setIsSaving(true)
 
-        const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly`, {
+        const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly?branch_id=${effectiveBranchId}`, {
             method: "POST",
-            body: payload,
+            body: built,
         })
 
         setNotice({
             type: "success",
             title: "บันทึกสำเร็จ ✅",
-            detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName} • บันทึก ${res?.saved_count ?? built.costs.length} รายการ`,
+            detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName} • บันทึก ${res?.monthly_rows_upserted ?? built.rows.length} รายการ`,
         })
-
         await loadSavedFromBE()
 
     } catch (e) {
         const status = e?.status || 0
         let title = "บันทึกไม่สำเร็จ ❌"
-        let detail = e?.message || String(e)
-        if (status === 422) {
+        let detail = e?.message  422) {
             title = "422 Validation Error"
             detail = "ข้อมูลไม่ถูกต้อง (ดู console)"
+        } else if (status === 400) {
+            title = "400 Bad Request"
+            detail = "ข้อมูลไม่ตรงกับข้อมูลรายปี"
         }
-        setNotice({ type: "error", title, detail })
-        console.error("[Save Support Work Expense Detail] failed:", e)
-    } finally {
-        setIsSaving(false)
-    }
-  }
 
   const RIGHT_W = (MONTHS.length * unitCols.length * COL_W.cell) + (unitCols.length * COL_W.total)
   const TOTAL_W = LEFT_W + RIGHT_W
-
-  return (
-    <div className="space-y-3">
+  return (-y-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ (งานสนับสนุน) - รายเดือน</div>
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                 ({periodLabel}) • ปี {effectiveYear} • plan_id {effectivePlanId} • สาขา {effectiveBranchName}
                 {isLoadingUnits ? " • กำลังโหลดหน่วย..." : ` • ${unitCols.length > 0 && unitCols[0].id !== 0 ? unitCols.length : 0} หน่วย`}
-                {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
-            </div>
+                {isLoadingSaved ? "
              <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
               รวมทั้งหมด (บาท): <span className="font-extrabold">{fmtMoney(computed.grandTotal)}</span>
             </div>
@@ -568,8 +545,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
             </colgroup>
 
             <thead className="sticky top-0 z-20">
-              <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
-                <th rowSpan={2} className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รหัส</th>
+              <tr className={cx("text-slate-800 da-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รหัส</th>
                 <th rowSpan={2} className="border border-slate-300 px-2 py-2 text-left font-bold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-100 dark:bg-slate-700">รายการ</th>
                 {MONTHS.map((m, mIdx) => (
                     <th key={m.key} colSpan={unitCols.length} className={cx("border border-slate-300 px-1 py-2 text-center text-xs font-semibold dark:border-slate-600", monthStripeHead(mIdx))}>{m.label}</th>

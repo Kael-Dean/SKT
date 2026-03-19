@@ -505,8 +505,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
         payload = built
         setIsSaving(true)
 
-        // 🔴 จุดสำคัญที่ 2: ใช้ Method POST และยิงไปที่ /aux/monthly
-        const res = await apiAuth(`/business-plan/${effectivePlanId}/aux/monthly`, {
+        const res = await apiAuth(`/business-plan/${effectivePlanId}/aux/monthly?branch_id=${effectiveBranchId}`, {
             method: "POST", 
             body: payload,
         })
@@ -528,11 +527,10 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             detail = "รูปแบบข้อมูลที่ส่งไปไม่ตรงกับที่ Backend รองรับ"
         } else if (status === 400) {
             title = "400 Bad Request"
-            // Backend จะเตือนถ้าผลรวม 12 เดือน ไม่เท่ากับยอดรวมรายปีที่เซฟไว้ก่อนหน้า
-            detail = "ข้อมูลไม่สอดคล้อง (เช่น ยอดรวมรายเดือนไม่เท่ายอดรายปี)"
+            detail = "ข้อมูลไม่ตรงกับข้อมูลรายปี"
         }
         setNotice({ type: "error", title, detail })
-        console.error("[Save RepCost Summary Detail] failed:", e, payload)
+        console.error("Save Error:", e)
     } finally {
         setIsSaving(false)
     }

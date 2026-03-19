@@ -467,7 +467,18 @@ const BusinessPlanExpenseTableDetail = (props) => {
 
         await loadSavedFromBE()
     } catch (e) {
-        setNotice({ type: "error", title: "บันทึกไม่สำเร็จ ❌", detail: e?.message || String(e) })
+        const status = e?.status || 0
+        let title = "บันทึกไม่สำเร็จ ❌"
+        let detail = e?.message || String(e)
+        if (status === 422) {
+            title = "422 Validation Error"
+            detail = "ข้อมูลไม่ถูกต้อง (ดู console)"
+        } else if (status === 400) {
+            title = "400 Bad Request"
+            detail = "ข้อมูลไม่ตรงกับข้อมูลรายปี"
+        }
+        setNotice({ type: "error", title, detail })
+        console.error("Save Error:", e)
     } finally {
         setIsSaving(false)
     }

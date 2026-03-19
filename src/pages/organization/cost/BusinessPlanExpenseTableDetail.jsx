@@ -261,8 +261,11 @@ const BusinessPlanExpenseTableDetail = (props) => {
     if (!effectivePlanId || effectivePlanId <= 0 || !effectiveBranchId || !unitCols.length || unitCols[0].id === 0) return
     setIsLoadingSaved(true)
     try {
+      // พยายามโหลดข้อมูลรายเดือน
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly?branch_id=${effectiveBranchId}&business_group_id=${BUSINESS_GROUP_ID}`)
-      const monthlyCosts = Array.isArray(data?.monthly_costs) ? data.monthly_costs : (Array.isArray(data) ? data : [])
+      
+      // รองรับ format ใหม่ { rows: [...] } และ fallback สำหรับ format เก่า
+      const rowsData = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data?.monthly_costs) ? data.monthly_costs : (Array.isArray(data) ? data : []))
 
       const bcToCode = new Map()
       for (const r of itemRows) {
@@ -271,24 +274,31 @@ const BusinessPlanExpenseTableDetail = (props) => {
       }
 
       const seed = {}
-      for (const cell of monthlyCosts) {
-        const bCostId = Number(cell.business_cost_id || 0)
-        const monthNum = Number(cell.month || 0)
+      for (const cell of rowsData) {
+        const bCostId = Number(cell.b_cost || cell.business_cost_id || 0)
         const unitId = Number(cell.unit_id || 0)
-        const amount = Number(cell.amount || 0)
-        const month = MONTHS.find(m => m.month === monthNum)
-
-        if (!bCostId || !month || !unitId) continue
+        
+        if (!bCostId || !unitId) continue
         const code = bcToCode.get(bCostId)
         if (!code) continue
 
         if (!seed[code]) seed[code] = {}
-        if (!seed[code][month.key]) seed[code][month.key] = {}
-        seed[code][month.key][unitId] = String(amount)
+
+        // ดึงค่าเดือน รองรับโครงสร้างแบบใหม่ cell.months และแบบแบน (flat)
+        for (const m of MONTHS) {
+          const valKey = `m${m.month}_value`
+          const amount = cell.months?.[valKey] ?? cell[valKey] ?? (Number(cell.month) === m.month ? cell.amount : 0)
+
+          if (amount !== undefined && amount !== null && amount !== 0) {
+            if (!seed[code][m.key]) seed[code][m.key] = {}
+            seed[code][m.key][unitId] = String(amount)
+          }
+        }
       }
 
       setValuesByCode(normalizeGrid(seed))
     } catch (e) {
+      console.warn("API GET Monthly Costs may not be implemented yet or failed:", e)
       setValuesByCode(normalizeGrid({}))
     } finally {
       setIsLoadingSaved(false)
@@ -401,27 +411,42 @@ const BusinessPlanExpenseTableDetail = (props) => {
     if (!effectiveBranchId) throw new Error("FE: ยังไม่ได้เลือกสาขา")
     if (!unitCols.length || unitCols[0].id === 0) throw new Error("FE: ไม่พบหน่วยในสาขา")
     
-    const costs = []
+    const rows = []
+    
     for (const r of itemRows) {
         const businessCostId = resolveRowBusinessCostId(r)
         if (!businessCostId) continue
 
         const rowData = valuesByCode[r.code] || {}
-        for (const m of MONTHS) {
-            for (const u of unitCols) {
+        
+        for (const u of unitCols) {
+            if (u.id <= 0) continue
+
+            const monthsData = {
+                m1_value: 0, m2_value: 0, m3_value: 0, m4_value: 0,
+                m5_value: 0, m6_value: 0, m7_value: 0, m8_value: 0,
+                m9_value: 0, m10_value: 0, m11_value: 0, m12_value: 0
+            }
+
+            let hasValue = false
+            for (const m of MONTHS) {
                 const amount = toNumber(rowData?.[m.key]?.[u.id])
-                if (amount !== 0) {
-                    costs.push({
-                        business_cost_id: businessCostId,
-                        month: m.month,
-                        unit_id: u.id,
-                        amount: amount,
-                    })
-                }
+                if (amount !== 0) hasValue = true
+                
+                // Map เดือนให้ตรงกับ m1_value - m12_value
+                monthsData[`m${m.month}_value`] = amount
+            }
+
+            if (hasValue) {
+                rows.push({
+                    unit_id: u.id,
+                    b_cost: businessCostId,
+                    months: monthsData
+                })
             }
         }
     }
-    return { costs }
+    return { rows }
   }, [effectivePlanId, effectiveBranchId, itemRows, valuesByCode, unitCols])
 
   const saveToBE = async () => {
@@ -433,17 +458,12 @@ const BusinessPlanExpenseTableDetail = (props) => {
         const built = buildBulkRowsForBE()
         setIsSaving(true)
 
-        const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly`, {
+        const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly?branch_id=${effectiveBranchId}`, {
             method: "POST",
-            body: {
-                plan_id: effectivePlanId,
-                branch_id: effectiveBranchId,
-                business_group_id: BUSINESS_GROUP_ID,
-                costs: built.costs
-            },
+            body: built, // ส่ง object { rows: [...] } ตรงๆ
         })
 
-        setNotice({ type: "success", title: "บันทึกสำเร็จ ✅", detail: `บันทึก ${res?.saved_count ?? built.costs.length} รายการ` })
+        setNotice({ type: "success", title: "บันทึกสำเร็จ ✅", detail: `บันทึก ${res?.monthly_rows_upserted ?? built.rows.length} รายการ` })
 
         await loadSavedFromBE()
     } catch (e) {

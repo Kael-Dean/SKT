@@ -393,7 +393,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
     for (const u of unitCols) unitGrandSums[u.id] = 0
 
     for (const r of itemRows) {
-      rowSums[r.code] = {}
+      rowTotal[r.code] = {}
       for (const u of unitCols) {
         let sum = 0
         for (const m of MONTHS) {
@@ -401,13 +401,13 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
           monthUnitSums[m.key][u.id] += v
           sum += v
         }
-        rowSums[r.code][u.id] = sum
+        rowTotal[r.code][u.id] = sum
         unitGrandSums[u.id] += sum
         grandTotal += sum
       }
     }
 
-    return { rowSums, monthUnitSums, unitGrandSums, grandTotal }
+    return { rowTotal, monthUnitSums, unitGrandSums, grandTotal }
   }, [valuesByCode, itemRows, unitCols])
 
   const tableWrapRef = useRef(null)
@@ -626,7 +626,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
 
                     {unitCols.map(u => (
                         <td key={`total-${r.code}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-semibold text-xs dark:border-slate-600", rowBg)}>
-                            {fmtMoney0(computed.rowSums[r.code]?.[u.id] ?? 0)}
+                            {fmtMoney0(computed.rowTotal[r.code]?.[u.id] ?? 0)}
                         </td>
                     ))}
                   </tr>

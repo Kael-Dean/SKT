@@ -84,10 +84,10 @@ async function apiAuth(path, { method = "GET", body } = {}) {
 
 /** ---------------- UI styles ---------------- */
 const cellInput =
-  "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
+  "w-full min-w-0 max-w-full box-border rounded-md border border-slate-400 bg-white px-1.5 py-1 " +
   "text-right text-[12px] outline-none " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+  "dark:border-slate-500 dark:bg-slate-900 dark:text-slate-100"
 
 const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
 
@@ -275,9 +275,10 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
     setIsLoadingSaved(true)
     try {
-      // ✅ แก้ไข Route สำหรับโหลดข้อมูลเป็น costs/monthly
-      const data = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly?branch_id=${effectiveBranchId}`)
-      const monthlyCosts = Array.isArray(data?.cells) ? data.cells : (Array.isArray(data) ? data : [])
+      // โหลดข้อมูล (พยายามรองรับ GET จาก /aux/monthly ในอนาคตด้วย)
+      const data = await apiAuth(`/business-plan/${effectivePlanId}/aux/monthly?branch_id=${effectiveBranchId}`)
+      
+      const rowsData = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data) ? data : [])
 
       const auxToCode = new Map()
       for (const r of itemRows) {
@@ -285,23 +286,28 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
       }
 
       const seed = {}
-      for (const cell of monthlyCosts) {
-        const auxId = Number(cell.aux_id || 0)
-        const monthNum = Number(cell.month || 0)
+      for (const cell of rowsData) {
+        const auxId = Number(cell.b_aux || cell.aux_id || cell.b_cost || 0)
         const unitId = Number(cell.unit_id || 0)
-        const amount = Number(cell.amount || 0)
         
-        const month = MONTHS.find(m => m.month === monthNum)
         const unit = unitCols.find(u => u.id === unitId)
-
-        if (!auxId || !month || !unit) continue
+        if (!auxId || !unit) continue
 
         const code = auxToCode.get(auxId)
         if (!code) continue
 
         if (!seed[code]) seed[code] = {}
-        if (!seed[code][month.key]) seed[code][month.key] = {}
-        seed[code][month.key][unit.id] = String(amount)
+
+        // Map ค่า m1_value ... m12_value กลับมาลงตาราง Frontend
+        for (const m of MONTHS) {
+            const valKey = `m${m.month}_value`
+            const amount = Number(cell[valKey] ?? cell.months?.[valKey] ?? 0)
+            
+            if (amount !== 0) {
+               if (!seed[code][m.key]) seed[code][m.key] = {}
+               seed[code][m.key][unit.id] = String(amount)
+            }
+        }
       }
 
       setValuesByCode(normalizeGrid(seed))
@@ -342,7 +348,6 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
   const computed = useMemo(() => {
     const totals = {}
     
-    // Initialize
     for (const r of ROWS) {
         totals[r.code] = {
             byUnit: unitCols.reduce((acc, u) => ({...acc, [u.id]: 0}), {}),
@@ -350,7 +355,6 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
         }
     }
 
-    // Calculate item rows and sum up
     for (const r of itemRows) {
         let rowTotal = 0
         for (const u of unitCols) {
@@ -364,7 +368,6 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
         totals[r.code].total = rowTotal
     }
 
-    // Calculate subtotals
     for (const subtotalCode of Object.keys(sectionMap)) {
         let grandSubTotal = 0
         for (const u of unitCols) {
@@ -378,7 +381,6 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
         totals[subtotalCode].total = grandSubTotal
     }
 
-    // Calculate Grand Total
     let grandTotalValue = 0
     for (const u of unitCols) {
         let unitGrandTotal = 0
@@ -449,38 +451,48 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
   const [notice, setNotice] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
 
+  // 🔴 จุดสำคัญที่ 1: จัดโครงสร้าง Payload ใหม่ให้ตรงกับ Backend
   const buildBulkRowsForBE = useCallback(() => {
     if (!effectivePlanId || effectivePlanId <= 0) throw new Error("FE: plan_id ไม่ถูกต้อง")
-    if (!effectiveBranchId) throw new Error("FE: ยังไม่ได้เลือกสาขา")
     if (!unitCols.length || unitCols[0].id === 0) throw new Error("FE: ไม่พบหน่วยในสาขา")
     
-    const cells = []
+    const rows = []
     
     for (const r of itemRows) {
         if (!r.aux_id) continue
 
         const rowData = valuesByCode[r.code] || {}
-        for (const m of MONTHS) {
-            for (const u of unitCols) {
+        
+        for (const u of unitCols) {
+            if (u.id <= 0) continue
+
+            const monthsData = {
+                m1_value: 0, m2_value: 0, m3_value: 0, m4_value: 0,
+                m5_value: 0, m6_value: 0, m7_value: 0, m8_value: 0,
+                m9_value: 0, m10_value: 0, m11_value: 0, m12_value: 0
+            }
+
+            let hasValue = false
+            for (const m of MONTHS) {
                 const amount = toNumber(rowData?.[m.key]?.[u.id])
-                // Only send non-zero values
-                if (amount !== 0) {
-                    cells.push({
-                        aux_id: r.aux_id,
-                        month: m.month,
-                        unit_id: u.id,
-                        amount: amount,
-                    })
-                }
+                if (amount !== 0) hasValue = true
+                
+                // Map m.month (1-12) ไปเป็น m1_value ถึง m12_value
+                monthsData[`m${m.month}_value`] = amount
+            }
+
+            if (hasValue) {
+                rows.push({
+                    unit_id: u.id,
+                    b_aux: r.aux_id,
+                    months: monthsData
+                })
             }
         }
     }
 
-    return {
-        branch_id: effectiveBranchId,
-        cells,
-    }
-  }, [effectivePlanId, effectiveBranchId, itemRows, valuesByCode, unitCols])
+    return { rows } // ส่งคีย์เป็น 'rows' ตรงกับ BE BulkSaveMonthlyAuxIn
+  }, [effectivePlanId, itemRows, valuesByCode, unitCols])
 
   const saveToBE = async () => {
     let payload = null
@@ -493,16 +505,16 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
         payload = built
         setIsSaving(true)
 
-        // ✅ แก้ไข Route สำหรับการบันทึกข้อมูลเป็น costs/monthly
-        const res = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly`, {
-            method: "PUT", // หาก Backend ตัวใหม่ใช้ POST สามารถเปลี่ยนตรงนี้ได้
+        // 🔴 จุดสำคัญที่ 2: ใช้ Method POST และยิงไปที่ /aux/monthly
+        const res = await apiAuth(`/business-plan/${effectivePlanId}/aux/monthly`, {
+            method: "POST", 
             body: payload,
         })
 
         setNotice({
             type: "success",
             title: "บันทึกสำเร็จ ✅",
-            detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName} • บันทึก ${res?.saved_count ?? built.cells.length} รายการ`,
+            detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName} • บันทึก ${res?.monthly_rows_upserted ?? built.rows.length} รายการ`,
         })
 
     } catch (e) {
@@ -511,7 +523,11 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
         let detail = e?.message || String(e)
         if (status === 422) {
             title = "422 Validation Error"
-            detail = "ข้อมูลไม่ถูกต้อง (ดู console)"
+            detail = "รูปแบบข้อมูลที่ส่งไปไม่ตรงกับที่ Backend รองรับ"
+        } else if (status === 400) {
+            title = "400 Bad Request"
+            // Backend จะเตือนถ้าผลรวม 12 เดือน ไม่เท่ากับยอดรวมรายปีที่เซฟไว้ก่อนหน้า
+            detail = "ข้อมูลไม่สอดคล้อง (เช่น ยอดรวมรายเดือนไม่เท่ายอดรายปี)"
         }
         setNotice({ type: "error", title, detail })
         console.error("[Save RepCost Summary Detail] failed:", e, payload)
@@ -537,7 +553,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             </div>
         </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
+      <div className="rounded-2xl border border-slate-400 bg-white shadow-sm dark:border-slate-500 dark:bg-slate-800 overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto max-h-[70vh]" ref={tableWrapRef}>
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
@@ -549,19 +565,19 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
             <thead className="sticky top-0 z-20">
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
-                <th rowSpan={2} className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รหัส</th>
-                <th rowSpan={2} className="border border-slate-300 px-2 py-2 text-left font-bold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-100 dark:bg-slate-700">รายการ</th>
+                <th rowSpan={2} className="border border-slate-400 px-1 py-2 text-center font-bold text-xs dark:border-slate-500 sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รหัส</th>
+                <th rowSpan={2} className="border border-slate-400 px-2 py-2 text-left font-bold text-xs dark:border-slate-500 sticky left-[60px] z-10 bg-slate-100 dark:bg-slate-700">รายการ</th>
                 {MONTHS.map((m, mIdx) => (
-                    <th key={m.key} colSpan={unitCols.length} className={cx("border border-slate-300 px-1 py-2 text-center text-xs font-semibold dark:border-slate-600", monthStripeHead(mIdx))}>{m.label}</th>
+                    <th key={m.key} colSpan={unitCols.length} className={cx("border border-slate-400 px-1 py-2 text-center text-xs font-semibold dark:border-slate-500", monthStripeHead(mIdx))}>{m.label}</th>
                 ))}
-                <th colSpan={unitCols.length} className="border border-slate-300 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-600 bg-slate-100 dark:bg-slate-700">รวม</th>
+                <th colSpan={unitCols.length} className="border border-slate-400 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-500 bg-slate-100 dark:bg-slate-700">รวม</th>
               </tr>
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
                 {MONTHS.map((m, mIdx) => unitCols.map(u => (
-                    <th key={`${m.key}-${u.id}`} className={cx("border border-slate-300 px-1 py-1 text-center text-[11px] font-medium dark:border-slate-600", monthStripeHead(mIdx))} title={u.name}>{u.short}</th>
+                    <th key={`${m.key}-${u.id}`} className={cx("border border-slate-400 px-1 py-1 text-center text-[11px] font-medium dark:border-slate-500", monthStripeHead(mIdx))} title={u.name}>{u.short}</th>
                 )))}
                 {unitCols.map(u => (
-                    <th key={`total-h-${u.id}`} className="border border-slate-300 px-1 py-1 text-center text-[11px] font-semibold dark:border-slate-600 bg-slate-100 dark:bg-slate-700" title={u.name}>{u.short}</th>
+                    <th key={`total-h-${u.id}`} className="border border-slate-400 px-1 py-1 text-center text-[11px] font-semibold dark:border-slate-500 bg-slate-100 dark:bg-slate-700" title={u.name}>{u.short}</th>
                 ))}
               </tr>
             </thead>
@@ -576,8 +592,8 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                 if (r.kind === 'title' || r.kind === 'section') {
                     return (
                         <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">
-                          <td className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-200 dark:bg-slate-700">{r.kind==='section' ? r.code: ''}</td>
-                          <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 1} className="border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700">{r.label}</td>
+                          <td className="border border-slate-400 px-1 py-2 text-center font-bold text-xs dark:border-slate-500 sticky left-0 z-10 bg-slate-200 dark:bg-slate-700">{r.kind==='section' ? r.code: ''}</td>
+                          <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 1} className="border border-slate-400 px-2 py-2 font-extrabold text-xs dark:border-slate-500 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700">{r.label}</td>
                         </tr>
                     )
                 }
@@ -586,13 +602,13 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
                 return (
                   <tr key={r.code} className={cx(rowBg, font)}>
-                    <td className={cx("border border-slate-300 px-1 py-2 text-center text-xs dark:border-slate-600 sticky left-0 z-10", rowBg)}>{isSpecialRow ? '' : r.code}</td>
-                    <td className={cx("border border-slate-300 px-2 py-2 text-left font-semibold text-xs dark:border-slate-600 sticky left-[60px] z-10", rowBg, trunc)} title={r.label}>{r.label}</td>
+                    <td className={cx("border border-slate-400 px-1 py-2 text-center text-xs dark:border-slate-500 sticky left-0 z-10", rowBg)}>{isSpecialRow ? '' : r.code}</td>
+                    <td className={cx("border border-slate-400 px-2 py-2 text-left font-semibold text-xs dark:border-slate-500 sticky left-[60px] z-10", rowBg, trunc)} title={r.label}>{r.label}</td>
                     
                     {MONTHS.map((m, mIdx) => unitCols.map((u, ui) => {
                         const colIdx = mIdx * unitCols.length + ui
                         return (
-                          <td key={`${r.code}-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1 py-1 dark:border-slate-600", monthStripeCell(mIdx))}>
+                          <td key={`${r.code}-${m.key}-${u.id}`} className={cx("border border-slate-400 px-1 py-1 dark:border-slate-500", monthStripeCell(mIdx))}>
                            {r.kind === 'item' ? (
                                 <input
                                     ref={registerInput(itemIndex, colIdx)}
@@ -613,7 +629,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                     }))}
 
                     {unitCols.map(u => (
-                        <td key={`total-${r.code}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-semibold text-xs dark:border-slate-600", rowBg)}>
+                        <td key={`total-${r.code}-${u.id}`} className={cx("border border-slate-400 px-1.5 py-1 text-right font-semibold text-xs dark:border-slate-500", rowBg)}>
                             {fmtMoney0(totalInfo?.byUnit[u.id] ?? 0)}
                         </td>
                     ))}
@@ -623,7 +639,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             </tbody>
              <tfoot className="sticky bottom-0 z-20">
                 <tr className={cx("text-slate-900 dark:text-slate-100", STRIPE.grandtotal)}>
-                    <td colSpan={2} className="border border-slate-300 px-2 py-2 text-center font-extrabold dark:border-slate-600 sticky left-0 z-10 bg-emerald-200 dark:bg-emerald-800">รวมทั้งหมด</td>
+                    <td colSpan={2} className="border border-slate-400 px-2 py-2 text-center font-extrabold dark:border-slate-500 sticky left-0 z-10 bg-emerald-200 dark:bg-emerald-800">รวมทั้งหมด</td>
                     {MONTHS.map((m, mIdx) => unitCols.map(u => {
                         let monthUnitTotal = 0;
                         for (const subtotalCode of Object.keys(sectionMap)) {
@@ -631,11 +647,11 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                                 monthUnitTotal += toNumber(valuesByCode[itemCode]?.[m.key]?.[u.id])
                             }
                         }
-                        return <td key={`tf-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600", monthStripeCell(mIdx))}>{fmtMoney0(monthUnitTotal)}</td>
+                        return <td key={`tf-${m.key}-${u.id}`} className={cx("border border-slate-400 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-500", monthStripeCell(mIdx))}>{fmtMoney0(monthUnitTotal)}</td>
                     }))}
 
                     {unitCols.map(u => (
-                        <td key={`tf-total-${u.id}`} className="border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600 bg-emerald-200 dark:bg-emerald-800">{fmtMoney0(computed["G.T"]?.byUnit[u.id] ?? 0)}</td>
+                        <td key={`tf-total-${u.id}`} className="border border-slate-400 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-500 bg-emerald-200 dark:bg-emerald-800">{fmtMoney0(computed["G.T"]?.byUnit[u.id] ?? 0)}</td>
                     ))}
                 </tr>
             </tfoot>

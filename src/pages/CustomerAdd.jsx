@@ -158,10 +158,16 @@ function ComboBox({
     })
   }
 
-  const scrollHighlightedIntoView = (index) => {
+  const scrollHighlightedIntoView = (index, center = false) => {
     const listEl = listRef.current
     const itemEl = listEl?.children?.[searchable ? index + 1 : index] // +1 เมื่อมีช่องค้นหา
     if (!listEl || !itemEl) return
+
+    if (center) {
+      listEl.scrollTop = itemEl.offsetTop - listEl.clientHeight / 2 + itemEl.clientHeight / 2
+      return
+    }
+
     const itemRect = itemEl.getBoundingClientRect()
     const listRect = listEl.getBoundingClientRect()
     const buffer = 6

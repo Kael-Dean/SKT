@@ -254,8 +254,8 @@ def upsert_unit_aux_bulk(
         "cells": len(body.cells),
     }
 
-@router.post("/{plan_id}/earnings/monthly", status_code=status.HTTP_200_OK)
-def upsert_monthly_earnings(
+@router.post("/{plan_id}/aux/monthly", status_code=status.HTTP_200_OK)
+def upsert_monthly_aux(
         plan_id: int,
         body: BulkSaveMonthlyAuxIn,
         db: Session = Depends(get_db),

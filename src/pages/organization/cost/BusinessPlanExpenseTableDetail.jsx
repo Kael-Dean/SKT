@@ -60,6 +60,13 @@ async function apiAuth(path, { method = "GET", body } = {}) {
   return data
 }
 
+/** ---------------- UI styles ---------------- */
+const cellInput =
+  "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
+  "text-right text-[12px] outline-none " +
+  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
+  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+
 /** ---------------- Definitions ---------------- */
 const MONTHS = [
   { key: "m04", label: "เม.ย.", month: 4 }, { key: "m05", label: "พ.ค.", month: 5 },
@@ -185,6 +192,8 @@ const BusinessPlanExpenseTableDetail = (props) => {
     const yyNext = String(effectiveYear + 1).slice(-2)
     return `1 เม.ย.${yy}-31 มี.ค.${yyNext}`
   }, [effectiveYear])
+
+  const canEdit = !!effectiveBranchId
 
   const [units, setUnits] = useState([])
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)

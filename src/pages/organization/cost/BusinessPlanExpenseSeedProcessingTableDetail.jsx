@@ -193,7 +193,7 @@ const ROWS = [
 
 const PLACEHOLDER_UNITS = [{ id: 0, name: "—", short: "—" }]
 
-const COL_W = { code: 60, item: 300, cell: 90, total: 100 }
+const COL_W = { code: 60, item: 300, cell: 100, total: 100 }
 const LEFT_W = COL_W.code + COL_W.item
 
 const STRIPE = {
@@ -556,10 +556,10 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
               </tr>
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
                 {MONTHS.map((m, mIdx) => unitCols.map(u => (
-                    <th key={`${m.key}-${u.id}`} className={cx("border border-slate-300 px-1 py-1 text-center text-[11px] font-medium dark:border-slate-600", monthStripeHead(mIdx))} title={u.name}>{u.short}</th>
+                    <th key={`${m.key}-${u.id}`} className={cx("border border-slate-300 px-1 py-1 text-center text-[12px] font-medium dark:border-slate-600", monthStripeHead(mIdx))} title={u.name}>{u.name}</th>
                 )))}
                 {unitCols.map(u => (
-                    <th key={`total-h-${u.id}`} className="border border-slate-300 px-1 py-1 text-center text-[11px] font-semibold dark:border-slate-600 bg-slate-100 dark:bg-slate-700" title={u.name}>{u.short}</th>
+                    <th key={`total-h-${u.id}`} className="border border-slate-300 px-1 py-1 text-center text-[12px] font-semibold dark:border-slate-600 bg-slate-100 dark:bg-slate-700" title={u.name}>{u.name}</th>
                 ))}
               </tr>
             </thead>

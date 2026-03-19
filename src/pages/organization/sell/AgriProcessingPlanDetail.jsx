@@ -586,10 +586,6 @@ function AgriProcessingPlanDetail(props) {
       await apiAuth(`/revenue/sale-goals/bulk`, { method: "PUT", body: { plan_id: Number(effectivePlanId), branch_id: Number(branchIdEff), cells } })
 
       setSaveMsg({ ok: true, title: "บันทึกสำเร็จ", detail: `สาขา ${resolvedBranchName || branchIdEff} • ปี ${effectiveYearBE}` })
-
-      await loadSavedFromBE()
-      await loadUnits()
-      await loadUnitPricesForYear()
     } catch (e) {
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally {

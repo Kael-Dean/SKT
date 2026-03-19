@@ -594,7 +594,6 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
       const res = await apiAuth(`/business-plan/${planId}/earnings/bulk`, { method: "POST", body: payload })
 
       setSaveMsg({ ok: true, title: "บันทึกสำเร็จ ✅", detail: `สาขา ${effectiveBranchName} • ปี ${effectiveYear} • upserted: ${res?.branch_totals_upserted ?? "-"}${built?.skipped?.length ? ` • skipped: ${built.skipped.length}` : ""}` })
-      await loadSavedFromBE()
     } catch (e) {
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally {

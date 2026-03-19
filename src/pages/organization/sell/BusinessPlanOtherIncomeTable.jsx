@@ -580,7 +580,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
         title: "บันทึกสำเร็จ ✅",
         detail: `สาขา ${effectiveBranchDisplay} • ปี ${effectiveYearBE} • rows=${res?.rows ?? payload.rows.length}`,
       })
-      await loadSavedFromBE()
     } catch (e) {
       setSaveMsg({
         ok: false,

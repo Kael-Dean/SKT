@@ -84,10 +84,10 @@ async function apiAuth(path, { method = "GET", body } = {}) {
 
 /** ---------------- UI styles ---------------- */
 const cellInput =
-  "w-full min-w-0 max-w-full box-border rounded-md border border-slate-400 bg-white px-1.5 py-1 " +
+  "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
   "text-right text-[12px] outline-none " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-500 dark:bg-slate-900 dark:text-slate-100"
+  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
 const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
 
@@ -154,7 +154,7 @@ const ROWS = [
 const PLACEHOLDER_UNITS = [{ id: 0, name: "—", short: "—" }]
 
 /** ---------------- Table sizing ---------------- */
-const COL_W = { code: 60, item: 260, cell: 90, total: 100 }
+const COL_W = { code: 60, item: 300, cell: 100, total: 100 }
 const LEFT_W = COL_W.code + COL_W.item
 
 const STRIPE = {
@@ -553,7 +553,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             </div>
         </div>
 
-      <div className="rounded-2xl border border-slate-400 bg-white shadow-sm dark:border-slate-500 dark:bg-slate-800 overflow-hidden flex flex-col">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto max-h-[70vh]" ref={tableWrapRef}>
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
@@ -565,19 +565,19 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
             <thead className="sticky top-0 z-20">
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
-                <th rowSpan={2} className="border border-slate-400 px-1 py-2 text-center font-bold text-xs dark:border-slate-500 sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รหัส</th>
-                <th rowSpan={2} className="border border-slate-400 px-2 py-2 text-left font-bold text-xs dark:border-slate-500 sticky left-[60px] z-10 bg-slate-100 dark:bg-slate-700">รายการ</th>
+                <th rowSpan={2} className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รหัส</th>
+                <th rowSpan={2} className="border border-slate-300 px-2 py-2 text-left font-bold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-100 dark:bg-slate-700">รายการ</th>
                 {MONTHS.map((m, mIdx) => (
-                    <th key={m.key} colSpan={unitCols.length} className={cx("border border-slate-400 px-1 py-2 text-center text-xs font-semibold dark:border-slate-500", monthStripeHead(mIdx))}>{m.label}</th>
+                    <th key={m.key} colSpan={unitCols.length} className={cx("border border-slate-300 px-1 py-2 text-center text-xs font-semibold dark:border-slate-600", monthStripeHead(mIdx))}>{m.label}</th>
                 ))}
-                <th colSpan={unitCols.length} className="border border-slate-400 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-500 bg-slate-100 dark:bg-slate-700">รวม</th>
+                <th colSpan={unitCols.length} className="border border-slate-300 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-600 bg-slate-100 dark:bg-slate-700">รวม</th>
               </tr>
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
                 {MONTHS.map((m, mIdx) => unitCols.map(u => (
-                    <th key={`${m.key}-${u.id}`} className={cx("border border-slate-400 px-1 py-1 text-center text-[11px] font-medium dark:border-slate-500", monthStripeHead(mIdx))} title={u.name}>{u.short}</th>
+                    <th key={`${m.key}-${u.id}`} className={cx("border border-slate-300 px-1 py-1 text-center text-[12px] font-medium dark:border-slate-600", monthStripeHead(mIdx))} title={u.name}>{u.name}</th>
                 )))}
                 {unitCols.map(u => (
-                    <th key={`total-h-${u.id}`} className="border border-slate-400 px-1 py-1 text-center text-[11px] font-semibold dark:border-slate-500 bg-slate-100 dark:bg-slate-700" title={u.name}>{u.short}</th>
+                    <th key={`total-h-${u.id}`} className="border border-slate-300 px-1 py-1 text-center text-[12px] font-semibold dark:border-slate-600 bg-slate-100 dark:bg-slate-700" title={u.name}>{u.name}</th>
                 ))}
               </tr>
             </thead>
@@ -592,8 +592,8 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                 if (r.kind === 'title' || r.kind === 'section') {
                     return (
                         <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">
-                          <td className="border border-slate-400 px-1 py-2 text-center font-bold text-xs dark:border-slate-500 sticky left-0 z-10 bg-slate-200 dark:bg-slate-700">{r.kind==='section' ? r.code: ''}</td>
-                          <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 1} className="border border-slate-400 px-2 py-2 font-extrabold text-xs dark:border-slate-500 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700">{r.label}</td>
+                          <td className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-200 dark:bg-slate-700">{r.kind==='section' ? r.code: ''}</td>
+                          <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 1} className="border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700">{r.label}</td>
                         </tr>
                     )
                 }
@@ -602,13 +602,13 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
                 return (
                   <tr key={r.code} className={cx(rowBg, font)}>
-                    <td className={cx("border border-slate-400 px-1 py-2 text-center text-xs dark:border-slate-500 sticky left-0 z-10", rowBg)}>{isSpecialRow ? '' : r.code}</td>
-                    <td className={cx("border border-slate-400 px-2 py-2 text-left font-semibold text-xs dark:border-slate-500 sticky left-[60px] z-10", rowBg, trunc)} title={r.label}>{r.label}</td>
+                    <td className={cx("border border-slate-300 px-1 py-2 text-center text-xs dark:border-slate-600 sticky left-0 z-10", rowBg)}>{isSpecialRow ? '' : r.code}</td>
+                    <td className={cx("border border-slate-300 px-2 py-2 text-left font-semibold text-xs dark:border-slate-600 sticky left-[60px] z-10", rowBg, trunc)} title={r.label}>{r.label}</td>
                     
                     {MONTHS.map((m, mIdx) => unitCols.map((u, ui) => {
                         const colIdx = mIdx * unitCols.length + ui
                         return (
-                          <td key={`${r.code}-${m.key}-${u.id}`} className={cx("border border-slate-400 px-1 py-1 dark:border-slate-500", monthStripeCell(mIdx))}>
+                          <td key={`${r.code}-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1 py-1 dark:border-slate-600", monthStripeCell(mIdx))}>
                            {r.kind === 'item' ? (
                                 <input
                                     ref={registerInput(itemIndex, colIdx)}
@@ -629,7 +629,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                     }))}
 
                     {unitCols.map(u => (
-                        <td key={`total-${r.code}-${u.id}`} className={cx("border border-slate-400 px-1.5 py-1 text-right font-semibold text-xs dark:border-slate-500", rowBg)}>
+                        <td key={`total-${r.code}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-semibold text-xs dark:border-slate-600", rowBg)}>
                             {fmtMoney0(totalInfo?.byUnit[u.id] ?? 0)}
                         </td>
                     ))}
@@ -639,7 +639,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             </tbody>
              <tfoot className="sticky bottom-0 z-20">
                 <tr className={cx("text-slate-900 dark:text-slate-100", STRIPE.grandtotal)}>
-                    <td colSpan={2} className="border border-slate-400 px-2 py-2 text-center font-extrabold dark:border-slate-500 sticky left-0 z-10 bg-emerald-200 dark:bg-emerald-800">รวมทั้งหมด</td>
+                    <td colSpan={2} className="border border-slate-300 px-2 py-2 text-center font-extrabold dark:border-slate-600 sticky left-0 z-10 bg-emerald-200 dark:bg-emerald-800">รวมทั้งหมด</td>
                     {MONTHS.map((m, mIdx) => unitCols.map(u => {
                         let monthUnitTotal = 0;
                         for (const subtotalCode of Object.keys(sectionMap)) {
@@ -647,11 +647,11 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                                 monthUnitTotal += toNumber(valuesByCode[itemCode]?.[m.key]?.[u.id])
                             }
                         }
-                        return <td key={`tf-${m.key}-${u.id}`} className={cx("border border-slate-400 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-500", monthStripeCell(mIdx))}>{fmtMoney0(monthUnitTotal)}</td>
+                        return <td key={`tf-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600", monthStripeCell(mIdx))}>{fmtMoney0(monthUnitTotal)}</td>
                     }))}
 
                     {unitCols.map(u => (
-                        <td key={`tf-total-${u.id}`} className="border border-slate-400 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-500 bg-emerald-200 dark:bg-emerald-800">{fmtMoney0(computed["G.T"]?.byUnit[u.id] ?? 0)}</td>
+                        <td key={`tf-total-${u.id}`} className="border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600 bg-emerald-200 dark:bg-emerald-800">{fmtMoney0(computed["G.T"]?.byUnit[u.id] ?? 0)}</td>
                     ))}
                 </tr>
             </tfoot>

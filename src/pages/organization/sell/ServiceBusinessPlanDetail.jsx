@@ -603,8 +603,6 @@ const ServiceBusinessPlanDetail = (props) => {
         title: "บันทึกสำเร็จ",
         detail: `ธุรกิจบริการ • ปี ${effectiveYearBE} (plan_id=${effectivePlanId}) • สาขา ${branchName || branchId}`,
       })
-
-      await loadSaved()
     } catch (e) {
       console.error("[service] save failed:", e)
       setSaveMsg({

@@ -308,7 +308,7 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
     setIsLoadingSaved(true)
     try {
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly?branch_id=${effectiveBranchId}&business_group_id=${BUSINESS_GROUP_ID}`)
-      const monthlyCosts = Array.isArray(data?.monthly_costs) ? data.monthly_costs : []
+      const monthlyCosts = Array.isArray(data?.monthly_costs) ? data.monthly_costs : (Array.isArray(data) ? data : [])
 
       const bcToCode = new Map()
       for (const r of itemRows) {
@@ -502,6 +502,8 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
             title: "บันทึกสำเร็จ ✅",
             detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName} • บันทึก ${res?.saved_count ?? built.costs.length} รายการ`,
         })
+
+        await loadSavedFromBE()
 
     } catch (e) {
         const status = e?.status || 0

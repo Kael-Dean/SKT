@@ -376,7 +376,7 @@ const ServiceBusinessPlanDetail = (props) => {
     setIsLoadingSaved(true)
     try {
       const data = await apiAuth(`/revenue/sale-goals?plan_id=${Number(effectivePlanId)}&branch_id=${Number(branchId)}`)
-      const cells = Array.isArray(data?.cells) ? data.cells : []
+      const cells = Array.isArray(data?.cells) ? data.cells : (Array.isArray(data) ? data : [])
 
       const pidToRowId = {}
       for (const it of items) pidToRowId[String(it.product_id)] = it.id
@@ -603,6 +603,9 @@ const ServiceBusinessPlanDetail = (props) => {
         title: "บันทึกสำเร็จ",
         detail: `ธุรกิจบริการ • ปี ${effectiveYearBE} (plan_id=${effectivePlanId}) • สาขา ${branchName || branchId}`,
       })
+
+      await loadSaved()
+      await loadUnitPricesForYear()
     } catch (e) {
       console.error("[service] save failed:", e)
       setSaveMsg({

@@ -399,7 +399,7 @@ function AgriProcessingPlanDetail(props) {
     setIsLoadingSaved(true)
     try {
       const data = await apiAuth(`/revenue/sale-goals?plan_id=${Number(effectivePlanId)}&branch_id=${Number(branchIdEff)}`)
-      const cells = Array.isArray(data?.cells) ? data.cells : []
+      const cells = Array.isArray(data?.cells) ? data.cells : (Array.isArray(data) ? data : [])
       const uSet = new Set(savableUnits.map((u) => Number(u.id)))
       const pSet = new Set(items.map((p) => Number(p.product_id)))
       const empty = buildEmptyQtyGrid(items.map((p) => String(p.product_id)), savableUnits)
@@ -586,6 +586,9 @@ function AgriProcessingPlanDetail(props) {
       await apiAuth(`/revenue/sale-goals/bulk`, { method: "PUT", body: { plan_id: Number(effectivePlanId), branch_id: Number(branchIdEff), cells } })
 
       setSaveMsg({ ok: true, title: "บันทึกสำเร็จ", detail: `สาขา ${resolvedBranchName || branchIdEff} • ปี ${effectiveYearBE}` })
+
+      await loadSavedFromBE()
+      await loadUnitPricesForYear()
     } catch (e) {
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally {

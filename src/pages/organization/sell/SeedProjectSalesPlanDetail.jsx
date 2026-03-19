@@ -313,7 +313,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
     setIsLoadingSaved(true)
     try {
       const data = await apiAuth(`/revenue/sale-goals?plan_id=${Number(planId)}&branch_id=${Number(branchId)}`)
-      const cells = Array.isArray(data?.cells) ? data.cells : []
+      const cells = Array.isArray(data?.cells) ? data.cells : (Array.isArray(data) ? data : [])
       const empty = buildEmptyQtyGrid(products.map((p) => String(p.product_id)), unitCols)
       for (const c of cells) {
         const pid = Number(c.product_id || 0), uid = Number(c.unit_id || 0), mo = Number(c.month || 0), amt = c.amount ?? 0
@@ -495,6 +495,9 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
       }
       await apiAuth(`/revenue/sale-goals/bulk`, { method: "PUT", body: { plan_id: Number(planId), branch_id: Number(branchId), cells } })
       setSaveMsg({ ok: true, title: "บันทึกสำเร็จ", detail: `สาขา ${branchName || branchId} • ปี ${effectiveYearBE}` })
+
+      await loadSavedFromBE()
+      await loadUnitPricesForYear()
     } catch (e) {
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally { setIsSaving(false) }

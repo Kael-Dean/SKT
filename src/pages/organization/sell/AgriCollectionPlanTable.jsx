@@ -223,7 +223,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
     if (!branchId || !planId || planId <= 0 || !editableItems.length) return
     try {
       const data = await apiAuth(`/revenue/sale-goals?plan_id=${Number(planId)}&branch_id=${Number(branchId)}`)
-      const cells = Array.isArray(data?.cells) ? data.cells : []
+      const cells = Array.isArray(data?.cells) ? data.cells : (Array.isArray(data) ? data : [])
       setQtyById((prev) => {
         const next = { ...prev }
         for (const c of cells) {

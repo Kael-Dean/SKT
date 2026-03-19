@@ -262,7 +262,7 @@ const BusinessPlanExpenseTableDetail = (props) => {
     setIsLoadingSaved(true)
     try {
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly?branch_id=${effectiveBranchId}&business_group_id=${BUSINESS_GROUP_ID}`)
-      const monthlyCosts = Array.isArray(data?.monthly_costs) ? data.monthly_costs : []
+      const monthlyCosts = Array.isArray(data?.monthly_costs) ? data.monthly_costs : (Array.isArray(data) ? data : [])
 
       const bcToCode = new Map()
       for (const r of itemRows) {
@@ -444,6 +444,8 @@ const BusinessPlanExpenseTableDetail = (props) => {
         })
 
         setNotice({ type: "success", title: "บันทึกสำเร็จ ✅", detail: `บันทึก ${res?.saved_count ?? built.costs.length} รายการ` })
+
+        await loadSavedFromBE()
     } catch (e) {
         setNotice({ type: "error", title: "บันทึกไม่สำเร็จ ❌", detail: e?.message || String(e) })
     } finally {

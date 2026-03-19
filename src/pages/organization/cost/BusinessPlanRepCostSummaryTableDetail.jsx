@@ -84,10 +84,10 @@ async function apiAuth(path, { method = "GET", body } = {}) {
 
 /** ---------------- UI styles ---------------- */
 const cellInput =
-  "w-full min-w-0 max-w-full box-border rounded-md border border-slate-400 bg-white px-1.5 py-1 " +
+  "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
   "text-right text-[12px] outline-none " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-500 dark:bg-slate-900 dark:text-slate-100"
+  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
 const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
 
@@ -158,7 +158,7 @@ const COL_W = { code: 60, item: 260, cell: 90, total: 100 }
 const LEFT_W = COL_W.code + COL_W.item
 
 const STRIPE = {
-  head: "bg-slate-100/90 dark:bg-slate-700/70",
+  head: "bg-slate-100 dark:bg-slate-700",
   cell: "bg-white dark:bg-slate-900",
   alt: "bg-slate-50 dark:bg-slate-800",
   subtotal: "bg-emerald-100 dark:bg-emerald-900",
@@ -393,6 +393,59 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
     return totals
   }, [valuesByCode, itemRows, unitCols, sectionMap])
 
+  const tableWrapRef = useRef(null)
+  const inputRefs = useRef(new Map())
+
+  const registerInput = useCallback((rIdx, cIdx) => (el) => {
+    const key = `${rIdx}|${cIdx}`
+    if (!el) inputRefs.current.delete(key)
+    else inputRefs.current.set(key, el)
+  }, [])
+
+  const ensureInView = useCallback((el) => {
+    const container = tableWrapRef.current
+    if (!container || !el) return
+    const pad = 20
+    const frozenLeft = LEFT_W
+    const crect = container.getBoundingClientRect()
+    const erect = el.getBoundingClientRect()
+    const visibleLeft = crect.left + frozenLeft + pad
+    const visibleRight = crect.right - pad
+    if (erect.left < visibleLeft) container.scrollLeft -= (visibleLeft - erect.left)
+    else if (erect.right > visibleRight) container.scrollLeft += (erect.right - visibleRight)
+    if (erect.top < crect.top + pad) container.scrollTop -= (crect.top + pad - erect.top)
+    else if (erect.bottom > crect.bottom - pad) container.scrollTop += (erect.bottom - (crect.bottom - pad))
+  }, [])
+
+  const handleArrowNav = useCallback((e) => {
+    const k = e.key
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter"].includes(k)) return
+    const rIdx = Number(e.currentTarget.dataset.row ?? 0)
+    const cIdx = Number(e.currentTarget.dataset.col ?? 0)
+    const totalCols = MONTHS.length * unitCols.length
+    let nextR = rIdx, nextC = cIdx
+
+    if (k === "ArrowLeft") {
+      if (cIdx === 0) {
+        if (rIdx > 0) { nextR = rIdx - 1; nextC = totalCols - 1 }
+      } else nextC = cIdx - 1
+    }
+    if (k === "ArrowRight" || k === "Enter") {
+      if (cIdx === totalCols - 1) {
+        if (rIdx < itemRows.length - 1) { nextR = rIdx + 1; nextC = 0 }
+      } else nextC = cIdx + 1
+    }
+    if (k === "ArrowUp") nextR = Math.max(0, rIdx - 1)
+    if (k === "ArrowDown") nextR = Math.min(itemRows.length - 1, rIdx + 1)
+
+    const target = inputRefs.current.get(`${nextR}|${nextC}`)
+    if (target) {
+      e.preventDefault(); target.focus()
+      try { target.select() } catch {}
+      requestAnimationFrame(() => ensureInView(target))
+    }
+  }, [itemRows.length, unitCols.length, ensureInView])
+
   const [notice, setNotice] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -484,9 +537,9 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             </div>
         </div>
 
-      <div className="rounded-2xl border border-slate-400 bg-white shadow-sm dark:border-slate-500 dark:bg-slate-800 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-auto">
-          <table className="border-collapse border border-slate-400 dark:border-slate-500 text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-auto max-h-[70vh]" ref={tableWrapRef}>
+          <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.code }} />
               <col style={{ width: COL_W.item }} />
@@ -496,19 +549,19 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
             <thead className="sticky top-0 z-20">
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
-                <th rowSpan={2} className="border border-slate-400 px-1 py-2 text-center font-bold text-xs dark:border-slate-500 sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รหัส</th>
-                <th rowSpan={2} className="border border-slate-400 px-2 py-2 text-left font-bold text-xs dark:border-slate-500 sticky left-[60px] z-10 bg-slate-100 dark:bg-slate-700">รายการ</th>
+                <th rowSpan={2} className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-100 dark:bg-slate-700">รหัส</th>
+                <th rowSpan={2} className="border border-slate-300 px-2 py-2 text-left font-bold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-100 dark:bg-slate-700">รายการ</th>
                 {MONTHS.map((m, mIdx) => (
-                    <th key={m.key} colSpan={unitCols.length} className={cx("border border-slate-400 px-1 py-2 text-center text-xs font-semibold dark:border-slate-500", monthStripeHead(mIdx))}>{m.label}</th>
+                    <th key={m.key} colSpan={unitCols.length} className={cx("border border-slate-300 px-1 py-2 text-center text-xs font-semibold dark:border-slate-600", monthStripeHead(mIdx))}>{m.label}</th>
                 ))}
-                <th colSpan={unitCols.length} className="border border-slate-400 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-500">รวม</th>
+                <th colSpan={unitCols.length} className="border border-slate-300 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-600 bg-slate-100 dark:bg-slate-700">รวม</th>
               </tr>
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
                 {MONTHS.map((m, mIdx) => unitCols.map(u => (
-                    <th key={`${m.key}-${u.id}`} className={cx("border border-slate-400 px-1 py-1 text-center text-[11px] font-medium dark:border-slate-500", monthStripeHead(mIdx))} title={u.name}>{u.short}</th>
+                    <th key={`${m.key}-${u.id}`} className={cx("border border-slate-300 px-1 py-1 text-center text-[11px] font-medium dark:border-slate-600", monthStripeHead(mIdx))} title={u.name}>{u.short}</th>
                 )))}
                 {unitCols.map(u => (
-                    <th key={`total-h-${u.id}`} className="border border-slate-400 px-1 py-1 text-center text-[11px] font-semibold dark:border-slate-500" title={u.name}>{u.short}</th>
+                    <th key={`total-h-${u.id}`} className="border border-slate-300 px-1 py-1 text-center text-[11px] font-semibold dark:border-slate-600 bg-slate-100 dark:bg-slate-700" title={u.name}>{u.short}</th>
                 ))}
               </tr>
             </thead>
@@ -523,37 +576,44 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                 if (r.kind === 'title' || r.kind === 'section') {
                     return (
                         <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">
-                          <td className="border border-slate-400 px-1 py-2 text-center font-bold text-xs dark:border-slate-500 sticky left-0 z-10 bg-slate-200 dark:bg-slate-700">{r.kind==='section' ? r.code: ''}</td>
-                          <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 1} className="border border-slate-400 px-2 py-2 font-extrabold text-xs dark:border-slate-500 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700">{r.label}</td>
+                          <td className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-200 dark:bg-slate-700">{r.kind==='section' ? r.code: ''}</td>
+                          <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 1} className="border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700">{r.label}</td>
                         </tr>
                     )
                 }
 
+                const itemIndex = r.kind === 'item' ? itemRows.findIndex(x => x.code === r.code) : -1
+
                 return (
                   <tr key={r.code} className={cx(rowBg, font)}>
-                    <td className={cx("border border-slate-400 px-1 py-2 text-center text-xs dark:border-slate-500 sticky left-0 z-10", rowBg)}>{isSpecialRow ? '' : r.code}</td>
-                    <td className={cx("border border-slate-400 px-2 py-2 text-left font-semibold text-xs dark:border-slate-500 sticky left-[60px] z-10", rowBg, trunc)} title={r.label}>{r.label}</td>
+                    <td className={cx("border border-slate-300 px-1 py-2 text-center text-xs dark:border-slate-600 sticky left-0 z-10", rowBg)}>{isSpecialRow ? '' : r.code}</td>
+                    <td className={cx("border border-slate-300 px-2 py-2 text-left font-semibold text-xs dark:border-slate-600 sticky left-[60px] z-10", rowBg, trunc)} title={r.label}>{r.label}</td>
                     
-                    {MONTHS.map((m, mIdx) => unitCols.map((u) => (
-                        <td key={`${r.code}-${m.key}-${u.id}`} className={cx("border border-slate-400 px-1 py-1 dark:border-slate-500", monthStripeCell(mIdx))}>
+                    {MONTHS.map((m, mIdx) => unitCols.map((u, ui) => {
+                        const colIdx = mIdx * unitCols.length + ui
+                        return (
+                          <td key={`${r.code}-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1 py-1 dark:border-slate-600", monthStripeCell(mIdx))}>
                            {r.kind === 'item' ? (
                                 <input
+                                    ref={registerInput(itemIndex, colIdx)}
+                                    data-row={itemIndex} data-col={colIdx}
+                                    onKeyDown={handleArrowNav}
                                     className={cellInput}
                                     value={valuesByCode?.[r.code]?.[m.key]?.[u.id] ?? ""}
                                     inputMode="decimal"
                                     placeholder="0"
+                                    disabled={!branchId || u.id <= 0}
                                     onChange={(e) => setCell(r.code, m.key, u.id, sanitizeNumberInput(e.target.value, { maxDecimals: 2 }))}
                                 />
                            ) : (
-                               <div className="px-1.5 py-1 text-right text-xs">
-                                { /* Monthly sub-totals can go here if needed */ }
-                               </div>
+                               <div className="px-1.5 py-1 text-right text-xs">{fmtMoney0(totalInfo?.byUnit[u.id] ?? 0)}</div>
                            )}
-                        </td>
-                    )))}
+                          </td>
+                        )
+                    }))}
 
                     {unitCols.map(u => (
-                        <td key={`total-${r.code}-${u.id}`} className="border border-slate-400 px-1.5 py-1 text-right font-semibold text-xs dark:border-slate-500">
+                        <td key={`total-${r.code}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-semibold text-xs dark:border-slate-600", rowBg)}>
                             {fmtMoney0(totalInfo?.byUnit[u.id] ?? 0)}
                         </td>
                     ))}
@@ -561,9 +621,9 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                 )
               })}
             </tbody>
-             <tfoot>
-                <tr className={STRIPE.grandtotal}>
-                    <td colSpan={2} className="border border-slate-400 px-2 py-2 text-center font-extrabold dark:border-slate-500 sticky left-0 z-10">รวมทั้งหมด</td>
+             <tfoot className="sticky bottom-0 z-20">
+                <tr className={cx("text-slate-900 dark:text-slate-100", STRIPE.grandtotal)}>
+                    <td colSpan={2} className="border border-slate-300 px-2 py-2 text-center font-extrabold dark:border-slate-600 sticky left-0 z-10 bg-emerald-200 dark:bg-emerald-800">รวมทั้งหมด</td>
                     {MONTHS.map((m, mIdx) => unitCols.map(u => {
                         let monthUnitTotal = 0;
                         for (const subtotalCode of Object.keys(sectionMap)) {
@@ -571,11 +631,11 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                                 monthUnitTotal += toNumber(valuesByCode[itemCode]?.[m.key]?.[u.id])
                             }
                         }
-                        return <td key={`tf-${m.key}-${u.id}`} className={cx("border border-slate-400 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-500", monthStripeCell(mIdx))}>{fmtMoney0(monthUnitTotal)}</td>
+                        return <td key={`tf-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600", monthStripeCell(mIdx))}>{fmtMoney0(monthUnitTotal)}</td>
                     }))}
 
                     {unitCols.map(u => (
-                        <td key={`tf-total-${u.id}`} className="border border-slate-400 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-500">{fmtMoney0(computed["G.T"]?.byUnit[u.id] ?? 0)}</td>
+                        <td key={`tf-total-${u.id}`} className="border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600 bg-emerald-200 dark:bg-emerald-800">{fmtMoney0(computed["G.T"]?.byUnit[u.id] ?? 0)}</td>
                     ))}
                 </tr>
             </tfoot>

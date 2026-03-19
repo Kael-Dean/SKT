@@ -19,6 +19,18 @@ import BusinessPlanExpenseSupportWorkTable from "./cost/BusinessPlanExpenseSuppo
 import BusinessPlanRepCostSummaryTable from "./cost/BusinessPlanRepCostSummaryTable"
 import Thonthun from "./thonthun/Thonthun"
 
+// รายเดือน
+import BusinessPlanExpenseTableDetail from "./cost/BusinessPlanExpenseTableDetail"
+import BusinessPlanExpenseOilTableDetail from "./cost/BusinessPlanExpenseOilTableDetail"
+import BusinessPlanExpenseCollectionTableDetail from "./cost/BusinessPlanExpenseCollectionTableDetail"
+import BusinessPlanExpenseProcessingTableDetail from "./cost/BusinessPlanExpenseProcessingTableDetail"
+import BusinessPlanExpenseSeedProcessingTableDetail from "./cost/BusinessPlanExpenseSeedProcessingTableDetail"
+import BusinessPlanExpenseServiceTableDetail from "./cost/BusinessPlanExpenseServiceTableDetail"
+import BusinessPlanExpenseSupportWorkTableDetail from "./cost/BusinessPlanExpenseSupportWorkTableDetail"
+import BusinessPlanRepCostSummaryTableDetail from "./cost/BusinessPlanRepCostSummaryTableDetail"
+import ThonthunDetail from "./thonthun/ThonthunDetail"
+
+
 // ---------------- Styles ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
@@ -295,9 +307,61 @@ const COST_TABLES = [
     file: "cost/BusinessPlanRepCostSummaryTable.jsx",
     Component: BusinessPlanRepCostSummaryTable,
   },
+  // รายเดือน
+  {
+    key: "business-plan-expense-table-detail",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า (รายเดือน)",
+    file: "cost/BusinessPlanExpenseTableDetail.jsx",
+    Component: BusinessPlanExpenseTableDetail,
+  },
+  {
+    key: "business-plan-expense-oil-table-detail",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า ปั๊มน้ำมัน (รายเดือน)",
+    file: "cost/BusinessPlanExpenseOilTableDetail.jsx",
+    Component: BusinessPlanExpenseOilTableDetail,
+  },
+  {
+    key: "business-plan-expense-collection-table-detail",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม (รายเดือน)",
+    file: "cost/BusinessPlanExpenseCollectionTableDetail.jsx",
+    Component: BusinessPlanExpenseCollectionTableDetail,
+  },
+  {
+    key: "business-plan-expense-processing-table-detail",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป (รายเดือน)",
+    file: "cost/BusinessPlanExpenseProcessingTableDetail.jsx",
+    Component: BusinessPlanExpenseProcessingTableDetail,
+  },
+  {
+    key: "business-plan-expense-seed-processing-table-detail",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูปเมล็ดพันธุ์ (รายเดือน)",
+    file: "cost/BusinessPlanExpenseSeedProcessingTableDetail.jsx",
+    Component: BusinessPlanExpenseSeedProcessingTableDetail,
+  },
+  {
+    key: "business-plan-expense-service-table-detail",
+    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจบริการ (รายเดือน)",
+    file: "cost/BusinessPlanExpenseServiceTableDetail.jsx",
+    Component: BusinessPlanExpenseServiceTableDetail,
+  },
+  {
+    key: "business-plan-expense-support-work-table-detail",
+    label: "ค่าใช้จ่ายดำเนินงาน (รายเดือน)",
+    file: "cost/BusinessPlanExpenseSupportWorkTableDetail.jsx",
+    Component: BusinessPlanExpenseSupportWorkTableDetail,
+  },
+  {
+    key: "business-plan-rep-cost-summary-detail",
+    label: "ต้นทุนขายเฉพาะธุรกิจ (รายเดือน)",
+    file: "cost/BusinessPlanRepCostSummaryTableDetail.jsx",
+    Component: BusinessPlanRepCostSummaryTableDetail,
+  },
 ]
 
-const THONTHUN_TABLES = [{ key: "thonthun", label: "ประมาณการต้นทุนสินค้า", file: "thonthun/Thonthun.jsx", Component: Thonthun }]
+const THONTHUN_TABLES = [
+    { key: "thonthun", label: "ประมาณการต้นทุนสินค้า", file: "thonthun/Thonthun.jsx", Component: Thonthun },
+    { key: "thonthun-detail", label: "ประมาณการต้นทุนสินค้า (รายเดือน)", file: "thonthun/ThonthunDetail.jsx", Component: ThonthunDetail },
+]
 
 const OperationPlan = () => {
   useEffect(() => {

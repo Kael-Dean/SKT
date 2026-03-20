@@ -370,7 +370,8 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
 
   useEffect(() => {
     loadSavedFromBE()
-  }, [loadSavedFr
+  }, [loadSavedFromBE])
+
   const setCell = useCallback((code, monthKey, unitId, nextValue) => {
     setValuesByCode((prev) => ({
       ...prev,
@@ -535,24 +536,32 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
     } catch (e) {
         const status = e?.status || 0
         let title = "บันทึกไม่สำเร็จ ❌"
-        let detail = e?.message  422) {
+        let detail = e?.message
+        if (status === 422) {
             title = "422 Validation Error"
             detail = "ข้อมูลไม่ถูกต้อง (ดู console)"
         } else if (status === 400) {
             title = "400 Bad Request"
             detail = "ข้อมูลไม่ตรงกับข้อมูลรายปี"
         }
+        setNotice({ type: "error", title, detail })
+        console.error("Save failed:", e)
+    } finally {
+        setIsSaving(false)
+    }
+  }
 
   const RIGHT_W = (MONTHS.length * unitCols.length * COL_W.cell) + (unitCols.length * COL_W.total)
   const TOTAL_W = LEFT_W + RIGHT_W
-  return (-y-3">
+  return (<div className="py-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ (งานสนับสนุน) - รายเดือน</div>
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                 ({periodLabel}) • ปี {effectiveYear} • plan_id {effectivePlanId} • สาขา {effectiveBranchName}
                 {isLoadingUnits ? " • กำลังโหลดหน่วย..." : ` • ${unitCols.length > 0 && unitCols[0].id !== 0 ? unitCols.length : 0} หน่วย`}
-                {isLoadingSaved ? "
-             <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
+                {isLoadingSaved ? " • กำลังโหลดข้อมูล..." : ""}
+            </div>
+            <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
               รวมทั้งหมด (บาท): <span className="font-extrabold">{fmtMoney(computed.grandTotal)}</span>
             </div>
         </div>

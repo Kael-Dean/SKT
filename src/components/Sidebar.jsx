@@ -237,7 +237,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           <div className="p-4 pb-3 shrink-0 border-b border-gray-200/70 dark:border-gray-700/70">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-sm">
-                SKT
+                AMC
               </div>
               <div>
                 <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">ระบบจัดการ HR</p>

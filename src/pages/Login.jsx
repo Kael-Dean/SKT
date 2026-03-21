@@ -1,8 +1,10 @@
 // src/pages/Login.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { saveAuth, getToken, isTokenExpired } from "../lib/auth";
+
+const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`;
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -10,7 +12,16 @@ const Login = () => {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
   const [showPass, setShowPass] = useState(false);
+  const [isDark] = useState(() => {
+    const stored = localStorage.getItem("darkMode");
+    if (stored !== null) return stored === "true";
+    return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? false;
+  });
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDark);
+  }, [isDark]);
 
   // ถ้ามีโทเคนและยังไม่หมดอายุ เด้งเข้าหน้าหลัก
   const token = getToken();
@@ -44,8 +55,21 @@ const Login = () => {
 
         {/* Branding */}
         <div className="mb-6 text-center">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-white text-lg font-bold shadow-lg mb-3">
-            SKT
+          <div className="flex justify-center mb-3">
+            <img
+              src={isDark ? asset("/logo/skt-logo-dark.png") : asset("/logo/skt-logo.png")}
+              onError={(e) => {
+                const cur = e.currentTarget.src;
+                const alt = cur.includes("skt-logo-dark")
+                  ? asset("/logo/skt-logo.png")
+                  : asset("/logo/skt-logo-dark.png");
+                if (cur !== alt) e.currentTarget.src = alt;
+              }}
+              alt="โลโก้องค์กร"
+              className="h-16 w-auto object-contain"
+              loading="eager"
+              decoding="async"
+            />
           </div>
           <h1 className="text-base font-semibold text-gray-600 dark:text-gray-400 leading-snug">
             สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.

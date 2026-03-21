@@ -1599,7 +1599,7 @@ ${baseMsg}${summary}`)
                 dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
                 dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
             >
-              ล้างเฉพาะค่าชั่ง/ราคา
+              รีเซ็ต
             </button>
           </div>
         </form>

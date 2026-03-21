@@ -664,7 +664,7 @@ function StockBringInMill() {
               dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
               dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
           >
-            ล้างเฉพาะราคากับปริมาณ
+            รีเซ็ต
           </button>
         </div>
       </div>

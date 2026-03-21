@@ -1605,7 +1605,7 @@ function Documents() {
                   "dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
                 }
               >
-                รีเซ็ตตัวกรอง
+                รีเซ็ต
               </button>
             </div>
           </form>

@@ -752,7 +752,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, 
                          hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
                          dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
             >
-              ล้างข้อมูล
+              รีเซ็ต
             </button>
           </div>
         </div>

@@ -2706,15 +2706,15 @@ ${summary}`)
               onClick={handleReset}
               className="inline-flex items-center justify-center rounded-2xl 
                 border border-slate-300 bg-white px-6 py-3 text-base font-medium 
-                text-slate-700 dark:text:white
+                text-slate-700 dark:text-white
                 shadow-sm
                 transition-all duration-300 ease-out
                 hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
                 active:scale-[.97]
-                dark:border-slate-600 dark:bg-slate-700/60 
+                dark:border-slate-600 dark:bg-slate-700/60
                 dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
             >
-              ล้างฟอร์ม
+              รีเซ็ต
             </button>
           </div>
         </form>

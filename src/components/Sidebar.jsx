@@ -12,18 +12,18 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const roleId = useMemo(() => getRoleId(), [])
   const canCompanyAdd = useMemo(() => canSeeAddCompany(), [])
 
-  const firstMenu = { label: "หน้าหลัก", path: "/home" }
+  const firstMenu = { label: "🏠 หน้าหลัก", path: "/home" }
 
   const businessBase = useMemo(
     () => [
-      { label: "ยกมา", path: "/bring-in" },
-      { label: "ยกเข้าโรงสี", path: "/bring-in-mill" },
-      { label: "ซื้อข้าว", path: "/Buy" },
-      { label: "ขายข้าว", path: "/sales" },
-      { label: "รับเข้า", path: "/transfer-in" },
-      { label: "โอนออก", path: "/transfer-out" },
-      { label: "ส่งสี", path: "/transfer-mill" },
-      { label: "ตัดเสียหาย", path: "/damage-out" },
+      { label: "📤 ยกมา", path: "/bring-in" },
+      { label: "🏭 ยกเข้าโรงสี", path: "/bring-in-mill" },
+      { label: "🛒 ซื้อข้าว", path: "/Buy" },
+      { label: "💰 ขายข้าว", path: "/sales" },
+      { label: "📥 รับเข้า", path: "/transfer-in" },
+      { label: "📦 โอนออก", path: "/transfer-out" },
+      { label: "🔄 ส่งสี", path: "/transfer-mill" },
+      { label: "⚠️ ตัดเสียหาย", path: "/damage-out" },
     ],
     []
   )
@@ -191,14 +191,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const baseBtn =
     "w-full h-12 flex items-center justify-center rounded-xl transition-all duration-200 ease-out font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 px-4 hover:cursor-pointer"
   const idleBtn =
-    "text-gray-900 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-100 dark:hover:bg-gray-700 dark:hover:text-white hover:scale-[1.02] hover:shadow-md"
+    "text-gray-900 hover:bg-indigo-50 hover:text-indigo-700 dark:text-gray-100 dark:hover:bg-gray-700 dark:hover:text-white hover:scale-[1.02] hover:shadow-md"
   const activeBtn =
-    "bg-black text-white dark:bg-gray-800 dark:text-white hover:scale-[1.02] hover:shadow-lg hover:opacity-90"
+    "bg-indigo-600 text-white dark:bg-indigo-700 dark:text-white hover:scale-[1.02] hover:shadow-lg hover:opacity-90"
   const subBtnBase =
     "w-full h-11 flex items-center justify-center rounded-lg px-4 transition-all duration-200 ease-out text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 hover:cursor-pointer"
   const subIdle =
-    "text-gray-700 hover:bg-blue-100 hover:text-blue-800 dark:text-gray-200 dark:hover:bg-gray-700"
-  const subActive = "bg-black/90 text-white dark:bg-white/90 dark:text-black font-semibold"
+    "text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 dark:text-gray-200 dark:hover:bg-gray-700"
+  const subActive = "bg-indigo-500 text-white dark:bg-indigo-600 dark:text-white font-semibold"
 
   const cardWrapper = "px-3 py-1"
   const cardBox =
@@ -234,8 +234,16 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         } bg-white dark:bg-gray-900 shadow-lg`}
       >
         <div className="flex h-full flex-col">
-          <div className="p-4 shrink-0">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">🏢 เมนู</h1>
+          <div className="p-4 pb-3 shrink-0 border-b border-gray-200/70 dark:border-gray-700/70">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-sm">
+                SKT
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">ระบบจัดการ HR</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">สหกรณ์ ธ.ก.ส. สุรินทร์</p>
+              </div>
+            </div>
           </div>
 
           <nav className="flex-1 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">

@@ -910,7 +910,7 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
                 isSaving && "opacity-60 hover:scale-100 cursor-not-allowed"
               )}
             >
-              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
+              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
           </div>
         </div>

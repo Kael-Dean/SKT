@@ -1,6 +1,7 @@
 // src/pages/Sales.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth, post } from "../lib/api"
+import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../lib/styles"
 
 // ---------------- Utilities ----------------
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -41,16 +42,6 @@ function useDebounce(value, delay = 400) {
 }
 
 // ---------------- Styles ----------------
-const cx = (...a) => a.filter(Boolean).join(" ")
-const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
-  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
-const fieldDisabled =
-  "bg-slate-100 text-slate-600 cursor-not-allowed opacity-95 dark:bg-slate-700/70 dark:text-slate-300"
-const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
-const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
-const errorTextCls = "mt-1 text-sm text-red-500"
 
 // ---------------- Enter-to-next ----------------
 const isEnabledInput = (el) => {
@@ -2704,10 +2695,10 @@ ${summary}`)
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25"></circle>
                     <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none"></path>
                   </svg>
-                  กำลังบันทึก…
+                  กำลังบันทึก...
                 </span>
               ) : (
-                <>บันทึกออเดอร์ขาย ({trailers.length} คัน)</>
+                <>บันทึก</>
               )}
             </button>
             <button

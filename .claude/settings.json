@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(wc -l /c/Organization/SKT/src/pages/organization/cost/*.jsx)"
+      "Bash(wc -l /c/Organization/SKT/src/pages/organization/cost/*.jsx)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)"
     ]
   }
 }

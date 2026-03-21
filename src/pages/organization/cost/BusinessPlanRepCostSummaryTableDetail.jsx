@@ -675,7 +675,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                     (isSaving || !unitCols.length || unitCols[0].id === 0) && "opacity-60 hover:scale-100 cursor-not-allowed"
                 )}
                 >
-                {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
+                {isSaving ? "กำลังบันทึก..." : "บันทึก"}
                 </button>
             </div>
         </div>

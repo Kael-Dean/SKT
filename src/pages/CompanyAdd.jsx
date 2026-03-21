@@ -2,10 +2,10 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../lib/api"
 import { canSeeAddCompany } from "../lib/auth"
+import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../lib/styles"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
-const cx = (...a) => a.filter(Boolean).join(" ")
 const is13 = (s = "") => onlyDigits(s).length === 13
 const toNull = (s) => {
   const v = (s ?? "").trim()
@@ -13,15 +13,7 @@ const toNull = (s) => {
 }
 
 /** ---------- Styles (เทียบให้ตรงกับ CustomerAdd) ---------- */
-const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
-  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
-
 const fieldError = "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500"
-const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
-const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
-const errorTextCls = "mt-1 text-sm text-red-500"
 
 function SectionCard({ title, subtitle, children, className = "" }) {
   return (
@@ -585,7 +577,7 @@ const CompanyAddInner = () => {
                            disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                 aria-busy={submitting ? "true" : "false"}
               >
-                {submitting ? "กำลังบันทึก..." : "บันทึกข้อมูลบริษัท"}
+                {submitting ? "กำลังบันทึก..." : "บันทึก"}
               </button>
 
               <button

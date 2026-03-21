@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { apiAuth } from "../lib/api";
 import { getUser } from "../lib/auth";
+import { baseField } from "../lib/styles";
 
 /* ---------------- Utilities (ทนทานต่อค่าที่ไม่ใช่สตริง) ---------------- */
 const asString = (v) => (v === null || v === undefined ? "" : String(v));
@@ -25,12 +26,6 @@ function useDebounce(value, delay = 400) {
   }, [value, delay]);
   return debounced;
 }
-
-/* ---------------- Base field style ---------------- */
-const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
-  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30";
 
 /* ---------------- Reusable ComboBox ---------------- */
 function ComboBox({
@@ -1197,7 +1192,7 @@ function OrderCorrection() {
                           disabled={saving}
                           className="rounded-2xl bg-emerald-600 px-5 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98] disabled:opacity-60"
                         >
-                          {saving ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
+                          {saving ? "กำลังบันทึก..." : "บันทึก"}
                         </button>
                         <button
                           type="button"

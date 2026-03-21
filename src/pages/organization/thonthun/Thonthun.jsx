@@ -950,7 +950,7 @@ if (res == null) throw new Error("บันทึกไม่สำเร็จ"
                 (isSaving || !items.length) && "opacity-60 hover:scale-100 cursor-not-allowed"
               )}
             >
-              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
+              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
           </div>
         </div>

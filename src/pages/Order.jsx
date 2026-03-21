@@ -1,6 +1,7 @@
 // src/pages/Order.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api"  // ✅ helper รวม token/BASE URL
+import { cx, baseField } from "../lib/styles"
 
 /** ----------- Utils ----------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -23,13 +24,6 @@ function useDebounce(value, delay = 400) {
 }
 
 /** ---------- class helpers ---------- */
-const cx = (...a) => a.filter(Boolean).join(" ")
-
-/// ---------- Base field style ----------
-const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
-  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
 
 /** ---------- Reusable ComboBox (เหมือนหน้า Buy: รองรับ subLabel) ---------- */
 function ComboBox({

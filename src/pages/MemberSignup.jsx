@@ -1,6 +1,7 @@
 // src/pages/MemberSignup.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../lib/api"   // ✅ แนบ token อัตโนมัติ + จัดการ 401
+import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../lib/styles"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -43,9 +44,6 @@ const n3 = (x) => {
     ? n.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })
     : "0.000"
 }
-
-/** ---------- class helpers ---------- */
-const cx = (...a) => a.filter(Boolean).join(" ")
 
 /** ---------- Enter-to-next helpers ---------- */
 // ตรวจว่า element โฟกัสได้จริง
@@ -120,18 +118,9 @@ const useEnterNavigation = (refs) => {
 }
 
 /** ---------- สไตล์ ---------- */
-const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
-  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
-
 const fieldError = "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500"
 const fieldDisabled =
   "bg-slate-200 text-slate-600 cursor-not-allowed opacity-95 dark:bg-slate-700/70 dark:text-slate-300"
-
-const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
-const helpTextCls = "mt-1 text-sm text-slate-600 dark:text-slate-300"
-const errorTextCls = "mt-1 text-sm text-red-500"
 
 /** **********************************************************************
  * จังหวัดสุรินทร์: รายการอำเภอ (ครบ 17) และตำบล (ตามที่ผู้ใช้ส่งมา)
@@ -1356,7 +1345,7 @@ const MemberSignup = () => {
                             disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                 aria-busy={submitting ? "true" : "false"}
               >
-                {submitting ? "กำลังบันทึก..." : "บันทึกการสมัครสมาชิก"}
+                {submitting ? "กำลังบันทึก..." : "บันทึก"}
               </button>
 
               <button

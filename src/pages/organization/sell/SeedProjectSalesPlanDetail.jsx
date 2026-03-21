@@ -795,7 +795,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
               disabled={isSaving || !canEdit || !savableUnits.length}
               onClick={saveAll}
             >
-              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
+              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
           </div>
         </div>

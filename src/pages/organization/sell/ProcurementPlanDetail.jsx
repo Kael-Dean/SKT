@@ -863,7 +863,7 @@ function ProcurementPlanDetail(props) {
               disabled={isSaving || !canEdit}
               onClick={saveAll}
             >
-              {isSaving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
+              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
           </div>
         </div>

@@ -804,7 +804,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
                   : "bg-emerald-600 hover:bg-emerald-700 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:scale-[1.03] active:scale-[.98] cursor-pointer"
               )}
             >
-              {saving ? "กำลังบันทึก..." : "บันทึกลงระบบ"}
+              {saving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
           </div>
         </div>

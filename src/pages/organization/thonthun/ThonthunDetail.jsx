@@ -229,7 +229,7 @@ const ThonthunDetail = ({ branchName, yearBE, planId }) => {
             </div>}
             <div className="flex justify-end">
                 <button onClick={saveToBE} disabled={isSaving} className="px-6 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 disabled:bg-slate-400">
-                  {isSaving ? "กำลังบันทึก..." : "บันทึกข้อมูลรายเดือน"}
+                  {isSaving ? "กำลังบันทึก..." : "บันทึก"}
                 </button>
             </div>
         </div>

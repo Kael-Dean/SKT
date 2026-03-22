@@ -65,20 +65,18 @@ const Login = () => {
         {/* Branding */}
         <div className="mb-6 text-center">
           <div className="flex justify-center mb-3">
-            <img
-              src={isDark ? asset("/logo/skt-logo-dark.png") : asset("/logo/skt-logo.png")}
-              onError={(e) => {
-                const cur = e.currentTarget.src;
-                const alt = cur.includes("skt-logo-dark")
-                  ? asset("/logo/skt-logo.png")
-                  : asset("/logo/skt-logo-dark.png");
-                if (cur !== alt) e.currentTarget.src = alt;
-              }}
-              alt="โลโก้องค์กร"
-              className="h-16 w-auto object-contain"
-              loading="eager"
-              decoding="async"
-            />
+            <div className="rounded-2xl bg-white p-2 shadow-md">
+              <img
+                src={asset("/logo/skt-logo.png")}
+                onError={(e) => {
+                  e.currentTarget.src = asset("/logo/skt-logo-dark.png");
+                }}
+                alt="โลโก้องค์กร"
+                className="h-14 w-auto object-contain"
+                loading="eager"
+                decoding="async"
+              />
+            </div>
           </div>
           <h1 className="text-base font-semibold text-white/90 leading-snug">
             สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.

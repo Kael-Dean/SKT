@@ -34,6 +34,11 @@ import OrderCorrection from "./pages/OrderCorrection.jsx"
 /** ✅ หน้าใหม่: เพิ่มรหัสข้าว (ProductSpec) */
 import RiceSpecCreate from "./pages/RiceSpecCreate.jsx"
 
+/** ✅ Phase 3B — HR */
+import HRStaffSignup from "./pages/hr/HRStaffSignup.jsx"
+import MyProfile from "./pages/MyProfile.jsx"
+import LeaveRequest from "./pages/LeaveRequest.jsx"
+
 /* ---------------- role helpers (robust) ---------------- */
 const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
 const ROLE_ALIASES = {
@@ -178,6 +183,14 @@ function RequireAdminHA({ children }) {
   return children
 }
 
+/* ✅ Route guard: เฉพาะ ADMIN + HR — ใช้กับหน้า "ลงทะเบียนพนักงาน" */
+function RequireAdminOrHR({ children }) {
+  const r = getRoleId()
+  const ok = r === ROLE.ADMIN || r === ROLE.HR
+  if (!ok) return <Navigate to="/home" replace />
+  return children
+}
+
 function App() {
   return (
     <Routes>
@@ -249,6 +262,20 @@ function App() {
             </RequireAdminHA>
           }
         />
+
+        {/* ✅ Phase 3B — HR routes */}
+        <Route
+          path="/hr/staff-signup"
+          element={
+            <RequireAdminOrHR>
+              <HRStaffSignup />
+            </RequireAdminOrHR>
+          }
+        />
+
+        {/* ✅ Phase 3B — Personal routes (ทุก role เข้าถึงได้) */}
+        <Route path="/my-profile" element={<MyProfile />} />
+        <Route path="/leave-request" element={<LeaveRequest />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

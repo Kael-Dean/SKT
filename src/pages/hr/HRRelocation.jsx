@@ -107,7 +107,7 @@ export default function HRRelocation() {
           <button
             key={v}
             onClick={() => setActiveTab(v)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${activeTab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
           >
             {label}
           </button>
@@ -140,7 +140,7 @@ export default function HRRelocation() {
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => openModal(e)}
-                        className="px-3 py-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition"
+                        className="px-3 py-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition cursor-pointer"
                       >
                         ย้ายสาขา
                       </button>
@@ -207,7 +207,7 @@ export default function HRRelocation() {
                 </p>
                 <button
                   onClick={() => setModal(null)}
-                  className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition"
+                  className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition cursor-pointer"
                 >
                   ปิด
                 </button>
@@ -252,14 +252,14 @@ export default function HRRelocation() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setModal(null)}
-                    className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                    className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer"
                   >
                     ยกเลิก
                   </button>
                   <button
                     onClick={handleRelocate}
                     disabled={!targetBranch}
-                    className="flex-1 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition shadow-sm"
+                    className="flex-1 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition shadow-sm cursor-pointer"
                   >
                     ยืนยันย้ายสาขา
                   </button>

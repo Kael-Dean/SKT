@@ -81,7 +81,7 @@ export default function HRFinance() {
           <button
             key={v}
             onClick={() => setActiveTab(v)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${activeTab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
           >
             {label}
           </button>
@@ -116,7 +116,7 @@ export default function HRFinance() {
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => openEdit(e)}
-                        className="px-3 py-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition"
+                        className="px-3 py-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition cursor-pointer"
                       >
                         แก้ไข
                       </button>
@@ -153,7 +153,7 @@ export default function HRFinance() {
                     <td className="px-4 py-3 text-right text-red-600 dark:text-red-400">-{fmt(p.deduction)}</td>
                     <td className="px-4 py-3 text-right font-bold text-emerald-700 dark:text-emerald-300">{fmt(p.net)}</td>
                     <td className="px-4 py-3 text-center">
-                      <button className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                      <button className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition cursor-pointer">
                         📄 ดูสลิป
                       </button>
                     </td>
@@ -162,7 +162,7 @@ export default function HRFinance() {
               </tbody>
             </table>
           </div>
-          <button className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition shadow-sm">
+          <button className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition shadow-sm cursor-pointer">
             + สร้างสลิปเงินเดือนประจำเดือน
           </button>
         </div>
@@ -208,13 +208,13 @@ export default function HRFinance() {
             <div className="flex gap-3">
               <button
                 onClick={() => setEditModal(null)}
-                className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={saveEdit}
-                className="flex-1 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition shadow-sm"
+                className="flex-1 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer"
               >
                 บันทึก
               </button>

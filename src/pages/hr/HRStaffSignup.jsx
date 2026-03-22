@@ -239,7 +239,7 @@ export default function HRStaffSignup() {
           )}
           <button
             onClick={handleReset}
-            className="mt-2 w-full h-11 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-500 transition"
+            className="mt-2 w-full h-11 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-500 transition cursor-pointer"
           >
             ลงทะเบียนพนักงานคนถัดไป
           </button>
@@ -404,7 +404,7 @@ export default function HRStaffSignup() {
             <button
               type="button"
               onClick={addEdu}
-              className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+              className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
             >
               + เพิ่มรายการ
             </button>
@@ -415,7 +415,7 @@ export default function HRStaffSignup() {
                 <button
                   type="button"
                   onClick={() => removeEdu(i)}
-                  className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700"
+                  className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer"
                 >
                   ✕ ลบ
                 </button>
@@ -442,7 +442,7 @@ export default function HRStaffSignup() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full h-12 rounded-xl bg-indigo-600 text-white font-semibold text-base hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-sm"
+          className="w-full h-12 rounded-xl bg-indigo-600 text-white font-semibold text-base hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-sm cursor-pointer"
         >
           {submitting ? "กำลังบันทึก..." : "ลงทะเบียนพนักงาน"}
         </button>

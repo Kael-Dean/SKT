@@ -64,7 +64,7 @@ export default function HRLeaveManagement() {
           <button
             key={v}
             onClick={() => setTab(v)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${tab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
           >
             {label}
             {v === "pending" && pendingCount > 0 && (
@@ -123,13 +123,13 @@ export default function HRLeaveManagement() {
                   <div className="flex gap-2 shrink-0">
                     <button
                       onClick={() => handleAction(r.id, "approve")}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all shadow-sm hover:shadow-md"
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all shadow-sm hover:shadow-md cursor-pointer"
                     >
                       ✓ อนุมัติ
                     </button>
                     <button
                       onClick={() => handleAction(r.id, "reject")}
-                      className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-all shadow-sm hover:shadow-md"
+                      className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-all shadow-sm hover:shadow-md cursor-pointer"
                     >
                       ✕ ปฏิเสธ
                     </button>
@@ -160,13 +160,13 @@ export default function HRLeaveManagement() {
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmModal(null)}
-                className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={confirmAction}
-                className={`flex-1 h-10 rounded-xl text-white text-sm font-semibold transition shadow-sm ${confirmModal.action === "approve" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-red-600 hover:bg-red-500"}`}
+                className={`flex-1 h-10 rounded-xl text-white text-sm font-semibold transition shadow-sm cursor-pointer ${confirmModal.action === "approve" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-red-600 hover:bg-red-500"}`}
               >
                 ยืนยัน
               </button>

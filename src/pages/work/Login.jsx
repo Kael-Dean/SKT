@@ -50,8 +50,16 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-      <div className="w-full max-w-md">
+    <div
+      className="relative min-h-screen flex items-center justify-center px-4"
+      style={{ backgroundImage: `url(${asset("/bg/skt_bg.png")})`, backgroundSize: "cover", backgroundPosition: "center" }}
+    >
+      {/* Layer: dark base fallback */}
+      <div className="absolute inset-0 bg-gray-900/40" />
+      {/* Layer: indigo brand tint */}
+      <div className="absolute inset-0 bg-indigo-950/55" />
+
+      <div className="relative z-10 w-full max-w-md">
 
         {/* Branding */}
         <div className="mb-6 text-center">
@@ -71,14 +79,14 @@ const Login = () => {
               decoding="async"
             />
           </div>
-          <h1 className="text-base font-semibold text-gray-600 dark:text-gray-400 leading-snug">
+          <h1 className="text-base font-semibold text-white/90 leading-snug">
             สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.
           </h1>
-          <p className="text-sm text-gray-400 dark:text-gray-500">จังหวัดสุรินทร์</p>
+          <p className="text-sm text-white/65">จังหวัดสุรินทร์</p>
         </div>
 
         {/* Card */}
-        <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-8">
+        <div className="rounded-2xl bg-white/90 dark:bg-gray-900/80 shadow-xl backdrop-blur-md ring-1 ring-white/20 dark:ring-white/10 p-8">
           <h2 className="mb-6 text-xl font-bold text-gray-800 dark:text-gray-100">
             เข้าสู่ระบบ
           </h2>

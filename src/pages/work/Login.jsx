@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { saveAuth, getToken, isTokenExpired } from "../../lib/auth";
+import sktBg from "../../assets/skt_bg.png";
 
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`;
 
@@ -52,7 +53,7 @@ const Login = () => {
   return (
     <div
       className="relative min-h-screen flex items-center justify-center px-4"
-      style={{ backgroundImage: `url(${asset("/bg/skt_bg.png")})`, backgroundSize: "cover", backgroundPosition: "center" }}
+      style={{ backgroundImage: `url(${sktBg})`, backgroundSize: "cover", backgroundPosition: "center" }}
     >
       {/* Layer: dark base fallback */}
       <div className="absolute inset-0 bg-gray-900/40" />

@@ -1,7 +1,7 @@
 // src/pages/Documents.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { apiAuth, apiDownload } from "../lib/api"   // helper แนบ token + BASE URL
-import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../lib/styles"
+import { apiAuth, apiDownload } from "../../lib/api"   // helper แนบ token + BASE URL
+import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
 
 /** ---------- Utils ---------- */
 

@@ -8,8 +8,8 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react"
-import { get, post } from "../lib/api"
-import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../lib/styles"
+import { get, post } from "../../lib/api"
+import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => String(s ?? "").replace(/\D+/g, "")

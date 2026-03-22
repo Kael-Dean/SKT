@@ -1,7 +1,7 @@
 // src/pages/Sales.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { apiAuth, post } from "../lib/api"
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../lib/styles"
+import { apiAuth, post } from "../../lib/api"
+import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
 
 // ---------------- Utilities ----------------
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")

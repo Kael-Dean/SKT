@@ -1,6 +1,6 @@
 // src/pages/Stock.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
-import { apiAuth } from "../lib/api" // ← รวม base URL + token + JSON ให้แล้ว
+import { apiAuth } from "../../lib/api" // ← รวม base URL + token + JSON ให้แล้ว
 
 /** ---------- Utils ---------- */
 const nf = (n) =>

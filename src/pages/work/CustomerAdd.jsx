@@ -1,12 +1,12 @@
 // src/pages/CustomerAdd.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { apiAuth } from "../lib/api"
+import { apiAuth } from "../../lib/api"
 
 // ✅ โหลดข้อมูลจากไฟล์ JSON ใน src (ไม่ใช้ fetch จึงไม่โดน 403)
-import PROVINCES_RAW from "../data/thai/province.json"
-import DISTRICTS_RAW from "../data/thai/district.json"
-import SUBDISTRICTS_RAW from "../data/thai/sub_district.json"
-import { cx, baseField, labelCls, errorTextCls } from "../lib/styles"
+import PROVINCES_RAW from "../../data/thai/province.json"
+import DISTRICTS_RAW from "../../data/thai/district.json"
+import SUBDISTRICTS_RAW from "../../data/thai/sub_district.json"
+import { cx, baseField, labelCls, errorTextCls } from "../../lib/styles"
 
 /* -------------------------- Utilities & helpers -------------------------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")

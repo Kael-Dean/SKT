@@ -1,8 +1,8 @@
 // src/pages/Home.jsx
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { apiAuth } from "../lib/api"
-import { getUser, getRoleId, canSeeAddCompany } from "../lib/auth"
+import { apiAuth } from "../../lib/api"
+import { getUser, getRoleId, canSeeAddCompany } from "../../lib/auth"
 
 const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
 

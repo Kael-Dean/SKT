@@ -1,7 +1,7 @@
 // src/pages/RiceSpecCreate.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
-import { apiAuth } from "../lib/api"
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../lib/styles"
+import { apiAuth } from "../../lib/api"
+import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
 
 /** ---------- Utils ---------- */
 const toInt = (v) => {

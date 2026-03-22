@@ -1,7 +1,7 @@
 // src/pages/Buy.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { apiAuth, post } from "../lib/api" // ✅ helper แนบโทเคนอัตโนมัติ
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, compactInput } from "../lib/styles"
+import { apiAuth, post } from "../../lib/api" // ✅ helper แนบโทเคนอัตโนมัติ
+import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, compactInput } from "../../lib/styles"
 
 /** ----------- Utils ------------ */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")

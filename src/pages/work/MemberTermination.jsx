@@ -1,7 +1,7 @@
 // src/pages/MemberTermination.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
-import { apiAuth } from "../lib/api" // ✅ แนบ token อัตโนมัติ + JSON ให้แล้ว
-import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../lib/styles"
+import { apiAuth } from "../../lib/api" // ✅ แนบ token อัตโนมัติ + JSON ให้แล้ว
+import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")

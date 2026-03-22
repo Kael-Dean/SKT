@@ -1,27 +1,27 @@
 import { Routes, Route, Navigate } from "react-router-dom"
 import AppLayout from "./components/AppLayout"
-import Home from "./pages/Home"
-import Documents from "./pages/Documents"
-import Order from "./pages/Order"
-import Sales from "./pages/Sales"
-import Login from "./pages/Login"
-import Buy from "./pages/Buy"
-import MemberSignup from "./pages/MemberSignup"
-import MemberSearch from "./pages/MemberSearch"
-import Stock from "./pages/Stock"
+import Home from "./pages/work/Home"
+import Documents from "./pages/work/Documents"
+import Order from "./pages/work/Order"
+import Sales from "./pages/work/Sales"
+import Login from "./pages/work/Login"
+import Buy from "./pages/work/Buy"
+import MemberSignup from "./pages/work/MemberSignup"
+import MemberSearch from "./pages/work/MemberSearch"
+import Stock from "./pages/work/Stock"
 
-import CustomerAdd from "./pages/CustomerAdd"
-import CompanyAdd from "./pages/CompanyAdd"
-import CustomerSearch from "./pages/CustomerSearch"
+import CustomerAdd from "./pages/work/CustomerAdd"
+import CompanyAdd from "./pages/work/CompanyAdd"
+import CustomerSearch from "./pages/work/CustomerSearch"
 
-import StockTransferOut from "./pages/StockTransferOut"
-import StockTransferIn from "./pages/StockTransferIn"
-import StockBringIn from "./pages/StockBringIn"
-import StockTransferMill from "./pages/StockTransferMill"
-import StockDamageOut from "./pages/StockDamageOut"
-import StockBringInMill from "./pages/StockBringInMill"
-import MemberTermination from "./pages/MemberTermination"
-import Share from "./pages/Share"
+import StockTransferOut from "./pages/work/StockTransferOut"
+import StockTransferIn from "./pages/work/StockTransferIn"
+import StockBringIn from "./pages/work/StockBringIn"
+import StockTransferMill from "./pages/work/StockTransferMill"
+import StockDamageOut from "./pages/work/StockDamageOut"
+import StockBringInMill from "./pages/work/StockBringInMill"
+import MemberTermination from "./pages/work/MemberTermination"
+import Share from "./pages/work/Share"
 
 /** ✅ หน้าใหม่: Operation Plan (Mock) */
 // ✅ ไฟล์ OperationPlan.jsx ตอนนี้อยู่ที่ /pages/organization/OperationPlan.jsx
@@ -29,10 +29,10 @@ import OperationPlan from "./pages/organization/OperationPlan.jsx"
 import BusinessEdit from "./pages/organization/BusinessEdit.jsx"
 
 /** ✅ หน้าใหม่: แก้ไขออเดอร์ */
-import OrderCorrection from "./pages/OrderCorrection.jsx"
+import OrderCorrection from "./pages/work/OrderCorrection.jsx"
 
 /** ✅ หน้าใหม่: เพิ่มรหัสข้าว (ProductSpec) */
-import RiceSpecCreate from "./pages/RiceSpecCreate.jsx"
+import RiceSpecCreate from "./pages/work/RiceSpecCreate.jsx"
 
 /** ✅ Phase 3B — HR */
 import HRStaffSignup from "./pages/hr/HRStaffSignup.jsx"
@@ -40,8 +40,8 @@ import HRUserList from "./pages/hr/HRUserList.jsx"
 import HRLeaveManagement from "./pages/hr/HRLeaveManagement.jsx"
 import HRFinance from "./pages/hr/HRFinance.jsx"
 import HRRelocation from "./pages/hr/HRRelocation.jsx"
-import MyProfile from "./pages/MyProfile.jsx"
-import LeaveRequest from "./pages/LeaveRequest.jsx"
+import MyProfile from "./pages/work/MyProfile.jsx"
+import LeaveRequest from "./pages/work/LeaveRequest.jsx"
 
 /* ---------------- role helpers (robust) ---------------- */
 const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }

@@ -1,6 +1,6 @@
 // src/pages/MemberSearch.jsx
 import { useEffect, useMemo, useState } from "react"
-import { apiAuth } from "../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ
+import { apiAuth } from "../../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ
 
 /** ============ ตำแหน่งหยุดของหัวตารางใต้ App Bar ============ */
 /** ถ้าหัวตารางไปซ้อนกับแถวข้อมูลให้ใช้ 0 (หรือปรับตาม layout จริงของ App Bar) */

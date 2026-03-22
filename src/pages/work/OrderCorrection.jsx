@@ -1,8 +1,8 @@
 // src/pages/OrderCorrection.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react";
-import { apiAuth } from "../lib/api";
-import { getUser } from "../lib/auth";
-import { baseField } from "../lib/styles";
+import { apiAuth } from "../../lib/api";
+import { getUser } from "../../lib/auth";
+import { baseField } from "../../lib/styles";
 
 /* ---------------- Utilities (ทนทานต่อค่าที่ไม่ใช่สตริง) ---------------- */
 const asString = (v) => (v === null || v === undefined ? "" : String(v));

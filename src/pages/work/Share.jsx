@@ -7,8 +7,8 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react"
-import { apiAuth } from "../lib/api" // ✅ แนบ token + JSON ให้แล้ว
-import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../lib/styles"
+import { apiAuth } from "../../lib/api" // ✅ แนบ token + JSON ให้แล้ว
+import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
 
 /** ---------- Utils ---------- */
 // debounce สำหรับช่องค้นหา

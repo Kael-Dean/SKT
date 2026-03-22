@@ -1,8 +1,8 @@
 // src/pages/MyProfile.jsx
 // หน้าข้อมูลส่วนตัวของผู้ใช้ปัจจุบัน — ดึงจาก GET /hr/me
 import { useEffect, useState } from "react"
-import { apiAuth } from "../lib/api"
-import { getUser, getRoleId } from "../lib/auth"
+import { apiAuth } from "../../lib/api"
+import { getUser, getRoleId } from "../../lib/auth"
 
 const ROLE_LABEL = {
   1: "ผู้ดูแลระบบ",

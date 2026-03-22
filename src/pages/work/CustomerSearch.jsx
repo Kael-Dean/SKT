@@ -1,6 +1,6 @@
 // src/pages/CustomerSearch.jsx
 import { useEffect, useMemo, useState } from "react"
-import { apiAuth } from "../lib/api"
+import { apiAuth } from "../../lib/api"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")

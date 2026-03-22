@@ -1,6 +1,7 @@
 // src/pages/hr/HRUserList.jsx
 // รายชื่อพนักงานทั้งหมด — Admin / HR เท่านั้น
 import { useState } from "react"
+import SelectDropdown from "../../components/SelectDropdown"
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
 const ROLE_COLOR = {
@@ -75,25 +76,29 @@ export default function HRUserList() {
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 min-w-[200px] rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
-        <select
-          value={filterRole}
-          onChange={(e) => setFilterRole(e.target.value)}
-          className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="">ทุก Role</option>
-          {Object.entries(ROLE_LABEL).map(([id, label]) => (
-            <option key={id} value={id}>{label}</option>
-          ))}
-        </select>
-        <select
-          value={filterActive}
-          onChange={(e) => setFilterActive(e.target.value)}
-          className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="">ทุกสถานะ</option>
-          <option value="true">ใช้งาน</option>
-          <option value="false">ไม่ใช้งาน</option>
-        </select>
+        <div className="w-44 shrink-0">
+          <SelectDropdown
+            value={filterRole}
+            onChange={setFilterRole}
+            placeholder="ทุก Role"
+            options={[
+              { value: "", label: "ทุก Role" },
+              ...Object.entries(ROLE_LABEL).map(([id, label]) => ({ value: id, label })),
+            ]}
+          />
+        </div>
+        <div className="w-36 shrink-0">
+          <SelectDropdown
+            value={filterActive}
+            onChange={setFilterActive}
+            placeholder="ทุกสถานะ"
+            options={[
+              { value: "", label: "ทุกสถานะ" },
+              { value: "true", label: "ใช้งาน" },
+              { value: "false", label: "ไม่ใช้งาน" },
+            ]}
+          />
+        </div>
       </div>
 
       {/* Table */}

@@ -1,9 +1,11 @@
 // src/pages/hr/HRRelocation.jsx
 // ย้ายสาขาพนักงาน — Admin เท่านั้น
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { apiAuth } from "../../lib/api"
+import SelectDropdown from "../../components/SelectDropdown"
 
-// Mock branches — รอเชื่อม GET /hr/branches
-const MOCK_BRANCHES = [
+// Fallback branches ใช้เมื่อ API ยังไม่พร้อม
+const FALLBACK_BRANCHES = [
   { id: 1, name: "สำนักงานใหญ่", province: "สุรินทร์" },
   { id: 2, name: "สาขาท่าตูม", province: "สุรินทร์" },
   { id: 3, name: "สาขารัตนบุรี", province: "สุรินทร์" },
@@ -37,6 +39,24 @@ export default function HRRelocation() {
   const [done, setDone] = useState(false)
   const [activeTab, setActiveTab] = useState("current") // "current" | "history"
 
+  // สาขา — ดึงจาก BE จริง (เหมือนหน้ารายงาน)
+  const [branches, setBranches] = useState(FALLBACK_BRANCHES)
+  const [loadingBranches, setLoadingBranches] = useState(true)
+
+  useEffect(() => {
+    apiAuth("/order/branch/search")
+      .then((data) => {
+        const mapped = (data || []).map((b) => ({
+          id: b.id,
+          name: b.branch_name,
+          province: b.province ?? "",
+        }))
+        if (mapped.length > 0) setBranches(mapped)
+      })
+      .catch(() => {})
+      .finally(() => setLoadingBranches(false))
+  }, [])
+
   const openModal = (emp) => {
     setModal(emp)
     setTargetBranch("")
@@ -46,7 +66,7 @@ export default function HRRelocation() {
 
   const handleRelocate = () => {
     if (!targetBranch) return
-    const branch = MOCK_BRANCHES.find((b) => b.id === Number(targetBranch))
+    const branch = branches.find((b) => b.id === Number(targetBranch))
     setHistory((prev) => [
       { id: prev.length + 1, employee: modal.name, from: modal.branch, to: branch.name, date: new Date().toISOString().slice(0, 10), note },
       ...prev,
@@ -69,7 +89,7 @@ export default function HRRelocation() {
 
       {/* Branch summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {MOCK_BRANCHES.map((b) => {
+        {branches.map((b) => {
           const count = employees.filter((e) => e.branch_id === b.id).length
           return (
             <div key={b.id} className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-4 text-center">
@@ -183,7 +203,7 @@ export default function HRRelocation() {
                 <div className="text-4xl">✅</div>
                 <p className="font-bold text-gray-900 dark:text-gray-100">ย้ายสาขาสำเร็จ!</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {modal.name} → {MOCK_BRANCHES.find((b) => b.id === Number(targetBranch))?.name}
+                  {modal.name} → {branches.find((b) => b.id === Number(targetBranch))?.name}
                 </p>
                 <button
                   onClick={() => setModal(null)}
@@ -204,16 +224,19 @@ export default function HRRelocation() {
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">
                       สาขาปลายทาง <span className="text-red-500">*</span>
                     </label>
-                    <select
+                    <SelectDropdown
                       value={targetBranch}
-                      onChange={(e) => setTargetBranch(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">-- เลือกสาขา --</option>
-                      {MOCK_BRANCHES.filter((b) => b.id !== modal.branch_id).map((b) => (
-                        <option key={b.id} value={b.id}>{b.name} ({b.province})</option>
-                      ))}
-                    </select>
+                      onChange={setTargetBranch}
+                      loading={loadingBranches}
+                      placeholder="— เลือกสาขาปลายทาง —"
+                      options={branches
+                        .filter((b) => b.id !== modal.branch_id)
+                        .map((b) => ({
+                          value: b.id,
+                          label: b.name,
+                          sublabel: b.province || undefined,
+                        }))}
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">หมายเหตุ</label>

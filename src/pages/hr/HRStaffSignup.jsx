@@ -2,6 +2,7 @@
 // Phase 3B — ลงทะเบียนพนักงานใหม่ (เฉพาะ role 1 หรือ 3)
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
+import SelectDropdown from "../../components/SelectDropdown"
 
 const GENDER_OPTIONS = [
   { value: "M", label: "ชาย" },
@@ -14,12 +15,6 @@ const MARITAL_OPTIONS = [
   { value: "married", label: "สมรส" },
   { value: "divorced", label: "หย่าร้าง" },
   { value: "widowed", label: "หม้าย" },
-]
-
-const BRANCH_OPTIONS = [
-  { value: 1, label: "สาขา 1" },
-  { value: 2, label: "สาขา 2" },
-  { value: 3, label: "สาขา 3" },
 ]
 
 const ROLE_OPTIONS = [
@@ -59,6 +54,8 @@ const emptyEdu = () => ({ ed_level: "", inst_name: "", from_date: "", to_date: "
 export default function HRStaffSignup() {
   const [positions, setPositions] = useState([])
   const [loadingPositions, setLoadingPositions] = useState(true)
+  const [branchOptions, setBranchOptions] = useState([])
+  const [loadingBranches, setLoadingBranches] = useState(true)
 
   const [form, setForm] = useState({
     first_name: "",
@@ -102,8 +99,24 @@ export default function HRStaffSignup() {
       .finally(() => setLoadingPositions(false))
   }, [])
 
+  useEffect(() => {
+    apiAuth("/order/branch/search")
+      .then((data) => {
+        const opts = (data || []).map((b) => ({
+          value: b.id,
+          label: b.branch_name,
+        }))
+        if (opts.length > 0) setBranchOptions(opts)
+      })
+      .catch(() => {})
+      .finally(() => setLoadingBranches(false))
+  }, [])
+
   const set = (field) => (e) => {
-    const val = e.target.type === "number" ? e.target.value : e.target.value
+    setForm((prev) => ({ ...prev, [field]: e.target.value }))
+  }
+  // สำหรับ SelectDropdown ที่ส่ง value โดยตรง (ไม่ใช่ event)
+  const setField = (field) => (val) => {
     setForm((prev) => ({ ...prev, [field]: val }))
   }
 
@@ -268,28 +281,30 @@ export default function HRStaffSignup() {
               <input type="date" className={inputCls} value={form.hired} onChange={set("hired")} />
             </Field>
             <Field label="Role">
-              <select className={selectCls} value={form.role_id} onChange={set("role_id")}>
-                <option value="">-- เลือก Role --</option>
-                {ROLE_OPTIONS.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
+              <SelectDropdown
+                value={form.role_id}
+                onChange={setField("role_id")}
+                placeholder="— เลือก Role —"
+                options={ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }))}
+              />
             </Field>
             <Field label="ตำแหน่ง (Position)">
-              <select className={selectCls} value={form.position} onChange={set("position")} disabled={loadingPositions}>
-                <option value="">{loadingPositions ? "กำลังโหลด..." : "-- เลือกตำแหน่ง --"}</option>
-                {positions.map((p) => (
-                  <option key={p.id} value={p.id}>{p.title}</option>
-                ))}
-              </select>
+              <SelectDropdown
+                value={form.position}
+                onChange={setField("position")}
+                placeholder="— เลือกตำแหน่ง —"
+                loading={loadingPositions}
+                options={positions.map((p) => ({ value: p.id, label: p.title }))}
+              />
             </Field>
             <Field label="สาขา">
-              <select className={selectCls} value={form.branch_location} onChange={set("branch_location")}>
-                <option value="">-- เลือกสาขา --</option>
-                {BRANCH_OPTIONS.map((b) => (
-                  <option key={b.value} value={b.value}>{b.label}</option>
-                ))}
-              </select>
+              <SelectDropdown
+                value={form.branch_location}
+                onChange={setField("branch_location")}
+                placeholder="— เลือกสาขา —"
+                loading={loadingBranches}
+                options={branchOptions}
+              />
             </Field>
             <Field label="Email">
               <input type="email" className={inputCls} value={form.email} onChange={set("email")} placeholder="example@email.com" />
@@ -317,20 +332,20 @@ export default function HRStaffSignup() {
               <input type="number" min="18" max="70" className={inputCls} value={form.age} onChange={set("age")} placeholder="อายุ (ปี)" />
             </Field>
             <Field label="เพศ">
-              <select className={selectCls} value={form.gender} onChange={set("gender")}>
-                <option value="">-- เลือกเพศ --</option>
-                {GENDER_OPTIONS.map((g) => (
-                  <option key={g.value} value={g.value}>{g.label}</option>
-                ))}
-              </select>
+              <SelectDropdown
+                value={form.gender}
+                onChange={setField("gender")}
+                placeholder="— เลือกเพศ —"
+                options={GENDER_OPTIONS.map((g) => ({ value: g.value, label: g.label }))}
+              />
             </Field>
             <Field label="สถานภาพสมรส">
-              <select className={selectCls} value={form.m_status} onChange={set("m_status")}>
-                <option value="">-- เลือกสถานภาพ --</option>
-                {MARITAL_OPTIONS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
+              <SelectDropdown
+                value={form.m_status}
+                onChange={setField("m_status")}
+                placeholder="— เลือกสถานภาพ —"
+                options={MARITAL_OPTIONS.map((m) => ({ value: m.value, label: m.label }))}
+              />
             </Field>
             <Field label="จำนวนบุตร">
               <input type="number" min="0" className={inputCls} value={form.children_number} onChange={set("children_number")} />

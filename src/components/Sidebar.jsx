@@ -8,11 +8,15 @@ const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
 
 // เมนูส่วนตัว — แสดงให้ผู้ใช้ทุกคน (ยกเว้นรายการที่ระบุ role)
 const PERSONAL_MENUS = [
-  { label: "🏠 หน้าหลัก", path: "/home", roles: "all" },
-  { label: "👤 ข้อมูลส่วนตัว", path: "/my-profile", roles: "all" },
-  { label: "📋 ยื่นใบลา", path: "/leave-request", roles: "all" },
-  // Phase 3B — HR admin only
-  { label: "➕ ลงทะเบียนพนักงาน", path: "/hr/staff-signup", roles: [ROLE.ADMIN, ROLE.HR] },
+  { label: "🏠 หน้าหลัก",          path: "/home",            roles: "all" },
+  { label: "👤 ข้อมูลส่วนตัว",     path: "/my-profile",      roles: "all" },
+  { label: "📋 ยื่นใบลา",          path: "/leave-request",   roles: "all" },
+  // Phase 3B — HR admin
+  { label: "➕ ลงทะเบียนพนักงาน", path: "/hr/staff-signup",  roles: [ROLE.ADMIN, ROLE.HR] },
+  { label: "📋 รายชื่อพนักงาน",    path: "/hr/users",         roles: [ROLE.ADMIN, ROLE.HR] },
+  { label: "📅 อนุมัติใบลา",       path: "/hr/leaves",        roles: [ROLE.ADMIN, ROLE.HR] },
+  { label: "💰 ข้อมูลการเงิน",     path: "/hr/finance",       roles: [ROLE.ADMIN] },
+  { label: "🏢 ย้ายสาขา",          path: "/hr/relocation",    roles: [ROLE.ADMIN] },
 ]
 
 function canSeeSidebarItem(item, roleId) {

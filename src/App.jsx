@@ -36,6 +36,10 @@ import RiceSpecCreate from "./pages/RiceSpecCreate.jsx"
 
 /** ✅ Phase 3B — HR */
 import HRStaffSignup from "./pages/hr/HRStaffSignup.jsx"
+import HRUserList from "./pages/hr/HRUserList.jsx"
+import HRLeaveManagement from "./pages/hr/HRLeaveManagement.jsx"
+import HRFinance from "./pages/hr/HRFinance.jsx"
+import HRRelocation from "./pages/hr/HRRelocation.jsx"
 import MyProfile from "./pages/MyProfile.jsx"
 import LeaveRequest from "./pages/LeaveRequest.jsx"
 
@@ -191,6 +195,13 @@ function RequireAdminOrHR({ children }) {
   return children
 }
 
+/* ✅ Route guard: เฉพาะ ADMIN — ใช้กับหน้าจัดการการเงิน / ย้ายสาขา */
+function RequireAdmin({ children }) {
+  const r = getRoleId()
+  if (r !== ROLE.ADMIN) return <Navigate to="/home" replace />
+  return children
+}
+
 function App() {
   return (
     <Routes>
@@ -271,6 +282,24 @@ function App() {
               <HRStaffSignup />
             </RequireAdminOrHR>
           }
+        />
+
+        {/* ✅ Phase 3B — HR management routes */}
+        <Route
+          path="/hr/users"
+          element={<RequireAdminOrHR><HRUserList /></RequireAdminOrHR>}
+        />
+        <Route
+          path="/hr/leaves"
+          element={<RequireAdminOrHR><HRLeaveManagement /></RequireAdminOrHR>}
+        />
+        <Route
+          path="/hr/finance"
+          element={<RequireAdmin><HRFinance /></RequireAdmin>}
+        />
+        <Route
+          path="/hr/relocation"
+          element={<RequireAdmin><HRRelocation /></RequireAdmin>}
         />
 
         {/* ✅ Phase 3B — Personal routes (ทุก role เข้าถึงได้) */}

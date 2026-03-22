@@ -3,6 +3,18 @@
 // onChange(value: string) — called with the selected option's value as string
 import { useEffect, useRef, useState } from "react"
 
+// ชุดสีสำหรับช่องสีเล็กด้านซ้ายของแต่ละ option (วนซ้ำถ้ามีมากกว่า 8 รายการ)
+const SWATCH = [
+  "#6366f1", // indigo
+  "#8b5cf6", // violet
+  "#3b82f6", // blue
+  "#06b6d4", // cyan
+  "#10b981", // emerald
+  "#f59e0b", // amber
+  "#ef4444", // red
+  "#ec4899", // pink
+]
+
 export default function SelectDropdown({
   options = [],        // [{ value, label, sublabel? }]
   value = "",          // currently selected value (string / number)
@@ -62,14 +74,27 @@ export default function SelectDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span
-          className={
-            selected
-              ? "text-slate-900 dark:text-slate-100"
-              : "text-slate-400 dark:text-slate-500"
-          }
-        >
-          {loading ? "กำลังโหลด..." : (selected?.label ?? placeholder)}
+        <span className="flex items-center gap-2.5">
+          {/* ช่องสีของตัวเลือกที่เลือกอยู่ */}
+          {selected && (() => {
+            const idx = options.indexOf(selected)
+            const color = SWATCH[idx % SWATCH.length]
+            return (
+              <span
+                className="shrink-0 rounded-sm"
+                style={{ width: 10, height: 10, backgroundColor: color }}
+              />
+            )
+          })()}
+          <span
+            className={
+              selected
+                ? "text-slate-900 dark:text-slate-100"
+                : "text-slate-400 dark:text-slate-500"
+            }
+          >
+            {loading ? "กำลังโหลด..." : (selected?.label ?? placeholder)}
+          </span>
         </span>
         {/* Chevron */}
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
@@ -95,8 +120,9 @@ export default function SelectDropdown({
               ไม่มีตัวเลือก
             </div>
           ) : (
-            options.map((opt) => {
+            options.map((opt, idx) => {
               const isChosen = String(opt.value) === String(value)
+              const swatchColor = SWATCH[idx % SWATCH.length]
               return (
                 <button
                   key={opt.value}
@@ -105,7 +131,7 @@ export default function SelectDropdown({
                   aria-selected={isChosen}
                   onClick={() => commit(opt)}
                   className={[
-                    "relative flex w-full items-start gap-2 px-4 py-2.5 text-left text-sm transition-colors rounded-xl",
+                    "relative flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors rounded-xl",
                     isChosen
                       ? "bg-indigo-50 text-indigo-700 font-semibold dark:bg-indigo-900/30 dark:text-indigo-300"
                       : "text-slate-800 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/20",
@@ -115,16 +141,29 @@ export default function SelectDropdown({
                   {isChosen && (
                     <span className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-indigo-600 dark:bg-indigo-400" />
                   )}
-                  <span className="flex-1">
-                    <span className="block">{opt.label}</span>
+
+                  {/* ช่องสีเล็กซ้ายมือ */}
+                  <span
+                    className="shrink-0 rounded-sm"
+                    style={{
+                      width: 10,
+                      height: 10,
+                      backgroundColor: isChosen ? swatchColor : swatchColor + "99",
+                      boxShadow: isChosen ? `0 0 0 2px ${swatchColor}40` : "none",
+                      transition: "background-color 0.15s, box-shadow 0.15s",
+                    }}
+                  />
+
+                  <span className="flex-1 min-w-0">
+                    <span className="block truncate">{opt.label}</span>
                     {opt.sublabel && (
-                      <span className="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <span className="block text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                         {opt.sublabel}
                       </span>
                     )}
                   </span>
                   {isChosen && (
-                    <span className="text-indigo-600 dark:text-indigo-300 text-xs shrink-0 mt-0.5">✓</span>
+                    <span className="text-indigo-600 dark:text-indigo-300 text-xs shrink-0">✓</span>
                   )}
                 </button>
               )

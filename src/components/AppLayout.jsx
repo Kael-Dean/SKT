@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Outlet } from "react-router-dom"
+import { Outlet, useNavigate, useLocation } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
 
@@ -10,8 +10,12 @@ const getInitialDark = () => {
 }
 
 const AppLayout = () => {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(getInitialDark)
+
+  const isHome = location.pathname === "/home"
 
   // ใส่/เอาออก class 'dark' ที่ <html>
   useEffect(() => {
@@ -54,6 +58,21 @@ const AppLayout = () => {
 
         <main className="flex-1 overflow-y-auto px-4 py-4 md:px-6">
           <div className="mx-auto max-w-7xl">
+            {/* ปุ่มกลับหน้าหลัก — แสดงทุกหน้ายกเว้น /home */}
+            {!isHome && (
+              <div className="mb-4">
+                <button
+                  onClick={() => navigate("/home")}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 shadow-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-700 dark:hover:text-indigo-300 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all duration-150"
+                  type="button"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  หน้าหลัก
+                </button>
+              </div>
+            )}
             {/* สำคัญ: เนื้อหาหน้าย่อยจะแสดงที่นี่ */}
             <Outlet />
           </div>

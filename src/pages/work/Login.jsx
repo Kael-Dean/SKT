@@ -40,9 +40,16 @@ const Login = () => {
         method: "POST",
         body: { username, password },
       });
-      // resp = { access_token, token_type: "bearer" }
+      // resp = { access_token, token_type: "bearer", account_status? }
       const user = saveAuth(resp.access_token);
-      navigate("/home", { replace: true, state: { user } });
+      if (resp.account_status) {
+        localStorage.setItem("account_status", resp.account_status);
+      }
+      if (resp.account_status === "new") {
+        navigate("/change-password", { replace: true });
+      } else {
+        navigate("/home", { replace: true, state: { user } });
+      }
     } catch (err) {
       setError(err?.message || `เข้าสู่ระบบไม่สำเร็จ`);
     } finally {

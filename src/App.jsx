@@ -40,8 +40,13 @@ import HRUserList from "./pages/hr/HRUserList.jsx"
 import HRLeaveManagement from "./pages/hr/HRLeaveManagement.jsx"
 import HRFinance from "./pages/hr/HRFinance.jsx"
 import HRRelocation from "./pages/hr/HRRelocation.jsx"
+import HRDashboard from "./pages/hr/HRDashboard.jsx"
+import HRIssueReports from "./pages/hr/HRIssueReports.jsx"
+import HRPersonnelDetail from "./pages/hr/HRPersonnelDetail.jsx"
 import MyProfile from "./pages/work/MyProfile.jsx"
 import LeaveRequest from "./pages/work/LeaveRequest.jsx"
+import ChangePassword from "./pages/work/ChangePassword.jsx"
+import MyRelocation from "./pages/work/MyRelocation.jsx"
 
 /* ---------------- role helpers (robust) ---------------- */
 const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
@@ -302,10 +307,19 @@ function App() {
           element={<RequireAdmin><HRRelocation /></RequireAdmin>}
         />
 
+        {/* ✅ Phase 3B — HR new pages */}
+        <Route path="/hr/dashboard" element={<RequireAdminOrHR><HRDashboard /></RequireAdminOrHR>} />
+        <Route path="/hr/issues" element={<RequireAdminOrHR><HRIssueReports /></RequireAdminOrHR>} />
+        <Route path="/hr/personnel/:id" element={<RequireAdminOrHR><HRPersonnelDetail /></RequireAdminOrHR>} />
+
         {/* ✅ Phase 3B — Personal routes (ทุก role เข้าถึงได้) */}
         <Route path="/my-profile" element={<MyProfile />} />
         <Route path="/leave-request" element={<LeaveRequest />} />
+        <Route path="/my-relocation" element={<MyRelocation />} />
       </Route>
+
+      {/* ✅ Phase 3B — ChangePassword อยู่นอก AppLayout */}
+      <Route path="/change-password" element={<ChangePassword />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

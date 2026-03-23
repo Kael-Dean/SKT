@@ -11,12 +11,15 @@ const PERSONAL_MENUS = [
   { label: "🏠 หน้าหลัก",          path: "/home",            roles: "all" },
   { label: "👤 ข้อมูลส่วนตัว",     path: "/my-profile",      roles: "all" },
   { label: "📋 ยื่นใบลา",          path: "/leave-request",   roles: "all" },
+  { label: "🚌 คำขอย้ายสาขา",     path: "/my-relocation",   roles: "all" },
   // Phase 3B — HR admin
+  { label: "📊 Dashboard HR",       path: "/hr/dashboard",    roles: [ROLE.ADMIN, ROLE.HR] },
   { label: "➕ ลงทะเบียนพนักงาน", path: "/hr/staff-signup",  roles: [ROLE.ADMIN, ROLE.HR] },
   { label: "📋 รายชื่อพนักงาน",    path: "/hr/users",         roles: [ROLE.ADMIN, ROLE.HR] },
   { label: "📅 อนุมัติใบลา",       path: "/hr/leaves",        roles: [ROLE.ADMIN, ROLE.HR] },
+  { label: "🔧 รายงานปัญหา",       path: "/hr/issues",        roles: [ROLE.ADMIN, ROLE.HR] },
   { label: "💰 ข้อมูลการเงิน",     path: "/hr/finance",       roles: [ROLE.ADMIN] },
-  { label: "🏢 ย้ายสาขา",          path: "/hr/relocation",    roles: [ROLE.ADMIN] },
+  { label: "🏢 อนุมัติย้ายสาขา",  path: "/hr/relocation",    roles: [ROLE.ADMIN] },
 ]
 
 function canSeeSidebarItem(item, roleId) {

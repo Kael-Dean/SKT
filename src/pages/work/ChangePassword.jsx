@@ -11,17 +11,18 @@ export default function ChangePassword() {
   const navigate = useNavigate()
   const accountStatus = localStorage.getItem("account_status")
 
-  // ถ้าไม่ใช่ "new" ให้เด้งไปหน้าหลัก
-  if (accountStatus !== "new") {
-    return <Navigate to="/home" replace />
-  }
-
+  // state ต้องอยู่ก่อน conditional return เสมอ (Rules of Hooks)
   const [newPass, setNewPass] = useState("")
   const [confirmPass, setConfirmPass] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+
+  // ถ้าไม่ใช่ "new" ให้เด้งไปหน้าหลัก
+  if (accountStatus !== "new") {
+    return <Navigate to="/home" replace />
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()

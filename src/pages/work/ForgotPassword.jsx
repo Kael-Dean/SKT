@@ -20,7 +20,7 @@ export default function ForgotPassword() {
     setError("")
     setLoading(true)
     try {
-      await api("/auth/forgot-password", {
+      await api("/auth/request-reset", {
         method: "POST",
         body: { username: username.trim() },
       })

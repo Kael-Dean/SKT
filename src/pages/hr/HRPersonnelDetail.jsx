@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
+import lineIcon from "../../assets/line-icon.png"
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
 
@@ -172,7 +173,7 @@ export default function HRPersonnelDetail() {
           <InfoRow label="สถานภาพสมรส" value={pi.m_status} />
           <InfoRow label="จำนวนบุตร" value={pi.children_number != null ? `${pi.children_number} คน` : null} />
           <InfoRow label="เบอร์โทรศัพท์" value={pi.p_number} />
-          <InfoRow label="Line ID" value={pi.line_id} />
+          <InfoRow label={<span className="flex items-center gap-1"><img src={lineIcon} alt="LINE" className="h-3.5 w-3.5 object-contain" />Line ID</span>} value={pi.line_id} />
           <InfoRow label="เบอร์ฉุกเฉิน" value={pi.e_contact} />
           <InfoRow label="เลขบัญชีธนาคาร" value={pi.bank_no} />
           <InfoRow label="วันที่เริ่มงาน" value={fmtDate(pi.hired)} />

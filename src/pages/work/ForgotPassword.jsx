@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useNavigate, useSearchParams, Navigate } from "react-router-dom"
 import { api } from "../../lib/api"
 import sktBg from "../../assets/skt_bg.png"
+import lineIcon from "../../assets/line-icon.png"
 
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
 
@@ -112,7 +113,7 @@ export default function ForgotPassword() {
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
                       กำลังส่งลิงก์...
                     </span>
-                  ) : "ส่งลิงก์รีเซ็ตรหัสผ่านไปยัง LINE"}
+                  ) : <span className="flex items-center justify-center gap-2"><img src={lineIcon} alt="LINE" className="h-5 w-5 object-contain" />ส่งลิงก์รีเซ็ตรหัสผ่านไปยัง LINE</span>}
                 </button>
 
                 <div className="text-center pt-1">
@@ -130,10 +131,7 @@ export default function ForgotPassword() {
             /* ── ส่ง link สำเร็จ ── */
             <div className="text-center py-2">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40">
-                {/* LINE icon */}
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-9 w-9 text-green-600 dark:text-green-400" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19.365 9.89c.50 0 .866.313.866.866s-.336.866-.866.866h-2.206v1.302h2.206c.50 0 .866.313.866.866s-.336.866-.866.866H16.29a.867.867 0 0 1-.866-.866V9.024c0-.477.39-.866.866-.866h3.076zm-5.42 4.765a.866.866 0 0 1-.591.232.87.87 0 0 1-.591-.232l-2.907-2.908v2.14c0 .477-.39.866-.866.866s-.866-.39-.866-.866V9.024c0-.477.39-.866.866-.866.232 0 .44.09.591.232l2.907 2.908V9.024c0-.477.39-.866.866-.866s.866.39.866.866v4.765a.867.867 0 0 1-.275.866zm-6.104.098c0 .477-.39.866-.866.866s-.866-.39-.866-.866V9.024c0-.477.39-.866.866-.866s.866.39.866.866v5.73zm-3.076 0c0 .477-.39.866-.866.866H.823a.867.867 0 0 1-.866-.866V9.024c0-.477.39-.866.866-.866s.866.39.866.866v4.898h2.21c.477 0 .866.39.866.866zM24 10.37C24 4.65 18.616 0 12 0S0 4.65 0 10.37c0 5.124 4.549 9.418 10.69 10.232.416.09.983.274 1.126.63.13.322.085.826.041 1.152l-.182 1.09c-.056.322-.258 1.26 1.105.687 1.363-.573 7.354-4.33 10.031-7.415C23.28 14.782 24 12.65 24 10.37z"/>
-                </svg>
+                <img src={lineIcon} alt="LINE" className="h-10 w-10 object-contain" />
               </div>
               <h4 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-1">ส่งลิงก์สำเร็จแล้ว!</h4>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">

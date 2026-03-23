@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../lib/api"
 import { getUser } from "../../lib/auth"
+import SelectDropdown from "../../components/SelectDropdown"
 
 const inputCls =
   "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
@@ -234,20 +235,13 @@ export default function LeaveRequest() {
 
           <form onSubmit={handleSubmit} className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-4">
             <Field label="ประเภทการลา" required>
-              <select
-                className={selectCls}
+              <SelectDropdown
                 value={form.leave_type_id}
-                onChange={set("leave_type_id")}
-                required
-                disabled={loadingTypes}
-              >
-                <option value="">{loadingTypes ? "กำลังโหลด..." : "-- เลือกประเภทการลา --"}</option>
-                {leaveTypes.map((lt) => (
-                  <option key={lt.id} value={lt.id}>
-                    {lt.type} (สูงสุด {lt.days} วัน/ปี)
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setForm((prev) => ({ ...prev, leave_type_id: val }))}
+                placeholder={loadingTypes ? "กำลังโหลด..." : "-- เลือกประเภทการลา --"}
+                loading={loadingTypes}
+                options={leaveTypes.map((lt) => ({ value: lt.id, label: `${lt.type} (สูงสุด ${lt.days} วัน/ปี)` }))}
+              />
             </Field>
 
             <Field label="วันที่เริ่มลา" required>

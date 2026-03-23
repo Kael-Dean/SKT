@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import { getUser, getRoleId } from "../../lib/auth"
+import SelectDropdown from "../../components/SelectDropdown"
+import lineIcon from "../../assets/line-icon.png"
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
 const GENDER_LABEL = { M: "ชาย", F: "หญิง", other: "อื่นๆ" }
@@ -64,6 +66,8 @@ export default function MyProfile() {
 
   const [profile, setProfile] = useState(null)
   const [financial, setFinancial] = useState(null)
+  const [positions, setPositions] = useState([])
+  const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
@@ -78,10 +82,14 @@ export default function MyProfile() {
     Promise.all([
       apiAuth("/personnel/me"),
       apiAuth("/personnel/me/financial").catch(() => null),
+      apiAuth("/hr/positions").catch(() => []),
+      apiAuth("/order/branch/search").catch(() => []),
     ])
-      .then(([prof, fin]) => {
+      .then(([prof, fin, pos, bch]) => {
         setProfile(prof)
         setFinancial(fin)
+        setPositions(Array.isArray(pos) ? pos : [])
+        setBranches(Array.isArray(bch) ? bch : [])
       })
       .catch(() => setError("ไม่สามารถโหลดข้อมูลโปรไฟล์ได้"))
       .finally(() => setLoading(false))
@@ -103,6 +111,9 @@ export default function MyProfile() {
   const edu = profile?.education ?? []
   const fin = financial?.financial ?? {}
   const quota = financial?.leave_quota ?? {}
+
+  const positionName = positions.find((p) => p.id === profile?.position || String(p.id) === String(profile?.position))?.title ?? profile?.position
+  const branchName = branches.find((b) => b.id === profile?.branch_location || String(b.id) === String(profile?.branch_location))?.branch_name ?? profile?.branch_location
 
   const displayName = profile?.first_name && profile?.last_name
     ? `${profile.first_name} ${profile.last_name}`
@@ -164,11 +175,11 @@ export default function MyProfile() {
           </div>
           <div className="min-w-0">
             <p className="text-lg font-bold leading-tight">{displayName}</p>
-            {profile?.position && <p className="text-sm text-indigo-200 mt-0.5">{profile.position}</p>}
+            {positionName && <p className="text-sm text-indigo-200 mt-0.5">{positionName}</p>}
             <div className="mt-2 flex flex-wrap gap-2">
               <span className="inline-block rounded-full bg-white/20 px-3 py-0.5 text-xs font-semibold">{roleLabel}</span>
-              {profile?.branch_location && (
-                <span className="inline-block rounded-full bg-white/20 px-3 py-0.5 text-xs font-semibold">{profile.branch_location}</span>
+              {branchName && (
+                <span className="inline-block rounded-full bg-white/20 px-3 py-0.5 text-xs font-semibold">{branchName}</span>
               )}
             </div>
           </div>
@@ -188,8 +199,8 @@ export default function MyProfile() {
         <InfoRow label="รหัสพนักงาน" value={profile?.id ?? localUser.id} />
         <InfoRow label="ชื่อ-นามสกุล" value={displayName !== localUser.username ? displayName : null} />
         <InfoRow label="Email" value={profile?.email} />
-        <InfoRow label="ตำแหน่งงาน" value={profile?.position} />
-        <InfoRow label="สาขา" value={profile?.branch_location} />
+        <InfoRow label="ตำแหน่งงาน" value={positionName} />
+        <InfoRow label="สาขา" value={branchName} />
         <InfoRow label="สิทธิ์ผู้ใช้" value={roleLabel} />
         <InfoRow label="สถานะบัญชี" value={profile?.account_status} />
       </div>
@@ -205,7 +216,7 @@ export default function MyProfile() {
         <InfoRow label="สถานภาพสมรส" value={MARITAL_LABEL[pi.m_status] ?? pi.m_status} />
         <InfoRow label="จำนวนบุตร" value={pi.children_number != null ? `${pi.children_number} คน` : null} />
         <InfoRow label="เบอร์โทรศัพท์" value={pi.p_number} />
-        <InfoRow label="Line ID" value={pi.line_id} />
+        <InfoRow label={<span className="flex items-center gap-1"><img src={lineIcon} alt="LINE" className="h-3.5 w-3.5 object-contain" />Line ID</span>} value={pi.line_id} />
         <InfoRow label="เบอร์ฉุกเฉิน" value={pi.e_contact} />
         <InfoRow label="เลขบัญชีธนาคาร" value={pi.bank_no} mono />
         {!pi.hired && !pi.cid && !pi.p_number && (
@@ -288,30 +299,22 @@ export default function MyProfile() {
             <form onSubmit={handleReport} className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">หมวดหมู่ <span className="text-red-500">*</span></label>
-                <select
+                <SelectDropdown
                   value={reportForm.category}
-                  onChange={(e) => setReportForm((p) => ({ ...p, category: e.target.value, field_name: "" }))}
-                  className={inputCls}
-                  required
-                >
-                  <option value="">— เลือกหมวดหมู่ —</option>
-                  {Object.entries(REPORT_CATEGORIES).map(([k, v]) => (
-                    <option key={k} value={k}>{v.label}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setReportForm((p) => ({ ...p, category: val, field_name: "" }))}
+                  placeholder="— เลือกหมวดหมู่ —"
+                  options={Object.entries(REPORT_CATEGORIES).map(([k, v]) => ({ value: k, label: v.label }))}
+                />
               </div>
               {reportForm.category && (
                 <div>
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ชื่อ Field <span className="text-red-500">*</span></label>
-                  <select
+                  <SelectDropdown
                     value={reportForm.field_name}
-                    onChange={(e) => setReportForm((p) => ({ ...p, field_name: e.target.value }))}
-                    className={inputCls}
-                    required
-                  >
-                    <option value="">— เลือก field —</option>
-                    {selectedCategoryFields.map((f) => <option key={f} value={f}>{f}</option>)}
-                  </select>
+                    onChange={(val) => setReportForm((p) => ({ ...p, field_name: val }))}
+                    placeholder="— เลือก field —"
+                    options={selectedCategoryFields.map((f) => ({ value: f, label: f }))}
+                  />
                 </div>
               )}
               <div>

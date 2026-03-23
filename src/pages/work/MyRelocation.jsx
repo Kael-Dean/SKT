@@ -2,6 +2,7 @@
 // คำขอย้ายสาขา — GET/PUT /personnel/me/relocation + GET /personnel/me/relocations
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../lib/api"
+import SelectDropdown from "../../components/SelectDropdown"
 
 const STATUS_LABEL = { pending: "รออนุมัติ", approved: "อนุมัติแล้ว", denied: "ปฏิเสธ", cancelled: "ยกเลิกแล้ว" }
 const STATUS_COLOR = {
@@ -143,20 +144,13 @@ export default function MyRelocation() {
               <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
                 สาขาที่ต้องการย้าย <span className="text-red-500">*</span>
               </label>
-              <select
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              <SelectDropdown
                 value={form.requested_branch_id}
-                onChange={(e) => setForm((p) => ({ ...p, requested_branch_id: e.target.value }))}
-                required
-                disabled={loadingBranches}
-              >
-                <option value="">{loadingBranches ? "กำลังโหลด..." : "-- เลือกสาขา --"}</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name ?? b.branch_name ?? `สาขา ${b.id}`}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setForm((p) => ({ ...p, requested_branch_id: val }))}
+                placeholder={loadingBranches ? "กำลังโหลด..." : "-- เลือกสาขา --"}
+                loading={loadingBranches}
+                options={branches.map((b) => ({ value: b.id, label: b.name ?? b.branch_name ?? `สาขา ${b.id}` }))}
+              />
             </div>
 
             <div className="flex flex-col gap-1">

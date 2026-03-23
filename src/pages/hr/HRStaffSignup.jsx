@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../../components/SelectDropdown"
+import lineIcon from "../../assets/line-icon.png"
 
 const GENDER_OPTIONS = [
   { value: "M", label: "ชาย" },
@@ -319,7 +320,7 @@ export default function HRStaffSignup() {
             <Field label="เบอร์โทรศัพท์">
               <input className={inputCls} value={form.p_number} onChange={set("p_number")} placeholder="08XXXXXXXX" />
             </Field>
-            <Field label="Line ID">
+            <Field label={<span className="flex items-center gap-1"><img src={lineIcon} alt="LINE" className="h-3.5 w-3.5 object-contain" />Line ID</span>}>
               <input className={inputCls} value={form.line_id} onChange={set("line_id")} placeholder="Line ID" />
             </Field>
             <Field label="เบอร์ติดต่อฉุกเฉิน">

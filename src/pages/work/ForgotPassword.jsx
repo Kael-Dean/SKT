@@ -1,7 +1,7 @@
 // src/pages/work/ForgotPassword.jsx
 // ขั้นตอนที่ 1 ของการลืมรหัสผ่าน — กรอก username แล้ว BE ส่งลิงก์ไปยัง LINE
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams, Navigate } from "react-router-dom"
 import { api } from "../../lib/api"
 import sktBg from "../../assets/skt_bg.png"
 
@@ -9,10 +9,17 @@ const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
 
 export default function ForgotPassword() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [username, setUsername] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [sent, setSent] = useState(false)
+
+  // กรณี backend ส่ง token มาที่ /forgot-password แทน /reset-password
+  const tokenInUrl = searchParams.get("token")
+  if (tokenInUrl) {
+    return <Navigate to={`/reset-password?token=${encodeURIComponent(tokenInUrl)}`} replace />
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()

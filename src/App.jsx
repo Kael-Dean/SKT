@@ -207,13 +207,21 @@ function RequireAdmin({ children }) {
   return children
 }
 
+/* ✅ Route guard: บังคับเปลี่ยนรหัสผ่านถ้า account_status === "new"
+   ป้องกัน user ที่ยังไม่เปลี่ยนรหัสผ่านเข้าถึง AppLayout โดยตรง */
+function RequirePasswordChanged({ children }) {
+  const accountStatus = localStorage.getItem("account_status")
+  if (accountStatus === "new") return <Navigate to="/change-password" replace />
+  return children
+}
+
 function App() {
   return (
     <Routes>
       <Route path="/index.html" element={<Navigate to="/" replace />} />
       <Route path="/" element={<Login />} />
 
-      <Route element={<AppLayout />}>
+      <Route element={<RequirePasswordChanged><AppLayout /></RequirePasswordChanged>}>
         <Route path="/home" element={<Home />} />
 
         {/* ✅ Operation Plan (Mock) */}

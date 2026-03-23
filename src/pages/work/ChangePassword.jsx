@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useNavigate, Navigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
+import { getToken, isTokenExpired } from "../../lib/auth"
 import sktBg from "../../assets/skt_bg.png"
 
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
@@ -18,6 +19,12 @@ export default function ChangePassword() {
   const [error, setError] = useState("")
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+
+  // ถ้าไม่มี token หรือ token หมดอายุ → ไปหน้า login
+  const token = getToken()
+  if (!token || isTokenExpired()) {
+    return <Navigate to="/" replace />
+  }
 
   // ถ้าไม่ใช่ "new" ให้เด้งไปหน้าหลัก
   if (accountStatus !== "new") {
@@ -41,7 +48,7 @@ export default function ChangePassword() {
         method: "POST",
         body: { new_password: newPass },
       })
-      localStorage.setItem("account_status", "registered")
+      localStorage.setItem("account_status", "register")
       navigate("/home", { replace: true })
     } catch (err) {
       setError(err?.message || "เปลี่ยนรหัสผ่านไม่สำเร็จ")

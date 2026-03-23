@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { saveAuth, getToken, isTokenExpired } from "../../lib/auth";
-import bgSkt from "../../assets/bg_skt.png";
+import sktBg from "../../assets/skt_bg.png";
 
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`;
 
@@ -60,8 +60,70 @@ const Login = () => {
   return (
     <div
       className="relative min-h-screen flex items-center justify-center px-4"
-      style={{ backgroundImage: `url(${bgSkt})`, backgroundSize: "cover", backgroundPosition: "center" }}
+      style={{ backgroundImage: `url(${sktBg})`, backgroundSize: "cover", backgroundPosition: "center" }}
     >
+      {/* Chatbot mockup widget — bottom-right */}
+      <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
+        {/* Chat panel */}
+        <div className="w-72 rounded-2xl shadow-2xl overflow-hidden border border-white/20 bg-white dark:bg-gray-900">
+          {/* Header */}
+          <div className="flex items-center gap-2.5 px-4 py-3 bg-indigo-600">
+            <div className="relative">
+              <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-bold">AI</div>
+              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-400 border-2 border-indigo-600" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-white leading-tight">ผู้ช่วย SKT</div>
+              <div className="text-xs text-indigo-200">ออนไลน์อยู่</div>
+            </div>
+            <button className="ml-auto text-white/60 hover:text-white transition cursor-pointer" aria-label="ปิด">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          {/* Messages */}
+          <div className="flex flex-col gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 min-h-[120px]">
+            <div className="flex items-end gap-2">
+              <div className="h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold shrink-0">AI</div>
+              <div className="rounded-2xl rounded-bl-sm bg-white dark:bg-gray-700 px-3 py-2 text-xs text-gray-700 dark:text-gray-200 shadow-sm max-w-[200px]">
+                สวัสดีครับ มีอะไรให้ช่วยไหมครับ? 😊
+              </div>
+            </div>
+            <div className="flex items-end justify-end gap-2">
+              <div className="rounded-2xl rounded-br-sm bg-indigo-600 px-3 py-2 text-xs text-white max-w-[180px]">
+                อยากทราบวิธีเข้าสู่ระบบ
+              </div>
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold shrink-0">AI</div>
+              <div className="rounded-2xl rounded-bl-sm bg-white dark:bg-gray-700 px-3 py-2 text-xs text-gray-700 dark:text-gray-200 shadow-sm max-w-[200px]">
+                กรอกชื่อผู้ใช้และรหัสผ่านที่ได้รับแล้วกด "เข้าสู่ระบบ" ได้เลยครับ
+              </div>
+            </div>
+          </div>
+          {/* Input */}
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700">
+            <input
+              type="text"
+              placeholder="พิมพ์ข้อความ..."
+              className="flex-1 text-xs rounded-xl border border-gray-200 dark:border-gray-600 px-3 py-1.5 outline-none bg-gray-50 dark:bg-gray-800 dark:text-white placeholder:text-gray-400 focus:border-indigo-400"
+              readOnly
+            />
+            <button className="h-7 w-7 rounded-xl bg-indigo-600 flex items-center justify-center text-white hover:bg-indigo-700 transition cursor-pointer shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M22 2L11 13M22 2L15 22l-4-9-9-4 19-7z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        {/* Bubble button */}
+        <button className="h-12 w-12 rounded-full bg-indigo-600 shadow-lg flex items-center justify-center text-white hover:bg-indigo-700 active:scale-95 transition cursor-pointer" aria-label="แชทกับผู้ช่วย">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </button>
+      </div>
       {/* Layer: dark base fallback */}
       <div className="absolute inset-0 bg-gray-900/40" />
       {/* Layer: indigo brand tint */}

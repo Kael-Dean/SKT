@@ -3,7 +3,17 @@
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../../components/SelectDropdown"
-import lineIcon from "../../assets/line-icon.png"
+
+const ED_LEVEL_OPTIONS = [
+  { value: "มัธยมศึกษาตอนต้น", label: "มัธยมศึกษาตอนต้น (ม.3)" },
+  { value: "มัธยมศึกษาตอนปลาย", label: "มัธยมศึกษาตอนปลาย (ม.6)" },
+  { value: "ปวช.", label: "ปวช. (ประกาศนียบัตรวิชาชีพ)" },
+  { value: "ปวส.", label: "ปวส. (ประกาศนียบัตรวิชาชีพชั้นสูง)" },
+  { value: "อนุปริญญา", label: "อนุปริญญา" },
+  { value: "ปริญญาตรี", label: "ปริญญาตรี" },
+  { value: "ปริญญาโท", label: "ปริญญาโท" },
+  { value: "ปริญญาเอก", label: "ปริญญาเอก" },
+]
 
 const GENDER_OPTIONS = [
   { value: "M", label: "ชาย" },
@@ -69,7 +79,6 @@ export default function HRStaffSignup() {
     hired: "",
     bank_no: "",
     p_number: "",
-    line_id: "",
     e_contact: "",
     birthday: "",
     age: "",
@@ -128,6 +137,13 @@ export default function HRStaffSignup() {
       return next
     })
   }
+  const setEduField = (index, field) => (val) => {
+    setEducation((prev) => {
+      const next = [...prev]
+      next[index] = { ...next[index], [field]: val }
+      return next
+    })
+  }
 
   const addEdu = () => setEducation((prev) => [...prev, emptyEdu()])
   const removeEdu = (i) => setEducation((prev) => prev.filter((_, idx) => idx !== i))
@@ -150,7 +166,6 @@ export default function HRStaffSignup() {
         ...(form.hired && { hired: form.hired }),
         ...(form.bank_no && { bank_no: form.bank_no.trim() }),
         ...(form.p_number && { p_number: form.p_number.trim() }),
-        ...(form.line_id && { line_id: form.line_id.trim() }),
         ...(form.e_contact && { e_contact: form.e_contact.trim() }),
         ...(form.birthday && { birthday: form.birthday }),
         ...(form.age && { age: Number(form.age) }),
@@ -192,7 +207,7 @@ export default function HRStaffSignup() {
     setError("")
     setForm({
       first_name: "", last_name: "", cid: "", role_id: "", branch_location: "",
-      position: "", email: "", hired: "", bank_no: "", p_number: "", line_id: "",
+      position: "", email: "", hired: "", bank_no: "", p_number: "",
       e_contact: "", birthday: "", age: "", gender: "", m_status: "",
       children_number: "0", h_address: "", mhoo: "", soi: "", road: "",
       district: "", sub_district: "", province: "", postal_code: "", current_salary: "",
@@ -320,9 +335,6 @@ export default function HRStaffSignup() {
             <Field label="เบอร์โทรศัพท์">
               <input className={inputCls} value={form.p_number} onChange={set("p_number")} placeholder="08XXXXXXXX" />
             </Field>
-            <Field label={<span className="flex items-center gap-1"><img src={lineIcon} alt="LINE" className="h-3.5 w-3.5 object-contain" />Line ID</span>}>
-              <input className={inputCls} value={form.line_id} onChange={set("line_id")} placeholder="Line ID" />
-            </Field>
             <Field label="เบอร์ติดต่อฉุกเฉิน">
               <input className={inputCls} value={form.e_contact} onChange={set("e_contact")} placeholder="08XXXXXXXX" />
             </Field>
@@ -423,7 +435,12 @@ export default function HRStaffSignup() {
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="ระดับการศึกษา">
-                  <input className={inputCls} value={edu.ed_level} onChange={setEdu(i, "ed_level")} placeholder="ปริญญาตรี, ปวส., ฯลฯ" />
+                  <SelectDropdown
+                    value={edu.ed_level}
+                    onChange={setEduField(i, "ed_level")}
+                    placeholder="— เลือกระดับการศึกษา —"
+                    options={ED_LEVEL_OPTIONS}
+                  />
                 </Field>
                 <Field label="สถาบัน">
                   <input className={inputCls} value={edu.inst_name} onChange={setEdu(i, "inst_name")} placeholder="ชื่อสถาบัน" />

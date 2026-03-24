@@ -92,60 +92,46 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       >
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="p-4 pb-3 shrink-0 border-b border-gray-200/70 dark:border-gray-700/70">
+          <div className="shrink-0 border-b border-gray-200/70 px-4 py-4 dark:border-gray-700/70">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-sm">
                 AMC
               </div>
-              <div>
-                <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">เมนูส่วนตัว</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">สหกรณ์ ธ.ก.ส. สุรินทร์</p>
+              <div className="min-w-0">
+                <p className="text-sm font-bold leading-tight text-gray-900 dark:text-gray-100">เมนูส่วนตัว</p>
+                <p className="truncate text-xs text-gray-400 dark:text-gray-500">สหกรณ์ ธ.ก.ส. สุรินทร์</p>
               </div>
             </div>
           </div>
 
           {/* Nav items */}
-          <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 p-3 space-y-1.5">
-            {visibleMenus.map((item) => {
-              const active = isActive(item.path)
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => {
-                    navigate(item.path)
-                    setIsOpen(false)
-                  }}
-                  aria-current={active ? "page" : undefined}
-                  className={`${baseBtn} ${active ? activeBtn : idleBtn}`}
-                >
-                  {item.label}
-                </button>
-              )
-            })}
+          <nav className="flex-1 overflow-y-auto p-3">
+            <div className="space-y-0.5">
+              {visibleMenus.map((item) => {
+                const active = isActive(item.path)
+                return (
+                  <button
+                    key={item.path}
+                    onClick={() => {
+                      navigate(item.path)
+                      setIsOpen(false)
+                    }}
+                    aria-current={active ? "page" : undefined}
+                    className={`${baseBtn} ${active ? activeBtn : idleBtn}`}
+                  >
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
 
-            {/* Divider */}
-            <div className="my-2 mx-1 h-px bg-gray-200 dark:bg-gray-700" />
-
-            {/* หน้าหลัก shortcut */}
-            <p className="px-4 py-1 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-              การทำงาน
-            </p>
-            <button
-              onClick={() => {
-                navigate("/home")
-                setIsOpen(false)
-              }}
-              className={`${baseBtn} ${isActive("/home") ? activeBtn : idleBtn}`}
-            >
-              🏠 กลับหน้าหลัก
-            </button>
           </nav>
 
           {/* Logout */}
-          <div className="mt-auto p-4 shrink-0">
+          <div className="shrink-0 border-t border-gray-200/70 p-4 dark:border-gray-700/70">
             <button
               onClick={handleLogout}
-              className="w-full h-12 flex items-center justify-center rounded-xl font-semibold text-white bg-red-600 hover:bg-red-500 active:bg-red-700 hover:scale-[1.02] hover:shadow-lg hover:cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 transition-all duration-200 ease-out"
+              className="flex h-11 w-full cursor-pointer items-center justify-center rounded-xl bg-red-500 font-semibold text-white shadow-sm transition-all duration-200 hover:bg-red-600 hover:shadow-md active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
             >
               ออกจากระบบ
             </button>

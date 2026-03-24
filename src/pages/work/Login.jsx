@@ -73,12 +73,12 @@ const Login = () => {
       {/* Layer: indigo brand tint */}
       <div className="absolute inset-0 bg-indigo-950/55" />
 
-      <div className="relative z-10 w-full max-w-md">
+      <div className="animate-fade-up relative z-10 w-full max-w-md">
 
         {/* Branding */}
-        <div className="mb-6 text-center">
-          <div className="flex justify-center mb-3">
-            <div className="rounded-2xl bg-white p-2 shadow-md">
+        <div className="mb-8 text-center">
+          <div className="mb-4 flex justify-center">
+            <div className="rounded-2xl bg-white/95 p-2.5 shadow-lg ring-1 ring-white/50">
               <img
                 src={asset("/logo/skt-logo.png")}
                 onError={(e) => {
@@ -91,49 +91,53 @@ const Login = () => {
               />
             </div>
           </div>
-          <h1 className="text-base font-semibold text-white/90 leading-snug">
+          <h1 className="text-[15px] font-semibold leading-snug text-white/95">
             สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.
           </h1>
-          <p className="text-sm text-white/65">จังหวัดสุรินทร์</p>
+          <p className="mt-0.5 text-sm text-white/60">จังหวัดสุรินทร์</p>
         </div>
 
         {/* Card */}
-        <div className="rounded-2xl bg-white/90 dark:bg-gray-900/80 shadow-xl backdrop-blur-md ring-1 ring-white/20 dark:ring-white/10 p-8">
-          <h2 className="mb-6 text-xl font-bold text-gray-800 dark:text-gray-100">
+        <div className="rounded-2xl bg-white/92 shadow-2xl backdrop-blur-xl ring-1 ring-white/30 dark:bg-gray-900/85 dark:ring-white/10 p-8">
+          <h2 className="mb-1 text-xl font-bold text-gray-900 dark:text-gray-100">
             เข้าสู่ระบบ
           </h2>
+          <p className="mb-6 text-sm text-gray-400 dark:text-gray-500">กรอกข้อมูลเพื่อเข้าใช้งานระบบ</p>
 
           {error && (
-            <div className="mb-5 flex items-start gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200">
-              <span className="mt-0.5 shrink-0">⚠️</span>
+            <div className="animate-fade-in mb-5 flex items-start gap-2.5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200 dark:bg-red-900/25 dark:text-red-300 dark:ring-red-800/40">
+              <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 ชื่อผู้ใช้
               </label>
               <input
                 type="text"
-                className="w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-sm shadow-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-indigo-500"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[15px] outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-600 dark:bg-gray-700/80 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-indigo-500 dark:focus:bg-gray-700"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
+                autoFocus
                 placeholder="กรอกชื่อผู้ใช้"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 รหัสผ่าน
               </label>
               <div className="relative">
                 <input
                   type={showPass ? "text" : "password"}
-                  className="w-full rounded-2xl border border-gray-200 px-4 py-2.5 pr-12 text-sm shadow-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-indigo-500"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-[15px] outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-600 dark:bg-gray-700/80 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-indigo-500 dark:focus:bg-gray-700"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
@@ -143,7 +147,7 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={() => setShowPass((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
                   aria-label={showPass ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
                   tabIndex={-1}
                 >
@@ -161,26 +165,28 @@ const Login = () => {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-2xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                  กำลังเข้าสู่ระบบ...
-                </span>
-              ) : (
-                "เข้าสู่ระบบ"
-              )}
-            </button>
+            <div className="pt-1">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-xl bg-indigo-600 py-3 text-[15px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-indigo-700 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    กำลังเข้าสู่ระบบ...
+                  </span>
+                ) : (
+                  "เข้าสู่ระบบ"
+                )}
+              </button>
+            </div>
 
-            <div className="text-center pt-1">
+            <div className="pt-1 text-center">
               <button
                 type="button"
                 onClick={() => navigate("/forgot-password")}
-                className="text-sm text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition underline-offset-2 hover:underline cursor-pointer"
+                className="text-sm text-gray-400 underline-offset-2 transition-colors hover:text-indigo-600 hover:underline dark:text-gray-500 dark:hover:text-indigo-400 cursor-pointer"
               >
                 ลืมรหัสผ่าน?
               </button>

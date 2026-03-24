@@ -8,10 +8,10 @@ import SelectDropdown from "../../components/SelectDropdown"
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
 const ROLE_COLOR = {
   1: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  2: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  3: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
-  4: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  5: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  2: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+  3: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  4: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  5: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
 }
 
 export default function HRUserList() {
@@ -69,8 +69,11 @@ export default function HRUserList() {
       </div>
 
       {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          ❌ {error}
+        <div className="flex items-start gap-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+          <span>{error}</span>
         </div>
       )}
 
@@ -81,7 +84,7 @@ export default function HRUserList() {
           placeholder="ค้นหา ชื่อ-นามสกุล..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[200px] rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="flex-1 min-w-[200px] rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-[15px] text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 transition-colors duration-150 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-indigo-400"
         />
         <div className="w-44 shrink-0">
           <SelectDropdown
@@ -124,7 +127,7 @@ export default function HRUserList() {
                 <tr>
                   <td colSpan={6} className="text-center py-10">
                     <div className="flex justify-center">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500" />
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
                     </div>
                   </td>
                 </tr>

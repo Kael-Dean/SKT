@@ -1,5 +1,196 @@
-
-
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── Base Typography ──────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    font-family: "Sarabun", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-size: 1rem;
+    line-height: 1.6;
+    font-weight: 400;
+  }
+
+  /* Thai text benefits from slightly more line-height */
+  p, li, label, td, th {
+    line-height: 1.65;
+  }
+
+  /* Headings: tighter line-height */
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.25;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* Tabular numbers for any numeric context */
+  table, .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Smooth focus transitions */
+  * {
+    outline-offset: 2px;
+  }
+}
+
+/* ─── Custom Easing Tokens ─────────────────────────────────────────────────── */
+:root {
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:    cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Page Entrance ────────────────────────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.35s var(--ease-out-quart) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.25s var(--ease-out-quart) both;
+}
+
+/* Stagger helpers */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.10s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.20s; }
+.stagger-5 { animation-delay: 0.25s; }
+
+/* ─── Accessibility: Reduced Motion ───────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Hardening: Text & Overflow ──────────────────────────────────────────── */
+@layer base {
+  /* Thai text: prevent overflow on long words/names */
+  td, th, .text-wrap {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  /* Flex children: prevent overflow (min-width: 0 pattern) */
+  .flex > * {
+    min-width: 0;
+  }
+
+  /* Table: always allow horizontal scroll on small screens */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent double-tap zoom on iOS touch targets */
+  button, [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Scrollbar styling (subtle, consistent) */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: rgb(203 213 225 / 0.8);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(148 163 184 / 0.9);
+  }
+
+  /* Dark mode scrollbar */
+  .dark ::-webkit-scrollbar-thumb {
+    background-color: rgb(71 85 105 / 0.8);
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(100 116 139 / 0.9);
+  }
+}
+
+/* ─── Delight: Micro-interactions ─────────────────────────────────────────── */
+
+/* Online indicator — subtle ping like Apple Watch */
+@keyframes status-ping {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  60%  { transform: scale(2.2); opacity: 0;   }
+  100% { transform: scale(2.2); opacity: 0;   }
+}
+.status-ping::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: currentColor;
+  animation: status-ping 2.5s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+
+/* Focus ring — smooth expand from center */
+@keyframes focus-ring-in {
+  from { box-shadow: 0 0 0 0px rgb(99 102 241 / 0.4); }
+  to   { box-shadow: 0 0 0 3px rgb(99 102 241 / 0.2); }
+}
+input:focus, select:focus, textarea:focus, button:focus-visible {
+  animation: focus-ring-in 0.15s var(--ease-out-quart) both;
+}
+
+/* Subtle shimmer for welcome gradient card */
+@keyframes shimmer-move {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.welcome-shimmer {
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255,255,255,0.06) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-move 4s linear infinite;
+}
+
+/* ─── Data Table Enhancements ─────────────────────────────────────────────── */
+@layer base {
+  /* Numeric cells: align right + tabular spacing */
+  td[class*="text-right"],
+  th[class*="text-right"] {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+  }
+
+  /* Table header: slightly stronger */
+  thead th {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  /* Remove extra whitespace in table cells for dense data */
+  table th,
+  table td {
+    vertical-align: middle;
+  }
+}

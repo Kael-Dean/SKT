@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm show:*)",
+      "WebFetch(domain:impeccable.style)",
+      "Bash(npx skills:*)",
+      "Bash(wc -l /c/Organization/SKT/src/pages/**/*.jsx)"
+    ]
+  }
+}

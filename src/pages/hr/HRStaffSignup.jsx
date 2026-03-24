@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../../components/SelectDropdown"
+import { baseField, labelCls, sectionTitleCls, submitBtnCls } from "../../lib/styles"
 
 const ED_LEVEL_OPTIONS = [
   { value: "มัธยมศึกษาตอนต้น", label: "มัธยมศึกษาตอนต้น (ม.3)" },
@@ -36,29 +37,19 @@ const ROLE_OPTIONS = [
 ]
 
 function SectionTitle({ children }) {
-  return (
-    <h3 className="text-sm font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide mb-3">
-      {children}
-    </h3>
-  )
+  return <h3 className={sectionTitleCls}>{children}</h3>
 }
 
 function Field({ label, required, children }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+      <label className={labelCls}>
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       {children}
     </div>
   )
 }
-
-const inputCls =
-  "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-
-const selectCls =
-  "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
 
 const emptyEdu = () => ({ ed_level: "", inst_name: "", from_date: "", to_date: "" })
 
@@ -274,8 +265,11 @@ export default function HRStaffSignup() {
       </div>
 
       {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          ❌ {error}
+        <div className="flex items-start gap-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+          <span>{error}</span>
         </div>
       )}
 
@@ -285,16 +279,16 @@ export default function HRStaffSignup() {
           <SectionTitle>ข้อมูลพื้นฐาน</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="ชื่อ" required>
-              <input className={inputCls} value={form.first_name} onChange={set("first_name")} required placeholder="ชื่อจริง" />
+              <input className={baseField} value={form.first_name} onChange={set("first_name")} required placeholder="ชื่อจริง" />
             </Field>
             <Field label="นามสกุล" required>
-              <input className={inputCls} value={form.last_name} onChange={set("last_name")} required placeholder="นามสกุล" />
+              <input className={baseField} value={form.last_name} onChange={set("last_name")} required placeholder="นามสกุล" />
             </Field>
             <Field label="เลขบัตรประชาชน (CID)" required>
-              <input className={inputCls} value={form.cid} onChange={set("cid")} required maxLength={13} placeholder="13 หลัก" />
+              <input className={baseField} value={form.cid} onChange={set("cid")} required maxLength={13} placeholder="13 หลัก" />
             </Field>
             <Field label="วันที่เริ่มงาน">
-              <input type="date" className={inputCls} value={form.hired} onChange={set("hired")} />
+              <input type="date" className={baseField} value={form.hired} onChange={set("hired")} />
             </Field>
             <Field label="Role">
               <SelectDropdown
@@ -323,7 +317,7 @@ export default function HRStaffSignup() {
               />
             </Field>
             <Field label="Email">
-              <input type="email" className={inputCls} value={form.email} onChange={set("email")} placeholder="example@email.com" />
+              <input type="email" className={baseField} value={form.email} onChange={set("email")} placeholder="example@email.com" />
             </Field>
           </div>
         </div>
@@ -333,16 +327,16 @@ export default function HRStaffSignup() {
           <SectionTitle>ข้อมูลส่วนบุคคล</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="เบอร์โทรศัพท์">
-              <input className={inputCls} value={form.p_number} onChange={set("p_number")} placeholder="08XXXXXXXX" />
+              <input className={baseField} value={form.p_number} onChange={set("p_number")} placeholder="08XXXXXXXX" />
             </Field>
             <Field label="เบอร์ติดต่อฉุกเฉิน">
-              <input className={inputCls} value={form.e_contact} onChange={set("e_contact")} placeholder="08XXXXXXXX" />
+              <input className={baseField} value={form.e_contact} onChange={set("e_contact")} placeholder="08XXXXXXXX" />
             </Field>
             <Field label="วันเกิด">
-              <input type="date" className={inputCls} value={form.birthday} onChange={set("birthday")} />
+              <input type="date" className={baseField} value={form.birthday} onChange={set("birthday")} />
             </Field>
             <Field label="อายุ">
-              <input type="number" min="18" max="70" className={inputCls} value={form.age} onChange={set("age")} placeholder="อายุ (ปี)" />
+              <input type="number" min="18" max="70" className={baseField} value={form.age} onChange={set("age")} placeholder="อายุ (ปี)" />
             </Field>
             <Field label="เพศ">
               <SelectDropdown
@@ -361,7 +355,7 @@ export default function HRStaffSignup() {
               />
             </Field>
             <Field label="จำนวนบุตร">
-              <input type="number" min="0" className={inputCls} value={form.children_number} onChange={set("children_number")} />
+              <input type="number" min="0" className={baseField} value={form.children_number} onChange={set("children_number")} />
             </Field>
           </div>
         </div>
@@ -371,10 +365,10 @@ export default function HRStaffSignup() {
           <SectionTitle>ข้อมูลการเงิน</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="เลขบัญชีธนาคาร">
-              <input className={inputCls} value={form.bank_no} onChange={set("bank_no")} placeholder="XXX-X-XXXXX-X" />
+              <input className={baseField} value={form.bank_no} onChange={set("bank_no")} placeholder="XXX-X-XXXXX-X" />
             </Field>
             <Field label="เงินเดือนเริ่มต้น (บาท)">
-              <input type="number" min="0" step="0.01" className={inputCls} value={form.current_salary} onChange={set("current_salary")} placeholder="0.00" />
+              <input type="number" min="0" step="0.01" className={baseField} value={form.current_salary} onChange={set("current_salary")} placeholder="0.00" />
             </Field>
           </div>
         </div>
@@ -384,28 +378,28 @@ export default function HRStaffSignup() {
           <SectionTitle>ที่อยู่ (ถ้ามี)</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="บ้านเลขที่">
-              <input className={inputCls} value={form.h_address} onChange={set("h_address")} placeholder="123 หมู่..." />
+              <input className={baseField} value={form.h_address} onChange={set("h_address")} placeholder="123 หมู่..." />
             </Field>
             <Field label="หมู่ที่">
-              <input className={inputCls} value={form.mhoo} onChange={set("mhoo")} placeholder="4" />
+              <input className={baseField} value={form.mhoo} onChange={set("mhoo")} placeholder="4" />
             </Field>
             <Field label="ซอย">
-              <input className={inputCls} value={form.soi} onChange={set("soi")} />
+              <input className={baseField} value={form.soi} onChange={set("soi")} />
             </Field>
             <Field label="ถนน">
-              <input className={inputCls} value={form.road} onChange={set("road")} />
+              <input className={baseField} value={form.road} onChange={set("road")} />
             </Field>
             <Field label="ตำบล/แขวง">
-              <input className={inputCls} value={form.sub_district} onChange={set("sub_district")} />
+              <input className={baseField} value={form.sub_district} onChange={set("sub_district")} />
             </Field>
             <Field label="อำเภอ/เขต">
-              <input className={inputCls} value={form.district} onChange={set("district")} />
+              <input className={baseField} value={form.district} onChange={set("district")} />
             </Field>
             <Field label="จังหวัด">
-              <input className={inputCls} value={form.province} onChange={set("province")} placeholder="สุรินทร์" />
+              <input className={baseField} value={form.province} onChange={set("province")} placeholder="สุรินทร์" />
             </Field>
             <Field label="รหัสไปรษณีย์">
-              <input className={inputCls} value={form.postal_code} onChange={set("postal_code")} maxLength={5} placeholder="32000" />
+              <input className={baseField} value={form.postal_code} onChange={set("postal_code")} maxLength={5} placeholder="32000" />
             </Field>
           </div>
         </div>
@@ -443,13 +437,13 @@ export default function HRStaffSignup() {
                   />
                 </Field>
                 <Field label="สถาบัน">
-                  <input className={inputCls} value={edu.inst_name} onChange={setEdu(i, "inst_name")} placeholder="ชื่อสถาบัน" />
+                  <input className={baseField} value={edu.inst_name} onChange={setEdu(i, "inst_name")} placeholder="ชื่อสถาบัน" />
                 </Field>
                 <Field label="ตั้งแต่">
-                  <input type="date" className={inputCls} value={edu.from_date} onChange={setEdu(i, "from_date")} />
+                  <input type="date" className={baseField} value={edu.from_date} onChange={setEdu(i, "from_date")} />
                 </Field>
                 <Field label="ถึง">
-                  <input type="date" className={inputCls} value={edu.to_date} onChange={setEdu(i, "to_date")} />
+                  <input type="date" className={baseField} value={edu.to_date} onChange={setEdu(i, "to_date")} />
                 </Field>
               </div>
             </div>
@@ -460,7 +454,7 @@ export default function HRStaffSignup() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full h-12 rounded-xl bg-indigo-600 text-white font-semibold text-base hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-sm cursor-pointer"
+          className={submitBtnCls + " w-full"}
         >
           {submitting ? "กำลังบันทึก..." : "ลงทะเบียนพนักงาน"}
         </button>

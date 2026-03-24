@@ -94,10 +94,10 @@ function FunctionCard({ item, onClick }) {
   return (
     <button
       onClick={() => onClick(item.path)}
-      className="flex flex-col items-center justify-center gap-1.5 rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-4 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:ring-indigo-300 dark:hover:ring-indigo-700 hover:scale-[1.03] active:scale-[0.98] transition-all duration-150 min-h-[80px] cursor-pointer"
+      className="group flex flex-col items-center justify-center gap-2 rounded-xl bg-gray-50 p-3 ring-1 ring-gray-200/60 transition-all duration-150 hover:bg-indigo-50 hover:ring-indigo-200 hover:shadow-sm hover:scale-[1.04] active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-gray-800/60 dark:ring-gray-700/60 dark:hover:bg-indigo-900/25 dark:hover:ring-indigo-700/60 cursor-pointer min-h-[76px]"
     >
-      <span className="text-2xl leading-none">{item.icon}</span>
-      <span className="text-xs font-medium text-gray-700 dark:text-gray-300 text-center leading-tight">
+      <span className="text-xl leading-none transition-transform duration-150 group-hover:scale-110">{item.icon}</span>
+      <span className="text-[11px] font-medium text-gray-600 dark:text-gray-400 text-center leading-tight group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors duration-150">
         {item.label}
       </span>
     </button>
@@ -142,8 +142,8 @@ export default function Home() {
     return (
       <div className="flex items-center justify-center py-24">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-          <span className="text-sm text-gray-400 dark:text-gray-500">กำลังโหลดข้อมูล...</span>
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
+          <span className="text-sm text-gray-400 dark:text-gray-500">กำลังโหลด...</span>
         </div>
       </div>
     )
@@ -161,40 +161,46 @@ export default function Home() {
     <div className="space-y-5 py-2">
 
       {/* Welcome Card */}
-      <div className="rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 text-white shadow-md">
+      <div className="animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 text-white shadow-lg">
+        <div className="welcome-shimmer pointer-events-none absolute inset-0" aria-hidden="true" />
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-xl font-bold shadow-inner">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/20 text-xl font-bold ring-2 ring-white/30">
             {avatarLetter}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-indigo-100">{greeting} 👋</p>
-            <h1 className="mt-0.5 text-xl font-bold leading-tight">{displayName}</h1>
-            <span className="mt-2 inline-block rounded-full bg-white/20 px-3 py-0.5 text-xs font-semibold">
+            <p className="text-sm text-indigo-200">{greeting}</p>
+            <h1 className="mt-0.5 text-xl font-bold leading-tight tracking-tight">{displayName}</h1>
+            <span className="mt-2 inline-block rounded-full bg-white/15 px-3 py-0.5 text-xs font-semibold ring-1 ring-white/20">
               {roleLabel}
             </span>
           </div>
-          <div className="hidden shrink-0 text-right text-sm text-indigo-100 sm:block">
-            <p>{dateStr}</p>
+          <div className="hidden shrink-0 text-right sm:block">
+            <p className="text-sm text-indigo-200">{dateStr}</p>
           </div>
         </div>
       </div>
 
       {/* Date — mobile only */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200/70 dark:bg-gray-800 dark:ring-gray-700/70 sm:hidden">
+      <div className="rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-gray-200/70 dark:bg-gray-800 dark:ring-gray-700/70 sm:hidden">
         <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-          <span>📅</span>
+          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
+          </svg>
           <span>{dateStr}</span>
         </div>
       </div>
 
       {/* Function cards by group */}
-      {visibleGroups.map((group) => (
-        <div key={group.group} className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-base">{group.icon}</span>
-            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{group.group}</h2>
+      {visibleGroups.map((group, gi) => (
+        <div
+          key={group.group}
+          className={`animate-fade-up stagger-${Math.min(gi + 1, 5)} rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5`}
+        >
+          <div className="mb-3 flex items-center gap-2.5">
+            <span className="text-lg leading-none">{group.icon}</span>
+            <h2 className="text-[13px] font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">{group.group}</h2>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
             {group.items.map((item) => (
               <FunctionCard key={item.path} item={item} onClick={navigate} />
             ))}

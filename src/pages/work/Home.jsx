@@ -50,7 +50,7 @@ const ALL_FUNCTIONS = [
     icon: "📦",
     color: "from-orange-400 to-amber-500",
     items: [
-      { label: "สร้างออเดอร์", path: "/order", icon: "📝", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.HA] },
+      { label: "ดูออเดอร์ซื้อขาย", path: "/order", icon: "📝", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.HA] },
       { label: "แก้ไขออเดอร์", path: "/order-correction", icon: "🛠️", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.HA] },
       { label: "คลังสินค้า", path: "/stock", icon: "🏭", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
       { label: "เพิ่มรหัสข้าว", path: "/spec/create", icon: "🌾", roles: [ROLE.ADMIN, ROLE.HA] },

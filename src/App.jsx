@@ -171,10 +171,10 @@ function RequireUserId17or18({ children }) {
   return children
 }
 
-/* ---------- Route guard: เฉพาะ mng / admin / HA ---------- */
+/* ---------- Route guard: เฉพาะ mng / admin / HA / MKT ---------- */
 function RequireMngAdminHA({ children }) {
   const r = getRoleId()
-  const ok = r === ROLE.ADMIN || r === ROLE.MNG || r === ROLE.HA
+  const ok = r === ROLE.ADMIN || r === ROLE.MNG || r === ROLE.HA || r === ROLE.MKT
   if (!ok) return <Navigate to="/home" replace />
   return children
 }
@@ -186,10 +186,10 @@ function RequireNotMarketing({ children }) {
   return children
 }
 
-/* ✅ Route guard: เฉพาะ ADMIN + HA — ใช้กับหน้า "สร้างรหัสข้าว" */
+/* ✅ Route guard: เฉพาะ ADMIN + HA + MKT — ใช้กับหน้า "สร้างรหัสข้าว" */
 function RequireAdminHA({ children }) {
   const r = getRoleId()
-  const ok = r === ROLE.ADMIN || r === ROLE.HA
+  const ok = r === ROLE.ADMIN || r === ROLE.HA || r === ROLE.MKT
   if (!ok) return <Navigate to="/home" replace />
   return children
 }
@@ -232,15 +232,7 @@ function App() {
 
         <Route path="/documents" element={<Documents />} />
 
-        {/* ✅ หน้า "สร้างออเดอร์" → ทุก role ยกเว้น MKT */}
-        <Route
-          path="/order"
-          element={
-            <RequireNotMarketing>
-              <Order />
-            </RequireNotMarketing>
-          }
-        />
+        <Route path="/order" element={<Order />} />
 
         <Route path="/sales" element={<Sales />} />
         <Route path="/Buy" element={<Buy />} />

@@ -171,3 +171,39 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
     vertical-align: middle;
   }
 }
+
+/* ─── Remove/Hide Scrollbar Styling ────────────────────────────────────────── */
+/* Hide scrollbar thumb for cleaner look */
+::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-color: transparent transparent;
+}
+
+/* Alternative: make scrollbar minimal */
+/*
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+*/

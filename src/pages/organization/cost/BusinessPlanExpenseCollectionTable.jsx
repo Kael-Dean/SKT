@@ -992,11 +992,11 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
         </div>
       </div>
 
-      {/* Sticky horizontal scrollbar at viewport bottom */}
+      {/* Sticky horizontal scrollbar at bottom of content */}
       <div
         ref={stickyScrollRef}
         onScroll={onStickyScroll}
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 overflow-x-auto hide-v-scrollbar"
+        className="sticky bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 overflow-x-auto hide-v-scrollbar"
         style={{
           width: "100%",
           height: "24px",

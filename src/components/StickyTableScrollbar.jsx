@@ -1,22 +1,10 @@
 import { useEffect, useRef, useCallback, useState } from "react"
 import ReactDOM from "react-dom"
 
-/**
- * StickyTableScrollbar
- * แสดง scrollbar แนวนอน + ปุ่ม ← → ติดด้านล่าง viewport
- * sync กับ div ที่มี overflow-auto ที่ส่งมาผ่าน tableRef
- *
- * Props:
- *   tableRef     — ref ของ div ที่มี overflow-auto (ตาราง)
- *   sidebarOpen  — boolean ว่า sidebar เปิดอยู่ไหม
- *
- * sidebar width = 288px (w-72) ใช้ offset เมื่อ sidebar เปิด (overlay mode)
- */
-
 const SIDEBAR_W = 288
-const STEP = 150 // px ต่อคลิกปุ่ม
-const REPEAT_DELAY = 400 // ms ก่อน repeat
-const REPEAT_INTERVAL = 80 // ms repeat interval
+const STEP = 150
+const REPEAT_DELAY = 400
+const REPEAT_INTERVAL = 80
 
 export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
   const trackRef = useRef(null)
@@ -27,14 +15,12 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
   const [visible, setVisible] = useState(false)
   const [thumbStyle, setThumbStyle] = useState({ left: 0, width: 0 })
 
-  // คำนวณ thumb size + position
+  // คำนวณ thumb — แยก visible check ออกมา ไม่ต้องพึ่ง trackRef
   const syncThumb = useCallback(() => {
     const el = tableRef?.current
-    const track = trackRef.current
-    if (!el || !track) return
+    if (!el) return
 
     const { scrollLeft, scrollWidth, clientWidth } = el
-    const trackW = track.clientWidth - 64 // หัก ปุ่ม ← → (32px * 2)
 
     if (scrollWidth <= clientWidth) {
       setVisible(false)
@@ -42,16 +28,21 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
     }
     setVisible(true)
 
-    const ratio = clientWidth / scrollWidth
-    const thumbW = Math.max(32, trackW * ratio)
-    const maxScroll = scrollWidth - clientWidth
-    const maxThumbLeft = trackW - thumbW
-    const thumbLeft = maxScroll > 0 ? (scrollLeft / maxScroll) * maxThumbLeft : 0
-
-    setThumbStyle({ left: thumbLeft, width: thumbW })
+    // track อาจยังไม่ mount ใน frame นี้ (visible เพิ่ง set เป็น true)
+    // ใช้ requestAnimationFrame เพื่อรอ render รอบถัดไป
+    requestAnimationFrame(() => {
+      const track = trackRef.current
+      if (!track) return
+      const trackW = track.clientWidth - 64
+      const ratio = clientWidth / scrollWidth
+      const thumbW = Math.max(32, trackW * ratio)
+      const maxScroll = scrollWidth - clientWidth
+      const maxThumbLeft = trackW - thumbW
+      const thumbLeft = maxScroll > 0 ? (scrollLeft / maxScroll) * maxThumbLeft : 0
+      setThumbStyle({ left: thumbLeft, width: thumbW })
+    })
   }, [tableRef])
 
-  // scroll ตาราง แล้ว sync thumb
   const scrollBy = useCallback((delta) => {
     const el = tableRef?.current
     if (!el) return
@@ -59,11 +50,10 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
     syncThumb()
   }, [tableRef, syncThumb])
 
-  // ฟัง scroll จากตาราง → update thumb
+  // ฟัง scroll event จากตาราง
   useEffect(() => {
     const el = tableRef?.current
     if (!el) return
-
     const onScroll = () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(syncThumb)
@@ -76,13 +66,12 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
     }
   }, [tableRef, syncThumb])
 
-  // ResizeObserver — อัปเดตเมื่อขนาดตารางหรือ content เปลี่ยน
+  // ResizeObserver — observe ทั้ง container และ table ข้างใน
   useEffect(() => {
     const el = tableRef?.current
     if (!el) return
     const ro = new ResizeObserver(syncThumb)
     ro.observe(el)
-    // observe table ด้วย เพราะ table width เปลี่ยนเมื่อ columns โหลด
     const table = el.querySelector("table")
     if (table) ro.observe(table)
     return () => ro.disconnect()
@@ -97,7 +86,7 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
     return () => mo.disconnect()
   }, [tableRef, syncThumb])
 
-  // Drag thumb
+  // Drag thumb (mouse)
   useEffect(() => {
     const thumb = thumbRef.current
     const track = trackRef.current
@@ -181,7 +170,6 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
     const el = tableRef?.current
     if (!track || !thumb || !el) return
     const trackRect = track.getBoundingClientRect()
-    // offset 32px คือปุ่ม ←
     const clickX = e.clientX - trackRect.left - 32
     const trackW = track.clientWidth - 64
     const thumbW = thumb.offsetWidth
@@ -237,9 +225,7 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
 
       {/* Track */}
       <div className="relative flex-1 h-3 mx-0.5">
-        {/* Track background */}
         <div className="absolute inset-0 rounded-full bg-slate-200 dark:bg-slate-700" />
-        {/* Thumb */}
         <div
           ref={thumbRef}
           style={{ left: thumbStyle.left, width: thumbStyle.width }}

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import TableScrollButtons from "../../../components/TableScrollButtons"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -598,8 +597,6 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
 
   return (
     <div className="space-y-3">
-      <TableScrollButtons tableRef={bodyScrollRef} isVisible={true} />
-
       {/* Header */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">

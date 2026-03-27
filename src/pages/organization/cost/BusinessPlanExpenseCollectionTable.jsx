@@ -397,11 +397,13 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
     return () => window.removeEventListener("resize", recalcTableCardHeight)
   }, [recalcTableCardHeight])
 
-  // ✅ Scroll sync logic with sticky scrollbar
+  // ✅ Scroll sync logic with fixed bottom scrollbar
   const bodyScrollRef = useRef(null)
-  const stickyScrollRef = useRef(null)
+  const scrollBarTrackRef = useRef(null)
+  const scrollBarThumbRef = useRef(null)
   const [scrollLeft, setScrollLeft] = useState(0)
   const isSyncingRef = useRef(false)
+  const isDraggingThumbRef = useRef(false)
   const rafRef = useRef(0)
 
   const onBodyScroll = () => {
@@ -409,28 +411,48 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
     if (!b) return
     const x = b.scrollLeft || 0
 
-    // Sync to sticky scrollbar
-    if (!isSyncingRef.current && stickyScrollRef.current) {
-      isSyncingRef.current = true
-      stickyScrollRef.current.scrollLeft = x
-      isSyncingRef.current = false
-    }
-
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(() => setScrollLeft(x))
   }
 
-  const onStickyScroll = () => {
-    const s = stickyScrollRef.current
-    const b = bodyScrollRef.current
-    if (!s || !b) return
+  // Thumb drag handler
+  const handleThumbMouseDown = (e) => {
+    isDraggingThumbRef.current = true
+    e.preventDefault()
+  }
 
-    if (!isSyncingRef.current) {
+  useEffect(() => {
+    if (!isDraggingThumbRef.current) return
+
+    const handleMouseMove = (e) => {
+      if (!bodyScrollRef.current || !scrollBarTrackRef.current) return
+      const b = bodyScrollRef.current
+
+      const trackRect = scrollBarTrackRef.current.getBoundingClientRect()
+      const thumbWidth = (b.clientWidth / b.scrollWidth) * trackRect.width
+      const maxThumbLeft = trackRect.width - thumbWidth
+
+      const mouseX = e.clientX - trackRect.left
+      const newThumbLeft = Math.max(0, Math.min(mouseX - thumbWidth / 2, maxThumbLeft))
+      const scrollPercentage = maxThumbLeft > 0 ? newThumbLeft / maxThumbLeft : 0
+
       isSyncingRef.current = true
-      b.scrollLeft = s.scrollLeft
+      b.scrollLeft = scrollPercentage * (b.scrollWidth - b.clientWidth)
       isSyncingRef.current = false
     }
-  }
+
+    const handleMouseUp = () => {
+      isDraggingThumbRef.current = false
+    }
+
+    document.addEventListener("mousemove", handleMouseMove)
+    document.addEventListener("mouseup", handleMouseUp)
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [])
 
   useEffect(() => () => rafRef.current && cancelAnimationFrame(rafRef.current), [])
 
@@ -992,19 +1014,28 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
         </div>
       </div>
 
-      {/* Sticky horizontal scrollbar at bottom of content */}
-      <div
-        ref={stickyScrollRef}
-        onScroll={onStickyScroll}
-        className="sticky bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 overflow-x-auto hide-v-scrollbar"
-        style={{
-          width: "100%",
-          height: "24px",
-          scrollbarWidth: "thin",
-          msOverflowStyle: "auto",
-        }}
-      >
-        <div style={{ width: TOTAL_W, height: 1 }} />
+      {/* Fixed horizontal scrollbar at bottom of viewport */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 py-2 px-4 pointer-events-auto">
+        <div
+          ref={scrollBarTrackRef}
+          className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden cursor-pointer"
+        >
+          <div
+            ref={scrollBarThumbRef}
+            onMouseDown={handleThumbMouseDown}
+            style={{
+              width: bodyScrollRef.current
+                ? `${(bodyScrollRef.current.clientWidth / bodyScrollRef.current.scrollWidth) * 100}%`
+                : "0%",
+              left: bodyScrollRef.current && bodyScrollRef.current.scrollWidth > bodyScrollRef.current.clientWidth
+                ? `${(scrollLeft / (bodyScrollRef.current.scrollWidth - bodyScrollRef.current.clientWidth)) * (100 - (bodyScrollRef.current.clientWidth / bodyScrollRef.current.scrollWidth) * 100)}%`
+                : "0%",
+              transform: "translateX(-50%)",
+              cursor: isDraggingThumbRef.current ? "grabbing" : "grab",
+            }}
+            className="h-full bg-purple-500 hover:bg-purple-600 rounded-full transition-colors"
+          />
+        </div>
       </div>
     </div>
   )

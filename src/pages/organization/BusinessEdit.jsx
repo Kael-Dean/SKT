@@ -312,6 +312,7 @@ const BusinessEdit = () => {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-slate-50 text-black dark:bg-slate-900 dark:text-white rounded-2xl md:p-6 p-4">
       <div className="mx-auto max-w-[1400px]">
         
@@ -474,6 +475,7 @@ const BusinessEdit = () => {
       )}
 
     </div>
+    </>
   )
 }
 

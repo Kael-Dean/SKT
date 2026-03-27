@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import TableScrollButtons from "../../../components/TableScrollButtons"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -670,6 +671,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
       {/* Table Card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700 max-h-[70vh]" ref={tableWrapRef}>
+          <TableScrollButtons tableRef={tableWrapRef} isVisible={true} />
           <table className="min-w-full border-collapse" style={{ width: TOTAL_W }}>
             <colgroup>
               <col style={{ width: COL_W.code }} />

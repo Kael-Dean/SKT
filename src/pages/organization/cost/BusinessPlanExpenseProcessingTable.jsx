@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import TableScrollButtons from "../../../components/TableScrollButtons"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -771,10 +772,11 @@ const BusinessPlanExpenseProcessingTable = ({ branchId, branchName, yearBE, plan
         </div>
 
         <div 
-          ref={bodyScrollRef} 
+          ref={bodyScrollRef}
           onScroll={onBodyScroll} // ✅ เพิ่ม Event สำหรับ Sync Scroll
           className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
         >
+          <TableScrollButtons tableRef={bodyScrollRef} isVisible={true} />
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.code }} />

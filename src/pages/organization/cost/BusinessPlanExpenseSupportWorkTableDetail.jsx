@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import TableScrollButtons from "../../../components/TableScrollButtons"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -568,6 +569,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto max-h-[70vh]" ref={tableWrapRef}>
+          <TableScrollButtons tableRef={tableWrapRef} isVisible={true} />
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.code }} />

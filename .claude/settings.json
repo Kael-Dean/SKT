@@ -3,7 +3,9 @@
     "allow": [
       "Bash(wc -l /c/Organization/SKT/src/pages/organization/cost/*.jsx)",
       "Bash(for f:*)",
-      "Bash(do echo:*)"
+      "Bash(do echo:*)",
+      "Read(//c/Organization/SKT/**)",
+      "Bash(wc -l echo \"--- ไฟล์ที่ยังไม่มี component ใน JSX \\(cost\\) ---\" grep -rL \"sidebarOpen}\" c:/Organization/SKT/src/pages/organization/cost/ echo \"--- ไฟล์ที่ยังไม่มี component ใน JSX \\(sell\\) ---\" grep -rL \"sidebarOpen}\" c:/Organization/SKT/src/pages/organization/sell/)"
     ]
   }
 }

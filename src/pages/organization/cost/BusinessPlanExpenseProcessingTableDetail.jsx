@@ -1,4 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
+import { useSidebarOpen } from "../../../components/AppLayout"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -409,6 +411,7 @@ const BusinessPlanExpenseProcessingTableDetail = ({ branchId, branchName, yearBE
     return { rowSums, monthUnitSums, unitGrandSums, grandTotal }
   }, [valuesByCode, itemRows, unitCols])
 
+  const sidebarOpen = useSidebarOpen()
   const tableWrapRef = useRef(null)
   const inputRefs = useRef(new Map())
 
@@ -682,6 +685,7 @@ const BusinessPlanExpenseProcessingTableDetail = ({ branchId, branchName, yearBE
         </div>
       </div>
     </div>
+    <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
   )
 }
 

@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState } from "react"
 import { Outlet, useNavigate, useLocation } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
+
+export const SidebarContext = createContext(false)
+export const useSidebarOpen = () => useContext(SidebarContext)
 
 const getInitialDark = () => {
   const stored = localStorage.getItem("darkMode")
@@ -48,6 +51,7 @@ const AppLayout = () => {
         />
 
         <main className="flex-1 overflow-y-auto">
+          <SidebarContext.Provider value={isSidebarOpen}>
           <div
             key={location.pathname}
             className="animate-fade-up mx-auto max-w-7xl px-4 py-5 md:px-6 md:py-6"
@@ -68,6 +72,7 @@ const AppLayout = () => {
             )}
             <Outlet />
           </div>
+          </SidebarContext.Provider>
         </main>
       </div>
     </div>

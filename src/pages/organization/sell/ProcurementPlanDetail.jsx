@@ -1,4 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
+import { useSidebarOpen } from "../../../components/AppLayout"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -485,6 +487,7 @@ function ProcurementPlanDetail(props) {
 
   /** ---------------- Arrow Navigation Logic ---------------- */
   const inputRefs = useRef(new Map())
+  const sidebarOpen = useSidebarOpen()
   const tableWrapRef = useRef(null)
 
   const registerInput = useCallback((rIdx, cIdx) => (el) => {
@@ -870,6 +873,7 @@ function ProcurementPlanDetail(props) {
 
       </div>
     </div>
+    <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
   )
 }
 

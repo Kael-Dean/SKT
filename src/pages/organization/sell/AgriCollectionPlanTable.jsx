@@ -1,5 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../../lib/api"
+import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
+import { useSidebarOpen } from "../../../components/AppLayout"
 
 /* รายละเอียดแผนการรวบรวมผลผลิตการเกษตร */
 
@@ -335,6 +337,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
 
   /** ================== ✅ Arrow navigation ================== */
   const inputRefs = useRef(new Map())
+  const sidebarOpen = useSidebarOpen()
   const tableWrapRef = useRef(null)
 
   const registerInput = useCallback((rIdx, cIdx) => (el) => {
@@ -844,6 +847,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
 
       </div>
     </div>
+    <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
   )
 }
 

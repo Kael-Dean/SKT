@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
+import { useSidebarOpen } from "../../../components/AppLayout"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -391,6 +393,7 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
   }, [recalcTableCardHeight])
 
   const bodyScrollRef = useRef(null)
+  const sidebarOpen = useSidebarOpen()
   const [scrollLeft, setScrollLeft] = useState(0)
   const rafRef = useRef(0)
 
@@ -915,6 +918,7 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
           </div>
         </div>
       </div>
+      <StickyTableScrollbar tableRef={bodyScrollRef} sidebarOpen={sidebarOpen} />
     </div>
   )
 }

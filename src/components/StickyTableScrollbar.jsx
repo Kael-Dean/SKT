@@ -1,0 +1,256 @@
+import { useEffect, useRef, useCallback, useState } from "react"
+import ReactDOM from "react-dom"
+
+/**
+ * StickyTableScrollbar
+ * แสดง scrollbar แนวนอน + ปุ่ม ← → ติดด้านล่าง viewport
+ * sync กับ div ที่มี overflow-auto ที่ส่งมาผ่าน tableRef
+ *
+ * Props:
+ *   tableRef     — ref ของ div ที่มี overflow-auto (ตาราง)
+ *   sidebarOpen  — boolean ว่า sidebar เปิดอยู่ไหม
+ *
+ * sidebar width = 288px (w-72) ใช้ offset เมื่อ sidebar เปิด (overlay mode)
+ */
+
+const SIDEBAR_W = 288
+const STEP = 150 // px ต่อคลิกปุ่ม
+const REPEAT_DELAY = 400 // ms ก่อน repeat
+const REPEAT_INTERVAL = 80 // ms repeat interval
+
+export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
+  const trackRef = useRef(null)
+  const thumbRef = useRef(null)
+  const rafRef = useRef(null)
+  const repeatTimerRef = useRef(null)
+
+  const [visible, setVisible] = useState(false)
+  const [thumbStyle, setThumbStyle] = useState({ left: 0, width: 0 })
+
+  // คำนวณ thumb size + position
+  const syncThumb = useCallback(() => {
+    const el = tableRef?.current
+    const track = trackRef.current
+    if (!el || !track) return
+
+    const { scrollLeft, scrollWidth, clientWidth } = el
+    const trackW = track.clientWidth - 64 // หัก ปุ่ม ← → (32px * 2)
+
+    if (scrollWidth <= clientWidth) {
+      setVisible(false)
+      return
+    }
+    setVisible(true)
+
+    const ratio = clientWidth / scrollWidth
+    const thumbW = Math.max(32, trackW * ratio)
+    const maxScroll = scrollWidth - clientWidth
+    const maxThumbLeft = trackW - thumbW
+    const thumbLeft = maxScroll > 0 ? (scrollLeft / maxScroll) * maxThumbLeft : 0
+
+    setThumbStyle({ left: thumbLeft, width: thumbW })
+  }, [tableRef])
+
+  // scroll ตาราง แล้ว sync thumb
+  const scrollBy = useCallback((delta) => {
+    const el = tableRef?.current
+    if (!el) return
+    el.scrollLeft = Math.max(0, Math.min(el.scrollLeft + delta, el.scrollWidth - el.clientWidth))
+    syncThumb()
+  }, [tableRef, syncThumb])
+
+  // ฟัง scroll จากตาราง → update thumb
+  useEffect(() => {
+    const el = tableRef?.current
+    if (!el) return
+
+    const onScroll = () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(syncThumb)
+    }
+    el.addEventListener("scroll", onScroll, { passive: true })
+    syncThumb()
+    return () => {
+      el.removeEventListener("scroll", onScroll)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [tableRef, syncThumb])
+
+  // ResizeObserver — อัปเดตเมื่อขนาดตารางหรือ content เปลี่ยน
+  useEffect(() => {
+    const el = tableRef?.current
+    if (!el) return
+    const ro = new ResizeObserver(syncThumb)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [tableRef, syncThumb])
+
+  // Drag thumb
+  useEffect(() => {
+    const thumb = thumbRef.current
+    const track = trackRef.current
+    if (!thumb || !track) return
+
+    let startX = 0
+    let startScrollLeft = 0
+
+    const onMouseMove = (e) => {
+      const el = tableRef?.current
+      if (!el) return
+      const trackW = track.clientWidth - 64
+      const thumbW = thumb.offsetWidth
+      const maxThumbLeft = trackW - thumbW
+      const dx = e.clientX - startX
+      const ratio = dx / maxThumbLeft
+      const maxScroll = el.scrollWidth - el.clientWidth
+      el.scrollLeft = Math.max(0, Math.min(startScrollLeft + ratio * maxScroll, maxScroll))
+    }
+
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mouseup", onMouseUp)
+      document.body.style.userSelect = ""
+    }
+
+    const onMouseDown = (e) => {
+      e.preventDefault()
+      startX = e.clientX
+      startScrollLeft = tableRef?.current?.scrollLeft ?? 0
+      document.body.style.userSelect = "none"
+      window.addEventListener("mousemove", onMouseMove)
+      window.addEventListener("mouseup", onMouseUp)
+    }
+
+    thumb.addEventListener("mousedown", onMouseDown)
+    return () => thumb.removeEventListener("mousedown", onMouseDown)
+  }, [tableRef, thumbStyle])
+
+  // Touch drag thumb
+  useEffect(() => {
+    const thumb = thumbRef.current
+    const track = trackRef.current
+    if (!thumb || !track) return
+
+    let startX = 0
+    let startScrollLeft = 0
+
+    const onTouchMove = (e) => {
+      const el = tableRef?.current
+      if (!el) return
+      const trackW = track.clientWidth - 64
+      const thumbW = thumb.offsetWidth
+      const maxThumbLeft = trackW - thumbW
+      const dx = e.touches[0].clientX - startX
+      const ratio = dx / maxThumbLeft
+      const maxScroll = el.scrollWidth - el.clientWidth
+      el.scrollLeft = Math.max(0, Math.min(startScrollLeft + ratio * maxScroll, maxScroll))
+    }
+
+    const onTouchEnd = () => {
+      window.removeEventListener("touchmove", onTouchMove)
+      window.removeEventListener("touchend", onTouchEnd)
+    }
+
+    const onTouchStart = (e) => {
+      startX = e.touches[0].clientX
+      startScrollLeft = tableRef?.current?.scrollLeft ?? 0
+      window.addEventListener("touchmove", onTouchMove, { passive: true })
+      window.addEventListener("touchend", onTouchEnd)
+    }
+
+    thumb.addEventListener("touchstart", onTouchStart, { passive: true })
+    return () => thumb.removeEventListener("touchstart", onTouchStart)
+  }, [tableRef, thumbStyle])
+
+  // คลิก track (นอก thumb) → jump scroll
+  const onTrackClick = useCallback((e) => {
+    const track = trackRef.current
+    const thumb = thumbRef.current
+    const el = tableRef?.current
+    if (!track || !thumb || !el) return
+    const trackRect = track.getBoundingClientRect()
+    // offset 32px คือปุ่ม ←
+    const clickX = e.clientX - trackRect.left - 32
+    const trackW = track.clientWidth - 64
+    const thumbW = thumb.offsetWidth
+    const thumbLeft = parseFloat(thumb.style.left || 0)
+    if (clickX < thumbLeft || clickX > thumbLeft + thumbW) {
+      const ratio = (clickX - thumbW / 2) / (trackW - thumbW)
+      const maxScroll = el.scrollWidth - el.clientWidth
+      el.scrollLeft = Math.max(0, Math.min(ratio * maxScroll, maxScroll))
+    }
+  }, [tableRef])
+
+  // ปุ่ม press & hold
+  const startRepeat = useCallback((delta) => {
+    scrollBy(delta)
+    repeatTimerRef.current = setTimeout(() => {
+      repeatTimerRef.current = setInterval(() => scrollBy(delta), REPEAT_INTERVAL)
+    }, REPEAT_DELAY)
+  }, [scrollBy])
+
+  const stopRepeat = useCallback(() => {
+    clearTimeout(repeatTimerRef.current)
+    clearInterval(repeatTimerRef.current)
+  }, [])
+
+  useEffect(() => () => stopRepeat(), [stopRepeat])
+
+  if (!visible) return null
+
+  const left = sidebarOpen ? SIDEBAR_W : 0
+
+  return ReactDOM.createPortal(
+    <div
+      ref={trackRef}
+      onClick={onTrackClick}
+      style={{ left, right: 0, bottom: 0 }}
+      className="fixed z-[9998] flex items-center h-7 bg-slate-100/95 dark:bg-slate-800/95 border-t border-slate-200 dark:border-slate-700 backdrop-blur-sm select-none transition-[left] duration-300"
+    >
+      {/* ปุ่ม ← */}
+      <button
+        type="button"
+        onMouseDown={() => startRepeat(-STEP)}
+        onMouseUp={stopRepeat}
+        onMouseLeave={stopRepeat}
+        onTouchStart={() => startRepeat(-STEP)}
+        onTouchEnd={stopRepeat}
+        className="flex-shrink-0 w-8 h-full flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+        aria-label="เลื่อนซ้าย"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+      </button>
+
+      {/* Track */}
+      <div className="relative flex-1 h-3 mx-0.5">
+        {/* Track background */}
+        <div className="absolute inset-0 rounded-full bg-slate-200 dark:bg-slate-700" />
+        {/* Thumb */}
+        <div
+          ref={thumbRef}
+          style={{ left: thumbStyle.left, width: thumbStyle.width }}
+          className="absolute top-0 h-full rounded-full bg-slate-400 hover:bg-slate-500 dark:bg-slate-500 dark:hover:bg-slate-400 cursor-grab active:cursor-grabbing transition-colors"
+        />
+      </div>
+
+      {/* ปุ่ม → */}
+      <button
+        type="button"
+        onMouseDown={() => startRepeat(STEP)}
+        onMouseUp={stopRepeat}
+        onMouseLeave={stopRepeat}
+        onTouchStart={() => startRepeat(STEP)}
+        onTouchEnd={stopRepeat}
+        className="flex-shrink-0 w-8 h-full flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+        aria-label="เลื่อนขวา"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </button>
+    </div>,
+    document.body
+  )
+}

@@ -1,12 +1,11 @@
 import { useEffect, useRef, useCallback, useState } from "react"
 import ReactDOM from "react-dom"
 
-const SIDEBAR_W = 288
 const STEP = 150
 const REPEAT_DELAY = 400
 const REPEAT_INTERVAL = 80
 
-export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
+export default function StickyTableScrollbar({ tableRef }) {
   const trackRef = useRef(null)
   const thumbRef = useRef(null)
   const rafRef = useRef(null)
@@ -14,11 +13,22 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
 
   const [visible, setVisible] = useState(false)
   const [thumbStyle, setThumbStyle] = useState({ left: 0, width: 0 })
+  const [trackPos, setTrackPos] = useState({ left: 0, right: 0 })
+
+  // คำนวณ position ของตาราง → ตั้ง left/right ของ scrollbar bar
+  const syncPos = useCallback(() => {
+    const el = tableRef?.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTrackPos({ left: rect.left, right: window.innerWidth - rect.right })
+  }, [tableRef])
 
   // คำนวณ thumb — แยก visible check ออกมา ไม่ต้องพึ่ง trackRef
   const syncThumb = useCallback(() => {
     const el = tableRef?.current
     if (!el) return
+
+    syncPos()
 
     const { scrollLeft, scrollWidth, clientWidth } = el
 
@@ -28,8 +38,6 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
     }
     setVisible(true)
 
-    // track อาจยังไม่ mount ใน frame นี้ (visible เพิ่ง set เป็น true)
-    // ใช้ requestAnimationFrame เพื่อรอ render รอบถัดไป
     requestAnimationFrame(() => {
       const track = trackRef.current
       if (!track) return
@@ -41,7 +49,7 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
       const thumbLeft = maxScroll > 0 ? (scrollLeft / maxScroll) * maxThumbLeft : 0
       setThumbStyle({ left: thumbLeft, width: thumbW })
     })
-  }, [tableRef])
+  }, [tableRef, syncPos])
 
   const scrollBy = useCallback((delta) => {
     const el = tableRef?.current
@@ -85,6 +93,16 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
     mo.observe(el, { childList: true, subtree: true, attributes: false })
     return () => mo.disconnect()
   }, [tableRef, syncThumb])
+
+  // อัปเดต position เมื่อ window scroll หรือ resize
+  useEffect(() => {
+    window.addEventListener("scroll", syncPos, { passive: true })
+    window.addEventListener("resize", syncPos, { passive: true })
+    return () => {
+      window.removeEventListener("scroll", syncPos)
+      window.removeEventListener("resize", syncPos)
+    }
+  }, [syncPos])
 
   // Drag thumb (mouse)
   useEffect(() => {
@@ -198,14 +216,12 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
 
   if (!visible) return null
 
-  const left = sidebarOpen ? SIDEBAR_W : 0
-
   return ReactDOM.createPortal(
     <div
       ref={trackRef}
       onClick={onTrackClick}
-      style={{ left, right: 0, bottom: 0 }}
-      className="fixed z-[9998] flex items-center h-7 bg-slate-100/95 dark:bg-slate-800/95 border-t border-slate-200 dark:border-slate-700 backdrop-blur-sm select-none transition-[left] duration-300"
+      style={{ left: trackPos.left, right: trackPos.right, bottom: 0 }}
+      className="fixed z-[9998] flex items-center h-7 bg-slate-100/95 dark:bg-slate-800/95 border-t border-slate-200 dark:border-slate-700 backdrop-blur-sm select-none"
     >
       {/* ปุ่ม ← */}
       <button

@@ -397,64 +397,7 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
     return () => window.removeEventListener("resize", recalcTableCardHeight)
   }, [recalcTableCardHeight])
 
-  // ✅ Scroll sync logic with fixed bottom scrollbar
   const bodyScrollRef = useRef(null)
-  const scrollBarTrackRef = useRef(null)
-  const scrollBarThumbRef = useRef(null)
-  const [scrollLeft, setScrollLeft] = useState(0)
-  const isSyncingRef = useRef(false)
-  const isDraggingThumbRef = useRef(false)
-  const rafRef = useRef(0)
-
-  const onBodyScroll = () => {
-    const b = bodyScrollRef.current
-    if (!b) return
-    const x = b.scrollLeft || 0
-
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => setScrollLeft(x))
-  }
-
-  // Thumb drag handler
-  const handleThumbMouseDown = (e) => {
-    isDraggingThumbRef.current = true
-    e.preventDefault()
-  }
-
-  useEffect(() => {
-    if (!isDraggingThumbRef.current) return
-
-    const handleMouseMove = (e) => {
-      if (!bodyScrollRef.current || !scrollBarTrackRef.current) return
-      const b = bodyScrollRef.current
-
-      const trackRect = scrollBarTrackRef.current.getBoundingClientRect()
-      const thumbWidth = (b.clientWidth / b.scrollWidth) * trackRect.width
-      const maxThumbLeft = trackRect.width - thumbWidth
-
-      const mouseX = e.clientX - trackRect.left
-      const newThumbLeft = Math.max(0, Math.min(mouseX - thumbWidth / 2, maxThumbLeft))
-      const scrollPercentage = maxThumbLeft > 0 ? newThumbLeft / maxThumbLeft : 0
-
-      isSyncingRef.current = true
-      b.scrollLeft = scrollPercentage * (b.scrollWidth - b.clientWidth)
-      isSyncingRef.current = false
-    }
-
-    const handleMouseUp = () => {
-      isDraggingThumbRef.current = false
-    }
-
-    document.addEventListener("mousemove", handleMouseMove)
-    document.addEventListener("mouseup", handleMouseUp)
-
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
-    }
-  }, [])
-
-  useEffect(() => () => rafRef.current && cancelAnimationFrame(rafRef.current), [])
 
   const inputRefs = useRef(new Map())
   const totalCols = units.length
@@ -510,7 +453,9 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
       target.focus()
       try {
         target.select()
-      } catch {}
+      } catch {
+        // Ignore: select() may fail on some input types
+      }
       requestAnimationFrame(() => ensureInView(target))
     },
     [ensureInView, itemRows.length, totalCols]
@@ -761,12 +706,7 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
       >
         <div
           ref={bodyScrollRef}
-          onScroll={onBodyScroll} // ✅ ใส่ scroll sync Event
-          className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700 hide-h-scrollbar"
-          style={{
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-          }}
+          className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
         >
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
@@ -930,61 +870,41 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
           </table>
         </div>
 
-        {/* ✅ Fix 2: ดึง Footer ลงมาอยู่ใต้ Scrollable div และซิงค์ตำแหน่งแกน X */}
-        <div className="shrink-0 bg-emerald-100 dark:bg-emerald-900 border-t border-slate-300 dark:border-slate-700">
-          <div className="flex w-full">
-            {/* ซ้าย (พาร์ทที่ถูกตรึง) */}
-            <div className="shrink-0" style={{ width: LEFT_W }}>
-              <table className="border-collapse text-sm" style={{ width: LEFT_W, tableLayout: "fixed" }}>
-                <colgroup>
-                  <col style={{ width: COL_W.code }} />
-                  <col style={{ width: COL_W.item }} />
-                </colgroup>
-                <tbody>
-                  <tr className="text-slate-900 dark:text-slate-100">
-                    <td className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900">
-                      รวม
+        <div className="shrink-0 bg-emerald-100 dark:bg-emerald-900 border-t border-slate-300 dark:border-slate-700 overflow-x-auto">
+          <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: COL_W.code }} />
+              <col style={{ width: COL_W.item }} />
+              {units.length ? units.map((u) => <col key={`f-${u.id}`} style={{ width: COL_W.unit }} />) : <col style={{ width: COL_W.unit }} />}
+              <col style={{ width: COL_W.total }} />
+            </colgroup>
+            <tbody>
+              <tr className="text-slate-900 dark:text-slate-100">
+                <td className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900">
+                  รวม
+                </td>
+                <td className="border border-slate-300 px-2 py-2 text-left font-extrabold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900">
+                  รวมทั้งสิ้น
+                </td>
+                {units.length ? (
+                  units.map((u) => (
+                    <td
+                      key={`total-${u.id}`}
+                      className="border border-slate-300 px-1 py-2 text-right font-bold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900"
+                      title={u.name}
+                    >
+                      {fmtMoney0(computed.unitTotal[u.id] || 0)}
                     </td>
-                    <td className="border border-slate-300 px-2 py-2 text-left font-extrabold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900">
-                      รวมทั้งสิ้น
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* ขวา (พาร์ทที่เลื่อนตามตารางด้วย Scroll แนวนอน) */}
-            <div className="flex-1 overflow-hidden">
-              <div style={{ width: RIGHT_W, transform: `translateX(-${scrollLeft}px)`, willChange: "transform" }}>
-                <table className="border-collapse text-sm" style={{ width: RIGHT_W, tableLayout: "fixed" }}>
-                  <colgroup>
-                    {units.length ? units.map((u) => <col key={`f-${u.id}`} style={{ width: COL_W.unit }} />) : <col style={{ width: COL_W.unit }} />}
-                    <col style={{ width: COL_W.total }} />
-                  </colgroup>
-                  <tbody>
-                    <tr className="text-slate-900 dark:text-slate-100">
-                      {units.length ? (
-                        units.map((u) => (
-                          <td
-                            key={`total-${u.id}`}
-                            className="border border-slate-300 px-1 py-2 text-right font-bold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900"
-                            title={u.name}
-                          >
-                            {fmtMoney0(computed.unitTotal[u.id] || 0)}
-                          </td>
-                        ))
-                      ) : (
-                        <td className="border border-slate-300 px-2 py-2 dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900" />
-                      )}
-                      <td className="border border-slate-300 px-1 py-2 text-right font-extrabold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900">
-                        {fmtMoney0(computed.grand)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+                  ))
+                ) : (
+                  <td className="border border-slate-300 px-2 py-2 dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900" />
+                )}
+                <td className="border border-slate-300 px-1 py-2 text-right font-extrabold text-xs dark:border-slate-600 bg-emerald-100 dark:bg-emerald-900">
+                  {fmtMoney0(computed.grand)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <div className="shrink-0 p-3 md:p-4">
@@ -1011,30 +931,6 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
               {isSaving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Fixed horizontal scrollbar at bottom of viewport */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 py-2 px-4 pointer-events-auto">
-        <div
-          ref={scrollBarTrackRef}
-          className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden cursor-pointer"
-        >
-          <div
-            ref={scrollBarThumbRef}
-            onMouseDown={handleThumbMouseDown}
-            style={{
-              width: bodyScrollRef.current
-                ? `${(bodyScrollRef.current.clientWidth / bodyScrollRef.current.scrollWidth) * 100}%`
-                : "0%",
-              left: bodyScrollRef.current && bodyScrollRef.current.scrollWidth > bodyScrollRef.current.clientWidth
-                ? `${(scrollLeft / (bodyScrollRef.current.scrollWidth - bodyScrollRef.current.clientWidth)) * (100 - (bodyScrollRef.current.clientWidth / bodyScrollRef.current.scrollWidth) * 100)}%`
-                : "0%",
-              transform: "translateX(-50%)",
-              cursor: isDraggingThumbRef.current ? "grabbing" : "grab",
-            }}
-            className="h-full bg-purple-500 hover:bg-purple-600 rounded-full transition-colors"
-          />
         </div>
       </div>
     </div>

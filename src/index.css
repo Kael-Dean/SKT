@@ -106,42 +106,6 @@
     touch-action: manipulation;
   }
 
-  /* Scrollbar styling (subtle, consistent) */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background-color: rgb(203 213 225 / 0.8);
-    border-radius: 999px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background-color: rgb(148 163 184 / 0.9);
-  }
-
-  /* Dark mode scrollbar */
-  .dark ::-webkit-scrollbar-thumb {
-    background-color: rgb(71 85 105 / 0.8);
-  }
-  .dark ::-webkit-scrollbar-thumb:hover {
-    background-color: rgb(100 116 139 / 0.9);
-  }
-
-  /* Hide horizontal scrollbar for table (show only sticky bottom one) */
-  .hide-h-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Hide vertical scrollbar on sticky horizontal scrollbar */
-  .hide-v-scrollbar {
-    scrollbar-width: none;
-  }
-  .hide-v-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
 }
 
 /* ─── Delight: Micro-interactions ─────────────────────────────────────────── */

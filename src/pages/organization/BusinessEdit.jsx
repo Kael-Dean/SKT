@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react"
+import ReactDOM from "react-dom"
 import { apiAuth } from "../../lib/api" 
 
 /** ---------- Mapping ---------- */
@@ -420,9 +421,9 @@ const BusinessEdit = () => {
       </div>
 
       {/* --- MODAL FORM --- */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800 transform transition-all animate-in zoom-in-95 duration-200 my-auto">
+      {isModalOpen && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800 transform transition-all animate-in zoom-in-95 duration-200">
             <h2 className="mb-4 text-xl font-bold border-b border-slate-100 dark:border-slate-700 pb-3">
               {editingId ? "✏️ แก้ไขข้อมูล" : "+ เพิ่มข้อมูลใหม่"} - {currentConfig.label.split(" ")[1]}
             </h2>
@@ -471,7 +472,8 @@ const BusinessEdit = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

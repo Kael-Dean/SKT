@@ -82,7 +82,19 @@ export default function StickyTableScrollbar({ tableRef, sidebarOpen }) {
     if (!el) return
     const ro = new ResizeObserver(syncThumb)
     ro.observe(el)
+    // observe table ด้วย เพราะ table width เปลี่ยนเมื่อ columns โหลด
+    const table = el.querySelector("table")
+    if (table) ro.observe(table)
     return () => ro.disconnect()
+  }, [tableRef, syncThumb])
+
+  // MutationObserver — ดักจับเมื่อ DOM เปลี่ยน (rows/columns โหลดจาก API)
+  useEffect(() => {
+    const el = tableRef?.current
+    if (!el) return
+    const mo = new MutationObserver(syncThumb)
+    mo.observe(el, { childList: true, subtree: true, attributes: false })
+    return () => mo.disconnect()
   }, [tableRef, syncThumb])
 
   // Drag thumb

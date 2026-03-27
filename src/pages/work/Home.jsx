@@ -17,7 +17,7 @@ const ROLE_LABEL = {
 // ฟังก์ชันทั้งหมดที่ใช้ในการทำงาน (แสดงตาม role)
 const ALL_FUNCTIONS = [
   {
-    group: "ธุรกิจรวบรวมผลผลิตต",
+    group: "ธุรกิจรวบรวมผลผลิต",
     icon: "🌾",
     color: "from-green-400 to-emerald-500",
     items: [

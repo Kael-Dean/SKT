@@ -526,6 +526,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
   const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
   return (
+    <>
     <div className="space-y-3 w-full">
       {/* Header Info */}
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
@@ -848,6 +849,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
       </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
+    </>
   )
 }
 

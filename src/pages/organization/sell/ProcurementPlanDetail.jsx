@@ -609,6 +609,7 @@ function ProcurementPlanDetail(props) {
   const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
   return (
+    <>
     <div className="w-full">
       {/* 🟢 แก้ไข: นำปุ่มบันทึกและข้อความแจ้งเตือนออกจากส่วน Header ด้านบน */}
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -874,6 +875,7 @@ function ProcurementPlanDetail(props) {
       </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
+    </>
   )
 }
 

@@ -5,7 +5,10 @@
       "Bash(for f:*)",
       "Bash(do echo:*)",
       "Read(//c/Organization/SKT/**)",
-      "Bash(wc -l echo \"--- ไฟล์ที่ยังไม่มี component ใน JSX \\(cost\\) ---\" grep -rL \"sidebarOpen}\" c:/Organization/SKT/src/pages/organization/cost/ echo \"--- ไฟล์ที่ยังไม่มี component ใน JSX \\(sell\\) ---\" grep -rL \"sidebarOpen}\" c:/Organization/SKT/src/pages/organization/sell/)"
+      "Bash(wc -l echo \"--- ไฟล์ที่ยังไม่มี component ใน JSX \\(cost\\) ---\" grep -rL \"sidebarOpen}\" c:/Organization/SKT/src/pages/organization/cost/ echo \"--- ไฟล์ที่ยังไม่มี component ใน JSX \\(sell\\) ---\" grep -rL \"sidebarOpen}\" c:/Organization/SKT/src/pages/organization/sell/)",
+      "Bash(grep -l \"<>\" c:/Organization/SKT/src/pages/organization/cost/*Detail.jsx)",
+      "Bash(grep -l \"<>\" c:/Organization/SKT/src/pages/organization/sell/*.jsx)",
+      "Bash(wc -l echo \"--- ไฟล์ที่ไม่มี Fragment \\(cost Detail\\) ---\" grep -L \"<>\" c:/Organization/SKT/src/pages/organization/cost/*Detail.jsx echo \"--- ไฟล์ที่ไม่มี Fragment \\(sell\\) ---\" grep -L \"<>\" c:/Organization/SKT/src/pages/organization/sell/*.jsx)"
     ]
   }
 }

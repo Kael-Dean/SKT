@@ -609,6 +609,7 @@ function AgriProcessingPlanDetail(props) {
   const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
   return (
+    <>
     <div className="w-full">
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
@@ -879,6 +880,7 @@ function AgriProcessingPlanDetail(props) {
       </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
+    </>
   )
 }
 

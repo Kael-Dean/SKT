@@ -544,6 +544,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
   }), [planId, branchId, effectiveYearBE, unitCols, products, priceByPid, qtyByPid])
 
   return (
+    <>
     <div className="w-full space-y-3">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -805,6 +806,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
       </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
+    </>
   )
 }
 

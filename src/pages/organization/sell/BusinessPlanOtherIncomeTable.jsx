@@ -624,6 +624,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
   const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
   return (
+    <>
     <div className="w-full space-y-3">
       {/* Header Info */}
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
@@ -815,6 +816,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
       </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
+    </>
   )
 }
 

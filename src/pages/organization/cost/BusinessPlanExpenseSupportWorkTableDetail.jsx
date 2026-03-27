@@ -556,7 +556,8 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
 
   const RIGHT_W = (MONTHS.length * unitCols.length * COL_W.cell) + (unitCols.length * COL_W.total)
   const TOTAL_W = LEFT_W + RIGHT_W
-  return (<div className="py-3">
+  return (<>
+  <div className="py-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ (งานสนับสนุน) - รายเดือน</div>
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
@@ -688,7 +689,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
       </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
-  )
+  </>)
 }
 
 export default BusinessPlanExpenseSupportWorkTableDetail

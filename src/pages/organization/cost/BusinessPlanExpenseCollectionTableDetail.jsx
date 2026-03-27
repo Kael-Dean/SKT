@@ -540,6 +540,7 @@ const BusinessPlanExpenseCollectionTableDetail = ({ branchId, branchName, yearBE
   const TOTAL_W = LEFT_W + RIGHT_W
 
   return (
+    <>
     <div className="space-y-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ (ธุรกิจรวบรวม) - รายเดือน</div>
@@ -672,6 +673,7 @@ const BusinessPlanExpenseCollectionTableDetail = ({ branchId, branchName, yearBE
       </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
+    </>
   )
 }
 

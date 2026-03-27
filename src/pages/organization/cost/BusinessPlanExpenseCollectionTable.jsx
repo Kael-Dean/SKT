@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import TableScrollButtons from "../../../components/TableScrollButtons"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -398,17 +397,41 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
     return () => window.removeEventListener("resize", recalcTableCardHeight)
   }, [recalcTableCardHeight])
 
-  // ✅ Scroll sync logic
+  // ✅ Scroll sync logic with sticky scrollbar
   const bodyScrollRef = useRef(null)
+  const stickyScrollRef = useRef(null)
   const [scrollLeft, setScrollLeft] = useState(0)
+  const isSyncingRef = useRef(false)
   const rafRef = useRef(0)
+
   const onBodyScroll = () => {
     const b = bodyScrollRef.current
     if (!b) return
     const x = b.scrollLeft || 0
+
+    // Sync to sticky scrollbar
+    if (!isSyncingRef.current && stickyScrollRef.current) {
+      isSyncingRef.current = true
+      stickyScrollRef.current.scrollLeft = x
+      isSyncingRef.current = false
+    }
+
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(() => setScrollLeft(x))
   }
+
+  const onStickyScroll = () => {
+    const s = stickyScrollRef.current
+    const b = bodyScrollRef.current
+    if (!s || !b) return
+
+    if (!isSyncingRef.current) {
+      isSyncingRef.current = true
+      b.scrollLeft = s.scrollLeft
+      isSyncingRef.current = false
+    }
+  }
+
   useEffect(() => () => rafRef.current && cancelAnimationFrame(rafRef.current), [])
 
   const inputRefs = useRef(new Map())
@@ -717,9 +740,12 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
         <div
           ref={bodyScrollRef}
           onScroll={onBodyScroll} // ✅ ใส่ scroll sync Event
-          className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
+          className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700 hide-h-scrollbar"
+          style={{
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+          }}
         >
-          <TableScrollButtons tableRef={bodyScrollRef} isVisible={true} />
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.code }} />
@@ -964,6 +990,21 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Sticky horizontal scrollbar at viewport bottom */}
+      <div
+        ref={stickyScrollRef}
+        onScroll={onStickyScroll}
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 overflow-x-auto hide-v-scrollbar"
+        style={{
+          width: "100%",
+          height: "24px",
+          scrollbarWidth: "thin",
+          msOverflowStyle: "auto",
+        }}
+      >
+        <div style={{ width: TOTAL_W, height: 1 }} />
       </div>
     </div>
   )

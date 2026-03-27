@@ -73,10 +73,10 @@ export default function TableScrollButtons({ tableRef, isVisible = true }) {
   const thumbLeft = (scrollLeft / (scrollWidth - clientWidth)) * (100 - thumbWidth)
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-2 px-4 pointer-events-auto">
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 py-3 px-4 pointer-events-auto">
       <div
         ref={scrollBarRef}
-        className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden cursor-pointer"
+        className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden cursor-pointer"
       >
         <div
           ref={thumbRef}
@@ -87,7 +87,7 @@ export default function TableScrollButtons({ tableRef, isVisible = true }) {
             transform: "translateX(-50%)",
             cursor: isDraggingRef.current ? "grabbing" : "grab",
           }}
-          className="h-full bg-indigo-500 hover:bg-indigo-600 rounded-full transition-colors"
+          className="h-full bg-purple-500 hover:bg-purple-600 rounded-full transition-colors"
         />
       </div>
     </div>

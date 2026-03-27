@@ -172,38 +172,23 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   }
 }
 
-/* ─── Remove/Hide Scrollbar Styling ────────────────────────────────────────── */
-/* Hide scrollbar thumb for cleaner look */
-::-webkit-scrollbar-thumb {
-  background: transparent;
+/* ─── Remove Purple Scroll Progress Indicator ──────────────────────────────── */
+/* Hide the purple scrollbar completely */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* Firefox */
+::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+/* Firefox - hide scrollbar */
 * {
+  scrollbar-width: none;
   scrollbar-color: transparent transparent;
 }
-
-/* Alternative: make scrollbar minimal */
-/*
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.2);
-}
-*/

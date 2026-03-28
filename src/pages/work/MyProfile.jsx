@@ -1,6 +1,7 @@
 // src/pages/work/MyProfile.jsx
 // ข้อมูลส่วนตัวของผู้ใช้ปัจจุบัน — GET /personnel/me + GET /personnel/me/financial
 import { useEffect, useState } from "react"
+import ReactDOM from "react-dom"
 import { apiAuth } from "../../lib/api"
 import { getUser, getRoleId } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
@@ -292,7 +293,7 @@ export default function MyProfile() {
       </p>
 
       {/* Report Issue Modal */}
-      {reportModal && (
+      {reportModal && ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6">
             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">🔧 แจ้งแก้ไขข้อมูล</h3>
@@ -340,7 +341,8 @@ export default function MyProfile() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

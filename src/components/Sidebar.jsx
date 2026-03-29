@@ -6,18 +6,24 @@ import { getRoleId, logout as authLogout } from "../lib/auth"
 
 const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
 
-// เมนูส่วนตัว — แสดงให้ผู้ใช้ทุกคน (ยกเว้นรายการที่ระบุ role)
+// เมนูสำหรับ HR role เท่านั้น — 3 รายการ + ออกจากระบบ
+const HR_MENUS = [
+  { label: "🏠 หน้าหลัก",      path: "/hr/dashboard" },
+  { label: "👤 ข้อมูลส่วนตัว", path: "/my-profile" },
+]
+
+// เมนูส่วนตัว — แสดงให้ผู้ใช้ทุกคน (ยกเว้น HR ที่ใช้ HR_MENUS แทน)
 const PERSONAL_MENUS = [
   { label: "🏠 หน้าหลัก",          path: "/home",            roles: "all" },
   { label: "👤 ข้อมูลส่วนตัว",     path: "/my-profile",      roles: "all" },
   { label: "📋 ยื่นใบลา",          path: "/leave-request",   roles: "all" },
   { label: "🚌 คำขอย้ายสาขา",     path: "/my-relocation",   roles: "all" },
-  // Phase 3B — HR admin
-  { label: "📊 Dashboard HR",       path: "/hr/dashboard",    roles: [ROLE.ADMIN, ROLE.HR] },
-  { label: "➕ ลงทะเบียนพนักงาน", path: "/hr/staff-signup",  roles: [ROLE.ADMIN, ROLE.HR] },
-  { label: "📋 รายชื่อพนักงาน",    path: "/hr/users",         roles: [ROLE.ADMIN, ROLE.HR] },
-  { label: "📅 อนุมัติใบลา",       path: "/hr/leaves",        roles: [ROLE.ADMIN, ROLE.HR] },
-  { label: "🔧 รายงานปัญหา",       path: "/hr/issues",        roles: [ROLE.ADMIN, ROLE.HR] },
+  // Phase 3B — HR admin (ADMIN only เพราะ HR ใช้ HR_MENUS แทน)
+  { label: "📊 Dashboard HR",       path: "/hr/dashboard",    roles: [ROLE.ADMIN] },
+  { label: "➕ ลงทะเบียนพนักงาน", path: "/hr/staff-signup",  roles: [ROLE.ADMIN] },
+  { label: "📋 รายชื่อพนักงาน",    path: "/hr/users",         roles: [ROLE.ADMIN] },
+  { label: "📅 อนุมัติใบลา",       path: "/hr/leaves",        roles: [ROLE.ADMIN] },
+  { label: "🔧 รายงานปัญหา",       path: "/hr/issues",        roles: [ROLE.ADMIN] },
   { label: "💰 ข้อมูลการเงิน",     path: "/hr/finance",       roles: [ROLE.ADMIN] },
   { label: "🏢 อนุมัติย้ายสาขา",  path: "/hr/relocation",    roles: [ROLE.ADMIN] },
 ]
@@ -34,7 +40,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const roleId = useMemo(() => getRoleId(), [])
 
   const visibleMenus = useMemo(
-    () => PERSONAL_MENUS.filter((item) => canSeeSidebarItem(item, roleId)),
+    () => roleId === ROLE.HR
+      ? HR_MENUS
+      : PERSONAL_MENUS.filter((item) => canSeeSidebarItem(item, roleId)),
     [roleId]
   )
 

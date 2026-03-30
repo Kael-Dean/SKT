@@ -71,9 +71,10 @@ const ALL_FUNCTIONS = [
     icon: "👥",
     color: "from-rose-400 to-pink-500",
     items: [
-      { label: "ลงทะเบียนพนักงาน", path: "/hr/staff-signup",  icon: "➕", roles: [ROLE.ADMIN, ROLE.HR] },
-      { label: "รายชื่อพนักงาน",    path: "/hr/users",         icon: "📋", roles: [ROLE.ADMIN, ROLE.HR] },
-      { label: "อนุมัติใบลา",       path: "/hr/leaves",        icon: "📅", roles: [ROLE.ADMIN, ROLE.HR] },
+      { label: "HR Dashboard",       path: "/hr/dashboard",    icon: "👥", roles: [ROLE.ADMIN, ROLE.HR] },
+      { label: "ลงทะเบียนพนักงาน", path: "/hr/staff-signup",  icon: "➕", roles: [ROLE.ADMIN] },
+      { label: "รายชื่อพนักงาน",    path: "/hr/users",         icon: "📋", roles: [ROLE.ADMIN] },
+      { label: "อนุมัติใบลา",       path: "/hr/leaves",        icon: "📅", roles: [ROLE.ADMIN] },
       { label: "ข้อมูลการเงิน",     path: "/hr/finance",       icon: "💰", roles: [ROLE.ADMIN] },
       { label: "ย้ายสาขา",          path: "/hr/relocation",    icon: "🏢", roles: [ROLE.ADMIN] },
     ],

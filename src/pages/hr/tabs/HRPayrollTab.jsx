@@ -25,8 +25,10 @@ const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => {
 
 export default function HRPayrollTab() {
   const [payrolls, setPayrolls] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+
+  const [filterMonth, setFilterMonth] = useState(MONTH_OPTIONS[0].value)
 
   const [showGenerate, setShowGenerate] = useState(false)
   const [genForm, setGenForm] = useState({ employee_id: "", month: "", year: "" })
@@ -35,16 +37,17 @@ export default function HRPayrollTab() {
 
   const [downloading, setDownloading] = useState(null)
 
-  const fetchPayrolls = useCallback(() => {
+  const fetchPayrolls = useCallback((monthVal) => {
+    const [y, m] = monthVal.split("-")
     setLoading(true)
     setError("")
-    apiAuth("/hr/payroll")
+    apiAuth(`/hr/payroll?month=${Number(m)}&year=${Number(y)}`)
       .then(setPayrolls)
       .catch((e) => setError(e.message || "โหลดข้อมูลไม่สำเร็จ"))
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { fetchPayrolls() }, [fetchPayrolls])
+  useEffect(() => { fetchPayrolls(filterMonth) }, [fetchPayrolls, filterMonth])
 
   const handleMonthSelect = (v) => {
     const [y, m] = v.split("-")
@@ -72,7 +75,7 @@ export default function HRPayrollTab() {
         setShowGenerate(false)
         setGenForm({ employee_id: "", month: "", year: "" })
         setGenMsg("")
-        fetchPayrolls()
+        fetchPayrolls(filterMonth)
       }, 1000)
     } catch (err) {
       setGenMsg(`❌ ${err.message || "ไม่สำเร็จ"}`)
@@ -101,9 +104,19 @@ export default function HRPayrollTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {loading ? "กำลังโหลด..." : `รายการเงินเดือน ${payrolls.length} รายการ`}
-        </p>
+        <div className="flex items-center gap-3">
+          <div className="w-40">
+            <SelectDropdown
+              value={filterMonth}
+              onChange={(v) => setFilterMonth(v)}
+              options={MONTH_OPTIONS}
+              placeholder="เลือกเดือน"
+            />
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {loading ? "กำลังโหลด..." : `${payrolls.length} รายการ`}
+          </p>
+        </div>
         <button
           onClick={() => { setShowGenerate(true); setGenMsg("") }}
           className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition cursor-pointer"

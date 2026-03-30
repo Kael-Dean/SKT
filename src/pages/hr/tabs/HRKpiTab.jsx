@@ -11,8 +11,9 @@ export default function HRKpiTab() {
 
   // ประเมิน KPI
   const [evaluations, setEvaluations] = useState([])
-  const [loadingEval, setLoadingEval] = useState(true)
+  const [loadingEval, setLoadingEval] = useState(false)
   const [evalError, setEvalError] = useState("")
+  const [filterFiscalYear, setFilterFiscalYear] = useState(String(now.getFullYear()))
 
   const [scoreModal, setScoreModal] = useState(null)
   const [scoreForm, setScoreForm] = useState({ branch_head_score: "", asst_manager_score: "", manager_score: "" })
@@ -31,18 +32,18 @@ export default function HRKpiTab() {
   const [submittingKpi, setSubmittingKpi] = useState(false)
   const [kpiMsg, setKpiMsg] = useState("")
 
-  const fetchEvals = useCallback(() => {
+  const fetchEvals = useCallback((fiscalYear) => {
     setLoadingEval(true)
     setEvalError("")
-    apiAuth("/hr/kpi/evaluations")
+    apiAuth(`/hr/kpi/evaluations?fiscal_year=${fiscalYear}`)
       .then(setEvaluations)
       .catch((e) => setEvalError(e.message || "โหลดไม่สำเร็จ"))
       .finally(() => setLoadingEval(false))
   }, [])
 
   useEffect(() => {
-    if (subTab === "eval") fetchEvals()
-  }, [subTab, fetchEvals])
+    if (subTab === "eval") fetchEvals(filterFiscalYear)
+  }, [subTab, fetchEvals, filterFiscalYear])
 
   const openScore = (ev) => {
     setScoreModal(ev)
@@ -78,7 +79,7 @@ export default function HRKpiTab() {
         })
       }
       setScoreMsg("✅ บันทึกคะแนนสำเร็จ")
-      setTimeout(() => { setScoreModal(null); fetchEvals() }, 700)
+      setTimeout(() => { setScoreModal(null); fetchEvals(filterFiscalYear) }, 700)
     } catch (err) {
       setScoreMsg(`❌ ${err.message || "ไม่สำเร็จ"}`)
     } finally {
@@ -130,6 +131,15 @@ export default function HRKpiTab() {
       {/* การประเมิน */}
       {subTab === "eval" && (
         <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-500 dark:text-gray-400">ปีงบประมาณ</label>
+            <input
+              type="number"
+              value={filterFiscalYear}
+              onChange={(e) => setFilterFiscalYear(e.target.value)}
+              className="w-28 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
           {evalError && (
             <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{evalError}</div>
           )}

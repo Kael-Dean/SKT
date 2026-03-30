@@ -11,7 +11,8 @@ export default function HRSalaryTab() {
 
   // บันไดเงินเดือน
   const [ladder, setLadder] = useState([])
-  const [loadingLadder, setLoadingLadder] = useState(true)
+  const [loadingLadder, setLoadingLadder] = useState(false)
+  const [filterTier, setFilterTier] = useState("")
   const [editEntry, setEditEntry] = useState(null)
   const [editVal, setEditVal] = useState("")
   const [saving, setSaving] = useState(false)
@@ -29,14 +30,20 @@ export default function HRSalaryTab() {
   const [loadingHist, setLoadingHist] = useState(false)
   const [histError, setHistError] = useState("")
 
-  useEffect(() => {
-    if (subTab !== "ladder") return
+  const fetchLadder = (tier) => {
+    if (!tier) return
     setLoadingLadder(true)
-    apiAuth("/hr/salary-ladder")
+    apiAuth(`/hr/salary-ladder?tier=${encodeURIComponent(tier)}`)
       .then(setLadder)
       .catch(() => setLadder([]))
       .finally(() => setLoadingLadder(false))
-  }, [subTab])
+  }
+
+  useEffect(() => {
+    if (subTab !== "ladder") return
+    if (filterTier) fetchLadder(filterTier)
+    else setLadder([])
+  }, [subTab, filterTier])
 
   const openEdit = (entry) => {
     setEditEntry(entry)
@@ -56,7 +63,7 @@ export default function HRSalaryTab() {
       setSaveMsg("✅ บันทึกสำเร็จ")
       setTimeout(() => {
         setEditEntry(null)
-        apiAuth("/hr/salary-ladder").then(setLadder).catch(() => {})
+        fetchLadder(filterTier)
       }, 600)
     } catch (err) {
       setSaveMsg(`❌ ${err.message || "บันทึกไม่สำเร็จ"}`)
@@ -114,10 +121,23 @@ export default function HRSalaryTab() {
 
       {/* บันไดเงินเดือน */}
       {subTab === "ladder" && (
-        loadingLadder ? (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">ระดับตำแหน่ง (tier)</label>
+            <input
+              type="text"
+              value={filterTier}
+              onChange={(e) => setFilterTier(e.target.value)}
+              placeholder="เช่น A, B, ก, ข ..."
+              className={inputCls + " max-w-48"}
+            />
+          </div>
+        {loadingLadder ? (
           <div className="flex justify-center py-16">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
           </div>
+        ) : !filterTier ? (
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">กรุณาระบุ tier เพื่อดูบันไดเงินเดือน</p>
         ) : (
           <div className="space-y-4">
             {tiers.map((tier) => {
@@ -153,7 +173,8 @@ export default function HRSalaryTab() {
               )
             })}
           </div>
-        )
+        )}
+        </div>
       )}
 
       {/* เลื่อนขั้นเงินเดือน */}

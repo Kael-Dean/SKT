@@ -47,9 +47,9 @@ export default function HRPositionsTab() {
     setSaveMsg("")
     try {
       if (modal.mode === "create") {
-        await apiAuth("/positions", { method: "POST", body: form })
+        await apiAuth("/hr/positions", { method: "POST", body: form })
       } else {
-        await apiAuth(`/positions/${modal.position.id}`, { method: "PATCH", body: form })
+        await apiAuth(`/hr/positions/${modal.position.id}`, { method: "PATCH", body: form })
       }
       setSaveMsg("✅ บันทึกสำเร็จ")
       setTimeout(() => { setModal(null); fetchPositions() }, 600)

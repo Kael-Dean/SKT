@@ -38,7 +38,7 @@ export default function HRPayrollTab() {
   const fetchPayrolls = useCallback(() => {
     setLoading(true)
     setError("")
-    apiAuth("/payroll")
+    apiAuth("/hr/payroll")
       .then(setPayrolls)
       .catch((e) => setError(e.message || "โหลดข้อมูลไม่สำเร็จ"))
       .finally(() => setLoading(false))
@@ -59,7 +59,7 @@ export default function HRPayrollTab() {
     setGenerating(true)
     setGenMsg("")
     try {
-      await apiAuth("/payroll/generate", {
+      await apiAuth("/hr/payroll/generate", {
         method: "POST",
         body: {
           employee_id: genForm.employee_id,
@@ -84,7 +84,7 @@ export default function HRPayrollTab() {
   const downloadPayslip = async (id) => {
     setDownloading(id)
     try {
-      const { blob, filename } = await apiDownload(`/payroll/${id}/payslip`)
+      const { blob, filename } = await apiDownload(`/hr/payroll/${id}/payslip`)
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url

@@ -34,7 +34,7 @@ export default function HRKpiTab() {
   const fetchEvals = useCallback(() => {
     setLoadingEval(true)
     setEvalError("")
-    apiAuth("/kpi/evaluations")
+    apiAuth("/hr/kpi/evaluations")
       .then(setEvaluations)
       .catch((e) => setEvalError(e.message || "โหลดไม่สำเร็จ"))
       .finally(() => setLoadingEval(false))
@@ -60,19 +60,19 @@ export default function HRKpiTab() {
     setScoreMsg("")
     try {
       if (scoreForm.branch_head_score !== "") {
-        await apiAuth(`/kpi/evaluations/${scoreModal.employee_id}/branch-head-score`, {
+        await apiAuth(`/hr/kpi/evaluations/${scoreModal.employee_id}/branch-head-score`, {
           method: "PUT",
           body: { score: Number(scoreForm.branch_head_score) },
         })
       }
       if (scoreForm.asst_manager_score !== "") {
-        await apiAuth(`/kpi/evaluations/${scoreModal.employee_id}/asst-manager-score`, {
+        await apiAuth(`/hr/kpi/evaluations/${scoreModal.employee_id}/asst-manager-score`, {
           method: "PUT",
           body: { score: Number(scoreForm.asst_manager_score) },
         })
       }
       if (scoreForm.manager_score !== "") {
-        await apiAuth(`/kpi/evaluations/${scoreModal.employee_id}/manager-score`, {
+        await apiAuth(`/hr/kpi/evaluations/${scoreModal.employee_id}/manager-score`, {
           method: "PUT",
           body: { score: Number(scoreForm.manager_score) },
         })
@@ -94,7 +94,7 @@ export default function HRKpiTab() {
     setSubmittingKpi(true)
     setKpiMsg("")
     try {
-      await apiAuth("/kpi/monthly", {
+      await apiAuth("/hr/kpi/monthly", {
         method: "POST",
         body: {
           employee_id: kpiForm.employee_id,

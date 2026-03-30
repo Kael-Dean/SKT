@@ -32,7 +32,7 @@ export default function HRSalaryTab() {
   useEffect(() => {
     if (subTab !== "ladder") return
     setLoadingLadder(true)
-    apiAuth("/salary-ladder")
+    apiAuth("/hr/salary-ladder")
       .then(setLadder)
       .catch(() => setLadder([]))
       .finally(() => setLoadingLadder(false))
@@ -49,14 +49,14 @@ export default function HRSalaryTab() {
     setSaving(true)
     setSaveMsg("")
     try {
-      await apiAuth(`/salary-ladder/${editEntry.id}`, {
+      await apiAuth(`/hr/salary-ladder/${editEntry.id}`, {
         method: "PATCH",
         body: { salary_amount: parseFloat(editVal) },
       })
       setSaveMsg("✅ บันทึกสำเร็จ")
       setTimeout(() => {
         setEditEntry(null)
-        apiAuth("/salary-ladder").then(setLadder).catch(() => {})
+        apiAuth("/hr/salary-ladder").then(setLadder).catch(() => {})
       }, 600)
     } catch (err) {
       setSaveMsg(`❌ ${err.message || "บันทึกไม่สำเร็จ"}`)
@@ -70,7 +70,7 @@ export default function HRSalaryTab() {
     setAwardingStep(true)
     setStepMsg("")
     try {
-      await apiAuth(`/employees/${empId}/salary-step-award`, {
+      await apiAuth(`/hr/employees/${empId}/salary-step-award`, {
         method: "POST",
         body: { step: parseFloat(stepAward) },
       })
@@ -88,7 +88,7 @@ export default function HRSalaryTab() {
     setLoadingHist(true)
     setHistError("")
     try {
-      const data = await apiAuth(`/employees/${histEmpId}/salary-history`)
+      const data = await apiAuth(`/hr/employees/${histEmpId}/salary-history`)
       setHistory(data || [])
     } catch (err) {
       setHistError(err.message || "โหลดไม่สำเร็จ")

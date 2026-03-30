@@ -40,7 +40,7 @@ export default function HRLoansTab() {
   const fetchLoans = useCallback(() => {
     setLoading(true)
     setError("")
-    apiAuth("/loans")
+    apiAuth("/hr/loans")
       .then(setLoans)
       .catch((e) => setError(e.message || "โหลดข้อมูลไม่สำเร็จ"))
       .finally(() => setLoading(false))
@@ -71,7 +71,7 @@ export default function HRLoansTab() {
     try {
       const ep = modal.action === "approve" ? "hr-approve" : "hr-reject"
       const body = modal.action === "reject" ? { reason: rejectReason.trim() } : {}
-      await apiAuth(`/loans/${modal.id}/${ep}`, { method: "PATCH", body })
+      await apiAuth(`/hr/loans/${modal.id}/${ep}`, { method: "PATCH", body })
       setModal(null)
       fetchLoans()
     } catch (err) {

@@ -18,7 +18,7 @@ export default function HRPromotionsTab() {
   const fetchEligible = useCallback(() => {
     setLoading(true)
     setError("")
-    apiAuth("/promotions/eligible")
+    apiAuth("/hr/promotions/eligible")
       .then(setEligible)
       .catch((e) => setError(e.message || "โหลดข้อมูลไม่สำเร็จ"))
       .finally(() => setLoading(false))
@@ -34,7 +34,7 @@ export default function HRPromotionsTab() {
     setCreating(true)
     setCreateMsg("")
     try {
-      await apiAuth("/promotions/exams", {
+      await apiAuth("/hr/promotions/exams", {
         method: "POST",
         body: {
           employee_id: examForm.employee_id,

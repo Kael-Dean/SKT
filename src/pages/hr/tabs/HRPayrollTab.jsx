@@ -62,7 +62,7 @@ export default function HRPayrollTab() {
       await apiAuth("/hr/payroll/generate", {
         method: "POST",
         body: {
-          employee_id: genForm.employee_id,
+          employee_id: Number(genForm.employee_id),
           month: Number(genForm.month),
           year: Number(genForm.year),
         },

@@ -42,7 +42,7 @@ export default function HRPayrollTab() {
     setLoading(true)
     setError("")
     apiAuth(`/hr/payroll?month=${Number(m)}&year=${Number(y)}`)
-      .then(setPayrolls)
+      .then((data) => setPayrolls(Array.isArray(data) ? data : []))
       .catch((e) => setError(e.message || "โหลดข้อมูลไม่สำเร็จ"))
       .finally(() => setLoading(false))
   }, [])
@@ -134,10 +134,10 @@ export default function HRPayrollTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">พนักงาน</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">พนักงาน / สาขา</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">เดือน/ปี</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden sm:table-cell">เงินเดือน</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden md:table-cell">หักรวม</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden sm:table-cell"></th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden md:table-cell"></th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">สุทธิ</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 w-24"></th>
               </tr>
@@ -151,16 +151,18 @@ export default function HRPayrollTab() {
                 </td></tr>
               ) : payrolls.length === 0 ? (
                 <tr><td colSpan={6} className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">ยังไม่มีข้อมูลเงินเดือน</td></tr>
-              ) : payrolls.map((p) => (
+              ) : payrolls.map((p) => {
+                const monthDate = p.month ? new Date(p.month) : null
+                return (
                 <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{p.first_name} {p.last_name}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">{p.employee_id}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{p.employee_name}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{p.branch_name || p.user_id}</p>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{fmtMonth(p.year, p.month)}</td>
-                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 hidden sm:table-cell">{fmt(p.base_salary)}</td>
-                  <td className="px-4 py-3 text-right text-red-600 dark:text-red-400 hidden md:table-cell">{fmt(p.total_deductions)}</td>
-                  <td className="px-4 py-3 text-right font-bold text-emerald-700 dark:text-emerald-300">{fmt(p.net_pay)}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{monthDate ? fmtMonth(monthDate.getFullYear(), monthDate.getMonth() + 1) : "—"}</td>
+                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 hidden sm:table-cell">—</td>
+                  <td className="px-4 py-3 text-right text-red-600 dark:text-red-400 hidden md:table-cell">—</td>
+                  <td className="px-4 py-3 text-right font-bold text-emerald-700 dark:text-emerald-300">{fmt(p.net_payout)}</td>
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => downloadPayslip(p.id)}
@@ -171,7 +173,7 @@ export default function HRPayrollTab() {
                     </button>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>

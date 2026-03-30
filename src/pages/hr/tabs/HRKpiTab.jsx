@@ -48,9 +48,9 @@ export default function HRKpiTab() {
   const openScore = (ev) => {
     setScoreModal(ev)
     setScoreForm({
-      branch_head_score: ev.branch_head_score ?? "",
-      asst_manager_score: ev.asst_manager_score ?? "",
-      manager_score: ev.manager_score ?? "",
+      branch_head_score: ev.branch_head_score != null ? String(ev.branch_head_score) : "",
+      asst_manager_score: ev.asst_manager_score != null ? String(ev.asst_manager_score) : "",
+      manager_score: ev.manager_score != null ? String(ev.manager_score) : "",
     })
     setScoreMsg("")
   }
@@ -61,21 +61,21 @@ export default function HRKpiTab() {
     setScoreMsg("")
     try {
       if (scoreForm.branch_head_score !== "") {
-        await apiAuth(`/hr/kpi/evaluations/${scoreModal.employee_id}/branch-head-score`, {
+        await apiAuth(`/hr/kpi/evaluations/${scoreModal.user_id}/branch-head-score`, {
           method: "PUT",
-          body: { score: Number(scoreForm.branch_head_score) },
+          body: { fiscal_year: Number(filterFiscalYear), score: Number(scoreForm.branch_head_score) },
         })
       }
       if (scoreForm.asst_manager_score !== "") {
-        await apiAuth(`/hr/kpi/evaluations/${scoreModal.employee_id}/asst-manager-score`, {
+        await apiAuth(`/hr/kpi/evaluations/${scoreModal.user_id}/asst-manager-score`, {
           method: "PUT",
-          body: { score: Number(scoreForm.asst_manager_score) },
+          body: { fiscal_year: Number(filterFiscalYear), score: Number(scoreForm.asst_manager_score) },
         })
       }
       if (scoreForm.manager_score !== "") {
-        await apiAuth(`/hr/kpi/evaluations/${scoreModal.employee_id}/manager-score`, {
+        await apiAuth(`/hr/kpi/evaluations/${scoreModal.user_id}/manager-score`, {
           method: "PUT",
-          body: { score: Number(scoreForm.manager_score) },
+          body: { fiscal_year: Number(filterFiscalYear), score: Number(scoreForm.manager_score) },
         })
       }
       setScoreMsg("✅ บันทึกคะแนนสำเร็จ")
@@ -98,11 +98,11 @@ export default function HRKpiTab() {
       await apiAuth("/hr/kpi/monthly", {
         method: "POST",
         body: {
-          employee_id: kpiForm.employee_id,
+          user_id: Number(kpiForm.employee_id),
           fiscal_year: Number(kpiForm.fiscal_year),
           month: Number(kpiForm.month),
           section: Number(kpiForm.section),
-          metric: kpiForm.metric,
+          metric_name: kpiForm.metric,
           value: parseFloat(kpiForm.value),
         },
       })
@@ -168,12 +168,12 @@ export default function HRKpiTab() {
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
                     {evaluations.map((ev) => {
-                      const total = (Number(ev.branch_head_score) || 0) + (Number(ev.branch_performance_score) || 0) + (Number(ev.asst_manager_score) || 0) + (Number(ev.manager_score) || 0)
+                      const total = (Number(ev.branch_head_score) || 0) + (Number(ev.branch_score_component) || 0) + (Number(ev.asst_manager_score) || 0) + (Number(ev.manager_score) || 0)
                       return (
-                        <tr key={ev.employee_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        <tr key={ev.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                           <td className="px-4 py-3">
-                            <p className="font-medium text-gray-900 dark:text-gray-100">{ev.first_name} {ev.last_name}</p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500">{ev.employee_id}</p>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">รหัสพนักงาน {ev.user_id}</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500">{ev.status}</p>
                           </td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 hidden md:table-cell">{ev.branch_head_score ?? "—"}</td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 hidden md:table-cell">{ev.asst_manager_score ?? "—"}</td>
@@ -256,7 +256,7 @@ export default function HRKpiTab() {
               <button onClick={() => setScoreModal(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer">✕</button>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-semibold text-gray-900 dark:text-gray-100">{scoreModal.first_name} {scoreModal.last_name}</span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">รหัสพนักงาน {scoreModal.user_id}</span>
             </p>
             <div className="space-y-3">
               <div>

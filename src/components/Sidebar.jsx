@@ -25,6 +25,7 @@ const PERSONAL_MENUS = [
   { label: "📅 อนุมัติใบลา",       path: "/hr/leaves",        roles: [ROLE.ADMIN] },
   { label: "🔧 รายงานปัญหา",       path: "/hr/issues",        roles: [ROLE.ADMIN] },
   { label: "💰 ข้อมูลการเงิน",     path: "/hr/finance",       roles: [ROLE.ADMIN] },
+  { label: "📈 บัญชีเงินเดือน",   path: "/hr/salary-tier",   roles: [ROLE.ADMIN, ROLE.HR] },
   { label: "🏢 อนุมัติย้ายสาขา",  path: "/hr/relocation",    roles: [ROLE.ADMIN] },
 ]
 

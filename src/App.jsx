@@ -43,6 +43,7 @@ import HRRelocation from "./pages/hr/HRRelocation.jsx"
 import HRDashboard from "./pages/hr/HRDashboard.jsx"
 import HRIssueReports from "./pages/hr/HRIssueReports.jsx"
 import HRPersonnelDetail from "./pages/hr/HRPersonnelDetail.jsx"
+import HRSalaryTier from "./pages/hr/HRSalaryTier.jsx"
 import MyProfile from "./pages/work/MyProfile.jsx"
 import LeaveRequest from "./pages/work/LeaveRequest.jsx"
 import ChangePassword from "./pages/work/ChangePassword.jsx"
@@ -313,6 +314,7 @@ function App() {
         <Route path="/hr/dashboard" element={<RequireAdminOrHR><HRDashboard /></RequireAdminOrHR>} />
         <Route path="/hr/issues" element={<RequireAdminOrHR><HRIssueReports /></RequireAdminOrHR>} />
         <Route path="/hr/personnel/:id" element={<RequireAdminOrHR><HRPersonnelDetail /></RequireAdminOrHR>} />
+        <Route path="/hr/salary-tier" element={<RequireAdminOrHR><HRSalaryTier /></RequireAdminOrHR>} />
 
         {/* ✅ Phase 3B — Personal routes (ทุก role เข้าถึงได้) */}
         <Route path="/my-profile" element={<MyProfile />} />

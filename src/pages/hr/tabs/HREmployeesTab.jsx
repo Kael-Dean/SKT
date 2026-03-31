@@ -50,9 +50,11 @@ function Field({ label, required, children }) {
 const emptyForm = () => ({
   first_name: "", last_name: "", cid: "", role_id: "", branch_location: "", position: "",
   email: "", hired: "", bank_no: "", p_number: "", e_contact: "", birthday: "", age: "",
-  gender: "", m_status: "", children_number: "0", h_address: "", mhoo: "", soi: "",
-  road: "", sub_district: "", district: "", province: "", postal_code: "",
+  gender: "", m_status: "", children_number: "0", underlying_disease: "",
+  h_address: "", mhoo: "", soi: "", road: "", sub_district: "", district: "", province: "", postal_code: "",
 })
+const emptyWork = () => ({ company_name: "", position: "", from_date: "", to_date: "" })
+const emptyCrime = () => ({ charge: "", court: "", case_date: "", outcome: "" })
 
 export default function HREmployeesTab() {
   const navigate = useNavigate()
@@ -68,6 +70,8 @@ export default function HREmployeesTab() {
 
   const [showSignup, setShowSignup] = useState(false)
   const [form, setForm] = useState(emptyForm())
+  const [workExperiences, setWorkExperiences] = useState([emptyWork()])
+  const [criminalRecords, setCriminalRecords] = useState([emptyCrime()])
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState("")
 
@@ -100,6 +104,26 @@ export default function HREmployeesTab() {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target ? e.target.value : e }))
 
+  const setWork = (index, field) => (e) => {
+    setWorkExperiences((prev) => {
+      const next = [...prev]
+      next[index] = { ...next[index], [field]: e.target.value }
+      return next
+    })
+  }
+  const addWork = () => setWorkExperiences((prev) => [...prev, emptyWork()])
+  const removeWork = (i) => setWorkExperiences((prev) => prev.filter((_, idx) => idx !== i))
+
+  const setCrime = (index, field) => (e) => {
+    setCriminalRecords((prev) => {
+      const next = [...prev]
+      next[index] = { ...next[index], [field]: e.target.value }
+      return next
+    })
+  }
+  const addCrime = () => setCriminalRecords((prev) => [...prev, emptyCrime()])
+  const removeCrime = (i) => setCriminalRecords((prev) => prev.filter((_, idx) => idx !== i))
+
   const handleSignup = async () => {
     if (!form.first_name || !form.last_name || !form.cid || !form.role_id || !form.branch_location) {
       setSubmitMsg("⚠️ กรุณากรอกข้อมูลที่จำเป็น (ชื่อ, นามสกุล, เลขบัตร, ตำแหน่ง, สาขา)")
@@ -113,12 +137,31 @@ export default function HREmployeesTab() {
         role_id: Number(form.role_id),
         age: form.age ? Number(form.age) : undefined,
         children_number: Number(form.children_number ?? 0),
+        ...(form.underlying_disease && { underlying_disease: form.underlying_disease.trim() }),
+        work_experiences: workExperiences
+          .filter((w) => w.company_name || w.position || w.from_date || w.to_date)
+          .map((w) => ({
+            ...(w.company_name && { company_name: w.company_name }),
+            ...(w.position && { position: w.position }),
+            ...(w.from_date && { from_date: w.from_date }),
+            ...(w.to_date && { to_date: w.to_date }),
+          })),
+        criminal_records: criminalRecords
+          .filter((c) => c.charge || c.court || c.case_date || c.outcome)
+          .map((c) => ({
+            ...(c.charge && { charge: c.charge }),
+            ...(c.court && { court: c.court }),
+            ...(c.case_date && { case_date: c.case_date }),
+            ...(c.outcome && { outcome: c.outcome }),
+          })),
       }
       await apiAuth("/hr/signup", { method: "POST", body })
       setSubmitMsg("✅ ลงทะเบียนสำเร็จ!")
       setTimeout(() => {
         setShowSignup(false)
         setForm(emptyForm())
+        setWorkExperiences([emptyWork()])
+        setCriminalRecords([emptyCrime()])
         setSubmitMsg("")
         fetchUsers()
       }, 1000)
@@ -276,6 +319,9 @@ export default function HREmployeesTab() {
               <Field label="ผู้ติดต่อฉุกเฉิน">
                 <input type="text" value={form.e_contact} onChange={set("e_contact")} className={inputCls} placeholder="ชื่อ-เบอร์ผู้ติดต่อ" />
               </Field>
+              <Field label="โรคประจำตัว">
+                <input type="text" value={form.underlying_disease} onChange={set("underlying_disease")} className={inputCls} placeholder="ระบุโรคประจำตัว (ถ้ามี)" />
+              </Field>
             </div>
 
             <div>
@@ -306,6 +352,64 @@ export default function HREmployeesTab() {
                   <input type="text" value={form.postal_code} onChange={set("postal_code")} className={inputCls} />
                 </Field>
               </div>
+            </div>
+
+            {/* ประวัติการทำงาน */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ประวัติการทำงาน (ถ้ามี)</p>
+                <button type="button" onClick={addWork} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">+ เพิ่มรายการ</button>
+              </div>
+              {workExperiences.map((w, i) => (
+                <div key={i} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 space-y-3 relative mb-3">
+                  {workExperiences.length > 1 && (
+                    <button type="button" onClick={() => removeWork(i)} className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer">✕ ลบ</button>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field label="ชื่อบริษัท/สถานที่ทำงาน">
+                      <input type="text" value={w.company_name} onChange={setWork(i, "company_name")} className={inputCls} placeholder="ชื่อบริษัท" />
+                    </Field>
+                    <Field label="ตำแหน่ง">
+                      <input type="text" value={w.position} onChange={setWork(i, "position")} className={inputCls} placeholder="ตำแหน่งที่ทำ" />
+                    </Field>
+                    <Field label="ตั้งแต่">
+                      <input type="date" value={w.from_date} onChange={setWork(i, "from_date")} className={inputCls} />
+                    </Field>
+                    <Field label="ถึง">
+                      <input type="date" value={w.to_date} onChange={setWork(i, "to_date")} className={inputCls} />
+                    </Field>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ประวัติอาชญากรรม */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ประวัติอาชญากรรม (ถ้ามี)</p>
+                <button type="button" onClick={addCrime} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">+ เพิ่มรายการ</button>
+              </div>
+              {criminalRecords.map((c, i) => (
+                <div key={i} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 space-y-3 relative mb-3">
+                  {criminalRecords.length > 1 && (
+                    <button type="button" onClick={() => removeCrime(i)} className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer">✕ ลบ</button>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field label="ข้อหา">
+                      <input type="text" value={c.charge} onChange={setCrime(i, "charge")} className={inputCls} placeholder="ระบุข้อหา" />
+                    </Field>
+                    <Field label="ศาล">
+                      <input type="text" value={c.court} onChange={setCrime(i, "court")} className={inputCls} placeholder="ชื่อศาล" />
+                    </Field>
+                    <Field label="วันที่คดี">
+                      <input type="date" value={c.case_date} onChange={setCrime(i, "case_date")} className={inputCls} />
+                    </Field>
+                    <Field label="ผลการตัดสิน">
+                      <input type="text" value={c.outcome} onChange={setCrime(i, "outcome")} className={inputCls} placeholder="ผลคดี" />
+                    </Field>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {submitMsg && (

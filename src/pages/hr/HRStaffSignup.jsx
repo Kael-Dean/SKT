@@ -1,7 +1,6 @@
 // src/pages/hr/HRStaffSignup.jsx
 // Phase 3B — ลงทะเบียนเจ้าหน้าที่ใหม่ (เฉพาะ role 1 หรือ 3)
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../../components/SelectDropdown"
 import { baseField, labelCls, sectionTitleCls, submitBtnCls } from "../../lib/styles"
@@ -57,7 +56,6 @@ const emptyWork = () => ({ company_name: "", position: "", from_date: "", to_dat
 const emptyCrime = () => ({ charge: "", court: "", case_date: "", outcome: "" })
 
 export default function HRStaffSignup() {
-  const navigate = useNavigate()
   const [positions, setPositions] = useState([])
   const [loadingPositions, setLoadingPositions] = useState(true)
   const [branchOptions, setBranchOptions] = useState([])
@@ -304,9 +302,6 @@ export default function HRStaffSignup() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 pb-10">
-      <button onClick={() => navigate("/hr/dashboard")} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer">
-        ← กลับ HR Dashboard
-      </button>
       <div>
         <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ลงทะเบียนเจ้าหน้าที่ใหม่</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">

@@ -19,6 +19,8 @@ const AppLayout = () => {
   const [darkMode, setDarkMode] = useState(getInitialDark)
 
   const isHome = location.pathname === "/home"
+  const isHrDashboard = location.pathname === "/hr/dashboard"
+  const isHrSubPage = location.pathname.startsWith("/hr/") && !isHrDashboard
 
   // ใส่/เอาออก class 'dark' ที่ <html>
   useEffect(() => {
@@ -59,14 +61,14 @@ const AppLayout = () => {
             {!isHome && (
               <div className="mb-6 flex items-center gap-3">
                 <button
-                  onClick={() => navigate("/home")}
+                  onClick={() => navigate(isHrSubPage ? "/hr/dashboard" : "/home")}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm transition-all duration-150 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-indigo-600 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-300 cursor-pointer"
                   type="button"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
-                  หน้าหลัก
+                  {isHrSubPage ? "HR Dashboard" : "หน้าหลัก"}
                 </button>
               </div>
             )}

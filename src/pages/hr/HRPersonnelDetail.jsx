@@ -2,7 +2,7 @@
 // โปรไฟล์เจ้าหน้าที่แบบเต็ม — GET /hr/personnel/{user_id}
 import { useEffect, useState } from "react"
 import ReactDOM from "react-dom"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 import lineIcon from "../../assets/line-icon.png"
 
@@ -41,7 +41,6 @@ const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 
 
 export default function HRPersonnelDetail() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -123,9 +122,6 @@ export default function HRPersonnelDetail() {
 
   return (
     <div className="space-y-5 pb-10 max-w-4xl">
-      <button onClick={() => navigate("/hr/dashboard")} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer">
-        ← กลับ HR Dashboard
-      </button>
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
@@ -152,12 +148,6 @@ export default function HRPersonnelDetail() {
             className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer"
           >
             แก้ไขข้อมูลการเงิน
-          </button>
-          <button
-            onClick={() => navigate("/hr/users")}
-            className="px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer"
-          >
-            ← กลับรายชื่อ
           </button>
         </div>
       </div>

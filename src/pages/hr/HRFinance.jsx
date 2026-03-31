@@ -1,14 +1,12 @@
 // src/pages/hr/HRFinance.jsx
 // จัดการข้อมูลการเงินเจ้าหน้าที่ — GET /hr/personnel + POST /hr/financial/{user_id}
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
 
 export default function HRFinance() {
-  const navigate = useNavigate()
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -63,9 +61,6 @@ export default function HRFinance() {
 
   return (
     <div className="space-y-5 pb-10">
-      <button onClick={() => navigate("/hr/dashboard")} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer">
-        ← กลับ HR Dashboard
-      </button>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ข้อมูลการเงินเจ้าหน้าที่</h1>

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
+import Portal from "../../../components/Portal"
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
 const ROLE_COLOR = {
@@ -269,6 +270,7 @@ export default function HREmployeesTab() {
 
       {/* Signup Modal */}
       {showSignup && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-12 bg-black/50 backdrop-blur-sm overflow-y-auto">
           <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-5 mb-12">
             <div className="flex items-center justify-between">
@@ -428,6 +430,7 @@ export default function HREmployeesTab() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   )

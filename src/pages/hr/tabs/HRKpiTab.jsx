@@ -2,6 +2,7 @@
 // KPI — บันทึกรายเดือน + การประเมิน
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
+import Portal from "../../../components/Portal"
 
 const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
 const now = new Date()
@@ -249,6 +250,7 @@ export default function HRKpiTab() {
 
       {/* Score Modal */}
       {scoreModal && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
@@ -285,6 +287,7 @@ export default function HRKpiTab() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   )

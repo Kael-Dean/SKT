@@ -2,6 +2,7 @@
 // จัดการสินเชื่อพนักงาน — GET /loans, PATCH hr-approve/hr-reject
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
+import Portal from "../../../components/Portal"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
@@ -151,6 +152,7 @@ export default function HRLoansTab() {
       )}
 
       {modal && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
@@ -179,6 +181,7 @@ export default function HRLoansTab() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   )

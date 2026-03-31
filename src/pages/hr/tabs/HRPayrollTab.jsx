@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
+import Portal from "../../../components/Portal"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
@@ -181,6 +182,7 @@ export default function HRPayrollTab() {
 
       {/* Generate Modal */}
       {showGenerate && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
@@ -213,6 +215,7 @@ export default function HRPayrollTab() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   )

@@ -110,6 +110,8 @@ export default function MyProfile() {
   const pi = profile?.personnel_info ?? {}
   const addr = profile?.address ?? {}
   const edu = profile?.education ?? []
+  const workExp = profile?.work_experiences ?? []
+  const crimeRec = profile?.criminal_records ?? []
   const fin = financial?.financial ?? {}
   const quota = financial?.leave_quota ?? {}
 
@@ -220,6 +222,7 @@ export default function MyProfile() {
         <InfoRow label={<span className="flex items-center gap-1"><img src={lineIcon} alt="LINE" className="h-3.5 w-3.5 object-contain" />Line ID</span>} value={pi.line_id} />
         <InfoRow label="เบอร์ฉุกเฉิน" value={pi.e_contact} />
         <InfoRow label="เลขบัญชีธนาคาร" value={pi.bank_no} mono />
+        <InfoRow label="โรคประจำตัว" value={pi.underlying_disease} />
         {!pi.hired && !pi.cid && !pi.p_number && (
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-3 italic">ยังไม่มีข้อมูลส่วนบุคคล — กรุณาติดต่อฝ่าย HR</p>
         )}
@@ -251,6 +254,45 @@ export default function MyProfile() {
           </div>
         ) : (
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-3 italic">ยังไม่มีข้อมูลการศึกษา</p>
+        )}
+      </div>
+
+      {/* ประวัติการทำงาน */}
+      <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
+        <SectionTitle>ประวัติการทำงาน</SectionTitle>
+        {workExp.length > 0 ? (
+          <div className="space-y-3">
+            {workExp.map((w, i) => (
+              <div key={i} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-3 text-sm space-y-0.5">
+                <p className="font-semibold text-gray-800 dark:text-gray-200">{w.company_name ?? "—"}</p>
+                {w.position && <p className="text-gray-600 dark:text-gray-400">ตำแหน่ง: {w.position}</p>}
+                {(w.from_date || w.to_date) && (
+                  <p className="text-xs text-gray-500">{fmtDate(w.from_date)} – {w.to_date ? fmtDate(w.to_date) : "ปัจจุบัน"}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-3 italic">ยังไม่มีข้อมูลประวัติการทำงาน</p>
+        )}
+      </div>
+
+      {/* ประวัติอาชญากรรม */}
+      <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
+        <SectionTitle>ประวัติอาชญากรรม</SectionTitle>
+        {crimeRec.length > 0 ? (
+          <div className="space-y-3">
+            {crimeRec.map((c, i) => (
+              <div key={i} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-3 text-sm space-y-0.5">
+                <p className="font-semibold text-gray-800 dark:text-gray-200">{c.charge ?? "—"}</p>
+                {c.court && <p className="text-gray-600 dark:text-gray-400">ศาล: {c.court}</p>}
+                {c.case_date && <p className="text-xs text-gray-500">วันที่คดี: {fmtDate(c.case_date)}</p>}
+                {c.outcome && <p className="text-gray-600 dark:text-gray-400">ผล: {c.outcome}</p>}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-3 italic">ไม่มีประวัติอาชญากรรม</p>
         )}
       </div>
 

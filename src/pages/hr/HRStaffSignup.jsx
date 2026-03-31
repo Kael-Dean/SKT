@@ -52,6 +52,8 @@ function Field({ label, required, children }) {
 }
 
 const emptyEdu = () => ({ ed_level: "", inst_name: "", from_date: "", to_date: "" })
+const emptyWork = () => ({ company_name: "", position: "", from_date: "", to_date: "" })
+const emptyCrime = () => ({ charge: "", court: "", case_date: "", outcome: "" })
 
 export default function HRStaffSignup() {
   const [positions, setPositions] = useState([])
@@ -85,9 +87,12 @@ export default function HRStaffSignup() {
     province: "",
     postal_code: "",
     current_salary: "",
+    underlying_disease: "",
   })
 
   const [education, setEducation] = useState([emptyEdu()])
+  const [workExperiences, setWorkExperiences] = useState([emptyWork()])
+  const [criminalRecords, setCriminalRecords] = useState([emptyCrime()])
 
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState(null) // { id, username, fiscal_year, notified_via }
@@ -139,6 +144,26 @@ export default function HRStaffSignup() {
   const addEdu = () => setEducation((prev) => [...prev, emptyEdu()])
   const removeEdu = (i) => setEducation((prev) => prev.filter((_, idx) => idx !== i))
 
+  const setWork = (index, field) => (e) => {
+    setWorkExperiences((prev) => {
+      const next = [...prev]
+      next[index] = { ...next[index], [field]: e.target.value }
+      return next
+    })
+  }
+  const addWork = () => setWorkExperiences((prev) => [...prev, emptyWork()])
+  const removeWork = (i) => setWorkExperiences((prev) => prev.filter((_, idx) => idx !== i))
+
+  const setCrime = (index, field) => (e) => {
+    setCriminalRecords((prev) => {
+      const next = [...prev]
+      next[index] = { ...next[index], [field]: e.target.value }
+      return next
+    })
+  }
+  const addCrime = () => setCriminalRecords((prev) => [...prev, emptyCrime()])
+  const removeCrime = (i) => setCriminalRecords((prev) => prev.filter((_, idx) => idx !== i))
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError("")
@@ -179,6 +204,23 @@ export default function HRStaffSignup() {
             ...(e.from_date && { from_date: e.from_date }),
             ...(e.to_date && { to_date: e.to_date }),
           })),
+        ...(form.underlying_disease && { underlying_disease: form.underlying_disease.trim() }),
+        work_experiences: workExperiences
+          .filter((w) => w.company_name || w.position || w.from_date || w.to_date)
+          .map((w) => ({
+            ...(w.company_name && { company_name: w.company_name }),
+            ...(w.position && { position: w.position }),
+            ...(w.from_date && { from_date: w.from_date }),
+            ...(w.to_date && { to_date: w.to_date }),
+          })),
+        criminal_records: criminalRecords
+          .filter((c) => c.charge || c.court || c.case_date || c.outcome)
+          .map((c) => ({
+            ...(c.charge && { charge: c.charge }),
+            ...(c.court && { court: c.court }),
+            ...(c.case_date && { case_date: c.case_date }),
+            ...(c.outcome && { outcome: c.outcome }),
+          })),
         ...(form.current_salary && { current_salary: parseFloat(form.current_salary) }),
       }
 
@@ -202,8 +244,11 @@ export default function HRStaffSignup() {
       e_contact: "", birthday: "", age: "", gender: "", m_status: "",
       children_number: "0", h_address: "", mhoo: "", soi: "", road: "",
       district: "", sub_district: "", province: "", postal_code: "", current_salary: "",
+      underlying_disease: "",
     })
     setEducation([emptyEdu()])
+    setWorkExperiences([emptyWork()])
+    setCriminalRecords([emptyCrime()])
   }
 
   // --- Success screen ---
@@ -357,6 +402,9 @@ export default function HRStaffSignup() {
             <Field label="จำนวนบุตร">
               <input type="number" min="0" className={baseField} value={form.children_number} onChange={set("children_number")} />
             </Field>
+            <Field label="โรคประจำตัว">
+              <input className={baseField} value={form.underlying_disease} onChange={set("underlying_disease")} placeholder="ระบุโรคประจำตัว (ถ้ามี)" />
+            </Field>
           </div>
         </div>
 
@@ -444,6 +492,88 @@ export default function HRStaffSignup() {
                 </Field>
                 <Field label="ถึง">
                   <input type="date" className={baseField} value={edu.to_date} onChange={setEdu(i, "to_date")} />
+                </Field>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ─── ประวัติการทำงาน ─── */}
+        <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <SectionTitle>ประวัติการทำงาน (ถ้ามี)</SectionTitle>
+            <button
+              type="button"
+              onClick={addWork}
+              className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+            >
+              + เพิ่มรายการ
+            </button>
+          </div>
+          {workExperiences.map((w, i) => (
+            <div key={i} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 space-y-3 relative">
+              {workExperiences.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeWork(i)}
+                  className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                >
+                  ✕ ลบ
+                </button>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="ชื่อบริษัท/สถานที่ทำงาน">
+                  <input className={baseField} value={w.company_name} onChange={setWork(i, "company_name")} placeholder="ชื่อบริษัท" />
+                </Field>
+                <Field label="ตำแหน่ง">
+                  <input className={baseField} value={w.position} onChange={setWork(i, "position")} placeholder="ตำแหน่งที่ทำ" />
+                </Field>
+                <Field label="ตั้งแต่">
+                  <input type="date" className={baseField} value={w.from_date} onChange={setWork(i, "from_date")} />
+                </Field>
+                <Field label="ถึง">
+                  <input type="date" className={baseField} value={w.to_date} onChange={setWork(i, "to_date")} />
+                </Field>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ─── ประวัติอาชญากรรม ─── */}
+        <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <SectionTitle>ประวัติอาชญากรรม (ถ้ามี)</SectionTitle>
+            <button
+              type="button"
+              onClick={addCrime}
+              className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+            >
+              + เพิ่มรายการ
+            </button>
+          </div>
+          {criminalRecords.map((c, i) => (
+            <div key={i} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 space-y-3 relative">
+              {criminalRecords.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeCrime(i)}
+                  className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                >
+                  ✕ ลบ
+                </button>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="ข้อหา">
+                  <input className={baseField} value={c.charge} onChange={setCrime(i, "charge")} placeholder="ระบุข้อหา" />
+                </Field>
+                <Field label="ศาล">
+                  <input className={baseField} value={c.court} onChange={setCrime(i, "court")} placeholder="ชื่อศาล" />
+                </Field>
+                <Field label="วันที่คดี">
+                  <input type="date" className={baseField} value={c.case_date} onChange={setCrime(i, "case_date")} />
+                </Field>
+                <Field label="ผลการตัดสิน">
+                  <input className={baseField} value={c.outcome} onChange={setCrime(i, "outcome")} placeholder="ผลคดี" />
                 </Field>
               </div>
             </div>

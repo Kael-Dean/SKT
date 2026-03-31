@@ -118,6 +118,8 @@ export default function HRPersonnelDetail() {
   const quota = data.leave_quota ?? {}
   const edu = data.education ?? []
   const relHist = data.relocation_history ?? []
+  const workExp = data.work_experiences ?? []
+  const crimeRec = data.criminal_records ?? []
 
   return (
     <div className="space-y-5 pb-10 max-w-4xl">
@@ -181,6 +183,7 @@ export default function HRPersonnelDetail() {
           <InfoRow label="เบอร์ฉุกเฉิน" value={pi.e_contact} />
           <InfoRow label="เลขบัญชีธนาคาร" value={pi.bank_no} />
           <InfoRow label="วันที่เริ่มงาน" value={fmtDate(pi.hired)} />
+          <InfoRow label="โรคประจำตัว" value={pi.underlying_disease} />
         </div>
       )}
 
@@ -232,6 +235,37 @@ export default function HRPersonnelDetail() {
               {(e.from_date || e.to_date) && (
                 <p className="text-xs text-gray-400">{fmtDate(e.from_date)} — {e.to_date ? fmtDate(e.to_date) : "ปัจจุบัน"}</p>
               )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ประวัติการทำงาน */}
+      {workExp.length > 0 && (
+        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
+          <SectionTitle>ประวัติการทำงาน</SectionTitle>
+          {workExp.map((w, i) => (
+            <div key={i} className="py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
+              <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">{w.company_name ?? "—"}</p>
+              {w.position && <p className="text-xs text-gray-500 dark:text-gray-400">ตำแหน่ง: {w.position}</p>}
+              {(w.from_date || w.to_date) && (
+                <p className="text-xs text-gray-400">{fmtDate(w.from_date)} — {w.to_date ? fmtDate(w.to_date) : "ปัจจุบัน"}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ประวัติอาชญากรรม */}
+      {crimeRec.length > 0 && (
+        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
+          <SectionTitle>ประวัติอาชญากรรม</SectionTitle>
+          {crimeRec.map((c, i) => (
+            <div key={i} className="py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
+              <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">{c.charge ?? "—"}</p>
+              {c.court && <p className="text-xs text-gray-500 dark:text-gray-400">ศาล: {c.court}</p>}
+              {c.case_date && <p className="text-xs text-gray-400">วันที่คดี: {fmtDate(c.case_date)}</p>}
+              {c.outcome && <p className="text-xs text-gray-500 dark:text-gray-400">ผล: {c.outcome}</p>}
             </div>
           ))}
         </div>

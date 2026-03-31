@@ -10,10 +10,23 @@ const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 
 export default function HRSalaryTab() {
   const [subTab, setSubTab] = useState("ladder")
 
+  // Seeded constants — IDs คงที่จาก BE
+  const POSITION_TIERS = [
+    { id: 1, full_name: "ลูกจ้าง ระดับ 1" },
+    { id: 2, full_name: "ลูกจ้าง ระดับ 2" },
+    { id: 3, full_name: "เจ้าหน้าที่ ระดับ 1" },
+    { id: 4, full_name: "เจ้าหน้าที่ ระดับ 2" },
+    { id: 5, full_name: "เจ้าหน้าที่ ระดับ 3" },
+    { id: 6, full_name: "หัวหน้างาน แผนก / ผู้ช่วยสาขา / ฝ่าย" },
+    { id: 7, full_name: "หัวหน้างาน ฝ่าย / สาขา" },
+    { id: 8, full_name: "ผู้ช่วยผู้จัดการ" },
+    { id: 9, full_name: "ผู้จัดการ" },
+  ]
+
   // บันไดเงินเดือน
   const [ladder, setLadder] = useState([])
   const [loadingLadder, setLoadingLadder] = useState(false)
-  const [filterTier, setFilterTier] = useState("")
+  const [filterTier, setFilterTier] = useState("")  // เก็บ tier_id เป็น string จาก <select>
   const [editEntry, setEditEntry] = useState(null)
   const [editVal, setEditVal] = useState("")
   const [saving, setSaving] = useState(false)
@@ -31,10 +44,10 @@ export default function HRSalaryTab() {
   const [loadingHist, setLoadingHist] = useState(false)
   const [histError, setHistError] = useState("")
 
-  const fetchLadder = (tier) => {
-    if (!tier) return
+  const fetchLadder = (tierId) => {
+    if (!tierId) return
     setLoadingLadder(true)
-    apiAuth(`/hr/salary-ladder?tier=${encodeURIComponent(tier)}`)
+    apiAuth(`/hr/salary-ladder?tier_id=${parseInt(tierId, 10)}`)
       .then(setLadder)
       .catch(() => setLadder([]))
       .finally(() => setLoadingLadder(false))
@@ -106,9 +119,6 @@ export default function HRSalaryTab() {
     }
   }
 
-  // Group ladder by tier for display
-  const tiers = [...new Set(ladder.map((e) => e.position_tier))].sort()
-
   return (
     <div className="space-y-4">
       <div className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit flex-wrap">
@@ -124,55 +134,55 @@ export default function HRSalaryTab() {
       {subTab === "ladder" && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">ระดับตำแหน่ง (tier)</label>
-            <input
-              type="text"
+            <label className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">ระดับตำแหน่ง</label>
+            <select
               value={filterTier}
               onChange={(e) => setFilterTier(e.target.value)}
-              placeholder="เช่น A, B, ก, ข ..."
-              className={inputCls + " max-w-48"}
-            />
+              className={inputCls + " max-w-xs"}
+            >
+              <option value="">— เลือกระดับ —</option>
+              {POSITION_TIERS.map((t) => (
+                <option key={t.id} value={t.id}>{t.full_name}</option>
+              ))}
+            </select>
           </div>
         {loadingLadder ? (
           <div className="flex justify-center py-16">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
           </div>
         ) : !filterTier ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">กรุณาระบุ tier เพื่อดูบันไดเงินเดือน</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">กรุณาเลือกระดับตำแหน่งเพื่อดูบันไดเงินเดือน</p>
+        ) : ladder.length === 0 ? (
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">ไม่พบข้อมูล</p>
         ) : (
-          <div className="space-y-4">
-            {tiers.map((tier) => {
-              const rows = ladder.filter((e) => e.position_tier === tier).sort((a, b) => a.level - b.level)
-              return (
-                <div key={tier} className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-gray-100 dark:border-gray-700">
-                    <p className="text-sm font-bold text-indigo-700 dark:text-indigo-300">ระดับตำแหน่ง: {tier}</p>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                          <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">ขั้น</th>
-                          <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">เงินเดือน (บาท)</th>
-                          <th className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 w-20"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                        {rows.map((e) => (
-                          <tr key={e.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                            <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300">ขั้นที่ {e.level}</td>
-                            <td className="px-4 py-2 text-right font-bold text-emerald-700 dark:text-emerald-300">{fmt(e.salary_amount)}</td>
-                            <td className="px-4 py-2 text-center">
-                              <button onClick={() => openEdit(e)} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">แก้ไข</button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )
-            })}
+          <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-gray-100 dark:border-gray-700">
+              <p className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
+                {POSITION_TIERS.find((t) => String(t.id) === String(filterTier))?.full_name}
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+                    <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">ขั้น</th>
+                    <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">เงินเดือน (บาท)</th>
+                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 w-20"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                  {ladder.map((e) => (
+                    <tr key={e.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                      <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300">ขั้นที่ {e.level}</td>
+                      <td className="px-4 py-2 text-right font-bold text-emerald-700 dark:text-emerald-300">{fmt(e.salary_amount)}</td>
+                      <td className="px-4 py-2 text-center">
+                        <button onClick={() => openEdit(e)} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">แก้ไข</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
         </div>

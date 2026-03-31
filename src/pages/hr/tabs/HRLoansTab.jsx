@@ -1,5 +1,5 @@
 // src/pages/hr/tabs/HRLoansTab.jsx
-// จัดการสินเชื่อพนักงาน — GET /loans, PATCH hr-approve/hr-reject
+// จัดการสินเชื่อเจ้าหน้าที่ — GET /loans, PATCH hr-approve/hr-reject
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"

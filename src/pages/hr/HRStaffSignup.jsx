@@ -1,5 +1,5 @@
 // src/pages/hr/HRStaffSignup.jsx
-// Phase 3B — ลงทะเบียนพนักงานใหม่ (เฉพาะ role 1 หรือ 3)
+// Phase 3B — ลงทะเบียนเจ้าหน้าที่ใหม่ (เฉพาะ role 1 หรือ 3)
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../../components/SelectDropdown"
@@ -267,7 +267,7 @@ export default function HRStaffSignup() {
             ✅
           </div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            ลงทะเบียนพนักงานสำเร็จ!
+            ลงทะเบียนเจ้าหน้าที่สำเร็จ!
           </h2>
           <div className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 p-4 text-left space-y-2">
             <p className="text-sm text-gray-700 dark:text-gray-300">
@@ -275,7 +275,7 @@ export default function HRStaffSignup() {
               <span className="font-mono text-indigo-700 dark:text-indigo-300 text-base">{result.username}</span>
             </p>
             <p className="text-sm text-gray-700 dark:text-gray-300">
-              <span className="font-semibold">รหัสพนักงาน:</span> {result.id}
+              <span className="font-semibold">รหัสเจ้าหน้าที่:</span> {result.id}
             </p>
             <p className="text-sm text-gray-700 dark:text-gray-300">
               <span className="font-semibold">ปีงบประมาณ:</span> {result.fiscal_year}
@@ -286,14 +286,14 @@ export default function HRStaffSignup() {
           </div>
           {result.notified_via === "none" && (
             <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
-              ⚠️ รหัสผ่านถูกสร้างอัตโนมัติ กรุณาแจ้งพนักงานใหม่ด้วยตนเอง
+              ⚠️ รหัสผ่านถูกสร้างอัตโนมัติ กรุณาแจ้งเจ้าหน้าที่ใหม่ด้วยตนเอง
             </div>
           )}
           <button
             onClick={handleReset}
             className="mt-2 w-full h-11 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-500 transition cursor-pointer"
           >
-            ลงทะเบียนพนักงานคนถัดไป
+            ลงทะเบียนเจ้าหน้าที่คนถัดไป
           </button>
         </div>
       </div>
@@ -303,9 +303,9 @@ export default function HRStaffSignup() {
   return (
     <div className="max-w-3xl mx-auto space-y-5 pb-10">
       <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ลงทะเบียนพนักงานใหม่</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ลงทะเบียนเจ้าหน้าที่ใหม่</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-          ระบบจะสร้าง username และ password อัตโนมัติ และส่งผ่าน Line / Email ให้พนักงาน
+          ระบบจะสร้าง username และ password อัตโนมัติ และส่งผ่าน Line / Email ให้เจ้าหน้าที่
         </p>
       </div>
 
@@ -586,7 +586,7 @@ export default function HRStaffSignup() {
           disabled={submitting}
           className={submitBtnCls + " w-full"}
         >
-          {submitting ? "กำลังบันทึก..." : "ลงทะเบียนพนักงาน"}
+          {submitting ? "กำลังบันทึก..." : "ลงทะเบียนเจ้าหน้าที่"}
         </button>
       </form>
     </div>

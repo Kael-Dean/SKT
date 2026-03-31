@@ -57,7 +57,7 @@ export default function HRPayrollTab() {
 
   const handleGenerate = async () => {
     if (!genForm.employee_id || !genForm.month || !genForm.year) {
-      setGenMsg("⚠️ กรุณากรอกรหัสพนักงานและเลือกเดือน")
+      setGenMsg("⚠️ กรุณากรอกรหัสเจ้าหน้าที่และเลือกเดือน")
       return
     }
     setGenerating(true)
@@ -135,7 +135,7 @@ export default function HRPayrollTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">พนักงาน / สาขา</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">เจ้าหน้าที่ / สาขา</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">เดือน/ปี</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden sm:table-cell"></th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden md:table-cell"></th>
@@ -190,9 +190,9 @@ export default function HRPayrollTab() {
               <button onClick={() => setShowGenerate(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer">✕</button>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">รหัสพนักงาน</label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">รหัสเจ้าหน้าที่</label>
               <input type="text" value={genForm.employee_id} onChange={(e) => setGenForm(f => ({ ...f, employee_id: e.target.value }))}
-                className={inputCls} placeholder="กรอกรหัสพนักงาน" />
+                className={inputCls} placeholder="กรอกรหัสเจ้าหน้าที่" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">เดือน/ปี</label>

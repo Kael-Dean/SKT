@@ -21,7 +21,7 @@ const fmt = (n) =>
   n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
 const TABS = [
-  { key: "employees",   label: "👥 พนักงาน" },
+  { key: "employees",   label: "👥 เจ้าหน้าที่" },
   { key: "leave",       label: "📋 ใบลา" },
   { key: "relocation",  label: "🚌 ย้ายสาขา" },
   { key: "issues",      label: "🔧 รายงานปัญหา" },
@@ -57,7 +57,7 @@ export default function HRDashboard() {
 
   const statCards = [
     {
-      label: "พนักงานที่ใช้งาน",
+      label: "เจ้าหน้าที่ที่ใช้งาน",
       value: stats?.total_active_employees != null ? `${stats.total_active_employees} คน` : "—",
       icon: "👥",
       color: "text-indigo-700 dark:text-indigo-300",

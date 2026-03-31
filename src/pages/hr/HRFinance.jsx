@@ -1,5 +1,5 @@
 // src/pages/hr/HRFinance.jsx
-// จัดการข้อมูลการเงินพนักงาน — GET /hr/personnel + POST /hr/financial/{user_id}
+// จัดการข้อมูลการเงินเจ้าหน้าที่ — GET /hr/personnel + POST /hr/financial/{user_id}
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
 
@@ -63,7 +63,7 @@ export default function HRFinance() {
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ข้อมูลการเงินพนักงาน</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ข้อมูลการเงินเจ้าหน้าที่</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {loading ? "กำลังโหลด..." : `ยอดเงินเดือนรวม: `}
             {!loading && <span className="font-semibold text-indigo-700 dark:text-indigo-300">{fmt(totalPayroll)} บาท/เดือน</span>}
@@ -87,7 +87,7 @@ export default function HRFinance() {
       {!loading && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
-            { label: "พนักงานทั้งหมด", value: `${employees.length} คน`, color: "text-indigo-700 dark:text-indigo-300" },
+            { label: "เจ้าหน้าที่ทั้งหมด", value: `${employees.length} คน`, color: "text-indigo-700 dark:text-indigo-300" },
             { label: "เงินเดือนรวม", value: `${fmt(totalPayroll)} ฿`, color: "text-emerald-700 dark:text-emerald-300" },
             { label: "มีข้อมูลการเงิน", value: `${employees.filter((e) => e.financial).length} คน`, color: "text-blue-700 dark:text-blue-300" },
           ].map((c) => (
@@ -105,7 +105,7 @@ export default function HRFinance() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">พนักงาน</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">เจ้าหน้าที่</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">เงินเดือน</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide hidden sm:table-cell">เงินกู้</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">อายุงาน</th>
@@ -123,7 +123,7 @@ export default function HRFinance() {
                 </tr>
               ) : employees.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">ไม่พบข้อมูลพนักงาน</td>
+                  <td colSpan={5} className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">ไม่พบข้อมูลเจ้าหน้าที่</td>
                 </tr>
               ) : employees.map((e) => {
                 const fin = e.financial ?? {}

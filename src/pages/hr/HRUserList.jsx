@@ -1,5 +1,5 @@
 // src/pages/hr/HRUserList.jsx
-// รายชื่อพนักงานทั้งหมด — Admin / HR เท่านั้น (GET /hr/personnel)
+// รายชื่อเจ้าหน้าที่ทั้งหมด — Admin / HR เท่านั้น (GET /hr/personnel)
 import { useEffect, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
@@ -58,9 +58,9 @@ export default function HRUserList() {
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">รายชื่อพนักงานทั้งหมด</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">รายชื่อเจ้าหน้าที่ทั้งหมด</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {loading ? "กำลังโหลด..." : `พนักงาน ${users.length} คน · ใช้งานอยู่ ${activeCount} คน`}
+            {loading ? "กำลังโหลด..." : `เจ้าหน้าที่ ${users.length} คน · ใช้งานอยู่ ${activeCount} คน`}
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-full bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
@@ -134,7 +134,7 @@ export default function HRUserList() {
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">
-                    ไม่พบข้อมูลพนักงาน
+                    ไม่พบข้อมูลเจ้าหน้าที่
                   </td>
                 </tr>
               ) : users.map((u) => (

@@ -29,7 +29,7 @@ export default function HRPromotionsTab() {
 
   const handleCreateExam = async () => {
     if (!examForm.employee_id || !examForm.exam_date) {
-      setCreateMsg("⚠️ กรุณากรอกรหัสพนักงานและวันที่สอบ")
+      setCreateMsg("⚠️ กรุณากรอกรหัสเจ้าหน้าที่และวันที่สอบ")
       return
     }
     setCreating(true)
@@ -60,7 +60,7 @@ export default function HRPromotionsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {loading ? "กำลังโหลด..." : `พนักงานที่มีสิทธิ์เลื่อนตำแหน่ง ${eligible.length} คน`}
+          {loading ? "กำลังโหลด..." : `เจ้าหน้าที่ที่มีสิทธิ์เลื่อนตำแหน่ง ${eligible.length} คน`}
         </p>
         <button
           onClick={() => { setShowExam(true); setCreateMsg("") }}
@@ -81,7 +81,7 @@ export default function HRPromotionsTab() {
       ) : eligible.length === 0 ? (
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-12 text-center">
           <p className="text-3xl mb-3">🏆</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">ยังไม่มีพนักงานที่มีสิทธิ์เลื่อนตำแหน่ง</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">ยังไม่มีเจ้าหน้าที่ที่มีสิทธิ์เลื่อนตำแหน่ง</p>
         </div>
       ) : (
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
@@ -89,7 +89,7 @@ export default function HRPromotionsTab() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">พนักงาน</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">เจ้าหน้าที่</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden sm:table-cell">ตำแหน่งปัจจุบัน</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden md:table-cell">สาขา</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden lg:table-cell">อายุงาน</th>
@@ -132,9 +132,9 @@ export default function HRPromotionsTab() {
               <button onClick={() => setShowExam(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer">✕</button>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">รหัสพนักงาน <span className="text-red-500">*</span></label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">รหัสเจ้าหน้าที่ <span className="text-red-500">*</span></label>
               <input type="text" value={examForm.employee_id} onChange={(e) => setExamForm(f => ({ ...f, employee_id: e.target.value }))}
-                className={inputCls} placeholder="กรอกรหัสพนักงาน" />
+                className={inputCls} placeholder="กรอกรหัสเจ้าหน้าที่" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">วันที่สอบ <span className="text-red-500">*</span></label>

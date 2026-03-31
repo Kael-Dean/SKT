@@ -1,5 +1,5 @@
 // src/pages/hr/tabs/HREmployeesTab.jsx
-// รายชื่อพนักงาน + ลงทะเบียนพนักงานใหม่
+// รายชื่อเจ้าหน้าที่ + ลงทะเบียนเจ้าหน้าที่ใหม่
 import { useEffect, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../../lib/api"
@@ -180,13 +180,13 @@ export default function HREmployeesTab() {
       {/* Controls */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {loading ? "กำลังโหลด..." : `พนักงาน ${users.length} คน · ใช้งานอยู่ ${activeCount} คน`}
+          {loading ? "กำลังโหลด..." : `เจ้าหน้าที่ ${users.length} คน · ใช้งานอยู่ ${activeCount} คน`}
         </p>
         <button
           onClick={() => { setShowSignup(true); setSubmitMsg("") }}
           className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition cursor-pointer"
         >
-          ➕ ลงทะเบียนพนักงาน
+          ➕ ลงทะเบียนเจ้าหน้าที่
         </button>
       </div>
 
@@ -233,7 +233,7 @@ export default function HREmployeesTab() {
                   </div>
                 </td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">ไม่พบข้อมูลพนักงาน</td></tr>
+                <tr><td colSpan={6} className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">ไม่พบข้อมูลเจ้าหน้าที่</td></tr>
               ) : users.map((u) => (
                 <tr
                   key={u.id}
@@ -274,7 +274,7 @@ export default function HREmployeesTab() {
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-12 bg-black/50 backdrop-blur-sm overflow-y-auto">
           <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-5 mb-12">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">➕ ลงทะเบียนพนักงานใหม่</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">➕ ลงทะเบียนเจ้าหน้าที่ใหม่</h3>
               <button onClick={() => setShowSignup(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition text-xl cursor-pointer">✕</button>
             </div>
 

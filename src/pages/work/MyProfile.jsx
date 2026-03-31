@@ -199,7 +199,7 @@ export default function MyProfile() {
       <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
         <SectionTitle>ข้อมูลบัญชี</SectionTitle>
         <InfoRow label="Username" value={profile?.username ?? localUser.username} mono />
-        <InfoRow label="รหัสพนักงาน" value={profile?.id ?? localUser.id} />
+        <InfoRow label="รหัสเจ้าหน้าที่" value={profile?.id ?? localUser.id} />
         <InfoRow label="ชื่อ-นามสกุล" value={displayName !== localUser.username ? displayName : null} />
         <InfoRow label="Email" value={profile?.email} />
         <InfoRow label="ตำแหน่งงาน" value={positionName} />

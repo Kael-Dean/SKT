@@ -1,5 +1,5 @@
 // src/pages/hr/HRPersonnelDetail.jsx
-// โปรไฟล์พนักงานแบบเต็ม — GET /hr/personnel/{user_id}
+// โปรไฟล์เจ้าหน้าที่แบบเต็ม — GET /hr/personnel/{user_id}
 import { useEffect, useState } from "react"
 import ReactDOM from "react-dom"
 import { useParams, useNavigate } from "react-router-dom"

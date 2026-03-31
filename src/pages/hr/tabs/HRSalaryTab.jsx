@@ -74,7 +74,7 @@ export default function HRSalaryTab() {
   }
 
   const awardStep = async () => {
-    if (!empId) return setStepMsg("⚠️ กรุณากรอกรหัสพนักงาน")
+    if (!empId) return setStepMsg("⚠️ กรุณากรอกรหัสเจ้าหน้าที่")
     setAwardingStep(true)
     setStepMsg("")
     try {
@@ -92,7 +92,7 @@ export default function HRSalaryTab() {
   }
 
   const loadHistory = async () => {
-    if (!histEmpId) return setHistError("⚠️ กรุณากรอกรหัสพนักงาน")
+    if (!histEmpId) return setHistError("⚠️ กรุณากรอกรหัสเจ้าหน้าที่")
     setLoadingHist(true)
     setHistError("")
     try {
@@ -183,8 +183,8 @@ export default function HRSalaryTab() {
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-6 space-y-4 max-w-sm">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">เลื่อนขั้นเงินเดือน</h3>
           <div>
-            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">รหัสพนักงาน</label>
-            <input type="text" value={empId} onChange={(e) => setEmpId(e.target.value)} className={inputCls} placeholder="กรอกรหัสพนักงาน" />
+            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">รหัสเจ้าหน้าที่</label>
+            <input type="text" value={empId} onChange={(e) => setEmpId(e.target.value)} className={inputCls} placeholder="กรอกรหัสเจ้าหน้าที่" />
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">จำนวนขั้นที่เลื่อน</label>
@@ -208,7 +208,7 @@ export default function HRSalaryTab() {
       {subTab === "history" && (
         <div className="space-y-4">
           <div className="flex gap-3">
-            <input type="text" value={histEmpId} onChange={(e) => setHistEmpId(e.target.value)} className={inputCls + " max-w-xs"} placeholder="กรอกรหัสพนักงาน" />
+            <input type="text" value={histEmpId} onChange={(e) => setHistEmpId(e.target.value)} className={inputCls + " max-w-xs"} placeholder="กรอกรหัสเจ้าหน้าที่" />
             <button onClick={loadHistory} disabled={loadingHist}
               className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer disabled:opacity-60">
               ค้นหา

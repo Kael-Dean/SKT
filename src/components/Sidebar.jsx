@@ -20,8 +20,8 @@ const PERSONAL_MENUS = [
   { label: "🚌 คำขอย้ายสาขา",     path: "/my-relocation",   roles: "all" },
   // Phase 3B — HR admin (ADMIN only เพราะ HR ใช้ HR_MENUS แทน)
   { label: "📊 Dashboard HR",       path: "/hr/dashboard",    roles: [ROLE.ADMIN] },
-  { label: "➕ ลงทะเบียนพนักงาน", path: "/hr/staff-signup",  roles: [ROLE.ADMIN] },
-  { label: "📋 รายชื่อพนักงาน",    path: "/hr/users",         roles: [ROLE.ADMIN] },
+  { label: "➕ ลงทะเบียนเจ้าหน้าที่", path: "/hr/staff-signup",  roles: [ROLE.ADMIN] },
+  { label: "📋 รายชื่อเจ้าหน้าที่",    path: "/hr/users",         roles: [ROLE.ADMIN] },
   { label: "📅 อนุมัติใบลา",       path: "/hr/leaves",        roles: [ROLE.ADMIN] },
   { label: "🔧 รายงานปัญหา",       path: "/hr/issues",        roles: [ROLE.ADMIN] },
   { label: "💰 ข้อมูลการเงิน",     path: "/hr/finance",       roles: [ROLE.ADMIN] },

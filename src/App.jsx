@@ -194,7 +194,7 @@ function RequireAdminHA({ children }) {
   return children
 }
 
-/* ✅ Route guard: เฉพาะ ADMIN + HR — ใช้กับหน้า "ลงทะเบียนพนักงาน" */
+/* ✅ Route guard: เฉพาะ ADMIN + HR — ใช้กับหน้า "ลงทะเบียนเจ้าหน้าที่" */
 function RequireAdminOrHR({ children }) {
   const r = getRoleId()
   const ok = r === ROLE.ADMIN || r === ROLE.HR

@@ -663,7 +663,7 @@ function OrderCorrection() {
 
     const editorId = Number(draft.edited_by);
     if (!Number.isFinite(editorId) || editorId <= 0) {
-      setRowError("กรุณากรอก 'รหัสพนักงานผู้แก้ไข (edited_by)' เป็นตัวเลขให้ถูกต้อง");
+      setRowError("กรุณากรอก 'รหัสเจ้าหน้าที่ผู้แก้ไข (edited_by)' เป็นตัวเลขให้ถูกต้อง");
       return;
     }
 
@@ -1218,7 +1218,7 @@ function OrderCorrection() {
                   <div className="mb-5 grid gap-4 md:grid-cols-3">
                     <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
                       <div className="text-sm text-slate-600 dark:text-slate-300 mb-1">
-                        รหัสพนักงานผู้แก้ไข (edited_by) *
+                        รหัสเจ้าหน้าที่ผู้แก้ไข (edited_by) *
                       </div>
                       {!editing ? (
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">

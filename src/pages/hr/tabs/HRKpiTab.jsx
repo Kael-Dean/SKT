@@ -90,7 +90,7 @@ export default function HRKpiTab() {
 
   const submitKpi = async () => {
     if (!kpiForm.employee_id || !kpiForm.metric || !kpiForm.value) {
-      setKpiMsg("⚠️ กรุณากรอกรหัสพนักงาน, ตัวชี้วัด และค่า")
+      setKpiMsg("⚠️ กรุณากรอกรหัสเจ้าหน้าที่, ตัวชี้วัด และค่า")
       return
     }
     setSubmittingKpi(true)
@@ -159,7 +159,7 @@ export default function HRKpiTab() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">พนักงาน</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">เจ้าหน้าที่</th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden md:table-cell">หัวหน้าสาขา<br/><span className="text-gray-400">≤42</span></th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden md:table-cell">ผู้ช่วยผจก.<br/><span className="text-gray-400">≤20</span></th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden md:table-cell">ผู้จัดการ<br/><span className="text-gray-400">≤10</span></th>
@@ -173,7 +173,7 @@ export default function HRKpiTab() {
                       return (
                         <tr key={ev.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                           <td className="px-4 py-3">
-                            <p className="font-medium text-gray-900 dark:text-gray-100">รหัสพนักงาน {ev.user_id}</p>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">รหัสเจ้าหน้าที่ {ev.user_id}</p>
                             <p className="text-xs text-gray-400 dark:text-gray-500">{ev.status}</p>
                           </td>
                           <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 hidden md:table-cell">{ev.branch_head_score ?? "—"}</td>
@@ -200,10 +200,10 @@ export default function HRKpiTab() {
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">บันทึก KPI รายเดือน</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">รหัสพนักงาน</label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">รหัสเจ้าหน้าที่</label>
               <input type="text" value={kpiForm.employee_id}
                 onChange={(e) => setKpiForm(f => ({ ...f, employee_id: e.target.value }))}
-                className={inputCls} placeholder="รหัสพนักงาน" />
+                className={inputCls} placeholder="รหัสเจ้าหน้าที่" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ปีงบประมาณ</label>
@@ -258,7 +258,7 @@ export default function HRKpiTab() {
               <button onClick={() => setScoreModal(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer">✕</button>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-semibold text-gray-900 dark:text-gray-100">รหัสพนักงาน {scoreModal.user_id}</span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">รหัสเจ้าหน้าที่ {scoreModal.user_id}</span>
             </p>
             <div className="space-y-3">
               <div>

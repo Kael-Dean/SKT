@@ -1,6 +1,7 @@
 // src/pages/hr/HRIssueReports.jsx
 // อนุมัติ / ปฏิเสธ รายงานปัญหา — GET/POST /hr/issue-reports
 import { useEffect, useState, useCallback } from "react"
+import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 
 const STATUS_LABEL = { pending: "รอดำเนินการ", approved: "อนุมัติแล้ว", denied: "ปฏิเสธ" }
@@ -11,6 +12,7 @@ const STATUS_COLOR = {
 }
 
 export default function HRIssueReports() {
+  const navigate = useNavigate()
   const [tab, setTab] = useState("pending")
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
@@ -64,6 +66,9 @@ export default function HRIssueReports() {
 
   return (
     <div className="space-y-5 pb-10">
+      <button onClick={() => navigate("/hr/dashboard")} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer">
+        ← กลับ HR Dashboard
+      </button>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">รายงานปัญหาข้อมูล</h1>

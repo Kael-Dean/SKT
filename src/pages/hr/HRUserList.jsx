@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
+
 import SelectDropdown from "../../components/SelectDropdown"
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
@@ -56,6 +57,9 @@ export default function HRUserList() {
 
   return (
     <div className="space-y-5 pb-10">
+      <button onClick={() => navigate("/hr/dashboard")} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer">
+        ← กลับ HR Dashboard
+      </button>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">รายชื่อเจ้าหน้าที่ทั้งหมด</h1>

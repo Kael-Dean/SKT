@@ -123,6 +123,9 @@ export default function HRPersonnelDetail() {
 
   return (
     <div className="space-y-5 pb-10 max-w-4xl">
+      <button onClick={() => navigate("/hr/dashboard")} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer">
+        ← กลับ HR Dashboard
+      </button>
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">

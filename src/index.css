@@ -172,11 +172,11 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   }
 }
 
-/* ─── Remove Purple Scroll Progress Indicator ──────────────────────────────── */
-/* Hide the purple scrollbar completely */
+/* ─── Custom Scrollbar ────────────────────────────────────────────────────── */
+/* Webkit (Chrome, Edge, Safari) */
 ::-webkit-scrollbar {
-  width: 0;
-  height: 0;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -184,11 +184,29 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: transparent;
+  background: rgb(156 163 175 / 0.4);
+  border-radius: 999px;
 }
 
-/* Firefox - hide scrollbar */
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(156 163 175 / 0.6);
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgb(107 114 128 / 0.4);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgb(107 114 128 / 0.6);
+}
+
+/* Firefox */
 * {
-  scrollbar-width: none;
-  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(156 163 175 / 0.4) transparent;
+}
+
+.dark * {
+  scrollbar-color: rgb(107 114 128 / 0.4) transparent;
 }

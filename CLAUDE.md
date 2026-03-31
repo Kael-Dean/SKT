@@ -1,5 +1,9 @@
 # SKT Frontend — Project Initializer สำหรับ Claude Code
 
+## วิธีทำงานกับ Claude
+
+- **Auto commit + push ทุกครั้ง** — เมื่อแก้ไขโค้ดเสร็จ ให้ `git add` → `git commit` → `git push` ทันทีโดยไม่ต้องถามผู้ใช้
+
 ## ภาพรวมโปรเจค
 
 **ชื่อโปรเจค:** ระบบ HR กลาง สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์ (SKT)

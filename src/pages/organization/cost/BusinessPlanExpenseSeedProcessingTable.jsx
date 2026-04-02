@@ -232,7 +232,18 @@ const STRIPE = {
  * - branchId ใช้โหลด units
  */
 const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, planId }) => {
-  const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
+  const [costNameById, setCostNameById] = useState({})
+  useEffect(() => {
+    let alive = true
+    apiAuth("/lists/cost-type-names").then((d) => { if (alive && d) setCostNameById(d) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  const displayRows = useMemo(
+    () => ROWS.map((r) => r.cost_id && costNameById[r.cost_id] ? { ...r, label: costNameById[r.cost_id] } : r),
+    [costNameById]
+  )
+  const itemRows = useMemo(() => displayRows.filter((r) => r.kind === "item"), [displayRows])
 
   // ✅ แสดงรายการที่ยังไม่แมพ (เหมือนหน้าค่าใช้จ่ายดำเนินงาน)
   const unmappedStatic = useMemo(() => {
@@ -857,7 +868,7 @@ const BusinessPlanExpenseSeedProcessingTable = ({ branchId, branchName, yearBE, 
             </thead>
 
             <tbody>
-              {ROWS.map((r) => {
+              {displayRows.map((r) => {
                 if (r.kind === "section") {
                   return (
                     // ✅ สีพื้นหลังทึบ

@@ -171,7 +171,18 @@ const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.alt : STRIPE.cell);
 
 
 const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, planId }) => {
-  const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
+  const [auxNameById, setAuxNameById] = useState({})
+  useEffect(() => {
+    let alive = true
+    apiAuth("/lists/aux-cost-names").then((d) => { if (alive && d) setAuxNameById(d) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  const displayRows = useMemo(
+    () => ROWS.map((r) => r.aux_id && auxNameById[r.aux_id] ? { ...r, label: auxNameById[r.aux_id] } : r),
+    [auxNameById]
+  )
+  const itemRows = useMemo(() => displayRows.filter((r) => r.kind === "item"), [displayRows])
 
   const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
   const effectiveBranchName = useMemo(
@@ -587,7 +598,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             </thead>
 
             <tbody>
-              {ROWS.map((r, rIdx) => {
+              {displayRows.map((r, rIdx) => {
                 const totalInfo = computed[r.code]
                 const isSpecialRow = r.kind === 'subtotal' || r.kind === 'grandtotal'
                 const rowBg = r.kind === 'grandtotal' ? STRIPE.grandtotal : r.kind === 'subtotal' ? STRIPE.subtotal : (rIdx % 2 === 1 ? STRIPE.alt : STRIPE.cell)

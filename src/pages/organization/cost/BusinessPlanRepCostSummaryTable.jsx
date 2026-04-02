@@ -167,7 +167,18 @@ const STRIPE = {
 }
 
 const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId }) => {
-  const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
+  const [auxNameById, setAuxNameById] = useState({})
+  useEffect(() => {
+    let alive = true
+    apiAuth("/lists/aux-cost-names").then((d) => { if (alive && d) setAuxNameById(d) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  const displayRows = useMemo(
+    () => ROWS.map((r) => r.aux_id && auxNameById[r.aux_id] ? { ...r, label: auxNameById[r.aux_id] } : r),
+    [auxNameById]
+  )
+  const itemRows = useMemo(() => displayRows.filter((r) => r.kind === "item"), [displayRows])
 
   const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
   const effectiveBranchName = useMemo(
@@ -761,7 +772,7 @@ const BusinessPlanRepCostSummaryTable = ({ branchId, branchName, yearBE, planId 
 </thead>
 
             <tbody>
-              {ROWS.map((r) => {
+              {displayRows.map((r) => {
                 const t = computed.rowTotal[r.code]
 
                 if (r.kind === "title" || r.kind === "section") {

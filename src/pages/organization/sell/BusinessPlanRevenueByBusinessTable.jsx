@@ -283,6 +283,18 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
   const yearBE = props?.yearBE ?? props?.year_be ?? props?.year ?? null
   const planId = Number(props?.planId ?? props?.plan_id ?? 0) || 0
 
+  const [earningNameById, setEarningNameById] = useState({})
+  useEffect(() => {
+    let alive = true
+    apiAuth("/lists/earning-type-names").then((d) => { if (alive && d) setEarningNameById(d) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  const displayRows = useMemo(
+    () => ROWS.map((r) => r.earning_id && earningNameById[r.earning_id] ? { ...r, label: earningNameById[r.earning_id] } : r),
+    [earningNameById]
+  )
+
   const effectiveBranchName = branchName || (branchId ? `#${branchId}` : "— ยังไม่ได้เลือกสาขา —")
   const effectiveYear = yearBE ?? "-"
   const periodLabel = props?.periodLabel || props?.period_label || PERIOD_DEFAULT
@@ -711,7 +723,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
             </thead>
             
             <tbody>
-              {ROWS.map((r, rowIdx) => {
+              {displayRows.map((r, rowIdx) => {
                 const isItem = r.kind === "item"
                 const itemIndex = isItem ? itemRows.findIndex((x) => x.code === r.code) : -1
                 const isUnmapped = isItem && !resolveRowBusinessEarningId(r)

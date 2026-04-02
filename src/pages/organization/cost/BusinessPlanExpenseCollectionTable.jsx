@@ -212,7 +212,18 @@ const STRIPE = {
 }
 
 const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, planId }) => {
-  const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
+  const [costNameById, setCostNameById] = useState({})
+  useEffect(() => {
+    let alive = true
+    apiAuth("/lists/cost-type-names").then((d) => { if (alive && d) setCostNameById(d) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  const displayRows = useMemo(
+    () => ROWS.map((r) => r.cost_id && costNameById[r.cost_id] ? { ...r, label: costNameById[r.cost_id] } : r),
+    [costNameById]
+  )
+  const itemRows = useMemo(() => displayRows.filter((r) => r.kind === "item"), [displayRows])
 
   const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
   const effectiveBranchName = useMemo(
@@ -776,7 +787,7 @@ const BusinessPlanExpenseCollectionTable = ({ branchId, branchName, yearBE, plan
             </thead>
 
             <tbody>
-              {ROWS.map((r) => {
+              {displayRows.map((r) => {
                 if (r.kind === "section") {
                   return (
                     // ✅ สีพื้นหลังทึบ

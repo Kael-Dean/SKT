@@ -229,7 +229,18 @@ const shortUnit = (name, idx) => {
 }
 
 const BusinessPlanExpenseProcessingTableDetail = ({ branchId, branchName, yearBE, planId }) => {
-  const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
+  const [costNameById, setCostNameById] = useState({})
+  useEffect(() => {
+    let alive = true
+    apiAuth("/lists/cost-type-names").then((d) => { if (alive && d) setCostNameById(d) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  const displayRows = useMemo(
+    () => ROWS.map((r) => r.cost_id && costNameById[r.cost_id] ? { ...r, label: costNameById[r.cost_id] } : r),
+    [costNameById]
+  )
+  const itemRows = useMemo(() => displayRows.filter((r) => r.kind === "item"), [displayRows])
 
   const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
   const effectiveBranchName = useMemo(
@@ -597,7 +608,7 @@ const BusinessPlanExpenseProcessingTableDetail = ({ branchId, branchName, yearBE
             </thead>
 
             <tbody>
-              {ROWS.map((r, rIdx) => {
+              {displayRows.map((r, rIdx) => {
                 if (r.kind === "section") {
                   return (
                     <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">

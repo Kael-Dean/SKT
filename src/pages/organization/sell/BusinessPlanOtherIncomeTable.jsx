@@ -217,13 +217,24 @@ const normUnit = (u, idx = 0) => {
  * BusinessPlanOtherIncomeTable
  * ===================================================================== */
 const BusinessPlanOtherIncomeTable = (props) => {
-  const { 
-    branchId, branch_id, branch, selectedBranch, 
-    branchName: pBranchName, 
-    yearBE, year_be, year, 
-    planId, plan_id, 
-    periodLabel, period_label 
+  const {
+    branchId, branch_id, branch, selectedBranch,
+    branchName: pBranchName,
+    yearBE, year_be, year,
+    planId, plan_id,
+    periodLabel, period_label
   } = props || {}
+
+  const [earningNameById, setEarningNameById] = useState({})
+  useEffect(() => {
+    let alive = true
+    apiAuth("/lists/earning-type-names").then((d) => { if (alive && d) setEarningNameById(d) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+  const displayRows = useMemo(
+    () => ROWS.map((r) => r.earning_id && earningNameById[r.earning_id] ? { ...r, label: earningNameById[r.earning_id] } : r),
+    [earningNameById]
+  )
 
   const [units, setUnits] = useState(FALLBACK_UNITS)
   const [isLoadingUnits, setIsLoadingUnits] = useState(false)
@@ -694,7 +705,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
             </thead>
             
             <tbody>
-              {ROWS.map((r, rowIdx) => {
+              {displayRows.map((r, rowIdx) => {
                 const isItem = r.kind === "item"
                 const itemIndex = isItem ? itemRows.findIndex((x) => x.code === r.code) : -1
                 const isUnmapped = isItem && !rowIdByCode[r.code]

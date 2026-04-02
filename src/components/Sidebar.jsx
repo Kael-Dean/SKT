@@ -18,15 +18,8 @@ const PERSONAL_MENUS = [
   { label: "👤 ข้อมูลส่วนตัว",     path: "/my-profile",      roles: "all" },
   { label: "📋 ยื่นใบลา",          path: "/leave-request",   roles: "all" },
   { label: "🚌 คำขอย้ายสาขา",     path: "/my-relocation",   roles: "all" },
-  // Phase 3B — HR admin (ADMIN only เพราะ HR ใช้ HR_MENUS แทน)
+  // Phase 3B — HR admin ทุกฟังก์ชันรวมอยู่ใน Dashboard HR แล้ว
   { label: "📊 Dashboard HR",       path: "/hr/dashboard",    roles: [ROLE.ADMIN] },
-  { label: "➕ ลงทะเบียนเจ้าหน้าที่", path: "/hr/staff-signup",  roles: [ROLE.ADMIN] },
-  { label: "📋 รายชื่อเจ้าหน้าที่",    path: "/hr/users",         roles: [ROLE.ADMIN] },
-  { label: "📅 อนุมัติใบลา",       path: "/hr/leaves",        roles: [ROLE.ADMIN] },
-  { label: "🔧 รายงานปัญหา",       path: "/hr/issues",        roles: [ROLE.ADMIN] },
-  { label: "💰 ข้อมูลการเงิน",     path: "/hr/finance",       roles: [ROLE.ADMIN] },
-  { label: "📈 บัญชีเงินเดือน",   path: "/hr/salary-tier",   roles: [ROLE.ADMIN, ROLE.HR] },
-  { label: "🏢 อนุมัติย้ายสาขา",  path: "/hr/relocation",    roles: [ROLE.ADMIN] },
 ]
 
 function canSeeSidebarItem(item, roleId) {

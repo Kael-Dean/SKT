@@ -485,52 +485,59 @@ export default function HREmployeesTab() {
             </div>
 
             {/* ข้อมูลครอบครัว */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">ข้อมูลครอบครัว (ถ้ามี)</p>
+            <div className="space-y-4">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ข้อมูลครอบครัว (ถ้ามี)</p>
 
               {/* Spouse */}
-              <div className="mb-4">
-                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer mb-3">
+              <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 overflow-hidden">
+                <label className="flex items-center gap-3 px-4 py-3 bg-indigo-50 dark:bg-indigo-900/30 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={hasSpouse}
                     onChange={(e) => setHasSpouse(e.target.checked)}
-                    className="rounded cursor-pointer"
+                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
-                  มีคู่สมรส
+                  <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">💑 คู่สมรส</span>
+                  {!hasSpouse && <span className="ml-auto text-xs text-gray-400">คลิกเพื่อเพิ่ม</span>}
                 </label>
                 {hasSpouse && (
-                  <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Field label="ชื่อ-นามสกุลคู่สมรส" required>
-                        <input type="text" value={spouse.spouse_name} onChange={(e) => setSpouse(s => ({ ...s, spouse_name: e.target.value }))} className={inputCls} placeholder="ชื่อ-นามสกุล" />
-                      </Field>
-                      <Field label="อาชีพ">
-                        <input type="text" value={spouse.spouse_occupation} onChange={(e) => setSpouse(s => ({ ...s, spouse_occupation: e.target.value }))} className={inputCls} placeholder="อาชีพ" />
-                      </Field>
-                      <Field label="วันเกิด">
-                        <input type="date" value={spouse.spouse_birthday} onChange={(e) => setSpouse(s => ({ ...s, spouse_birthday: e.target.value }))} className={inputCls} />
-                      </Field>
-                      <Field label="สถานภาพการสมรส">
-                        <SelectDropdown value={spouse.spouse_marriage_status} onChange={(v) => setSpouse(s => ({ ...s, spouse_marriage_status: v }))} placeholder="เลือกสถานภาพ" options={MARRIAGE_STATUS_OPTIONS} />
-                      </Field>
-                      <Field label="เบอร์โทรคู่สมรส">
-                        <input type="text" value={spouse.spouse_phone} onChange={(e) => setSpouse(s => ({ ...s, spouse_phone: e.target.value }))} className={inputCls} placeholder="08x-xxx-xxxx" />
-                      </Field>
-                    </div>
+                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field label="ชื่อ-นามสกุลคู่สมรส" required>
+                      <input type="text" value={spouse.spouse_name} onChange={(e) => setSpouse(s => ({ ...s, spouse_name: e.target.value }))} className={inputCls} placeholder="ชื่อ-นามสกุล" />
+                    </Field>
+                    <Field label="อาชีพ">
+                      <input type="text" value={spouse.spouse_occupation} onChange={(e) => setSpouse(s => ({ ...s, spouse_occupation: e.target.value }))} className={inputCls} placeholder="อาชีพ" />
+                    </Field>
+                    <Field label="วันเกิด">
+                      <input type="date" value={spouse.spouse_birthday} onChange={(e) => setSpouse(s => ({ ...s, spouse_birthday: e.target.value }))} className={inputCls} />
+                    </Field>
+                    <Field label="สถานภาพการสมรส">
+                      <SelectDropdown value={spouse.spouse_marriage_status} onChange={(v) => setSpouse(s => ({ ...s, spouse_marriage_status: v }))} placeholder="เลือกสถานภาพ" options={MARRIAGE_STATUS_OPTIONS} />
+                    </Field>
+                    <Field label="เบอร์โทรคู่สมรส">
+                      <input type="text" value={spouse.spouse_phone} onChange={(e) => setSpouse(s => ({ ...s, spouse_phone: e.target.value }))} className={inputCls} placeholder="08x-xxx-xxxx" />
+                    </Field>
                   </div>
                 )}
               </div>
 
               {/* Children */}
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">บุตร</p>
-                  <button type="button" onClick={() => setModalChildren(prev => [...prev, emptyChild()])} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">+ เพิ่มบุตร</button>
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-900/30">
+                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">👶 บุตร {modalChildren.length > 0 && <span className="ml-1 text-xs font-normal">({modalChildren.length} คน)</span>}</span>
+                  <button type="button" onClick={() => setModalChildren(prev => [...prev, emptyChild()])} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition cursor-pointer">
+                    + เพิ่มบุตร
+                  </button>
                 </div>
+                {modalChildren.length === 0 && (
+                  <p className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">ยังไม่มีข้อมูลบุตร — กด "+ เพิ่มบุตร" เพื่อเพิ่ม</p>
+                )}
                 {modalChildren.map((c, i) => (
-                  <div key={i} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 relative mb-3">
-                    <button type="button" onClick={() => setModalChildren(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer">✕ ลบ</button>
+                  <div key={i} className="border-t border-amber-100 dark:border-amber-900/50 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">บุตรคนที่ {i + 1}</span>
+                      <button type="button" onClick={() => setModalChildren(prev => prev.filter((_, idx) => idx !== i))} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 transition cursor-pointer">✕ ลบ</button>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <Field label="ชื่อ-นามสกุลบุตร" required>
                         <input type="text" value={c.child_name} onChange={(e) => setModalChildren(prev => { const n=[...prev]; n[i]={...n[i],child_name:e.target.value}; return n })} className={inputCls} placeholder="ชื่อ-นามสกุล" />
@@ -551,17 +558,27 @@ export default function HREmployeesTab() {
               </div>
 
               {/* Parents */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">บิดา-มารดา</p>
-                  <button type="button" onClick={() => setModalParents(prev => [...prev, emptyParent()])} disabled={modalParents.length >= 2} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">+ เพิ่ม</button>
+              <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 bg-emerald-50 dark:bg-emerald-900/30">
+                  <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">👨‍👩‍ บิดา-มารดา {modalParents.length > 0 && <span className="ml-1 text-xs font-normal">({modalParents.length}/2)</span>}</span>
+                  <button type="button" onClick={() => setModalParents(prev => [...prev, emptyParent()])} disabled={modalParents.length >= 2} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+                    + เพิ่ม
+                  </button>
                 </div>
+                {modalParents.length === 0 && (
+                  <p className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">ยังไม่มีข้อมูลบิดา-มารดา — กด "+ เพิ่ม" เพื่อเพิ่ม (สูงสุด 2 คน)</p>
+                )}
                 {modalParents.map((p, i) => {
                   const usedTypes = modalParents.filter((_, j) => j !== i).map(x => x.parent_type)
                   const parentTypeOpts = PARENT_TYPE_OPTIONS.filter(o => !usedTypes.includes(o.value))
                   return (
-                    <div key={i} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 relative mb-3">
-                      <button type="button" onClick={() => setModalParents(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer">✕ ลบ</button>
+                    <div key={i} className="border-t border-emerald-100 dark:border-emerald-900/50 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                          {p.parent_type === "father" ? "👨 บิดา" : p.parent_type === "mother" ? "👩 มารดา" : `รายการที่ ${i + 1}`}
+                        </span>
+                        <button type="button" onClick={() => setModalParents(prev => prev.filter((_, idx) => idx !== i))} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 transition cursor-pointer">✕ ลบ</button>
+                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Field label="ความสัมพันธ์" required>
                           <SelectDropdown value={p.parent_type} onChange={(v) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_type:v}; return n })} placeholder="เลือก" options={parentTypeOpts} />

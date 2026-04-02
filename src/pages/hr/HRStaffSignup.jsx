@@ -653,22 +653,23 @@ export default function HRStaffSignup() {
         </div>
 
         {/* ─── ข้อมูลครอบครัว ─── */}
-        <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-4">
+        <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-5">
           <SectionTitle>ข้อมูลครอบครัว (ถ้ามี)</SectionTitle>
 
           {/* Spouse */}
-          <div>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
+          <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 overflow-hidden">
+            <label className="flex items-center gap-3 px-4 py-3 bg-indigo-50 dark:bg-indigo-900/30 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={hasSpouse}
                 onChange={(e) => setHasSpouse(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
               />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">มีคู่สมรส</span>
+              <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">💑 คู่สมรส</span>
+              {!hasSpouse && <span className="ml-auto text-xs text-gray-400">คลิกเพื่อเพิ่ม</span>}
             </label>
             {hasSpouse && (
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="ชื่อ-นามสกุลคู่สมรส" required>
                   <input
                     className={baseField}
@@ -715,26 +716,32 @@ export default function HRStaffSignup() {
           </div>
 
           {/* Children */}
-          <div>
-            <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700/50 pt-4">
-              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">บุตร</span>
+          <div className="rounded-xl border border-amber-200 dark:border-amber-800 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-900/30">
+              <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">👶 บุตร {children.length > 0 && <span className="ml-1 text-xs font-normal">({children.length} คน)</span>}</span>
               <button
                 type="button"
                 onClick={() => setChildren((prev) => [...prev, emptyChild()])}
-                className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition cursor-pointer"
               >
                 + เพิ่มบุตร
               </button>
             </div>
+            {children.length === 0 && (
+              <p className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">ยังไม่มีข้อมูลบุตร — กด "+ เพิ่มบุตร" เพื่อเพิ่ม</p>
+            )}
             {children.map((child, i) => (
-              <div key={i} className="mt-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 relative">
-                <button
-                  type="button"
-                  onClick={() => setChildren((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer"
-                >
-                  ✕ ลบ
-                </button>
+              <div key={i} className="border-t border-amber-100 dark:border-amber-900/50 p-4 relative">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">บุตรคนที่ {i + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => setChildren((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 transition cursor-pointer"
+                  >
+                    ✕ ลบ
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Field label="ชื่อ-นามสกุลบุตร" required>
                     <input
@@ -769,7 +776,7 @@ export default function HRStaffSignup() {
                       placeholder="— เลือกสถานะ —"
                       options={CHILD_LEGAL_STATUS_OPTIONS}
                     />
-                    <p className="text-xs text-gray-400 mt-1">บุตรชอบ = จดทะเบียน, บุตรนอก = ไม่ได้จดทะเบียน, บุตรบุญธรรม = รับเลี้ยง</p>
+                    <p className="text-xs text-gray-400 mt-1">บุตรชอบ = จดทะเบียน · บุตรนอก = ไม่ได้จดทะเบียน · บุตรบุญธรรม = รับเลี้ยง</p>
                   </Field>
                 </div>
               </div>
@@ -777,30 +784,38 @@ export default function HRStaffSignup() {
           </div>
 
           {/* Parents */}
-          <div>
-            <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700/50 pt-4">
-              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">บิดา-มารดา</span>
+          <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-emerald-50 dark:bg-emerald-900/30">
+              <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">👨‍👩‍ บิดา-มารดา {parents.length > 0 && <span className="ml-1 text-xs font-normal">({parents.length}/2)</span>}</span>
               <button
                 type="button"
                 onClick={() => setParents((prev) => [...prev, emptyParent()])}
                 disabled={parents.length >= 2}
-                className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 + เพิ่ม
               </button>
             </div>
+            {parents.length === 0 && (
+              <p className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">ยังไม่มีข้อมูลบิดา-มารดา — กด "+ เพิ่ม" เพื่อเพิ่ม (สูงสุด 2 คน)</p>
+            )}
             {parents.map((parent, i) => {
               const usedTypes = parents.filter((_, j) => j !== i).map((p) => p.parent_type)
               const availableParentTypes = PARENT_TYPE_OPTIONS.filter((o) => !usedTypes.includes(o.value))
               return (
-                <div key={i} className="mt-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 relative">
-                  <button
-                    type="button"
-                    onClick={() => setParents((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer"
-                  >
-                    ✕ ลบ
-                  </button>
+                <div key={i} className="border-t border-emerald-100 dark:border-emerald-900/50 p-4 relative">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                      {parent.parent_type === "father" ? "👨 บิดา" : parent.parent_type === "mother" ? "👩 มารดา" : `รายการที่ ${i + 1}`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setParents((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 transition cursor-pointer"
+                    >
+                      ✕ ลบ
+                    </button>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="ประเภท" required>
                       <SelectDropdown

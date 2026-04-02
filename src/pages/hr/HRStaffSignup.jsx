@@ -51,9 +51,35 @@ function Field({ label, required, children }) {
   )
 }
 
+const MARRIAGE_STATUS_OPTIONS = [
+  { value: "registered", label: "จดทะเบียนสมรส" },
+  { value: "unregistered", label: "ไม่ได้จดทะเบียน" },
+]
+const CHILD_GENDER_OPTIONS = [
+  { value: "male", label: "ชาย" },
+  { value: "female", label: "หญิง" },
+]
+const CHILD_LEGAL_STATUS_OPTIONS = [
+  { value: "legitimate", label: "บุตรชอบด้วยกฎหมาย" },
+  { value: "illegitimate", label: "บุตรนอกกฎหมาย" },
+  { value: "adopted", label: "บุตรบุญธรรม" },
+]
+const PARENT_TYPE_OPTIONS = [
+  { value: "father", label: "บิดา" },
+  { value: "mother", label: "มารดา" },
+]
+const PARENT_EMP_STATUS_OPTIONS = [
+  { value: "working", label: "ทำงาน" },
+  { value: "retired", label: "เกษียณ" },
+  { value: "deceased", label: "เสียชีวิต" },
+  { value: "unknown", label: "ไม่ทราบ" },
+]
+
 const emptyEdu = () => ({ ed_level: "", inst_name: "", from_date: "", to_date: "" })
 const emptyWork = () => ({ company_name: "", position: "", from_date: "", to_date: "" })
 const emptyCrime = () => ({ charge: "", court: "", case_date: "", outcome: "" })
+const emptyChild = () => ({ child_name: "", child_birthday: "", child_gender: "", child_legal_status: "" })
+const emptyParent = () => ({ parent_type: "", parent_name: "", parent_birthday: "", parent_employment_status: "" })
 
 export default function HRStaffSignup() {
   const [positions, setPositions] = useState([])
@@ -93,6 +119,15 @@ export default function HRStaffSignup() {
   const [education, setEducation] = useState([emptyEdu()])
   const [workExperiences, setWorkExperiences] = useState([emptyWork()])
   const [criminalRecords, setCriminalRecords] = useState([emptyCrime()])
+
+  // Family state
+  const [hasSpouse, setHasSpouse] = useState(false)
+  const [spouse, setSpouse] = useState({
+    spouse_name: "", spouse_occupation: "", spouse_birthday: "",
+    spouse_marriage_status: "", spouse_phone: ""
+  })
+  const [children, setChildren] = useState([])
+  const [parents, setParents] = useState([])
 
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState(null) // { id, username, fiscal_year, notified_via }
@@ -224,6 +259,39 @@ export default function HRStaffSignup() {
         ...(form.current_salary && { current_salary: parseFloat(form.current_salary) }),
       }
 
+      // Build family payload
+      const spousePayload = hasSpouse && spouse.spouse_name.trim()
+        ? {
+            spouse_name: spouse.spouse_name.trim(),
+            ...(spouse.spouse_occupation && { spouse_occupation: spouse.spouse_occupation.trim() }),
+            ...(spouse.spouse_birthday && { spouse_birthday: spouse.spouse_birthday }),
+            ...(spouse.spouse_marriage_status && { spouse_marriage_status: spouse.spouse_marriage_status }),
+            ...(spouse.spouse_phone && { spouse_phone: spouse.spouse_phone.trim() }),
+          }
+        : null
+
+      const childrenPayload = children
+        .filter(c => c.child_name.trim() && c.child_birthday)
+        .map(c => ({
+          child_name: c.child_name.trim(),
+          child_birthday: c.child_birthday,
+          ...(c.child_gender && { child_gender: c.child_gender }),
+          ...(c.child_legal_status && { child_legal_status: c.child_legal_status }),
+        }))
+
+      const parentsPayload = parents
+        .filter(p => p.parent_type && p.parent_name.trim())
+        .map(p => ({
+          parent_type: p.parent_type,
+          parent_name: p.parent_name.trim(),
+          ...(p.parent_birthday && { parent_birthday: p.parent_birthday }),
+          ...(p.parent_employment_status && { parent_employment_status: p.parent_employment_status }),
+        }))
+
+      if (spousePayload) payload.spouse = spousePayload
+      if (childrenPayload.length > 0) payload.children = childrenPayload
+      if (parentsPayload.length > 0) payload.parents = parentsPayload
+
       const data = await apiAuth("/hr/signup", { method: "POST", body: payload })
       setResult(data)
     } catch (err) {
@@ -249,6 +317,10 @@ export default function HRStaffSignup() {
     setEducation([emptyEdu()])
     setWorkExperiences([emptyWork()])
     setCriminalRecords([emptyCrime()])
+    setHasSpouse(false)
+    setSpouse({ spouse_name: "", spouse_occupation: "", spouse_birthday: "", spouse_marriage_status: "", spouse_phone: "" })
+    setChildren([])
+    setParents([])
   }
 
   // --- Success screen ---
@@ -578,6 +650,196 @@ export default function HRStaffSignup() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* ─── ข้อมูลครอบครัว ─── */}
+        <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-4">
+          <SectionTitle>ข้อมูลครอบครัว (ถ้ามี)</SectionTitle>
+
+          {/* Spouse */}
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={hasSpouse}
+                onChange={(e) => setHasSpouse(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">มีคู่สมรส</span>
+            </label>
+            {hasSpouse && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="ชื่อ-นามสกุลคู่สมรส" required>
+                  <input
+                    className={baseField}
+                    value={spouse.spouse_name}
+                    onChange={(e) => setSpouse((p) => ({ ...p, spouse_name: e.target.value }))}
+                    required
+                    placeholder="ชื่อ-นามสกุล"
+                  />
+                </Field>
+                <Field label="อาชีพคู่สมรส">
+                  <input
+                    className={baseField}
+                    value={spouse.spouse_occupation}
+                    onChange={(e) => setSpouse((p) => ({ ...p, spouse_occupation: e.target.value }))}
+                    placeholder="อาชีพ"
+                  />
+                </Field>
+                <Field label="วันเกิดคู่สมรส">
+                  <input
+                    type="date"
+                    className={baseField}
+                    value={spouse.spouse_birthday}
+                    onChange={(e) => setSpouse((p) => ({ ...p, spouse_birthday: e.target.value }))}
+                  />
+                </Field>
+                <Field label="สถานภาพการสมรส">
+                  <SelectDropdown
+                    value={spouse.spouse_marriage_status}
+                    onChange={(val) => setSpouse((p) => ({ ...p, spouse_marriage_status: val }))}
+                    placeholder="— เลือกสถานภาพ —"
+                    options={MARRIAGE_STATUS_OPTIONS}
+                  />
+                </Field>
+                <Field label="เบอร์โทรคู่สมรส">
+                  <input
+                    className={baseField}
+                    value={spouse.spouse_phone}
+                    onChange={(e) => setSpouse((p) => ({ ...p, spouse_phone: e.target.value }))}
+                    placeholder="08XXXXXXXX"
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
+
+          {/* Children */}
+          <div>
+            <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700/50 pt-4">
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">บุตร</span>
+              <button
+                type="button"
+                onClick={() => setChildren((prev) => [...prev, emptyChild()])}
+                className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+              >
+                + เพิ่มบุตร
+              </button>
+            </div>
+            {children.map((child, i) => (
+              <div key={i} className="mt-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 relative">
+                <button
+                  type="button"
+                  onClick={() => setChildren((prev) => prev.filter((_, idx) => idx !== i))}
+                  className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                >
+                  ✕ ลบ
+                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="ชื่อ-นามสกุลบุตร" required>
+                    <input
+                      className={baseField}
+                      value={child.child_name}
+                      onChange={(e) => setChildren((prev) => { const next = [...prev]; next[i] = { ...next[i], child_name: e.target.value }; return next })}
+                      required
+                      placeholder="ชื่อ-นามสกุล"
+                    />
+                  </Field>
+                  <Field label="วันเกิดบุตร" required>
+                    <input
+                      type="date"
+                      className={baseField}
+                      value={child.child_birthday}
+                      onChange={(e) => setChildren((prev) => { const next = [...prev]; next[i] = { ...next[i], child_birthday: e.target.value }; return next })}
+                      required
+                    />
+                  </Field>
+                  <Field label="เพศ">
+                    <SelectDropdown
+                      value={child.child_gender}
+                      onChange={(val) => setChildren((prev) => { const next = [...prev]; next[i] = { ...next[i], child_gender: val }; return next })}
+                      placeholder="— เลือกเพศ —"
+                      options={CHILD_GENDER_OPTIONS}
+                    />
+                  </Field>
+                  <Field label="สถานะบุตร">
+                    <SelectDropdown
+                      value={child.child_legal_status}
+                      onChange={(val) => setChildren((prev) => { const next = [...prev]; next[i] = { ...next[i], child_legal_status: val }; return next })}
+                      placeholder="— เลือกสถานะ —"
+                      options={CHILD_LEGAL_STATUS_OPTIONS}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">บุตรชอบ = จดทะเบียน, บุตรนอก = ไม่ได้จดทะเบียน, บุตรบุญธรรม = รับเลี้ยง</p>
+                  </Field>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Parents */}
+          <div>
+            <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700/50 pt-4">
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">บิดา-มารดา</span>
+              <button
+                type="button"
+                onClick={() => setParents((prev) => [...prev, emptyParent()])}
+                disabled={parents.length >= 2}
+                className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+              >
+                + เพิ่ม
+              </button>
+            </div>
+            {parents.map((parent, i) => {
+              const usedTypes = parents.filter((_, j) => j !== i).map((p) => p.parent_type)
+              const availableParentTypes = PARENT_TYPE_OPTIONS.filter((o) => !usedTypes.includes(o.value))
+              return (
+                <div key={i} className="mt-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 relative">
+                  <button
+                    type="button"
+                    onClick={() => setParents((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                  >
+                    ✕ ลบ
+                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field label="ประเภท" required>
+                      <SelectDropdown
+                        value={parent.parent_type}
+                        onChange={(val) => setParents((prev) => { const next = [...prev]; next[i] = { ...next[i], parent_type: val }; return next })}
+                        placeholder="— เลือก —"
+                        options={availableParentTypes}
+                      />
+                    </Field>
+                    <Field label="ชื่อ-นามสกุล" required>
+                      <input
+                        className={baseField}
+                        value={parent.parent_name}
+                        onChange={(e) => setParents((prev) => { const next = [...prev]; next[i] = { ...next[i], parent_name: e.target.value }; return next })}
+                        required
+                        placeholder="ชื่อ-นามสกุล"
+                      />
+                    </Field>
+                    <Field label="วันเกิด">
+                      <input
+                        type="date"
+                        className={baseField}
+                        value={parent.parent_birthday}
+                        onChange={(e) => setParents((prev) => { const next = [...prev]; next[i] = { ...next[i], parent_birthday: e.target.value }; return next })}
+                      />
+                    </Field>
+                    <Field label="สถานะการทำงาน">
+                      <SelectDropdown
+                        value={parent.parent_employment_status}
+                        onChange={(val) => setParents((prev) => { const next = [...prev]; next[i] = { ...next[i], parent_employment_status: val }; return next })}
+                        placeholder="— เลือกสถานะ —"
+                        options={PARENT_EMP_STATUS_OPTIONS}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         {/* ─── Submit ─── */}

@@ -35,6 +35,30 @@ const MARITAL_OPTIONS = [
   { value: "widowed", label: "หม้าย" },
 ]
 
+const MARRIAGE_STATUS_OPTIONS = [
+  { value: "registered", label: "จดทะเบียนสมรส" },
+  { value: "unregistered", label: "ไม่ได้จดทะเบียน" },
+]
+const CHILD_GENDER_OPTIONS = [
+  { value: "male", label: "ชาย" },
+  { value: "female", label: "หญิง" },
+]
+const CHILD_LEGAL_STATUS_OPTIONS = [
+  { value: "legitimate", label: "บุตรชอบด้วยกฎหมาย" },
+  { value: "illegitimate", label: "บุตรนอกกฎหมาย" },
+  { value: "adopted", label: "บุตรบุญธรรม" },
+]
+const PARENT_TYPE_OPTIONS = [
+  { value: "father", label: "บิดา" },
+  { value: "mother", label: "มารดา" },
+]
+const PARENT_EMP_STATUS_OPTIONS = [
+  { value: "working", label: "ทำงาน" },
+  { value: "retired", label: "เกษียณ" },
+  { value: "deceased", label: "เสียชีวิต" },
+  { value: "unknown", label: "ไม่ทราบ" },
+]
+
 const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
 
 function Field({ label, required, children }) {
@@ -47,6 +71,9 @@ function Field({ label, required, children }) {
     </div>
   )
 }
+
+const emptyChild = () => ({ child_name: "", child_birthday: "", child_gender: "", child_legal_status: "" })
+const emptyParent = () => ({ parent_type: "", parent_name: "", parent_birthday: "", parent_employment_status: "" })
 
 const emptyForm = () => ({
   first_name: "", last_name: "", cid: "", role_id: "", branch_location: "", position: "",
@@ -75,6 +102,11 @@ export default function HREmployeesTab() {
   const [criminalRecords, setCriminalRecords] = useState([emptyCrime()])
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState("")
+
+  const [hasSpouse, setHasSpouse] = useState(false)
+  const [spouse, setSpouse] = useState({ spouse_name: "", spouse_occupation: "", spouse_birthday: "", spouse_marriage_status: "", spouse_phone: "" })
+  const [modalChildren, setModalChildren] = useState([])
+  const [modalParents, setModalParents] = useState([])
 
   useEffect(() => {
     apiAuth("/order/branch/search")
@@ -156,6 +188,40 @@ export default function HREmployeesTab() {
             ...(c.outcome && { outcome: c.outcome }),
           })),
       }
+
+      // Family payload
+      const spousePayload = hasSpouse && spouse.spouse_name.trim()
+        ? {
+            spouse_name: spouse.spouse_name.trim(),
+            ...(spouse.spouse_occupation && { spouse_occupation: spouse.spouse_occupation.trim() }),
+            ...(spouse.spouse_birthday && { spouse_birthday: spouse.spouse_birthday }),
+            ...(spouse.spouse_marriage_status && { spouse_marriage_status: spouse.spouse_marriage_status }),
+            ...(spouse.spouse_phone && { spouse_phone: spouse.spouse_phone.trim() }),
+          }
+        : null
+
+      const childrenPayload = modalChildren
+        .filter(c => c.child_name.trim() && c.child_birthday)
+        .map(c => ({
+          child_name: c.child_name.trim(),
+          child_birthday: c.child_birthday,
+          ...(c.child_gender && { child_gender: c.child_gender }),
+          ...(c.child_legal_status && { child_legal_status: c.child_legal_status }),
+        }))
+
+      const parentsPayload = modalParents
+        .filter(p => p.parent_type && p.parent_name.trim())
+        .map(p => ({
+          parent_type: p.parent_type,
+          parent_name: p.parent_name.trim(),
+          ...(p.parent_birthday && { parent_birthday: p.parent_birthday }),
+          ...(p.parent_employment_status && { parent_employment_status: p.parent_employment_status }),
+        }))
+
+      if (spousePayload) body.spouse = spousePayload
+      if (childrenPayload.length > 0) body.children = childrenPayload
+      if (parentsPayload.length > 0) body.parents = parentsPayload
+
       await apiAuth("/hr/signup", { method: "POST", body })
       setSubmitMsg("✅ ลงทะเบียนสำเร็จ!")
       setTimeout(() => {
@@ -163,6 +229,10 @@ export default function HREmployeesTab() {
         setForm(emptyForm())
         setWorkExperiences([emptyWork()])
         setCriminalRecords([emptyCrime()])
+        setHasSpouse(false)
+        setSpouse({ spouse_name: "", spouse_occupation: "", spouse_birthday: "", spouse_marriage_status: "", spouse_phone: "" })
+        setModalChildren([])
+        setModalParents([])
         setSubmitMsg("")
         fetchUsers()
       }, 1000)
@@ -414,13 +484,111 @@ export default function HREmployeesTab() {
               ))}
             </div>
 
+            {/* ข้อมูลครอบครัว */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">ข้อมูลครอบครัว (ถ้ามี)</p>
+
+              {/* Spouse */}
+              <div className="mb-4">
+                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer mb-3">
+                  <input
+                    type="checkbox"
+                    checked={hasSpouse}
+                    onChange={(e) => setHasSpouse(e.target.checked)}
+                    className="rounded cursor-pointer"
+                  />
+                  มีคู่สมรส
+                </label>
+                {hasSpouse && (
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Field label="ชื่อ-นามสกุลคู่สมรส" required>
+                        <input type="text" value={spouse.spouse_name} onChange={(e) => setSpouse(s => ({ ...s, spouse_name: e.target.value }))} className={inputCls} placeholder="ชื่อ-นามสกุล" />
+                      </Field>
+                      <Field label="อาชีพ">
+                        <input type="text" value={spouse.spouse_occupation} onChange={(e) => setSpouse(s => ({ ...s, spouse_occupation: e.target.value }))} className={inputCls} placeholder="อาชีพ" />
+                      </Field>
+                      <Field label="วันเกิด">
+                        <input type="date" value={spouse.spouse_birthday} onChange={(e) => setSpouse(s => ({ ...s, spouse_birthday: e.target.value }))} className={inputCls} />
+                      </Field>
+                      <Field label="สถานภาพการสมรส">
+                        <SelectDropdown value={spouse.spouse_marriage_status} onChange={(v) => setSpouse(s => ({ ...s, spouse_marriage_status: v }))} placeholder="เลือกสถานภาพ" options={MARRIAGE_STATUS_OPTIONS} />
+                      </Field>
+                      <Field label="เบอร์โทรคู่สมรส">
+                        <input type="text" value={spouse.spouse_phone} onChange={(e) => setSpouse(s => ({ ...s, spouse_phone: e.target.value }))} className={inputCls} placeholder="08x-xxx-xxxx" />
+                      </Field>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Children */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">บุตร</p>
+                  <button type="button" onClick={() => setModalChildren(prev => [...prev, emptyChild()])} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">+ เพิ่มบุตร</button>
+                </div>
+                {modalChildren.map((c, i) => (
+                  <div key={i} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 relative mb-3">
+                    <button type="button" onClick={() => setModalChildren(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer">✕ ลบ</button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Field label="ชื่อ-นามสกุลบุตร" required>
+                        <input type="text" value={c.child_name} onChange={(e) => setModalChildren(prev => { const n=[...prev]; n[i]={...n[i],child_name:e.target.value}; return n })} className={inputCls} placeholder="ชื่อ-นามสกุล" />
+                      </Field>
+                      <Field label="วันเกิด" required>
+                        <input type="date" value={c.child_birthday} onChange={(e) => setModalChildren(prev => { const n=[...prev]; n[i]={...n[i],child_birthday:e.target.value}; return n })} className={inputCls} />
+                      </Field>
+                      <Field label="เพศ">
+                        <SelectDropdown value={c.child_gender} onChange={(v) => setModalChildren(prev => { const n=[...prev]; n[i]={...n[i],child_gender:v}; return n })} placeholder="เลือกเพศ" options={CHILD_GENDER_OPTIONS} />
+                      </Field>
+                      <Field label="สถานะบุตร">
+                        <SelectDropdown value={c.child_legal_status} onChange={(v) => setModalChildren(prev => { const n=[...prev]; n[i]={...n[i],child_legal_status:v}; return n })} placeholder="เลือกสถานะ" options={CHILD_LEGAL_STATUS_OPTIONS} />
+                        <p className="text-xs text-gray-400 mt-1">ชอบ = จดทะเบียน · นอก = ไม่จดทะเบียน · บุญธรรม = รับเลี้ยง</p>
+                      </Field>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Parents */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">บิดา-มารดา</p>
+                  <button type="button" onClick={() => setModalParents(prev => [...prev, emptyParent()])} disabled={modalParents.length >= 2} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">+ เพิ่ม</button>
+                </div>
+                {modalParents.map((p, i) => {
+                  const usedTypes = modalParents.filter((_, j) => j !== i).map(x => x.parent_type)
+                  const parentTypeOpts = PARENT_TYPE_OPTIONS.filter(o => !usedTypes.includes(o.value))
+                  return (
+                    <div key={i} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 relative mb-3">
+                      <button type="button" onClick={() => setModalParents(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer">✕ ลบ</button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Field label="ความสัมพันธ์" required>
+                          <SelectDropdown value={p.parent_type} onChange={(v) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_type:v}; return n })} placeholder="เลือก" options={parentTypeOpts} />
+                        </Field>
+                        <Field label="ชื่อ-นามสกุล" required>
+                          <input type="text" value={p.parent_name} onChange={(e) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_name:e.target.value}; return n })} className={inputCls} placeholder="ชื่อ-นามสกุล" />
+                        </Field>
+                        <Field label="วันเกิด">
+                          <input type="date" value={p.parent_birthday} onChange={(e) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_birthday:e.target.value}; return n })} className={inputCls} />
+                        </Field>
+                        <Field label="สถานะ">
+                          <SelectDropdown value={p.parent_employment_status} onChange={(v) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_employment_status:v}; return n })} placeholder="เลือกสถานะ" options={PARENT_EMP_STATUS_OPTIONS} />
+                        </Field>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
             {submitMsg && (
               <p className={`text-sm text-center font-medium ${submitMsg.startsWith("✅") ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                 {submitMsg}
               </p>
             )}
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowSignup(false)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">
+              <button onClick={() => { setShowSignup(false); setHasSpouse(false); setSpouse({ spouse_name: "", spouse_occupation: "", spouse_birthday: "", spouse_marriage_status: "", spouse_phone: "" }); setModalChildren([]); setModalParents([]) }} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">
                 ยกเลิก
               </button>
               <button onClick={handleSignup} disabled={submitting}

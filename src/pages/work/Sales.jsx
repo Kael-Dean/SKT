@@ -2559,16 +2559,16 @@ ${summary}`)
                 <div className="text-sm text-slate-500 dark:text-slate-300">ยังไม่มีข้อมูลรถพ่วง</div>
               ) : (
                 <>
-                  <div className="-mx-2 max-h-[420px] overflow-auto md:mx-0">
+                  <div className="-mx-2 overflow-x-auto md:mx-0">
                     <table className="min-w-full text-sm">
-                      <thead className="sticky top-0 z-10 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                      <thead className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-300">
                         <tr>
-                          <th className="bg-white px-2 py-2 text-left dark:bg-slate-800">คัน</th>
-                          <th className="bg-white px-2 py-2 text-left dark:bg-slate-800">ทะเบียน</th>
-                          <th className="bg-white px-2 py-2 text-left dark:bg-slate-800">น้ำหนัก (กก.)</th>
-                          <th className="bg-white px-2 py-2 text-left dark:bg-slate-800">ราคา/กก. (บาท)</th>
-                          <th className="bg-white px-2 py-2 text-left dark:bg-slate-800">เป็นเงิน</th>
-                          <th className="bg-white px-2 py-2 text-left dark:bg-slate-800">สรุปคัน</th>
+                          <th className="px-2 py-2 text-left">คัน</th>
+                          <th className="px-2 py-2 text-left">ทะเบียน</th>
+                          <th className="px-2 py-2 text-left">น้ำหนัก (กก.)</th>
+                          <th className="px-2 py-2 text-left">ราคา/กก. (บาท)</th>
+                          <th className="px-2 py-2 text-left">เป็นเงิน</th>
+                          <th className="px-2 py-2 text-left">สรุปคัน</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-700">

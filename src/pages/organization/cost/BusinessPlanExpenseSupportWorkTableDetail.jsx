@@ -430,6 +430,20 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
 
   const sidebarOpen = useSidebarOpen()
   const tableWrapRef = useRef(null)
+  const tableCardRef = useRef(null)
+  const [tableCardHeight, setTableCardHeight] = useState(900)
+  const recalcTableCardHeight = useCallback(() => {
+    const el = tableCardRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const vh = window.innerHeight || 900
+    setTableCardHeight(Math.max(860, Math.floor(vh - rect.top - 6)))
+  }, [])
+  useEffect(() => {
+    recalcTableCardHeight()
+    window.addEventListener("resize", recalcTableCardHeight)
+    return () => window.removeEventListener("resize", recalcTableCardHeight)
+  }, [recalcTableCardHeight])
   const inputRefs = useRef(new Map())
 
   const registerInput = useCallback((rIdx, cIdx) => (el) => {
@@ -581,8 +595,8 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
             </div>
         </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-auto max-h-[70vh]" ref={tableWrapRef}>
+      <div ref={tableCardRef} style={{ maxHeight: tableCardHeight }} className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-auto" ref={tableWrapRef}>
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.code }} />

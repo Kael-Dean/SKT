@@ -472,6 +472,24 @@ const OperationPlan = () => {
     if (canShowTable) setModalOpen(true)
   }, [tableKey, canShowTable])
 
+  // Escape key ปิด modal
+  useEffect(() => {
+    if (!modalOpen) return
+    const onKey = (e) => { if (e.key === "Escape") setModalOpen(false) }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [modalOpen])
+
+  // Lock body scroll เมื่อ modal เปิด
+  useEffect(() => {
+    if (modalOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+    return () => { document.body.style.overflow = "" }
+  }, [modalOpen])
+
   const yearRef = useRef(null)
   const branchRef = useRef(null)
   const typeRef = useRef(null)
@@ -656,30 +674,45 @@ const OperationPlan = () => {
     {/* Full-screen Table Modal */}
     {modalOpen && canShowTable && ReactDOM.createPortal(
       <div className="fixed inset-0 z-[9999] flex flex-col bg-white dark:bg-slate-900 overflow-hidden">
-        {/* Modal top bar */}
-        <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-800 dark:bg-slate-950 border-b border-slate-700 text-white">
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-bold text-white truncate">
-              {planTypeLabel} › {activeTable?.label}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-0.5">
-              ปี {yearBE} • สาขา {branchNameDisplay}
-            </div>
+
+        {/* ── Modal top bar ── */}
+        <div className="flex-shrink-0 flex items-center gap-3 px-3 md:px-4 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm">
+          {/* Breadcrumb */}
+          <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              {planTypeLabel}
+            </span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-300 dark:text-slate-600 flex-shrink-0">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">
+              {activeTable?.label}
+            </span>
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap flex-shrink-0">
+              ปี {yearBE} • {branchNameDisplay}
+            </span>
           </div>
+
+          {/* Hint */}
+          <span className="hidden md:block text-[11px] text-slate-400 dark:text-slate-500 flex-shrink-0">
+            กด Esc เพื่อปิด
+          </span>
+
+          {/* Close button */}
           <button
             type="button"
             onClick={() => setModalOpen(false)}
-            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-xl px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold cursor-pointer transition active:scale-[.97]"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-[.97] transition cursor-pointer shadow-sm"
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M18 6L6 18M6 6l12 12"/>
             </svg>
             ปิด
           </button>
         </div>
 
-        {/* Table content — fills remaining screen height */}
-        <div className="flex-1 overflow-hidden">
+        {/* ── Table content — fills remaining height ── */}
+        <div className="flex-1 min-h-0 overflow-hidden">
           <ActiveComponent
             key={`modal-${planType}-${tableKey}-${branchRequired ? branchId : "all"}-${yearBE}`}
             branchId={branchId}

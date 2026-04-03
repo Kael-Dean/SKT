@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -125,6 +126,20 @@ const ThonthunDetail = ({ branchName, yearBE, planId }) => {
     })
   }
 
+  const tableScrollRef = useRef(null)
+  const [tableCardHeight, setTableCardHeight] = useState(900)
+  useEffect(() => {
+    const recalc = () => {
+      const el = tableScrollRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      setTableCardHeight(Math.max(400, Math.floor(window.innerHeight - rect.top - 6)))
+    }
+    recalc()
+    window.addEventListener("resize", recalc)
+    return () => window.removeEventListener("resize", recalc)
+  }, [])
+
   const [notice, setNotice] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -173,7 +188,7 @@ const ThonthunDetail = ({ branchName, yearBE, planId }) => {
         </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-auto">
+        <div className="overflow-auto" ref={tableScrollRef} style={{ maxHeight: tableCardHeight }}>
           <table className="border-collapse text-sm w-full">
             <thead className="sticky top-0 z-20">
               <tr className="bg-slate-100 dark:bg-slate-700">
@@ -234,6 +249,7 @@ const ThonthunDetail = ({ branchName, yearBE, planId }) => {
             </div>
         </div>
       </div>
+      <StickyTableScrollbar tableRef={tableScrollRef} />
     </div>
   )
 }

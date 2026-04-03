@@ -410,6 +410,18 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
   const sidebarOpen = useSidebarOpen()
   const tableWrapRef = useRef(null)
+  const [tableCardHeight, setTableCardHeight] = useState(900)
+  useEffect(() => {
+    const recalc = () => {
+      const el = tableWrapRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      setTableCardHeight(Math.max(400, Math.floor(window.innerHeight - rect.top - 6)))
+    }
+    recalc()
+    window.addEventListener("resize", recalc)
+    return () => window.removeEventListener("resize", recalc)
+  }, [])
   const inputRefs = useRef(new Map())
 
   const registerInput = useCallback((rIdx, cIdx) => (el) => {
@@ -569,7 +581,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
         </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-auto max-h-[70vh]" ref={tableWrapRef}>
+        <div className="flex-1 overflow-auto" ref={tableWrapRef} style={{ maxHeight: tableCardHeight }}>
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.code }} />

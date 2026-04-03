@@ -28,16 +28,16 @@ export default function StickyTableScrollbar({ tableRef }) {
   const rafRef = useRef(null)
   const repeatRef = useRef(null)
 
-  // ─── Sync container position ───
+  // ─── Sync container position (capped to viewport edges) ───
   const syncPos = useCallback(() => {
     const el = tableRef?.current
     if (!el) return
     const r = el.getBoundingClientRect()
     setPos({
-      left: r.left,
-      right: window.innerWidth - r.right,
-      top: r.top,
-      bottom: window.innerHeight - r.bottom,
+      left:   Math.max(0, r.left),
+      right:  Math.max(0, window.innerWidth - r.right),
+      top:    Math.max(0, r.top),
+      bottom: Math.max(0, window.innerHeight - r.bottom),
     })
   }, [tableRef])
 
@@ -48,8 +48,10 @@ export default function StickyTableScrollbar({ tableRef }) {
     syncPos()
 
     const { scrollLeft, scrollWidth, clientWidth, scrollTop, scrollHeight, clientHeight } = el
-    const hasH = scrollWidth > clientWidth + 1
-    const hasV = scrollHeight > clientHeight + 1
+    const r = el.getBoundingClientRect()
+    const inView = r.bottom > 0 && r.top < window.innerHeight
+    const hasH = inView && scrollWidth > clientWidth + 1
+    const hasV = inView && scrollHeight > clientHeight + 1
 
     setHVis(hasH)
     setVVis(hasV)

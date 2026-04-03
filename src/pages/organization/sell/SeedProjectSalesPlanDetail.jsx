@@ -536,25 +536,6 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
   const rowDivider = "border-b-[2px] border-b-slate-300 dark:border-b-slate-600"
   const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
-  const [showPayload, setShowPayload] = useState(false)
-  
-  const payloadData = useMemo(() => ({
-      plan_id: planId,
-      branch_id: branchId ? Number(branchId) : null,
-      yearBE: effectiveYearBE,
-      unitCols,
-      prices: products.map((p) => {
-        const pid = Number(p.product_id), cur = priceByPid[String(pid)] || {}
-        return { product_id: pid, sell_price: toNumber(cur.sell_price), comment: cur.comment }
-      }),
-      cells: products.flatMap((p) => {
-        const pid = Number(p.product_id)
-        return MONTHS.flatMap((m) => unitCols.map((u) => ({
-          unit_id: u.id, product_id: pid, month: m.month, amount: toNumber(qtyByPid?.[pid]?.[m.key]?.[u.id] ?? 0)
-        })))
-      }).filter(x => x.amount > 0)
-  }), [planId, branchId, effectiveYearBE, unitCols, products, priceByPid, qtyByPid])
-
   return (
     <>
     <div className="w-full space-y-3">
@@ -587,11 +568,6 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
           </div>
         </div>
 
-        {showPayload && (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
-            <pre className="max-h-72 overflow-auto">{JSON.stringify(payloadData, null, 2)}</pre>
-          </div>
-        )}
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -793,13 +769,6 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
               className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
             >
               รีเซ็ต
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowPayload(!showPayload)}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              {showPayload ? "ซ่อน payload" : "ดู payload"}
             </button>
             <button
               className={cx(

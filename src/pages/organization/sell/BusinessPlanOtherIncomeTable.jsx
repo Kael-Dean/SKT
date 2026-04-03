@@ -336,8 +336,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
   
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
-  const [showPayload, setShowPayload] = useState(false)
-
   const rowIdByCode = useMemo(() => {
     const m = {}
     for (const r of itemRows) m[r.code] = resolveBusinessEarningId(r.earning_id, r.business_group)
@@ -617,16 +615,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
     }
   }, [buildPayload, loadSavedFromBE, effectivePlanId, canEdit, effectiveBranchDisplay, effectiveYearBE])
 
-  const onCopyPayload = useCallback(async () => {
-    try {
-      const p = buildPayload()
-      await navigator.clipboard?.writeText(JSON.stringify({ rows: p.rows }, null, 2))
-      alert("คัดลอก payload สำหรับ BE แล้ว ✅")
-    } catch (e) {
-      alert("คัดลอกไม่สำเร็จ: " + String(e))
-    }
-  }, [buildPayload])
-
   const resetAll = () => {
     if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
     const ids = unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id)
@@ -648,7 +636,8 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
   return (
     <>
-    <div className="w-full space-y-3">
+    <div className="overflow-x-auto p-3">
+    <div className="space-y-3 mx-auto" style={{ width: TOTAL_W }}>
       {/* Header Info */}
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div className="flex-1">
@@ -675,24 +664,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
           </div>
         </div>
       </div>
-
-      {unmapped.length > 0 && (
-        <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
-          <div className="font-extrabold">⚠️ รายการที่ยังไม่แมพ (จะข้ามตอนบันทึกถ้าเป็น 0)</div>
-          <div className="mt-1 text-[12px] opacity-95">{unmapped.map((x) => `${x.code} (grp=${x.group})`).join(" • ")}</div>
-        </div>
-      )}
-
-      {showPayload && (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
-          <pre className="max-h-72 overflow-auto">
-            {(() => {
-              try { return JSON.stringify({ rows: buildPayload().rows }, null, 2) } 
-              catch (e) { return String(e?.message || e) }
-            })()}
-          </pre>
-        </div>
-      )}
 
       {/* Table Card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -805,23 +776,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
             <button
               type="button"
-              onClick={() => setShowPayload((v) => !v)}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              {showPayload ? "ซ่อน payload" : "ดู payload"}
-            </button>
-
-            <button
-              type="button"
-              onClick={onCopyPayload}
-              disabled={!canEdit}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              คัดลอก JSON
-            </button>
-
-            <button
-              type="button"
               onClick={onSave}
               disabled={saving || !canEdit}
               className={cx(
@@ -837,6 +791,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
         </div>
 
       </div>
+    </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
     </>

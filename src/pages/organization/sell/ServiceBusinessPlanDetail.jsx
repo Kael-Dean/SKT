@@ -298,8 +298,6 @@ const ServiceBusinessPlanDetail = (props) => {
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
-  const [showPayload, setShowPayload] = useState(false)
-
   const canEdit = !!branchId && !!effectivePlanId && effectivePlanId > 0 && savableUnits.length > 0
 
   const RIGHT_W = useMemo(() => {
@@ -908,13 +906,6 @@ const ServiceBusinessPlanDetail = (props) => {
               รีเซ็ต
             </button>
             <button
-              type="button"
-              onClick={() => setShowPayload(!showPayload)}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              {showPayload ? "ซ่อน payload" : "ดู payload"}
-            </button>
-            <button
               className={cx(
                 "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition",
                 (isSaving || !canEdit || !savableUnits.length)
@@ -929,12 +920,6 @@ const ServiceBusinessPlanDetail = (props) => {
           </div>
         </div>
         
-        {showPayload && (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
-            <pre className="max-h-72 overflow-auto">{JSON.stringify(payload, null, 2)}</pre>
-          </div>
-        )}
-
       </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />

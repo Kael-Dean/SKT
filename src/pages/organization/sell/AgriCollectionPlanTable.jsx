@@ -134,7 +134,6 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
   const [priceById, setPriceById] = useState(() => buildInitialPrice(FALLBACK_ITEMS))
   const [qtyById, setQtyById] = useState(() => buildInitialQty(FALLBACK_ITEMS, FALLBACK_UNITS))
   
-  const [showPayload, setShowPayload] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
   
@@ -577,13 +576,6 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
         </div>
       </div>
 
-      {showPayload && (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800
-                        dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
-          <pre className="max-h-72 overflow-auto">{JSON.stringify(payload, null, 2)}</pre>
-        </div>
-      )}
-
       {/* Table Card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700" ref={tableWrapRef} style={{ maxHeight: tableCardHeight }}>
@@ -831,14 +823,6 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
               className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
             >
               รีเซ็ต
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowPayload((v) => !v)}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              {showPayload ? "ซ่อน payload" : "ดู payload"}
             </button>
 
             {/* ปุ่มบันทึกลงระบบใหม่ */}

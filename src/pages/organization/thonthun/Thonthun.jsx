@@ -628,16 +628,6 @@ if (res == null) throw new Error("บันทึกไม่สำเร็จ"
     }
   }
 
-  const copyPayload = async () => {
-    try {
-      const payload = buildPayloadForBE()
-      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
-      setSaveNotice({ type: "success", title: "คัดลอกแล้ว ✅", detail: "คัดลอก payload สำหรับ BE แล้ว" })
-    } catch (e) {
-      setSaveNotice({ type: "error", title: "คัดลอกไม่สำเร็จ", detail: e?.message || String(e) })
-    }
-  }
-
   const resetAll = () => {
     if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
     const empty = {}
@@ -684,16 +674,6 @@ if (res == null) throw new Error("บันทึกไม่สำเร็จ"
           </div>
 
           <div className="flex flex-wrap gap-2 md:justify-end">
-            <button
-              type="button"
-              onClick={copyPayload}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
-                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
-                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              คัดลอก payload
-            </button>
-
             <button
               type="button"
               onClick={resetAll}

@@ -315,8 +315,6 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
   const [valuesByCode, setValuesByCode] = useState(() =>
     buildInitialValues(unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id))
   )
-  const [showPayload, setShowPayload] = useState(false)
-
   /** ✅ โหลดหน่วยตามสาขา */
   useEffect(() => {
     let alive = true
@@ -363,17 +361,6 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
   }, [unitIds.join("|")])
 
   const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
-  const unmappedStatic = useMemo(() => {
-    return itemRows
-      .filter((r) => !resolveRowBusinessEarningId(r))
-      .map((r) => ({
-        code: r.code,
-        label: r.label,
-        earning_id: r.earning_id ?? null,
-        business_group: r.business_group ?? null,
-      }))
-  }, [itemRows])
-
   /** ✅ โหลดค่าจาก BE */
   const normalizeGrid = useCallback(
     (seed) => {
@@ -628,33 +615,11 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
     }
   }
 
-  const copyPayload = async () => {
-    try {
-      const built = buildBulkRowsForBE()
-      await navigator.clipboard.writeText(JSON.stringify({ rows: built.rows }, null, 2))
-      alert("คัดลอก payload สำหรับ BE แล้ว ✅")
-    } catch (e) {
-      alert("คัดลอกไม่สำเร็จ: " + String(e))
-    }
-  }
-
   const resetAll = () => {
     if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
     const ids = unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id)
     setValuesByCode(buildInitialValues(ids))
   }
-
-  const payloadDebug = useMemo(() => {
-    const out = { period, plan_id: planId || null, branch_id: branchId || null, units: cols.map((c) => ({ unit_id: Number(c.key), unit_name: c.label })), items: [] }
-    for (const r of ROWS) {
-      if (r.kind !== "item") continue
-      const v = valuesByCode[r.code] || {}
-      const perUnit = {}
-      cols.forEach((c) => (perUnit[c.key] = toNumber(v[c.key])))
-      out.items.push({ code: r.code, label: r.label, business_group: r.business_group ?? null, earning_id: r.earning_id ?? null, business_earning_id: resolveRowBusinessEarningId(r), per_unit: perUnit, total: computed.rowTotal[r.code] || 0 })
-    }
-    return out
-  }, [branchId, cols, computed, period, planId, valuesByCode])
 
   /** ---------------- CSS Classes ---------------- */
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
@@ -671,7 +636,8 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
 
   return (
     <>
-    <div className="w-full space-y-3">
+    <div className="overflow-x-auto p-3">
+    <div className="space-y-3 mx-auto" style={{ width: TOTAL_W }}>
       {/* Header Info */}
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div className="flex-1">
@@ -698,19 +664,6 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
           </div>
         </div>
       </div>
-
-      {unmappedStatic.length > 0 && (
-        <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
-          <div className="font-extrabold">⚠️ รายการที่ยังไม่แมพ (จะข้ามตอนบันทึกถ้าเป็น 0)</div>
-          <div className="mt-1 text-[12px] opacity-95">{unmappedStatic.map((x) => `${x.code} (grp=${x.business_group})`).join(" • ")}</div>
-        </div>
-      )}
-
-      {showPayload && (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
-          <pre className="max-h-72 overflow-auto">{JSON.stringify(payloadDebug, null, 2)}</pre>
-        </div>
-      )}
 
       {/* Table Card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -818,23 +771,6 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
 
             <button
               type="button"
-              onClick={() => setShowPayload((v) => !v)}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              {showPayload ? "ซ่อน payload" : "ดู payload"}
-            </button>
-
-            <button
-              type="button"
-              onClick={copyPayload}
-              disabled={!canEdit}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              คัดลอก JSON
-            </button>
-
-            <button
-              type="button"
               onClick={saveAll}
               disabled={isSaving || !canEdit}
               className={cx(
@@ -850,6 +786,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
         </div>
 
       </div>
+    </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
     </>

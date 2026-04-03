@@ -435,7 +435,7 @@ const OperationPlan = () => {
       return
     }
     const has = currentTables.some((t) => t.key === tableKey)
-    if (!has) setTableKey(currentTables[0]?.key || "")
+    if (!has) setTableKey("")
   }, [planType, currentTables, tableKey])
 
   const branchName = useMemo(() => {
@@ -707,7 +707,7 @@ const OperationPlan = () => {
             </div>
           </div>
           {/* Row 2: title + badges */}
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
             <h2 className="text-[17px] md:text-[19px] font-extrabold text-slate-800 dark:text-slate-100 leading-tight">
               {activeTable?.label}
             </h2>

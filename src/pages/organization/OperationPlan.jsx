@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import ReactDOM from "react-dom"
 import { apiAuth } from "../../lib/api"
 
 import ProcurementPlanDetail from "./sell/ProcurementPlanDetail"
@@ -392,6 +393,7 @@ const OperationPlan = () => {
 
   const [planType, setPlanType] = useState("")
   const [tableKey, setTableKey] = useState("")
+  const [modalOpen, setModalOpen] = useState(false)
 
   // ต้นทุนสินค้า = รวมทุกสาขา → ไม่บังคับเลือกสาขา
   useEffect(() => {
@@ -465,12 +467,18 @@ const OperationPlan = () => {
     }))
   }, [currentTables])
 
+  // Auto-open modal เมื่อเลือกตารางและครบทุก condition
+  useEffect(() => {
+    if (canShowTable) setModalOpen(true)
+  }, [tableKey, canShowTable])
+
   const yearRef = useRef(null)
   const branchRef = useRef(null)
   const typeRef = useRef(null)
   const tableRef = useRef(null)
 
   return (
+    <>
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-[1400px] p-4 md:p-6">
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -593,23 +601,26 @@ const OperationPlan = () => {
         {/* Content */}
         {!planType ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
+            <div className="text-4xl mb-3">📋</div>
+            <div className="text-lg font-bold">เริ่มต้นด้วยการเลือกข้อมูล</div>
             <div className="mt-2 text-slate-600 dark:text-slate-300">
               กรุณาเลือก <span className="font-semibold">ประเภทตาราง</span> ก่อน
             </div>
           </div>
         ) : !tableKey ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
+            <div className="text-4xl mb-3">📊</div>
+            <div className="text-lg font-bold">เลือกตารางที่ต้องการ</div>
             <div className="mt-2 text-slate-600 dark:text-slate-300">
-              กรุณาเลือก <span className="font-semibold">ตาราง</span> ก่อน
+              กรุณาเลือก <span className="font-semibold">ตาราง</span> จาก dropdown ด้านบน
             </div>
           </div>
         ) : branchRequired && !branchId ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-lg font-bold">ยังไม่พร้อมกรอกตาราง</div>
+            <div className="text-4xl mb-3">🏢</div>
+            <div className="text-lg font-bold">เลือกสาขาก่อน</div>
             <div className="mt-2 text-slate-600 dark:text-slate-300">
-              กรุณาเลือก <span className="font-semibold">สาขา</span> ก่อน
+              กรุณาเลือก <span className="font-semibold">สาขา</span> ก่อนเพื่อเปิดตาราง
             </div>
           </div>
         ) : !canShowTable ? (
@@ -618,18 +629,69 @@ const OperationPlan = () => {
             <div className="mt-2 text-slate-600 dark:text-slate-300">กรุณาเลือกให้ครบ</div>
           </div>
         ) : (
-          <div className="mt-2">
-            <ActiveComponent
-              key={`${planType}-${tableKey}-${branchRequired ? branchId : "all"}-${yearBE}`}
-              branchId={branchId}
-              branchName={branchNameDisplay}
-              yearBE={yearBE}
-              planId={planId}
-            />
+          <div className="mt-2 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 shadow-sm dark:border-indigo-700/50 dark:bg-indigo-900/20">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="font-bold text-indigo-900 dark:text-indigo-100">{activeTable?.label}</div>
+                <div className="mt-1 text-sm text-indigo-700 dark:text-indigo-300">
+                  ปี {yearBE} • สาขา {branchNameDisplay} • {planTypeLabel}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalOpen(true)}
+                className="flex-shrink-0 inline-flex items-center gap-2 rounded-2xl bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-600 active:scale-[.98] transition cursor-pointer"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                </svg>
+                เปิดตาราง
+              </button>
+            </div>
           </div>
         )}
       </div>
     </div>
+
+    {/* Full-screen Table Modal */}
+    {modalOpen && canShowTable && ReactDOM.createPortal(
+      <div className="fixed inset-0 z-[9999] flex flex-col bg-white dark:bg-slate-900 overflow-hidden">
+        {/* Modal top bar */}
+        <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-800 dark:bg-slate-950 border-b border-slate-700 text-white">
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-bold text-white truncate">
+              {planTypeLabel} › {activeTable?.label}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              ปี {yearBE} • สาขา {branchNameDisplay}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setModalOpen(false)}
+            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-xl px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold cursor-pointer transition active:scale-[.97]"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+            ปิด
+          </button>
+        </div>
+
+        {/* Table content — fills remaining screen height */}
+        <div className="flex-1 overflow-hidden">
+          <ActiveComponent
+            key={`modal-${planType}-${tableKey}-${branchRequired ? branchId : "all"}-${yearBE}`}
+            branchId={branchId}
+            branchName={branchNameDisplay}
+            yearBE={yearBE}
+            planId={planId}
+          />
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
   )
 }
 

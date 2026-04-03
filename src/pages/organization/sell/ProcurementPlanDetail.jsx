@@ -651,7 +651,7 @@ function ProcurementPlanDetail(props) {
               ))}
             </colgroup>
             
-            <thead>
+            <thead className="sticky top-0 z-30">
               {/* Header Row 1 */}
               <tr>
                 <th className={cx(leftHeadCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={3}>

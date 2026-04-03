@@ -449,6 +449,18 @@ const BusinessPlanOtherIncomeTable = (props) => {
   const inputRefs = useRef(new Map())
   const sidebarOpen = useSidebarOpen()
   const tableWrapRef = useRef(null)
+  const [tableCardHeight, setTableCardHeight] = useState(900)
+  useEffect(() => {
+    const recalc = () => {
+      const el = tableWrapRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      setTableCardHeight(Math.max(400, Math.floor(window.innerHeight - rect.top - 6)))
+    }
+    recalc()
+    window.addEventListener("resize", recalc)
+    return () => window.removeEventListener("resize", recalc)
+  }, [])
 
   const registerInput = useCallback((rIdx, cIdx) => (el) => {
     const key = `${rIdx}|${cIdx}`
@@ -684,7 +696,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
       {/* Table Card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-        <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700 max-h-[70vh]" ref={tableWrapRef}>
+        <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700" ref={tableWrapRef} style={{ maxHeight: tableCardHeight }}>
           <table className="min-w-full border-collapse" style={{ width: TOTAL_W }}>
             <colgroup>
               <col style={{ width: COL_W.code }} />

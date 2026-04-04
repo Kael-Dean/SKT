@@ -2,7 +2,7 @@
 // โปรไฟล์เจ้าหน้าที่แบบเต็ม — GET /hr/personnel/{user_id}
 import { useEffect, useState } from "react"
 import ReactDOM from "react-dom"
-import { useParams } from "react-router-dom"
+import { useParams, useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 import lineIcon from "../../assets/line-icon.png"
 
@@ -41,6 +41,7 @@ const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 
 
 export default function HRPersonnelDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -236,6 +237,14 @@ export default function HRPersonnelDetail() {
           >
             แก้ไขข้อมูลครอบครัว
           </button>
+          {data.is_active && (
+            <button
+              onClick={() => navigate("/hr/dashboard?tab=termination")}
+              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer"
+            >
+              🚪 ออกจากงาน
+            </button>
+          )}
         </div>
       </div>
 

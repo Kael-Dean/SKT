@@ -1,5 +1,5 @@
 // src/pages/hr/HRDashboard.jsx
-// HR Dashboard แบบ All-in-One — stat cards + 12 tabs
+// HR Dashboard แบบ All-in-One — stat cards + 17 tabs (Section 13 added)
 import { useEffect, useState, useCallback } from "react"
 import { useSearchParams } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
@@ -16,23 +16,35 @@ import HRPositionsTab from "./tabs/HRPositionsTab"
 import HRLeaveTypesTab from "./tabs/HRLeaveTypesTab"
 import HRPromotionsTab from "./tabs/HRPromotionsTab"
 import HRAuditTab from "./tabs/HRAuditTab"
+// Section 13
+import HRTerminationTab from "./tabs/HRTerminationTab"
+import HRSalaryCertTab from "./tabs/HRSalaryCertTab"
+import HRRelocationHistoryTab from "./tabs/HRRelocationHistoryTab"
+import HRLeaveRegisterTab from "./tabs/HRLeaveRegisterTab"
+import HRResignedRetiredTab from "./tabs/HRResignedRetiredTab"
 
 const fmt = (n) =>
   n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
 const TABS = [
-  { key: "employees",   label: "👥 เจ้าหน้าที่" },
-  { key: "leave",       label: "📋 ใบลา" },
-  { key: "relocation",  label: "🚌 ย้ายสาขา" },
-  { key: "issues",      label: "🔧 รายงานปัญหา" },
-  { key: "salary",      label: "💹 เงินเดือน" },
-  { key: "payroll",     label: "💰 จ่ายเงินเดือน" },
-  { key: "loans",       label: "💳 สินเชื่อ" },
-  { key: "kpi",         label: "📊 KPI" },
-  { key: "positions",   label: "🏷️ ตำแหน่งงาน" },
-  { key: "leave-types", label: "📅 ประเภทการลา" },
-  { key: "promotions",  label: "🏆 เลื่อนตำแหน่ง" },
-  { key: "audit",       label: "🔍 ประวัติระบบ" },
+  { key: "employees",          label: "👥 เจ้าหน้าที่" },
+  { key: "leave",              label: "📋 ใบลา" },
+  { key: "relocation",         label: "🚌 ย้ายสาขา" },
+  { key: "issues",             label: "🔧 รายงานปัญหา" },
+  { key: "salary",             label: "💹 เงินเดือน" },
+  { key: "payroll",            label: "💰 จ่ายเงินเดือน" },
+  { key: "loans",              label: "💳 สินเชื่อ" },
+  { key: "kpi",                label: "📊 KPI" },
+  { key: "positions",          label: "🏷️ ตำแหน่งงาน" },
+  { key: "leave-types",        label: "📅 ประเภทการลา" },
+  { key: "promotions",         label: "🏆 เลื่อนตำแหน่ง" },
+  { key: "audit",              label: "🔍 ประวัติระบบ" },
+  // Section 13
+  { key: "termination",        label: "🚪 ออกจากงาน" },
+  { key: "salary-cert",        label: "📜 หนังสือรับรอง" },
+  { key: "relocation-history", label: "📋 ประวัติย้ายสาขา" },
+  { key: "leave-register",     label: "📅 ทะเบียนการลา" },
+  { key: "resigned-retired",   label: "👋 ลาออก/เกษียณ" },
 ]
 
 export default function HRDashboard() {
@@ -112,9 +124,14 @@ export default function HRDashboard() {
       case "kpi":         return <HRKpiTab />
       case "positions":   return <HRPositionsTab />
       case "leave-types": return <HRLeaveTypesTab />
-      case "promotions":  return <HRPromotionsTab />
-      case "audit":       return <HRAuditTab />
-      default:            return <HREmployeesTab />
+      case "promotions":          return <HRPromotionsTab />
+      case "audit":               return <HRAuditTab />
+      case "termination":         return <HRTerminationTab />
+      case "salary-cert":         return <HRSalaryCertTab />
+      case "relocation-history":  return <HRRelocationHistoryTab />
+      case "leave-register":      return <HRLeaveRegisterTab />
+      case "resigned-retired":    return <HRResignedRetiredTab />
+      default:                    return <HREmployeesTab />
     }
   }
 

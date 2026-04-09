@@ -304,29 +304,13 @@ const decodeJwtPayload = (token) => {
   }
 }
 
-const USER_BRANCH_MAP = {
-  tartoom: "ท่าตูม",
-  ratanaburi: "รัตนบุรี",
-  surin: "สุรินทร์",
-  sirin: "สุรินทร์",
-  processing: "ฝ่ายแปรรูปผลิตผล",
-  srikor: "ศีขรภูมิ",
-  prasat: "ปราสาท",
-  chumpolburi: "ชุมพลบุรี",
-  sangkha: "สังขะ",
-  chomphra: "จอมพระ",
-}
-
+/** ================= Hard‑lock Branch helpers ================= */
 const deriveLockedBranch = (opts = []) => {
   try {
-    const token = getToken()
-    const username = (decodeJwtPayload(token)?.sub || "").toLowerCase()
-    if (!username) return null
-    const key = Object.keys(USER_BRANCH_MAP).find((k) => username.includes(k))
-    if (!key) return null
-    const wantedLabelTH = USER_BRANCH_MAP[key]
-    const target = (opts || []).find((o) => String(o.label || "").includes(wantedLabelTH))
-    return target || null
+    const payload = decodeJwtPayload(getToken())
+    const branchId = payload?.branch ?? null
+    if (branchId == null) return null
+    return (opts || []).find((o) => String(o.id) === String(branchId)) || null
   } catch (e) {
     console.error("deriveLockedBranch failed:", e)
     return null

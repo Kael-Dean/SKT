@@ -642,9 +642,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div className="flex-1">
           <div className="text-[16px] font-bold">รายได้อื่นๆ</div>
-          <div className="text-xl md:text-2xl font-extrabold">
-            (เชื่อม BE: business-plan/earnings)
-          </div>
           <div className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
             หน่วย: พันบาท • ปี {effectiveYearBE || "-"} • สาขา {effectiveBranchDisplay}
           </div>

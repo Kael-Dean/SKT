@@ -692,7 +692,14 @@ const BusinessPlanExpenseProcessingTableDetail = ({ branchId, branchName, yearBE
                     {notice.detail && <div className="mt-1 text-[13px] opacity-95">{notice.detail}</div>}
                 </div>
             )}
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+                <button
+                type="button"
+                onClick={loadSavedFromBE}
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+                >
+                รีเซ็ต
+                </button>
                 <button
                 type="button"
                 disabled={isSaving}

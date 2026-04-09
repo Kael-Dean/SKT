@@ -217,15 +217,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
   )
   const itemRows = useMemo(() => displayRows.filter((r) => r.kind === "item"), [displayRows])
 
-  const unmappedStatic = useMemo(() => {
-    const missing = []
-    for (const r of itemRows) {
-      const bcId = resolveRowBusinessCostId(r)
-      if (!bcId) missing.push({ code: r.code, cost_id: r.cost_id })
-    }
-    return missing
-  }, [itemRows])
-
   const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
   const effectiveBranchName = useMemo(
     () => branchName || (effectiveBranchId ? `สาขา id: ${effectiveBranchId}` : "-"),
@@ -297,7 +288,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
   const [valuesByCode, setValuesByCode] = useState({})
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
   const [notice, setNotice] = useState(null)
-  const [showPayload, setShowPayload] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   const normalizeGrid = useCallback(
@@ -521,25 +511,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
     return { rows }
   }, [effectivePlanId, effectiveBranchId, units, itemRows, valuesByCode, periodLabel])
 
-  const payloadPreview = useMemo(() => {
-    try {
-      const body = buildBulkRowsForBE()
-      return { plan_id: effectivePlanId, endpoint: `/business-plan/${effectivePlanId}/costs/bulk`, body }
-    } catch (e) {
-      return { error: e?.message || String(e) }
-    }
-  }, [buildBulkRowsForBE, effectivePlanId])
-
-  const copyPayload = async () => {
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(payloadPreview, null, 2))
-      setNotice({ type: "success", title: "คัดลอก JSON แล้ว ✅", detail: "คัดลอก payload ที่ส่งเข้า BE แล้ว" })
-    } catch (e) {
-      setNotice({ type: "error", title: "คัดลอกไม่สำเร็จ", detail: e?.message || String(e) })
-      setShowPayload(true)
-    }
-  }
-
   const saveToBE = async () => {
     try {
       setNotice(null)
@@ -607,7 +578,7 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
   const stickyCodeCell = "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 mx-auto">
       {/* Header */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
@@ -626,26 +597,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
           <div className="flex flex-wrap gap-2 md:justify-end">
             <button
               type="button"
-              onClick={copyPayload}
-              className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white
-                         shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                         hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition cursor-pointer"
-            >
-              คัดลอก JSON
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowPayload((v) => !v)}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
-                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
-                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              {showPayload ? "ซ่อน payload" : "ดู payload"}
-            </button>
-
-            <button
-              type="button"
               onClick={resetAll}
               className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
                          hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
@@ -655,33 +606,6 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
             </button>
           </div>
         </div>
-
-        {showPayload && (
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800
-                          dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
-            <pre className="max-h-72 overflow-auto">{JSON.stringify(payloadPreview, null, 2)}</pre>
-          </div>
-        )}
-
-        {unmappedStatic.length > 0 ? (
-          <div
-            className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900
-                       dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100"
-          >
-            <div className="font-extrabold">⚠️ รายการที่ยังไม่แมพ (จะข้ามตอนบันทึกถ้าเป็น 0)</div>
-            <div className="mt-1 text-[13px] opacity-95">
-              {unmappedStatic.map((x) => `${x.code} (cost_id=${x.cost_id})`).join(" • ")}
-            </div>
-          </div>
-        ) : (
-          <div
-            className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900
-                       dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100"
-          >
-            <div className="font-extrabold">✅ แมพครบแล้ว</div>
-            <div className="mt-1 text-[13px] opacity-95">ไม่มีรายการที่ยังไม่แมพ (ทั้งหมด {itemRows.length} รายการ)</div>
-          </div>
-        )}
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div>
@@ -906,12 +830,14 @@ const BusinessPlanExpenseOilTable = ({ branchId, branchName, yearBE, planId }) =
         <div className="shrink-0 p-3 md:p-4">
           <NoticeBox notice={notice} />
 
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="text-sm text-slate-600 dark:text-slate-300">
-              ยิงหน่วยจาก: <span className="font-mono">GET /lists/unit/search?branch_id=...</span> • บันทึก:{" "}
-              <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span> • ปี {effectiveYear} • สาขา{" "}
-              {effectiveBranchName}
-            </div>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
+            <button
+              type="button"
+              onClick={resetAll}
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+            >
+              รีเซ็ต
+            </button>
 
             <button
               type="button"

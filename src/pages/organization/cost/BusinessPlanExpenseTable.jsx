@@ -358,12 +358,6 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
     }))
   }, [])
 
-  const unmappedStatic = useMemo(() => {
-    return itemRows
-      .filter((r) => !resolveRowBusinessCostId(r))
-      .map((r) => ({ code: r.code, label: r.label, cost_id: r.cost_id }))
-  }, [itemRows])
-
   /** ---------------- Totals ---------------- */
   const computed = useMemo(() => {
     const rowTotal = {}
@@ -580,16 +574,6 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
     }
   }
 
-  const copyPayload = async () => {
-    try {
-      const payload = buildBulkRowsForBE()
-      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
-      setSaveNotice({ type: "success", title: "คัดลอกแล้ว ✅", detail: "คัดลอก payload สำหรับ BE แล้ว" })
-    } catch (e) {
-      setSaveNotice({ type: "error", title: "คัดลอกไม่สำเร็จ", detail: e?.message || String(e) })
-    }
-  }
-
   const resetAll = () => {
     if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
     const empty = {}
@@ -610,7 +594,7 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
   const stickyCodeCell = "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 mx-auto">
       {/* Header */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -629,16 +613,6 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
           <div className="flex flex-wrap gap-2 md:justify-end">
             <button
               type="button"
-              onClick={copyPayload}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
-                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
-                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              คัดลอก payload
-            </button>
-
-            <button
-              type="button"
               onClick={resetAll}
               className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
                          hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
@@ -648,20 +622,6 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
             </button>
           </div>
         </div>
-
-        {unmappedStatic.length > 0 ? (
-          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
-            <div className="font-extrabold">⚠️ รายการที่ยังไม่แมพ (จะข้ามตอนบันทึกถ้าเป็น 0)</div>
-            <div className="mt-1 text-[13px] opacity-95">
-              {unmappedStatic.map((x) => `${x.code} (cost_id=${x.cost_id})`).join(" • ")}
-            </div>
-          </div>
-        ) : (
-          <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100">
-            <div className="font-extrabold">✅ แมพครบแล้ว</div>
-            <div className="mt-1 text-[13px] opacity-95">ไม่มีรายการที่ยังไม่แมพ (ทั้งหมด {itemRows.length} รายการ)</div>
-          </div>
-        )}
       </div>
 
       {/* Table Section */}
@@ -875,10 +835,14 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
             </div>
           )}
 
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="text-sm text-slate-600 dark:text-slate-300">
-              บันทึก: <span className="font-mono">POST /business-plan/{`{plan_id}`}/costs/bulk</span> • ปี={effectiveYear} • สาขา={effectiveBranchName}
-            </div>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
+            <button
+              type="button"
+              onClick={resetAll}
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+            >
+              รีเซ็ต
+            </button>
 
             <button
               type="button"

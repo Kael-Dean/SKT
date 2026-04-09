@@ -417,7 +417,7 @@ const BusinessPlanExpenseCollectionTableDetail = ({ branchId, branchName, yearBE
       const el = tableWrapRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
-      setTableCardHeight(Math.max(400, Math.floor(window.innerHeight - rect.top - 6)))
+      setTableCardHeight(Math.max(400, Math.floor(window.innerHeight - rect.top - 100)))
     }
     recalc()
     window.addEventListener("resize", recalc)

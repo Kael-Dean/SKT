@@ -206,25 +206,25 @@ const ThonthunDetail = ({ branchName, yearBE, planId }) => {
             </thead>
             <tbody>
               {items.map((it, rIdx) => (
-                <tr key={it.id} className={rIdx % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-800/50"}>
-                  <td className="p-2 border sticky left-0 bg-inherit z-10 font-semibold">{it.name}</td>
+                <tr key={it.id} className={rIdx % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-slate-50 dark:bg-slate-700/30"}>
+                  <td className="border border-slate-300 px-2 py-2 sticky left-0 bg-inherit z-10 font-semibold text-xs dark:border-slate-600">{it.name}</td>
                   {MONTHS.flatMap(m => {
                     const buyVal = values[it.id]?.[m.key]?.buy ?? ""
                     const sellVal = values[it.id]?.[m.key]?.sell ?? ""
                     return [
-                      <td key={`${m.key}-buy`} className="p-1 border">
-                         <input 
+                      <td key={`${m.key}-buy`} className="border border-slate-300 px-1 py-1 dark:border-slate-600">
+                         <input
                             type="text"
-                            className="w-full text-right bg-white dark:bg-slate-900 px-1 py-0.5 rounded-md border-slate-300"
+                            className="w-full min-w-0 box-border rounded-lg border border-slate-300 bg-white px-1.5 py-1 text-right text-[12px] outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                             placeholder="0.00"
                             value={buyVal}
                             onChange={e => setCell(it.id, m.key, 'buy', sanitizeNumberInput(e.target.value))}
                          />
                       </td>,
-                      <td key={`${m.key}-sell`} className="p-1 border">
-                         <input 
+                      <td key={`${m.key}-sell`} className="border border-slate-300 px-1 py-1 dark:border-slate-600">
+                         <input
                             type="text"
-                            className="w-full text-right bg-white dark:bg-slate-900 px-1 py-0.5 rounded-md border-slate-300"
+                            className="w-full min-w-0 box-border rounded-lg border border-slate-300 bg-white px-1.5 py-1 text-right text-[12px] outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                             placeholder="0.00"
                             value={sellVal}
                             onChange={e => setCell(it.id, m.key, 'sell', sanitizeNumberInput(e.target.value))}
@@ -237,13 +237,31 @@ const ThonthunDetail = ({ branchName, yearBE, planId }) => {
             </tbody>
           </table>
         </div>
-        <div className="p-4 border-t">
-            {notice && <div className={`mb-3 p-3 rounded-lg text-sm ${notice.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                <p className="font-bold">{notice.title}</p>
-                <p className="whitespace-pre-wrap">{notice.detail}</p>
-            </div>}
-            <div className="flex justify-end">
-                <button onClick={saveToBE} disabled={isSaving} className="px-6 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 disabled:bg-slate-400">
+        <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
+            {notice && (
+              <div className={cx("mb-3 rounded-2xl border p-3 text-sm", notice.type === 'error' ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200" : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200")}>
+                <div className="font-extrabold">{notice.title}</div>
+                {notice.detail && <div className="mt-1 text-[13px] opacity-95 whitespace-pre-wrap">{notice.detail}</div>}
+              </div>
+            )}
+            <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={loadData}
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+                >
+                  รีเซ็ต
+                </button>
+                <button
+                  type="button"
+                  onClick={saveToBE}
+                  disabled={isSaving}
+                  className={cx(
+                    "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white",
+                    "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",
+                    isSaving && "opacity-60 hover:scale-100 cursor-not-allowed"
+                  )}
+                >
                   {isSaving ? "กำลังบันทึก..." : "บันทึก"}
                 </button>
             </div>

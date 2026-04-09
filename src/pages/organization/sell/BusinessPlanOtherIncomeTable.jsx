@@ -616,8 +616,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
   return (
     <>
-    <div className="overflow-x-auto p-3">
-    <div className="space-y-3 mx-auto" style={{ width: TOTAL_W }}>
+    <div className="space-y-3 w-full p-3">
       {/* Header Info */}
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div className="flex-1">
@@ -789,7 +788,6 @@ const BusinessPlanOtherIncomeTable = (props) => {
           </div>
         </div>
       </div>
-    </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
     </>

@@ -92,8 +92,21 @@ export default function StickyTableScrollbar({ tableRef }) {
     }
     // Pad right so the vertical scrollbar doesn't cover the last column
     el.style.paddingRight = vVis ? `${V_W}px` : ""
-    // Pad bottom so the horizontal scrollbar doesn't cover the last row
-    el.style.paddingBottom = hVis ? `${H_H}px` : ""
+    // Inject a spacer div so horizontal scrollbar doesn't cover the last row.
+    // paddingBottom is unreliable on overflow:auto containers with <table> children.
+    const SPACER_ATTR = "data-scsb-hspacer"
+    let spacer = el.querySelector(`[${SPACER_ATTR}]`)
+    if (hVis) {
+      if (!spacer) {
+        spacer = document.createElement("div")
+        spacer.setAttribute(SPACER_ATTR, "1")
+        spacer.style.height = `${H_H}px`
+        spacer.style.flexShrink = "0"
+        el.appendChild(spacer)
+      }
+    } else {
+      spacer?.remove()
+    }
   }, [tableRef, hVis, vVis])
 
   // ─── Listen scroll ───

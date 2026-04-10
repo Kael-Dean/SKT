@@ -4,7 +4,18 @@
       "Bash(npm show:*)",
       "WebFetch(domain:impeccable.style)",
       "Bash(npx skills:*)",
-      "Bash(wc -l /c/Organization/SKT/src/pages/**/*.jsx)"
+      "Bash(wc -l /c/Organization/SKT/src/pages/**/*.jsx)",
+      "Bash(python -c ':*)",
+      "Bash(grep -l \"บันทึก:\\\\|เชื่อม BE\" \"c:/Organization/SKT/src/pages/organization/cost\"/*.jsx)",
+      "Bash(grep -l \"บันทึก:\\\\|เชื่อม BE\" \"c:/Organization/SKT/src/pages/organization/sell\"/*.jsx)",
+      "Bash(ls -la /c/Organization/SKT-backend/UM_repo-master/Phase3/*.py)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(cat)",
+      "Bash(bash /tmp/extract_info_cards.sh)",
+      "Bash(bash /tmp/thonthun_info.sh)"
     ]
   }
 }

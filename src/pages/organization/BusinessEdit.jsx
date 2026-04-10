@@ -205,6 +205,7 @@ const BusinessEdit = () => {
   const [activeTab, setActiveTab] = useState(TABS[0].key)
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
+  const [searchText, setSearchText] = useState("")
 
   // Form State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -213,7 +214,21 @@ const BusinessEdit = () => {
 
   const currentConfig = useMemo(() => TABS.find((t) => t.key === activeTab), [activeTab])
 
+  const filteredData = useMemo(() => {
+    if (!searchText.trim()) return data
+    const q = searchText.toLowerCase()
+    return data.filter((row) =>
+      currentConfig.fields.some((f) => {
+        const val = f.name === "business_group" && row[f.name] != null
+          ? (BUSINESS_GROUP_MAP[row[f.name]] || String(row[f.name]))
+          : String(row[f.name] ?? "")
+        return val.toLowerCase().includes(q)
+      }) || String(row.id).includes(q)
+    )
+  }, [data, searchText, currentConfig])
+
   useEffect(() => {
+    setSearchText("")
     fetchData()
   }, [activeTab])
 
@@ -346,14 +361,35 @@ const BusinessEdit = () => {
         {/* --- MAIN CONTENT --- */}
         <div className="rounded-2xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden">
           
-          <div className="flex items-center justify-between border-b border-slate-300 dark:border-slate-700 p-4">
-            <h2 className="text-lg font-bold">{currentConfig.label}</h2>
-            <button
-              onClick={handleAdd}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
-            >
-              + เพิ่มข้อมูล
-            </button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-300 dark:border-slate-700 p-4">
+            <h2 className="text-lg font-bold shrink-0">{currentConfig.label}</h2>
+            <div className="flex items-center gap-2 flex-1 sm:max-w-sm">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">🔍</span>
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="ค้นหา..."
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 pl-8 pr-8 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:focus:border-emerald-400 transition-all"
+                />
+                {searchText && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchText("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={handleAdd}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg shrink-0"
+              >
+                + เพิ่มข้อมูล
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto p-4">
@@ -375,14 +411,14 @@ const BusinessEdit = () => {
                       กำลังโหลดข้อมูล...
                     </td>
                   </tr>
-                ) : data.length === 0 ? (
+                ) : filteredData.length === 0 ? (
                   <tr>
                     <td colSpan={currentConfig.fields.length + 2} className="border border-slate-300 p-8 text-center text-slate-500 dark:border-slate-600">
-                      ไม่พบข้อมูล
+                      {searchText ? `ไม่พบข้อมูลที่ตรงกับ "${searchText}"` : "ไม่พบข้อมูล"}
                     </td>
                   </tr>
                 ) : (
-                  data.map((row) => (
+                  filteredData.map((row) => (
                     <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                       <td className="border border-slate-300 p-3 text-center dark:border-slate-600">{row.id}</td>
                       {currentConfig.fields.map((f) => (

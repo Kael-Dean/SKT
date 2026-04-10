@@ -504,7 +504,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
         for (const m of MONTHS) {
           for (const u of savableUnits) {
             const uid = Number(u.id), v = qtyByPid?.[String(pid)]?.[m.key]?.[String(uid)] ?? "", n = toNumber(v)
-            if (n > 0) cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n })
+            if (n > 0) cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: toNumber(priceByPid[String(pid)]?.buy_price ?? 0) })
           }
         }
       }

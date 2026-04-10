@@ -310,7 +310,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
             const v = qtyById?.[it.id]?.[m.key]?.[String(uid)] ?? ""
             const n = toNumber(v)
             if (n > 0) {
-              cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n })
+              cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: 0 })
             }
           }
         }

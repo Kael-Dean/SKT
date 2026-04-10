@@ -574,6 +574,7 @@ const ServiceBusinessPlanDetail = (props) => {
               product_id: Number(it.product_id || 0),
               month: Number(m.month),
               amount: toNumber(qtyById?.[it.id]?.[m.key]?.[String(u.id)] ?? 0),
+              buy_price: toNumber((priceById[it.id] || {}).buy_price ?? 0),
             }))
           )
         )

@@ -593,7 +593,7 @@ function AgriProcessingPlanDetail(props) {
         for (const m of MONTHS) {
           for (const u of savableUnits) {
             const uid = Number(u.id), v = qtyById?.[String(pid)]?.[m.key]?.[String(uid)] ?? "", n = toNumber(v)
-            if (n > 0) cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n })
+            if (n > 0) cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: toNumber(priceById[String(pid)]?.buy_price ?? 0) })
           }
         }
       }

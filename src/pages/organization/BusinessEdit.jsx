@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react"
 import ReactDOM from "react-dom"
-import { apiAuth } from "../../lib/api" 
+import { apiAuth } from "../../lib/api"
 
 /** ---------- Mapping ---------- */
 const BUSINESS_GROUP_MAP = {
@@ -32,7 +32,7 @@ const TABS = [
   },
   {
     key: "cost-types",
-    label: "💰 ประเภทต้นทุน (Cost Types)",
+    label: "💰 ประเภทตค่าใช้จ่าย (Cost Types)",
     endpoint: "/cost-types",
     fields: [
       { name: "name", label: "ชื่อประเภทต้นทุน", type: "text", required: true },
@@ -50,7 +50,7 @@ const TABS = [
   },
   {
     key: "aux-costs",
-    label: "🧾 ต้นทุนส่วนเพิ่ม (Aux Costs)",
+    label: "🧾 ต้นทุน (Aux Costs)",
     endpoint: "/aux-costs",
     fields: [
       { name: "name", label: "ชื่อต้นทุน", type: "text", required: true },
@@ -267,7 +267,7 @@ const BusinessEdit = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm("คุณแน่ใจหรือไม่ที่จะลบรายการนี้? (ระบบจะเปลี่ยนสถานะเป็น Inactive)")) return
-    
+
     try {
       await apiAuth(`${currentConfig.endpoint}/${id}`, { method: "DELETE" })
       fetchData() // โหลดข้อมูลใหม่หลังจากลบ
@@ -311,12 +311,12 @@ const BusinessEdit = () => {
       if (editingId) {
         await apiAuth(`${currentConfig.endpoint}/${editingId}`, {
           method: "PUT",
-          body: payload 
+          body: payload
         })
       } else {
         await apiAuth(`${currentConfig.endpoint}`, {
           method: "POST",
-          body: payload 
+          body: payload
         })
       }
       setIsModalOpen(false)
@@ -329,190 +329,189 @@ const BusinessEdit = () => {
 
   return (
     <>
-    <div className="min-h-screen bg-slate-50 text-black dark:bg-slate-900 dark:text-white rounded-2xl md:p-6 p-4">
-      <div className="mx-auto max-w-[1400px]">
-        
-        <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-white">⚙️ แก้ไขข้อมูลธุรกิจ (Master Data)</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              เพิ่ม/แก้ไข/ลบ ข้อมูลพื้นฐานที่ใช้ในระบบ (เฉพาะ Admin เท่านั้นที่สามารถจัดการได้)
-            </p>
-          </div>
-        </div>
+      <div className="min-h-screen bg-slate-50 text-black dark:bg-slate-900 dark:text-white rounded-2xl md:p-6 p-4">
+        <div className="mx-auto max-w-[1400px]">
 
-        {/* --- TABS --- */}
-        <div className="mb-6 flex flex-wrap gap-2 rounded-xl bg-white p-2 shadow-sm dark:bg-slate-800 border border-slate-300 dark:border-slate-700">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer transform hover:scale-105 active:scale-95 ${
-                activeTab === tab.key
-                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 shadow-sm"
-                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* --- MAIN CONTENT --- */}
-        <div className="rounded-2xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden">
-          
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-300 dark:border-slate-700 p-4">
-            <h2 className="text-lg font-bold shrink-0">{currentConfig.label}</h2>
-            <div className="flex items-center gap-2 flex-1 sm:max-w-sm">
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">🔍</span>
-                <input
-                  type="text"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  placeholder="ค้นหา..."
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 pl-8 pr-8 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:focus:border-emerald-400 transition-all"
-                />
-                {searchText && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchText("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-              <button
-                onClick={handleAdd}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg shrink-0"
-              >
-                + เพิ่มข้อมูล
-              </button>
+          <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-white">⚙️ แก้ไขข้อมูลธุรกิจ (Master Data)</h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                เพิ่ม/แก้ไข/ลบ ข้อมูลพื้นฐานที่ใช้ในระบบ (เฉพาะ Admin เท่านั้นที่สามารถจัดการได้)
+              </p>
             </div>
           </div>
 
-          <div className="overflow-x-auto p-4">
-            {/* ตารางที่มีเส้นกั้นตัดกันอย่างชัดเจนตามที่ผู้ใช้ต้องการ */}
-            <table className="w-full border-collapse border border-slate-300 text-left text-sm text-slate-700 dark:border-slate-600 dark:text-slate-300">
-              <thead className="bg-slate-100 dark:bg-slate-700/80 text-slate-800 dark:text-slate-200">
-                <tr>
-                  <th className="border border-slate-300 p-3 font-semibold w-16 text-center dark:border-slate-600">ID</th>
-                  {currentConfig.fields.map((f) => (
-                    <th key={f.name} className="border border-slate-300 p-3 font-semibold dark:border-slate-600">{f.label}</th>
-                  ))}
-                  <th className="border border-slate-300 p-3 font-semibold text-center w-32 dark:border-slate-600">จัดการ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={currentConfig.fields.length + 2} className="border border-slate-300 p-8 text-center text-slate-500 dark:border-slate-600">
-                      กำลังโหลดข้อมูล...
-                    </td>
-                  </tr>
-                ) : filteredData.length === 0 ? (
-                  <tr>
-                    <td colSpan={currentConfig.fields.length + 2} className="border border-slate-300 p-8 text-center text-slate-500 dark:border-slate-600">
-                      {searchText ? `ไม่พบข้อมูลที่ตรงกับ "${searchText}"` : "ไม่พบข้อมูล"}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredData.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                      <td className="border border-slate-300 p-3 text-center dark:border-slate-600">{row.id}</td>
-                      {currentConfig.fields.map((f) => (
-                        <td key={f.name} className="border border-slate-300 p-3 dark:border-slate-600">
-                          {f.name === "business_group" && row[f.name] != null
-                            ? BUSINESS_GROUP_MAP[row[f.name]] || row[f.name]
-                            : (row[f.name] !== null && row[f.name] !== undefined ? String(row[f.name]) : "-")}
-                        </td>
-                      ))}
-                      <td className="border border-slate-300 p-3 text-center dark:border-slate-600">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => handleEdit(row)}
-                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-md transition-all cursor-pointer transform hover:scale-110 active:scale-95"
-                            title="แก้ไข"
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            onClick={() => handleDelete(row.id)}
-                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1.5 bg-red-50 dark:bg-red-900/20 rounded-md transition-all cursor-pointer transform hover:scale-110 active:scale-95"
-                            title="ลบ"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          {/* --- TABS --- */}
+          <div className="mb-6 flex flex-wrap gap-2 rounded-xl bg-white p-2 shadow-sm dark:bg-slate-800 border border-slate-300 dark:border-slate-700">
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer transform hover:scale-105 active:scale-95 ${activeTab === tab.key
+                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-        </div>
 
-      </div>
+          {/* --- MAIN CONTENT --- */}
+          <div className="rounded-2xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden">
 
-      {/* --- MODAL FORM --- */}
-      {isModalOpen && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800 transform transition-all animate-in zoom-in-95 duration-200">
-            <h2 className="mb-4 text-xl font-bold border-b border-slate-100 dark:border-slate-700 pb-3">
-              {editingId ? "✏️ แก้ไขข้อมูล" : "+ เพิ่มข้อมูลใหม่"} - {currentConfig.label.split(" ")[1]}
-            </h2>
-            
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              {currentConfig.fields.map((f) => (
-                <div key={f.name}>
-                  <label className={labelCls}>
-                    {f.label} {f.required && <span className="text-red-500">*</span>}
-                  </label>
-                  {f.type === "select" ? (
-                    <ComboBox
-                      options={[{ value: "", label: `— ไม่ระบุ —` }, ...f.options]}
-                      value={formData[f.name]}
-                      onChange={(val) => handleChange({ target: { name: f.name, value: val, type: "select" } })}
-                      placeholder={`— เลือก${f.label} —`}
-                    />
-                  ) : (
-                    <input
-                      type={f.type === "number" ? "number" : "text"}
-                      name={f.name}
-                      value={formData[f.name] ?? ""}
-                      onChange={handleChange}
-                      required={f.required}
-                      className={baseInput}
-                      placeholder={`ระบุ${f.label}...`}
-                    />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-300 dark:border-slate-700 p-4">
+              <h2 className="text-lg font-bold shrink-0">{currentConfig.label}</h2>
+              <div className="flex items-center gap-2 flex-1 sm:max-w-sm">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">🔍</span>
+                  <input
+                    type="text"
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    placeholder="ค้นหา..."
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50 pl-8 pr-8 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:focus:border-emerald-400 transition-all"
+                  />
+                  {searchText && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchText("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                    >
+                      ✕
+                    </button>
                   )}
                 </div>
-              ))}
-
-              <div className="mt-4 flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
                 <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-all cursor-pointer transform hover:scale-105 active:scale-95"
+                  onClick={handleAdd}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg shrink-0"
                 >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm transition-all cursor-pointer transform hover:scale-105 active:scale-95"
-                >
-                  บันทึกข้อมูล
+                  + เพิ่มข้อมูล
                 </button>
               </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
+            </div>
 
-    </div>
+            <div className="overflow-x-auto p-4">
+              {/* ตารางที่มีเส้นกั้นตัดกันอย่างชัดเจนตามที่ผู้ใช้ต้องการ */}
+              <table className="w-full border-collapse border border-slate-300 text-left text-sm text-slate-700 dark:border-slate-600 dark:text-slate-300">
+                <thead className="bg-slate-100 dark:bg-slate-700/80 text-slate-800 dark:text-slate-200">
+                  <tr>
+                    <th className="border border-slate-300 p-3 font-semibold w-16 text-center dark:border-slate-600">ID</th>
+                    {currentConfig.fields.map((f) => (
+                      <th key={f.name} className="border border-slate-300 p-3 font-semibold dark:border-slate-600">{f.label}</th>
+                    ))}
+                    <th className="border border-slate-300 p-3 font-semibold text-center w-32 dark:border-slate-600">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={currentConfig.fields.length + 2} className="border border-slate-300 p-8 text-center text-slate-500 dark:border-slate-600">
+                        กำลังโหลดข้อมูล...
+                      </td>
+                    </tr>
+                  ) : filteredData.length === 0 ? (
+                    <tr>
+                      <td colSpan={currentConfig.fields.length + 2} className="border border-slate-300 p-8 text-center text-slate-500 dark:border-slate-600">
+                        {searchText ? `ไม่พบข้อมูลที่ตรงกับ "${searchText}"` : "ไม่พบข้อมูล"}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredData.map((row) => (
+                      <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                        <td className="border border-slate-300 p-3 text-center dark:border-slate-600">{row.id}</td>
+                        {currentConfig.fields.map((f) => (
+                          <td key={f.name} className="border border-slate-300 p-3 dark:border-slate-600">
+                            {f.name === "business_group" && row[f.name] != null
+                              ? BUSINESS_GROUP_MAP[row[f.name]] || row[f.name]
+                              : (row[f.name] !== null && row[f.name] !== undefined ? String(row[f.name]) : "-")}
+                          </td>
+                        ))}
+                        <td className="border border-slate-300 p-3 text-center dark:border-slate-600">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleEdit(row)}
+                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-md transition-all cursor-pointer transform hover:scale-110 active:scale-95"
+                              title="แก้ไข"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => handleDelete(row.id)}
+                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1.5 bg-red-50 dark:bg-red-900/20 rounded-md transition-all cursor-pointer transform hover:scale-110 active:scale-95"
+                              title="ลบ"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        {/* --- MODAL FORM --- */}
+        {isModalOpen && ReactDOM.createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800 transform transition-all animate-in zoom-in-95 duration-200">
+              <h2 className="mb-4 text-xl font-bold border-b border-slate-100 dark:border-slate-700 pb-3">
+                {editingId ? "✏️ แก้ไขข้อมูล" : "+ เพิ่มข้อมูลใหม่"} - {currentConfig.label.split(" ")[1]}
+              </h2>
+
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                {currentConfig.fields.map((f) => (
+                  <div key={f.name}>
+                    <label className={labelCls}>
+                      {f.label} {f.required && <span className="text-red-500">*</span>}
+                    </label>
+                    {f.type === "select" ? (
+                      <ComboBox
+                        options={[{ value: "", label: `— ไม่ระบุ —` }, ...f.options]}
+                        value={formData[f.name]}
+                        onChange={(val) => handleChange({ target: { name: f.name, value: val, type: "select" } })}
+                        placeholder={`— เลือก${f.label} —`}
+                      />
+                    ) : (
+                      <input
+                        type={f.type === "number" ? "number" : "text"}
+                        name={f.name}
+                        value={formData[f.name] ?? ""}
+                        onChange={handleChange}
+                        required={f.required}
+                        className={baseInput}
+                        placeholder={`ระบุ${f.label}...`}
+                      />
+                    )}
+                  </div>
+                ))}
+
+                <div className="mt-4 flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="rounded-xl border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-all cursor-pointer transform hover:scale-105 active:scale-95"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm transition-all cursor-pointer transform hover:scale-105 active:scale-95"
+                  >
+                    บันทึกข้อมูล
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      </div>
     </>
   )
 }

@@ -402,13 +402,14 @@ const BusinessPlanExpenseOilTableDetail = ({ branchId, branchName, yearBE, planI
 
   const sidebarOpen = useSidebarOpen()
   const tableWrapRef = useRef(null)
+  const tableCardRef = useRef(null)
   const [tableCardHeight, setTableCardHeight] = useState(900)
   useEffect(() => {
     const recalc = () => {
-      const el = tableWrapRef.current
+      const el = tableCardRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
-      setTableCardHeight(Math.max(400, Math.floor(window.innerHeight - rect.top - 100)))
+      setTableCardHeight(Math.max(400, Math.floor(window.innerHeight - rect.top - 6)))
     }
     recalc()
     window.addEventListener("resize", recalc)
@@ -568,8 +569,8 @@ const BusinessPlanExpenseOilTableDetail = ({ branchId, branchName, yearBE, planI
             </div>
         </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-auto" ref={tableWrapRef} style={{ maxHeight: tableCardHeight }}>
+      <div ref={tableCardRef} className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col" style={{ maxHeight: tableCardHeight }}>
+        <div className="flex-1 overflow-auto" ref={tableWrapRef}>
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>
               <col style={{ width: COL_W.code }} />

@@ -618,7 +618,6 @@ const ServiceBusinessPlanDetail = (props) => {
       })
 
       await loadSaved()
-      await loadUnitPricesForYear()
     } catch (e) {
       console.error("[service] save failed:", e)
       setSaveMsg({

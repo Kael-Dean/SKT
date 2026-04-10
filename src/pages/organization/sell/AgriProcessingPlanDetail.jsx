@@ -794,7 +794,8 @@ function AgriProcessingPlanDetail(props) {
                   </Fragment>
                 )
               })}
-
+            </tbody>
+            <tfoot className="sticky bottom-0 z-20">
               {/* ----- FOOTER: สรุปยอดรวมทั้งหมด ด้านล่าง ----- */}
               {/* Footer 1: ผลรวมจำนวนหน่วย */}
               <tr>
@@ -855,7 +856,7 @@ function AgriProcessingPlanDetail(props) {
                 ))}
               </tr>
 
-            </tbody>
+            </tfoot>
           </table>
         </div>
 

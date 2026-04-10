@@ -669,7 +669,8 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
                   </Fragment>
                 )
               })}
-
+            </tbody>
+            <tfoot className="sticky bottom-0 z-20">
               <tr>
                 <td rowSpan={2} className={cx(leftCellSticky, STRIPE.footOdd, footerBorder, "align-middle")}><div className="font-bold text-center text-[13px]">รวม</div></td>
                 <td className={cx(cellClass, STRIPE.footOdd, footerBorder)}><div className="font-semibold text-center">หน่วย</div></td>
@@ -710,7 +711,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
                 ))}
                 {unitCols.map((u) => <td key={`ft-pad-${u.id}`} className={cx(cellClass, STRIPE.footOdd)} />)}
               </tr>
-            </tbody>
+            </tfoot>
           </table>
         </div>
 

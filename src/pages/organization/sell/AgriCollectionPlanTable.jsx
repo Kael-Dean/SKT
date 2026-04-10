@@ -707,7 +707,8 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
                   </Fragment>
                 )
               })}
-
+            </tbody>
+            <tfoot className="sticky bottom-0 z-20">
               {/* ----- FOOTER: สรุปยอดรวมทั้งหมด ด้านล่าง ----- */}
               <tr>
                 <td rowSpan={2} className={cx(leftCellSticky, STRIPE.footOdd, footerBorder, "align-middle")}>
@@ -765,10 +766,10 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
                   <td key={`ft-pad-${u.id}`} className={cx(cellClass, STRIPE.footOdd)} />
                 ))}
               </tr>
-            </tbody>
+            </tfoot>
           </table>
         </div>
-        
+
         {/* Action Buttons (UI ด้านล่าง และปุ่มบันทึก) */}
         <div className="shrink-0 pt-4 mt-2 border-t border-slate-200 dark:border-slate-700">
           {/* กล่องข้อความแจ้งเตือนหลังกดบันทึก */}

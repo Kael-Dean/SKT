@@ -573,20 +573,6 @@ function AgriProcessingPlanDetail(props) {
     setSaveMsg(null)
 
     try {
-      const priceItems = items.map((p) => {
-        const pid = Number(p.product_id)
-        const cur = priceById[String(pid)] || {}
-        return { product_id: pid, sell_price: toNumber(cur.sell_price ?? p.sell_price ?? 0), buy_price: 0, comment: String(cur.comment ?? p.comment ?? "") }
-      })
-
-      try {
-        await apiAuth(`/unit-prices/bulk`, { method: "PUT", body: { year: Number(effectiveYearBE), items: priceItems } })
-      } catch {
-        for (const it of priceItems) {
-          await apiAuth(`/unit-prices`, { method: "PUT", body: { year: Number(effectiveYearBE), product_id: it.product_id, sell_price: it.sell_price, buy_price: 0, comment: it.comment } })
-        }
-      }
-
       const cells = []
       for (const p of items) {
         const pid = Number(p.product_id)

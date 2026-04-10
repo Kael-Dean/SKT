@@ -492,12 +492,6 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
     if (!branchId || !planId || !products.length || !savableUnits.length) return
     setIsSaving(true); setSaveMsg(null)
     try {
-      const priceItems = products.map((p) => {
-        const pid = Number(p.product_id), cur = priceByPid[String(pid)] || {}
-        return { product_id: pid, sell_price: toNumber(cur.sell_price ?? p.sell_price ?? 0), buy_price: toNumber(cur.buy_price ?? p.buy_price ?? 0), comment: String(cur.comment ?? p.comment ?? "") }
-      })
-      await apiAuth(`/unit-prices/bulk`, { method: "PUT", body: { year: effectiveYearBE, items: priceItems } })
-
       const cells = []
       for (const p of products) {
         const pid = Number(p.product_id)

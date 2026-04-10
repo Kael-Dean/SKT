@@ -557,15 +557,6 @@ const ServiceBusinessPlanDetail = (props) => {
     return {
       plan_id: Number(effectivePlanId || 0),
       branch_id: branchId ? Number(branchId) : null,
-      prices: items.map((it) => {
-        const pr = priceById[it.id] || {}
-        return {
-          product_id: Number(it.product_id || 0),
-          sell_price: toNumber(pr.sell_price),
-          buy_price: toNumber(pr.buy_price),
-          comment: String(pr.comment ?? ""),
-        }
-      }),
       cells: items
         .flatMap((it) =>
           MONTHS.flatMap((m) =>
@@ -591,18 +582,6 @@ const ServiceBusinessPlanDetail = (props) => {
     setIsSaving(true)
     setSaveMsg(null)
     try {
-      try {
-        await apiAuth(`/unit-prices/bulk`, {
-          method: "PUT",
-          body: { plan_id: Number(effectivePlanId), items: payload.prices },
-        })
-      } catch {
-        await apiAuth(`/unit-prices/bulk`, {
-          method: "PUT",
-          body: { year: Number(effectiveYearBE), items: payload.prices },
-        })
-      }
-
       await apiAuth(`/revenue/sale-goals/bulk`, {
         method: "PUT",
         body: {
@@ -629,7 +608,7 @@ const ServiceBusinessPlanDetail = (props) => {
     } finally {
       setIsSaving(false)
     }
-  }, [canEdit, effectivePlanId, effectiveYearBE, payload.prices, payload.cells, branchId, branchName, loadSaved])
+  }, [canEdit, effectivePlanId, effectiveYearBE, payload.cells, branchId, branchName, loadSaved])
 
   /** ---------------- rendering helpers ---------------- */
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"

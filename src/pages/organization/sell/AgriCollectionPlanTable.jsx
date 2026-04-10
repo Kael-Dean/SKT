@@ -284,22 +284,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
     setSaveMsg(null)
 
     try {
-      // 1. เตรียมข้อมูลราคา (Unit Prices)
-      const priceItems = editableItems.map((it) => {
-        return {
-          product_id: Number(it.product_id || 0),
-          sell_price: toNumber(priceById[it.id]),
-          buy_price: 0,
-          comment: "",
-        }
-      }).filter(p => p.product_id > 0)
-
-      await apiAuth(`/sale-goals/bulk`, {
-        method: "PUT",
-        body: { year: Number(yearBE), items: priceItems }
-      })
-
-      // 2. เตรียมข้อมูลจำนวนหน่วย (Cells)
+      // เตรียมข้อมูลจำนวนหน่วย (Cells)
       const cells = []
       for (const it of editableItems) {
         const pid = Number(it.product_id || 0)

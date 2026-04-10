@@ -180,13 +180,6 @@ const ThonthunDetail = ({ branchName, yearBE, planId }) => {
   
   return (
     <div className="space-y-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h1 className="text-lg font-bold">ประมาณการต้นทุนสินค้า (รายเดือน)</h1>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                ({periodLabel}) • ปี {effectiveYear} • {branchName || "ทุกสาขา"} {isLoading ? "(กำลังโหลด...)" : ""}
-            </p>
-        </div>
-
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col">
         <div className="overflow-auto" ref={tableScrollRef} style={{ maxHeight: tableCardHeight }}>
           <table className="border-collapse text-sm w-full">

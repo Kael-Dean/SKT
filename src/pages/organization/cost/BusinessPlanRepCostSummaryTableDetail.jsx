@@ -568,19 +568,6 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
   return (
     <>
-    <div className="space-y-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-lg font-bold">ประมาณการต้นทุนสินค้า - รายเดือน/รายหน่วย</div>
-            <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                ({periodLabel}) • ปี {effectiveYear} • plan_id {effectivePlanId} • สาขา {effectiveBranchName}
-                {isLoadingUnits ? " • กำลังโหลดหน่วย..." : ` • ${unitCols.length} หน่วย`}
-                {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
-            </div>
-             <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
-              รวมทั้งหมด (บาท): <span className="font-extrabold">{fmtMoney0(computed["G.T"]?.total ?? 0)}</span>
-            </div>
-        </div>
-
       <div ref={tableCardRef} className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col" style={{ maxHeight: tableCardHeight }}>
         <div className="flex-1 overflow-auto" ref={tableWrapRef}>
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
@@ -715,7 +702,6 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             </div>
         </div>
       </div>
-    </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
     </>
   )

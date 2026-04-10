@@ -564,19 +564,6 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
 
   return (
     <>
-    <div className="space-y-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ (ธุรกิจเมล็ดพันธุ์) - รายเดือน</div>
-            <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                ({periodLabel}) • ปี {effectiveYear} • plan_id {effectivePlanId} • สาขา {effectiveBranchName}
-                {isLoadingUnits ? " • กำลังโหลดหน่วย..." : ` • ${unitCols.length > 0 && unitCols[0].id !== 0 ? unitCols.length : 0} หน่วย`}
-                {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
-            </div>
-             <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
-              รวมทั้งหมด (บาท): <span className="font-extrabold">{fmtMoney(computed.grandTotal)}</span>
-            </div>
-        </div>
-
       <div ref={tableCardRef} className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col" style={{ maxHeight: tableCardHeight }}>
         <div className="flex-1 overflow-auto" ref={tableWrapRef}>
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
@@ -701,7 +688,6 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
             </div>
         </div>
       </div>
-    </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
     </>
   )

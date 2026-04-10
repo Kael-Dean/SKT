@@ -595,35 +595,6 @@ const BusinessPlanExpenseTable = ({ branchId, branchName, yearBE, planId }) => {
 
   return (
     <div className="space-y-3 mx-auto">
-      {/* Header */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="text-lg font-bold">ประมาณการค่าใช้จ่ายแผนธุรกิจ (ธุรกิจจัดหาสินค้า)</div>
-            <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              ({periodLabel}) • ปี {effectiveYear} • สาขา {effectiveBranchName} • หน่วย{" "}
-              {isLoadingUnits ? "กำลังโหลด..." : units.length}
-              {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
-            </div>
-            <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
-              รวมทั้งหมด (บาท): <span className="font-extrabold">{fmtMoney0(computed.grand)}</span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2 md:justify-end">
-            <button
-              type="button"
-              onClick={resetAll}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
-                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
-                         dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
-            >
-              รีเซ็ต
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Table Section */}
       <div
         ref={tableCardRef}

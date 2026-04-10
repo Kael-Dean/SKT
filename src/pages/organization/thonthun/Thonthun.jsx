@@ -654,46 +654,6 @@ if (res == null) throw new Error("บันทึกไม่สำเร็จ"
   const stickyCodeCell = "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
 
   return (
-    <div className="space-y-3">
-      {/* Header */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-          <div>
-            <div className="text-lg font-bold">ประมาณการต้นทุนสินค้า (ต้นทุนซื้อ/ต้นทุนการขาย)</div>
-            <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              ({periodLabel}) • ปี {effectiveYear} • สาขา {effectiveBranchName}
-              {isLoadingItems ? " • โหลดรายการ..." : ""}
-              {isLoadingSaved ? " • โหลดค่าที่บันทึกไว้..." : ""}
-            </div>
-            <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
-              รวมต้นทุนซื้อ: <span className="font-extrabold">{fmtMoney0(computed.sumBuy)}</span> บาท •{" "}
-              รวมต้นทุนการขาย: <span className="font-extrabold">{fmtMoney0(computed.sumSell)}</span> บาท
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-2 max-w-xl">
-          <div>
-            <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</div>
-            <div className={readonlyField}>{effectiveBranchName}</div>
-          </div>
-          <div>
-            <div className="mb-1 text-sm text-slate-700 dark:text-slate-300">รายการสินค้า</div>
-            <div className={readonlyField}>
-              {isLoadingItems ? "กำลังโหลด..." : items.length ? `${items.length} รายการ` : "ไม่มีรายการ"}
-            </div>
-          </div>
-        </div>
-
-        {!items.length && !isLoadingItems && (
-          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
-            <div className="font-extrabold">⚠️ ยังโหลดรายการสินค้าไม่สำเร็จ</div>
-            <div className="mt-1 text-[13px] opacity-95">กรุณาตรวจสอบการเชื่อมต่อกับระบบหลังบ้าน</div>
-          </div>
-        )}
-      </div>
-
-      {/* Table */}
       <div
         ref={tableCardRef}
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
@@ -897,7 +857,6 @@ if (res == null) throw new Error("บันทึกไม่สำเร็จ"
           </div>
         </div>
       </div>
-    </div>
   )
 }
 

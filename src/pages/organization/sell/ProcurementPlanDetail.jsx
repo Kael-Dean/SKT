@@ -873,7 +873,7 @@ function ProcurementPlanDetail(props) {
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
             <button
               type="button"
-              onClick={loadSavedFromBE}
+              onClick={() => { loadSavedFromBE(); loadProducts() }}
               className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
             >
               รีเซ็ต

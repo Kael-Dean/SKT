@@ -522,7 +522,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
     return { rowSum, colSum, grand }
   }, [valuesByCode, unitCols])
 
-  const RIGHT_W = useMemo(() => MONTHS.length * unitCols.length * COL_W.cell + COL_W.total, [unitCols.length])
+  const RIGHT_W = useMemo(() => MONTHS.length * (unitCols.length * COL_W.cell + COL_W.total) + COL_W.total, [unitCols.length])
   const TOTAL_W = useMemo(() => LEFT_W + RIGHT_W, [RIGHT_W])
 
   const setCell = (code, monthKey, unitId, raw) => {
@@ -646,9 +646,12 @@ const BusinessPlanOtherIncomeTable = (props) => {
             <colgroup>
               <col style={{ width: COL_W.code }} />
               <col style={{ width: COL_W.item }} />
-              {MONTHS.map((m) =>
-                unitCols.map((u) => <col key={`cg-${m.key}-${u.key}`} style={{ width: COL_W.cell }} />)
-              )}
+              {MONTHS.map((m) => (
+                <Fragment key={`cg-${m.key}`}>
+                  {unitCols.map((u) => <col key={`cg-${m.key}-${u.key}`} style={{ width: COL_W.cell }} />)}
+                  <col style={{ width: COL_W.total }} />
+                </Fragment>
+              ))}
               <col style={{ width: COL_W.total }} />
             </colgroup>
 
@@ -662,23 +665,28 @@ const BusinessPlanOtherIncomeTable = (props) => {
                   รายการ
                 </th>
                 {MONTHS.map((m, mi) => (
-                  <th key={`mh-${m.key}`} className={cx(headCell, monthStripeHead(mi), "border-b border-b-slate-300 dark:border-b-slate-600")} colSpan={unitCols.length}>
+                  <th key={`mh-${m.key}`} className={cx(headCell, monthStripeHead(mi), "border-b border-b-slate-300 dark:border-b-slate-600")} colSpan={unitCols.length + 1}>
                     {m.label}
                   </th>
                 ))}
                 <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={2}>
-                  รวม
+                  รวมทั้งหมด
                 </th>
               </tr>
-              {/* Row 2: Unit sub-headers */}
+              {/* Row 2: Unit sub-headers + per-month total */}
               <tr>
-                {MONTHS.map((m, mi) =>
-                  unitCols.map((u, ui) => (
-                    <th key={`uh-${m.key}-${u.key}`} className={cx(headCell, monthStripeHead(mi), "border-b border-b-slate-300 dark:border-b-slate-600 text-[10px]")}>
-                      {u.label.length <= 5 ? u.label : u.label.slice(0, 5)}
+                {MONTHS.map((m, mi) => (
+                  <Fragment key={`uh-${m.key}`}>
+                    {unitCols.map((u) => (
+                      <th key={`uh-${m.key}-${u.key}`} className={cx(headCell, monthStripeHead(mi), "border-b border-b-slate-300 dark:border-b-slate-600 text-[10px]")}>
+                        {u.label.length <= 5 ? u.label : u.label.slice(0, 5)}
+                      </th>
+                    ))}
+                    <th className={cx(headCell, monthStripeHead(mi), "border-b border-b-slate-300 dark:border-b-slate-600 text-[10px] text-emerald-700 dark:text-emerald-400")}>
+                      รวม
                     </th>
-                  ))
-                )}
+                  </Fragment>
+                ))}
               </tr>
             </thead>
 
@@ -696,13 +704,18 @@ const BusinessPlanOtherIncomeTable = (props) => {
                     <tr key={r.code} className={cx(bg, "font-medium", bottomBorder)}>
                       <td className={cx(leftCellCode, bg)}>{r.code}</td>
                       <td className={cx(leftCellItem, bg)} style={{ left: COL_W.code }}>{r.label}</td>
-                      {MONTHS.map((m, mi) =>
-                        unitCols.map((u) => (
-                          <td key={`${r.code}-${m.key}-${u.key}`} className={cx(cellClass, monthStripeCell(mi), "text-right")}>
-                            {fmtMoney0(computed.colSum[m.key]?.[u.key] ?? 0)}
+                      {MONTHS.map((m, mi) => (
+                        <Fragment key={`${r.code}-${m.key}`}>
+                          {unitCols.map((u) => (
+                            <td key={`${r.code}-${m.key}-${u.key}`} className={cx(cellClass, monthStripeCell(mi), "text-right")}>
+                              {fmtMoney0(computed.colSum[m.key]?.[u.key] ?? 0)}
+                            </td>
+                          ))}
+                          <td className={cx(cellClass, monthStripeCell(mi), "text-right font-bold text-emerald-700 dark:text-emerald-400")}>
+                            {fmtMoney0(unitCols.reduce((acc, u) => acc + (computed.colSum[m.key]?.[u.key] ?? 0), 0))}
                           </td>
-                        ))
-                      )}
+                        </Fragment>
+                      ))}
                       <td className={cx(cellClass, "text-right")}>{fmtMoney0(computed.grand ?? 0)}</td>
                     </tr>
                   )
@@ -716,26 +729,31 @@ const BusinessPlanOtherIncomeTable = (props) => {
                     <td className={cx(leftCellItem, bg, isUnmapped && "bg-amber-50 dark:bg-amber-900/20")} style={{ left: COL_W.code }} title={isUnmapped ? "ยังไม่แมพ" : ""}>
                       {r.label} {isUnmapped && <span className="ml-1 text-[10px] text-amber-600">(ยังไม่แมพ)</span>}
                     </td>
-                    {MONTHS.map((m, mi) =>
-                      unitCols.map((u, ui) => {
-                        const cIdx = mi * unitCols.length + ui
-                        return (
-                          <td key={`${r.code}-${m.key}-${u.key}`} className={cx(cellClass, monthStripeCell(mi))}>
-                            <input
-                              ref={registerInput(itemIndex, cIdx)}
-                              data-row={itemIndex} data-col={cIdx}
-                              onKeyDown={handleArrowNav}
-                              className={cx(cellInput, !canEdit || isUnmapped ? "opacity-60 cursor-not-allowed" : "")}
-                              inputMode="decimal"
-                              value={rowObj[m.key]?.[u.key] ?? ""}
-                              disabled={!canEdit || isUnmapped}
-                              onChange={(e) => setCell(r.code, m.key, u.key, e.target.value)}
-                              placeholder="0"
-                            />
-                          </td>
-                        )
-                      })
-                    )}
+                    {MONTHS.map((m, mi) => (
+                      <Fragment key={`${r.code}-${m.key}`}>
+                        {unitCols.map((u, ui) => {
+                          const cIdx = mi * unitCols.length + ui
+                          return (
+                            <td key={`${r.code}-${m.key}-${u.key}`} className={cx(cellClass, monthStripeCell(mi))}>
+                              <input
+                                ref={registerInput(itemIndex, cIdx)}
+                                data-row={itemIndex} data-col={cIdx}
+                                onKeyDown={handleArrowNav}
+                                className={cx(cellInput, !canEdit || isUnmapped ? "opacity-60 cursor-not-allowed" : "")}
+                                inputMode="decimal"
+                                value={rowObj[m.key]?.[u.key] ?? ""}
+                                disabled={!canEdit || isUnmapped}
+                                onChange={(e) => setCell(r.code, m.key, u.key, e.target.value)}
+                                placeholder="0"
+                              />
+                            </td>
+                          )
+                        })}
+                        <td className={cx(cellClass, monthStripeCell(mi), "text-right font-bold text-emerald-700 dark:text-emerald-400")}>
+                          {fmtMoney0(unitCols.reduce((acc, u) => acc + toNumber(rowObj[m.key]?.[u.key]), 0))}
+                        </td>
+                      </Fragment>
+                    ))}
                     <td className={cx(cellClass, "text-right font-bold text-emerald-700 dark:text-emerald-400")}>
                       {fmtMoney0(computed.rowSum[r.code]?.total ?? 0)}
                     </td>

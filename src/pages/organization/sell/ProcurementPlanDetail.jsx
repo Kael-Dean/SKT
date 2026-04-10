@@ -584,12 +584,6 @@ function ProcurementPlanDetail(props) {
     if (!branchIdEff || !effectivePlanId || !productRows.length) return
     setIsSaving(true); setSaveMsg(null)
     try {
-      const priceItems = products.map((p) => {
-        const pid = Number(p.product_id), cur = priceByPid[String(pid)] || {}
-        return { product_id: pid, sell_price: toNumber(cur.sell_price ?? p.sell_price ?? 0), buy_price: toNumber(cur.buy_price ?? p.buy_price ?? 0), comment: String(cur.comment ?? p.comment ?? "") }
-      })
-      await apiAuth(`/unit-prices/bulk`, { method: "PUT", body: { year: Number(effectiveYearBE), items: priceItems } })
-
       const cells = []
       for (const p of productRows) {
         const pid = Number(p.product_id)
@@ -608,7 +602,7 @@ function ProcurementPlanDetail(props) {
     } catch (e) {
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally { setIsSaving(false) }
-  }, [branchIdEff, effectivePlanId, effectiveYearBE, productRows, products, priceByPid, qtyByPid, unitCols, resolvedBranchName, loadSavedFromBE, loadProducts, loadUnitPricesForYear])
+  }, [branchIdEff, effectivePlanId, effectiveYearBE, productRows, priceByPid, qtyByPid, unitCols, resolvedBranchName, loadSavedFromBE, loadUnitPricesForYear])
 
   /** ---------------- rendering helpers ---------------- */
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"

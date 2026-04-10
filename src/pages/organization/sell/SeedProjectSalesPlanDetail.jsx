@@ -538,38 +538,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
 
   return (
     <>
-    <div className="w-full space-y-3">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="flex-1">
-            <div className="text-center md:text-left">
-              <div className="text-lg font-bold">ยอดขายธุรกิจเมล็ด</div>
-              <div className="text-xl md:text-2xl font-extrabold">รายละเอียดแผนโครงการผลิตเมล็ดพันธุ์</div>
-            </div>
-
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ปี (พ.ศ.)</label>
-                <input
-                  className={baseField}
-                  value={yearBE || ""}
-                  onChange={(e) => onYearBEChange?.(e.target.value)}
-                  placeholder="เช่น 2569"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</label>
-                <div className={cx(baseField, "flex items-center justify-between", !canEdit && "opacity-70")}>
-                  <span className="font-semibold">{branchName ? branchName : "— ยังไม่เลือกสาขา —"}</span>
-                  <span className="text-sm text-slate-500 dark:text-slate-300">plan_id: {planId || "—"} • branch_id: {branchId || "—"}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
+    <div className="w-full">
       <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700" ref={tableWrapRef} style={{ maxHeight: tableCardHeight }}>
           <table className="min-w-full border-collapse" style={{ width: TOTAL_W }}>

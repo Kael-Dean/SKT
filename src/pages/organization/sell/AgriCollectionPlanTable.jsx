@@ -538,44 +538,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
 
   return (
     <>
-    <div className="space-y-3 w-full">
-      {/* Header Info */}
-      <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-        <div className="flex-1">
-          <div className="text-[16px] font-bold">ยอดขาย</div>
-          <div className="text-xl md:text-2xl font-extrabold">
-            รายละเอียดแผนการรวบรวมผลผลิตการเกษตร
-          </div>
-          <div className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
-            หน่วย: พันบาท (คำนวณจาก จำนวน × ราคา/หน่วย) • ปี {yearBE || "-"} • สาขา {branchName || "-"}
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-3 max-w-3xl">
-            <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">ปี (พ.ศ.)</label>
-              <input
-                className={baseField}
-                value={yearBE}
-                onChange={(e) => onYearBEChange?.(e.target.value)}
-                placeholder="เช่น 2568"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</label>
-              <div className={cx(baseField, "flex items-center justify-between", !canEdit && "opacity-70")}>
-                <span className="font-semibold">{branchName ? branchName : "— ยังไม่เลือกสาขา —"}</span>
-                <span className="text-sm text-slate-500 dark:text-slate-300">id: {branchId || "—"}</span>
-              </div>
-              {!canEdit && (
-                <div className="mt-2 text-sm text-red-600 dark:text-red-400">
-                  * กลับไปเลือกสาขาด้านบนก่อน ถึงจะเริ่มกรอกได้
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <div className="w-full">
       {/* Table Card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700" ref={tableWrapRef} style={{ maxHeight: tableCardHeight }}>

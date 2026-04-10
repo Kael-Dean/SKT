@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReactDOM from "react-dom"
 import { apiAuth } from "../../lib/api"
-import { getToken, decodeJwt } from "../../lib/auth"
 
 import ProcurementPlanDetail from "./sell/ProcurementPlanDetail"
 import AgriCollectionPlanTable from "./sell/AgriCollectionPlanTable"
@@ -391,8 +390,6 @@ const OperationPlan = () => {
   const [loadingBranches, setLoadingBranches] = useState(false)
   const [branchOptions, setBranchOptions] = useState([])
   const [branchId, setBranchId] = useState("")
-  const [branchLocked, setBranchLocked] = useState(false)
-
   const [planType, setPlanType] = useState("")
   const [tableKey, setTableKey] = useState("")
   const [modalOpen, setModalOpen] = useState(false)
@@ -423,21 +420,6 @@ const OperationPlan = () => {
     }
     loadBranches()
   }, [])
-
-  // ล็อกสาขาตาม branch_location ใน JWT
-  useEffect(() => {
-    if (!branchOptions.length) return
-    try {
-      const payload = decodeJwt(getToken() || "")
-      const userBranchId = payload?.branch ?? null
-      if (userBranchId == null) return
-      const matched = branchOptions.find((o) => String(o.id) === String(userBranchId))
-      if (matched) {
-        setBranchId(matched.id)
-        setBranchLocked(true)
-      }
-    } catch { /* ถ้า decode ไม่ได้ ให้ user เลือกเอง */ }
-  }, [branchOptions])
 
   const currentTables = useMemo(() => {
     if (planType === "sell") return SALES_TABLES
@@ -555,17 +537,16 @@ const OperationPlan = () => {
                 </div>
               ) : (
                 <ComboBox
-                  options={branchLocked && branchId ? branchOptions.filter((o) => String(o.id) === String(branchId)) : branchOptions}
+                  options={branchOptions}
                   value={branchId}
                   onChange={(id) => setBranchId(String(id))}
                   placeholder={loadingBranches ? "กำลังโหลดสาขา..." : "— เลือกสาขา —"}
-                  disabled={loadingBranches || branchLocked}
+                  disabled={loadingBranches}
                   buttonRef={branchRef}
                   onEnterNext={() => typeRef.current?.focus?.()}
                 />
               )}
 
-              {branchLocked && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">สาขาถูกล็อกตามรหัสผู้ใช้</p>}
               {branchRequired && !branchId && <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>}
             </div>
 

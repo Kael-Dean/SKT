@@ -560,47 +560,15 @@ const BusinessPlanRevenueByBusinessTableDetail = ({ branchId, branchName, yearBE
   return (
     <div className="space-y-3 mx-auto p-3">
       {/* Info bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <div className="text-[15px] font-bold text-slate-800 dark:text-slate-100">รายได้เฉพาะธุรกิจ (รายปี)</div>
-          <div className="mt-0.5 text-[12px] text-slate-500 dark:text-slate-400">
-            หน่วย: พันบาท • ปี {effectiveYear} ({periodLabel}) • สาขา {effectiveBranchName}
-            {(isLoadingUnits || isLoadingSaved) && <span className="ml-2 text-indigo-500">⏳ กำลังโหลด...</span>}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={resetAll}
-            disabled={isSaving}
-            className="rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-[.97] transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            ล้างข้อมูล
-          </button>
-          <button
-            type="button"
-            onClick={saveToBE}
-            disabled={isSaving || !effectiveBranchId || !units.length}
-            className="rounded-xl bg-emerald-500 hover:bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white active:scale-[.97] transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSaving ? "กำลังบันทึก..." : "บันทึก"}
-          </button>
+      <div>
+        <div className="text-[15px] font-bold text-slate-800 dark:text-slate-100">รายได้เฉพาะธุรกิจ (รายปี)</div>
+        <div className="mt-0.5 text-[12px] text-slate-500 dark:text-slate-400">
+          หน่วย: พันบาท • ปี {effectiveYear} ({periodLabel}) • สาขา {effectiveBranchName}
+          {(isLoadingUnits || isLoadingSaved) && <span className="ml-2 text-indigo-500">⏳ กำลังโหลด...</span>}
         </div>
       </div>
 
-      {saveNotice && (
-        <div className={cx(
-          "rounded-xl border px-4 py-2.5 text-sm",
-          saveNotice.type === "success" ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-200" :
-          saveNotice.type === "error" ? "border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/20 text-red-800 dark:text-red-200" :
-          "border-slate-300 bg-slate-50 dark:border-slate-600 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
-        )}>
-          <span className="font-semibold">{saveNotice.title}</span>
-          {saveNotice.detail && <span className="ml-2 opacity-80">{saveNotice.detail}</span>}
-        </div>
-      )}
-
-      {/* Table */}
+      {/* Table + Action bar */}
       <div
         ref={tableCardRef}
         className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
@@ -740,6 +708,42 @@ const BusinessPlanRevenueByBusinessTableDetail = ({ branchId, branchName, yearBE
               </tr>
             </tfoot>
           </table>
+        </div>
+
+        {/* Action bar */}
+        <div className="shrink-0 p-3 md:p-4">
+          {saveNotice && (
+            <div className={cx(
+              "mb-3 rounded-2xl border p-3 text-sm",
+              saveNotice.type === "error" ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200" :
+              saveNotice.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200" :
+              "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100"
+            )}>
+              <div className="font-extrabold">{saveNotice.title}</div>
+              {saveNotice.detail && <div className="mt-1 text-[13px] opacity-95">{saveNotice.detail}</div>}
+            </div>
+          )}
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
+            <button
+              type="button"
+              onClick={resetAll}
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+            >
+              รีเซ็ต
+            </button>
+            <button
+              type="button"
+              disabled={isSaving || !effectiveBranchId || !units.length}
+              onClick={saveToBE}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white",
+                "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",
+                (isSaving || !effectiveBranchId || !units.length) ? "opacity-60 hover:scale-100 cursor-not-allowed" : "cursor-pointer"
+              )}
+            >
+              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+          </div>
         </div>
       </div>
 

@@ -247,13 +247,13 @@ const SALES_TABLES = [
   },
   {
     key: "business-plan-revenue-by-business",
-    label: "รายได้เฉพาะธุรกิจ (สรุป)",
+    label: "รายได้เฉพาะธุรกิจ (สรุป รายเดือน)",
     file: "sell/BusinessPlanRevenueByBusinessTable.jsx",
     Component: BusinessPlanRevenueByBusinessTable,
   },
   {
     key: "business-plan-other-income",
-    label: "รายได้อื่นๆ",
+    label: "รายได้อื่นๆ (รายเดือน)",
     file: "sell/BusinessPlanOtherIncomeTable.jsx",
     Component: BusinessPlanOtherIncomeTable,
   },

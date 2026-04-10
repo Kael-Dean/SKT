@@ -8,7 +8,9 @@ import AgriProcessingPlanDetail from "./sell/AgriProcessingPlanDetail"
 import SeedProjectSalesPlanDetail from "./sell/SeedProjectSalesPlanDetail"
 import ServiceBusinessPlanDetail from "./sell/ServiceBusinessPlanDetail"
 import BusinessPlanRevenueByBusinessTable from "./sell/BusinessPlanRevenueByBusinessTable"
+import BusinessPlanRevenueByBusinessTableDetail from "./sell/BusinessPlanRevenueByBusinessTableDetail"
 import BusinessPlanOtherIncomeTable from "./sell/BusinessPlanOtherIncomeTable"
+import BusinessPlanOtherIncomeTableDetail from "./sell/BusinessPlanOtherIncomeTableDetail"
 
 import BusinessPlanExpenseTable from "./cost/BusinessPlanExpenseTable"
 import BusinessPlanExpenseOilTable from "./cost/BusinessPlanExpenseOilTable"
@@ -252,10 +254,22 @@ const SALES_TABLES = [
     Component: BusinessPlanRevenueByBusinessTable,
   },
   {
+    key: "business-plan-revenue-by-business-detail",
+    label: "รายได้เฉพาะธุรกิจ (สรุป รายปี)",
+    file: "sell/BusinessPlanRevenueByBusinessTableDetail.jsx",
+    Component: BusinessPlanRevenueByBusinessTableDetail,
+  },
+  {
     key: "business-plan-other-income",
     label: "รายได้อื่นๆ (รายเดือน)",
     file: "sell/BusinessPlanOtherIncomeTable.jsx",
     Component: BusinessPlanOtherIncomeTable,
+  },
+  {
+    key: "business-plan-other-income-detail",
+    label: "รายได้อื่นๆ (รายปี)",
+    file: "sell/BusinessPlanOtherIncomeTableDetail.jsx",
+    Component: BusinessPlanOtherIncomeTableDetail,
   },
 ]
 

@@ -81,7 +81,7 @@ export default function StickyTableScrollbar({ tableRef }) {
     }
   }, [tableRef, syncPos])
 
-  // ─── Hide native scrollbars + reserve space for custom vertical bar ───
+  // ─── Hide native scrollbars + reserve space for custom bars ───
   useEffect(() => {
     const el = tableRef?.current
     if (!el) return
@@ -90,8 +90,10 @@ export default function StickyTableScrollbar({ tableRef }) {
     } else {
       el.classList.remove("_scsb-hide")
     }
-    // Pad right so the fixed-position vertical scrollbar doesn't cover the last column
+    // Pad right so the vertical scrollbar doesn't cover the last column
     el.style.paddingRight = vVis ? `${V_W}px` : ""
+    // Pad bottom so the horizontal scrollbar doesn't cover the last row
+    el.style.paddingBottom = hVis ? `${H_H}px` : ""
   }, [tableRef, hVis, vVis])
 
   // ─── Listen scroll ───

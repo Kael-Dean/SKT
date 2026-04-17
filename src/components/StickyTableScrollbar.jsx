@@ -147,13 +147,33 @@ export default function StickyTableScrollbar({ tableRef }) {
 
   // ─── Window events ───
   useEffect(() => {
-    window.addEventListener("scroll", syncPos, { passive: true })
+    window.addEventListener("scroll", sync, { passive: true })
     window.addEventListener("resize", sync, { passive: true })
     return () => {
-      window.removeEventListener("scroll", syncPos)
+      window.removeEventListener("scroll", sync)
       window.removeEventListener("resize", sync)
     }
-  }, [syncPos, sync])
+  }, [sync])
+
+  // ─── Ancestor scroll containers (e.g. modal overflow-y-auto wrappers) ───
+  useEffect(() => {
+    const el = tableRef?.current
+    if (!el) return
+    const ancestors = []
+    let node = el.parentElement
+    while (node && node !== document.body) {
+      const { overflow, overflowX, overflowY } = window.getComputedStyle(node)
+      if (/auto|scroll/.test(overflow + overflowX + overflowY)) ancestors.push(node)
+      node = node.parentElement
+    }
+    if (!ancestors.length) return
+    const onAncestorScroll = () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(sync)
+    }
+    ancestors.forEach(a => a.addEventListener("scroll", onAncestorScroll, { passive: true }))
+    return () => ancestors.forEach(a => a.removeEventListener("scroll", onAncestorScroll))
+  }, [tableRef, sync])
 
   // ─── Repeat press ───
   const startRepeat = useCallback((fn) => {

@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
+import { useBusinessEarnings } from "../../../lib/useBusinessList"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -131,134 +132,65 @@ const FALLBACK_UNITS = [
   { id: 2, name: "โนนนารายณ์" },
 ]
 
-/** ---------------- Mapping: (earning_id + business_group) -> businessearnings.id ---------------- */
-const BUSINESS_EARNINGS_SEED = [
-  { id: 1, earning_id: 1, business_group: 1 },
-  { id: 2, earning_id: 2, business_group: 1 },
-  { id: 3, earning_id: 3, business_group: 1 },
-  { id: 4, earning_id: 4, business_group: 1 },
-  { id: 5, earning_id: 5, business_group: 1 },
-  { id: 6, earning_id: 6, business_group: 1 },
-  { id: 7, earning_id: 6, business_group: 2 },
-  { id: 8, earning_id: 8, business_group: 2 },
-  { id: 9, earning_id: 2, business_group: 2 },
-  { id: 10, earning_id: 7, business_group: 2 },
-  { id: 11, earning_id: 6, business_group: 3 },
-  { id: 12, earning_id: 15, business_group: 3 },
-  { id: 13, earning_id: 14, business_group: 3 },
-  { id: 14, earning_id: 13, business_group: 3 },
-  { id: 15, earning_id: 12, business_group: 3 },
-  { id: 16, earning_id: 11, business_group: 3 },
-  { id: 17, earning_id: 10, business_group: 3 },
-  { id: 18, earning_id: 9, business_group: 3 },
-  { id: 19, earning_id: 6, business_group: 4 },
-  { id: 20, earning_id: 18, business_group: 4 },
-  { id: 21, earning_id: 17, business_group: 4 },
-  { id: 22, earning_id: 16, business_group: 4 },
-  { id: 23, earning_id: 14, business_group: 4 },
-  { id: 24, earning_id: 12, business_group: 4 },
-  { id: 25, earning_id: 11, business_group: 4 },
-  { id: 26, earning_id: 10, business_group: 4 },
-  { id: 27, earning_id: 9, business_group: 4 },
-  { id: 28, earning_id: 22, business_group: 4 },
-  { id: 29, earning_id: 4, business_group: 4 },
-  { id: 30, earning_id: 6, business_group: 5 },
-  { id: 31, earning_id: 4, business_group: 5 },
-  { id: 32, earning_id: 21, business_group: 5 },
-  { id: 33, earning_id: 20, business_group: 5 },
-  { id: 34, earning_id: 10, business_group: 5 },
-  { id: 35, earning_id: 9, business_group: 5 },
-  { id: 36, earning_id: 19, business_group: 5 },
-  { id: 37, earning_id: 6, business_group: 6 },
-  { id: 38, earning_id: 29, business_group: 6 },
-  { id: 39, earning_id: 28, business_group: 6 },
-  { id: 40, earning_id: 27, business_group: 6 },
-  { id: 41, earning_id: 26, business_group: 6 },
-  { id: 42, earning_id: 25, business_group: 6 },
-  { id: 43, earning_id: 24, business_group: 6 },
-  { id: 44, earning_id: 22, business_group: 6 },
-  { id: 45, earning_id: 22, business_group: 8 },
-  { id: 46, earning_id: 23, business_group: 8 },
-  { id: 47, earning_id: 6, business_group: 8 },
-]
-
-const BUSINESS_EARNING_ID_MAP = (() => {
-  const m = new Map()
-  for (const r of BUSINESS_EARNINGS_SEED) {
-    const key = `${Number(r.earning_id)}:${Number(r.business_group)}`
-    if (!m.has(key)) m.set(key, Number(r.id))
-  }
-  return m
-})()
-
-const resolveBusinessEarningId = (earningId, businessGroupId) =>
-  BUSINESS_EARNING_ID_MAP.get(`${Number(earningId)}:${Number(businessGroupId)}`) ?? null
-
-const resolveRowBusinessEarningId = (row) => {
-  if (row?.business_earning_id) return Number(row.business_earning_id)
-  if (!row?.earning_id || !row?.business_group) return null
-  return resolveBusinessEarningId(row.earning_id, row.business_group)
-}
-
 /** ---------------- Rows (รายการรายได้) ---------------- */
 const ROWS = [
   { code: "REV", label: "ประมาณการ รายได้เฉพาะธุรกิจ", kind: "title" },
 
   { code: "1", label: "รายได้เฉพาะ ธุรกิจจัดหา", kind: "section" },
-  { code: "1.1", label: "ค่าตอบแทนจัดหาวัสดุ", kind: "item", business_group: 1, earning_id: 1 },
-  { code: "1.2", label: "รายได้จากส่งเสริมการขาย", kind: "item", business_group: 1, earning_id: 2 },
-  { code: "1.3", label: "ดอกเบี้ยรับ-ลูกหนี้การค้า", kind: "item", business_group: 1, earning_id: 3 },
-  { code: "1.4", label: "กำไรจากการตีราคาสินค้าเพิ่มขึ้น", kind: "item", business_group: 1, earning_id: 4 },
-  { code: "1.5", label: "รางวัล สกต.ดีเด่น", kind: "item", business_group: 1, earning_id: 5 },
-  { code: "1.6", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 1, earning_id: 6 },
+  { code: "1.1", kind: "item", business_earning_id: 1 },
+  { code: "1.2", kind: "item", business_earning_id: 2 },
+  { code: "1.3", kind: "item", business_earning_id: 3 },
+  { code: "1.4", kind: "item", business_earning_id: 4 },
+  { code: "1.5", kind: "item", business_earning_id: 5 },
+  { code: "1.6", kind: "item", business_earning_id: 6 },
   { code: "1.T", label: "รวมธุรกิจจัดหา", kind: "subtotal" },
 
   { code: "2", label: "รายได้เฉพาะ ธุรกิจจัดหา-ปั๊มน้ำมัน", kind: "section" },
-  { code: "2.1", label: "รางวัลคุณภาพ", kind: "item", business_group: 2, earning_id: 7 },
-  { code: "2.2", label: "รายได้ค่าส่งเสริมการขาย", kind: "item", business_group: 2, earning_id: 2 },
-  { code: "2.3", label: "รายได้ค่าบริการสมาชิก", kind: "item", business_group: 2, earning_id: 8 },
-  { code: "2.4", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 2, earning_id: 6 },
+  { code: "2.1", kind: "item", business_earning_id: 10 },
+  { code: "2.2", kind: "item", business_earning_id: 9 },
+  { code: "2.3", kind: "item", business_earning_id: 8 },
+  { code: "2.4", kind: "item", business_earning_id: 7 },
   { code: "2.T", label: "รวมธุรกิจจัดหา-ปั๊มน้ำมัน", kind: "subtotal" },
 
   { code: "3", label: "รายได้เฉพาะธุรกิจรวบรวม", kind: "section" },
-  { code: "3.1", label: "รายได้รถบรรทุก", kind: "item", business_group: 3, earning_id: 9 },
-  { code: "3.2", label: "รายได้จากการชะลอ", kind: "item", business_group: 3, earning_id: 10 },
-  { code: "3.3", label: "รายได้จากการส่งออกคุณภาพข้าวเปลือก", kind: "item", business_group: 3, earning_id: 11 },
-  { code: "3.4", label: "รายได้จากกระสอบ", kind: "item", business_group: 3, earning_id: 12 },
-  { code: "3.5", label: "รายได้ค่าบริการตลาดกลาง", kind: "item", business_group: 3, earning_id: 13 },
-  { code: "3.6", label: "เงินชดเชยดอกเบี้ยประกัน", kind: "item", business_group: 3, earning_id: 14 },
-  { code: "3.7", label: "รายได้เงินอุดหนุน", kind: "item", business_group: 3, earning_id: 15 },
-  { code: "3.8", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 3, earning_id: 6 },
+  { code: "3.1", kind: "item", business_earning_id: 18 },
+  { code: "3.2", kind: "item", business_earning_id: 17 },
+  { code: "3.3", kind: "item", business_earning_id: 16 },
+  { code: "3.4", kind: "item", business_earning_id: 15 },
+  { code: "3.5", kind: "item", business_earning_id: 14 },
+  { code: "3.6", kind: "item", business_earning_id: 13 },
+  { code: "3.7", kind: "item", business_earning_id: 12 },
+  { code: "3.8", kind: "item", business_earning_id: 11 },
   { code: "3.T", label: "รวมธุรกิจรวบรวม", kind: "subtotal" },
 
   { code: "4", label: "รายได้เฉพาะ ธุรกิจแปรรูป", kind: "section" },
-  { code: "4.1", label: "กำไรจากการตีราคาสินค้าเพิ่มขึ้น", kind: "item", business_group: 4, earning_id: 4 },
-  { code: "4.2", label: "ดอกเบี้ยเงินฝาก", kind: "item", business_group: 4, earning_id: 22 },
-  { code: "4.3", label: "รายได้รถบรรทุก", kind: "item", business_group: 4, earning_id: 9 },
-  { code: "4.4", label: "รายได้โครงการชะลอ", kind: "item", business_group: 4, earning_id: 10 },
-  { code: "4.5", label: "รายได้จากการรับจ้างสี", kind: "item", business_group: 4, earning_id: 16 },
-  { code: "4.6", label: "รายได้จากกระสอบ", kind: "item", business_group: 4, earning_id: 12 },
-  { code: "4.7", label: "เงินชดเชยดอกเบี้ยประกัน", kind: "item", business_group: 4, earning_id: 14 },
-  { code: "4.8", label: "รายได้เงินอุดหนุน-การจำหน่ายข้าวสาร", kind: "item", business_group: 4, earning_id: 17 },
-  { code: "4.9", label: "รายได้เงินอุดหนุน-ซื้อเครื่องจักร", kind: "item", business_group: 4, earning_id: 18 },
-  { code: "4.10", label: "รายได้จากการตรวจสอบคุณภาพข้าวเปลือก", kind: "item", business_group: 4, earning_id: 11 },
-  { code: "4.11", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 4, earning_id: 6 },
+  { code: "4.1", kind: "item", business_earning_id: 29 },
+  { code: "4.2", kind: "item", business_earning_id: 28 },
+  { code: "4.3", kind: "item", business_earning_id: 27 },
+  { code: "4.4", kind: "item", business_earning_id: 26 },
+  { code: "4.5", kind: "item", business_earning_id: 22 },
+  { code: "4.6", kind: "item", business_earning_id: 24 },
+  { code: "4.7", kind: "item", business_earning_id: 23 },
+  { code: "4.8", kind: "item", business_earning_id: 21 },
+  { code: "4.9", kind: "item", business_earning_id: 20 },
+  { code: "4.10", kind: "item", business_earning_id: 25 },
+  { code: "4.11", kind: "item", business_earning_id: 19 },
   { code: "4.T", label: "รวมธุรกิจแปรรูป", kind: "subtotal" },
 
   { code: "5", label: "รายได้เฉพาะ ธุรกิจแปรรูป-เมล็ดพันธุ์", kind: "section" },
-  { code: "5.1", label: "เมล็ดพันธุ์ขาดบัญชีได้รับชดใช้", kind: "item", business_group: 5, earning_id: 19 },
-  { code: "5.2", label: "รายได้รถบรรทุก", kind: "item", business_group: 5, earning_id: 9 },
-  { code: "5.3", label: "รายได้โครงการชะลอ", kind: "item", business_group: 5, earning_id: 10 },
-  { code: "5.4", label: "รายได้เงินอุดหนุนจากการผลิตเมล็ดพันธุ์", kind: "item", business_group: 5, earning_id: 20 },
-  { code: "5.5", label: "รายได้เกษตรกร", kind: "item", business_group: 5, earning_id: 21 },
-  { code: "5.6", label: "กำไรจากการตีราคาสินค้าเพิ่มขึ้น", kind: "item", business_group: 5, earning_id: 4 },
-  { code: "5.7", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 5, earning_id: 6 },
+  { code: "5.1", kind: "item", business_earning_id: 36 },
+  { code: "5.2", kind: "item", business_earning_id: 35 },
+  { code: "5.3", kind: "item", business_earning_id: 34 },
+  { code: "5.4", kind: "item", business_earning_id: 33 },
+  { code: "5.5", kind: "item", business_earning_id: 32 },
+  { code: "5.6", kind: "item", business_earning_id: 31 },
+  { code: "5.7", kind: "item", business_earning_id: 30 },
   { code: "5.T", label: "รวมธุรกิจแปรรูป-เมล็ดพันธุ์", kind: "subtotal" },
 
   { code: "6", label: "รายได้ศูนย์อบรม", kind: "section" },
-  { code: "6.1", label: "ดอกเบี้ยเงินฝาก", kind: "item", business_group: 8, earning_id: 22 },
-  { code: "6.2", label: "รายได้ค่าจัดการ", kind: "item", business_group: 8, earning_id: 23 },
-  { code: "6.3", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 8, earning_id: 6 },
+  { code: "6.1", kind: "item", business_earning_id: 45 },
+  { code: "6.2", kind: "item", business_earning_id: 46 },
+  { code: "6.3", kind: "item", business_earning_id: 47 },
   { code: "6.T", label: "รายได้ศูนย์อบรม", kind: "subtotal" },
 ]
 
@@ -286,15 +218,10 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
   const yearBE = props?.yearBE ?? props?.year_be ?? props?.year ?? null
   const planId = Number(props?.planId ?? props?.plan_id ?? 0) || 0
 
-  const [earningNameById, setEarningNameById] = useState({})
-  useEffect(() => {
-    let alive = true
-    apiAuth("/lists/earning-type-names").then((d) => { if (alive && d) setEarningNameById(d) }).catch(() => {})
-    return () => { alive = false }
-  }, [])
+  const { nameById: earningNameById } = useBusinessEarnings()
 
   const displayRows = useMemo(
-    () => ROWS.map((r) => r.earning_id && earningNameById[r.earning_id] ? { ...r, label: earningNameById[r.earning_id] } : r),
+    () => ROWS.map((r) => r.business_earning_id && earningNameById[r.business_earning_id] ? { ...r, label: earningNameById[r.business_earning_id] } : r),
     [earningNameById]
   )
 
@@ -392,8 +319,8 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
 
       const beToCode = new Map()
       for (const r of itemRows) {
-        const beId = resolveRowBusinessEarningId(r)
-        if (beId) beToCode.set(Number(beId), r.code)
+        const beId = Number(r.business_earning_id || 0)
+        if (beId) beToCode.set(beId, r.code)
       }
 
       const seed = {}
@@ -564,7 +491,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
     const blocked = []
 
     for (const r of itemRows) {
-      const businessEarningId = resolveRowBusinessEarningId(r)
+      const businessEarningId = Number(r.business_earning_id || 0)
       const rowObj = valuesByCode[r.code] || {}
 
       let hasValue = false
@@ -707,7 +634,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
               {displayRows.map((r, rowIdx) => {
                 const isItem = r.kind === "item"
                 const itemIndex = isItem ? itemRows.findIndex((x) => x.code === r.code) : -1
-                const isUnmapped = isItem && !resolveRowBusinessEarningId(r)
+                const isUnmapped = isItem && !Number(r.business_earning_id || 0)
 
                 let bg = STRIPE.cellEven
                 let fontClass = "font-medium"

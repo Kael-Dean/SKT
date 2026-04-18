@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
+import { useAuxCosts } from "../../../lib/useBusinessList"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -171,12 +172,7 @@ const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.alt : STRIPE.cell);
 
 
 const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, planId }) => {
-  const [auxNameById, setAuxNameById] = useState({})
-  useEffect(() => {
-    let alive = true
-    apiAuth("/lists/aux-cost-names").then((d) => { if (alive && d) setAuxNameById(d) }).catch(() => {})
-    return () => { alive = false }
-  }, [])
+  const { nameById: auxNameById } = useAuxCosts()
 
   const displayRows = useMemo(
     () => ROWS.map((r) => r.aux_id && auxNameById[r.aux_id] ? { ...r, label: auxNameById[r.aux_id] } : r),

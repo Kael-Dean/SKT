@@ -8,21 +8,10 @@ import AgriProcessingPlanDetail from "./sell/AgriProcessingPlanDetail"
 import SeedProjectSalesPlanDetail from "./sell/SeedProjectSalesPlanDetail"
 import ServiceBusinessPlanDetail from "./sell/ServiceBusinessPlanDetail"
 import BusinessPlanRevenueByBusinessTable from "./sell/BusinessPlanRevenueByBusinessTable"
-import BusinessPlanRevenueByBusinessTableDetail from "./sell/BusinessPlanRevenueByBusinessTableDetail"
 import BusinessPlanOtherIncomeTable from "./sell/BusinessPlanOtherIncomeTable"
-import BusinessPlanOtherIncomeTableDetail from "./sell/BusinessPlanOtherIncomeTableDetail"
 
-import BusinessPlanExpenseTable from "./cost/BusinessPlanExpenseTable"
-import BusinessPlanExpenseOilTable from "./cost/BusinessPlanExpenseOilTable"
-import BusinessPlanExpenseCollectionTable from "./cost/BusinessPlanExpenseCollectionTable"
-import BusinessPlanExpenseProcessingTable from "./cost/BusinessPlanExpenseProcessingTable"
-import BusinessPlanExpenseSeedProcessingTable from "./cost/BusinessPlanExpenseSeedProcessingTable"
-import BusinessPlanExpenseServiceTable from "./cost/BusinessPlanExpenseServiceTable"
-import BusinessPlanExpenseSupportWorkTable from "./cost/BusinessPlanExpenseSupportWorkTable"
-import BusinessPlanRepCostSummaryTable from "./cost/BusinessPlanRepCostSummaryTable"
 import Thonthun from "./thonthun/Thonthun"
 
-// รายเดือน
 import BusinessPlanExpenseTableDetail from "./cost/BusinessPlanExpenseTableDetail"
 import BusinessPlanExpenseOilTableDetail from "./cost/BusinessPlanExpenseOilTableDetail"
 import BusinessPlanExpenseCollectionTableDetail from "./cost/BusinessPlanExpenseCollectionTableDetail"
@@ -254,75 +243,14 @@ const SALES_TABLES = [
     Component: BusinessPlanRevenueByBusinessTable,
   },
   {
-    key: "business-plan-revenue-by-business-detail",
-    label: "รายได้เฉพาะธุรกิจ (สรุป รายปี)",
-    file: "sell/BusinessPlanRevenueByBusinessTableDetail.jsx",
-    Component: BusinessPlanRevenueByBusinessTableDetail,
-  },
-  {
     key: "business-plan-other-income",
     label: "รายได้อื่นๆ (รายเดือน)",
     file: "sell/BusinessPlanOtherIncomeTable.jsx",
     Component: BusinessPlanOtherIncomeTable,
   },
-  {
-    key: "business-plan-other-income-detail",
-    label: "รายได้อื่นๆ (รายปี)",
-    file: "sell/BusinessPlanOtherIncomeTableDetail.jsx",
-    Component: BusinessPlanOtherIncomeTableDetail,
-  },
 ]
 
 const COST_TABLES = [
-  {
-    key: "business-plan-expense-table",
-    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า",
-    file: "cost/BusinessPlanExpenseTable.jsx",
-    Component: BusinessPlanExpenseTable,
-  },
-  {
-    key: "business-plan-expense-oil-table",
-    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า ปั๊มน้ำมัน",
-    file: "cost/BusinessPlanExpenseOilTable.jsx",
-    Component: BusinessPlanExpenseOilTable,
-  },
-  {
-    key: "business-plan-expense-collection-table",
-    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม",
-    file: "cost/BusinessPlanExpenseCollectionTable.jsx",
-    Component: BusinessPlanExpenseCollectionTable,
-  },
-  {
-    key: "business-plan-expense-processing-table",
-    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป",
-    file: "cost/BusinessPlanExpenseProcessingTable.jsx",
-    Component: BusinessPlanExpenseProcessingTable,
-  },
-  {
-    key: "business-plan-expense-seed-processing-table",
-    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูปเมล็ดพันธุ์",
-    file: "cost/BusinessPlanExpenseSeedProcessingTable.jsx",
-    Component: BusinessPlanExpenseSeedProcessingTable,
-  },
-  {
-    key: "business-plan-expense-service-table",
-    label: "ค่าใช้จ่ายเฉพาะ ธุรกิจบริการ",
-    file: "cost/BusinessPlanExpenseServiceTable.jsx",
-    Component: BusinessPlanExpenseServiceTable,
-  },
-  {
-    key: "business-plan-expense-support-work-table",
-    label: "ค่าใช้จ่ายดำเนินงาน",
-    file: "cost/BusinessPlanExpenseSupportWorkTable.jsx",
-    Component: BusinessPlanExpenseSupportWorkTable,
-  },
-  {
-    key: "business-plan-rep-cost-summary",
-    label: "ต้นทุนขายเฉพาะธุรกิจ",
-    file: "cost/BusinessPlanRepCostSummaryTable.jsx",
-    Component: BusinessPlanRepCostSummaryTable,
-  },
-  // รายเดือน
   {
     key: "business-plan-expense-table-detail",
     label: "ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า (รายเดือน)",

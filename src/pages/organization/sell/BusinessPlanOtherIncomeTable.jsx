@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
+import { useBusinessEarnings } from "../../../lib/useBusinessList"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -124,79 +125,16 @@ const monthStripeCell = (mi) => (mi % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven
 
 const FALLBACK_UNITS = [{ id: 1, name: "หน่วย 1" }]
 
-/** ---------------- Mapping ---------------- */
-const BUSINESS_EARNINGS_SEED = [
-  { id: 1, earning_id: 1, business_group: 1 },
-  { id: 2, earning_id: 2, business_group: 1 },
-  { id: 3, earning_id: 3, business_group: 1 },
-  { id: 4, earning_id: 4, business_group: 1 },
-  { id: 5, earning_id: 5, business_group: 1 },
-  { id: 6, earning_id: 6, business_group: 1 },
-  { id: 7, earning_id: 6, business_group: 2 },
-  { id: 8, earning_id: 8, business_group: 2 },
-  { id: 9, earning_id: 2, business_group: 2 },
-  { id: 10, earning_id: 7, business_group: 2 },
-  { id: 11, earning_id: 6, business_group: 3 },
-  { id: 12, earning_id: 15, business_group: 3 },
-  { id: 13, earning_id: 14, business_group: 3 },
-  { id: 14, earning_id: 13, business_group: 3 },
-  { id: 15, earning_id: 12, business_group: 3 },
-  { id: 16, earning_id: 11, business_group: 3 },
-  { id: 17, earning_id: 10, business_group: 3 },
-  { id: 18, earning_id: 9, business_group: 3 },
-  { id: 19, earning_id: 6, business_group: 4 },
-  { id: 20, earning_id: 18, business_group: 4 },
-  { id: 21, earning_id: 17, business_group: 4 },
-  { id: 22, earning_id: 16, business_group: 4 },
-  { id: 23, earning_id: 14, business_group: 4 },
-  { id: 24, earning_id: 12, business_group: 4 },
-  { id: 25, earning_id: 11, business_group: 4 },
-  { id: 26, earning_id: 10, business_group: 4 },
-  { id: 27, earning_id: 9, business_group: 4 },
-  { id: 28, earning_id: 22, business_group: 4 },
-  { id: 29, earning_id: 4, business_group: 4 },
-  { id: 30, earning_id: 6, business_group: 5 },
-  { id: 31, earning_id: 4, business_group: 5 },
-  { id: 32, earning_id: 21, business_group: 5 },
-  { id: 33, earning_id: 20, business_group: 5 },
-  { id: 34, earning_id: 10, business_group: 5 },
-  { id: 35, earning_id: 9, business_group: 5 },
-  { id: 36, earning_id: 19, business_group: 5 },
-  { id: 37, earning_id: 6, business_group: 7 },
-  { id: 38, earning_id: 29, business_group: 7 },
-  { id: 39, earning_id: 28, business_group: 7 },
-  { id: 40, earning_id: 27, business_group: 7 },
-  { id: 41, earning_id: 26, business_group: 7 },
-  { id: 42, earning_id: 25, business_group: 7 },
-  { id: 43, earning_id: 24, business_group: 7 },
-  { id: 44, earning_id: 22, business_group: 7 },
-  { id: 45, earning_id: 22, business_group: 8 },
-  { id: 46, earning_id: 23, business_group: 8 },
-  { id: 47, earning_id: 6, business_group: 8 },
-]
-
-const BUSINESS_EARNING_ID_MAP = (() => {
-  const m = new Map()
-  for (const r of BUSINESS_EARNINGS_SEED) {
-    const key = `${Number(r.earning_id)}:${Number(r.business_group)}`
-    if (!m.has(key)) m.set(key, Number(r.id))
-  }
-  return m
-})()
-
-const resolveBusinessEarningId = (earningId, businessGroupId) =>
-  BUSINESS_EARNING_ID_MAP.get(`${Number(earningId)}:${Number(businessGroupId)}`) ?? null
-
 /** ---------------- Rows ---------------- */
 const ROWS = [
-  { code: "2.1", label: "รายได้ดอกเบี้ยรับ", kind: "item", business_group: 7, earning_id: 22 },
-  { code: "2.2", label: "รายได้เงินฝาก/ผลประโยชน์จากเงินฝาก", kind: "item", business_group: 7, earning_id: 25 },
-  { code: "2.3", label: "รายได้ค่าธรรมเนียม", kind: "item", business_group: 7, earning_id: 24 },
-  { code: "2.4", label: "เงินรางวัลจากการลงทุน-ทวีสิน", kind: "item", business_group: 7, earning_id: 26 },
-  { code: "2.5", label: "รายได้เงินอุดหนุนจากรัฐ", kind: "item", business_group: 7, earning_id: 27 },
-  { code: "2.6", label: "รายได้จากการรับรู้", kind: "item", business_group: 7, earning_id: 28 },
-  { code: "2.7", label: "รายได้จากการขายซองประมูล", kind: "item", business_group: 7, earning_id: 29 },
-  { code: "2.8", label: "รายได้เบ็ดเตล็ด", kind: "item", business_group: 7, earning_id: 6 },
+  { code: "2.1", kind: "item", business_earning_id: 44 },
+  { code: "2.2", kind: "item", business_earning_id: 42 },
+  { code: "2.3", kind: "item", business_earning_id: 43 },
+  { code: "2.4", kind: "item", business_earning_id: 41 },
+  { code: "2.5", kind: "item", business_earning_id: 40 },
+  { code: "2.6", kind: "item", business_earning_id: 39 },
+  { code: "2.7", kind: "item", business_earning_id: 38 },
+  { code: "2.8", kind: "item", business_earning_id: 37 },
 ]
 const itemRows = ROWS.filter((r) => r.kind === "item")
 
@@ -233,14 +171,9 @@ const BusinessPlanOtherIncomeTable = (props) => {
     planId, plan_id,
   } = props || {}
 
-  const [earningNameById, setEarningNameById] = useState({})
-  useEffect(() => {
-    let alive = true
-    apiAuth("/lists/earning-type-names").then((d) => { if (alive && d) setEarningNameById(d) }).catch(() => {})
-    return () => { alive = false }
-  }, [])
+  const { nameById: earningNameById } = useBusinessEarnings()
   const displayRows = useMemo(
-    () => ROWS.map((r) => r.earning_id && earningNameById[r.earning_id] ? { ...r, label: earningNameById[r.earning_id] } : r),
+    () => ROWS.map((r) => r.business_earning_id && earningNameById[r.business_earning_id] ? { ...r, label: earningNameById[r.business_earning_id] } : r),
     [earningNameById]
   )
 
@@ -331,7 +264,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
 
   const rowIdByCode = useMemo(() => {
     const m = {}
-    for (const r of itemRows) m[r.code] = resolveBusinessEarningId(r.earning_id, r.business_group)
+    for (const r of itemRows) m[r.code] = Number(r.business_earning_id || 0) || null
     return m
   }, [])
 
@@ -561,7 +494,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
       }
 
       if (!beId) {
-        skipped.push({ code: r.code, earning_id: r.earning_id, business_group: r.business_group })
+        skipped.push({ code: r.code, business_earning_id: r.business_earning_id })
         if (hasValue) blocked.push(r.code)
         continue
       }

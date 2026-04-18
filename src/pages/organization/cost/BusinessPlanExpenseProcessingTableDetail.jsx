@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
+import { useBusinessCosts } from "../../../lib/useBusinessList"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -114,97 +115,53 @@ const MONTHS = [
 /** ---------------- Business group (แปรรูป) ---------------- */
 const BUSINESS_GROUP_ID = 4
 
-/** ---------------- Mapping: cost_id + business_group -> businesscosts.id ---------------- */
-const BUSINESS_COSTS_SEED = [
-    { id: 101, cost_id: 2, business_group: 4 }, { id: 102, cost_id: 69, business_group: 4 },
-    { id: 103, cost_id: 68, business_group: 4 }, { id: 104, cost_id: 43, business_group: 4 },
-    { id: 105, cost_id: 7, business_group: 4 }, { id: 106, cost_id: 39, business_group: 4 },
-    { id: 107, cost_id: 8, business_group: 4 }, { id: 108, cost_id: 5, business_group: 4 },
-    { id: 109, cost_id: 11, business_group: 4 }, { id: 110, cost_id: 13, business_group: 4 },
-    { id: 111, cost_id: 14, business_group: 4 }, { id: 112, cost_id: 26, business_group: 4 },
-    { id: 113, cost_id: 9, business_group: 4 }, { id: 114, cost_id: 18, business_group: 4 },
-    { id: 115, cost_id: 19, business_group: 4 }, { id: 116, cost_id: 20, business_group: 4 },
-    { id: 117, cost_id: 42, business_group: 4 }, { id: 118, cost_id: 34, business_group: 4 },
-    { id: 119, cost_id: 29, business_group: 4 }, { id: 120, cost_id: 4, business_group: 4 },
-    { id: 121, cost_id: 66, business_group: 4 }, { id: 122, cost_id: 65, business_group: 4 },
-    { id: 123, cost_id: 21, business_group: 4 }, { id: 124, cost_id: 45, business_group: 4 },
-    { id: 125, cost_id: 10, business_group: 4 }, { id: 126, cost_id: 64, business_group: 4 },
-    { id: 127, cost_id: 63, business_group: 4 }, { id: 128, cost_id: 62, business_group: 4 },
-    { id: 129, cost_id: 61, business_group: 4 }, { id: 130, cost_id: 27, business_group: 4 },
-    { id: 131, cost_id: 24, business_group: 4 }, { id: 132, cost_id: 31, business_group: 4 },
-    { id: 133, cost_id: 60, business_group: 4 }, { id: 134, cost_id: 35, business_group: 4 },
-    { id: 135, cost_id: 59, business_group: 4 }, { id: 136, cost_id: 58, business_group: 4 },
-    { id: 137, cost_id: 57, business_group: 4 }, { id: 138, cost_id: 41, business_group: 4 },
-    { id: 139, cost_id: 16, business_group: 4 }, { id: 140, cost_id: 56, business_group: 4 },
-    { id: 141, cost_id: 55, business_group: 4 }, { id: 142, cost_id: 54, business_group: 4 },
-    { id: 143, cost_id: 53, business_group: 4 }, { id: 144, cost_id: 36, business_group: 4 },
-    { id: 145, cost_id: 36, business_group: 4 },
-]
-
-const BUSINESS_COST_ID_MAP = (() => {
-  const m = new Map()
-  for (const r of BUSINESS_COSTS_SEED) {
-    const key = `${Number(r.cost_id)}:${Number(r.business_group)}`
-    if (!m.has(key)) m.set(key, Number(r.id))
-  }
-  return m
-})()
-
-const resolveBusinessCostId = (costId, businessGroupId) =>
-  BUSINESS_COST_ID_MAP.get(`${Number(costId)}:${Number(businessGroupId)}`) ?? null
-
-const resolveRowBusinessCostId = (row) => {
-  if (row?.business_cost_id) return Number(row.business_cost_id)
-  return resolveBusinessCostId(row?.cost_id, BUSINESS_GROUP_ID)
-}
-
 /** ---------------- Rows (ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป) ---------------- */
 const ROWS = [
     { code: "6", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป", kind: "section" },
-    { code: "6.1", label: "ค่าใช้จ่ายในการขาย", kind: "item", cost_id: 2 },
-    { code: "6.2", label: "ค่าใช้จ่ายในการขาย ดวจ", kind: "item", cost_id: 69 },
-    { code: "6.3", label: "ดอกเบี้ยจ่าย เงินสะสมจนท.", kind: "item", cost_id: 68 },
-    { code: "6.4", label: "ค่าลดหย่อนสินค้าขาดบัญชี", kind: "item", cost_id: 43 },
-    { code: "6.5", label: "เงินเดือนและค่าจ้าง", kind: "item", cost_id: 7 },
-    { code: "6.5b", label: "เบี้ยเลี้ยง", kind: "item", cost_id: 39 },
-    { code: "6.6", label: "ค่าทำงานในวันหยุด", kind: "item", cost_id: 8 },
-    { code: "6.7", label: "ค่าส่งเสริมการขาย", kind: "item", cost_id: 5 },
-    { code: "6.8", label: "ค่าใช้จ่ายยานพาหนะ", kind: "item", cost_id: 11 },
-    { code: "6.9", label: "ค่าน้ำมันเชื้อเพลิง", kind: "item", cost_id: 13 },
-    { code: "6.10", label: "ค่าโทรศัพท์", kind: "item", cost_id: 14 },
-    { code: "6.11", label: "ค่าของใช้สำนักงาน", kind: "item", cost_id: 26 },
-    { code: "6.12", label: "ค่าเบี้ยประกันภัย", kind: "item", cost_id: 9 },
-    { code: "6.13", label: "* ค่าเสื่อมราคา - ครุภัณฑ์", kind: "item", cost_id: 18 },
-    { code: "6.14", label: "* ค่าเสื่อมราคา - งาน, อาคาร", kind: "item", cost_id: 19 },
-    { code: "6.15", label: "* ค่าเสื่อมราคา - ยานพาหนะ", kind: "item", cost_id: 20 },
-    { code: "6.16", label: "* ค่าเสื่อมราคา - เครื่องจักรและอุปกรณ์", kind: "item", cost_id: 42 },
-    { code: "6.17", label: "ค่าเครื่องเขียนแบบพิมพ์", kind: "item", cost_id: 34 },
-    { code: "6.18", label: "ค่าชจ.ในการเคลื่อนย้าย", kind: "item", cost_id: 29 },
-    { code: "6.19", label: "หนี้สงสัยจะสูญลูกหนี้การค้า", kind: "item", cost_id: 4 },
-    { code: "6.20", label: "สวัสดิการจนท.", kind: "item", cost_id: 66 },
-    { code: "6.21", label: "ค่าใช้จ่ายงานบ้านงานครัว", kind: "item", cost_id: 65 },
-    { code: "6.22", label: "ค่าเบี้ยเลี้ยง จนท", kind: "item", cost_id: 21 },
-    { code: "6.23", label: "ค่าบำรุงรักษา-รถตัก/ยานพาหนะ", kind: "item", cost_id: 45 },
-    { code: "6.24", label: "ค่าบำรุงรักษา-ครุภัณฑ์", kind: "item", cost_id: 10 },
-    { code: "6.25", label: "เงินสมทบประกันสังคม", kind: "item", cost_id: 64 },
-    { code: "6.26", label: "ค่าธรรมเนียมในการโอนเงิน", kind: "item", cost_id: 63 },
-    { code: "6.27", label: "ค่าของขวัญสมานคุณ", kind: "item", cost_id: 62 },
-    { code: "6.28", label: "ค่ารับรอง", kind: "item", cost_id: 61 },
-    { code: "6.29", label: "ค่าบริการสมาชิก", kind: "item", cost_id: 27 },
-    { code: "6.30", label: "ค่ากิจกรรมสัมพันธ์", kind: "item", cost_id: 24 },
-    { code: "6.31", label: "ค่าซ่อมแซมอาคาร", kind: "item", cost_id: 31 },
-    { code: "6.32", label: "ค่าเบี้ยเลี้ยงกรรมการ", kind: "item", cost_id: 60 },
-    { code: "6.33", label: "ค่าภาษีโรงเรือน", kind: "item", cost_id: 35 },
-    { code: "6.34", label: "ค่าตามมาตรฐาน", kind: "item", cost_id: 59 },
-    { code: "6.35", label: "ค่าจ่ายค่าสื่อสาร", kind: "item", cost_id: 58 },
-    { code: "6.36", label: "ค่าสมาชิกระหว่างสากล", kind: "item", cost_id: 57 },
-    { code: "6.37", label: "กระสอบใช้ไป", kind: "item", cost_id: 41 },
-    { code: "6.38", label: "ค่าไฟฟ้า", kind: "item", cost_id: 16 },
-    { code: "6.39", label: "ค่าโฆษณาประชาสัมพันธ์", kind: "item", cost_id: 56 },
-    { code: "6.40", label: "ค่าปรับปรุงพื้นที่โรงสี", kind: "item", cost_id: 55 },
-    { code: "6.41", label: "ค่าตกแต่งภูมิทัศน์", kind: "item", cost_id: 54 },
-    { code: "6.42", label: "ค่าการใช้โปรแกรม", kind: "item", cost_id: 53 },
-    { code: "6.45", label: "ค่าใช้จ่ายเบ็ดเตล็ด", kind: "item", cost_id: 36 },
+    { code: "6.1", kind: "item", business_cost_id: 101 },
+    { code: "6.2", kind: "item", business_cost_id: 102 },
+    { code: "6.3", kind: "item", business_cost_id: 103 },
+    { code: "6.4", kind: "item", business_cost_id: 104 },
+    { code: "6.5", kind: "item", business_cost_id: 105 },
+    { code: "6.5b", kind: "item", business_cost_id: 106 },
+    { code: "6.6", kind: "item", business_cost_id: 107 },
+    { code: "6.7", kind: "item", business_cost_id: 108 },
+    { code: "6.8", kind: "item", business_cost_id: 109 },
+    { code: "6.9", kind: "item", business_cost_id: 110 },
+    { code: "6.10", kind: "item", business_cost_id: 111 },
+    { code: "6.11", kind: "item", business_cost_id: 112 },
+    { code: "6.12", kind: "item", business_cost_id: 113 },
+    { code: "6.13", kind: "item", business_cost_id: 114 },
+    { code: "6.14", kind: "item", business_cost_id: 115 },
+    { code: "6.15", kind: "item", business_cost_id: 116 },
+    { code: "6.16", kind: "item", business_cost_id: 117 },
+    { code: "6.17", kind: "item", business_cost_id: 118 },
+    { code: "6.18", kind: "item", business_cost_id: 119 },
+    { code: "6.19", kind: "item", business_cost_id: 120 },
+    { code: "6.20", kind: "item", business_cost_id: 121 },
+    { code: "6.21", kind: "item", business_cost_id: 122 },
+    { code: "6.22", kind: "item", business_cost_id: 123 },
+    { code: "6.23", kind: "item", business_cost_id: 124 },
+    { code: "6.24", kind: "item", business_cost_id: 125 },
+    { code: "6.25", kind: "item", business_cost_id: 126 },
+    { code: "6.26", kind: "item", business_cost_id: 127 },
+    { code: "6.27", kind: "item", business_cost_id: 128 },
+    { code: "6.28", kind: "item", business_cost_id: 129 },
+    { code: "6.29", kind: "item", business_cost_id: 130 },
+    { code: "6.30", kind: "item", business_cost_id: 131 },
+    { code: "6.31", kind: "item", business_cost_id: 132 },
+    { code: "6.32", kind: "item", business_cost_id: 133 },
+    { code: "6.33", kind: "item", business_cost_id: 134 },
+    { code: "6.34", kind: "item", business_cost_id: 135 },
+    { code: "6.35", kind: "item", business_cost_id: 136 },
+    { code: "6.36", kind: "item", business_cost_id: 137 },
+    { code: "6.37", kind: "item", business_cost_id: 138 },
+    { code: "6.38", kind: "item", business_cost_id: 139 },
+    { code: "6.39", kind: "item", business_cost_id: 140 },
+    { code: "6.40", kind: "item", business_cost_id: 141 },
+    { code: "6.41", kind: "item", business_cost_id: 142 },
+    { code: "6.42", kind: "item", business_cost_id: 143 },
+    { code: "6.45", kind: "item", business_cost_id: 144 },
 ]
 
 const PLACEHOLDER_UNITS = [{ id: 0, name: "—", short: "—" }]
@@ -229,15 +186,10 @@ const shortUnit = (name, idx) => {
 }
 
 const BusinessPlanExpenseProcessingTableDetail = ({ branchId, branchName, yearBE, planId }) => {
-  const [costNameById, setCostNameById] = useState({})
-  useEffect(() => {
-    let alive = true
-    apiAuth("/lists/cost-type-names").then((d) => { if (alive && d) setCostNameById(d) }).catch(() => {})
-    return () => { alive = false }
-  }, [])
+  const { nameById: costNameById } = useBusinessCosts(BUSINESS_GROUP_ID)
 
   const displayRows = useMemo(
-    () => ROWS.map((r) => r.cost_id && costNameById[r.cost_id] ? { ...r, label: costNameById[r.cost_id] } : r),
+    () => ROWS.map((r) => r.business_cost_id && costNameById[r.business_cost_id] ? { ...r, label: costNameById[r.business_cost_id] } : r),
     [costNameById]
   )
   const itemRows = useMemo(() => displayRows.filter((r) => r.kind === "item"), [displayRows])
@@ -339,7 +291,7 @@ const BusinessPlanExpenseProcessingTableDetail = ({ branchId, branchName, yearBE
 
       const bcToCode = new Map()
       for (const r of itemRows) {
-        const bcId = resolveRowBusinessCostId(r)
+        const bcId = Number(r.business_cost_id || 0)
         if (bcId) bcToCode.set(Number(bcId), r.code)
       }
 
@@ -500,7 +452,7 @@ const BusinessPlanExpenseProcessingTableDetail = ({ branchId, branchName, yearBE
     const rows = []
 
     for (const r of itemRows) {
-      const businessCostId = resolveRowBusinessCostId(r)
+      const businessCostId = Number(r.business_cost_id || 0)
       if (!businessCostId) continue
 
       const rowData = valuesByCode[r.code] || {}

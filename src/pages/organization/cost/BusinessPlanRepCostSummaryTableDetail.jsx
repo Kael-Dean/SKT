@@ -110,49 +110,33 @@ const MONTHS = [
   { key: "m03", label: "มี.ค.", month: 3 },
 ]
 
-const ROWS = [
-    { code: "COGS", label: "ประมาณการต้นทุนสินค้า", kind: "title" },
-    { code: "1", label: "ต้นทุนขาย ธุรกิจจัดหาฯ", kind: "section" },
-    { code: "1.1", label: "ค่าใช้จ่ายในการซื้อ", kind: "item", aux_id: 1 },
-    { code: "1.2", label: "หักสินค้าเสื่อมสภาพ", kind: "item", aux_id: 2 },
-    { code: "1.T", label: "รวมธุรกิจจัดหาฯ", kind: "subtotal" },
-    { code: "2", label: "ต้นทุนขาย ธุรกิจจัดหาฯ-ปั๊มน้ำมัน", kind: "section" },
-    { code: "2.1", label: "ค่าใช้จ่ายในการซื้อ", kind: "item", aux_id: 3 },
-    { code: "2.2", label: "หักสินค้าเบิกใช้", kind: "item", aux_id: 4 },
-    { code: "2.T", label: "รวมธุรกิจจัดหาฯ-ปั๊มน้ำมัน", kind: "subtotal" },
-    { code: "3", label: "ต้นทุนขาย ธุรกิจรวบรวม", kind: "section" },
-    { code: "3.1", label: "ค่าใช้จ่ายในการซื้อ", kind: "item", aux_id: 5 },
-    { code: "3.T", label: "รวมธุรกิจรวบรวม", kind: "subtotal" },
-    { code: "4", label: "ต้นทุนขาย ธุรกิจแปรรูป", kind: "section" },
-    { code: "4.1", label: "ค่าใช้จ่ายในการซื้อ", kind: "item", aux_id: 6 },
-    { code: "4.2", label: "ค่าใช้จ่ายในการผลิต", kind: "item", aux_id: 7 },
-    { code: "4.3", label: "ค่าเสื่อมราคาโรงสี", kind: "item", aux_id: 8 },
-    { code: "4.4", label: "ค่าเสื่อมราคาเครื่องจักร", kind: "item", aux_id: 9 },
-    { code: "4.5", label: "เงินเดือนจนท.ผลิต", kind: "item", aux_id: 10 },
-    { code: "4.6", label: "ค่าซ่อมเครื่องจักรโรงสี", kind: "item", aux_id: 11 },
-    { code: "4.7", label: "ค่าวัสดุ", kind: "item", aux_id: 12 },
-    { code: "4.8", label: "ค่าไฟฟ้า", kind: "item", aux_id: 13 },
-    { code: "4.9", label: "ค่ากระสอบ", kind: "item", aux_id: 14 },
-    { code: "4.10", label: "ค่าจ้างสี", kind: "item", aux_id: 15 },
-    { code: "4.11", label: "ค่าน้ำมัน", kind: "item", aux_id: 16 },
-    { code: "4.12", label: "ค่าเคลื่อนย้าย", kind: "item", aux_id: 17 },
-    { code: "4.13", label: "ค่าจัดเก็บ", kind: "item", aux_id: 18 },
-    { code: "4.14", label: "ค่าอบข้าวเปลือก", kind: "item", aux_id: 19 },
-    { code: "4.T", label: "รวมธุรกิจแปรรูป", kind: "subtotal" },
-    { code: "5", label: "ต้นทุนขาย ธุรกิจแปรรูป-เมล็ดพันธุ์", kind: "section" },
-    { code: "5.1", label: "ค่าใช้จ่ายในการซื้อ", kind: "item", aux_id: 20 },
-    { code: "5.2", label: "ค่าใช้จ่ายในการผลิต", kind: "item", aux_id: 21 },
-    { code: "5.3", label: "ค่าไฟฟ้า", kind: "item", aux_id: 22 },
-    { code: "5.4", label: "ค่าเสื่อมอาคาร", kind: "item", aux_id: 23 },
-    { code: "5.5", label: "ค่าเสื่อมเครื่องจักรโรงคัด", kind: "item", aux_id: 24 },
-    { code: "5.6", label: "ค่าน้ำมัน", kind: "item", aux_id: 25 },
-    { code: "5.7", label: "ค่ากระสอบ", kind: "item", aux_id: 26 },
-    { code: "5.T", label: "รวมธุรกิจแปรรูป-เมล็ดพันธุ์", kind: "subtotal" },
-    { code: "6", label: "คชจ.ศูนย์ฝึกอบรม", kind: "section" },
-    { code: "6.1", label: "คชจ.ศูนย์ฝึกอบรม", kind: "item", aux_id: 27 },
-    { code: "6.T", label: "รวมศูนย์ฝึกอบรม", kind: "subtotal" },
-    { code: "G.T", label: "รวมต้นทุน", kind: "grandtotal" },
-]
+const buildRowsFromAuxItems = (items) => {
+  const rows = [{ code: "COGS", label: "ประมาณการต้นทุนสินค้า", kind: "title" }]
+
+  const groupOrder = []
+  const groups = new Map()
+  for (const it of items) {
+    const bgId = Number(it.business_group_id)
+    if (!groups.has(bgId)) {
+      groupOrder.push(bgId)
+      groups.set(bgId, { name: String(it.business_group_name || ""), items: [] })
+    }
+    groups.get(bgId).items.push(it)
+  }
+
+  groupOrder.forEach((bgId, gi) => {
+    const g = groups.get(bgId)
+    const sectionCode = String(gi + 1)
+    rows.push({ code: sectionCode, label: `ต้นทุนขาย ${g.name}`, kind: "section" })
+    g.items.forEach((it, i) => {
+      rows.push({ code: `${sectionCode}.${i + 1}`, kind: "item", aux_id: Number(it.id) })
+    })
+    rows.push({ code: `${sectionCode}.T`, label: `รวม${g.name}`, kind: "subtotal" })
+  })
+
+  rows.push({ code: "G.T", label: "รวมต้นทุน", kind: "grandtotal" })
+  return rows
+}
 
 const PLACEHOLDER_UNITS = [{ id: 0, name: "—", short: "—" }]
 
@@ -172,11 +156,13 @@ const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.alt : STRIPE.cell);
 
 
 const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, planId }) => {
-  const { nameById: auxNameById } = useAuxCosts()
+  const { items: auxItems, nameById: auxNameById } = useAuxCosts()
+
+  const ROWS = useMemo(() => buildRowsFromAuxItems(auxItems), [auxItems])
 
   const displayRows = useMemo(
     () => ROWS.map((r) => r.aux_id && auxNameById[r.aux_id] ? { ...r, label: auxNameById[r.aux_id] } : r),
-    [auxNameById]
+    [ROWS, auxNameById]
   )
   const itemRows = useMemo(() => displayRows.filter((r) => r.kind === "item"), [displayRows])
 
@@ -345,14 +331,15 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
     }))
   }, [])
   
-  const sectionMap = useMemo(() => ({
-      "1.T": ["1.1", "1.2"],
-      "2.T": ["2.1", "2.2"],
-      "3.T": ["3.1"],
-      "4.T": ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6", "4.7", "4.8", "4.9", "4.10", "4.11", "4.12", "4.13", "4.14"],
-      "5.T": ["5.1", "5.2", "5.3", "5.4", "5.5", "5.6", "5.7"],
-      "6.T": ["6.1"],
-  }), [])
+  const sectionMap = useMemo(() => {
+    const m = {}
+    const subtotals = ROWS.filter((r) => r.kind === "subtotal")
+    for (const s of subtotals) {
+      const prefix = s.code.replace(/\.T$/, "") + "."
+      m[s.code] = ROWS.filter((r) => r.kind === "item" && r.code.startsWith(prefix)).map((r) => r.code)
+    }
+    return m
+  }, [ROWS])
 
   const computed = useMemo(() => {
     const totals = {}
@@ -402,7 +389,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
     totals["G.T"].total = grandTotalValue
 
     return totals
-  }, [valuesByCode, itemRows, unitCols, sectionMap])
+  }, [valuesByCode, itemRows, unitCols, sectionMap, ROWS])
 
   const sidebarOpen = useSidebarOpen()
   const tableWrapRef = useRef(null)

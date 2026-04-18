@@ -114,46 +114,20 @@ const MONTHS = [
 
 /** ---------------- Business group (รวบรวม) ---------------- */
 const BUSINESS_GROUP_ID = 3
+const SECTION_CODE = "5"
+const SECTION_LABEL = "ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม"
 
-/** ---------------- Rows (ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม) ---------------- */
-const ROWS = [
-    { code: "5", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม", kind: "section" },
-    { code: "5.1", kind: "item", business_cost_id: 66 },
-    { code: "5.2", kind: "item", business_cost_id: 67 },
-    { code: "5.3", kind: "item", business_cost_id: 68 },
-    { code: "5.4", kind: "item", business_cost_id: 69 },
-    { code: "5.5", kind: "item", business_cost_id: 70 },
-    { code: "5.6", kind: "item", business_cost_id: 71 },
-    { code: "5.7", kind: "item", business_cost_id: 72 },
-    { code: "5.8", kind: "item", business_cost_id: 73 },
-    { code: "5.9", kind: "item", business_cost_id: 74 },
-    { code: "5.10", kind: "item", business_cost_id: 75 },
-    { code: "5.11", kind: "item", business_cost_id: 76 },
-    { code: "5.12", kind: "item", business_cost_id: 77 },
-    { code: "5.13", kind: "item", business_cost_id: 78 },
-    { code: "5.14", kind: "item", business_cost_id: 79 },
-    { code: "5.15", kind: "item", business_cost_id: 80 },
-    { code: "5.16", kind: "item", business_cost_id: 81 },
-    { code: "5.17", kind: "item", business_cost_id: 82 },
-    { code: "5.18", kind: "item", business_cost_id: 83 },
-    { code: "5.19", kind: "item", business_cost_id: 84 },
-    { code: "5.20", kind: "item", business_cost_id: 85 },
-    { code: "5.21", kind: "item", business_cost_id: 86 },
-    { code: "5.22", kind: "item", business_cost_id: 87 },
-    { code: "5.23", kind: "item", business_cost_id: 88 },
-    { code: "5.24", kind: "item", business_cost_id: 89 },
-    { code: "5.25", kind: "item", business_cost_id: 90 },
-    { code: "5.26", kind: "item", business_cost_id: 91 },
-    { code: "5.27", kind: "item", business_cost_id: 92 },
-    { code: "5.28", kind: "item", business_cost_id: 93 },
-    { code: "5.29", kind: "item", business_cost_id: 94 },
-    { code: "5.30", kind: "item", business_cost_id: 95 },
-    { code: "5.31", kind: "item", business_cost_id: 96 },
-    { code: "5.32", kind: "item", business_cost_id: 97 },
-    { code: "5.33", kind: "item", business_cost_id: 98 },
-    { code: "5.34", kind: "item", business_cost_id: 99 },
-    { code: "5.35", kind: "item", business_cost_id: 100 },
-]
+const buildRowsFromItems = (items) => {
+  const rows = [{ code: SECTION_CODE, label: SECTION_LABEL, kind: "section" }]
+  items.forEach((it, i) => {
+    rows.push({
+      code: `${SECTION_CODE}.${i + 1}`,
+      kind: "item",
+      business_cost_id: Number(it.id),
+    })
+  })
+  return rows
+}
 
 const PLACEHOLDER_UNITS = [{ id: 0, name: "—", short: "—" }]
 
@@ -177,11 +151,13 @@ const shortUnit = (name, idx) => {
 }
 
 const BusinessPlanExpenseCollectionTableDetail = ({ branchId, branchName, yearBE, planId }) => {
-  const { nameById: costNameById } = useBusinessCosts(BUSINESS_GROUP_ID)
+  const { items: businessCosts, nameById: costNameById } = useBusinessCosts(BUSINESS_GROUP_ID)
+
+  const ROWS = useMemo(() => buildRowsFromItems(businessCosts), [businessCosts])
 
   const displayRows = useMemo(
     () => ROWS.map((r) => r.business_cost_id && costNameById[r.business_cost_id] ? { ...r, label: costNameById[r.business_cost_id] } : r),
-    [costNameById]
+    [ROWS, costNameById]
   )
   const itemRows = useMemo(() => displayRows.filter((r) => r.kind === "item"), [displayRows])
 

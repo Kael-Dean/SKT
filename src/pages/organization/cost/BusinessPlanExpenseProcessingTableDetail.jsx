@@ -114,55 +114,20 @@ const MONTHS = [
 
 /** ---------------- Business group (แปรรูป) ---------------- */
 const BUSINESS_GROUP_ID = 4
+const SECTION_CODE = "6"
+const SECTION_LABEL = "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป"
 
-/** ---------------- Rows (ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป) ---------------- */
-const ROWS = [
-    { code: "6", label: "ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป", kind: "section" },
-    { code: "6.1", kind: "item", business_cost_id: 101 },
-    { code: "6.2", kind: "item", business_cost_id: 102 },
-    { code: "6.3", kind: "item", business_cost_id: 103 },
-    { code: "6.4", kind: "item", business_cost_id: 104 },
-    { code: "6.5", kind: "item", business_cost_id: 105 },
-    { code: "6.5b", kind: "item", business_cost_id: 106 },
-    { code: "6.6", kind: "item", business_cost_id: 107 },
-    { code: "6.7", kind: "item", business_cost_id: 108 },
-    { code: "6.8", kind: "item", business_cost_id: 109 },
-    { code: "6.9", kind: "item", business_cost_id: 110 },
-    { code: "6.10", kind: "item", business_cost_id: 111 },
-    { code: "6.11", kind: "item", business_cost_id: 112 },
-    { code: "6.12", kind: "item", business_cost_id: 113 },
-    { code: "6.13", kind: "item", business_cost_id: 114 },
-    { code: "6.14", kind: "item", business_cost_id: 115 },
-    { code: "6.15", kind: "item", business_cost_id: 116 },
-    { code: "6.16", kind: "item", business_cost_id: 117 },
-    { code: "6.17", kind: "item", business_cost_id: 118 },
-    { code: "6.18", kind: "item", business_cost_id: 119 },
-    { code: "6.19", kind: "item", business_cost_id: 120 },
-    { code: "6.20", kind: "item", business_cost_id: 121 },
-    { code: "6.21", kind: "item", business_cost_id: 122 },
-    { code: "6.22", kind: "item", business_cost_id: 123 },
-    { code: "6.23", kind: "item", business_cost_id: 124 },
-    { code: "6.24", kind: "item", business_cost_id: 125 },
-    { code: "6.25", kind: "item", business_cost_id: 126 },
-    { code: "6.26", kind: "item", business_cost_id: 127 },
-    { code: "6.27", kind: "item", business_cost_id: 128 },
-    { code: "6.28", kind: "item", business_cost_id: 129 },
-    { code: "6.29", kind: "item", business_cost_id: 130 },
-    { code: "6.30", kind: "item", business_cost_id: 131 },
-    { code: "6.31", kind: "item", business_cost_id: 132 },
-    { code: "6.32", kind: "item", business_cost_id: 133 },
-    { code: "6.33", kind: "item", business_cost_id: 134 },
-    { code: "6.34", kind: "item", business_cost_id: 135 },
-    { code: "6.35", kind: "item", business_cost_id: 136 },
-    { code: "6.36", kind: "item", business_cost_id: 137 },
-    { code: "6.37", kind: "item", business_cost_id: 138 },
-    { code: "6.38", kind: "item", business_cost_id: 139 },
-    { code: "6.39", kind: "item", business_cost_id: 140 },
-    { code: "6.40", kind: "item", business_cost_id: 141 },
-    { code: "6.41", kind: "item", business_cost_id: 142 },
-    { code: "6.42", kind: "item", business_cost_id: 143 },
-    { code: "6.45", kind: "item", business_cost_id: 144 },
-]
+const buildRowsFromItems = (items) => {
+  const rows = [{ code: SECTION_CODE, label: SECTION_LABEL, kind: "section" }]
+  items.forEach((it, i) => {
+    rows.push({
+      code: `${SECTION_CODE}.${i + 1}`,
+      kind: "item",
+      business_cost_id: Number(it.id),
+    })
+  })
+  return rows
+}
 
 const PLACEHOLDER_UNITS = [{ id: 0, name: "—", short: "—" }]
 
@@ -186,11 +151,13 @@ const shortUnit = (name, idx) => {
 }
 
 const BusinessPlanExpenseProcessingTableDetail = ({ branchId, branchName, yearBE, planId }) => {
-  const { nameById: costNameById } = useBusinessCosts(BUSINESS_GROUP_ID)
+  const { items: businessCosts, nameById: costNameById } = useBusinessCosts(BUSINESS_GROUP_ID)
+
+  const ROWS = useMemo(() => buildRowsFromItems(businessCosts), [businessCosts])
 
   const displayRows = useMemo(
     () => ROWS.map((r) => r.business_cost_id && costNameById[r.business_cost_id] ? { ...r, label: costNameById[r.business_cost_id] } : r),
-    [costNameById]
+    [ROWS, costNameById]
   )
   const itemRows = useMemo(() => displayRows.filter((r) => r.kind === "item"), [displayRows])
 

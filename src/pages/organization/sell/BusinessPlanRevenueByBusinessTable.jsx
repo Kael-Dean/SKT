@@ -132,72 +132,38 @@ const FALLBACK_UNITS = [
   { id: 2, name: "โนนนารายณ์" },
 ]
 
-/** ---------------- Rows (รายการรายได้) ---------------- */
-const ROWS = [
-  { code: "REV", label: "ประมาณการ รายได้เฉพาะธุรกิจ", kind: "title" },
+/** ---------------- Rows builder (auto-generated from BE) ---------------- */
+const buildRowsFromEarnings = (items) => {
+  const rows = [{ code: "REV", label: "ประมาณการ รายได้เฉพาะธุรกิจ", kind: "title" }]
 
-  { code: "1", label: "รายได้เฉพาะ ธุรกิจจัดหา", kind: "section" },
-  { code: "1.1", kind: "item", business_earning_id: 1 },
-  { code: "1.2", kind: "item", business_earning_id: 2 },
-  { code: "1.3", kind: "item", business_earning_id: 3 },
-  { code: "1.4", kind: "item", business_earning_id: 4 },
-  { code: "1.5", kind: "item", business_earning_id: 5 },
-  { code: "1.6", kind: "item", business_earning_id: 6 },
-  { code: "1.T", label: "รวมธุรกิจจัดหา", kind: "subtotal" },
+  const groupOrder = []
+  const groups = new Map()
+  for (const it of items) {
+    const bgId = Number(it.business_group_id)
+    if (!groups.has(bgId)) {
+      groupOrder.push(bgId)
+      groups.set(bgId, { name: String(it.business_group_name || ""), items: [] })
+    }
+    groups.get(bgId).items.push(it)
+  }
 
-  { code: "2", label: "รายได้เฉพาะ ธุรกิจจัดหา-ปั๊มน้ำมัน", kind: "section" },
-  { code: "2.1", kind: "item", business_earning_id: 10 },
-  { code: "2.2", kind: "item", business_earning_id: 9 },
-  { code: "2.3", kind: "item", business_earning_id: 8 },
-  { code: "2.4", kind: "item", business_earning_id: 7 },
-  { code: "2.T", label: "รวมธุรกิจจัดหา-ปั๊มน้ำมัน", kind: "subtotal" },
+  groupOrder.forEach((bgId, gi) => {
+    const g = groups.get(bgId)
+    const sectionCode = String(gi + 1)
+    rows.push({ code: sectionCode, label: `รายได้เฉพาะ ${g.name}`, kind: "section" })
+    g.items.forEach((it, i) => {
+      rows.push({ code: `${sectionCode}.${i + 1}`, kind: "item", business_earning_id: Number(it.id) })
+    })
+    rows.push({ code: `${sectionCode}.T`, label: `รวม${g.name}`, kind: "subtotal" })
+  })
 
-  { code: "3", label: "รายได้เฉพาะธุรกิจรวบรวม", kind: "section" },
-  { code: "3.1", kind: "item", business_earning_id: 18 },
-  { code: "3.2", kind: "item", business_earning_id: 17 },
-  { code: "3.3", kind: "item", business_earning_id: 16 },
-  { code: "3.4", kind: "item", business_earning_id: 15 },
-  { code: "3.5", kind: "item", business_earning_id: 14 },
-  { code: "3.6", kind: "item", business_earning_id: 13 },
-  { code: "3.7", kind: "item", business_earning_id: 12 },
-  { code: "3.8", kind: "item", business_earning_id: 11 },
-  { code: "3.T", label: "รวมธุรกิจรวบรวม", kind: "subtotal" },
-
-  { code: "4", label: "รายได้เฉพาะ ธุรกิจแปรรูป", kind: "section" },
-  { code: "4.1", kind: "item", business_earning_id: 29 },
-  { code: "4.2", kind: "item", business_earning_id: 28 },
-  { code: "4.3", kind: "item", business_earning_id: 27 },
-  { code: "4.4", kind: "item", business_earning_id: 26 },
-  { code: "4.5", kind: "item", business_earning_id: 22 },
-  { code: "4.6", kind: "item", business_earning_id: 24 },
-  { code: "4.7", kind: "item", business_earning_id: 23 },
-  { code: "4.8", kind: "item", business_earning_id: 21 },
-  { code: "4.9", kind: "item", business_earning_id: 20 },
-  { code: "4.10", kind: "item", business_earning_id: 25 },
-  { code: "4.11", kind: "item", business_earning_id: 19 },
-  { code: "4.T", label: "รวมธุรกิจแปรรูป", kind: "subtotal" },
-
-  { code: "5", label: "รายได้เฉพาะ ธุรกิจแปรรูป-เมล็ดพันธุ์", kind: "section" },
-  { code: "5.1", kind: "item", business_earning_id: 36 },
-  { code: "5.2", kind: "item", business_earning_id: 35 },
-  { code: "5.3", kind: "item", business_earning_id: 34 },
-  { code: "5.4", kind: "item", business_earning_id: 33 },
-  { code: "5.5", kind: "item", business_earning_id: 32 },
-  { code: "5.6", kind: "item", business_earning_id: 31 },
-  { code: "5.7", kind: "item", business_earning_id: 30 },
-  { code: "5.T", label: "รวมธุรกิจแปรรูป-เมล็ดพันธุ์", kind: "subtotal" },
-
-  { code: "6", label: "รายได้ศูนย์อบรม", kind: "section" },
-  { code: "6.1", kind: "item", business_earning_id: 45 },
-  { code: "6.2", kind: "item", business_earning_id: 46 },
-  { code: "6.3", kind: "item", business_earning_id: 47 },
-  { code: "6.T", label: "รายได้ศูนย์อบรม", kind: "subtotal" },
-]
+  return rows
+}
 
 /** state shape: { [rowCode]: { [monthKey]: { [unitId]: string } } } */
-function buildInitialValues(unitIds) {
+function buildInitialValues(unitIds, rows) {
   const out = {}
-  ROWS.forEach((r) => {
+  rows.forEach((r) => {
     if (r.kind !== "item") return
     const row = {}
     MONTHS.forEach((m) => {
@@ -218,11 +184,13 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
   const yearBE = props?.yearBE ?? props?.year_be ?? props?.year ?? null
   const planId = Number(props?.planId ?? props?.plan_id ?? 0) || 0
 
-  const { nameById: earningNameById } = useBusinessEarnings()
+  const { items: businessEarnings, nameById: earningNameById } = useBusinessEarnings()
+
+  const ROWS = useMemo(() => buildRowsFromEarnings(businessEarnings), [businessEarnings])
 
   const displayRows = useMemo(
     () => ROWS.map((r) => r.business_earning_id && earningNameById[r.business_earning_id] ? { ...r, label: earningNameById[r.business_earning_id] } : r),
-    [earningNameById]
+    [ROWS, earningNameById]
   )
 
   const effectiveBranchName = branchName || (branchId ? `#${branchId}` : "— ยังไม่ได้เลือกสาขา —")
@@ -239,10 +207,10 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
     [units]
   )
 
-  const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [])
+  const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [ROWS])
 
   const [valuesByCode, setValuesByCode] = useState(() =>
-    buildInitialValues(unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id))
+    buildInitialValues(unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id), [])
   )
 
   /** โหลดหน่วยตามสาขา */
@@ -273,11 +241,11 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
     return () => { alive = false }
   }, [branchId])
 
-  /** sync state เมื่อ units เปลี่ยน */
+  /** sync state เมื่อ units/ROWS เปลี่ยน */
   useEffect(() => {
     const ids = unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id)
     setValuesByCode((prev) => {
-      const next = buildInitialValues(ids)
+      const next = buildInitialValues(ids, ROWS)
       for (const code of Object.keys(next)) {
         for (const m of MONTHS) {
           for (const uid of ids) {
@@ -288,12 +256,12 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
       }
       return next
     })
-  }, [unitIds.join("|")])
+  }, [unitIds.join("|"), ROWS])
 
   const normalizeGrid = useCallback(
     (seed) => {
       const ids = unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id)
-      const out = buildInitialValues(ids)
+      const out = buildInitialValues(ids, ROWS)
       for (const r of itemRows) {
         const code = r.code
         const rowSeed = seed?.[code] || {}
@@ -306,7 +274,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
       }
       return out
     },
-    [itemRows, unitIds]
+    [itemRows, unitIds, ROWS]
   )
 
   /** โหลดข้อมูลรายเดือนจาก BE */

@@ -125,23 +125,27 @@ const monthStripeCell = (mi) => (mi % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven
 
 const FALLBACK_UNITS = [{ id: 1, name: "หน่วย 1" }]
 
-/** ---------------- Rows ---------------- */
-const ROWS = [
-  { code: "2.1", kind: "item", business_earning_id: 44 },
-  { code: "2.2", kind: "item", business_earning_id: 42 },
-  { code: "2.3", kind: "item", business_earning_id: 43 },
-  { code: "2.4", kind: "item", business_earning_id: 41 },
-  { code: "2.5", kind: "item", business_earning_id: 40 },
-  { code: "2.6", kind: "item", business_earning_id: 39 },
-  { code: "2.7", kind: "item", business_earning_id: 38 },
-  { code: "2.8", kind: "item", business_earning_id: 37 },
-]
-const itemRows = ROWS.filter((r) => r.kind === "item")
+/** ---------------- Rows builder (auto-generated from BE, BG=7) ---------------- */
+const BUSINESS_GROUP_ID = 7
+const SECTION_CODE = "2"
+
+const buildRowsFromEarnings = (items) => {
+  const rows = []
+  items.forEach((it, i) => {
+    rows.push({
+      code: `${SECTION_CODE}.${i + 1}`,
+      kind: "item",
+      business_earning_id: Number(it.id),
+    })
+  })
+  return rows
+}
 
 /** state shape: { [rowCode]: { [monthKey]: { [unitId]: string } } } */
-function buildInitialValues(unitIds) {
+function buildInitialValues(unitIds, rows) {
   const out = {}
-  for (const r of itemRows) {
+  for (const r of rows) {
+    if (r.kind !== "item") continue
     const row = {}
     for (const m of MONTHS) {
       row[m.key] = {}
@@ -171,10 +175,12 @@ const BusinessPlanOtherIncomeTable = (props) => {
     planId, plan_id,
   } = props || {}
 
-  const { nameById: earningNameById } = useBusinessEarnings()
+  const { items: businessEarnings, nameById: earningNameById } = useBusinessEarnings(BUSINESS_GROUP_ID)
+  const ROWS = useMemo(() => buildRowsFromEarnings(businessEarnings), [businessEarnings])
+  const itemRows = useMemo(() => ROWS.filter((r) => r.kind === "item"), [ROWS])
   const displayRows = useMemo(
     () => ROWS.map((r) => r.business_earning_id && earningNameById[r.business_earning_id] ? { ...r, label: earningNameById[r.business_earning_id] } : r),
-    [earningNameById]
+    [ROWS, earningNameById]
   )
 
   const [units, setUnits] = useState(FALLBACK_UNITS)
@@ -259,7 +265,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
   )
 
   const [valuesByCode, setValuesByCode] = useState(() =>
-    buildInitialValues(unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id))
+    buildInitialValues(unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id), [])
   )
 
   const rowIdByCode = useMemo(() => {
@@ -290,11 +296,11 @@ const BusinessPlanOtherIncomeTable = (props) => {
     return () => { alive = false }
   }, [branchIdEff])
 
-  /** sync state เมื่อ units เปลี่ยน */
+  /** sync state เมื่อ units/ROWS เปลี่ยน */
   useEffect(() => {
     const ids = unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id)
     setValuesByCode((prev) => {
-      const next = buildInitialValues(ids)
+      const next = buildInitialValues(ids, ROWS)
       for (const code of Object.keys(next)) {
         for (const m of MONTHS) {
           for (const uid of ids) {
@@ -305,12 +311,12 @@ const BusinessPlanOtherIncomeTable = (props) => {
       }
       return next
     })
-  }, [unitIds.join("|")])
+  }, [unitIds.join("|"), ROWS])
 
   const normalizeGrid = useCallback(
     (seed) => {
       const ids = unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id)
-      const out = buildInitialValues(ids)
+      const out = buildInitialValues(ids, ROWS)
       for (const r of itemRows) {
         const code = r.code
         const rowSeed = seed?.[code] || {}
@@ -323,7 +329,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
       }
       return out
     },
-    [unitIds]
+    [unitIds, ROWS, itemRows]
   )
 
   /** โหลดข้อมูลรายเดือนจาก BE */
@@ -535,7 +541,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
   const resetAll = () => {
     if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
     const ids = unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id)
-    setValuesByCode(buildInitialValues(ids))
+    setValuesByCode(buildInitialValues(ids, ROWS))
   }
 
   /** CSS Classes */

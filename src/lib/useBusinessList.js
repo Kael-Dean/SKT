@@ -71,13 +71,13 @@ function useList(path, businessGroupId) {
 }
 
 export function useBusinessCosts(businessGroupId) {
-  return useList("/businesscosts", businessGroupId)
+  return useList("/lists/businesscosts", businessGroupId)
 }
 
 export function useBusinessEarnings(businessGroupId) {
-  return useList("/businessearnings", businessGroupId)
+  return useList("/lists/businessearnings", businessGroupId)
 }
 
 export function useAuxCosts(businessGroupId) {
-  return useList("/auxcosts", businessGroupId)
+  return useList("/lists/auxcosts", businessGroupId)
 }

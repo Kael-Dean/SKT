@@ -617,8 +617,12 @@ const BusinessPlanOtherIncomeTable = (props) => {
                 {MONTHS.map((m, mi) => (
                   <Fragment key={`uh-${m.key}`}>
                     {unitCols.map((u) => (
-                      <th key={`uh-${m.key}-${u.key}`} className={cx(headCell, monthStripeHead(mi), "border-b border-b-slate-300 dark:border-b-slate-600 text-[10px]")}>
-                        {u.label.length <= 5 ? u.label : u.label.slice(0, 5)}
+                      <th
+                        key={`uh-${m.key}-${u.key}`}
+                        className={cx(headCell, monthStripeHead(mi), "border-b border-b-slate-300 dark:border-b-slate-600 text-[9px] leading-[1.15] whitespace-normal break-words px-0.5")}
+                        title={u.label}
+                      >
+                        {u.label}
                       </th>
                     ))}
                     <th className={cx(headCell, monthStripeHead(mi), "border-b border-b-slate-300 dark:border-b-slate-600 text-[10px] text-emerald-700 dark:text-emerald-400")}>

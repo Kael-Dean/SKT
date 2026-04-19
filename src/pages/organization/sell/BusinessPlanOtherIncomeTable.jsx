@@ -272,7 +272,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
     const m = {}
     for (const r of itemRows) m[r.code] = Number(r.business_earning_id || 0) || null
     return m
-  }, [])
+  }, [itemRows])
 
   /** Load units for branch */
   useEffect(() => {

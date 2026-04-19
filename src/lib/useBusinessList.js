@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { apiAuth } from "./api"
 
 const cache = new Map()
@@ -51,16 +51,21 @@ function useList(path, businessGroupId) {
   }, [path])
 
   const bg = Number(businessGroupId || 0) || 0
-  const filtered = bg
-    ? state.items.filter((x) => Number(x.business_group_id) === bg)
-    : state.items
 
-  const byId = {}
-  const nameById = {}
-  for (const it of filtered) {
-    byId[it.id] = it
-    nameById[it.id] = it.name
-  }
+  const filtered = useMemo(
+    () => (bg ? state.items.filter((x) => Number(x.business_group_id) === bg) : state.items),
+    [state.items, bg]
+  )
+
+  const { byId, nameById } = useMemo(() => {
+    const byId = {}
+    const nameById = {}
+    for (const it of filtered) {
+      byId[it.id] = it
+      nameById[it.id] = it.name
+    }
+    return { byId, nameById }
+  }, [filtered])
 
   return { items: filtered, byId, nameById, loading: state.loading, error: state.error }
 }

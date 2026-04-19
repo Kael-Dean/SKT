@@ -2,9 +2,9 @@
 
 // เลือก BASE จาก .env ถ้ามี
 const ENV_BASES = [
+  import.meta.env.VITE_API_BASE_CUSTOM,
   import.meta.env.VITE_API_BASE,
   import.meta.env.VITE_API_BASE_RUNAPP,
-  import.meta.env.VITE_API_BASE_CUSTOM,
 ].filter(Boolean);
 
 function pickBase() {

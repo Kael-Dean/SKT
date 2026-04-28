@@ -36,6 +36,7 @@ const TABS = [
     endpoint: "/cost-types",
     fields: [
       { name: "name", label: "ชื่อประเภทต้นทุน", type: "text", required: true },
+      { name: "business_groups", label: "กลุ่มธุรกิจ", type: "multi-select", options: BUSINESS_GROUP_OPTIONS },
       { name: "comment", label: "หมายเหตุ", type: "text" },
     ],
   },
@@ -45,6 +46,7 @@ const TABS = [
     endpoint: "/earning-types",
     fields: [
       { name: "name", label: "ชื่อประเภทรายได้", type: "text", required: true },
+      { name: "business_groups", label: "กลุ่มธุรกิจ", type: "multi-select", options: BUSINESS_GROUP_OPTIONS },
       { name: "comment", label: "หมายเหตุ", type: "text" },
     ],
   },
@@ -201,6 +203,144 @@ function ComboBox({
   )
 }
 
+/** ---------- Reusable MultiSelect ComboBox ---------- */
+function MultiSelectComboBox({
+  options = [],
+  values = [],
+  onChange,
+  placeholder = "— เลือก —",
+  getLabel = (o) => o?.label ?? "",
+  getValue = (o) => o?.value ?? o?.id ?? "",
+  disabled = false,
+}) {
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef(null)
+
+  const valueSet = useMemo(() => new Set((values || []).map(String)), [values])
+  const selectedLabels = useMemo(
+    () => options.filter((o) => valueSet.has(String(getValue(o)))).map(getLabel),
+    [options, valueSet, getLabel, getValue]
+  )
+
+  useEffect(() => {
+    const onClick = (e) => {
+      if (!boxRef.current) return
+      if (!boxRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [])
+
+  const toggle = (opt) => {
+    const v = getValue(opt)
+    const sv = String(v)
+    const next = valueSet.has(sv)
+      ? (values || []).filter((x) => String(x) !== sv)
+      : [...(values || []), v]
+    onChange?.(next)
+  }
+
+  const clearAll = (e) => {
+    e.stopPropagation()
+    onChange?.([])
+  }
+
+  return (
+    <div className={cx("relative w-full", open && "z-[1000]")} ref={boxRef}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((o) => !o)}
+        className={cx(
+          baseInput,
+          "text-left flex justify-between items-center gap-2 shadow-none min-h-[42px]",
+          disabled ? "cursor-not-allowed opacity-80" : "cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600"
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <div className="flex flex-1 flex-wrap items-center gap-1 overflow-hidden">
+          {selectedLabels.length === 0 ? (
+            <span className="text-slate-500 dark:text-slate-400">{placeholder}</span>
+          ) : (
+            selectedLabels.map((lab) => (
+              <span
+                key={lab}
+                className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+              >
+                {lab}
+              </span>
+            ))
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {selectedLabels.length > 0 && !disabled && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={clearAll}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") clearAll(e) }}
+              className="rounded-full px-1.5 py-0.5 text-[11px] text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-600 dark:hover:text-slate-100 cursor-pointer"
+              title="ล้างทั้งหมด"
+            >
+              ✕
+            </span>
+          )}
+          <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute z-[1100] mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white text-sm text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        >
+          {options.length === 0 && <div className="p-3 text-slate-500">ไม่มีตัวเลือก</div>}
+          {options.map((opt, idx) => {
+            const label = getLabel(opt)
+            const val = getValue(opt)
+            const isChosen = valueSet.has(String(val))
+            return (
+              <button
+                key={String(val) || idx}
+                type="button"
+                role="option"
+                aria-selected={isChosen}
+                onClick={() => toggle(opt)}
+                className={cx(
+                  "flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors cursor-pointer",
+                  isChosen ? "bg-emerald-50 dark:bg-emerald-900/30" : "hover:bg-slate-100 dark:hover:bg-slate-700"
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <span
+                    className={cx(
+                      "flex h-4 w-4 items-center justify-center rounded border",
+                      isChosen
+                        ? "bg-emerald-600 border-emerald-600 text-white"
+                        : "border-slate-400 dark:border-slate-500"
+                    )}
+                  >
+                    {isChosen && (
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-7.5 7.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 011.414-1.414L8.5 12.086l6.793-6.793a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </span>
+                  <span>{label}</span>
+                </span>
+                {isChosen && <span className="text-emerald-600 dark:text-emerald-300 text-xs font-bold">✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const BusinessEdit = () => {
   const [activeTab, setActiveTab] = useState(TABS[0].key)
   const [data, setData] = useState([])
@@ -219,9 +359,14 @@ const BusinessEdit = () => {
     const q = searchText.toLowerCase()
     return data.filter((row) =>
       currentConfig.fields.some((f) => {
-        const val = f.name === "business_group" && row[f.name] != null
-          ? (BUSINESS_GROUP_MAP[row[f.name]] || String(row[f.name]))
-          : String(row[f.name] ?? "")
+        let val
+        if (f.name === "business_group" && row[f.name] != null) {
+          val = BUSINESS_GROUP_MAP[row[f.name]] || String(row[f.name])
+        } else if (f.type === "multi-select" && Array.isArray(row[f.name])) {
+          val = row[f.name].map((id) => BUSINESS_GROUP_MAP[id] || id).join(", ")
+        } else {
+          val = String(row[f.name] ?? "")
+        }
         return val.toLowerCase().includes(q)
       }) || String(row.id).includes(q)
     )
@@ -236,7 +381,32 @@ const BusinessEdit = () => {
     setLoading(true)
     try {
       const res = await apiAuth(`${currentConfig.endpoint}`, { method: "GET" })
-      setData(res || [])
+      const rows = Array.isArray(res) ? res : []
+
+      // สำหรับ cost-types / earning-types: merge business_groups จากตาราง assignment
+      if (activeTab === "cost-types" || activeTab === "earning-types") {
+        const assignmentEndpoint = activeTab === "cost-types" ? "/business-costs" : "/business-earnings"
+        const matchKey = activeTab === "cost-types" ? "cost_id" : "earning_id"
+        let assignments = []
+        try {
+          assignments = await apiAuth(assignmentEndpoint, { method: "GET" })
+        } catch (e) {
+          console.warn(`load ${assignmentEndpoint} failed:`, e)
+          assignments = []
+        }
+        const map = new Map()
+        for (const a of Array.isArray(assignments) ? assignments : []) {
+          if (a?.is_active === false) continue
+          const k = a?.[matchKey]
+          if (k == null) continue
+          const arr = map.get(k) || []
+          if (a.business_group != null) arr.push(Number(a.business_group))
+          map.set(k, arr)
+        }
+        setData(rows.map((r) => ({ ...r, business_groups: map.get(r.id) || [] })))
+      } else {
+        setData(rows)
+      }
     } catch (err) {
       console.error(err)
       alert("เกิดข้อผิดพลาดในการโหลดข้อมูล")
@@ -248,7 +418,7 @@ const BusinessEdit = () => {
   const handleAdd = () => {
     const initialData = {}
     currentConfig.fields.forEach(f => {
-      initialData[f.name] = ""
+      initialData[f.name] = f.type === "multi-select" ? [] : ""
     })
     setFormData(initialData)
     setEditingId(null)
@@ -258,7 +428,11 @@ const BusinessEdit = () => {
   const handleEdit = (item) => {
     const initialData = {}
     currentConfig.fields.forEach(f => {
-      initialData[f.name] = item[f.name] ?? ""
+      if (f.type === "multi-select") {
+        initialData[f.name] = Array.isArray(item[f.name]) ? item[f.name].map(Number) : []
+      } else {
+        initialData[f.name] = item[f.name] ?? ""
+      }
     })
     setFormData(initialData)
     setEditingId(item.id)
@@ -278,11 +452,15 @@ const BusinessEdit = () => {
   }
 
   const handleChange = (e) => {
-    const { name, value, type } = e.target
+    const { name, value } = e.target
     const fieldConfig = currentConfig.fields.find(f => f.name === name)
     let parsedValue = value
     if (fieldConfig?.type === "number" || fieldConfig?.type === "select") {
       parsedValue = value === "" ? "" : Number(value)
+    } else if (fieldConfig?.type === "multi-select") {
+      parsedValue = Array.isArray(value)
+        ? value.map(Number).filter((n) => Number.isFinite(n))
+        : []
     }
     setFormData(prev => ({
       ...prev,
@@ -301,14 +479,34 @@ const BusinessEdit = () => {
 
     // Validate required fields since ComboBox is not a native input
     for (const f of currentConfig.fields) {
-      if (f.required && (payload[f.name] === "" || payload[f.name] === null || payload[f.name] === undefined)) {
+      const v = payload[f.name]
+      const isEmpty = f.type === "multi-select"
+        ? !Array.isArray(v) || v.length === 0
+        : v === "" || v === null || v === undefined
+      if (f.required && isEmpty) {
         alert(`กรุณาระบุ ${f.label}`)
         return
       }
     }
 
     try {
-      if (editingId) {
+      // cost-types / earning-types ใช้ endpoint แบบ with-assignment เพื่อรองรับ multi business_group
+      const isAssignmentEntity = activeTab === "cost-types" || activeTab === "earning-types"
+      if (isAssignmentEntity) {
+        const url = activeTab === "cost-types"
+          ? "/cost-types-with-assignment"
+          : "/earning-types-with-assignment"
+        const submitPayload = {
+          name: payload.name,
+          comment: payload.comment ?? null,
+          business_groups: Array.isArray(payload.business_groups) ? payload.business_groups : [],
+        }
+        if (editingId) {
+          await apiAuth(`${url}/${editingId}`, { method: "PUT", body: submitPayload })
+        } else {
+          await apiAuth(url, { method: "POST", body: submitPayload })
+        }
+      } else if (editingId) {
         await apiAuth(`${currentConfig.endpoint}/${editingId}`, {
           method: "PUT",
           body: payload
@@ -422,9 +620,24 @@ const BusinessEdit = () => {
                         <td className="border border-slate-300 p-3 text-center dark:border-slate-600">{row.id}</td>
                         {currentConfig.fields.map((f) => (
                           <td key={f.name} className="border border-slate-300 p-3 dark:border-slate-600">
-                            {f.name === "business_group" && row[f.name] != null
-                              ? BUSINESS_GROUP_MAP[row[f.name]] || row[f.name]
-                              : (row[f.name] !== null && row[f.name] !== undefined ? String(row[f.name]) : "-")}
+                            {f.name === "business_group" && row[f.name] != null ? (
+                              BUSINESS_GROUP_MAP[row[f.name]] || row[f.name]
+                            ) : f.type === "multi-select" && Array.isArray(row[f.name]) ? (
+                              row[f.name].length === 0 ? (
+                                "-"
+                              ) : (
+                                <div className="flex flex-wrap gap-1">
+                                  {row[f.name].map((id) => (
+                                    <span
+                                      key={id}
+                                      className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+                                    >
+                                      {BUSINESS_GROUP_MAP[id] || id}
+                                    </span>
+                                  ))}
+                                </div>
+                              )
+                            ) : (row[f.name] !== null && row[f.name] !== undefined ? String(row[f.name]) : "-")}
                           </td>
                         ))}
                         <td className="border border-slate-300 p-3 text-center dark:border-slate-600">
@@ -475,6 +688,13 @@ const BusinessEdit = () => {
                         value={formData[f.name]}
                         onChange={(val) => handleChange({ target: { name: f.name, value: val, type: "select" } })}
                         placeholder={`— เลือก${f.label} —`}
+                      />
+                    ) : f.type === "multi-select" ? (
+                      <MultiSelectComboBox
+                        options={f.options}
+                        values={Array.isArray(formData[f.name]) ? formData[f.name] : []}
+                        onChange={(vals) => handleChange({ target: { name: f.name, value: vals, type: "multi-select" } })}
+                        placeholder={`— เลือก${f.label} (เลือกได้หลายรายการ) —`}
                       />
                     ) : (
                       <input

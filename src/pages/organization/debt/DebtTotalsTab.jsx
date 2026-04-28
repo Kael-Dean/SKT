@@ -18,9 +18,14 @@ const sanitizeDecimal = (s) => {
   return parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : clean
 }
 
-export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, filters, onTotalsChanged }) {
+export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, onTotalsChanged }) {
   const canWrite  = [ROLE.ADMIN, ROLE.HA, ROLE.MKT].includes(roleId)
   const canDelete = [ROLE.ADMIN, ROLE.HA].includes(roleId)
+
+  // ─── Filters (owned here, same layout level as DebtTransactionsTab) ──────
+  const [filters, setFilters] = useState({ unit_id: "", program_id: "", fiscal_year_id: "" })
+  function setFilter(key, val) { setFilters((f) => ({ ...f, [key]: val })) }
+  const hasFilters = filters.unit_id || filters.program_id || filters.fiscal_year_id
 
   const [totals, setTotals]   = useState([])
   const [loading, setLoading] = useState(false)
@@ -52,14 +57,26 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
     return () => { alive = false }
   }, [filters.unit_id, filters.program_id, filters.fiscal_year_id])
 
-  function unitName(id)  { return units.find((u) => u.id === Number(id))?.name || `หน่วย ${id}` }
-  function progName(id)  { return programs.find((p) => p.id === Number(id))?.prog_name || `โปรแกรม ${id}` }
-  function yearName(id)  { return fiscalYears.find((y) => y.id === Number(id))?.year_name || String(id) }
+  function unitName(id) { return units.find((u) => u.id === Number(id))?.name || `หน่วย ${id}` }
+  function progName(id) { return programs.find((p) => p.id === Number(id))?.prog_name || `โปรแกรม ${id}` }
+  function yearName(id) { return fiscalYears.find((y) => y.id === Number(id))?.year_name || String(id) }
 
-  // SelectDropdown options
-  const unitOpts  = units.map((u) => ({ value: String(u.id), label: u.name }))
-  const progOpts  = programs.filter((p) => p.is_active !== false).map((p) => ({ value: String(p.id), label: p.prog_name }))
-  const yearOpts  = fiscalYears.map((y) => ({ value: String(y.id), label: y.year_name }))
+  const unitOpts = [
+    { value: "", label: "ทุกหน่วยงาน" },
+    ...units.map((u) => ({ value: String(u.id), label: u.name })),
+  ]
+  const progOpts = [
+    { value: "", label: "ทุกโปรแกรม" },
+    ...programs.filter((p) => p.is_active !== false).map((p) => ({ value: String(p.id), label: p.prog_name })),
+  ]
+  const yearOpts = [
+    { value: "", label: "ทุกปีงบประมาณ" },
+    ...fiscalYears.map((y) => ({ value: String(y.id), label: y.year_name })),
+  ]
+
+  const modalProgOpts = programs.filter((p) => p.is_active !== false).map((p) => ({ value: String(p.id), label: p.prog_name }))
+  const modalYearOpts = fiscalYears.map((y) => ({ value: String(y.id), label: y.year_name }))
+  const modalUnitOpts = units.map((u) => ({ value: String(u.id), label: u.name }))
 
   function openAdd() {
     setForm({ unit_id: "", program_id: "", fiscal_year_id: "", original_amount: "", comment: "" })
@@ -155,7 +172,47 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
 
   return (
     <div className="space-y-4">
-      {/* Summary row */}
+      {/* Filter bar — same card position as DebtTransactionsTab's filter bar */}
+      <div className={cx(cardCls, "p-4")}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">หน่วยงาน</label>
+            <SelectDropdown
+              options={unitOpts}
+              value={filters.unit_id}
+              onChange={(val) => setFilter("unit_id", val)}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">โปรแกรมหนี้</label>
+            <SelectDropdown
+              options={progOpts}
+              value={filters.program_id}
+              onChange={(val) => setFilter("program_id", val)}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">ปีงบประมาณ</label>
+            <SelectDropdown
+              options={yearOpts}
+              value={filters.fiscal_year_id}
+              onChange={(val) => setFilter("fiscal_year_id", val)}
+            />
+          </div>
+        </div>
+        {hasFilters && (
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => setFilters({ unit_id: "", program_id: "", fiscal_year_id: "" })}
+              className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+            >
+              ล้างตัวกรอง
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Summary cards */}
       {totals.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           {[
@@ -202,7 +259,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
-                  {["หน่วยงาน", "โปรแกรมหนี้", "ปีงบประมาณ", "ยอดตั้งต้น", "ยอดคงเหลือ", "หมายเหตุ", "จัดการ"].map((h) => (
+                  {["หน่วยงาน","โปรแกรมหนี้","ปีงบประมาณ","ยอดตั้งต้น","ยอดคงเหลือ","หมายเหตุ","จัดการ"].map((h) => (
                     <th key={h} className={cx("px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap", h === "จัดการ" ? "text-right" : "text-left")}>
                       {h}
                     </th>
@@ -260,7 +317,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
                     <div>
                       <label className={labelCls}>หน่วยงาน <span className="text-red-500">*</span></label>
                       <SelectDropdown
-                        options={unitOpts}
+                        options={modalUnitOpts}
                         value={form.unit_id}
                         onChange={(val) => setForm((f) => ({ ...f, unit_id: val }))}
                         placeholder="— เลือกหน่วยงาน —"
@@ -269,7 +326,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
                     <div>
                       <label className={labelCls}>โปรแกรมหนี้ <span className="text-red-500">*</span></label>
                       <SelectDropdown
-                        options={progOpts}
+                        options={modalProgOpts}
                         value={form.program_id}
                         onChange={(val) => setForm((f) => ({ ...f, program_id: val }))}
                         placeholder="— เลือกโปรแกรม —"
@@ -278,7 +335,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
                     <div>
                       <label className={labelCls}>ปีงบประมาณ <span className="text-red-500">*</span></label>
                       <SelectDropdown
-                        options={yearOpts}
+                        options={modalYearOpts}
                         value={form.fiscal_year_id}
                         onChange={(val) => setForm((f) => ({ ...f, fiscal_year_id: val }))}
                         placeholder="— เลือกปีงบประมาณ —"
@@ -337,7 +394,12 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
             <div className={cx(modalCardCls, "max-w-sm w-full")}>
               <h2 className={cx(modalTitleCls, "mb-2")}>ยืนยันการลบ</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                ต้องการลบยอดหนี้ของ <span className="font-semibold text-gray-900 dark:text-gray-100">{unitName(modal.record.unit_id)}</span> — <span className="font-semibold">{progName(modal.record.program_id)}</span> ปี <span className="font-semibold">{yearName(modal.record.fiscal_year_id)}</span> ใช่หรือไม่?
+                ต้องการลบยอดหนี้ของ{" "}
+                <span className="font-semibold text-gray-900 dark:text-gray-100">{unitName(modal.record.unit_id)}</span>
+                {" — "}
+                <span className="font-semibold">{progName(modal.record.program_id)}</span>
+                {" ปี "}
+                <span className="font-semibold">{yearName(modal.record.fiscal_year_id)}</span> ใช่หรือไม่?
               </p>
               {saveMsg && <p className="mt-3 text-sm text-red-500 dark:text-red-400">{saveMsg}</p>}
               <div className="mt-6 flex justify-end gap-3">

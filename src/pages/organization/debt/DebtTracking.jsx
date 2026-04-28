@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom"
 import { apiAuth } from "../../../lib/api"
 import { getUser, getRoleId } from "../../../lib/auth"
 import { cx, cardCls, pageTitleCls } from "../../../lib/styles"
-import SelectDropdown from "../../../components/SelectDropdown"
 import DebtTotalsTab       from "./DebtTotalsTab"
 import DebtTransactionsTab from "./DebtTransactionsTab"
 import DebtProgramsTab     from "./DebtProgramsTab"
@@ -23,7 +22,7 @@ export default function DebtTracking() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  // ─── Shared reference data ───────────────────────────────────────────────
+  // ─── Shared reference data ────────────────────────────────────────────────
   const [units, setUnits]             = useState([])
   const [fiscalYears, setFiscalYears] = useState([])
   const [programs, setPrograms]       = useState([])
@@ -44,7 +43,6 @@ export default function DebtTracking() {
           apiAuth("/debt/programs"),
           apiAuth("/debt/totals"),
         ])
-
         if (!alive) return
 
         if (unitsData.status === "fulfilled") {
@@ -54,7 +52,6 @@ export default function DebtTracking() {
             name: r.unit_name || r.klang_name || r.unit || r.name || `หน่วย ${r.id}`,
           })).filter((r) => r.id > 0))
         }
-
         if (yearsData.status === "fulfilled") {
           const rows = Array.isArray(yearsData.value) ? yearsData.value : []
           setFiscalYears(rows.map((r) => ({
@@ -62,11 +59,9 @@ export default function DebtTracking() {
             year_name: r.year || r.year_name || String(r.id),
           })).filter((r) => r.id > 0))
         }
-
         if (progsData.status === "fulfilled") {
           setPrograms(Array.isArray(progsData.value) ? progsData.value : [])
         }
-
         if (totalsData.status === "fulfilled") {
           setAllTotals(Array.isArray(totalsData.value) ? totalsData.value.filter((r) => r.is_active !== false) : [])
         }
@@ -93,26 +88,6 @@ export default function DebtTracking() {
     } catch {}
   }
 
-  // ─── Filter bar state ────────────────────────────────────────────────────
-  const [filters, setFilters] = useState({ unit_id: "", program_id: "", fiscal_year_id: "" })
-  function setFilter(key, val) { setFilters((f) => ({ ...f, [key]: val })) }
-
-  const hasFilters = filters.unit_id || filters.program_id || filters.fiscal_year_id
-
-  // SelectDropdown options for filter bar
-  const unitOptions = [
-    { value: "", label: "ทุกหน่วยงาน" },
-    ...units.map((u) => ({ value: String(u.id), label: u.name })),
-  ]
-  const programOptions = [
-    { value: "", label: "ทุกโปรแกรม" },
-    ...programs.filter((p) => p.is_active !== false).map((p) => ({ value: String(p.id), label: p.prog_name })),
-  ]
-  const yearOptions = [
-    { value: "", label: "ทุกปีงบประมาณ" },
-    ...fiscalYears.map((y) => ({ value: String(y.id), label: y.year_name })),
-  ]
-
   const TABS = [
     { key: "totals",       label: "ยอดหนี้คงค้าง" },
     { key: "transactions", label: "ธุรกรรม" },
@@ -128,51 +103,6 @@ export default function DebtTracking() {
           บันทึกและติดตามยอดหนี้คงค้างของสมาชิก
         </p>
       </div>
-
-      {/* Filter bar — only on totals tab */}
-      {activeTab === "totals" && (
-        <div className={cx(cardCls, "p-4")}>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">หน่วยงาน</label>
-              <SelectDropdown
-                options={unitOptions}
-                value={filters.unit_id}
-                onChange={(val) => setFilter("unit_id", val)}
-                loading={loadingRefs}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">โปรแกรมหนี้</label>
-              <SelectDropdown
-                options={programOptions}
-                value={filters.program_id}
-                onChange={(val) => setFilter("program_id", val)}
-                loading={loadingRefs}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">ปีงบประมาณ</label>
-              <SelectDropdown
-                options={yearOptions}
-                value={filters.fiscal_year_id}
-                onChange={(val) => setFilter("fiscal_year_id", val)}
-                loading={loadingRefs}
-              />
-            </div>
-          </div>
-          {hasFilters && (
-            <div className="mt-3 flex justify-end">
-              <button
-                onClick={() => setFilters({ unit_id: "", program_id: "", fiscal_year_id: "" })}
-                className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-              >
-                ล้างตัวกรอง
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {errorRefs && (
         <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
@@ -198,8 +128,8 @@ export default function DebtTracking() {
         ))}
       </div>
 
-      {/* Tab content */}
-      {loadingRefs && activeTab !== "programs" ? (
+      {/* Tab content — all tabs receive the same top-level layout slot */}
+      {loadingRefs ? (
         <div className="flex justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
         </div>
@@ -211,7 +141,6 @@ export default function DebtTracking() {
               units={units}
               programs={programs}
               fiscalYears={fiscalYears}
-              filters={filters}
               onTotalsChanged={reloadTotals}
             />
           )}

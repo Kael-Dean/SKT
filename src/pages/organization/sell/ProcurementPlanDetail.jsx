@@ -650,7 +650,7 @@ function ProcurementPlanDetail(props) {
 
   return (
     <>
-    <div className="w-full">
+    <div className="w-full" style={{ zoom: 0.8 }}>
       {/* 🟢 แก้ไข: นำปุ่มบันทึกและข้อความแจ้งเตือนออกจากส่วน Header ด้านบน */}
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { apiAuth } from "../../../lib/api"
 import { getUser, getRoleId } from "../../../lib/auth"
-import { cx, baseField, cardCls, pageTitleCls } from "../../../lib/styles"
+import { cx, cardCls, pageTitleCls } from "../../../lib/styles"
+import SelectDropdown from "../../../components/SelectDropdown"
 import DebtTotalsTab       from "./DebtTotalsTab"
 import DebtTransactionsTab from "./DebtTransactionsTab"
 import DebtProgramsTab     from "./DebtProgramsTab"
@@ -39,7 +40,7 @@ export default function DebtTracking() {
         const branchId = getUser()?.branch_id
         const [unitsData, yearsData, progsData, totalsData] = await Promise.allSettled([
           apiAuth(branchId ? `/lists/unit/search?branch_id=${branchId}` : "/lists/unit/search"),
-          apiAuth("/productyear"),
+          apiAuth("/lists/productyear"),
           apiAuth("/debt/programs"),
           apiAuth("/debt/totals"),
         ])
@@ -58,7 +59,7 @@ export default function DebtTracking() {
           const rows = Array.isArray(yearsData.value) ? yearsData.value : []
           setFiscalYears(rows.map((r) => ({
             id: Number(r.id || 0),
-            year_name: r.year_name || r.year || String(r.id),
+            year_name: r.year || r.year_name || String(r.id),
           })).filter((r) => r.id > 0))
         }
 
@@ -94,9 +95,23 @@ export default function DebtTracking() {
 
   // ─── Filter bar state ────────────────────────────────────────────────────
   const [filters, setFilters] = useState({ unit_id: "", program_id: "", fiscal_year_id: "" })
-  function setFilter(key, val) {
-    setFilters((f) => ({ ...f, [key]: val }))
-  }
+  function setFilter(key, val) { setFilters((f) => ({ ...f, [key]: val })) }
+
+  const hasFilters = filters.unit_id || filters.program_id || filters.fiscal_year_id
+
+  // SelectDropdown options for filter bar
+  const unitOptions = [
+    { value: "", label: "ทุกหน่วยงาน" },
+    ...units.map((u) => ({ value: String(u.id), label: u.name })),
+  ]
+  const programOptions = [
+    { value: "", label: "ทุกโปรแกรม" },
+    ...programs.filter((p) => p.is_active !== false).map((p) => ({ value: String(p.id), label: p.prog_name })),
+  ]
+  const yearOptions = [
+    { value: "", label: "ทุกปีงบประมาณ" },
+    ...fiscalYears.map((y) => ({ value: String(y.id), label: y.year_name })),
+  ]
 
   const TABS = [
     { key: "totals",       label: "ยอดหนี้คงค้าง" },
@@ -107,49 +122,55 @@ export default function DebtTracking() {
   return (
     <div className="space-y-5 py-2">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className={pageTitleCls}>ติดตามผลหนี้</h1>
-          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-            บันทึกและติดตามยอดหนี้คงค้างของสมาชิก
-          </p>
-        </div>
+      <div>
+        <h1 className={pageTitleCls}>ติดตามผลหนี้</h1>
+        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+          บันทึกและติดตามยอดหนี้คงค้างของสมาชิก
+        </p>
       </div>
 
-      {/* Filter bar — only show on totals tab */}
+      {/* Filter bar — only on totals tab */}
       {activeTab === "totals" && (
         <div className={cx(cardCls, "p-4")}>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[140px]">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
               <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">หน่วยงาน</label>
-              <select className={cx(baseField, "!py-2 !text-sm")} value={filters.unit_id} onChange={(e) => setFilter("unit_id", e.target.value)}>
-                <option value="">ทั้งหมด</option>
-                {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
+              <SelectDropdown
+                options={unitOptions}
+                value={filters.unit_id}
+                onChange={(val) => setFilter("unit_id", val)}
+                loading={loadingRefs}
+              />
             </div>
-            <div className="flex-1 min-w-[140px]">
+            <div>
               <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">โปรแกรมหนี้</label>
-              <select className={cx(baseField, "!py-2 !text-sm")} value={filters.program_id} onChange={(e) => setFilter("program_id", e.target.value)}>
-                <option value="">ทั้งหมด</option>
-                {programs.filter((p) => p.is_active !== false).map((p) => <option key={p.id} value={p.id}>{p.prog_name}</option>)}
-              </select>
+              <SelectDropdown
+                options={programOptions}
+                value={filters.program_id}
+                onChange={(val) => setFilter("program_id", val)}
+                loading={loadingRefs}
+              />
             </div>
-            <div className="flex-1 min-w-[140px]">
+            <div>
               <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">ปีงบประมาณ</label>
-              <select className={cx(baseField, "!py-2 !text-sm")} value={filters.fiscal_year_id} onChange={(e) => setFilter("fiscal_year_id", e.target.value)}>
-                <option value="">ทั้งหมด</option>
-                {fiscalYears.map((y) => <option key={y.id} value={y.id}>{y.year_name}</option>)}
-              </select>
+              <SelectDropdown
+                options={yearOptions}
+                value={filters.fiscal_year_id}
+                onChange={(val) => setFilter("fiscal_year_id", val)}
+                loading={loadingRefs}
+              />
             </div>
-            {(filters.unit_id || filters.program_id || filters.fiscal_year_id) && (
+          </div>
+          {hasFilters && (
+            <div className="mt-3 flex justify-end">
               <button
                 onClick={() => setFilters({ unit_id: "", program_id: "", fiscal_year_id: "" })}
-                className="rounded-xl px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
               >
                 ล้างตัวกรอง
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -198,6 +219,9 @@ export default function DebtTracking() {
             <DebtTransactionsTab
               roleId={roleId}
               totals={allTotals}
+              units={units}
+              programs={programs}
+              fiscalYears={fiscalYears}
             />
           )}
           {activeTab === "programs" && canManagePrograms && (

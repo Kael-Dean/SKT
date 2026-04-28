@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
+import SelectDropdown from "../../../components/SelectDropdown"
 import {
   cx, baseField, labelCls, modalCardCls, modalTitleCls,
   submitBtnCls, secondaryBtnCls, resetBtnCls, cardCls,
@@ -37,7 +38,7 @@ const emptyNewDebtForm = () => ({
   debt_id: "", amount: "", transaction_date: todayISO(), note: "",
 })
 
-export default function DebtTransactionsTab({ roleId, totals }) {
+export default function DebtTransactionsTab({ roleId, totals, units, programs, fiscalYears }) {
   const canWrite  = [ROLE.ADMIN, ROLE.HA, ROLE.MKT].includes(roleId)
   const canManage = [ROLE.ADMIN, ROLE.HA].includes(roleId)
 
@@ -49,9 +50,9 @@ export default function DebtTransactionsTab({ roleId, totals }) {
   const [dateFrom, setDateFrom]         = useState("")
   const [dateTo, setDateTo]             = useState("")
 
-  const [modal, setModal]   = useState(null)
-  const [form, setForm]     = useState(emptyPaymentForm())
-  const [saving, setSaving] = useState(false)
+  const [modal, setModal]     = useState(null)
+  const [form, setForm]       = useState(emptyPaymentForm())
+  const [saving, setSaving]   = useState(false)
   const [saveMsg, setSaveMsg] = useState("")
 
   useEffect(() => {
@@ -86,6 +87,40 @@ export default function DebtTransactionsTab({ roleId, totals }) {
     setTransactions(Array.isArray(data) ? data.filter((r) => r.is_active !== false) : [])
   }
 
+  // Helper display functions using passed-in reference data
+  function unitName(id)  { return units?.find((u) => u.id === Number(id))?.name || `หน่วย ${id}` }
+  function progName(id)  { return programs?.find((p) => p.id === Number(id))?.prog_name || `โปรแกรม ${id}` }
+  function yearName(id)  { return fiscalYears?.find((y) => y.id === Number(id))?.year_name || String(id) }
+
+  // Build debt_id options with meaningful labels + sublabels
+  const debtOpts = totals
+    .filter((t) => t.is_active !== false)
+    .map((t) => ({
+      value: String(t.id),
+      label: `${unitName(t.unit_id)} · ${progName(t.program_id)}`,
+      sublabel: `ปี ${yearName(t.fiscal_year_id)} | คงเหลือ ฿${fmtMoney(t.remaining_amount)}`,
+    }))
+
+  const debtOptsWithBalance = totals
+    .filter((t) => t.is_active !== false && parseFloat(t.remaining_amount) > 0)
+    .map((t) => ({
+      value: String(t.id),
+      label: `${unitName(t.unit_id)} · ${progName(t.program_id)}`,
+      sublabel: `ปี ${yearName(t.fiscal_year_id)} | คงเหลือ ฿${fmtMoney(t.remaining_amount)}`,
+    }))
+
+  const pmOpts = [
+    { value: "cash",          label: "เงินสด" },
+    { value: "mobile_banking", label: "โอนเงิน" },
+    { value: "produce_trade", label: "ชำระด้วยผลผลิต" },
+  ]
+
+  const txTypeOpts = [
+    { value: "",         label: "ทั้งหมด" },
+    { value: "payment",  label: "ชำระหนี้" },
+    { value: "new_debt", label: "หนี้ใหม่" },
+  ]
+
   function openAddPayment() {
     setForm(emptyPaymentForm())
     setSaveMsg("")
@@ -118,33 +153,22 @@ export default function DebtTransactionsTab({ roleId, totals }) {
     setModal({ mode: "cancel", record })
   }
 
-  function closeModal() {
-    setModal(null)
-    setSaveMsg("")
-  }
+  function closeModal() { setModal(null); setSaveMsg("") }
 
-  function debtLabel(id) {
-    const t = totals.find((r) => r.id === Number(id))
-    if (!t) return `หนี้ #${id}`
-    return `#${t.id} (หน่วย ${t.unit_id} | โปรแกรม ${t.program_id} | เหลือ ฿${fmtMoney(t.remaining_amount)})`
-  }
+  const isProduce = form.payment_method === "produce_trade"
 
   async function handleSave() {
-    setSaving(true)
-    setSaveMsg("")
+    setSaving(true); setSaveMsg("")
     try {
       if (modal.mode === "add_payment") {
-        if (!form.debt_id) { setSaveMsg("กรุณาเลือกรายการหนี้"); setSaving(false); return }
-        if (!form.transaction_date) { setSaveMsg("กรุณาระบุวันที่"); setSaving(false); return }
-        const isProduce = form.payment_method === "produce_trade"
+        if (!form.debt_id)           { setSaveMsg("กรุณาเลือกรายการหนี้"); setSaving(false); return }
+        if (!form.transaction_date)  { setSaveMsg("กรุณาระบุวันที่"); setSaving(false); return }
         if (isProduce) {
           if (!form.produce_id || !form.produce_weight || !form.produce_value) {
             setSaveMsg("กรุณากรอกข้อมูลผลผลิตให้ครบ"); setSaving(false); return
           }
-        } else {
-          if (!form.amount || parseFloat(form.amount) <= 0) {
-            setSaveMsg("กรุณากรอกจำนวนเงินที่ถูกต้อง"); setSaving(false); return
-          }
+        } else if (!form.amount || parseFloat(form.amount) <= 0) {
+          setSaveMsg("กรุณากรอกจำนวนเงินที่ถูกต้อง"); setSaving(false); return
         }
         await apiAuth("/debt/transactions/payment", {
           method: "POST",
@@ -160,25 +184,22 @@ export default function DebtTransactionsTab({ roleId, totals }) {
           },
         })
       } else if (modal.mode === "add_newdebt") {
-        if (!form.debt_id) { setSaveMsg("กรุณาเลือกรายการหนี้"); setSaving(false); return }
-        if (!form.amount || parseFloat(form.amount) <= 0) {
-          setSaveMsg("กรุณากรอกจำนวนเงินที่ถูกต้อง"); setSaving(false); return
-        }
-        if (!form.transaction_date) { setSaveMsg("กรุณาระบุวันที่"); setSaving(false); return }
-        const selectedTotal = totals.find((r) => r.id === Number(form.debt_id))
+        if (!form.debt_id)                                  { setSaveMsg("กรุณาเลือกรายการหนี้"); setSaving(false); return }
+        if (!form.amount || parseFloat(form.amount) <= 0)  { setSaveMsg("กรุณากรอกจำนวนเงินที่ถูกต้อง"); setSaving(false); return }
+        if (!form.transaction_date)                        { setSaveMsg("กรุณาระบุวันที่"); setSaving(false); return }
+        const selected = totals.find((r) => r.id === Number(form.debt_id))
         await apiAuth("/debt/transactions/new-debt", {
           method: "POST",
           body: {
-            unit_id: selectedTotal?.unit_id,
-            program_id: selectedTotal?.program_id,
-            fiscal_year_id: selectedTotal?.fiscal_year_id,
+            unit_id: selected?.unit_id,
+            program_id: selected?.program_id,
+            fiscal_year_id: selected?.fiscal_year_id,
             amount: form.amount,
             transaction_date: form.transaction_date,
             note: form.note.trim() || null,
           },
         })
       } else if (modal.mode === "edit") {
-        const isProduce = form.payment_method === "produce_trade"
         await apiAuth(`/debt/transactions/${modal.record.id}`, {
           method: "PATCH",
           body: {
@@ -202,8 +223,7 @@ export default function DebtTransactionsTab({ roleId, totals }) {
   }
 
   async function handleCancel() {
-    setSaving(true)
-    setSaveMsg("")
+    setSaving(true); setSaveMsg("")
     try {
       await apiAuth(`/debt/transactions/${modal.record.id}`, { method: "DELETE" })
       closeModal()
@@ -215,38 +235,38 @@ export default function DebtTransactionsTab({ roleId, totals }) {
     }
   }
 
-  const isProduce = form.payment_method === "produce_trade"
-
   return (
     <div className="space-y-4">
       {/* Filter bar */}
       <div className={cx(cardCls, "p-4")}>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[140px]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">ประเภท</label>
-            <select className={cx(baseField, "!py-2 !text-sm")} value={txTypeFilter} onChange={(e) => setTxTypeFilter(e.target.value)}>
-              <option value="">ทั้งหมด</option>
-              <option value="payment">ชำระหนี้</option>
-              <option value="new_debt">หนี้ใหม่</option>
-            </select>
+            <SelectDropdown
+              options={txTypeOpts}
+              value={txTypeFilter}
+              onChange={setTxTypeFilter}
+            />
           </div>
-          <div className="flex-1 min-w-[140px]">
+          <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่เริ่ม</label>
-            <input type="date" className={cx(baseField, "!py-2 !text-sm")} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <input type="date" className={baseField} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
           </div>
-          <div className="flex-1 min-w-[140px]">
+          <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่สิ้นสุด</label>
-            <input type="date" className={cx(baseField, "!py-2 !text-sm")} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <input type="date" className={baseField} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
-          {(txTypeFilter || dateFrom || dateTo) && (
+        </div>
+        {(txTypeFilter || dateFrom || dateTo) && (
+          <div className="mt-3 flex justify-end">
             <button
               onClick={() => { setTxTypeFilter(""); setDateFrom(""); setDateTo("") }}
-              className="rounded-xl px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+              className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
             >
               ล้างตัวกรอง
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between">
@@ -307,26 +327,22 @@ export default function DebtTransactionsTab({ roleId, totals }) {
                     <td className="px-4 py-3 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
                       ฿{fmtMoney(tx.amount)}
                       {tx.payment_method === "produce_trade" && tx.produce_weight && (
-                        <span className="block text-xs font-normal text-gray-400">
-                          ({tx.produce_weight} กก.)
-                        </span>
+                        <span className="block text-xs font-normal text-gray-400">({tx.produce_weight} กก.)</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">#{tx.debt_id}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[160px] truncate">{tx.note || "—"}</td>
                     <td className="px-4 py-3 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        {canManage && (
-                          <>
-                            <button onClick={() => openEdit(tx)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer">
-                              แก้ไข
-                            </button>
-                            <button onClick={() => openCancel(tx)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
-                              ยกเลิก
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      {canManage && (
+                        <div className="inline-flex items-center gap-2">
+                          <button onClick={() => openEdit(tx)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer">
+                            แก้ไข
+                          </button>
+                          <button onClick={() => openCancel(tx)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
+                            ยกเลิก
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -348,21 +364,21 @@ export default function DebtTransactionsTab({ roleId, totals }) {
                 {modal.mode === "add_payment" && (
                   <div>
                     <label className={labelCls}>รายการหนี้ <span className="text-red-500">*</span></label>
-                    <select className={baseField} value={form.debt_id} onChange={(e) => setForm((f) => ({ ...f, debt_id: e.target.value }))}>
-                      <option value="">— เลือกรายการหนี้ —</option>
-                      {totals.filter((t) => t.is_active !== false && parseFloat(t.remaining_amount) > 0).map((t) => (
-                        <option key={t.id} value={t.id}>{debtLabel(t.id)}</option>
-                      ))}
-                    </select>
+                    <SelectDropdown
+                      options={debtOptsWithBalance}
+                      value={form.debt_id}
+                      onChange={(val) => setForm((f) => ({ ...f, debt_id: val }))}
+                      placeholder="— เลือกรายการหนี้ —"
+                    />
                   </div>
                 )}
                 <div>
                   <label className={labelCls}>วิธีชำระ <span className="text-red-500">*</span></label>
-                  <select className={baseField} value={form.payment_method} onChange={(e) => setForm((f) => ({ ...f, payment_method: e.target.value, produce_id: "", produce_weight: "", produce_value: "" }))}>
-                    <option value="cash">เงินสด</option>
-                    <option value="mobile_banking">โอนเงิน</option>
-                    <option value="produce_trade">ชำระด้วยผลผลิต</option>
-                  </select>
+                  <SelectDropdown
+                    options={pmOpts}
+                    value={form.payment_method}
+                    onChange={(val) => setForm((f) => ({ ...f, payment_method: val, produce_id: "", produce_weight: "", produce_value: "" }))}
+                  />
                 </div>
                 {!isProduce && (
                   <div>
@@ -417,12 +433,12 @@ export default function DebtTransactionsTab({ roleId, totals }) {
               <div className="space-y-4">
                 <div>
                   <label className={labelCls}>รายการหนี้ <span className="text-red-500">*</span></label>
-                  <select className={baseField} value={form.debt_id} onChange={(e) => setForm((f) => ({ ...f, debt_id: e.target.value }))}>
-                    <option value="">— เลือกรายการหนี้ —</option>
-                    {totals.filter((t) => t.is_active !== false).map((t) => (
-                      <option key={t.id} value={t.id}>{debtLabel(t.id)}</option>
-                    ))}
-                  </select>
+                  <SelectDropdown
+                    options={debtOpts}
+                    value={form.debt_id}
+                    onChange={(val) => setForm((f) => ({ ...f, debt_id: val }))}
+                    placeholder="— เลือกรายการหนี้ —"
+                  />
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">ระบบจะเพิ่มยอดหนี้ให้กับรายการที่เลือก (เฉพาะปีงบประมาณปัจจุบัน)</p>
                 </div>
                 <div>

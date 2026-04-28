@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
+import SelectDropdown from "../../../components/SelectDropdown"
 import {
   cx, baseField, labelCls, modalCardCls, modalTitleCls,
   submitBtnCls, secondaryBtnCls, resetBtnCls, cardCls,
@@ -17,7 +18,7 @@ const sanitizeDecimal = (s) => {
   return parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : clean
 }
 
-export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, filters }) {
+export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, filters, onTotalsChanged }) {
   const canWrite  = [ROLE.ADMIN, ROLE.HA, ROLE.MKT].includes(roleId)
   const canDelete = [ROLE.ADMIN, ROLE.HA].includes(roleId)
 
@@ -53,7 +54,12 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
 
   function unitName(id)  { return units.find((u) => u.id === Number(id))?.name || `หน่วย ${id}` }
   function progName(id)  { return programs.find((p) => p.id === Number(id))?.prog_name || `โปรแกรม ${id}` }
-  function yearName(id)  { return fiscalYears.find((y) => y.id === Number(id))?.year_name || fiscalYears.find((y) => y.id === Number(id))?.year || String(id) }
+  function yearName(id)  { return fiscalYears.find((y) => y.id === Number(id))?.year_name || String(id) }
+
+  // SelectDropdown options
+  const unitOpts  = units.map((u) => ({ value: String(u.id), label: u.name }))
+  const progOpts  = programs.filter((p) => p.is_active !== false).map((p) => ({ value: String(p.id), label: p.prog_name }))
+  const yearOpts  = fiscalYears.map((y) => ({ value: String(y.id), label: y.year_name }))
 
   function openAdd() {
     setForm({ unit_id: "", program_id: "", fiscal_year_id: "", original_amount: "", comment: "" })
@@ -78,22 +84,27 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
     setModal({ mode: "delete", record })
   }
 
-  function closeModal() {
-    setModal(null)
-    setSaveMsg("")
+  function closeModal() { setModal(null); setSaveMsg("") }
+
+  async function refetch() {
+    const params = new URLSearchParams()
+    if (filters.unit_id)        params.set("unit_id", filters.unit_id)
+    if (filters.program_id)     params.set("program_id", filters.program_id)
+    if (filters.fiscal_year_id) params.set("fiscal_year_id", filters.fiscal_year_id)
+    const url = `/debt/totals${params.toString() ? "?" + params.toString() : ""}`
+    const data = await apiAuth(url)
+    setTotals(Array.isArray(data) ? data.filter((r) => r.is_active !== false) : [])
+    onTotalsChanged?.()
   }
 
   async function handleSave() {
     if (!form.unit_id || !form.program_id || !form.fiscal_year_id) {
-      setSaveMsg("กรุณาเลือกหน่วยงาน โปรแกรม และปีงบประมาณ")
-      return
+      setSaveMsg("กรุณาเลือกหน่วยงาน โปรแกรม และปีงบประมาณ"); return
     }
     if (!form.original_amount || parseFloat(form.original_amount) <= 0) {
-      setSaveMsg("กรุณากรอกยอดหนี้ที่มากกว่า 0")
-      return
+      setSaveMsg("กรุณากรอกยอดหนี้ที่มากกว่า 0"); return
     }
-    setSaving(true)
-    setSaveMsg("")
+    setSaving(true); setSaveMsg("")
     try {
       if (modal.mode === "add") {
         await apiAuth("/debt/totals", {
@@ -116,17 +127,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
         })
       }
       closeModal()
-      // re-trigger fetch by bumping a key — done by re-running the effect via a state change
-      setTotals([])
-      setLoading(true)
-      const params = new URLSearchParams()
-      if (filters.unit_id)        params.set("unit_id", filters.unit_id)
-      if (filters.program_id)     params.set("program_id", filters.program_id)
-      if (filters.fiscal_year_id) params.set("fiscal_year_id", filters.fiscal_year_id)
-      const url = `/debt/totals${params.toString() ? "?" + params.toString() : ""}`
-      const data = await apiAuth(url)
-      setTotals(Array.isArray(data) ? data.filter((r) => r.is_active !== false) : [])
-      setLoading(false)
+      await refetch()
     } catch (e) {
       setSaveMsg(e.message || "บันทึกไม่สำเร็จ")
     } finally {
@@ -135,12 +136,12 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
   }
 
   async function handleDelete() {
-    setSaving(true)
-    setSaveMsg("")
+    setSaving(true); setSaveMsg("")
     try {
       await apiAuth(`/debt/totals/${modal.record.id}`, { method: "DELETE" })
       closeModal()
       setTotals((prev) => prev.filter((r) => r.id !== modal.record.id))
+      onTotalsChanged?.()
     } catch (e) {
       setSaveMsg(e.message || "ลบไม่สำเร็จ")
     } finally {
@@ -148,9 +149,9 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
     }
   }
 
-  const totalOriginal   = totals.reduce((s, r) => s + parseFloat(r.original_amount || 0), 0)
-  const totalRemaining  = totals.reduce((s, r) => s + parseFloat(r.remaining_amount || 0), 0)
-  const totalPaid       = totalOriginal - totalRemaining
+  const totalOriginal  = totals.reduce((s, r) => s + parseFloat(r.original_amount || 0), 0)
+  const totalRemaining = totals.reduce((s, r) => s + parseFloat(r.remaining_amount || 0), 0)
+  const totalPaid      = totalOriginal - totalRemaining
 
   return (
     <div className="space-y-4">
@@ -158,9 +159,9 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
       {totals.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "ยอดหนี้ตั้งต้น", value: totalOriginal, color: "text-gray-900 dark:text-gray-100" },
-            { label: "ชำระแล้ว", value: totalPaid, color: "text-emerald-700 dark:text-emerald-400" },
-            { label: "ยอดคงเหลือ", value: totalRemaining, color: "text-red-600 dark:text-red-400" },
+            { label: "ยอดหนี้ตั้งต้น",  value: totalOriginal,  color: "text-gray-900 dark:text-gray-100" },
+            { label: "ชำระแล้ว",        value: totalPaid,      color: "text-emerald-700 dark:text-emerald-400" },
+            { label: "ยอดคงเหลือ",      value: totalRemaining, color: "text-red-600 dark:text-red-400" },
           ].map((s) => (
             <div key={s.label} className={cx(cardCls, "p-4 text-center")}>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{s.label}</p>
@@ -258,24 +259,30 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
                   <>
                     <div>
                       <label className={labelCls}>หน่วยงาน <span className="text-red-500">*</span></label>
-                      <select className={baseField} value={form.unit_id} onChange={(e) => setForm((f) => ({ ...f, unit_id: e.target.value }))}>
-                        <option value="">— เลือกหน่วยงาน —</option>
-                        {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                      </select>
+                      <SelectDropdown
+                        options={unitOpts}
+                        value={form.unit_id}
+                        onChange={(val) => setForm((f) => ({ ...f, unit_id: val }))}
+                        placeholder="— เลือกหน่วยงาน —"
+                      />
                     </div>
                     <div>
                       <label className={labelCls}>โปรแกรมหนี้ <span className="text-red-500">*</span></label>
-                      <select className={baseField} value={form.program_id} onChange={(e) => setForm((f) => ({ ...f, program_id: e.target.value }))}>
-                        <option value="">— เลือกโปรแกรม —</option>
-                        {programs.filter((p) => p.is_active !== false).map((p) => <option key={p.id} value={p.id}>{p.prog_name}</option>)}
-                      </select>
+                      <SelectDropdown
+                        options={progOpts}
+                        value={form.program_id}
+                        onChange={(val) => setForm((f) => ({ ...f, program_id: val }))}
+                        placeholder="— เลือกโปรแกรม —"
+                      />
                     </div>
                     <div>
                       <label className={labelCls}>ปีงบประมาณ <span className="text-red-500">*</span></label>
-                      <select className={baseField} value={form.fiscal_year_id} onChange={(e) => setForm((f) => ({ ...f, fiscal_year_id: e.target.value }))}>
-                        <option value="">— เลือกปีงบประมาณ —</option>
-                        {fiscalYears.map((y) => <option key={y.id} value={y.id}>{y.year_name || y.year || y.id}</option>)}
-                      </select>
+                      <SelectDropdown
+                        options={yearOpts}
+                        value={form.fiscal_year_id}
+                        onChange={(val) => setForm((f) => ({ ...f, fiscal_year_id: val }))}
+                        placeholder="— เลือกปีงบประมาณ —"
+                      />
                     </div>
                   </>
                 ) : (
@@ -329,7 +336,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, fi
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className={cx(modalCardCls, "max-w-sm w-full")}>
               <h2 className={cx(modalTitleCls, "mb-2")}>ยืนยันการลบ</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 ต้องการลบยอดหนี้ของ <span className="font-semibold text-gray-900 dark:text-gray-100">{unitName(modal.record.unit_id)}</span> — <span className="font-semibold">{progName(modal.record.program_id)}</span> ปี <span className="font-semibold">{yearName(modal.record.fiscal_year_id)}</span> ใช่หรือไม่?
               </p>
               {saveMsg && <p className="mt-3 text-sm text-red-500 dark:text-red-400">{saveMsg}</p>}

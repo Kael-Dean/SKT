@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
-import { fetchProductsByGroup, onMasterDataChanged } from "../../../lib/useProductsByGroup"
+import { fetchProductsByGroup, onMasterDataChanged, ensureUnitPricesForProducts } from "../../../lib/useProductsByGroup"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -352,6 +352,7 @@ function AgriProcessingPlanDetail(props) {
           unit: String(x.unit || "ตัน").trim(),
           sell_price: sellMerged ?? "",
           comment: String((fallback?.comment ?? x.comment ?? "") || ""),
+          unitprice_id: x.unitprice_id ?? null,
         }
       }).filter((x) => x.product_id)
 
@@ -569,14 +570,34 @@ function AgriProcessingPlanDetail(props) {
 
     try {
       const cells = []
+      const usedPids = new Set()
       for (const p of items) {
         const pid = Number(p.product_id)
         for (const m of MONTHS) {
           for (const u of savableUnits) {
             const uid = Number(u.id), v = qtyById?.[String(pid)]?.[m.key]?.[String(uid)] ?? "", n = toNumber(v)
-            if (n > 0) cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: toNumber(priceById[String(pid)]?.buy_price ?? 0) })
+            if (n > 0) {
+              cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: toNumber(priceById[String(pid)]?.buy_price ?? 0) })
+              usedPids.add(pid)
+            }
           }
         }
+      }
+
+      // 🚀 ตั้งราคา (UnitPrice) ให้สินค้าใหม่ที่ยังไม่มี ก่อน save sale-goals
+      const needPrice = items
+        .filter((p) => usedPids.has(Number(p.product_id)) && !p.unitprice_id)
+        .map((p) => {
+          const row = priceById[String(p.product_id)] || {}
+          return {
+            product_id: Number(p.product_id),
+            sell_price: row.sell_price ?? p.sell_price ?? 0,
+            buy_price: row.buy_price ?? 0,
+            comment: row.comment ?? "",
+          }
+        })
+      if (needPrice.length) {
+        await ensureUnitPricesForProducts(effectiveYearBE, needPrice)
       }
 
       await apiAuth(`/revenue/sale-goals/bulk`, { method: "PUT", body: { plan_id: Number(effectivePlanId), branch_id: Number(branchIdEff), cells } })
@@ -585,12 +606,13 @@ function AgriProcessingPlanDetail(props) {
 
       await loadSavedFromBE()
       await loadUnitPricesForYear()
+      await loadProducts()
     } catch (e) {
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally {
       setIsSaving(false)
     }
-  }, [branchIdEff, effectivePlanId, effectiveYearBE, items, priceById, qtyById, savableUnits, resolvedBranchName, loadSavedFromBE, loadUnits, loadUnitPricesForYear])
+  }, [branchIdEff, effectivePlanId, effectiveYearBE, items, priceById, qtyById, savableUnits, resolvedBranchName, loadSavedFromBE, loadUnits, loadUnitPricesForYear, loadProducts])
 
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
   const headCell = "px-1.5 py-1.5 text-[12px] font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-300 dark:border-slate-600"

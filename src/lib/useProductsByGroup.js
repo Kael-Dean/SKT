@@ -73,6 +73,45 @@ export async function fetchProductsByGroup(groupId, planId) {
 }
 
 /**
+ * Auto-create UnitPrice สำหรับสินค้าที่ยังไม่มีราคาในแผนปีนี้
+ * ใช้ก่อน save sale-goals เพื่อกัน 422 "Missing unit prices" จาก BE
+ *
+ * @param {number} year - fiscal year (พ.ศ.)
+ * @param {Array} needPrice - [{ product_id, sell_price, buy_price, comment }]
+ * @throws Error("PERMISSION_DENIED") เมื่อ BE ตอบ 403 (ไม่ใช่ admin/HA)
+ */
+export async function ensureUnitPricesForProducts(year, needPrice) {
+  const items = (needPrice || [])
+    .filter((p) => Number(p.product_id) > 0)
+    .map((p) => {
+      const sellN = Number(p.sell_price) || 0
+      const buyN = Number(p.buy_price) || 0
+      return {
+        product_id: Number(p.product_id),
+        sell_price: sellN.toFixed(3),
+        buy_price: buyN.toFixed(3),
+        comment: String(p.comment || ""),
+      }
+    })
+  if (!items.length) return { ok: true, skipped: true }
+
+  try {
+    return await apiAuth("/unit-prices/bulk", {
+      method: "PUT",
+      body: { year: Number(year), items },
+    })
+  } catch (e) {
+    if (e?.status === 403) {
+      const err = new Error("สินค้าใหม่ยังไม่ได้ตั้งราคา และคุณไม่มีสิทธิ์ตั้งราคา (ต้องเป็น Admin/HA) — กรุณาให้ Admin ตั้งราคาที่หน้า 'ต้นทุนสินค้า' ก่อน")
+      err.code = "PERMISSION_DENIED"
+      err.status = 403
+      throw err
+    }
+    throw e
+  }
+}
+
+/**
  * Hook: ใช้กับตาราง sell-detail ทั้งหลาย
  *  - โหลดอัตโนมัติเมื่อ groupId/planId เปลี่ยน
  *  - รับ event "master-data:changed" แล้ว refetch

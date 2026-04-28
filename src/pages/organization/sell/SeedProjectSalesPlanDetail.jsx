@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
-import { fetchProductsByGroup, onMasterDataChanged } from "../../../lib/useProductsByGroup"
+import { fetchProductsByGroup, onMasterDataChanged, ensureUnitPricesForProducts } from "../../../lib/useProductsByGroup"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -266,6 +266,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
           sell_price: sellMerged,
           buy_price: x.buy_price ?? 0,
           comment: (x.comment ?? "") || (fallback?.comment ?? ""),
+          unitprice_id: x.unitprice_id ?? null,
         }
       }).filter((x) => x.product_id > 0)
 
@@ -492,20 +493,42 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
     setIsSaving(true); setSaveMsg(null)
     try {
       const cells = []
+      const usedPids = new Set()
       for (const p of products) {
         const pid = Number(p.product_id)
         for (const m of MONTHS) {
           for (const u of savableUnits) {
             const uid = Number(u.id), v = qtyByPid?.[String(pid)]?.[m.key]?.[String(uid)] ?? "", n = toNumber(v)
-            if (n > 0) cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: toNumber(priceByPid[String(pid)]?.buy_price ?? 0) })
+            if (n > 0) {
+              cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: toNumber(priceByPid[String(pid)]?.buy_price ?? 0) })
+              usedPids.add(pid)
+            }
           }
         }
       }
+
+      // 🚀 ตั้งราคาให้สินค้าใหม่ที่ยังไม่มีก่อน save sale-goals
+      const needPrice = products
+        .filter((p) => usedPids.has(Number(p.product_id)) && !p.unitprice_id)
+        .map((p) => {
+          const row = priceByPid[String(p.product_id)] || {}
+          return {
+            product_id: Number(p.product_id),
+            sell_price: row.sell_price ?? p.sell_price ?? 0,
+            buy_price: row.buy_price ?? p.buy_price ?? 0,
+            comment: row.comment ?? "",
+          }
+        })
+      if (needPrice.length) {
+        await ensureUnitPricesForProducts(effectiveYearBE, needPrice)
+      }
+
       await apiAuth(`/revenue/sale-goals/bulk`, { method: "PUT", body: { plan_id: Number(planId), branch_id: Number(branchId), cells } })
       setSaveMsg({ ok: true, title: "บันทึกสำเร็จ", detail: `สาขา ${branchName || branchId} • ปี ${effectiveYearBE}` })
 
       await loadSavedFromBE()
       await loadUnitPricesForYear()
+      await loadProducts()
     } catch (e) {
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally { setIsSaving(false) }

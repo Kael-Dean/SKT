@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { apiAuth } from "../../../lib/api"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
-import { fetchProductsByGroup, onMasterDataChanged } from "../../../lib/useProductsByGroup"
+import { fetchProductsByGroup, onMasterDataChanged, ensureUnitPricesForProducts } from "../../../lib/useProductsByGroup"
 
 /* รายละเอียดแผนการรวบรวมผลผลิตการเกษตร */
 
@@ -59,14 +59,14 @@ const FALLBACK_UNITS = [
 const COLLECTION_GROUP_ID = 3
 
 const FALLBACK_ITEMS = [
-  { id: "rice_dry_1", name: "ข้าวเปลือกแห้ง 1", unitName: "ตัน", unitPrice: "" },
-  { id: "rice_dry_2", name: "ข้าวเปลือกแห้ง 2", unitName: "ตัน", unitPrice: "" },
-  { id: "rice_fresh_1", name: "ข้าวเปลือกสด1", unitName: "ตัน", unitPrice: "" },
-  { id: "rice_fresh_2", name: "ข้าวเปลือกสด2", unitName: "ตัน", unitPrice: "" },
-  { id: "rice_offseason", name: "ข้าวเปลือกนาปรัง", unitName: "ตัน", unitPrice: "" },
-  { id: "rubber", name: "ยางพารา", unitName: "ตัน", unitPrice: "" },
-  { id: "cassava", name: "มันสำปะหลัง", unitName: "ตัน", unitPrice: "" },
-  { id: "corn", name: "ข้าวโพดเลี้ยงสัตว์", unitName: "ตัน", unitPrice: "" },
+  { id: "rice_dry_1", name: "ข้าวเปลือกแห้ง 1", unitName: "ตัน", unitPrice: "", product_id: 0, unitprice_id: null },
+  { id: "rice_dry_2", name: "ข้าวเปลือกแห้ง 2", unitName: "ตัน", unitPrice: "", product_id: 0, unitprice_id: null },
+  { id: "rice_fresh_1", name: "ข้าวเปลือกสด1", unitName: "ตัน", unitPrice: "", product_id: 0, unitprice_id: null },
+  { id: "rice_fresh_2", name: "ข้าวเปลือกสด2", unitName: "ตัน", unitPrice: "", product_id: 0, unitprice_id: null },
+  { id: "rice_offseason", name: "ข้าวเปลือกนาปรัง", unitName: "ตัน", unitPrice: "", product_id: 0, unitprice_id: null },
+  { id: "rubber", name: "ยางพารา", unitName: "ตัน", unitPrice: "", product_id: 0, unitprice_id: null },
+  { id: "cassava", name: "มันสำปะหลัง", unitName: "ตัน", unitPrice: "", product_id: 0, unitprice_id: null },
+  { id: "corn", name: "ข้าวโพดเลี้ยงสัตว์", unitName: "ตัน", unitPrice: "", product_id: 0, unitprice_id: null },
 ]
 
 const COL_W = {
@@ -181,6 +181,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
         name: String(x.product_type || "").trim(),
         unitName: String(x.unit || "ตัน").trim(),
         unitPrice: x.sell_price ?? "",
+        unitprice_id: x.unitprice_id ?? null,
       })).filter((x) => x.id && x.name)
 
       if (normalized.length) setItems(normalized)
@@ -285,6 +286,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
     try {
       // เตรียมข้อมูลจำนวนหน่วย (Cells)
       const cells = []
+      const usedPids = new Set()
       for (const it of editableItems) {
         const pid = Number(it.product_id || 0)
         if (pid <= 0) continue
@@ -295,9 +297,26 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
             const n = toNumber(v)
             if (n > 0) {
               cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: 0 })
+              usedPids.add(pid)
             }
           }
         }
+      }
+
+      // 🚀 ตั้งราคาให้สินค้าใหม่ที่ยังไม่มีก่อน save sale-goals
+      const needPrice = editableItems
+        .filter((it) => usedPids.has(Number(it.product_id)) && !it.unitprice_id)
+        .map((it) => {
+          const sellRaw = priceById?.[it.id] ?? it.unitPrice ?? 0
+          return {
+            product_id: Number(it.product_id),
+            sell_price: sellRaw ?? 0,
+            buy_price: 0,
+            comment: "",
+          }
+        })
+      if (needPrice.length) {
+        await ensureUnitPricesForProducts(yearBE, needPrice)
       }
 
       await apiAuth(`/revenue/sale-goals/bulk`, {
@@ -310,13 +329,14 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
       // อัปเดตข้อมูลล่าสุดหลังจากบันทึก
       await loadSavedFromBE()
       await loadUnitPricesForYear()
+      await loadProducts()
 
     } catch (e) {
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally {
       setIsSaving(false)
     }
-  }, [branchId, planId, yearBE, editableItems, priceById, qtyById, unitCols, branchName, loadSavedFromBE, loadUnitPricesForYear])
+  }, [branchId, planId, yearBE, editableItems, priceById, qtyById, unitCols, branchName, loadSavedFromBE, loadUnitPricesForYear, loadProducts])
 
   /** ================== ✅ Arrow navigation ================== */
   const inputRefs = useRef(new Map())

@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
-import { fetchProductsByGroup, onMasterDataChanged } from "../../../lib/useProductsByGroup"
+import { fetchProductsByGroup, onMasterDataChanged, ensureUnitPricesForProducts } from "../../../lib/useProductsByGroup"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -587,24 +587,47 @@ function ProcurementPlanDetail(props) {
     setIsSaving(true); setSaveMsg(null)
     try {
       const cells = []
+      const usedPids = new Set()
       for (const p of productRows) {
         const pid = Number(p.product_id)
         for (const m of MONTHS) {
           for (const u of unitCols) {
             const uid = Number(u.id), v = qtyByPid?.[String(pid)]?.[m.key]?.[String(uid)] ?? "", n = toNumber(v)
-            if (n > 0) cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: toNumber(priceByPid[String(pid)]?.buy_price ?? 0) })
+            if (n > 0) {
+              cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: toNumber(priceByPid[String(pid)]?.buy_price ?? 0) })
+              usedPids.add(pid)
+            }
           }
         }
       }
+
+      // 🚀 สินค้าใหม่ที่ยังไม่มี UnitPrice → ตั้งราคา (จากที่กรอกในตารางหรือ 0) ก่อน
+      // กัน 422 "Missing unit prices" จาก BE
+      const needPrice = productRows
+        .filter((p) => usedPids.has(Number(p.product_id)) && !p.unitprice_id)
+        .map((p) => {
+          const row = priceByPid[String(p.product_id)] || {}
+          return {
+            product_id: Number(p.product_id),
+            sell_price: row.sell_price ?? 0,
+            buy_price: row.buy_price ?? 0,
+            comment: periodLabel,
+          }
+        })
+      if (needPrice.length) {
+        await ensureUnitPricesForProducts(effectiveYearBE, needPrice)
+      }
+
       await apiAuth(`/revenue/sale-goals/bulk`, { method: "PUT", body: { plan_id: Number(effectivePlanId), branch_id: Number(branchIdEff), cells } })
       setSaveMsg({ ok: true, title: "บันทึกสำเร็จ", detail: `สาขา ${resolvedBranchName} • ปี ${effectiveYearBE}` })
 
       await loadSavedFromBE()
       await loadUnitPricesForYear()
+      await loadProducts()  // refresh เพื่อให้ unitprice_id ของสินค้าใหม่ติดมา
     } catch (e) {
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally { setIsSaving(false) }
-  }, [branchIdEff, effectivePlanId, effectiveYearBE, productRows, priceByPid, qtyByPid, unitCols, resolvedBranchName, loadSavedFromBE, loadUnitPricesForYear])
+  }, [branchIdEff, effectivePlanId, effectiveYearBE, productRows, priceByPid, qtyByPid, unitCols, resolvedBranchName, loadSavedFromBE, loadUnitPricesForYear, loadProducts, periodLabel])
 
   /** ---------------- rendering helpers ---------------- */
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"

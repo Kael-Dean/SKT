@@ -50,13 +50,24 @@ async function _call(path, { method = "GET", body, headers } = {}) {
     : await res.text().catch(() => "");
 
   if (!res.ok) {
-    // สกัดข้อความ error ให้เข้าใจง่าย (รองรับ FastAPI 422 detail)
+    // สกัดข้อความ error ให้เข้าใจง่าย (รองรับ FastAPI 422 detail ทั้งแบบ string/array/dict)
     let msg = "Request failed";
     if (typeof data === "string" && data) msg = data;
     else if (data?.detail) {
-      msg = Array.isArray(data.detail)
-        ? data.detail.map((d) => (d.msg ? d.msg : JSON.stringify(d))).join(" | ")
-        : (data.detail?.message || data.detail || msg);
+      const d = data.detail;
+      if (Array.isArray(d)) {
+        msg = d.map((x) => (x?.msg ? x.msg : JSON.stringify(x))).join(" | ");
+      } else if (typeof d === "string") {
+        msg = d;
+      } else if (typeof d === "object") {
+        // FastAPI HTTPException(422, {"msg": "...", ...})
+        const baseMsg = d.msg || d.message || "";
+        const extras = [];
+        if (Array.isArray(d.missing_product_ids) && d.missing_product_ids.length) {
+          extras.push(`product_ids: ${d.missing_product_ids.join(", ")}`);
+        }
+        msg = (baseMsg + (extras.length ? ` (${extras.join("; ")})` : "")) || JSON.stringify(d);
+      }
     } else if (data?.message) msg = data.message;
 
     const error = new Error(msg || `HTTP ${res.status}`);

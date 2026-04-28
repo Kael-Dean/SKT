@@ -787,7 +787,7 @@ if (res == null) throw new Error("บันทึกไม่สำเร็จ"
               )}
             </tbody>
 
-            <tfoot className="sticky bottom-0 z-[75]">
+            <tfoot className="sticky bottom-[28px] z-[75]">
               <tr className={cx("text-slate-900 dark:text-slate-100", STRIPE.foot)}>
                 <td
                   className={cx(

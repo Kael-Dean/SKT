@@ -637,7 +637,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                 )
               })}
             </tbody>
-             <tfoot className="sticky bottom-0 z-20">
+             <tfoot className="sticky bottom-[28px] z-20">
                 <tr className={cx("text-slate-900 dark:text-slate-100", STRIPE.grandtotal)}>
                     <td colSpan={2} className="border border-slate-300 px-2 py-2 text-center font-extrabold dark:border-slate-600 sticky left-0 z-10 bg-emerald-200 dark:bg-emerald-800">รวมทั้งหมด</td>
                     {MONTHS.map((m, mIdx) => unitCols.map(u => {

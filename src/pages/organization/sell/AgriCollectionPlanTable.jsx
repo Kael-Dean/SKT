@@ -717,7 +717,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
                   )
                 })}
               </tbody>
-              <tfoot className="sticky bottom-0 z-20">
+              <tfoot className="sticky bottom-[28px] z-20">
                 {/* ----- FOOTER: สรุปยอดรวมทั้งหมด ด้านล่าง ----- */}
                 <tr>
                   <td rowSpan={2} className={cx(leftCellSticky, STRIPE.footOdd, footerBorder, "align-middle")}>

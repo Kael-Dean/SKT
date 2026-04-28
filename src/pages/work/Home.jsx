@@ -64,6 +64,7 @@ const ALL_FUNCTIONS = [
       { label: "รายงาน", path: "/documents", icon: "📝", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HA] },
       { label: "แผนปฏิบัติงานรายปี", path: "/operation-plan", icon: "🗺️", roles: "all" },
       { label: "แก้ไขข้อมูลธุรกิจ", path: "/business-edit", icon: "⚙️", roles: "all" },
+      { label: "ติดตามผลหนี้", path: "/debt-tracking", icon: "💳", roles: [ROLE.ADMIN, ROLE.HA, ROLE.MKT] },
     ],
   },
   {

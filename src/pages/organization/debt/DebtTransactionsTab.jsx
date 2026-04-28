@@ -1,0 +1,484 @@
+import { useEffect, useState } from "react"
+import { apiAuth } from "../../../lib/api"
+import Portal from "../../../components/Portal"
+import {
+  cx, baseField, labelCls, modalCardCls, modalTitleCls,
+  submitBtnCls, secondaryBtnCls, resetBtnCls, cardCls,
+  badgeCls,
+} from "../../../lib/styles"
+
+const ROLE = { ADMIN: 1, HA: 4, MKT: 5 }
+
+const TX_TYPE_LABEL = { payment: "ชำระหนี้", new_debt: "หนี้ใหม่" }
+const TX_TYPE_CLS   = {
+  payment:  badgeCls + " bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  new_debt: badgeCls + " bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+}
+const PM_LABEL = { mobile_banking: "โอนเงิน", cash: "เงินสด", produce_trade: "ผลผลิต" }
+
+const fmtMoney = (v) =>
+  new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(v) || 0)
+
+const sanitizeDecimal = (s) => {
+  const clean = s.replace(/[^0-9.]/g, "")
+  const parts = clean.split(".")
+  return parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : clean
+}
+
+const todayISO = () => new Date().toISOString().split("T")[0]
+
+const emptyPaymentForm = () => ({
+  debt_id: "", payment_method: "cash", amount: "",
+  produce_id: "", produce_weight: "", produce_value: "",
+  transaction_date: todayISO(), note: "",
+})
+
+const emptyNewDebtForm = () => ({
+  debt_id: "", amount: "", transaction_date: todayISO(), note: "",
+})
+
+export default function DebtTransactionsTab({ roleId, totals }) {
+  const canWrite  = [ROLE.ADMIN, ROLE.HA, ROLE.MKT].includes(roleId)
+  const canManage = [ROLE.ADMIN, ROLE.HA].includes(roleId)
+
+  const [transactions, setTransactions] = useState([])
+  const [loading, setLoading]           = useState(false)
+  const [error, setError]               = useState("")
+
+  const [txTypeFilter, setTxTypeFilter] = useState("")
+  const [dateFrom, setDateFrom]         = useState("")
+  const [dateTo, setDateTo]             = useState("")
+
+  const [modal, setModal]   = useState(null)
+  const [form, setForm]     = useState(emptyPaymentForm())
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState("")
+
+  useEffect(() => {
+    let alive = true
+    setLoading(true)
+    setError("")
+    ;(async () => {
+      try {
+        const params = new URLSearchParams()
+        if (txTypeFilter) params.set("transaction_type", txTypeFilter)
+        if (dateFrom)     params.set("date_from", dateFrom)
+        if (dateTo)       params.set("date_to", dateTo)
+        const url = `/debt/transactions${params.toString() ? "?" + params.toString() : ""}`
+        const data = await apiAuth(url)
+        if (alive) setTransactions(Array.isArray(data) ? data.filter((r) => r.is_active !== false) : [])
+      } catch (e) {
+        if (alive) setError(e.message || "โหลดข้อมูลไม่สำเร็จ")
+      } finally {
+        if (alive) setLoading(false)
+      }
+    })()
+    return () => { alive = false }
+  }, [txTypeFilter, dateFrom, dateTo])
+
+  async function refetchTransactions() {
+    const params = new URLSearchParams()
+    if (txTypeFilter) params.set("transaction_type", txTypeFilter)
+    if (dateFrom)     params.set("date_from", dateFrom)
+    if (dateTo)       params.set("date_to", dateTo)
+    const url = `/debt/transactions${params.toString() ? "?" + params.toString() : ""}`
+    const data = await apiAuth(url)
+    setTransactions(Array.isArray(data) ? data.filter((r) => r.is_active !== false) : [])
+  }
+
+  function openAddPayment() {
+    setForm(emptyPaymentForm())
+    setSaveMsg("")
+    setModal({ mode: "add_payment" })
+  }
+
+  function openAddNewDebt() {
+    setForm(emptyNewDebtForm())
+    setSaveMsg("")
+    setModal({ mode: "add_newdebt" })
+  }
+
+  function openEdit(record) {
+    setForm({
+      debt_id: String(record.debt_id),
+      payment_method: record.payment_method || "cash",
+      amount: record.amount,
+      produce_id: record.produce_id != null ? String(record.produce_id) : "",
+      produce_weight: record.produce_weight || "",
+      produce_value: record.produce_value || "",
+      transaction_date: record.transaction_date,
+      note: record.note || "",
+    })
+    setSaveMsg("")
+    setModal({ mode: "edit", record })
+  }
+
+  function openCancel(record) {
+    setSaveMsg("")
+    setModal({ mode: "cancel", record })
+  }
+
+  function closeModal() {
+    setModal(null)
+    setSaveMsg("")
+  }
+
+  function debtLabel(id) {
+    const t = totals.find((r) => r.id === Number(id))
+    if (!t) return `หนี้ #${id}`
+    return `#${t.id} (หน่วย ${t.unit_id} | โปรแกรม ${t.program_id} | เหลือ ฿${fmtMoney(t.remaining_amount)})`
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setSaveMsg("")
+    try {
+      if (modal.mode === "add_payment") {
+        if (!form.debt_id) { setSaveMsg("กรุณาเลือกรายการหนี้"); setSaving(false); return }
+        if (!form.transaction_date) { setSaveMsg("กรุณาระบุวันที่"); setSaving(false); return }
+        const isProduce = form.payment_method === "produce_trade"
+        if (isProduce) {
+          if (!form.produce_id || !form.produce_weight || !form.produce_value) {
+            setSaveMsg("กรุณากรอกข้อมูลผลผลิตให้ครบ"); setSaving(false); return
+          }
+        } else {
+          if (!form.amount || parseFloat(form.amount) <= 0) {
+            setSaveMsg("กรุณากรอกจำนวนเงินที่ถูกต้อง"); setSaving(false); return
+          }
+        }
+        await apiAuth("/debt/transactions/payment", {
+          method: "POST",
+          body: {
+            debt_id: Number(form.debt_id),
+            payment_method: form.payment_method,
+            amount: isProduce ? form.produce_value : form.amount,
+            produce_id: isProduce ? Number(form.produce_id) : null,
+            produce_weight: isProduce ? form.produce_weight : null,
+            produce_value: isProduce ? form.produce_value : null,
+            transaction_date: form.transaction_date,
+            note: form.note.trim() || null,
+          },
+        })
+      } else if (modal.mode === "add_newdebt") {
+        if (!form.debt_id) { setSaveMsg("กรุณาเลือกรายการหนี้"); setSaving(false); return }
+        if (!form.amount || parseFloat(form.amount) <= 0) {
+          setSaveMsg("กรุณากรอกจำนวนเงินที่ถูกต้อง"); setSaving(false); return
+        }
+        if (!form.transaction_date) { setSaveMsg("กรุณาระบุวันที่"); setSaving(false); return }
+        const selectedTotal = totals.find((r) => r.id === Number(form.debt_id))
+        await apiAuth("/debt/transactions/new-debt", {
+          method: "POST",
+          body: {
+            unit_id: selectedTotal?.unit_id,
+            program_id: selectedTotal?.program_id,
+            fiscal_year_id: selectedTotal?.fiscal_year_id,
+            amount: form.amount,
+            transaction_date: form.transaction_date,
+            note: form.note.trim() || null,
+          },
+        })
+      } else if (modal.mode === "edit") {
+        const isProduce = form.payment_method === "produce_trade"
+        await apiAuth(`/debt/transactions/${modal.record.id}`, {
+          method: "PATCH",
+          body: {
+            payment_method: form.payment_method || null,
+            amount: isProduce ? form.produce_value : (form.amount || null),
+            produce_id: isProduce ? (Number(form.produce_id) || null) : null,
+            produce_weight: isProduce ? (form.produce_weight || null) : null,
+            produce_value: isProduce ? (form.produce_value || null) : null,
+            transaction_date: form.transaction_date || null,
+            note: form.note.trim() || null,
+          },
+        })
+      }
+      closeModal()
+      await refetchTransactions()
+    } catch (e) {
+      setSaveMsg(e.message || "บันทึกไม่สำเร็จ")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleCancel() {
+    setSaving(true)
+    setSaveMsg("")
+    try {
+      await apiAuth(`/debt/transactions/${modal.record.id}`, { method: "DELETE" })
+      closeModal()
+      setTransactions((prev) => prev.filter((r) => r.id !== modal.record.id))
+    } catch (e) {
+      setSaveMsg(e.message || "ยกเลิกไม่สำเร็จ")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const isProduce = form.payment_method === "produce_trade"
+
+  return (
+    <div className="space-y-4">
+      {/* Filter bar */}
+      <div className={cx(cardCls, "p-4")}>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[140px]">
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">ประเภท</label>
+            <select className={cx(baseField, "!py-2 !text-sm")} value={txTypeFilter} onChange={(e) => setTxTypeFilter(e.target.value)}>
+              <option value="">ทั้งหมด</option>
+              <option value="payment">ชำระหนี้</option>
+              <option value="new_debt">หนี้ใหม่</option>
+            </select>
+          </div>
+          <div className="flex-1 min-w-[140px]">
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่เริ่ม</label>
+            <input type="date" className={cx(baseField, "!py-2 !text-sm")} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </div>
+          <div className="flex-1 min-w-[140px]">
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่สิ้นสุด</label>
+            <input type="date" className={cx(baseField, "!py-2 !text-sm")} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </div>
+          {(txTypeFilter || dateFrom || dateTo) && (
+            <button
+              onClick={() => { setTxTypeFilter(""); setDateFrom(""); setDateTo("") }}
+              className="rounded-xl px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+            >
+              ล้างตัวกรอง
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {loading ? "กำลังโหลด…" : `พบ ${transactions.length} รายการ`}
+        </p>
+        {canWrite && (
+          <div className="flex items-center gap-2">
+            <button onClick={openAddNewDebt} className={cx(resetBtnCls, "!py-2 !px-4 !text-sm")}>
+              + บันทึกหนี้ใหม่
+            </button>
+            <button onClick={openAddPayment} className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm")}>
+              + บันทึกชำระหนี้
+            </button>
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="rounded-2xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
+        </div>
+      ) : transactions.length === 0 && !error ? (
+        <div className={cx(cardCls, "py-12 text-center text-sm text-gray-400 dark:text-gray-500")}>
+          ไม่พบรายการธุรกรรม
+        </div>
+      ) : (
+        <div className={cx(cardCls, "overflow-hidden")}>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
+                  {["วันที่", "ประเภท", "วิธีชำระ", "จำนวน (บาท)", "รายการหนี้ #", "หมายเหตุ", "จัดการ"].map((h) => (
+                    <th key={h} className={cx("px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap", h === "จัดการ" ? "text-right" : "text-left")}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                {transactions.map((tx) => (
+                  <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{tx.transaction_date}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={TX_TYPE_CLS[tx.transaction_type] || (badgeCls + " bg-gray-100 text-gray-700")}>
+                        {TX_TYPE_LABEL[tx.transaction_type] || tx.transaction_type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                      {tx.payment_method ? (PM_LABEL[tx.payment_method] || tx.payment_method) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                      ฿{fmtMoney(tx.amount)}
+                      {tx.payment_method === "produce_trade" && tx.produce_weight && (
+                        <span className="block text-xs font-normal text-gray-400">
+                          ({tx.produce_weight} กก.)
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">#{tx.debt_id}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[160px] truncate">{tx.note || "—"}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-2">
+                        {canManage && (
+                          <>
+                            <button onClick={() => openEdit(tx)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer">
+                              แก้ไข
+                            </button>
+                            <button onClick={() => openCancel(tx)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
+                              ยกเลิก
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {(modal?.mode === "add_payment" || modal?.mode === "edit") && (
+        <Portal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className={cx(modalCardCls, "max-w-md w-full max-h-[90vh] overflow-y-auto")}>
+              <h2 className={cx(modalTitleCls, "mb-5")}>
+                {modal.mode === "add_payment" ? "บันทึกชำระหนี้" : "แก้ไขธุรกรรม"}
+              </h2>
+              <div className="space-y-4">
+                {modal.mode === "add_payment" && (
+                  <div>
+                    <label className={labelCls}>รายการหนี้ <span className="text-red-500">*</span></label>
+                    <select className={baseField} value={form.debt_id} onChange={(e) => setForm((f) => ({ ...f, debt_id: e.target.value }))}>
+                      <option value="">— เลือกรายการหนี้ —</option>
+                      {totals.filter((t) => t.is_active !== false && parseFloat(t.remaining_amount) > 0).map((t) => (
+                        <option key={t.id} value={t.id}>{debtLabel(t.id)}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <label className={labelCls}>วิธีชำระ <span className="text-red-500">*</span></label>
+                  <select className={baseField} value={form.payment_method} onChange={(e) => setForm((f) => ({ ...f, payment_method: e.target.value, produce_id: "", produce_weight: "", produce_value: "" }))}>
+                    <option value="cash">เงินสด</option>
+                    <option value="mobile_banking">โอนเงิน</option>
+                    <option value="produce_trade">ชำระด้วยผลผลิต</option>
+                  </select>
+                </div>
+                {!isProduce && (
+                  <div>
+                    <label className={labelCls}>จำนวนเงิน (บาท) <span className="text-red-500">*</span></label>
+                    <input className={baseField} inputMode="decimal" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: sanitizeDecimal(e.target.value) }))} placeholder="0.00" />
+                  </div>
+                )}
+                {isProduce && (
+                  <>
+                    <div>
+                      <label className={labelCls}>รหัสผลผลิต <span className="text-red-500">*</span></label>
+                      <input className={baseField} inputMode="numeric" value={form.produce_id} onChange={(e) => setForm((f) => ({ ...f, produce_id: e.target.value.replace(/\D/g, "") }))} placeholder="เช่น 1" />
+                    </div>
+                    <div>
+                      <label className={labelCls}>น้ำหนัก (กก.) <span className="text-red-500">*</span></label>
+                      <input className={baseField} inputMode="decimal" value={form.produce_weight} onChange={(e) => setForm((f) => ({ ...f, produce_weight: sanitizeDecimal(e.target.value) }))} placeholder="0.000" />
+                    </div>
+                    <div>
+                      <label className={labelCls}>มูลค่าผลผลิต (บาท) <span className="text-red-500">*</span></label>
+                      <input className={baseField} inputMode="decimal" value={form.produce_value} onChange={(e) => setForm((f) => ({ ...f, produce_value: sanitizeDecimal(e.target.value) }))} placeholder="0.00" />
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">มูลค่าผลผลิตจะถูกใช้เป็นยอดชำระจริง</p>
+                    </div>
+                  </>
+                )}
+                <div>
+                  <label className={labelCls}>วันที่ <span className="text-red-500">*</span></label>
+                  <input type="date" className={baseField} value={form.transaction_date} onChange={(e) => setForm((f) => ({ ...f, transaction_date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={labelCls}>หมายเหตุ</label>
+                  <textarea className={cx(baseField, "resize-none")} rows={2} value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} placeholder="หมายเหตุ (ไม่จำเป็น)" />
+                </div>
+              </div>
+              {saveMsg && <p className="mt-3 text-sm text-red-500 dark:text-red-400">{saveMsg}</p>}
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={closeModal} className={resetBtnCls} disabled={saving}>ยกเลิก</button>
+                <button onClick={handleSave} className={submitBtnCls} disabled={saving}>
+                  {saving ? "กำลังบันทึก…" : "บันทึก"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* New Debt Modal */}
+      {modal?.mode === "add_newdebt" && (
+        <Portal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className={cx(modalCardCls, "max-w-md w-full")}>
+              <h2 className={cx(modalTitleCls, "mb-5")}>บันทึกหนี้ใหม่</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className={labelCls}>รายการหนี้ <span className="text-red-500">*</span></label>
+                  <select className={baseField} value={form.debt_id} onChange={(e) => setForm((f) => ({ ...f, debt_id: e.target.value }))}>
+                    <option value="">— เลือกรายการหนี้ —</option>
+                    {totals.filter((t) => t.is_active !== false).map((t) => (
+                      <option key={t.id} value={t.id}>{debtLabel(t.id)}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">ระบบจะเพิ่มยอดหนี้ให้กับรายการที่เลือก (เฉพาะปีงบประมาณปัจจุบัน)</p>
+                </div>
+                <div>
+                  <label className={labelCls}>จำนวนเงิน (บาท) <span className="text-red-500">*</span></label>
+                  <input className={baseField} inputMode="decimal" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: sanitizeDecimal(e.target.value) }))} placeholder="0.00" />
+                </div>
+                <div>
+                  <label className={labelCls}>วันที่ <span className="text-red-500">*</span></label>
+                  <input type="date" className={baseField} value={form.transaction_date} onChange={(e) => setForm((f) => ({ ...f, transaction_date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={labelCls}>หมายเหตุ</label>
+                  <textarea className={cx(baseField, "resize-none")} rows={2} value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} placeholder="หมายเหตุ (ไม่จำเป็น)" />
+                </div>
+              </div>
+              {saveMsg && <p className="mt-3 text-sm text-red-500 dark:text-red-400">{saveMsg}</p>}
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={closeModal} className={resetBtnCls} disabled={saving}>ยกเลิก</button>
+                <button onClick={handleSave} className={submitBtnCls} disabled={saving}>
+                  {saving ? "กำลังบันทึก…" : "บันทึก"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* Cancel Confirm Modal */}
+      {modal?.mode === "cancel" && (
+        <Portal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className={cx(modalCardCls, "max-w-sm w-full")}>
+              <h2 className={cx(modalTitleCls, "mb-2")}>ยืนยันยกเลิกธุรกรรม</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                ต้องการยกเลิกธุรกรรม{" "}
+                <span className={TX_TYPE_CLS[modal.record.transaction_type]}>
+                  {TX_TYPE_LABEL[modal.record.transaction_type]}
+                </span>{" "}
+                จำนวน <span className="font-semibold text-gray-900 dark:text-gray-100">฿{fmtMoney(modal.record.amount)}</span> ใช่หรือไม่?
+              </p>
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">ยอดคงเหลือในรายการหนี้จะถูกปรับกลับอัตโนมัติ</p>
+              {saveMsg && <p className="mt-3 text-sm text-red-500 dark:text-red-400">{saveMsg}</p>}
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={closeModal} className={resetBtnCls} disabled={saving}>ปิด</button>
+                <button
+                  onClick={handleCancel}
+                  disabled={saving}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-sm cursor-pointer hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  {saving ? "กำลังยกเลิก…" : "ยืนยันยกเลิก"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+    </div>
+  )
+}

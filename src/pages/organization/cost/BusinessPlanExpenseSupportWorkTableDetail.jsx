@@ -129,7 +129,7 @@ const buildRowsFromItems = (items) => {
 
 const PLACEHOLDER_UNITS = [{ id: 0, name: "—", short: "—" }]
 
-const COL_W = { code: 60, item: 300, cell: 100, total: 100 }
+const COL_W = { code: 60, item: 300, cell: 100, total: 100, grand: 120 }
 const LEFT_W = COL_W.code + COL_W.item
 
 const STRIPE = {
@@ -494,7 +494,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
     }
   }
 
-  const RIGHT_W = (MONTHS.length * unitCols.length * COL_W.cell) + (unitCols.length * COL_W.total)
+  const RIGHT_W = (MONTHS.length * unitCols.length * COL_W.cell) + (unitCols.length * COL_W.total) + COL_W.grand
   const TOTAL_W = LEFT_W + RIGHT_W
   return (<>
       <div ref={tableCardRef} className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col" style={{ maxHeight: tableCardHeight }}>
@@ -505,6 +505,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
               <col style={{ width: COL_W.item }} />
               {MONTHS.map(m => unitCols.map(u => <col key={`${m.key}-${u.id}`} style={{ width: COL_W.cell }} />))}
               {unitCols.map(u => <col key={`total-${u.id}`} style={{ width: COL_W.total }} />)}
+              <col style={{ width: COL_W.grand }} />
             </colgroup>
 
             <thead className="sticky top-0 z-20">
@@ -515,6 +516,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
                     <th key={m.key} colSpan={unitCols.length} className={cx("border border-slate-300 px-1 py-2 text-center text-xs font-semibold dark:border-slate-600", monthStripeHead(mIdx))}>{m.label}</th>
                 ))}
                 <th colSpan={unitCols.length} className="border border-slate-300 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-600 bg-slate-100 dark:bg-slate-700">รวม</th>
+                <th rowSpan={2} className="border border-slate-300 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-600 bg-emerald-200 dark:bg-emerald-800">รวมทั้งสิ้น</th>
               </tr>
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
                 {MONTHS.map((m, mIdx) => unitCols.map(u => (
@@ -532,7 +534,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
                   return (
                     <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">
                       <td className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-200 dark:bg-slate-700">{r.code}</td>
-                      <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 1} className="border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700">{r.label}</td>
+                      <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 2} className="border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700">{r.label}</td>
                     </tr>
                   )
                 }
@@ -569,6 +571,9 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
                             {fmtMoney0(computed.rowTotal[r.code]?.[u.id] ?? 0)}
                         </td>
                     ))}
+                    <td key={`grand-${r.code}`} className="border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600 bg-emerald-200 dark:bg-emerald-800">
+                        {fmtMoney0(unitCols.reduce((a, u) => a + (computed.rowTotal[r.code]?.[u.id] || 0), 0))}
+                    </td>
                   </tr>
                 )
               })}
@@ -577,7 +582,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
                 <tr className={cx("text-slate-900 dark:text-slate-100", STRIPE.foot)}>
                     <td colSpan={2} className="border border-slate-300 px-2 py-2 text-center font-extrabold dark:border-slate-600 sticky left-0 z-10 bg-emerald-100 dark:bg-emerald-900">รวมทั้งหมด</td>
                     {MONTHS.map((m, mIdx) => unitCols.map(u => (
-                        <td key={`tf-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600", monthStripeCell(mIdx))}>
+                        <td key={`tf-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600", STRIPE.foot)}>
                             {fmtMoney0(computed.monthUnitSums[m.key][u.id])}
                         </td>
                     )))}
@@ -587,6 +592,9 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
                             {fmtMoney0(computed.unitGrandSums[u.id])}
                         </td>
                     ))}
+                    <td key="tf-grand" className="border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600 bg-emerald-200 dark:bg-emerald-800">
+                        {fmtMoney0(computed.grandTotal)}
+                    </td>
                 </tr>
             </tfoot>
           </table>

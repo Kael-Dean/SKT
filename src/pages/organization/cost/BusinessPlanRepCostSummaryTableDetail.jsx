@@ -141,7 +141,7 @@ const buildRowsFromAuxItems = (items) => {
 const PLACEHOLDER_UNITS = [{ id: 0, name: "—", short: "—" }]
 
 /** ---------------- Table sizing ---------------- */
-const COL_W = { code: 60, item: 300, cell: 100, total: 100 }
+const COL_W = { code: 60, item: 300, cell: 100, total: 100, grand: 120 }
 const LEFT_W = COL_W.code + COL_W.item
 
 const STRIPE = {
@@ -548,7 +548,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
     }
   }
 
-  const RIGHT_W = (MONTHS.length * unitCols.length * COL_W.cell) + (unitCols.length * COL_W.total)
+  const RIGHT_W = (MONTHS.length * unitCols.length * COL_W.cell) + (unitCols.length * COL_W.total) + COL_W.grand
   const TOTAL_W = LEFT_W + RIGHT_W
 
   return (
@@ -561,6 +561,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
               <col style={{ width: COL_W.item }} />
               {MONTHS.map(m => unitCols.map(u => <col key={`${m.key}-${u.id}`} style={{ width: COL_W.cell }} />))}
               {unitCols.map(u => <col key={`total-${u.id}`} style={{ width: COL_W.total }} />)}
+              <col style={{ width: COL_W.grand }} />
             </colgroup>
 
             <thead className="sticky top-0 z-20">
@@ -571,6 +572,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                     <th key={m.key} colSpan={unitCols.length} className={cx("border border-slate-300 px-1 py-2 text-center text-xs font-semibold dark:border-slate-600", monthStripeHead(mIdx))}>{m.label}</th>
                 ))}
                 <th colSpan={unitCols.length} className="border border-slate-300 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-600 bg-slate-100 dark:bg-slate-700">รวม</th>
+                <th rowSpan={2} className="border border-slate-300 px-1 py-2 text-center text-xs font-extrabold dark:border-slate-600 bg-emerald-200 dark:bg-emerald-800">รวมทั้งสิ้น</th>
               </tr>
               <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
                 {MONTHS.map((m, mIdx) => unitCols.map(u => (
@@ -593,7 +595,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                     return (
                         <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">
                           <td className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-200 dark:bg-slate-700">{r.kind==='section' ? r.code: ''}</td>
-                          <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 1} className="border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700">{r.label}</td>
+                          <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 2} className="border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700">{r.label}</td>
                         </tr>
                     )
                 }
@@ -633,6 +635,9 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                             {fmtMoney0(totalInfo?.byUnit[u.id] ?? 0)}
                         </td>
                     ))}
+                    <td key={`grand-${r.code}`} className="border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600 bg-emerald-200 dark:bg-emerald-800">
+                        {fmtMoney0(totalInfo?.total ?? 0)}
+                    </td>
                   </tr>
                 )
               })}
@@ -647,12 +652,15 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                                 monthUnitTotal += toNumber(valuesByCode[itemCode]?.[m.key]?.[u.id])
                             }
                         }
-                        return <td key={`tf-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600", monthStripeCell(mIdx))}>{fmtMoney0(monthUnitTotal)}</td>
+                        return <td key={`tf-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600", STRIPE.grandtotal)}>{fmtMoney0(monthUnitTotal)}</td>
                     }))}
 
                     {unitCols.map(u => (
                         <td key={`tf-total-${u.id}`} className="border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600 bg-emerald-200 dark:bg-emerald-800">{fmtMoney0(computed["G.T"]?.byUnit[u.id] ?? 0)}</td>
                     ))}
+                    <td key="tf-grand" className="border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600 bg-emerald-300 dark:bg-emerald-700">
+                        {fmtMoney0(computed["G.T"]?.total ?? 0)}
+                    </td>
                 </tr>
             </tfoot>
           </table>

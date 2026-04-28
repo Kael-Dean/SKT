@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { onMasterDataChanged } from "../../../lib/useProductsByGroup"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -257,37 +258,18 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
   }
 
   const loadItems = useCallback(async () => {
-    // ✅ ใช้ลิสที่ BE ส่งมาเป็นหลัก
-    // router prefix='/lists' → /lists/product/search
-    const primary = "/lists/product/search"
-
-    try {
-      // ลองแบบไม่ส่ง token ก่อน (ลด CORS preflight)
-      let data
-      try {
-        data = await apiAuth(primary, { method: "GET", auth: false })
-      } catch {
-        data = await apiAuth(primary, { method: "GET", auth: true })
-      }
-
-      const normalized = normalizeItems(data)
-      if (normalized.length) {
-        setItems(normalized)
-        setItemsSource(primary)
-        return
-      }
-    } catch {
-      // fallback ข้างล่าง
-    }
-
-    // fallback เผื่อบาง env ยังไม่เปิด /lists
-    const fallbacks = [
+    // ✅ ใช้ /products เป็นแหล่งหลัก (table ที่ BusinessEdit เขียนเข้าไป)
+    // → สินค้าใหม่ที่เพิ่งเพิ่มจะขึ้นทันทีแบบ realtime
+    // ลำดับ fallback: /products → /lists/product/search → endpoint อื่นๆ
+    const candidates = [
+      "/products",
+      "/lists/product/search",
       "/order/product/search",
       "/lists/products/search",
       "/list/product/search",
     ]
 
-    for (const path of fallbacks) {
+    for (const path of candidates) {
       try {
         let data
         try {
@@ -295,14 +277,18 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
         } catch {
           data = await apiAuth(path, { method: "GET", auth: true })
         }
-        const normalized = normalizeItems(data)
+        // /products อาจมี is_active=false → กรองทิ้ง
+        const filtered = Array.isArray(data)
+          ? data.filter((r) => r?.is_active !== false)
+          : data
+        const normalized = normalizeItems(filtered)
         if (normalized.length) {
           setItems(normalized)
           setItemsSource(path)
           return
         }
       } catch {
-        /* ignore fetch failure and try next fallback */
+        /* ignore fetch failure and try next candidate */
       }
     }
 
@@ -324,6 +310,9 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
       alive = false
     }
   }, [loadItems])
+
+  // refetch ทันทีเมื่อ master data ถูกแก้จาก BusinessEdit
+  useEffect(() => onMasterDataChanged(() => { loadItems() }), [loadItems])
 
   /** ---------------- Values ---------------- */
   const [valuesById, setValuesById] = useState({}) // { [productId]: {buy,sell} }

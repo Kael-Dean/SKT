@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { apiAuth } from "../../../lib/api"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
+import { fetchProductsByGroup, onMasterDataChanged } from "../../../lib/useProductsByGroup"
 
 /* รายละเอียดแผนการรวบรวมผลผลิตการเกษตร */
 
@@ -168,28 +169,23 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
     return () => { alive = false }
   }, [branchId])
 
-  /** ✅ โหลดลิส “ประเภทสินค้า” */
+  /** ✅ โหลดลิส “ประเภทสินค้า” (master + ราคาล่าสุด แบบ realtime) */
   const loadProducts = useCallback(async () => {
     try {
       if (!planId || planId <= 0) return
-      const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${Number(planId)}`)
-      const group = data?.[String(COLLECTION_GROUP_ID)] || data?.[COLLECTION_GROUP_ID]
-      const list = Array.isArray(group?.items) ? group.items : []
+      const merged = await fetchProductsByGroup(COLLECTION_GROUP_ID, Number(planId))
 
-      const normalized = list
-        .filter((x) => Number(x.business_group || 0) === COLLECTION_GROUP_ID)
-        .map((x) => ({
-          id: String(x.product_id || x.id || "").trim(),
-          product_id: Number(x.product_id || x.id || 0),
-          name: String(x.product_type || x.name || "").trim(),
-          unitName: String(x.unit || "ตัน").trim(),
-          unitPrice: x.sell_price ?? "",
-        }))
-        .filter((x) => x.id && x.name)
+      const normalized = merged.map((x) => ({
+        id: String(x.product_id || "").trim(),
+        product_id: Number(x.product_id || 0),
+        name: String(x.product_type || "").trim(),
+        unitName: String(x.unit || "ตัน").trim(),
+        unitPrice: x.sell_price ?? "",
+      })).filter((x) => x.id && x.name)
 
       if (normalized.length) setItems(normalized)
       else setItems(FALLBACK_ITEMS)
-    } catch (e) {
+    } catch {
       setItems(FALLBACK_ITEMS)
     }
   }, [planId])
@@ -197,6 +193,9 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
   useEffect(() => {
     loadProducts()
   }, [loadProducts])
+
+  // refetch เมื่อ master data ถูกแก้จาก BusinessEdit
+  useEffect(() => onMasterDataChanged(() => { loadProducts() }), [loadProducts])
 
   /** ✅ โหลดราคา (Unit Prices) ที่เคยเซฟไว้ในระบบ */
   const loadUnitPricesForYear = useCallback(async () => {

@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
+import { fetchProductsByGroup, onMasterDataChanged } from "../../../lib/useProductsByGroup"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -335,65 +336,59 @@ function AgriProcessingPlanDetail(props) {
   
   const TOTAL_W = useMemo(() => LEFT_W + RIGHT_W, [RIGHT_W])
 
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      try {
-        if (!effectivePlanId || effectivePlanId <= 0) return
-        setIsLoadingProducts(true)
-        const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${Number(effectivePlanId)}`)
-        const group = data?.[String(PROCESSING_GROUP_ID)] || data?.[PROCESSING_GROUP_ID]
-        const list = Array.isArray(group?.items) ? group.items : []
-        const normalizedItems = list
-          .filter((x) => Number(x.business_group || 0) === PROCESSING_GROUP_ID)
-          .map((x) => {
-            const pid = Number(x.product_id || x.id || 0) || null
-            const fallback = pid ? unitPriceMap[String(pid)] : null
-            const sellFromList = x.sell_price ?? ""
-            const sellMerged = (sellFromList === null || sellFromList === undefined || Number(sellFromList) === 0) && fallback ? fallback.sell_price : sellFromList
-            return {
-              product_id: pid,
-              name: String(x.product_type || x.name || "").trim(),
-              unit: String(x.unit || "ตัน").trim(),
-              sell_price: sellMerged ?? "",
-              comment: String((fallback?.comment ?? x.comment ?? "") || ""),
-            }
-          })
-          .filter((x) => x.product_id)
-
-        if (!alive) return
-        setItems(normalizedItems)
-
-        const pmap = {}
-        for (const it of normalizedItems) {
-          pmap[String(it.product_id)] = { sell_price: String(it.sell_price ?? ""), comment: String(it.comment ?? "") }
+  const loadProducts = useCallback(async () => {
+    if (!effectivePlanId || effectivePlanId <= 0) return
+    setIsLoadingProducts(true)
+    try {
+      const merged = await fetchProductsByGroup(PROCESSING_GROUP_ID, Number(effectivePlanId))
+      const normalizedItems = merged.map((x) => {
+        const pid = Number(x.product_id || 0) || null
+        const fallback = pid ? unitPriceMap[String(pid)] : null
+        const sellFromList = x.sell_price ?? ""
+        const sellMerged = (sellFromList === null || sellFromList === undefined || Number(sellFromList) === 0) && fallback ? fallback.sell_price : sellFromList
+        return {
+          product_id: pid,
+          name: String(x.product_type || "").trim(),
+          unit: String(x.unit || "ตัน").trim(),
+          sell_price: sellMerged ?? "",
+          comment: String((fallback?.comment ?? x.comment ?? "") || ""),
         }
-        setPriceById(pmap)
+      }).filter((x) => x.product_id)
 
-        const uList = savableUnits.length ? savableUnits : []
-        const empty = buildEmptyQtyGrid(normalizedItems.map((x) => String(x.product_id)), uList)
-        setQtyById((prev) => {
-          const next = { ...empty }
-          for (const pid of Object.keys(prev || {})) {
-            if (!next[pid]) continue
-            for (const m of MONTHS) {
-              if (!prev?.[pid]?.[m.key]) continue
-              next[pid][m.key] = { ...next[pid][m.key], ...prev[pid][m.key] }
-            }
-          }
-          return next
-        })
-      } catch {
-        if (!alive) return
-        setItems([])
-        setPriceById({})
-        setQtyById({})
-      } finally {
-        if (alive) setIsLoadingProducts(false)
+      setItems(normalizedItems)
+
+      const pmap = {}
+      for (const it of normalizedItems) {
+        pmap[String(it.product_id)] = { sell_price: String(it.sell_price ?? ""), comment: String(it.comment ?? "") }
       }
-    })()
-    return () => { alive = false }
+      setPriceById(pmap)
+
+      const uList = savableUnits.length ? savableUnits : []
+      const empty = buildEmptyQtyGrid(normalizedItems.map((x) => String(x.product_id)), uList)
+      setQtyById((prev) => {
+        const next = { ...empty }
+        for (const pid of Object.keys(prev || {})) {
+          if (!next[pid]) continue
+          for (const m of MONTHS) {
+            if (!prev?.[pid]?.[m.key]) continue
+            next[pid][m.key] = { ...next[pid][m.key], ...prev[pid][m.key] }
+          }
+        }
+        return next
+      })
+    } catch {
+      setItems([])
+      setPriceById({})
+      setQtyById({})
+    } finally {
+      setIsLoadingProducts(false)
+    }
   }, [effectivePlanId, unitPriceMap, savableUnits])
+
+  useEffect(() => { loadProducts() }, [loadProducts])
+
+  // refetch เมื่อ master data ถูกแก้จาก BusinessEdit
+  useEffect(() => onMasterDataChanged(() => { loadProducts() }), [loadProducts])
 
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
   const loadSavedFromBE = useCallback(async () => {

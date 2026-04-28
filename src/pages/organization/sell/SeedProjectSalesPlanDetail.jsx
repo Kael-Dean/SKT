@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
+import { fetchProductsByGroup, onMasterDataChanged } from "../../../lib/useProductsByGroup"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -253,25 +254,20 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
     if (!planId || planId <= 0) { setProducts([]); return }
     setIsLoadingProducts(true)
     try {
-      const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${planId}`)
-      const g = data?.[String(SEED_GROUP_ID)] || data?.[SEED_GROUP_ID]
-      const items = Array.isArray(g?.items) ? g.items : []
-      const normalized = items
-        .filter((x) => Number(x.business_group) === SEED_GROUP_ID)
-        .map((x) => {
-          const pid = Number(x.product_id || 0)
-          const fallback = unitPriceMap[String(pid)] || null
-          const sellMerged = (x.sell_price === null || x.sell_price === undefined || Number(x.sell_price) === 0) && fallback ? fallback.sell_price : (x.sell_price ?? 0)
-          
-          return {
-            product_id: pid,
-            name: String(x.product_type || x.name || "").trim(),
-            unit: x.unit || "ตัน",
-            sell_price: sellMerged,
-            buy_price: x.buy_price ?? 0,
-            comment: (x.comment ?? "") || (fallback?.comment ?? ""),
-          }
-        }).filter((x) => x.product_id > 0)
+      const merged = await fetchProductsByGroup(SEED_GROUP_ID, Number(planId))
+      const normalized = merged.map((x) => {
+        const pid = Number(x.product_id || 0)
+        const fallback = unitPriceMap[String(pid)] || null
+        const sellMerged = (x.sell_price === null || x.sell_price === undefined || Number(x.sell_price) === 0) && fallback ? fallback.sell_price : (x.sell_price ?? 0)
+        return {
+          product_id: pid,
+          name: String(x.product_type || "").trim(),
+          unit: x.unit || "ตัน",
+          sell_price: sellMerged,
+          buy_price: x.buy_price ?? 0,
+          comment: (x.comment ?? "") || (fallback?.comment ?? ""),
+        }
+      }).filter((x) => x.product_id > 0)
 
       setProducts(normalized)
       
@@ -307,6 +303,9 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
   }, [planId, unitCols, unitPriceMap])
 
   useEffect(() => { loadProducts() }, [loadProducts])
+
+  // refetch เมื่อ master data ถูกแก้จาก BusinessEdit
+  useEffect(() => onMasterDataChanged(() => { loadProducts() }), [loadProducts])
 
   /** ---------------- Load saved sale-goals ---------------- */
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)

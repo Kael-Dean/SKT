@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
+import { fetchProductsByGroup, onMasterDataChanged } from "../../../lib/useProductsByGroup"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -341,27 +342,25 @@ function ProcurementPlanDetail(props) {
     if (!effectivePlanId || effectivePlanId <= 0) { setProducts([]); return }
     setIsLoadingProducts(true)
     try {
-      const data = await apiAuth(`/lists/products-by-group-latest?plan_id=${effectivePlanId}`)
-      const g = data?.[String(PROCUREMENT_GROUP_ID)] || data?.[PROCUREMENT_GROUP_ID]
-      const items = Array.isArray(g?.items) ? g.items : []
-      const normalized = items
-        .filter((x) => Number(x.business_group) === PROCUREMENT_GROUP_ID)
-        .map((x) => {
-          const pid = Number(x.product_id || 0)
-          const fallback = unitPriceMap[String(pid)] || null
-          const sellMerged = (x.sell_price === null || x.sell_price === undefined || Number(x.sell_price) === 0) && fallback ? fallback.sell_price : (x.sell_price ?? 0)
-          const buyMerged = (x.buy_price === null || x.buy_price === undefined || Number(x.buy_price) === 0) && fallback ? fallback.buy_price : (x.buy_price ?? 0)
-          return {
-            unitprice_id: x.unitprice_id ?? null,
-            product_id: pid,
-            product_type: x.product_type || "",
-            unit: x.unit || "-",
-            business_group: Number(x.business_group || 0),
-            sell_price: sellMerged,
-            buy_price: buyMerged,
-            comment: (x.comment ?? "") || (fallback?.comment ?? ""),
-          }
-        }).filter((x) => x.product_id > 0)
+      // ✅ ดึง master list (/products) + ราคาล่าสุดในแผนนั้น แล้ว merge
+      // → สินค้าที่เพิ่งเพิ่มใน BusinessEdit จะขึ้นแม้ยังไม่มีราคา
+      const merged = await fetchProductsByGroup(PROCUREMENT_GROUP_ID, effectivePlanId)
+      const normalized = merged.map((x) => {
+        const pid = Number(x.product_id || 0)
+        const fallback = unitPriceMap[String(pid)] || null
+        const sellMerged = (x.sell_price === null || x.sell_price === undefined || Number(x.sell_price) === 0) && fallback ? fallback.sell_price : (x.sell_price ?? 0)
+        const buyMerged = (x.buy_price === null || x.buy_price === undefined || Number(x.buy_price) === 0) && fallback ? fallback.buy_price : (x.buy_price ?? 0)
+        return {
+          unitprice_id: x.unitprice_id ?? null,
+          product_id: pid,
+          product_type: x.product_type || "",
+          unit: x.unit || "-",
+          business_group: Number(x.business_group || 0),
+          sell_price: sellMerged,
+          buy_price: buyMerged,
+          comment: (x.comment ?? "") || (fallback?.comment ?? ""),
+        }
+      })
 
       setProducts(normalized)
       const pMap = {}
@@ -416,6 +415,9 @@ function ProcurementPlanDetail(props) {
   }, [branchIdEff, effectivePlanId, products, unitCols])
 
   useEffect(() => { loadProducts() }, [loadProducts])
+
+  // refetch ทันทีเมื่อ master data ถูกแก้จาก BusinessEdit
+  useEffect(() => onMasterDataChanged(() => { loadProducts() }), [loadProducts])
   useEffect(() => { loadSavedFromBE() }, [loadSavedFromBE])
 
   const productRows = useMemo(() => products.map((p) => ({ ...p, product_id: Number(p.product_id), unit: String(p.unit || "-").trim() })), [products])

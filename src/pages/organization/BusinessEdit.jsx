@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from "react"
 import ReactDOM from "react-dom"
 import { apiAuth } from "../../lib/api"
+import { emitMasterDataChanged } from "../../lib/useProductsByGroup"
+import { invalidateBusinessListCache } from "../../lib/useBusinessList"
 
 /** ---------- Mapping ---------- */
 const BUSINESS_GROUP_MAP = {
@@ -445,6 +447,9 @@ const BusinessEdit = () => {
     try {
       await apiAuth(`${currentConfig.endpoint}/${id}`, { method: "DELETE" })
       fetchData() // โหลดข้อมูลใหม่หลังจากลบ
+      // กระจายให้ทุกตารางที่ฟังอยู่ refetch
+      invalidateBusinessListCache()
+      emitMasterDataChanged({ tab: activeTab, action: "delete", id })
     } catch (err) {
       console.error(err)
       alert("เกิดข้อผิดพลาดในการลบข้อมูล หรือคุณไม่มีสิทธิ์ (Admin Only)")
@@ -519,6 +524,9 @@ const BusinessEdit = () => {
       }
       setIsModalOpen(false)
       fetchData() // โหลดข้อมูลใหม่มาแสดงผล
+      // แจ้งทุกตาราง/หน้าที่ผูก master data ให้ refresh แบบ realtime
+      invalidateBusinessListCache()
+      emitMasterDataChanged({ tab: activeTab, action: editingId ? "update" : "create", id: editingId ?? null })
     } catch (err) {
       console.error(err)
       alert(err.message || "เกิดข้อผิดพลาด กรุณาตรวจสอบสิทธิ์ (Admin Only) หรือความถูกต้องของข้อมูล")

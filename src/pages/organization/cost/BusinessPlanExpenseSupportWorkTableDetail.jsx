@@ -497,7 +497,7 @@ const BusinessPlanExpenseSupportWorkTableDetail = ({ branchId, branchName, yearB
   const RIGHT_W = (MONTHS.length * unitCols.length * COL_W.cell) + (unitCols.length * COL_W.total) + COL_W.grand
   const TOTAL_W = LEFT_W + RIGHT_W
   return (<>
-      <div ref={tableCardRef} className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col" style={{ maxHeight: tableCardHeight }}>
+      <div ref={tableCardRef} className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-clip flex flex-col" style={{ maxHeight: tableCardHeight }}>
         <div className="flex-1 overflow-auto" ref={tableWrapRef}>
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
             <colgroup>

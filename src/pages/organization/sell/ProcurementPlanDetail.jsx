@@ -808,7 +808,7 @@ function ProcurementPlanDetail(props) {
                 )
               })}
             </tbody>
-            <tfoot className="sticky bottom-0 z-20">
+            <tfoot className="sticky bottom-[28px] z-20">
               {/* ----- FOOTER: สรุปยอดรวมทั้งหมด ด้านล่าง ----- */}
               {/* Footer 1: ผลรวมจำนวนหน่วย */}
               <tr>

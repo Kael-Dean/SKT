@@ -515,17 +515,17 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
   const [saveNotice, setSaveNotice] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
 
-  const buildPayloadForBE = () => {
+  const buildPayloadForBE = (overrideValues) => {
     const token = getToken()
     if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
     if (!effectiveYear) throw new Error("FE: ปีไม่ถูกต้อง")
     if (!items.length) throw new Error("FE: ยังไม่พบรายการ (โหลด list ไม่สำเร็จ)")
 
+    const valuesSrc = overrideValues ?? valuesById
     const itemsPayload = items.map((it) => {
-      const row = valuesById[it.id] || {}
+      const row = valuesSrc[it.id] || {}
       return {
         product_id: it.id,
-        // ✅ ส่งเป็น string(3dp) ให้ตรง condecimal(decimal_places=3)
         sell_price: fmtDec3Str(row.sell),
         buy_price: fmtDec3Str(row.buy),
         comment: periodLabel,
@@ -553,11 +553,11 @@ const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
     )
   }
 
-  const saveToBE = async () => {
+  const saveToBE = async (overrideValues) => {
     let payload = null
     try {
       setSaveNotice(null)
-      payload = buildPayloadForBE()
+      payload = buildPayloadForBE(overrideValues)
       setIsSaving(true)
 
 let res = null
@@ -617,12 +617,14 @@ if (res == null) throw new Error("บันทึกไม่สำเร็จ"
     }
   }
 
-  const resetAll = () => {
-    if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
+  const resetAll = async () => {
+    if (!confirm("รีเซ็ตข้อมูลทั้งหมดในตารางและบันทึกค่าว่าง (0) ลงระบบ?")) return
     const empty = {}
     for (const it of items) empty[it.id] = { buy: "", sell: "" }
     setValuesById(empty)
-    setSaveNotice({ type: "info", title: "ล้างข้อมูลแล้ว", detail: "รีเซ็ตค่าที่กรอกเป็นว่าง" })
+    if (items.length) {
+      await saveToBE(empty)
+    }
   }
 
   const reloadItems = async () => {
@@ -826,7 +828,13 @@ if (res == null) throw new Error("บันทึกไม่สำเร็จ"
             <button
               type="button"
               onClick={resetAll}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+              disabled={isSaving || !items.length}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl border px-5 py-3 text-sm font-semibold transition",
+                (isSaving || !items.length)
+                  ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
+                  : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+              )}
             >
               รีเซ็ต
             </button>
@@ -834,9 +842,9 @@ if (res == null) throw new Error("บันทึกไม่สำเร็จ"
             <button
               type="button"
               disabled={isSaving || !items.length}
-              onClick={saveToBE}
+              onClick={() => saveToBE()}
               className={cx(
-                "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white",
+                "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white cursor-pointer",
                 "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",
                 (isSaving || !items.length) && "opacity-60 hover:scale-100 cursor-not-allowed"
               )}

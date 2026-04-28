@@ -553,31 +553,27 @@ const ServiceBusinessPlanDetail = (props) => {
 
 
   /** -------- Save -------- */
-  const payload = useMemo(() => {
-    return {
-      plan_id: Number(effectivePlanId || 0),
-      branch_id: branchId ? Number(branchId) : null,
-      cells: items
-        .flatMap((it) =>
-          MONTHS.flatMap((m) =>
-            savableUnits.map((u) => ({
-              unit_id: Number(u.id),
-              product_id: Number(it.product_id || 0),
-              month: Number(m.month),
-              amount: toNumber(qtyById?.[it.id]?.[m.key]?.[String(u.id)] ?? 0),
-              buy_price: toNumber((priceById[it.id] || {}).buy_price ?? 0),
-            }))
-          )
-        )
-        .filter((x) => x.amount !== 0),
-    }
-  }, [effectivePlanId, branchId, items, priceById, qtyById, savableUnits])
+  const buildCells = useCallback((qtySrc, priceSrc) => {
+    return items.flatMap((it) =>
+      MONTHS.flatMap((m) =>
+        savableUnits.map((u) => ({
+          unit_id: Number(u.id),
+          product_id: Number(it.product_id || 0),
+          month: Number(m.month),
+          amount: toNumber(qtySrc?.[it.id]?.[m.key]?.[String(u.id)] ?? 0),
+          buy_price: toNumber((priceSrc[it.id] || {}).buy_price ?? 0),
+        }))
+      )
+    )
+  }, [items, savableUnits])
 
-  const saveAll = useCallback(async () => {
+  const saveAll = useCallback(async (overrideQty, overridePrice) => {
     if (!canEdit) {
       setSaveMsg({ ok: false, title: "บันทึกไม่ได้", detail: "ยังไม่มีสาขา/หน่วยของสาขา/plan_id" })
       return
     }
+    const qtySrc = overrideQty ?? qtyById
+    const priceSrc = overridePrice ?? priceById
 
     setIsSaving(true)
     setSaveMsg(null)
@@ -587,7 +583,7 @@ const ServiceBusinessPlanDetail = (props) => {
         body: {
           plan_id: Number(effectivePlanId),
           branch_id: Number(branchId),
-          cells: payload.cells,
+          cells: buildCells(qtySrc, priceSrc),
         },
       })
 
@@ -608,7 +604,16 @@ const ServiceBusinessPlanDetail = (props) => {
     } finally {
       setIsSaving(false)
     }
-  }, [canEdit, effectivePlanId, effectiveYearBE, payload.cells, branchId, branchName, loadSaved])
+  }, [canEdit, effectivePlanId, effectiveYearBE, buildCells, qtyById, priceById, branchId, branchName, loadSaved])
+
+  const resetAll = useCallback(async () => {
+    if (!confirm("รีเซ็ตข้อมูลทั้งหมดในตารางและบันทึกค่าว่าง (0) ลงระบบ?")) return
+    const emptyQty = buildEmptyQtyGrid(items, unitCols)
+    setQtyById(emptyQty)
+    if (canEdit) {
+      await saveAll(emptyQty, priceById)
+    }
+  }, [items, unitCols, priceById, canEdit, saveAll])
 
   /** ---------------- rendering helpers ---------------- */
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
@@ -876,12 +881,14 @@ const ServiceBusinessPlanDetail = (props) => {
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
             <button
               type="button"
-              onClick={() => {
-                if(confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) {
-                  setQtyById(buildEmptyQtyGrid(items, unitCols));
-                }
-              }}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+              onClick={resetAll}
+              disabled={isSaving || !canEdit}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl border px-5 py-3 text-sm font-semibold transition",
+                (isSaving || !canEdit)
+                  ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
+                  : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+              )}
             >
               รีเซ็ต
             </button>
@@ -893,7 +900,7 @@ const ServiceBusinessPlanDetail = (props) => {
                   : "bg-emerald-600 hover:bg-emerald-700 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:scale-[1.03] active:scale-[.98] cursor-pointer"
               )}
               disabled={isSaving || !canEdit || !savableUnits.length}
-              onClick={saveAll}
+              onClick={() => saveAll()}
             >
               {isSaving ? "กำลังบันทึก..." : "บันทึก"}
             </button>

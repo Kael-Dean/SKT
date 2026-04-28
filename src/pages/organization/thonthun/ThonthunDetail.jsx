@@ -143,26 +143,21 @@ const ThonthunDetail = ({ branchName, yearBE, planId }) => {
   const [notice, setNotice] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
 
-  const saveToBE = async () => {
+  const saveToBE = async (overrideValues) => {
     setIsSaving(true); setNotice(null)
     try {
+      const valuesSrc = overrideValues ?? values
       const payloadItems = []
-      for (const pId of Object.keys(values)) {
-        for (const mKey of Object.keys(values[pId])) {
-          const month = MONTHS.find(m => m.key === mKey)
-          if (!month) continue
-          
-          const buyPrice = toNumber(values[pId][mKey].buy)
-          const sellPrice = toNumber(values[pId][mKey].sell)
-
-          if(buyPrice > 0 || sellPrice > 0) {
-            payloadItems.push({
-              product_id: Number(pId),
-              month: month.month,
-              buy_price: buyPrice,
-              sell_price: sellPrice,
-            })
-          }
+      for (const it of items) {
+        const pId = it.id
+        for (const month of MONTHS) {
+          const cell = valuesSrc[pId]?.[month.key] || {}
+          payloadItems.push({
+            product_id: Number(pId),
+            month: month.month,
+            buy_price: toNumber(cell.buy),
+            sell_price: toNumber(cell.sell),
+          })
         }
       }
 
@@ -175,6 +170,19 @@ const ThonthunDetail = ({ branchName, yearBE, planId }) => {
       setNotice({ type: "error", title: "บันทึกไม่สำเร็จ ❌", detail: e.message || String(e) })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const resetAll = async () => {
+    if (!confirm("รีเซ็ตข้อมูลทั้งหมดในตารางและบันทึกค่าว่าง (0) ลงระบบ?")) return
+    const empty = {}
+    for (const it of items) {
+      empty[it.id] = {}
+      for (const m of MONTHS) empty[it.id][m.key] = { buy: "", sell: "" }
+    }
+    setValues(empty)
+    if (items.length && effectiveYear) {
+      await saveToBE(empty)
     }
   }
   
@@ -240,14 +248,20 @@ const ThonthunDetail = ({ branchName, yearBE, planId }) => {
             <div className="flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={loadData}
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+                  onClick={resetAll}
+                  disabled={isSaving || !items.length}
+                  className={cx(
+                    "inline-flex items-center justify-center rounded-2xl border px-5 py-2.5 text-sm font-semibold transition",
+                    (isSaving || !items.length)
+                      ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
+                      : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+                  )}
                 >
                   รีเซ็ต
                 </button>
                 <button
                   type="button"
-                  onClick={saveToBE}
+                  onClick={() => saveToBE()}
                   disabled={isSaving}
                   className={cx(
                     "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white",

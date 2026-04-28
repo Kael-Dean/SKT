@@ -449,18 +449,19 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
   const [saveMsg, setSaveMsg] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
 
-  const buildMonthlyPayload = () => {
+  const buildMonthlyPayload = (overrideValues) => {
     if (!planId || planId <= 0) throw new Error(`FE: plan_id ไม่ถูกต้อง (plan_id=${planId})`)
     if (!branchId) throw new Error("FE: ยังไม่ได้เลือกสาขา")
     if (!units.length) throw new Error("FE: สาขานี้ไม่มีหน่วย หรือโหลดหน่วยไม่สำเร็จ")
 
+    const valuesSrc = overrideValues ?? valuesByCode
     const rows = []
     const skipped = []
     const blocked = []
 
     for (const r of itemRows) {
       const businessEarningId = Number(r.business_earning_id || 0)
-      const rowObj = valuesByCode[r.code] || {}
+      const rowObj = valuesSrc[r.code] || {}
 
       let hasValue = false
       outer: for (const m of MONTHS) {
@@ -486,12 +487,12 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
     return { rows, skipped }
   }
 
-  const saveAll = async () => {
+  const saveAll = async (overrideValues) => {
     try {
       setSaveMsg(null)
       const token = getToken()
       if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
-      const { rows, skipped } = buildMonthlyPayload()
+      const { rows, skipped } = buildMonthlyPayload(overrideValues)
       setIsSaving(true)
       const res = await apiAuth(`/business-plan/${planId}/earnings/monthly`, { method: "POST", body: { rows } })
       setSaveMsg({
@@ -506,10 +507,14 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
     }
   }
 
-  const resetAll = () => {
-    if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
+  const resetAll = async () => {
+    if (!confirm("รีเซ็ตข้อมูลทั้งหมดในตารางและบันทึกค่าว่าง (0) ลงระบบ?")) return
     const ids = unitIds.length ? unitIds : FALLBACK_UNITS.map((x) => x.id)
-    setValuesByCode(buildInitialValues(ids))
+    const empty = buildInitialValues(ids)
+    setValuesByCode(empty)
+    if (canEdit) {
+      await saveAll(empty)
+    }
   }
 
   /** CSS Classes */
@@ -703,13 +708,19 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
             <button
               type="button"
               onClick={resetAll}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+              disabled={isSaving || !canEdit}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl border px-5 py-3 text-sm font-semibold transition",
+                (isSaving || !canEdit)
+                  ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
+                  : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+              )}
             >
               รีเซ็ต
             </button>
             <button
               type="button"
-              onClick={saveAll}
+              onClick={() => saveAll()}
               disabled={isSaving || !canEdit}
               className={cx(
                 "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition",

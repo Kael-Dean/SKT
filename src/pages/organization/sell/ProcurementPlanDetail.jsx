@@ -582,8 +582,10 @@ function ProcurementPlanDetail(props) {
   const [isSaving, setIsSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
 
-  const saveAll = useCallback(async () => {
+  const saveAll = useCallback(async (overrideQty, overridePrice) => {
     if (!branchIdEff || !effectivePlanId || !productRows.length) return
+    const qtySrc = overrideQty ?? qtyByPid
+    const priceSrc = overridePrice ?? priceByPid
     setIsSaving(true); setSaveMsg(null)
     try {
       const cells = []
@@ -592,21 +594,17 @@ function ProcurementPlanDetail(props) {
         const pid = Number(p.product_id)
         for (const m of MONTHS) {
           for (const u of unitCols) {
-            const uid = Number(u.id), v = qtyByPid?.[String(pid)]?.[m.key]?.[String(uid)] ?? "", n = toNumber(v)
-            if (n > 0) {
-              cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: toNumber(priceByPid[String(pid)]?.buy_price ?? 0) })
-              usedPids.add(pid)
-            }
+            const uid = Number(u.id), v = qtySrc?.[String(pid)]?.[m.key]?.[String(uid)] ?? "", n = toNumber(v)
+            cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: toNumber(priceSrc[String(pid)]?.buy_price ?? 0) })
+            if (n > 0) usedPids.add(pid)
           }
         }
       }
 
-      // 🚀 สินค้าใหม่ที่ยังไม่มี UnitPrice → ตั้งราคา (จากที่กรอกในตารางหรือ 0) ก่อน
-      // กัน 422 "Missing unit prices" จาก BE
       const needPrice = productRows
         .filter((p) => usedPids.has(Number(p.product_id)) && !p.unitprice_id)
         .map((p) => {
-          const row = priceByPid[String(p.product_id)] || {}
+          const row = priceSrc[String(p.product_id)] || {}
           return {
             product_id: Number(p.product_id),
             sell_price: row.sell_price ?? 0,
@@ -623,11 +621,20 @@ function ProcurementPlanDetail(props) {
 
       await loadSavedFromBE()
       await loadUnitPricesForYear()
-      await loadProducts()  // refresh เพื่อให้ unitprice_id ของสินค้าใหม่ติดมา
+      await loadProducts()
     } catch (e) {
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally { setIsSaving(false) }
   }, [branchIdEff, effectivePlanId, effectiveYearBE, productRows, priceByPid, qtyByPid, unitCols, resolvedBranchName, loadSavedFromBE, loadUnitPricesForYear, loadProducts, periodLabel])
+
+  const resetAll = useCallback(async () => {
+    if (!confirm("รีเซ็ตข้อมูลทั้งหมดในตารางและบันทึกค่าว่าง (0) ลงระบบ?")) return
+    const emptyQty = buildEmptyQtyGrid(productRows.map((p) => String(p.product_id)), unitCols)
+    setQtyByPid(emptyQty)
+    if (canEdit) {
+      await saveAll(emptyQty, priceByPid)
+    }
+  }, [productRows, unitCols, priceByPid, canEdit, saveAll])
 
   /** ---------------- rendering helpers ---------------- */
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
@@ -893,12 +900,14 @@ function ProcurementPlanDetail(props) {
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
             <button
               type="button"
-              onClick={() => {
-                if (confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) {
-                  setQtyByPid(buildEmptyQtyGrid(productRows.map((p) => String(p.product_id)), unitCols))
-                }
-              }}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+              onClick={resetAll}
+              disabled={isSaving || !canEdit}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl border px-5 py-3 text-sm font-semibold transition",
+                (isSaving || !canEdit)
+                  ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
+                  : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+              )}
             >
               รีเซ็ต
             </button>
@@ -910,7 +919,7 @@ function ProcurementPlanDetail(props) {
                   : "bg-emerald-600 hover:bg-emerald-700 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:scale-[1.03] active:scale-[.98]"
               )}
               disabled={isSaving || !canEdit}
-              onClick={saveAll}
+              onClick={() => saveAll()}
             >
               {isSaving ? "กำลังบันทึก..." : "บันทึก"}
             </button>

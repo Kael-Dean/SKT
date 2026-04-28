@@ -461,18 +461,18 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
   const [notice, setNotice] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
 
-  // 🔴 จุดสำคัญที่ 1: จัดโครงสร้าง Payload ใหม่ให้ตรงกับ Backend
-  const buildBulkRowsForBE = useCallback(() => {
+  const buildBulkRowsForBE = useCallback((overrideValues) => {
     if (!effectivePlanId || effectivePlanId <= 0) throw new Error("FE: plan_id ไม่ถูกต้อง")
     if (!unitCols.length || unitCols[0].id === 0) throw new Error("FE: ไม่พบหน่วยในสาขา")
-    
+
+    const valuesSrc = overrideValues ?? valuesByCode
     const rows = []
-    
+
     for (const r of itemRows) {
         if (!r.aux_id) continue
 
-        const rowData = valuesByCode[r.code] || {}
-        
+        const rowData = valuesSrc[r.code] || {}
+
         for (const u of unitCols) {
             if (u.id <= 0) continue
 
@@ -482,36 +482,29 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                 m9_value: 0, m10_value: 0, m11_value: 0, m12_value: 0
             }
 
-            let hasValue = false
             for (const m of MONTHS) {
-                const amount = toNumber(rowData?.[m.key]?.[u.id])
-                if (amount !== 0) hasValue = true
-                
-                // Map m.month (1-12) ไปเป็น m1_value ถึง m12_value
-                monthsData[`m${m.month}_value`] = amount
+                monthsData[`m${m.month}_value`] = toNumber(rowData?.[m.key]?.[u.id])
             }
 
-            if (hasValue) {
-                rows.push({
-                    unit_id: u.id,
-                    b_aux: r.aux_id,
-                    months: monthsData
-                })
-            }
+            rows.push({
+                unit_id: u.id,
+                b_aux: r.aux_id,
+                months: monthsData
+            })
         }
     }
 
-    return { rows } // ส่งคีย์เป็น 'rows' ตรงกับ BE BulkSaveMonthlyAuxIn
+    return { rows }
   }, [effectivePlanId, itemRows, valuesByCode, unitCols])
 
-  const saveToBE = async () => {
+  const saveToBE = async (overrideValues) => {
     let payload = null
     try {
         setNotice(null)
         const token = getToken()
         if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
 
-        const built = buildBulkRowsForBE()
+        const built = buildBulkRowsForBE(overrideValues)
         payload = built
         setIsSaving(true)
 
@@ -543,6 +536,15 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
         console.error("Save Error:", e)
     } finally {
         setIsSaving(false)
+    }
+  }
+
+  const resetAll = async () => {
+    if (!confirm("รีเซ็ตข้อมูลทั้งหมดในตารางและบันทึกค่าว่าง (0) ลงระบบ?")) return
+    const empty = normalizeGrid({})
+    setValuesByCode(empty)
+    if (effectivePlanId && unitCols.length && unitCols[0].id !== 0) {
+      await saveToBE(empty)
     }
   }
 
@@ -665,15 +667,21 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             <div className="flex justify-end gap-3">
                 <button
                 type="button"
-                onClick={loadSavedFromBE}
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+                onClick={resetAll}
+                disabled={isSaving || !unitCols.length || unitCols[0].id === 0}
+                className={cx(
+                  "inline-flex items-center justify-center rounded-2xl border px-5 py-2.5 text-sm font-semibold transition",
+                  (isSaving || !unitCols.length || unitCols[0].id === 0)
+                    ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
+                    : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+                )}
                 >
                 รีเซ็ต
                 </button>
                 <button
                 type="button"
                 disabled={isSaving || !unitCols.length || unitCols[0].id === 0}
-                onClick={saveToBE}
+                onClick={() => saveToBE()}
                 className={cx(
                     "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white",
                     "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",

@@ -277,14 +277,18 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
   useEffect(() => { loadUnitPricesForYear() }, [loadUnitPricesForYear])
   useEffect(() => { loadSavedFromBE() }, [loadSavedFromBE])
 
-  /** ================== ✅ Save to BE ================== */
-  const saveAll = useCallback(async () => {
+  /** ================== ✅ Save to BE ==================
+   * ส่งทุกเซลล์ (รวม 0/ค่าว่าง) เพื่อให้ BE เขียนทับค่าเดิม
+   * ทำให้ "ลบเซลล์แล้วบันทึก" หรือ "รีเซ็ต" สามารถล้างค่าใน DB ได้จริง
+   */
+  const saveAll = useCallback(async (overrideQty, overridePrice) => {
     if (!branchId || !planId || !editableItems.length) return
+    const qtySrc = overrideQty ?? qtyById
+    const priceSrc = overridePrice ?? priceById
     setIsSaving(true)
     setSaveMsg(null)
 
     try {
-      // เตรียมข้อมูลจำนวนหน่วย (Cells)
       const cells = []
       const usedPids = new Set()
       for (const it of editableItems) {
@@ -293,21 +297,18 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
         for (const m of MONTHS) {
           for (const u of unitCols) {
             const uid = Number(u.id)
-            const v = qtyById?.[it.id]?.[m.key]?.[String(uid)] ?? ""
+            const v = qtySrc?.[it.id]?.[m.key]?.[String(uid)] ?? ""
             const n = toNumber(v)
-            if (n > 0) {
-              cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: 0 })
-              usedPids.add(pid)
-            }
+            cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: 0 })
+            if (n > 0) usedPids.add(pid)
           }
         }
       }
 
-      // 🚀 ตั้งราคาให้สินค้าใหม่ที่ยังไม่มีก่อน save sale-goals
       const needPrice = editableItems
         .filter((it) => usedPids.has(Number(it.product_id)) && !it.unitprice_id)
         .map((it) => {
-          const sellRaw = priceById?.[it.id] ?? it.unitPrice ?? 0
+          const sellRaw = priceSrc?.[it.id] ?? it.unitPrice ?? 0
           return {
             product_id: Number(it.product_id),
             sell_price: sellRaw ?? 0,
@@ -326,7 +327,6 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
 
       setSaveMsg({ ok: true, title: "บันทึกสำเร็จ", detail: `สาขา ${branchName || ""} • ปี ${yearBE}` })
 
-      // อัปเดตข้อมูลล่าสุดหลังจากบันทึก
       await loadSavedFromBE()
       await loadUnitPricesForYear()
       await loadProducts()
@@ -485,10 +485,15 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
     return { perMonth, perItem, grandUnitTotals, grandValue }
   }, [qtyById, priceById, editableItems, unitCols])
 
-  const resetAll = () => {
-    if (!confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) return
-    setPriceById(buildInitialPrice(editableItems))
-    setQtyById(buildInitialQty(editableItems, unitCols))
+  const resetAll = async () => {
+    if (!confirm("รีเซ็ตข้อมูลทั้งหมดในตารางและบันทึกค่าว่าง (0) ลงระบบ?")) return
+    const emptyQty = buildInitialQty(editableItems, unitCols)
+    const emptyPrice = buildInitialPrice(editableItems)
+    setPriceById(emptyPrice)
+    setQtyById(emptyQty)
+    if (canEdit) {
+      await saveAll(emptyQty, emptyPrice)
+    }
   }
 
   const payload = useMemo(() => {
@@ -788,7 +793,13 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
               <button
                 type="button"
                 onClick={resetAll}
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+                disabled={isSaving || !canEdit}
+                className={cx(
+                  "inline-flex items-center justify-center rounded-2xl border px-5 py-3 text-sm font-semibold transition",
+                  (isSaving || !canEdit)
+                    ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
+                    : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+                )}
               >
                 รีเซ็ต
               </button>
@@ -796,7 +807,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
               {/* ปุ่มบันทึกลงระบบใหม่ */}
               <button
                 type="button"
-                onClick={saveAll}
+                onClick={() => saveAll()}
                 disabled={isSaving || !canEdit}
                 className={cx(
                   "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition",

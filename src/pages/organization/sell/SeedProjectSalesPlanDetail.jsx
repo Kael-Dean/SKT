@@ -488,8 +488,10 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
   const [isSaving, setIsSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
 
-  const saveAll = useCallback(async () => {
+  const saveAll = useCallback(async (overrideQty, overridePrice) => {
     if (!branchId || !planId || !products.length || !savableUnits.length) return
+    const qtySrc = overrideQty ?? qtyByPid
+    const priceSrc = overridePrice ?? priceByPid
     setIsSaving(true); setSaveMsg(null)
     try {
       const cells = []
@@ -498,20 +500,17 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
         const pid = Number(p.product_id)
         for (const m of MONTHS) {
           for (const u of savableUnits) {
-            const uid = Number(u.id), v = qtyByPid?.[String(pid)]?.[m.key]?.[String(uid)] ?? "", n = toNumber(v)
-            if (n > 0) {
-              cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: toNumber(priceByPid[String(pid)]?.buy_price ?? 0) })
-              usedPids.add(pid)
-            }
+            const uid = Number(u.id), v = qtySrc?.[String(pid)]?.[m.key]?.[String(uid)] ?? "", n = toNumber(v)
+            cells.push({ unit_id: uid, product_id: pid, month: Number(m.month), amount: n, buy_price: toNumber(priceSrc[String(pid)]?.buy_price ?? 0) })
+            if (n > 0) usedPids.add(pid)
           }
         }
       }
 
-      // 🚀 ตั้งราคาให้สินค้าใหม่ที่ยังไม่มีก่อน save sale-goals
       const needPrice = products
         .filter((p) => usedPids.has(Number(p.product_id)) && !p.unitprice_id)
         .map((p) => {
-          const row = priceByPid[String(p.product_id)] || {}
+          const row = priceSrc[String(p.product_id)] || {}
           return {
             product_id: Number(p.product_id),
             sell_price: row.sell_price ?? p.sell_price ?? 0,
@@ -533,6 +532,15 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
       setSaveMsg({ ok: false, title: "บันทึกไม่สำเร็จ", detail: e?.message || String(e) })
     } finally { setIsSaving(false) }
   }, [branchId, planId, effectiveYearBE, products, priceByPid, qtyByPid, savableUnits, branchName, loadSavedFromBE, loadProducts, loadUnitPricesForYear])
+
+  const resetAll = useCallback(async () => {
+    if (!confirm("รีเซ็ตข้อมูลทั้งหมดในตารางและบันทึกค่าว่าง (0) ลงระบบ?")) return
+    const emptyQty = buildEmptyQtyGrid(products.map((p) => String(p.product_id)), unitCols)
+    setQtyByPid(emptyQty)
+    if (canEdit) {
+      await saveAll(emptyQty, priceByPid)
+    }
+  }, [products, unitCols, priceByPid, canEdit, saveAll])
 
   /** ---------------- rendering helpers ---------------- */
   const RIGHT_W = useMemo(() => {
@@ -747,12 +755,14 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
             <button
               type="button"
-              onClick={() => {
-                if(confirm("ล้างข้อมูลที่กรอกทั้งหมด?")) {
-                  setQtyByPid(buildEmptyQtyGrid(products.map(p => String(p.product_id)), unitCols));
-                }
-              }}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+              onClick={resetAll}
+              disabled={isSaving || !canEdit}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl border px-5 py-3 text-sm font-semibold transition",
+                (isSaving || !canEdit)
+                  ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
+                  : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+              )}
             >
               รีเซ็ต
             </button>
@@ -764,7 +774,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
                   : "bg-emerald-600 hover:bg-emerald-700 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:scale-[1.03] active:scale-[.98] cursor-pointer"
               )}
               disabled={isSaving || !canEdit || !savableUnits.length}
-              onClick={saveAll}
+              onClick={() => saveAll()}
             >
               {isSaving ? "กำลังบันทึก..." : "บันทึก"}
             </button>

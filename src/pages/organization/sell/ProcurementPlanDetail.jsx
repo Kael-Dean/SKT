@@ -650,17 +650,7 @@ function ProcurementPlanDetail(props) {
 
   return (
     <>
-    <div className="w-full" style={{ zoom: 0.8 }}>
-      {/* 🟢 แก้ไข: นำปุ่มบันทึกและข้อความแจ้งเตือนออกจากส่วน Header ด้านบน */}
-      <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-[16px] font-bold">ยอดขายธุรกิจจัดหา</div>
-          <div className="text-[12px] text-slate-600 dark:text-slate-300">
-            ({periodLabel}) • ปี {effectiveYearBE} • สาขา {resolvedBranchName || "-"}
-          </div>
-        </div>
-      </div>
-
+    <div className="w-full">
       <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700" ref={tableWrapRef} style={{ maxHeight: tableCardHeight }}>
           <table className="min-w-full border-collapse" style={{ width: TOTAL_W }}>

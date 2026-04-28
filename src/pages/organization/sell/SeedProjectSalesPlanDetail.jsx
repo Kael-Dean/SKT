@@ -354,17 +354,22 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
 
   /** ---------------- Computed ---------------- */
   const sums = useMemo(() => {
-    const perMonth = {} 
-    const perProduct = {} 
-    const grandUnitTotals = {} 
+    const perMonth = {}
+    const perProduct = {}
+    const grandUnitTotals = {}
+    const perProductBranch = {}
+    const perMonthBranch = {}
+    const grandBranchTotal = { qty: 0, baht: 0 }
 
     for (const m of MONTHS) {
       perMonth[m.key] = {}
+      perMonthBranch[m.key] = { qty: 0, baht: 0 }
       for (const u of unitCols) perMonth[m.key][String(u.id)] = { qty: 0, baht: 0 }
     }
     for (const p of products) {
       const pid = String(p.product_id)
       perProduct[pid] = {}
+      perProductBranch[pid] = { qty: 0, baht: 0 }
       for (const u of unitCols) perProduct[pid][String(u.id)] = { qty: 0, baht: 0 }
     }
     for (const u of unitCols) grandUnitTotals[String(u.id)] = { qty: 0, baht: 0 }
@@ -391,11 +396,18 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
           grandUnitTotals[uid].qty += n
           grandUnitTotals[uid].baht += baht
 
+          perProductBranch[pid].qty += n
+          perProductBranch[pid].baht += baht
+          perMonthBranch[m.key].qty += n
+          perMonthBranch[m.key].baht += baht
+          grandBranchTotal.qty += n
+          grandBranchTotal.baht += baht
+
           grandValue += baht
         }
       }
     }
-    return { perMonth, perProduct, grandUnitTotals, grandValue }
+    return { perMonth, perProduct, grandUnitTotals, grandValue, perProductBranch, perMonthBranch, grandBranchTotal }
   }, [products, priceByPid, qtyByPid, unitCols])
 
   /** ---------------- Arrow Navigation ---------------- */
@@ -545,7 +557,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
   /** ---------------- rendering helpers ---------------- */
   const RIGHT_W = useMemo(() => {
     const monthColsW = MONTHS.length * unitCols.length * COL_W.cell
-    const totalColsW = unitCols.length * (COL_W.cell + COL_W.price) 
+    const totalColsW = unitCols.length * (COL_W.cell + COL_W.price) + COL_W.cell + COL_W.price
     return monthColsW + totalColsW
   }, [unitCols.length])
   
@@ -577,8 +589,10 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
                   <col style={{ width: COL_W.price }} />
                 </Fragment>
               ))}
+              <col style={{ width: COL_W.cell }} />
+              <col style={{ width: COL_W.price }} />
             </colgroup>
-            
+
             <thead className="sticky top-0 z-30">
               <tr>
                 <th className={cx(leftHeadCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} rowSpan={3}>ประเภทสินค้า</th>
@@ -590,6 +604,9 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
                     รวมทั้งหมด {unitCols.length > 1 ? `(${u.name})` : ''}
                   </th>
                 ))}
+                <th className={cx(headCell, STRIPE.headEven, "align-middle border-b border-b-slate-300 dark:border-b-slate-600")} colSpan={2} rowSpan={2}>
+                  รวมทั้งหมด (สาขา)
+                </th>
               </tr>
               <tr>
                 {MONTHS.map((m, mi) => (
@@ -610,6 +627,8 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
                     <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")}>จำนวนเงิน (บาท)</th>
                   </Fragment>
                 ))}
+                <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")}>จำนวนหน่วย</th>
+                <th className={cx(headCell, STRIPE.headEven, "border-b border-b-slate-300 dark:border-b-slate-600")}>จำนวนเงิน (บาท)</th>
               </tr>
             </thead>
             
@@ -670,6 +689,12 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
                           </td>
                         </Fragment>
                       ))}
+                      <td className={cx(cellClass, STRIPE.footEven)}>
+                        <div className="text-right font-semibold text-slate-800 dark:text-slate-200">{fmtQty(sums.perProductBranch[pid]?.qty || 0)}</div>
+                      </td>
+                      <td rowSpan={2} className={cx(cellClass, STRIPE.footEven, rowDivider, "align-middle")}>
+                        <div className="text-right font-bold text-emerald-700 dark:text-emerald-400">{fmtMoney(sums.perProductBranch[pid]?.baht || 0)}</div>
+                      </td>
                     </tr>
 
                     <tr className="group">
@@ -689,6 +714,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
                         </Fragment>
                       ))}
                       {unitCols.map((u) => <td key={`${pid}-sum-pad-${u.id}`} className={cx(cellClass, STRIPE.footEven, rowDivider)} />)}
+                      <td className={cx(cellClass, STRIPE.footEven, rowDivider)} />
                     </tr>
                   </Fragment>
                 )
@@ -720,6 +746,12 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
                     </td>
                   </Fragment>
                 ))}
+                <td className={cx(cellClass, STRIPE.footOdd, footerBorder)}>
+                  <div className="text-right font-bold text-[13px] text-slate-900 dark:text-slate-100">{fmtQty(sums.grandBranchTotal.qty)}</div>
+                </td>
+                <td rowSpan={2} className={cx(cellClass, STRIPE.footOdd, footerBorder, "align-middle")}>
+                  <div className="text-right font-bold text-[14px] text-emerald-800 dark:text-emerald-300">{fmtMoney(sums.grandBranchTotal.baht)}</div>
+                </td>
               </tr>
 
               <tr>
@@ -734,6 +766,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
                   </Fragment>
                 ))}
                 {unitCols.map((u) => <td key={`ft-pad-${u.id}`} className={cx(cellClass, STRIPE.footOdd)} />)}
+                <td className={cx(cellClass, STRIPE.footOdd)} />
               </tr>
             </tfoot>
           </table>

@@ -540,7 +540,8 @@ const BusinessPlanExpenseCollectionTableDetail = ({ branchId, branchName, yearBE
                   return (
                     <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">
                       <td className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 top-[52px] z-[15] bg-slate-200 dark:bg-slate-700">{r.code}</td>
-                      <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 2} className="border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600 sticky left-[60px] top-[52px] z-[15] bg-slate-200 dark:bg-slate-700">{r.label}</td>
+                      <td className="border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600 sticky left-[60px] top-[52px] z-[15] bg-slate-200 dark:bg-slate-700 whitespace-nowrap">{r.label}</td>
+                      <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 1} className="border-b border-slate-300 dark:border-slate-600 sticky top-[52px] z-[12] bg-slate-200 dark:bg-slate-700" />
                     </tr>
                   )
                 }

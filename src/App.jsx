@@ -53,7 +53,7 @@ import ForgotPassword from "./pages/work/ForgotPassword.jsx"
 import ResetPassword from "./pages/work/ResetPassword.jsx"
 
 /* ---------------- role helpers (robust) ---------------- */
-const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
+const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5, BRANCH: 6, STAFF: 7 }
 const ROLE_ALIASES = {
   ADMIN: ROLE.ADMIN,
   AD: ROLE.ADMIN,

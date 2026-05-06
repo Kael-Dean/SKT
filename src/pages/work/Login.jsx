@@ -42,10 +42,14 @@ const Login = () => {
       });
       // resp = { access_token, token_type: "bearer", account_status? }
       const user = saveAuth(resp.access_token);
-      if (resp.account_status) {
-        localStorage.setItem("account_status", resp.account_status);
+      // ถ้า user เคยเปลี่ยนรหัสผ่านไปแล้ว (account_status="register") ห้าม backend override กลับเป็น "new"
+      const prevStatus = localStorage.getItem("account_status");
+      const backendStatus = resp.account_status;
+      const alreadyRegistered = prevStatus === "register";
+      if (backendStatus && !alreadyRegistered) {
+        localStorage.setItem("account_status", backendStatus);
       }
-      if (resp.account_status === "new") {
+      if (backendStatus === "new" && !alreadyRegistered) {
         navigate("/change-password", { replace: true });
       } else {
         navigate("/home", { replace: true, state: { user } });

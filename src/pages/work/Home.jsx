@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 import { getUser, getRoleId, canSeeAddCompany } from "../../lib/auth"
 
-const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
+const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5, BRANCH: 6, STAFF: 7 }
 
 const ROLE_LABEL = {
   1: "ผู้ดูแลระบบ",
@@ -12,6 +12,8 @@ const ROLE_LABEL = {
   3: "ฝ่ายบุคคล",
   4: "หัวหน้าบัญชี",
   5: "การตลาด",
+  6: "สาขา",
+  7: "เจ้าหน้าที่สาขา",
 }
 
 // ฟังก์ชันทั้งหมดที่ใช้ในการทำงาน (แสดงตาม role)

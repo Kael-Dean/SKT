@@ -11,10 +11,12 @@ export function decodeJwt(token) {
 
 export function saveAuth(token) {
   const payload = decodeJwt(token) || {};
-  const roleId = payload.role == null ? null : Number(payload.role);
+  // รองรับหลาย field name: role, role_id, roleId, position_id
+  const rawRole = payload.role ?? payload.role_id ?? payload.roleId ?? payload.position_id ?? null;
+  const roleId = rawRole == null ? null : Number(Array.isArray(rawRole) ? rawRole[0] : rawRole);
   const user = {
-    id: payload.id ?? null,
-    username: payload.sub || '',
+    id: payload.id ?? payload.user_id ?? null,
+    username: payload.sub || payload.username || '',
     role_id: Number.isFinite(roleId) ? roleId : null,
     exp: payload.exp || 0,
   };

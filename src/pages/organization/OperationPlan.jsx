@@ -10,8 +10,6 @@ import ServiceBusinessPlanDetail from "./sell/ServiceBusinessPlanDetail"
 import BusinessPlanRevenueByBusinessTable from "./sell/BusinessPlanRevenueByBusinessTable"
 import BusinessPlanOtherIncomeTable from "./sell/BusinessPlanOtherIncomeTable"
 
-import Thonthun from "./thonthun/Thonthun"
-
 import BusinessPlanExpenseTableDetail from "./cost/BusinessPlanExpenseTableDetail"
 import BusinessPlanExpenseOilTableDetail from "./cost/BusinessPlanExpenseOilTableDetail"
 import BusinessPlanExpenseCollectionTableDetail from "./cost/BusinessPlanExpenseCollectionTableDetail"
@@ -302,7 +300,6 @@ const COST_TABLES = [
 ]
 
 const THONTHUN_TABLES = [
-    { key: "thonthun", label: "ประมาณการต้นทุนสินค้า", file: "thonthun/Thonthun.jsx", Component: Thonthun },
     { key: "thonthun-detail", label: "ประมาณการต้นทุนสินค้า (รายเดือน)", file: "thonthun/ThonthunDetail.jsx", Component: ThonthunDetail },
 ]
 

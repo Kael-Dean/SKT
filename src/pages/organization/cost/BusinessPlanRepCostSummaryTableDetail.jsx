@@ -274,6 +274,10 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
       const rowsData = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data) ? data : [])
 
+      // ถ้า server คืน 0 rows อย่า reset ค่าที่ user กรอกอยู่
+      // (อาจเกิดจาก backend ยังไม่ได้บันทึก หรือ schema ไม่ match)
+      if (rowsData.length === 0) return
+
       const auxToCode = new Map()
       for (const r of itemRows) {
         if (r.aux_id) auxToCode.set(Number(r.aux_id), r.code)

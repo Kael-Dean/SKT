@@ -333,10 +333,6 @@ const OperationPlan = () => {
   const [tableKey, setTableKey] = useState("")
   const [modalOpen, setModalOpen] = useState(false)
 
-  // ต้นทุนสินค้า = รวมทุกสาขา → ไม่บังคับเลือกสาขา
-  useEffect(() => {
-    if (planType === "thonthun") setBranchId("")
-  }, [planType])
 
   useEffect(() => {
     const loadBranches = async () => {
@@ -380,13 +376,9 @@ const OperationPlan = () => {
     return branchOptions.find((b) => String(b.id) === String(branchId))?.label || ""
   }, [branchOptions, branchId])
 
-  const isThonthun = planType === "thonthun"
-  const branchRequired = planType === "sell" || planType === "cost"
+  const branchRequired = planType === "sell" || planType === "cost" || planType === "thonthun"
 
-  const branchNameDisplay = useMemo(() => {
-    if (isThonthun) return "ทุกสาขา"
-    return branchName || "—"
-  }, [isThonthun, branchName])
+  const branchNameDisplay = useMemo(() => branchName || "—", [branchName])
 
   const planTypeLabel = useMemo(() => PLAN_TYPES.find((p) => p.id === planType)?.label || "", [planType])
 
@@ -442,9 +434,7 @@ const OperationPlan = () => {
             <div>
               <h1 className="text-2xl md:text-3xl font-extrabold">🗺️ แผนปฏิบัติงาน</h1>
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                {planType === "thonthun"
-                  ? "เลือกปี → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล"
-                  : "เลือกปี → เลือกสาขา → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล"}
+                เลือกปี → เลือกสาขา → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล
               </div>
             </div>
 
@@ -462,30 +452,21 @@ const OperationPlan = () => {
                 onChange={(id) => setYearBE(String(id))}
                 placeholder="— เลือกปี —"
                 buttonRef={yearRef}
-                onEnterNext={() => (planType === "thonthun" ? typeRef.current?.focus?.() : branchRef.current?.focus?.())}
+                onEnterNext={() => branchRef.current?.focus?.()}
               />
             </div>
 
             <div className="md:col-span-4">
               <label className={labelCls}>เลือกสาขา</label>
-
-              {planType === "thonthun" ? (
-                <div className={readonlyField}>
-                  <span>ทุกสาขา</span>
-                  <span className="ml-2 text-[13px] text-slate-600 dark:text-slate-300">(ไม่ต้องเลือก)</span>
-                </div>
-              ) : (
-                <ComboBox
-                  options={branchOptions}
-                  value={branchId}
-                  onChange={(id) => setBranchId(String(id))}
-                  placeholder={loadingBranches ? "กำลังโหลดสาขา..." : "— เลือกสาขา —"}
-                  disabled={loadingBranches}
-                  buttonRef={branchRef}
-                  onEnterNext={() => typeRef.current?.focus?.()}
-                />
-              )}
-
+              <ComboBox
+                options={branchOptions}
+                value={branchId}
+                onChange={(id) => setBranchId(String(id))}
+                placeholder={loadingBranches ? "กำลังโหลดสาขา..." : "— เลือกสาขา —"}
+                disabled={loadingBranches || !planType}
+                buttonRef={branchRef}
+                onEnterNext={() => typeRef.current?.focus?.()}
+              />
               {branchRequired && !branchId && <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>}
             </div>
 

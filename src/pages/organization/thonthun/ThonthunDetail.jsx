@@ -106,7 +106,7 @@ const cellInput =
 /** =======================================================================
  * ThonthunDetail — ประมาณการต้นทุนสินค้า (รายเดือน)
  * ======================================================================= */
-function ThonthunDetail({ branchName, yearBE, planId }) {
+function ThonthunDetail({ branchId, branchName, yearBE, planId }) {
   const [items, setItems] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [values, setValues] = useState({}) // { [productId]: { [monthKey]: { buy: "", sell: "" } } }
@@ -120,9 +120,10 @@ function ThonthunDetail({ branchName, yearBE, planId }) {
     if (!effectiveYear) return
     setIsLoading(true)
     try {
+      const branchParam = branchId ? `?branch_id=${branchId}` : ""
       const [productsData, pricesData] = await Promise.all([
         apiAuth("/lists/product/search").catch(() => []),
-        apiAuth(`/unit-prices/monthly/${effectiveYear}`).catch(() => ({ items: [] })),
+        apiAuth(`/unit-prices/monthly/${effectiveYear}${branchParam}`).catch(() => ({ items: [] })),
       ])
 
       const productList = (Array.isArray(productsData) ? productsData : productsData?.items || [])
@@ -148,7 +149,7 @@ function ThonthunDetail({ branchName, yearBE, planId }) {
     } finally {
       setIsLoading(false)
     }
-  }, [effectiveYear])
+  }, [effectiveYear, branchId])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -280,7 +281,7 @@ function ThonthunDetail({ branchName, yearBE, planId }) {
       }
       const res = await apiAuth("/unit-prices/bulk-monthly", {
         method: "PUT",
-        body: { year: effectiveYear, items: payloadItems },
+        body: { year: effectiveYear, branch_id: branchId ? Number(branchId) : null, items: payloadItems },
       })
       setSaveMsg({ ok: true, title: "บันทึกสำเร็จ", detail: `บันทึก ${res?.saved_count ?? payloadItems.length} รายการ` })
     } catch (e) {
@@ -288,7 +289,7 @@ function ThonthunDetail({ branchName, yearBE, planId }) {
     } finally {
       setIsSaving(false)
     }
-  }, [effectiveYear, items, values])
+  }, [effectiveYear, branchId, items, values])
 
   const resetAll = useCallback(async () => {
     if (!confirm("รีเซ็ตข้อมูลทั้งหมดในตารางและบันทึกค่าว่าง (0) ลงระบบ?")) return

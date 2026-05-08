@@ -517,6 +517,8 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName} • บันทึก ${res?.monthly_rows_upserted ?? built.rows.length} รายการ`,
         })
 
+        await loadSavedFromBE()
+
     } catch (e) {
         const status = e?.status || 0
         let title = "บันทึกไม่สำเร็จ ❌"

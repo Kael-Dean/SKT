@@ -27,8 +27,8 @@ export default function DebtReport() {
     setLoadingRefs(true)
     setErrorRefs("")
     const [unitsRes, yearsRes, progsRes, totalsRes, txRes] = await Promise.allSettled([
-      apiAuth("/lists/unit/search"),
-      apiAuth("/lists/productyear"),
+      apiAuth("/debt/lookup/units"),
+      apiAuth("/debt/lookup/fiscal-years"),
       apiAuth("/debt/programs"),
       apiAuth("/debt/totals"),
       apiAuth("/debt/transactions"),

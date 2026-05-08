@@ -787,36 +787,6 @@ if (res == null) throw new Error("บันทึกไม่สำเร็จ"
               )}
             </tbody>
 
-            <tfoot className="sticky bottom-[28px] z-[75]">
-              <tr className={cx("text-slate-900 dark:text-slate-100", STRIPE.foot)}>
-                <td
-                  className={cx(
-                    "border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600",
-                    stickyCodeCell,
-                    STRIPE.foot
-                  )}
-                >
-                  รวม
-                </td>
-                <td
-                  className={cx(
-                    "border border-slate-300 px-2 py-2 text-left font-extrabold text-xs dark:border-slate-600",
-                    "sticky z-[60]",
-                    STRIPE.foot,
-                    trunc
-                  )}
-                  style={{ left: COL_W.id }}
-                >
-                  รวมทั้งสิ้น
-                </td>
-                <td className="border border-slate-300 px-1 py-2 text-right font-bold text-xs dark:border-slate-600">
-                  {fmtMoney0(computed.sumBuy)}
-                </td>
-                <td className="border border-slate-300 px-1 py-2 text-right font-bold text-xs dark:border-slate-600">
-                  {fmtMoney0(computed.sumSell)}
-                </td>
-              </tr>
-            </tfoot>
           </table>
         </div>
 

@@ -270,9 +270,8 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
     setIsLoadingSaved(true)
     try {
-      // โหลดข้อมูล (พยายามรองรับ GET จาก /aux/monthly ในอนาคตด้วย)
       const data = await apiAuth(`/business-plan/${effectivePlanId}/aux/monthly?branch_id=${effectiveBranchId}`)
-      
+
       const rowsData = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data) ? data : [])
 
       const auxToCode = new Map()
@@ -284,7 +283,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
       for (const cell of rowsData) {
         const auxId = Number(cell.b_aux || cell.aux_id || cell.b_cost || 0)
         const unitId = Number(cell.unit_id || 0)
-        
+
         const unit = unitCols.find(u => u.id === unitId)
         if (!auxId || !unit) continue
 
@@ -293,11 +292,10 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
         if (!seed[code]) seed[code] = {}
 
-        // Map ค่า m1_value ... m12_value กลับมาลงตาราง Frontend
         for (const m of MONTHS) {
             const valKey = `m${m.month}_value`
-            const amount = Number(cell[valKey] ?? cell.months?.[valKey] ?? 0)
-            
+            const amount = Number(cell.months?.[valKey] ?? cell[valKey] ?? 0)
+
             if (amount !== 0) {
                if (!seed[code][m.key]) seed[code][m.key] = {}
                seed[code][m.key][unit.id] = String(amount)
@@ -308,7 +306,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
       setValuesByCode(normalizeGrid(seed))
     } catch (e) {
       console.error("[AuxCost Detail Load saved] failed:", e)
-      setValuesByCode(normalizeGrid({}))
+      // ไม่ reset ค่าที่มีอยู่แล้วถ้า load ล้มเหลว
     } finally {
       setIsLoadingSaved(false)
     }
@@ -518,8 +516,6 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             title: "บันทึกสำเร็จ ✅",
             detail: `plan_id=${effectivePlanId} • สาขา ${effectiveBranchName} • บันทึก ${res?.monthly_rows_upserted ?? built.rows.length} รายการ`,
         })
-
-        await loadSavedFromBE()
 
     } catch (e) {
         const status = e?.status || 0

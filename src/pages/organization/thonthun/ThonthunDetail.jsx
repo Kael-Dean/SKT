@@ -120,10 +120,9 @@ function ThonthunDetail({ branchId, branchName, yearBE, planId }) {
     if (!effectiveYear) return
     setIsLoading(true)
     try {
-      const branchParam = branchId ? `?branch_id=${branchId}` : ""
       const [productsData, pricesData] = await Promise.all([
         apiAuth("/lists/product/search").catch(() => []),
-        apiAuth(`/unit-prices/monthly/${effectiveYear}${branchParam}`).catch(() => ({ items: [] })),
+        apiAuth(`/unit-prices/monthly/${effectiveYear}`).catch(() => ({ items: [] })),
       ])
 
       const productList = (Array.isArray(productsData) ? productsData : productsData?.items || [])
@@ -280,7 +279,7 @@ function ThonthunDetail({ branchId, branchName, yearBE, planId }) {
         }
       }
       const res = await apiAuth("/unit-prices/bulk-monthly", {
-        method: "PUT",
+        method: "POST",
         body: { year: effectiveYear, branch_id: branchId ? Number(branchId) : null, items: payloadItems },
       })
       setSaveMsg({ ok: true, title: "บันทึกสำเร็จ", detail: `บันทึก ${res?.saved_count ?? payloadItems.length} รายการ` })

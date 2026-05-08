@@ -272,10 +272,13 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
     try {
       const data = await apiAuth(`/business-plan/${effectivePlanId}/aux/monthly?branch_id=${effectiveBranchId}`)
 
-      const rowsData = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data) ? data : [])
+      // รองรับทั้ง { rows:[...] }, { monthly_aux:[...] } และ array โดยตรง
+      const rowsData =
+        Array.isArray(data?.rows)        ? data.rows :
+        Array.isArray(data?.monthly_aux) ? data.monthly_aux :
+        Array.isArray(data)              ? data : []
 
       // ถ้า server คืน 0 rows อย่า reset ค่าที่ user กรอกอยู่
-      // (อาจเกิดจาก backend ยังไม่ได้บันทึก หรือ schema ไม่ match)
       if (rowsData.length === 0) return
 
       const auxToCode = new Map()

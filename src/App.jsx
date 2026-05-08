@@ -28,6 +28,7 @@ import Share from "./pages/work/Share"
 import OperationPlan from "./pages/organization/OperationPlan.jsx"
 import BusinessEdit from "./pages/organization/BusinessEdit.jsx"
 import DebtTracking from "./pages/organization/debt/DebtTracking.jsx"
+import DebtReport from "./pages/organization/debt-report/DebtReport.jsx"
 
 /** ✅ หน้าใหม่: แก้ไขออเดอร์ */
 import OrderCorrection from "./pages/work/OrderCorrection.jsx"
@@ -292,6 +293,9 @@ function App() {
             </RequireMngAdminHA>
           }
         />
+
+        {/* ตารางหนี้ — เข้าถึงได้ทุก role */}
+        <Route path="/debt-form" element={<DebtReport />} />
 
         {/* ✅ Phase 3B — HR routes */}
         <Route

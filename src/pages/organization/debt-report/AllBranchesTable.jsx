@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
-import { cx } from "../../../lib/styles"
+import { cx, secondaryBtnCls } from "../../../lib/styles"
+import { printDebtTable } from "./printDebtTable"
 
 const fmtMoney = (v) =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(v) || 0)
@@ -153,6 +154,19 @@ export default function AllBranchesTable({
         <span className="rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-xs text-gray-500 dark:text-gray-400">
           ดูข้อมูลรวม — ไม่สามารถแก้ไขได้
         </span>
+        <button
+          onClick={() =>
+            printDebtTable({
+              title: "ตารางหนี้รวมทุกสาขา",
+              subtitle: "รวมทุกหน่วยงาน",
+              tableRows,
+              colTotals,
+            })
+          }
+          className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
+        >
+          🖨️ พิมพ์ PDF
+        </button>
       </div>
 
       <div

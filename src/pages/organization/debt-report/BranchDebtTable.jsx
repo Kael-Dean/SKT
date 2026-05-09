@@ -7,6 +7,7 @@ import {
   cx, baseField, labelCls, submitBtnCls, secondaryBtnCls,
   modalCardCls, modalTitleCls,
 } from "../../../lib/styles"
+import { printDebtTable } from "./printDebtTable"
 
 const fmtMoney = (v) =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(v) || 0)
@@ -349,6 +350,21 @@ export default function BranchDebtTable({
           className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
         >
           + บันทึกหนี้ใหม่
+        </button>
+        <button
+          onClick={() =>
+            printDebtTable({
+              title: "ตารางหนี้แยกสาขา",
+              subtitle: selectedUnitId
+                ? `หน่วยงาน: ${units.find((u) => u.id === Number(selectedUnitId))?.name || ""}`
+                : "ทุกหน่วยงาน",
+              tableRows,
+              colTotals,
+            })
+          }
+          className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
+        >
+          🖨️ พิมพ์ PDF
         </button>
       </div>
 

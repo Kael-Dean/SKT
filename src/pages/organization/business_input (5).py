@@ -21,7 +21,8 @@ from models import (
     AuditLog,
     OrganizationBusinessCost,
     OrganizationBusinessEarning,
-    MonthlyUnitEarnings
+    MonthlyUnitEarnings,
+    MonthlyUnitCosts
 )
 
 router = APIRouter(prefix="/business-plan", tags=["business-plan-values"])
@@ -319,10 +320,6 @@ def upsert_costs_bulk(
     }
 
 
-class MonthlyUnitCosts:
-    pass
-
-
 @router.post("/{plan_id}/costs/monthly", status_code=status.HTTP_200_OK)
 def upsert_monthly_costs(
         plan_id: int,
@@ -588,7 +585,7 @@ def upsert_monthly_earnings(
         db.query(UnitEarnings.unit_id, UnitEarnings.business_earning, UnitEarnings.amount)
         .filter(UnitEarnings.plan_id == plan_id)
         .filter(UnitEarnings.unit_id.in_(unit_ids))
-        .filter(UnitEarnings.business_cost.in_(b_earning_ids))
+        .filter(UnitEarnings.business_earning.in_(b_earning_ids))
         .all()
     )
 
@@ -641,7 +638,7 @@ def upsert_monthly_earnings(
     if upsert_payload:
         stmt = pg_insert(MonthlyUnitEarnings).values(upsert_payload)
         stmt = stmt.on_conflict_do_update(
-            index_elements=["plan_id", "unit_id", "b_cost"],  # Matches uq_monthly_unit_costs
+            index_elements=["plan_id", "unit_id", "b_earning"],  # Matches uq_monthly_unit_earnings
             set_={
                 "m1_value": stmt.excluded.m1_value,
                 "m2_value": stmt.excluded.m2_value,

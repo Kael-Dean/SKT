@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
 import SelectDropdown from "../../../components/SelectDropdown"
-import ThaiDateInput from "../../../components/ThaiDateInput"
+import ThaiDatePicker from "../../../components/ThaiDatePicker"
 import {
   cx, baseField, labelCls, modalCardCls, modalTitleCls,
   submitBtnCls, secondaryBtnCls, resetBtnCls, cardCls,
@@ -406,7 +406,7 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
                 )}
                 <div>
                   <label className={labelCls}>วันที่ <span className="text-red-500">*</span></label>
-                  <ThaiDateInput className={baseField} value={form.transaction_date} onChange={(val) => setForm((f) => ({ ...f, transaction_date: val }))} />
+                  <ThaiDatePicker className={baseField} value={form.transaction_date} onChange={(val) => setForm((f) => ({ ...f, transaction_date: val }))} />
                 </div>
                 <div>
                   <label className={labelCls}>หมายเหตุ</label>
@@ -448,7 +448,7 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
                 </div>
                 <div>
                   <label className={labelCls}>วันที่ <span className="text-red-500">*</span></label>
-                  <ThaiDateInput className={baseField} value={form.transaction_date} onChange={(val) => setForm((f) => ({ ...f, transaction_date: val }))} />
+                  <ThaiDatePicker className={baseField} value={form.transaction_date} onChange={(val) => setForm((f) => ({ ...f, transaction_date: val }))} />
                 </div>
                 <div>
                   <label className={labelCls}>หมายเหตุ</label>

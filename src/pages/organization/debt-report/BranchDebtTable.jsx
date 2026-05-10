@@ -3,7 +3,7 @@ import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
 import SelectDropdown from "../../../components/SelectDropdown"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
-import ThaiDateInput from "../../../components/ThaiDateInput"
+import ThaiDatePicker from "../../../components/ThaiDatePicker"
 import {
   cx, baseField, labelCls, submitBtnCls, secondaryBtnCls,
   modalCardCls, modalTitleCls,
@@ -743,7 +743,7 @@ export default function BranchDebtTable({
                     )}
                     <div>
                       <label className={labelCls}>วันที่</label>
-                      <ThaiDateInput
+                      <ThaiDatePicker
                         className={baseField}
                         value={form.transaction_date || ""}
                         onChange={(val) => setF("transaction_date", val)}
@@ -826,7 +826,7 @@ export default function BranchDebtTable({
                     </div>
                     <div>
                       <label className={labelCls}>วันที่</label>
-                      <ThaiDateInput
+                      <ThaiDatePicker
                         className={baseField}
                         value={form.transaction_date || ""}
                         onChange={(val) => setF("transaction_date", val)}

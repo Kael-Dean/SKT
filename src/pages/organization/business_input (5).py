@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Annotated, List, Optional
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field, condecimal
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -38,7 +38,7 @@ def get_db():
 
 
 # ----------------- schemas -----------------
-Money = condecimal(max_digits=14, decimal_places=3, ge=0)
+Money = Annotated[Decimal, Field(max_digits=14, decimal_places=3, ge=0)]
 
 
 class UnitAmountIn(BaseModel):
@@ -90,7 +90,7 @@ class MonthlyValuesIn(BaseModel):
             self.m1_value, self.m2_value, self.m3_value, self.m4_value,
             self.m5_value, self.m6_value, self.m7_value, self.m8_value,
             self.m9_value, self.m10_value, self.m11_value, self.m12_value
-        ])
+        ], Decimal("0"))
 
 class MonthlyUnitCostRowIn(BaseModel):
     unit_id: int

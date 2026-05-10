@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Annotated, List, Optional
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from pydantic import BaseModel, Field, condecimal, conint
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -24,13 +24,14 @@ def get_db():
         db.close()
 
 
-Money = condecimal(max_digits=14, decimal_places=3, ge=0)
+Money = Annotated[Decimal, Field(max_digits=14, decimal_places=3, ge=0)]
+PositiveInt = Annotated[int, Field(gt=0)]
 
 
 class UnitAuxCellIn(BaseModel):
-    unit_id: conint(gt=0)
-    aux_id: conint(gt=0)
-    amount: Money = Field(default=Decimal("0"))
+    unit_id: PositiveInt
+    aux_id: PositiveInt
+    amount: Money = Decimal("0")
     comment: Optional[str] = None
 
 
@@ -39,18 +40,18 @@ class UnitAuxBulkIn(BaseModel):
     cells: List[UnitAuxCellIn] = Field(default_factory=list)
 
 class MonthlyValuesIn(BaseModel):
-    m1_value: Money = Field(default=Decimal("0"))
-    m2_value: Money = Field(default=Decimal("0"))
-    m3_value: Money = Field(default=Decimal("0"))
-    m4_value: Money = Field(default=Decimal("0"))
-    m5_value: Money = Field(default=Decimal("0"))
-    m6_value: Money = Field(default=Decimal("0"))
-    m7_value: Money = Field(default=Decimal("0"))
-    m8_value: Money = Field(default=Decimal("0"))
-    m9_value: Money = Field(default=Decimal("0"))
-    m10_value: Money = Field(default=Decimal("0"))
-    m11_value: Money = Field(default=Decimal("0"))
-    m12_value: Money = Field(default=Decimal("0"))
+    m1_value: Money = Decimal("0")
+    m2_value: Money = Decimal("0")
+    m3_value: Money = Decimal("0")
+    m4_value: Money = Decimal("0")
+    m5_value: Money = Decimal("0")
+    m6_value: Money = Decimal("0")
+    m7_value: Money = Decimal("0")
+    m8_value: Money = Decimal("0")
+    m9_value: Money = Decimal("0")
+    m10_value: Money = Decimal("0")
+    m11_value: Money = Decimal("0")
+    m12_value: Money = Decimal("0")
 
     @property
     def total(self) -> Decimal:
@@ -59,7 +60,7 @@ class MonthlyValuesIn(BaseModel):
             self.m1_value, self.m2_value, self.m3_value, self.m4_value,
             self.m5_value, self.m6_value, self.m7_value, self.m8_value,
             self.m9_value, self.m10_value, self.m11_value, self.m12_value
-        ])
+        ], Decimal("0"))
 
 class MonthlyUnitAuxRowIn(BaseModel):
     unit_id: int
@@ -106,12 +107,23 @@ def _validate_aux_exist(db: Session, aux_ids: List[int]) -> None:
         raise HTTPException(status_code=422, detail={"msg": "Some aux_id not found", "missing_aux_ids": missing})
 
 
-def _audit(db: Session, *, user_id: Optional[int], plan_id: int, inserted: int, updated: int):
+def _audit(
+    db: Session,
+    *,
+    action: str = "UNITAUX_UPSERT_BULK",
+    plan_id: int,
+    user_id: Optional[int],
+    comment: Optional[str] = None,
+    inserted: Optional[int] = None,
+    updated: Optional[int] = None,
+):
+    if comment is None:
+        comment = f"inserted={inserted or 0} updated={updated or 0}"
     db.add(AuditLog(
-        action="UNITAUX_UPSERT_BULK",
+        action=action,
         action_id=str(plan_id),
         user_id=user_id,
-        comment=f"inserted={inserted} updated={updated}",
+        comment=comment,
     ))
 
 
@@ -168,7 +180,7 @@ def get_unit_aux_values(
         {
             "unit_id": r.unit_id,
             "aux_id": r.aux_id,
-            "amount": float(r.amount or 0),
+            "amount": float(r.amount) if r.amount is not None else 0.0,  # type: ignore[arg-type]
             "comment": r.comment,
         }
         for r in rows
@@ -274,7 +286,7 @@ def upsert_monthly_aux(
         db.query(UnitAux.unit_id, UnitAux.aux_id, UnitAux.amount)
         .filter(UnitAux.plan_id == plan_id)
         .filter(UnitAux.unit_id.in_(unit_ids))
-        .filter(UnitAux.business_aux.in_(b_aux_ids))
+        .filter(UnitAux.aux_id.in_(b_aux_ids))
         .all()
     )
 
@@ -327,7 +339,7 @@ def upsert_monthly_aux(
     if upsert_payload:
         stmt = pg_insert(MonthlyUnitAux).values(upsert_payload)
         stmt = stmt.on_conflict_do_update(
-            index_elements=["plan_id", "unit_id", "b_cost"],  # Matches uq_monthly_unit_costs
+            index_elements=["plan_id", "unit_id", "b_aux"],  # Matches uq_monthly_unit_aux
             set_={
                 "m1_value": stmt.excluded.m1_value,
                 "m2_value": stmt.excluded.m2_value,

@@ -213,14 +213,14 @@ def get_costs_values(
             {
                 "unit_id": r.unit_id,
                 "business_cost_id": r.business_cost,
-                "amount": float(r.amount or 0),
+                "amount": float(r.amount) if r.amount is not None else 0.0,  # type: ignore[arg-type]
             }
             for r in unit_rows
         ],
         "branch_costs": [
             {
                 "business_cost_id": r.b_costs,
-                "amount": float(r.amount or 0),
+                "amount": float(r.amount) if r.amount is not None else 0.0,  # type: ignore[arg-type]
                 "comment": r.comment,
             }
             for r in branch_rows
@@ -460,14 +460,14 @@ def get_earnings_values(
             {
                 "unit_id": r.unit_id,
                 "business_earning_id": r.business_earning,
-                "amount": float(r.amount or 0),
+                "amount": float(r.amount) if r.amount is not None else 0.0,  # type: ignore[arg-type]
             }
             for r in unit_rows
         ],
         "branch_earnings": [
             {
                 "business_earning_id": r.b_earnings,
-                "amount": float(r.amount or 0),
+                "amount": float(r.amount) if r.amount is not None else 0.0,  # type: ignore[arg-type]
                 "comment": r.comment,
             }
             for r in branch_rows

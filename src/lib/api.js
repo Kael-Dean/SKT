@@ -86,23 +86,25 @@ export function api(path, opts) {
 // --------------------------------------------------
 // protected API (แนบ token อัตโนมัติ; เลือกได้ว่าจะ redirect เมื่อ 401 ไหม)
 // --------------------------------------------------
-import { getToken, logout } from "./auth"; // ใช้ชุด auth เดิมของคุณได้เลย :contentReference[oaicite:4]{index=4}
+import { getToken, logout } from "./auth";
+
+// guard: ป้องกัน 401 หลายตัวพร้อมกัน (เช่น Promise.all) redirect ซ้ำหลายครั้ง
+let _redirecting401 = false;
 
 export async function apiAuth(path, opts = {}) {
   const token = getToken();
-  const { redirectOn401 = false, ...rest } = opts;
+  const { redirectOn401 = true, ...rest } = opts;
   try {
     return await _call(path, {
       ...rest,
       headers: { ...(rest.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });
   } catch (err) {
-    if (err.status === 401 && redirectOn401) {
+    if (err.status === 401 && redirectOn401 && !_redirecting401) {
+      _redirecting401 = true;
       logout();
-      // HashRouter:
+      localStorage.setItem("session_expired", "1");
       window.location.hash = "#/login";
-      // BrowserRouter:
-      // window.location.replace("/login")
     }
     throw err;
   }

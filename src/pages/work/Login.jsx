@@ -13,6 +13,7 @@ const Login = () => {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
   const [showPass, setShowPass] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [isDark] = useState(() => {
     const stored = localStorage.getItem("darkMode");
     if (stored !== null) return stored === "true";
@@ -23,6 +24,13 @@ const Login = () => {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
+
+  useEffect(() => {
+    if (localStorage.getItem("session_expired") === "1") {
+      localStorage.removeItem("session_expired");
+      setSessionExpired(true);
+    }
+  }, []);
 
   // ถ้ามีโทเคนและยังไม่หมดอายุ เด้งเข้าหน้าหลัก
   const token = getToken();
@@ -107,6 +115,15 @@ const Login = () => {
             เข้าสู่ระบบ
           </h2>
           <p className="mb-6 text-sm text-gray-400 dark:text-gray-500">กรอกข้อมูลเพื่อเข้าใช้งานระบบ</p>
+
+          {sessionExpired && (
+            <div className="animate-fade-in mb-5 flex items-start gap-2.5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/25 dark:text-amber-300 dark:ring-amber-800/40">
+              <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>หมดเวลา Session กรุณาเข้าสู่ระบบใหม่</span>
+            </div>
+          )}
 
           {error && (
             <div className="animate-fade-in mb-5 flex items-start gap-2.5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200 dark:bg-red-900/25 dark:text-red-300 dark:ring-red-800/40">

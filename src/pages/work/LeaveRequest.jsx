@@ -1,8 +1,7 @@
 // src/pages/work/LeaveRequest.jsx
-// ยื่นใบลา (comprehensive Thai official leave form) + ประวัติใบลา
-// Mock submit — no real API for the new form. History tab keeps GET /personnel/me/leaves
+// ยื่นใบลา + ประวัติใบลา — PUT /personnel/me/leaves, GET /personnel/me/leaves/{id}/pdf
 import { useEffect, useState, useCallback } from "react"
-import { apiAuth } from "../../lib/api"
+import { apiAuth, apiDownload } from "../../lib/api"
 import { getUser } from "../../lib/auth"
 
 // ─── shared style tokens ────────────────────────────────────────────────────
@@ -13,30 +12,29 @@ const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5"
 
 const STATUS_LABEL = {
-  pending: "รออนุมัติ",
-  approved: "อนุมัติแล้ว",
-  denied: "ปฏิเสธ",
-  cancelled: "ยกเลิกแล้ว",
+  pending:                   "รอดำเนินการ",
+  pending_branch_head:       "รอหัวหน้าอนุมัติ",
+  pending_assistant_manager: "รอผู้ช่วยผู้จัดการอนุมัติ",
+  pending_manager:           "รอผู้จัดการอนุมัติ",
+  approved:                  "อนุมัติแล้ว",
+  rejected:                  "ไม่อนุมัติ",
+  denied:                    "ไม่อนุมัติ",
+  cancelled:                 "ยกเลิกแล้ว",
 }
 const STATUS_COLOR = {
-  pending:   "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  approved:  "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  denied:    "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
+  pending:                   "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  pending_branch_head:       "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  pending_assistant_manager: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+  pending_manager:           "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  approved:                  "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  rejected:                  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  denied:                    "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  cancelled:                 "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
 }
-
-const LEAVE_TYPES = [
-  { key: "annual",    label: "พักผ่อน",     labelEn: "annual leave" },
-  { key: "sick",      label: "ป่วย",         labelEn: "sick leave" },
-  { key: "personal",  label: "กิจส่วนตัว",  labelEn: "personal leave" },
-  { key: "maternity", label: "คลอดบุตร",    labelEn: "maternity leave" },
-  { key: "other",     label: "อื่นๆ",        labelEn: "other" },
-]
 
 // ─── print stylesheet (injected once on mount) ───────────────────────────────
 const PRINT_CSS = `
 @media print {
-  /* visibility approach: hide all, then reveal only the print root */
   body * { visibility: hidden !important; }
 
   #leave-print-root {
@@ -56,7 +54,6 @@ const PRINT_CSS = `
 
   #leave-print-root * { visibility: visible !important; }
 
-  /* header */
   .print-header-org {
     text-align: center;
     font-size: 16pt;
@@ -70,16 +67,12 @@ const PRINT_CSS = `
     letter-spacing: 0.04em;
     margin-bottom: 14pt;
   }
-
-  /* date top-right */
   .print-date-row {
     display: flex !important;
     justify-content: flex-end;
     margin-bottom: 8pt;
     font-size: 13pt;
   }
-
-  /* body lines */
   .print-line {
     display: flex !important;
     flex-wrap: wrap;
@@ -106,33 +99,6 @@ const PRINT_CSS = `
     flex: 1;
     padding-bottom: 1pt;
   }
-
-  /* leave type checkboxes */
-  .print-types {
-    display: flex !important;
-    flex-wrap: wrap;
-    gap: 20pt;
-    margin: 4pt 0 6pt 0;
-  }
-  .print-type-item {
-    display: flex !important;
-    align-items: center;
-    gap: 4pt;
-  }
-  .print-checkbox {
-    display: inline-block !important;
-    width: 11pt;
-    height: 11pt;
-    border: 1.5px solid #333;
-    text-align: center;
-    line-height: 9pt;
-    font-size: 11pt;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-  .print-checkbox.checked { background: #000; color: #fff; }
-
-  /* date-time range */
   .print-datetime-row {
     display: flex !important;
     flex-wrap: wrap;
@@ -141,8 +107,6 @@ const PRINT_CSS = `
     margin-bottom: 6pt;
     font-size: 13pt;
   }
-
-  /* totals */
   .print-total-box {
     display: inline-flex !important;
     align-items: baseline;
@@ -154,8 +118,6 @@ const PRINT_CSS = `
     text-align: center;
     font-weight: 700;
   }
-
-  /* contact address row */
   .print-address-grid {
     display: grid !important;
     grid-template-columns: repeat(4, 1fr);
@@ -174,8 +136,6 @@ const PRINT_CSS = `
     min-width: 40pt;
     padding-bottom: 1pt;
   }
-
-  /* signature */
   .print-sig-area {
     margin-top: 20pt;
     text-align: center;
@@ -186,8 +146,6 @@ const PRINT_CSS = `
     min-width: 180pt;
     margin-bottom: 4pt;
   }
-
-  /* footer table */
   .print-footer-table {
     width: 100%;
     border-collapse: collapse;
@@ -202,8 +160,6 @@ const PRINT_CSS = `
   }
   .print-footer-table th { font-weight: 700; background: #f0f0f0; }
   .print-footer-table td.row-header { text-align: left; font-weight: 600; }
-
-  /* hide all screen-only UI */
   .no-print { display: none !important; }
   @page { margin: 0; }
 }
@@ -240,6 +196,23 @@ function fmtDateShort(iso) {
   try { return new Date(iso).toLocaleDateString("th-TH") } catch { return iso }
 }
 
+function fmtTime(t) {
+  if (!t) return null
+  return t.slice(0, 5)
+}
+
+function buildAddress(form) {
+  const parts = [
+    form.addrHouseNo    && `บ้านเลขที่ ${form.addrHouseNo}`,
+    form.addrVillage    && `หมู่ที่ ${form.addrVillage}`,
+    form.addrStreet     && `ถนน ${form.addrStreet}`,
+    form.addrSubDistrict && `ต.${form.addrSubDistrict}`,
+    form.addrDistrict   && `อ.${form.addrDistrict}`,
+    form.addrProvince   && `จ.${form.addrProvince}`,
+  ].filter(Boolean)
+  return parts.length ? parts.join(" ") : null
+}
+
 // ─── sub-components ──────────────────────────────────────────────────────────
 function Field({ label, required, children, className = "" }) {
   return (
@@ -265,7 +238,6 @@ function SectionTitle({ children }) {
 
 // ─── print document component ────────────────────────────────────────────────
 function PrintDocument({ form, totalDays }) {
-  const selectedType = LEAVE_TYPES.find((t) => t.key === form.leaveType)
   const days1 = diffDays(form.fromDate, form.toDate)
   const days2 = diffDays(form.fromDate2, form.toDate2)
 
@@ -296,21 +268,9 @@ function PrintDocument({ form, totalDays }) {
       </div>
 
       {/* ประเภทการลา */}
-      <div className="print-line" style={{ marginBottom: "2pt" }}>
+      <div className="print-line">
         <span className="print-label">มีความประสงค์จะขอลา</span>
-      </div>
-      <div className="print-types">
-        {LEAVE_TYPES.map((lt) => (
-          <div key={lt.key} className="print-type-item">
-            <span className={`print-checkbox${form.leaveType === lt.key ? " checked" : ""}`}>
-              {form.leaveType === lt.key ? "✓" : ""}
-            </span>
-            <span>{lt.label}</span>
-            {lt.key === "other" && form.leaveType === "other" && form.leaveTypeOther && (
-              <span>&nbsp;({form.leaveTypeOther})</span>
-            )}
-          </div>
-        ))}
+        <span className="print-val">&nbsp;{form.leaveTypeName || "—"}&nbsp;</span>
       </div>
 
       {/* เนื่องจาก */}
@@ -447,7 +407,6 @@ function PrintDocument({ form, totalDays }) {
 export default function LeaveRequest() {
   const user = getUser() || {}
 
-  // Inject print CSS once
   useEffect(() => {
     if (document.getElementById("leave-print-css")) return
     const style = document.createElement("style")
@@ -461,15 +420,22 @@ export default function LeaveRequest() {
   }, [])
 
   const [tab, setTab] = useState("form")
+  const [leaveTypes, setLeaveTypes] = useState([])
+
+  useEffect(() => {
+    apiAuth("/hr/leave-types")
+      .then((data) => setLeaveTypes(Array.isArray(data) ? data.filter((t) => t.is_active !== false) : []))
+      .catch(() => {})
+  }, [])
 
   // ── form state ──────────────────────────────────────────────────────────
-  const [form, setForm] = useState({
+  const blankForm = () => ({
     docDate: today(),
     fullName: user.full_name || user.username || "",
     position: "",
     department: "",
-    leaveType: "",
-    leaveTypeOther: "",
+    leaveTypeId: null,
+    leaveTypeName: "",
     reason: "",
     fromDate: "",
     fromTime: "",
@@ -488,15 +454,18 @@ export default function LeaveRequest() {
     signatureName: user.full_name || user.username || "",
   })
 
+  const [form, setForm] = useState(blankForm)
   const [errors, setErrors] = useState({})
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState("")
 
   // ── history state ───────────────────────────────────────────────────────
   const [history, setHistory] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyError, setHistoryError] = useState("")
   const [cancellingId, setCancellingId] = useState(null)
+  const [downloadingId, setDownloadingId] = useState(null)
 
   const fetchHistory = useCallback(() => {
     setLoadingHistory(true)
@@ -523,6 +492,23 @@ export default function LeaveRequest() {
     }
   }
 
+  const handlePdfDownload = async (leaveId) => {
+    setDownloadingId(leaveId)
+    try {
+      const { blob, filename } = await apiDownload(`/personnel/me/leaves/${leaveId}/pdf`)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename || `leave_${leaveId}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(`ดาวน์โหลด PDF ไม่สำเร็จ: ${err.message || "เกิดข้อผิดพลาด"}`)
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
   // ── derived values ──────────────────────────────────────────────────────
   const days1 = diffDays(form.fromDate, form.toDate)
   const days2 = diffDays(form.fromDate2, form.toDate2)
@@ -532,18 +518,18 @@ export default function LeaveRequest() {
   const set = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
-  const setVal = (field) => (val) =>
-    setForm((prev) => ({ ...prev, [field]: val }))
+  const selectLeaveType = (lt) =>
+    setForm((prev) => ({ ...prev, leaveTypeId: lt.id, leaveTypeName: lt.name }))
 
   // ── validation ──────────────────────────────────────────────────────────
   const validate = () => {
     const errs = {}
-    if (!form.fullName.trim())   errs.fullName   = "กรุณาระบุชื่อ-นามสกุล"
-    if (!form.position.trim())   errs.position   = "กรุณาระบุตำแหน่ง"
-    if (!form.department.trim()) errs.department = "กรุณาระบุสังกัด"
-    if (!form.leaveType)         errs.leaveType  = "กรุณาเลือกประเภทการลา"
-    if (!form.fromDate)          errs.fromDate   = "กรุณาระบุวันที่เริ่มลา"
-    if (!form.toDate)            errs.toDate     = "กรุณาระบุวันที่สิ้นสุด"
+    if (!form.fullName.trim())   errs.fullName    = "กรุณาระบุชื่อ-นามสกุล"
+    if (!form.position.trim())   errs.position    = "กรุณาระบุตำแหน่ง"
+    if (!form.department.trim()) errs.department  = "กรุณาระบุสังกัด"
+    if (!form.leaveTypeId)       errs.leaveTypeId = "กรุณาเลือกประเภทการลา"
+    if (!form.fromDate)          errs.fromDate    = "กรุณาระบุวันที่เริ่มลา"
+    if (!form.toDate)            errs.toDate      = "กรุณาระบุวันที่สิ้นสุด"
     if (form.fromDate && form.toDate && new Date(form.toDate) < new Date(form.fromDate)) {
       errs.toDate = "วันที่สิ้นสุดต้องไม่อยู่ก่อนวันที่เริ่มต้น"
     }
@@ -556,50 +542,42 @@ export default function LeaveRequest() {
     return Object.keys(errs).length === 0
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validate()) return
     setSubmitting(true)
-    setTimeout(() => {
-      setSubmitting(false)
+    setSubmitError("")
+    try {
+      await apiAuth("/personnel/me/leaves", {
+        method: "PUT",
+        body: {
+          leave_type_id:        form.leaveTypeId,
+          from_date:            form.fromDate,
+          to_date:              form.toDate,
+          from_time:            form.fromTime || null,
+          to_time:              form.toTime   || null,
+          comment:              form.reason   || null,
+          address_during_leave: buildAddress(form),
+          contact_during_leave: form.addrPhone || null,
+        },
+      })
       setSubmitted(true)
-    }, 700)
+    } catch (err) {
+      setSubmitError(err.message || "ยื่นใบลาไม่สำเร็จ กรุณาลองใหม่")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const resetForm = () => {
     setSubmitted(false)
     setErrors({})
-    setForm({
-      docDate: today(),
-      fullName: user.full_name || user.username || "",
-      position: "",
-      department: "",
-      leaveType: "",
-      leaveTypeOther: "",
-      reason: "",
-      fromDate: "",
-      fromTime: "",
-      toDate: "",
-      toTime: "",
-      fromDate2: "",
-      toDate2: "",
-      addrHouseNo: "",
-      addrVillage: "",
-      addrStreet: "",
-      addrSubDistrict: "",
-      addrDistrict: "",
-      addrProvince: "",
-      addrPhone: "",
-      lateReason: "",
-      signatureName: user.full_name || user.username || "",
-    })
+    setSubmitError("")
+    setForm(blankForm())
   }
 
-  const handlePrint = () => {
-    window.print()
-  }
+  const handlePrint = () => window.print()
 
-  // ── error helper ─────────────────────────────────────────────────────────
   const ErrMsg = ({ field }) =>
     errors[field] ? (
       <p className="text-xs text-red-500 mt-0.5">{errors[field]}</p>
@@ -607,7 +585,6 @@ export default function LeaveRequest() {
 
   // ── submitted success state ───────────────────────────────────────────────
   if (submitted) {
-    const typeMeta = LEAVE_TYPES.find((t) => t.key === form.leaveType)
     return (
       <>
         <PrintDocument form={form} totalDays={totalDays} />
@@ -626,7 +603,7 @@ export default function LeaveRequest() {
             </div>
             <div className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 p-4 text-left space-y-1.5 text-sm">
               <p><span className="font-semibold text-gray-700 dark:text-gray-300">ผู้ยื่น:</span> <span className="text-gray-900 dark:text-gray-100">{form.fullName}</span></p>
-              <p><span className="font-semibold text-gray-700 dark:text-gray-300">ประเภทการลา:</span> <span className="text-gray-900 dark:text-gray-100">{typeMeta?.label}{form.leaveType === "other" && form.leaveTypeOther ? ` — ${form.leaveTypeOther}` : ""}</span></p>
+              <p><span className="font-semibold text-gray-700 dark:text-gray-300">ประเภทการลา:</span> <span className="text-gray-900 dark:text-gray-100">{form.leaveTypeName}</span></p>
               <p><span className="font-semibold text-gray-700 dark:text-gray-300">ช่วงวันลา:</span> <span className="text-gray-900 dark:text-gray-100">{fmtDateShort(form.fromDate)} – {fmtDateShort(form.toDate)}</span></p>
               <p><span className="font-semibold text-gray-700 dark:text-gray-300">รวม:</span> <span className="font-bold text-indigo-700 dark:text-indigo-300">{totalDays} วัน</span></p>
             </div>
@@ -702,7 +679,7 @@ export default function LeaveRequest() {
                 <Field label="วันที่" required>
                   <input type="date" className={inputCls} value={form.docDate} onChange={set("docDate")} />
                 </Field>
-                <div /> {/* spacer */}
+                <div />
                 <Field label="ข้าพเจ้า (ชื่อ-นามสกุล)" required className="sm:col-span-2">
                   <input
                     type="text"
@@ -739,64 +716,53 @@ export default function LeaveRequest() {
             {/* ─ Section 2: Leave type ─ */}
             <div className={cardCls}>
               <SectionTitle>ประเภทการลา</SectionTitle>
-              {errors.leaveType && (
-                <p className="text-xs text-red-500 mb-2">{errors.leaveType}</p>
+              {errors.leaveTypeId && (
+                <p className="text-xs text-red-500 mb-2">{errors.leaveTypeId}</p>
               )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {LEAVE_TYPES.map((lt) => {
-                  const isSelected = form.leaveType === lt.key
-                  return (
-                    <label
-                      key={lt.key}
-                      className={`flex items-center gap-2.5 rounded-xl border px-4 py-3 cursor-pointer transition-all select-none ${
-                        isSelected
-                          ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/25 ring-1 ring-indigo-400"
-                          : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-indigo-300 dark:hover:border-indigo-700"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="leaveType"
-                        value={lt.key}
-                        checked={isSelected}
-                        onChange={() => setForm((prev) => ({ ...prev, leaveType: lt.key }))}
-                        className="sr-only"
-                      />
-                      {/* custom radio dot */}
-                      <span
-                        className={`flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+              {leaveTypes.length === 0 ? (
+                <p className="text-sm text-gray-400 dark:text-gray-500 py-2">กำลังโหลดประเภทการลา...</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {leaveTypes.map((lt) => {
+                    const isSelected = form.leaveTypeId === lt.id
+                    return (
+                      <label
+                        key={lt.id}
+                        className={`flex items-center gap-2.5 rounded-xl border px-4 py-3 cursor-pointer transition-all select-none ${
                           isSelected
-                            ? "border-indigo-600 bg-indigo-600"
-                            : "border-gray-300 dark:border-gray-600"
+                            ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/25 ring-1 ring-indigo-400"
+                            : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-indigo-300 dark:hover:border-indigo-700"
                         }`}
                       >
-                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </span>
-                      <span
-                        className={`text-sm font-medium ${
-                          isSelected
-                            ? "text-indigo-700 dark:text-indigo-300"
-                            : "text-gray-700 dark:text-gray-300"
-                        }`}
-                      >
-                        {lt.label}
-                      </span>
-                    </label>
-                  )
-                })}
-              </div>
-
-              {form.leaveType === "other" && (
-                <div className="mt-3">
-                  <Field label="ระบุประเภทการลา (อื่นๆ)">
-                    <input
-                      type="text"
-                      className={inputCls}
-                      placeholder="ระบุประเภทการลา"
-                      value={form.leaveTypeOther}
-                      onChange={set("leaveTypeOther")}
-                    />
-                  </Field>
+                        <input
+                          type="radio"
+                          name="leaveType"
+                          value={lt.id}
+                          checked={isSelected}
+                          onChange={() => selectLeaveType(lt)}
+                          className="sr-only"
+                        />
+                        <span
+                          className={`flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                            isSelected
+                              ? "border-indigo-600 bg-indigo-600"
+                              : "border-gray-300 dark:border-gray-600"
+                          }`}
+                        >
+                          {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </span>
+                        <span
+                          className={`text-sm font-medium ${
+                            isSelected
+                              ? "text-indigo-700 dark:text-indigo-300"
+                              : "text-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          {lt.name}
+                        </span>
+                      </label>
+                    )
+                  })}
                 </div>
               )}
 
@@ -964,6 +930,12 @@ export default function LeaveRequest() {
               </Field>
             </div>
 
+            {submitError && (
+              <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+                {submitError}
+              </div>
+            )}
+
             {/* Submit */}
             <button
               type="submit"
@@ -1014,15 +986,36 @@ export default function LeaveRequest() {
                         {STATUS_LABEL[r.status] ?? r.status}
                       </span>
                     </div>
-                    {r.status === "pending" && (
+                    <div className="flex items-center gap-2">
                       <button
-                        onClick={() => handleCancel(r.id)}
-                        disabled={cancellingId === r.id}
-                        className="px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-semibold hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-60 disabled:cursor-not-allowed transition cursor-pointer"
+                        onClick={() => handlePdfDownload(r.id)}
+                        disabled={downloadingId === r.id}
+                        className="px-3 py-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-200 dark:hover:bg-indigo-900/50 disabled:opacity-60 disabled:cursor-not-allowed transition cursor-pointer flex items-center gap-1.5"
                       >
-                        {cancellingId === r.id ? "กำลังยกเลิก..." : "ยกเลิก"}
+                        {downloadingId === r.id ? (
+                          <>
+                            <span className="h-3 w-3 rounded-full border-2 border-indigo-400/40 border-t-indigo-500 animate-spin" />
+                            กำลังโหลด
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            PDF
+                          </>
+                        )}
                       </button>
-                    )}
+                      {r.status === "pending" && (
+                        <button
+                          onClick={() => handleCancel(r.id)}
+                          disabled={cancellingId === r.id}
+                          className="px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-semibold hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-60 disabled:cursor-not-allowed transition cursor-pointer"
+                        >
+                          {cancellingId === r.id ? "กำลังยกเลิก..." : "ยกเลิก"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
@@ -1030,6 +1023,11 @@ export default function LeaveRequest() {
                       <p className="font-medium text-gray-800 dark:text-gray-200">
                         {fmtDateShort(r.from_date)} – {fmtDateShort(r.to_date)}
                       </p>
+                      {(r.from_time || r.to_time) && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          เวลา {fmtTime(r.from_time) ?? "—"} – {fmtTime(r.to_time) ?? "—"} น.
+                        </p>
+                      )}
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">จำนวนวัน</p>
@@ -1038,6 +1036,12 @@ export default function LeaveRequest() {
                       </p>
                     </div>
                   </div>
+                  {r.address_during_leave && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-1.5">
+                      ที่อยู่ระหว่างลา: {r.address_during_leave}
+                      {r.contact_during_leave && ` · โทร. ${r.contact_during_leave}`}
+                    </p>
+                  )}
                   {r.comment && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-1.5">
                       เหตุผล: {r.comment}

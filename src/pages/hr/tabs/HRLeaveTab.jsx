@@ -1,24 +1,28 @@
 // src/pages/hr/tabs/HRLeaveTab.jsx
-// อนุมัติ / ปฏิเสธ คำขอลา
+// อนุมัติ / ปฏิเสธ คำขอลา + ดาวน์โหลด PDF ใบลา
 import { useEffect, useState, useCallback } from "react"
-import { apiAuth } from "../../../lib/api"
+import { apiAuth, apiDownload } from "../../../lib/api"
 import Portal from "../../../components/Portal"
 
 const STATUS_LABEL = {
-  pending: "รออนุมัติ",
-  pending_branch_head: "รอหัวหน้าสาขา",
-  pending_manager: "รอผู้จัดการ",
-  approved: "อนุมัติแล้ว",
-  denied: "ปฏิเสธ",
-  cancelled: "ยกเลิก",
+  pending:                   "รอดำเนินการ",
+  pending_branch_head:       "รอหัวหน้าอนุมัติ",
+  pending_assistant_manager: "รอผู้ช่วยผู้จัดการอนุมัติ",
+  pending_manager:           "รอผู้จัดการอนุมัติ",
+  approved:                  "อนุมัติแล้ว",
+  rejected:                  "ไม่อนุมัติ",
+  denied:                    "ไม่อนุมัติ",
+  cancelled:                 "ยกเลิก",
 }
 const STATUS_COLOR = {
-  pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  pending_branch_head: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-  pending_manager: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  approved: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  denied: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
+  pending:                   "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  pending_branch_head:       "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  pending_assistant_manager: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+  pending_manager:           "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  approved:                  "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  rejected:                  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  denied:                    "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  cancelled:                 "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
 }
 
 function fmtDate(d) {
@@ -48,6 +52,24 @@ export default function HRLeaveTab() {
   const [hrComment, setHrComment] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState("")
+  const [downloadingId, setDownloadingId] = useState(null)
+
+  const handlePdfDownload = async (employeeId, leaveId) => {
+    setDownloadingId(leaveId)
+    try {
+      const { blob, filename } = await apiDownload(`/hr/employees/${employeeId}/leaves/${leaveId}/pdf`)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename || `leave_${leaveId}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(`ดาวน์โหลด PDF ไม่สำเร็จ: ${err.message || "เกิดข้อผิดพลาด"}`)
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   const fetchRequests = useCallback(() => {
     setLoading(true)
@@ -147,6 +169,11 @@ export default function HRLeaveTab() {
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">ช่วงเวลา</p>
                       <p className="font-medium text-gray-800 dark:text-gray-200">{fmtDate(r.from_date)} – {fmtDate(r.to_date)}</p>
+                      {(r.from_time || r.to_time) && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {r.from_time?.slice(0,5) ?? "—"} – {r.to_time?.slice(0,5) ?? "—"} น.
+                        </p>
+                      )}
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">จำนวนวัน</p>
@@ -157,6 +184,12 @@ export default function HRLeaveTab() {
                       <p className="font-medium text-gray-800 dark:text-gray-200">{fmtDate(r.created_at)}</p>
                     </div>
                   </div>
+                  {r.address_during_leave && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-1.5">
+                      ที่อยู่ระหว่างลา: {r.address_during_leave}
+                      {r.contact_during_leave && ` · โทร. ${r.contact_during_leave}`}
+                    </p>
+                  )}
                   {r.comment && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-1.5">
                       เหตุผล: {r.comment}
@@ -173,22 +206,43 @@ export default function HRLeaveTab() {
                     </p>
                   )}
                 </div>
-                {(r.status === "pending" || r.status === "pending_branch_head") && (
-                  <div className="flex gap-2 shrink-0">
-                    <button
-                      onClick={() => openModal(r, "approve")}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all shadow-sm cursor-pointer"
-                    >
-                      ✓ อนุมัติ
-                    </button>
-                    <button
-                      onClick={() => openModal(r, "deny")}
-                      className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-all shadow-sm cursor-pointer"
-                    >
-                      ✕ ปฏิเสธ
-                    </button>
-                  </div>
-                )}
+                <div className="flex flex-col gap-2 shrink-0">
+                  <button
+                    onClick={() => handlePdfDownload(r.user_id, r.id)}
+                    disabled={downloadingId === r.id}
+                    className="px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-semibold transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5"
+                  >
+                    {downloadingId === r.id ? (
+                      <>
+                        <span className="h-3 w-3 rounded-full border-2 border-gray-400/40 border-t-gray-500 animate-spin" />
+                        โหลด...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        PDF
+                      </>
+                    )}
+                  </button>
+                  {(r.status === "pending" || r.status === "pending_branch_head" || r.status === "pending_assistant_manager" || r.status === "pending_manager") && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openModal(r, "approve")}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all shadow-sm cursor-pointer"
+                      >
+                        ✓ อนุมัติ
+                      </button>
+                      <button
+                        onClick={() => openModal(r, "deny")}
+                        className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-all shadow-sm cursor-pointer"
+                      >
+                        ✕ ปฏิเสธ
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}

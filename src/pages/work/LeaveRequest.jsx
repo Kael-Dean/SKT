@@ -36,23 +36,25 @@ const LEAVE_TYPES = [
 // ─── print stylesheet (injected once on mount) ───────────────────────────────
 const PRINT_CSS = `
 @media print {
-  /* hide everything by default */
-  body > * { display: none !important; }
-
-  /* show only the print root */
-  #leave-print-root,
-  #leave-print-root * { display: revert !important; }
+  /* visibility approach: hide all, then reveal only the print root */
+  body * { visibility: hidden !important; }
 
   #leave-print-root {
-    display: block !important;
+    visibility: visible !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
     font-family: 'Sarabun', 'TH Sarabun New', 'Cordia New', serif;
     font-size: 14pt;
     line-height: 1.6;
     color: #000;
     padding: 20mm 20mm 15mm 25mm;
-    width: 100%;
     box-sizing: border-box;
+    background: #fff;
   }
+
+  #leave-print-root * { visibility: visible !important; }
 
   /* header */
   .print-header-org {
@@ -268,7 +270,7 @@ function PrintDocument({ form, totalDays }) {
   const days2 = diffDays(form.fromDate2, form.toDate2)
 
   return (
-    <div id="leave-print-root" style={{ display: "none" }}>
+    <div id="leave-print-root" style={{ position: "absolute", left: "-99999px", top: 0, width: "210mm" }} aria-hidden="true">
       {/* Header */}
       <div className="print-header-org">
         สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์ จำกัด

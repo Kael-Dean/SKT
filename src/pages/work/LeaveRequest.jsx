@@ -424,9 +424,16 @@ export default function LeaveRequest() {
 
   useEffect(() => {
     apiAuth("/hr/leave-types")
-      .then((data) => setLeaveTypes(Array.isArray(data) ? data.filter((t) => t.is_active !== false) : []))
+      .then((data) => {
+        const arr = Array.isArray(data) ? data : []
+        if (arr.length > 0) console.log("[LeaveRequest] /hr/leave-types sample:", arr[0])
+        setLeaveTypes(arr.filter((t) => t.is_active !== false))
+      })
       .catch(() => {})
   }, [])
+
+  const getLeaveTypeName = (lt) =>
+    lt?.leave_name ?? lt?.type ?? lt?.name ?? lt?.title ?? lt?.label ?? ""
 
   // ── form state ──────────────────────────────────────────────────────────
   const blankForm = () => ({
@@ -519,7 +526,7 @@ export default function LeaveRequest() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const selectLeaveType = (lt) =>
-    setForm((prev) => ({ ...prev, leaveTypeId: lt.id, leaveTypeName: lt.leave_name }))
+    setForm((prev) => ({ ...prev, leaveTypeId: lt.id, leaveTypeName: getLeaveTypeName(lt) }))
 
   // ── validation ──────────────────────────────────────────────────────────
   const validate = () => {
@@ -758,7 +765,7 @@ export default function LeaveRequest() {
                               : "text-gray-700 dark:text-gray-300"
                           }`}
                         >
-                          {lt.leave_name}
+                          {getLeaveTypeName(lt)}
                         </span>
                       </label>
                     )

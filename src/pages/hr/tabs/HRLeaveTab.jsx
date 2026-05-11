@@ -74,12 +74,11 @@ export default function HRLeaveTab() {
   const fetchRequests = useCallback(() => {
     setLoading(true)
     setError("")
-    const url = subTab === "pending" ? "/hr/leave-requests?status=pending" : "/hr/leave-requests"
-    apiAuth(url)
+    apiAuth("/hr/leave-requests")
       .then(setRequests)
       .catch((e) => setError(e.message || "โหลดข้อมูลไม่สำเร็จ"))
       .finally(() => setLoading(false))
-  }, [subTab])
+  }, [])
 
   useEffect(() => { fetchRequests() }, [fetchRequests])
 
@@ -116,9 +115,13 @@ export default function HRLeaveTab() {
     }
   }
 
-  const pendingCount = subTab === "pending"
-    ? requests.length
-    : requests.filter((r) => r.status === "pending" || r.status === "pending_branch_head").length
+  const isPending = (status) => status?.startsWith("pending")
+
+  const displayRequests = subTab === "pending"
+    ? requests.filter((r) => isPending(r.status))
+    : requests
+
+  const pendingCount = requests.filter((r) => isPending(r.status)).length
 
   return (
     <div className="space-y-4">
@@ -142,14 +145,14 @@ export default function HRLeaveTab() {
 
       {error && <ErrBox msg={error} />}
 
-      {loading ? <Spinner /> : requests.length === 0 ? (
+      {loading ? <Spinner /> : displayRequests.length === 0 ? (
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-12 text-center">
           <p className="text-3xl mb-3">✅</p>
           <p className="text-sm text-gray-500 dark:text-gray-400">ไม่มีคำขอ{subTab === "pending" ? "ที่รออนุมัติ" : ""}</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {requests.map((r) => (
+          {displayRequests.map((r) => (
             <div key={r.id} className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-4">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="flex-1 space-y-2">

@@ -19,7 +19,6 @@ import BusinessPlanExpenseServiceTableDetail from "./cost/BusinessPlanExpenseSer
 import BusinessPlanExpenseSupportWorkTableDetail from "./cost/BusinessPlanExpenseSupportWorkTableDetail"
 import BusinessPlanRepCostSummaryTableDetail from "./cost/BusinessPlanRepCostSummaryTableDetail"
 import Thonthun from "./thonthun/Thonthun"
-import ThonthunDetail from "./thonthun/ThonthunDetail"
 
 // ---------------- Styles ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -301,7 +300,6 @@ const COST_TABLES = [
 
 const THONTHUN_TABLES = [
   { key: "thonthun", label: "ประมาณการต้นทุนสินค้า (รายปี)", file: "thonthun/Thonthun.jsx", Component: Thonthun },
-  { key: "thonthun-detail", label: "ประมาณการต้นทุนสินค้า (รายเดือน)", file: "thonthun/ThonthunDetail.jsx", Component: ThonthunDetail },
 ]
 
 const OperationPlan = () => {

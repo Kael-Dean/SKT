@@ -13,7 +13,7 @@ export default function DebtReport() {
   const [view, setView]                   = useState(null)
   const [programs, setPrograms]           = useState([])
   const [fiscalYears, setFiscalYears]     = useState([])
-  const [units, setUnits]                 = useState([])
+  const [branches, setBranches]           = useState([])
   const [allTotals, setAllTotals]         = useState([])
   const [allTransactions, setAllTransactions] = useState([])
   const [loadingRefs, setLoadingRefs]     = useState(true)
@@ -26,19 +26,19 @@ export default function DebtReport() {
   async function fetchAll() {
     setLoadingRefs(true)
     setErrorRefs("")
-    const [unitsRes, yearsRes, progsRes, totalsRes, txRes] = await Promise.allSettled([
-      apiAuth("/debt/lookup/units"),
+    const [branchesRes, yearsRes, progsRes, totalsRes, txRes] = await Promise.allSettled([
+      apiAuth("/debt/lookup/branches"),
       apiAuth("/debt/lookup/fiscal-years"),
       apiAuth("/debt/programs"),
       apiAuth("/debt/totals"),
       apiAuth("/debt/transactions"),
     ])
 
-    if (unitsRes.status === "fulfilled") {
-      const rows = Array.isArray(unitsRes.value) ? unitsRes.value : []
-      setUnits(
+    if (branchesRes.status === "fulfilled") {
+      const rows = Array.isArray(branchesRes.value) ? branchesRes.value : []
+      setBranches(
         rows
-          .map((r) => ({ id: Number(r.id), name: r.unit_name || r.klang_name || r.unit || r.name }))
+          .map((r) => ({ id: Number(r.id), name: r.branch_name || `สาขา ${r.id}` }))
           .filter((r) => r.id > 0)
       )
     }
@@ -68,7 +68,7 @@ export default function DebtReport() {
       )
     }
 
-    const errors = [unitsRes, yearsRes, progsRes, totalsRes, txRes]
+    const errors = [branchesRes, yearsRes, progsRes, totalsRes, txRes]
       .filter((r) => r.status === "rejected")
       .map((r) => r.reason?.message || "โหลดข้อมูลไม่สำเร็จ")
     if (errors.length) setErrorRefs(errors[0])
@@ -137,7 +137,7 @@ export default function DebtReport() {
       <BranchDebtTable
         programs={programs}
         fiscalYears={fiscalYears}
-        units={units}
+        branches={branches}
         allTotals={allTotals}
         allTransactions={allTransactions}
         onDataChanged={reloadAll}

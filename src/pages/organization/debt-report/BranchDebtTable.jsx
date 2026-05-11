@@ -74,8 +74,6 @@ function buildTableRows(programs, fiscalYears, totals, txLookup) {
         const total = totals.find((t) => t.program_id === prog.id && t.fiscal_year_id === fy.id) || null
         const tx = total ? txLookup.get(total.id) || null : null
         const newDebtAmt = tx ? tx.new_debt_amount : 0
-        // Per v2: carry_amount = original_amount - SUM(new_debt txns)
-        // because BE upserts both new_debt AND carryover into original_amount
         const originalAmt = total ? parseFloat(total.original_amount || 0) : 0
         const carryAmt = Math.max(0, originalAmt - newDebtAmt)
         const remainAmt = total ? parseFloat(total.remaining_amount || 0) : 0
@@ -112,34 +110,34 @@ const STRIPE = {
 export default function BranchDebtTable({
   programs,
   fiscalYears,
-  units,
+  branches,
   allTotals,
   allTransactions,
   onDataChanged,
   onBack,
 }) {
-  const [selectedUnitId, setSelectedUnitId] = useState("")
-  const [modal, setModal]                   = useState(null)
-  const [form, setForm]                     = useState({})
-  const [saving, setSaving]                 = useState(false)
-  const [saveMsg, setSaveMsg]               = useState("")
-  const [produceTypes, setProduceTypes]     = useState([])
+  const [selectedBranchId, setSelectedBranchId] = useState("")
+  const [modal, setModal]                        = useState(null)
+  const [form, setForm]                          = useState({})
+  const [saving, setSaving]                      = useState(false)
+  const [saveMsg, setSaveMsg]                    = useState("")
+  const [produceTypes, setProduceTypes]          = useState([])
 
   const tableWrapRef = useRef(null)
 
-  const unitTotals = useMemo(
-    () => (selectedUnitId ? allTotals.filter((t) => t.unit_id === Number(selectedUnitId)) : allTotals),
-    [allTotals, selectedUnitId]
+  const branchTotals = useMemo(
+    () => (selectedBranchId ? allTotals.filter((t) => t.branch_id === Number(selectedBranchId)) : allTotals),
+    [allTotals, selectedBranchId]
   )
-  const relevantDebtIds = useMemo(() => new Set(unitTotals.map((t) => t.id)), [unitTotals])
-  const unitTransactions = useMemo(
+  const relevantDebtIds = useMemo(() => new Set(branchTotals.map((t) => t.id)), [branchTotals])
+  const branchTransactions = useMemo(
     () => allTransactions.filter((tx) => relevantDebtIds.has(tx.debt_id)),
     [allTransactions, relevantDebtIds]
   )
-  const txLookup = useMemo(() => buildTxLookup(unitTransactions), [unitTransactions])
+  const txLookup = useMemo(() => buildTxLookup(branchTransactions), [branchTransactions])
   const tableRows = useMemo(
-    () => buildTableRows(programs, fiscalYears, unitTotals, txLookup),
-    [programs, fiscalYears, unitTotals, txLookup]
+    () => buildTableRows(programs, fiscalYears, branchTotals, txLookup),
+    [programs, fiscalYears, branchTotals, txLookup]
   )
 
   const colTotals = useMemo(() => {
@@ -168,8 +166,8 @@ export default function BranchDebtTable({
   function yearName(id) {
     return fiscalYears.find((y) => y.id === Number(id))?.year_name || String(id)
   }
-  function unitName(id) {
-    return units.find((u) => u.id === Number(id))?.name || `หน่วย ${id}`
+  function branchName(id) {
+    return branches.find((b) => b.id === Number(id))?.name || `สาขา ${id}`
   }
 
   function setF(key, val) {
@@ -186,7 +184,7 @@ export default function BranchDebtTable({
     setSaveMsg("")
     if (mode === "add_total") {
       setForm({
-        unit_id: selectedUnitId,
+        branch_id: selectedBranchId,
         program_id: "",
         fiscal_year_id: "",
         original_amount: "",
@@ -215,7 +213,7 @@ export default function BranchDebtTable({
       }
     } else if (mode === "add_new_debt") {
       setForm({
-        unit_id: selectedUnitId || "",
+        branch_id: selectedBranchId || "",
         program_id: "",
         amount: "",
         transaction_date: todayISO(),
@@ -223,7 +221,7 @@ export default function BranchDebtTable({
       })
     } else if (mode === "add_carryover") {
       setForm({
-        unit_id: selectedUnitId || "",
+        branch_id: selectedBranchId || "",
         program_id: "",
         fiscal_year_id: "",
         amount: "",
@@ -243,7 +241,7 @@ export default function BranchDebtTable({
         await apiAuth("/debt/totals", {
           method: "POST",
           body: {
-            unit_id: Number(form.unit_id),
+            branch_id: Number(form.branch_id),
             program_id: Number(form.program_id),
             fiscal_year_id: Number(form.fiscal_year_id),
             amount: form.original_amount,
@@ -282,9 +280,8 @@ export default function BranchDebtTable({
         await apiAuth("/debt/transactions/new-debt", {
           method: "POST",
           body: {
-            unit_id: Number(form.unit_id),
+            branch_id: Number(form.branch_id),
             program_id: Number(form.program_id),
-            fiscal_year_id: currentFY.id,
             amount: form.amount,
             transaction_date: form.transaction_date,
             note: form.note.trim() || null,
@@ -294,7 +291,7 @@ export default function BranchDebtTable({
         await apiAuth("/debt/transactions/carryover", {
           method: "POST",
           body: {
-            unit_id: Number(form.unit_id),
+            branch_id: Number(form.branch_id),
             program_id: Number(form.program_id),
             fiscal_year_id: Number(form.fiscal_year_id),
             amount: form.amount,
@@ -312,7 +309,7 @@ export default function BranchDebtTable({
     }
   }
 
-  const debtSelectOpts = (selectedUnitId ? unitTotals : allTotals).map((t) => ({
+  const debtSelectOpts = (selectedBranchId ? branchTotals : allTotals).map((t) => ({
     value: String(t.id),
     label: `${progName(t.program_id)} — ปี ${yearName(t.fiscal_year_id)} (คงเหลือ: ฿${fmtMoney(t.remaining_amount)})`,
   }))
@@ -326,9 +323,9 @@ export default function BranchDebtTable({
     label: y.year_name,
   }))
 
-  const unitOpts = [
-    { value: "", label: "ทุกหน่วยงาน" },
-    ...units.map((u) => ({ value: String(u.id), label: u.name })),
+  const branchOpts = [
+    { value: "", label: "ทุกสาขา" },
+    ...branches.map((b) => ({ value: String(b.id), label: b.name })),
   ]
 
   const payMethodOpts = [
@@ -342,7 +339,7 @@ export default function BranchDebtTable({
     label: t.name || t.produce_name || String(t.id),
   }))
 
-  const unitModalOpts = units.map((u) => ({ value: String(u.id), label: u.name }))
+  const branchModalOpts = branches.map((b) => ({ value: String(b.id), label: b.name }))
 
   return (
     <div>
@@ -360,10 +357,10 @@ export default function BranchDebtTable({
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="w-64">
           <SelectDropdown
-            options={unitOpts}
-            value={selectedUnitId}
-            onChange={setSelectedUnitId}
-            placeholder="— เลือกหน่วยงาน —"
+            options={branchOpts}
+            value={selectedBranchId}
+            onChange={setSelectedBranchId}
+            placeholder="— เลือกสาขา —"
           />
         </div>
         <button
@@ -396,9 +393,9 @@ export default function BranchDebtTable({
           onClick={() =>
             printDebtTable({
               title: "ตารางหนี้แยกสาขา",
-              subtitle: selectedUnitId
-                ? `หน่วยงาน: ${units.find((u) => u.id === Number(selectedUnitId))?.name || ""}`
-                : "ทุกหน่วยงาน",
+              subtitle: selectedBranchId
+                ? `สาขา: ${branches.find((b) => b.id === Number(selectedBranchId))?.name || ""}`
+                : "ทุกสาขา",
               tableRows,
               colTotals,
             })
@@ -626,21 +623,21 @@ export default function BranchDebtTable({
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {modal.mode === "add_total" ? (
                       <>
-                        {selectedUnitId ? (
+                        {selectedBranchId ? (
                           <div>
-                            <label className={labelCls}>หน่วยงาน</label>
+                            <label className={labelCls}>สาขา</label>
                             <p className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">
-                              {unitName(selectedUnitId)}
+                              {branchName(selectedBranchId)}
                             </p>
                           </div>
                         ) : (
                           <div>
-                            <label className={labelCls}>หน่วยงาน <span className="text-red-500">*</span></label>
+                            <label className={labelCls}>สาขา <span className="text-red-500">*</span></label>
                             <SelectDropdown
-                              options={unitModalOpts}
-                              value={form.unit_id || ""}
-                              onChange={(v) => setF("unit_id", v)}
-                              placeholder="— เลือกหน่วยงาน —"
+                              options={branchModalOpts}
+                              value={form.branch_id || ""}
+                              onChange={(v) => setF("branch_id", v)}
+                              placeholder="— เลือกสาขา —"
                             />
                           </div>
                         )}
@@ -670,7 +667,7 @@ export default function BranchDebtTable({
                           {progName(modal.record?.program_id)} — ปี {yearName(modal.record?.fiscal_year_id)}
                         </p>
                         <p className="text-slate-600 dark:text-slate-300">
-                          {unitName(modal.record?.unit_id)}
+                          {branchName(modal.record?.branch_id)}
                         </p>
                       </div>
                     )}
@@ -840,21 +837,21 @@ export default function BranchDebtTable({
                     )
                   })()}
                   <form onSubmit={handleSubmit} className="space-y-4">
-                    {selectedUnitId ? (
+                    {selectedBranchId ? (
                       <div>
-                        <label className={labelCls}>หน่วยงาน</label>
+                        <label className={labelCls}>สาขา</label>
                         <p className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">
-                          {unitName(selectedUnitId)}
+                          {branchName(selectedBranchId)}
                         </p>
                       </div>
                     ) : (
                       <div>
-                        <label className={labelCls}>หน่วยงาน <span className="text-red-500">*</span></label>
+                        <label className={labelCls}>สาขา <span className="text-red-500">*</span></label>
                         <SelectDropdown
-                          options={unitModalOpts}
-                          value={form.unit_id || ""}
-                          onChange={(v) => setF("unit_id", v)}
-                          placeholder="— เลือกหน่วยงาน —"
+                          options={branchModalOpts}
+                          value={form.branch_id || ""}
+                          onChange={(v) => setF("branch_id", v)}
+                          placeholder="— เลือกสาขา —"
                         />
                       </div>
                     )}
@@ -923,21 +920,21 @@ export default function BranchDebtTable({
                     ยอดค้างชำระยกมาจากปีก่อน — เลือกได้ทุกปีงบประมาณ
                   </div>
                   <form onSubmit={handleSubmit} className="space-y-4">
-                    {selectedUnitId ? (
+                    {selectedBranchId ? (
                       <div>
-                        <label className={labelCls}>หน่วยงาน</label>
+                        <label className={labelCls}>สาขา</label>
                         <p className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">
-                          {unitName(selectedUnitId)}
+                          {branchName(selectedBranchId)}
                         </p>
                       </div>
                     ) : (
                       <div>
-                        <label className={labelCls}>หน่วยงาน <span className="text-red-500">*</span></label>
+                        <label className={labelCls}>สาขา <span className="text-red-500">*</span></label>
                         <SelectDropdown
-                          options={unitModalOpts}
-                          value={form.unit_id || ""}
-                          onChange={(v) => setF("unit_id", v)}
-                          placeholder="— เลือกหน่วยงาน —"
+                          options={branchModalOpts}
+                          value={form.branch_id || ""}
+                          onChange={(v) => setF("branch_id", v)}
+                          placeholder="— เลือกสาขา —"
                         />
                       </div>
                     )}

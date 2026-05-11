@@ -45,16 +45,16 @@ const emptyPaymentForm = () => ({
 })
 
 const emptyNewDebtForm = () => ({
-  unit_id: "", program_id: "", amount: "",
+  branch_id: "", program_id: "", amount: "",
   transaction_date: todayISO(), note: "",
 })
 
 const emptyCarryoverForm = () => ({
-  unit_id: "", program_id: "", fiscal_year_id: "", amount: "",
+  branch_id: "", program_id: "", fiscal_year_id: "", amount: "",
   transaction_date: todayISO(), note: "",
 })
 
-export default function DebtTransactionsTab({ roleId, totals, units, programs, fiscalYears }) {
+export default function DebtTransactionsTab({ roleId, totals, branches, programs, fiscalYears }) {
   const canWrite  = [ROLE.ADMIN, ROLE.HA, ROLE.MKT].includes(roleId)
   const canManage = [ROLE.ADMIN, ROLE.HA].includes(roleId)
 
@@ -103,17 +103,16 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
     setTransactions(Array.isArray(data) ? data.filter((r) => r.is_active !== false) : [])
   }
 
-  // Helper display functions using passed-in reference data
-  function unitName(id)  { return units?.find((u) => u.id === Number(id))?.name || `หน่วย ${id}` }
-  function progName(id)  { return programs?.find((p) => p.id === Number(id))?.prog_name || `โปรแกรม ${id}` }
-  function yearName(id)  { return fiscalYears?.find((y) => y.id === Number(id))?.year_name || String(id) }
+  function branchName(id) { return branches?.find((b) => b.id === Number(id))?.name || `สาขา ${id}` }
+  function progName(id)   { return programs?.find((p) => p.id === Number(id))?.prog_name || `โปรแกรม ${id}` }
+  function yearName(id)   { return fiscalYears?.find((y) => y.id === Number(id))?.year_name || String(id) }
 
   // Build debt_id options for payment modal (only debts with positive balance)
   const debtOptsWithBalance = totals
     .filter((t) => t.is_active !== false && parseFloat(t.remaining_amount) > 0)
     .map((t) => ({
       value: String(t.id),
-      label: `${unitName(t.unit_id)} · ${progName(t.program_id)}`,
+      label: `${branchName(t.branch_id)} · ${progName(t.program_id)}`,
       sublabel: `ปี ${yearName(t.fiscal_year_id)} | คงเหลือ ฿${fmtMoney(t.remaining_amount)}`,
     }))
 
@@ -130,8 +129,8 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
     { value: "payment",   label: "รับชำระ" },
   ]
 
-  const unitModalOpts = units.map((u) => ({ value: String(u.id), label: u.name }))
-  const programModalOpts = programs
+  const branchModalOpts   = branches.map((b) => ({ value: String(b.id), label: b.name }))
+  const programModalOpts  = programs
     .filter((p) => p.is_active !== false)
     .map((p) => ({ value: String(p.id), label: p.prog_name }))
   const fiscalYearModalOpts = fiscalYears.map((y) => ({
@@ -211,7 +210,7 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
           },
         })
       } else if (modal.mode === "add_newdebt") {
-        if (!form.unit_id)                                 { setSaveMsg("กรุณาเลือกหน่วยงาน"); setSaving(false); return }
+        if (!form.branch_id)                               { setSaveMsg("กรุณาเลือกสาขา"); setSaving(false); return }
         if (!form.program_id)                              { setSaveMsg("กรุณาเลือกโปรแกรมหนี้"); setSaving(false); return }
         if (!form.amount || parseFloat(form.amount) <= 0)  { setSaveMsg("กรุณากรอกจำนวนเงินที่ถูกต้อง"); setSaving(false); return }
         if (!form.transaction_date)                        { setSaveMsg("กรุณาระบุวันที่"); setSaving(false); return }
@@ -222,16 +221,15 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
         await apiAuth("/debt/transactions/new-debt", {
           method: "POST",
           body: {
-            unit_id: Number(form.unit_id),
+            branch_id: Number(form.branch_id),
             program_id: Number(form.program_id),
-            fiscal_year_id: currentFY.id,
             amount: form.amount,
             transaction_date: form.transaction_date,
             note: form.note.trim() || null,
           },
         })
       } else if (modal.mode === "add_carryover") {
-        if (!form.unit_id)                                 { setSaveMsg("กรุณาเลือกหน่วยงาน"); setSaving(false); return }
+        if (!form.branch_id)                               { setSaveMsg("กรุณาเลือกสาขา"); setSaving(false); return }
         if (!form.program_id)                              { setSaveMsg("กรุณาเลือกโปรแกรมหนี้"); setSaving(false); return }
         if (!form.fiscal_year_id)                          { setSaveMsg("กรุณาเลือกปีงบประมาณ"); setSaving(false); return }
         if (!form.amount || parseFloat(form.amount) <= 0)  { setSaveMsg("กรุณากรอกจำนวนเงินที่ถูกต้อง"); setSaving(false); return }
@@ -239,7 +237,7 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
         await apiAuth("/debt/transactions/carryover", {
           method: "POST",
           body: {
-            unit_id: Number(form.unit_id),
+            branch_id: Number(form.branch_id),
             program_id: Number(form.program_id),
             fiscal_year_id: Number(form.fiscal_year_id),
             amount: form.amount,
@@ -480,7 +478,7 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
         </Portal>
       )}
 
-      {/* New Debt Modal (เพิ่มในปี — เฉพาะปีปัจจุบันตามวันที่จริง) */}
+      {/* New Debt Modal */}
       {modal?.mode === "add_newdebt" && (
         <Portal>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -499,12 +497,12 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className={labelCls}>หน่วยงาน <span className="text-red-500">*</span></label>
+                  <label className={labelCls}>สาขา <span className="text-red-500">*</span></label>
                   <SelectDropdown
-                    options={unitModalOpts}
-                    value={form.unit_id}
-                    onChange={(val) => setForm((f) => ({ ...f, unit_id: val }))}
-                    placeholder="— เลือกหน่วยงาน —"
+                    options={branchModalOpts}
+                    value={form.branch_id}
+                    onChange={(val) => setForm((f) => ({ ...f, branch_id: val }))}
+                    placeholder="— เลือกสาขา —"
                   />
                 </div>
                 <div>
@@ -541,23 +539,23 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
         </Portal>
       )}
 
-      {/* Carryover Modal (ยอดยกมา — ใช้ได้ทุกปี) */}
+      {/* Carryover Modal */}
       {modal?.mode === "add_carryover" && (
         <Portal>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className={cx(modalCardCls, "max-w-md w-full max-h-[90vh] overflow-y-auto")}>
               <h2 className={cx(modalTitleCls, "mb-3")}>บันทึกยอดยกมา</h2>
               <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-300">
-                ยอดค้างชำระยกมาจากปีก่อน — เลือกได้ทุกปีงบประมาณ ระบบจะเพิ่มยอดเข้าหนี้คงค้างของหน่วยงาน + โปรแกรม + ปีที่ระบุ
+                ยอดค้างชำระยกมาจากปีก่อน — เลือกได้ทุกปีงบประมาณ ระบบจะเพิ่มยอดเข้าหนี้คงค้างของสาขา + โปรแกรม + ปีที่ระบุ
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className={labelCls}>หน่วยงาน <span className="text-red-500">*</span></label>
+                  <label className={labelCls}>สาขา <span className="text-red-500">*</span></label>
                   <SelectDropdown
-                    options={unitModalOpts}
-                    value={form.unit_id}
-                    onChange={(val) => setForm((f) => ({ ...f, unit_id: val }))}
-                    placeholder="— เลือกหน่วยงาน —"
+                    options={branchModalOpts}
+                    value={form.branch_id}
+                    onChange={(val) => setForm((f) => ({ ...f, branch_id: val }))}
+                    placeholder="— เลือกสาขา —"
                   />
                 </div>
                 <div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { apiAuth } from "../../../lib/api"
-import { getUser, getRoleId } from "../../../lib/auth"
+import { getRoleId } from "../../../lib/auth"
 import { cx, cardCls, pageTitleCls } from "../../../lib/styles"
 import DebtTotalsTab       from "./DebtTotalsTab"
 import DebtTransactionsTab from "./DebtTransactionsTab"
@@ -23,7 +23,7 @@ export default function DebtTracking() {
   }
 
   // ─── Shared reference data ────────────────────────────────────────────────
-  const [units, setUnits]             = useState([])
+  const [branches, setBranches]       = useState([])
   const [fiscalYears, setFiscalYears] = useState([])
   const [programs, setPrograms]       = useState([])
   const [allTotals, setAllTotals]     = useState([])
@@ -36,20 +36,19 @@ export default function DebtTracking() {
     setErrorRefs("")
     ;(async () => {
       try {
-        const branchId = getUser()?.branch_id
-        const [unitsData, yearsData, progsData, totalsData] = await Promise.allSettled([
-          apiAuth(branchId ? `/lists/unit/search?branch_id=${branchId}` : "/lists/unit/search"),
+        const [branchesData, yearsData, progsData, totalsData] = await Promise.allSettled([
+          apiAuth("/debt/lookup/branches"),
           apiAuth("/lists/productyear"),
           apiAuth("/debt/programs"),
           apiAuth("/debt/totals"),
         ])
         if (!alive) return
 
-        if (unitsData.status === "fulfilled") {
-          const rows = Array.isArray(unitsData.value) ? unitsData.value : []
-          setUnits(rows.map((r) => ({
+        if (branchesData.status === "fulfilled") {
+          const rows = Array.isArray(branchesData.value) ? branchesData.value : []
+          setBranches(rows.map((r) => ({
             id: Number(r.id || 0),
-            name: r.unit_name || r.klang_name || r.unit || r.name || `หน่วย ${r.id}`,
+            name: r.branch_name || `สาขา ${r.id}`,
           })).filter((r) => r.id > 0))
         }
         if (yearsData.status === "fulfilled") {
@@ -138,7 +137,7 @@ export default function DebtTracking() {
           {activeTab === "totals" && (
             <DebtTotalsTab
               roleId={roleId}
-              units={units}
+              branches={branches}
               programs={programs}
               fiscalYears={fiscalYears}
               onTotalsChanged={reloadTotals}
@@ -148,7 +147,7 @@ export default function DebtTracking() {
             <DebtTransactionsTab
               roleId={roleId}
               totals={allTotals}
-              units={units}
+              branches={branches}
               programs={programs}
               fiscalYears={fiscalYears}
             />

@@ -18,20 +18,20 @@ const sanitizeDecimal = (s) => {
   return parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : clean
 }
 
-export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, onTotalsChanged }) {
+export default function DebtTotalsTab({ roleId, branches, programs, fiscalYears, onTotalsChanged }) {
   const canWrite  = [ROLE.ADMIN, ROLE.HA, ROLE.MKT].includes(roleId)
   const canDelete = [ROLE.ADMIN, ROLE.HA].includes(roleId)
 
-  // ─── Filters (owned here, same layout level as DebtTransactionsTab) ──────
-  const [filters, setFilters] = useState({ unit_id: "", program_id: "", fiscal_year_id: "" })
+  // ─── Filters ──────────────────────────────────────────────────────────────
+  const [filters, setFilters] = useState({ branch_id: "", program_id: "", fiscal_year_id: "" })
   function setFilter(key, val) { setFilters((f) => ({ ...f, [key]: val })) }
-  const hasFilters = filters.unit_id || filters.program_id || filters.fiscal_year_id
+  const hasFilters = filters.branch_id || filters.program_id || filters.fiscal_year_id
 
   const [totals, setTotals]   = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState("")
   const [modal, setModal]     = useState(null)
-  const [form, setForm]       = useState({ unit_id: "", program_id: "", fiscal_year_id: "", original_amount: "", comment: "" })
+  const [form, setForm]       = useState({ branch_id: "", program_id: "", fiscal_year_id: "", original_amount: "", comment: "" })
   const [saving, setSaving]   = useState(false)
   const [saveMsg, setSaveMsg] = useState("")
 
@@ -42,7 +42,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
     ;(async () => {
       try {
         const params = new URLSearchParams()
-        if (filters.unit_id)        params.set("unit_id", filters.unit_id)
+        if (filters.branch_id)      params.set("branch_id", filters.branch_id)
         if (filters.program_id)     params.set("program_id", filters.program_id)
         if (filters.fiscal_year_id) params.set("fiscal_year_id", filters.fiscal_year_id)
         const url = `/debt/totals${params.toString() ? "?" + params.toString() : ""}`
@@ -55,15 +55,15 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
       }
     })()
     return () => { alive = false }
-  }, [filters.unit_id, filters.program_id, filters.fiscal_year_id])
+  }, [filters.branch_id, filters.program_id, filters.fiscal_year_id])
 
-  function unitName(id) { return units.find((u) => u.id === Number(id))?.name || `หน่วย ${id}` }
-  function progName(id) { return programs.find((p) => p.id === Number(id))?.prog_name || `โปรแกรม ${id}` }
-  function yearName(id) { return fiscalYears.find((y) => y.id === Number(id))?.year_name || String(id) }
+  function branchName(id) { return branches.find((b) => b.id === Number(id))?.name || `สาขา ${id}` }
+  function progName(id)   { return programs.find((p) => p.id === Number(id))?.prog_name || `โปรแกรม ${id}` }
+  function yearName(id)   { return fiscalYears.find((y) => y.id === Number(id))?.year_name || String(id) }
 
-  const unitOpts = [
-    { value: "", label: "ทุกหน่วยงาน" },
-    ...units.map((u) => ({ value: String(u.id), label: u.name })),
+  const branchOpts = [
+    { value: "", label: "ทุกสาขา" },
+    ...branches.map((b) => ({ value: String(b.id), label: b.name })),
   ]
   const progOpts = [
     { value: "", label: "ทุกโปรแกรม" },
@@ -74,19 +74,19 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
     ...fiscalYears.map((y) => ({ value: String(y.id), label: y.year_name })),
   ]
 
-  const modalProgOpts = programs.filter((p) => p.is_active !== false).map((p) => ({ value: String(p.id), label: p.prog_name }))
-  const modalYearOpts = fiscalYears.map((y) => ({ value: String(y.id), label: y.year_name }))
-  const modalUnitOpts = units.map((u) => ({ value: String(u.id), label: u.name }))
+  const modalProgOpts   = programs.filter((p) => p.is_active !== false).map((p) => ({ value: String(p.id), label: p.prog_name }))
+  const modalYearOpts   = fiscalYears.map((y) => ({ value: String(y.id), label: y.year_name }))
+  const modalBranchOpts = branches.map((b) => ({ value: String(b.id), label: b.name }))
 
   function openAdd() {
-    setForm({ unit_id: "", program_id: "", fiscal_year_id: "", original_amount: "", comment: "" })
+    setForm({ branch_id: "", program_id: "", fiscal_year_id: "", original_amount: "", comment: "" })
     setSaveMsg("")
     setModal({ mode: "add" })
   }
 
   function openEdit(record) {
     setForm({
-      unit_id: String(record.unit_id),
+      branch_id: String(record.branch_id),
       program_id: String(record.program_id),
       fiscal_year_id: String(record.fiscal_year_id),
       original_amount: record.original_amount,
@@ -105,7 +105,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
 
   async function refetch() {
     const params = new URLSearchParams()
-    if (filters.unit_id)        params.set("unit_id", filters.unit_id)
+    if (filters.branch_id)      params.set("branch_id", filters.branch_id)
     if (filters.program_id)     params.set("program_id", filters.program_id)
     if (filters.fiscal_year_id) params.set("fiscal_year_id", filters.fiscal_year_id)
     const url = `/debt/totals${params.toString() ? "?" + params.toString() : ""}`
@@ -115,8 +115,8 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
   }
 
   async function handleSave() {
-    if (!form.unit_id || !form.program_id || !form.fiscal_year_id) {
-      setSaveMsg("กรุณาเลือกหน่วยงาน โปรแกรม และปีงบประมาณ"); return
+    if (!form.branch_id || !form.program_id || !form.fiscal_year_id) {
+      setSaveMsg("กรุณาเลือกสาขา โปรแกรม และปีงบประมาณ"); return
     }
     if (!form.original_amount || parseFloat(form.original_amount) <= 0) {
       setSaveMsg("กรุณากรอกยอดหนี้ที่มากกว่า 0"); return
@@ -127,7 +127,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
         await apiAuth("/debt/totals", {
           method: "POST",
           body: {
-            unit_id: Number(form.unit_id),
+            branch_id: Number(form.branch_id),
             program_id: Number(form.program_id),
             fiscal_year_id: Number(form.fiscal_year_id),
             amount: form.original_amount,
@@ -172,15 +172,15 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
 
   return (
     <div className="space-y-4">
-      {/* Filter bar — same card position as DebtTransactionsTab's filter bar */}
+      {/* Filter bar */}
       <div className={cx(cardCls, "p-4")}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">หน่วยงาน</label>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">สาขา</label>
             <SelectDropdown
-              options={unitOpts}
-              value={filters.unit_id}
-              onChange={(val) => setFilter("unit_id", val)}
+              options={branchOpts}
+              value={filters.branch_id}
+              onChange={(val) => setFilter("branch_id", val)}
             />
           </div>
           <div>
@@ -203,7 +203,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
         {hasFilters && (
           <div className="mt-3 flex justify-end">
             <button
-              onClick={() => setFilters({ unit_id: "", program_id: "", fiscal_year_id: "" })}
+              onClick={() => setFilters({ branch_id: "", program_id: "", fiscal_year_id: "" })}
               className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
             >
               ล้างตัวกรอง
@@ -259,7 +259,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
-                  {["หน่วยงาน","โปรแกรมหนี้","ปีงบประมาณ","ยอดตั้งต้น","ยอดคงเหลือ","หมายเหตุ","จัดการ"].map((h) => (
+                  {["สาขา","โปรแกรมหนี้","ปีงบประมาณ","ยอดตั้งต้น","ยอดคงเหลือ","หมายเหตุ","จัดการ"].map((h) => (
                     <th key={h} className={cx("px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap", h === "จัดการ" ? "text-right" : "text-left")}>
                       {h}
                     </th>
@@ -269,7 +269,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                 {totals.map((row) => (
                   <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
-                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{unitName(row.unit_id)}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{branchName(row.branch_id)}</td>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{progName(row.program_id)}</td>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{yearName(row.fiscal_year_id)}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-gray-900 dark:text-gray-100 whitespace-nowrap">
@@ -315,12 +315,12 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
                 {modal.mode === "add" ? (
                   <>
                     <div>
-                      <label className={labelCls}>หน่วยงาน <span className="text-red-500">*</span></label>
+                      <label className={labelCls}>สาขา <span className="text-red-500">*</span></label>
                       <SelectDropdown
-                        options={modalUnitOpts}
-                        value={form.unit_id}
-                        onChange={(val) => setForm((f) => ({ ...f, unit_id: val }))}
-                        placeholder="— เลือกหน่วยงาน —"
+                        options={modalBranchOpts}
+                        value={form.branch_id}
+                        onChange={(val) => setForm((f) => ({ ...f, branch_id: val }))}
+                        placeholder="— เลือกสาขา —"
                       />
                     </div>
                     <div>
@@ -344,7 +344,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
                   </>
                 ) : (
                   <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 px-4 py-3 text-sm text-gray-600 dark:text-gray-300 space-y-1">
-                    <div><span className="font-medium">หน่วยงาน:</span> {unitName(modal.record.unit_id)}</div>
+                    <div><span className="font-medium">สาขา:</span> {branchName(modal.record.branch_id)}</div>
                     <div><span className="font-medium">โปรแกรม:</span> {progName(modal.record.program_id)}</div>
                     <div><span className="font-medium">ปีงบประมาณ:</span> {yearName(modal.record.fiscal_year_id)}</div>
                   </div>
@@ -395,7 +395,7 @@ export default function DebtTotalsTab({ roleId, units, programs, fiscalYears, on
               <h2 className={cx(modalTitleCls, "mb-2")}>ยืนยันการลบ</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 ต้องการลบยอดหนี้ของ{" "}
-                <span className="font-semibold text-gray-900 dark:text-gray-100">{unitName(modal.record.unit_id)}</span>
+                <span className="font-semibold text-gray-900 dark:text-gray-100">{branchName(modal.record.branch_id)}</span>
                 {" — "}
                 <span className="font-semibold">{progName(modal.record.program_id)}</span>
                 {" ปี "}

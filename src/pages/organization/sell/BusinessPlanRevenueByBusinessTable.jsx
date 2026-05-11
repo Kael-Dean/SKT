@@ -83,11 +83,6 @@ async function apiAuth(path, { method = "GET", body } = {}) {
 }
 
 /** ---------------- UI styles ---------------- */
-const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
-  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
-
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
   "text-right text-[12px] outline-none " +
@@ -530,24 +525,6 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
   return (
     <>
     <div className="space-y-3 w-full p-3">
-      {/* Header Info */}
-      <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-        <div className="flex-1">
-          <div className="text-[16px] font-bold">รายได้เฉพาะ</div>
-          <div className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
-            หน่วย: พันบาท • ปี {effectiveYear} • สาขา {effectiveBranchName}
-            {isLoadingSaved && <span className="ml-2 text-indigo-500">⏳ กำลังโหลด...</span>}
-          </div>
-          <div className="mt-4 max-w-xs">
-            <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</label>
-            <div className={cx(baseField, "flex items-center justify-between", !canEdit && "opacity-70")}>
-              <span className="font-semibold">{effectiveBranchName}</span>
-              <span className="text-sm text-slate-500 dark:text-slate-300">id: {branchId || "—"}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Table Card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <div

@@ -20,7 +20,6 @@ import BusinessPlanExpenseSupportWorkTableDetail from "./cost/BusinessPlanExpens
 import BusinessPlanRepCostSummaryTableDetail from "./cost/BusinessPlanRepCostSummaryTableDetail"
 import Thonthun from "./thonthun/Thonthun"
 import ThonthunDetail from "./thonthun/ThonthunDetail"
-q
 
 // ---------------- Styles ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")

@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python cache (from backend devs editing in same folder)
+__pycache__/
+*.pyc
+*.pyo

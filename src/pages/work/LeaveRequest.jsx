@@ -519,7 +519,7 @@ export default function LeaveRequest() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const selectLeaveType = (lt) =>
-    setForm((prev) => ({ ...prev, leaveTypeId: lt.id, leaveTypeName: lt.name }))
+    setForm((prev) => ({ ...prev, leaveTypeId: lt.id, leaveTypeName: lt.leave_name }))
 
   // ── validation ──────────────────────────────────────────────────────────
   const validate = () => {
@@ -758,7 +758,7 @@ export default function LeaveRequest() {
                               : "text-gray-700 dark:text-gray-300"
                           }`}
                         >
-                          {lt.name}
+                          {lt.leave_name}
                         </span>
                       </label>
                     )

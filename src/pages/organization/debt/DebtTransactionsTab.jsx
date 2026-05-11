@@ -8,13 +8,22 @@ import {
   submitBtnCls, secondaryBtnCls, resetBtnCls, cardCls,
   badgeCls,
 } from "../../../lib/styles"
+import {
+  findCurrentFiscalYear,
+  getCurrentFiscalYearString,
+} from "../../../lib/debtFiscalYear"
 
 const ROLE = { ADMIN: 1, HA: 4, MKT: 5 }
 
-const TX_TYPE_LABEL = { payment: "ชำระหนี้", new_debt: "หนี้ใหม่" }
+const TX_TYPE_LABEL = {
+  payment: "รับชำระ",
+  new_debt: "เพิ่มในปี",
+  carryover: "ยอดยกมา",
+}
 const TX_TYPE_CLS   = {
-  payment:  badgeCls + " bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  new_debt: badgeCls + " bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+  payment:   badgeCls + " bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  new_debt:  badgeCls + " bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+  carryover: badgeCls + " bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
 }
 const PM_LABEL = { mobile_banking: "โอนเงิน", cash: "เงินสด", produce_trade: "ผลผลิต" }
 
@@ -36,7 +45,13 @@ const emptyPaymentForm = () => ({
 })
 
 const emptyNewDebtForm = () => ({
-  debt_id: "", amount: "", transaction_date: todayISO(), note: "",
+  unit_id: "", program_id: "", amount: "",
+  transaction_date: todayISO(), note: "",
+})
+
+const emptyCarryoverForm = () => ({
+  unit_id: "", program_id: "", fiscal_year_id: "", amount: "",
+  transaction_date: todayISO(), note: "",
 })
 
 export default function DebtTransactionsTab({ roleId, totals, units, programs, fiscalYears }) {
@@ -93,15 +108,7 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
   function progName(id)  { return programs?.find((p) => p.id === Number(id))?.prog_name || `โปรแกรม ${id}` }
   function yearName(id)  { return fiscalYears?.find((y) => y.id === Number(id))?.year_name || String(id) }
 
-  // Build debt_id options with meaningful labels + sublabels
-  const debtOpts = totals
-    .filter((t) => t.is_active !== false)
-    .map((t) => ({
-      value: String(t.id),
-      label: `${unitName(t.unit_id)} · ${progName(t.program_id)}`,
-      sublabel: `ปี ${yearName(t.fiscal_year_id)} | คงเหลือ ฿${fmtMoney(t.remaining_amount)}`,
-    }))
-
+  // Build debt_id options for payment modal (only debts with positive balance)
   const debtOptsWithBalance = totals
     .filter((t) => t.is_active !== false && parseFloat(t.remaining_amount) > 0)
     .map((t) => ({
@@ -117,10 +124,23 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
   ]
 
   const txTypeOpts = [
-    { value: "",         label: "ทั้งหมด" },
-    { value: "payment",  label: "ชำระหนี้" },
-    { value: "new_debt", label: "หนี้ใหม่" },
+    { value: "",          label: "ทั้งหมด" },
+    { value: "carryover", label: "ยอดยกมา" },
+    { value: "new_debt",  label: "เพิ่มในปี" },
+    { value: "payment",   label: "รับชำระ" },
   ]
+
+  const unitModalOpts = units.map((u) => ({ value: String(u.id), label: u.name }))
+  const programModalOpts = programs
+    .filter((p) => p.is_active !== false)
+    .map((p) => ({ value: String(p.id), label: p.prog_name }))
+  const fiscalYearModalOpts = fiscalYears.map((y) => ({
+    value: String(y.id),
+    label: y.year_name,
+  }))
+
+  const currentFY = findCurrentFiscalYear(fiscalYears)
+  const currentFYString = getCurrentFiscalYearString()
 
   function openAddPayment() {
     setForm(emptyPaymentForm())
@@ -132,6 +152,12 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
     setForm(emptyNewDebtForm())
     setSaveMsg("")
     setModal({ mode: "add_newdebt" })
+  }
+
+  function openAddCarryover() {
+    setForm(emptyCarryoverForm())
+    setSaveMsg("")
+    setModal({ mode: "add_carryover" })
   }
 
   function openEdit(record) {
@@ -185,16 +211,37 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
           },
         })
       } else if (modal.mode === "add_newdebt") {
-        if (!form.debt_id)                                  { setSaveMsg("กรุณาเลือกรายการหนี้"); setSaving(false); return }
+        if (!form.unit_id)                                 { setSaveMsg("กรุณาเลือกหน่วยงาน"); setSaving(false); return }
+        if (!form.program_id)                              { setSaveMsg("กรุณาเลือกโปรแกรมหนี้"); setSaving(false); return }
         if (!form.amount || parseFloat(form.amount) <= 0)  { setSaveMsg("กรุณากรอกจำนวนเงินที่ถูกต้อง"); setSaving(false); return }
         if (!form.transaction_date)                        { setSaveMsg("กรุณาระบุวันที่"); setSaving(false); return }
-        const selected = totals.find((r) => r.id === Number(form.debt_id))
+        if (!currentFY) {
+          setSaveMsg(`ไม่พบปีงบประมาณปัจจุบัน (${currentFYString}) ใน productyear — ติดต่อผู้ดูแลระบบ`)
+          setSaving(false); return
+        }
         await apiAuth("/debt/transactions/new-debt", {
           method: "POST",
           body: {
-            unit_id: selected?.unit_id,
-            program_id: selected?.program_id,
-            fiscal_year_id: selected?.fiscal_year_id,
+            unit_id: Number(form.unit_id),
+            program_id: Number(form.program_id),
+            fiscal_year_id: currentFY.id,
+            amount: form.amount,
+            transaction_date: form.transaction_date,
+            note: form.note.trim() || null,
+          },
+        })
+      } else if (modal.mode === "add_carryover") {
+        if (!form.unit_id)                                 { setSaveMsg("กรุณาเลือกหน่วยงาน"); setSaving(false); return }
+        if (!form.program_id)                              { setSaveMsg("กรุณาเลือกโปรแกรมหนี้"); setSaving(false); return }
+        if (!form.fiscal_year_id)                          { setSaveMsg("กรุณาเลือกปีงบประมาณ"); setSaving(false); return }
+        if (!form.amount || parseFloat(form.amount) <= 0)  { setSaveMsg("กรุณากรอกจำนวนเงินที่ถูกต้อง"); setSaving(false); return }
+        if (!form.transaction_date)                        { setSaveMsg("กรุณาระบุวันที่"); setSaving(false); return }
+        await apiAuth("/debt/transactions/carryover", {
+          method: "POST",
+          body: {
+            unit_id: Number(form.unit_id),
+            program_id: Number(form.program_id),
+            fiscal_year_id: Number(form.fiscal_year_id),
             amount: form.amount,
             transaction_date: form.transaction_date,
             note: form.note.trim() || null,
@@ -275,12 +322,20 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
           {loading ? "กำลังโหลด…" : `พบ ${transactions.length} รายการ`}
         </p>
         {canWrite && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={openAddCarryover}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 cursor-pointer transition-all duration-200 hover:bg-amber-100 hover:scale-[1.02] active:scale-[.98] dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/40"
+              )}
+            >
+              + บันทึกยอดยกมา
+            </button>
             <button onClick={openAddNewDebt} className={cx(resetBtnCls, "!py-2 !px-4 !text-sm")}>
-              + บันทึกหนี้ใหม่
+              + บันทึกเพิ่มในปี
             </button>
             <button onClick={openAddPayment} className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm")}>
-              + บันทึกชำระหนี้
+              + บันทึกรับชำระ
             </button>
           </div>
         )}
@@ -425,30 +480,112 @@ export default function DebtTransactionsTab({ roleId, totals, units, programs, f
         </Portal>
       )}
 
-      {/* New Debt Modal */}
+      {/* New Debt Modal (เพิ่มในปี — เฉพาะปีปัจจุบันตามวันที่จริง) */}
       {modal?.mode === "add_newdebt" && (
         <Portal>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={cx(modalCardCls, "max-w-md w-full")}>
-              <h2 className={cx(modalTitleCls, "mb-5")}>บันทึกหนี้ใหม่</h2>
+            <div className={cx(modalCardCls, "max-w-md w-full max-h-[90vh] overflow-y-auto")}>
+              <h2 className={cx(modalTitleCls, "mb-3")}>บันทึกหนี้เพิ่มในปี</h2>
+              <div className={cx(
+                "mb-4 rounded-xl border px-4 py-2.5 text-sm",
+                currentFY
+                  ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-700/40 dark:bg-indigo-900/20 dark:text-indigo-300"
+                  : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-700/40 dark:bg-rose-900/20 dark:text-rose-300"
+              )}>
+                {currentFY
+                  ? <>ปีงบประมาณปัจจุบัน: <span className="font-bold">{currentFY.year_name}</span> (ตามวันที่จริง)</>
+                  : <>ไม่พบปีงบประมาณ <span className="font-bold">{currentFYString}</span> ในระบบ — โปรดให้ผู้ดูแลเพิ่มปีก่อน</>
+                }
+              </div>
               <div className="space-y-4">
                 <div>
-                  <label className={labelCls}>รายการหนี้ <span className="text-red-500">*</span></label>
+                  <label className={labelCls}>หน่วยงาน <span className="text-red-500">*</span></label>
                   <SelectDropdown
-                    options={debtOpts}
-                    value={form.debt_id}
-                    onChange={(val) => setForm((f) => ({ ...f, debt_id: val }))}
-                    placeholder="— เลือกรายการหนี้ —"
+                    options={unitModalOpts}
+                    value={form.unit_id}
+                    onChange={(val) => setForm((f) => ({ ...f, unit_id: val }))}
+                    placeholder="— เลือกหน่วยงาน —"
                   />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">ระบบจะเพิ่มยอดหนี้ให้กับรายการที่เลือก (เฉพาะปีงบประมาณปัจจุบัน)</p>
+                </div>
+                <div>
+                  <label className={labelCls}>โปรแกรมหนี้ <span className="text-red-500">*</span></label>
+                  <SelectDropdown
+                    options={programModalOpts}
+                    value={form.program_id}
+                    onChange={(val) => setForm((f) => ({ ...f, program_id: val }))}
+                    placeholder="— เลือกโปรแกรม —"
+                  />
                 </div>
                 <div>
                   <label className={labelCls}>จำนวนเงิน (บาท) <span className="text-red-500">*</span></label>
                   <input className={baseField} inputMode="decimal" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: sanitizeDecimal(e.target.value) }))} placeholder="0.00" />
                 </div>
                 <div>
-                  <label className={labelCls}>วันที่ <span className="text-red-500">*</span></label>
+                  <label className={labelCls}>วันที่บันทึก <span className="text-red-500">*</span></label>
                   <ThaiDatePicker className={baseField} value={form.transaction_date} onChange={(val) => setForm((f) => ({ ...f, transaction_date: val }))} />
+                </div>
+                <div>
+                  <label className={labelCls}>หมายเหตุ</label>
+                  <textarea className={cx(baseField, "resize-none")} rows={2} value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} placeholder="หมายเหตุ (ไม่จำเป็น)" />
+                </div>
+              </div>
+              {saveMsg && <p className="mt-3 text-sm text-red-500 dark:text-red-400">{saveMsg}</p>}
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={closeModal} className={resetBtnCls} disabled={saving}>ยกเลิก</button>
+                <button onClick={handleSave} className={submitBtnCls} disabled={saving || !currentFY}>
+                  {saving ? "กำลังบันทึก…" : "บันทึก"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* Carryover Modal (ยอดยกมา — ใช้ได้ทุกปี) */}
+      {modal?.mode === "add_carryover" && (
+        <Portal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className={cx(modalCardCls, "max-w-md w-full max-h-[90vh] overflow-y-auto")}>
+              <h2 className={cx(modalTitleCls, "mb-3")}>บันทึกยอดยกมา</h2>
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-300">
+                ยอดค้างชำระยกมาจากปีก่อน — เลือกได้ทุกปีงบประมาณ ระบบจะเพิ่มยอดเข้าหนี้คงค้างของหน่วยงาน + โปรแกรม + ปีที่ระบุ
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className={labelCls}>หน่วยงาน <span className="text-red-500">*</span></label>
+                  <SelectDropdown
+                    options={unitModalOpts}
+                    value={form.unit_id}
+                    onChange={(val) => setForm((f) => ({ ...f, unit_id: val }))}
+                    placeholder="— เลือกหน่วยงาน —"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>โปรแกรมหนี้ <span className="text-red-500">*</span></label>
+                  <SelectDropdown
+                    options={programModalOpts}
+                    value={form.program_id}
+                    onChange={(val) => setForm((f) => ({ ...f, program_id: val }))}
+                    placeholder="— เลือกโปรแกรม —"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>ปีงบประมาณ (ปีของหนี้ค้าง) <span className="text-red-500">*</span></label>
+                  <SelectDropdown
+                    options={fiscalYearModalOpts}
+                    value={form.fiscal_year_id}
+                    onChange={(val) => setForm((f) => ({ ...f, fiscal_year_id: val }))}
+                    placeholder="— เลือกปีงบประมาณ —"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>จำนวนเงิน (บาท) <span className="text-red-500">*</span></label>
+                  <input className={baseField} inputMode="decimal" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: sanitizeDecimal(e.target.value) }))} placeholder="0.00" />
+                </div>
+                <div>
+                  <label className={labelCls}>วันที่บันทึก <span className="text-red-500">*</span></label>
+                  <ThaiDatePicker className={baseField} value={form.transaction_date} onChange={(val) => setForm((f) => ({ ...f, transaction_date: val }))} />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">วันที่ทำรายการบันทึก ไม่ใช่ปีของหนี้</p>
                 </div>
                 <div>
                   <label className={labelCls}>หมายเหตุ</label>

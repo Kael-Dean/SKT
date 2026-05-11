@@ -74,12 +74,19 @@ function buildAllBranchesRows(programs, fiscalYears, allTotals, allTransactions)
           pay.total_amount += entry.payments.total_amount
           pay.total_count += entry.payments.total_count
         }
-        const carryAmt = totalsForCell.reduce((s, t) => s + parseFloat(t.original_amount || 0), 0)
+        // Per v2 spec: carry_amount = SUM(original_amount) - SUM(new_debt txns)
+        // because BE upserts both carryover and new_debt into original_amount.
+        const originalSum = totalsForCell.reduce((s, t) => s + parseFloat(t.original_amount || 0), 0)
+        const carryAmt = Math.max(0, originalSum - new_debt_amount)
         const remainAmt = totalsForCell.reduce((s, t) => s + parseFloat(t.remaining_amount || 0), 0)
         return {
           fiscalYear: fy,
           carry_amount: carryAmt,
-          carry_count: totalsForCell.length,
+          carry_count: totalsForCell.filter((t) => {
+            const tx = txLookup.get(t.id)
+            const carryPortion = parseFloat(t.original_amount || 0) - (tx ? tx.new_debt_amount : 0)
+            return carryPortion > 0
+          }).length,
           new_amount: new_debt_amount,
           new_count: new_debt_count,
           paid_amount: pay.total_amount,

@@ -8,6 +8,10 @@ import {
   cx, baseField, labelCls, submitBtnCls, secondaryBtnCls,
   modalCardCls, modalTitleCls,
 } from "../../../lib/styles"
+import {
+  findCurrentFiscalYear,
+  getCurrentFiscalYearString,
+} from "../../../lib/debtFiscalYear"
 import { printDebtTable } from "./printDebtTable"
 
 const fmtMoney = (v) =>
@@ -69,14 +73,18 @@ function buildTableRows(programs, fiscalYears, totals, txLookup) {
       yearRows: fiscalYears.map((fy) => {
         const total = totals.find((t) => t.program_id === prog.id && t.fiscal_year_id === fy.id) || null
         const tx = total ? txLookup.get(total.id) || null : null
-        const carryAmt = total ? parseFloat(total.original_amount || 0) : 0
+        const newDebtAmt = tx ? tx.new_debt_amount : 0
+        // Per v2: carry_amount = original_amount - SUM(new_debt txns)
+        // because BE upserts both new_debt AND carryover into original_amount
+        const originalAmt = total ? parseFloat(total.original_amount || 0) : 0
+        const carryAmt = Math.max(0, originalAmt - newDebtAmt)
         const remainAmt = total ? parseFloat(total.remaining_amount || 0) : 0
         return {
           fiscalYear: fy,
           total,
           carry_amount: carryAmt,
-          carry_count: total ? 1 : 0,
-          new_amount: tx ? tx.new_debt_amount : 0,
+          carry_count: total && carryAmt > 0 ? 1 : 0,
+          new_amount: newDebtAmt,
           new_count: tx ? tx.new_debt_count : 0,
           paid_amount: tx ? tx.payments.total_amount : 0,
           paid_count: tx ? tx.payments.total_count : 0,
@@ -213,6 +221,15 @@ export default function BranchDebtTable({
         transaction_date: todayISO(),
         note: "",
       })
+    } else if (mode === "add_carryover") {
+      setForm({
+        unit_id: selectedUnitId || "",
+        program_id: "",
+        fiscal_year_id: "",
+        amount: "",
+        transaction_date: todayISO(),
+        note: "",
+      })
     }
     setModal({ mode, record })
   }
@@ -256,15 +273,30 @@ export default function BranchDebtTable({
           },
         })
       } else if (modal.mode === "add_new_debt") {
-        const currentFiscalYearId = fiscalYears.length
-          ? Math.max(...fiscalYears.map((y) => y.id))
-          : null
+        const currentFY = findCurrentFiscalYear(fiscalYears)
+        if (!currentFY) {
+          setSaveMsg(`ไม่พบปีงบประมาณปัจจุบัน (${getCurrentFiscalYearString()}) ในระบบ — ติดต่อผู้ดูแลให้เพิ่มปีก่อน`)
+          setSaving(false)
+          return
+        }
         await apiAuth("/debt/transactions/new-debt", {
           method: "POST",
           body: {
             unit_id: Number(form.unit_id),
             program_id: Number(form.program_id),
-            fiscal_year_id: currentFiscalYearId,
+            fiscal_year_id: currentFY.id,
+            amount: form.amount,
+            transaction_date: form.transaction_date,
+            note: form.note.trim() || null,
+          },
+        })
+      } else if (modal.mode === "add_carryover") {
+        await apiAuth("/debt/transactions/carryover", {
+          method: "POST",
+          body: {
+            unit_id: Number(form.unit_id),
+            program_id: Number(form.program_id),
+            fiscal_year_id: Number(form.fiscal_year_id),
             amount: form.amount,
             transaction_date: form.transaction_date,
             note: form.note.trim() || null,
@@ -341,16 +373,24 @@ export default function BranchDebtTable({
           + บันทึกยอดหนี้
         </button>
         <button
-          onClick={() => openModal("add_payment")}
-          className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
+          onClick={() => openModal("add_carryover")}
+          className={cx(
+            "inline-flex items-center justify-center rounded-2xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 cursor-pointer transition-all duration-200 hover:bg-amber-100 hover:scale-[1.02] active:scale-[.98] dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/40"
+          )}
         >
-          + บันทึกชำระหนี้
+          + บันทึกยอดยกมา
         </button>
         <button
           onClick={() => openModal("add_new_debt")}
           className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
         >
-          + บันทึกหนี้ใหม่
+          + บันทึกเพิ่มในปี
+        </button>
+        <button
+          onClick={() => openModal("add_payment")}
+          className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
+        >
+          + บันทึกรับชำระ
         </button>
         <button
           onClick={() =>
@@ -782,10 +822,23 @@ export default function BranchDebtTable({
 
               {modal.mode === "add_new_debt" && (
                 <>
-                  <h2 className={cx(modalTitleCls, "mb-4")}>บันทึกหนี้ใหม่</h2>
-                  <div className="mb-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-300">
-                    ข้อมูล: บันทึกหนี้ใหม่ได้เฉพาะปีงบประมาณปัจจุบันเท่านั้น
-                  </div>
+                  <h2 className={cx(modalTitleCls, "mb-4")}>บันทึกหนี้เพิ่มในปี</h2>
+                  {(() => {
+                    const cy = findCurrentFiscalYear(fiscalYears)
+                    return (
+                      <div className={cx(
+                        "mb-4 rounded-xl border px-4 py-2.5 text-sm",
+                        cy
+                          ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300"
+                          : "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-700 text-rose-700 dark:text-rose-300"
+                      )}>
+                        {cy
+                          ? <>บันทึกได้เฉพาะปีงบประมาณปัจจุบัน — <span className="font-bold">{cy.year_name}</span> (ระบบเช็คตามวันที่จริง)</>
+                          : <>ไม่พบปีงบประมาณ <span className="font-bold">{getCurrentFiscalYearString()}</span> ในระบบ — โปรดให้ผู้ดูแลเพิ่มปีก่อน</>
+                        }
+                      </div>
+                    )
+                  })()}
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {selectedUnitId ? (
                       <div>
@@ -831,6 +884,99 @@ export default function BranchDebtTable({
                         value={form.transaction_date || ""}
                         onChange={(val) => setF("transaction_date", val)}
                       />
+                    </div>
+                    <div>
+                      <label className={labelCls}>หมายเหตุ</label>
+                      <textarea
+                        className={cx(baseField, "resize-none")}
+                        rows={2}
+                        value={form.note || ""}
+                        onChange={(e) => setF("note", e.target.value)}
+                        placeholder="หมายเหตุ (ไม่บังคับ)"
+                      />
+                    </div>
+                    {saveMsg && <p className="text-sm text-red-500 dark:text-red-400">{saveMsg}</p>}
+                    <div className="flex gap-3 justify-end pt-1">
+                      <button
+                        type="button"
+                        onClick={closeModal}
+                        className="inline-flex items-center rounded-xl px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                      >
+                        ยกเลิก
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={saving || !findCurrentFiscalYear(fiscalYears)}
+                        className={cx(submitBtnCls, "!py-2 !px-5 !text-sm cursor-pointer disabled:cursor-not-allowed")}
+                      >
+                        {saving ? "กำลังบันทึก..." : "บันทึก"}
+                      </button>
+                    </div>
+                  </form>
+                </>
+              )}
+
+              {modal.mode === "add_carryover" && (
+                <>
+                  <h2 className={cx(modalTitleCls, "mb-4")}>บันทึกยอดยกมา</h2>
+                  <div className="mb-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-300">
+                    ยอดค้างชำระยกมาจากปีก่อน — เลือกได้ทุกปีงบประมาณ
+                  </div>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    {selectedUnitId ? (
+                      <div>
+                        <label className={labelCls}>หน่วยงาน</label>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">
+                          {unitName(selectedUnitId)}
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className={labelCls}>หน่วยงาน <span className="text-red-500">*</span></label>
+                        <SelectDropdown
+                          options={unitModalOpts}
+                          value={form.unit_id || ""}
+                          onChange={(v) => setF("unit_id", v)}
+                          placeholder="— เลือกหน่วยงาน —"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className={labelCls}>โครงการ <span className="text-red-500">*</span></label>
+                      <SelectDropdown
+                        options={programOpts}
+                        value={form.program_id || ""}
+                        onChange={(v) => setF("program_id", v)}
+                        placeholder="— เลือกโครงการ —"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>ปีงบประมาณ (ปีของหนี้ค้าง) <span className="text-red-500">*</span></label>
+                      <SelectDropdown
+                        options={yearOpts}
+                        value={form.fiscal_year_id || ""}
+                        onChange={(v) => setF("fiscal_year_id", v)}
+                        placeholder="— เลือกปีงบประมาณ —"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>จำนวนเงิน (บาท) <span className="text-red-500">*</span></label>
+                      <input
+                        className={baseField}
+                        value={form.amount || ""}
+                        onChange={(e) => setF("amount", sanitizeDecimal(e.target.value))}
+                        placeholder="0.00"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>วันที่บันทึก</label>
+                      <ThaiDatePicker
+                        className={baseField}
+                        value={form.transaction_date || ""}
+                        onChange={(val) => setF("transaction_date", val)}
+                      />
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">วันที่ทำรายการบันทึก ไม่ใช่ปีของหนี้</p>
                     </div>
                     <div>
                       <label className={labelCls}>หมายเหตุ</label>

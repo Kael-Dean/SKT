@@ -201,17 +201,6 @@ function fmtTime(t) {
   return t.slice(0, 5)
 }
 
-function buildAddress(form) {
-  const parts = [
-    form.addrHouseNo    && `บ้านเลขที่ ${form.addrHouseNo}`,
-    form.addrVillage    && `หมู่ที่ ${form.addrVillage}`,
-    form.addrStreet     && `ถนน ${form.addrStreet}`,
-    form.addrSubDistrict && `ต.${form.addrSubDistrict}`,
-    form.addrDistrict   && `อ.${form.addrDistrict}`,
-    form.addrProvince   && `จ.${form.addrProvince}`,
-  ].filter(Boolean)
-  return parts.length ? parts.join(" ") : null
-}
 
 // ─── sub-components ──────────────────────────────────────────────────────────
 function Field({ label, required, children, className = "" }) {
@@ -317,35 +306,13 @@ function PrintDocument({ form, totalDays }) {
           ในระหว่างลาหยุดงานสามารถติดต่อข้าพเจ้าได้ที่
         </span>
       </div>
-      <div className="print-address-grid">
-        <div className="print-address-item">
-          <span>บ้านเลขที่</span>
-          <span className="print-address-val">&nbsp;{form.addrHouseNo}&nbsp;</span>
-        </div>
-        <div className="print-address-item">
-          <span>หมู่ที่</span>
-          <span className="print-address-val">&nbsp;{form.addrVillage}&nbsp;</span>
-        </div>
-        <div className="print-address-item">
-          <span>ถนน</span>
-          <span className="print-address-val">&nbsp;{form.addrStreet}&nbsp;</span>
-        </div>
-        <div className="print-address-item">
-          <span>ตำบล</span>
-          <span className="print-address-val">&nbsp;{form.addrSubDistrict}&nbsp;</span>
-        </div>
-        <div className="print-address-item">
-          <span>อำเภอ</span>
-          <span className="print-address-val">&nbsp;{form.addrDistrict}&nbsp;</span>
-        </div>
-        <div className="print-address-item">
-          <span>จังหวัด</span>
-          <span className="print-address-val">&nbsp;{form.addrProvince}&nbsp;</span>
-        </div>
-        <div className="print-address-item" style={{ gridColumn: "span 2" }}>
-          <span>หมายเลขโทรศัพท์</span>
-          <span className="print-address-val">&nbsp;{form.addrPhone}&nbsp;</span>
-        </div>
+      <div className="print-line">
+        <span className="print-label">ที่อยู่</span>
+        <span className="print-val-lg">&nbsp;{form.addressDuringLeave}&nbsp;</span>
+      </div>
+      <div className="print-line">
+        <span className="print-label">หมายเลขโทรศัพท์</span>
+        <span className="print-val">&nbsp;{form.contactDuringLeave}&nbsp;</span>
       </div>
 
       {/* เหตุที่ยื่นใบลาล่าช้า */}
@@ -432,6 +399,18 @@ export default function LeaveRequest() {
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    apiAuth("/personnel/me/leave-defaults")
+      .then((d) => {
+        setForm((prev) => ({
+          ...prev,
+          addressDuringLeave: d.address_during_leave ?? "",
+          contactDuringLeave: d.contact_during_leave ?? "",
+        }))
+      })
+      .catch(() => {})
+  }, [])
+
   const getLeaveTypeName = (lt) =>
     lt?.leave_name ?? lt?.type ?? lt?.name ?? lt?.title ?? lt?.label ?? ""
 
@@ -450,13 +429,8 @@ export default function LeaveRequest() {
     toTime: "",
     fromDate2: "",
     toDate2: "",
-    addrHouseNo: "",
-    addrVillage: "",
-    addrStreet: "",
-    addrSubDistrict: "",
-    addrDistrict: "",
-    addrProvince: "",
-    addrPhone: "",
+    addressDuringLeave: "",
+    contactDuringLeave: "",
     lateReason: "",
     signatureName: user.full_name || user.username || "",
   })
@@ -564,8 +538,8 @@ export default function LeaveRequest() {
           from_time:            form.fromTime || null,
           to_time:              form.toTime   || null,
           comment:              form.reason   || null,
-          address_during_leave: buildAddress(form),
-          contact_during_leave: form.addrPhone || null,
+          address_during_leave: form.addressDuringLeave || null,
+          contact_during_leave: form.contactDuringLeave || null,
         },
       })
       setSubmitted(true)
@@ -884,27 +858,24 @@ export default function LeaveRequest() {
             {/* ─ Section 4: Contact during leave ─ */}
             <div className={cardCls}>
               <SectionTitle>ที่อยู่ติดต่อระหว่างลา</SectionTitle>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <Field label="บ้านเลขที่">
-                  <input type="text" className={inputCls} placeholder="เช่น 123/4" value={form.addrHouseNo} onChange={set("addrHouseNo")} />
+              <div className="space-y-3">
+                <Field label="ที่อยู่ระหว่างลา">
+                  <textarea
+                    className={`${inputCls} resize-none`}
+                    rows={3}
+                    placeholder="ที่อยู่ที่ติดต่อได้ระหว่างลา"
+                    value={form.addressDuringLeave}
+                    onChange={set("addressDuringLeave")}
+                  />
                 </Field>
-                <Field label="หมู่ที่">
-                  <input type="text" className={inputCls} placeholder="เช่น 5" value={form.addrVillage} onChange={set("addrVillage")} />
-                </Field>
-                <Field label="ถนน">
-                  <input type="text" className={inputCls} placeholder="ชื่อถนน" value={form.addrStreet} onChange={set("addrStreet")} />
-                </Field>
-                <Field label="ตำบล / แขวง">
-                  <input type="text" className={inputCls} placeholder="ตำบล" value={form.addrSubDistrict} onChange={set("addrSubDistrict")} />
-                </Field>
-                <Field label="อำเภอ / เขต">
-                  <input type="text" className={inputCls} placeholder="อำเภอ" value={form.addrDistrict} onChange={set("addrDistrict")} />
-                </Field>
-                <Field label="จังหวัด">
-                  <input type="text" className={inputCls} placeholder="จังหวัด" value={form.addrProvince} onChange={set("addrProvince")} />
-                </Field>
-                <Field label="หมายเลขโทรศัพท์" className="sm:col-span-3">
-                  <input type="tel" className={inputCls} placeholder="0XX-XXX-XXXX" value={form.addrPhone} onChange={set("addrPhone")} />
+                <Field label="หมายเลขโทรศัพท์">
+                  <input
+                    type="tel"
+                    className={inputCls}
+                    placeholder="0XX-XXX-XXXX"
+                    value={form.contactDuringLeave}
+                    onChange={set("contactDuringLeave")}
+                  />
                 </Field>
               </div>
             </div>

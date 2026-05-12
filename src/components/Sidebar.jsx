@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom"
 import { useEffect, useMemo } from "react"
 import { getRoleId, logout as authLogout } from "../lib/auth"
 
-const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
+const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5, BRANCH: 6 }
 
 // เมนูสำหรับ HR role เท่านั้น — 3 รายการ + ออกจากระบบ
 const HR_MENUS = [
@@ -20,6 +20,7 @@ const PERSONAL_MENUS = [
   { label: "🚌 คำขอย้ายสาขา",     path: "/my-relocation",   roles: "all" },
   // Phase 3B — HR admin ทุกฟังก์ชันรวมอยู่ใน Dashboard HR แล้ว
   { label: "📊 Dashboard HR",       path: "/hr/dashboard",    roles: [ROLE.ADMIN] },
+  { label: "🏢 รายรับ-รายจ่ายสถานที่", path: "/facility-report", roles: [ROLE.ADMIN, ROLE.MKT, ROLE.BRANCH] },
 ]
 
 function canSeeSidebarItem(item, roleId) {

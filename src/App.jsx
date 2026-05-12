@@ -48,6 +48,7 @@ import HRPersonnelDetail from "./pages/hr/HRPersonnelDetail.jsx"
 import HRSalaryTier from "./pages/hr/HRSalaryTier.jsx"
 import MyProfile from "./pages/work/MyProfile.jsx"
 import LeaveRequest from "./pages/work/LeaveRequest.jsx"
+import FacilityReport from "./pages/work/FacilityReport.jsx"
 import ChangePassword from "./pages/work/ChangePassword.jsx"
 import MyRelocation from "./pages/work/MyRelocation.jsx"
 import ForgotPassword from "./pages/work/ForgotPassword.jsx"
@@ -212,6 +213,14 @@ function RequireAdmin({ children }) {
   return children
 }
 
+/* ✅ Route guard: Facility report — roles 1 (ADMIN), 5 (MKT), 6 (BRANCH) */
+function RequireFacilityAccess({ children }) {
+  const r = getRoleId()
+  const ok = r === ROLE.ADMIN || r === ROLE.MKT || r === 6
+  if (!ok) return <Navigate to="/home" replace />
+  return children
+}
+
 /* ✅ Route guard: บังคับเปลี่ยนรหัสผ่านถ้า account_status === "new"
    ป้องกัน user ที่ยังไม่เปลี่ยนรหัสผ่านเข้าถึง AppLayout โดยตรง */
 function RequirePasswordChanged({ children }) {
@@ -335,6 +344,12 @@ function App() {
         <Route path="/my-profile" element={<MyProfile />} />
         <Route path="/leave-request" element={<LeaveRequest />} />
         <Route path="/my-relocation" element={<MyRelocation />} />
+
+        {/* ✅ Facility income/expense report — roles 1, 5, 6 */}
+        <Route
+          path="/facility-report"
+          element={<RequireFacilityAccess><FacilityReport /></RequireFacilityAccess>}
+        />
       </Route>
 
       {/* ✅ Phase 3B — ChangePassword อยู่นอก AppLayout */}

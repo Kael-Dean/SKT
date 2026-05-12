@@ -1466,7 +1466,7 @@ function Documents() {
               </p>
               <div className="mt-auto relative z-30">
                 <ComboBox
-                  options={INTERNAL_REPORTS.map((r) => ({ ...r, id: r.key, label: r.title }))}
+                  options={INTERNAL_REPORTS.filter((r) => r.type === "pdf").map((r) => ({ ...r, id: r.key, label: r.title }))}
                   placeholder="คลิกเพื่อเลือกรายงาน..."
                   value={null}
                   onChange={(v) => {

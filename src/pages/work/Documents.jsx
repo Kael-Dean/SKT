@@ -635,8 +635,11 @@ const PHASE1_REPORTS = [
     endpoint: "/reports/phase1/P05/pdf",
     type: "phase1_pdf",
     badge: "PHASE1",
-    require: ["branchId", "startDate", "endDate"],
-    optional: [],
+    require: ["startDate", "endDate", "assoId"],
+    optional: ["branchId"],
+    assoLabel: "asso_id (รหัสภายในสมาชิก)",
+    assoPlaceholder: "เช่น 42",
+    assoHelp: "กรอก asso_id ของสมาชิก — รายงานนี้แสดงประวัติการซื้อข้าวรายคน",
   },
   {
     key: "phase1-p06",
@@ -653,7 +656,7 @@ const PHASE1_REPORTS = [
     endpoint: "/reports/phase1/P07/pdf",
     type: "phase1_pdf",
     badge: "PHASE1",
-    require: ["branchId", "startDate", "endDate"],
+    require: ["startDate", "endDate", "specId"],
     optional: [],
   },
   {
@@ -710,7 +713,7 @@ const PHASE1_REPORTS = [
     endpoint: "/reports/phase1/P13/pdf",
     type: "phase1_pdf",
     badge: "PHASE1",
-    require: ["branchId", "startDate", "endDate"],
+    require: ["branchId", "startDate", "endDate", "specId"],
     optional: [],
   },
   {
@@ -1610,14 +1613,16 @@ function Documents() {
       const hasDates = req.includes("startDate") || req.includes("endDate")
       const hasBranch = req.includes("branchId") || opt.includes("branchId")
       const requireBranch = req.includes("branchId")
-      const hasMember = req.includes("memberId") || opt.includes("memberId")
+      const hasMember = req.includes("memberId") || opt.includes("memberId") || req.includes("assoId") || opt.includes("assoId")
       const hasKlangIds = req.includes("klangIds") || opt.includes("klangIds")
+      const hasSpec = req.includes("specId") || opt.includes("specId")
 
       return (
         <>
           <div className="grid gap-4 md:grid-cols-3">
             {hasDates && <FormDates report={report} />}
             {hasBranch && <FormBranchKlang requireBranch={requireBranch} showKlang={false} />}
+            {hasSpec && <FormSpecOnly requiredSpec={req.includes("specId")} />}
             {hasMember && <FormShareIdentity report={report} />}
             {hasKlangIds && <FormShareKlangIds />}
           </div>

@@ -588,6 +588,187 @@ const PLAN_REPORTS = [
   { key: "plan-18", title: "รูปแบบที่ 18 - Monthly Earnings & Aux", endpoint: "/repgen/report/monthly-earnings-aux", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
 ]
 
+// -----------------------------
+// Phase 1 Reports — สหกรณ์ (P01–P19)
+// Endpoints: GET /reports/phase1/P{nn}/pdf
+// -----------------------------
+const PHASE1_REPORTS = [
+  {
+    key: "phase1-p01",
+    title: "P01 — ขออนุมัติและจ่ายค่าหุ้นลาออก",
+    endpoint: "/reports/phase1/P01/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p02",
+    title: "P02 — ขายแยกตามวัน",
+    endpoint: "/reports/phase1/P02/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p03",
+    title: "P03 — จ่ายคืนค่าหุ้นสมาชิกลาออก",
+    endpoint: "/reports/phase1/P03/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p04",
+    title: "P04 — ซื้อขายแยกราคา",
+    endpoint: "/reports/phase1/P04/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p05",
+    title: "P05 — ซื้อข้าวเปลือกรายคน",
+    endpoint: "/reports/phase1/P05/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p06",
+    title: "P06 — ซื้อแยกตามวัน",
+    endpoint: "/reports/phase1/P06/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p07",
+    title: "P07 — ทะเบียนคุม",
+    endpoint: "/reports/phase1/P07/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p08",
+    title: "P08 — รายงานการรวบรวม",
+    endpoint: "/reports/phase1/P08/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p09",
+    title: "P09 — เคลื่อนไหวทุนเรือนหุ้นรายกลุ่ม",
+    endpoint: "/reports/phase1/P09/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p10",
+    title: "P10 — ทะเบียนทุนเรือนหุ้น (รายคน)",
+    endpoint: "/reports/phase1/P10/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["memberId"],
+    optional: ["branchId"],
+    memberLabel: "รหัสสมาชิก (member_id)",
+    memberPlaceholder: "เช่น 12345",
+    memberHelp: "รายงานนี้แสดงข้อมูลของสมาชิกคนเดียว — กรุณาระบุรหัสสมาชิก",
+  },
+  {
+    key: "phase1-p11",
+    title: "P11 — ทุนเรือนหุ้นคงเหลือรายคน",
+    endpoint: "/reports/phase1/P11/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId"],
+    optional: [],
+  },
+  {
+    key: "phase1-p12",
+    title: "P12 — รายงานรวมสาขา",
+    endpoint: "/reports/phase1/P12/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p13",
+    title: "P13 — รายงานรายวัน",
+    endpoint: "/reports/phase1/P13/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p14",
+    title: "P14 — รายงานสมาชิก",
+    endpoint: "/reports/phase1/P14/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: ["klangIds"],
+  },
+  {
+    key: "phase1-p15",
+    title: "P15 — สมาชิกขอลาออกรายคน",
+    endpoint: "/reports/phase1/P15/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p16",
+    title: "P16 — รายงานสมาชิกใหม่",
+    endpoint: "/reports/phase1/P16/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p17",
+    title: "P17 — สรุปการเคลื่อนไหวทุนเรือนหุ้นรายกลุ่ม",
+    endpoint: "/reports/phase1/P17/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+  {
+    key: "phase1-p18",
+    title: "P18 — สรุปจำนวนสมาชิกและการถือหุ้น",
+    endpoint: "/reports/phase1/P18/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId"],
+    optional: [],
+  },
+  {
+    key: "phase1-p19",
+    title: "P19 — รายงานสาขา1 (สรุปข้าว)",
+    endpoint: "/reports/phase1/P19/pdf",
+    type: "phase1_pdf",
+    badge: "PHASE1",
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
+  },
+]
+
 const YEAR_OPTIONS = Array.from({ length: 15 }, (_, i) => {
   const y = String(2569 + i)
   const pid = String(1 + i) // 2569 - 2568 = 1
@@ -601,13 +782,15 @@ function Documents() {
     
     if (m === "plan") return "plan"
     if (m === "share" || m === "registry" || m === "shares" || m === "shop" || m === "store") return "share"
-    
+    if (m === "phase1" || m === "p1" || m === "phase-1") return "phase1"
+
     return "internal"
   })
 
   const REPORTS = useMemo(() => {
     if (mode === "share") return SHARE_REPORTS
     if (mode === "plan") return PLAN_REPORTS
+    if (mode === "phase1") return PHASE1_REPORTS
     return INTERNAL_REPORTS
   }, [mode])
 
@@ -698,6 +881,7 @@ function Documents() {
       const foundShare = SHARE_REPORTS.find((r) => r.reportCode === code || r.key === code)
       const foundInternal = INTERNAL_REPORTS.find((r) => r.key === code)
       const foundPlan = PLAN_REPORTS.find((r) => r.key === code)
+      const foundPhase1 = PHASE1_REPORTS.find((r) => r.key === code)
       const custom = SHARE_REPORTS.find((r) => r.key === "share-custom")
 
       if (foundShare) {
@@ -706,6 +890,9 @@ function Documents() {
       } else if (foundPlan) {
         setMode("plan")
         setActiveReport(foundPlan.key)
+      } else if (foundPhase1) {
+        setMode("phase1")
+        setActiveReport(foundPhase1.key)
       } else if (foundInternal) {
         setMode("internal")
         setActiveReport(foundInternal.key)
@@ -900,7 +1087,7 @@ function Documents() {
     const errs = validate(report)
     if (Object.keys(errs).length) return
 
-    const isPdf = report.type === "pdf" || report.type === "share_pdf"
+    const isPdf = report.type === "pdf" || report.type === "share_pdf" || report.type === "phase1_pdf"
     const preOpenWin = isPdf ? window.open("", "_blank") : null
 
     if (preOpenWin && isPdf) {
@@ -1416,6 +1603,31 @@ function Documents() {
       )
     }
 
+    if (report.type === "phase1_pdf") {
+      const req = report.require || []
+      const opt = report.optional || []
+
+      const hasDates = req.includes("startDate") || req.includes("endDate")
+      const hasBranch = req.includes("branchId") || opt.includes("branchId")
+      const requireBranch = req.includes("branchId")
+      const hasMember = req.includes("memberId") || opt.includes("memberId")
+      const hasKlangIds = req.includes("klangIds") || opt.includes("klangIds")
+
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            {hasDates && <FormDates report={report} />}
+            {hasBranch && <FormBranchKlang requireBranch={requireBranch} showKlang={false} />}
+            {hasMember && <FormShareIdentity report={report} />}
+            {hasKlangIds && <FormShareKlangIds />}
+          </div>
+          <p className={helpTextCls}>
+            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิดและพิมพ์รายงาน PDF
+          </p>
+        </>
+      )
+    }
+
     return null
   }
 
@@ -1449,8 +1661,8 @@ function Documents() {
 
         {/* --- หน้าแรก: กล่องหมวดหมู่ 3 กล่อง พร้อม Dropdown ประจำกล่อง --- */}
         {!reportObj && (
-          <div className="grid gap-6 md:grid-cols-3">
-            
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+
             {/* กล่อง 1: รายงานระบบ */}
             <div className="flex flex-col rounded-2xl border border-emerald-200 bg-emerald-50/40 p-6 shadow-sm dark:border-emerald-800/50 dark:bg-emerald-900/10 transition-all hover:shadow-md">
               <div className="mb-4 flex items-center gap-3">
@@ -1535,6 +1747,34 @@ function Documents() {
               </div>
             </div>
 
+            {/* กล่อง 4: รายงาน Phase 1 (สหกรณ์) */}
+            <div className="flex flex-col rounded-2xl border border-amber-200 bg-amber-50/40 p-6 shadow-sm dark:border-amber-800/50 dark:bg-amber-900/10 transition-all hover:shadow-md">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.54 15.86.5 13.31.5c-1.38 0-2.61.56-3.51 1.46L9 2.77l-.8-.81C7.3 1.06 6.07.5 4.69.5 2.14.5 0 2.54 0 4.64c0 .48.11.92.18 1.36H0v2h20V6zm-5.47 0H9.47C9.17 5.56 9 4.98 9 4.64c0-1.03.9-2.14 1.94-2.14.54 0 1.05.24 1.42.62L14 4.88l1.64-1.76C16.01 2.74 16.52 2.5 17.06 2.5 18.1 2.5 19 3.61 19 4.64c0 .34-.17.92-.47 1.36zM1 20c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V9H1v11zm8-8h6v2H9v-2z"/>
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-amber-800 dark:text-amber-300">รายงาน Phase 1</h2>
+              </div>
+              <p className="mb-6 text-sm text-amber-700/80 dark:text-amber-400/80">
+                รายงานสหกรณ์ P01–P19: ซื้อ/ขายข้าว, ทะเบียนหุ้น, ทะเบียนสมาชิก และสรุปสาขา (PDF)
+              </p>
+              <div className="mt-auto relative z-5">
+                <ComboBox
+                  options={PHASE1_REPORTS.map((r) => ({ ...r, id: r.key, label: r.title }))}
+                  placeholder="คลิกเพื่อเลือกรายงาน..."
+                  value={null}
+                  onChange={(v) => {
+                    setMode("phase1")
+                    setActiveReport(v)
+                    setPreviewJson(null)
+                    setErrors({})
+                  }}
+                />
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -1581,7 +1821,7 @@ function Documents() {
               >
                 {reportObj.type === "excel" ? (
                   downloading ? "กำลังเตรียมไฟล์..." : "⬇️ ดาวน์โหลด Excel"
-                ) : reportObj.type === "pdf" || reportObj.type === "share_pdf" ? (
+                ) : reportObj.type === "pdf" || reportObj.type === "share_pdf" || reportObj.type === "phase1_pdf" ? (
                   downloading ? (
                     "กำลังเตรียม PDF..."
                   ) : (

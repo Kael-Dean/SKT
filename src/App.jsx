@@ -48,6 +48,7 @@ import HRPersonnelDetail from "./pages/hr/HRPersonnelDetail.jsx"
 import HRSalaryTier from "./pages/hr/HRSalaryTier.jsx"
 import MyProfile from "./pages/work/MyProfile.jsx"
 import LeaveRequest from "./pages/work/LeaveRequest.jsx"
+import Inbox from "./pages/work/Inbox.jsx"
 import FacilityReport from "./pages/work/FacilityReport.jsx"
 import ChangePassword from "./pages/work/ChangePassword.jsx"
 import MyRelocation from "./pages/work/MyRelocation.jsx"
@@ -343,6 +344,7 @@ function App() {
         {/* ✅ Phase 3B — Personal routes (ทุก role เข้าถึงได้) */}
         <Route path="/my-profile" element={<MyProfile />} />
         <Route path="/leave-request" element={<LeaveRequest />} />
+        <Route path="/inbox" element={<Inbox />} />
         <Route path="/my-relocation" element={<MyRelocation />} />
 
         {/* ✅ Facility income/expense report — roles 1, 5, 6 */}

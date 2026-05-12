@@ -16,6 +16,7 @@ const HR_MENUS = [
 const PERSONAL_MENUS = [
   { label: "🏠 หน้าหลัก",          path: "/home",            roles: "all" },
   { label: "👤 ข้อมูลส่วนตัว",     path: "/my-profile",      roles: "all" },
+  { label: "📬 กล่องงานรออนุมัติ", path: "/inbox",           roles: "all" },
   { label: "📋 ยื่นใบลา",          path: "/leave-request",   roles: "all" },
   { label: "🚌 คำขอย้ายสาขา",     path: "/my-relocation",   roles: "all" },
   // Phase 3B — HR admin ทุกฟังก์ชันรวมอยู่ใน Dashboard HR แล้ว

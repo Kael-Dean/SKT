@@ -1,5 +1,6 @@
 // src/components/Topbar.jsx
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getUser, getRoleId } from "../lib/auth";
 
 const ROLE_TITLE = {
@@ -10,7 +11,11 @@ const ROLE_TITLE = {
   5: "Marketing",
 };
 
+// TODO: replace with real pending count from API or global state
+const MOCK_PENDING_COUNT = 3;
+
 const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
+  const navigate = useNavigate();
   const [userInfo, setUserInfo] = useState({ username: "", id: null, roleId: 0 });
 
   useEffect(() => {
@@ -106,8 +111,26 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
           </div>
         </div>
 
-        {/* Right: dark mode + profile */}
+        {/* Right: inbox bell + dark mode + profile */}
         <div className="flex shrink-0 items-center gap-2">
+          {/* Notification bell — navigates to /inbox */}
+          <button
+            type="button"
+            onClick={() => navigate("/inbox")}
+            aria-label={`กล่องงานรออนุมัติ${MOCK_PENDING_COUNT > 0 ? ` (${MOCK_PENDING_COUNT} รายการ)` : ""}`}
+            title="กล่องงานรออนุมัติ"
+            className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200/80 bg-white text-gray-600 shadow-sm transition-all duration-150 hover:bg-gray-50 hover:text-gray-900 active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white cursor-pointer"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {MOCK_PENDING_COUNT > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white dark:ring-gray-900 leading-none">
+                {MOCK_PENDING_COUNT > 9 ? "9+" : MOCK_PENDING_COUNT}
+              </span>
+            )}
+          </button>
+
           <button
             onClick={() => setDarkMode((v) => !v)}
             aria-label={toggleLabel}

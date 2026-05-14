@@ -433,7 +433,7 @@ const OperationPlan = () => {
               <div>
                 <h1 className="text-2xl md:text-3xl font-extrabold">🗺️ แผนปฏิบัติงาน</h1>
                 <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  เลือกปี → เลือกสาขา → เลือกประเภทตาราง → เลือกตาราง → กรอกข้อมูล
+                  เลือกปี → เลือกประเภทตาราง → เลือกสาขา → เลือกตาราง → กรอกข้อมูล
                 </div>
               </div>
 
@@ -451,6 +451,19 @@ const OperationPlan = () => {
                   onChange={(id) => setYearBE(String(id))}
                   placeholder="— เลือกปี —"
                   buttonRef={yearRef}
+                  onEnterNext={() => typeRef.current?.focus?.()}
+                />
+              </div>
+
+              <div className="md:col-span-5">
+                <label className={labelCls}>ประเภทตาราง</label>
+                <ComboBox
+                  options={planTypeOptions}
+                  value={planType}
+                  onChange={(id) => setPlanType(String(id))}
+                  placeholder="— เลือก: ยอดขาย / ค่าใช้จ่าย / ต้นทุนสินค้า —"
+                  getSubLabel={(o) => o?.subLabel || ""}
+                  buttonRef={typeRef}
                   onEnterNext={() => branchRef.current?.focus?.()}
                 />
               </div>
@@ -464,22 +477,9 @@ const OperationPlan = () => {
                   placeholder={loadingBranches ? "กำลังโหลดสาขา..." : "— เลือกสาขา —"}
                   disabled={loadingBranches || !planType}
                   buttonRef={branchRef}
-                  onEnterNext={() => typeRef.current?.focus?.()}
-                />
-                {branchRequired && !branchId && <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>}
-              </div>
-
-              <div className="md:col-span-5">
-                <label className={labelCls}>ประเภทตาราง</label>
-                <ComboBox
-                  options={planTypeOptions}
-                  value={planType}
-                  onChange={(id) => setPlanType(String(id))}
-                  placeholder="— เลือก: ยอดขาย / ค่าใช้จ่าย / ต้นทุนสินค้า —"
-                  getSubLabel={(o) => o?.subLabel || ""}
-                  buttonRef={typeRef}
                   onEnterNext={() => tableRef.current?.focus?.()}
                 />
+                {branchRequired && !branchId && <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>}
               </div>
             </div>
 

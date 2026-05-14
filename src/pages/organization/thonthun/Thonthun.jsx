@@ -116,9 +116,9 @@ const TOTAL_W = LEFT_W + COL_W.buy + COL_W.sell
 
 const STRIPE = {
   head: "bg-slate-100/90 dark:bg-slate-700/70",
-  cell: "bg-white dark:bg-slate-900",
-  alt: "bg-slate-50 dark:bg-slate-800",
-  foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
+  cell: "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100",
+  alt: "bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100",
+  foot: "bg-emerald-100/55 dark:bg-emerald-900/20 text-slate-800 dark:text-slate-100",
 }
 
 /**

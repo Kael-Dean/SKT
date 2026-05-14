@@ -146,10 +146,10 @@ const LEFT_W = COL_W.code + COL_W.item
 
 const STRIPE = {
   head: "bg-slate-100 dark:bg-slate-700",
-  cell: "bg-white dark:bg-slate-900",
-  alt: "bg-slate-50 dark:bg-slate-800",
-  subtotal: "bg-emerald-100 dark:bg-emerald-900",
-  grandtotal: "bg-emerald-200 dark:bg-emerald-800"
+  cell: "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100",
+  alt: "bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100",
+  subtotal: "bg-emerald-100 dark:bg-emerald-900 text-slate-800 dark:text-slate-100",
+  grandtotal: "bg-emerald-200 dark:bg-emerald-800 text-slate-800 dark:text-slate-100"
 }
 const monthStripeHead = (idx) => (idx % 2 === 1 ? "bg-slate-200 dark:bg-slate-600" : "bg-slate-100 dark:bg-slate-700");
 const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.alt : STRIPE.cell);
@@ -598,7 +598,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
 
                 if (r.kind === 'title' || r.kind === 'section') {
                     return (
-                        <tr key={r.code} className="bg-slate-200 dark:bg-slate-700">
+                        <tr key={r.code} className="bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100">
                           <td className="border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600 sticky left-0 z-10 bg-slate-200 dark:bg-slate-700">{r.kind==='section' ? r.code: ''}</td>
                           <td className="border border-slate-300 px-2 py-2 font-extrabold text-xs dark:border-slate-600 sticky left-[60px] z-10 bg-slate-200 dark:bg-slate-700 whitespace-nowrap">{r.label}</td>
                       <td colSpan={MONTHS.length * unitCols.length + unitCols.length + 1} className="bg-slate-200 dark:bg-slate-700" />

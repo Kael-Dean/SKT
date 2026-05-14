@@ -1,0 +1,830 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { onMasterDataChanged } from "../../../lib/useProductsByGroup"
+
+/** ---------------- Utils ---------------- */
+const cx = (...a) => a.filter(Boolean).join(" ")
+const toNumber = (v) => {
+  if (v === "" || v === null || v === undefined) return 0
+  const n = Number(String(v).replace(/,/g, ""))
+  return Number.isFinite(n) ? n : 0
+}
+const sanitizeNumberInput = (s, { maxDecimals = 3 } = {}) => {
+  const cleaned = String(s ?? "").replace(/[^\d.]/g, "")
+  if (!cleaned) return ""
+  const parts = cleaned.split(".")
+  const intPart = parts[0] ?? ""
+  if (parts.length <= 1) return intPart
+  const decRaw = parts.slice(1).join("")
+  const dec = decRaw.slice(0, Math.max(0, maxDecimals))
+  if (maxDecimals <= 0) return intPart
+  return `${intPart}.${dec}`
+}
+const fmtMoney0 = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(toNumber(n))
+const fmtDec3Str = (v) => {
+  const n = toNumber(v)
+  if (!Number.isFinite(n)) return "0.000"
+  // ส่งเป็น string เพื่อลดปัญหา floating ของ JS ทำให้ BE (condecimal) 422
+  return n.toFixed(3)
+}
+
+/** ---------------- API (token = localStorage.token) ---------------- */
+const API_BASE_RAW =
+  import.meta.env.VITE_API_BASE_CUSTOM ||
+  import.meta.env.VITE_API_BASE ||
+  import.meta.env.VITE_API_URL ||
+  ""
+const API_BASE = String(API_BASE_RAW || "").replace(/\/+$/, "")
+
+class ApiError extends Error {
+  constructor(message, meta = {}) {
+    super(message)
+    this.name = "ApiError"
+    Object.assign(this, meta)
+  }
+}
+
+const getToken = () => (
+  localStorage.getItem("token") ||
+  localStorage.getItem("access_token") ||
+  localStorage.getItem("accessToken") ||
+  localStorage.getItem("jwt") ||
+  ""
+)
+// apiAuth: default ใช้ Bearer token (กัน 401/403)
+// แต่สำหรับบาง GET ที่ไม่ต้อง auth (เช่น /unit-prices/{year}) จะตั้ง auth:false เพื่อลด CORS preflight
+async function apiAuth(path, { method = "GET", body, auth = true } = {}) {
+  if (!API_BASE) throw new ApiError("FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE...)", { status: 0 })
+  const token = getToken()
+  const url = `${API_BASE}${path}`
+
+  let res
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body != null ? JSON.stringify(body) : undefined,
+      // ✅ ไม่ส่ง cookie เพื่อลดปัญหา session เก่าทับ + ลด CORS complexity
+      credentials: "omit",
+    })
+  } catch (e) {
+    throw new ApiError("FE: เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (Network/CORS/DNS)", {
+      status: 0,
+      url,
+      method,
+      cause: e,
+    })
+  }
+
+  const text = await res.text()
+  let data = null
+  try {
+    data = text ? JSON.parse(text) : null
+  } catch {
+    data = text
+  }
+
+  if (!res.ok) {
+    const msg =
+      (data && (data.detail || data.message)) ||
+      (typeof data === "string" && data) ||
+      `HTTP ${res.status}`
+    throw new ApiError(msg, { status: res.status, url, method, data })
+  }
+  return data
+}
+
+/** ---------------- UI styles ---------------- */
+const readonlyField =
+  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
+  "text-black shadow-none dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100"
+
+const cellInput =
+  "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-1.5 py-1 " +
+  "text-right text-[12px] md:text-[13px] outline-none " +
+  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
+  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+
+const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
+
+/** ---------------- Table sizing ---------------- */
+const COL_W = { id: 92, item: 360, buy: 180, sell: 180 }
+const LEFT_W = COL_W.id + COL_W.item
+const TOTAL_W = LEFT_W + COL_W.buy + COL_W.sell
+
+const STRIPE = {
+  head: "bg-slate-100/90 dark:bg-slate-700/70",
+  cell: "bg-white dark:bg-slate-900",
+  alt: "bg-slate-50 dark:bg-slate-800",
+  foot: "bg-emerald-100/55 dark:bg-emerald-900/20",
+}
+
+/**
+ * Thonthun (ต้นทุนสินค้า)
+ * - แสดงรายการ (จาก BE) แล้วกรอก: ต้นทุนซื้อ + ต้นทุนการขาย
+ * - โหลดค่าที่เคยบันทึก: GET /unit-prices/{year}
+ * - บันทึก: PUT /unit-prices/bulk
+ *
+ * Props from OperationPlan:
+ * - branchId, branchName, yearBE, planId
+ */
+const Thonthun = ({ branchId, branchName, yearBE, planId }) => {
+  const effectivePlanId = useMemo(() => {
+    const p = Number(planId || 0)
+    if (Number.isFinite(p) && p > 0) return p
+    return 0
+  }, [planId])
+
+  // ✅ บางหน้าส่ง planId เป็น PK (เช่น businessplans.id) ไม่ใช่ index ของปี
+  // เลยพยายามอ่าน fiscal_year จาก BE ถ้าทำได้
+  const [planFiscalYear, setPlanFiscalYear] = useState(null)
+  const [planYearSource, setPlanYearSource] = useState("")
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      // ถ้า yearBE มาแล้ว ไม่ต้องหาเพิ่ม
+      const y = Number(yearBE || 0)
+      if (Number.isFinite(y) && y >= 2500) {
+        if (!alive) return
+        setPlanFiscalYear(null)
+        setPlanYearSource("yearBE")
+        return
+      }
+
+      if (!effectivePlanId) {
+        if (!alive) return
+        setPlanFiscalYear(null)
+        setPlanYearSource("")
+        return
+      }
+
+      // 1) ลองดึงจาก /business-plan/{id} ถ้ามี
+      try {
+        const data = await apiAuth(`/business-plan/${effectivePlanId}`, { method: "GET", auth: true })
+        const fy = Number(data?.fiscal_year ?? data?.plan?.fiscal_year ?? data?.data?.fiscal_year ?? 0)
+        if (alive && Number.isFinite(fy) && fy >= 2500) {
+          setPlanFiscalYear(fy)
+          setPlanYearSource("business-plan")
+          return
+        }
+      } catch {
+        // ignore
+      }
+
+      // 2) fallback: เดิม (planId + 2568) เผื่อ planId เป็น index (1=2569)
+      if (alive) {
+        setPlanFiscalYear(null)
+        setPlanYearSource("planId+2568")
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [effectivePlanId, yearBE])
+
+  const effectiveYear = useMemo(() => {
+    const y = Number(yearBE || 0)
+    if (Number.isFinite(y) && y >= 2500) return y
+    if (planFiscalYear && Number.isFinite(planFiscalYear) && planFiscalYear >= 2500) return planFiscalYear
+    const p = Number(planId || 0)
+    return Number.isFinite(p) && p > 0 ? p + 2568 : 2569
+  }, [yearBE, planId, planFiscalYear])
+
+  // plan_id: BE จะเป็นคนกำหนดจริง (autoincrement) และส่งกลับมาใน plan.id / save response
+  // แต่ถ้าปียังไม่มี plan ในระบบ ให้โชว์ค่าประมาณแบบ "ปี 2569 => 1" เพื่อให้ user เข้าใจ flow
+  const computedPlanId = useMemo(() => {
+    const y = Number(effectiveYear)
+    if (!Number.isFinite(y)) return null
+    return Math.max(1, y - 2568)
+  }, [effectiveYear])
+
+
+  // ต้นทุนสินค้า = ใช้ร่วมทุกสาขา → ไม่บังคับเลือกสาขา
+  const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
+  const effectiveBranchName = useMemo(() => {
+    if (branchName) return branchName
+    if (effectiveBranchId) return `สาขา id: ${effectiveBranchId}`
+    return "ทุกสาขา"
+  }, [branchName, effectiveBranchId])
+
+  /**
+   * หมายเหตุ:
+   * BE ใหม่สร้าง/ส่ง start_end มากับ BusinessPlan แล้ว (เช่น "1 เม.ย. 2568 - 31 มี.ค. 2569")
+   * เพื่อให้ UI/Comment ตรงกับ BE — ถ้ายังไม่มี plan จะ fallback เป็น label แบบเดิม
+   */
+  const [planInfo, setPlanInfo] = useState(null)
+
+  const periodLabel = useMemo(() => {
+    if (planInfo?.start_end) return String(planInfo.start_end)
+    const yy = String(effectiveYear).slice(-2)
+    const yyNext = String(effectiveYear + 1).slice(-2)
+    return `1 เม.ย.${yy}-31 มี.ค.${yyNext}`
+  }, [effectiveYear, planInfo])
+
+  /** ---------------- Load items list (rows) ---------------- */
+  const [items, setItems] = useState([]) // {id,name,raw}
+  const [itemsSource, setItemsSource] = useState("")
+  const [isLoadingItems, setIsLoadingItems] = useState(false)
+
+  const normalizeItems = (data) => {
+    const arr = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.items)
+      ? data.items
+      : Array.isArray(data?.results)
+      ? data.results
+      : []
+
+    return arr
+      .map((r) => {
+        const id = Number(r?.id ?? r?.product_id ?? r?.product ?? r?.value ?? 0)
+        const name =
+          // ✅ ตาม BE ที่ส่งมา (/lists/product/search)
+          r?.product_name ||
+          r?.product_type ||
+          // เผื่อบาง endpoint ส่งฟิลด์อื่นมา
+          r?.name ||
+          r?.label ||
+          r?.title ||
+          r?.product ||
+          (id ? `รายการ ${id}` : "")
+        return { id, name: String(name || "").trim(), raw: r }
+      })
+      .filter((x) => x.id > 0 && x.name)
+      .sort((a, b) => a.id - b.id)
+  }
+
+  const loadItems = useCallback(async () => {
+    // ✅ ใช้ /products เป็นแหล่งหลัก (table ที่ BusinessEdit เขียนเข้าไป)
+    // → สินค้าใหม่ที่เพิ่งเพิ่มจะขึ้นทันทีแบบ realtime
+    // ลำดับ fallback: /products → /lists/product/search → endpoint อื่นๆ
+    const candidates = [
+      "/products",
+      "/lists/product/search",
+      "/order/product/search",
+      "/lists/products/search",
+      "/list/product/search",
+    ]
+
+    for (const path of candidates) {
+      try {
+        let data
+        try {
+          data = await apiAuth(path, { method: "GET", auth: false })
+        } catch {
+          data = await apiAuth(path, { method: "GET", auth: true })
+        }
+        // /products อาจมี is_active=false → กรองทิ้ง
+        const filtered = Array.isArray(data)
+          ? data.filter((r) => r?.is_active !== false)
+          : data
+        const normalized = normalizeItems(filtered)
+        if (normalized.length) {
+          setItems(normalized)
+          setItemsSource(path)
+          return
+        }
+      } catch {
+        /* ignore fetch failure and try next candidate */
+      }
+    }
+
+    setItems([])
+    setItemsSource("")
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      setIsLoadingItems(true)
+      try {
+        await loadItems()
+      } finally {
+        if (alive) setIsLoadingItems(false)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [loadItems])
+
+  // refetch ทันทีเมื่อ master data ถูกแก้จาก BusinessEdit
+  useEffect(() => onMasterDataChanged(() => { loadItems() }), [loadItems])
+
+  /** ---------------- Values ---------------- */
+  const [valuesById, setValuesById] = useState({}) // { [productId]: {buy,sell} }
+  const [isLoadingSaved, setIsLoadingSaved] = useState(false)
+  const [savedSource, setSavedSource] = useState("")
+
+  const normalizeGrid = useCallback(
+    (seed = {}) => {
+      const next = {}
+      for (const it of items) {
+        const s = seed[it.id] || {}
+        next[it.id] = {
+          buy: s.buy ?? s.buy_price ?? "",
+          sell: s.sell ?? s.sell_price ?? "",
+        }
+      }
+      return next
+    },
+    [items]
+  )
+
+  useEffect(() => {
+    setValuesById((prev) => normalizeGrid(prev))
+  }, [items, normalizeGrid])
+
+  const loadSavedFromBE = useCallback(async () => {
+    if (!effectiveYear) return
+    if (!items.length) return
+
+    setIsLoadingSaved(true)
+    try {
+      // ⚠️ จาก log ที่คุณส่งมา: /business-plan/{plan_id}/unit-prices... ไม่มีอยู่จริง (404)
+      // ดังนั้นให้ยึดตาม BE จริง: GET /unit-prices/{year}
+      // และลองแบบไม่ส่ง token ก่อนเพื่อลด CORS preflight
+      let data
+      let used = ""
+      try {
+        data = await apiAuth(`/unit-prices/${effectiveYear}`, { method: "GET", auth: false })
+        used = `GET /unit-prices/${effectiveYear} (no-auth)`
+      } catch {
+        // ถ้า BE ล็อกไว้ค่อยลองแบบมี token
+        data = await apiAuth(`/unit-prices/${effectiveYear}`, { method: "GET", auth: true })
+        used = `GET /unit-prices/${effectiveYear} (auth)`
+      }
+
+      // ✅ BE ใหม่คืน { ok, exists, year, plan, items }
+      // เก็บ plan ไว้ใช้แสดง start_end ให้ตรง BE
+      if (data && typeof data === "object") {
+        setPlanInfo(data?.plan ?? null)
+      }
+
+      // normalize
+      const rows = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []
+      const seed = {}
+      for (const r of rows) {
+        const pid = Number(r?.product_id ?? r?.product ?? 0)
+        if (!pid) continue
+        seed[pid] = {
+          buy: r?.buy_price != null ? String(r.buy_price) : "",
+          sell: r?.sell_price != null ? String(r.sell_price) : "",
+        }
+      }
+
+      setSavedSource(used || "")
+      setValuesById(normalizeGrid(seed))
+    } catch (e) {
+      console.error("[Thonthun] load saved failed:", e)
+      setSavedSource("")
+      setPlanInfo(null)
+      setValuesById(normalizeGrid({}))
+    } finally {
+      setIsLoadingSaved(false)
+    }
+  }, [effectiveYear, items.length, normalizeGrid])
+
+  useEffect(() => {
+    loadSavedFromBE()
+  }, [loadSavedFromBE])
+
+  const setCell = (productId, field, nextValue) => {
+    setValuesById((prev) => {
+      const next = { ...prev }
+      const row = { ...(next[productId] || { buy: "", sell: "" }) }
+      row[field] = nextValue
+      next[productId] = row
+      return next
+    })
+  }
+
+  /** ---------------- Computed ---------------- */
+  const computed = useMemo(() => {
+    let filled = 0
+    let sumBuy = 0
+    let sumSell = 0
+    for (const it of items) {
+      const row = valuesById[it.id] || {}
+      const buy = toNumber(row.buy)
+      const sell = toNumber(row.sell)
+      if (buy !== 0 || sell !== 0) filled += 1
+      sumBuy += buy
+      sumSell += sell
+    }
+    return { filled, sumBuy, sumSell }
+  }, [items, valuesById])
+
+  /** ---------------- Height + Scroll + Arrow nav ---------------- */
+  const tableCardRef = useRef(null)
+  const [tableCardHeight, setTableCardHeight] = useState(860)
+  const recalcTableCardHeight = useCallback(() => {
+    const el = tableCardRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const vh = window.innerHeight || 900
+    const bottomPadding = 6
+    setTableCardHeight(Math.max(760, Math.floor(vh - rect.top - bottomPadding)))
+  }, [])
+  useEffect(() => {
+    recalcTableCardHeight()
+    window.addEventListener("resize", recalcTableCardHeight)
+    return () => window.removeEventListener("resize", recalcTableCardHeight)
+  }, [recalcTableCardHeight])
+
+  const bodyScrollRef = useRef(null)
+  const rafRef = useRef(0)
+  const onBodyScroll = () => {
+    const b = bodyScrollRef.current
+    if (!b) return
+    const x = b.scrollLeft || 0
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      // keep for future use (sync header/foot)
+      void x
+    })
+  }
+  useEffect(() => () => rafRef.current && cancelAnimationFrame(rafRef.current), [])
+
+  const inputRefs = useRef(new Map())
+  const totalCols = 2
+
+  const ensureInView = useCallback((el) => {
+    const container = bodyScrollRef.current
+    if (!container || !el) return
+    const pad = 10
+    const frozenLeft = LEFT_W
+    const crect = container.getBoundingClientRect()
+    const erect = el.getBoundingClientRect()
+    const visibleLeft = crect.left + frozenLeft + pad
+    const visibleRight = crect.right - pad
+    const visibleTop = crect.top + pad
+    const visibleBottom = crect.bottom - pad
+    if (erect.left < visibleLeft) container.scrollLeft -= visibleLeft - erect.left
+    else if (erect.right > visibleRight) container.scrollLeft += erect.right - visibleRight
+    if (erect.top < visibleTop) container.scrollTop -= visibleTop - erect.top
+    else if (erect.bottom > visibleBottom) container.scrollTop += erect.bottom - visibleBottom
+  }, [])
+
+  const handleArrowNav = useCallback(
+    (e) => {
+      const k = e.key
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter"].includes(k)) return
+      const row = Number(e.currentTarget.dataset.row ?? 0)
+      const col = Number(e.currentTarget.dataset.col ?? 0)
+
+      let nextRow = row
+      let nextCol = col
+
+      // Enter: ไปช่องถัดไป (ขวา) ถ้าสุดแล้วไปแถวถัดไปคอลัมน์แรก
+      if (k === "Enter") {
+        nextCol = col + 1
+        if (nextCol > totalCols - 1) {
+          nextCol = 0
+          nextRow = row + 1
+        }
+      }
+      if (k === "ArrowLeft") nextCol = col - 1
+      if (k === "ArrowRight") nextCol = col + 1
+      if (k === "ArrowUp") nextRow = row - 1
+      if (k === "ArrowDown") nextRow = row + 1
+
+      if (nextRow < 0) nextRow = 0
+      if (nextRow > items.length - 1) nextRow = items.length - 1
+      if (nextCol < 0) nextCol = 0
+      if (nextCol > totalCols - 1) nextCol = totalCols - 1
+
+      const target = inputRefs.current.get(`${nextRow}|${nextCol}`)
+      if (!target) return
+      e.preventDefault()
+      target.focus()
+      try {
+        target.select()
+      } catch {
+        /* ignore if browser blocks select */
+      }
+      requestAnimationFrame(() => ensureInView(target))
+    },
+    [ensureInView, items.length]
+  )
+
+  /** ---------------- Save ---------------- */
+  const [saveNotice, setSaveNotice] = useState(null)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const buildPayloadForBE = (overrideValues) => {
+    const token = getToken()
+    if (!token) throw new Error("FE: ไม่พบ token → ต้อง Login ก่อน")
+    if (!effectiveYear) throw new Error("FE: ปีไม่ถูกต้อง")
+    if (!items.length) throw new Error("FE: ยังไม่พบรายการ (โหลด list ไม่สำเร็จ)")
+
+    const valuesSrc = overrideValues ?? valuesById
+    const itemsPayload = items.map((it) => {
+      const row = valuesSrc[it.id] || {}
+      return {
+        product_id: it.id,
+        sell_price: fmtDec3Str(row.sell),
+        buy_price: fmtDec3Str(row.buy),
+        comment: periodLabel,
+      }
+    })
+
+    return { year: effectiveYear, items: itemsPayload }
+  }
+
+  const NoticeBox = ({ notice }) => {
+    if (!notice) return null
+    const isErr = notice.type === "error"
+    const isOk = notice.type === "success"
+    const cls = isErr
+      ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200"
+      : isOk
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200"
+      : "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100"
+
+    return (
+      <div className={cx("mb-3 rounded-2xl border p-3 text-sm", cls)}>
+        <div className="font-extrabold">{notice.title}</div>
+        {notice.detail && <div className="mt-1 text-[13px] opacity-95">{notice.detail}</div>}
+      </div>
+    )
+  }
+
+  const saveToBE = async (overrideValues) => {
+    let payload = null
+    try {
+      setSaveNotice(null)
+      payload = buildPayloadForBE(overrideValues)
+      setIsSaving(true)
+
+let res = null
+let used = ""
+
+// ✅ ตาม BE ล่าสุด: PUT /unit-prices/bulk (admin only)
+// Body ต้องเป็น { year, items } เท่านั้น (ไม่ต้องส่ง query ?year และไม่ต้อง POST)
+try {
+  res = await apiAuth(`/unit-prices/bulk`, { method: "PUT", body: payload, auth: true })
+  used = "PUT /unit-prices/bulk"
+} catch (e) {
+  throw e
+}
+
+if (res == null) throw new Error("บันทึกไม่สำเร็จ")
+
+      setSaveNotice({
+        type: "success",
+        title: "บันทึกสำเร็จ ✅",
+        detail: `ปี ${effectiveYear} • inserted: ${res?.inserted ?? "-"} • updated: ${res?.updated ?? "-"} • via ${used || "-"}`,
+      })
+
+      // ✅ reload เพื่อให้เห็น “ค่าปัจจุบัน” หลังบันทึก
+      await loadSavedFromBE()
+    } catch (e) {
+      const status = e?.status || 0
+      let title = "บันทึกไม่สำเร็จ ❌"
+      let detail = e?.message || String(e)
+      if (status === 401) {
+        title = "401 Unauthorized"
+        detail = "Token ไม่ผ่าน/หมดอายุ → Logout/Login ใหม่"
+      } else if (status === 403) {
+        title = "403 Forbidden"
+        detail = "สิทธิ์ไม่พอ (BE บังคับ Admin) → เช็คว่า token ที่ใช้อยู่เป็น Admin จริงไหม"
+      } else if (status === 404) {
+        title = "404 Not Found"
+        detail = "ไม่พบ route /unit-prices/bulk หรือ API_BASE ไม่ตรง"
+      } else if (status === 422) {
+        title = "422 Validation Error"
+        detail = "รูปแบบข้อมูลไม่ผ่าน schema ของ BE (ดู console)"
+      } else if (status === 0) {
+        title = "เชื่อมต่อไม่ได้ (CORS/Network)"
+        detail = "เบราว์เซอร์บล็อก CORS หรือ API ตอบ 500 แบบไม่ส่ง Access-Control-Allow-Origin"
+      }
+
+      setSaveNotice({ type: "error", title, detail })
+
+      console.groupCollapsed("%c[Thonthun] Save failed ❌", "color:#ef4444;font-weight:800;")
+      console.error("status:", status, "title:", title, "detail:", detail)
+      console.error("year:", effectiveYear, "plan_id:", effectivePlanId, "yearSource:", planYearSource)
+      console.error("branch_id:", effectiveBranchId, "branch:", effectiveBranchName)
+      if (payload) console.error("payload preview:", payload.items?.slice(0, 3))
+      console.error("raw error:", e)
+      console.groupEnd()
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const resetAll = async () => {
+    if (!confirm("รีเซ็ตข้อมูลทั้งหมดในตารางและบันทึกค่าว่าง (0) ลงระบบ?")) return
+    const empty = {}
+    for (const it of items) empty[it.id] = { buy: "", sell: "" }
+    setValuesById(empty)
+    if (items.length) {
+      await saveToBE(empty)
+    }
+  }
+
+  const reloadItems = async () => {
+    setSaveNotice(null)
+    setIsLoadingItems(true)
+    try {
+      await loadItems()
+    } finally {
+      setIsLoadingItems(false)
+    }
+  }
+
+  /** ---------------- Sticky helpers ---------------- */
+  const stickyCodeHeader =
+    "sticky left-0 z-[95] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+  const stickyLeftHeader =
+    "sticky left-0 z-[90] bg-slate-100 dark:bg-slate-700 shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+  const stickyCodeCell = "sticky left-0 z-[70] shadow-[2px_0_0_rgba(0,0,0,0.06)]"
+
+  return (
+      <div
+        ref={tableCardRef}
+        className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-hidden flex flex-col"
+        style={{ height: tableCardHeight }}
+      >
+        <div
+          ref={bodyScrollRef}
+          onScroll={onBodyScroll}
+          className="flex-1 overflow-auto border-t border-slate-200 dark:border-slate-700"
+        >
+          <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: COL_W.id }} />
+              <col style={{ width: COL_W.item }} />
+              <col style={{ width: COL_W.buy }} />
+              <col style={{ width: COL_W.sell }} />
+            </colgroup>
+
+            <thead className="sticky top-0 z-[80]">
+              <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
+                <th
+                  rowSpan={2}
+                  className={cx(
+                    "border border-slate-300 px-1 py-2 text-center font-bold text-xs dark:border-slate-600",
+                    stickyCodeHeader
+                  )}
+                >
+                  รหัส
+                </th>
+                <th
+                  rowSpan={2}
+                  className={cx(
+                    "border border-slate-300 px-2 py-2 text-left font-bold text-xs dark:border-slate-600",
+                    stickyLeftHeader,
+                    trunc
+                  )}
+                  style={{ left: COL_W.id }}
+                  title="รายการ"
+                >
+                  รายการ
+                </th>
+                <th
+                  colSpan={2}
+                  className="border border-slate-300 px-2 py-2 text-center font-extrabold text-xs dark:border-slate-600"
+                >
+                  ต้นทุน (บาท)
+                </th>
+              </tr>
+
+              <tr className={cx("text-slate-800 dark:text-slate-100", STRIPE.head)}>
+                <th className="border border-slate-300 px-1 py-2 text-center text-[11px] md:text-xs dark:border-slate-600">
+                  ต้นทุนซื้อ
+                </th>
+                <th className="border border-slate-300 px-1 py-2 text-center text-[11px] md:text-xs dark:border-slate-600">
+                  ต้นทุนการขาย
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {items.length ? (
+                items.map((it, idx) => {
+                  const rowBg = idx % 2 === 1 ? STRIPE.alt : STRIPE.cell
+                  const row = valuesById[it.id] || {}
+
+                  return (
+                    <tr key={it.id} className={rowBg}>
+                      <td
+                        className={cx(
+                          "border border-slate-300 px-1 py-2 text-center text-xs dark:border-slate-600",
+                          stickyCodeCell,
+                          rowBg
+                        )}
+                      >
+                        {it.id}
+                      </td>
+
+                      <td
+                        className={cx(
+                          "border border-slate-300 px-2 py-2 text-left font-semibold text-xs dark:border-slate-600",
+                          "sticky z-[50]",
+                          rowBg,
+                          trunc
+                        )}
+                        style={{ left: COL_W.id }}
+                        title={it.name}
+                      >
+                        {it.name}
+                      </td>
+
+                      {/* Buy */}
+                      <td className="border border-slate-300 px-1 py-2 dark:border-slate-600">
+                        <input
+                          ref={(el) => {
+                            const key = `${idx}|0`
+                            if (!el) inputRefs.current.delete(key)
+                            else inputRefs.current.set(key, el)
+                          }}
+                          data-row={idx}
+                          data-col={0}
+                          onKeyDown={handleArrowNav}
+                          className={cellInput}
+                          value={row.buy ?? ""}
+                          inputMode="numeric"
+                          placeholder="0"
+                          onChange={(e) => setCell(it.id, "buy", sanitizeNumberInput(e.target.value, { maxDecimals: 3 }))}
+                        />
+                      </td>
+
+                      {/* Sell */}
+                      <td className="border border-slate-300 px-1 py-2 dark:border-slate-600">
+                        <input
+                          ref={(el) => {
+                            const key = `${idx}|1`
+                            if (!el) inputRefs.current.delete(key)
+                            else inputRefs.current.set(key, el)
+                          }}
+                          data-row={idx}
+                          data-col={1}
+                          onKeyDown={handleArrowNav}
+                          className={cellInput}
+                          value={row.sell ?? ""}
+                          inputMode="numeric"
+                          placeholder="0"
+                          onChange={(e) => setCell(it.id, "sell", sanitizeNumberInput(e.target.value, { maxDecimals: 3 }))}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })
+              ) : (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="border border-slate-300 px-3 py-6 text-center text-sm text-slate-600 dark:border-slate-600 dark:text-slate-300"
+                  >
+                    {isLoadingItems ? "กำลังโหลดรายการ..." : "— ไม่มีรายการ —"}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+
+          </table>
+        </div>
+
+        {/* Action bar */}
+        <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
+          <NoticeBox notice={saveNotice} />
+
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
+            <button
+              type="button"
+              onClick={resetAll}
+              disabled={isSaving || !items.length}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl border px-5 py-3 text-sm font-semibold transition",
+                (isSaving || !items.length)
+                  ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
+                  : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+              )}
+            >
+              รีเซ็ต
+            </button>
+
+            <button
+              type="button"
+              disabled={isSaving || !items.length}
+              onClick={() => saveToBE()}
+              className={cx(
+                "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white cursor-pointer",
+                "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",
+                (isSaving || !items.length) && "opacity-60 hover:scale-100 cursor-not-allowed"
+              )}
+            >
+              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+          </div>
+        </div>
+      </div>
+  )
+}
+
+export default Thonthun

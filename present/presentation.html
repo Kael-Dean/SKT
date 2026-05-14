@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบแผนปฏิบัติการ — สกต.สุรินทร์</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      background: #f0f4ff;
+      color: #1e293b;
+    }
+
+    /* ===== PRINT SETTINGS ===== */
+    @page {
+      size: A4 landscape;
+      margin: 0;
+    }
+
+    @media print {
+      body { background: white; }
+      .slide {
+        page-break-before: always;
+        break-before: page;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        box-shadow: none !important;
+        margin: 0 !important;
+        height: 210mm !important;
+        min-height: unset !important;
+        max-height: 210mm !important;
+        overflow: hidden !important;
+      }
+      .slide:first-child { page-break-before: avoid; break-before: avoid; }
+      .no-print { display: none !important; }
+    }
+
+    /* ===== FORCE BACKGROUND IN PDF ===== */
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    /* ===== SLIDE BASE ===== */
+    .slide {
+      width: 297mm;
+      min-height: 210mm;
+      background: white;
+      margin: 0 auto 24px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ===== HEADER BAR ===== */
+    .slide-header {
+      background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+      color: white;
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .slide-header .title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .slide-header .subtitle {
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0.85;
+      margin-top: 2px;
+    }
+
+    .slide-number {
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ===== FOOTER ===== */
+    .slide-footer {
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      padding: 8px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #94a3b8;
+      flex-shrink: 0;
+      margin-top: auto;
+    }
+
+    /* ===== CONTENT AREA ===== */
+    .slide-body {
+      flex: 1;
+      padding: 20px 28px;
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .slide-body.center {
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* ===== IMAGE ===== */
+    .img-wrap {
+      flex: 1;
+      min-width: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    .img-wrap img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* ===== DESCRIPTION PANEL ===== */
+    .desc-panel {
+      width: 200px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .desc-panel.wide {
+      width: 240px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #EEF2FF;
+      color: #4F46E5;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .desc-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      line-height: 1.4;
+    }
+
+    .desc-text {
+      font-size: 13px;
+      color: #475569;
+      line-height: 1.7;
+    }
+
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12.5px;
+      color: #334155;
+      line-height: 1.5;
+    }
+
+    .feature-list li::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: #4F46E5;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+
+    .chip {
+      display: inline-block;
+      background: #F1F5F9;
+      color: #334155;
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 11.5px;
+      font-weight: 500;
+      margin: 2px 2px 2px 0;
+      border: 1px solid #E2E8F0;
+    }
+
+    .chip.green  { background: #DCFCE7; color: #166534; border-color: #BBF7D0; }
+    .chip.blue   { background: #DBEAFE; color: #1d4ed8; border-color: #BFDBFE; }
+    .chip.purple { background: #EDE9FE; color: #5B21B6; border-color: #DDD6FE; }
+    .chip.orange { background: #FFEDD5; color: #9A3412; border-color: #FED7AA; }
+
+    /* ===== DIVIDER ===== */
+    .divider {
+      width: 40px;
+      height: 3px;
+      background: linear-gradient(90deg, #4F46E5, #7C3AED);
+      border-radius: 2px;
+      margin: 4px 0;
+    }
+
+    /* ===== COVER SLIDE ===== */
+    .cover-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%);
+      padding: 40px;
+      text-align: center;
+      gap: 16px;
+    }
+
+    .cover-icon {
+      font-size: 64px;
+      line-height: 1;
+    }
+
+    .cover-org {
+      font-size: 13px;
+      color: #6366f1;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .cover-title {
+      font-size: 38px;
+      font-weight: 800;
+      color: #1e293b;
+      line-height: 1.2;
+    }
+
+    .cover-title span { color: #4F46E5; }
+
+    .cover-desc {
+      font-size: 15px;
+      color: #64748b;
+      max-width: 480px;
+      line-height: 1.7;
+    }
+
+    .cover-date {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #94a3b8;
+      background: white;
+      padding: 6px 20px;
+      border-radius: 20px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .cover-cards {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .cover-card {
+      background: white;
+      border-radius: 12px;
+      padding: 14px 20px;
+      text-align: center;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 8px rgba(79,70,229,0.08);
+      min-width: 100px;
+    }
+
+    .cover-card .num {
+      font-size: 28px;
+      font-weight: 800;
+      color: #4F46E5;
+    }
+
+    .cover-card .lbl {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    /* ===== SUMMARY TABLE ===== */
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .summary-table th {
+      background: #4F46E5;
+      color: white;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+    }
+
+    .summary-table td {
+      padding: 9px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+      vertical-align: top;
+    }
+
+    .summary-table tr:nth-child(even) td { background: #f8fafc; }
+
+    /* ===== STEP FLOW ===== */
+    .step-flow {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 4px 0;
+    }
+
+    .step-box {
+      background: white;
+      border: 1.5px solid #C7D2FE;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4338CA;
+    }
+
+    .step-arrow {
+      color: #818CF8;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* ===== PRINT HELPER ===== */
+    .print-btn {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      background: #4F46E5;
+      color: white;
+      border: none;
+      border-radius: 50px;
+      padding: 14px 28px;
+      font-size: 15px;
+      font-family: 'Sarabun', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(79,70,229,0.4);
+      transition: background 0.2s;
+      z-index: 999;
+    }
+
+    .print-btn:hover { background: #4338CA; }
+  </style>
+</head>
+<body>
+
+<!-- ===================== SLIDE 1: COVER ===================== -->
+<div class="slide" id="slide-1">
+  <div class="slide-header">
+    <div>
+      <div class="title">🗺️ ระบบแผนปฏิบัติการ</div>
+      <div class="subtitle">สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์ (สกต.สุรินทร์)</div>
+    </div>
+    <div class="slide-number">•</div>
+  </div>
+
+  <div class="cover-body">
+    <div class="cover-icon">🗺️</div>
+    <div class="cover-org">สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์</div>
+    <div class="cover-title">ระบบ<span>แผนปฏิบัติการ</span><br/>รายปี</div>
+    <div class="cover-desc">
+      ระบบบริหารแผนทางการเงินประจำปีขององค์กร ครอบคลุมแผนยอดขาย ค่าใช้จ่าย
+      และต้นทุนสินค้า รองรับการทำงานแบบรายสาขาและรายเดือน
+    </div>
+    <div class="cover-cards">
+      <div class="cover-card">
+        <div class="num">3</div>
+        <div class="lbl">ประเภทแผน</div>
+      </div>
+      <div class="cover-card">
+        <div class="num">20+</div>
+        <div class="lbl">ตารางข้อมูล</div>
+      </div>
+      <div class="cover-card">
+        <div class="num">12</div>
+        <div class="lbl">เดือนต่อปี</div>
+      </div>
+      <div class="cover-card">
+        <div class="num">7</div>
+        <div class="lbl">ประเภทธุรกิจ</div>
+      </div>
+    </div>
+    <div class="cover-date">มีนาคม 2569</div>
+  </div>
+
+  <div class="slide-footer">
+    <span>ระบบ SKT — สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์</span>
+    <span>Slide 1 / 11</span>
+  </div>
+</div>
+
+<!-- ===================== SLIDE 2: เมนูหลัก ===================== -->
+<div class="slide">
+  <div class="slide-header">
+    <div>
+      <div class="title">ภาพรวมระบบ — หน้าเมนูหลัก</div>
+      <div class="subtitle">จุดเริ่มต้นการเข้าใช้งานระบบแผนปฏิบัติการ</div>
+    </div>
+    <div class="slide-number">1</div>
+  </div>
+
+  <div class="slide-body">
+    <div class="img-wrap" style="flex:2;">
+      <img src="preview.webp" alt="เมนูหลัก รายงาน & แผน" />
+    </div>
+    <div class="desc-panel">
+      <div class="badge">📋 เมนูหลัก</div>
+      <div class="divider"></div>
+      <div class="desc-title">หมวด "รายงาน & แผน"</div>
+      <div class="desc-text">ผู้ใช้เข้าถึงระบบแผนได้จากหน้าแดชบอร์ดหลัก โดยมี 3 ทางเลือก:</div>
+      <ul class="feature-list">
+        <li><strong>รายงาน</strong> — ดูรายงานสรุปผลการดำเนินงาน</li>
+        <li><strong>แผนปฏิบัติงานรายปี</strong> — กรอกและจัดการแผนทางการเงิน</li>
+        <li><strong>แก้ไขข้อมูลธุรกิจ</strong> — จัดการข้อมูลหลัก (Admin เท่านั้น)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>ระบบ SKT — สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์</span>
+    <span>Slide 2 / 11</span>
+  </div>
+</div>
+
+<!-- ===================== SLIDE 3: หน้าแผนปฏิบัติงาน ===================== -->
+<div class="slide">
+  <div class="slide-header">
+    <div>
+      <div class="title">หน้าแผนปฏิบัติงาน — Form Entry</div>
+      <div class="subtitle">ระบบนำทางแบบขั้นตอน: เลือกปี → สาขา → ประเภท → ตาราง</div>
+    </div>
+    <div class="slide-number">2</div>
+  </div>
+
+  <div class="slide-body">
+    <div class="img-wrap" style="flex:2.2;">
+      <img src="preview (1).webp" alt="หน้าแผนปฏิบัติงาน" />
+    </div>
+    <div class="desc-panel wide">
+      <div class="badge">📝 Form Entry</div>
+      <div class="divider"></div>
+      <div class="desc-title">ขั้นตอนการกรอกแผน</div>
+      <div class="step-flow">
+        <div class="step-box">ปี (พ.ศ.)</div>
+        <div class="step-arrow">→</div>
+        <div class="step-box">สาขา</div>
+        <div class="step-arrow">→</div>
+        <div class="step-box">ประเภท</div>
+        <div class="step-arrow">→</div>
+        <div class="step-box">ตาราง</div>
+      </div>
+      <div class="desc-text" style="margin-top:8px;">ระบบจะแสดงตารางกรอกข้อมูลเมื่อเลือกครบทุกขั้นตอน พร้อมแสดงสถานะ plan_id ที่กำลังทำงานอยู่</div>
+      <ul class="feature-list">
+        <li>รองรับปี พ.ศ. 2569–2579</li>
+        <li>ปุ่ม "รีเซ็ต" เพื่อล้างการเลือกทั้งหมด</li>
+        <li>แสดง MODE: Form Entry บอกสถานะ</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>ระบบ SKT — สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์</span>
+    <span>Slide 3 / 11</span>
+  </div>
+</div>
+
+<!-- ===================== SLIDE 4: 3 ประเภทแผน ===================== -->
+<div class="slide">
+  <div class="slide-header">
+    <div>
+      <div class="title">3 ประเภทแผนทางการเงิน</div>
+      <div class="subtitle">ยอดขาย / ค่าใช้จ่าย / ต้นทุนสินค้า</div>
+    </div>
+    <div class="slide-number">3</div>
+  </div>
+
+  <div class="slide-body">
+    <div class="img-wrap" style="flex:2.2;">
+      <img src="preview (2).webp" alt="3 ประเภทแผน" />
+    </div>
+    <div class="desc-panel wide">
+      <div class="badge">🗂️ ประเภทแผน</div>
+      <div class="divider"></div>
+      <div class="desc-title">แผนแบ่งออกเป็น 3 หมวดหลัก</div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:6px;">
+        <div style="background:#EEF2FF; border-radius:10px; padding:12px 14px; border-left:4px solid #4F46E5;">
+          <div style="font-weight:700; font-size:13px; color:#3730A3;">💰 ยอดขาย</div>
+          <div style="font-size:12px; color:#4338CA; margin-top:3px;">ตารางฝั่งรายได้/ยอดขาย</div>
+        </div>
+        <div style="background:#FFF7ED; border-radius:10px; padding:12px 14px; border-left:4px solid #F97316;">
+          <div style="font-weight:700; font-size:13px; color:#9A3412;">📊 ค่าใช้จ่าย</div>
+          <div style="font-size:12px; color:#C2410C; margin-top:3px;">ตารางฝั่งต้นทุน/ค่าใช้จ่าย</div>
+        </div>
+        <div style="background:#F0FDF4; border-radius:10px; padding:12px 14px; border-left:4px solid #22C55E;">
+          <div style="font-weight:700; font-size:13px; color:#14532D;">🏷️ ต้นทุนสินค้า</div>
+          <div style="font-size:12px; color:#15803D; margin-top:3px;">ตารางฝั่งต้นทุนสินค้า — รวมทุกสาขา</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>ระบบ SKT — สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์</span>
+    <span>Slide 4 / 11</span>
+  </div>
+</div>
+
+<!-- ===================== SLIDE 5: ตารางยอดขาย (เลือก) ===================== -->
+<div class="slide">
+  <div class="slide-header">
+    <div>
+      <div class="title">แผนยอดขาย — ตารางที่มีในระบบ</div>
+      <div class="subtitle">7 ตารางแยกตามประเภทธุรกิจ</div>
+    </div>
+    <div class="slide-number">4</div>
+  </div>
+
+  <div class="slide-body">
+    <div class="img-wrap" style="flex:2.2;">
+      <img src="preview (3).webp" alt="เลือกตารางยอดขาย" />
+    </div>
+    <div class="desc-panel wide">
+      <div class="badge">💰 ยอดขาย</div>
+      <div class="divider"></div>
+      <div class="desc-title">ตารางยอดขาย 7 ประเภท</div>
+      <table class="summary-table" style="font-size:11.5px; margin-top:4px;">
+        <tr>
+          <th style="padding:6px 10px;">ชื่อตาราง</th>
+        </tr>
+        <tr><td style="padding:6px 10px;">รายละเอียดแผนการจัดหาสินค้า</td></tr>
+        <tr><td style="padding:6px 10px;">รายละเอียดแผนการรวบรวมผลผลิตการเกษตร</td></tr>
+        <tr><td style="padding:6px 10px;">รายละเอียดแผนการแปรรูปผลผลิตการเกษตร</td></tr>
+        <tr><td style="padding:6px 10px;">รายละเอียดแผนโครงการผลิตเมล็ดพันธุ์ (ยอดขาย)</td></tr>
+        <tr><td style="padding:6px 10px;">รายละเอียดแผนธุรกิจบริการ</td></tr>
+        <tr><td style="padding:6px 10px;">สรุปรายได้ตามธุรกิจ</td></tr>
+        <tr><td style="padding:6px 10px;">รายได้อื่นๆ</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>ระบบ SKT — สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์</span>
+    <span>Slide 5 / 11</span>
+  </div>
+</div>
+
+<!-- ===================== SLIDE 6: ตารางยอดขาย (ข้อมูล) ===================== -->
+<div class="slide">
+  <div class="slide-header">
+    <div>
+      <div class="title">ตารางกรอกข้อมูลยอดขาย</div>
+      <div class="subtitle">ตัวอย่าง: ยอดขายธุรกิจจัดหา — กรอกรายเดือน แยกตามสาขา</div>
+    </div>
+    <div class="slide-number">5</div>
+  </div>
+
+  <div class="slide-body">
+    <div class="img-wrap" style="flex:2.8;">
+      <img src="preview (4).webp" alt="ตารางยอดขาย" />
+    </div>
+    <div class="desc-panel">
+      <div class="badge">📅 รายเดือน</div>
+      <div class="divider"></div>
+      <div class="desc-title">ฟีเจอร์ตารางยอดขาย</div>
+      <ul class="feature-list">
+        <li>กรอกจำนวนและราคาต่อหน่วยสินค้าแต่ละประเภท</li>
+        <li>แยกคอลัมน์ตามสาขา 12 เดือน</li>
+        <li>คำนวณยอดรวมอัตโนมัติ (แถว "รวม")</li>
+        <li>ปุ่ม "บันทึก" ส่งข้อมูลทันที</li>
+      </ul>
+      <div style="margin-top:6px;">
+        <div style="font-size:12px; font-weight:600; color:#374151; margin-bottom:6px;">ประเภทสินค้าที่รองรับ:</div>
+        <span class="chip">ปุ๋ย</span>
+        <span class="chip">เมล็ดพันธุ์</span>
+        <span class="chip">เคมีเกษตร</span>
+        <span class="chip">จักรกลเกษตร</span>
+        <span class="chip">น้ำมันเชื้อเพลิง</span>
+        <span class="chip">อาหารสัตว์</span>
+        <span class="chip">ผลไม้</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>ระบบ SKT — สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์</span>
+    <span>Slide 6 / 11</span>
+  </div>
+</div>
+
+<!-- ===================== SLIDE 7: ตารางค่าใช้จ่าย (เลือก) ===================== -->
+<div class="slide">
+  <div class="slide-header">
+    <div>
+      <div class="title">แผนค่าใช้จ่าย — ตารางที่มีในระบบ</div>
+      <div class="subtitle">8 ตารางแยกตามประเภทธุรกิจ</div>
+    </div>
+    <div class="slide-number">6</div>
+  </div>
+
+  <div class="slide-body">
+    <div class="img-wrap" style="flex:2.2;">
+      <img src="preview (5).webp" alt="เลือกตารางค่าใช้จ่าย" />
+    </div>
+    <div class="desc-panel wide">
+      <div class="badge">📊 ค่าใช้จ่าย</div>
+      <div class="divider"></div>
+      <div class="desc-title">ตารางค่าใช้จ่าย 8 ประเภทธุรกิจ</div>
+      <table class="summary-table" style="font-size:11.5px; margin-top:4px;">
+        <tr><th style="padding:6px 10px;">ชื่อตาราง</th></tr>
+        <tr><td style="padding:6px 10px;">ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า</td></tr>
+        <tr><td style="padding:6px 10px;">ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า ปั๊มน้ำมัน</td></tr>
+        <tr><td style="padding:6px 10px;">ค่าใช้จ่ายเฉพาะ ธุรกิจรวบรวม</td></tr>
+        <tr><td style="padding:6px 10px;">ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูป</td></tr>
+        <tr><td style="padding:6px 10px;">ค่าใช้จ่ายเฉพาะ ธุรกิจแปรรูปเมล็ดพันธุ์</td></tr>
+        <tr><td style="padding:6px 10px;">ค่าใช้จ่ายเฉพาะ ธุรกิจบริการ</td></tr>
+        <tr><td style="padding:6px 10px;">ค่าใช้จ่าย งานสนับสนุน</td></tr>
+        <tr><td style="padding:6px 10px;">สรุปค่าใช้จ่ายตามธุรกิจ</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>ระบบ SKT — สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์</span>
+    <span>Slide 7 / 11</span>
+  </div>
+</div>
+
+<!-- ===================== SLIDE 8: ตารางค่าใช้จ่าย รายสาขา ===================== -->
+<div class="slide">
+  <div class="slide-header">
+    <div>
+      <div class="title">ตารางค่าใช้จ่าย — รายสาขา (มุมมองรายปี)</div>
+      <div class="subtitle">ตัวอย่าง: ค่าใช้จ่ายเฉพาะ ธุรกิจจัดหาสินค้า แยกตามสาขา</div>
+    </div>
+    <div class="slide-number">7</div>
+  </div>
+
+  <div class="slide-body">
+    <div class="img-wrap" style="flex:2.8;">
+      <img src="preview (6).webp" alt="ตารางค่าใช้จ่ายรายสาขา" />
+    </div>
+    <div class="desc-panel">
+      <div class="badge">🏢 รายสาขา</div>
+      <div class="divider"></div>
+      <div class="desc-title">มุมมองรายปี แยกสาขา</div>
+      <ul class="feature-list">
+        <li>แสดงรายการค่าใช้จ่าย 14+ หมวด</li>
+        <li>คอลัมน์แยกตามสาขาย่อย 6 สาขา</li>
+        <li>คำนวณยอดรวมแต่ละหมวดและรวมทั้งสิ้น</li>
+        <li>บันทึกแบบ Bulk (ทีเดียวทั้งตาราง)</li>
+      </ul>
+      <div style="margin-top:6px;">
+        <div style="font-size:12px; font-weight:600; margin-bottom:5px;">หมวดค่าใช้จ่ายหลัก:</div>
+        <span class="chip blue">ค่าใช้จ่ายในการขาย</span>
+        <span class="chip blue">ค่าสถานที่</span>
+        <span class="chip blue">เงินเดือน-ค่าจ้าง</span>
+        <span class="chip blue">ค่าซ่อมบำรุง</span>
+        <span class="chip blue">ค่าน้ำมัน</span>
+        <span class="chip blue">ค่าธรรมเนียม</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>ระบบ SKT — สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์</span>
+    <span>Slide 8 / 11</span>
+  </div>
+</div>
+
+<!-- ===================== SLIDE 9: ตารางค่าใช้จ่าย รายเดือน ===================== -->
+<div class="slide">
+  <div class="slide-header">
+    <div>
+      <div class="title">ตารางค่าใช้จ่าย — รายเดือน (มุมมอง Breakdown)</div>
+      <div class="subtitle">Breakdown 12 เดือน แยกตามสาขา — ปีงบประมาณ เม.ย.–มี.ค.</div>
+    </div>
+    <div class="slide-number">8</div>
+  </div>
+
+  <div class="slide-body">
+    <div class="img-wrap" style="flex:2.8;">
+      <img src="preview (7).webp" alt="ตารางค่าใช้จ่ายรายเดือน" />
+    </div>
+    <div class="desc-panel">
+      <div class="badge">📅 รายเดือน</div>
+      <div class="divider"></div>
+      <div class="desc-title">มุมมองรายเดือน</div>
+      <ul class="feature-list">
+        <li>แสดง 12 เดือน × หลายสาขาต่อเดือน</li>
+        <li>Scroll ในแนวนอนสำหรับดูข้อมูลครบ</li>
+        <li>ปีงบประมาณไทย: เม.ย. – มี.ค.</li>
+        <li>ยอดรวมทุกสาขาทุกเดือนแบบ real-time</li>
+      </ul>
+      <div style="margin-top:8px; background:#F0FDF4; border-radius:8px; padding:10px 12px; border:1px solid #BBF7D0;">
+        <div style="font-size:11.5px; font-weight:600; color:#166534;">ปีงบประมาณ</div>
+        <div style="font-size:11px; color:#15803D; margin-top:3px; line-height:1.6;">
+          1 เม.ย. – 31 มี.ค. ของปีถัดไป<br/>
+          ตรงกับรูปแบบปีงบประมาณของสหกรณ์
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>ระบบ SKT — สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์</span>
+    <span>Slide 9 / 11</span>
+  </div>
+</div>
+
+<!-- ===================== SLIDE 10: ต้นทุนสินค้า ===================== -->
+<div class="slide">
+  <div class="slide-header">
+    <div>
+      <div class="title">แผนต้นทุนสินค้า — ภาพรวมและตารางที่มี</div>
+      <div class="subtitle">ไม่ต้องเลือกสาขา — รวมทุกสาขา มี 2 มุมมอง: รายปีและรายเดือน</div>
+    </div>
+    <div class="slide-number">9</div>
+  </div>
+
+  <div class="slide-body">
+    <div class="img-wrap" style="flex:2.2;">
+      <img src="preview (8).webp" alt="ต้นทุนสินค้า" />
+    </div>
+    <div class="desc-panel wide">
+      <div class="badge green">🏷️ ต้นทุนสินค้า</div>
+      <div class="divider"></div>
+      <div class="desc-title">จุดแตกต่างจากแผนอื่น</div>
+      <ul class="feature-list">
+        <li>ไม่ต้องเลือกสาขา — ใช้ข้อมูลรวมทุกสาขา</li>
+        <li>มี 2 ตาราง: รายปี และ รายเดือน</li>
+        <li>ข้อมูลอ้างอิงจากรายการสินค้า 19 รายการ</li>
+        <li>แสดงสถานะการโหลด: จำนวนรายการ, ยอดรวมต้นทุน</li>
+      </ul>
+      <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px;">
+        <div style="background:#EEF2FF; border-radius:8px; padding:10px 12px;">
+          <div style="font-size:12px; font-weight:700; color:#3730A3;">ประมาณการต้นทุนสินค้า (รายปี)</div>
+          <div style="font-size:11px; color:#4338CA; margin-top:2px;">กรอกต้นทุนซื้อและต้นทุนการขายต่อปี</div>
+        </div>
+        <div style="background:#EDE9FE; border-radius:8px; padding:10px 12px;">
+          <div style="font-size:12px; font-weight:700; color:#5B21B6;">ประมาณการต้นทุนสินค้า (รายเดือน)</div>
+          <div style="font-size:11px; color:#6D28D9; margin-top:2px;">Breakdown รายเดือนทั้ง 12 เดือน</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>ระบบ SKT — สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์</span>
+    <span>Slide 10 / 11</span>
+  </div>
+</div>
+
+<!-- ===================== SLIDE 11: ตารางต้นทุนสินค้า ===================== -->
+<div class="slide">
+  <div class="slide-header">
+    <div>
+      <div class="title">ตารางประมาณการต้นทุนสินค้า</div>
+      <div class="subtitle">กรอกต้นทุนซื้อ / ต้นทุนการขาย ต่อหน่วย แยกตามรายการสินค้า</div>
+    </div>
+    <div class="slide-number">10</div>
+  </div>
+
+  <div class="slide-body">
+    <div class="img-wrap" style="flex:2.8;">
+      <img src="preview (9).webp" alt="ตารางต้นทุนสินค้า" />
+    </div>
+    <div class="desc-panel">
+      <div class="badge purple">🏷️ ต้นทุน/หน่วย</div>
+      <div class="divider"></div>
+      <div class="desc-title">โครงสร้างตาราง</div>
+      <ul class="feature-list">
+        <li><strong>รหัส</strong> — ลำดับสินค้า</li>
+        <li><strong>รายการ</strong> — ชื่อสินค้า</li>
+        <li><strong>ต้นทุนซื้อ (บาท)</strong> — ราคาต้นทุนที่ซื้อมา</li>
+        <li><strong>ต้นทุนการขาย (บาท)</strong> — ราคาที่ตั้งขาย</li>
+        <li><strong>รวม</strong> — ยอดรวมต้นทุนทั้งหมด</li>
+      </ul>
+      <div style="margin-top:8px;">
+        <div style="font-size:12px; font-weight:600; margin-bottom:5px;">สินค้าที่รองรับ:</div>
+        <span class="chip purple">ข้าวเปลือก</span>
+        <span class="chip purple">มันสำปะหลัง</span>
+        <span class="chip purple">ข้าวโพด</span>
+        <span class="chip purple">ยางพารา</span>
+        <span class="chip purple">สมาชิก</span>
+        <span class="chip purple">ปุ๋ย</span>
+        <span class="chip purple">และอื่นๆ 13 รายการ</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span>ระบบ SKT — สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์</span>
+    <span>Slide 11 / 11</span>
+  </div>
+</div>
+
+<!-- ===================== PRINT BUTTON ===================== -->
+<button class="print-btn no-print" onclick="window.print()">🖨️ พิมพ์ / บันทึก PDF</button>
+
+</body>
+</html>

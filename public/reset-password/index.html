@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <script>
+    // Redirect /reset-password?token=xxx → /#/reset-password?token=xxx
+    // จำเป็นเพราะ HashRouter ต้องการ # และ Vite ใช้ relative base path (./)
+    var search = window.location.search || "";
+    window.location.replace(window.location.origin + "/#/reset-password" + search);
+  </script>
+</head>
+<body></body>
+</html>

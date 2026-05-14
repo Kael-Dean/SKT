@@ -1,0 +1,99 @@
+I want you to fully understand this frontend project before doing any work. Complete all 3 phases before proceeding with any task.
+
+
+## Phase 1: Read and Understand the Project
+
+
+Read these files in order:
+
+1. `CLAUDE.md` — Main project guide (architecture, rules, conventions)
+2. `package.json` — Dependencies and scripts
+3. `src/main.jsx` — Entry point and Router setup
+4. `src/App.jsx` — All routes and Role Guards
+5. `src/lib/api.js` — How to call the API
+6. `src/lib/auth.js` — Auth system and role management
+
+Then browse `src/pages/` and `src/components/` to get a full picture of the codebase.
+
+
+## Phase 2: Memorize the Critical Rules
+
+
+### What this project is
+A centralized HR and business management system for SKT Agricultural Cooperative, built under a working contract with the organization.
+- Frontend: React 19 + Vite 7 + Tailwind CSS v4 + React Router v7
+- Backend: Python FastAPI on Google Cloud Run (managed by backend partner)
+- Deploy: Frontend on Google Cloud Storage Bucket (static hosting)
+
+### Rules you must never break
+1. Never change HashRouter to BrowserRouter — static hosting does not support it
+2. No TypeScript — this project uses JSX only
+3. No Redux or Context without explicit permission — use React hooks only
+4. Dark mode must always work — test `dark:` prefix on every element with color
+5. Never commit `.env` to git
+
+### Role System (5 roles)
+- Role 1: ADMIN | Role 2: MNG | Role 3: HR | Role 4: HA | Role 5: MKT
+- Always check permissions via `getRoleId()` in `src/lib/auth.js` — never hardcode
+
+### API Pattern
+```js
+apiAuth(path, opts)      // Use for authenticated endpoints
+api(path, opts)          // Use for public endpoints
+apiDownload(path, opts)  // Use for file downloads
+```
+
+
+## Phase 3: Confirm Your Understanding
+
+
+After reading all the files, answer these 5 questions:
+
+1. What router type does this project use, and where is it deployed?
+2. How many Route Guards exist, and what roles does each one protect?
+3. Which function do you use to call an authenticated API endpoint?
+4. What Tailwind dark mode variant does this project use?
+5. If you need to add a new role-restricted page, which files do you need to update?
+
+If you can answer all 5 correctly, you are ready to work on this project.
+
+
+---
+
+## Working Patterns
+
+
+### Adding a new component
+- Always check existing components in `src/components/` and nearby pages first
+- Follow the Styling Conventions in `CLAUDE.md` — do not introduce conflicting styles
+- Every element with a background or text color must have a `dark:` variant
+
+### Adding a new route
+1. Add the route in `src/App.jsx`
+2. If role-restricted, wrap with an existing Guard or create a new one in the same file
+3. Update the menu in `src/components/Sidebar.jsx` (visibility is computed via `useMemo`)
+
+### Calling a new API endpoint
+1. Get the endpoint spec from the backend partner first
+2. Use functions from `src/lib/api.js` only — never use `fetch` directly
+3. Handle errors in FastAPI format: `{ detail: [{ msg: "..." }] }` or `{ detail: "string" }`
+
+### Debugging
+- Check for expired tokens first with `isTokenExpired()` from `src/lib/auth.js`
+- Check the Network tab for the exact API error response
+- Verify `getRoleId()` returns the correct value for the current user
+
+
+---
+
+## Quick Reference
+
+```
+npm run dev      → Start development server
+npm run build    → Production build → /dist
+npm run lint     → Run ESLint
+```
+
+**Backend URL:** https://um-repo-243977022740.asia-southeast1.run.app
+**Custom Domain:** https://api.amcsurin.com
+**Repo:** https://github.com/Kael-Dean/SKT

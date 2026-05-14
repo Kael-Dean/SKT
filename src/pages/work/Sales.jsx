@@ -1,0 +1,2710 @@
+// src/pages/Sales.jsx
+import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
+import { apiAuth, post } from "../../lib/api"
+import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+
+// ---------------- Utilities ----------------
+const onlyDigits = (s = "") => s.replace(/\D+/g, "")
+const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
+const toIntOrNull = (v) => {
+  if (v === null || v === undefined) return null
+  const s = String(v).trim()
+  return /^-?\d+$/.test(s) ? parseInt(s, 10) : null
+}
+const round2 = (n) => Math.round((isFinite(n) ? n : 0) * 100) / 100
+const thb = (n) =>
+  new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
+    isFinite(n) ? n : 0
+  )
+
+const formatMoneyInput = (val) => {
+  let s = String(val).replace(/[^0-9.]/g, "")
+  if (s === "") return ""
+  const parts = s.split(".")
+  const intRaw = parts[0] || "0"
+  const decRaw = parts[1] ?? null
+  const intClean = intRaw.replace(/^0+(?=\d)/, "")
+  const intWithCommas = intClean.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+  if (decRaw != null) {
+    const dec = decRaw.replace(/[^0-9]/g, "").slice(0, 2)
+    return dec.length > 0 ? `${intWithCommas}.${dec}` : intWithCommas
+  }
+  return intWithCommas
+}
+
+function useDebounce(value, delay = 400) {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return debounced
+}
+
+// ---------------- Styles ----------------
+
+// ---------------- Enter-to-next ----------------
+const isEnabledInput = (el) => {
+  if (!el) return false
+  if (typeof el.disabled !== "undefined" && el.disabled) return false
+  const style = window.getComputedStyle?.(el)
+  if (style && (style.display === "none" || style.visibility === "hidden")) return false
+  if (!el.offsetParent && el.type !== "hidden" && el.getAttribute("role") !== "combobox") return false
+  return true
+}
+const useEnterNavigation = (refs, buyerType, order) => {
+  const personOrder = ["citizenId", "memberId", "fullName", "houseNo", "moo", "subdistrict", "district", "province", "postalCode", "phone"]
+  const companyOrder = ["companyName", "taxId", "companyPhone", "hqHouseNo", "hqMoo", "hqSubdistrict", "hqDistrict", "hqProvince", "hqPostalCode", "brHouseNo", "brMoo", "brSubdistrict", "brDistrict", "brProvince", "brPostalCode"]
+  const orderOrder = [
+    "product", "riceType", "subrice", "condition", "fieldType", "riceYear", "businessType", "program",
+    "branchName", "klangName",
+    "payment",
+    "cashReceiptNo", "creditInvoiceNo", "deptAllowed", "deptPostpone", "deptPostponePeriod",
+    "comment", "issueDate"
+  ]
+  let list = (buyerType === "person" ? personOrder : companyOrder).concat(orderOrder)
+  list = list.filter((key) => {
+    const el = refs?.[key]?.current
+    if (!el) return false
+    if (key === "subrice" && !order.riceId) return false
+    if (key === "riceType" && !order.productId) return false
+    if (key === "klangName" && !order.branchId) return false
+    if (key === "cashReceiptNo" && !order.__isCash) return false
+    if (key === "creditInvoiceNo" && !order.__isCredit) return false
+    return isEnabledInput(el)
+  })
+  const focusNext = (currentKey) => {
+    const i = list.indexOf(currentKey)
+    const nextKey = i >= 0 && i < list.length - 1 ? list[i + 1] : null
+    if (!nextKey) return
+    const el = refs[nextKey]?.current
+    if (!el) return
+    try { el.scrollIntoView({ block: "center" }) } catch {}
+    el.focus?.()
+    try { if (el.select) el.select() } catch {}
+  }
+  const onEnter = (currentKey) => (e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      const isTextArea = e.currentTarget?.tagName?.toLowerCase() === "textarea"
+      if (isTextArea && e.shiftKey) return
+      e.preventDefault()
+      focusNext(currentKey)
+    }
+  }
+  return { onEnter, focusNext }
+}
+
+// ---------------- Reusable ComboBox ----------------
+function ComboBox({
+  options = [], value, onChange, placeholder = "— เลือก —",
+  getLabel = (o) => o?.label ?? "", getValue = (o) => o?.value ?? o?.id ?? "",
+  /** ⭐ รองรับ sub‑label ใต้ชื่อ */
+  getSubLabel = (o) => o?.subLabel ?? "",
+  disabled = false, error = false, buttonRef = null, hintRed = false,
+  clearHint = () => {}, onEnterNext
+}) {
+  const [open, setOpen] = useState(false)
+  const [highlight, setHighlight] = useState(-1)
+  const boxRef = useRef(null)
+  const listRef = useRef(null)
+  const internalBtnRef = useRef(null)
+  const controlRef = buttonRef || internalBtnRef
+
+  /** เลือกรายการปัจจุบัน (ทั้ง label + sublabel) */
+  const selectedObj = useMemo(
+    () => options.find((o) => String(getValue(o)) === String(value)),
+    [options, value, getValue]
+  )
+  const selectedLabel = selectedObj ? getLabel(selectedObj) : ""
+  const selectedSubLabel = selectedObj ? (getSubLabel(selectedObj) || "") : ""
+
+  useEffect(() => {
+    const onClick = (e) => {
+      if (!boxRef.current) return
+      if (!boxRef.current.contains(e.target)) {
+        setOpen(false); setHighlight(-1)
+      }
+    }
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [])
+
+  const commit = (opt) => {
+    const v = String(getValue(opt))
+    onChange?.(v, opt)
+    setOpen(false); setHighlight(-1); clearHint?.()
+    requestAnimationFrame(() => {
+      controlRef.current?.focus()
+      onEnterNext?.()
+    })
+  }
+
+  const scrollHighlightedIntoView = (index) => {
+    const listEl = listRef.current
+    const itemEl = listEl?.children?.[index]
+    if (!listEl || !itemEl) return
+    const itemRect = itemEl.getBoundingClientRect()
+    const listRect = listEl.getBoundingClientRect()
+    const buffer = 6
+    if (itemRect.top < listRect.top + buffer) {
+      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
+    } else if (itemRect.bottom > listRect.bottom - buffer) {
+      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
+    }
+  }
+
+  const onKeyDown = (e) => {
+    if (disabled) return
+    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+      e.preventDefault(); setOpen(true); setHighlight((h) => (h >= 0 ? h : 0)); clearHint?.(); return
+    }
+    if (!open) return
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setHighlight((h) => { const next = h < options.length - 1 ? h + 1 : 0; requestAnimationFrame(() => scrollHighlightedIntoView(next)); return next })
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setHighlight((h) => { const prev = h > 0 ? h - 1 : options.length - 1; requestAnimationFrame(() => scrollHighlightedIntoView(prev)); return prev })
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
+    } else if (e.key === "Escape") {
+      e.preventDefault(); setOpen(false); setHighlight(-1)
+    }
+  }
+
+  return (
+    <div className="relative" ref={boxRef}>
+      <button
+        type="button"
+        ref={controlRef}
+        disabled={disabled}
+        onClick={() => { if (!disabled) { setOpen((o) => !o); clearHint?.() } }}  
+        onKeyDown={onKeyDown}
+        onFocus={() => clearHint?.()}
+        className={cx(
+          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
+          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
+          error ? "border-red-400 ring-2 ring-red-300/70"
+                : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
+          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80",
+          hintRed && "ring-2 ring-red-300 animate-pulse"
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-invalid={error || hintRed ? true : undefined}
+      >
+        {selectedLabel ? (
+          <div className="flex flex-col">
+            <span>{selectedLabel}</span>
+            {selectedSubLabel && (
+              <span className="text-[13px] text-slate-600 dark:text-slate-300">{selectedSubLabel}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-slate-500 dark:text-white/70">{placeholder}</span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          ref={listRef}
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        >
+          {options.length === 0 && (
+            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
+          )}
+          {options.map((opt, idx) => {
+            const label = getLabel(opt)
+            const sub = getSubLabel(opt) || ""
+            const isActive = idx === highlight
+            const isChosen = String(getValue(opt)) === String(value)
+            return (
+              <button
+                key={String(getValue(opt)) || label || idx}
+                type="button"
+                role="option"
+                aria-selected={isChosen}
+                onMouseEnter={() => setHighlight(idx)}
+                onClick={() => commit(opt)}
+                className={cx(
+                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
+                  isActive ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                           : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                )}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
+                )}
+                <span className="flex-1">
+                  <div className="">{label}</div>
+                  {sub && <div className="text-sm text-slate-600 dark:text-slate-300">{sub}</div>}
+                </span>
+                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------- DateInput ----------------
+const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
+  const inputRef = useRef(null)
+  useImperativeHandle(ref, () => inputRef.current)
+  return (
+    <div className="relative">
+      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
+      <input
+        type="date"
+        ref={inputRef}
+        className={cx(baseField, "pr-12 cursor-pointer", error && "border-red-400 ring-2 ring-red-300/70", className)}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => {
+          const el = inputRef.current
+          if (!el) return
+          if (typeof el.showPicker === "function") el.showPicker()
+          else { el.focus(); el.click?.() }
+        }}
+        aria-label="เปิดตัวเลือกวันที่"
+        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
+        transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
+          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
+        </svg>
+      </button>
+    </div>
+  )
+})
+
+/* ==================== JWT Branch Lock (เหมือนหน้า Buy) ==================== */
+const getToken = () =>
+  localStorage.getItem("access_token") ||
+  localStorage.getItem("token") ||
+  sessionStorage.getItem("access_token") ||
+  sessionStorage.getItem("token") ||
+  ""
+
+const decodeJwtPayload = (token) => {
+  try {
+    const clean = String(token || "").replace(/^Bearer\s+/i, "")
+    const b64 = clean.split(".")[1]
+    if (!b64) return null
+    const json = atob(b64.replace(/-/g, "+").replace(/_/g, "/"))
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
+
+/** ================= Hard‑lock Branch helpers ================= */
+const deriveLockedBranch = (opts = []) => {
+  try {
+    const payload = decodeJwtPayload(getToken())
+    const branchId = payload?.branch ?? null
+    if (branchId == null) return null
+    return (opts || []).find((o) => String(o.id) === String(branchId)) || null
+  } catch (e) {
+    console.error("deriveLockedBranch failed:", e)
+    return null
+  }
+}
+
+// =====================================================================
+//                              Sales Page (ขาย: หลายพ่วง)
+// =====================================================================
+// (ไฟล์นี้แก้ให้ member_id เป็นสตริงเสมอเพื่อคงเลขศูนย์นำหน้า)
+function Sales() {
+  // ---------- state พื้นฐาน ----------
+  const [errors, setErrors] = useState({})
+  const [missingHints, setMissingHints] = useState({})
+  const [loadingCustomer, setLoadingCustomer] = useState(false)
+  const [customerFound, setCustomerFound] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  // 🔒 Kill‑switch auto-search + anti‑race (เหมือนหน้า Buy)
+  const [autoSearchEnabled, setAutoSearchEnabled] = useState(true)
+  const searchEpochRef = useRef(0)
+  const bumpSearchEpoch = () => { searchEpochRef.current += 1 }
+
+  // ⭐ จุดยึดบนสุด + ฟังก์ชันเลื่อนขึ้นบน (เหมือนหน้า Buy)
+  const pageTopRef = useRef(null)
+  const scrollToPageTop = () => {
+    try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch {}
+    const root = document.scrollingElement || document.documentElement || document.body
+    try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
+  }
+
+  // ค้นหาชื่อบุคคล
+  const [nameResults, setNameResults] = useState([])
+  const [showNameList, setShowNameList] = useState(false)
+  const nameBoxRef = useRef(null)
+  const nameInputRef = useRef(null)
+  const suppressNameSearchRef = useRef(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const listContainerRef = useRef(null)
+  const itemRefs = useRef([])
+
+  // 🔧 เพิ่มธงกันลูปสำหรับ citizenId และ memberId
+  const suppressCitizenSearchRef = useRef(false)
+  const suppressMemberSearchRef = useRef(false)
+
+  // ค้นหาบริษัท
+  const [companyResults, setCompanyResults] = useState([])
+  const [showCompanyList, setShowCompanyList] = useState(false)
+  const companyBoxRef = useRef(null)
+  const companyInputRef = useRef(null)
+  const companySuppressSearchRef = useRef(false)
+  const [companyHighlighted, setCompanyHighlighted] = useState(-1)
+  const companyItemRefs = useRef([])
+
+  // dropdown opts
+  const [productOptions, setProductOptions] = useState([])
+  const [riceOptions, setRiceOptions] = useState([])     // species
+  const [subriceOptions, setSubriceOptions] = useState([]) // variant
+  const [conditionOptions, setConditionOptions] = useState([])
+  const [fieldTypeOptions, setFieldTypeOptions] = useState([])
+  const [yearOptions, setYearOptions] = useState([])
+  const [programOptions, setProgramOptions] = useState([])
+  const [paymentOptions, setPaymentOptions] = useState([])
+  const [branchOptions, setBranchOptions] = useState([])
+  const [klangOptions, setKlangOptions] = useState([])
+  const [businessOptions, setBusinessOptions] = useState([])
+
+  // 🔒 ล็อกสาขาตาม JWT
+  const [lockedBranch, setLockedBranch] = useState(null)
+  const [branchLocked, setBranchLocked] = useState(false)
+
+  // ---------- ฟอร์มสำเร็จรูป (โหมดล็อกเหมือนหน้า Buy) ----------
+  const LOCK_SPEC = true // บังคับล็อกสเปกจากฟอร์ม
+  const [templateOptions, setTemplateOptions] = useState([]) // ไม่มีตัวเลือก “ฟอร์มปกติ”
+  const [formTemplate, setFormTemplate] = useState("")       // ต้องเลือกเสมอ
+  const [selectedTemplateLabel, setSelectedTemplateLabel] = useState("")
+
+  /** ⭐ เก็บ label ของ variant (ชั้นย่อย) สำหรับ template */
+  const [variantLookup, setVariantLookup] = useState({})
+  useEffect(() => {
+    const speciesIds = Array.from(
+      new Set(
+        (templateOptions || [])
+          .map((t) => t?.spec?.species_id)
+          .filter(Boolean)
+          .map(String)
+      )
+    )
+    if (speciesIds.length === 0) return
+    const loadAll = async () => {
+      try {
+        const list = await Promise.all(
+          speciesIds.map(async (sid) => {
+            const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)) || []
+            return arr.map((x) => ({
+              id: String(x.id ?? x.variant_id ?? x.value ?? ""),
+              label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
+            }))
+          })
+        )
+        const map = {}
+        list.flat().forEach(({ id, label }) => {
+          if (id && label) map[id] = label
+        })
+        setVariantLookup(map)
+      } catch (e) {
+        console.error("load variants for templates error:", e)
+      }
+    }
+    loadAll()
+  }, [templateOptions])
+
+  /** คืน sub‑label แสดงใต้ชื่อ template: “ชั้นย่อย …” */
+  const templateSubLabel = (opt) => {
+    const vid = String(opt?.spec?.variant_id ?? "")
+    const vLabel = vid ? (variantLookup[vid] || `#${vid}`) : ""
+    return vLabel ? `ชั้นย่อย: ${vLabel}` : ""
+  }
+
+  // ---------- ประเภทผู้ซื้อ ----------
+  const buyerTypeOptions = [
+    { id: "person", label: "บุคคลธรรมดา" },
+    { id: "company", label: "บริษัท / นิติบุคคล" },
+  ]
+  const [buyerType, setBuyerType] = useState("person")
+
+  // ---------- ฟอร์มลูกค้า ----------
+  const [customer, setCustomer] = useState({
+    citizenId: "",
+    memberId: "", // ⭐ เก็บเป็น string เสมอ
+    fullName: "",
+    houseNo: "", moo: "", subdistrict: "", district: "", province: "", postalCode: "", phone: "",
+    companyName: "", taxId: "", companyPhone: "",
+    hqHouseNo: "", hqMoo: "", hqSubdistrict: "", hqDistrict: "", hqProvince: "", hqPostalCode: "",
+    brHouseNo: "", brMoo: "", brSubdistrict: "", brDistrict: "", brProvince: "", brPostalCode: "",
+  })
+
+  // ---------- meta ของบุคคล/ลูกค้า ----------
+  const [memberMeta, setMemberMeta] = useState({ type: "unknown", assoId: null, memberId: "" }) // memberId เป็น string
+
+  // ---------- ฟอร์มออเดอร์ (ค่าใช้ร่วม) ----------
+  const [order, setOrder] = useState({
+    productId: "", productName: "",
+    riceId: "", riceType: "",
+    subriceId: "", subriceName: "",
+    conditionId: "", condition: "",
+    fieldTypeId: "", fieldType: "",
+    riceYearId: "", riceYear: "",
+    businessTypeId: "", businessType: "",
+    programId: "", programName: "",
+    branchName: "", branchId: null,
+    klangName: "", klangId: null,
+    issueDate: new Date().toISOString().slice(0, 10),
+    comment: "",
+    paymentMethod: "",    // label
+    paymentMethodId: "",  // id
+    cashReceiptNo: "",
+    creditInvoiceNo: "",
+    __isCash: false,
+    __isCredit: false,
+  })
+
+  // ฟอร์มเครดิต (ขายเชื่อ)
+  const [dept, setDept] = useState({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
+
+  // ---------- รถพ่วงหลายคัน ----------
+  const trailerCountOptions = Array.from({ length: 10 }, (_, i) => ({ id: String(i + 1), label: `${i + 1} คัน` }))
+  const [trailersCount, setTrailersCount] = useState(1)
+  const newTrailer = () => ({
+    licensePlateFront: "",
+    licensePlateBack: "",
+    scaleNoFront: "",
+    scaleNoBack: "",
+    frontWeightKg: "",
+    backWeightKg: "",
+    unitPriceFront: "",
+    unitPriceBack: "",
+    gramFront: "",
+    gramBack: "",
+  })
+  const [trailers, setTrailers] = useState([newTrailer()])
+  useEffect(() => {
+    setTrailers((prev) => {
+      if (trailersCount <= prev.length) return prev.slice(0, trailersCount)
+      const last = prev[prev.length - 1] || newTrailer()
+      const more = Array.from({ length: trailersCount - prev.length }, () => ({ ...last, ...newTrailer() } ))
+      return prev.concat(more)
+    })
+  }, [trailersCount])
+
+  const updateTrailer = (idx, key, value) => {
+    setTrailers((prev) => prev.map((t, i) => (i === idx ? { ...t, [key]: value } : t)))
+  }
+
+  // น้ำหนัก/ราคา/ยอดเงินของรถพ่วงที่กรอกไว้ (ไว้ใช้สรุปด้านล่าง)
+  const trailerSummary = useMemo(() => {
+    const rows = trailers.map((t, idx) => {
+      const w1 = toNumber(t.frontWeightKg)
+      const w2 = toNumber(t.backWeightKg)
+      const u1 = toNumber(t.unitPriceFront)
+      const u2 = toNumber(t.unitPriceBack)
+      const g1 = toNumber(t.gramFront)
+      const g2 = toNumber(t.gramBack)
+
+      const amount1 = round2(w1 * u1)
+      const amount2 = round2(w2 * u2)
+      const net = w1 + w2
+      const amount = amount1 + amount2
+      const priceNumerator = w1 * u1 + w2 * u2
+      const gramNumerator = w1 * g1 + w2 * g2
+      const weightedUnit = net > 0 ? round2(priceNumerator / net) : 0
+      const weightedGram = net > 0 ? Math.round(gramNumerator / net) : 0
+
+      return {
+        index: idx + 1,
+        net,
+        amount,
+        weightedUnit,
+        weightedGram,
+        priceNumerator,
+        gramNumerator,
+        front: { weight: w1, price: u1, amount: amount1, plate: (t.licensePlateFront || "").trim() },
+        back: { weight: w2, price: u2, amount: amount2, plate: (t.licensePlateBack || "").trim() },
+      }
+    })
+
+    const totals = rows.reduce(
+      (acc, r) => {
+        acc.frontWeight += r.front.weight
+        acc.backWeight += r.back.weight
+        acc.net += r.net
+        acc.amount += r.amount
+        acc.priceNumerator += r.priceNumerator
+        acc.gramNumerator += r.gramNumerator
+        return acc
+      },
+      { frontWeight: 0, backWeight: 0, net: 0, amount: 0, priceNumerator: 0, gramNumerator: 0 }
+    )
+
+    const weightedUnitAll = totals.net > 0 ? round2(totals.priceNumerator / totals.net) : 0
+    const weightedGramAll = totals.net > 0 ? Math.round(totals.gramNumerator / totals.net) : 0
+
+    const hasData = rows.some(
+      (r) =>
+        r.net > 0 ||
+        r.amount > 0 ||
+        r.front.price > 0 ||
+        r.back.price > 0 ||
+        r.front.plate ||
+        r.back.plate
+    )
+
+    return {
+      rows,
+      totals: {
+        ...totals,
+        weightedUnit: weightedUnitAll,
+        weightedGram: weightedGramAll,
+      },
+      hasData,
+    }
+  }, [trailers])
+
+  // ---------- Refs สำหรับนำทางด้วย Enter ----------
+  const refs = {
+    citizenId: useRef(null), memberId: useRef(null), fullName: useRef(null),
+    houseNo: useRef(null), moo: useRef(null), subdistrict: useRef(null), district: useRef(null),
+    province: useRef(null), postalCode: useRef(null), phone: useRef(null),
+
+    companyName: useRef(null), taxId: useRef(null), companyPhone: useRef(null),
+    hqHouseNo: useRef(null), hqMoo: useRef(null), hqSubdistrict: useRef(null), hqDistrict: useRef(null),
+    hqProvince: useRef(null), hqPostalCode: useRef(null), brHouseNo: useRef(null), brMoo: useRef(null),
+    brSubdistrict: useRef(null), brDistrict: useRef(null), brProvince: useRef(null), brPostalCode: useRef(null),
+
+    product: useRef(null), riceType: useRef(null), subrice: useRef(null),
+    condition: useRef(null), fieldType: useRef(null), riceYear: useRef(null), businessType: useRef(null),
+    program: useRef(null), payment: useRef(null),
+    branchName: useRef(null), klangName: useRef(null),
+
+    issueDate: useRef(null), comment: useRef(null),
+    buyerType: useRef(null),
+
+    cashReceiptNo: useRef(null),
+    creditInvoiceNo: useRef(null),
+
+    formTemplate: useRef(null),
+
+    deptAllowed: useRef(null),
+    deptPostpone: useRef(null),
+    deptPostponePeriod: useRef(null),
+
+    trailerCount: useRef(null),
+
+    submitBtn: useRef(null),
+  }
+  const submitLockRef = useRef(false)
+  const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
+
+  // ⭐⭐ Refs ของรถพ่วง (dynamic)
+  const trailerRefs = useRef([]) // [{key: ref}]
+  const getTRef = (i, key) => {
+    if (!trailerRefs.current[i]) trailerRefs.current[i] = {}
+    if (!trailerRefs.current[i][key]) trailerRefs.current[i][key] = { current: null }
+    return trailerRefs.current[i][key]
+  }
+  const trailerOrder = ["scaleNoFront","unitPriceFront","gramFront","licensePlateFront","frontWeightKg","amountFront","scaleNoBack","unitPriceBack","gramBack","licensePlateBack","backWeightKg","amountBack"]
+  const focusTrailerField = (i, key) => {
+    const el = getTRef(i, key)?.current
+    if (!el) return false
+    try { el.scrollIntoView({ block: "center" }) } catch {}
+    el.focus?.()
+    try { el.select?.() } catch {}
+    return true
+  }
+  const focusFirstOfTrailer = (i = 0) => focusTrailerField(i, "scaleNoFront")
+  const focusNextTrailer = (i, key) => {
+    const idx = trailerOrder.indexOf(key)
+    if (idx < 0) return false
+    if (idx < trailerOrder.length - 1) return focusTrailerField(i, trailerOrder[idx + 1])
+    if (i < trailers.length - 1) return focusFirstOfTrailer(i + 1)
+    const sb = refs.submitBtn?.current
+    if (sb) { try { sb.scrollIntoView({ block: "center" }) } catch {}; sb.focus?.(); return true }
+    return false
+  }
+  const onEnterTrailer = (i, key) => (e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault()
+      focusNextTrailer(i, key)
+    }
+  }
+
+  // ---------- Debounce ----------
+  const debouncedCitizenId = useDebounce(customer.citizenId)
+  const debouncedMemberId  = useDebounce(customer.memberId)
+  const debouncedFullName  = useDebounce(customer.fullName)
+  const debouncedCompanyName = useDebounce(customer.companyName)
+  const debouncedTaxId = useDebounce(customer.taxId)
+
+  // ---------- helpers ----------
+  const fetchFirstOkJson = async (paths = []) => {
+    for (const p of paths) {
+      try {
+        const data = await apiAuth(p)
+        if (Array.isArray(data)) return data
+        if (data && typeof data === "object") return data
+      } catch (_) {}
+    }
+    return Array.isArray(paths) ? [] : {}
+  }
+  const clearError = (key) =>
+    setErrors((prev) => {
+      if (!(key in prev)) return prev
+      const { [key]: _omit, ...rest } = prev
+      return rest
+    })
+  const hasRed = (key) => !!errors[key] || !!missingHints[key]
+  const redFieldCls = (key) => (hasRed(key) ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : "")
+  const redHintCls = (key) => (missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : "")
+  const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
+
+  // ---------- โหลด dropdown เริ่มต้น ----------
+  useEffect(() => {
+    const loadStaticDD = async () => {
+      try {
+        const [products, conditions, fields, years, programs, payments, branches, businesses] =
+          await Promise.all([
+            fetchFirstOkJson(["/order/product/search"]),
+            fetchFirstOkJson(["/order/condition/search"]),
+            fetchFirstOkJson(["/order/field/search"]),
+            fetchFirstOkJson(["/order/year/search"]),
+            fetchFirstOkJson(["/order/program/search"]),
+            fetchFirstOkJson(["/order/payment/search/sell"]),
+            fetchFirstOkJson(["/order/branch/search"]),
+            fetchFirstOkJson(["/order/business/search"]),
+          ])
+
+        setProductOptions((products || []).map((x) => ({ id: String(x.id), label: String(x.product_type || "").trim() })))
+        setConditionOptions((conditions || []).map((x, i) => ({ id: String(x.id ?? i), label: String(x.condition ?? "").trim() })))
+        setFieldTypeOptions((fields || []).map((x, i) => ({ id: String(x.id ?? i), label: String(x.field_type ?? x.field ?? "").trim() })))
+        setYearOptions((years || []).map((x, i) => ({ id: String(x.id ?? i), label: String(x.year ?? "").trim() })))
+        setProgramOptions((programs || []).map((x, i) => ({ id: String(x.id ?? i), label: String(x.program ?? "").trim() })))
+        setPaymentOptions((payments || []).map((x, i) => ({ id: String(x.id ?? i), label: String(x.payment ?? "").trim() })))
+        setBranchOptions((branches || []).map((b) => ({ id: b.id, label: b.branch_name })))
+        setBusinessOptions((businesses || []).map((x, i) => ({ id: String(x.id ?? i), label: String(x.business ?? "").trim() })))
+      } catch (e) {
+        console.error(e)
+        setProductOptions([]); setConditionOptions([]); setFieldTypeOptions([]); setYearOptions([])
+        setProgramOptions([]); setPaymentOptions([]); setBranchOptions([]); setBusinessOptions([])
+      }
+    }
+    loadStaticDD()
+  }, [])
+
+  // ---------- species/variant ----------
+  useEffect(() => {
+    const pid = order.productId
+    if (!pid) {
+      setRiceOptions([]); setOrder((p) => ({ ...p, riceId: "", riceType: "", subriceId: "", subriceName: "" }))
+      return
+    }
+    const loadSpecies = async () => {
+      try {
+        const arr = (await apiAuth(`/order/species/search?product_id=${encodeURIComponent(pid)}`)) || []
+        const mapped = arr.map((x) => ({ id: String(x.id), label: String(x.species ?? "").trim() }))
+        setRiceOptions(mapped)
+      } catch (e) { console.error(e); setRiceOptions([]) }
+    }
+    loadSpecies()
+  }, [order.productId])
+
+  useEffect(() => {
+    const rid = order.riceId
+    if (!rid) {
+      setSubriceOptions([]); setOrder((p) => ({ ...p, subriceId: "", subriceName: "" }))
+      return
+    }
+    const loadVariant = async () => {
+      try {
+        const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(rid)}`)) || []
+        const mapped = arr.map((x) => ({ id: String(x.id), label: String(x.variant ?? "").trim() }))
+        setSubriceOptions(mapped)
+      } catch (e) { console.error(e); setSubriceOptions([]) }
+    }
+    loadVariant()
+  }, [order.riceId])
+
+  // ---------- โหลดคลังตามสาขา ----------
+  useEffect(() => {
+    const bId = order.branchId
+    const bName = order.branchName?.trim()
+    if (bId == null && !bName) {
+      setKlangOptions([]); setOrder((p) => ({ ...p, klangName: "", klangId: null }))
+      return
+    }
+    const loadKlang = async () => {
+      try {
+        const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
+        const data = await apiAuth(`/order/klang/search?${qs}`)
+        setKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
+      } catch (e) { console.error(e); setKlangOptions([]) }
+    }
+    loadKlang()
+  }, [order.branchId, order.branchName])
+
+  // ---------- โหลดรายการฟอร์มสำเร็จรูปจาก BE (ล็อกสเปก) ----------
+  useEffect(() => {
+    const loadForms = async () => {
+      try {
+        const arr = (await apiAuth("/order/form/search")) || []
+        const mapped = arr
+          .map((x) => ({
+            id: String(x.id ?? x.value ?? ""),
+            label: String(x.prod_name ?? x.name ?? x.label ?? "").trim(),
+            spec: {
+              product_id: x.product_id ?? null,
+              species_id: x.species_id ?? null,
+              variant_id: x.variant_id ?? null,
+              product_year: x.product_year ?? null,
+              condition_id: x.condition_id ?? null,
+              field_type: x.field_type ?? null,
+              program: x.program ?? null,
+              business_type: x.business_type ?? null,
+            },
+          }))
+          .filter((o) => o.id && o.label)
+        setTemplateOptions(mapped)
+
+        // ตั้งค่า template เริ่มต้น: ใช้อันที่แชร์/ที่เคยเลือก หรืออันแรก
+        let nextId = ""
+        try {
+          const shared = localStorage.getItem("shared.formTemplate")
+          if (shared) {
+            const o = JSON.parse(shared)
+            if (o?.id && mapped.some(m => String(m.id) === String(o.id))) nextId = String(o.id)
+          }
+          if (!nextId) {
+            const saved = localStorage.getItem("sales.formTemplate")
+            if (saved && mapped.some(m => String(m.id) === String(saved))) nextId = String(saved)
+          }
+        } catch {}
+        if (!nextId) nextId = String(mapped[0]?.id || "")
+        if (nextId) {
+          setFormTemplate(nextId)
+          const found = mapped.find((o) => String(o.id) === nextId)
+          setSelectedTemplateLabel(found?.label || "")
+          if (found?.spec) applyTemplateBySpec(found.spec)
+          try {
+            localStorage.setItem("shared.formTemplate", JSON.stringify({ id: nextId, label: found?.label || "" }))
+            localStorage.setItem("sales.formTemplate", nextId)
+          } catch {}
+        }
+      } catch (e) {
+        console.error("load form templates error:", e)
+        setTemplateOptions([])
+      }
+    }
+    loadForms()
+  }, [])
+
+  // ---------- Template mapping (อิง spec จาก BE) ----------
+  const findLabelById = (opts = [], id) => {
+    const s = String(id ?? "")
+    if (!s) return ""
+    const f = opts.find((o) => String(o.id) === s)
+    return f ? String(f.label ?? "") : ""
+  }
+
+  const applyTemplateBySpec = (spec) => {
+    if (!spec) return
+    const S = (v) => (v == null ? "" : String(v))
+    setOrder((p) => ({
+      ...p,
+      productId: S(spec.product_id),
+      riceId: S(spec.species_id),
+      subriceId: S(spec.variant_id),
+      riceYearId: S(spec.product_year),
+      conditionId: S(spec.condition_id),
+      fieldTypeId: S(spec.field_type),
+      programId: S(spec.program),
+      businessTypeId: S(spec.business_type),
+
+      productName: "",
+      riceType: "",
+      subriceName: "",
+      riceYear: "",
+      condition: "",
+      fieldType: "",
+      programName: "",
+      businessType: "",
+    }))
+  }
+
+  // Sync id -> label เมื่อ options โหลดเสร็จ
+  useEffect(() => {
+    const lbl = findLabelById(productOptions, order.productId)
+    if (order.productId && lbl && lbl !== order.productName) {
+      setOrder((p) => ({ ...p, productName: lbl }))
+    }
+  }, [order.productId, productOptions])
+  useEffect(() => {
+    const lbl = findLabelById(riceOptions, order.riceId)
+    if (order.riceId && lbl && lbl !== order.riceType) {
+      setOrder((p) => ({ ...p, riceType: lbl }))
+    }
+  }, [order.riceId, riceOptions])
+  useEffect(() => {
+    const lbl = findLabelById(subriceOptions, order.subriceId)
+    if (order.subriceId && lbl && lbl !== order.subriceName) {
+      setOrder((p) => ({ ...p, subriceName: lbl }))
+    }
+  }, [order.subriceId, subriceOptions])
+  useEffect(() => {
+    const lbl = findLabelById(conditionOptions, order.conditionId)
+    if (order.conditionId && lbl && lbl !== order.condition) {
+      setOrder((p) => ({ ...p, condition: lbl }))
+    }
+  }, [order.conditionId, conditionOptions])
+  useEffect(() => {
+    const lbl = findLabelById(fieldTypeOptions, order.fieldTypeId)
+    if (order.fieldTypeId && lbl && lbl !== order.fieldType) {
+      setOrder((p) => ({ ...p, fieldType: lbl }))
+    }
+  }, [order.fieldTypeId, fieldTypeOptions])
+  useEffect(() => {
+    const lbl = findLabelById(yearOptions, order.riceYearId)
+    if (order.riceYearId && lbl && lbl !== order.riceYear) {
+      setOrder((p) => ({ ...p, riceYear: lbl }))
+    }
+  }, [order.riceYearId, yearOptions])
+  useEffect(() => {
+    const lbl = findLabelById(programOptions, order.programId)
+    if (order.programId && lbl && lbl !== order.programName) {
+      setOrder((p) => ({ ...p, programName: lbl }))
+    }
+  }, [order.programId, programOptions])
+  useEffect(() => {
+    const lbl = findLabelById(businessOptions, order.businessTypeId)
+    if (order.businessTypeId && lbl && lbl !== order.businessType) {
+      setOrder((p) => ({ ...p, businessType: lbl }))
+    }
+  }, [order.businessTypeId, businessOptions])
+
+  // ---------- แชร์ template id ปัจจุบัน ----------
+  useEffect(() => {
+    try { if (formTemplate) localStorage.setItem("sales.formTemplate", String(formTemplate)) } catch {}
+  }, [formTemplate])
+
+  // ---------- แผงค้นหาบุคคล/บริษัท ----------
+  const mapSimplePersonToUI = (r = {}) => {
+    const S = (v) => (v == null ? "" : String(v))
+    return {
+      citizenId: S(r.citizen_id ?? r.citizenId ?? ""),
+      firstName: S(r.first_name ?? r.firstName ?? ""),
+      lastName:  S(r.last_name ?? r.lastName ?? ""),
+      fullName: `${S(r.first_name ?? r.firstName ?? "")} ${S(r.last_name ?? r.lastName ?? "")}`.trim(),
+      assoId: r.asso_id ?? r.assoId ?? null,
+      type: r.type ?? "unknown",
+      address: S(r.address ?? r.house_no ?? r.houseNo ?? ""),
+      mhoo: S(r.mhoo ?? r.moo ?? ""),
+      subdistrict: S(r.sub_district ?? r.subdistrict ?? r.subDistrict ?? ""),
+      district: S(r.district ?? ""),
+      province: S(r.province ?? ""),
+      postalCode: onlyDigits(S(r.postal_code ?? r.postalCode ?? "")),
+      phone: S(r.phone ?? r.tel ?? r.mobile ?? ""),
+      // ⭐ member_id เก็บเป็น string เลขล้วนเพื่อคง 0 ด้านหน้า
+      memberId: r.member_id != null ? onlyDigits(String(r.member_id)) : "",
+    }
+  }
+  const fillFromRecord = async (raw = {}) => {
+    const data = mapSimplePersonToUI(raw)
+    setCustomer((prev) => ({
+      ...prev,
+      citizenId: onlyDigits(data.citizenId || prev.citizenId),
+      fullName: data.fullName || prev.fullName,
+      phone: data.phone || prev.phone,
+      memberId: String(data.memberId || "") || prev.memberId,
+    }))
+    setMemberMeta({ type: data.type, assoId: data.assoId, memberId: data.memberId })
+    setCustomerFound(true)
+  }
+
+  // 🔎 member_id (ค้นหาแบบเก็บศูนย์นำหน้าได้)
+  useEffect(() => {
+    if (!autoSearchEnabled) { setCustomerFound(null); return }
+    if (buyerType !== "person") { setCustomerFound(null); return }
+    // ถ้าเป็นอัปเดตที่มาจากการเลือกชื่อ ให้ข้าม
+    if (suppressMemberSearchRef.current) {
+      suppressMemberSearchRef.current = false
+      return
+    }
+    const midStr = onlyDigits(String(debouncedMemberId || ""))
+    if (!midStr) return
+    const __epoch = searchEpochRef.current
+    const fetchByMemberId = async () => {
+      try {
+        setLoadingCustomer(true)
+        const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(String(midStr))}`)) || []
+        if (__epoch !== searchEpochRef.current) return
+        const exact = arr.find((r) => r.type === "member" && onlyDigits(String(r.member_id || "")) === midStr) || arr[0]
+        if (exact) {
+          // กันลูป: ไม่ให้ไปกระตุ้นชื่อ/บัตร ประชาชนอีก
+          suppressNameSearchRef.current = true
+          suppressCitizenSearchRef.current = true
+          await fillFromRecord(exact)
+        } else { if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" }) }
+      } catch (e) {
+        console.error(e); if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" })
+      } finally { if (__epoch === searchEpochRef.current) setLoadingCustomer(false) }
+    }
+    fetchByMemberId()
+  }, [debouncedMemberId, buyerType, autoSearchEnabled])
+
+  // 🔎 citizen_id
+  useEffect(() => {
+    if (!autoSearchEnabled) { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: "" }); return }
+    if (buyerType !== "person") { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: "" }); return }
+    // ถ้าเป็นอัปเดตที่มาจากการเลือกชื่อ ให้ข้าม
+    if (suppressCitizenSearchRef.current) {
+      suppressCitizenSearchRef.current = false
+      return
+    }
+    const cid = onlyDigits(debouncedCitizenId)
+    if (cid.length !== 13) { setCustomerFound(null); return }
+    const __epoch = searchEpochRef.current
+    const fetchByCid = async () => {
+      try {
+        setLoadingCustomer(true)
+        const arr = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(cid)}`)) || []
+        if (__epoch !== searchEpochRef.current) return
+        const exact = arr.find((r) => onlyDigits(r.citizen_id || r.citizenId || "") === cid) || arr[0]
+        if (exact) {
+          // กันลูป: ไม่ให้ไปกระตุ้นชื่อ/member_id อีก
+          suppressNameSearchRef.current = true
+          suppressMemberSearchRef.current = true
+          await fillFromRecord(exact)
+        }
+        else { if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" }) }
+      } catch (e) {
+        console.error(e); if (__epoch !== searchEpochRef.current) return; setCustomerFound(false); setMemberMeta({ type: "customer", assoId: null, memberId: "" })
+      } finally { if (__epoch === searchEpochRef.current) setLoadingCustomer(false) }
+    }
+    fetchByCid()
+  }, [debouncedCitizenId, buyerType, autoSearchEnabled])
+
+  // 🔎 ค้นหาด้วยชื่อ
+  useEffect(() => {
+    if (!autoSearchEnabled) { setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); return }
+    if (buyerType !== "person") {
+      setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); setMemberMeta({ type: "unknown", assoId: null, memberId: "" })
+      return
+    }
+    const q = (debouncedFullName || "").trim()
+    if (suppressNameSearchRef.current) {
+      suppressNameSearchRef.current = false; setShowNameList(false); setNameResults([]); setHighlightedIndex(-1); return
+    }
+    if (q.length < 2) { setNameResults([]); setShowNameList(false); setHighlightedIndex(-1); return }
+    const __epoch = searchEpochRef.current
+    const searchByName = async () => {
+      try {
+        setLoadingCustomer(true)
+        const items = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(q)}`)) || []
+        if (__epoch !== searchEpochRef.current) return
+        const mapped = items.map((r) => ({
+          ...r,
+          asso_id: r.asso_id, member_id: r.member_id,
+          citizen_id: r.citizen_id, first_name: r.first_name, last_name: r.last_name,
+        }))
+        setNameResults(mapped)
+        if (document.activeElement === nameInputRef.current) {
+          if (__epoch !== searchEpochRef.current) return
+          setShowNameList(true); setHighlightedIndex(mapped.length > 0 ? 0 : -1)
+        }
+      } catch (e) {
+        console.error(e); setNameResults([]); setShowNameList(false); setHighlightedIndex(-1)
+      } finally { if (__epoch === searchEpochRef.current) setLoadingCustomer(false) }
+    }
+    searchByName()
+  }, [debouncedFullName, buyerType, autoSearchEnabled])
+
+  useEffect(() => {
+    const onClick = (e) => {
+      if (!nameBoxRef.current) return
+      if (!nameBoxRef.current.contains(e.target)) { setShowNameList(false); setHighlightedIndex(-1) }
+    }
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [])
+  const scrollHighlightedIntoView2 = (index) => {
+    const itemEl = itemRefs.current[index]
+    const listEl = listContainerRef.current
+    if (!itemEl || !listEl) return
+    try { itemEl.scrollIntoView({ block: "nearest", inline: "nearest" }) } catch {}
+  }
+  const pickNameResult = async (rec) => {
+    // กันลูป: เลือกจากชื่อแล้วจะไม่ไปค้นต่อด้วย citizen/member
+    suppressNameSearchRef.current = true
+    suppressCitizenSearchRef.current = true
+    suppressMemberSearchRef.current = true
+    await fillFromRecord(rec)
+    setShowNameList(false); setNameResults([]); setHighlightedIndex(-1)
+  }
+
+  // ⭐ ปรับ Enter บนลิสต์ชื่อ → ไป "ประเภทสินค้า"
+  const handleNameKeyDown = async (e) => {
+    if (!showNameList || nameResults.length === 0) return
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      const next = highlightedIndex < nameResults.length - 1 ? highlightedIndex + 1 : 0
+      setHighlightedIndex(next); requestAnimationFrame(() => scrollHighlightedIntoView2(next))
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      const prev = highlightedIndex > 0 ? highlightedIndex - 1 : nameResults.length - 1
+      setHighlightedIndex(prev); requestAnimationFrame(() => scrollHighlightedIntoView2(prev))
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
+        await pickNameResult(nameResults[highlightedIndex])
+        requestAnimationFrame(() => {
+          const el = refs.product?.current
+          if (el && isEnabledInput(el)) {
+            try { el.scrollIntoView({ block: "center" }) } catch {}
+            el.focus?.()
+          }
+        })
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault(); setShowNameList(false); setHighlightedIndex(-1)
+    }
+  }
+
+  // ---------- บริษัท ----------
+  useEffect(() => {
+    const onClick = (e) => {
+      if (!companyBoxRef.current) return
+      if (!companyBoxRef.current.contains(e.target)) { setShowCompanyList(false); setCompanyHighlighted(-1) }
+    }
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [])
+  const mapCompanyToUI = (r = {}) => {
+    const S = (v) => (v == null ? "" : String(v))
+    return {
+      assoId: r.asso_id ?? r.assoId ?? null,
+      companyName: S(r.company_name ?? r.companyName ?? ""), taxId: onlyDigits(S(r.tax_id ?? r.taxId ?? "")),
+      phone: S(r.phone_number ?? r.phone ?? ""),
+      hqHouseNo: S(r.hq_address ?? r.hqAddress ?? ""), hqMoo: S(r.hq_moo ?? r.hqMoo ?? ""),
+      hqSubdistrict: S(r.hq_tambon ?? r.hqSubdistrict ?? ""), hqDistrict: S(r.hq_amphur ?? r.hqDistrict ?? ""),
+      hqProvince: S(r.hq_province ?? r.hqProvince ?? ""), hqPostalCode: onlyDigits(S(r.hq_postal_code ?? r.hqPostalCode ?? "")),
+      brHouseNo: S(r.branch_address ?? r.branchAddress ?? ""), brMoo: S(r.branch_moo ?? r.branchMoo ?? ""),
+      brSubdistrict: S(r.branch_tambon ?? r.brSubdistrict ?? ""), brDistrict: S(r.branch_amphur ?? r.brDistrict ?? ""),
+      brProvince: S(r.branch_province ?? r.brProvince ?? ""), brPostalCode: onlyDigits(S(r.branch_postal_code ?? r.brPostalCode ?? "")),
+    }
+  }
+  const pickCompanyResult = async (rec) => {
+    companySuppressSearchRef.current = true
+    const data = mapCompanyToUI(rec)
+    setCustomer((prev) => ({
+      ...prev,
+      companyName: data.companyName || prev.companyName,
+      taxId: data.taxId || prev.taxId, companyPhone: data.phone || prev.companyPhone,
+      hqHouseNo: data.hqHouseNo || prev.hqHouseNo, hqMoo: data.hqMoo || prev.hqMoo,
+      hqSubdistrict: data.hqSubdistrict || prev.hqSubdistrict, hqDistrict: data.hqDistrict || prev.hqDistrict,
+      hqProvince: data.hqProvince || prev.hqProvince, hqPostalCode: data.hqPostalCode || prev.hqPostalCode,
+      brHouseNo: data.brHouseNo || prev.brHouseNo, brMoo: data.brMoo || prev.brMoo,
+      brSubdistrict: data.brSubdistrict || prev.brSubdistrict, brDistrict: data.brDistrict || prev.brDistrict,
+      brProvince: data.brProvince || prev.brProvince, brPostalCode: data.brPostalCode || prev.brPostalCode,
+    }))
+    setMemberMeta({ type: "company", assoId: data.assoId ?? null, memberId: "" })
+    setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1)
+  }
+  useEffect(() => {
+    if (!autoSearchEnabled) { setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1); return }
+    if (buyerType !== "company") { setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1); return }
+    const q = (debouncedCompanyName || "").trim()
+    if (companySuppressSearchRef.current) {
+      companySuppressSearchRef.current = false; setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1); return
+    }
+    if (q.length < 2) { setCompanyResults([]); setShowCompanyList(false); setCompanyHighlighted(-1); return }
+    const __epoch = searchEpochRef.current
+    const searchCompany = async () => {
+      try {
+        setLoadingCustomer(true)
+        const items = (await apiAuth(`/order/companies/search?q=${encodeURIComponent(q)}`)) || []
+        if (__epoch !== searchEpochRef.current) return
+        setCompanyResults(items)
+        if (document.activeElement === companyInputRef.current) {
+          if (__epoch !== searchEpochRef.current) return
+          setShowCompanyList(true); setCompanyHighlighted(items.length > 0 ? 0 : -1)
+        }
+      } catch (err) {
+        console.error(err); setCompanyResults([]); setShowCompanyList(false); setCompanyHighlighted(-1)
+      } finally {
+        if (__epoch === searchEpochRef.current) setLoadingCustomer(false)
+      }
+    }
+    searchCompany()
+  }, [debouncedCompanyName, buyerType, autoSearchEnabled])
+  useEffect(() => {
+    if (!autoSearchEnabled) return
+    if (buyerType !== "company") return
+    const tid = onlyDigits(debouncedTaxId)
+    if (tid.length !== 13) return
+    const __epoch = searchEpochRef.current
+    const searchByTax = async () => {
+      try {
+        setLoadingCustomer(true)
+        const items = (await apiAuth(`/order/companies/search?q=${encodeURIComponent(tid)}`)) || []
+        if (__epoch !== searchEpochRef.current) return
+        if (items.length > 0) await pickCompanyResult(items[0])
+      } catch (e) { console.error(e) } finally { if (__epoch === searchEpochRef.current) setLoadingCustomer(false) }
+    }
+    searchByTax()
+  }, [debouncedTaxId, buyerType, autoSearchEnabled])
+  const handleCompanyKeyDown = async (e) => {
+    if (!showCompanyList || companyResults.length === 0) return
+    if (e.key === "ArrowDown") { e.preventDefault(); const next = companyHighlighted < companyResults.length - 1 ? companyHighlighted + 1 : 0; setCompanyHighlighted(next); requestAnimationFrame(() => { try { companyItemRefs.current[next]?.scrollIntoView({ block: "nearest" }) } catch {} }) }
+    else if (e.key === "ArrowUp") { e.preventDefault(); const prev = companyHighlighted > 0 ? companyHighlighted - 1 : companyResults.length - 1; setCompanyHighlighted(prev); requestAnimationFrame(() => { try { companyItemRefs.current[prev]?.scrollIntoView({ block: "nearest" }) } catch {} }) }
+    else if (e.key === "Enter") { e.preventDefault(); if (companyHighlighted >= 0 && companyHighlighted < companyResults.length) await pickCompanyResult(companyResults[companyHighlighted]) }
+    else if (e.key === "Escape") { e.preventDefault(); setShowCompanyList(false); setCompanyHighlighted(-1) }
+  }
+
+  // ---------- อัปเดต state ----------
+  const updateCustomer = (k, v) => {
+    setAutoSearchEnabled(true)
+    if (String(v).trim() !== "") clearHint(k)
+    setCustomer((p) => ({ ...p, [k]: v }))
+  }
+  const updateOrder = (k, v) => { if (String(v).trim() !== "") clearHint(k); setOrder((p) => ({ ...p, [k]: v })) }
+
+  // ---------- Payment resolver ----------
+  const resolvePaymentId = () => {
+    if (/^\d+$/.test(String(order.paymentMethodId || ""))) return Number(order.paymentMethodId)
+    const label = (order.paymentMethod || "").trim()
+    if (label) {
+      const found = paymentOptions.find((o) => (o.label || "").trim() === label)
+      if (found && /^\d+$/.test(String(found.id))) return Number(found.id)
+    }
+    if (/^\d+$/.test(String(order.paymentMethod || ""))) return Number(order.paymentMethod)
+    return null
+  }
+  const isCreditPayment = () => {
+    const pid = resolvePaymentId()
+    const label = (order.paymentMethod || "").trim() || (paymentOptions.find((o) => Number(o.id) === Number(pid))?.label || "").trim()
+    const s = label.toLowerCase()
+    return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
+  }
+  const resolvePaymentIdForBE = () => (isCreditPayment() ? 2 : 1)
+  useEffect(() => {
+    const credit = isCreditPayment()
+    setOrder((p) => ({ ...p, __isCredit: credit, __isCash: !credit }))
+  }, [order.paymentMethod, paymentOptions])
+
+  // ---------- Validate + hint ----------
+  const computeMissingHints = () => {
+    const m = {}
+    if (buyerType === "person") {
+      if (!customer.fullName.trim()) m.fullName = true
+    } else {
+      if (!customer.companyName.trim()) m.companyName = true
+      if (!customer.taxId.trim()) m.taxId = true
+    }
+    if (!order.productId) m.product = true
+    if (!order.riceId) m.riceType = true
+    if (!order.subriceId) m.subrice = true
+    if (!order.conditionId) m.condition = true
+    if (!order.fieldTypeId) m.fieldType = true
+    if (!order.riceYearId) m.riceYear = true
+    if (!order.businessTypeId) m.businessType = true
+    if (!order.branchName) m.branchName = true
+    if (!order.klangName) m.klangName = true
+    const pid = resolvePaymentId()
+    if (!pid) m.payment = true
+    if (!order.issueDate) m.issueDate = true
+    return m
+  }
+
+  const validateAll = () => {
+    const e = {}
+    if (buyerType === "person") {
+      if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
+      const memberIdStrForValidate = onlyDigits(String(customer.memberId || ""))
+if (!memberIdStrForValidate && !memberMeta.assoId) {
+    e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id"
+}
+
+    } else {
+      if (!customer.companyName.trim()) e.companyName = "กรุณากรอกชื่อบริษัท"
+      if (!customer.taxId.trim()) e.taxId = "กรุณากรอกเลขผู้เสียภาษี"
+    }
+
+    if (!order.productId) e.product = "เลือกประเภทสินค้า (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.riceId) e.riceType = "เลือกชนิดข้าว (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.subriceId) e.subrice = "เลือกชั้นย่อย (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ (ล็อกจากฟอร์มสำเร็จรูป)"
+    if (!order.branchName) e.branchName = "เลือกสาขา"
+    if (!order.klangName) e.klangName = "เลือกคลัง"
+
+    const pid = resolvePaymentId()
+    if (!pid) e.payment = "เลือกวิธีชำระเงิน"
+    if (!order.issueDate) e.issueDate = "กรุณาเลือกวันที่"
+
+    const tErr = []
+    trailers.forEach((t, i) => {
+      const te = {}
+      const hasBack =
+        Number(t.backWeightKg || 0) > 0 ||
+        String(t.licensePlateBack || "").trim() !== "" ||
+        String(t.scaleNoBack || "").trim() !== "" ||
+        String(t.unitPriceBack || "").trim() !== "" ||
+        String(t.gramBack || "").trim() !== ""
+      if (!String(t.scaleNoFront || "").trim()) te.scaleNoFront = "กรุณากรอกเลขที่ใบชั่งพ่วงหน้า"
+      //if (!String(t.licensePlateFront || "").trim()) te.licensePlateFront = "กรอกทะเบียนพ่วงหน้า"//
+      if (t.frontWeightKg === "" || Number(t.frontWeightKg) <= 0) te.frontWeightKg = "กรอกน้ำหนักสุทธิพ่วงหน้า (> 0)"
+      if (t.unitPriceFront === "" || Number(t.unitPriceFront) <= 0) te.unitPriceFront = "กรอกราคาต่อกก. พ่วงหน้า (> 0)"
+      if (hasBack) {
+        //if (!String(t.licensePlateBack || "").trim()) te.licensePlateBack = "กรอกทะเบียนพ่วงหลัง"//
+        if (t.backWeightKg === "" || Number(t.backWeightKg) <= 0) te.backWeightKg = "กรอกน้ำหนักสุทธิพ่วงหลัง (> 0)"
+        if (t.unitPriceBack === "" || Number(t.unitPriceBack) <= 0) te.unitPriceBack = "กรอกราคาต่อกก. พ่วงหลัง (> 0)"
+      }
+      const net = Number(t.frontWeightKg || 0) + Number(t.backWeightKg || 0)
+      if (net <= 0) te._net = "น้ำหนักรวมต้องมากกว่า 0"
+      tErr[i] = te
+    })
+    if (tErr.some((x) => Object.keys(x || {}).length > 0)) e.trailers = tErr
+
+    setErrors(e)
+    return e
+  }
+
+  const scrollToFirstError = (eObj) => {
+    const personKeys = ["memberId", "fullName"]
+    const companyKeys = ["companyName", "taxId"]
+    const commonOrderKeys = ["product","riceType","subrice","condition","fieldType","riceYear","businessType","branchName","klangName","payment","issueDate"]
+    const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
+    const firstKey = keys.find((k) => k in eObj)
+    if (firstKey) {
+      const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
+      if (el && typeof el.focus === "function") { try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} el.focus() }
+      return
+    }
+    const tmp = document.getElementById("trailers-block")
+    if (tmp) { try { tmp.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} }
+  }
+
+  const scrollToFirstMissing = (hintsObj) => {
+    const personKeys = ["memberId","fullName"]
+    const companyKeys = ["companyName","taxId"]
+    const commonOrderKeys = ["product","riceType","subrice","condition","fieldType","riceYear","businessType","branchName","klangName","payment","issueDate"]
+    const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
+    const firstKey = keys.find((k) => hintsObj[k])
+    if (!firstKey) return
+    const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
+    if (el && typeof el.focus === "function") {
+      try { el.focus({ preventScroll: true }) } catch { el.focus() }
+      try { el.select?.() } catch {}
+    }
+  }
+
+  // ---------- Branch lock (หลังโหลดรายการสาขา) ----------
+  useEffect(() => {
+    if (!branchOptions?.length) return
+    const b = deriveLockedBranch(branchOptions)
+    if (b) {
+      setLockedBranch(b)
+      setBranchLocked(true)
+      setOrder((p) => ({ ...p, branchId: b.id, branchName: b.label, klangName: "", klangId: null }))
+    } else {
+      setLockedBranch(null)
+      setBranchLocked(false)
+    }
+  }, [branchOptions])
+
+  // ---------- Submit ----------
+  const toIsoDateTime = (yyyyMmDd) => {
+    try { return new Date(`${yyyyMmDd}T12:00:00Z`).toISOString() } catch { return new Date().toISOString() }
+  }
+
+  const handleReset = () => {
+    // ปิด auto-search ชั่วคราว + ยกเลิกผล async ค้าง
+    setAutoSearchEnabled(false)
+    bumpSearchEpoch()
+
+    setErrors({}); setMissingHints({})
+    setCustomer({
+      citizenId: "", memberId: "", fullName: "", houseNo: "", moo: "", subdistrict: "", district: "", province: "", postalCode: "", phone: "",
+      companyName: "", taxId: "", companyPhone: "",
+      hqHouseNo: "", hqMoo: "", hqSubdistrict: "", hqDistrict: "", hqProvince: "", hqPostalCode: "",
+      brHouseNo: "", brMoo: "", brSubdistrict: "", brDistrict: "", brProvince: "", brPostalCode: "",
+    })
+    setMemberMeta({ type: "unknown", assoId: null, memberId: "" })
+    setOrder((prev) => ({
+      productId: prev.productId, productName: prev.productName,
+      riceId: prev.riceId, riceType: prev.riceType,
+      subriceId: prev.subriceId, subriceName: prev.subriceName,
+      conditionId: prev.conditionId, condition: prev.condition,
+      fieldTypeId: prev.fieldTypeId, fieldType: prev.fieldType,
+      riceYearId: prev.riceYearId, riceYear: prev.riceYear,
+      businessTypeId: prev.businessTypeId, businessType: prev.businessType,
+      programId: prev.programId, programName: prev.programName,
+      // คงสาขาที่ล็อกไว้ (ถ้ามี)
+      branchName: branchLocked ? (lockedBranch?.label || prev.branchName) : prev.branchName,
+      branchId: branchLocked ? (lockedBranch?.id ?? prev.branchId) : prev.branchId,
+      klangName: "", klangId: null,
+      issueDate: prev.issueDate, comment: "",
+      paymentMethod: "", paymentMethodId: "",
+      cashReceiptNo: "", creditInvoiceNo: "",
+      __isCash: false, __isCredit: false,
+    }))
+    // ❌ ไม่ล้าง klangOptions เพื่อให้เลือกต่อได้ทันที
+    setRiceOptions([]); setSubriceOptions([])
+    setBuyerType("person")
+    setDept({ allowedPeriod: 30, postpone: false, postponePeriod: 0 })
+    setTrailersCount(1)
+    setTrailers([newTrailer()])
+    setShowNameList(false); setNameResults([]); setHighlightedIndex(-1)
+    setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1)
+    try { refs.buyerType?.current?.focus() } catch {}
+    requestAnimationFrame(() => scrollToPageTop())
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (submitLockRef.current || submitting) { return }
+    submitLockRef.current = true
+    setSubmitting(true)
+    try {
+      scrollToPageTop()
+      setAutoSearchEnabled(false)
+      bumpSearchEpoch()
+
+      const hints = computeMissingHints()
+      setMissingHints(hints)
+      const eObj = validateAll()
+
+      if (Object.keys(eObj).length > 0) {
+        alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+        scrollToFirstError(eObj)
+        return
+      }
+      if (Object.values(hints).some(Boolean)) {
+        alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+        scrollToFirstMissing(hints)
+        return
+      }
+
+      const [firstName, ...rest] = (customer.fullName || "").trim().split(" ")
+      const lastName = rest.join(" ")
+
+      const productId = /^\d+$/.test(order.productId) ? Number(order.productId) : null
+      const riceId = /^\d+$/.test(order.riceId) ? Number(order.riceId) : null
+      const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null
+      const b = lockedBranch || deriveLockedBranch(branchOptions)
+      const branchId = b ? Number(b.id) : (order.branchId != null ? Number(order.branchId) : null)
+      const klangId = order.klangId != null ? Number(order.klangId) : null
+      const riceYearId = /^\d+$/.test(order.riceYearId) ? Number(order.riceYearId) : null
+      const conditionId = /^\d+$/.test(order.conditionId) ? Number(order.conditionId) : null
+      const fieldTypeId = /^\d+$/.test(order.fieldTypeId) ? Number(order.fieldTypeId) : null
+      const businessTypeId = /^\d+$/.test(order.businessTypeId) ? Number(order.businessTypeId) : null
+      const programId = /^\d+$/.test(order.programId) ? Number(order.programId) : null
+      const paymentId = resolvePaymentIdForBE()
+
+      // customer payload
+      let customerPayload
+      if (buyerType === "person") {
+        const memberIdStr = onlyDigits(String(customer.memberId || ""))
+const assoIdVal = memberMeta.assoId || null
+
+if (!memberIdStr && !assoIdVal) {
+    alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id จากผลค้นหา")
+    return
+}
+
+customerPayload = memberIdStr
+    ? {
+        party_type: "individual",
+        member_id: memberIdStr,   // ⭐ ส่งเป็น string 000123 ได้
+        first_name: firstName || "",
+        last_name: lastName || "",
+    }
+    : {
+        party_type: "individual",
+        asso_id: assoIdVal,
+        first_name: firstName || "",
+        last_name: lastName || "",
+    }
+
+
+      } else {
+        const taxId = onlyDigits(customer.taxId)
+        customerPayload = taxId
+          ? { party_type: "company", tax_id: taxId, company_name: customer.companyName || undefined }
+          : memberMeta.assoId
+          ? { party_type: "company", asso_id: memberMeta.assoId, company_name: customer.companyName || undefined }
+          : { party_type: "company", tax_id: "" }
+      }
+
+      // spec สำหรับ BE (ตาม ProductSpecIn)
+      const spec = {
+        product_id: productId,
+        species_id: riceId,
+        variant_id: subriceId,
+        product_year: riceYearId ?? null,
+        condition_id: conditionId ?? null,
+        field_type: fieldTypeId ?? null,
+        program: programId ?? null,
+        business_type: businessTypeId ?? null,
+      }
+
+      const dateISO = toIsoDateTime(order.issueDate)
+      const saleId = ((order.__isCredit ? order.creditInvoiceNo : order.cashReceiptNo) || "").trim() || null
+
+      // ส่งทีละคัน
+      let ok = 0
+      const results = []
+      for (let i = 0; i < trailers.length; i++) {
+        const t = trailers[i]
+        const w1 = toNumber(t.frontWeightKg)
+        const w2 = toNumber(t.backWeightKg)
+        const u1 = toNumber(t.unitPriceFront)
+        const u2 = toNumber(t.unitPriceBack)
+        const g1 = toNumber(t.gramFront)
+        const g2 = toNumber(t.gramBack)
+
+        const price1 = round2(w1 * u1)
+        const price2 = round2(w2 * u2)
+
+        // gram เฉลี่ยถ่วงน้ำหนักต่อคัน (ส่งให้ BE)
+        const net = w1 + w2
+        const weightedGram = net > 0 ? Math.round((w1 * g1 + w2 * g2) / net) : (g1 || g2 || 0)
+
+        // ✅ ตาม BE ใหม่: แยกราคา/กก. พ่วงหน้า-พ่วงหลัง
+        const pricePerKilo1 = u1
+        const pricePerKilo2 = w2 > 0 ? u2 : null
+
+        const payload = {
+          customer: customerPayload,
+          order: {
+            sale_id: saleId,
+            payment_id: paymentId,
+            spec,
+            license_plate_1: (t.licensePlateFront || "").trim() || null,
+            license_plate_2: (t.licensePlateBack || "").trim() || null,
+            weight_1: w1,
+            weight_2: w2 || 0,
+            gram: weightedGram,
+            price_per_kilo: pricePerKilo1,
+            price_per_kilo2: pricePerKilo2,
+            price_1: price1,
+            price_2: price2 || 0,
+            order_serial_1: (t.scaleNoFront || "").trim() || null,
+            order_serial_2: (t.scaleNoBack || "").trim() || null,
+            date: dateISO,
+            branch_location: branchId,
+            klang_location: klangId,
+            comment: order.comment?.trim() ? `${order.comment.trim()} (พ่วงที่ ${i + 1})` : null,
+          },
+          // dept แนบเสมอ (ใช้เมื่อ payment_id == 2)
+          dept: { date_created: dateISO, allowed_period: Number(dept.allowedPeriod || 0), postpone: Boolean(dept.postpone), postpone_period: Number(dept.postpone ? (dept.postponePeriod || 0) : 0) },
+        }
+
+        try {
+          const r = await post("/order/customers/save/sell", payload)
+          ok += 1
+          results.push({ index: i + 1, success: true, id: r?.order_id })
+        } catch (err) {
+          console.error("SAVE ERROR (trailer", i + 1, "):", err?.data || err)
+          results.push({ index: i + 1, success: false, message: err?.message || "เกิดข้อผิดพลาด", detail: err?.data?.detail })
+        }
+      }
+
+      const failed = results.filter((x) => !x.success)
+      if (failed.length === 0) {
+        try {
+          const currentTpl = templateOptions.find((o) => String(o.id) === String(formTemplate))
+          const saveTpl = { id: String(formTemplate), label: currentTpl?.label || selectedTemplateLabel || "" }
+          localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl))
+          localStorage.setItem("sales.formTemplate", String(formTemplate))
+        } catch {}
+        alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
+        handleReset()
+        requestAnimationFrame(() => scrollToPageTop())
+        try { refs.submitBtn?.current?.blur?.() } catch {}
+      } else {
+        const summary = failed
+          .map((f) => `• คันที่ ${f.index}: ${f.message}${f.detail ? `\nรายละเอียด: ${JSON.stringify(f.detail)}` : ""}`)
+          .join("\n\n")
+        alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
+      
+บันทึกสำเร็จ ${ok}/${trailers.length} รายการ
+
+รายการที่ผิดพลาด:
+${summary}`)
+      }
+    } finally {
+      submitLockRef.current = false
+      setSubmitting(false)
+    }
+  }
+
+  // ---------------- UI ----------------
+  const handleFullNameKeyDown = (e) => {
+    if (showNameList && nameResults.length > 0) {
+      return handleNameKeyDown(e)
+    }
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault()
+      const el = refs.product?.current
+      if (el && isEnabledInput(el)) {
+        try { el.scrollIntoView({ block: "center" }) } catch {}
+        el.focus?.()
+        try { el.select?.() } catch {}
+        return
+      }
+      focusNext("fullName")
+    }
+  }
+
+  const frontHeadCls = "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-200"
+  const frontCellCls = "bg-emerald-50/60 dark:bg-emerald-900/10"
+  const backHeadCls  = "bg-slate-50 text-slate-900 dark:bg-slate-800/40 dark:text-slate-200"
+  const backCellCls  = "bg-slate-50 dark:bg-slate-800/40"
+
+  return (
+    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
+      <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
+        {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด (ให้เหมือน Buy) */}
+        <div ref={pageTopRef} />
+
+        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ขาย (หลายพ่วง)</h1>
+
+        {/* กล่องข้อมูลลูกค้า */}
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+          <div className="mb-3 flex flex-wrap items-start gap-2">
+            <h2 className="text-xl font-semibold">ข้อมูลลูกค้า</h2>
+
+            {buyerType === "person" ? (
+              memberMeta.type === "member" ? (
+                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60 self-start">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  สมาชิก • member_id {memberMeta.memberId ?? "-"}
+                </span>
+              ) : customerFound === true && memberMeta.type === "customer" ? (
+                <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60 self-start">
+                  <span className="h-2 w-2 rounded-full bg-sky-500" />
+                  ลูกค้าทั่วไป • asso {memberMeta.assoId ?? "-"}
+                </span>
+              ) : memberMeta.type === "customer" ? (
+                <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600 self-start">
+                  <span className="h-2 w-2 rounded-full bg-slate-500" />
+                  ลูกค้าทั่วไป (เลือกจากรายชื่อเพื่อใช้ asso_id)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60 self-start">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  โปรดกรอก <b>member_id</b> หรือค้นหาชื่อเพื่อเลือกบุคคล
+                </span>
+              )
+            ) : (
+              <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-indigo-700 ring-1 ring-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-200 dark:ring-indigo-700/60 self-start">
+                <span className="h-2 w-2 rounded-full bg-indigo-500" />
+                บริษัท / นิติบุคคล
+              </span>
+            )}
+
+            {/* ประเภทผู้ซื้อ */}
+            <div className="ml-auto w-full sm:w-64 self-start">
+              <label className={labelCls}>ประเภทผู้ซื้อ</label>
+              <ComboBox
+                options={buyerTypeOptions}
+                value={buyerType}
+                onChange={(id) => setBuyerType(String(id))}
+                buttonRef={refs.buyerType}
+              />
+            </div>
+
+            {/* ฟอร์มสำเร็จรูป (จาก BE, โหมดล็อก) */}
+            <div className="w-full sm:w-72 self-start">
+              <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
+              <ComboBox
+                options={templateOptions}
+                value={formTemplate}
+                getSubLabel={(o) => templateSubLabel(o)}
+                onChange={(id, found) => {
+                  const idStr = String(id)
+                  setFormTemplate(idStr)
+                  const label = found?.label ?? ""
+                  setSelectedTemplateLabel(label)
+                  try {
+                    localStorage.setItem("shared.formTemplate", JSON.stringify({ id: idStr, label }))
+                    localStorage.setItem("sales.formTemplate", idStr)
+                  } catch {}
+                  if (found?.spec) applyTemplateBySpec(found.spec)
+                }}
+                buttonRef={refs.formTemplate}
+              />
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                ระบบ <b>ล็อกสเปกจากฟอร์มสำเร็จรูป</b> เท่านั้น:
+                <b> ประเภทสินค้า</b>, <b>ชนิดข้าว</b>, <b>ชั้นย่อย</b>, <b>เงื่อนไข</b>, <b>ประเภทนา</b>, <b>ปี/ฤดูกาล</b>, <b>โปรแกรม</b>, <b>ประเภทธุรกิจ</b> จะไม่สามารถแก้จากแบบฟอร์มด้านล่างได้
+              </p>
+            </div>
+          </div>
+
+          {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label className={labelCls}>วิธีชำระเงิน</label>
+              <ComboBox
+                options={paymentOptions}
+                value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
+                onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
+                placeholder="— เลือกวิธีชำระเงิน —"
+                buttonRef={refs.payment}
+                onEnterNext={() => {
+                  const tryFocusDoc = () => {
+                    const el = order.__isCredit ? refs.creditInvoiceNo?.current : refs.cashReceiptNo?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.(); try { el.select?.() } catch {}
+                      return true
+                    }
+                    return false
+                  }
+                  if (tryFocusDoc()) return
+                  setTimeout(tryFocusDoc, 60)
+                  setTimeout(tryFocusDoc, 160)
+                }}
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>ลงวันที่</label>
+              <DateInput
+                ref={refs.issueDate}
+                value={order.issueDate}
+                onChange={(e) => setOrder((p) => ({ ...p, issueDate: e.target.value }))}
+                onFocus={() => clearHint("issueDate")}
+                error={!!errors.issueDate}
+                className={redHintCls("issueDate")}
+                onKeyDown={onEnter("issueDate")}
+                aria-invalid={errors.issueDate ? true : undefined}
+              />
+              {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
+            </div>
+
+            <div>
+              <label className={labelCls}>
+                {order.__isCredit
+                  ? "เลขที่ใบกำกับสินค้า (ขายเชื่อ)"
+                  : order.__isCash
+                  ? "ใบรับเงินขายสินค้า (ขายสด)"
+                  : "เอกสารอ้างอิง (เลือกวิธีชำระเงินเพื่อกรอก)"
+                }
+              </label>
+              {order.__isCredit ? (
+                <input
+                  ref={refs.creditInvoiceNo}
+                  className={baseField}
+                  value={order.creditInvoiceNo}
+                  onChange={(e) => updateOrder("creditInvoiceNo", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.isComposing) {
+                      e.preventDefault()
+                      const goName = () => {
+                        const key = buyerType === "person" ? "fullName" : "companyName"
+                        const el = refs[key]?.current
+                        if (el && isEnabledInput(el)) {
+                          try { el.scrollIntoView({ block: "center" }) } catch {}
+                          el.focus?.(); try { el.select?.() } catch {}
+                          return true
+                        }
+                        return false
+                      }
+                      if (goName()) return
+                      const fn = () => focusNext("creditInvoiceNo")
+                      fn(); setTimeout(fn, 60)
+                    }
+                  }}
+                  placeholder="เช่น INV-2025-000456 (ไม่บังคับ)"
+                />
+              ) : order.__isCash ? (
+                <input
+                  ref={refs.cashReceiptNo}
+                  className={baseField}
+                  value={order.cashReceiptNo}
+                  onChange={(e) => updateOrder("cashReceiptNo", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.isComposing) {
+                      e.preventDefault()
+                      const goName = () => {
+                        const key = buyerType === "person" ? "fullName" : "companyName"
+                        const el = refs[key]?.current
+                        if (el && isEnabledInput(el)) {
+                          try { el.scrollIntoView({ block: "center" }) } catch {}
+                          el.focus?.(); try { el.select?.() } catch {}
+                          return true
+                        }
+                        return false
+                      }
+                      if (goName()) return
+                      const fn = () => focusNext("cashReceiptNo")
+                      fn(); setTimeout(fn, 60)
+                    }
+                  }}
+                  placeholder="เช่น RC-2025-000789 (ไม่บังคับ)"
+                />
+              ) : (
+                <input className={cx(baseField, fieldDisabled)} readOnly placeholder="โปรดเลือกวิธีชำระเงินก่อน" />
+              )}
+              <div className={helpTextCls}>* ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>sale_id</code></div>
+            </div>
+          </div>
+
+          {/* เงื่อนไขเครดิต */}
+          {isCreditPayment() && (
+            <div className="md:col-span-3 mt-2">
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-sm dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-100">
+                <div className="mb-2 flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" width="18" height="18" className="opacity-80" fill="currentColor">
+                    <path d="M3 5a2 2 0 0 0-2 2v2h22V7a2 2 0 0 0 2-2H3zm20 6H1v6a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-6zM4 17h6v-2H4v2z"/>
+                  </svg>
+                  <div className="font-semibold">รายละเอียดเครดิต (ขายเชื่อ)</div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <label className={labelCls}>กำหนดชำระ (วัน)</label>
+                    <input
+                      ref={refs.deptAllowed}
+                      inputMode="numeric"
+                      className={baseField}
+                      value={String(dept.allowedPeriod ?? 0)}
+                      onChange={(e) => setDept((p) => ({ ...p, allowedPeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); refs.deptPostpone?.current?.focus(); } }}
+                      placeholder="เช่น 30"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className={labelCls}>ตัวเลือก</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        ref={refs.deptPostpone}
+                        type="checkbox"
+                        checked={!!dept.postpone}
+                        onChange={(e) => setDept((p) => ({ ...p, postpone: e.target.checked }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.isComposing) {
+                            e.preventDefault()
+                            if (!!dept.postpone) refs.deptPostponePeriod?.current?.focus()
+                            else refs.issueDate?.current?.focus()
+                          }
+                        }}
+                      />
+                      <span>อนุญาตให้ปลอดดอกเบี้ยชั่วคราว</span>
+                    </div>
+
+                    {dept.postpone && (
+                      <div className="mt-3">
+                        <label className={labelCls}>ระยะเวลาปลอดดอกเบี้ย (วัน)</label>
+                        <input
+                          ref={refs.deptPostponePeriod}
+                          inputMode="numeric"
+                          className={baseField}
+                          value={String(dept.postponePeriod ?? 0)}
+                          onChange={(e) => setDept((p) => ({ ...p, postponePeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
+                          onKeyDown={(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); refs.issueDate?.current?.focus(); } }}
+                          placeholder="เช่น 15"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <p className="mt-2 text-sm opacity-80">
+                  ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>allowed_period</code>, <code>postpone</code>, <code>postpone_period</code>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ส่วนฟอร์มลูกค้า */}
+          {buyerType === "person" ? (
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelCls}>เลขที่บัตรประชาชน (เพื่อค้นหาที่อยู่)</label>
+                <input
+                  ref={refs.citizenId}
+                  inputMode="numeric" maxLength={13}
+                  className={cx(baseField)}
+                  value={customer.citizenId}
+                  onChange={(e) => updateCustomer("citizenId", onlyDigits(e.target.value))}
+                  onFocus={() => clearHint("citizenId")}
+                  placeholder="เช่น 1234567890123"
+                  onKeyDown={onEnter("citizenId")}
+                />
+                <div className={helpTextCls}>{loadingCustomer && "กำลังค้นหาลูกค้า..."}</div>
+              </div>
+              <div>
+                <label className={labelCls}>รหัสสมาชิก (member_id)</label>
+                <input
+                  ref={refs.memberId}
+                  inputMode="numeric"
+                  className={cx(baseField, redFieldCls("memberId"))}
+                  value={customer.memberId}
+                  onChange={(e) => updateCustomer("memberId", onlyDigits(e.target.value))}
+                  onFocus={() => clearError("memberId")}
+                  onKeyDown={onEnter("memberId")}
+                  placeholder="เช่น 001234" // เปลี่ยนตัวอย่างให้เห็นศูนย์นำหน้า
+                  aria-invalid={errors.memberId ? true : undefined}
+                />
+                {!!memberMeta.memberId && <p className={helpTextCls}>พบสมาชิก: member_id {memberMeta.memberId}</p>}
+                {errors.memberId && <p className={errorTextCls}>{errors.memberId}</p>}
+              </div>
+              <div className="md:col-span-1" />
+              <div className="md:col-span-2" ref={nameBoxRef}>
+                <label className={labelCls}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
+                <input
+                  ref={(el) => { refs.fullName.current = el; nameInputRef.current = el }}
+                  className={cx(baseField, redFieldCls("fullName"))}
+                  value={customer.fullName}
+                  onChange={(e) => {
+                    updateCustomer("fullName", e.target.value)
+                    if (e.target.value.trim().length >= 2) setShowNameList(true)
+                    else { setShowNameList(false); setHighlightedIndex(-1) }
+                  }}
+                  onFocus={() => { clearHint("fullName"); clearError("fullName") }}
+                  onKeyDown={handleFullNameKeyDown}
+                  placeholder="เช่น นายสมชาย ใจดี"
+                  aria-expanded={showNameList}
+                  aria-controls="name-results"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-invalid={errors.fullName ? true : undefined}
+                />
+                {errors.fullName && <p className={errorTextCls}>{errors.fullName}</p>}
+
+                {showNameList && nameResults.length > 0 && (
+                  <div
+                    id="name-results"
+                    ref={listContainerRef}
+                    className={"mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"}
+                    role="listbox"
+                  >
+                    {nameResults.map((r, idx) => {
+                      const isActive = idx === highlightedIndex
+                      const full = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()
+                      return (
+                        <button
+                          type="button"
+                          ref={(el) => (itemRefs.current[idx] = el)}
+                          key={`${r.type}-${r.asso_id}-${idx}`}
+                          onClick={async () => {
+                            await pickNameResult(r)
+                            requestAnimationFrame(() => {
+                              const elP = refs.product?.current
+                              if (elP && isEnabledInput(elP)) {
+                                try { elP.scrollIntoView({ block: "center" }) } catch {}
+                                elP.focus?.()
+                              }
+                            })
+                          }}
+                          onMouseEnter={() => { setHighlightedIndex(idx); requestAnimationFrame(() => scrollHighlightedIntoView2(idx)) }}
+                          role="option"
+                          aria-selected={isActive}
+                          className={cx(
+                            "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
+                            isActive ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
+                                     : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                          )}
+                        >
+                          {isActive && <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />}
+                          <div className="flex-1">
+                            <div className="font-medium">{full || "(ไม่มีชื่อ)"}</div>
+                            <div className="text-sm text-slate-600 dark:text-slate-300">
+                              {r.type === "member" ? `สมาชิก • member_id ${r.member_id ?? "-"}` : `ลูกค้าทั่วไป • ปชช. ${r.citizen_id ?? "-"}`}
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            // ---------------- บริษัท ----------------
+            <div className="md:col-span-2" ref={companyBoxRef}>
+              <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
+              <input
+                ref={(el) => { refs.companyName.current = el; companyInputRef.current = el }}
+                className={cx(baseField, redFieldCls("companyName"))}
+                value={customer.companyName}
+                onChange={(e) => {
+                  updateCustomer("companyName", e.target.value)
+                  if (buyerType === "company") {
+                    if (e.target.value.trim().length >= 2) setShowCompanyList(true)
+                    else { setShowCompanyList(false); setCompanyHighlighted(-1) }
+                  }
+                }}
+                onFocus={() => clearError("companyName")}
+                onKeyDown={handleCompanyKeyDown}
+                onKeyDownCapture={onEnter("companyName")}
+                placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
+                aria-expanded={showCompanyList}
+                aria-controls="company-results"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-invalid={errors.companyName ? true : undefined}
+              />
+              {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
+
+              {buyerType === "company" && showCompanyList && companyResults.length > 0 && (
+                <div
+                  id="company-results"
+                  className={"mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"}
+                  role="listbox"
+                >
+                  {companyResults.map((r, idx) => {
+                    const isActive = idx === companyHighlighted
+                    const name = r.company_name ?? r.companyName ?? "(ไม่มีชื่อ)"
+                    const tid = r.tax_id ?? "-"
+                    return (
+                      <button
+                        type="button"
+                        ref={(el) => (companyItemRefs.current[idx] = el)}
+                        key={`${r.asso_id}-${tid}-${idx}`}
+                        onClick={async () => await pickCompanyResult(r)}
+                        onMouseEnter={() => { setCompanyHighlighted(idx); requestAnimationFrame(() => { try { companyItemRefs.current[idx]?.scrollIntoView({ block: "nearest" }) } catch {} }) }}
+                        role="option"
+                        aria-selected={isActive}
+                        className={cx(
+                          "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
+                          isActive ? "bg-indigo-100 ring-1 ring-indigo-300 dark:bg-indigo-400/20 dark:ring-indigo-500"
+                                   : "hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                        )}
+                      >
+                        {isActive && <span className="absolute left-0 top-0 h-full w-1 bg-indigo-600 dark:bg-indigo-400/70 rounded-l-xl" />}
+                        <div className="flex-1">
+                          <div className="font-medium">{name}</div>
+                          <div className="text-sm text-slate-600 dark:text-slate-300">ภาษี {tid} • โทร {r.phone_number ?? "-"}</div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ฟอร์มออเดอร์ */}
+        <form onSubmit={handleSubmit} onKeyDown={(e)=>{ if(submitting && e.key==="Enter"){ e.preventDefault() } }} className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+          <h2 className="mb-3 text-xl font-semibold">รายละเอียดการขาย</h2>
+
+          {/* เลือกประเภท/ปี/โปรแกรม/ธุรกิจ */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label className={labelCls}>ประเภทสินค้า</label>
+              <ComboBox
+                options={productOptions}
+                value={order.productId}
+                onChange={(id, found) => {
+                  setOrder((p) => ({ ...p, productId: id, productName: found?.label ?? "", riceId: "", riceType: "", subriceId: "", subriceName: "" }))
+                }}
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                error={!!errors.product}
+                hintRed={!!missingHints.product}
+                clearHint={() => clearHint("product")}
+                buttonRef={refs.product}
+                disabled={true}
+              />
+              {errors.product && <p className={errorTextCls}>{errors.product}</p>}
+            </div>
+
+            <div>
+              <label className={labelCls}>ชนิดข้าว</label>
+              <ComboBox
+                options={riceOptions}
+                value={order.riceId}
+                onChange={(id, found) => setOrder((p) => ({ ...p, riceId: id, riceType: found?.label ?? "", subriceId: "", subriceName: "" }))}
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                disabled={true}
+                error={!!errors.riceType}
+                hintRed={!!missingHints.riceType}
+                clearHint={() => clearHint("riceType")}
+                buttonRef={refs.riceType}
+              />
+              {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
+            </div>
+
+            <div>
+              <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
+              <ComboBox
+                options={subriceOptions}
+                value={order.subriceId}
+                onChange={(id, found) => setOrder((p) => ({ ...p, subriceId: id, subriceName: found?.label ?? "" }))}
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                disabled={true}
+                error={!!errors.subrice}
+                hintRed={!!missingHints.subrice}
+                clearHint={() => clearHint("subrice")}
+                buttonRef={refs.subrice}
+              />
+              {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
+            </div>
+
+            <div>
+              <label className={labelCls}>สภาพ/เงื่อนไข</label>
+              <ComboBox
+                options={conditionOptions}
+                value={order.conditionId}
+                getValue={(o) => o.id}
+                onChange={(_id, found) => setOrder((p) => ({ ...p, conditionId: found?.id ?? "", condition: found?.label ?? "" }))}
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                error={!!errors.condition}
+                hintRed={!!missingHints.condition}
+                clearHint={() => clearHint("condition")}
+                buttonRef={refs.condition}
+                disabled={true}
+              />
+              {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
+            </div>
+
+            <div>
+              <label className={labelCls}>ประเภทนา</label>
+              <ComboBox
+                options={fieldTypeOptions}
+                value={order.fieldTypeId}
+                getValue={(o) => o.id}
+                onChange={(_id, found) => setOrder((p) => ({ ...p, fieldTypeId: found?.id ?? "", fieldType: found?.label ?? "" }))}
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                error={!!errors.fieldType}
+                hintRed={!!missingHints.fieldType}
+                clearHint={() => clearHint("fieldType")}
+                buttonRef={refs.fieldType}
+                disabled={true}
+              />
+              {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
+            </div>
+
+            <div>
+              <label className={labelCls}>ปี/ฤดูกาล</label>
+              <ComboBox
+                options={yearOptions}
+                value={order.riceYearId}
+                getValue={(o) => o.id}
+                onChange={(_id, found) => setOrder((p) => ({ ...p, riceYearId: found?.id ?? "", riceYear: found?.label ?? "" }))}
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                error={!!errors.riceYear}
+                hintRed={!!missingHints.riceYear}
+                clearHint={() => clearHint("riceYear")}
+                buttonRef={refs.riceYear}
+                disabled={true}
+              />
+              {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
+            </div>
+
+            <div>
+              <label className={labelCls}>ประเภทธุรกิจ</label>
+              <ComboBox
+                options={businessOptions}
+                value={order.businessTypeId}
+                getValue={(o) => o.id}
+                onChange={(_id, found) => setOrder((p) => ({ ...p, businessTypeId: found?.id ?? "", businessType: found?.label ?? "" }))}
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                error={!!errors.businessType}
+                hintRed={!!missingHints.businessType}
+                clearHint={() => clearHint("businessType")}
+                buttonRef={refs.businessType}
+                disabled={true}
+              />
+              {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
+            </div>
+
+            <div>
+              <label className={labelCls}>โปรแกรม</label>
+              <ComboBox
+                options={programOptions}
+                value={order.programId}
+                getValue={(o) => o.id}
+                onChange={(_id, found) => setOrder((p) => ({ ...p, programId: found?.id ?? "", programName: found?.label ?? "" }))}
+                placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+                buttonRef={refs.program}
+                disabled={true}
+              />
+            </div>
+          </div>
+
+          {/* สาขา/คลัง */}
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <div>
+              <label className={labelCls}>สาขา</label>
+              <ComboBox
+                options={branchLocked && order.branchId != null ? branchOptions.filter((o) => String(o.id) === String(order.branchId)) : branchOptions}
+                value={order.branchId}
+                getValue={(o) => o.id}
+                onChange={(_val, found) => setOrder((p) => ({ ...p, branchId: found?.id ?? null, branchName: found?.label ?? "", klangName: "", klangId: null }))}
+                placeholder="— เลือกสาขา —"
+                error={!!errors.branchName}
+                hintRed={!!missingHints.branchName}
+                clearHint={() => clearHint("branchName")}
+                buttonRef={refs.branchName}
+                onEnterNext={() => {
+                  const tryFocus = () => {
+                    const el = refs.klangName?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.()
+                      try { el.select?.() } catch {}
+                      return true
+                    }
+                    return false
+                  }
+                  if (tryFocus()) return
+                  setTimeout(tryFocus, 60)
+                  setTimeout(tryFocus, 180)
+                }}
+                disabled={branchLocked}
+              />
+              {branchLocked && <p className={helpTextCls}>สาขาถูกล็อกตามรหัสผู้ใช้</p>}
+              {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
+            </div>
+            <div>
+              <label className={labelCls}>คลัง</label>
+              <ComboBox
+                options={klangOptions}
+                value={order.klangId}
+                getValue={(o) => o.id}
+                onChange={(_val, found) => setOrder((p) => ({ ...p, klangId: found?.id ?? null, klangName: found?.label ?? "" }))}
+                placeholder="— เลือกคลัง —"
+                disabled={!order.branchId}
+                error={!!errors.klangName}
+                hintRed={!!missingHints.klangName}
+                clearHint={() => clearHint("klangName")}
+                buttonRef={refs.klangName}
+                onEnterNext={() => {
+                  const goTrailerCount = () => {
+                    const el = refs.trailerCount?.current
+                    if (el && isEnabledInput(el)) {
+                      try { el.scrollIntoView({ block: "center" }) } catch {}
+                      el.focus?.()
+                      return true
+                    }
+                    return false
+                  }
+                  if (!goTrailerCount()) {
+                    focusNext("klangName")
+                  }
+                }}
+              />
+              {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
+            </div>
+          </div>
+
+          {/* รถพ่วงหลายคัน */}
+          <div id="trailers-block" className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-transparent dark:border-slate-700 dark:bg-slate-800">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              <h3 className="text-lg font-semibold">ข้อมูลรถพ่วงหลายคัน</h3>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="w-full sm:w-64 md:w-60">
+                <label className={labelCls}>จำนวนรถพ่วง</label>
+                <ComboBox
+                  options={trailerCountOptions}
+                  value={String(trailersCount)}
+                  onChange={(id) => setTrailersCount(Number(id))}
+                  buttonRef={refs.trailerCount}
+                  onEnterNext={() => focusFirstOfTrailer(0)}
+                />
+              </div>
+            </div>
+
+            {/* รายการรถพ่วง */}
+            <div className="mt-4 grid gap-4">
+              {trailers.map((t, idx) => {
+                const w1 = toNumber(t.frontWeightKg)
+                const w2 = toNumber(t.backWeightKg)
+                const u1 = toNumber(t.unitPriceFront)
+                const u2 = toNumber(t.unitPriceBack)
+                const amount1 = round2(w1 * u1)
+                const amount2 = round2(w2 * u2)
+                const net = w1 + w2
+                const amount = amount1 + amount2
+                const terr = errors?.trailers?.[idx] || {}
+                return (
+                  <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex h-2 w-2 rounded-full bg-slate-500" />
+                        <div className="font-semibold">รถพ่วง #{idx + 1}</div>
+                      </div>
+                      {net > 0 && (
+                        <div className="text-sm text-slate-600 dark:text-slate-300">
+                          น้ำหนักรวม: <b>{round2(net)} กก.</b> | เป็นเงินโดยประมาณ: <b>{thb(amount)}</b>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* โซนแยก: พ่วงหน้า / พ่วงหลัง */}
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {/* พ่วงหน้า */}
+                      <div className="rounded-2xl border border-emerald-200 dark:border-emerald-700/60 p-4">
+                        <div className="mb-2 font-semibold flex items-center gap-2">
+                          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                          พ่วงหน้า
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <div className="md:col-span-1">
+                            <label className={labelCls}>เลขที่ใบชั่งพ่วงหน้า</label>
+                            <input
+                              ref={getTRef(idx, "scaleNoFront")}
+                              className={cx(baseField, terr.scaleNoFront && "border-red-500 ring-2 ring-red-300")}
+                              value={t.scaleNoFront}
+                              onChange={(e) => updateTrailer(idx, "scaleNoFront", e.target.value)}
+                              onKeyDown={onEnterTrailer(idx, "scaleNoFront")}
+                              placeholder="เช่น SCL-2025-000123"
+                            />
+                            {terr.scaleNoFront && <p className={errorTextCls}>{terr.scaleNoFront}</p>}
+                          </div>
+
+                          <div>
+                            <label className={labelCls}>ราคาต่อกก. (บาท)</label>
+                            <input
+                              ref={getTRef(idx, "unitPriceFront")}
+                              inputMode="decimal"
+                              className={cx(baseField, terr.unitPriceFront && "border-red-500 ring-2 ring-red-300")}
+                              value={t.unitPriceFront}
+                              onChange={(e) => updateTrailer(idx, "unitPriceFront", e.target.value.replace(/[^\d.]/g, ""))}
+                              onKeyDown={onEnterTrailer(idx, "unitPriceFront")}
+                              placeholder="เช่น 15.00"
+                            />
+                            {terr.unitPriceFront && <p className={errorTextCls}>{terr.unitPriceFront}</p>}
+                          </div>
+
+                          <div>
+                            <label className={labelCls}>คุณภาพข้าว (gram)</label>
+                            <input
+                              ref={getTRef(idx, "gramFront")}
+                              inputMode="numeric"
+                              className={baseField}
+                              value={t.gramFront}
+                              onChange={(e) => updateTrailer(idx, "gramFront", onlyDigits(e.target.value))}
+                              onKeyDown={onEnterTrailer(idx, "gramFront")}
+                              placeholder="เช่น 85"
+                            />
+                          </div>
+
+                          <div>
+                            <label className={labelCls}>ทะเบียนพ่วงหน้า</label>
+                            <input
+                              ref={getTRef(idx, "licensePlateFront")}
+                              className={cx(baseField, terr.licensePlateFront && "border-red-500 ring-2 ring-red-300")}
+                              value={t.licensePlateFront}
+                              onChange={(e) => updateTrailer(idx, "licensePlateFront", e.target.value.toUpperCase())}
+                              onKeyDown={onEnterTrailer(idx, "licensePlateFront")}
+                              placeholder="เช่น 1กก-1234 กทม."
+                            />
+                            {terr.licensePlateFront && <p className={errorTextCls}>{terr.licensePlateFront}</p>}
+                          </div>
+
+                          <div>
+                            <label className={labelCls}>น้ำหนักสุทธิพ่วงหน้า (กก.)</label>
+                            <input
+                              ref={getTRef(idx, "frontWeightKg")}
+                              inputMode="decimal"
+                              className={cx(baseField, terr.frontWeightKg && "border-red-500 ring-2 ring-red-300")}
+                              value={t.frontWeightKg}
+                              onChange={(e) => updateTrailer(idx, "frontWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                              onKeyDown={onEnterTrailer(idx, "frontWeightKg")}
+                              placeholder="เช่น 7,000"
+                            />
+                            {terr.frontWeightKg && <p className={errorTextCls}>{terr.frontWeightKg}</p>}
+                          </div>
+
+                          <div className="md:col-span-1">
+                            <label className={labelCls}>เป็นเงิน (พ่วงหน้า)</label>
+                            <input
+                              ref={getTRef(idx, "amountFront")}
+                              className={cx(baseField, fieldDisabled)}
+                              value={formatMoneyInput(String(amount1))}
+                              readOnly
+                              tabIndex={0}
+                              onKeyDown={onEnterTrailer(idx, "amountFront")}
+                              aria-readonly="true"
+                              placeholder="คำนวณอัตโนมัติ"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* พ่วงหลัง */}
+                      <div className="rounded-2xl border border-slate-200 dark:border-slate-600 p-4">
+                        <div className="mb-2 font-semibold flex items-center gap-2">
+                          <span className="inline-flex h-2 w-2 rounded-full bg-slate-500" />
+                          พ่วงหลัง
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <div className="md:col-span-1">
+                            <label className={labelCls}>เลขที่ใบชั่งพ่วงหลัง</label>
+                            <input
+                              ref={getTRef(idx, "scaleNoBack")}
+                              className={baseField}
+                              value={t.scaleNoBack}
+                              onChange={(e) => updateTrailer(idx, "scaleNoBack", e.target.value)}
+                              onKeyDown={onEnterTrailer(idx, "scaleNoBack")}
+                              placeholder="เช่น SCL-2025-000124"
+                            />
+                          </div>
+
+                          <div>
+                            <label className={labelCls}>ราคาต่อกก. (บาท)</label>
+                            <input
+                              ref={getTRef(idx, "unitPriceBack")}
+                              inputMode="decimal"
+                              className={cx(baseField, terr.unitPriceBack && "border-red-500 ring-2 ring-red-300")}
+                              value={t.unitPriceBack}
+                              onChange={(e) => updateTrailer(idx, "unitPriceBack", e.target.value.replace(/[^\d.]/g, ""))}
+                              onKeyDown={onEnterTrailer(idx, "unitPriceBack")}
+                              placeholder="เช่น 15.00"
+                            />
+                            {terr.unitPriceBack && <p className={errorTextCls}>{terr.unitPriceBack}</p>}
+                          </div>
+
+                          <div>
+                            <label className={labelCls}>คุณภาพข้าว (gram)</label>
+                            <input
+                              ref={getTRef(idx, "gramBack")}
+                              inputMode="numeric"
+                              className={baseField}
+                              value={t.gramBack}
+                              onChange={(e) => updateTrailer(idx, "gramBack", onlyDigits(e.target.value))}
+                              onKeyDown={onEnterTrailer(idx, "gramBack")}
+                              placeholder="เช่น 85"
+                            />
+                          </div>
+
+                          <div>
+                            <label className={labelCls}>ทะเบียนพ่วงหลัง</label>
+                            <input
+                              ref={getTRef(idx, "licensePlateBack")}
+                              className={cx(baseField, terr.licensePlateBack && "border-red-500 ring-2 ring-red-300")}
+                              value={t.licensePlateBack}
+                              onChange={(e) => updateTrailer(idx, "licensePlateBack", e.target.value.toUpperCase())}
+                              onKeyDown={onEnterTrailer(idx, "licensePlateBack")}
+                              placeholder="เช่น 1กก-5678 กทม."
+                            />
+                            {terr.licensePlateBack && <p className={errorTextCls}>{terr.licensePlateBack}</p>}
+                          </div>
+
+                          <div>
+                            <label className={labelCls}>น้ำหนักสุทธิพ่วงหลัง (กก.)</label>
+                            <input
+                              ref={getTRef(idx, "backWeightKg")}
+                              inputMode="decimal"
+                              className={cx(baseField, terr.backWeightKg && "border-red-500 ring-2 ring-red-300")}
+                              value={t.backWeightKg}
+                              onChange={(e) => updateTrailer(idx, "backWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
+                              onKeyDown={onEnterTrailer(idx, "backWeightKg")}
+                              placeholder="เช่น 12,000"
+                            />
+                            {terr.backWeightKg && <p className={errorTextCls}>{terr.backWeightKg}</p>}
+                          </div>
+
+                          <div className="md:col-span-1">
+                            <label className={labelCls}>เป็นเงิน (พ่วงหลัง)</label>
+                            <input
+                              ref={getTRef(idx, "amountBack")}
+                              className={cx(baseField, fieldDisabled)}
+                              value={formatMoneyInput(String(amount2))}
+                              readOnly
+                              tabIndex={0}
+                              onKeyDown={onEnterTrailer(idx, "amountBack")}
+                              aria-readonly="true"
+                              placeholder="คำนวณอัตโนมัติ"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {terr._net && <p className={errorTextCls}>{terr._net}</p>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* หมายเหตุ */}
+          <div className="mt-4">
+            <label className={labelCls}>หมายเหตุ / คอมเมนต์</label>
+            <textarea
+              ref={refs.comment}
+              rows={3}
+              className={baseField}
+              value={order.comment}
+              onChange={(e) => updateOrder("comment", e.target.value)}
+              onKeyDown={onEnter("comment")}
+              placeholder="ระบุรายละเอียดเพิ่มเติม ถ้ามี"
+            />
+          </div>
+
+          {/* สรุปสั้น ๆ + ตารางพ่วง + รวมเงิน */}
+          <div className="mt-6 grid gap-4 md:grid-cols-5">
+            {buyerType === "person" ? (
+              <>
+                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                  <div className="text-slate-600 dark:text-slate-300">ผู้ซื้อ</div>
+                  <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">
+                    {customer.fullName || "—"}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                  <div className="text-slate-600 dark:text-slate-300">member_id</div>
+                  <div className="text-lg md:text-xl font-semibold">
+                    {memberMeta.memberId ?? (customer.memberId?.trim() || "-")}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                  <div className="text-slate-600 dark:text-slate-300">บริษัท/นิติบุคคล</div>
+                  <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">
+                    {customer.companyName || "—"}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                  <div className="text-slate-600 dark:text-slate-300">เลขที่ผู้เสียภาษี</div>
+                  <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">
+                    {customer.taxId || "—"}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {[
+              { label: "ลงวันที่", value: order.issueDate || "—" },
+              { label: "วิธีชำระเงิน", value: order.paymentMethod || "—" },
+              { label: "สินค้า", value: order.productName || "—" },
+              { label: "ชนิดข้าว", value: order.riceType || "—" },
+              { label: "ชั้นย่อย", value: order.subriceName || "—" },
+              { label: "เงื่อนไข", value: order.condition || "—" },
+              { label: "ประเภทนา", value: order.fieldType || "—" },
+              { label: "ปี/ฤดูกาล", value: order.riceYear || "—" },
+              {
+                label: "สาขา / คลัง",
+                value: (
+                  <ul className="list-disc pl-5">
+                    <li className="break-words">{order.branchName || "—"}</li>
+                    {order.klangName && <li className="break-words">{order.klangName}</li>}
+                  </ul>
+                ),
+              },
+              { label: "หมายเหตุ / คอมเมนต์", value: order.comment || "—" },
+            ].map((c) => (
+              <div
+                key={c.label}
+                className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
+              >
+                <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
+                {typeof c.value === "string" ? (
+                  <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">{c.value}</div>
+                ) : (
+                  <div className="text-lg md:text-xl font-semibold whitespace-pre-wrap break-words">{c.value}</div>
+                )}
+              </div>
+            ))}
+
+            <div className="md:col-span-5 rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-slate-600 dark:text-slate-300">สรุปรถพ่วง</div>
+                <div className="flex items-center gap-4 text-xs md:text-sm opacity-80">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />พ่วงหน้า
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-slate-500" />พ่วงหลัง
+                  </span>
+                </div>
+              </div>
+
+              {!trailerSummary.hasData ? (
+                <div className="text-sm text-slate-500 dark:text-slate-300">ยังไม่มีข้อมูลรถพ่วง</div>
+              ) : (
+                <>
+                  <div className="-mx-2 overflow-x-auto md:mx-0">
+                    <table className="min-w-full text-sm">
+                      <thead className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                        <tr>
+                          <th className="px-2 py-2 text-left">คัน</th>
+                          <th className="px-2 py-2 text-left">ทะเบียน</th>
+                          <th className="px-2 py-2 text-left">น้ำหนัก (กก.)</th>
+                          <th className="px-2 py-2 text-left">ราคา/กก. (บาท)</th>
+                          <th className="px-2 py-2 text-left">เป็นเงิน</th>
+                          <th className="px-2 py-2 text-left">สรุปคัน</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                        {trailerSummary.rows.map((row) => (
+                          <tr key={row.index} className="align-top">
+                            <td className="px-2 py-3 font-semibold">#{row.index}</td>
+                            <td className="px-2 py-3">
+                              <div className="flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                  <span className="break-words">{row.front.plate || "—"}</span>
+                                </span>
+                                <span className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                                  <span className="h-2 w-2 rounded-full bg-slate-500" />
+                                  <span className="break-words">{row.back.plate || "—"}</span>
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-3">
+                              <div className="flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                  <span>{row.front.weight > 0 ? `${round2(row.front.weight)} กก.` : "—"}</span>
+                                </span>
+                                <span className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                                  <span className="h-2 w-2 rounded-full bg-slate-500" />
+                                  <span>{row.back.weight > 0 ? `${round2(row.back.weight)} กก.` : "—"}</span>
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-3">
+                              <div className="flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                  <span>{row.front.price > 0 ? `${round2(row.front.price)} บ.` : "—"}</span>
+                                </span>
+                                <span className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                                  <span className="h-2 w-2 rounded-full bg-slate-500" />
+                                  <span>{row.back.price > 0 ? `${round2(row.back.price)} บ.` : "—"}</span>
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-3">
+                              <div className="flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                  <span>{row.front.amount > 0 ? thb(row.front.amount) : "—"}</span>
+                                </span>
+                                <span className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                                  <span className="h-2 w-2 rounded-full bg-slate-500" />
+                                  <span>{row.back.amount > 0 ? thb(row.back.amount) : "—"}</span>
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-3">
+                              <div className="space-y-1 text-[13px] leading-relaxed md:text-sm">
+                                <div>
+                                  น้ำหนักรวม: <b>{row.net > 0 ? `${round2(row.net)} กก.` : "—"}</b>
+                                </div>
+                                <div>
+                                  ราคาเฉลี่ย: <b>{row.weightedUnit > 0 ? `${round2(row.weightedUnit)} บ./กก.` : "—"}</b>
+                                </div>
+                                <div>
+                                  gram เฉลี่ย: <b>{row.weightedGram > 0 ? row.weightedGram : "—"}</b>
+                                </div>
+                                <div>
+                                  ยอดรวม: <b>{row.amount > 0 ? thb(row.amount) : "—"}</b>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+                    <div className="rounded-xl bg-emerald-50 p-3 text-emerald-900 ring-1 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-100 dark:ring-emerald-700/60">
+                      <div className="text-xs uppercase tracking-wide opacity-70">รวมพ่วงหน้า</div>
+                      <div className="text-lg font-semibold">{round2(trailerSummary.totals.frontWeight)} กก.</div>
+                    </div>
+                    <div className="rounded-xl bg-slate-100 p-3 text-slate-800 ring-1 ring-slate-200 dark:bg-slate-900/40 dark:text-slate-100 dark:ring-slate-700/60">
+                      <div className="text-xs uppercase tracking-wide opacity-70">รวมพ่วงหลัง</div>
+                      <div className="text-lg font-semibold">{round2(trailerSummary.totals.backWeight)} กก.</div>
+                    </div>
+                    <div className="rounded-xl bg-white p-3 text-slate-900 ring-1 ring-slate-200 dark:bg-slate-900/60 dark:text-white dark:ring-slate-700/60">
+                      <div className="text-xs uppercase tracking-wide opacity-70">น้ำหนักสุทธิรวม</div>
+                      <div className="text-lg font-semibold">{round2(trailerSummary.totals.net)} กก.</div>
+                    </div>
+                    <div className="rounded-xl bg-white p-3 text-slate-900 ring-1 ring-amber-200 dark:bg-amber-900/40 dark:text-amber-100 dark:ring-amber-700/60">
+                      <div className="text-xs uppercase tracking-wide opacity-70">ยอดเงินรวม</div>
+                      <div className="text-lg font-semibold">{thb(trailerSummary.totals.amount)}</div>
+                    </div>
+                    <div className="rounded-xl bg-white p-3 text-slate-900 ring-1 ring-emerald-200 dark:bg-slate-900/60 dark:text-white dark:ring-emerald-700/60">
+                      <div className="text-xs uppercase tracking-wide opacity-70">ราคา/คุณภาพเฉลี่ยรวม</div>
+                      <div className="text-lg font-semibold">
+                        {trailerSummary.totals.weightedUnit > 0 ? `${round2(trailerSummary.totals.weightedUnit)} บ./กก.` : "—"}
+                      </div>
+                      <div className="text-sm text-slate-600 dark:text-slate-300">
+                        gram เฉลี่ย: {trailerSummary.totals.weightedGram > 0 ? trailerSummary.totals.weightedGram : "—"}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ปุ่มบันทึก/รีเซ็ต */}
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <button
+              ref={refs.submitBtn}
+              type="submit" disabled={submitting} aria-busy={submitting}
+              className="inline-flex items-center justify-center rounded-2xl 
+                bg-emerald-600 px-6 py-3 text-base font-semibold text-white
+                shadow-[0_6px_16px_rgba(16,185,129,0.35)]
+                transition-all duration-300 ease-out
+                hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
+                hover:scale-[1.05] active:scale-[.97] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {submitting ? (
+                <span className="inline-flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" width="18" height="18" className="animate-spin">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25"></circle>
+                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none"></path>
+                  </svg>
+                  กำลังบันทึก...
+                </span>
+              ) : (
+                <>บันทึก</>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="inline-flex items-center justify-center rounded-2xl 
+                border border-slate-300 bg-white px-6 py-3 text-base font-medium 
+                text-slate-700 dark:text-white
+                shadow-sm
+                transition-all duration-300 ease-out
+                hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
+                active:scale-[.97]
+                dark:border-slate-600 dark:bg-slate-700/60
+                dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+            >
+              รีเซ็ต
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default Sales

@@ -1,6 +1,6 @@
-# React + Vite
+# SKT — ระบบ HR กลาง สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Stack:** React 19 + Vite 7 + Tailwind CSS v4 + React Router v7
 
 Currently, two official plugins are available:
 

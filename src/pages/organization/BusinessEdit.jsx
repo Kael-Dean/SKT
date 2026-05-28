@@ -59,6 +59,13 @@ const TABS = [
     fields: [
       { name: "name", label: "ชื่อต้นทุน", type: "text", required: true },
       { name: "business_group", label: "กลุ่มธุรกิจ", type: "select", options: BUSINESS_GROUP_OPTIONS },
+      {
+        name: "is_deduction",
+        label: "ประเภทรายการ",
+        type: "boolean",
+        trueLabel: "รายการหัก (ลดต้นทุน)",
+        falseLabel: "ต้นทุน (เพิ่ม)",
+      },
       { name: "comment", label: "หมายเหตุ", type: "text" },
     ],
   },
@@ -366,6 +373,8 @@ const BusinessEdit = () => {
           val = BUSINESS_GROUP_MAP[row[f.name]] || String(row[f.name])
         } else if (f.type === "multi-select" && Array.isArray(row[f.name])) {
           val = row[f.name].map((id) => BUSINESS_GROUP_MAP[id] || id).join(", ")
+        } else if (f.type === "boolean") {
+          val = row[f.name] ? (f.trueLabel || "หัก") : (f.falseLabel || "ปกติ")
         } else {
           val = String(row[f.name] ?? "")
         }
@@ -420,7 +429,7 @@ const BusinessEdit = () => {
   const handleAdd = () => {
     const initialData = {}
     currentConfig.fields.forEach(f => {
-      initialData[f.name] = f.type === "multi-select" ? [] : ""
+      initialData[f.name] = f.type === "multi-select" ? [] : f.type === "boolean" ? false : ""
     })
     setFormData(initialData)
     setEditingId(null)
@@ -432,6 +441,8 @@ const BusinessEdit = () => {
     currentConfig.fields.forEach(f => {
       if (f.type === "multi-select") {
         initialData[f.name] = Array.isArray(item[f.name]) ? item[f.name].map(Number) : []
+      } else if (f.type === "boolean") {
+        initialData[f.name] = Boolean(item[f.name])
       } else {
         initialData[f.name] = item[f.name] ?? ""
       }
@@ -630,6 +641,16 @@ const BusinessEdit = () => {
                           <td key={f.name} className="border border-slate-300 p-3 dark:border-slate-600">
                             {f.name === "business_group" && row[f.name] != null ? (
                               BUSINESS_GROUP_MAP[row[f.name]] || row[f.name]
+                            ) : f.type === "boolean" ? (
+                              row[f.name] ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                                  − {f.trueLabel}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                                  ＋ {f.falseLabel}
+                                </span>
+                              )
                             ) : f.type === "multi-select" && Array.isArray(row[f.name]) ? (
                               row[f.name].length === 0 ? (
                                 "-"
@@ -704,6 +725,41 @@ const BusinessEdit = () => {
                         onChange={(vals) => handleChange({ target: { name: f.name, value: vals, type: "multi-select" } })}
                         placeholder={`— เลือก${f.label} (เลือกได้หลายรายการ) —`}
                       />
+                    ) : f.type === "boolean" ? (
+                      <div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleChange({ target: { name: f.name, value: false, type: "boolean" } })}
+                            className={cx(
+                              "flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all cursor-pointer",
+                              !formData[f.name]
+                                ? "border-emerald-500 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/30 dark:border-emerald-400 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                : "border-slate-300 bg-slate-50 text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                            )}
+                          >
+                            <span className="text-base leading-none">＋</span> {f.falseLabel}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleChange({ target: { name: f.name, value: true, type: "boolean" } })}
+                            className={cx(
+                              "flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all cursor-pointer",
+                              formData[f.name]
+                                ? "border-amber-500 bg-amber-50 text-amber-700 ring-1 ring-amber-500/30 dark:border-amber-400 dark:bg-amber-900/30 dark:text-amber-300"
+                                : "border-slate-300 bg-slate-50 text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                            )}
+                          >
+                            <span className="text-base leading-none">−</span> {f.trueLabel}
+                          </button>
+                        </div>
+                        {editingId && (
+                          <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                            <span className="shrink-0">⚠️</span>
+                            <span>การเปลี่ยนประเภทจะมีผลกับค่ารายเดือนที่บันทึก<b>ใหม่</b>เท่านั้น ค่าที่บันทึกไว้ก่อนหน้าจะไม่ถูกแก้ไขย้อนหลัง</span>
+                          </p>
+                        )}
+                      </div>
                     ) : (
                       <input
                         type={f.type === "number" ? "number" : "text"}

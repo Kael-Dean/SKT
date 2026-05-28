@@ -158,13 +158,33 @@ const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.alt : STRIPE.cell);
 const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, planId }) => {
   const { items: auxItems, nameById: auxNameById } = useAuxCosts()
 
+  // aux ที่เป็น "รายการหัก" (is_deduction) — ค่าจะถูกหักออกจากต้นทุนรวม
+  // ใช้ทั้ง flag จาก master list และ fallback ตรวจจับเครื่องหมายลบจากค่าที่ backend ส่งกลับมา
+  const [detectedDeductionIds, setDetectedDeductionIds] = useState(() => new Set())
+  const deductionAuxIds = useMemo(() => {
+    const s = new Set(detectedDeductionIds)
+    for (const it of auxItems) if (it?.is_deduction) s.add(Number(it.id))
+    return s
+  }, [auxItems, detectedDeductionIds])
+
   const ROWS = useMemo(() => buildRowsFromAuxItems(auxItems), [auxItems])
 
   const displayRows = useMemo(
-    () => ROWS.map((r) => r.aux_id && auxNameById[r.aux_id] ? { ...r, label: auxNameById[r.aux_id] } : r),
-    [ROWS, auxNameById]
+    () => ROWS.map((r) => {
+      let row = r
+      if (r.aux_id && auxNameById[r.aux_id]) row = { ...row, label: auxNameById[r.aux_id] }
+      if (r.kind === "item") row = { ...row, is_deduction: deductionAuxIds.has(Number(r.aux_id)) }
+      return row
+    }),
+    [ROWS, auxNameById, deductionAuxIds]
   )
   const itemRows = useMemo(() => displayRows.filter((r) => r.kind === "item"), [displayRows])
+
+  const deductionCodes = useMemo(() => {
+    const s = new Set()
+    for (const r of itemRows) if (r.is_deduction) s.add(r.code)
+    return s
+  }, [itemRows])
 
   const effectiveBranchId = useMemo(() => Number(branchId || 0) || 0, [branchId])
   const effectiveBranchName = useMemo(
@@ -287,6 +307,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
       }
 
       const seed = {}
+      const detected = new Set()
       for (const cell of rowsData) {
         const auxId = Number(cell.b_aux || cell.aux_id || cell.b_cost || 0)
         const unitId = Number(cell.unit_id || 0)
@@ -303,13 +324,16 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             const valKey = `m${m.month}_value`
             const amount = Number(cell.months?.[valKey] ?? cell[valKey] ?? 0)
 
+            // deduction → backend คืนค่าติดลบ; เก็บเป็นค่าบวก (magnitude) ในช่องกรอก
+            if (amount < 0) detected.add(auxId)
             if (amount !== 0) {
                if (!seed[code][m.key]) seed[code][m.key] = {}
-               seed[code][m.key][unit.id] = String(amount)
+               seed[code][m.key][unit.id] = String(Math.abs(amount))
             }
         }
       }
 
+      setDetectedDeductionIds(detected)
       setValuesByCode(normalizeGrid(seed))
     } catch (e) {
       console.error("[AuxCost Detail Load saved] failed:", e)
@@ -357,14 +381,15 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
     }
 
     for (const r of itemRows) {
+        const sign = r.is_deduction ? -1 : 1
         let rowTotal = 0
         for (const u of unitCols) {
             let unitTotal = 0
             for (const m of MONTHS) {
                 unitTotal += toNumber(valuesByCode[r.code]?.[m.key]?.[u.id])
             }
-            totals[r.code].byUnit[u.id] = unitTotal
-            rowTotal += unitTotal
+            totals[r.code].byUnit[u.id] = unitTotal * sign
+            rowTotal += unitTotal * sign
         }
         totals[r.code].total = rowTotal
     }
@@ -488,7 +513,8 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
             }
 
             for (const m of MONTHS) {
-                monthsData[`m${m.month}_value`] = toNumber(rowData?.[m.key]?.[u.id])
+                // ส่งค่าบวกเสมอ — backend จะใส่เครื่องหมายลบเองตาม is_deduction
+                monthsData[`m${m.month}_value`] = Math.abs(toNumber(rowData?.[m.key]?.[u.id]))
             }
 
             rows.push({
@@ -611,7 +637,12 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                 return (
                   <tr key={r.code} className={cx(rowBg, font)}>
                     <td className={cx("border border-slate-300 px-1 py-2 text-center text-xs dark:border-slate-600 sticky left-0 z-10", rowBg)}>{isSpecialRow ? '' : r.code}</td>
-                    <td className={cx("border border-slate-300 px-2 py-2 text-left font-semibold text-xs dark:border-slate-600 sticky left-[60px] z-10", rowBg, trunc)} title={r.label}>{r.label}</td>
+                    <td className={cx("border border-slate-300 px-2 py-2 text-left font-semibold text-xs dark:border-slate-600 sticky left-[60px] z-10", rowBg, trunc)} title={r.is_deduction ? `${r.label} (รายการหัก — ลดต้นทุนรวม)` : r.label}>
+                      {r.is_deduction && (
+                        <span className="mr-1 inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">− หัก</span>
+                      )}
+                      <span className={cx(r.is_deduction && "text-amber-700 dark:text-amber-300")}>{r.label}</span>
+                    </td>
                     
                     {MONTHS.map((m, mIdx) => unitCols.map((u, ui) => {
                         const colIdx = mIdx * unitCols.length + ui
@@ -655,7 +686,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                         let monthUnitTotal = 0;
                         for (const subtotalCode of Object.keys(sectionMap)) {
                             for(const itemCode of sectionMap[subtotalCode]) {
-                                monthUnitTotal += toNumber(valuesByCode[itemCode]?.[m.key]?.[u.id])
+                                monthUnitTotal += toNumber(valuesByCode[itemCode]?.[m.key]?.[u.id]) * (deductionCodes.has(itemCode) ? -1 : 1)
                             }
                         }
                         return <td key={`tf-${m.key}-${u.id}`} className={cx("border border-slate-300 px-1.5 py-1 text-right font-bold text-xs dark:border-slate-600", STRIPE.grandtotal)}>{fmtMoney0(monthUnitTotal)}</td>

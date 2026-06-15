@@ -1,7 +1,18 @@
 // src/pages/StockDamageOut.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { get, post } from "../../lib/api"
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import {
+  cx,
+  baseField,
+  fieldDisabled,
+  labelCls,
+  helpTextCls,
+  errorTextCls,
+  cardPaddedCls,
+  sectionTitleCls,
+  resetBtnCls,
+  spinnerCls,
+} from "../../lib/styles"
 
 /** ---------- Utils ---------- */
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
@@ -353,7 +364,6 @@ const StockDamageOut = () => {
       }
     }
     loadKlang()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.branch_id, form.branch_name])
 
   // product -> species
@@ -384,7 +394,6 @@ const StockDamageOut = () => {
       }
     }
     loadSpecies()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.product_id])
 
   // species -> variant
@@ -413,7 +422,6 @@ const StockDamageOut = () => {
       }
     }
     loadVariant()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.species_id])
 
   /** ---------- Validate ---------- */
@@ -550,12 +558,19 @@ ${msg}`)
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧯 ตัดเสียหาย (Damage Out)</h1>
+        <h1 className="mb-4 flex items-center gap-2.5 text-3xl font-bold text-gray-900 dark:text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-7 text-red-600 dark:text-red-400">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          ตัดเสียหาย (Damage Out)
+        </h1>
 
         <form onSubmit={handleSubmit}>
           {/* กรอบที่ 1: ที่ตั้ง (สาขา/คลัง) & วันที่ */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">ข้อมูลตัดเสียหาย</h2>
+          <div className={cx(cardPaddedCls, "mb-6")}>
+            <h2 className={sectionTitleCls}>ข้อมูลตัดเสียหาย</h2>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <label className={labelCls}>วันที่ตัดเสียหาย</label>
@@ -617,8 +632,8 @@ ${msg}`)
           </div>
 
           {/* กรอบที่ 2: สินค้า / คุณสมบัติ */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
+          <div className={cx(cardPaddedCls, "mb-6")}>
+            <h2 className={sectionTitleCls}>สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <label className={labelCls}>ประเภทสินค้า</label>
@@ -755,14 +770,14 @@ ${msg}`)
           </div>
 
           {/* กรอบที่ 3: น้ำหนักและค่าเสียหาย */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">น้ำหนักและค่าเสียหาย</h2>
+          <div className={cx(cardPaddedCls, "mb-6")}>
+            <h2 className={sectionTitleCls}>น้ำหนักและค่าเสียหาย</h2>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
                 <label className={labelCls}>น้ำหนักที่ตัดออก (กก.)</label>
                 <input
                   inputMode="decimal"
-                  className={cx(baseField, redFieldCls("weight_out"))}
+                  className={cx(baseField, "tabular-nums", redFieldCls("weight_out"))}
                   value={form.weight_out}
                   onChange={(e) => update("weight_out", e.target.value.replace(/[^\d.]/g, ""))}
                   onFocus={() => {
@@ -779,7 +794,7 @@ ${msg}`)
                 <label className={labelCls}>ค่าเสียหาย / กก. (บาท)</label>
                 <input
                   inputMode="decimal"
-                  className={cx(baseField, redFieldCls("cost_per_kg"))}
+                  className={cx(baseField, "tabular-nums", redFieldCls("cost_per_kg"))}
                   value={form.cost_per_kg}
                   onChange={(e) => update("cost_per_kg", e.target.value.replace(/[^\d.]/g, ""))}
                   onFocus={() => {
@@ -794,7 +809,7 @@ ${msg}`)
 
               <div>
                 <label className={labelCls}>มูลค่าเสียหายรวม (บาท)</label>
-                <input disabled className={cx(baseField, fieldDisabled)} value={thb(totalDamage)} />
+                <input disabled className={cx(baseField, fieldDisabled, "tabular-nums")} value={thb(totalDamage)} />
                 <p className={helpTextCls}>คำนวณ = น้ำหนัก × ค่าเสียหาย/กก.</p>
               </div>
 
@@ -816,15 +831,17 @@ ${msg}`)
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex items-center justify-center rounded-2xl 
-                bg-rose-600 px-6 py-3 text-base font-semibold text-white
-                shadow-[0_6px_16px_rgba(225,29,72,0.35)]
-                transition-all duration-300 ease-out
-                hover:bg-rose-700 hover:shadow-[0_8px_20px_rgba(225,29,72,0.45)]
-                hover:scale-[1.05] active:scale-[.97]
-                disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl
+                bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-sm cursor-pointer
+                transition-all duration-200
+                hover:bg-red-700 hover:shadow-[0_8px_20px_rgba(220,38,38,0.35)] hover:scale-[1.02]
+                active:scale-[.97]
+                disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2
+                dark:focus-visible:ring-offset-slate-900"
               aria-busy={submitting ? "true" : "false"}
             >
+              {submitting && <span className={spinnerCls} aria-hidden="true" />}
               {submitting ? "กำลังบันทึก..." : "บันทึก"}
             </button>
 
@@ -855,14 +872,7 @@ ${msg}`)
                   reason: "",
                 }))
               }
-              className="inline-flex items-center justify-center rounded-2xl 
-                border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                shadow-sm
-                transition-all duration-300 ease-out
-                hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                active:scale-[.97]
-                dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+              className={resetBtnCls}
             >
               รีเซ็ต
             </button>

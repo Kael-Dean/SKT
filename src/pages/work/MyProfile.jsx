@@ -5,6 +5,7 @@ import ReactDOM from "react-dom"
 import { apiAuth } from "../../lib/api"
 import { getUser, getRoleId } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
+import { PageLoader, ErrorState } from "../../components/ui"
 import lineIcon from "../../assets/line-icon.png"
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
@@ -40,7 +41,7 @@ function InfoRow({ label, value, mono }) {
   return (
     <div className="flex flex-col sm:flex-row sm:gap-4 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
       <span className="text-xs font-medium text-gray-500 dark:text-gray-400 sm:w-44 shrink-0">{label}</span>
-      <span className={`text-sm text-gray-900 dark:text-gray-100 mt-0.5 sm:mt-0 ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className={`text-sm text-gray-900 dark:text-gray-100 mt-0.5 sm:mt-0 ${mono ? "font-mono tabular-nums" : ""}`}>{value}</span>
     </div>
   )
 }
@@ -78,8 +79,9 @@ export default function MyProfile() {
   const [reportSubmitting, setReportSubmitting] = useState(false)
   const [reportMsg, setReportMsg] = useState("")
 
-  useEffect(() => {
+  const loadProfile = () => {
     setLoading(true)
+    setError("")
     Promise.all([
       apiAuth("/personnel/me"),
       apiAuth("/personnel/me/financial").catch(() => null),
@@ -94,15 +96,14 @@ export default function MyProfile() {
       })
       .catch(() => setError("ไม่สามารถโหลดข้อมูลโปรไฟล์ได้"))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { loadProfile() }, [])
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-          <span className="text-sm text-gray-400 dark:text-gray-500">กำลังโหลดข้อมูล...</span>
-        </div>
+      <div className="max-w-2xl mx-auto pb-10">
+        <PageLoader variant="cards" rows={4} message="กำลังโหลดข้อมูลโปรไฟล์…" />
       </div>
     )
   }
@@ -164,9 +165,12 @@ export default function MyProfile() {
         <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ข้อมูลส่วนตัว</h1>
         <button
           onClick={openReportModal}
-          className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-sm font-semibold transition shadow-sm cursor-pointer"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         >
-          🔧 แจ้งแก้ไขข้อมูล
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z" />
+          </svg>
+          แจ้งแก้ไขข้อมูล
         </button>
       </div>
 
@@ -189,11 +193,7 @@ export default function MyProfile() {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-          ⚠️ {error}
-        </div>
-      )}
+      {error && <ErrorState message={error} onRetry={loadProfile} />}
 
       {/* ข้อมูลบัญชี */}
       <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
@@ -322,8 +322,8 @@ export default function MyProfile() {
             ].filter((q) => q.days > 0).map((q) => (
               <div key={q.label} className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 p-3 text-center">
                 <p className="text-xs text-gray-500 dark:text-gray-400">{q.label}</p>
-                <p className="text-lg font-bold text-indigo-700 dark:text-indigo-300 mt-0.5">{q.days}</p>
-                <p className="text-xs text-gray-400">วัน/ปี</p>
+                <p className="text-lg font-bold text-indigo-700 dark:text-indigo-300 mt-0.5 tabular-nums">{q.days}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">วัน/ปี</p>
               </div>
             ))}
           </div>
@@ -338,7 +338,12 @@ export default function MyProfile() {
       {reportModal && ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">🔧 แจ้งแก้ไขข้อมูล</h3>
+            <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5 text-amber-500">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z" />
+              </svg>
+              แจ้งแก้ไขข้อมูล
+            </h3>
             <form onSubmit={handleReport} className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">หมวดหมู่ <span className="text-red-500">*</span></label>
@@ -376,9 +381,14 @@ export default function MyProfile() {
                 <p className={`text-sm text-center ${reportMsg.startsWith("✅") ? "text-emerald-600" : "text-amber-600 dark:text-amber-400"}`}>{reportMsg}</p>
               )}
               <div className="flex gap-3">
-                <button type="button" onClick={() => setReportModal(false)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">ยกเลิก</button>
-                <button type="submit" disabled={reportSubmitting} className="flex-1 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-sm font-semibold transition cursor-pointer">
-                  {reportSubmitting ? "กำลังส่ง..." : "ส่งคำร้อง"}
+                <button type="button" onClick={() => setReportModal(false)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-[0.98] transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">ยกเลิก</button>
+                <button type="submit" disabled={reportSubmitting} className="flex-1 inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 text-white text-sm font-semibold transition-all duration-200 active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2">
+                  {reportSubmitting ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      กำลังส่ง…
+                    </>
+                  ) : "ส่งคำร้อง"}
                 </button>
               </div>
             </form>

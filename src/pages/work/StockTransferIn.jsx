@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { get, post } from "../../lib/api"
 import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import { PageLoader, EmptyState, ErrorState, Badge } from "../../components/ui"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -70,8 +71,10 @@ function StockTransferIn() {
   const [submitting, setSubmitting] = useState(false)
 
   /** ---------- Requests (inbox) ---------- */
-  const [loadingRequests, setLoadingRequests] = useState(false)
+  const [loadingRequests, setLoadingRequests] = useState(true)
   const [requests, setRequests] = useState([])
+  const [requestsError, setRequestsError] = useState("")
+  const [requestsLoadedOnce, setRequestsLoadedOnce] = useState(false)
 
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
@@ -115,26 +118,39 @@ function StockTransferIn() {
 
   /** ---------- โหลดรายการคำขอ ---------- */
   const requestsBoxRef = useRef(null)
-  useEffect(() => {
-    let timer = null
-    let alive = true
-    async function fetchRequests() {
-      try {
-        setLoadingRequests(true)
-        const data = await get(`/transfer/pending/incoming`)
-        if (alive) setRequests(Array.isArray(data) ? data : [])
-      } catch (e) {
-        if (alive) setRequests([])
-      } finally {
-        if (alive) setLoadingRequests(false)
+  const reloadTokenRef = useRef(0)
+
+  // ดึงรายการคำขอ — background=true สำหรับ polling (ไม่โชว์ skeleton/error ทับของเดิม)
+  const loadRequests = async ({ background = false } = {}) => {
+    const token = ++reloadTokenRef.current
+    if (!background) {
+      setLoadingRequests(true)
+      setRequestsError("")
+    }
+    try {
+      const data = await get(`/transfer/pending/incoming`)
+      if (token !== reloadTokenRef.current) return
+      setRequests(Array.isArray(data) ? data : [])
+      setRequestsError("")
+    } catch (err) {
+      if (token !== reloadTokenRef.current) return
+      // โพลล์พื้นหลังที่ล้มเหลว: เก็บข้อมูลเดิมไว้ ไม่ต้องโชว์ error ทับ
+      if (!background) {
+        setRequests([])
+        setRequestsError(err?.message || "ไม่สามารถโหลดคำขอโอนเข้าได้")
+      }
+    } finally {
+      if (token === reloadTokenRef.current) {
+        setLoadingRequests(false)
+        setRequestsLoadedOnce(true)
       }
     }
-    fetchRequests()
-    timer = setInterval(fetchRequests, 20000)
-    return () => {
-      alive = false
-      if (timer) clearInterval(timer)
-    }
+  }
+
+  useEffect(() => {
+    loadRequests()
+    const timer = setInterval(() => loadRequests({ background: true }), 20000)
+    return () => clearInterval(timer)
   }, [])
 
   /** ---------- เลือกคำขอ ---------- */
@@ -269,7 +285,7 @@ function StockTransferIn() {
         const focusable = el.querySelector('input,button,select,textarea,[tabindex]:not([tabindex="-1"])')
         focusable?.focus({ preventScroll: true })
       }
-    } catch {}
+    } catch { /* scroll/focus best-effort */ }
   }
 
   const focusFirstInvalid = (hints, e) => {
@@ -337,11 +353,8 @@ function StockTransferIn() {
       window.scrollTo({ top: 0, behavior: "smooth" })
       setTimeout(() => dateRef.current?.focus(), 200)
 
-      // รีโหลดรายการรอรับเข้า
-      try {
-        const data = await get(`/transfer/pending/incoming`)
-        setRequests(Array.isArray(data) ? data : [])
-      } catch {}
+      // รีโหลดรายการรอรับเข้า (background: เก็บรายการเดิมไว้ถ้าล้มเหลว)
+      loadRequests({ background: true })
     } catch (err) {
       console.error(err)
       const msg = err?.message || ""
@@ -370,8 +383,7 @@ function StockTransferIn() {
         receiver_note: note.trim() || null,
       })
       alert("ปฏิเสธคำขอเรียบร้อย")
-      const data = await get(`/transfer/pending/incoming`)
-      setRequests(Array.isArray(data) ? data : [])
+      loadRequests({ background: true })
     } catch (e) {
       console.error(e)
       alert(e?.message || "ปฏิเสธไม่สำเร็จ")
@@ -381,65 +393,95 @@ function StockTransferIn() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">📦 รับเข้าข้าวเปลือก</h1>
+        <h1 className="mb-4 flex items-center gap-2.5 text-3xl font-bold text-gray-900 dark:text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-7 text-indigo-600 dark:text-indigo-400">
+            <path d="m7.5 4.27 9 5.15" />
+            <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+            <path d="m3.3 7 8.7 5 8.7-5" />
+            <path d="M12 22V12" />
+          </svg>
+          รับเข้าข้าวเปลือก
+        </h1>
 
         {/* คำขอที่รอเข้าจาก backend */}
         <div
           ref={requestsBoxRef}
           className={cx(
-            "mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800",
+            "mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 transition-shadow duration-150",
             (errors.transfer_id || missingHints.transfer_id) && "ring-2 ring-red-300"
           )}
         >
           <div className="mb-3 flex items-center gap-3">
             <h2 className="text-xl font-semibold">คำขอโอนเข้าที่รอดำเนินการ</h2>
-            <span className="inline-flex items-center justify-center rounded-full bg-emerald-100 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
-              {loadingRequests ? "กำลังโหลด..." : `ทั้งหมด ${requests.length} รายการ`}
-            </span>
+            {loadingRequests && !requestsLoadedOnce ? (
+              <Badge tone="neutral">กำลังโหลด…</Badge>
+            ) : requestsError ? (
+              <Badge tone="danger">โหลดไม่สำเร็จ</Badge>
+            ) : (
+              <Badge tone="success">ทั้งหมด {requests.length} รายการ</Badge>
+            )}
           </div>
 
-          {requests.length === 0 ? (
-            <div className="text-slate-600 dark:text-slate-300">ยังไม่มีคำขอโอนเข้ามาในสาขาของคุณ</div>
+          {loadingRequests && !requestsLoadedOnce ? (
+            <PageLoader variant="cards" rows={2} message="กำลังโหลดคำขอโอนเข้า…" />
+          ) : requestsError ? (
+            <ErrorState message={requestsError} onRetry={() => loadRequests()} />
+          ) : requests.length === 0 ? (
+            <EmptyState
+              title="ยังไม่มีคำขอโอนเข้า"
+              description="เมื่อมีสาขาอื่นส่งคำขอโอนเข้ามาที่สาขาของคุณ รายการจะปรากฏที่นี่โดยอัตโนมัติ"
+            />
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
-              {requests.map((req) => (
+              {requests.map((req) => {
+                const isPicked = String(form.transfer_id ?? "") === String(req.id)
+                return (
                 <div
                   key={req.id}
-                  className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
+                  className={cx(
+                    "rounded-2xl bg-white p-4 text-black shadow-sm ring-1 transition-shadow duration-150 dark:bg-slate-800 dark:text-white",
+                    isPicked
+                      ? "ring-2 ring-emerald-400 dark:ring-emerald-500"
+                      : "ring-slate-200 dark:ring-slate-700 hover:shadow-md"
+                  )}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="font-semibold">เลขคำขอ: {req.id}</div>
+                    <div className="flex items-center gap-2 font-semibold">
+                      เลขคำขอ: {req.id}
+                      {isPicked && <Badge tone="success">เลือกแล้ว</Badge>}
+                    </div>
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => handleReject(req.id)}
-                        className="rounded-xl border border-red-300 px-3 py-1.5 text-red-600 font-medium hover:bg-red-50 dark:hover:bg-red-900/20"
+                        className="rounded-xl border border-red-300 px-3 py-1.5 text-red-600 font-medium transition-colors duration-150 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 dark:border-red-800/70 dark:text-red-300 dark:hover:bg-red-900/20"
                       >
                         ปฏิเสธ
                       </button>
                       <button
                         type="button"
                         onClick={() => pickRequest(req)}
-                        className="rounded-xl bg-emerald-600 px-3 py-1.5 text-white font-medium hover:bg-emerald-700 active:scale-[.98]"
+                        className="rounded-xl bg-emerald-600 px-3 py-1.5 text-white font-medium transition-colors duration-150 hover:bg-emerald-700 active:scale-[.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-800"
                       >
                         รับเข้า
                       </button>
                     </div>
                   </div>
-                  <div className="mt-2 text-sm text-slate-700 dark:text-slate-300">
-                    <div>จากคลัง (ID): {req.from_klang ?? "-"}</div>
-                    <div>ไปคลัง (ID): {req.to_klang ?? "-"}</div>
+                  <div className="mt-2 space-y-0.5 text-sm text-slate-700 dark:text-slate-300">
+                    <div>จากคลัง (ID): <span className="tabular-nums">{req.from_klang ?? "-"}</span></div>
+                    <div>ไปคลัง (ID): <span className="tabular-nums">{req.to_klang ?? "-"}</span></div>
                     <div>สถานะ: {req.status ?? "-"}</div>
                     {req.price_per_kilo != null && (
-                      <div>ราคาต้นทุน/กก. ที่เสนอ: {Number(req.price_per_kilo).toFixed(2)} บาท</div>
+                      <div>ราคาต้นทุน/กก. ที่เสนอ: <span className="tabular-nums">{Number(req.price_per_kilo).toFixed(2)}</span> บาท</div>
                     )}
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
           {errors.transfer_id && requests.length > 0 && (
-            <p className="mt-3 text-sm text-red-500">{errors.transfer_id}</p>
+            <p className="mt-3 text-sm text-red-500 dark:text-red-400">{errors.transfer_id}</p>
           )}
         </div>
 

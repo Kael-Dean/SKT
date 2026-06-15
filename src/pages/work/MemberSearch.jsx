@@ -1,6 +1,26 @@
 // src/pages/MemberSearch.jsx
 import { useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ
+import { SkeletonTableRows, ErrorState, EmptyState } from "../../components/ui"
+
+/** ไอคอนแว่นขยาย (inline SVG — currentColor, ไม่มี emoji) */
+function SearchIcon({ className = "size-5" }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  )
+}
 
 /** ============ ตำแหน่งหยุดของหัวตารางใต้ App Bar ============ */
 /** ถ้าหัวตารางไปซ้อนกับแถวข้อมูลให้ใช้ 0 (หรือปรับตาม layout จริงของ App Bar) */
@@ -266,6 +286,7 @@ const MemberSearch = () => {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [reloadKey, setReloadKey] = useState(0)   // ↻ สำหรับปุ่ม "ลองใหม่"
 
   // modal
   const [open, setOpen] = useState(false)
@@ -301,7 +322,7 @@ const MemberSearch = () => {
       }
     }
     run()
-  }, [dq])
+  }, [dq, reloadKey])
 
   const openModal = (row) => {
     const r = normalizeRecord(row)
@@ -422,7 +443,10 @@ const MemberSearch = () => {
         className="mx-auto max-w-6xl p-4 md:p-6 text-base md:text-lg"
         style={{ scrollMarginTop: STICKY_TOP_PX }}
       >
-        <h1 className="mb-4 text-2xl md:text-3xl font-bold">🔎 ค้นหาสมาชิก</h1>
+        <h1 className="mb-4 flex items-center gap-2 text-2xl md:text-3xl font-bold">
+          <SearchIcon className="size-6 text-emerald-600 dark:text-emerald-400" />
+          ค้นหาสมาชิก
+        </h1>
 
         {/* การ์ดค้นหา */}
         <div className="rounded-2xl border border-slate-200/60 bg-white/85 p-5 md:p-6 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/40">
@@ -435,19 +459,21 @@ const MemberSearch = () => {
               className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3 pr-12 text-base outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 dark:border-white/10 dark:bg-slate-800 dark:placeholder:text-slate-400 dark:focus:border-emerald-500 dark:focus:ring-emerald-500/20"
             />
             <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
-              🔍
+              <SearchIcon />
             </span>
           </div>
           <div className="mt-2 text-xs md:text-sm text-slate-500 dark:text-slate-400">
             {dq ? (loading ? <>กำลังค้นหา “{dq}”...</> : <>ผลลัพธ์ {rows.length.toLocaleString()} รายการ</>) : <>พิมพ์อย่างน้อย 1 ตัวอักษรเพื่อค้นหา</>}
           </div>
           {hint && !loading && dq && (
-            <div className="mt-1 text-xs md:text-sm text-slate-500">{hint}</div>
+            <div className="mt-1 text-xs md:text-sm text-slate-500 dark:text-slate-400">{hint}</div>
           )}
           {error && (
-            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-400 dark:bg-red-900/20 dark:text-red-200">
-              {error}
-            </div>
+            <ErrorState
+              className="mt-3"
+              message={error}
+              onRetry={() => setReloadKey((k) => k + 1)}
+            />
           )}
         </div>
 
@@ -471,21 +497,38 @@ const MemberSearch = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 dark:divide-white/8">
-                {loading &&
-                  Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={`sk-${i}`} className="animate-pulse dark:odd:bg-slate-800/30 dark:even:bg-slate-800/20">
-                      {Array.from({ length: loaderCols }).map((__, j) => (
-                        <td key={j} className="px-5 py-4">
-                          <div className="h-4 w-28 rounded bg-slate-200/70 dark:bg-slate-700/60" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+                {loading && <SkeletonTableRows rows={8} cols={loaderCols} />}
 
-                {!loading && dq && rows.length === 0 && (
-                  <tr className="odd:bg-white/90 even:bg-slate-50/70 dark:odd:bg-slate-800/40 dark:even:bg-slate-800/25">
-                    <td className="px-5 py-8 text-center text-slate-500 dark:text-slate-300" colSpan={loaderCols}>
-                      ไม่พบข้อมูลที่ตรงกับ “{dq}”
+                {/* ก่อนเริ่มค้นหา — สอนขั้นตอนถัดไป */}
+                {!loading && !error && !dq && (
+                  <tr>
+                    <td colSpan={loaderCols} className="p-0">
+                      <EmptyState
+                        icon={<SearchIcon className="size-12" />}
+                        title="เริ่มต้นด้วยการค้นหาสมาชิก"
+                        description="พิมพ์ชื่อ นามสกุล เลขบัตรประชาชน หรือเลขทะเบียนสมาชิกในช่องด้านบนเพื่อแสดงรายชื่อ"
+                      />
+                    </td>
+                  </tr>
+                )}
+
+                {/* ค้นหาแล้วแต่ไม่พบผลลัพธ์ */}
+                {!loading && !error && dq && rows.length === 0 && (
+                  <tr>
+                    <td colSpan={loaderCols} className="p-0">
+                      <EmptyState
+                        title={`ไม่พบข้อมูลที่ตรงกับ “${dq}”`}
+                        description="ลองตรวจสอบการสะกด หรือค้นหาด้วยคำอื่น เช่น เลขบัตรประชาชน หรือเลขทะเบียนสมาชิก"
+                        action={
+                          <button
+                            type="button"
+                            onClick={() => setQ("")}
+                            className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50"
+                          >
+                            ล้างตัวกรอง
+                          </button>
+                        }
+                      />
                     </td>
                   </tr>
                 )}
@@ -583,7 +626,7 @@ const MemberSearch = () => {
 
                   {/* 📈 ข้อมูลหุ้น */}
                   <div className="mb-5 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-400 dark:bg-indigo-900/10">
-                    <div className="mb-2 text-base font-semibold text-indigo-800 dark:text-indigo-200">📈 ข้อมูลหุ้น</div>
+                    <div className="mb-2 text-base font-semibold text-indigo-800 dark:text-indigo-200">ข้อมูลหุ้น</div>
                     <div className="grid grid-cols-1 gap-4">
                       <div className="rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
                         <div className="text-sm text-slate-600 dark:text-slate-300">ยอดหุ้นสะสม (total_shares)</div>
@@ -596,7 +639,7 @@ const MemberSearch = () => {
 
                   {/* โครงการที่เข้าร่วม */}
                   <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-400 dark:bg-emerald-900/10">
-                    <div className="mb-2 text-base font-semibold text-emerald-800 dark:text-emerald-200">🎯 โครงการที่เข้าร่วม</div>
+                    <div className="mb-2 text-base font-semibold text-emerald-800 dark:text-emerald-200">โครงการที่เข้าร่วม</div>
                     {!editing ? (
                       <ProgramBadges row={active} />
                     ) : (
@@ -697,7 +740,7 @@ const MemberSearch = () => {
 
                   {/* ข้อมูลที่ดิน */}
                   <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-400 dark:bg-emerald-900/10">
-                    <div className="mb-3 text-lg font-semibold text-emerald-800 dark:text-emerald-200">🌾 ข้อมูลที่ดิน</div>
+                    <div className="mb-3 text-lg font-semibold text-emerald-800 dark:text-emerald-200">ข้อมูลที่ดิน</div>
 
                     {[
                       { title: "ถือครอง", keys: ["own_rai","own_ngan","own_wa"] },

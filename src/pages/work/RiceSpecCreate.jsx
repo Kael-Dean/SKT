@@ -1,33 +1,13 @@
 // src/pages/RiceSpecCreate.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, secondaryBtnCls, spinnerCls } from "../../lib/styles"
+import { Card, CardHeader, PageLoader, ErrorState } from "../../components/ui"
 
 /** ---------- Utils ---------- */
 const toInt = (v) => {
   const n = Number(v)
   return Number.isFinite(n) ? Math.trunc(n) : NaN
-}
-
-/** ---------- Theme (ให้เหมือนหน้า Sales) ---------- */
-
-/** ---------- Section Card ---------- */
-function SectionCard({ title, subtitle, children, className = "" }) {
-  return (
-    <div
-      className={cx(
-        "rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm",
-        "dark:border-slate-700 dark:bg-slate-800 dark:text-white",
-        className
-      )}
-    >
-      {title && <h2 className="mb-1 text-xl font-semibold">{title}</h2>}
-      {subtitle && (
-        <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">{subtitle}</p>
-      )}
-      {children}
-    </div>
-  )
 }
 
 /** ---------- ComboBox (คัดสไตล์จากหน้า Sales) ---------- */
@@ -297,6 +277,9 @@ function RiceSpecCreate() {
     variants: false,
   })
 
+  // โหลดครั้งแรกเสร็จหรือยัง — ใช้ตัดสินว่าจะโชว์ skeleton เต็มหน้าหรือ inline
+  const [firstLoaded, setFirstLoaded] = useState(false)
+
   const [loadErr, setLoadErr] = useState({}) // per list error message
 
   const mapIdLabel = (arr, labelKey) => {
@@ -437,7 +420,7 @@ function RiceSpecCreate() {
 
   /** --- initial load --- */
   useEffect(() => {
-    loadStaticMasters()
+    loadStaticMasters().finally(() => setFirstLoaded(true))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -579,21 +562,30 @@ function RiceSpecCreate() {
 
   const anyLoading = loading.static || loading.species || loading.variants
 
+  // โหลด master ครั้งแรกล้มเหลวทั้งหมด → โชว์ ErrorState พร้อมปุ่มลองใหม่
+  const staticAllFailed =
+    firstLoaded &&
+    !loading.static &&
+    opts.products.length === 0 &&
+    opts.years.length === 0 &&
+    opts.conditions.length === 0 &&
+    opts.fieldTypes.length === 0 &&
+    opts.programs.length === 0 &&
+    opts.businessTypes.length === 0 &&
+    Object.values(loadErr).some(Boolean)
+
   /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-5xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-1 text-3xl font-bold">➕ เพิ่มรหัสข้าว</h1>
+        <h1 className="mb-1 text-3xl font-bold text-gray-900 dark:text-white">เพิ่มรหัสข้าว</h1>
         <p className="mb-5 text-slate-600 dark:text-slate-300">
           เลือกข้อมูลให้ครบ (อย่างน้อย 3 ช่องแรก) แล้วกดบันทึก ระบบหลังบ้านจะสร้าง{" "}
           <span className="font-semibold">prod_name</span> ให้อัตโนมัติ
         </p>
 
-        <SectionCard
-          title="ข้อมูลรหัสข้าว (Spec)"
-          subtitle="ช่องที่มี * เป็นช่องบังคับ"
-          className="mb-6"
-        >
+        <Card className="mb-6">
+          <CardHeader title="ข้อมูลรหัสข้าว (Spec)" subtitle="ช่องที่มี * เป็นช่องบังคับ" />
           {/* hint สิทธิ์ */}
           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 dark:border-amber-500/30 dark:bg-amber-900/20 dark:text-amber-200">
             <div className="font-semibold">หมายเหตุ</div>
@@ -605,26 +597,29 @@ function RiceSpecCreate() {
 
           {/* โหลด master */}
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-slate-600 dark:text-slate-300">
+            <div className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+              {anyLoading && <span className={cx(spinnerCls, "!border-indigo-400/40 !border-t-indigo-500")} aria-hidden="true" />}
               {anyLoading ? "กำลังโหลดรายการ..." : "รายการตัวเลือกถูกโหลดจากระบบ"}
             </div>
             <button
               type="button"
               onClick={reloadAll}
               disabled={anyLoading}
-              className="inline-flex items-center justify-center rounded-2xl 
-                        border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 
-                        shadow-sm transition-all duration-300 ease-out
-                        hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                        active:scale-[.97]
-                        disabled:opacity-60 disabled:cursor-not-allowed
-                        dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                        dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+              className={cx(secondaryBtnCls, "!px-4 !py-2 !text-sm")}
             >
               โหลดรายการใหม่
             </button>
           </div>
 
+          {staticAllFailed ? (
+            <ErrorState
+              message="โหลดรายการตัวเลือกไม่สำเร็จ ตรวจสอบการเชื่อมต่อหรือสิทธิ์การเข้าถึง แล้วลองใหม่อีกครั้ง"
+              onRetry={reloadAll}
+            />
+          ) : !firstLoaded ? (
+            <PageLoader variant="spinner" message="กำลังโหลดรายการตัวเลือก…" />
+          ) : (
+          <>
           {/* แถวตัวเลือก */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <ComboField
@@ -775,7 +770,7 @@ function RiceSpecCreate() {
 
           {/* submit error */}
           {submitError && (
-            <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-500/30 dark:bg-red-900/20 dark:text-red-200">
+            <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-500/30 dark:bg-red-900/20 dark:text-red-200" role="alert">
               <div className="font-semibold">บันทึกล้มเหลว</div>
               <div className="text-sm leading-relaxed">{submitError}</div>
               <div className="mt-2 text-xs opacity-80">
@@ -783,7 +778,9 @@ function RiceSpecCreate() {
               </div>
             </div>
           )}
-        </SectionCard>
+          </>
+          )}
+        </Card>
 
         {/* ปุ่ม */}
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -792,13 +789,7 @@ function RiceSpecCreate() {
             ref={submitRef}
             disabled={submitting}
             onClick={submit}
-            className="inline-flex items-center justify-center rounded-2xl 
-                      bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                      shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                      transition-all duration-300 ease-out
-                      hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                      hover:scale-[1.05] active:scale-[.97]
-                      disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            className={submitBtnCls}
             aria-busy={submitting ? "true" : "false"}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -807,19 +798,15 @@ function RiceSpecCreate() {
               }
             }}
           >
+            {submitting && <span className={spinnerCls} aria-hidden="true" />}
             {submitting ? "กำลังบันทึก..." : "บันทึก"}
           </button>
 
           <button
             type="button"
             onClick={reset}
-            className="inline-flex items-center justify-center rounded-2xl 
-                      border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                      shadow-sm transition-all duration-300 ease-out
-                      hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                      active:scale-[.97]
-                      dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                      dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+            disabled={submitting}
+            className={resetBtnCls}
           >
             รีเซ็ต
           </button>
@@ -827,7 +814,8 @@ function RiceSpecCreate() {
 
         {/* ผลลัพธ์ */}
         {result && (
-          <SectionCard title="สร้างรหัสข้าวสำเร็จ" className="mt-6">
+          <Card className="mt-6">
+            <CardHeader title="สร้างรหัสข้าวสำเร็จ" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[15px] md:text-base">
               <div>
                 <div className="text-slate-500 dark:text-slate-300">Spec ID</div>
@@ -874,11 +862,11 @@ function RiceSpecCreate() {
 
             <div className="mt-4">
               <div className="text-sm text-slate-600 dark:text-slate-300">Raw response (เผื่อดีบั๊ก)</div>
-              <pre className="mt-2 overflow-auto rounded-2xl bg-slate-900 p-4 text-xs text-slate-100">
+              <pre className="mt-2 overflow-auto rounded-2xl bg-slate-900 p-4 text-xs text-slate-100 dark:bg-slate-950">
                 {JSON.stringify(result, null, 2)}
               </pre>
             </div>
-          </SectionCard>
+          </Card>
         )}
 
         {/* tiny note for disabled input style (คงไว้เผื่อใช้) */}

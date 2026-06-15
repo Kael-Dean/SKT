@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../../components/SelectDropdown"
+import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
 
 const STATUS_LABEL = { pending: "รออนุมัติ", approved: "อนุมัติแล้ว", denied: "ปฏิเสธ", cancelled: "ยกเลิกแล้ว" }
 const STATUS_COLOR = {
@@ -22,7 +23,8 @@ function fmtDate(d) {
   try { return new Date(d).toLocaleDateString("th-TH") } catch { return d }
 }
 
-const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/60"
+const inputCls =
+  "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
 const selectCls = inputCls
 
 const EMPTY_FORM = {
@@ -133,14 +135,16 @@ export default function MyRelocation() {
     return (
       <div className="max-w-lg mx-auto mt-10">
         <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-md ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-8 text-center space-y-4">
-          <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-3xl">✅</div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">ยื่นคำขอย้ายสาขาสำเร็จ!</h2>
+          <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-7"><path d="M20 6 9 17l-5-5" /></svg>
+          </div>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">ยื่นคำขอย้ายสาขาสำเร็จ</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">คำขอของคุณถูกส่งแล้ว รอ HR อนุมัติ</p>
           <div className="flex gap-3">
-            <button onClick={() => { setSubmitted(false); setForm(EMPTY_FORM) }} className="flex-1 h-11 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-500 transition cursor-pointer">
+            <button onClick={() => { setSubmitted(false); setForm(EMPTY_FORM) }} className="flex-1 h-11 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-500 active:scale-[0.98] transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
               ยื่นคำขอใหม่
             </button>
-            <button onClick={() => { setSubmitted(false); setTab("history") }} className="flex-1 h-11 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">
+            <button onClick={() => { setSubmitted(false); setTab("history") }} className="flex-1 h-11 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
               ดูประวัติ
             </button>
           </div>
@@ -169,9 +173,7 @@ export default function MyRelocation() {
       {/* ─── ฟอร์มยื่นคำขอ ─── */}
       {tab === "form" && (
         <>
-          {formError && (
-            <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">❌ {formError}</div>
-          )}
+          {formError && <ErrorState message={formError} />}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Branch prefs */}
@@ -207,9 +209,10 @@ export default function MyRelocation() {
 
             {/* ─── Family section (optional) ─── */}
             <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-3">
-              <button type="button" onClick={() => setShowFamily((v) => !v)}
-                className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide cursor-pointer">
-                <span>{showFamily ? "▾" : "▸"}</span> ข้อมูลครอบครัว (ถ้ามี)
+              <button type="button" onClick={() => setShowFamily((v) => !v)} aria-expanded={showFamily}
+                className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`size-3.5 transition-transform duration-200 ${showFamily ? "rotate-90" : ""}`}><path d="m9 18 6-6-6-6" /></svg>
+                ข้อมูลครอบครัว (ถ้ามี)
               </button>
               {showFamily && (
                 <div className="space-y-3 pt-1">
@@ -263,9 +266,10 @@ export default function MyRelocation() {
 
             {/* ─── Position prefs (optional) ─── */}
             <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-3">
-              <button type="button" onClick={() => setShowPosition((v) => !v)}
-                className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide cursor-pointer">
-                <span>{showPosition ? "▾" : "▸"}</span> ตำแหน่งที่ต้องการ (ถ้ามี)
+              <button type="button" onClick={() => setShowPosition((v) => !v)} aria-expanded={showPosition}
+                className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`size-3.5 transition-transform duration-200 ${showPosition ? "rotate-90" : ""}`}><path d="m9 18 6-6-6-6" /></svg>
+                ตำแหน่งที่ต้องการ (ถ้ามี)
               </button>
               {showPosition && (
                 <div className="space-y-2 pt-1">
@@ -292,15 +296,29 @@ export default function MyRelocation() {
       {tab === "history" && (
         <div className="space-y-3">
           {loadingHistory ? (
-            <div className="flex justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
+            <div className="space-y-3" role="status" aria-busy="true">
+              <span className="sr-only">กำลังโหลดประวัติคำขอย้ายสาขา…</span>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Skeleton rounded="rounded-md" className="h-4 w-1/3" />
+                    <Skeleton rounded="rounded-full" className="h-5 w-16" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Skeleton rounded="rounded-md" className="h-3.5 w-3/4" />
+                    <Skeleton rounded="rounded-md" className="h-3.5 w-1/2" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : historyError ? (
-            <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">❌ {historyError}</div>
+            <ErrorState message={historyError} onRetry={fetchHistory} />
           ) : history.length === 0 ? (
-            <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-12 text-center">
-              <p className="text-3xl mb-3">🚌</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">ยังไม่มีประวัติคำขอย้ายสาขา</p>
+            <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm">
+              <EmptyState
+                title="ยังไม่มีประวัติคำขอย้ายสาขา"
+                description='เมื่อคุณยื่นคำขอย้ายสาขา รายการจะแสดงที่นี่ เริ่มได้จากแท็บ "ยื่นคำขอ"'
+              />
             </div>
           ) : (
             history.map((r) => (

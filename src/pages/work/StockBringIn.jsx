@@ -1,7 +1,19 @@
 // src/pages/StockBringIn.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
 import { get, post } from "../../lib/api"
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import {
+  cx,
+  baseField,
+  fieldDisabled,
+  labelCls,
+  helpTextCls,
+  errorTextCls,
+  cardPaddedCls,
+  sectionTitleCls,
+  submitBtnCls,
+  resetBtnCls,
+  spinnerCls,
+} from "../../lib/styles"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/[^\d]/g, "")
@@ -204,7 +216,7 @@ function StockBringIn() {
   // ⭐ จุดยึดบนสุด + ฟังก์ชันเลื่อนขึ้นบน (ให้เหมือนหน้า Sales)
   const pageTopRef = useRef(null)
   const scrollToPageTop = () => {
-    try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch {}
+    try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch { /* best-effort */ }
     const root = document.scrollingElement || document.documentElement || document.body
     try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
   }
@@ -249,7 +261,7 @@ function StockBringIn() {
         const data = await get(p)
         if (Array.isArray(data)) return data
         if (data && typeof data === "object") return data
-      } catch (_) {}
+      } catch { /* try next candidate path */ }
     }
     return Array.isArray(paths) ? [] : {}
   }
@@ -517,7 +529,7 @@ function StockBringIn() {
           if (el.getAttribute("aria-expanded") !== "true") el.click()
         }, 120)
       }
-    } catch (_) {}
+    } catch { /* scroll/focus best-effort */ }
   }
 
   const focusFirstInvalid = (hints, e) => {
@@ -591,7 +603,7 @@ function StockBringIn() {
       setErrors({})
       setMissingHints({})
       requestAnimationFrame(() => scrollToPageTop())
-      try { submitBtnRef.current?.blur?.() } catch {}
+      try { submitBtnRef.current?.blur?.() } catch { /* blur best-effort */ }
       setTimeout(() => productRef.current?.focus(), 200)
     } catch (err) {
       console.error(err)
@@ -609,11 +621,18 @@ function StockBringIn() {
         {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด (เหมือนหน้า Sales) */}
         <div ref={pageTopRef} />
 
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">📥 ยอดยกมา (Carry Over)</h1>
+        <h1 className="mb-4 flex items-center gap-2.5 text-3xl font-bold text-gray-900 dark:text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-7 text-indigo-600 dark:text-indigo-400">
+            <path d="M12 13V2" />
+            <path d="m8 9 4 4 4-4" />
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          </svg>
+          ยอดยกมา (Carry Over)
+        </h1>
 
         {/* สเปคสินค้า */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <h2 className="mb-3 text-xl font-semibold">กำหนดสเปคสินค้า</h2>
+        <div className={cx(cardPaddedCls, "mb-6")}>
+          <h2 className={sectionTitleCls}>กำหนดสเปคสินค้า</h2>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>ประเภทสินค้า<span className="text-red-500"> *</span></label>
@@ -754,8 +773,8 @@ function StockBringIn() {
         </div>
 
         {/* คลังปลายทาง & ปริมาณ */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <h2 className="mb-3 text-xl font-semibold">คลังปลายทางและปริมาณยกเข้า</h2>
+        <div className={cx(cardPaddedCls, "mb-6")}>
+          <h2 className={sectionTitleCls}>คลังปลายทางและปริมาณยกเข้า</h2>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>เลือกคลังปลายทาง<span className="text-red-500"> *</span></label>
@@ -794,8 +813,8 @@ function StockBringIn() {
         </div>
 
         {/* ราคายกเข้า */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <h2 className="mb-3 text-xl font-semibold">ราคายกเข้า<span className="text-red-500"> *</span></h2>
+        <div className={cx(cardPaddedCls, "mb-6")}>
+          <h2 className={sectionTitleCls}>ราคายกเข้า<span className="text-red-500"> *</span></h2>
           <div className="grid gap-4 md:grid-cols-4">
             <div>
               <label className={labelCls}>ราคา 1 (บาท/กก.)</label>
@@ -836,7 +855,7 @@ function StockBringIn() {
         </div>
 
         {/* บันทึกเพิ่มเติม / เหตุผล (ผู้รับ) */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className={cx(cardPaddedCls, "mb-6")}>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="md:col-span-3">
               <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
@@ -860,28 +879,17 @@ function StockBringIn() {
             onClick={handleSubmit}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(e) } }}
             disabled={loading}
-            className="inline-flex items-center justify-center rounded-2xl 
-              bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-              shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-              transition-all duration-300 ease-out
-              hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-              hover:scale-[1.05] active:scale-[.97]
-              disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            className={submitBtnCls}
             aria-busy={loading ? "true" : "false"}
           >
+            {loading && <span className={spinnerCls} aria-hidden="true" />}
             {loading ? "กำลังบันทึก..." : "บันทึก"}
           </button>
 
           <button
             type="button"
             onClick={() => setForm(initialForm)}
-            className="inline-flex items-center justify-center rounded-2xl 
-              border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-              shadow-sm transition-all duration-300 ease-out
-              hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-              active:scale-[.97]
-              dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-              dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+            className={resetBtnCls}
           >
             รีเซ็ต
           </button>

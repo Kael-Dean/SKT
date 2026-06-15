@@ -2,7 +2,19 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { get, post } from "../../lib/api"
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import {
+  cx,
+  baseField,
+  fieldDisabled,
+  labelCls,
+  helpTextCls,
+  errorTextCls,
+  cardPaddedCls,
+  sectionTitleCls,
+  submitBtnCls,
+  resetBtnCls,
+  spinnerCls,
+} from "../../lib/styles"
 
 /** ---------- Auth helpers ---------- */
 const ALLOWED_USER_IDS = new Set([17, 18])
@@ -239,7 +251,7 @@ function StockBringInMill() {
         const data = await get(p)
         if (Array.isArray(data)) return data
         if (data && typeof data === "object") return data
-      } catch (_) {}
+      } catch { /* try next candidate path */ }
     }
     return Array.isArray(paths) ? [] : {}
   }
@@ -439,11 +451,22 @@ function StockBringInMill() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🏭📥 ยอดยกเข้าโรงสี (Bring In to Mill)</h1>
+        <h1 className="mb-4 flex items-center gap-2.5 text-3xl font-bold text-gray-900 dark:text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-7 text-indigo-600 dark:text-indigo-400">
+            <path d="M17 18a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2" />
+            <path d="M3 21h18" />
+            <path d="M3 7v14" />
+            <path d="M21 7v14" />
+            <path d="M3 7 7 3h10l4 4" />
+            <path d="M3 7h18" />
+            <path d="M12 11v3" />
+          </svg>
+          ยอดยกเข้าโรงสี (Bring In to Mill)
+        </h1>
 
         {/* สเปคสินค้า */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <h2 className="mb-3 text-xl font-semibold">กำหนดสเปคสินค้า</h2>
+        <div className={cx(cardPaddedCls, "mb-6")}>
+          <h2 className={sectionTitleCls}>กำหนดสเปคสินค้า</h2>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>ประเภทสินค้า</label>
@@ -541,8 +564,8 @@ function StockBringInMill() {
         </div>
 
         {/* คลังโรงสีปลายทาง & ปริมาณ */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <h2 className="mb-3 text-xl font-semibold">คลังโรงสีปลายทางและปริมาณยกเข้า</h2>
+        <div className={cx(cardPaddedCls, "mb-6")}>
+          <h2 className={sectionTitleCls}>คลังโรงสีปลายทางและปริมาณยกเข้า</h2>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>เลือกคลังโรงสีปลายทาง</label>
@@ -576,8 +599,8 @@ function StockBringInMill() {
         </div>
 
         {/* ราคายกเข้า */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <h2 className="mb-3 text-xl font-semibold">ราคายกเข้า</h2>
+        <div className={cx(cardPaddedCls, "mb-6")}>
+          <h2 className={sectionTitleCls}>ราคายกเข้า</h2>
           <div className="grid gap-4 md:grid-cols-4">
             <div>
               <label className={labelCls}>ราคา 1 (บาท/กก.)</label>
@@ -613,7 +636,7 @@ function StockBringInMill() {
         </div>
 
         {/* บันทึกเพิ่มเติม / เหตุผล (ผู้รับ) */}
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className={cx(cardPaddedCls, "mb-6")}>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="md:col-span-3">
               <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
@@ -633,15 +656,10 @@ function StockBringInMill() {
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="inline-flex items-center justify-center rounded-2xl 
-              bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-              shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-              transition-all duration-300 ease-out
-              hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-              hover:scale-[1.05] active:scale-[.97]
-              disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            className={submitBtnCls}
             aria-busy={loading ? "true" : "false"}
           >
+            {loading && <span className={spinnerCls} aria-hidden="true" />}
             {loading ? "กำลังบันทึก..." : "บันทึก"}
           </button>
 
@@ -656,13 +674,7 @@ function StockBringInMill() {
                 comment: "",
               }))
             }
-            className="inline-flex items-center justify-center rounded-2xl 
-              border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-              shadow-sm transition-all duration-300 ease-out
-              hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-              active:scale-[.97]
-              dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-              dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+            className={resetBtnCls}
           >
             รีเซ็ต
           </button>

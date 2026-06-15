@@ -8,10 +8,89 @@
 
 import { useState, useMemo } from "react"
 import SelectDropdown from "../../components/SelectDropdown"
+import { EmptyState } from "../../components/ui"
 
 // ─── shared style tokens (project-wide) ────────────────────────────────────
 const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5"
+
+// ─── inline icons (currentColor, no emoji) ──────────────────────────────────
+const iconBase = {
+  "aria-hidden": "true",
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.8,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+}
+function IconLeave({ className = "size-5" }) {
+  return (
+    <svg {...iconBase} className={className}>
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+      <rect x="9" y="3" width="6" height="4" rx="1" />
+      <path d="m9 14 2 2 4-4" />
+    </svg>
+  )
+}
+function IconReport({ className = "size-5" }) {
+  return (
+    <svg {...iconBase} className={className}>
+      <path d="M3 21h18" />
+      <path d="M5 21V7l7-4 7 4v14" />
+      <path d="M9 9h.01M9 12h.01M9 15h.01M15 9h.01M15 12h.01M15 15h.01" />
+    </svg>
+  )
+}
+function IconDoc({ className = "size-5" }) {
+  return (
+    <svg {...iconBase} className={className}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+      <path d="M8 13h8M8 17h8" />
+    </svg>
+  )
+}
+function IconPending({ className = "size-5" }) {
+  return (
+    <svg {...iconBase} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+function IconCheck({ className = "size-5" }) {
+  return (
+    <svg {...iconBase} className={className}>
+      <path d="m5 13 4 4L19 7" />
+    </svg>
+  )
+}
+function IconInbox({ className = "size-5" }) {
+  return (
+    <svg {...iconBase} className={className}>
+      <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    </svg>
+  )
+}
+function IconClose({ className = "size-4" }) {
+  return (
+    <svg {...iconBase} className={className}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  )
+}
+
+const TYPE_ICON_CMP = {
+  leave: IconLeave,
+  facility: IconReport,
+  other: IconDoc,
+}
+function TypeIcon({ type, className }) {
+  const Cmp = TYPE_ICON_CMP[type] ?? IconDoc
+  return <Cmp className={className} />
+}
 
 const STATUS_LABEL = {
   pending_branch_head:       "รอหัวหน้าสาขาอนุมัติ",
@@ -33,12 +112,6 @@ const TYPE_LABEL = {
   leave:    "ใบลา",
   facility: "รายงาน",
   other:    "อื่นๆ",
-}
-
-const TYPE_ICON = {
-  leave:    "📋",
-  facility: "🏢",
-  other:    "📄",
 }
 
 // ─── mock data ──────────────────────────────────────────────────────────────
@@ -194,7 +267,7 @@ function StatusBadge({ status }) {
 function UrgencyBadge() {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-900/30 dark:text-red-300 ring-1 ring-red-200 dark:ring-red-800">
-      <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+      <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse motion-reduce:animate-none" />
       ด่วน
     </span>
   )
@@ -329,7 +402,9 @@ function InboxItem({ item, onApprove, onReject, onView }) {
       {/* Top row */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base">{TYPE_ICON[item.type] ?? "📄"}</span>
+          <span className="text-gray-500 dark:text-gray-400">
+            <TypeIcon type={item.type} className="size-4" />
+          </span>
           <span className="rounded-lg bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:text-gray-300">
             {TYPE_LABEL[item.type] ?? item.type}
           </span>
@@ -437,7 +512,9 @@ function DetailModal({ item, onClose }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span>{TYPE_ICON[item.type] ?? "📄"}</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                <TypeIcon type={item.type} className="size-4" />
+              </span>
               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 font-mono">{item.docRef}</span>
               {item.urgency === "urgent" && <UrgencyBadge />}
             </div>
@@ -587,19 +664,19 @@ export default function Inbox() {
         <SummaryCard
           label="รออนุมัติ"
           value={pendingCount}
-          icon="⏳"
+          icon={<IconPending className="size-6" />}
           colorCls="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
         />
         <SummaryCard
           label="ดำเนินการแล้ว"
           value={resolvedTodayCount}
-          icon="✅"
+          icon={<IconCheck className="size-6" />}
           colorCls="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
         />
         <SummaryCard
           label="เอกสารทั้งหมด"
           value={totalCount}
-          icon="📬"
+          icon={<IconInbox className="size-6" />}
           colorCls="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
         />
       </div>
@@ -628,9 +705,10 @@ export default function Inbox() {
             <button
               type="button"
               onClick={() => { setFilterType(""); setFilterStatus("") }}
-              className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 font-medium cursor-pointer transition"
+              className="inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 font-medium cursor-pointer transition"
             >
-              ล้างตัวกรอง ✕
+              ล้างตัวกรอง
+              <IconClose className="size-3" />
             </button>
           )}
           <span className="ml-auto text-xs text-gray-400 dark:text-gray-500 shrink-0">
@@ -641,23 +719,27 @@ export default function Inbox() {
 
       {/* Item list */}
       {filtered.length === 0 ? (
-        <div className={`${cardCls} py-16 text-center`}>
-          <p className="text-4xl mb-3">📭</p>
-          <p className="text-base font-semibold text-gray-700 dark:text-gray-300">ไม่มีรายการ</p>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-            {filterType || filterStatus
-              ? "ลองเปลี่ยนตัวกรอง หรือล้างตัวกรองเพื่อดูทั้งหมด"
-              : "ยังไม่มีเอกสารในกล่องรออนุมัติของคุณ"}
-          </p>
-          {(filterType || filterStatus) && (
-            <button
-              type="button"
-              onClick={() => { setFilterType(""); setFilterStatus("") }}
-              className="mt-4 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 font-semibold cursor-pointer transition"
-            >
-              ล้างตัวกรอง
-            </button>
-          )}
+        <div className={cardCls}>
+          <EmptyState
+            icon={<IconInbox className="size-12" />}
+            title={filterType || filterStatus ? "ไม่มีรายการตรงกับตัวกรอง" : "ไม่มีข้อความ"}
+            description={
+              filterType || filterStatus
+                ? "ลองเปลี่ยนตัวกรอง หรือล้างตัวกรองเพื่อดูทั้งหมด"
+                : "ยังไม่มีเอกสารในกล่องรออนุมัติของคุณ"
+            }
+            action={
+              filterType || filterStatus ? (
+                <button
+                  type="button"
+                  onClick={() => { setFilterType(""); setFilterStatus("") }}
+                  className="rounded-2xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:bg-gray-700/50"
+                >
+                  ล้างตัวกรอง
+                </button>
+              ) : null
+            }
+          />
         </div>
       ) : (
         <div className="space-y-3">

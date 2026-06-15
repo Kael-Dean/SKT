@@ -1,7 +1,19 @@
 // src/pages/StockTransferOut.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { get, post } from "../../lib/api"
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import {
+  cx,
+  baseField,
+  fieldDisabled,
+  labelCls,
+  helpTextCls,
+  errorTextCls,
+  cardPaddedCls,
+  sectionTitleCls,
+  submitBtnCls,
+  resetBtnCls,
+  spinnerCls,
+} from "../../lib/styles"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -473,7 +485,7 @@ function StockTransferOut() {
             const saved = localStorage.getItem("transfer.formTemplate")
             if (saved && mapped.some((m) => String(m.id) === String(saved))) nextId = String(saved)
           }
-        } catch {}
+        } catch { /* ignore unreadable localStorage */ }
         if (!nextId) nextId = String(mapped[0]?.id || "")
 
         if (nextId) {
@@ -483,7 +495,7 @@ function StockTransferOut() {
           try {
             localStorage.setItem("shared.formTemplate", JSON.stringify({ id: nextId, label: found?.label || "" }))
             localStorage.setItem("transfer.formTemplate", nextId)
-          } catch {}
+          } catch { /* ignore localStorage write failure */ }
         }
 
         // เตรียม lookup variant id → label เพื่อแสดง subLabel ใน template
@@ -608,7 +620,7 @@ function StockTransferOut() {
       }
     }
     loadSpecies()
-    // eslint-disable-next-line react-hooks/exhaustive-comments
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.product_id])
 
   /** ---------- species -> variant (ไม่ล้าง subrice เมื่อมี sid) ---------- */
@@ -787,18 +799,14 @@ function StockTransferOut() {
   }
 
   const lookupOriginStock = async (transferQty) => {
-    try {
-      const body = { klang_id: Number(form.from_klang_id), spec: buildSpec() }
-      const rows = await post("/transfer/stock/lookup", body)
-      if (!rows || rows.length === 0) throw new Error("ไม่พบสต็อกต้นทางของสเปกนี้ในคลังที่เลือก")
-      const available = Number(rows[0].available ?? 0)
-      if (available < transferQty) {
-        throw new Error(`สต็อกคงเหลือต้นทางไม่พอ (คงเหลือ ${available.toLocaleString()} กก.)`)
-      }
-      return true
-    } catch (err) {
-      throw err
+    const body = { klang_id: Number(form.from_klang_id), spec: buildSpec() }
+    const rows = await post("/transfer/stock/lookup", body)
+    if (!rows || rows.length === 0) throw new Error("ไม่พบสต็อกต้นทางของสเปกนี้ในคลังที่เลือก")
+    const available = Number(rows[0].available ?? 0)
+    if (available < transferQty) {
+      throw new Error(`สต็อกคงเหลือต้นทางไม่พอ (คงเหลือ ${available.toLocaleString()} กก.)`)
     }
+    return true
   }
 
   /** ---------- Keyboard & focus flow ---------- */
@@ -831,7 +839,7 @@ function StockTransferOut() {
       if (el && typeof el.scrollIntoView === "function") {
         el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" })
       }
-    } catch {}
+    } catch { /* scroll best-effort */ }
   }
 
   const focusComboRef = (nextRef) => {
@@ -894,7 +902,7 @@ function StockTransferOut() {
     try {
       const root = document.scrollingElement || document.documentElement || document.body
       root.scrollTo({ top: 0, behavior: "smooth" })
-    } catch {}
+    } catch { /* smooth scroll best-effort */ }
   }
 
   const errorOrder = [
@@ -1026,7 +1034,7 @@ function StockTransferOut() {
         impurity_percent: "",
       }))
       requestAnimationFrame(() => scrollToPageTop())
-      try { saveBtnRef.current?.blur?.() } catch {}
+      try { saveBtnRef.current?.blur?.() } catch { /* blur best-effort */ }
     } catch (err) {
       console.error(err)
       const baseMsg = err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก"
@@ -1044,11 +1052,20 @@ ${baseMsg}${summary}`)
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🚚 โอนออกข้าวเปลือก</h1>
+        <h1 className="mb-4 flex items-center gap-2.5 text-3xl font-bold text-gray-900 dark:text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-7 text-indigo-600 dark:text-indigo-400">
+            <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
+            <path d="M15 18H9" />
+            <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" />
+            <circle cx="17" cy="18" r="2" />
+            <circle cx="7" cy="18" r="2" />
+          </svg>
+          โอนออกข้าวเปลือก
+        </h1>
 
         <form onSubmit={handleSubmit}>
           {/* กล่องข้อมูลการโอน + ดรอปดาวน์ฟอร์มสำเร็จรูป (ตำแหน่งแบบเดียวกับหน้า Buy) */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <div className={cx(cardPaddedCls, "mb-6")}>
             <div className="mb-3 flex flex-wrap items-start gap-2">
               <h2 className="text-xl font-semibold">ข้อมูลการโอน</h2>
 
@@ -1065,7 +1082,7 @@ ${baseMsg}${summary}`)
                     try {
                       localStorage.setItem("shared.formTemplate", JSON.stringify({ id: idStr, label: found?.label || "" }))
                       localStorage.setItem("transfer.formTemplate", idStr)
-                    } catch {}
+                    } catch { /* ignore localStorage write failure */ }
                     if (found?.spec) applyTemplateBySpec(found.spec)
                   }}
                   /** ⭐ Enter หรือเลือกเสร็จ ➜ เด้งไป "ชื่อผู้ขนส่ง" */
@@ -1073,9 +1090,9 @@ ${baseMsg}${summary}`)
                     try {
                       driverRef.current?.focus?.()
                       requestAnimationFrame(() => {
-                        try { document.activeElement?.scrollIntoView?.({ behavior: "smooth", block: "center" }) } catch {}
+                        try { document.activeElement?.scrollIntoView?.({ behavior: "smooth", block: "center" }) } catch { /* scroll best-effort */ }
                       })
-                    } catch {}
+                    } catch { /* focus best-effort */ }
                   }}
                   placeholder="— เลือกฟอร์มสำเร็จรูป —"
                 />
@@ -1104,9 +1121,9 @@ ${baseMsg}${summary}`)
                       try {
                         driverRef.current?.focus?.()
                         requestAnimationFrame(() => {
-                          try { document.activeElement?.scrollIntoView?.({ behavior: "smooth", block: "center" }) } catch {}
+                          try { document.activeElement?.scrollIntoView?.({ behavior: "smooth", block: "center" }) } catch { /* scroll best-effort */ }
                         })
-                      } catch {}
+                      } catch { /* focus best-effort */ }
                     }
                   }}
                   error={!!errors.transfer_date}
@@ -1243,9 +1260,9 @@ ${baseMsg}${summary}`)
                     try {
                       weightInRef.current?.focus?.()
                       requestAnimationFrame(() => {
-                        try { document.activeElement?.scrollIntoView?.({ behavior: "smooth", block: "center" }) } catch {}
+                        try { document.activeElement?.scrollIntoView?.({ behavior: "smooth", block: "center" }) } catch { /* scroll best-effort */ }
                       })
-                    } catch {}
+                    } catch { /* focus best-effort */ }
                   }}
                   onChange={(_val, found) => {
                     clearError("to_klang_id")
@@ -1266,8 +1283,8 @@ ${baseMsg}${summary}`)
           </div>
 
           {/* สินค้า + เมตาดาต้า (ล็อกจาก Template) */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
+          <div className={cx(cardPaddedCls, "mb-6")}>
+            <h2 className={sectionTitleCls}>สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
 
             <div className="grid gap-4 md:grid-cols-3">
               <div>
@@ -1426,8 +1443,8 @@ ${baseMsg}${summary}`)
           </div>
 
           {/* ชั่ง/ราคา */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">ชั่งน้ำหนักและต้นทุน</h2>
+          <div className={cx(cardPaddedCls, "mb-6")}>
+            <h2 className={sectionTitleCls}>ชั่งน้ำหนักและต้นทุน</h2>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
                 <label className={labelCls}>น้ำหนักขาเข้า (รถเปล่า) กก.</label>
@@ -1435,7 +1452,7 @@ ${baseMsg}${summary}`)
                   ref={weightInRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  className={cx(baseField, redFieldCls("weight_in"))}
+                  className={cx(baseField, "tabular-nums", redFieldCls("weight_in"))}
                   value={form.weight_in}
                   onChange={(e) => update("weight_in", onlyDigits(e.target.value))}
                   onFocus={() => {
@@ -1456,7 +1473,7 @@ ${baseMsg}${summary}`)
                   ref={weightOutRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  className={cx(baseField, redFieldCls("weight_out"))}
+                  className={cx(baseField, "tabular-nums", redFieldCls("weight_out"))}
                   value={form.weight_out}
                   onChange={(e) => update("weight_out", onlyDigits(e.target.value))}
                   onFocus={() => {
@@ -1473,7 +1490,7 @@ ${baseMsg}${summary}`)
 
               <div>
                 <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
-                <input disabled className={cx(baseField, fieldDisabled)} value={netWeightInt} />
+                <input disabled className={cx(baseField, fieldDisabled, "tabular-nums")} value={netWeightInt} />
                 {errors.net_weight && <p className={errorTextCls}>{errors.net_weight}</p>}
                 <p className={helpTextCls}>คำนวณ = น้ำหนักขาออก − น้ำหนักขาเข้า</p>
               </div>
@@ -1483,7 +1500,7 @@ ${baseMsg}${summary}`)
                 <input
                   ref={costRef}
                   inputMode="decimal"
-                  className={cx(baseField, redFieldCls("cost_per_kg"))}
+                  className={cx(baseField, "tabular-nums", redFieldCls("cost_per_kg"))}
                   value={form.cost_per_kg}
                   onChange={(e) => update("cost_per_kg", e.target.value.replace(/[^\d.]/g, ""))}
                   onFocus={() => { clearError("cost_per_kg"); clearHint("cost_per_kg") }}
@@ -1496,7 +1513,7 @@ ${baseMsg}${summary}`)
 
               <div>
                 <label className={labelCls}>ราคาสุทธิ (บาท)</label>
-                <input disabled className={cx(baseField, fieldDisabled)} value={thb(totalCost)} />
+                <input disabled className={cx(baseField, fieldDisabled, "tabular-nums")} value={thb(totalCost)} />
                 <p className={helpTextCls}>คำนวณ = ราคาต้นทุน × น้ำหนักสุทธิ</p>
               </div>
 
@@ -1505,7 +1522,7 @@ ${baseMsg}${summary}`)
                 <input
                   ref={impurityRef}
                   inputMode="decimal"
-                  className={cx(baseField, redFieldCls("impurity_percent"))}
+                  className={cx(baseField, "tabular-nums", redFieldCls("impurity_percent"))}
                   value={form.impurity_percent}
                   onChange={(e) => update("impurity_percent", e.target.value.replace(/[^\d.]/g, ""))}
                   onFocus={() => { clearError("impurity_percent"); clearHint("impurity_percent") }}
@@ -1521,10 +1538,10 @@ ${baseMsg}${summary}`)
 
           {/* สรุปก่อนบันทึก */}
           <div className="mb-6">
-            <h2 className="mb-3 text-xl font-semibold">สรุปก่อนบันทึก</h2>
+            <h2 className={sectionTitleCls}>สรุปก่อนบันทึก</h2>
             <div className="grid gap-4 md:grid-cols-5">
               {[
-                { label: "วันที่โอน", value: form.transfer_date || "—" },
+                { label: "วันที่โอน", value: form.transfer_date || "—", numeric: true },
                 { label: "จาก (สาขา/คลัง)", value: `${form.from_branch_name || "—"}${form.from_klang_name ? `\n${form.from_klang_name}` : ""}` },
                 { label: "ไป (สาขา/คลัง)", value: `${form.to_branch_name || "—"}${form.to_klang_name ? `\n${form.to_klang_name}` : ""}` },
                 { label: "สินค้า", value: form.product_name || "—" },
@@ -1535,26 +1552,24 @@ ${baseMsg}${summary}`)
                 { label: "ปี/ฤดูกาล", value: form.rice_year_label || "—" },
                 { label: "โปรแกรม", value: form.program_label || "—" },
                 { label: "ประเภทธุรกิจ", value: form.business_type_label || "—" },
-                { label: "น้ำหนักขาเข้า", value: `${toInt(form.weight_in).toLocaleString()} กก.` },
-                { label: "น้ำหนักขาออก", value: `${toInt(form.weight_out).toLocaleString()} กก.` },
-                { label: "น้ำหนักสุทธิ", value: `${netWeightInt.toLocaleString()} กก.` },
-                { label: "ราคาต้นทุน/กก.", value: form.cost_per_kg ? `${Number(form.cost_per_kg).toFixed(2)} บาท/กก.` : "—" },
-                { label: "ราคารวม", value: thb(totalCost) },
-                { label: "สิ่งเจือปน", value: form.impurity_percent !== "" ? `${Number(form.impurity_percent)} %` : "—" },
+                { label: "น้ำหนักขาเข้า", value: `${toInt(form.weight_in).toLocaleString()} กก.`, numeric: true },
+                { label: "น้ำหนักขาออก", value: `${toInt(form.weight_out).toLocaleString()} กก.`, numeric: true },
+                { label: "น้ำหนักสุทธิ", value: `${netWeightInt.toLocaleString()} กก.`, numeric: true },
+                { label: "ราคาต้นทุน/กก.", value: form.cost_per_kg ? `${Number(form.cost_per_kg).toFixed(2)} บาท/กก.` : "—", numeric: true },
+                { label: "ราคารวม", value: thb(totalCost), numeric: true },
+                { label: "สิ่งเจือปน", value: form.impurity_percent !== "" ? `${Number(form.impurity_percent)} %` : "—", numeric: true },
                 { label: "ผู้ขนส่ง", value: form.driver_name || "—" },
-                { label: "ทะเบียนรถ", value: form.plate_number || "—" },
+                { label: "ทะเบียนรถ", value: form.plate_number || "—", numeric: true },
                 { label: "บันทึกเพิ่มเติม", value: form.quality_note || "—" },
               ].map((c) => (
                 <div
                   key={c.label}
-                  className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
+                  className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 transition-shadow duration-150 hover:shadow-md dark:bg-slate-800 dark:text-white dark:ring-slate-700"
                 >
-                  <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
-                  {typeof c.value === "string" ? (
-                    <div className="text-lg md:text-xl font-semibold whitespace-pre-line">{c.value}</div>
-                  ) : (
-                    <div className="text-lg md:text-xl font-semibold">{c.value}</div>
-                  )}
+                  <div className="text-sm text-slate-600 dark:text-slate-300">{c.label}</div>
+                  <div className={cx("text-lg md:text-xl font-semibold whitespace-pre-line", c.numeric && "tabular-nums")}>
+                    {c.value}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1567,15 +1582,10 @@ ${baseMsg}${summary}`)
               type="submit"
               disabled={submitting}
               onClick={scrollToPageTop}
-              className="inline-flex items-center justify-center rounded-2xl 
-                bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                transition-all duration-300 ease-out
-                hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                hover:scale-[1.05] active:scale-[.97]
-                disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+              className={submitBtnCls}
               aria-busy={submitting ? "true" : "false"}
             >
+              {submitting && <span className={spinnerCls} aria-hidden="true" />}
               {submitting ? "กำลังบันทึก..." : "บันทึก"}
             </button>
 
@@ -1590,14 +1600,7 @@ ${baseMsg}${summary}`)
                   impurity_percent: "",
                 }))
               }
-              className="inline-flex items-center justify-center rounded-2xl 
-                border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                shadow-sm
-                transition-all duration-300 ease-out
-                hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                active:scale-[.97]
-                dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+              className={resetBtnCls}
             >
               รีเซ็ต
             </button>

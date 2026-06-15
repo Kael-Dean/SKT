@@ -9,6 +9,7 @@ import {
 } from "react"
 import { apiAuth } from "../../lib/api" // ✅ แนบ token + JSON ให้แล้ว
 import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import { ErrorState } from "../../components/ui"
 
 /** ---------- Utils ---------- */
 // debounce สำหรับช่องค้นหา
@@ -118,6 +119,8 @@ function Share() {
   const debQ = useDebounce(query, 350)
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
+  const [searchError, setSearchError] = useState("")   // ข้อผิดพลาดตอนค้นหาสมาชิก
+  const [searchReloadKey, setSearchReloadKey] = useState(0)
   const [showList, setShowList] = useState(false)
   const [highlighted, setHighlighted] = useState(-1)
 
@@ -158,6 +161,7 @@ function Share() {
     if (!q || q.length < 2) {
       setResults([])
       setShowList(false)
+      setSearchError("")
       return
     }
 
@@ -165,16 +169,18 @@ function Share() {
     ;(async () => {
       try {
         setLoading(true)
+        setSearchError("")
         const data = await apiAuth(`/member/members/search?q=${encodeURIComponent(q)}`)
         if (!aborted) {
           const arr = Array.isArray(data) ? data.slice(0, 50) : []
           setResults(arr)
           setShowList(arr.length > 0 && !isQueryEqualPicked(q, picked))
         }
-      } catch {
+      } catch (err) {
         if (!aborted) {
           setResults([])
           setShowList(false)
+          setSearchError(err?.message || "ค้นหาสมาชิกไม่สำเร็จ")
         }
       } finally {
         if (!aborted) setLoading(false)
@@ -183,7 +189,7 @@ function Share() {
     return () => {
       aborted = true
     }
-  }, [debQ, picked])
+  }, [debQ, picked, searchReloadKey])
 
   // ปิดลิสต์เมื่อคลิกนอก
   useEffect(() => {
@@ -280,6 +286,7 @@ function Share() {
     setErrors({})
     setShowList(false)
     setHighlighted(-1)
+    setSearchError("")
     setBuyDate(todayLocalISODate())
     setAmountRaw("")
     setReceipt(null)
@@ -331,7 +338,22 @@ function Share() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-5xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-1 text-3xl font-bold">📈 ซื้อหุ้น</h1>
+        <h1 className="mb-1 flex items-center gap-2 text-3xl font-bold">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-7 text-emerald-600 dark:text-emerald-400"
+          >
+            <path d="M3 3v18h18" />
+            <path d="m19 9-5 5-4-4-3 3" />
+          </svg>
+          ซื้อหุ้น
+        </h1>
         <p className="mb-5 text-slate-600 dark:text-slate-300">
           ค้นหาและเลือกสมาชิก กรอกวันที่และจำนวนที่ซื้อ แล้วบันทึกเพื่อส่งไปยังระบบหลังบ้าน
         </p>
@@ -377,6 +399,22 @@ function Share() {
                 : `ผลลัพธ์ ${results.length} รายการ`
               : "พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อค้นหา"}
           </div>
+
+          {/* ค้นหาล้มเหลว → ErrorState + ปุ่มลองใหม่ */}
+          {searchError && (
+            <ErrorState
+              className="mt-3"
+              message={searchError}
+              onRetry={() => setSearchReloadKey((k) => k + 1)}
+            />
+          )}
+
+          {/* ค้นหาแล้วไม่พบ (ยังไม่ได้เลือก) */}
+          {!loading && !searchError && query.trim().length >= 2 && results.length === 0 && !picked && (
+            <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+              ไม่พบสมาชิกที่ตรงกับ “{query.trim()}” — ลองตรวจสอบการสะกด หรือค้นด้วยเลขบัตรประชาชน
+            </div>
+          )}
 
           {showList && results.length > 0 && (
             <div
@@ -552,27 +590,27 @@ function Share() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[15px] md:text-base">
               <div>
                 <div className="text-slate-500 dark:text-slate-300">รหัส TGS</div>
-                <div className="font-semibold">{receipt.tgs_id ?? "—"}</div>
+                <div className="font-semibold tabular-nums">{receipt.tgs_id ?? "—"}</div>
               </div>
               <div>
                 <div className="text-slate-500 dark:text-slate-300">วันที่บันทึก</div>
-                <div className="font-semibold">{receipt.buy_date ?? "—"}</div>
+                <div className="font-semibold tabular-nums">{receipt.buy_date ?? "—"}</div>
               </div>
               <div>
                 <div className="text-slate-500 dark:text-slate-300">มูลค่าที่ซื้อ</div>
-                <div className="font-semibold">{String(receipt.value_bought ?? "—")}</div>
+                <div className="font-semibold tabular-nums">{String(receipt.value_bought ?? "—")}</div>
               </div>
               <div>
                 <div className="text-slate-500 dark:text-slate-300">ค่าธรรมเนียม</div>
-                <div className="font-semibold">{String(receipt.fee ?? "0.00")}</div>
+                <div className="font-semibold tabular-nums">{String(receipt.fee ?? "0.00")}</div>
               </div>
               <div>
                 <div className="text-slate-500 dark:text-slate-300">รวมต้องชำระ</div>
-                <div className="font-semibold">{String(receipt.total_due ?? "—")}</div>
+                <div className="font-semibold tabular-nums">{String(receipt.total_due ?? "—")}</div>
               </div>
               <div>
                 <div className="text-slate-500 dark:text-slate-300">ยอดรวมหุ้นหลังซื้อ</div>
-                <div className="font-semibold">
+                <div className="font-semibold tabular-nums">
                   {String(receipt.total_share_after ?? "—")}
                 </div>
               </div>

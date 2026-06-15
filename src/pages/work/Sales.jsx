@@ -2544,7 +2544,7 @@ ${summary}`)
               ) : (
                 <>
                   <div className="-mx-2 overflow-x-auto md:mx-0">
-                    <table className="min-w-full text-sm">
+                    <table className="min-w-full text-sm tabular-nums">
                       <thead className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-300">
                         <tr>
                           <th className="px-2 py-2 text-left">คัน</th>
@@ -2632,26 +2632,26 @@ ${summary}`)
                   <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-5">
                     <div className="rounded-xl bg-emerald-50 p-3 text-emerald-900 ring-1 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-100 dark:ring-emerald-700/60">
                       <div className="text-xs uppercase tracking-wide opacity-70">รวมพ่วงหน้า</div>
-                      <div className="text-lg font-semibold">{round2(trailerSummary.totals.frontWeight)} กก.</div>
+                      <div className="text-lg font-semibold tabular-nums">{round2(trailerSummary.totals.frontWeight)} กก.</div>
                     </div>
                     <div className="rounded-xl bg-slate-100 p-3 text-slate-800 ring-1 ring-slate-200 dark:bg-slate-900/40 dark:text-slate-100 dark:ring-slate-700/60">
                       <div className="text-xs uppercase tracking-wide opacity-70">รวมพ่วงหลัง</div>
-                      <div className="text-lg font-semibold">{round2(trailerSummary.totals.backWeight)} กก.</div>
+                      <div className="text-lg font-semibold tabular-nums">{round2(trailerSummary.totals.backWeight)} กก.</div>
                     </div>
                     <div className="rounded-xl bg-white p-3 text-slate-900 ring-1 ring-slate-200 dark:bg-slate-900/60 dark:text-white dark:ring-slate-700/60">
                       <div className="text-xs uppercase tracking-wide opacity-70">น้ำหนักสุทธิรวม</div>
-                      <div className="text-lg font-semibold">{round2(trailerSummary.totals.net)} กก.</div>
+                      <div className="text-lg font-semibold tabular-nums">{round2(trailerSummary.totals.net)} กก.</div>
                     </div>
                     <div className="rounded-xl bg-white p-3 text-slate-900 ring-1 ring-amber-200 dark:bg-amber-900/40 dark:text-amber-100 dark:ring-amber-700/60">
                       <div className="text-xs uppercase tracking-wide opacity-70">ยอดเงินรวม</div>
-                      <div className="text-lg font-semibold">{thb(trailerSummary.totals.amount)}</div>
+                      <div className="text-lg font-semibold tabular-nums">{thb(trailerSummary.totals.amount)}</div>
                     </div>
                     <div className="rounded-xl bg-white p-3 text-slate-900 ring-1 ring-emerald-200 dark:bg-slate-900/60 dark:text-white dark:ring-emerald-700/60">
                       <div className="text-xs uppercase tracking-wide opacity-70">ราคา/คุณภาพเฉลี่ยรวม</div>
-                      <div className="text-lg font-semibold">
+                      <div className="text-lg font-semibold tabular-nums">
                         {trailerSummary.totals.weightedUnit > 0 ? `${round2(trailerSummary.totals.weightedUnit)} บ./กก.` : "—"}
                       </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-300">
+                      <div className="text-sm text-slate-600 dark:text-slate-300 tabular-nums">
                         gram เฉลี่ย: {trailerSummary.totals.weightedGram > 0 ? trailerSummary.totals.weightedGram : "—"}
                       </div>
                     </div>

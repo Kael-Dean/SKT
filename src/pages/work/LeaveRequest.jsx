@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
 import { getUser } from "../../lib/auth"
+import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
 
 // ─── shared style tokens ────────────────────────────────────────────────────
 const inputCls =
@@ -227,9 +228,6 @@ function SectionTitle({ children }) {
 
 // ─── print document component ────────────────────────────────────────────────
 function PrintDocument({ form, totalDays }) {
-  const days1 = diffDays(form.fromDate, form.toDate)
-  const days2 = diffDays(form.fromDate2, form.toDate2)
-
   return (
     <div id="leave-print-root" style={{ position: "absolute", left: "-99999px", top: 0, width: "210mm" }} aria-hidden="true">
       {/* Header */}
@@ -393,7 +391,6 @@ export default function LeaveRequest() {
     apiAuth("/hr/leave-types")
       .then((data) => {
         const arr = Array.isArray(data) ? data : []
-        if (arr.length > 0) console.log("[LeaveRequest] /hr/leave-types sample:", arr[0])
         setLeaveTypes(arr.filter((t) => t.is_active !== false))
       })
       .catch(() => {})
@@ -701,7 +698,12 @@ export default function LeaveRequest() {
                 <p className="text-xs text-red-500 mb-2">{errors.leaveTypeId}</p>
               )}
               {leaveTypes.length === 0 ? (
-                <p className="text-sm text-gray-400 dark:text-gray-500 py-2">กำลังโหลดประเภทการลา...</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" role="status" aria-busy="true">
+                  <span className="sr-only">กำลังโหลดประเภทการลา…</span>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={i} rounded="rounded-xl" className="h-12" />
+                  ))}
+                </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {leaveTypes.map((lt) => {
@@ -908,11 +910,7 @@ export default function LeaveRequest() {
               </Field>
             </div>
 
-            {submitError && (
-              <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-                {submitError}
-              </div>
-            )}
+            {submitError && <ErrorState message={submitError} />}
 
             {/* Submit */}
             <button
@@ -936,17 +934,29 @@ export default function LeaveRequest() {
         {tab === "history" && (
           <div className="space-y-3">
             {loadingHistory ? (
-              <div className="flex justify-center py-16">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
+              <div className="space-y-3" role="status" aria-busy="true">
+                <span className="sr-only">กำลังโหลดประวัติใบลา…</span>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className={`${cardCls} space-y-3`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <Skeleton rounded="rounded-md" className="h-4 w-1/3" />
+                      <Skeleton rounded="rounded-full" className="h-5 w-20" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Skeleton rounded="rounded-md" className="h-3.5 w-3/4" />
+                      <Skeleton rounded="rounded-md" className="h-3.5 w-1/2" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : historyError ? (
-              <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-                {historyError}
-              </div>
+              <ErrorState message={historyError} onRetry={fetchHistory} />
             ) : history.length === 0 ? (
-              <div className={`${cardCls} py-16 text-center`}>
-                <p className="text-3xl mb-3">📋</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">ยังไม่มีประวัติใบลา</p>
+              <div className={cardCls}>
+                <EmptyState
+                  title="ยังไม่มีประวัติใบลา"
+                  description='เมื่อคุณยื่นใบลา รายการจะแสดงที่นี่ เริ่มได้จากแท็บ "ยื่นใบลา"'
+                />
               </div>
             ) : (
               history.map((r) => (

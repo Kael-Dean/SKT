@@ -6,7 +6,8 @@ import { apiAuth } from "../../lib/api"
 import PROVINCES_RAW from "../../data/thai/province.json"
 import DISTRICTS_RAW from "../../data/thai/district.json"
 import SUBDISTRICTS_RAW from "../../data/thai/sub_district.json"
-import { cx, baseField, labelCls, errorTextCls } from "../../lib/styles"
+import { cx, baseField, labelCls, errorTextCls, submitBtnCls, resetBtnCls, spinnerCls } from "../../lib/styles"
+import { Card, CardHeader, PageLoader } from "../../components/ui"
 
 /* -------------------------- Utilities & helpers -------------------------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -57,23 +58,6 @@ const toOptions = (rows, labelKey, valueKey, extra = (r)=>({})) =>
 
 /* ------------------------------- UI styles ------------------------------- */
 const fieldError = "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500"
-
-/* ---------------------------- Section container --------------------------- */
-function SectionCard({ title, subtitle, children, className = "" }) {
-  return (
-    <div
-      className={cx(
-        "rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm",
-        "dark:border-slate-700 dark:bg-slate-800 dark:text-white",
-        className
-      )}
-    >
-      {title && <h2 className="mb-1 text-xl font-semibold">{title}</h2>}
-      {subtitle && <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">{subtitle}</p>}
-      {children}
-    </div>
-  )
-}
 
 /* --------------------------- Searchable ComboBox -------------------------- */
 function ComboBox({
@@ -398,6 +382,9 @@ const CustomerAdd = () => {
   const [amphoeOptions, setAmphoeOptions] = useState([])
   const [tambonOptions, setTambonOptions] = useState([])
 
+  // สถานะโหลดฐานข้อมูลที่อยู่ (province.json/district.json/sub_district.json) — กันฟอร์มกระตุก
+  const [addressReady, setAddressReady] = useState(false)
+
   // เก็บ id ที่เลือกไว้ใช้กรองขั้นต่อไป
   const [selectedProvinceId, setSelectedProvinceId] = useState(null)
   const [selectedDistrictId, setSelectedDistrictId] = useState(null)
@@ -542,6 +529,7 @@ const CustomerAdd = () => {
     )
     provOpts.sort((a, b) => a.label.localeCompare(b.label, "th"))
     setProvinceOptions(provOpts)
+    setAddressReady(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -697,21 +685,26 @@ const CustomerAdd = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 ref={topRef} tabIndex={-1} className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">
-          👤 เพิ่มลูกค้าทั่วไป
-        </h1>
+        <div ref={topRef} tabIndex={-1} className="mb-5 outline-none">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">เพิ่มลูกค้าทั่วไป</h1>
+          <p className="mt-1 text-[15px] text-slate-600 dark:text-slate-400">
+            กรอกข้อมูลลูกค้าทั่วไปเพื่อบันทึกเข้าสู่ระบบ ช่องที่มีกรอบสีแดงคือช่องที่ต้องแก้ไข
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* โครงการ (UI-only) */}
-          <SectionCard title="โครงการที่เข้าร่วม" className="mb-6">
+          <Card>
+            <CardHeader title="โครงการที่เข้าร่วม" />
             <div className="grid gap-3 md:grid-cols-3">
               <label
                 className={cx(
-                  "group relative flex w-full items-center justify-center gap-4 text-center cursor-pointer rounded-2xl border p-4 min-h[72px] transition-all",
-                  "border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-700/40",
-                  "shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
-                  "hover:border-emerald-300/70 dark:hover:border-emerald-400/40",
-                  form.slowdown_rice ? "ring-2 ring-emerald-400 shadow-[0_12px_30px_rgba(16,185,129,0.25)]" : "ring-0"
+                  "group relative flex w-full items-center justify-center gap-4 text-center cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all duration-200",
+                  "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-700/40",
+                  "hover:border-emerald-300/70 hover:shadow-sm dark:hover:border-emerald-400/40",
+                  form.slowdown_rice
+                    ? "border-emerald-400 bg-emerald-50/60 ring-2 ring-emerald-400/60 dark:bg-emerald-400/10"
+                    : "ring-0"
                 )}
               >
                 <span
@@ -750,10 +743,16 @@ const CustomerAdd = () => {
                 />
               </label>
             </div>
-          </SectionCard>
+          </Card>
 
           {/* แบบฟอร์มหลัก */}
-          <SectionCard title="ข้อมูลลูกค้าทั่วไป">
+          <Card>
+            <CardHeader title="ข้อมูลลูกค้าทั่วไป" />
+
+            {!addressReady ? (
+              <PageLoader variant="spinner" message="กำลังเตรียมข้อมูลที่อยู่…" />
+            ) : (
+            <>
             {/* แถวบนสุด */}
             <div className="grid gap-4 md:grid-cols-3">
               <div>
@@ -1003,34 +1002,25 @@ const CustomerAdd = () => {
                 ref={submitBtnRef}
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center justify-center rounded-2xl 
-                          bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                          shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                          transition-all duration-300 ease-out
-                          hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                          hover:scale-[1.05] active:scale-[.97]
-                          disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                className={submitBtnCls}
                 aria-busy={submitting ? "true" : "false"}
               >
+                {submitting && <span className={spinnerCls} aria-hidden="true" />}
                 {submitting ? "กำลังบันทึก..." : "บันทึก"}
               </button>
 
               <button
                 type="button"
                 onClick={handleReset}
-                className="inline-flex items-center justify-center rounded-2xl 
-                          border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                          shadow-sm
-                          transition-all duration-300 ease-out
-                          hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                          active:scale-[.97]
-                          dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                          dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                disabled={submitting}
+                className={resetBtnCls}
               >
                 รีเซ็ต
               </button>
             </div>
-          </SectionCard>
+            </>
+            )}
+          </Card>
         </form>
       </div>
     </div>

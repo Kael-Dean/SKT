@@ -10,6 +10,7 @@ import {
 } from "react"
 import { get, post } from "../../lib/api"
 import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import { SkeletonTableRows, EmptyState, ErrorState, Badge } from "../../components/ui"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => String(s ?? "").replace(/\D+/g, "")
@@ -30,7 +31,7 @@ const focusNextAvailable = (...refs) => {
     try {
       el.focus()
       return true
-    } catch {}
+    } catch { /* element not focusable — skip */ }
   }
   return false
 }
@@ -367,7 +368,7 @@ function StockTransferMill() {
     try {
       const root = document.scrollingElement || document.documentElement || document.body
       root.scrollTo({ top: 0, behavior: "smooth" })
-    } catch {}
+    } catch { /* smooth scroll best-effort */ }
   }
 
   const errorOrder = [
@@ -394,8 +395,8 @@ function StockTransferMill() {
     const r = refMap[key]
     const el = r?.current
     if (!el) return
-    try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {}
-    try { el.focus?.() } catch {}
+    try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch { /* best-effort */ }
+    try { el.focus?.() } catch { /* best-effort */ }
   }
   const scrollToFirstError = (eObj) => {
     const firstKey = errorOrder.find((k) => k in eObj)
@@ -415,9 +416,9 @@ function StockTransferMill() {
           get("/order/product/search"),
           get("/order/condition/search"),
           (async () => {
-            try { return await get("/order/field/search") } catch {}
-            try { return await get("/order/field_type/list") } catch {}
-            try { return await get("/order/field-type/list") } catch {}
+            try { return await get("/order/field/search") } catch { /* try next path */ }
+            try { return await get("/order/field_type/list") } catch { /* try next path */ }
+            try { return await get("/order/field-type/list") } catch { /* fall through to [] */ }
             return []
           })(),
           get("/order/year/search"),
@@ -683,11 +684,9 @@ function StockTransferMill() {
         const calls = await Promise.allSettled(payloads.map((pl) => post("/mill/eligible", pl)))
 
         const map = new Map() // tempstock_id -> row
-        let totalFound = 0
         calls.forEach((c) => {
           if (c.status === "fulfilled" && Array.isArray(c.value)) {
             c.value.forEach((row) => {
-              totalFound += 1
               // dedupe by tempstock_id (ล่าสุดทับเดิมไม่เป็นไร — ข้อมูลเหมือนกัน)
               map.set(row.tempstock_id, row)
             })
@@ -778,7 +777,7 @@ function StockTransferMill() {
         })),
       }
 
-      const created = await post("/mill/records", payload)
+      await post("/mill/records", payload)
 
       // ✅ แจ้งเตือนสำเร็จ: รูปแบบเดียวกับหน้า Sales
       alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
@@ -808,7 +807,7 @@ function StockTransferMill() {
       }))
 
       requestAnimationFrame(() => scrollToPageTop())
-      try { submitBtnRef.current?.blur?.() } catch {}
+      try { submitBtnRef.current?.blur?.() } catch { /* blur best-effort */ }
     } catch (err) {
       console.error(err)
       // ❌ แจ้งล้มเหลว: ข้อความแบบเดียวกับหน้า Sales พร้อมรายละเอียดจาก API ถ้ามี
@@ -826,7 +825,18 @@ ${baseMsg}${summary}`)
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🏭 ส่งสี / สร้างล็อตสี (ตัดสต็อก TempStock)</h1>
+        <h1 className="mb-4 flex items-center gap-2.5 text-3xl font-bold text-gray-900 dark:text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-7 text-indigo-600 dark:text-indigo-400">
+            <path d="M17 18a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2" />
+            <path d="M3 21h18" />
+            <path d="M3 7v14" />
+            <path d="M21 7v14" />
+            <path d="M3 7 7 3h10l4 4" />
+            <path d="M3 7h18" />
+            <path d="M12 11v3" />
+          </svg>
+          ส่งสี / สร้างล็อตสี (ตัดสต็อก TempStock)
+        </h1>
 
         <form onSubmit={handleSubmit}>
           {/* กรอบที่ 1: ข้อมูล LOT */}
@@ -1183,9 +1193,14 @@ ${baseMsg}${summary}`)
                 {loadingEligible ? (selectAllKlangs ? "กำลังดึงจากทุกคลัง..." : "กำลังดึงคลังที่เข้าเกณฑ์...") : (selectAllKlangs ? "ดึงจากทุกคลัง (ทุกสาขา)" : "ดึงคลังที่เข้าเกณฑ์")}
               </button>
 
-              <div className="text-sm text-slate-600 dark:text-slate-300 flex items-center">
-                {eligible.length > 0 && `พบ ${eligible.length} รายการที่เข้าเกณฑ์`}
-                {eligibleErr && <span className="text-red-500">{eligibleErr}</span>}
+              <div className="flex items-center text-sm text-slate-600 dark:text-slate-300">
+                {loadingEligible ? (
+                  <Badge tone="neutral">กำลังดึงรายการ…</Badge>
+                ) : eligibleErr ? (
+                  <Badge tone="danger">{eligibleErr}</Badge>
+                ) : eligible.length > 0 ? (
+                  <Badge tone="success">พบ {eligible.length} รายการที่เข้าเกณฑ์</Badge>
+                ) : null}
               </div>
             </div>
           </div>
@@ -1194,35 +1209,48 @@ ${baseMsg}${summary}`)
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">เลือกคลังเข้าลอต</h2>
 
-            <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-700/40">
+                <thead className="bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300">
                   <tr>
-                    <th className="px-3 py-2">TempStock ID</th>
-                    <th className="px-3 py-2">Stock ID</th>
-                    <th className="px-3 py-2">สาขา</th>
-                    <th className="px-3 py-2">คลัง</th>
-                    <th className="px-3 py-2">คงเหลือ (กก.)</th>
-                    <th className="px-3 py-2 w-48">ใส่กก.ที่จะใช้</th>
-                    <th className="px-3 py-2 w-32">เพิ่ม/อัปเดต</th>
+                    <th className="px-3 py-2 font-medium">TempStock ID</th>
+                    <th className="px-3 py-2 font-medium">Stock ID</th>
+                    <th className="px-3 py-2 font-medium">สาขา</th>
+                    <th className="px-3 py-2 font-medium">คลัง</th>
+                    <th className="px-3 py-2 text-right font-medium">คงเหลือ (กก.)</th>
+                    <th className="px-3 py-2 w-48 font-medium">ใส่กก.ที่จะใช้</th>
+                    <th className="px-3 py-2 w-32 font-medium">เพิ่ม/อัปเดต</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {eligible.length === 0 && (
+                  {loadingEligible ? (
+                    <SkeletonTableRows rows={5} cols={7} />
+                  ) : eligibleErr ? (
                     <tr>
-                      <td colSpan={7} className="px-3 py-4 text-center text-slate-500">
-                        — ไม่มีข้อมูล — กด “{selectAllKlangs ? "ดึงจากทุกคลัง" : "ดึงคลังที่เข้าเกณฑ์"}” หลังเลือกสเปคข้าว —
+                      <td colSpan={7} className="px-3 py-4">
+                        <ErrorState message={eligibleErr} onRetry={fetchEligible} />
                       </td>
                     </tr>
+                  ) : eligible.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-3 py-2">
+                        <EmptyState
+                          className="!py-10"
+                          title="ยังไม่มีรายการคลัง"
+                          description={`เลือกสเปคข้าวให้ครบ แล้วกด “${selectAllKlangs ? "ดึงจากทุกคลัง" : "ดึงคลังที่เข้าเกณฑ์"}” เพื่อแสดงคลังที่มีสต็อกตรงสเปค`}
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                    eligible.map((row) => (
+                      <RowEligible
+                        key={row.tempstock_id}
+                        row={row}
+                        defaultWeight={picks.find((p) => p.tempstock_id === row.tempstock_id)?.pick_weight ?? ""}
+                        onAdd={(w) => upsertPick(row, w)}
+                      />
+                    ))
                   )}
-                  {eligible.map((row) => (
-                    <RowEligible
-                      key={row.tempstock_id}
-                      row={row}
-                      defaultWeight={picks.find((p) => p.tempstock_id === row.tempstock_id)?.pick_weight ?? ""}
-                      onAdd={(w) => upsertPick(row, w)}
-                    />
-                  ))}
                 </tbody>
               </table>
             </div>
@@ -1232,32 +1260,38 @@ ${baseMsg}${summary}`)
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-xl font-semibold">รายการในลอต</h2>
 
-            <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-700/40">
+                <thead className="bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300">
                   <tr>
-                    <th className="px-3 py-2">TempStock ID</th>
-                    <th className="px-3 py-2">คลัง</th>
-                    <th className="px-3 py-2">คงเหลือ</th>
-                    <th className="px-3 py-2 w-40">กก. ที่ใช้</th>
-                    <th className="px-3 py-2 w-24">ลบ</th>
+                    <th className="px-3 py-2 font-medium">TempStock ID</th>
+                    <th className="px-3 py-2 font-medium">คลัง</th>
+                    <th className="px-3 py-2 text-right font-medium">คงเหลือ</th>
+                    <th className="px-3 py-2 w-40 font-medium">กก. ที่ใช้</th>
+                    <th className="px-3 py-2 w-24 font-medium">ลบ</th>
                   </tr>
                 </thead>
                 <tbody>
                   {picks.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-3 py-4 text-center text-slate-500">— ยังไม่มีรายการ —</td>
+                      <td colSpan={5} className="px-3 py-2">
+                        <EmptyState
+                          className="!py-10"
+                          title="ยังไม่มีรายการในลอต"
+                          description="เพิ่มคลังจากตาราง “เลือกคลังเข้าลอต” ด้านบน เพื่อรวมน้ำหนักให้ครบตามที่ต้องการ"
+                        />
+                      </td>
                     </tr>
                   )}
                   {picks.map((p) => (
                     <tr key={p.tempstock_id} className="border-t border-slate-100 dark:border-slate-700/60">
-                      <td className="px-3 py-2">{p.tempstock_id}</td>
-                      <td className="px-3 py-2">{p.stock_klang}</td>
-                      <td className="px-3 py-2">{p.amount_available.toLocaleString()} กก.</td>
+                      <td className="px-3 py-2 tabular-nums text-slate-700 dark:text-slate-200">{p.tempstock_id}</td>
+                      <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{p.stock_klang}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-200">{p.amount_available.toLocaleString()} กก.</td>
                       <td className="px-3 py-2">
                         <input
                           inputMode="numeric"
-                          className={baseField}
+                          className={cx(baseField, "tabular-nums")}
                           value={p.pick_weight}
                           onChange={(e) => {
                             const v = onlyDigits(e.target.value)
@@ -1286,7 +1320,7 @@ ${baseMsg}${summary}`)
                         <button
                           type="button"
                           onClick={() => removePick(p.tempstock_id)}
-                          className="rounded-xl border border-slate-300 px-3 py-2 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-700/60"
+                          className="rounded-xl border border-red-300 px-3 py-2 text-red-600 transition-colors duration-150 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 dark:border-red-800/70 dark:text-red-300 dark:hover:bg-red-900/20"
                         >
                           ลบ
                         </button>
@@ -1399,15 +1433,15 @@ function RowEligible({ row, defaultWeight, onAdd }) {
 
   return (
     <tr className="border-t border-slate-100 dark:border-slate-700/60">
-      <td className="px-3 py-2">{row.tempstock_id}</td>
-      <td className="px-3 py-2">{row.stock_id}</td>
-      <td className="px-3 py-2">{row.stock_branch ?? "—"}</td>
-      <td className="px-3 py-2">{row.stock_klang}</td>
-      <td className="px-3 py-2">{row.amount_available?.toLocaleString()} กก.</td>
+      <td className="px-3 py-2 tabular-nums text-slate-700 dark:text-slate-200">{row.tempstock_id}</td>
+      <td className="px-3 py-2 tabular-nums text-slate-700 dark:text-slate-200">{row.stock_id}</td>
+      <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{row.stock_branch ?? "—"}</td>
+      <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{row.stock_klang}</td>
+      <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-200">{row.amount_available?.toLocaleString()} กก.</td>
       <td className="px-3 py-2">
         <input
           inputMode="numeric"
-          className={baseField}
+          className={cx(baseField, "tabular-nums")}
           value={w}
           onChange={(e) => setW(onlyDigits(e.target.value))}
           onKeyDown={(e) => {
@@ -1425,8 +1459,10 @@ function RowEligible({ row, defaultWeight, onAdd }) {
           onClick={() => onAdd(w)}
           disabled={!canAdd}
           className={cx(
-            "rounded-xl px-3 py-2 text-white",
-            canAdd ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-400 cursor-not-allowed"
+            "rounded-xl px-3 py-2 text-white transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-800",
+            canAdd
+              ? "bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
+              : "bg-slate-400 dark:bg-slate-600 cursor-not-allowed"
           )}
         >
           เพิ่ม/อัปเดต

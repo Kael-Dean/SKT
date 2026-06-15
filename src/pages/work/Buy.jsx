@@ -3181,7 +3181,7 @@ if (buyerType === "person") {
     >
       <div className="text-slate-600 dark:text-slate-300">{c.label}</div>
       {/* ← แก้ให้ทุกช่องสรุปตัดคำยาว ๆ ได้ */}
-      <div className="text-lg md:text-xl font-semibold whitespace-pre-line break-words">
+      <div className="text-lg md:text-xl font-semibold whitespace-pre-line break-words tabular-nums">
         {typeof c.value === "string" ? c.value : c.value}
       </div>
     </div>

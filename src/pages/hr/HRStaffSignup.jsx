@@ -335,11 +335,11 @@ export default function HRStaffSignup() {
     return (
       <div className="max-w-lg mx-auto mt-10">
         <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-md ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-8 text-center space-y-4">
-          <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-3xl">
-            ✅
+          <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-7"><path d="M20 6 9 17l-5-5" /></svg>
           </div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            ลงทะเบียนเจ้าหน้าที่สำเร็จ!
+            ลงทะเบียนเจ้าหน้าที่สำเร็จ
           </h2>
           <div className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 p-4 text-left space-y-2">
             <p className="text-sm text-gray-700 dark:text-gray-300">
@@ -347,23 +347,28 @@ export default function HRStaffSignup() {
               <span className="font-mono text-indigo-700 dark:text-indigo-300 text-base">{result.username}</span>
             </p>
             <p className="text-sm text-gray-700 dark:text-gray-300">
-              <span className="font-semibold">รหัสเจ้าหน้าที่:</span> {result.id}
+              <span className="font-semibold">รหัสเจ้าหน้าที่:</span> <span className="tabular-nums">{result.id}</span>
             </p>
             <p className="text-sm text-gray-700 dark:text-gray-300">
-              <span className="font-semibold">ปีงบประมาณ:</span> {result.fiscal_year}
+              <span className="font-semibold">ปีงบประมาณ:</span> <span className="tabular-nums">{result.fiscal_year}</span>
             </p>
             <p className="text-sm text-gray-700 dark:text-gray-300">
               <span className="font-semibold">แจ้งเตือน:</span> {notifyMsg}
             </p>
           </div>
           {result.notified_via === "none" && (
-            <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
-              ⚠️ รหัสผ่านถูกสร้างอัตโนมัติ กรุณาแจ้งเจ้าหน้าที่ใหม่ด้วยตนเอง
+            <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-sm text-amber-700 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-300">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 size-4 shrink-0">
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <span>รหัสผ่านถูกสร้างอัตโนมัติ กรุณาแจ้งเจ้าหน้าที่ใหม่ด้วยตนเอง</span>
             </div>
           )}
           <button
             onClick={handleReset}
-            className="mt-2 w-full h-11 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-500 transition cursor-pointer"
+            className="mt-2 w-full h-11 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-500 active:scale-[0.98] transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
           >
             ลงทะเบียนเจ้าหน้าที่คนถัดไป
           </button>
@@ -542,9 +547,10 @@ export default function HRStaffSignup() {
                 <button
                   type="button"
                   onClick={() => removeEdu(i)}
-                  className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                  className="absolute top-3 right-3 inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors cursor-pointer"
                 >
-                  ✕ ลบ
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                  ลบ
                 </button>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -588,9 +594,10 @@ export default function HRStaffSignup() {
                 <button
                   type="button"
                   onClick={() => removeWork(i)}
-                  className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                  className="absolute top-3 right-3 inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors cursor-pointer"
                 >
-                  ✕ ลบ
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                  ลบ
                 </button>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -629,9 +636,10 @@ export default function HRStaffSignup() {
                 <button
                   type="button"
                   onClick={() => removeCrime(i)}
-                  className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                  className="absolute top-3 right-3 inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors cursor-pointer"
                 >
-                  ✕ ลบ
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                  ลบ
                 </button>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -665,8 +673,13 @@ export default function HRStaffSignup() {
                 onChange={(e) => setHasSpouse(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
               />
-              <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">💑 คู่สมรส</span>
-              {!hasSpouse && <span className="ml-auto text-xs text-gray-400">คลิกเพื่อเพิ่ม</span>}
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                คู่สมรส
+              </span>
+              {!hasSpouse && <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">คลิกเพื่อเพิ่ม</span>}
             </label>
             {hasSpouse && (
               <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -718,7 +731,12 @@ export default function HRStaffSignup() {
           {/* Children */}
           <div className="rounded-xl border border-amber-200 dark:border-amber-800 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-900/30">
-              <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">👶 บุตร {children.length > 0 && <span className="ml-1 text-xs font-normal">({children.length} คน)</span>}</span>
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-amber-700 dark:text-amber-300">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+                  <circle cx="12" cy="6" r="3" /><path d="M12 9v6" /><path d="M8 13a4 4 0 0 0 8 0" /><path d="M9 21h6" />
+                </svg>
+                บุตร {children.length > 0 && <span className="text-xs font-normal tabular-nums">({children.length} คน)</span>}
+              </span>
               <button
                 type="button"
                 onClick={() => setChildren((prev) => [...prev, emptyChild()])}
@@ -737,9 +755,10 @@ export default function HRStaffSignup() {
                   <button
                     type="button"
                     onClick={() => setChildren((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 transition cursor-pointer"
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 dark:hover:text-red-400 transition cursor-pointer"
                   >
-                    ✕ ลบ
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                    ลบ
                   </button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -786,7 +805,12 @@ export default function HRStaffSignup() {
           {/* Parents */}
           <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 bg-emerald-50 dark:bg-emerald-900/30">
-              <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">👨‍👩‍ บิดา-มารดา {parents.length > 0 && <span className="ml-1 text-xs font-normal">({parents.length}/2)</span>}</span>
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                บิดา-มารดา {parents.length > 0 && <span className="text-xs font-normal tabular-nums">({parents.length}/2)</span>}
+              </span>
               <button
                 type="button"
                 onClick={() => setParents((prev) => [...prev, emptyParent()])}
@@ -806,7 +830,7 @@ export default function HRStaffSignup() {
                 <div key={i} className="border-t border-emerald-100 dark:border-emerald-900/50 p-4 relative">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                      {parent.parent_type === "father" ? "👨 บิดา" : parent.parent_type === "mother" ? "👩 มารดา" : `รายการที่ ${i + 1}`}
+                      {parent.parent_type === "father" ? "บิดา" : parent.parent_type === "mother" ? "มารดา" : `รายการที่ ${i + 1}`}
                     </span>
                     <button
                       type="button"

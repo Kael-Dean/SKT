@@ -3,6 +3,7 @@
 // Auth: Role 1 (ADMIN) หรือ 3 (HR) เท่านั้น
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../lib/api"
+import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../../components/ui"
 
 // Seeded constants — IDs คงที่จาก BE ไม่เปลี่ยนแปลง
 const POSITION_TIERS = [
@@ -42,18 +43,33 @@ export default function HRSalaryTier() {
       {/* Tab switcher */}
       <div className="flex gap-2 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">
         {[
-          { key: TAB_LADDER,    label: "📊 บัญชีเงินเดือน" },
-          { key: TAB_POSITIONS, label: "🏷️ ตำแหน่งงาน" },
-        ].map(({ key, label }) => (
+          {
+            key: TAB_LADDER,
+            label: "บัญชีเงินเดือน",
+            icon: (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+            ),
+          },
+          {
+            key: TAB_POSITIONS,
+            label: "ตำแหน่งงาน",
+            icon: (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z M6 6h.008v.008H6V6Z" />
+            ),
+          },
+        ].map(({ key, label, icon }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer ${
               tab === key
                 ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm"
                 : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             }`}
           >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="size-4 shrink-0">
+              {icon}
+            </svg>
             {label}
           </button>
         ))}
@@ -145,27 +161,15 @@ function SalaryLadderTab() {
         </div>
       </div>
 
-      {error && (
-        <div className="flex items-start gap-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
-          <span>{error}</span>
-        </div>
-      )}
+      {error && <ErrorState message={error} onRetry={() => fetchLadder(selectedTierId)} />}
 
       {/* Ladder table */}
       <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{selectedTier?.full_name}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {loading ? "กำลังโหลด..." : `${ladder.length} ขั้น`}
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-            ✅ เชื่อมต่อ API
-          </span>
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{selectedTier?.full_name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            {loading ? "กำลังโหลด…" : `${ladder.length} ขั้น`}
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -178,28 +182,25 @@ function SalaryLadderTab() {
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
               {loading ? (
+                <SkeletonTableRows rows={6} cols={3} />
+              ) : error ? null : ladder.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="text-center py-10">
-                    <div className="flex justify-center">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-                    </div>
-                  </td>
-                </tr>
-              ) : ladder.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">
-                    ไม่พบข้อมูล
+                  <td colSpan={3} className="p-0">
+                    <EmptyState
+                      title="ไม่พบข้อมูลขั้นเงินเดือน"
+                      description="ระดับตำแหน่งนี้ยังไม่มีขั้นเงินเดือนในระบบ"
+                    />
                   </td>
                 </tr>
               ) : (
                 ladder.map((row) => (
                   <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                     <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center justify-center h-7 w-14 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs font-bold">
+                      <span className="inline-flex items-center justify-center h-7 w-14 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs font-bold tabular-nums">
                         {row.level}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-emerald-700 dark:text-emerald-300 text-base">
+                    <td className="px-4 py-3 text-right font-semibold text-emerald-700 dark:text-emerald-300 text-base tabular-nums">
                       {fmt(row.salary_amount)}
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -240,7 +241,10 @@ function SalaryLadderTab() {
               <p className="text-sm text-center text-red-600 dark:text-red-400">{saveMsg}</p>
             )}
             {saveMsg === "success" && (
-              <p className="text-sm text-center text-emerald-600 dark:text-emerald-400">✅ บันทึกสำเร็จ</p>
+              <p className="flex items-center justify-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-4"><path d="M20 6 9 17l-5-5" /></svg>
+                บันทึกสำเร็จ
+              </p>
             )}
             <div className="flex gap-3">
               <button
@@ -377,14 +381,7 @@ function PositionsTab() {
         </button>
       </div>
 
-      {error && (
-        <div className="flex items-start gap-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
-          <span>{error}</span>
-        </div>
-      )}
+      {error && <ErrorState message={error} onRetry={fetchPositions} />}
 
       {/* Positions table */}
       <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
@@ -400,16 +397,15 @@ function PositionsTab() {
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
               {loading ? (
+                <SkeletonTableRows rows={6} cols={4} />
+              ) : error ? null : positions.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-10">
-                    <div className="flex justify-center">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-                    </div>
+                  <td colSpan={4} className="p-0">
+                    <EmptyState
+                      title="ยังไม่มีตำแหน่งงาน"
+                      description='เพิ่มตำแหน่งงานแรกด้วยปุ่ม "เพิ่มตำแหน่งใหม่" ด้านบน'
+                    />
                   </td>
-                </tr>
-              ) : positions.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">ไม่พบข้อมูลตำแหน่ง</td>
                 </tr>
               ) : (
                 positions.map((pos) => (
@@ -426,13 +422,9 @@ function PositionsTab() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       {pos.is_active ? (
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                          ใช้งาน
-                        </span>
+                        <Badge tone="success">ใช้งาน</Badge>
                       ) : (
-                        <span className="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
-                          ปิดแล้ว
-                        </span>
+                        <Badge tone="neutral">ปิดแล้ว</Badge>
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -498,7 +490,10 @@ function PositionsTab() {
               <p className="text-sm text-center text-red-600 dark:text-red-400">{createMsg}</p>
             )}
             {createMsg === "success" && (
-              <p className="text-sm text-center text-emerald-600 dark:text-emerald-400">✅ สร้างสำเร็จ</p>
+              <p className="flex items-center justify-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-4"><path d="M20 6 9 17l-5-5" /></svg>
+                สร้างสำเร็จ
+              </p>
             )}
             <div className="flex gap-3">
               <button
@@ -552,7 +547,10 @@ function PositionsTab() {
               <p className="text-sm text-center text-red-600 dark:text-red-400">{saveMsg}</p>
             )}
             {saveMsg === "success" && (
-              <p className="text-sm text-center text-emerald-600 dark:text-emerald-400">✅ บันทึกสำเร็จ</p>
+              <p className="flex items-center justify-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-4"><path d="M20 6 9 17l-5-5" /></svg>
+                บันทึกสำเร็จ
+              </p>
             )}
             <div className="flex gap-3">
               <button

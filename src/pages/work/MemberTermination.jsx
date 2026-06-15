@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../../lib/api" // ✅ แนบ token อัตโนมัติ + JSON ให้แล้ว
 import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import { ErrorState } from "../../components/ui"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -132,6 +133,8 @@ function MemberTermination() {
 
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
+  const [searchError, setSearchError] = useState("")   // ข้อผิดพลาดตอนค้นหาสมาชิก
+  const [searchReloadKey, setSearchReloadKey] = useState(0)
 
   const [showList, setShowList] = useState(false)
   const [highlighted, setHighlighted] = useState(-1)
@@ -181,6 +184,7 @@ function MemberTermination() {
     if (!q || q.length < 2) {
       setResults([])
       setShowList(false)
+      setSearchError("")
       return
     }
 
@@ -188,6 +192,7 @@ function MemberTermination() {
     ;(async () => {
       try {
         setLoading(true)
+        setSearchError("")
         const data = await apiAuth(`/member/members/search?q=${encodeURIComponent(q)}`)
         if (!aborted) {
           const arr = Array.isArray(data) ? data.slice(0, 50) : []
@@ -195,17 +200,18 @@ function MemberTermination() {
           // ❗️อย่าเปิดลิสต์ถ้า query เท่ากับสมาชิกที่เลือกอยู่แล้ว
           setShowList(arr.length > 0 && !isQueryEqualPicked(q, picked))
         }
-      } catch {
+      } catch (err) {
         if (!aborted) {
           setResults([])
           setShowList(false)
+          setSearchError(err?.message || "ค้นหาสมาชิกไม่สำเร็จ")
         }
       } finally {
         if (!aborted) setLoading(false)
       }
     })()
     return () => { aborted = true }
-  }, [debQ, picked])
+  }, [debQ, picked, searchReloadKey])
 
   // ปิดดรอปดาวน์ถ้าคลิกนอก
   useEffect(() => {
@@ -288,6 +294,7 @@ function MemberTermination() {
     setErrors({})
     setShowList(false)
     setHighlighted(-1)
+    setSearchError("")
 
     setDecisionDate("")
     setBoardSetNo("")
@@ -335,8 +342,23 @@ function MemberTermination() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-5xl p-5 md:p-6 lg:p-8">
-        <h1 ref={topRef} tabIndex={-1} className="mb-1 text-3xl font-bold">
-          👥 สมาชิกสิ้นสภาพ
+        <h1 ref={topRef} tabIndex={-1} className="mb-1 flex items-center gap-2 text-3xl font-bold">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-7 text-emerald-600 dark:text-emerald-400"
+          >
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          สมาชิกสิ้นสภาพ
         </h1>
         <p className="mb-5 text-slate-600 dark:text-slate-300">
           เลือกประเภท <span className="font-medium">“ลาออก”</span> หรือ <span className="font-medium">“เสียชีวิต”</span> (เลือกได้อย่างใดอย่างหนึ่ง)
@@ -397,6 +419,22 @@ function MemberTermination() {
               ? (loading ? "กำลังค้นหา..." : `ผลลัพธ์ ${results.length} รายการ`)
               : "พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อค้นหา"}
           </div>
+
+          {/* ค้นหาล้มเหลว → ErrorState + ปุ่มลองใหม่ */}
+          {searchError && (
+            <ErrorState
+              className="mt-3"
+              message={searchError}
+              onRetry={() => setSearchReloadKey((k) => k + 1)}
+            />
+          )}
+
+          {/* ค้นหาแล้วไม่พบ (ยังไม่ได้เลือก) */}
+          {!loading && !searchError && query.trim().length >= 2 && results.length === 0 && !picked && (
+            <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+              ไม่พบสมาชิกที่ตรงกับ “{query.trim()}” — ลองตรวจสอบการสะกด หรือค้นด้วยเลขบัตรประชาชน
+            </div>
+          )}
 
           {showList && results.length > 0 && (
             <div

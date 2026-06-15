@@ -1,7 +1,8 @@
 // src/pages/MemberSignup.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../../lib/api"   // ✅ แนบ token อัตโนมัติ + จัดการ 401
-import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import { cx, baseField, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, secondaryBtnCls, spinnerCls } from "../../lib/styles"
+import { Card, CardHeader, PageLoader } from "../../components/ui"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -161,23 +162,6 @@ const TAMBONS_BY_AMPHOE = {
   "ศรีณรงค์": ["ณรงค์","แจนแวน","ตรวจ","หนองแวง","ศรีสุข"],
   "โนนนารายณ์": ["หนองหลวง","คำผง","โนน","ระเวียง","หนองเทพ"],
   "กาบเชิง": ["กาบเชิง","คูตัน","ด่าน","แนงมุด","โคกตะเคียน","ตะเคียน"],
-}
-
-/** ---------- Reusable Section Card ---------- */
-function SectionCard({ title, subtitle, children, className = "" }) {
-  return (
-    <div
-      className={cx(
-        "rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm",
-        "dark:border-slate-700 dark:bg-slate-800 dark:text-white",
-        className
-      )}
-    >
-      {title && <h2 className="mb-1 text-xl font-semibold">{title}</h2>}
-      {subtitle && <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">{subtitle}</p>}
-      {children}
-    </div>
-  )
 }
 
 /** ---------- Reusable ComboBox ---------- */
@@ -412,18 +396,14 @@ function ReceiptModal({ open, onClose, receipt, name }) {
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center justify-center rounded-2xl 
-                       border border-indigo-300 bg-white px-5 py-2.5 text-sm font-semibold text-indigo-700 
-                       shadow-sm transition hover:bg-indigo-50 dark:bg-slate-700/60 dark:text-indigo-300"
+            className={cx(secondaryBtnCls, "!px-5 !py-2.5 !text-sm")}
           >
             พิมพ์ใบเสร็จ
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center justify-center rounded-2xl 
-                       bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow
-                       hover:bg-emerald-700"
+            className={cx(submitBtnCls, "!px-5 !py-2.5 !text-sm")}
           >
             ตกลง
           </button>
@@ -445,6 +425,9 @@ const MemberSignup = () => {
   // ✅ สถานะสำหรับจังหวัด/อำเภอ/ตำบล (สุรินทร์เท่านั้น)
   const [amphoeOptions, setAmphoeOptions] = useState([])
   const [tambonOptions, setTambonOptions] = useState([])
+
+  // สถานะเตรียมรายการอำเภอ/ตำบลครั้งแรก — กันฟอร์มกระตุก
+  const [optionsReady, setOptionsReady] = useState(false)
 
   // 🧾 ใบเสร็จ/ป๊อปอัป
   const [receipt, setReceipt] = useState(null)
@@ -520,7 +503,7 @@ const MemberSignup = () => {
     if (form.province !== PROV_SURIN) {
       setForm((prev) => ({ ...prev, province: PROV_SURIN }))
     }
-    loadAmphoesSurin()
+    loadAmphoesSurin().finally(() => setOptionsReady(true))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -847,21 +830,18 @@ const MemberSignup = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1
-          ref={topRef}
-          tabIndex={-1}
-          className="mb-1 text-3xl font-bold text-gray-900 dark:text-white"
-        >
-          👤 สมัครสมาชิก
-        </h1>
+        <div ref={topRef} tabIndex={-1} className="mb-5 outline-none">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">สมัครสมาชิก</h1>
+          <p className="mt-1 text-[15px] text-slate-600 dark:text-slate-400">
+            กรอกข้อมูลสมาชิกและรายการซื้อหุ้นครั้งแรก จังหวัดถูกล็อกเป็นสุรินทร์
+          </p>
+        </div>
 
-        {/* ⭐ ห่อทั้งฟอร์มด้วยการ์ดใหญ่ */}
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
+        {/* ฟอร์ม — แต่ละส่วนเป็นการ์ดแยก (ไม่ซ้อนการ์ด) */}
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* โครงการที่เข้าร่วม */}
-          <SectionCard title="โครงการที่เข้าร่วม" className="mb-6">
+          <Card>
+            <CardHeader title="โครงการที่เข้าร่วม" />
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               {[
                 { key: "seedling_prog",  label: "โครงการผลิตเมล็ดพันธ์" },
@@ -872,11 +852,12 @@ const MemberSignup = () => {
                 <label
                   key={key}
                   className={cx(
-                    "group relative flex items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h=[72px] transition-all",
-                    "border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-700/40",
-                    "shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
-                    "hover:border-emerald-300/70 dark:hover:border-emerald-400/40",
-                    form[key] ? "ring-2 ring-emerald-400 shadow-[0_12px_30px_rgba(16,185,129,0.25)]" : "ring-0"
+                    "group relative flex items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all duration-200",
+                    "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-700/40",
+                    "hover:border-emerald-300/70 hover:shadow-sm dark:hover:border-emerald-400/40",
+                    form[key]
+                      ? "border-emerald-400 bg-emerald-50/60 ring-2 ring-emerald-400/60 dark:bg-emerald-400/10"
+                      : "ring-0"
                   )}
                 >
                   <span
@@ -902,10 +883,11 @@ const MemberSignup = () => {
                 </label>
               ))}
             </div>
-          </SectionCard>
+          </Card>
 
           {/* กรอบที่ 1 */}
-          <SectionCard title="ข้อมูลสมาชิก">
+          <Card>
+            <CardHeader title="ข้อมูลสมาชิก" />
             <div className="grid gap-4 md:grid-cols-4">
               {/* เลขสมาชิก */}
               <div>
@@ -1040,10 +1022,14 @@ const MemberSignup = () => {
                 />
               </div>
             </div>
-          </SectionCard>
+          </Card>
 
           {/* กรอบที่ 2 */}
-          <SectionCard title="ที่อยู่และการติดต่อ" className="mt-6">
+          <Card>
+            <CardHeader title="ที่อยู่และการติดต่อ" />
+            {!optionsReady ? (
+              <PageLoader variant="spinner" message="กำลังเตรียมรายการอำเภอ/ตำบล…" />
+            ) : (
             <div className="grid gap-4 md:grid-cols-4">
               <div>
                 <label className={labelCls}>บ้านเลขที่ (address)</label>
@@ -1169,10 +1155,12 @@ const MemberSignup = () => {
                 {errors.phone_number && <p className={errorTextCls}>{errors.phone_number}</p>}
               </div>
             </div>
-          </SectionCard>
+            )}
+          </Card>
 
           {/* กรอบที่ 3 */}
-          <SectionCard title="ข้อมูลเพิ่มเติมและการเงิน" className="mt-6">
+          <Card>
+            <CardHeader title="ข้อมูลเพิ่มเติมและการเงิน" />
             <div className="grid gap-4 md:grid-cols-4">
               <div>
                 <label className={labelCls}>กลุ่ม (tgs_group)</label>
@@ -1218,7 +1206,7 @@ const MemberSignup = () => {
             </div>
 
             {/* ซื้อหุ้น (แทนชุดฟิลด์ที่ถูกลบปุ่ม) */}
-            <h3 className="mt-6 mb-3 text-lg font-semibold">ซื้อหุ้น</h3>
+            <h3 className="mt-6 mb-3 text-lg font-semibold text-slate-800 dark:text-slate-100">ซื้อหุ้น</h3>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
                 <label className={labelCls}>มูลค่าที่ซื้อ (บาท)</label>
@@ -1245,10 +1233,11 @@ const MemberSignup = () => {
                 />
               </div>
             </div>
-          </SectionCard>
+          </Card>
 
           {/* กรอบที่ 4: ข้อมูลเกษตร */}
-          <SectionCard title="ข้อมูลเกษตร" className="mt-6">
+          <Card>
+            <CardHeader title="ข้อมูลเกษตร" />
             <div className="grid gap-4 md:grid-cols-4">
               <div>
                 <label className={labelCls}>รหัสทะเบียนเกษตรกร (fid)</label>
@@ -1336,34 +1325,23 @@ const MemberSignup = () => {
                 ref={refs.submitBtn}
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center justify-center rounded-2xl 
-                            bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                            shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                            transition-all duration-300 ease-out
-                            hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                            hover:scale-[1.05] active:scale-[.97]
-                            disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                className={submitBtnCls}
                 aria-busy={submitting ? "true" : "false"}
               >
+                {submitting && <span className={spinnerCls} aria-hidden="true" />}
                 {submitting ? "กำลังบันทึก..." : "บันทึก"}
               </button>
 
               <button
                 type="button"
                 onClick={handleReset}
-                className="inline-flex items-center justify-center rounded-2xl 
-                            border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                            shadow-sm
-                            transition-all duration-300 ease-out
-                            hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                            active:scale-[.97]
-                            dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                            dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                disabled={submitting}
+                className={resetBtnCls}
               >
                 รีเซ็ต
               </button>
             </div>
-          </SectionCard>
+          </Card>
         </form>
 
         {/* Receipt Modal */}

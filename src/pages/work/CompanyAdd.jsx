@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import { canSeeAddCompany } from "../../lib/auth"
-import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import { cx, baseField, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, spinnerCls } from "../../lib/styles"
+import { Card, CardHeader } from "../../components/ui"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -15,18 +16,12 @@ const toNull = (s) => {
 /** ---------- Styles (เทียบให้ตรงกับ CustomerAdd) ---------- */
 const fieldError = "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500"
 
-function SectionCard({ title, subtitle, children, className = "" }) {
+/** Sub-section label inside a card (HQ / Branch) */
+function SubSectionLabel({ children }) {
   return (
-    <div
-      className={cx(
-        "rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm",
-        "dark:border-slate-700 dark:bg-slate-800 dark:text-white",
-        className
-      )}
-    >
-      {title && <h2 className="mb-1 text-xl font-semibold">{title}</h2>}
-      {subtitle && <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">{subtitle}</p>}
-      {children}
+    <div className="mb-3 flex items-center gap-2">
+      <span className="h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400" aria-hidden="true" />
+      <span className="font-semibold text-slate-800 dark:text-slate-100">{children}</span>
     </div>
   )
 }
@@ -296,10 +291,16 @@ const CompanyAddInner = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-1 text-3xl font-bold text-gray-900 dark:text-white">🏢 เพิ่มบริษัท / นิติบุคคล</h1>
+        <div className="mb-5">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">เพิ่มบริษัท / นิติบุคคล</h1>
+          <p className="mt-1 text-[15px] text-slate-600 dark:text-slate-400">
+            บันทึกข้อมูลนิติบุคคลพร้อมที่อยู่สำนักงานใหญ่ ส่วนสาขากรอกเพิ่มได้ภายหลัง
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit}>
-          <SectionCard title="ข้อมูลบริษัท">
+          <Card>
+            <CardHeader title="ข้อมูลบริษัท" />
             {/* แถวบนสุด: ชื่อบริษัท / เลขผู้เสียภาษี */}
             <div className="grid gap-4 md:grid-cols-2">
               <div>
@@ -360,10 +361,7 @@ const CompanyAddInner = () => {
 
             {/* HQ */}
             <div className="mt-6">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-blue-500" />
-                <span className="font-semibold">ที่อยู่สำนักงานใหญ่ (HQ)</span>
-              </div>
+              <SubSectionLabel>ที่อยู่สำนักงานใหญ่ (HQ)</SubSectionLabel>
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
@@ -474,10 +472,7 @@ const CompanyAddInner = () => {
 
             {/* Branch (optional) */}
             <div className="mt-8">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-blue-500" />
-                <span className="font-semibold">ที่อยู่สำนักงานสาขา (ถ้ามี)</span>
-              </div>
+              <SubSectionLabel>ที่อยู่สำนักงานสาขา (ถ้ามี)</SubSectionLabel>
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
@@ -568,34 +563,23 @@ const CompanyAddInner = () => {
                 ref={refs.submitBtn}
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center justify-center rounded-2xl 
-                           bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                           shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                           transition-all duration-300 ease-out
-                           hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                           hover:scale-[1.05] active:scale-[.97]
-                           disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                className={submitBtnCls}
                 aria-busy={submitting ? "true" : "false"}
               >
+                {submitting && <span className={spinnerCls} aria-hidden="true" />}
                 {submitting ? "กำลังบันทึก..." : "บันทึก"}
               </button>
 
               <button
                 type="button"
                 onClick={handleReset}
-                className="inline-flex items-center justify-center rounded-2xl 
-                           border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                           shadow-sm
-                           transition-all duration-300 ease-out
-                           hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                           active:scale-[.97]
-                           dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                           dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                disabled={submitting}
+                className={resetBtnCls}
               >
                 รีเซ็ต
               </button>
             </div>
-          </SectionCard>
+          </Card>
         </form>
       </div>
     </div>
@@ -608,8 +592,17 @@ const CompanyAdd = () => {
 
   if (!allowed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white text-black dark:bg-slate-900 dark:text-white">
-        <p className="text-lg font-semibold">คุณไม่มีสิทธิ์ใช้งานเมนูนี้</p>
+      <div className="flex min-h-screen items-center justify-center bg-white px-4 dark:bg-slate-900">
+        <div className="max-w-sm text-center">
+          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-6" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </div>
+          <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">คุณไม่มีสิทธิ์ใช้งานเมนูนี้</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">หากต้องการสิทธิ์เพิ่มเติม กรุณาติดต่อผู้ดูแลระบบ</p>
+        </div>
       </div>
     )
   }

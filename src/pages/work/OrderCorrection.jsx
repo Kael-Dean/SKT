@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { apiAuth } from "../../lib/api";
 import { getUser } from "../../lib/auth";
-import { baseField } from "../../lib/styles";
+import { cx, baseField, labelCls, submitBtnCls, resetBtnCls, spinnerCls } from "../../lib/styles";
+import { SkeletonTableRows } from "../../components/ui";
 
 /* ---------------- Utilities (ทนทานต่อค่าที่ไม่ใช่สตริง) ---------------- */
 const asString = (v) => (v === null || v === undefined ? "" : String(v));
@@ -242,6 +243,7 @@ function OrderCorrection() {
   const listReqId = useRef(0);
 
   /* dropdown opts */
+  const [optionsLoading, setOptionsLoading] = useState(true);
   const [branchOptions, setBranchOptions] = useState([]);
   const [klangOptions, setKlangOptions] = useState([]);
   const [specOptions, setSpecOptions] = useState([]);
@@ -287,6 +289,7 @@ function OrderCorrection() {
   useEffect(() => {
     const loadInitial = async () => {
       try {
+        setOptionsLoading(true);
         const [branches, specs, payB, payS] = await Promise.all([
           apiAuth(`/order/branch/search`),
           apiAuth(`/order/form/search`),
@@ -318,6 +321,8 @@ function OrderCorrection() {
         setSpecOptions([]);
         setPaymentBuy([]);
         setPaymentSell([]);
+      } finally {
+        setOptionsLoading(false);
       }
     };
     loadInitial();
@@ -771,7 +776,7 @@ function OrderCorrection() {
         {/* หัวเรื่อง + สลับโหมด */}
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            🛠️ แก้ไขออเดอร์ {mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}
+            แก้ไขออเดอร์ {mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}
           </h1>
           <div className="inline-flex items-center rounded-2xl border border-slate-300 p-1 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-600">
             <button
@@ -803,9 +808,15 @@ function OrderCorrection() {
 
         {/* Filters */}
         <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+          {optionsLoading && (
+            <div className="mb-3 inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400" role="status" aria-live="polite">
+              <span className={cx(spinnerCls, "!border-indigo-400/40 !border-t-indigo-500")} aria-hidden="true" />
+              กำลังเตรียมตัวเลือกสาขา/คลัง/สเปก…
+            </div>
+          )}
           <div className="grid gap-3 md:grid-cols-6">
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่เริ่ม</label>
+              <label className={labelCls}>วันที่เริ่ม</label>
               <DateInput
                 value={filters.startDate}
                 onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
@@ -815,7 +826,7 @@ function OrderCorrection() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่สิ้นสุด</label>
+              <label className={labelCls}>วันที่สิ้นสุด</label>
               <DateInput
                 value={filters.endDate}
                 onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
@@ -825,7 +836,7 @@ function OrderCorrection() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
+              <label className={labelCls}>สาขา</label>
               <ComboBox
                 options={branchOptions}
                 value={filters.branchId}
@@ -844,7 +855,7 @@ function OrderCorrection() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
+              <label className={labelCls}>คลัง</label>
               <ComboBox
                 options={klangOptions}
                 value={filters.klangId}
@@ -856,7 +867,7 @@ function OrderCorrection() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
+              <label className={labelCls}>
                 {mode === "buy" ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)" : "ค้นหา (ชื่อ / ปชช. / ใบรับเงินขายสินค้า / เลขที่ใบชั่ง)"}
               </label>
               <input
@@ -871,26 +882,17 @@ function OrderCorrection() {
               <button
                 onClick={fetchOrders}
                 type="button"
-                disabled={!!errors.startDate || !!errors.endDate}
-                className={[
-                  "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-base font-semibold text-white transition-all duration-300 ease-out cursor-pointer",
-                  !!errors.startDate || !!errors.endDate
-                    ? "bg-emerald-400/60 pointer-events-none"
-                    : "bg-emerald-600 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97]",
-                ].join(" ")}
+                disabled={!!errors.startDate || !!errors.endDate || loading}
+                className={submitBtnCls}
+                aria-busy={loading ? "true" : "false"}
               >
+                {loading && <span className={spinnerCls} aria-hidden="true" />}
                 ค้นหา
               </button>
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex items-center justify-center rounded-2xl 
-                           border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                           shadow-sm transition-all duration-300 ease-out
-                           hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                           active:scale-[.97]
-                           dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                           dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                className={resetBtnCls}
               >
                 รีเซ็ต
               </button>
@@ -955,21 +957,17 @@ function OrderCorrection() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td className="px-3 py-6 text-center" colSpan={12}>
-                    <span className="inline-flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                      <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
-                      </svg>
-                      กำลังโหลดข้อมูล{mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}...
-                    </span>
-                  </td>
-                </tr>
+                <SkeletonTableRows rows={10} cols={12} />
               ) : rows.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-3" colSpan={12}>
-                    ไม่พบข้อมูล
+                  <td className="px-3 py-10 text-center text-slate-500 dark:text-slate-400" colSpan={12}>
+                    <div className="flex flex-col items-center gap-2">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-8 text-slate-400 dark:text-slate-500" aria-hidden="true">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        <line x1="9" y1="10" x2="15" y2="10" />
+                      </svg>
+                      <span>ไม่พบข้อมูลในช่วงวันที่ที่เลือก ลองปรับตัวกรองแล้วค้นหาอีกครั้ง</span>
+                    </div>
                   </td>
                 </tr>
               ) : mode === "buy" ? (

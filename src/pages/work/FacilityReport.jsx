@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useMemo } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
 import { getRoleId } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
+import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
 
 const ROLE_ADMIN = 1
 
@@ -60,7 +61,7 @@ function TxRow({ tx, itemMap, isAdmin, onEdit, onDelete }) {
         )}
       </div>
       <div className="flex items-center gap-3 flex-shrink-0">
-        <p className={`text-sm font-bold ${isIncome ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>
+        <p className={`text-sm font-bold tabular-nums ${isIncome ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>
           ฿{fmtAmt(tx.amount)}
         </p>
         <div className="flex gap-1">
@@ -510,7 +511,7 @@ export default function FacilityReport() {
       a.click(); URL.revokeObjectURL(url)
     } catch (e) {
       let msg = e.message
-      try { const d = JSON.parse(msg); msg = d?.detail || msg } catch {}
+      try { const d = JSON.parse(msg); msg = d?.detail || msg } catch { /* keep raw message */ }
       setReportError(msg || "ดาวน์โหลดรายงานไม่สำเร็จ")
     } finally {
       setGeneratingPdf(false)
@@ -552,7 +553,12 @@ export default function FacilityReport() {
       return (
         <div className="max-w-lg mx-auto mt-10">
           <div className={`${cardCls} text-center space-y-3 py-12`}>
-            <div className="text-5xl">🔒</div>
+            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="size-7">
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
             <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">ไม่มีสิทธิ์เข้าถึง</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">สาขาของคุณไม่ได้รับสิทธิ์ใช้งานฟีเจอร์นี้</p>
           </div>
@@ -595,15 +601,17 @@ export default function FacilityReport() {
       </div>
 
       {loadingFacilities && (
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
+        <div className={cardCls} role="status" aria-busy="true">
+          <span className="sr-only">กำลังโหลดข้อมูลสถานที่…</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Skeleton rounded="rounded-xl" className="h-11" />
+            <Skeleton rounded="rounded-xl" className="h-11" />
+          </div>
         </div>
       )}
 
       {!loadingFacilities && facilityError && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          {facilityError}
-        </div>
+        <ErrorState message={facilityError} onRetry={() => setAdminVersion((v) => v + 1)} />
       )}
 
       {/* ══════════ RECORD TAB ══════════ */}
@@ -635,11 +643,11 @@ export default function FacilityReport() {
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-4 text-center">
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mb-1">รายรับ</p>
-                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">฿{fmtAmt(totalIncome)}</p>
+                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">฿{fmtAmt(totalIncome)}</p>
               </div>
               <div className="rounded-xl bg-red-50 dark:bg-red-900/20 p-4 text-center">
                 <p className="text-xs text-red-600 dark:text-red-400 font-semibold mb-1">รายจ่าย</p>
-                <p className="text-lg font-bold text-red-700 dark:text-red-300">฿{fmtAmt(totalExpense)}</p>
+                <p className="text-lg font-bold text-red-700 dark:text-red-300 tabular-nums">฿{fmtAmt(totalExpense)}</p>
               </div>
               <div className={`rounded-xl p-4 text-center ${
                 totalIncome - totalExpense >= 0 ? "bg-indigo-50 dark:bg-indigo-900/20" : "bg-amber-50 dark:bg-amber-900/20"
@@ -647,7 +655,7 @@ export default function FacilityReport() {
                 <p className={`text-xs font-semibold mb-1 ${
                   totalIncome - totalExpense >= 0 ? "text-indigo-600 dark:text-indigo-400" : "text-amber-600 dark:text-amber-400"
                 }`}>สุทธิ</p>
-                <p className={`text-lg font-bold ${
+                <p className={`text-lg font-bold tabular-nums ${
                   totalIncome - totalExpense >= 0 ? "text-indigo-700 dark:text-indigo-300" : "text-amber-700 dark:text-amber-300"
                 }`}>฿{fmtAmt(totalIncome - totalExpense)}</p>
               </div>
@@ -672,15 +680,27 @@ export default function FacilityReport() {
             </div>
 
             {loadingTx ? (
-              <div className="flex justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500" />
+              <div className="space-y-1.5" role="status" aria-busy="true">
+                <span className="sr-only">กำลังโหลดรายการ…</span>
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 px-4 py-2.5">
+                    <Skeleton rounded="rounded-md" className="h-3.5 w-2/5" />
+                    <Skeleton rounded="rounded-md" className="h-3.5 w-16" />
+                  </div>
+                ))}
               </div>
             ) : txError ? (
-              <p className="text-sm text-red-600 dark:text-red-400">{txError}</p>
+              <ErrorState message={txError} onRetry={() => setTxVersion((v) => v + 1)} />
             ) : !selectedFacilityId ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">เลือกสถานที่เพื่อดูรายการ</p>
+              <EmptyState
+                title="เลือกสถานที่เพื่อดูรายการ"
+                description="เลือกสถานที่จากช่องด้านบนเพื่อแสดงรายรับ-รายจ่ายของวันที่เลือก"
+              />
             ) : transactions.length === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">ยังไม่มีรายการในวันที่เลือก</p>
+              <EmptyState
+                title="ยังไม่มีรายการในวันที่เลือก"
+                description='กด "บันทึกรายการ" เพื่อเพิ่มรายรับหรือรายจ่ายของวันนี้'
+              />
             ) : (
               <div>
                 {incomeTx.length > 0 && (
@@ -767,11 +787,7 @@ export default function FacilityReport() {
             </Field>
           </div>
 
-          {reportError && (
-            <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-              {reportError}
-            </div>
-          )}
+          {reportError && <ErrorState message={reportError} />}
 
           <button
             onClick={handleGeneratePdf} disabled={generatingPdf}
@@ -812,7 +828,7 @@ export default function FacilityReport() {
               </button>
             </div>
             {facilities.length === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">ยังไม่มีสถานที่</p>
+              <EmptyState title="ยังไม่มีสถานที่" description='กด "เพิ่มสถานที่" เพื่อสร้างสถานที่แรก' className="!py-8" />
             ) : (
               <div className="space-y-2">
                 {facilities.map((f) => (
@@ -897,7 +913,7 @@ export default function FacilityReport() {
             })}
 
             {allItems.length === 0 && (
-              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">ยังไม่มีรายการ</p>
+              <EmptyState title="ยังไม่มีรายการ" description='กด "เพิ่มรายการ" เพื่อสร้างรายการรายรับ-รายจ่าย' className="!py-8" />
             )}
           </div>
         </div>

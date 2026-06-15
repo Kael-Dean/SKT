@@ -1,9 +1,10 @@
 // src/pages/hr/HRPersonnelDetail.jsx
 // โปรไฟล์เจ้าหน้าที่แบบเต็ม — GET /hr/personnel/{user_id}
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import ReactDOM from "react-dom"
 import { useParams, useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
+import { PageLoader, ErrorState, Badge } from "../../components/ui"
 import lineIcon from "../../assets/line-icon.png"
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
@@ -58,15 +59,16 @@ export default function HRPersonnelDetail() {
   const [familySaving, setFamilySaving] = useState(false)
   const [familySaveMsg, setFamilySaveMsg] = useState("")
 
-  const fetchDetail = () => {
+  const fetchDetail = useCallback(() => {
     setLoading(true)
+    setError("")
     apiAuth(`/hr/personnel/${id}`)
       .then(setData)
       .catch((e) => setError(e.message || "โหลดข้อมูลไม่สำเร็จ"))
       .finally(() => setLoading(false))
-  }
+  }, [id])
 
-  useEffect(() => { fetchDetail() }, [id])
+  useEffect(() => { fetchDetail() }, [fetchDetail])
 
   const openEditModal = () => {
     const fin = data?.financial ?? {}
@@ -171,20 +173,17 @@ export default function HRPersonnelDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
+      <div className="max-w-4xl pb-10">
+        <PageLoader variant="cards" rows={4} message="กำลังโหลดข้อมูลเจ้าหน้าที่…" />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex items-start gap-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
-          <span>{error}</span>
-        </div>
+      <div className="max-w-4xl">
+        <ErrorState message={error} onRetry={fetchDetail} />
+      </div>
     )
   }
 
@@ -214,35 +213,38 @@ export default function HRPersonnelDetail() {
             <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
               {data.first_name} {data.last_name}
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              @{data.username} · {ROLE_LABEL[data.role_id] ?? `Role ${data.role_id}`}
-              {!data.is_active && (
-                <span className="ml-2 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 px-2 py-0.5 text-xs font-semibold">
-                  ไม่ใช้งาน
-                </span>
-              )}
+            <p className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <span>@{data.username} · {ROLE_LABEL[data.role_id] ?? `Role ${data.role_id}`}</span>
+              {data.is_active
+                ? <Badge tone="success">ใช้งาน</Badge>
+                : <Badge tone="danger">ไม่ใช้งาน</Badge>}
             </p>
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={openEditModal}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all duration-200 shadow-sm active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
           >
             แก้ไขข้อมูลการเงิน
           </button>
           <button
             onClick={openFamilyModal}
-            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all duration-200 shadow-sm active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
           >
             แก้ไขข้อมูลครอบครัว
           </button>
           {data.is_active && (
             <button
               onClick={() => navigate("/hr/dashboard?tab=termination")}
-              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-all duration-200 shadow-sm active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
             >
-              🚪 ออกจากงาน
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              ออกจากงาน
             </button>
           )}
         </div>
@@ -527,9 +529,10 @@ export default function HRPersonnelDetail() {
                   <button
                     type="button"
                     onClick={() => setFamilyForm((p) => ({ ...p, children: p.children.filter((_, idx) => idx !== i) }))}
-                    className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                    className="absolute top-3 right-3 inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors cursor-pointer"
                   >
-                    ✕ ลบ
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                    ลบ
                   </button>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>

@@ -150,6 +150,40 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   animation: shimmer-move 4s linear infinite;
 }
 
+/* ─── Skeleton Shimmer (loading placeholders) ─────────────────────────────── */
+/* Sweeps a light slate highlight across the skeleton block. The global
+   prefers-reduced-motion block above targets * and disables this animation
+   (leaving a calm static slate block), so no extra handling is needed. */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background-size: 200% 100%;
+  animation: shimmer 1.6s var(--ease-in-out) infinite;
+}
+
+/* Skeleton surface: light-slate gradient that pairs with bg-slate-200.
+   The base block keeps animate-pulse; this layers a moving highlight on top. */
+.skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgb(226 232 240 / 0) 25%,
+    rgb(241 245 249 / 0.9) 50%,
+    rgb(226 232 240 / 0) 75%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+}
+.dark .skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgb(51 65 85 / 0) 25%,
+    rgb(71 85 105 / 0.9) 50%,
+    rgb(51 65 85 / 0) 75%
+  );
+}
+
 /* ─── Data Table Enhancements ─────────────────────────────────────────────── */
 @layer base {
   /* Numeric cells: align right + tabular spacing */

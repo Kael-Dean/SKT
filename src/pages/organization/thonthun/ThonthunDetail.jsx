@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
+import { PageLoader, ErrorState, EmptyState } from "../../../components/ui"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -99,9 +100,9 @@ const monthStripeCell = (mi) => (mi % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven
 
 const cellInput =
   "w-full min-w-0 box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
-  "text-right text-[12px] outline-none " +
+  "text-right text-[12px] tabular-nums outline-none " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-150"
 
 /** =======================================================================
  * ThonthunDetail — ประมาณการต้นทุนสินค้า (รายเดือน)
@@ -109,6 +110,7 @@ const cellInput =
 function ThonthunDetail({ branchId, branchName, yearBE, planId }) {
   const [items, setItems] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState(null)
   const [values, setValues] = useState({}) // { [productId]: { [monthKey]: { buy: "", sell: "" } } }
 
   const effectiveYear = useMemo(
@@ -119,6 +121,7 @@ function ThonthunDetail({ branchId, branchName, yearBE, planId }) {
   const loadData = useCallback(async () => {
     if (!effectiveYear) return
     setIsLoading(true)
+    setLoadError(null)
     try {
       const [productsData, pricesData] = await Promise.all([
         apiAuth("/lists/product/search").catch(() => []),
@@ -145,6 +148,7 @@ function ThonthunDetail({ branchId, branchName, yearBE, planId }) {
       setValues(loaded)
     } catch (e) {
       console.error("ThonthunDetail loadData failed", e)
+      setLoadError(e?.message || "ไม่สามารถโหลดข้อมูลได้")
     } finally {
       setIsLoading(false)
     }
@@ -310,7 +314,32 @@ function ThonthunDetail({ branchId, branchName, yearBE, planId }) {
   const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
   if (isLoading) {
-    return <div className="p-8 text-center text-slate-500 dark:text-slate-400">กำลังโหลดข้อมูล...</div>
+    return (
+      <div className="w-full p-2 md:p-3">
+        <PageLoader variant="table" rows={10} message="กำลังโหลดข้อมูลต้นทุนรายเดือน…" />
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="w-full p-3 md:p-4">
+        <ErrorState message={loadError} onRetry={loadData} />
+      </div>
+    )
+  }
+
+  if (!items.length) {
+    return (
+      <div className="w-full p-3 md:p-4">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <EmptyState
+            title="ยังไม่มีรายการสินค้า"
+            description="ยังไม่พบรายการสินค้าสำหรับปีนี้ เพิ่มสินค้าในหน้าแก้ไขข้อมูลธุรกิจก่อน จากนั้นกลับมากรอกประมาณการต้นทุนรายเดือน"
+          />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -409,10 +438,10 @@ function ThonthunDetail({ branchId, branchName, yearBE, planId }) {
                           )
                         })
                       )}
-                      <td className={cx(cellClass, STRIPE.footEven, "text-right font-semibold text-slate-700 dark:text-slate-200 px-2")}>
+                      <td className={cx(cellClass, STRIPE.footEven, "text-right font-semibold text-slate-700 dark:text-slate-200 px-2 tabular-nums")}>
                         {sums.perProduct[pid]?.avgBuy > 0 ? fmtMoney(sums.perProduct[pid].avgBuy) : "-"}
                       </td>
-                      <td className={cx(cellClass, STRIPE.footEven, "text-right font-bold text-emerald-700 dark:text-emerald-400 px-2")}>
+                      <td className={cx(cellClass, STRIPE.footEven, "text-right font-bold text-emerald-700 dark:text-emerald-400 px-2 tabular-nums")}>
                         {sums.perProduct[pid]?.avgSell > 0 ? fmtMoney(sums.perProduct[pid].avgSell) : "-"}
                       </td>
                     </tr>
@@ -434,7 +463,7 @@ function ThonthunDetail({ branchId, branchName, yearBE, planId }) {
                       return (
                         <td
                           key={`${m.key}-${f}`}
-                          className={cx(cellClass, monthStripeHead(mi), footerBorder, "text-right font-semibold text-slate-800 dark:text-slate-200 px-2")}
+                          className={cx(cellClass, monthStripeHead(mi), footerBorder, "text-right font-semibold text-slate-800 dark:text-slate-200 px-2 tabular-nums")}
                         >
                           {avg > 0 ? fmtMoney(avg) : "-"}
                         </td>

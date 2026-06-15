@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
 import { fetchProductsByGroup, onMasterDataChanged, ensureUnitPricesForProducts } from "../../../lib/useProductsByGroup"
+import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -99,9 +100,11 @@ async function apiAuth(path, { method = "GET", body } = {}) {
 /** ---------------- UI styles ---------------- */
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
-  "text-right text-[12px] outline-none " +
+  "text-right text-[12px] outline-none tabular-nums " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+  "transition-colors duration-150 " +
+  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 " +
+  "disabled:cursor-not-allowed disabled:opacity-60"
 
 /** ---------------- Table definition ---------------- */
 const MONTHS = [
@@ -325,6 +328,7 @@ function AgriProcessingPlanDetail(props) {
 
   const [items, setItems] = useState([])
   const [isLoadingProducts, setIsLoadingProducts] = useState(false)
+  const [loadError, setLoadError] = useState(null)
   const [priceById, setPriceById] = useState({})
   const [qtyById, setQtyById] = useState({})
 
@@ -336,9 +340,16 @@ function AgriProcessingPlanDetail(props) {
   
   const TOTAL_W = useMemo(() => LEFT_W + RIGHT_W, [RIGHT_W])
 
+  // จำนวนคอลัมน์รวมของแถวในตาราง (ใช้ทำ colSpan ให้ skeleton/empty/error)
+  const BODY_COLS = useMemo(
+    () => 3 + MONTHS.length * unitCols.length + unitCols.length * 2 + 2,
+    [unitCols.length],
+  )
+
   const loadProducts = useCallback(async () => {
     if (!effectivePlanId || effectivePlanId <= 0) return
     setIsLoadingProducts(true)
+    setLoadError(null)
     try {
       const merged = await fetchProductsByGroup(PROCESSING_GROUP_ID, Number(effectivePlanId))
       const normalizedItems = merged.map((x) => {
@@ -377,10 +388,11 @@ function AgriProcessingPlanDetail(props) {
         }
         return next
       })
-    } catch {
+    } catch (e) {
       setItems([])
       setPriceById({})
       setQtyById({})
+      setLoadError(e?.message || "ไม่สามารถโหลดรายการสินค้าได้")
     } finally {
       setIsLoadingProducts(false)
     }
@@ -639,7 +651,7 @@ function AgriProcessingPlanDetail(props) {
   const leftHeadCell = cx(headCell, "sticky left-0 z-20", stickyShadow)
   const leftCell = "px-1.5 py-1.5 text-[12px] text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700"
   const leftCellSticky = cx(leftCell, "sticky left-0 z-10", stickyShadow)
-  const cellClass = "px-1 py-1 text-[12px] border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+  const cellClass = "px-1 py-1 text-[12px] border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 tabular-nums"
   const rowDivider = "border-b-[2px] border-b-slate-300 dark:border-b-slate-600"
   const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
@@ -730,6 +742,26 @@ function AgriProcessingPlanDetail(props) {
             </thead>
             
             <tbody>
+              {isLoadingProducts && !items.length ? (
+                <SkeletonTableRows rows={6} cols={BODY_COLS} />
+              ) : null}
+              {!isLoadingProducts && loadError && !items.length ? (
+                <tr>
+                  <td colSpan={BODY_COLS} className="p-3">
+                    <ErrorState message={loadError} onRetry={loadProducts} />
+                  </td>
+                </tr>
+              ) : null}
+              {!isLoadingProducts && !loadError && !items.length ? (
+                <tr>
+                  <td colSpan={BODY_COLS}>
+                    <EmptyState
+                      title={canEdit ? "ยังไม่มีรายการสินค้าแปรรูป" : "ยังไม่ได้เลือกสาขา"}
+                      description={canEdit ? "ยังไม่พบสินค้าในกลุ่มแปรรูปสำหรับปีงบประมาณที่เลือก" : "เลือกสาขาและปีงบประมาณเพื่อเริ่มวางแผน"}
+                    />
+                  </td>
+                </tr>
+              ) : null}
               {items.map((p, rowIdx) => {
                 const pid = String(p.product_id)
                 const prices = priceById[pid] || {}

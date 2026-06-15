@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
 import { useBusinessEarnings } from "../../../lib/useBusinessList"
+import { SkeletonTableRows, EmptyState } from "../../../components/ui"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -87,8 +88,9 @@ const baseField =
 
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
-  "text-right text-[12px] outline-none " +
+  "text-right text-[12px] outline-none tabular-nums " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
+  "transition-colors duration-150 " +
   "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 
 /** ---------------- Months (fiscal year: เม.ย. → มี.ค.) ---------------- */
@@ -464,6 +466,13 @@ const BusinessPlanOtherIncomeTable = (props) => {
   const RIGHT_W = useMemo(() => MONTHS.length * (unitCols.length * COL_W.cell + COL_W.total) + COL_W.total, [unitCols.length])
   const TOTAL_W = useMemo(() => LEFT_W + RIGHT_W, [RIGHT_W])
 
+  // จำนวนคอลัมน์รวมของแถวในตาราง (ใช้ทำ colSpan ให้ skeleton/empty)
+  const BODY_COLS = useMemo(
+    () => 2 + MONTHS.length * (unitCols.length + 1) + 1,
+    [unitCols.length],
+  )
+  const showSkeleton = isLoadingSaved && !displayRows.length
+
   const setCell = (code, monthKey, unitId, raw) => {
     const nextVal = sanitizeNumberInput(raw, { maxDecimals: 3 })
     setValuesByCode((prev) => ({
@@ -552,7 +561,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
   /** CSS Classes */
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
   const headCell = "px-1.5 py-1.5 text-[12px] font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-300 dark:border-slate-600 align-middle text-center"
-  const cellClass = "px-1.5 py-1.5 text-[12px] border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 align-middle"
+  const cellClass = "px-1.5 py-1.5 text-[12px] border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 align-middle tabular-nums"
   const leftHeadCellCode = cx(headCell, "sticky left-0 z-20", stickyShadow)
   const leftHeadCellItem = cx(headCell, "sticky z-20 text-left", stickyShadow)
   const leftCellCode = cx(cellClass, "sticky left-0 z-10 text-center font-medium", stickyShadow)
@@ -567,7 +576,14 @@ const BusinessPlanOtherIncomeTable = (props) => {
           <div className="text-[16px] font-bold">รายได้อื่นๆ</div>
           <div className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
             หน่วย: พันบาท • ปี {effectiveYearBE || "-"} • สาขา {effectiveBranchDisplay}
-            {isLoadingSaved && <span className="ml-2 text-indigo-500">⏳ กำลังโหลด...</span>}
+            {isLoadingSaved && (
+              <span className="ml-2 inline-flex items-center gap-1 text-indigo-500 dark:text-indigo-400">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                กำลังโหลด…
+              </span>
+            )}
           </div>
           <div className="mt-4 max-w-xs">
             <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขาที่เลือก</label>
@@ -639,6 +655,19 @@ const BusinessPlanOtherIncomeTable = (props) => {
             </thead>
 
             <tbody>
+              {showSkeleton ? (
+                <SkeletonTableRows rows={6} cols={BODY_COLS} />
+              ) : null}
+              {!showSkeleton && !displayRows.length ? (
+                <tr>
+                  <td colSpan={BODY_COLS}>
+                    <EmptyState
+                      title="ยังไม่มีรายการรายได้อื่นๆ"
+                      description="ยังไม่พบรายการในกลุ่มนี้ — เพิ่มรายการได้จากหน้าจัดการข้อมูลหลัก"
+                    />
+                  </td>
+                </tr>
+              ) : null}
               {displayRows.map((r, rowIdx) => {
                 const isItem = r.kind === "item"
                 const itemIndex = isItem ? itemRows.findIndex((x) => x.code === r.code) : -1
@@ -713,7 +742,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
         </div>
 
         {!canEdit && (
-          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[12px] text-amber-900">
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[12px] text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200">
             ยังไม่พบสาขา — กรุณาเลือกสาขาก่อน
           </div>
         )}

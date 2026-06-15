@@ -2,6 +2,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
 import { useBusinessCosts } from "../../../lib/useBusinessList"
+import { SkeletonTableRows, EmptyState, ErrorState } from "../../../components/ui"
+import { cellInput } from "../../../lib/styles"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -88,12 +90,6 @@ async function apiAuth(path, { method = "GET", body } = {}) {
 }
 
 /** ---------------- UI styles ---------------- */
-const cellInput =
-  "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
-  "text-right text-[12px] outline-none " +
-  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-
 const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
 
 /** ---------------- Table definition ---------------- */
@@ -223,6 +219,7 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
 
   const [valuesByCode, setValuesByCode] = useState({})
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
+  const [loadError, setLoadError] = useState(null)
 
   const normalizeGrid = useCallback(
     (seed = {}) => {
@@ -252,6 +249,7 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
     if (!effectivePlanId || effectivePlanId <= 0 || !effectiveBranchId || !unitCols.length || unitCols[0].id === 0) return
 
     setIsLoadingSaved(true)
+    setLoadError(null)
     try {
       const data = await apiAuth(`/business-plan/${effectivePlanId}/costs/monthly?branch_id=${effectiveBranchId}&business_group_id=${BUSINESS_GROUP_ID}`)
       const rowsData = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data?.monthly_costs) ? data.monthly_costs : (Array.isArray(data) ? data : []))
@@ -289,6 +287,7 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
     } catch (e) {
       console.error("Load saved failed:", e)
       setValuesByCode(normalizeGrid({}))
+      setLoadError(e?.message || "ไม่สามารถโหลดข้อมูลที่บันทึกไว้ได้")
     } finally {
       setIsLoadingSaved(false)
     }
@@ -500,6 +499,12 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
   const RIGHT_W = (MONTHS.length * unitCols.length * COL_W.cell) + (unitCols.length * COL_W.total) + COL_W.grand
   const TOTAL_W = LEFT_W + RIGHT_W
 
+  // Body-state helpers. Column count = code + item + (months × units) + units + grand.
+  const bodyColCount = 2 + (MONTHS.length * unitCols.length) + unitCols.length + 1
+  const skeletonColCount = bodyColCount
+  const isGridLoading = isLoadingUnits || isLoadingSaved
+  const noBranch = !effectiveBranchId
+
   return (
     <>
       <div ref={tableCardRef} className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 flex flex-col" style={{ height: tableCardHeight }}>
@@ -534,7 +539,35 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
             </thead>
 
             <tbody>
-              {displayRows.map((r, rIdx) => {
+              {noBranch ? (
+                <tr>
+                  <td colSpan={bodyColCount} className="bg-white dark:bg-slate-900">
+                    <EmptyState
+                      title="ยังไม่ได้เลือกสาขา"
+                      description="เลือกสาขาและปีงบประมาณด้านบนเพื่อกรอกค่าใช้จ่ายรายเดือน"
+                    />
+                  </td>
+                </tr>
+              ) : loadError ? (
+                <tr>
+                  <td colSpan={bodyColCount} className="bg-white dark:bg-slate-900 p-4">
+                    <ErrorState message={loadError} onRetry={loadSavedFromBE} />
+                  </td>
+                </tr>
+              ) : isGridLoading ? (
+                <>
+                  <tr className="border-b border-slate-100 dark:border-slate-700/60">
+                    <td className="border border-slate-300 px-1 py-3 dark:border-slate-600 sticky left-0 z-10 bg-white dark:bg-slate-900">
+                      <span aria-hidden="true" className="block h-3.5 w-8 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
+                    </td>
+                    <td className="border border-slate-300 px-2 py-3 dark:border-slate-600 sticky left-[60px] z-10 bg-white dark:bg-slate-900">
+                      <span aria-hidden="true" className="block h-3.5 w-2/3 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
+                    </td>
+                    <td colSpan={bodyColCount - 2} className="bg-white dark:bg-slate-900" />
+                  </tr>
+                  <SkeletonTableRows rows={7} cols={skeletonColCount} />
+                </>
+              ) : displayRows.map((r, rIdx) => {
                 if (r.kind === "section") {
                   return (
                     <tr key={r.code} className="bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100">
@@ -607,7 +640,16 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
         </div>
         <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 md:p-4">
             {notice && (
-                 <div className={cx("mb-3 rounded-2xl border p-3 text-sm", notice.type === 'error' ? "border-rose-200 bg-rose-50 text-rose-800" : "border-emerald-200 bg-emerald-50 text-emerald-800")}>
+                 <div
+                   role="status"
+                   aria-live="polite"
+                   className={cx(
+                     "mb-3 rounded-2xl border p-3 text-sm",
+                     notice.type === 'error'
+                       ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800/60 dark:bg-rose-900/20 dark:text-rose-200"
+                       : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/20 dark:text-emerald-200"
+                   )}
+                 >
                     <div className="font-extrabold">{notice.title}</div>
                     {notice.detail && <div className="mt-1 text-[13px] opacity-95">{notice.detail}</div>}
                 </div>
@@ -619,6 +661,7 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
                 disabled={isSaving || !unitCols.length || unitCols[0].id === 0}
                 className={cx(
                   "inline-flex items-center justify-center rounded-2xl border px-5 py-2.5 text-sm font-semibold transition",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2",
                   (isSaving || !unitCols.length || unitCols[0].id === 0)
                     ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
                     : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
@@ -631,11 +674,15 @@ const BusinessPlanExpenseSeedProcessingTableDetail = ({ branchId, branchName, ye
                 disabled={isSaving}
                 onClick={() => saveToBE()}
                 className={cx(
-                    "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white",
+                    "inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white",
                     "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2",
                     isSaving && "opacity-60 hover:scale-100 cursor-not-allowed"
                 )}
                 >
+                {isSaving && (
+                  <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                )}
                 {isSaving ? "กำลังบันทึก..." : "บันทึก"}
                 </button>
             </div>

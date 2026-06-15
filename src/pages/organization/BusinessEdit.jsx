@@ -3,6 +3,7 @@ import ReactDOM from "react-dom"
 import { apiAuth } from "../../lib/api"
 import { emitMasterDataChanged } from "../../lib/useProductsByGroup"
 import { invalidateBusinessListCache } from "../../lib/useBusinessList"
+import { SkeletonTableRows, EmptyState } from "../../components/ui"
 
 /** ---------- Mapping ---------- */
 const BUSINESS_GROUP_MAP = {
@@ -360,6 +361,7 @@ const BusinessEdit = () => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState({})
+  const [isSaving, setIsSaving] = useState(false)
 
   const currentConfig = useMemo(() => TABS.find((t) => t.key === activeTab), [activeTab])
 
@@ -505,6 +507,7 @@ const BusinessEdit = () => {
       }
     }
 
+    setIsSaving(true)
     try {
       // cost-types / earning-types ใช้ endpoint แบบ with-assignment เพื่อรองรับ multi business_group
       const isAssignmentEntity = activeTab === "cost-types" || activeTab === "earning-types"
@@ -541,6 +544,8 @@ const BusinessEdit = () => {
     } catch (err) {
       console.error(err)
       alert(err.message || "เกิดข้อผิดพลาด กรุณาตรวจสอบสิทธิ์ (Admin Only) หรือความถูกต้องของข้อมูล")
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -551,7 +556,13 @@ const BusinessEdit = () => {
 
           <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-white">⚙️ แก้ไขข้อมูลธุรกิจ (Master Data)</h1>
+              <h1 className="flex items-center gap-2 text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-white">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-7 text-indigo-500 dark:text-indigo-400 shrink-0">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+                </svg>
+                แก้ไขข้อมูลธุรกิจ (Master Data)
+              </h1>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 เพิ่ม/แก้ไข/ลบ ข้อมูลพื้นฐานที่ใช้ในระบบ (เฉพาะ Admin เท่านั้นที่สามารถจัดการได้)
               </p>
@@ -581,21 +592,37 @@ const BusinessEdit = () => {
               <h2 className="text-lg font-bold shrink-0">{currentConfig.label}</h2>
               <div className="flex items-center gap-2 flex-1 sm:max-w-sm">
                 <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm">🔍</span>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="m21 21-4.3-4.3" />
+                  </svg>
                   <input
                     type="text"
                     value={searchText}
                     onChange={(e) => setSearchText(e.target.value)}
                     placeholder="ค้นหา..."
+                    aria-label="ค้นหา"
                     className="w-full rounded-xl border border-slate-300 bg-slate-50 pl-8 pr-8 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:focus:border-emerald-400 transition-all"
                   />
                   {searchText && (
                     <button
                       type="button"
                       onClick={() => setSearchText("")}
+                      aria-label="ล้างคำค้นหา"
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                     >
-                      ✕
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+                        <path d="M18 6 6 18M6 6l12 12" />
+                      </svg>
                     </button>
                   )}
                 </div>
@@ -622,15 +649,18 @@ const BusinessEdit = () => {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr>
-                      <td colSpan={currentConfig.fields.length + 2} className="border border-slate-300 p-8 text-center text-slate-500 dark:border-slate-600">
-                        กำลังโหลดข้อมูล...
-                      </td>
-                    </tr>
+                    <SkeletonTableRows rows={8} cols={currentConfig.fields.length + 2} />
                   ) : filteredData.length === 0 ? (
                     <tr>
-                      <td colSpan={currentConfig.fields.length + 2} className="border border-slate-300 p-8 text-center text-slate-500 dark:border-slate-600">
-                        {searchText ? `ไม่พบข้อมูลที่ตรงกับ "${searchText}"` : "ไม่พบข้อมูล"}
+                      <td colSpan={currentConfig.fields.length + 2} className="border border-slate-300 dark:border-slate-600">
+                        <EmptyState
+                          title={searchText ? "ไม่พบข้อมูลที่ตรงกับการค้นหา" : "ยังไม่มีข้อมูล"}
+                          description={
+                            searchText
+                              ? `ไม่พบรายการที่ตรงกับ "${searchText}" ลองปรับคำค้นหา หรือล้างคำค้นหาเพื่อดูทั้งหมด`
+                              : `ยังไม่มีข้อมูลใน ${currentConfig.label} กดปุ่ม "เพิ่มข้อมูล" เพื่อสร้างรายการแรก`
+                          }
+                        />
                       </td>
                     </tr>
                   ) : (
@@ -673,17 +703,27 @@ const BusinessEdit = () => {
                           <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => handleEdit(row)}
-                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-md transition-all cursor-pointer transform hover:scale-110 active:scale-95"
+                              className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 p-1.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-md transition-all cursor-pointer transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                               title="แก้ไข"
+                              aria-label="แก้ไข"
                             >
-                              ✏️
+                              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                              </svg>
                             </button>
                             <button
                               onClick={() => handleDelete(row.id)}
-                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1.5 bg-red-50 dark:bg-red-900/20 rounded-md transition-all cursor-pointer transform hover:scale-110 active:scale-95"
+                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1.5 bg-red-50 dark:bg-red-900/20 rounded-md transition-all cursor-pointer transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                               title="ลบ"
+                              aria-label="ลบ"
                             >
-                              🗑️
+                              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+                                <path d="M3 6h18" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                <line x1="10" y1="11" x2="10" y2="17" />
+                                <line x1="14" y1="11" x2="14" y2="17" />
+                              </svg>
                             </button>
                           </div>
                         </td>
@@ -701,8 +741,21 @@ const BusinessEdit = () => {
         {isModalOpen && ReactDOM.createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
             <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800 transform transition-all animate-in zoom-in-95 duration-200">
-              <h2 className="mb-4 text-xl font-bold border-b border-slate-100 dark:border-slate-700 pb-3">
-                {editingId ? "✏️ แก้ไขข้อมูล" : "+ เพิ่มข้อมูลใหม่"} - {currentConfig.label.split(" ")[1]}
+              <h2 className="mb-4 flex items-center gap-2 text-xl font-bold border-b border-slate-100 dark:border-slate-700 pb-3 text-slate-800 dark:text-slate-100">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5 text-indigo-500 dark:text-indigo-400 shrink-0">
+                  {editingId ? (
+                    <>
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </>
+                  ) : (
+                    <>
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </>
+                  )}
+                </svg>
+                <span>{editingId ? "แก้ไขข้อมูล" : "เพิ่มข้อมูลใหม่"} - {currentConfig.label.split(" ")[1]}</span>
               </h2>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -778,15 +831,24 @@ const BusinessEdit = () => {
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="rounded-xl border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-all cursor-pointer transform hover:scale-105 active:scale-95"
+                    disabled={isSaving}
+                    className="rounded-xl border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-all cursor-pointer transform hover:scale-105 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
                     ยกเลิก
                   </button>
                   <button
                     type="submit"
-                    className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm transition-all cursor-pointer transform hover:scale-105 active:scale-95"
+                    disabled={isSaving}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm transition-all cursor-pointer transform hover:scale-105 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
-                    บันทึกข้อมูล
+                    {isSaving ? (
+                      <>
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+                        กำลังบันทึก...
+                      </>
+                    ) : (
+                      "บันทึกข้อมูล"
+                    )}
                   </button>
                 </div>
               </form>

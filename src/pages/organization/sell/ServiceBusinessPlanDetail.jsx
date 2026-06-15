@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
+import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -98,9 +99,11 @@ async function apiAuth(path, { method = "GET", body } = {}) {
 /** ---------------- UI styles ---------------- */
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
-  "text-right text-[12px] outline-none " +
+  "text-right text-[12px] outline-none tabular-nums " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+  "transition-colors duration-150 " +
+  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 " +
+  "disabled:cursor-not-allowed disabled:opacity-60"
 
 /** ---------------- Constants ---------------- */
 const MONTHS = [
@@ -292,6 +295,7 @@ const ServiceBusinessPlanDetail = (props) => {
   /** -------- Load service items -------- */
   const [items, setItems] = useState([])
   const [isLoadingItems, setIsLoadingItems] = useState(false)
+  const [loadError, setLoadError] = useState(null)
 
   const [priceById, setPriceById] = useState({})
   const [qtyById, setQtyById] = useState({})
@@ -308,12 +312,19 @@ const ServiceBusinessPlanDetail = (props) => {
   
   const TOTAL_W = useMemo(() => LEFT_W + RIGHT_W, [RIGHT_W])
 
+  // จำนวนคอลัมน์รวมของแถวในตาราง (ใช้ทำ colSpan ให้ skeleton/empty/error)
+  const BODY_COLS = useMemo(
+    () => 3 + MONTHS.length * unitCols.length + unitCols.length * 2 + 2,
+    [unitCols.length],
+  )
+
   const loadItems = useCallback(async () => {
     if (!effectivePlanId || effectivePlanId <= 0) {
       setItems([]); setPriceById({}); setQtyById({}); return
     }
 
     setIsLoadingItems(true)
+    setLoadError(null)
     try {
       const staticList = getProductsByGroupLatestPricesFromAnySource(props)
       let rows = normalizeStaticListToItems(staticList, SERVICE_GROUP_ID)
@@ -362,6 +373,7 @@ const ServiceBusinessPlanDetail = (props) => {
     } catch (e) {
       console.error("[service] load items failed:", e)
       setItems([]); setPriceById({}); setQtyById({})
+      setLoadError(e?.message || "ไม่สามารถโหลดรายการบริการได้")
     } finally {
       setIsLoadingItems(false)
     }
@@ -633,7 +645,7 @@ const ServiceBusinessPlanDetail = (props) => {
   const leftHeadCell = cx(headCell, "sticky left-0 z-20", stickyShadow)
   const leftCell = "px-1.5 py-1.5 text-[12px] text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700"
   const leftCellSticky = cx(leftCell, "sticky left-0 z-10", stickyShadow)
-  const cellClass = "px-1 py-1 text-[12px] border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+  const cellClass = "px-1 py-1 text-[12px] border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 tabular-nums"
   const rowDivider = "border-b-[2px] border-b-slate-300 dark:border-b-slate-600"
   const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
@@ -725,6 +737,26 @@ const ServiceBusinessPlanDetail = (props) => {
             </thead>
             
             <tbody>
+              {isLoadingItems && !items.length ? (
+                <SkeletonTableRows rows={4} cols={BODY_COLS} />
+              ) : null}
+              {!isLoadingItems && loadError && !items.length ? (
+                <tr>
+                  <td colSpan={BODY_COLS} className="p-3">
+                    <ErrorState message={loadError} onRetry={loadItems} />
+                  </td>
+                </tr>
+              ) : null}
+              {!isLoadingItems && !loadError && !items.length ? (
+                <tr>
+                  <td colSpan={BODY_COLS}>
+                    <EmptyState
+                      title={effectivePlanId > 0 ? "ยังไม่มีรายการบริการ" : "ยังไม่ได้เลือกปีงบประมาณ"}
+                      description={effectivePlanId > 0 ? "ยังไม่พบรายการบริการสำหรับปีงบประมาณที่เลือก" : "เลือกปีงบประมาณเพื่อเริ่มวางแผน"}
+                    />
+                  </td>
+                </tr>
+              ) : null}
               {items.map((it, rowIdx) => {
                 const pid = String(it.id), prices = priceById[pid] || {}, sell = toNumber(prices.sell_price ?? it.sell_price ?? 0)
                 const stripeCls = rowIdx % 2 === 0 ? STRIPE.cellEven : STRIPE.cellOdd
@@ -906,7 +938,7 @@ const ServiceBusinessPlanDetail = (props) => {
         </div>
 
         {!canEdit && (
-          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[12px] text-amber-900">
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[12px] text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200">
             ยังไม่พบสาขา หรือ สาขานี้ไม่มีหน่วยย่อย — กรุณาเลือกสาขาให้ถูกต้อง
           </div>
         )}

@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
 import { fetchProductsByGroup, onMasterDataChanged, ensureUnitPricesForProducts } from "../../../lib/useProductsByGroup"
+import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -123,9 +124,11 @@ const baseField =
 
 const cellInput =
   "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
-  "text-right text-[12px] outline-none " +
+  "text-right text-[12px] outline-none tabular-nums " +
   "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+  "transition-colors duration-150 " +
+  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 " +
+  "disabled:cursor-not-allowed disabled:opacity-60"
 
 const COL_W = {
   product: 200,
@@ -222,6 +225,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
   /** ---------------- Products list & Prices ---------------- */
   const [products, setProducts] = useState([])
   const [isLoadingProducts, setIsLoadingProducts] = useState(false)
+  const [loadError, setLoadError] = useState(null)
   const [priceByPid, setPriceByPid] = useState({})
   const [qtyByPid, setQtyByPid] = useState({})
 
@@ -253,6 +257,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
   const loadProducts = useCallback(async () => {
     if (!planId || planId <= 0) { setProducts([]); return }
     setIsLoadingProducts(true)
+    setLoadError(null)
     try {
       const merged = await fetchProductsByGroup(SEED_GROUP_ID, Number(planId))
       const normalized = merged.map((x) => {
@@ -298,6 +303,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
     } catch (e) {
       console.error(e)
       setProducts([])
+      setLoadError(e?.message || "ไม่สามารถโหลดรายการสินค้าได้")
     } finally {
       setIsLoadingProducts(false)
     }
@@ -563,12 +569,18 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
   
   const TOTAL_W = useMemo(() => LEFT_W + RIGHT_W, [RIGHT_W])
 
+  // จำนวนคอลัมน์รวมของแถวในตาราง (ใช้ทำ colSpan ให้ skeleton/empty/error)
+  const BODY_COLS = useMemo(
+    () => 3 + MONTHS.length * unitCols.length + unitCols.length * 2 + 2,
+    [unitCols.length],
+  )
+
   const stickyShadow = "shadow-[0_0_0_1px_rgba(148,163,184,0.6)] dark:shadow-[0_0_0_1px_rgba(51,65,85,0.6)]"
   const headCell = "px-1.5 py-1.5 text-[12px] font-semibold text-slate-900 dark:text-slate-100 border-r border-slate-300 dark:border-slate-600"
   const leftHeadCell = cx(headCell, "sticky left-0 z-20", stickyShadow)
   const leftCell = "px-1.5 py-1.5 text-[12px] text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700"
   const leftCellSticky = cx(leftCell, "sticky left-0 z-10", stickyShadow)
-  const cellClass = "px-1 py-1 text-[12px] border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+  const cellClass = "px-1 py-1 text-[12px] border-r border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 tabular-nums"
   const rowDivider = "border-b-[2px] border-b-slate-300 dark:border-b-slate-600"
   const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
@@ -633,6 +645,26 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
             </thead>
             
             <tbody>
+              {isLoadingProducts && !products.length ? (
+                <SkeletonTableRows rows={6} cols={BODY_COLS} />
+              ) : null}
+              {!isLoadingProducts && loadError && !products.length ? (
+                <tr>
+                  <td colSpan={BODY_COLS} className="p-3">
+                    <ErrorState message={loadError} onRetry={loadProducts} />
+                  </td>
+                </tr>
+              ) : null}
+              {!isLoadingProducts && !loadError && !products.length ? (
+                <tr>
+                  <td colSpan={BODY_COLS}>
+                    <EmptyState
+                      title={planId > 0 ? "ยังไม่มีรายการสินค้าโครงการเมล็ดพันธุ์" : "ยังไม่ได้เลือกปีงบประมาณ"}
+                      description={planId > 0 ? "ยังไม่พบสินค้าในกลุ่มนี้สำหรับปีงบประมาณที่เลือก" : "เลือกปีงบประมาณเพื่อเริ่มวางแผน"}
+                    />
+                  </td>
+                </tr>
+              ) : null}
               {products.map((p, rowIdx) => {
                 const pid = String(p.product_id), prices = priceByPid[pid] || {}, sell = toNumber(prices.sell_price ?? p.sell_price ?? 0)
                 const stripeCls = rowIdx % 2 === 0 ? STRIPE.cellEven : STRIPE.cellOdd
@@ -773,7 +805,7 @@ const SeedProjectSalesPlanDetail = ({ branchId, branchName, yearBE, onYearBEChan
         </div>
 
         {!canEdit && (
-          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[12px] text-amber-900">
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[12px] text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200">
             ยังไม่พบสาขา หรือ สาขานี้ไม่มีหน่วยย่อย — กรุณาเลือกสาขาให้ถูกต้อง
           </div>
         )}

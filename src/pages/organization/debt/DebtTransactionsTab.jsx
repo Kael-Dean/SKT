@@ -8,10 +8,14 @@ import {
   submitBtnCls, secondaryBtnCls, resetBtnCls, cardCls,
   badgeCls,
 } from "../../../lib/styles"
+import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 import {
   findCurrentFiscalYear,
   getCurrentFiscalYearString,
 } from "../../../lib/debtFiscalYear"
+
+// Column count for the transactions table — keep in sync with the header below.
+const TX_COLS = 7
 
 const ROLE = { ADMIN: 1, HA: 4, MKT: 5 }
 
@@ -61,6 +65,7 @@ export default function DebtTransactionsTab({ roleId, totals, branches, programs
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState("")
+  const [reloadKey, setReloadKey]       = useState(0)
 
   const [txTypeFilter, setTxTypeFilter] = useState("")
   const [dateFrom, setDateFrom]         = useState("")
@@ -91,7 +96,7 @@ export default function DebtTransactionsTab({ roleId, totals, branches, programs
       }
     })()
     return () => { alive = false }
-  }, [txTypeFilter, dateFrom, dateTo])
+  }, [txTypeFilter, dateFrom, dateTo, reloadKey])
 
   async function refetchTransactions() {
     const params = new URLSearchParams()
@@ -339,21 +344,33 @@ export default function DebtTransactionsTab({ roleId, totals, branches, programs
         )}
       </div>
 
-      {error && (
-        <div className="rounded-2xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
-          {error}
-        </div>
+      {error && !loading && (
+        <ErrorState message={error} onRetry={() => setReloadKey((k) => k + 1)} />
       )}
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
+      {!error && !loading && transactions.length === 0 ? (
+        <div className={cx(cardCls, "overflow-hidden")}>
+          <EmptyState
+            title="ไม่พบรายการธุรกรรม"
+            description={
+              (txTypeFilter || dateFrom || dateTo)
+                ? "ไม่มีธุรกรรมที่ตรงกับตัวกรอง — ลองล้างตัวกรองหรือเปลี่ยนช่วงวันที่"
+                : "ยังไม่มีธุรกรรมหนี้ในระบบ — บันทึกยอดยกมา เพิ่มในปี หรือรับชำระเพื่อเริ่มต้น"
+            }
+            action={
+              (txTypeFilter || dateFrom || dateTo) ? (
+                <button
+                  type="button"
+                  onClick={() => { setTxTypeFilter(""); setDateFrom(""); setDateTo("") }}
+                  className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
+                >
+                  ล้างตัวกรอง
+                </button>
+              ) : null
+            }
+          />
         </div>
-      ) : transactions.length === 0 && !error ? (
-        <div className={cx(cardCls, "py-12 text-center text-sm text-gray-400 dark:text-gray-500")}>
-          ไม่พบรายการธุรกรรม
-        </div>
-      ) : (
+      ) : !error ? (
         <div className={cx(cardCls, "overflow-hidden")}>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -367,44 +384,48 @@ export default function DebtTransactionsTab({ roleId, totals, branches, programs
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {transactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{tx.transaction_date}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={TX_TYPE_CLS[tx.transaction_type] || (badgeCls + " bg-gray-100 text-gray-700")}>
-                        {TX_TYPE_LABEL[tx.transaction_type] || tx.transaction_type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                      {tx.payment_method ? (PM_LABEL[tx.payment_method] || tx.payment_method) : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                      ฿{fmtMoney(tx.amount)}
-                      {tx.payment_method === "produce_trade" && tx.produce_weight && (
-                        <span className="block text-xs font-normal text-gray-400">({tx.produce_weight} กก.)</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">#{tx.debt_id}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[160px] truncate">{tx.note || "—"}</td>
-                    <td className="px-4 py-3 text-right">
-                      {canManage && (
-                        <div className="inline-flex items-center gap-2">
-                          <button onClick={() => openEdit(tx)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer">
-                            แก้ไข
-                          </button>
-                          <button onClick={() => openCancel(tx)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
-                            ยกเลิก
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {loading ? (
+                  <SkeletonTableRows rows={6} cols={TX_COLS} />
+                ) : (
+                  transactions.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{tx.transaction_date}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={TX_TYPE_CLS[tx.transaction_type] || (badgeCls + " bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300")}>
+                          {TX_TYPE_LABEL[tx.transaction_type] || tx.transaction_type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        {tx.payment_method ? (PM_LABEL[tx.payment_method] || tx.payment_method) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                        ฿{fmtMoney(tx.amount)}
+                        {tx.payment_method === "produce_trade" && tx.produce_weight && (
+                          <span className="block text-xs font-normal text-gray-400 dark:text-gray-500">({tx.produce_weight} กก.)</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">#{tx.debt_id}</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[160px] truncate">{tx.note || "—"}</td>
+                      <td className="px-4 py-3 text-right">
+                        {canManage && (
+                          <div className="inline-flex items-center gap-2">
+                            <button onClick={() => openEdit(tx)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer">
+                              แก้ไข
+                            </button>
+                            <button onClick={() => openCancel(tx)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
+                              ยกเลิก
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Payment Modal */}
       {(modal?.mode === "add_payment" || modal?.mode === "edit") && (

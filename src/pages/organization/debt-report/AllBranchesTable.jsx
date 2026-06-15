@@ -1,7 +1,28 @@
 import { useMemo, useRef } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { cx, secondaryBtnCls } from "../../../lib/styles"
+import { Badge, EmptyState } from "../../../components/ui"
 import { printDebtTable } from "./printDebtTable"
+
+/** Line-art printer icon for the export button (currentColor, no emoji). */
+function PrinterIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4"
+    >
+      <path d="M6 9V2h12v7" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" rx="1" />
+    </svg>
+  )
+}
 
 const fmtMoney = (v) =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(v) || 0)
@@ -158,10 +179,9 @@ export default function AllBranchesTable({
         <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 flex-1">
           ตารางหนี้รวมทุกสาขา
         </h2>
-        <span className="rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-xs text-gray-500 dark:text-gray-400">
-          ดูข้อมูลรวม — ไม่สามารถแก้ไขได้
-        </span>
+        <Badge tone="neutral">ดูข้อมูลรวม — ไม่สามารถแก้ไขได้</Badge>
         <button
+          type="button"
           onClick={() =>
             printDebtTable({
               title: "ตารางหนี้รวมทุกสาขา",
@@ -172,7 +192,8 @@ export default function AllBranchesTable({
           }
           className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
         >
-          🖨️ พิมพ์ PDF
+          <PrinterIcon />
+          พิมพ์ PDF
         </button>
       </div>
 
@@ -271,14 +292,11 @@ export default function AllBranchesTable({
           <tbody>
             {tableRows.length === 0 ? (
               <tr>
-                <td
-                  colSpan={18}
-                  className={cx(
-                    STRIPE.cell,
-                    "px-4 py-12 text-center text-sm text-gray-400 dark:text-gray-500"
-                  )}
-                >
-                  ไม่พบข้อมูล
+                <td colSpan={18} className={cx(STRIPE.cell, "p-0")}>
+                  <EmptyState
+                    title="ยังไม่มีข้อมูลหนี้"
+                    description="ยังไม่มีโครงการหรือยอดหนี้ในระบบ — เพิ่มโครงการและบันทึกยอดหนี้ที่หน้าตารางหนี้แยกสาขา"
+                  />
                 </td>
               </tr>
             ) : (

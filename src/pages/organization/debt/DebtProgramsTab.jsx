@@ -4,8 +4,8 @@ import Portal from "../../../components/Portal"
 import {
   cx, baseField, labelCls, modalCardCls, modalTitleCls,
   submitBtnCls, secondaryBtnCls, resetBtnCls, cardCls,
-  badgeCls, badgeSuccess, badgeDanger,
 } from "../../../lib/styles"
+import { Badge, EmptyState } from "../../../components/ui"
 
 const ROLE = { ADMIN: 1, HA: 4 }
 
@@ -96,8 +96,20 @@ export default function DebtProgramsTab({ roleId, programs, onProgramsChanged })
       </div>
 
       {programs.length === 0 ? (
-        <div className={cx(cardCls, "py-12 text-center text-sm text-gray-400 dark:text-gray-500")}>
-          ยังไม่มีโปรแกรมหนี้ — กดเพิ่มโปรแกรมด้านบน
+        <div className={cx(cardCls, "overflow-hidden")}>
+          <EmptyState
+            title="ยังไม่มีโปรแกรมหนี้"
+            description="เพิ่มโปรแกรมหนี้รายการแรกเพื่อเริ่มบันทึกยอดหนี้คงค้างของแต่ละสาขา"
+            action={
+              <button
+                type="button"
+                onClick={openAdd}
+                className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
+              >
+                + เพิ่มโปรแกรม
+              </button>
+            }
+          />
         </div>
       ) : (
         <div className={cx(cardCls, "overflow-hidden")}>
@@ -119,9 +131,9 @@ export default function DebtProgramsTab({ roleId, programs, onProgramsChanged })
                     <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{p.prog_name}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-xs truncate">{p.description || "—"}</td>
                     <td className="px-4 py-3">
-                      <span className={p.is_active !== false ? badgeSuccess : badgeDanger}>
+                      <Badge tone={p.is_active !== false ? "success" : "danger"}>
                         {p.is_active !== false ? "ใช้งาน" : "ปิดใช้"}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex items-center gap-2">

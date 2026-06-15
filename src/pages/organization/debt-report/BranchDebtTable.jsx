@@ -8,11 +8,32 @@ import {
   cx, baseField, labelCls, submitBtnCls, secondaryBtnCls,
   modalCardCls, modalTitleCls,
 } from "../../../lib/styles"
+import { EmptyState } from "../../../components/ui"
 import {
   findCurrentFiscalYear,
   getCurrentFiscalYearString,
 } from "../../../lib/debtFiscalYear"
 import { printDebtTable } from "./printDebtTable"
+
+/** Line-art printer icon for the export button (currentColor, no emoji). */
+function PrinterIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4"
+    >
+      <path d="M6 9V2h12v7" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" rx="1" />
+    </svg>
+  )
+}
 
 const fmtMoney = (v) =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(v) || 0)
@@ -402,7 +423,8 @@ export default function BranchDebtTable({
           }
           className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
         >
-          🖨️ พิมพ์ PDF
+          <PrinterIcon />
+          พิมพ์ PDF
         </button>
       </div>
 
@@ -501,14 +523,20 @@ export default function BranchDebtTable({
           <tbody>
             {tableRows.length === 0 ? (
               <tr>
-                <td
-                  colSpan={18}
-                  className={cx(
-                    STRIPE.cell,
-                    "px-4 py-12 text-center text-sm text-gray-400 dark:text-gray-500"
-                  )}
-                >
-                  ไม่พบโครงการ — กลับไปเพิ่มโครงการที่หน้าเลือก
+                <td colSpan={18} className={cx(STRIPE.cell, "p-0")}>
+                  <EmptyState
+                    title="ยังไม่มีโครงการ"
+                    description="ยังไม่มีโครงการหนี้ในระบบ — กลับไปหน้าตารางหนี้แล้วกด “เพิ่มโครงการ” ก่อนบันทึกยอดหนี้"
+                    action={
+                      <button
+                        type="button"
+                        onClick={onBack}
+                        className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
+                      >
+                        กลับไปหน้าตารางหนี้
+                      </button>
+                    }
+                  />
                 </td>
               </tr>
             ) : (

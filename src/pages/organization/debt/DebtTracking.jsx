@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom"
 import { apiAuth } from "../../../lib/api"
 import { getRoleId } from "../../../lib/auth"
 import { cx, cardCls, pageTitleCls } from "../../../lib/styles"
+import { PageLoader, ErrorState } from "../../../components/ui"
 import DebtTotalsTab       from "./DebtTotalsTab"
 import DebtTransactionsTab from "./DebtTransactionsTab"
 import DebtProgramsTab     from "./DebtProgramsTab"
@@ -29,6 +30,8 @@ export default function DebtTracking() {
   const [allTotals, setAllTotals]     = useState([])
   const [loadingRefs, setLoadingRefs] = useState(true)
   const [errorRefs, setErrorRefs]     = useState("")
+  // Bumping this re-runs the reference-data effect (used by ErrorState retry).
+  const [reloadKey, setReloadKey]     = useState(0)
 
   useEffect(() => {
     let alive = true
@@ -64,6 +67,15 @@ export default function DebtTracking() {
         if (totalsData.status === "fulfilled") {
           setAllTotals(Array.isArray(totalsData.value) ? totalsData.value.filter((r) => r.is_active !== false) : [])
         }
+        // Surface a problem only if every reference call failed (otherwise the
+        // page still renders with whatever loaded — preserves prior behavior).
+        const allFailed = [branchesData, yearsData, progsData, totalsData].every(
+          (r) => r.status === "rejected"
+        )
+        if (allFailed) {
+          const first = [branchesData, yearsData, progsData, totalsData].find((r) => r.status === "rejected")
+          setErrorRefs(first?.reason?.message || "โหลดข้อมูลอ้างอิงไม่สำเร็จ")
+        }
       } catch (e) {
         if (alive) setErrorRefs(e.message || "โหลดข้อมูลอ้างอิงไม่สำเร็จ")
       } finally {
@@ -71,20 +83,24 @@ export default function DebtTracking() {
       }
     })()
     return () => { alive = false }
-  }, [])
+  }, [reloadKey])
 
   async function reloadPrograms() {
     try {
       const data = await apiAuth("/debt/programs")
       setPrograms(Array.isArray(data) ? data : [])
-    } catch {}
+    } catch {
+      // Silent: a failed background refresh keeps the last good list.
+    }
   }
 
   async function reloadTotals() {
     try {
       const data = await apiAuth("/debt/totals")
       setAllTotals(Array.isArray(data) ? data.filter((r) => r.is_active !== false) : [])
-    } catch {}
+    } catch {
+      // Silent: a failed background refresh keeps the last good totals.
+    }
   }
 
   const TABS = [
@@ -104,35 +120,41 @@ export default function DebtTracking() {
       </div>
 
       {errorRefs && (
-        <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
-          โหลดข้อมูลอ้างอิงบางส่วนไม่สำเร็จ: {errorRefs}
-        </div>
+        <ErrorState
+          message={`โหลดข้อมูลอ้างอิงไม่สำเร็จ: ${errorRefs}`}
+          onRetry={() => setReloadKey((k) => k + 1)}
+        />
       )}
 
-      {/* Tab bar */}
-      <div className={cx(cardCls, "p-1 flex gap-1")}>
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={cx(
-              "flex-1 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-150 cursor-pointer",
-              activeTab === t.key
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/60"
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Tab bar — segmented control with ARIA tablist semantics */}
+      <div className={cx(cardCls, "p-1 flex gap-1")} role="tablist" aria-label="มุมมองติดตามผลหนี้">
+        {TABS.map((t) => {
+          const isActive = activeTab === t.key
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setTab(t.key)}
+              className={cx(
+                "flex-1 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors duration-150 cursor-pointer",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800",
+                isActive
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/60"
+              )}
+            >
+              {t.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* Tab content — all tabs receive the same top-level layout slot */}
       {loadingRefs ? (
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-        </div>
-      ) : (
+        <PageLoader variant="table" rows={6} message="กำลังโหลดข้อมูลหนี้…" />
+      ) : errorRefs ? null : (
         <>
           {activeTab === "totals" && (
             <DebtTotalsTab

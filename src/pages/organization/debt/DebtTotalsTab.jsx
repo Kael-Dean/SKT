@@ -6,6 +6,10 @@ import {
   cx, baseField, labelCls, modalCardCls, modalTitleCls,
   submitBtnCls, secondaryBtnCls, resetBtnCls, cardCls,
 } from "../../../lib/styles"
+import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
+
+// Column count for the totals table — keep in sync with the header below.
+const TOTALS_COLS = 7
 
 const ROLE = { ADMIN: 1, HA: 4, MKT: 5 }
 
@@ -30,6 +34,7 @@ export default function DebtTotalsTab({ roleId, branches, programs, fiscalYears,
   const [totals, setTotals]   = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState("")
+  const [reloadKey, setReloadKey] = useState(0)
   const [modal, setModal]     = useState(null)
   const [form, setForm]       = useState({ branch_id: "", program_id: "", fiscal_year_id: "", original_amount: "", comment: "" })
   const [saving, setSaving]   = useState(false)
@@ -55,7 +60,7 @@ export default function DebtTotalsTab({ roleId, branches, programs, fiscalYears,
       }
     })()
     return () => { alive = false }
-  }, [filters.branch_id, filters.program_id, filters.fiscal_year_id])
+  }, [filters.branch_id, filters.program_id, filters.fiscal_year_id, reloadKey])
 
   function branchName(id) { return branches.find((b) => b.id === Number(id))?.name || `สาขา ${id}` }
   function progName(id)   { return programs.find((p) => p.id === Number(id))?.prog_name || `โปรแกรม ${id}` }
@@ -239,21 +244,41 @@ export default function DebtTotalsTab({ roleId, branches, programs, fiscalYears,
         )}
       </div>
 
-      {error && (
-        <div className="rounded-2xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
-          {error}
-        </div>
+      {error && !loading && (
+        <ErrorState message={error} onRetry={() => setReloadKey((k) => k + 1)} />
       )}
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
+      {!error && !loading && totals.length === 0 ? (
+        <div className={cx(cardCls, "overflow-hidden")}>
+          <EmptyState
+            title="ไม่พบข้อมูลหนี้คงค้าง"
+            description={
+              hasFilters
+                ? "ไม่มีรายการที่ตรงกับตัวกรอง — ลองล้างตัวกรองหรือเลือกเงื่อนไขอื่น"
+                : "ยังไม่มีหนี้คงค้างในระบบ — กด “บันทึกหนี้คงค้าง” เพื่อเพิ่มรายการแรก"
+            }
+            action={
+              hasFilters ? (
+                <button
+                  type="button"
+                  onClick={() => setFilters({ branch_id: "", program_id: "", fiscal_year_id: "" })}
+                  className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
+                >
+                  ล้างตัวกรอง
+                </button>
+              ) : canWrite ? (
+                <button
+                  type="button"
+                  onClick={openAdd}
+                  className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
+                >
+                  + บันทึกหนี้คงค้าง
+                </button>
+              ) : null
+            }
+          />
         </div>
-      ) : totals.length === 0 && !error ? (
-        <div className={cx(cardCls, "py-12 text-center text-sm text-gray-400 dark:text-gray-500")}>
-          ไม่พบข้อมูล — ลองเปลี่ยนตัวกรองหรือเพิ่มรายการใหม่
-        </div>
-      ) : (
+      ) : !error ? (
         <div className={cx(cardCls, "overflow-hidden")}>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -267,41 +292,45 @@ export default function DebtTotalsTab({ roleId, branches, programs, fiscalYears,
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {totals.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
-                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{branchName(row.branch_id)}</td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{progName(row.program_id)}</td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{yearName(row.fiscal_year_id)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                      ฿{fmtMoney(row.original_amount)}
-                    </td>
-                    <td className={cx("px-4 py-3 text-right tabular-nums font-semibold whitespace-nowrap",
-                      parseFloat(row.remaining_amount) > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
-                    )}>
-                      ฿{fmtMoney(row.remaining_amount)}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[180px] truncate">{row.comment || "—"}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        {canWrite && (
-                          <button onClick={() => openEdit(row)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer">
-                            แก้ไข
-                          </button>
-                        )}
-                        {canDelete && (
-                          <button onClick={() => openDelete(row)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
-                            ลบ
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {loading ? (
+                  <SkeletonTableRows rows={6} cols={TOTALS_COLS} />
+                ) : (
+                  totals.map((row) => (
+                    <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{branchName(row.branch_id)}</td>
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{progName(row.program_id)}</td>
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{yearName(row.fiscal_year_id)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                        ฿{fmtMoney(row.original_amount)}
+                      </td>
+                      <td className={cx("px-4 py-3 text-right tabular-nums font-semibold whitespace-nowrap",
+                        parseFloat(row.remaining_amount) > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
+                      )}>
+                        ฿{fmtMoney(row.remaining_amount)}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[180px] truncate">{row.comment || "—"}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          {canWrite && (
+                            <button onClick={() => openEdit(row)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer">
+                              แก้ไข
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button onClick={() => openDelete(row)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
+                              ลบ
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Add / Edit Modal */}
       {modal && modal.mode !== "delete" && (

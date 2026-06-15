@@ -4,10 +4,52 @@ import Portal from "../../../components/Portal"
 import SelectDropdown from "../../../components/SelectDropdown"
 import {
   cx, cardCls, pageTitleCls, labelCls, baseField,
-  submitBtnCls, secondaryBtnCls, modalCardCls, modalTitleCls, pageSpinnerCls,
+  submitBtnCls, secondaryBtnCls, modalCardCls, modalTitleCls,
 } from "../../../lib/styles"
+import { PageLoader, ErrorState } from "../../../components/ui"
 import BranchDebtTable from "./BranchDebtTable"
 import AllBranchesTable from "./AllBranchesTable"
+
+/** Line-art building icon — branch / per-unit debt entry card. */
+function BranchIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-7"
+    >
+      <path d="M3 21h18" />
+      <path d="M5 21V7l8-4v18" />
+      <path d="M19 21V11l-6-4" />
+      <path d="M9 9v.01M9 12v.01M9 15v.01M9 18v.01" />
+    </svg>
+  )
+}
+
+/** Line-art layered-stack icon — all-branches aggregated debt card. */
+function AllBranchesIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-7"
+    >
+      <path d="M12 2 2 7l10 5 10-5-10-5Z" />
+      <path d="m2 17 10 5 10-5" />
+      <path d="m2 12 10 5 10-5" />
+    </svg>
+  )
+}
 
 export default function DebtReport() {
   const [view, setView]                   = useState(null)
@@ -84,7 +126,9 @@ export default function DebtReport() {
     try {
       const data = await apiAuth("/debt/programs")
       setPrograms(Array.isArray(data) ? data : [])
-    } catch {}
+    } catch {
+      // Silent: a failed background refresh keeps the last good program list.
+    }
   }
 
   async function reloadAll() {
@@ -126,8 +170,8 @@ export default function DebtReport() {
 
   if (loadingRefs) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <div className={pageSpinnerCls} />
+      <div className="py-2">
+        <PageLoader variant="cards" rows={2} message="กำลังโหลดข้อมูลหนี้…" />
       </div>
     )
   }
@@ -176,27 +220,44 @@ export default function DebtReport() {
       </div>
 
       {errorRefs && (
-        <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-          {errorRefs}
-        </div>
+        <ErrorState
+          message={`โหลดข้อมูลบางส่วนไม่สำเร็จ: ${errorRefs}`}
+          onRetry={fetchAll}
+        />
       )}
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <button
+          type="button"
           onClick={() => setView("branch")}
-          className={cx(cardCls, "p-8 text-left hover:ring-2 hover:ring-indigo-400 transition-all cursor-pointer")}
+          className={cx(
+            cardCls,
+            "group p-8 text-left transition-all duration-150 cursor-pointer",
+            "hover:ring-2 hover:ring-indigo-400 dark:hover:ring-indigo-500",
+            "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
+          )}
         >
-          <div className="text-4xl mb-3">🏢</div>
+          <span className="mb-3 inline-flex size-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
+            <BranchIcon />
+          </span>
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">ตารางหนี้แยกสาขา</h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             ดูและกรอกข้อมูลหนี้แยกตามหน่วยงาน
           </p>
         </button>
         <button
+          type="button"
           onClick={() => setView("all")}
-          className={cx(cardCls, "p-8 text-left hover:ring-2 hover:ring-indigo-400 transition-all cursor-pointer")}
+          className={cx(
+            cardCls,
+            "group p-8 text-left transition-all duration-150 cursor-pointer",
+            "hover:ring-2 hover:ring-indigo-400 dark:hover:ring-indigo-500",
+            "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
+          )}
         >
-          <div className="text-4xl mb-3">🏗️</div>
+          <span className="mb-3 inline-flex size-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
+            <AllBranchesIcon />
+          </span>
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">ตารางหนี้รวมทุกสาขา</h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             ดูข้อมูลหนี้รวมทุกหน่วยงานและโครงการ

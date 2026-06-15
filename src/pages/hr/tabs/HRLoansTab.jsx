@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
+import { PageLoader, ErrorState, EmptyState } from "../../../components/ui"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
@@ -13,6 +14,7 @@ const STATUS_LABEL = {
   closed: "ปิดบัญชี",
   rejected: "ปฏิเสธ",
 }
+// 5 distinct tones (incl. blue for hr_approved) — keep the explicit map.
 const STATUS_COLOR = {
   pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   hr_approved: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
@@ -87,21 +89,19 @@ export default function HRLoansTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        {loading ? "กำลังโหลด..." : `สินเชื่อทั้งหมด ${loans.length} รายการ · รออนุมัติ ${pendingLoans.length} รายการ`}
+        {loading ? "กำลังโหลด…" : `สินเชื่อทั้งหมด ${loans.length} รายการ · รออนุมัติ ${pendingLoans.length} รายการ`}
       </p>
 
-      {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{error}</div>
-      )}
+      {error && <ErrorState message={error} onRetry={fetchLoans} />}
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-        </div>
+        <PageLoader variant="cards" rows={3} message="กำลังโหลดข้อมูลสินเชื่อ…" />
       ) : loans.length === 0 ? (
-        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-12 text-center">
-          <p className="text-3xl mb-3">💳</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">ไม่มีข้อมูลสินเชื่อ</p>
+        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm">
+          <EmptyState
+            title="ไม่มีข้อมูลสินเชื่อ"
+            description="ยังไม่มีคำขอสินเชื่อหรือเงินเบิกล่วงหน้าของเจ้าหน้าที่ในระบบ"
+          />
         </div>
       ) : (
         <div className="space-y-3">
@@ -118,15 +118,15 @@ export default function HRLoansTab() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">จำนวนเงิน</p>
-                      <p className="font-bold text-indigo-700 dark:text-indigo-300">{fmt(loan.loan_amount)} ฿</p>
+                      <p className="font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">{fmt(loan.loan_amount)} ฿</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">ระยะเวลา</p>
-                      <p className="font-medium text-gray-800 dark:text-gray-200">{loan.repayment_months} เดือน</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-200 tabular-nums">{loan.repayment_months} เดือน</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">งวดละ</p>
-                      <p className="font-medium text-gray-800 dark:text-gray-200">{fmt(loan.monthly_installment)} ฿</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-200 tabular-nums">{fmt(loan.monthly_installment)} ฿</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">วันที่ยื่น</p>
@@ -141,8 +141,14 @@ export default function HRLoansTab() {
                 </div>
                 {loan.status === "pending" && (
                   <div className="flex gap-2 shrink-0">
-                    <button onClick={() => openModal(loan, "approve")} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer">✓ อนุมัติ</button>
-                    <button onClick={() => openModal(loan, "reject")} className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer">✕ ปฏิเสธ</button>
+                    <button onClick={() => openModal(loan, "approve")} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors duration-200 shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-4"><polyline points="20 6 9 17 4 12" /></svg>
+                      อนุมัติ
+                    </button>
+                    <button onClick={() => openModal(loan, "reject")} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors duration-200 shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-4"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                      ปฏิเสธ
+                    </button>
                   </div>
                 )}
               </div>
@@ -156,11 +162,11 @@ export default function HRLoansTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-              {modal.action === "approve" ? "✓ ยืนยันอนุมัติสินเชื่อ" : "✕ ยืนยันปฏิเสธสินเชื่อ"}
+              {modal.action === "approve" ? "ยืนยันอนุมัติสินเชื่อ" : "ยืนยันปฏิเสธสินเชื่อ"}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               <span className="font-semibold text-gray-900 dark:text-gray-100">{modal.name}</span>{" "}
-              · {fmt(modal.amount)} ฿ · {modal.months} เดือน
+              · <span className="tabular-nums">{fmt(modal.amount)} ฿</span> · <span className="tabular-nums">{modal.months} เดือน</span>
             </p>
             {modal.action === "reject" && (
               <div>

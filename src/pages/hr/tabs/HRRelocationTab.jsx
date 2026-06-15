@@ -2,6 +2,8 @@
 // อนุมัติ / ปฏิเสธ คำขอย้ายสาขา
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
+import { cardCls } from "../../../lib/styles"
+import { PageLoader, ErrorState, EmptyState } from "../../../components/ui"
 import Portal from "../../../components/Portal"
 
 const STATUS_LABEL = {
@@ -107,18 +109,25 @@ export default function HRRelocationTab() {
         ))}
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{error}</div>
-      )}
+      {error && <ErrorState message={error} onRetry={fetchRequests} />}
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-        </div>
+        <PageLoader variant="cards" rows={3} message="กำลังโหลดคำขอย้ายสาขา…" />
       ) : requests.length === 0 ? (
-        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-12 text-center">
-          <p className="text-3xl mb-3">✅</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">ไม่มีคำขอย้ายสาขา{subTab === "pending" ? "ที่รออนุมัติ" : ""}</p>
+        <div className={cardCls + " p-2"}>
+          <EmptyState
+            title={`ไม่มีคำขอย้ายสาขา${subTab === "pending" ? "ที่รออนุมัติ" : ""}`}
+            description={subTab === "pending" ? "คำขอที่รออนุมัติทั้งหมดได้รับการดำเนินการแล้ว" : "ยังไม่มีคำขอย้ายสาขาในระบบ"}
+            action={subTab !== "pending" ? null : (
+              <button
+                type="button"
+                onClick={() => setSubTab("all")}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm transition-colors duration-150 hover:bg-indigo-50 cursor-pointer dark:border-indigo-700 dark:bg-transparent dark:text-indigo-300 dark:hover:bg-indigo-900/20"
+              >
+                ดูทั้งหมด
+              </button>
+            )}
+          />
         </div>
       ) : (
         <div className="space-y-3">
@@ -161,8 +170,14 @@ export default function HRRelocationTab() {
                 </div>
                 {(r.status === "pending" || r.status === "pending_branch_head") && (
                   <div className="flex gap-2 shrink-0">
-                    <button onClick={() => openModal(r, "approve")} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer">✓ อนุมัติ</button>
-                    <button onClick={() => openModal(r, "deny")} className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer">✕ ปฏิเสธ</button>
+                    <button onClick={() => openModal(r, "approve")} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors duration-150 shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M20 6 9 17l-5-5" /></svg>
+                      อนุมัติ
+                    </button>
+                    <button onClick={() => openModal(r, "deny")} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors duration-150 shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                      ปฏิเสธ
+                    </button>
                   </div>
                 )}
               </div>
@@ -175,8 +190,13 @@ export default function HRRelocationTab() {
         <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-              {modal.action === "approve" ? "✓ ยืนยันอนุมัติย้ายสาขา" : "✕ ยืนยันปฏิเสธคำขอ"}
+            <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
+              {modal.action === "approve" ? (
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-emerald-600 dark:text-emerald-400"><path d="M20 6 9 17l-5-5" /></svg>
+              ) : (
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-red-600 dark:text-red-400"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              )}
+              {modal.action === "approve" ? "ยืนยันอนุมัติย้ายสาขา" : "ยืนยันปฏิเสธคำขอ"}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               <span className="font-semibold text-gray-900 dark:text-gray-100">{modal.name}</span>{" "}

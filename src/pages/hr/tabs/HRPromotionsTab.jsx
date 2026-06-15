@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
+import { PageLoader, ErrorState, EmptyState } from "../../../components/ui"
 
 const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
 
@@ -60,28 +61,30 @@ export default function HRPromotionsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {loading ? "กำลังโหลด..." : `เจ้าหน้าที่ที่มีสิทธิ์เลื่อนตำแหน่ง ${eligible.length} คน`}
+          {loading ? "กำลังโหลด…" : `เจ้าหน้าที่ที่มีสิทธิ์เลื่อนตำแหน่ง ${eligible.length} คน`}
         </p>
         <button
           onClick={() => { setShowExam(true); setCreateMsg("") }}
-          className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition cursor-pointer"
+          className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
         >
-          📝 สร้างการสอบ
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+          สร้างการสอบ
         </button>
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{error}</div>
-      )}
+      {error && <ErrorState message={error} onRetry={fetchEligible} />}
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-        </div>
+        <PageLoader variant="table" rows={6} message="กำลังโหลดรายชื่อผู้มีสิทธิ์เลื่อนตำแหน่ง…" />
       ) : eligible.length === 0 ? (
-        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-12 text-center">
-          <p className="text-3xl mb-3">🏆</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">ยังไม่มีเจ้าหน้าที่ที่มีสิทธิ์เลื่อนตำแหน่ง</p>
+        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm">
+          <EmptyState
+            title="ยังไม่มีผู้มีสิทธิ์เลื่อนตำแหน่ง"
+            description="ยังไม่มีเจ้าหน้าที่ที่เข้าเกณฑ์การเลื่อนตำแหน่งในขณะนี้"
+          />
         </div>
       ) : (
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
@@ -97,7 +100,7 @@ export default function HRPromotionsTab() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
                 {eligible.map((emp) => (
-                  <tr key={emp.id} className="hover:bg-indigo-50 dark:hover:bg-indigo-900/10">
+                  <tr key={emp.id} className="hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <div className="h-8 w-8 shrink-0 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-xs font-bold text-amber-700 dark:text-amber-300">
@@ -105,13 +108,13 @@ export default function HRPromotionsTab() {
                         </div>
                         <div>
                           <p className="font-semibold text-gray-900 dark:text-gray-100">{emp.first_name} {emp.last_name}</p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">{emp.id}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">{emp.id}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden sm:table-cell">{emp.position ?? "—"}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden md:table-cell">{emp.branch_location ?? "—"}</td>
-                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 hidden lg:table-cell">
+                    <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 tabular-nums hidden lg:table-cell">
                       {emp.job_age != null ? `${emp.job_age} ปี` : "—"}
                     </td>
                   </tr>
@@ -128,8 +131,13 @@ export default function HRPromotionsTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">📝 สร้างการสอบเลื่อนตำแหน่ง</h3>
-              <button onClick={() => setShowExam(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer">✕</button>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">สร้างการสอบเลื่อนตำแหน่ง</h3>
+              <button onClick={() => setShowExam(false)} aria-label="ปิด" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">รหัสเจ้าหน้าที่ <span className="text-red-500">*</span></label>

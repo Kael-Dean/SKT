@@ -2,6 +2,7 @@
 // ประวัติระบบ — GET /hr/audit-log
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
+import { ErrorState, EmptyState, SkeletonTableRows } from "../../../components/ui"
 
 function fmtDateTime(d) {
   if (!d) return "—"
@@ -48,9 +49,7 @@ export default function HRAuditTab() {
         </p>
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{error}</div>
-      )}
+      {error && <ErrorState message={error} onRetry={fetchLogs} />}
 
       <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -65,17 +64,27 @@ export default function HRAuditTab() {
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
               {loading ? (
-                <tr><td colSpan={4} className="text-center py-10">
-                  <div className="flex justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-                  </div>
-                </td></tr>
+                <SkeletonTableRows rows={10} cols={4} />
               ) : logs.length === 0 ? (
-                <tr><td colSpan={4} className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">ไม่พบข้อมูลประวัติระบบ</td></tr>
+                <tr><td colSpan={4}>
+                  <EmptyState
+                    title="ไม่พบข้อมูลประวัติระบบ"
+                    description={search ? "ไม่พบรายการที่ตรงกับคำค้น ลองปรับคำค้นหาใหม่" : "ยังไม่มีบันทึกการกระทำในระบบ"}
+                    action={search ? (
+                      <button
+                        type="button"
+                        onClick={() => setSearch("")}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm transition-colors duration-150 hover:bg-indigo-50 cursor-pointer dark:border-indigo-700 dark:bg-transparent dark:text-indigo-300 dark:hover:bg-indigo-900/20"
+                      >
+                        ล้างตัวกรอง
+                      </button>
+                    ) : null}
+                  />
+                </td></tr>
               ) : logs.map((log, i) => (
                 <tr key={log.id ?? i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{fmtDateTime(log.timestamp ?? log.created_at)}</td>
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{log.user_id ?? log.username ?? "—"}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap tabular-nums">{fmtDateTime(log.timestamp ?? log.created_at)}</td>
+                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300 tabular-nums">{log.user_id ?? log.username ?? "—"}</td>
                   <td className="px-4 py-3">
                     <span className="rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-0.5 text-xs font-semibold">
                       {log.action ?? "—"}

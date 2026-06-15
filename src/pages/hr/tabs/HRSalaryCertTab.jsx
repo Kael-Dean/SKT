@@ -3,13 +3,10 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import Portal from "../../../components/Portal"
+import { PageLoader, ErrorState, EmptyState, Badge } from "../../../components/ui"
 
 const STATUS_LABEL = { pending: "รออนุมัติ", approved: "อนุมัติแล้ว", denied: "ปฏิเสธ" }
-const STATUS_COLOR  = {
-  pending:  "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  approved: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  denied:   "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-}
+const STATUS_TONE = { pending: "pending", approved: "success", denied: "danger" }
 const PURPOSE_LABEL = {
   document:       "เพื่อใช้เป็นหลักฐาน",
   loan_self:      "เพื่อกู้เงิน",
@@ -120,25 +117,19 @@ export default function HRSalaryCertTab() {
         ))}
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          {error}
-        </div>
-      )}
-      {pdfErr && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          {pdfErr}
-        </div>
-      )}
+      {error && <ErrorState message={error} onRetry={fetchRequests} />}
+      {pdfErr && <ErrorState message={pdfErr} />}
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-        </div>
+        <PageLoader variant="cards" rows={3} message="กำลังโหลดคำขอหนังสือรับรอง…" />
       ) : requests.length === 0 ? (
-        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-12 text-center">
-          <p className="text-3xl mb-3">📋</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">ไม่มีคำขอหนังสือรับรองเงินเดือน{subTab === "pending" ? "ที่รออนุมัติ" : ""}</p>
+        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm">
+          <EmptyState
+            title="ไม่มีคำขอหนังสือรับรองเงินเดือน"
+            description={subTab === "pending"
+              ? "ยังไม่มีคำขอที่รออนุมัติในขณะนี้"
+              : "ยังไม่มีคำขอหนังสือรับรองเงินเดือนในระบบ"}
+          />
         </div>
       ) : (
         <div className="space-y-3">
@@ -148,9 +139,9 @@ export default function HRSalaryCertTab() {
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-gray-900 dark:text-gray-100">{r.user_name}</p>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[r.status] ?? "bg-gray-100 text-gray-600"}`}>
+                    <Badge tone={STATUS_TONE[r.status] ?? "neutral"}>
                       {STATUS_LABEL[r.status] ?? r.status}
-                    </span>
+                    </Badge>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
                     <div>
@@ -180,8 +171,14 @@ export default function HRSalaryCertTab() {
                 <div className="flex flex-col gap-2 shrink-0">
                   {r.status === "pending" && (
                     <div className="flex gap-2">
-                      <button onClick={() => openModal(r, "approve")} className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer">✓ อนุมัติ</button>
-                      <button onClick={() => openModal(r, "deny")}    className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition cursor-pointer">✕ ปฏิเสธ</button>
+                      <button onClick={() => openModal(r, "approve")} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3.5"><polyline points="20 6 9 17 4 12" /></svg>
+                        อนุมัติ
+                      </button>
+                      <button onClick={() => openModal(r, "deny")} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                        ปฏิเสธ
+                      </button>
                     </div>
                   )}
                   <div className="flex gap-2 flex-wrap">
@@ -189,17 +186,19 @@ export default function HRSalaryCertTab() {
                       <button
                         onClick={() => downloadPdf(r.id, "certificate")}
                         disabled={pdfLoading[`${r.id}_certificate`]}
-                        className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition disabled:opacity-60 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
                       >
-                        {pdfLoading[`${r.id}_certificate`] ? "..." : "📄 หนังสือรับรอง"}
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+                        {pdfLoading[`${r.id}_certificate`] ? "กำลังโหลด…" : "หนังสือรับรอง"}
                       </button>
                     )}
                     <button
                       onClick={() => downloadPdf(r.id, "form")}
                       disabled={pdfLoading[`${r.id}_form`]}
-                      className="px-3 py-1.5 rounded-xl bg-gray-600 hover:bg-gray-500 text-white text-xs font-semibold transition disabled:opacity-60 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-600 hover:bg-gray-500 text-white text-xs font-semibold transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
                     >
-                      {pdfLoading[`${r.id}_form`] ? "..." : "📋 แบบฟอร์ม"}
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="15" y2="17" /></svg>
+                      {pdfLoading[`${r.id}_form`] ? "กำลังโหลด…" : "แบบฟอร์ม"}
                     </button>
                   </div>
                 </div>
@@ -215,7 +214,7 @@ export default function HRSalaryCertTab() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                {modal.action === "approve" ? "✓ ยืนยันอนุมัติ" : "✕ ยืนยันปฏิเสธ"}
+                {modal.action === "approve" ? "ยืนยันอนุมัติ" : "ยืนยันปฏิเสธ"}
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 คำขอของ <span className="font-semibold text-gray-900 dark:text-gray-100">{modal.userName}</span>

@@ -2,6 +2,7 @@
 // 13C — Leave Register: annual summary table + 2 PDF downloads
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
+import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 
 // ปีงบประมาณไทย (Apr→Mar): ปัจจุบัน
 function currentFiscalYear() {
@@ -61,7 +62,7 @@ export default function HRLeaveRegisterTab() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
-      setPdfErr(`❌ ${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
+      setPdfErr(e.message || "ดาวน์โหลดไม่สำเร็จ")
     } finally {
       setPdfLoading((p) => ({ ...p, [type]: false }))
     }
@@ -79,44 +80,64 @@ export default function HRLeaveRegisterTab() {
             onChange={(e) => setFiscalYear(Number(e.target.value))}
             min={2560}
             max={2580}
-            className="w-28 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/60"
+            className="w-28 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 tabular-nums focus:outline-none focus:ring-2 focus:ring-indigo-500/60"
           />
         </div>
-        <button onClick={fetchSummary} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition cursor-pointer">
+        <button onClick={fetchSummary} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800">
           ค้นหา
         </button>
         <button
           onClick={() => downloadPdf("summary")}
           disabled={pdfLoading["summary"]}
-          className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition disabled:opacity-60 cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition duration-200 disabled:opacity-60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800"
         >
-          {pdfLoading["summary"] ? "..." : "📄 สรุปประจำปี"}
+          {pdfLoading["summary"] ? (
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+          ) : (
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <path d="M14 2v6h6" />
+            </svg>
+          )}
+          สรุปประจำปี
         </button>
         <button
           onClick={() => downloadPdf("register")}
           disabled={pdfLoading["register"]}
-          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition disabled:opacity-60 cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition duration-200 disabled:opacity-60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800"
         >
-          {pdfLoading["register"] ? "กำลังสร้าง PDF..." : "📋 ทะเบียนการลา (รายบุคคล)"}
+          {pdfLoading["register"] ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+              กำลังสร้าง PDF...
+            </>
+          ) : (
+            <>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+              </svg>
+              ทะเบียนการลา (รายบุคคล)
+            </>
+          )}
         </button>
       </div>
-      {pdfErr && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{pdfErr}</div>
-      )}
+      {pdfErr && <ErrorState message={pdfErr} />}
 
-      {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{error}</div>
-      )}
-
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-12 text-center">
-          <p className="text-3xl mb-3">📅</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">ไม่มีข้อมูลการลาในปีงบประมาณ {fiscalYear}</p>
-        </div>
+      {error ? (
+        <ErrorState message={error} onRetry={fetchSummary} />
+      ) : !loading && rows.length === 0 ? (
+        <EmptyState
+          icon={
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-12">
+              <path d="M8 2v4M16 2v4" />
+              <rect width="18" height="18" x="3" y="4" rx="2" />
+              <path d="M3 10h18" />
+            </svg>
+          }
+          title={`ไม่มีข้อมูลการลาในปีงบประมาณ ${fiscalYear}`}
+          description="ลองเปลี่ยนปีงบประมาณแล้วกดค้นหาอีกครั้ง"
+        />
       ) : (
         <div className="overflow-x-auto rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm">
           <table className="min-w-full text-sm">
@@ -131,25 +152,29 @@ export default function HRLeaveRegisterTab() {
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr key={row.user_id} className={i % 2 === 1 ? "bg-gray-50 dark:bg-gray-700/30" : ""}>
-                  <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap sticky left-0 bg-inherit">{row.full_name}</td>
-                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">{row.legacy_user_id ?? "—"}</td>
-                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{row.position_title ?? "—"}</td>
-                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.branch_name}</td>
-                  {LEAVE_COLS.map((c) => (
-                    <td key={c.key} className={`px-2 py-2 text-center ${c.key === "total_days" ? "font-bold text-indigo-700 dark:text-indigo-300" : "text-gray-700 dark:text-gray-300"} ${row[c.key] > 0 && c.key !== "total_days" ? "text-amber-600 dark:text-amber-400 font-medium" : ""}`}>
-                      {row[c.key] > 0 ? row[c.key] : ""}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+            <tbody aria-busy={loading}>
+              {loading ? (
+                <SkeletonTableRows rows={8} cols={4 + LEAVE_COLS.length} />
+              ) : (
+                rows.map((row, i) => (
+                  <tr key={row.user_id} className={i % 2 === 1 ? "bg-gray-50 dark:bg-gray-700/30" : ""}>
+                    <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap sticky left-0 bg-inherit">{row.full_name}</td>
+                    <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs tabular-nums">{row.legacy_user_id ?? "—"}</td>
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{row.position_title ?? "—"}</td>
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.branch_name}</td>
+                    {LEAVE_COLS.map((c) => (
+                      <td key={c.key} className={`px-2 py-2 text-center tabular-nums ${c.key === "total_days" ? "font-bold text-indigo-700 dark:text-indigo-300" : "text-gray-700 dark:text-gray-300"} ${row[c.key] > 0 && c.key !== "total_days" ? "text-amber-600 dark:text-amber-400 font-medium" : ""}`}>
+                        {row[c.key] > 0 ? row[c.key] : ""}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       )}
-      <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+      <p className="text-xs text-gray-400 dark:text-gray-500 text-center tabular-nums">
         ปีงบประมาณ {fiscalYear} (1 เม.ย. {fiscalYear - 543} — 31 มี.ค. {fiscalYear - 542}) • นับเฉพาะวันลาที่อนุมัติแล้ว
       </p>
     </div>

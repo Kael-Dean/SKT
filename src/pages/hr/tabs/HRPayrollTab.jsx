@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
 import Portal from "../../../components/Portal"
+import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
+
+const PAYROLL_COLS = 6
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
@@ -115,20 +118,22 @@ export default function HRPayrollTab() {
             />
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {loading ? "กำลังโหลด..." : `${payrolls.length} รายการ`}
+            {loading ? "กำลังโหลด…" : `${payrolls.length} รายการ`}
           </p>
         </div>
         <button
           onClick={() => { setShowGenerate(true); setGenMsg("") }}
-          className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition cursor-pointer"
+          className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
         >
-          ➕ สร้างเงินเดือน
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          สร้างเงินเดือน
         </button>
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{error}</div>
-      )}
+      {error && <ErrorState message={error} onRetry={() => fetchPayrolls(filterMonth)} />}
 
       <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -145,32 +150,35 @@ export default function HRPayrollTab() {
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
               {loading ? (
-                <tr><td colSpan={6} className="text-center py-10">
-                  <div className="flex justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-                  </div>
-                </td></tr>
+                <SkeletonTableRows rows={6} cols={PAYROLL_COLS} />
               ) : payrolls.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">ยังไม่มีข้อมูลเงินเดือน</td></tr>
+                <tr>
+                  <td colSpan={PAYROLL_COLS} className="p-0">
+                    <EmptyState
+                      title="ยังไม่มีข้อมูลเงินเดือน"
+                      description="ยังไม่มีรายการเงินเดือนสำหรับเดือนที่เลือก กดสร้างเงินเดือนเพื่อเริ่มต้น"
+                    />
+                  </td>
+                </tr>
               ) : payrolls.map((p) => {
                 const monthDate = p.month ? new Date(p.month) : null
                 return (
-                <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                   <td className="px-4 py-3">
                     <p className="font-medium text-gray-900 dark:text-gray-100">{p.employee_name}</p>
                     <p className="text-xs text-gray-400 dark:text-gray-500">{p.branch_name || p.user_id}</p>
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{monthDate ? fmtMonth(monthDate.getFullYear(), monthDate.getMonth() + 1) : "—"}</td>
-                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 hidden sm:table-cell">—</td>
-                  <td className="px-4 py-3 text-right text-red-600 dark:text-red-400 hidden md:table-cell">—</td>
-                  <td className="px-4 py-3 text-right font-bold text-emerald-700 dark:text-emerald-300">{fmt(p.net_payout)}</td>
+                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 tabular-nums hidden sm:table-cell">—</td>
+                  <td className="px-4 py-3 text-right text-red-600 dark:text-red-400 tabular-nums hidden md:table-cell">—</td>
+                  <td className="px-4 py-3 text-right font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">{fmt(p.net_payout)}</td>
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => downloadPayslip(p.id)}
                       disabled={downloading === p.id}
-                      className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer disabled:opacity-50"
+                      className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 rounded"
                     >
-                      {downloading === p.id ? "..." : "สลิปเงินเดือน"}
+                      {downloading === p.id ? "กำลังโหลด…" : "สลิปเงินเดือน"}
                     </button>
                   </td>
                 </tr>
@@ -187,7 +195,12 @@ export default function HRPayrollTab() {
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">สร้างเงินเดือน</h3>
-              <button onClick={() => setShowGenerate(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer">✕</button>
+              <button onClick={() => setShowGenerate(false)} aria-label="ปิด" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">รหัสเจ้าหน้าที่</label>

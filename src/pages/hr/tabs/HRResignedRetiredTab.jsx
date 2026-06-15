@@ -2,6 +2,14 @@
 // 13D — Resigned/Retired Staff: list + filter + PDF
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
+import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../../../components/ui"
+
+const TABLE_HEADERS = ["ชื่อ-สกุล", "รหัสเดิม", "รหัสประจำตัว", "วันเกิด", "การศึกษา", "ตำแหน่ง", "สาขา", "วันบรรจุ", "วันที่ออก", "ประเภท"]
+
+// 'success' tone reuses emerald (retire); resign keeps its amber 'pending' tone;
+// dismiss keeps 'danger'. exit-type colors carry more meaning than the 5 tones,
+// so map each to the closest Badge tone.
+const EXIT_TYPE_TONE = { resign: "pending", dismiss: "danger", retire: "success" }
 
 const EXIT_TYPE_OPTIONS = [
   { value: "",        label: "ทั้งหมด" },
@@ -11,11 +19,6 @@ const EXIT_TYPE_OPTIONS = [
 ]
 
 const EXIT_TYPE_LABEL = { resign: "ลาออก", dismiss: "ไล่ออก", retire: "เกษียณอายุ" }
-const EXIT_TYPE_COLOR  = {
-  resign:  "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  dismiss: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  retire:  "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-}
 
 function fmtBE(d) {
   return d || "—"
@@ -64,10 +67,17 @@ export default function HRResignedRetiredTab() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
-      setPdfErr(`❌ ${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
+      setPdfErr(e.message || "ดาวน์โหลดไม่สำเร็จ")
     } finally {
       setPdfLoading(false)
     }
+  }
+
+  const hasFilters = !!(exitType || fromDate || toDate)
+  const clearFilters = () => {
+    setExitType("")
+    setFromDate("")
+    setToDate("")
   }
 
   return (
@@ -96,72 +106,99 @@ export default function HRResignedRetiredTab() {
           <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
             className="w-36 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/60" />
         </div>
-        <button onClick={fetchRows} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition cursor-pointer">
+        <button onClick={fetchRows} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800">
           ค้นหา
         </button>
         <button
           onClick={downloadPdf}
           disabled={pdfLoading}
-          className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition disabled:opacity-60 cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition duration-200 disabled:opacity-60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800"
         >
-          {pdfLoading ? "กำลังสร้าง..." : "📄 ดาวน์โหลด PDF"}
+          {pdfLoading ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+              กำลังสร้าง...
+            </>
+          ) : (
+            <>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+              </svg>
+              ดาวน์โหลด PDF
+            </>
+          )}
         </button>
       </div>
 
-      {pdfErr && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{pdfErr}</div>
-      )}
-      {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{error}</div>
-      )}
+      {pdfErr && <ErrorState message={pdfErr} />}
 
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-12 text-center">
-          <p className="text-3xl mb-3">👋</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">ไม่มีรายการพนักงานที่ลาออก / เกษียณ / ไล่ออก</p>
-        </div>
+      {error ? (
+        <ErrorState message={error} onRetry={fetchRows} />
+      ) : !loading && rows.length === 0 ? (
+        <EmptyState
+          icon={
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-12">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          }
+          title={hasFilters ? "ไม่พบรายการตามตัวกรอง" : "ยังไม่มีรายการพนักงานที่ออกจากงาน"}
+          description={hasFilters ? "ลองปรับช่วงวันที่หรือประเภทการออก" : "รายการพนักงานที่ลาออก / เกษียณ / ไล่ออก จะแสดงที่นี่"}
+          action={hasFilters ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition duration-200 hover:bg-slate-100 cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800"
+            >
+              ล้างตัวกรอง
+            </button>
+          ) : undefined}
+        />
       ) : (
         <div className="overflow-x-auto rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
-                {["ชื่อ-สกุล", "รหัสเดิม", "รหัสประจำตัว", "วันเกิด", "การศึกษา", "ตำแหน่ง", "สาขา", "วันบรรจุ", "วันที่ออก", "ประเภท"].map((h) => (
+                {TABLE_HEADERS.map((h) => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 px-3 py-3 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr key={row.user_id} className={i % 2 === 1 ? "bg-gray-50 dark:bg-gray-700/30" : ""}>
-                  <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{row.full_name}</td>
-                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">{row.legacy_user_id ?? "—"}</td>
-                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400 font-mono text-xs">{row.cid_masked}</td>
-                  <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">{fmtBE(row.birthday)}</td>
-                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{row.education_level ?? "—"}</td>
-                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{row.position_title ?? "—"}</td>
-                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.branch_name}</td>
-                  <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">{fmtBE(row.hired_date)}</td>
-                  <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">{fmtBE(row.exit_date)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {row.exit_type ? (
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${EXIT_TYPE_COLOR[row.exit_type] ?? "bg-gray-100 text-gray-600"}`}>
-                        {EXIT_TYPE_LABEL[row.exit_type] ?? row.exit_type}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+            <tbody aria-busy={loading}>
+              {loading ? (
+                <SkeletonTableRows rows={8} cols={TABLE_HEADERS.length} />
+              ) : (
+                rows.map((row, i) => (
+                  <tr key={row.user_id} className={i % 2 === 1 ? "bg-gray-50 dark:bg-gray-700/30" : ""}>
+                    <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{row.full_name}</td>
+                    <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs tabular-nums">{row.legacy_user_id ?? "—"}</td>
+                    <td className="px-3 py-2 text-gray-500 dark:text-gray-400 font-mono text-xs tabular-nums">{row.cid_masked}</td>
+                    <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap tabular-nums">{fmtBE(row.birthday)}</td>
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{row.education_level ?? "—"}</td>
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{row.position_title ?? "—"}</td>
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.branch_name}</td>
+                    <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap tabular-nums">{fmtBE(row.hired_date)}</td>
+                    <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap tabular-nums">{fmtBE(row.exit_date)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {row.exit_type ? (
+                        <Badge tone={EXIT_TYPE_TONE[row.exit_type] ?? "neutral"}>
+                          {EXIT_TYPE_LABEL[row.exit_type] ?? row.exit_type}
+                        </Badge>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       )}
-      <p className="text-xs text-gray-400 dark:text-gray-500 text-right">รวม {rows.length} รายการ</p>
+      <p className="text-xs text-gray-400 dark:text-gray-500 text-right tabular-nums">รวม {rows.length} รายการ</p>
     </div>
   )
 }

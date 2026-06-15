@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
+import { PageLoader, ErrorState, EmptyState } from "../../../components/ui"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -147,13 +148,17 @@ export default function HRSalaryTab() {
             </select>
           </div>
         {loadingLadder ? (
-          <div className="flex justify-center py-16">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-          </div>
+          <PageLoader variant="table" rows={6} message="กำลังโหลดบันไดเงินเดือน…" />
         ) : !filterTier ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">กรุณาเลือกระดับตำแหน่งเพื่อดูบันไดเงินเดือน</p>
+          <EmptyState
+            title="เลือกระดับตำแหน่ง"
+            description="กรุณาเลือกระดับตำแหน่งด้านบนเพื่อดูบันไดเงินเดือน"
+          />
         ) : ladder.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">ไม่พบข้อมูล</p>
+          <EmptyState
+            title="ไม่พบข้อมูล"
+            description="ยังไม่มีบันไดเงินเดือนสำหรับระดับตำแหน่งนี้"
+          />
         ) : (
           <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
             <div className="px-4 py-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-gray-100 dark:border-gray-700">
@@ -172,11 +177,11 @@ export default function HRSalaryTab() {
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
                   {ladder.map((e) => (
-                    <tr key={e.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                    <tr key={e.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                       <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300">ขั้นที่ {e.level}</td>
-                      <td className="px-4 py-2 text-right font-bold text-emerald-700 dark:text-emerald-300">{fmt(e.salary_amount)}</td>
+                      <td className="px-4 py-2 text-right font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">{fmt(e.salary_amount)}</td>
                       <td className="px-4 py-2 text-center">
-                        <button onClick={() => openEdit(e)} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">แก้ไข</button>
+                        <button onClick={() => openEdit(e)} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">แก้ไข</button>
                       </td>
                     </tr>
                   ))}
@@ -220,15 +225,13 @@ export default function HRSalaryTab() {
           <div className="flex gap-3">
             <input type="text" value={histEmpId} onChange={(e) => setHistEmpId(e.target.value)} className={inputCls + " max-w-xs"} placeholder="กรอกรหัสเจ้าหน้าที่" />
             <button onClick={loadHistory} disabled={loadingHist}
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer disabled:opacity-60">
+              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors duration-200 shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900">
               ค้นหา
             </button>
           </div>
-          {histError && <p className="text-sm text-red-600 dark:text-red-400">{histError}</p>}
+          {histError && <ErrorState message={histError} onRetry={histEmpId ? loadHistory : undefined} />}
           {loadingHist ? (
-            <div className="flex justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-            </div>
+            <PageLoader variant="table" rows={5} message="กำลังโหลดประวัติเงินเดือน…" />
           ) : history.length > 0 ? (
             <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
@@ -243,12 +246,12 @@ export default function HRSalaryTab() {
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
                     {history.map((h, i) => (
-                      <tr key={i}>
+                      <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                           {h.effective_date ? new Date(h.effective_date).toLocaleDateString("th-TH") : "—"}
                         </td>
-                        <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{fmt(h.old_salary)}</td>
-                        <td className="px-4 py-3 text-right font-bold text-emerald-700 dark:text-emerald-300">{fmt(h.new_salary)}</td>
+                        <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 tabular-nums">{fmt(h.old_salary)}</td>
+                        <td className="px-4 py-3 text-right font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">{fmt(h.new_salary)}</td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{h.reason || "—"}</td>
                       </tr>
                     ))}
@@ -256,8 +259,11 @@ export default function HRSalaryTab() {
                 </table>
               </div>
             </div>
-          ) : histEmpId && !loadingHist ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500">ไม่พบข้อมูลประวัติเงินเดือน</p>
+          ) : histEmpId && !loadingHist && !histError ? (
+            <EmptyState
+              title="ไม่พบข้อมูลประวัติเงินเดือน"
+              description="เจ้าหน้าที่รหัสนี้ยังไม่มีประวัติการปรับเงินเดือน"
+            />
           ) : null}
         </div>
       )}
@@ -274,7 +280,7 @@ export default function HRSalaryTab() {
             </p>
             <div>
               <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">จำนวนเงิน (บาท)</label>
-              <input type="number" value={editVal} onChange={(e) => setEditVal(e.target.value)} className={inputCls} />
+              <input type="number" value={editVal} onChange={(e) => setEditVal(e.target.value)} className={inputCls + " text-right tabular-nums"} />
             </div>
             {saveMsg && <p className={`text-sm text-center ${saveMsg.startsWith("✅") ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{saveMsg}</p>}
             <div className="flex gap-3">

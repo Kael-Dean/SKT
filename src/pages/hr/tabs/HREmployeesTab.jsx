@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
 import Portal from "../../../components/Portal"
+import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
 const ROLE_COLOR = {
@@ -14,6 +15,8 @@ const ROLE_COLOR = {
   4: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   5: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
 }
+
+const EMPLOYEE_COLS = 6
 
 const ROLE_OPTIONS = [
   { value: 2, label: "ผู้จัดการ" },
@@ -244,19 +247,25 @@ export default function HREmployeesTab() {
   }
 
   const activeCount = users.filter((u) => u.is_active).length
+  const hasActiveFilters = Boolean(search) || Boolean(filterBranch) || filterActive !== ""
+  const clearFilters = () => { setSearch(""); setFilterBranch(""); setFilterActive("") }
 
   return (
     <div className="space-y-4">
       {/* Controls */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {loading ? "กำลังโหลด..." : `เจ้าหน้าที่ ${users.length} คน · ใช้งานอยู่ ${activeCount} คน`}
+          {loading ? "กำลังโหลด…" : `เจ้าหน้าที่ ${users.length} คน · ใช้งานอยู่ ${activeCount} คน`}
         </p>
         <button
           onClick={() => { setShowSignup(true); setSubmitMsg("") }}
-          className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition cursor-pointer"
+          className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
         >
-          ➕ ลงทะเบียนเจ้าหน้าที่
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          ลงทะเบียนเจ้าหน้าที่
         </button>
       </div>
 
@@ -277,9 +286,7 @@ export default function HREmployeesTab() {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{error}</div>
-      )}
+      {error && <ErrorState message={error} onRetry={fetchUsers} />}
 
       {/* Table */}
       <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
@@ -297,20 +304,34 @@ export default function HREmployeesTab() {
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
               {loading ? (
-                <tr><td colSpan={6} className="text-center py-10">
-                  <div className="flex justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-                  </div>
-                </td></tr>
+                <SkeletonTableRows rows={8} cols={EMPLOYEE_COLS} />
               ) : users.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">ไม่พบข้อมูลเจ้าหน้าที่</td></tr>
+                <tr>
+                  <td colSpan={EMPLOYEE_COLS} className="p-0">
+                    <EmptyState
+                      title="ไม่พบข้อมูลเจ้าหน้าที่"
+                      description={hasActiveFilters
+                        ? "ไม่มีเจ้าหน้าที่ที่ตรงกับเงื่อนไขการค้นหา ลองล้างตัวกรองเพื่อดูทั้งหมด"
+                        : "ยังไม่มีเจ้าหน้าที่ในระบบ กดปุ่มลงทะเบียนเพื่อเพิ่มรายชื่อ"}
+                      action={hasActiveFilters ? (
+                        <button
+                          type="button"
+                          onClick={clearFilters}
+                          className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-100 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 dark:focus-visible:ring-offset-gray-900"
+                        >
+                          ล้างตัวกรอง
+                        </button>
+                      ) : null}
+                    />
+                  </td>
+                </tr>
               ) : users.map((u) => (
                 <tr
                   key={u.id}
                   onClick={() => navigate(`/hr/personnel/${u.id}`)}
                   className="hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors cursor-pointer"
                 >
-                  <td className="px-4 py-3 font-mono text-gray-500 dark:text-gray-400 text-xs">{u.id}</td>
+                  <td className="px-4 py-3 font-mono text-gray-500 dark:text-gray-400 text-xs tabular-nums">{u.id}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <div className="h-8 w-8 shrink-0 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-xs font-bold text-indigo-700 dark:text-indigo-300">
@@ -322,12 +343,12 @@ export default function HREmployeesTab() {
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden md:table-cell">{u.position ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden lg:table-cell">{u.branch_location ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${ROLE_COLOR[u.role_id] ?? "bg-gray-100 text-gray-600"}`}>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${ROLE_COLOR[u.role_id] ?? "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"}`}>
                       {ROLE_LABEL[u.role_id] ?? `Role ${u.role_id}`}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${u.is_active ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"}`}>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${u.is_active ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"}`}>
                       {u.is_active ? "ใช้งาน" : "ไม่ใช้งาน"}
                     </span>
                   </td>
@@ -344,8 +365,13 @@ export default function HREmployeesTab() {
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-12 bg-black/50 backdrop-blur-sm overflow-y-auto">
           <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-5 mb-12">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">➕ ลงทะเบียนเจ้าหน้าที่ใหม่</h3>
-              <button onClick={() => setShowSignup(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition text-xl cursor-pointer">✕</button>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">ลงทะเบียนเจ้าหน้าที่ใหม่</h3>
+              <button onClick={() => setShowSignup(false)} aria-label="ปิด" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -435,7 +461,10 @@ export default function HREmployeesTab() {
               {workExperiences.map((w, i) => (
                 <div key={i} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 space-y-3 relative mb-3">
                   {workExperiences.length > 1 && (
-                    <button type="button" onClick={() => removeWork(i)} className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer">✕ ลบ</button>
+                    <button type="button" onClick={() => removeWork(i)} className="absolute top-3 right-3 inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                      ลบ
+                    </button>
                   )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="ชื่อบริษัท/สถานที่ทำงาน">
@@ -464,7 +493,10 @@ export default function HREmployeesTab() {
               {criminalRecords.map((c, i) => (
                 <div key={i} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-4 space-y-3 relative mb-3">
                   {criminalRecords.length > 1 && (
-                    <button type="button" onClick={() => removeCrime(i)} className="absolute top-3 right-3 text-xs text-red-500 hover:text-red-700 cursor-pointer">✕ ลบ</button>
+                    <button type="button" onClick={() => removeCrime(i)} className="absolute top-3 right-3 inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                      ลบ
+                    </button>
                   )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="ข้อหา">
@@ -497,7 +529,7 @@ export default function HREmployeesTab() {
                     onChange={(e) => setHasSpouse(e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
-                  <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">💑 คู่สมรส</span>
+                  <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">คู่สมรส</span>
                   {!hasSpouse && <span className="ml-auto text-xs text-gray-400">คลิกเพื่อเพิ่ม</span>}
                 </label>
                 {hasSpouse && (
@@ -524,7 +556,7 @@ export default function HREmployeesTab() {
               {/* Children */}
               <div className="rounded-xl border border-amber-200 dark:border-amber-800 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-900/30">
-                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">👶 บุตร {modalChildren.length > 0 && <span className="ml-1 text-xs font-normal">({modalChildren.length} คน)</span>}</span>
+                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">บุตร {modalChildren.length > 0 && <span className="ml-1 text-xs font-normal">({modalChildren.length} คน)</span>}</span>
                   <button type="button" onClick={() => setModalChildren(prev => [...prev, emptyChild()])} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition cursor-pointer">
                     + เพิ่มบุตร
                   </button>
@@ -536,7 +568,10 @@ export default function HREmployeesTab() {
                   <div key={i} className="border-t border-amber-100 dark:border-amber-900/50 p-4">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">บุตรคนที่ {i + 1}</span>
-                      <button type="button" onClick={() => setModalChildren(prev => prev.filter((_, idx) => idx !== i))} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 transition cursor-pointer">✕ ลบ</button>
+                      <button type="button" onClick={() => setModalChildren(prev => prev.filter((_, idx) => idx !== i))} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500">
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                        ลบ
+                      </button>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <Field label="ชื่อ-นามสกุลบุตร" required>
@@ -560,7 +595,7 @@ export default function HREmployeesTab() {
               {/* Parents */}
               <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 bg-emerald-50 dark:bg-emerald-900/30">
-                  <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">👨‍👩‍ บิดา-มารดา {modalParents.length > 0 && <span className="ml-1 text-xs font-normal">({modalParents.length}/2)</span>}</span>
+                  <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">บิดา-มารดา {modalParents.length > 0 && <span className="ml-1 text-xs font-normal">({modalParents.length}/2)</span>}</span>
                   <button type="button" onClick={() => setModalParents(prev => [...prev, emptyParent()])} disabled={modalParents.length >= 2} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
                     + เพิ่ม
                   </button>
@@ -575,9 +610,12 @@ export default function HREmployeesTab() {
                     <div key={i} className="border-t border-emerald-100 dark:border-emerald-900/50 p-4">
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                          {p.parent_type === "father" ? "👨 บิดา" : p.parent_type === "mother" ? "👩 มารดา" : `รายการที่ ${i + 1}`}
+                          {p.parent_type === "father" ? "บิดา" : p.parent_type === "mother" ? "มารดา" : `รายการที่ ${i + 1}`}
                         </span>
-                        <button type="button" onClick={() => setModalParents(prev => prev.filter((_, idx) => idx !== i))} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 transition cursor-pointer">✕ ลบ</button>
+                        <button type="button" onClick={() => setModalParents(prev => prev.filter((_, idx) => idx !== i))} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500">
+                          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                          ลบ
+                        </button>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Field label="ความสัมพันธ์" required>

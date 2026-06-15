@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import Portal from "../../../components/Portal"
+import { PageLoader, ErrorState, EmptyState } from "../../../components/ui"
 
 const STATUS_LABEL = {
   pending:                   "รอดำเนินการ",
@@ -29,18 +30,6 @@ function fmtDate(d) {
   if (!d) return "—"
   try { return new Date(d).toLocaleDateString("th-TH") } catch { return d }
 }
-
-const Spinner = () => (
-  <div className="flex justify-center py-16">
-    <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-  </div>
-)
-
-const ErrBox = ({ msg }) => (
-  <div className="flex items-start gap-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-    <span>{msg}</span>
-  </div>
-)
 
 export default function HRLeaveTab() {
   const [subTab, setSubTab] = useState("pending")
@@ -97,7 +86,7 @@ export default function HRLeaveTab() {
   const handleConfirm = async () => {
     if (!modal) return
     if (modal.action === "deny" && !hrComment.trim()) {
-      setSubmitMsg("⚠️ กรุณากรอกเหตุผลการปฏิเสธ")
+      setSubmitMsg("กรุณากรอกเหตุผลการปฏิเสธ")
       return
     }
     setSubmitting(true)
@@ -109,7 +98,7 @@ export default function HRLeaveTab() {
       setModal(null)
       fetchRequests()
     } catch (err) {
-      setSubmitMsg(`❌ ${err.message || "ดำเนินการไม่สำเร็จ"}`)
+      setSubmitMsg(err.message || "ดำเนินการไม่สำเร็จ")
     } finally {
       setSubmitting(false)
     }
@@ -126,16 +115,19 @@ export default function HRLeaveTab() {
   return (
     <div className="space-y-4">
       {/* Sub-tabs */}
-      <div className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">
+      <div role="tablist" aria-label="ตัวกรองคำขอลา" className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">
         {[["pending", "รออนุมัติ"], ["all", "ทั้งหมด"]].map(([v, label]) => (
           <button
             key={v}
+            role="tab"
+            type="button"
+            aria-selected={subTab === v}
             onClick={() => setSubTab(v)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${subTab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800 ${subTab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
           >
             {label}
             {v === "pending" && pendingCount > 0 && (
-              <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5">
+              <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 tabular-nums">
                 {pendingCount}
               </span>
             )}
@@ -143,13 +135,21 @@ export default function HRLeaveTab() {
         ))}
       </div>
 
-      {error && <ErrBox msg={error} />}
+      {error && <ErrorState message={error} onRetry={fetchRequests} />}
 
-      {loading ? <Spinner /> : displayRequests.length === 0 ? (
-        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-12 text-center">
-          <p className="text-3xl mb-3">✅</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">ไม่มีคำขอ{subTab === "pending" ? "ที่รออนุมัติ" : ""}</p>
-        </div>
+      {loading ? (
+        <PageLoader variant="cards" rows={3} message="กำลังโหลดคำขอลา…" />
+      ) : displayRequests.length === 0 ? (
+        <EmptyState
+          icon={
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-12">
+              <path d="M9 11l3 3L22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+          }
+          title={subTab === "pending" ? "ไม่มีคำขอที่รออนุมัติ" : "ยังไม่มีคำขอลา"}
+          description={subTab === "pending" ? "คำขอลาที่ต้องดำเนินการจะปรากฏที่นี่" : "เมื่อมีพนักงานยื่นคำขอลา รายการจะแสดงที่นี่"}
+        />
       ) : (
         <div className="space-y-3">
           {displayRequests.map((r) => (
@@ -180,7 +180,7 @@ export default function HRLeaveTab() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">จำนวนวัน</p>
-                      <p className="font-bold text-indigo-700 dark:text-indigo-300">{r.total_days} วัน</p>
+                      <p className="font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">{r.total_days} วัน</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">วันที่ยื่น</p>
@@ -204,8 +204,13 @@ export default function HRLeaveTab() {
                     </p>
                   )}
                   {r.extra_leave_days > 0 && (
-                    <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-1.5">
-                      ⚠️ ลาเกินสิทธิ์ {r.extra_leave_days} วัน — หักจากเงินเดือน
+                    <p className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-1.5">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5 shrink-0">
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
+                      <span>ลาเกินสิทธิ์ <span className="tabular-nums">{r.extra_leave_days}</span> วัน — หักจากเงินเดือน</span>
                     </p>
                   )}
                 </div>
@@ -233,15 +238,21 @@ export default function HRLeaveTab() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => openModal(r, "approve")}
-                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all shadow-sm cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all duration-200 shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800"
                       >
-                        ✓ อนุมัติ
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3.5">
+                          <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                        อนุมัติ
                       </button>
                       <button
                         onClick={() => openModal(r, "deny")}
-                        className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-all shadow-sm cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-all duration-200 shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800"
                       >
-                        ✕ ปฏิเสธ
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3.5">
+                          <path d="M18 6 6 18M6 6l12 12" />
+                        </svg>
+                        ปฏิเสธ
                       </button>
                     </div>
                   )}
@@ -255,41 +266,58 @@ export default function HRLeaveTab() {
       {/* Confirm Modal */}
       {modal && (
         <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-              {modal.action === "approve" ? "✓ ยืนยันอนุมัติ" : "✕ ยืนยันปฏิเสธ"}
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => !submitting && setModal(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="leavetab-confirm-title"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4"
+          >
+            <h3 id="leavetab-confirm-title" className="text-lg font-bold text-gray-900 dark:text-gray-100">
+              {modal.action === "approve" ? "ยืนยันอนุมัติ" : "ยืนยันปฏิเสธ"}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {modal.action === "approve" ? "อนุมัติ" : "ปฏิเสธ"}คำขอลาของ{" "}
               <span className="font-semibold text-gray-900 dark:text-gray-100">{modal.name}</span>{" "}
-              ({modal.leave_type} · {modal.days} วัน)?
+              ({modal.leave_type} · <span className="tabular-nums">{modal.days}</span> วัน)?
             </p>
             <div>
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">
+              <label htmlFor="leavetab-hr-comment" className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">
                 ความเห็น HR {modal.action === "deny" && <span className="text-red-500">*</span>}
               </label>
               <input
+                id="leavetab-hr-comment"
                 type="text"
+                autoFocus
                 value={hrComment}
                 onChange={(e) => setHrComment(e.target.value)}
                 placeholder={modal.action === "deny" ? "กรุณาระบุเหตุผล (บังคับ)" : "ความเห็นเพิ่มเติม (ถ้ามี)"}
+                aria-invalid={!!submitMsg}
+                aria-describedby={submitMsg ? "leavetab-confirm-msg" : undefined}
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
-            {submitMsg && <p className="text-sm text-center text-red-600 dark:text-red-400">{submitMsg}</p>}
+            {submitMsg && <p id="leavetab-confirm-msg" role="alert" className="text-sm text-center text-red-600 dark:text-red-400">{submitMsg}</p>}
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => setModal(null)}
-                className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer"
+                disabled={submitting}
+                className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-200 cursor-pointer disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800"
               >
                 ยกเลิก
               </button>
               <button
+                type="button"
                 onClick={handleConfirm}
                 disabled={submitting}
-                className={`flex-1 h-10 rounded-xl text-white text-sm font-semibold transition shadow-sm disabled:opacity-60 cursor-pointer ${modal.action === "approve" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-red-600 hover:bg-red-500"}`}
+                className={`flex-1 inline-flex items-center justify-center gap-2 h-10 rounded-xl text-white text-sm font-semibold transition duration-200 shadow-sm disabled:opacity-60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800 ${modal.action === "approve" ? "bg-emerald-600 hover:bg-emerald-500 focus-visible:ring-emerald-500" : "bg-red-600 hover:bg-red-500 focus-visible:ring-red-500"}`}
               >
+                {submitting && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />}
                 {submitting ? "กำลังดำเนินการ..." : "ยืนยัน"}
               </button>
             </div>

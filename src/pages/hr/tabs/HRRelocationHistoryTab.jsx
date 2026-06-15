@@ -3,11 +3,38 @@
 // 13F (HR side) — ดู detail + ดาวน์โหลด PDF ฟอร์มย้ายสาขา
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
+import { cardCls } from "../../../lib/styles"
+import { PageLoader, ErrorState, EmptyState, SkeletonTableRows } from "../../../components/ui"
 import Portal from "../../../components/Portal"
 
 function fmtBE(d) {
   // วันที่จาก BE มาเป็น "DD/MM/BBBB" แล้ว — แสดงตรงๆ
   return d || "—"
+}
+
+/** Small inline icons (currentColor) used in sub-tab labels + buttons. */
+function ListIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  )
+}
+function FolderIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+    </svg>
+  )
+}
+function PdfIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" />
+      <line x1="12" y1="18" x2="12" y2="12" /><line x1="9" y1="15" x2="15" y2="15" />
+    </svg>
+  )
 }
 
 export default function HRRelocationHistoryTab() {
@@ -118,16 +145,17 @@ export default function HRRelocationHistoryTab() {
     <div className="space-y-4">
       {/* Sub-tabs */}
       <div className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">
-        {[["history", "📋 ประวัติการย้าย"], ["requests", "📂 คำขอย้ายสาขา"]].map(([v, label]) => (
+        {[["history", "ประวัติการย้าย", <ListIcon key="i" />], ["requests", "คำขอย้ายสาขา", <FolderIcon key="i" />]].map(([v, label, icon]) => (
           <button
             key={v}
             onClick={() => setSubTab(v)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-150 cursor-pointer ${
               subTab === v
                 ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm"
                 : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             }`}
           >
+            {icon}
             {label}
           </button>
         ))}
@@ -156,29 +184,39 @@ export default function HRRelocationHistoryTab() {
                 <button
                   onClick={downloadHistoryPdf}
                   disabled={pdfLoading}
-                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition disabled:opacity-60 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors duration-150 disabled:opacity-60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
                 >
-                  {pdfLoading ? "..." : "📄 PDF"}
+                  {pdfLoading ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+                  ) : (
+                    <PdfIcon />
+                  )}
+                  PDF
                 </button>
               </div>
             </div>
             {pdfErr && <p className="text-xs text-red-600 dark:text-red-400">{pdfErr}</p>}
           </div>
 
-          {histError && (
-            <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{histError}</div>
-          )}
+          {histError && <ErrorState message={histError} onRetry={fetchHistory} />}
 
-          {histLoading ? (
-            <div className="flex justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500" />
+          {!histError && (history.length === 0 && !histLoading) ? (
+            <div className={cardCls + " p-2"}>
+              <EmptyState
+                title="ไม่มีประวัติการย้ายสาขา"
+                description={(fromDate || toDate) ? "ไม่พบประวัติในช่วงวันที่ที่เลือก ลองปรับช่วงวันที่ใหม่" : "ยังไม่มีประวัติการย้ายสาขาในระบบ"}
+                action={(fromDate || toDate) ? (
+                  <button
+                    type="button"
+                    onClick={() => { setFromDate(""); setToDate("") }}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm transition-colors duration-150 hover:bg-indigo-50 cursor-pointer dark:border-indigo-700 dark:bg-transparent dark:text-indigo-300 dark:hover:bg-indigo-900/20"
+                  >
+                    ล้างตัวกรอง
+                  </button>
+                ) : null}
+              />
             </div>
-          ) : history.length === 0 ? (
-            <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-12 text-center">
-              <p className="text-3xl mb-3">🚌</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">ไม่มีประวัติการย้ายสาขา</p>
-            </div>
-          ) : (
+          ) : !histError ? (
             <div className="overflow-x-auto rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm">
               <table className="min-w-full text-sm">
                 <thead>
@@ -189,12 +227,14 @@ export default function HRRelocationHistoryTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((row, i) => (
+                  {histLoading ? (
+                    <SkeletonTableRows rows={8} cols={8} />
+                  ) : history.map((row, i) => (
                     <tr key={row.id} className={i % 2 === 1 ? "bg-gray-50 dark:bg-gray-700/30" : ""}>
                       <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{row.full_name}</td>
-                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400 font-mono text-xs">{row.cid_masked}</td>
-                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{fmtBE(row.hired_date)}</td>
-                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{fmtBE(row.transfer_date)}</td>
+                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400 font-mono text-xs tabular-nums">{row.cid_masked}</td>
+                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap tabular-nums">{fmtBE(row.hired_date)}</td>
+                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap tabular-nums">{fmtBE(row.transfer_date)}</td>
                       <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{row.position_title ?? "—"}</td>
                       <td className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.branch_name}</td>
                       <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">{row.order_reference ?? "—"}</td>
@@ -204,24 +244,22 @@ export default function HRRelocationHistoryTab() {
                 </tbody>
               </table>
             </div>
-          )}
+          ) : null}
         </div>
       )}
 
       {/* ─── 13F: Requests ─── */}
       {subTab === "requests" && (
         <div className="space-y-3">
-          {reloError && (
-            <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{reloError}</div>
-          )}
+          {reloError && <ErrorState message={reloError} onRetry={fetchReloRequests} />}
           {reloLoading ? (
-            <div className="flex justify-center py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500" />
-            </div>
+            <PageLoader variant="cards" rows={3} message="กำลังโหลดคำขอย้ายสาขา…" />
           ) : reloRequests.length === 0 ? (
-            <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-12 text-center">
-              <p className="text-3xl mb-3">📂</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">ไม่มีคำขอย้ายสาขา</p>
+            <div className={cardCls + " p-2"}>
+              <EmptyState
+                title="ไม่มีคำขอย้ายสาขา"
+                description="ยังไม่มีคำขอย้ายสาขาในระบบ"
+              />
             </div>
           ) : (
             <div className="space-y-2">
@@ -322,9 +360,19 @@ export default function HRRelocationHistoryTab() {
                 <button
                   onClick={() => downloadFormPdf(detailModal.id)}
                   disabled={detailPdfLoad}
-                  className="flex-1 h-10 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition disabled:opacity-60 cursor-pointer"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors duration-150 disabled:opacity-60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
                 >
-                  {detailPdfLoad ? "กำลังดาวน์โหลด..." : "📄 ดาวน์โหลด PDF"}
+                  {detailPdfLoad ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+                      กำลังดาวน์โหลด...
+                    </>
+                  ) : (
+                    <>
+                      <PdfIcon />
+                      ดาวน์โหลด PDF
+                    </>
+                  )}
                 </button>
               </div>
             </div>

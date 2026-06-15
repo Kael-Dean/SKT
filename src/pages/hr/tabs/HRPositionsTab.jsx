@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
+import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
+
+const POSITION_COLS = 4
 
 const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
 
@@ -65,19 +68,21 @@ export default function HRPositionsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {loading ? "กำลังโหลด..." : `ตำแหน่งทั้งหมด ${positions.length} รายการ`}
+          {loading ? "กำลังโหลด…" : `ตำแหน่งทั้งหมด ${positions.length} รายการ`}
         </p>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition cursor-pointer"
+          className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
         >
-          ➕ เพิ่มตำแหน่ง
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          เพิ่มตำแหน่ง
         </button>
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">{error}</div>
-      )}
+      {error && <ErrorState message={error} onRetry={fetchPositions} />}
 
       <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -92,24 +97,27 @@ export default function HRPositionsTab() {
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
               {loading ? (
-                <tr><td colSpan={4} className="text-center py-10">
-                  <div className="flex justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-                  </div>
-                </td></tr>
+                <SkeletonTableRows rows={6} cols={POSITION_COLS} />
               ) : positions.length === 0 ? (
-                <tr><td colSpan={4} className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">ยังไม่มีข้อมูลตำแหน่ง</td></tr>
+                <tr>
+                  <td colSpan={POSITION_COLS} className="p-0">
+                    <EmptyState
+                      title="ยังไม่มีข้อมูลตำแหน่ง"
+                      description="ยังไม่มีตำแหน่งงานในระบบ กดปุ่มเพิ่มตำแหน่งเพื่อสร้างรายการแรก"
+                    />
+                  </td>
+                </tr>
               ) : positions.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{p.position_name}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden sm:table-cell">{p.position_tier ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${p.is_active !== false ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${p.is_active !== false ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}>
                       {p.is_active !== false ? "ใช้งาน" : "ปิดใช้งาน"}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <button onClick={() => openEdit(p)} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">แก้ไข</button>
+                    <button onClick={() => openEdit(p)} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">แก้ไข</button>
                   </td>
                 </tr>
               ))}
@@ -124,9 +132,14 @@ export default function HRPositionsTab() {
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                {modal.mode === "create" ? "➕ เพิ่มตำแหน่งใหม่" : "แก้ไขตำแหน่ง"}
+                {modal.mode === "create" ? "เพิ่มตำแหน่งใหม่" : "แก้ไขตำแหน่ง"}
               </h3>
-              <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer">✕</button>
+              <button onClick={() => setModal(null)} aria-label="ปิด" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">

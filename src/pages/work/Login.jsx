@@ -75,7 +75,7 @@ const Login = () => {
       style={{ backgroundImage: `url(${sktBg})`, backgroundSize: "cover", backgroundPosition: "center" }}
     >
       {/* Chatbot mockup widget — bottom-right */}
-      <button className="fixed bottom-6 right-6 z-50 h-16 w-16 rounded-full bg-indigo-600 shadow-xl flex items-center justify-center text-white hover:bg-indigo-700 active:scale-95 transition cursor-pointer" aria-label="แชทกับผู้ช่วย">
+      <button className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600 text-white shadow-xl shadow-indigo-900/30 transition-all duration-150 hover:bg-indigo-700 hover:shadow-2xl hover:shadow-indigo-900/40 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-indigo-950 cursor-pointer" aria-label="แชทกับผู้ช่วย">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
@@ -110,11 +110,11 @@ const Login = () => {
         </div>
 
         {/* Card */}
-        <div className="rounded-2xl bg-white/92 shadow-2xl backdrop-blur-xl ring-1 ring-white/30 dark:bg-gray-900/85 dark:ring-white/10 p-8">
-          <h2 className="mb-1 text-xl font-bold text-gray-900 dark:text-gray-100">
+        <div className="rounded-2xl bg-white/92 shadow-2xl backdrop-blur-xl ring-1 ring-white/30 dark:bg-gray-900/85 dark:ring-white/10 p-7 sm:p-8">
+          <h2 className="mb-1 text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
             เข้าสู่ระบบ
           </h2>
-          <p className="mb-6 text-sm text-gray-400 dark:text-gray-500">กรอกข้อมูลเพื่อเข้าใช้งานระบบ</p>
+          <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">กรอกข้อมูลเพื่อเข้าใช้งานระบบ</p>
 
           {sessionExpired && (
             <div className="animate-fade-in mb-5 flex items-start gap-2.5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/25 dark:text-amber-300 dark:ring-amber-800/40">
@@ -141,7 +141,7 @@ const Login = () => {
               </label>
               <input
                 type="text"
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[15px] outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-600 dark:bg-gray-700/80 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-indigo-500 dark:focus:bg-gray-700"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[15px] text-gray-900 outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 dark:border-gray-600 dark:bg-gray-700/80 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-indigo-500 dark:focus:bg-gray-700 dark:focus:ring-indigo-400/25"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
@@ -158,7 +158,7 @@ const Login = () => {
               <div className="relative">
                 <input
                   type={showPass ? "text" : "password"}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-[15px] outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-600 dark:bg-gray-700/80 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-indigo-500 dark:focus:bg-gray-700"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-[15px] text-gray-900 outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 dark:border-gray-600 dark:bg-gray-700/80 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-indigo-500 dark:focus:bg-gray-700 dark:focus:ring-indigo-400/25"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
@@ -168,7 +168,7 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={() => setShowPass((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-gray-400 transition-colors hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 dark:hover:text-gray-200"
                   aria-label={showPass ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
                   tabIndex={-1}
                 >
@@ -190,7 +190,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-xl bg-indigo-600 py-3 text-[15px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-indigo-700 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer"
+                className="w-full rounded-xl bg-indigo-600 py-3 text-[15px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-600/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-sm disabled:active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 cursor-pointer"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -207,7 +207,7 @@ const Login = () => {
               <button
                 type="button"
                 onClick={() => navigate("/forgot-password")}
-                className="text-sm text-gray-400 underline-offset-2 transition-colors hover:text-indigo-600 hover:underline dark:text-gray-500 dark:hover:text-indigo-400 cursor-pointer"
+                className="rounded text-sm text-gray-500 underline-offset-2 transition-colors hover:text-indigo-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 dark:text-gray-400 dark:hover:text-indigo-400 cursor-pointer"
               >
                 ลืมรหัสผ่าน?
               </button>

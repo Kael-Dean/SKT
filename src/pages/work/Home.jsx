@@ -3,8 +3,41 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 import { getUser, getRoleId, canSeeAddCompany } from "../../lib/auth"
+import { SkeletonStat } from "../../components/ui"
 
 const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5, BRANCH: 6, STAFF: 7 }
+
+// Line-art group icons (currentColor) — replaces decorative emoji headers.
+const groupIconPaths = {
+  "ธุรกิจรวบรวมผลผลิต":
+    "M7 21h10M12 3v4m0 0c-3 0-5 1.5-5 4 0 2 1 3 2.5 4M12 7c3 0 5 1.5 5 4 0 2-1 3-2.5 4",
+  "ทะเบียนสมาชิก":
+    "M9 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM3 19a6 6 0 0 1 12 0M16 11h5M16 15h5",
+  "ออเดอร์ & คลังสินค้า":
+    "M3.27 6.96 12 12l8.73-5.04M12 22V12M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z",
+  "รายงาน & แผน":
+    "M3 3v18h18M8 17V9M13 17V5M18 17v-6",
+  "HR — บุคลากร":
+    "M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+}
+
+function GroupIcon({ group, className }) {
+  const d = groupIconPaths[group]
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d={d} />
+    </svg>
+  )
+}
 
 const ROLE_LABEL = {
   1: "ผู้ดูแลระบบ",
@@ -99,10 +132,10 @@ function FunctionCard({ item, onClick }) {
   return (
     <button
       onClick={() => onClick(item.path)}
-      className="group flex flex-col items-center justify-center gap-2 rounded-xl bg-gray-50 p-3 ring-1 ring-gray-200/60 transition-all duration-150 hover:bg-indigo-50 hover:ring-indigo-200 hover:shadow-sm hover:scale-[1.04] active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-gray-800/60 dark:ring-gray-700/60 dark:hover:bg-indigo-900/25 dark:hover:ring-indigo-700/60 cursor-pointer min-h-[76px]"
+      className="group flex min-h-[78px] flex-col items-center justify-center gap-2 rounded-xl bg-gray-50 p-3 ring-1 ring-gray-200/60 transition-all duration-150 hover:bg-indigo-50 hover:shadow-sm hover:ring-indigo-200 hover:scale-[1.03] active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-gray-800/60 dark:ring-gray-700/60 dark:hover:bg-indigo-900/25 dark:hover:ring-indigo-700/60 cursor-pointer"
     >
-      <span className="text-xl leading-none transition-transform duration-150 group-hover:scale-110">{item.icon}</span>
-      <span className="text-[11px] font-medium text-gray-600 dark:text-gray-400 text-center leading-tight group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors duration-150">
+      <span className="text-xl leading-none transition-transform duration-150 group-hover:scale-110 group-active:scale-100">{item.icon}</span>
+      <span className="text-center text-[11px] font-medium leading-tight text-gray-600 transition-colors duration-150 group-hover:text-indigo-700 dark:text-gray-400 dark:group-hover:text-indigo-300">
         {item.label}
       </span>
     </button>
@@ -145,11 +178,23 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
-          <span className="text-sm text-gray-400 dark:text-gray-500">กำลังโหลด...</span>
+      <div role="status" aria-busy="true" aria-live="polite" className="space-y-5 py-2">
+        <span className="sr-only">กำลังโหลด…</span>
+        {/* Welcome card skeleton */}
+        <div
+          aria-hidden="true"
+          className="flex items-center gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200/70 dark:bg-gray-800 dark:ring-gray-700/70"
+        >
+          <div className="h-14 w-14 shrink-0 animate-pulse rounded-full bg-slate-200 dark:bg-slate-700" />
+          <div className="flex-1 space-y-2.5">
+            <div className="h-3.5 w-24 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+            <div className="h-5 w-44 animate-pulse rounded-md bg-slate-200 dark:bg-slate-700" />
+          </div>
         </div>
+        {/* Group skeletons */}
+        {Array.from({ length: 3 }).map((_, gi) => (
+          <SkeletonStat key={gi} />
+        ))}
       </div>
     )
   }
@@ -199,13 +244,15 @@ export default function Home() {
       {visibleGroups.map((group, gi) => (
         <div
           key={group.group}
-          className={`animate-fade-up stagger-${Math.min(gi + 1, 5)} rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5`}
+          className={`animate-fade-up stagger-${Math.min(gi + 1, 5)} rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-4 sm:p-5`}
         >
-          <div className="mb-3 flex items-center gap-2.5">
-            <span className="text-lg leading-none">{group.icon}</span>
-            <h2 className="text-[13px] font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">{group.group}</h2>
+          <div className="mb-3.5 flex items-center gap-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
+              <GroupIcon group={group.group} className="h-4 w-4" />
+            </span>
+            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{group.group}</h2>
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
             {group.items.map((item) => (
               <FunctionCard key={item.path} item={item} onClick={navigate} />
             ))}

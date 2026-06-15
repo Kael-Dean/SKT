@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useSearchParams } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
+import { PageLoader, Badge } from "../../components/ui"
 
 import HREmployeesTab from "./tabs/HREmployeesTab"
 import HRLeaveTab from "./tabs/HRLeaveTab"
@@ -25,6 +26,32 @@ import HRResignedRetiredTab from "./tabs/HRResignedRetiredTab"
 
 const fmt = (n) =>
   n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
+
+// Line-art stat icons (currentColor) — replaces decorative emoji on KPI tiles.
+const statIconPaths = {
+  employees:   "M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+  leave:       "M8 2v3M16 2v3M3.5 9h17M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2ZM9 14l2 2 4-4",
+  relocation:  "M3 17h13V6H3v11ZM16 9h3l3 3v5h-6M5.5 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM17.5 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
+  issues:      "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.9 6.9a2.12 2.12 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.94-7.94l-3.76 3.76Z",
+  salary:      "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+}
+
+function StatIcon({ name, className }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d={statIconPaths[name]} />
+    </svg>
+  )
+}
 
 const TABS = [
   { key: "employees",          label: "👥 เจ้าหน้าที่" },
@@ -71,44 +98,49 @@ export default function HRDashboard() {
     {
       label: "เจ้าหน้าที่ที่ใช้งาน",
       value: stats?.total_active_employees != null ? `${stats.total_active_employees} คน` : "—",
-      icon: "👥",
+      icon: "employees",
       color: "text-indigo-700 dark:text-indigo-300",
-      bg: "bg-indigo-50 dark:bg-indigo-900/20",
+      iconColor: "text-indigo-600 dark:text-indigo-300",
+      bg: "bg-indigo-50 dark:bg-indigo-900/25",
       tab: "employees",
     },
     {
       label: "คำขอลารออนุมัติ",
       value: stats?.pending_leave_requests != null ? `${stats.pending_leave_requests} รายการ` : "—",
-      icon: "📋",
+      icon: "leave",
       color: "text-amber-700 dark:text-amber-300",
-      bg: "bg-amber-50 dark:bg-amber-900/20",
+      iconColor: "text-amber-600 dark:text-amber-300",
+      bg: "bg-amber-50 dark:bg-amber-900/25",
       tab: "leave",
       alert: stats?.pending_leave_requests > 0,
     },
     {
       label: "คำขอย้ายสาขารออนุมัติ",
       value: stats?.pending_relocation_requests != null ? `${stats.pending_relocation_requests} รายการ` : "—",
-      icon: "🚌",
+      icon: "relocation",
       color: "text-blue-700 dark:text-blue-300",
-      bg: "bg-blue-50 dark:bg-blue-900/20",
+      iconColor: "text-blue-600 dark:text-blue-300",
+      bg: "bg-blue-50 dark:bg-blue-900/25",
       tab: "relocation",
       alert: stats?.pending_relocation_requests > 0,
     },
     {
       label: "รายงานปัญหารอดำเนินการ",
       value: stats?.pending_issue_reports != null ? `${stats.pending_issue_reports} รายการ` : "—",
-      icon: "🔧",
+      icon: "issues",
       color: "text-red-700 dark:text-red-300",
-      bg: "bg-red-50 dark:bg-red-900/20",
+      iconColor: "text-red-600 dark:text-red-300",
+      bg: "bg-red-50 dark:bg-red-900/25",
       tab: "issues",
       alert: stats?.pending_issue_reports > 0,
     },
     {
       label: "เงินเดือนรวม/เดือน",
       value: stats?.total_salary_this_month != null ? `${fmt(stats.total_salary_this_month)} ฿` : "—",
-      icon: "💰",
+      icon: "salary",
       color: "text-emerald-700 dark:text-emerald-300",
-      bg: "bg-emerald-50 dark:bg-emerald-900/20",
+      iconColor: "text-emerald-600 dark:text-emerald-300",
+      bg: "bg-emerald-50 dark:bg-emerald-900/25",
     },
   ]
 
@@ -138,55 +170,68 @@ export default function HRDashboard() {
   return (
     <div className="space-y-6 pb-10">
       {/* Page Header */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">HR Dashboard</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">จัดการข้อมูลบุคคลและระบบ HR</p>
+      <div className="animate-fade-up">
+        <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">HR Dashboard</h1>
+        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">จัดการข้อมูลบุคคลและระบบ HR</p>
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {statCards.map((s) => (
-          <div
-            key={s.label}
-            onClick={s.tab ? () => setTab(s.tab) : undefined}
-            className={`rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-4 transition ${s.tab ? "cursor-pointer hover:ring-indigo-300 dark:hover:ring-indigo-600 hover:shadow-md" : ""} ${s.alert ? "ring-amber-300 dark:ring-amber-600" : ""}`}
-          >
-            {loadingStats ? (
-              <div className="animate-pulse space-y-2">
-                <div className="h-8 w-8 rounded-xl bg-gray-200 dark:bg-gray-700" />
-                <div className="h-4 w-16 rounded bg-gray-200 dark:bg-gray-700" />
-                <div className="h-6 w-12 rounded bg-gray-200 dark:bg-gray-700" />
-              </div>
-            ) : (
-              <div className="flex items-start gap-2.5">
-                <div className={`h-9 w-9 rounded-xl ${s.bg} flex items-center justify-center text-lg shrink-0`}>
-                  {s.icon}
+      {loadingStats ? (
+        <PageLoader variant="dashboard" rows={5} message="กำลังโหลดสรุปข้อมูล…" />
+      ) : (
+        <div className="animate-fade-up stagger-1 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {statCards.map((s) => {
+            const clickable = Boolean(s.tab)
+            const Tag = clickable ? "button" : "div"
+            return (
+              <Tag
+                key={s.label}
+                type={clickable ? "button" : undefined}
+                onClick={clickable ? () => setTab(s.tab) : undefined}
+                className={`group w-full rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-gray-200/70 transition-all duration-150 dark:bg-gray-800 dark:ring-gray-700/70 ${
+                  clickable
+                    ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md hover:ring-indigo-300 active:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:ring-indigo-600"
+                    : ""
+                } ${s.alert ? "ring-amber-300 dark:ring-amber-600/70" : ""}`}
+              >
+                <div className="flex items-start gap-2.5">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${s.bg} ${s.iconColor}`}>
+                    <StatIcon name={s.icon} className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs leading-tight text-gray-500 dark:text-gray-400">{s.label}</p>
+                    <p className={`mt-0.5 text-lg font-bold leading-tight ${s.color}`}>{s.value}</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">{s.label}</p>
-                  <p className={`text-lg font-bold mt-0.5 leading-tight ${s.color}`}>{s.value}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+                {s.alert ? (
+                  <div className="mt-2.5">
+                    <Badge tone="pending">ต้องดำเนินการ</Badge>
+                  </div>
+                ) : null}
+              </Tag>
+            )
+          })}
+        </div>
+      )}
 
       {/* Tab Bar */}
-      <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
+      <div className="animate-fade-up stagger-2 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/70 dark:bg-gray-800 dark:ring-gray-700/70">
         {/* Tab Header - scrollable */}
         <div className="overflow-x-auto border-b border-gray-200 dark:border-gray-700">
-          <div className="flex min-w-max">
+          <div className="flex min-w-max" role="tablist">
             {TABS.map((tab) => {
               const isActive = activeTab === tab.key
               return (
                 <button
                   key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
                   onClick={() => setTab(tab.key)}
-                  className={`px-4 py-3 text-sm font-semibold whitespace-nowrap transition-all cursor-pointer border-b-2 ${
+                  className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
                     isActive
-                      ? "border-indigo-600 text-indigo-700 dark:border-indigo-400 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20"
-                      : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      ? "border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/25 dark:text-indigo-300"
+                      : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-200"
                   }`}
                 >
                   {tab.label}

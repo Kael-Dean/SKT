@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../../lib/api"  // ✅ helper รวม token/BASE URL
 import { cx, baseField } from "../../lib/styles"
+import { EmptyState, SkeletonTableRows } from "../../components/ui"
 
 /** ----------- Utils ----------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -304,7 +305,6 @@ const Order = () => {
   }
   useEffect(() => {
     validateDates(filters.startDate, filters.endDate)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.startDate, filters.endDate])
 
   /** ---------- Load initial (branch + spec) ---------- */
@@ -404,7 +404,6 @@ const Order = () => {
       }
     }
     loadKlang()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.branchId])
 
   /** ---------- Fetch orders (BUY or SELL) + Request Guard ---------- */
@@ -439,6 +438,7 @@ const Order = () => {
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchOrders() }, []) // init load
 
   // ⭐ สลับโหมด: เคลียร์จอ + ขึ้นโหลดทันที + ทำให้คำขอเก่าหมดอายุ
@@ -450,6 +450,7 @@ const Order = () => {
     setPage(1); setPageInput("1")
     setMode(next)                  // useEffect ด้านล่างจะ fetch ใหม่
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchOrders() }, [mode]) // โหลดใหม่เมื่อเปลี่ยนโหมด
 
   /** ---------- Auto refresh on debounced search ---------- */
@@ -522,7 +523,7 @@ const Order = () => {
       } else {
         window?.scrollTo?.({ top: 0, behavior: "smooth" })
       }
-    } catch (_) { /* no-op */ }
+    } catch { /* no-op */ }
   }
   const nextPage = () => goToPage(page + 1)
   const prevPage = () => goToPage(page - 1)
@@ -564,13 +565,40 @@ const Order = () => {
   /** ----------- UI ----------- */
   const startIndex = (page - 1) * PAGE_SIZE + 1
   const endIndex = Math.min(rows.length, page * PAGE_SIZE)
+  // จำนวนคอลัมน์จริงต่อโหมด — ใช้กับ skeleton/empty ให้ตรง layout
+  const colCount = mode === "buy" ? 12 : 11
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {mode === "buy" ? "📦 รายการออเดอร์ซื้อข้าวเปลือก" : "🧾 รายการออเดอร์ขายข้าวเปลือก"}
+          <h1 className="flex items-center gap-2.5 text-2xl font-bold text-gray-900 dark:text-white">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="size-7 shrink-0 text-emerald-600 dark:text-emerald-400"
+            >
+              {mode === "buy" ? (
+                <>
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+                  <path d="m3.27 6.96 8.73 5.05 8.73-5.05" />
+                  <path d="M12 22.08V12" />
+                </>
+              ) : (
+                <>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 2v6h6" />
+                  <path d="M8 13h8" />
+                  <path d="M8 17h8" />
+                </>
+              )}
+            </svg>
+            {mode === "buy" ? "รายการออเดอร์ซื้อข้าวเปลือก" : "รายการออเดอร์ขายข้าวเปลือก"}
           </h1>
 
           {/* Toggle Buy/Sell */}
@@ -820,19 +848,16 @@ const Order = () => {
 
             <tbody>
               {loading ? (
+                <SkeletonTableRows rows={10} cols={colCount} />
+              ) : rows.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-6 text-center" colSpan={11}>
-                    <span className="inline-flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                      <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4A4 4 0 004 12z"></path>
-                      </svg>
-                      กำลังโหลดข้อมูล{mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}...
-                    </span>
+                  <td className="p-0" colSpan={colCount}>
+                    <EmptyState
+                      title="ไม่พบข้อมูลออเดอร์"
+                      description={`ไม่มีรายการ${mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}ตามช่วงวันที่และตัวกรองที่เลือก ลองปรับช่วงวันที่หรือล้างตัวกรองด้านบน`}
+                    />
                   </td>
                 </tr>
-              ) : rows.length === 0 ? (
-                <tr><td className="px-3 py-3" colSpan={11}>ไม่พบข้อมูล</td></tr>
               ) : mode === "buy" ? (
                 pagedRows.map((r) => {
                   const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
@@ -846,7 +871,7 @@ const Order = () => {
                   return (
                     <tr
                       key={r.id ?? `${r.order_serial}-${r.date}-${r.first_name ?? ""}-${r.last_name ?? ""}`}
-                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
+                      className="odd:bg-white even:bg-slate-50/70 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700/40 dark:hover:bg-slate-700/70 transition-colors duration-150"
                     >
                       <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
                       <td className="px-3 py-2">{r.order_serial || r.paymentRefNo || "—"}</td>
@@ -875,7 +900,7 @@ const Order = () => {
                   return (
                     <tr
                       key={`${r.id ?? r.sale_id}-${r.sub_order ?? 0}`}
-                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
+                      className="odd:bg-white even:bg-slate-50/70 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700/40 dark:hover:bg-slate-700/70 transition-colors duration-150"
                     >
                       <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
                       <td className="px-3 py-2">{r.sale_id || "—"}</td>

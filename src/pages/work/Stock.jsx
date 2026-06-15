@@ -1,6 +1,9 @@
 // src/pages/Stock.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api" // ← รวม base URL + token + JSON ให้แล้ว
+import { cx } from "../../lib/styles"
+import Skeleton from "../../components/ui/Skeleton"
+import { ErrorState, EmptyState } from "../../components/ui"
 
 /** ---------- Utils ---------- */
 const nf = (n) =>
@@ -214,6 +217,28 @@ function Pill({ children }) {
   )
 }
 
+/** Skeleton ที่จำลองหน้าตา RiceRow (ชื่อชนิดข้าว + ยอดกิโล) ขณะโหลด */
+function StockTreeSkeleton({ rows = 4 }) {
+  return (
+    <div className="space-y-3" role="status" aria-busy="true" aria-live="polite">
+      <span className="sr-only">กำลังโหลดข้อมูลคลังสินค้า…</span>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          aria-hidden="true"
+          className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm px-4 py-3 flex items-center justify-between gap-4"
+        >
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <span className="size-2.5 shrink-0 rounded-full bg-slate-200 dark:bg-slate-700" />
+            <Skeleton rounded="rounded-md" className={cx("h-4", i % 2 === 0 ? "w-2/5" : "w-1/3")} />
+          </div>
+          <Skeleton rounded="rounded-md" className="h-4 w-24 shrink-0" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /** ---------- Tree Rows (ใช้ field ชื่อใหม่: rice, subrice, year) ---------- */
 function RiceRow({ node }) {
   return (
@@ -224,7 +249,7 @@ function RiceRow({ node }) {
             <div className="size-2.5 rounded-full bg-emerald-500/80"></div>
             <div className="font-semibold">
               {node.rice ?? "—"}{" "}
-              <span className="text-gray-400 text-sm ml-2">#{node.rice_id ?? "-"}</span>
+              <span className="text-gray-400 dark:text-gray-500 text-sm ml-2">#{node.rice_id ?? "-"}</span>
             </div>
           </div>
           <div className="text-right tabular-nums font-semibold">{nf(node.total)} กก.</div>
@@ -248,7 +273,7 @@ function SubriceRow({ node }) {
             <div className="size-2 rounded-full bg-teal-400/80"></div>
             <div className="font-medium">
               {node.subrice ?? "—"}{" "}
-              <span className="text-gray-400 text-xs ml-2">#{node.subrice_id ?? "-"}</span>
+              <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">#{node.subrice_id ?? "-"}</span>
             </div>
           </div>
           <div className="text-right tabular-nums">{nf(node.total)} กก.</div>
@@ -286,7 +311,7 @@ function YearRow({ node }) {
               >
                 <div className="text-xs text-gray-600 dark:text-gray-300">
                   {c.condition ?? "—"}{" "}
-                  <span className="text-gray-400">#{c.condition_id ?? "-"}</span>
+                  <span className="text-gray-400 dark:text-gray-500">#{c.condition_id ?? "-"}</span>
                 </div>
                 <div className="tabular-nums text-sm font-medium">{nf(c.available)} กก.</div>
               </div>
@@ -314,6 +339,7 @@ const Stock = () => {
   /** data */
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [reloadKey, setReloadKey] = useState(0) // bump เพื่อ retry การโหลด tree
   const [dataByKlang, setDataByKlang] = useState({}) // { [klangId]: riceArrayUI }
   const [dataSingle, setDataSingle] = useState([])   // riceArrayUI เมื่อเลือกคลังเดียว
 
@@ -407,7 +433,7 @@ const Stock = () => {
       }
     }
     run()
-  }, [branchId, klangId, defaultProductId, klangOptions])
+  }, [branchId, klangId, defaultProductId, klangOptions, reloadKey])
 
   /** totals */
   const totalSingle = useMemo(() => {
@@ -430,9 +456,9 @@ const Stock = () => {
     <div className="p-4 sm:p-6">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl sm:text-3xl font-bold">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
           คลังสินค้า
-          <span className="block text-sm font-normal text-gray-500">
+          <span className="block text-sm font-normal text-gray-500 dark:text-gray-400">
             สรุปตาม <span className="font-medium">สาขา</span> และ <span className="font-medium">คลัง</span>
           </span>
         </h1>
@@ -448,7 +474,7 @@ const Stock = () => {
           <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">สาขา</label>
+                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">สาขา</label>
                 <ComboBox
                   options={branchOptions}
                   value={branchId}
@@ -460,7 +486,7 @@ const Stock = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">คลัง (ทางเลือก)</label>
+                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">คลัง (ทางเลือก)</label>
                 <ComboBox
                   options={klangOptions}
                   value={klangId}
@@ -482,9 +508,11 @@ const Stock = () => {
 
             {/* Error */}
             {error && (
-              <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
+              <ErrorState
+                className="mt-3"
+                message={error}
+                onRetry={() => setReloadKey((k) => k + 1)}
+              />
             )}
           </div>
         </div>
@@ -495,16 +523,16 @@ const Stock = () => {
             {klangId ? (
               <>
                 <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
-                  <div className="text-sm text-gray-500">ปริมาณรวม (คลังที่เลือก)</div>
-                  <div className="text-2xl font-bold mt-1 tabular-nums">{nf(totalSingle.weight)} กก.</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">ปริมาณรวม (คลังที่เลือก)</div>
+                  <div className="text-2xl font-bold mt-1 tabular-nums text-gray-900 dark:text-gray-100">{nf(totalSingle.weight)} กก.</div>
                 </div>
                 <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
-                  <div className="text-sm text-gray-500">มูลค่ารวม (คลังที่เลือก)</div>
-                  <div className="text-2xl font-bold mt-1 tabular-nums">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">มูลค่ารวม (คลังที่เลือก)</div>
+                  <div className="text-2xl font-bold mt-1 tabular-nums text-gray-900 dark:text-gray-100">
                     {totalSingle.value === null ? "—" : thb(totalSingle.value)}
                   </div>
                   {totalSingle.value === null && (
-                    <div className="text-xs text-gray-400 mt-1">
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                       ไม่พบข้อมูลราคาจาก API (value/price_per_kg)
                     </div>
                   )}
@@ -512,8 +540,8 @@ const Stock = () => {
               </>
             ) : (
               <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
-                <div className="text-sm text-gray-500">เลือกรายการด้านล่างเพื่อดูรวมรายคลัง</div>
-                <div className="text-xs text-gray-400 mt-1">ตอนนี้จะแสดงแยก “แต่ละคลัง” ด้านล่าง</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">เลือกรายการด้านล่างเพื่อดูรวมรายคลัง</div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">ตอนนี้จะแสดงแยก “แต่ละคลัง” ด้านล่าง</div>
               </div>
             )}
           </div>
@@ -522,21 +550,38 @@ const Stock = () => {
 
       {/* Data */}
       <div className="space-y-3">
-        {loading && (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 p-6 animate-pulse text-gray-500">
-            กำลังโหลดข้อมูลจากเซิร์ฟเวอร์…
-          </div>
-        )}
+        {loading && <StockTreeSkeleton rows={4} />}
 
         {!loading && !branchId && (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 p-6 text-gray-500">
-            กรุณาเลือกสาขา
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60">
+            <EmptyState
+              title="เลือกสาขาเพื่อเริ่มดูสต็อก"
+              description="เลือกสาขาจากตัวเลือกด้านบน ระบบจะแสดงปริมาณสต็อกของแต่ละคลังให้อัตโนมัติ"
+              icon={
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="size-12"
+                >
+                  <path d="M3 9 12 4l9 5v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+                  <path d="M9 21v-6h6v6" />
+                </svg>
+              }
+            />
           </div>
         )}
 
         {!loading && branchId && klangId && dataSingle.length === 0 && (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 p-6 text-gray-500">
-            ไม่พบข้อมูลสต็อกสำหรับเงื่อนไขปัจจุบัน
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60">
+            <EmptyState
+              title="ไม่พบข้อมูลสต็อก"
+              description="ไม่มีสต็อกสำหรับคลังและเงื่อนไขที่เลือกในขณะนี้ ลองเลือกคลังอื่นหรือกลับไปดูทั้งสาขา"
+            />
           </div>
         )}
 
@@ -554,8 +599,11 @@ const Stock = () => {
         {!loading && branchId && !klangId && (
           <>
             {klangOptions.length === 0 && (
-              <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 p-6 text-gray-500">
-                สาขานี้ยังไม่มีคลัง
+              <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60">
+                <EmptyState
+                  title="สาขานี้ยังไม่มีคลัง"
+                  description="เมื่อมีการเพิ่มคลังให้สาขานี้ ปริมาณสต็อกจะแสดงที่นี่"
+                />
               </div>
             )}
             {klangOptions.map((k) => {
@@ -571,7 +619,7 @@ const Stock = () => {
                     </div>
                   </div>
                   {payload.length === 0 ? (
-                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-4 text-gray-500">
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-4 text-sm text-gray-500 dark:text-gray-400">
                       ไม่มีสต็อกในคลังนี้
                     </div>
                   ) : (

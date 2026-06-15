@@ -9,7 +9,7 @@ const safeQS = () => {
   try {
     if (typeof window === "undefined") return new URLSearchParams()
     return new URLSearchParams(window.location.search)
-  } catch (_) {
+  } catch {
     return new URLSearchParams()
   }
 }
@@ -1091,18 +1091,43 @@ function Documents() {
     if (Object.keys(errs).length) return
 
     const isPdf = report.type === "pdf" || report.type === "share_pdf" || report.type === "phase1_pdf"
+    // หมายเหตุความปลอดภัย: ไม่ใช้ feature "noopener" ตรงนี้ เพราะ noopener จะทำให้
+    // window.open() คืนค่า null บนเบราว์เซอร์เป้าหมาย ซึ่งจะทำให้ flow พรีวิว PDF พัง
+    // (โค้ดด้านล่างต้องใช้ handle เพื่อเขียน placeholder, set location.href เป็น blob URL,
+    // focus/print และ close ตอน error) — แทนที่จะใช้ noopener เราจึง null ค่า opener
+    // ด้วยตัวเองเพื่อปิดช่องโหว่ reverse-tabnabbing โดยยังคงควบคุมหน้าต่างได้
     const preOpenWin = isPdf ? window.open("", "_blank") : null
+    if (preOpenWin) {
+      try {
+        preOpenWin.opener = null
+      } catch { /* ignore */ }
+    }
 
     if (preOpenWin && isPdf) {
       try {
         preOpenWin.document.title = report.title || "Report"
-        preOpenWin.document.body.innerHTML = `
-          <div style="font-family: sans-serif; padding: 16px;">
-            <div style="font-size: 16px; font-weight: 600;">กำลังเตรียมรายงาน…</div>
-            <div style="margin-top: 6px; color: #64748b;">ถ้าหน้านี้ไม่เปลี่ยนเป็น PDF ให้ตรวจสอบสิทธิ์/การเชื่อมต่อ</div>
-          </div>
-        `
-      } catch (_) {}
+        // สร้าง placeholder ด้วย DOM API (createElement + textContent) แทน innerHTML
+        // เพื่อกันการ inject HTML — ไม่มีการนำข้อมูล user/dynamic มา assign ผ่าน innerHTML
+        const doc = preOpenWin.document
+        const wrap = doc.createElement("div")
+        wrap.style.fontFamily = "sans-serif"
+        wrap.style.padding = "16px"
+
+        const heading = doc.createElement("div")
+        heading.style.fontSize = "16px"
+        heading.style.fontWeight = "600"
+        heading.textContent = "กำลังเตรียมรายงาน…"
+
+        const hint = doc.createElement("div")
+        hint.style.marginTop = "6px"
+        hint.style.color = "#64748b"
+        hint.textContent = "ถ้าหน้านี้ไม่เปลี่ยนเป็น PDF ให้ตรวจสอบสิทธิ์/การเชื่อมต่อ"
+
+        wrap.appendChild(heading)
+        wrap.appendChild(hint)
+
+        doc.body.replaceChildren(wrap)
+      } catch { /* ignore */ }
     }
 
     try {
@@ -1135,9 +1160,9 @@ function Documents() {
               try {
                 preOpenWin.focus()
                 preOpenWin.print()
-              } catch (_) {}
+              } catch { /* ignore */ }
             }, 1200)
-          } catch (_) {}
+          } catch { /* ignore */ }
         } else {
           const link = document.createElement("a")
           link.href = url
@@ -1167,7 +1192,7 @@ function Documents() {
       console.error(err)
       try {
         preOpenWin?.close?.()
-      } catch (_) {}
+      } catch { /* ignore */ }
       alert("เกิดข้อผิดพลาดในการดึงรายงาน")
     } finally {
       setDownloading(false)

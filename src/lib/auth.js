@@ -46,9 +46,17 @@ export function isTokenExpired() {
   return now >= u.exp;
 }
 
+// ทุก localStorage key ที่อาจเก็บ auth state หรือ PII ของผู้ใช้ (รวม key รุ่นเก่า
+// ที่เคยใช้). logout() ต้องล้างให้ครบทุกตัว เพื่อไม่ให้เหลือ token/ข้อมูลค้างไว้ให้
+// XSS หรือเครื่องที่ใช้ร่วมกันเข้าถึงได้. ไม่ล้าง 'darkMode' (UI pref) และ
+// 'session_expired' (flag ชั่วคราวที่หน้า Login อ่านเพื่อแจ้งเตือน).
+const AUTH_STORAGE_KEYS = [
+  'token', 'access_token', 'jwt', 'role',
+  'user', 'userdata', 'profile', 'account',
+];
+
 export function logout() {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
+  for (const k of AUTH_STORAGE_KEYS) localStorage.removeItem(k);
 }
 
 /** ✅ ดึง role_id แบบทนทาน: ใช้ user.role_id ก่อน ถ้าไม่มีค่อยสกัดจาก JWT */

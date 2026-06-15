@@ -86,14 +86,36 @@ export function api(path, opts) {
 // --------------------------------------------------
 // protected API (แนบ token อัตโนมัติ; เลือกได้ว่าจะ redirect เมื่อ 401 ไหม)
 // --------------------------------------------------
-import { getToken, logout } from "./auth";
+import { getToken, getUser, logout } from "./auth";
 
 // guard: ป้องกัน 401 หลายตัวพร้อมกัน (เช่น Promise.all) redirect ซ้ำหลายครั้ง
 let _redirecting401 = false;
 
+function _expireSession() {
+  _redirecting401 = true;
+  logout();
+  localStorage.setItem("session_expired", "1");
+  window.location.hash = "#/login";
+}
+
 export async function apiAuth(path, opts = {}) {
   const token = getToken();
   const { redirectOn401 = true, ...rest } = opts;
+
+  // เช็คหมดอายุก่อนยิง: ถ้าถือ token ที่ exp ผ่านมาแล้วจริง อย่าส่งไป backend
+  // — ล้าง session แล้วเด้งไป login ทันที. guard บน exp ที่เป็นเลขบวกจริงเท่านั้น
+  // เพื่อไม่ให้ token ที่ไม่มี exp claim ถูก logout ผิดพลาด.
+  if (token && redirectOn401 && !_redirecting401) {
+    const u = getUser();
+    const now = Math.floor(Date.now() / 1000);
+    if (u?.exp && now >= u.exp) {
+      _expireSession();
+      const e = new Error("Session expired");
+      e.status = 401;
+      throw e;
+    }
+  }
+
   try {
     return await _call(path, {
       ...rest,
@@ -101,10 +123,7 @@ export async function apiAuth(path, opts = {}) {
     });
   } catch (err) {
     if (err.status === 401 && redirectOn401 && !_redirecting401) {
-      _redirecting401 = true;
-      logout();
-      localStorage.setItem("session_expired", "1");
-      window.location.hash = "#/login";
+      _expireSession();
     }
     throw err;
   }

@@ -108,8 +108,15 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
 </body>
 </html>`
 
+  // หมายเหตุความปลอดภัย: ไม่ใช้ feature "noopener" ตรงนี้ เพราะ noopener จะทำให้
+  // window.open() คืนค่า null บนเบราว์เซอร์เป้าหมาย ซึ่งจะทำให้การพิมพ์พัง
+  // (ต้องใช้ handle เพื่อ document.write/close แล้วสั่ง window.print()) — แทนที่จะใช้
+  // noopener เราจึง null ค่า opener ด้วยตัวเองเพื่อปิดช่องโหว่ reverse-tabnabbing
   const popup = window.open("", "_blank", "width=1400,height=900")
   if (popup) {
+    try {
+      popup.opener = null
+    } catch { /* ignore */ }
     popup.document.write(html)
     popup.document.close()
   }

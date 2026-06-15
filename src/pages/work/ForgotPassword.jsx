@@ -1,6 +1,6 @@
 // src/pages/work/ForgotPassword.jsx
 // ขั้นตอนที่ 1 ของการลืมรหัสผ่าน — กรอก username แล้ว BE ส่งลิงก์ไปยัง LINE
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, useSearchParams, Navigate } from "react-router-dom"
 import { api } from "../../lib/api"
 import sktBg from "../../assets/skt_bg.png"
@@ -15,6 +15,19 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [sent, setSent] = useState(false)
+  // friction กัน brute-force ฝั่ง client: นับครั้งที่ล้มเหลว + คูลดาวน์แบบเพิ่มขึ้น
+  // (rate-limit จริงต้องทำที่ backend — ดู SECURITY-NOTES.md)
+  const [failCount, setFailCount] = useState(0)
+  const [cooldown, setCooldown] = useState(0)
+
+  // นับถอยหลังคูลดาวน์ทีละวินาที
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const id = setInterval(() => {
+      setCooldown((s) => (s <= 1 ? 0 : s - 1))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [cooldown])
 
   // กรณี backend ส่ง token มาที่ /forgot-password แทน /reset-password
   const tokenInUrl = searchParams.get("token")
@@ -25,6 +38,7 @@ export default function ForgotPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!username.trim()) return
+    if (loading || cooldown > 0) return
     setError("")
     setLoading(true)
     try {
@@ -33,8 +47,14 @@ export default function ForgotPassword() {
         body: { username: username.trim() },
       })
       setSent(true)
+      setFailCount(0)
+      setCooldown(0)
     } catch (err) {
       setError(err?.message || "ไม่พบชื่อผู้ใช้นี้ในระบบ หรือผู้ใช้ยังไม่ได้ผูก LINE")
+      // คูลดาวน์แบบเพิ่มขึ้น: 2s, 4s, 6s … จำกัดสูงสุด 30 วินาที
+      const next = failCount + 1
+      setFailCount(next)
+      setCooldown(Math.min(next * 2, 30))
     } finally {
       setLoading(false)
     }
@@ -105,7 +125,7 @@ export default function ForgotPassword() {
 
                 <button
                   type="submit"
-                  disabled={loading || !username.trim()}
+                  disabled={loading || cooldown > 0 || !username.trim()}
                   className="w-full rounded-2xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {loading ? (
@@ -113,8 +133,15 @@ export default function ForgotPassword() {
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
                       กำลังส่งลิงก์...
                     </span>
+                  ) : cooldown > 0 ? (
+                    `ลองใหม่อีกครั้งใน ${cooldown} วินาที`
                   ) : <span className="flex items-center justify-center gap-2"><img src={lineIcon} alt="LINE" className="h-5 w-5 object-contain" />ส่งลิงก์รีเซ็ตรหัสผ่านไปยัง LINE</span>}
                 </button>
+                {cooldown > 0 && (
+                  <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+                    เพื่อความปลอดภัย ระบบหน่วงเวลาชั่วคราวหลังส่งคำขอไม่สำเร็จ
+                  </p>
+                )}
 
                 <div className="text-center pt-1">
                   <button

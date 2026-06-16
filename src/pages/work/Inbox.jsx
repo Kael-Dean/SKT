@@ -7,6 +7,7 @@
 //   - อื่นๆ: เห็นเฉพาะ items ที่ assigned_to ตรงกับ userId ของตัวเอง
 
 import { useState, useMemo } from "react"
+import { createPortal } from "react-dom"
 import SelectDropdown from "../../components/SelectDropdown"
 import { EmptyState } from "../../components/ui"
 
@@ -301,7 +302,7 @@ function ActionModal({ isOpen, action, item, onClose, onConfirm }) {
     onClose()
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
@@ -389,7 +390,8 @@ function ActionModal({ isOpen, action, item, onClose, onConfirm }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -495,7 +497,7 @@ function InboxItem({ item, onApprove, onReject, onView }) {
 // ─── Detail Modal ─────────────────────────────────────────────────────────────
 function DetailModal({ item, onClose }) {
   if (!item) return null
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
@@ -565,7 +567,8 @@ function DetailModal({ item, onClose }) {
           ปิด
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

@@ -172,7 +172,7 @@ export default function AllBranchesTable({
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 hover:border-gray-400 dark:hover:bg-gray-700 dark:hover:border-gray-500 active:scale-95 transition-all duration-200 cursor-pointer"
         >
           ← กลับ
         </button>

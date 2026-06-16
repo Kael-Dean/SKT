@@ -570,7 +570,7 @@ const Order = () => {
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
-      <div className="mx-auto max-w-7xl p-4 md:p-6">
+      <div className="mx-auto max-w-[1800px] p-4 md:p-6">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="flex items-center gap-2.5 text-2xl font-bold text-gray-900 dark:text-white">
             <svg
@@ -816,32 +816,32 @@ const Order = () => {
             <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
               {mode === "buy" ? (
                 <tr>
-                  <th className="px-3 py-2">วันที่</th>
-                  <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
+                  <th className="px-3 py-2 whitespace-nowrap">วันที่</th>
+                  <th className="px-3 py-2 whitespace-nowrap">เลขที่ใบสำคัญ</th>
                   <th className="px-3 py-2">ลูกค้า</th>
                   <th className="px-3 py-2">ชนิดข้าว</th>
-                  <th className="px-3 py-2">สาขา</th>
-                  <th className="px-3 py-2">คลัง</th>
-                  <th className="px-3 py-2 text-right">นน.ขาเข้า</th>
-                  <th className="px-3 py-2 text-right">นน.ขาออก</th>
-                  <th className="px-3 py-2 text-right">หัก นน.</th>
-                  <th className="px-3 py-2 text-right">นน.สุทธิ</th>
-                  <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
-                  <th className="px-3 py-2 text-right">เป็นเงิน</th>
+                  <th className="px-3 py-2 whitespace-nowrap">สาขา</th>
+                  <th className="px-3 py-2 whitespace-nowrap">คลัง</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">นน.ขาเข้า</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">นน.ขาออก</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">หัก นน.</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">นน.สุทธิ</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">ราคาต่อกก. (บาท)</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">เป็นเงิน</th>
                 </tr>
               ) : (
                 <tr>
-                  <th className="px-3 py-2">วันที่</th>
-                  <th className="px-3 py-2">ใบรับเงินขายสินค้า</th>
-                  <th className="px-3 py-2">เลขที่ใบชั่ง</th>
+                  <th className="px-3 py-2 whitespace-nowrap">วันที่</th>
+                  <th className="px-3 py-2 whitespace-nowrap">ใบรับเงินขายสินค้า</th>
+                  <th className="px-3 py-2 whitespace-nowrap">เลขที่ใบชั่ง</th>
                   <th className="px-3 py-2">ลูกค้า</th>
                   <th className="px-3 py-2">ชนิดข้าว</th>
-                  <th className="px-3 py-2">สาขา</th>
-                  <th className="px-3 py-2">คลัง</th>
-                  <th className="px-3 py-2 text-right">น้ำหนัก (กก.)</th>
-                  <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
-                  <th className="px-3 py-2 text-right">เป็นเงิน</th>
-                  <th className="px-3 py-2 text-center">#ย่อย</th>
+                  <th className="px-3 py-2 whitespace-nowrap">สาขา</th>
+                  <th className="px-3 py-2 whitespace-nowrap">คลัง</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">น้ำหนัก (กก.)</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">ราคาต่อกก. (บาท)</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">เป็นเงิน</th>
+                  <th className="px-3 py-2 text-center whitespace-nowrap">#ย่อย</th>
                 </tr>
               )}
             </thead>
@@ -873,20 +873,20 @@ const Order = () => {
                       key={r.id ?? `${r.order_serial}-${r.date}-${r.first_name ?? ""}-${r.last_name ?? ""}`}
                       className="odd:bg-white even:bg-slate-50/70 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700/40 dark:hover:bg-slate-700/70 transition-colors duration-150"
                     >
-                      <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
-                      <td className="px-3 py-2">{r.order_serial || r.paymentRefNo || "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.order_serial || r.paymentRefNo || "—"}</td>
                       <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.customer_name || "—"}</td>
                       <td className="px-3 py-2">{r.species || r.rice_type || r.riceType || "—"}</td>
-                      <td className="px-3 py-2">{r.branch_name || r.branchName || "—"}</td>
-                      <td className="px-3 py-2">{r.klang_name || r.klangName || "—"}</td>
-                      <td className="px-3 py-2 text-right">{entry.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{exit.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right text-amber-700 dark:text-amber-400">
+                      <td className="px-3 py-2 whitespace-nowrap">{r.branch_name || r.branchName || "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.klang_name || r.klangName || "—"}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{entry.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{exit.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap text-amber-700 dark:text-amber-400">
                         {deduct > 0 ? deduct.toLocaleString() : "—"}
                       </td>
-                      <td className="px-3 py-2 text-right">{net.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{baht(pricePerKg)}</td>
-                      <td className="px-3 py-2 text-right">{thb(price)}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{net.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{baht(pricePerKg)}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{thb(price)}</td>
                     </tr>
                   )
                 })
@@ -902,17 +902,17 @@ const Order = () => {
                       key={`${r.id ?? r.sale_id}-${r.sub_order ?? 0}`}
                       className="odd:bg-white even:bg-slate-50/70 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700/40 dark:hover:bg-slate-700/70 transition-colors duration-150"
                     >
-                      <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
-                      <td className="px-3 py-2">{r.sale_id || "—"}</td>
-                      <td className="px-3 py-2">{r.order_serial || "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.sale_id || "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.order_serial || "—"}</td>
                       <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "—"}</td>
                       <td className="px-3 py-2">{r.species || "—"}</td>
-                      <td className="px-3 py-2">{r.branch_name || "—"}</td>
-                      <td className="px-3 py-2">{r.klang_name || "—"}</td>
-                      <td className="px-3 py-2 text-right">{net.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{baht(pricePerKg)}</td>
-                      <td className="px-3 py-2 text-right">{thb(price)}</td>
-                      <td className="px-3 py-2 text-center">{r.sub_order ?? "-"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.branch_name || "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.klang_name || "—"}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{net.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{baht(pricePerKg)}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{thb(price)}</td>
+                      <td className="px-3 py-2 text-center whitespace-nowrap">{r.sub_order ?? "-"}</td>
                     </tr>
                   )
                 })

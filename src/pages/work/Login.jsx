@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { saveAuth, getToken, isTokenExpired } from "../../lib/auth";
-import sktBg from "../../assets/skt_bg.png";
+import sktBg from "../../assets/skt_bg.webp";
 
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`;
 

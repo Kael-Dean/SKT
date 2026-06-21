@@ -2,51 +2,13 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../../lib/api"
 
-// ✅ โหลดข้อมูลจากไฟล์ JSON ใน src (ไม่ใช้ fetch จึงไม่โดน 403)
-import PROVINCES_RAW from "../../data/thai/province.json"
-import DISTRICTS_RAW from "../../data/thai/district.json"
-import SUBDISTRICTS_RAW from "../../data/thai/sub_district.json"
+// ✅ โหลดฐานข้อมูลที่อยู่ไทยแบบ fetch-on-demand (sub_district.json 2.2MB ไม่ถูกฝังใน bundle)
+import { useThaiAddressData } from "../../hooks/useThaiAddressData"
 import { cx, baseField, labelCls, errorTextCls, submitBtnCls, resetBtnCls, spinnerCls } from "../../lib/styles"
-import { Card, CardHeader, PageLoader } from "../../components/ui"
+import { Card, CardHeader, PageLoader, ErrorState } from "../../components/ui"
 
 /* -------------------------- Utilities & helpers -------------------------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
-
-// ค้น key แบบยืดหยุ่น รองรับหลายรูปแบบ dataset
-const pickKey = (obj = {}, candidates = []) => {
-  const lower = Object.keys(obj).reduce((acc, k) => (acc[k.toLowerCase()] = k, acc), {})
-  for (const cand of candidates) {
-    const k = lower[cand.toLowerCase()]
-    if (k) return k
-  }
-  return null
-}
-
-// normalize dataset -> province/district/subdistrict พร้อม key ที่พบ
-const detectProvinceKeys = (arr) => {
-  const s = arr?.[0] || {}
-  return {
-    id: pickKey(s, ["id","province_id","changwat_id","code","PROVINCE_ID"]),
-    name: pickKey(s, ["name_th","name","province_name","PROVINCE_NAME","thai_name","th","nameTH"]),
-  }
-}
-const detectDistrictKeys = (arr) => {
-  const s = arr?.[0] || {}
-  return {
-    id: pickKey(s, ["id","district_id","amphoe_id","AMPHOE_ID","DISTRICT_ID","code"]),
-    name: pickKey(s, ["name_th","name","district_name","AMPHOE_NAME","thai_name","nameTH"]),
-    provId: pickKey(s, ["province_id","changwat_id","PROVINCE_ID","CHANGWAT_ID"]),
-  }
-}
-const detectSubdistrictKeys = (arr) => {
-  const s = arr?.[0] || {}
-  return {
-    id: pickKey(s, ["id","sub_district_id","tambon_id","SUB_DISTRICT_ID","TAMBON_ID","code"]),
-    name: pickKey(s, ["name_th","name","sub_district_name","TAMBON_NAME","thai_name","nameTH"]),
-    distId: pickKey(s, ["district_id","amphoe_id","AMPHOE_ID","DISTRICT_ID","code_district"]),
-    zip: pickKey(s, ["zip","zipcode","zip_code","POSTCODE"]),
-  }
-}
 
 // แปลงชุดข้อมูลเป็น options ที่ ComboBox ใช้
 const toOptions = (rows, labelKey, valueKey, extra = (r)=>({})) =>
@@ -382,17 +344,25 @@ const CustomerAdd = () => {
   const [amphoeOptions, setAmphoeOptions] = useState([])
   const [tambonOptions, setTambonOptions] = useState([])
 
-  // สถานะโหลดฐานข้อมูลที่อยู่ (province.json/district.json/sub_district.json) — กันฟอร์มกระตุก
-  const [addressReady, setAddressReady] = useState(false)
+  // โหลดฐานข้อมูลที่อยู่แบบ fetch-on-demand — กันฟอร์มกระตุก + ไม่ฝัง 2.2MB ใน bundle
+  const {
+    provinces: PROVINCES_RAW,
+    districts: DISTRICTS_RAW,
+    subdistricts: SUBDISTRICTS_RAW,
+    keys: addrKeys,
+    ready: addressReady,
+    error: addressError,
+    reload: reloadAddress,
+  } = useThaiAddressData()
 
   // เก็บ id ที่เลือกไว้ใช้กรองขั้นต่อไป
   const [selectedProvinceId, setSelectedProvinceId] = useState(null)
   const [selectedDistrictId, setSelectedDistrictId] = useState(null)
 
-  // dataset keys ที่ตรวจจับได้
-  const PROV_K = useMemo(() => detectProvinceKeys(PROVINCES_RAW), [])
-  const DIST_K = useMemo(() => detectDistrictKeys(DISTRICTS_RAW), [])
-  const SUBD_K = useMemo(() => detectSubdistrictKeys(SUBDISTRICTS_RAW), [])
+  // dataset keys ที่ตรวจจับได้ (มาจาก hook หลัง fetch เสร็จ)
+  const PROV_K = addrKeys.prov
+  const DIST_K = addrKeys.dist
+  const SUBD_K = addrKeys.subd
 
   // refs
   const refs = {
@@ -520,6 +490,7 @@ const CustomerAdd = () => {
 
   /* ---------------------- Build province/district data ---------------------- */
   useEffect(() => {
+    if (!addressReady) return
     // provinces
     const provOpts = toOptions(
       PROVINCES_RAW,
@@ -529,9 +500,8 @@ const CustomerAdd = () => {
     )
     provOpts.sort((a, b) => a.label.localeCompare(b.label, "th"))
     setProvinceOptions(provOpts)
-    setAddressReady(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [addressReady, PROVINCES_RAW])
 
   const reloadDistricts = (provinceId) => {
     if (!provinceId) { setAmphoeOptions([]); return }
@@ -749,7 +719,12 @@ const CustomerAdd = () => {
           <Card>
             <CardHeader title="ข้อมูลลูกค้าทั่วไป" />
 
-            {!addressReady ? (
+            {addressError ? (
+              <ErrorState
+                message={`โหลดฐานข้อมูลที่อยู่ไม่สำเร็จ: ${addressError.message}`}
+                onRetry={reloadAddress}
+              />
+            ) : !addressReady ? (
               <PageLoader variant="spinner" message="กำลังเตรียมข้อมูลที่อยู่…" />
             ) : (
             <>

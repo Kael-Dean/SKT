@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useSearchParams, Navigate } from "react-router-dom"
 import { api } from "../../lib/api"
-import sktBg from "../../assets/skt_bg.png"
+import sktBg from "../../assets/skt_bg.webp"
 
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
 

@@ -117,6 +117,37 @@ jobs:
             echo "WARN: dist/assets not found (Vite may have inlined assets)"
           fi
 
+      # --- Upload public data (gzipped JSON) + logo (cacheable) ---
+      # ไฟล์ใน public/ ตกที่ dist root ไม่เข้า /assets/ → ต้องตั้ง header เอง
+      # GCS ไม่ gzip ให้อัตโนมัติ จึง pre-gzip + ตั้ง Content-Encoding:gzip
+      # (sub_district.json 2.2MB → ~250-400KB on wire)
+      - name: Upload public data + logo (gzipped JSON, cacheable)
+        env:
+          BUCKET: ${{ steps.verify_bucket.outputs.BUCKET_NORMALIZED }}
+        run: |
+          set -euo pipefail
+          echo "Using bucket: $BUCKET"
+
+          if [ -d "dist/data/thai" ]; then
+            for f in dist/data/thai/*.json; do
+              [ -e "$f" ] || continue
+              gzip -9 -k -f "$f"                # สร้าง $f.gz เก็บไฟล์ต้นฉบับไว้
+              name="$(basename "$f")"
+              # upload bytes ของ .gz ไปที่ชื่อ object ปกติ + บอก browser ว่าเป็น gzip
+              # ต้องตั้ง Content-Type:application/json เอง ไม่งั้น gsutil เดาเป็น application/gzip
+              gsutil -h "Content-Type:application/json" \
+                     -h "Content-Encoding:gzip" \
+                     -h "Cache-Control:public, max-age=86400, stale-while-revalidate=604800" \
+                     cp "$f.gz" "gs://$BUCKET/data/thai/$name"
+            done
+          else
+            echo "WARN: dist/data/thai not found"
+          fi
+
+          if [ -d "dist/logo" ]; then
+            gsutil -m -h "Cache-Control:public, max-age=86400, must-revalidate" cp -r "dist/logo/*" "gs://$BUCKET/logo/"
+          fi
+
       # --- Optional: Invalidate Cloud CDN ---
       - name: Invalidate Cloud CDN (optional)
         if: ${{ env.GCP_CDN_URL_MAP != '' }}

@@ -1,59 +1,58 @@
+import { lazy, Suspense } from "react"
 import { Routes, Route, Navigate } from "react-router-dom"
-import AppLayout from "./components/AppLayout"
-import Home from "./pages/work/Home"
-import Documents from "./pages/work/Documents"
-import Order from "./pages/work/Order"
-import Sales from "./pages/work/Sales"
-import Login from "./pages/work/Login"
-import Buy from "./pages/work/Buy"
-import MemberSignup from "./pages/work/MemberSignup"
-import MemberSearch from "./pages/work/MemberSearch"
-import Stock from "./pages/work/Stock"
+import AppLayout from "./components/AppLayout"          // shell หลัก — เก็บ static (อยู่บน critical path)
+import Login from "./pages/work/Login"                  // entry route "/" — เก็บ eager
+import { PageLoader } from "./components/ui"            // fallback ระหว่างโหลด chunk
 
-import CustomerAdd from "./pages/work/CustomerAdd"
-import CompanyAdd from "./pages/work/CompanyAdd"
-import CustomerSearch from "./pages/work/CustomerSearch"
+/* -------- หน้าทั้งหมด lazy-load: แต่ละ route แตกเป็น chunk แยก โหลดเมื่อเข้าถึง -------- */
+const Home = lazy(() => import("./pages/work/Home"))
+const Documents = lazy(() => import("./pages/work/Documents"))
+const Order = lazy(() => import("./pages/work/Order"))
+const Sales = lazy(() => import("./pages/work/Sales"))
+const Buy = lazy(() => import("./pages/work/Buy"))
+const MemberSignup = lazy(() => import("./pages/work/MemberSignup"))
+const MemberSearch = lazy(() => import("./pages/work/MemberSearch"))
+const Stock = lazy(() => import("./pages/work/Stock"))
 
-import StockTransferOut from "./pages/work/StockTransferOut"
-import StockTransferIn from "./pages/work/StockTransferIn"
-import StockBringIn from "./pages/work/StockBringIn"
-import StockTransferMill from "./pages/work/StockTransferMill"
-import StockDamageOut from "./pages/work/StockDamageOut"
-import StockBringInMill from "./pages/work/StockBringInMill"
-import MemberTermination from "./pages/work/MemberTermination"
-import Share from "./pages/work/Share"
+const CustomerAdd = lazy(() => import("./pages/work/CustomerAdd"))
+const CompanyAdd = lazy(() => import("./pages/work/CompanyAdd"))
+const CustomerSearch = lazy(() => import("./pages/work/CustomerSearch"))
 
-/** ✅ หน้าใหม่: Operation Plan (Mock) */
-// ✅ ไฟล์ OperationPlan.jsx ตอนนี้อยู่ที่ /pages/organization/OperationPlan.jsx
-import OperationPlan from "./pages/organization/OperationPlan.jsx"
-import BusinessEdit from "./pages/organization/BusinessEdit.jsx"
-import DebtTracking from "./pages/organization/debt/DebtTracking.jsx"
-import DebtReport from "./pages/organization/debt-report/DebtReport.jsx"
+const StockTransferOut = lazy(() => import("./pages/work/StockTransferOut"))
+const StockTransferIn = lazy(() => import("./pages/work/StockTransferIn"))
+const StockBringIn = lazy(() => import("./pages/work/StockBringIn"))
+const StockTransferMill = lazy(() => import("./pages/work/StockTransferMill"))
+const StockDamageOut = lazy(() => import("./pages/work/StockDamageOut"))
+const StockBringInMill = lazy(() => import("./pages/work/StockBringInMill"))
+const MemberTermination = lazy(() => import("./pages/work/MemberTermination"))
+const Share = lazy(() => import("./pages/work/Share"))
 
-/** ✅ หน้าใหม่: แก้ไขออเดอร์ */
-import OrderCorrection from "./pages/work/OrderCorrection.jsx"
+const OperationPlan = lazy(() => import("./pages/organization/OperationPlan.jsx"))
+const BusinessEdit = lazy(() => import("./pages/organization/BusinessEdit.jsx"))
+const DebtTracking = lazy(() => import("./pages/organization/debt/DebtTracking.jsx"))
+const DebtReport = lazy(() => import("./pages/organization/debt-report/DebtReport.jsx"))
 
-/** ✅ หน้าใหม่: เพิ่มรหัสข้าว (ProductSpec) */
-import RiceSpecCreate from "./pages/work/RiceSpecCreate.jsx"
+const OrderCorrection = lazy(() => import("./pages/work/OrderCorrection.jsx"))
+const RiceSpecCreate = lazy(() => import("./pages/work/RiceSpecCreate.jsx"))
 
 /** ✅ Phase 3B — HR */
-import HRStaffSignup from "./pages/hr/HRStaffSignup.jsx"
-import HRUserList from "./pages/hr/HRUserList.jsx"
-import HRLeaveManagement from "./pages/hr/HRLeaveManagement.jsx"
-import HRFinance from "./pages/hr/HRFinance.jsx"
-import HRRelocation from "./pages/hr/HRRelocation.jsx"
-import HRDashboard from "./pages/hr/HRDashboard.jsx"
-import HRIssueReports from "./pages/hr/HRIssueReports.jsx"
-import HRPersonnelDetail from "./pages/hr/HRPersonnelDetail.jsx"
-import HRSalaryTier from "./pages/hr/HRSalaryTier.jsx"
-import MyProfile from "./pages/work/MyProfile.jsx"
-import LeaveRequest from "./pages/work/LeaveRequest.jsx"
-import Inbox from "./pages/work/Inbox.jsx"
-import FacilityReport from "./pages/work/FacilityReport.jsx"
-import ChangePassword from "./pages/work/ChangePassword.jsx"
-import MyRelocation from "./pages/work/MyRelocation.jsx"
-import ForgotPassword from "./pages/work/ForgotPassword.jsx"
-import ResetPassword from "./pages/work/ResetPassword.jsx"
+const HRStaffSignup = lazy(() => import("./pages/hr/HRStaffSignup.jsx"))
+const HRUserList = lazy(() => import("./pages/hr/HRUserList.jsx"))
+const HRLeaveManagement = lazy(() => import("./pages/hr/HRLeaveManagement.jsx"))
+const HRFinance = lazy(() => import("./pages/hr/HRFinance.jsx"))
+const HRRelocation = lazy(() => import("./pages/hr/HRRelocation.jsx"))
+const HRDashboard = lazy(() => import("./pages/hr/HRDashboard.jsx"))
+const HRIssueReports = lazy(() => import("./pages/hr/HRIssueReports.jsx"))
+const HRPersonnelDetail = lazy(() => import("./pages/hr/HRPersonnelDetail.jsx"))
+const HRSalaryTier = lazy(() => import("./pages/hr/HRSalaryTier.jsx"))
+const MyProfile = lazy(() => import("./pages/work/MyProfile.jsx"))
+const LeaveRequest = lazy(() => import("./pages/work/LeaveRequest.jsx"))
+const Inbox = lazy(() => import("./pages/work/Inbox.jsx"))
+const FacilityReport = lazy(() => import("./pages/work/FacilityReport.jsx"))
+const ChangePassword = lazy(() => import("./pages/work/ChangePassword.jsx"))
+const MyRelocation = lazy(() => import("./pages/work/MyRelocation.jsx"))
+const ForgotPassword = lazy(() => import("./pages/work/ForgotPassword.jsx"))
+const ResetPassword = lazy(() => import("./pages/work/ResetPassword.jsx"))
 
 /* ---------------- role helpers (robust) ---------------- */
 const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5, BRANCH: 6, STAFF: 7 }
@@ -232,6 +231,7 @@ function RequirePasswordChanged({ children }) {
 
 function App() {
   return (
+    <Suspense fallback={<PageLoader variant="spinner" message="กำลังโหลดหน้า…" />}>
     <Routes>
       <Route path="/index.html" element={<Navigate to="/" replace />} />
       <Route path="/" element={<Login />} />
@@ -363,6 +363,7 @@ function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   )
 }
 

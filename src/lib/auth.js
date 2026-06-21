@@ -14,10 +14,14 @@ export function saveAuth(token) {
   // รองรับหลาย field name: role, role_id, roleId, position_id
   const rawRole = payload.role ?? payload.role_id ?? payload.roleId ?? payload.position_id ?? null;
   const roleId = rawRole == null ? null : Number(Array.isArray(rawRole) ? rawRole[0] : rawRole);
+  // active branch (เปลี่ยนได้เมื่อ switch) + home branch (สาขาถาวร)
+  const toBranch = (v) => (v == null ? null : Number(v));
   const user = {
     id: payload.id ?? payload.user_id ?? null,
     username: payload.sub || payload.username || '',
     role_id: Number.isFinite(roleId) ? roleId : null,
+    branch: toBranch(payload.branch ?? payload.branch_location ?? null),
+    home_branch: toBranch(payload.home_branch ?? null),
     exp: payload.exp || 0,
   };
   localStorage.setItem('token', token);
@@ -88,4 +92,24 @@ export function canSeeAddCompany() {
   if (user?.username === 'HA' && roleId === 4) return true;
 
   return false;
+}
+
+/** สาขาที่กำลังดูอยู่ (active branch) — เปลี่ยนได้หลัง switch-branch */
+export function getActiveBranch() {
+  const u = getUser();
+  if (u?.branch != null) return Number(u.branch) || null;
+  const t = getToken();
+  const p = t ? decodeJwt(t) : null;
+  const raw = p?.branch ?? p?.branch_location ?? null;
+  return raw == null ? null : Number(raw) || null;
+}
+
+/** สาขาบ้าน (home branch) — สาขาถาวรของผู้ใช้ ไม่เปลี่ยน */
+export function getHomeBranch() {
+  const u = getUser();
+  if (u?.home_branch != null) return Number(u.home_branch) || null;
+  const t = getToken();
+  const p = t ? decodeJwt(t) : null;
+  const raw = p?.home_branch ?? null;
+  return raw == null ? null : Number(raw) || null;
 }

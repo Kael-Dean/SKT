@@ -70,6 +70,7 @@ export default function MyProfile() {
   const [financial, setFinancial] = useState(null)
   const [positions, setPositions] = useState([])
   const [branches, setBranches] = useState([])
+  const [myBranches, setMyBranches] = useState(null) // { home_branch, extra_branches }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
@@ -87,12 +88,14 @@ export default function MyProfile() {
       apiAuth("/personnel/me/financial").catch(() => null),
       apiAuth("/hr/positions").catch(() => []),
       apiAuth("/order/branch/search").catch(() => []),
+      apiAuth("/personnel/me/branches").catch(() => null),
     ])
-      .then(([prof, fin, pos, bch]) => {
+      .then(([prof, fin, pos, bch, myBch]) => {
         setProfile(prof)
         setFinancial(fin)
         setPositions(Array.isArray(pos) ? pos : [])
         setBranches(Array.isArray(bch) ? bch : [])
+        setMyBranches(myBch)
       })
       .catch(() => setError("ไม่สามารถโหลดข้อมูลโปรไฟล์ได้"))
       .finally(() => setLoading(false))
@@ -207,6 +210,32 @@ export default function MyProfile() {
         <InfoRow label="สิทธิ์ผู้ใช้" value={roleLabel} />
         <InfoRow label="สถานะบัญชี" value={profile?.account_status} />
       </div>
+
+      {/* สาขาที่เข้าถึงได้ — แสดงเฉพาะผู้ใช้ที่มีสาขาเพิ่มเติม */}
+      {myBranches?.extra_branches?.length > 0 && (
+        <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
+          <SectionTitle>สาขาที่เข้าถึงได้</SectionTitle>
+          <div className="flex flex-wrap gap-2">
+            {myBranches.home_branch && (
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 ring-1 ring-indigo-200/70 dark:bg-indigo-900/30 dark:text-indigo-300 dark:ring-indigo-800/50">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                {myBranches.home_branch.branch_name}
+                <span className="text-[11px] font-normal text-indigo-400 dark:text-indigo-300/70">สาขาหลัก</span>
+              </span>
+            )}
+            {myBranches.extra_branches.map((b) => (
+              <span key={b.id} className="inline-flex items-center rounded-xl bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-200 dark:bg-gray-700/50 dark:text-gray-200 dark:ring-gray-600">
+                {b.branch_name}
+              </span>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+            สลับสาขาที่กำลังดูได้จากเมนูสาขาด้านบนขวา
+          </p>
+        </div>
+      )}
 
       {/* ข้อมูลส่วนบุคคล */}
       <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">

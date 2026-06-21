@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getUser, getRoleId } from "../lib/auth";
+import BranchSwitcher from "./BranchSwitcher";
 
 const ROLE_TITLE = {
   1: "admin",
@@ -111,8 +112,11 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
           </div>
         </div>
 
-        {/* Right: inbox bell + dark mode + profile */}
+        {/* Right: branch switcher + inbox bell + dark mode + profile */}
         <div className="flex shrink-0 items-center gap-2">
+          {/* Branch switcher — แสดงเฉพาะผู้ใช้ที่เข้าถึงได้หลายสาขา */}
+          <BranchSwitcher />
+
           {/* Notification bell — navigates to /inbox */}
           <button
             type="button"

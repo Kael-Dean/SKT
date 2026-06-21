@@ -5,6 +5,7 @@ import ReactDOM from "react-dom"
 import { useParams, useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 import { PageLoader, ErrorState, Badge } from "../../components/ui"
+import BranchAssignmentCard from "./BranchAssignmentCard"
 import lineIcon from "../../assets/line-icon.png"
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
@@ -258,6 +259,9 @@ export default function HRPersonnelDetail() {
         <InfoRow label="ตำแหน่ง" value={data.position} />
         <InfoRow label="สถานะบัญชี" value={data.account_status} />
       </div>
+
+      {/* สิทธิ์เข้าถึงสาขา (Super Admin เท่านั้น) */}
+      <BranchAssignmentCard personnelId={id} personnelName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()} />
 
       {/* ข้อมูลส่วนตัว */}
       {Object.keys(pi).length > 0 && (

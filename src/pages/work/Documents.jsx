@@ -52,6 +52,38 @@ const parseCsvInts = (csv) => {
   return Array.from(new Set(out))
 }
 
+/**
+ * แปลง error จาก apiDownload/apiAuth → ข้อความที่บอกสาเหตุจริง
+ * ช่วยแยกว่าติดที่ backend (404 ยังไม่เปิด route), สิทธิ์ (403), เซสชัน (401)
+ * หรือพารามิเตอร์ (422) แทน alert generic
+ */
+const reportErrorMessage = (err) => {
+  const status = Number(err?.status) || 0
+
+  if (status === 404)
+    return "ยังไม่มี endpoint รายงานนี้ที่ฝั่งเซิร์ฟเวอร์ (backend ยังไม่เปิด route) — แจ้งทีม backend"
+  if (status === 403)
+    return "บัญชีนี้ไม่มีสิทธิ์เปิดรายงาน (ต้องเป็น admin / HR / ผู้ดูรายงาน)"
+  if (status === 401)
+    return "เซสชันหมดอายุหรือยังไม่ได้เข้าสู่ระบบ — กรุณาเข้าสู่ระบบใหม่"
+
+  if (status === 422) {
+    // FastAPI 422: { detail: [{ msg }] } หรือ { detail: "string" }
+    let detail = ""
+    try {
+      const j = JSON.parse(err?.message || "")
+      if (Array.isArray(j?.detail)) detail = j.detail.map((d) => d?.msg).filter(Boolean).join(", ")
+      else if (typeof j?.detail === "string") detail = j.detail
+    } catch {
+      detail = String(err?.message || "").slice(0, 200)
+    }
+    return `พารามิเตอร์ไม่ถูกต้อง (422)${detail ? `: ${detail}` : " — ตรวจสอบค่าที่กรอกอีกครั้ง"}`
+  }
+
+  const extra = String(err?.message || "").slice(0, 200)
+  return `เกิดข้อผิดพลาดในการดึงรายงาน${status ? ` (${status})` : ""}${extra ? `: ${extra}` : ""}`
+}
+
 /** ---------- Icons ---------- */
 const PrinterIcon = ({ className = "", size = 20 }) => (
   <svg
@@ -635,11 +667,9 @@ const PHASE1_REPORTS = [
     endpoint: "/reports/phase1/P05/pdf",
     type: "phase1_pdf",
     badge: "PHASE1",
-    require: ["startDate", "endDate", "assoId"],
-    optional: ["branchId"],
-    assoLabel: "asso_id (รหัสภายในสมาชิก)",
-    assoPlaceholder: "เช่น 42",
-    assoHelp: "กรอก asso_id ของสมาชิก — รายงานนี้แสดงประวัติการซื้อข้าวรายคน",
+    // handoff (4): branch-wide report, one row per member — params branch_id, start_date, end_date
+    require: ["branchId", "startDate", "endDate"],
+    optional: [],
   },
   {
     key: "phase1-p06",
@@ -656,7 +686,8 @@ const PHASE1_REPORTS = [
     endpoint: "/reports/phase1/P07/pdf",
     type: "phase1_pdf",
     badge: "PHASE1",
-    require: ["startDate", "endDate", "specId"],
+    // handoff (4): params branch_id, start_date, end_date (no spec_id)
+    require: ["branchId", "startDate", "endDate"],
     optional: [],
   },
   {
@@ -713,7 +744,8 @@ const PHASE1_REPORTS = [
     endpoint: "/reports/phase1/P13/pdf",
     type: "phase1_pdf",
     badge: "PHASE1",
-    require: ["branchId", "startDate", "endDate", "specId"],
+    // handoff (4): params branch_id, start_date, end_date (no spec_id)
+    require: ["branchId", "startDate", "endDate"],
     optional: [],
   },
   {
@@ -1193,7 +1225,7 @@ function Documents() {
       try {
         preOpenWin?.close?.()
       } catch { /* ignore */ }
-      alert("เกิดข้อผิดพลาดในการดึงรายงาน")
+      alert(reportErrorMessage(err))
     } finally {
       setDownloading(false)
     }

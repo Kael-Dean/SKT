@@ -16,12 +16,10 @@
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://api.amcsurin.com https://um-repo-243977022740.asia-southeast1.run.app https://*.run.app http://localhost:8000 http://127.0.0.1:8000; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https:; connect-src 'self' https://api.amcsurin.com https://um-repo-243977022740.asia-southeast1.run.app https://*.run.app http://localhost:8000 http://127.0.0.1:8000; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     />
     <title>สหกรณ์การเกษตร SKT สุรินทร์</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Sarabun self-hosted ใน src/index.css (@font-face) — เลิกพึ่ง Google Fonts CDN -->
   </head>
   <body>
     <div id="root"></div>

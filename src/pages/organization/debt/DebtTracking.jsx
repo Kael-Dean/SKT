@@ -27,7 +27,6 @@ export default function DebtTracking() {
   const [branches, setBranches]       = useState([])
   const [fiscalYears, setFiscalYears] = useState([])
   const [programs, setPrograms]       = useState([])
-  const [allTotals, setAllTotals]     = useState([])
   const [loadingRefs, setLoadingRefs] = useState(true)
   const [errorRefs, setErrorRefs]     = useState("")
   // Bumping this re-runs the reference-data effect (used by ErrorState retry).
@@ -39,11 +38,10 @@ export default function DebtTracking() {
     setErrorRefs("")
     ;(async () => {
       try {
-        const [branchesData, yearsData, progsData, totalsData] = await Promise.allSettled([
+        const [branchesData, yearsData, progsData] = await Promise.allSettled([
           apiAuth("/debt/lookup/branches"),
           apiAuth("/lists/productyear"),
           apiAuth("/debt/programs"),
-          apiAuth("/debt/totals"),
         ])
         if (!alive) return
 
@@ -64,16 +62,13 @@ export default function DebtTracking() {
         if (progsData.status === "fulfilled") {
           setPrograms(Array.isArray(progsData.value) ? progsData.value : [])
         }
-        if (totalsData.status === "fulfilled") {
-          setAllTotals(Array.isArray(totalsData.value) ? totalsData.value.filter((r) => r.is_active !== false) : [])
-        }
         // Surface a problem only if every reference call failed (otherwise the
         // page still renders with whatever loaded — preserves prior behavior).
-        const allFailed = [branchesData, yearsData, progsData, totalsData].every(
+        const allFailed = [branchesData, yearsData, progsData].every(
           (r) => r.status === "rejected"
         )
         if (allFailed) {
-          const first = [branchesData, yearsData, progsData, totalsData].find((r) => r.status === "rejected")
+          const first = [branchesData, yearsData, progsData].find((r) => r.status === "rejected")
           setErrorRefs(first?.reason?.message || "โหลดข้อมูลอ้างอิงไม่สำเร็จ")
         }
       } catch (e) {
@@ -91,15 +86,6 @@ export default function DebtTracking() {
       setPrograms(Array.isArray(data) ? data : [])
     } catch {
       // Silent: a failed background refresh keeps the last good list.
-    }
-  }
-
-  async function reloadTotals() {
-    try {
-      const data = await apiAuth("/debt/totals")
-      setAllTotals(Array.isArray(data) ? data.filter((r) => r.is_active !== false) : [])
-    } catch {
-      // Silent: a failed background refresh keeps the last good totals.
     }
   }
 
@@ -158,17 +144,14 @@ export default function DebtTracking() {
         <>
           {activeTab === "totals" && (
             <DebtTotalsTab
-              roleId={roleId}
               branches={branches}
               programs={programs}
               fiscalYears={fiscalYears}
-              onTotalsChanged={reloadTotals}
             />
           )}
           {activeTab === "transactions" && (
             <DebtTransactionsTab
               roleId={roleId}
-              totals={allTotals}
               branches={branches}
               programs={programs}
               fiscalYears={fiscalYears}

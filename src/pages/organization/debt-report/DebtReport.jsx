@@ -56,8 +56,6 @@ export default function DebtReport() {
   const [programs, setPrograms]           = useState([])
   const [fiscalYears, setFiscalYears]     = useState([])
   const [branches, setBranches]           = useState([])
-  const [allTotals, setAllTotals]         = useState([])
-  const [allTransactions, setAllTransactions] = useState([])
   const [loadingRefs, setLoadingRefs]     = useState(true)
   const [errorRefs, setErrorRefs]         = useState("")
   const [modal, setModal]                 = useState(null)
@@ -65,15 +63,15 @@ export default function DebtReport() {
   const [saving, setSaving]               = useState(false)
   const [saveMsg, setSaveMsg]             = useState("")
 
+  // Only reference data is loaded here; the actual debt figures are derived
+  // server-side and fetched per view from GET /debt/report (v4 waterfall).
   async function fetchAll() {
     setLoadingRefs(true)
     setErrorRefs("")
-    const [branchesRes, yearsRes, progsRes, totalsRes, txRes] = await Promise.allSettled([
+    const [branchesRes, yearsRes, progsRes] = await Promise.allSettled([
       apiAuth("/debt/lookup/branches"),
       apiAuth("/debt/lookup/fiscal-years"),
       apiAuth("/debt/programs"),
-      apiAuth("/debt/totals"),
-      apiAuth("/debt/transactions"),
     ])
 
     if (branchesRes.status === "fulfilled") {
@@ -95,22 +93,8 @@ export default function DebtReport() {
     if (progsRes.status === "fulfilled") {
       setPrograms(Array.isArray(progsRes.value) ? progsRes.value : [])
     }
-    if (totalsRes.status === "fulfilled") {
-      setAllTotals(
-        Array.isArray(totalsRes.value)
-          ? totalsRes.value.filter((r) => r.is_active !== false)
-          : []
-      )
-    }
-    if (txRes.status === "fulfilled") {
-      setAllTransactions(
-        Array.isArray(txRes.value)
-          ? txRes.value.filter((r) => r.is_active !== false)
-          : []
-      )
-    }
 
-    const errors = [branchesRes, yearsRes, progsRes, totalsRes, txRes]
+    const errors = [branchesRes, yearsRes, progsRes]
       .filter((r) => r.status === "rejected")
       .map((r) => r.reason?.message || "โหลดข้อมูลไม่สำเร็จ")
     if (errors.length) setErrorRefs(errors[0])
@@ -129,10 +113,6 @@ export default function DebtReport() {
     } catch {
       // Silent: a failed background refresh keeps the last good program list.
     }
-  }
-
-  async function reloadAll() {
-    await fetchAll()
   }
 
   function openAddProgram() {
@@ -182,9 +162,6 @@ export default function DebtReport() {
         programs={programs}
         fiscalYears={fiscalYears}
         branches={branches}
-        allTotals={allTotals}
-        allTransactions={allTransactions}
-        onDataChanged={reloadAll}
         onBack={() => setView(null)}
       />
     )
@@ -195,8 +172,6 @@ export default function DebtReport() {
       <AllBranchesTable
         programs={programs}
         fiscalYears={fiscalYears}
-        allTotals={allTotals}
-        allTransactions={allTransactions}
         onBack={() => setView(null)}
       />
     )

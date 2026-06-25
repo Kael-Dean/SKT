@@ -1,7 +1,9 @@
-import { useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { apiAuth } from "../../../lib/api"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { cx, secondaryBtnCls } from "../../../lib/styles"
-import { Badge, EmptyState } from "../../../components/ui"
+import { Badge, EmptyState, ErrorState } from "../../../components/ui"
+import { buildReportRows, computeColTotals } from "./buildReportRows"
 import { printDebtTable } from "./printDebtTable"
 
 /** Line-art printer icon for the export button (currentColor, no emoji). */
@@ -27,105 +29,6 @@ function PrinterIcon() {
 const fmtMoney = (v) =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(v) || 0)
 
-function buildTxLookup(transactions) {
-  const map = new Map()
-  for (const tx of transactions) {
-    if (!map.has(tx.debt_id)) {
-      map.set(tx.debt_id, {
-        new_debt_amount: 0,
-        new_debt_count: 0,
-        payments: {
-          mobile_banking: { amount: 0, count: 0 },
-          cash: { amount: 0, count: 0 },
-          produce_trade: { amount: 0, count: 0 },
-          total_amount: 0,
-          total_count: 0,
-        },
-      })
-    }
-    const e = map.get(tx.debt_id)
-    if (tx.transaction_type === "new_debt") {
-      e.new_debt_amount += parseFloat(tx.amount || 0)
-      e.new_debt_count += 1
-    } else if (tx.transaction_type === "payment") {
-      const amt = parseFloat(
-        tx.payment_method === "produce_trade"
-          ? tx.produce_value || tx.amount || 0
-          : tx.amount || 0
-      )
-      const pm = tx.payment_method || "cash"
-      if (e.payments[pm]) {
-        e.payments[pm].amount += amt
-        e.payments[pm].count += 1
-      }
-      e.payments.total_amount += amt
-      e.payments.total_count += 1
-    }
-  }
-  return map
-}
-
-function buildAllBranchesRows(programs, fiscalYears, allTotals, allTransactions) {
-  const txLookup = buildTxLookup(allTransactions)
-  return programs
-    .filter((p) => p.is_active !== false)
-    .map((prog) => ({
-      program: prog,
-      yearRows: fiscalYears.map((fy) => {
-        const totalsForCell = allTotals.filter(
-          (t) => t.program_id === prog.id && t.fiscal_year_id === fy.id
-        )
-        const debtIds = new Set(totalsForCell.map((t) => t.id))
-        let new_debt_amount = 0, new_debt_count = 0
-        const pay = {
-          mobile_banking: { amount: 0, count: 0 },
-          cash: { amount: 0, count: 0 },
-          produce_trade: { amount: 0, count: 0 },
-          total_amount: 0,
-          total_count: 0,
-        }
-        for (const [id, entry] of txLookup) {
-          if (!debtIds.has(id)) continue
-          new_debt_amount += entry.new_debt_amount
-          new_debt_count += entry.new_debt_count
-          for (const pm of ["mobile_banking", "cash", "produce_trade"]) {
-            pay[pm].amount += entry.payments[pm].amount
-            pay[pm].count += entry.payments[pm].count
-          }
-          pay.total_amount += entry.payments.total_amount
-          pay.total_count += entry.payments.total_count
-        }
-        // Per v2 spec: carry_amount = SUM(original_amount) - SUM(new_debt txns)
-        // because BE upserts both carryover and new_debt into original_amount.
-        const originalSum = totalsForCell.reduce((s, t) => s + parseFloat(t.original_amount || 0), 0)
-        const carryAmt = Math.max(0, originalSum - new_debt_amount)
-        const remainAmt = totalsForCell.reduce((s, t) => s + parseFloat(t.remaining_amount || 0), 0)
-        return {
-          fiscalYear: fy,
-          carry_amount: carryAmt,
-          carry_count: totalsForCell.filter((t) => {
-            const tx = txLookup.get(t.id)
-            const carryPortion = parseFloat(t.original_amount || 0) - (tx ? tx.new_debt_amount : 0)
-            return carryPortion > 0
-          }).length,
-          new_amount: new_debt_amount,
-          new_count: new_debt_count,
-          paid_amount: pay.total_amount,
-          paid_count: pay.total_count,
-          remain_amount: remainAmt,
-          remain_count: totalsForCell.filter((t) => parseFloat(t.remaining_amount) > 0).length,
-          mobile_amount: pay.mobile_banking.amount,
-          mobile_count: pay.mobile_banking.count,
-          cash_amount: pay.cash.amount,
-          cash_count: pay.cash.count,
-          produce_amount: pay.produce_trade.amount,
-          produce_count: pay.produce_trade.count,
-          note: "",
-        }
-      }),
-    }))
-}
-
 const STRIPE = {
   head: "bg-slate-100 dark:bg-slate-700",
   cell: "bg-white dark:bg-slate-900",
@@ -133,39 +36,36 @@ const STRIPE = {
   foot: "bg-emerald-100 dark:bg-emerald-900",
 }
 
-export default function AllBranchesTable({
-  programs,
-  fiscalYears,
-  allTotals,
-  allTransactions,
-  onBack,
-}) {
+export default function AllBranchesTable({ programs, fiscalYears, onBack }) {
   const tableWrapRef = useRef(null)
 
-  const tableRows = useMemo(
-    () => buildAllBranchesRows(programs, fiscalYears, allTotals, allTransactions),
-    [programs, fiscalYears, allTotals, allTransactions]
-  )
+  const [reportRows, setReportRows] = useState([])
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState("")
+  const [reloadKey, setReloadKey]   = useState(0)
 
-  const colTotals = useMemo(() => {
-    const all = tableRows.flatMap((g) => g.yearRows)
-    return {
-      carry_amount:   all.reduce((s, r) => s + r.carry_amount, 0),
-      carry_count:    all.reduce((s, r) => s + r.carry_count, 0),
-      new_amount:     all.reduce((s, r) => s + r.new_amount, 0),
-      new_count:      all.reduce((s, r) => s + r.new_count, 0),
-      paid_amount:    all.reduce((s, r) => s + r.paid_amount, 0),
-      paid_count:     all.reduce((s, r) => s + r.paid_count, 0),
-      remain_amount:  all.reduce((s, r) => s + r.remain_amount, 0),
-      remain_count:   all.reduce((s, r) => s + r.remain_count, 0),
-      mobile_amount:  all.reduce((s, r) => s + r.mobile_amount, 0),
-      mobile_count:   all.reduce((s, r) => s + r.mobile_count, 0),
-      cash_amount:    all.reduce((s, r) => s + r.cash_amount, 0),
-      cash_count:     all.reduce((s, r) => s + r.cash_count, 0),
-      produce_amount: all.reduce((s, r) => s + r.produce_amount, 0),
-      produce_count:  all.reduce((s, r) => s + r.produce_count, 0),
-    }
-  }, [tableRows])
+  useEffect(() => {
+    let alive = true
+    setLoading(true)
+    setError("")
+    ;(async () => {
+      try {
+        const data = await apiAuth("/debt/report")
+        if (alive) setReportRows(Array.isArray(data) ? data : [])
+      } catch (e) {
+        if (alive) setError(e.message || "โหลดรายงานไม่สำเร็จ")
+      } finally {
+        if (alive) setLoading(false)
+      }
+    })()
+    return () => { alive = false }
+  }, [reloadKey])
+
+  const tableRows = useMemo(
+    () => buildReportRows(programs, fiscalYears, reportRows),
+    [programs, fiscalYears, reportRows]
+  )
+  const colTotals = useMemo(() => computeColTotals(tableRows), [tableRows])
 
   return (
     <div>
@@ -196,6 +96,12 @@ export default function AllBranchesTable({
           พิมพ์ PDF
         </button>
       </div>
+
+      {error && !loading && (
+        <div className="mb-4">
+          <ErrorState message={error} onRetry={() => setReloadKey((k) => k + 1)} />
+        </div>
+      )}
 
       <div
         ref={tableWrapRef}
@@ -294,8 +200,8 @@ export default function AllBranchesTable({
               <tr>
                 <td colSpan={18} className={cx(STRIPE.cell, "p-0")}>
                   <EmptyState
-                    title="ยังไม่มีข้อมูลหนี้"
-                    description="ยังไม่มีโครงการหรือยอดหนี้ในระบบ — เพิ่มโครงการและบันทึกยอดหนี้ที่หน้าตารางหนี้แยกสาขา"
+                    title={loading ? "กำลังโหลด…" : "ยังไม่มีข้อมูลหนี้"}
+                    description={loading ? "กำลังดึงรายงานหนี้" : "ยังไม่มีโครงการหรือยอดหนี้ในระบบ — เพิ่มโครงการและบันทึกยอดหนี้ที่หน้าตารางหนี้แยกสาขา"}
                   />
                 </td>
               </tr>

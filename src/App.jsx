@@ -29,6 +29,7 @@ const Share = lazy(() => import("./pages/work/Share"))
 
 const OperationPlan = lazy(() => import("./pages/organization/OperationPlan.jsx"))
 const BusinessEdit = lazy(() => import("./pages/organization/BusinessEdit.jsx"))
+const DebtHub = lazy(() => import("./pages/organization/debt/DebtHub.jsx"))
 const DebtTracking = lazy(() => import("./pages/organization/debt/DebtTracking.jsx"))
 const DebtReport = lazy(() => import("./pages/organization/debt-report/DebtReport.jsx"))
 
@@ -294,7 +295,9 @@ function App() {
           }
         />
 
-        {/* ✅ Section 14 — ติดตามผลหนี้ */}
+        {/* ✅ Section 14 — ติดตามหนี้ (hub: ติดตามผลหนี้ + ตารางหนี้) */}
+        <Route path="/debt-hub" element={<DebtHub />} />
+
         <Route
           path="/debt-tracking"
           element={

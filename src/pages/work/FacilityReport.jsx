@@ -1,5 +1,5 @@
 // src/pages/work/FacilityReport.jsx
-// รายรับ-รายจ่ายสถานที่ — POST/GET/PATCH/DELETE /facility-report/*
+// รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์ — POST/GET/PATCH/DELETE /facility-report/*
 import { useEffect, useRef, useState, useMemo } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
 import { getRoleId } from "../../lib/auth"
@@ -578,9 +578,9 @@ export default function FacilityReport() {
     <div className="max-w-3xl mx-auto space-y-5 pb-12">
       {/* Page title */}
       <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">รายรับ-รายจ่ายสถานที่</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-          บันทึกรายรับ-รายจ่ายรายวัน และสร้างรายงาน PDF
+          บันทึกรายได้-ค่าใช้จ่ายรายวัน และสร้างรายงาน PDF
         </p>
       </div>
 

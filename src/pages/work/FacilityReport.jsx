@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useMemo } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
 import { getRoleId } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
+import Portal from "../../components/Portal"
 import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
 
 const ROLE_ADMIN = 1
@@ -919,30 +920,37 @@ export default function FacilityReport() {
         </div>
       )}
 
-      {/* ── Modals ── */}
+      {/* ── Modals ── render through Portal so the fixed overlay centres on the
+           viewport, not on a transformed ancestor (เหมือน popup หน้ากล่องงานรออนุมัติ) */}
       {txModal !== null && (
-        <TransactionModal
-          items={items}
-          defaultDate={filterDate}
-          tx={txModal.tx}
-          onSave={() => { setTxModal(null); setTxVersion((v) => v + 1) }}
-          onClose={() => setTxModal(null)}
-        />
+        <Portal>
+          <TransactionModal
+            items={items}
+            defaultDate={filterDate}
+            tx={txModal.tx}
+            onSave={() => { setTxModal(null); setTxVersion((v) => v + 1) }}
+            onClose={() => setTxModal(null)}
+          />
+        </Portal>
       )}
       {facilityModal !== null && (
-        <FacilityModal
-          facility={facilityModal.facility}
-          onSave={() => { setFacilityModal(null); setAdminVersion((v) => v + 1) }}
-          onClose={() => setFacilityModal(null)}
-        />
+        <Portal>
+          <FacilityModal
+            facility={facilityModal.facility}
+            onSave={() => { setFacilityModal(null); setAdminVersion((v) => v + 1) }}
+            onClose={() => setFacilityModal(null)}
+          />
+        </Portal>
       )}
       {itemModal !== null && (
-        <ItemModal
-          facilities={facilities}
-          item={itemModal.item}
-          onSave={() => { setItemModal(null); setAdminVersion((v) => v + 1) }}
-          onClose={() => setItemModal(null)}
-        />
+        <Portal>
+          <ItemModal
+            facilities={facilities}
+            item={itemModal.item}
+            onSave={() => { setItemModal(null); setAdminVersion((v) => v + 1) }}
+            onClose={() => setItemModal(null)}
+          />
+        </Portal>
       )}
     </div>
   )

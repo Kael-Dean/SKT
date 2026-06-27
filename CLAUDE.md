@@ -4,6 +4,7 @@
 
 - **Auto commit + push ทุกครั้ง** — เมื่อแก้ไขโค้ดเสร็จ ให้ `git add` → `git commit` → `git push` ทันทีโดยไม่ต้องถามผู้ใช้
 - **Frontend เท่านั้น** — ห้ามแตะไฟล์ backend ทุกกรณี แก้ได้เฉพาะไฟล์ใน `src/` และ `public/` เท่านั้น ถ้า task ต้องการเปลี่ยน backend ให้แจ้งผู้ใช้แทน
+- **ใช้ frontend-design skill เสมอ** — ทุกครั้งที่มี task แก้ไข/สร้าง UI หรือ component ฝั่ง frontend ให้เรียกใช้ `frontend-design` skill ก่อนลงมือทำเสมอ (ผ่าน Skill tool)
 
 ## ภาพรวมโปรเจค
 
@@ -106,6 +107,7 @@ Table:   overflow-x-auto wrapper, even:bg-gray-50 dark:even:bg-gray-700/30
 - ComboBox มี keyboard nav (Up/Down/Enter) — อย่าสร้าง dropdown ใหม่ ให้ reuse ตัวเดิม
 - Page padding: `p-4 md:p-6`
 - Animation duration: `duration-200` (hover/focus), `duration-300` (layout animations)
+- **Popup / Modal ต้อง render ผ่าน `<Portal>` เสมอ** (`src/components/Portal.jsx`) — ทำแบบ popup หน้า "กล่องงานรออนุมัติ" (Inbox). ห้าม render overlay `fixed inset-0` ไว้กลาง component tree ตรง ๆ เพราะถ้ามี ancestor ที่มี `transform`/`filter`/`backdrop-filter` `position: fixed` จะอิงกล่องนั้นแทน viewport → modal ไม่อยู่กลางจอ. Portal render เข้าที่ `document.body` + lock body scroll ให้อัตโนมัติ
 
 ---
 

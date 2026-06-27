@@ -21,7 +21,7 @@ const PERSONAL_MENUS = [
   { label: "🚌 คำขอย้ายสาขา",     path: "/my-relocation",   roles: "all" },
   // Phase 3B — HR admin ทุกฟังก์ชันรวมอยู่ใน Dashboard HR แล้ว
   { label: "📊 Dashboard HR",       path: "/hr/dashboard",    roles: [ROLE.ADMIN] },
-  { label: "🏢 รายรับ-รายจ่ายสถานที่", path: "/facility-report", roles: [ROLE.ADMIN, ROLE.MKT, ROLE.BRANCH] },
+  // "รายรับ-รายจ่ายสถานที่" ย้ายไปกลุ่ม "รายงาน & แผน" ในหน้า Home แล้ว
 ]
 
 function canSeeSidebarItem(item, roleId) {

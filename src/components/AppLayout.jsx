@@ -6,6 +6,13 @@ import Topbar from "./Topbar"
 export const SidebarContext = createContext(false)
 export const useSidebarOpen = () => useContext(SidebarContext)
 
+// หน้าที่ "ซ้อน" อยู่ใต้หน้า hub — ปุ่มย้อนกลับจะพากลับไปหน้า parent
+// แทนการเด้งกลับหน้าหลักตรง ๆ. เพิ่ม entry ใหม่ที่นี่เมื่อสร้างฟังก์ชันซ้อน.
+const PARENT_ROUTES = {
+  "/debt-tracking": { path: "/debt-hub", label: "ติดตามหนี้" },
+  "/debt-form": { path: "/debt-hub", label: "ติดตามหนี้" },
+}
+
 const getInitialDark = () => {
   const stored = localStorage.getItem("darkMode")
   if (stored !== null) return stored === "true"
@@ -21,6 +28,11 @@ const AppLayout = () => {
   const isHome = location.pathname === "/home"
   const isHrDashboard = location.pathname === "/hr/dashboard"
   const isHrSubPage = location.pathname.startsWith("/hr/") && !isHrDashboard
+
+  // ปลายทาง + ป้ายของปุ่มย้อนกลับ — ฟังก์ชันซ้อนกลับ parent, HR กลับ dashboard, อื่น ๆ กลับหน้าหลัก
+  const parent = PARENT_ROUTES[location.pathname]
+  const backTo = parent ? parent.path : isHrSubPage ? "/hr/dashboard" : "/home"
+  const backLabel = parent ? parent.label : isHrSubPage ? "HR Dashboard" : "หน้าหลัก"
 
   // ใส่/เอาออก class 'dark' ที่ <html>
   useEffect(() => {
@@ -61,14 +73,14 @@ const AppLayout = () => {
             {!isHome && (
               <div className="mb-6 flex items-center gap-3">
                 <button
-                  onClick={() => navigate(isHrSubPage ? "/hr/dashboard" : "/home")}
+                  onClick={() => navigate(backTo)}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm transition-all duration-150 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-indigo-600 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-300 cursor-pointer"
                   type="button"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
-                  {isHrSubPage ? "HR Dashboard" : "หน้าหลัก"}
+                  {backLabel}
                 </button>
               </div>
             )}

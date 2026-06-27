@@ -140,6 +140,23 @@ npm run lint     # ESLint check
 - Backend error format มาจาก FastAPI — อย่า parse แบบ generic string อย่างเดียว
 - การ check สิทธิ์ใช้ `getRoleId()` จาก `src/lib/auth.js` เท่านั้น — ห้าม hardcode role ใน component
 
+### ฟังก์ชันซ้อน (nested / hub) + ปุ่มย้อนกลับ
+
+เมื่อจับหลายฟังก์ชันมารวมเป็น "hub" หน้าเดียว (เช่น `/debt-hub` รวม `ติดตามผลหนี้` + `ตารางหนี้`):
+
+- หน้า hub เป็นหน้า landing แสดงการ์ดของฟังก์ชันย่อย แต่ละการ์ด `navigate()` ไปหน้าจริง (gate ด้วย `getRoleId()` ถ้าจำเป็น)
+- ปุ่มย้อนกลับเป็น **global** อยู่ใน `src/components/AppLayout.jsx` — โดยปกติเด้งกลับ `/home` (หรือ `/hr/dashboard` สำหรับหน้า HR)
+- ถ้าหน้าใด "ซ้อน" อยู่ใต้ hub ต้องเพิ่ม entry ใน `PARENT_ROUTES` ที่หัวไฟล์ `AppLayout.jsx` เพื่อให้ปุ่มย้อนกลับพากลับไปหน้า parent แทนหน้าหลัก:
+
+```js
+const PARENT_ROUTES = {
+  "/debt-tracking": { path: "/debt-hub", label: "ติดตามหนี้" },
+  "/debt-form":     { path: "/debt-hub", label: "ติดตามหนี้" },
+}
+```
+
+  ป้ายปุ่ม (`label`) จะแสดงชื่อหน้า parent ให้ผู้ใช้รู้ว่ากำลังจะกลับไปไหน
+
 ---
 
 ## ทีม

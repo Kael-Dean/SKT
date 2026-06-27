@@ -1,63 +1,75 @@
-// Shared transform: GET /debt/report rows (DebtReportRow[]) → the program×year
-// matrix shape consumed by BranchDebtTable / AllBranchesTable / printDebtTable.
+// Shared transform: GET /debt/report rows (DebtReportRowOut[]) → the
+// program × cohort-year matrix the tables render.
 //
-// Under the v4 waterfall model the server already aggregates every column
-// (ยอดยกมา/เพิ่มในปี/รับชำระ/คงเหลือ + payment-method breakdown), so the client
-// only reshapes — no balance math here. Money fields arrive as decimal strings.
+// v5 cohort model (api-handoff-v5-cohort): the server returns one row per
+// cohort = (branch × program × origination year), already fully aggregated
+// (ยกมา / เพิ่มในปี / ชำระ / คงเหลือ + payment-method breakdown). We group by
+// program and, within a program, by origination year — summing across branches
+// so the single-branch and all-branches views share one shape. The report only
+// returns cohorts that are still visible, so there is no zero-filling. Money
+// fields arrive as decimal strings; ชำระ has a count (full payoffs only) while
+// the method breakdown is amount-only.
 
 const num = (v) => parseFloat(v) || 0
 const int = (v) => Number(v) || 0
 
-const ZERO_CELL = {
-  carry_amount: 0, carry_count: 0,
-  new_amount: 0, new_count: 0,
-  paid_amount: 0, paid_count: 0,
-  remain_amount: 0, remain_count: 0,
-  mobile_amount: 0, mobile_count: 0,
-  cash_amount: 0, cash_count: 0,
-  produce_amount: 0, produce_count: 0,
-  note: "",
-}
-
-function cellFromReportRow(r) {
+function emptyCell(fy) {
   return {
-    carry_amount:   num(r.carryover_amount),    carry_count:   int(r.carryover_count),
-    new_amount:     num(r.new_debt_amount),      new_count:     int(r.new_debt_count),
-    paid_amount:    num(r.paid_amount),          paid_count:    int(r.paid_count),
-    remain_amount:  num(r.remaining_amount),     remain_count:  int(r.remaining_count),
-    mobile_amount:  num(r.mobile_banking_amount), mobile_count: int(r.mobile_banking_count),
-    cash_amount:    num(r.cash_amount),          cash_count:    int(r.cash_count),
-    produce_amount: num(r.produce_trade_amount), produce_count: int(r.produce_trade_count),
+    fiscalYear: fy,
+    carry_amount: 0, carry_count: 0,
+    new_amount: 0, new_count: 0,
+    paid_amount: 0, paid_count: 0,
+    remain_amount: 0, remain_count: 0,
+    mobile_amount: 0, cash_amount: 0, produce_amount: 0,
     note: "",
   }
 }
 
 /**
- * Build the grouped table model. Renders every active program × every known
- * fiscal year; cells without a matching report row show zeros so the layout
- * stays stable (the report itself only returns rows that have activity).
+ * @param {DebtReportRowOut[]} rows — the `rows` array from DebtReportResponse.
+ * @returns {{ program, yearRows }[]} grouped by program, year rows ascending.
  */
-export function buildReportRows(programs, fiscalYears, reportRows) {
-  const byKey = new Map()
-  for (const r of Array.isArray(reportRows) ? reportRows : []) {
-    byKey.set(`${r.program_id}-${r.fiscal_year_id}`, r)
+export function buildReportRows(rows) {
+  const list = Array.isArray(rows) ? rows : []
+  const progs = new Map() // program_id -> { program, years: Map(fy_id -> cell) }
+
+  for (const r of list) {
+    const pid = r.program_id
+    if (!progs.has(pid)) {
+      progs.set(pid, {
+        program: { id: pid, prog_name: r.program_name || `โครงการ ${pid}` },
+        years: new Map(),
+      })
+    }
+    const g = progs.get(pid)
+    const fyId = r.fiscal_year_id
+    if (!g.years.has(fyId)) {
+      g.years.set(fyId, emptyCell({ id: fyId, year_name: r.fiscal_year || String(fyId) }))
+    }
+    const c = g.years.get(fyId)
+    c.carry_amount  += num(r.carry_in_amount);  c.carry_count  += int(r.carry_in_count)
+    c.new_amount    += num(r.new_amount);        c.new_count    += int(r.new_count)
+    c.paid_amount   += num(r.paid_amount);       c.paid_count   += int(r.paid_count)
+    c.remain_amount += num(r.remaining_amount);  c.remain_count += int(r.remaining_count)
+    c.mobile_amount  += num(r.paid_mobile_amount)
+    c.cash_amount    += num(r.paid_cash_amount)
+    c.produce_amount += num(r.paid_produce_amount)
   }
-  return (programs || [])
-    .filter((p) => p.is_active !== false)
-    .map((prog) => ({
-      program: prog,
-      yearRows: (fiscalYears || []).map((fy) => {
-        const r = byKey.get(`${prog.id}-${fy.id}`)
-        return { fiscalYear: fy, ...(r ? cellFromReportRow(r) : ZERO_CELL) }
-      }),
+
+  return Array.from(progs.values())
+    .map((g) => ({
+      program: g.program,
+      yearRows: Array.from(g.years.values()).sort(
+        (a, b) => (a.fiscalYear.id || 0) - (b.fiscalYear.id || 0)
+      ),
     }))
+    .sort((a, b) => String(a.program.prog_name).localeCompare(String(b.program.prog_name), "th"))
 }
 
 const COL_KEYS = [
   "carry_amount", "carry_count", "new_amount", "new_count",
   "paid_amount", "paid_count", "remain_amount", "remain_count",
-  "mobile_amount", "mobile_count", "cash_amount", "cash_count",
-  "produce_amount", "produce_count",
+  "mobile_amount", "cash_amount", "produce_amount",
 ]
 
 /** Sum every numeric column across all year rows for the footer totals. */

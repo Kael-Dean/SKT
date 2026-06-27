@@ -40,7 +40,7 @@ export default function DebtTracking() {
       try {
         const [branchesData, yearsData, progsData] = await Promise.allSettled([
           apiAuth("/debt/lookup/branches"),
-          apiAuth("/lists/productyear"),
+          apiAuth("/debt/lookup/fiscal-years"),
           apiAuth("/debt/programs"),
         ])
         if (!alive) return

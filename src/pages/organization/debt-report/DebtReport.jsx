@@ -7,6 +7,8 @@ import {
   submitBtnCls, secondaryBtnCls, modalCardCls, modalTitleCls,
 } from "../../../lib/styles"
 import { PageLoader, ErrorState } from "../../../components/ui"
+import { getRoleId } from "../../../lib/auth"
+import { canManagePrograms } from "../debt/debtEntryMeta"
 import BranchDebtTable from "./BranchDebtTable"
 import AllBranchesTable from "./AllBranchesTable"
 
@@ -52,6 +54,7 @@ function AllBranchesIcon() {
 }
 
 export default function DebtReport() {
+  const canAddProgram = canManagePrograms(getRoleId())
   const [view, setView]                   = useState(null)
   const [programs, setPrograms]           = useState([])
   const [fiscalYears, setFiscalYears]     = useState([])
@@ -186,12 +189,14 @@ export default function DebtReport() {
             บันทึกและดูข้อมูลหนี้คงค้างรายสาขา
           </p>
         </div>
-        <button
-          onClick={openAddProgram}
-          className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
-        >
-          + เพิ่มโครงการ
-        </button>
+        {canAddProgram && (
+          <button
+            onClick={openAddProgram}
+            className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
+          >
+            + เพิ่มโครงการ
+          </button>
+        )}
       </div>
 
       {errorRefs && (

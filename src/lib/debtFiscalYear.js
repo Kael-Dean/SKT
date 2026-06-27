@@ -1,11 +1,12 @@
 // Helpers for resolving the Thai fiscal year (ปีการผลิต) from a calendar date.
-// Per api-handoff-v4-waterfall: the Thai fiscal year runs **April–March**,
+// Per api-handoff-v5-cohort: the Thai fiscal year runs **April–March**,
 // Buddhist era, and is labelled "<beStart>/<beStart+1>" e.g. "2569/2570".
 //
-// The backend derives the fiscal year server-side from transaction_date and is
-// authoritative — these helpers only power UI hints + client-side validation so
-// users get instant feedback (current-FY for payment/new-debt, past-FY for
-// old-debt) before the request round-trips.
+// Under the v5 cohort model the user picks fiscal_year_id (origination year)
+// explicitly per entry — the backend enforces the rule (new_debt → current FY,
+// seed → past FY, full_payoff/partial_payment → any year ≤ current). These
+// helpers power the UI dropdown filtering + instant client-side validation so
+// users get feedback before the request round-trips.
 
 /** BE start-year of the fiscal year that a given date falls in (Apr–Mar). */
 export function getFiscalYearBeStart(date = new Date()) {
@@ -71,8 +72,9 @@ export function isDateInPastFiscalYear(isoDate) {
 }
 
 /**
- * fiscalYears options that are **not in the future** — valid targets for a
- * payment's applied_fiscal_year_id (the year it nominally settles). Newest first.
+ * fiscalYears options that are **not in the future** — valid origination years
+ * for a full_payoff / partial_payment (you may pay into any cohort ≤ current).
+ * Newest first.
  */
 export function selectableAppliedFiscalYears(fiscalYears) {
   const currentBeStart = getFiscalYearBeStart()
@@ -80,6 +82,21 @@ export function selectableAppliedFiscalYears(fiscalYears) {
     .filter((y) => {
       const be = parseFiscalYearBeStart(y.year_name)
       return Number.isNaN(be) || be <= currentBeStart
+    })
+    .slice()
+    .sort((a, b) => parseFiscalYearBeStart(b.year_name) - parseFiscalYearBeStart(a.year_name))
+}
+
+/**
+ * fiscalYears strictly **before** the current one — the only valid origination
+ * years for a `seed` (historical carry-in) entry. Newest first.
+ */
+export function pastFiscalYears(fiscalYears) {
+  const currentBeStart = getFiscalYearBeStart()
+  return (Array.isArray(fiscalYears) ? fiscalYears : [])
+    .filter((y) => {
+      const be = parseFiscalYearBeStart(y.year_name)
+      return !Number.isNaN(be) && be < currentBeStart
     })
     .slice()
     .sort((a, b) => parseFiscalYearBeStart(b.year_name) - parseFiscalYearBeStart(a.year_name))

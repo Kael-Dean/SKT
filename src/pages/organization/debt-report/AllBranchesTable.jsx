@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../../lib/api"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { cx, secondaryBtnCls } from "../../../lib/styles"
-import { Badge, EmptyState, ErrorState } from "../../../components/ui"
+import { Badge, ErrorState } from "../../../components/ui"
 import { buildReportRows, computeColTotals } from "./buildReportRows"
 import { printDebtTable } from "./printDebtTable"
+import { ReportHead, ReportBody } from "./BranchDebtTable"
 
 /** Line-art printer icon for the export button (currentColor, no emoji). */
 function PrinterIcon() {
@@ -26,17 +27,7 @@ function PrinterIcon() {
   )
 }
 
-const fmtMoney = (v) =>
-  new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(v) || 0)
-
-const STRIPE = {
-  head: "bg-slate-100 dark:bg-slate-700",
-  cell: "bg-white dark:bg-slate-900",
-  alt: "bg-slate-50 dark:bg-slate-800",
-  foot: "bg-emerald-100 dark:bg-emerald-900",
-}
-
-export default function AllBranchesTable({ programs, fiscalYears, onBack }) {
+export default function AllBranchesTable({ onBack }) {
   const tableWrapRef = useRef(null)
 
   const [reportRows, setReportRows] = useState([])
@@ -50,8 +41,10 @@ export default function AllBranchesTable({ programs, fiscalYears, onBack }) {
     setError("")
     ;(async () => {
       try {
+        // No branch_id → every cohort across all branches; buildReportRows
+        // aggregates them per (program × origination year).
         const data = await apiAuth("/debt/report")
-        if (alive) setReportRows(Array.isArray(data) ? data : [])
+        if (alive) setReportRows(Array.isArray(data?.rows) ? data.rows : [])
       } catch (e) {
         if (alive) setError(e.message || "โหลดรายงานไม่สำเร็จ")
       } finally {
@@ -61,10 +54,7 @@ export default function AllBranchesTable({ programs, fiscalYears, onBack }) {
     return () => { alive = false }
   }, [reloadKey])
 
-  const tableRows = useMemo(
-    () => buildReportRows(programs, fiscalYears, reportRows),
-    [programs, fiscalYears, reportRows]
-  )
+  const tableRows = useMemo(() => buildReportRows(reportRows), [reportRows])
   const colTotals = useMemo(() => computeColTotals(tableRows), [tableRows])
 
   return (
@@ -79,7 +69,7 @@ export default function AllBranchesTable({ programs, fiscalYears, onBack }) {
         <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 flex-1">
           ตารางหนี้รวมทุกสาขา
         </h2>
-        <Badge tone="neutral">ดูข้อมูลรวม — ไม่สามารถแก้ไขได้</Badge>
+        <Badge tone="neutral">ยอดรวมทุกสาขา (per ปีต้นกำเนิดหนี้)</Badge>
         <button
           type="button"
           onClick={() =>
@@ -103,201 +93,15 @@ export default function AllBranchesTable({ programs, fiscalYears, onBack }) {
         </div>
       )}
 
-      <div
-        ref={tableWrapRef}
-        className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700"
-      >
-        <table
-          className="border-collapse text-sm"
-          style={{ tableLayout: "fixed", minWidth: "1400px" }}
-        >
-          <thead className="sticky top-0 z-20">
-            <tr className={cx(STRIPE.head, "text-slate-800 dark:text-slate-100")}>
-              <th
-                rowSpan={3}
-                className="border border-slate-300 dark:border-slate-600 px-1 py-2 text-center text-[11px] font-bold sticky left-0 z-10 bg-slate-100 dark:bg-slate-700"
-                style={{ width: 50, minWidth: 50 }}
-              >
-                ลำดับ
-              </th>
-              <th
-                rowSpan={3}
-                className="border border-slate-300 dark:border-slate-600 px-2 py-2 text-left text-[11px] font-bold sticky left-[50px] z-10 bg-slate-100 dark:bg-slate-700"
-                style={{ width: 180, minWidth: 180 }}
-              >
-                โครงการ
-              </th>
-              <th
-                rowSpan={3}
-                className="border border-slate-300 dark:border-slate-600 px-1 py-2 text-center text-[11px] font-bold sticky left-[230px] z-10 bg-slate-100 dark:bg-slate-700"
-                style={{ width: 80, minWidth: 80 }}
-              >
-                ปีการผลิต
-              </th>
-              <th colSpan={2} className="border border-slate-300 dark:border-slate-600 px-1 py-1.5 text-center text-[11px] font-bold">
-                ยอดยกมา
-              </th>
-              <th colSpan={2} className="border border-slate-300 dark:border-slate-600 px-1 py-1.5 text-center text-[11px] font-bold">
-                เพิ่มในปี
-              </th>
-              <th colSpan={2} className="border border-slate-300 dark:border-slate-600 px-1 py-1.5 text-center text-[11px] font-bold">
-                รับชำระ
-              </th>
-              <th colSpan={2} className="border border-slate-300 dark:border-slate-600 px-1 py-1.5 text-center text-[11px] font-bold">
-                คงเหลือ
-              </th>
-              <th colSpan={6} className="border border-slate-300 dark:border-slate-600 px-1 py-1.5 text-center text-[11px] font-bold bg-indigo-50 dark:bg-indigo-900/20">
-                วิธีชำระหนี้
-              </th>
-              <th
-                rowSpan={3}
-                className="border border-slate-300 dark:border-slate-600 px-1 py-2 text-center text-[11px] font-bold"
-                style={{ width: 100, minWidth: 100 }}
-              >
-                หมายเหตุ
-              </th>
-            </tr>
-            <tr className={cx(STRIPE.head, "text-slate-800 dark:text-slate-100")}>
-              {Array(8).fill(null).map((_, i) => (
-                <th
-                  key={i}
-                  className="border border-slate-300 dark:border-slate-600"
-                  style={{ width: 80, minWidth: 80 }}
-                />
-              ))}
-              <th colSpan={2} className="border border-slate-300 dark:border-slate-600 px-0.5 py-1 text-center text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20">
-                โอนผ่านมือถือ
-              </th>
-              <th colSpan={2} className="border border-slate-300 dark:border-slate-600 px-0.5 py-1 text-center text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20">
-                เงินสด
-              </th>
-              <th colSpan={2} className="border border-slate-300 dark:border-slate-600 px-0.5 py-1 text-center text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20">
-                ชำระด้วยผลผลิต
-              </th>
-            </tr>
-            <tr className={cx(STRIPE.head, "text-slate-700 dark:text-slate-300")}>
-              {Array(7).fill(null).flatMap((_, i) => [
-                <th
-                  key={`a${i}`}
-                  className="border border-slate-300 dark:border-slate-600 px-0.5 py-1 text-center text-[10px]"
-                  style={{ width: 80, minWidth: 80 }}
-                >
-                  จำนวน(บาท)
-                </th>,
-                <th
-                  key={`b${i}`}
-                  className="border border-slate-300 dark:border-slate-600 px-0.5 py-1 text-center text-[10px]"
-                  style={{ width: 65, minWidth: 65 }}
-                >
-                  จำนวนราย
-                </th>,
-              ])}
-            </tr>
-          </thead>
-
-          <tbody>
-            {tableRows.length === 0 ? (
-              <tr>
-                <td colSpan={18} className={cx(STRIPE.cell, "p-0")}>
-                  <EmptyState
-                    title={loading ? "กำลังโหลด…" : "ยังไม่มีข้อมูลหนี้"}
-                    description={loading ? "กำลังดึงรายงานหนี้" : "ยังไม่มีโครงการหรือยอดหนี้ในระบบ — เพิ่มโครงการและบันทึกยอดหนี้ที่หน้าตารางหนี้แยกสาขา"}
-                  />
-                </td>
-              </tr>
-            ) : (
-              tableRows.map((group, gi) => {
-                const rowBg = gi % 2 === 0 ? STRIPE.cell : STRIPE.alt
-                return group.yearRows.map((yr, yi) => (
-                  <tr key={`${group.program.id}-${yr.fiscalYear.id}`} className={rowBg}>
-                    {yi === 0 && (
-                      <>
-                        <td
-                          rowSpan={group.yearRows.length}
-                          className={cx(
-                            "border border-slate-200 dark:border-slate-700 px-1 py-2 text-center text-xs sticky left-0 z-10",
-                            rowBg
-                          )}
-                        >
-                          {gi + 1}
-                        </td>
-                        <td
-                          rowSpan={group.yearRows.length}
-                          className={cx(
-                            "border border-slate-200 dark:border-slate-700 px-2 py-2 text-xs font-medium sticky left-[50px] z-10",
-                            rowBg
-                          )}
-                        >
-                          {group.program.prog_name}
-                        </td>
-                      </>
-                    )}
-                    <td
-                      className={cx(
-                        "border border-slate-200 dark:border-slate-700 px-1 py-2 text-center text-xs sticky left-[230px] z-10",
-                        rowBg
-                      )}
-                    >
-                      {yr.fiscalYear.year_name}
-                    </td>
-                    {[
-                      yr.carry_amount, yr.carry_count,
-                      yr.new_amount, yr.new_count,
-                      yr.paid_amount, yr.paid_count,
-                      yr.remain_amount, yr.remain_count,
-                      yr.mobile_amount, yr.mobile_count,
-                      yr.cash_amount, yr.cash_count,
-                      yr.produce_amount, yr.produce_count,
-                    ].map((val, ci) => (
-                      <td
-                        key={ci}
-                        className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right text-xs tabular-nums"
-                      >
-                        {ci % 2 === 0 ? fmtMoney(val) : val || 0}
-                      </td>
-                    ))}
-                    <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-xs text-gray-500 dark:text-gray-400">
-                      {yr.note || ""}
-                    </td>
-                  </tr>
-                ))
-              })
-            )}
-          </tbody>
-
-          <tfoot>
-            <tr className={STRIPE.foot}>
-              <td
-                colSpan={3}
-                className={cx(
-                  "border border-slate-300 dark:border-slate-600 px-2 py-2 text-xs font-bold sticky left-0 z-10",
-                  STRIPE.foot
-                )}
-              >
-                รวมทั้งหมด
-              </td>
-              {[
-                colTotals.carry_amount, colTotals.carry_count,
-                colTotals.new_amount, colTotals.new_count,
-                colTotals.paid_amount, colTotals.paid_count,
-                colTotals.remain_amount, colTotals.remain_count,
-                colTotals.mobile_amount, colTotals.mobile_count,
-                colTotals.cash_amount, colTotals.cash_count,
-                colTotals.produce_amount, colTotals.produce_count,
-              ].map((val, ci) => (
-                <td
-                  key={ci}
-                  className={cx(
-                    "border border-slate-300 dark:border-slate-600 px-1 py-2 text-right text-xs font-bold tabular-nums",
-                    STRIPE.foot
-                  )}
-                >
-                  {ci % 2 === 0 ? fmtMoney(val) : val || 0}
-                </td>
-              ))}
-              <td className={cx("border border-slate-300 dark:border-slate-600", STRIPE.foot)} />
-            </tr>
-          </tfoot>
+      <div ref={tableWrapRef} className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700">
+        <table className="border-collapse text-sm" style={{ tableLayout: "fixed", minWidth: "1200px" }}>
+          <ReportHead />
+          <ReportBody
+            tableRows={tableRows}
+            colTotals={colTotals}
+            loading={loading}
+            emptyDescription="ยังไม่มียอดหนี้ในระบบ — บันทึกรายการที่หน้าตารางหนี้แยกสาขา"
+          />
         </table>
       </div>
       <StickyTableScrollbar tableRef={tableWrapRef} />

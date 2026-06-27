@@ -9,12 +9,14 @@ const SUMMARY_COLS = 6
 
 const fmtMoney = (v) =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(v) || 0)
+const num = (v) => parseFloat(v) || 0
 
 /**
- * Read-only outstanding-debt view. Under the v4 waterfall model balances are
- * derived on read — there is no editable "totals" ledger. This tab simply
- * renders GET /debt/summary (per branch/program/year), filtered server-side by
- * branch/program and client-side by fiscal year.
+ * Read-only outstanding-balance view. The v5 cohort model derives everything on
+ * read, so this tab renders GET /debt/report (one row per branch×program×
+ * origination-year cohort), filtered server-side by branch/program and
+ * client-side by fiscal year. ยอดหนี้รวม = ยกมา + เพิ่มในปี; คงเหลือ comes
+ * straight from the report.
  */
 export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
   const [filters, setFilters] = useState({ branch_id: "", program_id: "", fiscal_year_id: "" })
@@ -35,9 +37,9 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
         const params = new URLSearchParams()
         if (filters.branch_id)  params.set("branch_id", filters.branch_id)
         if (filters.program_id) params.set("program_id", filters.program_id)
-        const url = `/debt/summary${params.toString() ? "?" + params.toString() : ""}`
+        const url = `/debt/report${params.toString() ? "?" + params.toString() : ""}`
         const data = await apiAuth(url)
-        if (alive) setRows(Array.isArray(data) ? data : [])
+        if (alive) setRows(Array.isArray(data?.rows) ? data.rows : [])
       } catch (e) {
         if (alive) setError(e.message || "โหลดข้อมูลไม่สำเร็จ")
       } finally {
@@ -57,7 +59,7 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
     ...programs.filter((p) => p.is_active !== false).map((p) => ({ value: String(p.id), label: p.prog_name })),
   ]
   const yearOpts = [
-    { value: "", label: "ทุกปีงบประมาณ" },
+    { value: "", label: "ทุกปีการผลิต" },
     ...fiscalYears.map((y) => ({ value: String(y.id), label: y.year_name })),
   ]
 
@@ -68,9 +70,9 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
     [rows, filters.fiscal_year_id]
   )
 
-  const totalOriginal  = visibleRows.reduce((s, r) => s + parseFloat(r.original_amount || 0), 0)
-  const totalPaid      = visibleRows.reduce((s, r) => s + parseFloat(r.total_paid || 0), 0)
-  const totalRemaining = visibleRows.reduce((s, r) => s + parseFloat(r.remaining_amount || 0), 0)
+  const totalOriginal  = visibleRows.reduce((s, r) => s + num(r.carry_in_amount) + num(r.new_amount), 0)
+  const totalPaid      = visibleRows.reduce((s, r) => s + num(r.paid_amount), 0)
+  const totalRemaining = visibleRows.reduce((s, r) => s + num(r.remaining_amount), 0)
 
   return (
     <div className="space-y-4">
@@ -86,7 +88,7 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
             <SelectDropdown options={progOpts} value={filters.program_id} onChange={(val) => setFilter("program_id", val)} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">ปีงบประมาณ</label>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">ปีการผลิต</label>
             <SelectDropdown options={yearOpts} value={filters.fiscal_year_id} onChange={(val) => setFilter("fiscal_year_id", val)} />
           </div>
         </div>
@@ -122,7 +124,7 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
         <p className="text-sm text-gray-500 dark:text-gray-400">
           {loading ? "กำลังโหลด…" : `พบ ${visibleRows.length} รายการ`}
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">ยอดคำนวณจากธุรกรรมอัตโนมัติ (อ่านอย่างเดียว)</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">ยอดคำนวณจากรายการอัตโนมัติ (อ่านอย่างเดียว)</p>
       </div>
 
       {error && !loading && (
@@ -136,7 +138,7 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
             description={
               hasFilters
                 ? "ไม่มีรายการที่ตรงกับตัวกรอง — ลองล้างตัวกรองหรือเลือกเงื่อนไขอื่น"
-                : "ยังไม่มีหนี้คงค้างในระบบ — บันทึกยอดยกมา/หนี้เก่า หรือหนี้เพิ่มในปี ที่แท็บ “ธุรกรรม”"
+                : "ยังไม่มีหนี้คงค้างในระบบ — บันทึกยอดยกมา หรือหนี้เพิ่มในปี ที่แท็บ “ธุรกรรม”"
             }
           />
         </div>
@@ -146,7 +148,7 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
-                  {["สาขา","โปรแกรมหนี้","ปีงบประมาณ","ยอดหนี้รวม","ชำระแล้ว","ยอดคงเหลือ"].map((h, i) => (
+                  {["สาขา","โปรแกรมหนี้","ปีการผลิต","ยอดหนี้รวม","ชำระแล้ว","ยอดคงเหลือ"].map((h, i) => (
                     <th key={h} className={cx("px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap", i >= 3 ? "text-right" : "text-left")}>
                       {h}
                     </th>
@@ -157,20 +159,24 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
                 {loading ? (
                   <SkeletonTableRows rows={6} cols={SUMMARY_COLS} />
                 ) : (
-                  visibleRows.map((row, i) => (
-                    <tr key={`${row.branch_id}-${row.program_id}-${row.fiscal_year_id}-${i}`} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
-                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{row.branch_name}</td>
-                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.program_name}</td>
-                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.fiscal_year}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-gray-900 dark:text-gray-100 whitespace-nowrap">฿{fmtMoney(row.original_amount)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">฿{fmtMoney(row.total_paid)}</td>
-                      <td className={cx("px-4 py-3 text-right tabular-nums font-semibold whitespace-nowrap",
-                        parseFloat(row.remaining_amount) > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
-                      )}>
-                        ฿{fmtMoney(row.remaining_amount)}
-                      </td>
-                    </tr>
-                  ))
+                  visibleRows.map((row, i) => {
+                    const original = num(row.carry_in_amount) + num(row.new_amount)
+                    const remaining = num(row.remaining_amount)
+                    return (
+                      <tr key={`${row.branch_id}-${row.program_id}-${row.fiscal_year_id}-${i}`} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{row.branch_name}</td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.program_name}</td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.fiscal_year}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-gray-900 dark:text-gray-100 whitespace-nowrap">฿{fmtMoney(original)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">฿{fmtMoney(row.paid_amount)}</td>
+                        <td className={cx("px-4 py-3 text-right tabular-nums font-semibold whitespace-nowrap",
+                          remaining > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
+                        )}>
+                          ฿{fmtMoney(remaining)}
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>

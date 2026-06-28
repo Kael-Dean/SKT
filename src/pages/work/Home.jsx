@@ -101,7 +101,6 @@ const ALL_FUNCTIONS = [
       { label: "แก้ไขข้อมูลธุรกิจ", path: "/business-edit", icon: "⚙️", roles: "all" },
       { label: "ติดตามหนี้", path: "/debt-hub", icon: "💳", roles: "all" },
       { label: "รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์", path: "/facility-report", icon: "🏢", roles: [ROLE.ADMIN, ROLE.MKT, ROLE.BRANCH] },
-      { label: "ตัวอย่างเว็บ", path: "/showcase", icon: "🖼️", roles: "all" },
     ],
   },
   {

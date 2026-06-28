@@ -55,10 +55,6 @@ const MyRelocation = lazy(() => import("./pages/work/MyRelocation.jsx"))
 const ForgotPassword = lazy(() => import("./pages/work/ForgotPassword.jsx"))
 const ResetPassword = lazy(() => import("./pages/work/ResetPassword.jsx"))
 
-/* ---------------- Showcase — ตัวอย่างเว็บ / landing pages ---------------- */
-const Showcase = lazy(() => import("./pages/showcase/Showcase.jsx"))
-const ThakthoLanding = lazy(() => import("./pages/showcase/ThakthoLanding.jsx"))
-
 /* ---------------- role helpers (robust) ---------------- */
 const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5, BRANCH: 6, STAFF: 7 }
 const ROLE_ALIASES = {
@@ -359,13 +355,7 @@ function App() {
           path="/facility-report"
           element={<RequireFacilityAccess><FacilityReport /></RequireFacilityAccess>}
         />
-
-        {/* ✅ ตัวอย่างเว็บ — หน้า showcase (card → landing เต็มจอ) */}
-        <Route path="/showcase" element={<Showcase />} />
       </Route>
-
-      {/* ✅ Landing pages — เต็มจอ ไม่มี Sidebar/Topbar (อยู่นอก AppLayout) */}
-      <Route path="/landing/thaktho" element={<ThakthoLanding />} />
 
       {/* ✅ Phase 3B — ChangePassword อยู่นอก AppLayout */}
       <Route path="/change-password" element={<ChangePassword />} />

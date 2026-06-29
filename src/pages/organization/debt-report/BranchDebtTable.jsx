@@ -294,7 +294,7 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
           />
         </table>
       </div>
-      <StickyTableScrollbar tableRef={tableWrapRef} />
+      <StickyTableScrollbar tableRef={tableWrapRef} hidden={!!modal} />
 
       {modal?.mode === "add" && (
         <DebtEntryModal

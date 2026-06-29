@@ -9,7 +9,7 @@ const STEP = 200
 const REPEAT_DELAY = 400
 const REPEAT_INTERVAL = 60
 
-export default function StickyTableScrollbar({ tableRef }) {
+export default function StickyTableScrollbar({ tableRef, hidden = false }) {
   // ─── Container position (relative to viewport) ───
   const [pos, setPos] = useState({ left: 0, right: 0, top: 0, bottom: 0 })
 
@@ -311,7 +311,7 @@ export default function StickyTableScrollbar({ tableRef }) {
     sync()
   }, [tableRef, vThumb, sync])
 
-  if (!hVis && !vVis) return null
+  if (hidden || (!hVis && !vVis)) return null
 
   // ─── Computed positions ───
   const hLeft   = pos.left

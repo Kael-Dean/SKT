@@ -148,7 +148,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    apiAuth("/me")
+    apiAuth("/personnel/me")
       .then(setApiUser)
       .catch(() => {})
       .finally(() => setLoading(false))

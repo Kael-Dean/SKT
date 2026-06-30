@@ -77,11 +77,17 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
     th { border: 1px solid #94a3b8; padding: 5px 6px; font-size: 12px; background: #f1f5f9; font-weight: 600; text-align: center; }
     td { border: 1px solid #94a3b8; padding: 5px 6px; font-size: 12px; }
     .pay { background: #eef2ff; }
-    @page { size: A3 landscape; margin: 1cm; }
-    @media print { body { padding: 0; } }
+    .toolbar { position: sticky; top: 0; z-index: 10; background: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 10px 0 12px; margin-bottom: 12px; text-align: center; }
+    .toolbar button { font-family: inherit; font-size: 14px; font-weight: 600; color: #ffffff; background: #6366f1; border: none; border-radius: 10px; padding: 9px 22px; cursor: pointer; }
+    .toolbar button:hover { background: #4f46e5; }
+    @page { size: A4 landscape; margin: 0.8cm; }
+    @media print { body { padding: 0; } .no-print { display: none !important; } }
   </style>
 </head>
 <body>
+  <div class="toolbar no-print">
+    <button type="button" onclick="window.print()">พิมพ์ / บันทึกเป็น PDF</button>
+  </div>
   <div class="doc-header">
     <img class="doc-logo" src="${logoUrl}" alt="" />
     <div class="org-name">${ORG_NAME}</div>

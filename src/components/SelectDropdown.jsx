@@ -1,7 +1,17 @@
 // src/components/SelectDropdown.jsx
 // Styled custom dropdown — used across HR pages (indigo theme)
 // onChange(value: string) — called with the selected option's value as string
-import { useEffect, useRef, useState } from "react"
+//
+// The open panel renders through a portal to <body> at a very high z-index and
+// is positioned with `fixed` coords from the trigger's rect. This guarantees no
+// overlay (e.g. the sticky table scrollbar at z-index 10000) can ever cover the
+// options while the user is choosing. See CLAUDE.md → "Popup / Modal ต้อง render
+// ผ่าน Portal เสมอ".
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
+
+// Must sit above StickyTableScrollbar (z-index 10000) and any other overlay.
+const PANEL_Z = 10050
 
 // ชุดสีสำหรับช่องสีเล็กด้านซ้ายของแต่ละ option (วนซ้ำถ้ามีมากกว่า 8 รายการ)
 const SWATCH = [
@@ -26,13 +36,46 @@ export default function SelectDropdown({
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+  const triggerRef = useRef(null)
+  const panelRef = useRef(null)
+  // Fixed-position rect for the portaled panel + whether to flip above the trigger.
+  const [rect, setRect] = useState({ left: 0, top: 0, width: 0, openUp: false })
 
   const selected = options.find((o) => String(o.value) === String(value))
 
-  // close on outside click
+  // Position the portaled panel from the trigger's viewport rect.
+  const reposition = () => {
+    const el = triggerRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const PANEL_MAX = 256 // max-h-64
+    const spaceBelow = window.innerHeight - r.bottom
+    const openUp = spaceBelow < PANEL_MAX && r.top > spaceBelow
+    setRect({ left: r.left, top: openUp ? r.top : r.bottom, width: r.width, openUp })
+  }
+
+  useLayoutEffect(() => {
+    if (open) reposition()
+  }, [open])
+
+  // Keep the panel glued to the trigger while scrolling/resizing.
+  useEffect(() => {
+    if (!open) return
+    const handle = () => reposition()
+    window.addEventListener("scroll", handle, true) // capture: catch inner scroll containers
+    window.addEventListener("resize", handle)
+    return () => {
+      window.removeEventListener("scroll", handle, true)
+      window.removeEventListener("resize", handle)
+    }
+  }, [open])
+
+  // close on outside click — panel is portaled, so check both trigger and panel
   useEffect(() => {
     const handle = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+      if (ref.current?.contains(e.target)) return
+      if (panelRef.current?.contains(e.target)) return
+      setOpen(false)
     }
     document.addEventListener("mousedown", handle)
     return () => document.removeEventListener("mousedown", handle)
@@ -57,6 +100,7 @@ export default function SelectDropdown({
     <div className="relative" ref={ref}>
       {/* Trigger button */}
       <button
+        ref={triggerRef}
         type="button"
         disabled={isDisabled}
         onClick={() => !isDisabled && setOpen((o) => !o)}
@@ -109,11 +153,22 @@ export default function SelectDropdown({
         </span>
       </button>
 
-      {/* Dropdown panel */}
-      {open && (
+      {/* Dropdown panel — portaled to <body> so nothing (e.g. sticky table
+          scrollbar at z-10000) can overlap it while choosing. */}
+      {open && createPortal(
         <div
+          ref={panelRef}
           role="listbox"
-          className="absolute z-30 mt-1.5 max-h-64 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
+          style={{
+            position: "fixed",
+            left: rect.left,
+            width: rect.width,
+            zIndex: PANEL_Z,
+            ...(rect.openUp
+              ? { bottom: window.innerHeight - rect.top + 6 }
+              : { top: rect.top + 6 }),
+          }}
+          className="max-h-64 overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
         >
           {options.length === 0 ? (
             <div className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">
@@ -169,7 +224,8 @@ export default function SelectDropdown({
               )
             })
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

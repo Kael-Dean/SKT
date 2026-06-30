@@ -119,23 +119,6 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
       </tr>
     </tfoot>
   </table>
-  <script>
-    function doPrint() { try { window.focus() } catch (e) {} window.print() }
-    // Auto-open Chrome's print dialog once the report (incl. logo) is rendered.
-    // 1.2s fallback so a slow/failed logo never blocks the dialog.
-    window.onload = function () {
-      var img = document.querySelector('.doc-logo')
-      var fired = false
-      function go() { if (fired) return; fired = true; doPrint() }
-      if (img && !img.complete) {
-        img.onload = go
-        img.onerror = go
-        setTimeout(go, 1200)
-      } else {
-        go()
-      }
-    }
-  </script>
 </body>
 </html>`
 
@@ -150,6 +133,12 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
     } catch { /* ignore */ }
     popup.document.write(html)
     popup.document.close()
-    try { popup.focus() } catch { /* ignore */ }
+    // Fire print() synchronously while we still hold the click's user
+    // activation — deferring to the popup's onload gets blocked by Chrome.
+    // Chrome's print preview loads the logo itself when generating the preview.
+    try {
+      popup.focus()
+      popup.print()
+    } catch { /* ignore */ }
   }
 }

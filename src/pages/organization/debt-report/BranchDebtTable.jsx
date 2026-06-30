@@ -242,7 +242,7 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
   ]
 
   return (
-    <div>
+    <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 px-4 md:px-6">
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <button
           onClick={onBack}
@@ -312,9 +312,8 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
         </div>
       )}
 
-      <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 px-4 md:px-6">
-        <div ref={tableWrapRef} className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700">
-          <table className="border-collapse text-sm" style={{ tableLayout: "fixed", minWidth: "1200px", width: "100%" }}>
+      <div ref={tableWrapRef} className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700">
+        <table className="border-collapse text-sm" style={{ tableLayout: "fixed", minWidth: "1200px", width: "100%" }}>
           <ReportHead />
           <ReportBody
             tableRows={tableRows}
@@ -337,10 +336,9 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
               ) : null
             }
           />
-          </table>
-        </div>
-        <StickyTableScrollbar tableRef={tableWrapRef} hidden={!!modal} />
+        </table>
       </div>
+      <StickyTableScrollbar tableRef={tableWrapRef} hidden={!!modal} />
 
       {modal?.mode === "add" && (
         <DebtEntryModal

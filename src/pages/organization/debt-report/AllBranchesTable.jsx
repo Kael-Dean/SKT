@@ -58,7 +58,7 @@ export default function AllBranchesTable({ onBack }) {
   const colTotals = useMemo(() => computeColTotals(tableRows), [tableRows])
 
   return (
-    <div>
+    <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 px-4 md:px-6">
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <button
           onClick={onBack}
@@ -93,20 +93,18 @@ export default function AllBranchesTable({ onBack }) {
         </div>
       )}
 
-      <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 px-4 md:px-6">
-        <div ref={tableWrapRef} className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700">
-          <table className="border-collapse text-sm" style={{ tableLayout: "fixed", minWidth: "1200px", width: "100%" }}>
-            <ReportHead />
-            <ReportBody
-              tableRows={tableRows}
-              colTotals={colTotals}
-              loading={loading}
-              emptyDescription="ยังไม่มียอดหนี้ในระบบ — บันทึกรายการที่หน้าตารางหนี้แยกสาขา"
-            />
-          </table>
-        </div>
-        <StickyTableScrollbar tableRef={tableWrapRef} />
+      <div ref={tableWrapRef} className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700">
+        <table className="border-collapse text-sm" style={{ tableLayout: "fixed", minWidth: "1200px", width: "100%" }}>
+          <ReportHead />
+          <ReportBody
+            tableRows={tableRows}
+            colTotals={colTotals}
+            loading={loading}
+            emptyDescription="ยังไม่มียอดหนี้ในระบบ — บันทึกรายการที่หน้าตารางหนี้แยกสาขา"
+          />
+        </table>
       </div>
+      <StickyTableScrollbar tableRef={tableWrapRef} />
     </div>
   )
 }

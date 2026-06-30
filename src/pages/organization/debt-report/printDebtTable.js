@@ -77,17 +77,11 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
     th { border: 1px solid #94a3b8; padding: 5px 6px; font-size: 12px; background: #f1f5f9; font-weight: 600; text-align: center; }
     td { border: 1px solid #94a3b8; padding: 5px 6px; font-size: 12px; }
     .pay { background: #eef2ff; }
-    .toolbar { position: sticky; top: 0; z-index: 10; background: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 10px 0 12px; margin-bottom: 12px; text-align: center; }
-    .toolbar button { font-family: inherit; font-size: 14px; font-weight: 600; color: #ffffff; background: #6366f1; border: none; border-radius: 10px; padding: 9px 22px; cursor: pointer; }
-    .toolbar button:hover { background: #4f46e5; }
     @page { size: A4 landscape; margin: 0.8cm; }
-    @media print { body { padding: 0; } .no-print { display: none !important; } }
+    @media print { body { padding: 0; } }
   </style>
 </head>
 <body>
-  <div class="toolbar no-print">
-    <button type="button" id="printBtn">พิมพ์ / บันทึกเป็น PDF</button>
-  </div>
   <div class="doc-header">
     <img class="doc-logo" src="${logoUrl}" alt="" />
     <div class="org-name">${ORG_NAME}</div>
@@ -127,12 +121,8 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
   </table>
   <script>
     function doPrint() { try { window.focus() } catch (e) {} window.print() }
-    // Bind the button explicitly — inline onclick can be unreliable in a
-    // document.write popup. Script sits at end of body so the button exists.
-    var btn = document.getElementById('printBtn')
-    if (btn) btn.addEventListener('click', doPrint)
-    // Auto-open the print dialog once on load, after the logo finishes (so it
-    // appears in the output). 1.5s fallback if the image is slow or fails.
+    // Auto-open Chrome's print dialog once the report (incl. logo) is rendered.
+    // 1.2s fallback so a slow/failed logo never blocks the dialog.
     window.onload = function () {
       var img = document.querySelector('.doc-logo')
       var fired = false
@@ -140,7 +130,7 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
       if (img && !img.complete) {
         img.onload = go
         img.onerror = go
-        setTimeout(go, 1500)
+        setTimeout(go, 1200)
       } else {
         go()
       }
@@ -160,5 +150,6 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
     } catch { /* ignore */ }
     popup.document.write(html)
     popup.document.close()
+    try { popup.focus() } catch { /* ignore */ }
   }
 }

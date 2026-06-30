@@ -18,38 +18,46 @@ function todayThai() {
   return new Date().toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" })
 }
 
+// Cooperative full name shown above every printed report.
+const ORG_NAME = "สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์ จำกัด"
+
 export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
+  // The print popup is about:blank (no base href) → relative asset paths fail.
+  // Build an absolute URL to the logo from the app's origin + Vite BASE_URL.
+  const base = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "")
+  const logoUrl = `${window.location.origin}${base}/logo/skt-logo.png`
+
   let bodyRows = ""
   tableRows.forEach((group, gi) => {
     const rowBg = gi % 2 === 0 ? "#ffffff" : "#f8fafc"
     group.yearRows.forEach((yr, yi) => {
       bodyRows += `<tr style="background:${rowBg}">`
       if (yi === 0) {
-        bodyRows += `<td rowspan="${group.yearRows.length}" style="text-align:center;vertical-align:middle;border:1px solid #94a3b8;padding:3px 4px">${gi + 1}</td>`
-        bodyRows += `<td rowspan="${group.yearRows.length}" style="vertical-align:middle;border:1px solid #94a3b8;padding:3px 6px;font-weight:500">${group.program.prog_name}</td>`
+        bodyRows += `<td rowspan="${group.yearRows.length}" style="text-align:center;vertical-align:middle;border:1px solid #94a3b8;padding:5px 6px">${gi + 1}</td>`
+        bodyRows += `<td rowspan="${group.yearRows.length}" style="vertical-align:middle;border:1px solid #94a3b8;padding:5px 8px;font-weight:500">${group.program.prog_name}</td>`
       }
-      bodyRows += `<td style="text-align:center;border:1px solid #94a3b8;padding:3px 4px">${yr.fiscalYear.year_name}</td>`
+      bodyRows += `<td style="text-align:center;border:1px solid #94a3b8;padding:5px 6px">${yr.fiscalYear.year_name}</td>`
       // 8 amount/count pairs (ยกมา/เพิ่มในปี/ชำระ/คงเหลือ) then 3 amount-only
       // method columns (v5 method breakdown has no per-method count).
       cellVals(yr).forEach((c) => {
-        bodyRows += `<td style="text-align:right;border:1px solid #94a3b8;padding:3px 4px;font-variant-numeric:tabular-nums">${c.money ? fmtMoney(c.v) : (c.v || 0)}</td>`
+        bodyRows += `<td style="text-align:right;border:1px solid #94a3b8;padding:5px 6px;font-variant-numeric:tabular-nums">${c.money ? fmtMoney(c.v) : (c.v || 0)}</td>`
       })
-      bodyRows += `<td style="border:1px solid #94a3b8;padding:3px 4px;color:#6b7280">${yr.note || ""}</td>`
+      bodyRows += `<td style="border:1px solid #94a3b8;padding:5px 6px;color:#6b7280">${yr.note || ""}</td>`
       bodyRows += `</tr>`
     })
     // ผลรวมต่อโครงการ (subtotal) — แถบสีคราม indigo คั่นจาก row รวมทั้งหมด (เขียว)
     const gTot = sumRows(group.yearRows)
     bodyRows += `<tr>`
-    bodyRows += `<td colspan="3" style="font-weight:700;background:#eef2ff;border:1px solid #c7d2fe;padding:3px 8px;color:#3730a3">รวม ${group.program.prog_name}</td>`
+    bodyRows += `<td colspan="3" style="font-weight:700;background:#eef2ff;border:1px solid #c7d2fe;padding:5px 10px;color:#3730a3">รวม ${group.program.prog_name}</td>`
     cellVals(gTot).forEach((c) => {
-      bodyRows += `<td style="text-align:right;border:1px solid #c7d2fe;padding:3px 4px;font-weight:700;background:#eef2ff;color:#3730a3;font-variant-numeric:tabular-nums">${c.money ? fmtMoney(c.v) : (c.v || 0)}</td>`
+      bodyRows += `<td style="text-align:right;border:1px solid #c7d2fe;padding:5px 6px;font-weight:700;background:#eef2ff;color:#3730a3;font-variant-numeric:tabular-nums">${c.money ? fmtMoney(c.v) : (c.v || 0)}</td>`
     })
     bodyRows += `<td style="background:#eef2ff;border:1px solid #c7d2fe"></td>`
     bodyRows += `</tr>`
   })
 
   const footCells = cellVals(colTotals).map((c) =>
-    `<td style="text-align:right;border:1px solid #6ee7b7;padding:3px 4px;font-weight:700;background:#d1fae5;font-variant-numeric:tabular-nums">${c.money ? fmtMoney(c.v) : (c.v || 0)}</td>`
+    `<td style="text-align:right;border:1px solid #6ee7b7;padding:5px 6px;font-weight:700;background:#d1fae5;font-variant-numeric:tabular-nums">${c.money ? fmtMoney(c.v) : (c.v || 0)}</td>`
   ).join("")
 
   const html = `<!DOCTYPE html>
@@ -59,13 +67,15 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
   <title>${title}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Sarabun', 'Noto Sans Thai', 'TH Sarabun New', sans-serif; font-size: 10px; color: #1e293b; padding: 16px; }
-    .doc-header { text-align: center; margin-bottom: 14px; }
-    .doc-header h1 { font-size: 15px; font-weight: 700; }
-    .doc-header .sub { font-size: 11px; color: #475569; margin-top: 4px; }
+    body { font-family: 'Sarabun', 'Noto Sans Thai', 'TH Sarabun New', sans-serif; font-size: 13px; color: #1e293b; padding: 16px; }
+    .doc-header { text-align: center; margin-bottom: 16px; }
+    .doc-header .doc-logo { height: 68px; width: auto; margin: 0 auto 6px; display: block; }
+    .doc-header .org-name { font-size: 18px; font-weight: 700; color: #1e293b; }
+    .doc-header h1 { font-size: 20px; font-weight: 700; margin-top: 2px; }
+    .doc-header .sub { font-size: 13px; color: #475569; margin-top: 4px; }
     table { border-collapse: collapse; width: 100%; }
-    th { border: 1px solid #94a3b8; padding: 3px 4px; font-size: 9px; background: #f1f5f9; font-weight: 600; text-align: center; }
-    td { border: 1px solid #94a3b8; padding: 3px 4px; font-size: 9px; }
+    th { border: 1px solid #94a3b8; padding: 5px 6px; font-size: 12px; background: #f1f5f9; font-weight: 600; text-align: center; }
+    td { border: 1px solid #94a3b8; padding: 5px 6px; font-size: 12px; }
     .pay { background: #eef2ff; }
     @page { size: A3 landscape; margin: 1cm; }
     @media print { body { padding: 0; } }
@@ -73,6 +83,8 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
 </head>
 <body>
   <div class="doc-header">
+    <img class="doc-logo" src="${logoUrl}" alt="" />
+    <div class="org-name">${ORG_NAME}</div>
     <h1>${title}</h1>
     <div class="sub">${subtitle ? subtitle + " &nbsp;|&nbsp; " : ""}วันที่พิมพ์: ${todayThai()}</div>
   </div>
@@ -101,13 +113,26 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
     <tbody>${bodyRows}</tbody>
     <tfoot>
       <tr>
-        <td colspan="3" style="font-weight:700;background:#d1fae5;border:1px solid #6ee7b7;padding:3px 8px">รวมทั้งหมด</td>
+        <td colspan="3" style="font-weight:700;background:#d1fae5;border:1px solid #6ee7b7;padding:5px 10px">รวมทั้งหมด</td>
         ${footCells}
         <td style="background:#d1fae5;border:1px solid #6ee7b7"></td>
       </tr>
     </tfoot>
   </table>
-  <script>window.onload = function() { window.print() }</script>
+  <script>
+    window.onload = function () {
+      var img = document.querySelector('.doc-logo')
+      var done = false
+      function go() { if (done) return; done = true; window.print() }
+      if (img && !img.complete) {
+        img.onload = go
+        img.onerror = go
+        setTimeout(go, 1500) // fallback: never block printing on a slow/failed logo
+      } else {
+        go()
+      }
+    }
+  </script>
 </body>
 </html>`
 

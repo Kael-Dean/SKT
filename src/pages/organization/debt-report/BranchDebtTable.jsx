@@ -297,7 +297,7 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
         </h2>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+      <div className="flex flex-wrap items-end gap-3 mb-4">
         {!lockedToOwnBranch && (
           <div className="w-64">
             <SelectDropdown
@@ -321,23 +321,28 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
             placeholder="— เลือกโครงการ —"
           />
         </div>
-        <input
-          type="date"
-          aria-label="วันที่เริ่ม"
-          className={cx(baseField, "w-44 !py-3 !text-sm", rangeInverted && "!border-red-400 dark:!border-red-500")}
-          value={dateFrom}
-          max={dateTo || undefined}
-          onChange={(e) => setDateFrom(e.target.value)}
-        />
-        <span className="-mx-1 text-slate-400 dark:text-slate-500">–</span>
-        <input
-          type="date"
-          aria-label="วันที่สิ้นสุด"
-          className={cx(baseField, "w-44 !py-3 !text-sm", rangeInverted && "!border-red-400 dark:!border-red-500")}
-          value={dateTo}
-          min={dateFrom || undefined}
-          onChange={(e) => setDateTo(e.target.value)}
-        />
+        <div className="w-64">
+          <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่เริ่ม</label>
+          <input
+            type="date"
+            aria-label="วันที่เริ่ม"
+            className={cx(baseField, "!py-3 !text-sm", rangeInverted && "!border-red-400 dark:!border-red-500")}
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={(e) => setDateFrom(e.target.value)}
+          />
+        </div>
+        <div className="w-64">
+          <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่สิ้นสุด</label>
+          <input
+            type="date"
+            aria-label="วันที่สิ้นสุด"
+            className={cx(baseField, "!py-3 !text-sm", rangeInverted && "!border-red-400 dark:!border-red-500")}
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => setDateTo(e.target.value)}
+          />
+        </div>
         {(dateFrom || dateTo) && (
           <button
             type="button"

@@ -177,6 +177,7 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
   const [selectedBranchId, setSelectedBranchId] = useState(
     lockedToOwnBranch ? String(homeBranch) : ""
   )
+  const [selectedProgramId, setSelectedProgramId] = useState("")
   const [reportRows, setReportRows] = useState([])
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState("")
@@ -191,7 +192,13 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
     setError("")
     ;(async () => {
       try {
-        const url = `/debt/report${selectedBranchId ? `?branch_id=${selectedBranchId}` : ""}`
+        // branch_id + program_id are independent optional filters; omit each
+        // entirely when "all" is selected (never send empty/0).
+        const params = new URLSearchParams()
+        if (selectedBranchId) params.set("branch_id", selectedBranchId)
+        if (selectedProgramId) params.set("program_id", selectedProgramId)
+        const qs = params.toString()
+        const url = `/debt/report${qs ? `?${qs}` : ""}`
         const data = await apiAuth(url)
         if (alive) setReportRows(Array.isArray(data?.rows) ? data.rows : [])
       } catch (e) {
@@ -201,7 +208,7 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
       }
     })()
     return () => { alive = false }
-  }, [selectedBranchId, reloadKey])
+  }, [selectedBranchId, selectedProgramId, reloadKey])
 
   function refetchReport() { setReloadKey((k) => k + 1) }
 
@@ -210,6 +217,10 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
 
   function branchName(id) {
     return branches.find((b) => b.id === Number(id))?.name || `สาขา ${id}`
+  }
+
+  function programName(id) {
+    return programs.find((p) => Number(p.id) === Number(id))?.prog_name || `โครงการ ${id}`
   }
 
   // Branch the new entry is locked to: role 5 → own branch; else the selected
@@ -223,6 +234,11 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
   const branchOpts = [
     { value: "", label: "ทุกสาขา" },
     ...branches.map((b) => ({ value: String(b.id), label: b.name })),
+  ]
+
+  const programOpts = [
+    { value: "", label: "ทุกโครงการ" },
+    ...programs.map((p) => ({ value: String(p.id), label: p.prog_name })),
   ]
 
   return (
@@ -255,6 +271,14 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
             สาขา: <span className="font-semibold">{branchName(homeBranch)}</span>
           </div>
         )}
+        <div className="w-64">
+          <SelectDropdown
+            options={programOpts}
+            value={selectedProgramId}
+            onChange={setSelectedProgramId}
+            placeholder="— เลือกโครงการ —"
+          />
+        </div>
         {canWrite && (
           <button
             onClick={() => setModal({ mode: "add" })}
@@ -267,7 +291,10 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
           onClick={() =>
             printDebtTable({
               title: "ตารางหนี้แยกสาขา",
-              subtitle: selectedBranchId ? `สาขา: ${branchName(selectedBranchId)}` : "ทุกสาขา",
+              subtitle: [
+                selectedBranchId ? `สาขา: ${branchName(selectedBranchId)}` : "ทุกสาขา",
+                selectedProgramId ? `โครงการ: ${programName(selectedProgramId)}` : "ทุกโครงการ",
+              ].join(" · "),
               tableRows,
               colTotals,
             })

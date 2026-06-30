@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { cx, secondaryBtnCls } from "../../../lib/styles"
 import { EmptyState, ErrorState } from "../../../components/ui"
 import { getRoleId, getHomeBranch } from "../../../lib/auth"
-import { buildReportRows, computeColTotals } from "./buildReportRows"
+import { buildReportRows, computeColTotals, sumRows } from "./buildReportRows"
 import { printDebtTable } from "./printDebtTable"
 import DebtEntryModal from "../debt/DebtEntryModal"
 import { canWriteEntries, ROLE_GENERAL_STAFF } from "../debt/debtEntryMeta"
@@ -37,6 +37,7 @@ const STRIPE = {
   head: "bg-slate-100 dark:bg-slate-700",
   cell: "bg-white dark:bg-slate-900",
   alt: "bg-slate-50 dark:bg-slate-800",
+  sub: "bg-indigo-50 dark:bg-indigo-900/30",
   foot: "bg-emerald-100 dark:bg-emerald-900",
 }
 
@@ -112,23 +113,39 @@ export function ReportBody({ tableRows, colTotals, loading, emptyDescription, em
         ) : (
           tableRows.map((group, gi) => {
             const rowBg = gi % 2 === 0 ? STRIPE.cell : STRIPE.alt
-            return group.yearRows.map((yr, yi) => (
-              <tr key={`${group.program.id}-${yr.fiscalYear.id}`} className={rowBg}>
-                {yi === 0 && (
-                  <>
-                    <td rowSpan={group.yearRows.length} className={cx("border border-slate-200 dark:border-slate-700 px-1 py-2 text-center text-xs sticky left-0 z-10", rowBg)}>{gi + 1}</td>
-                    <td rowSpan={group.yearRows.length} className={cx("border border-slate-200 dark:border-slate-700 px-2 py-2 text-xs font-medium sticky left-[50px] z-10", rowBg)}>{group.program.prog_name}</td>
-                  </>
-                )}
-                <td className={cx("border border-slate-200 dark:border-slate-700 px-1 py-2 text-center text-xs sticky left-[230px] z-10", rowBg)}>{yr.fiscalYear.year_name}</td>
-                {cellsOf(yr).map((c, ci) => (
-                  <td key={ci} className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right text-xs tabular-nums">
-                    {c.money ? fmtMoney(c.v) : (c.v || 0)}
-                  </td>
+            const groupTotal = sumRows(group.yearRows)
+            return (
+              <Fragment key={group.program.id}>
+                {group.yearRows.map((yr, yi) => (
+                  <tr key={`${group.program.id}-${yr.fiscalYear.id}`} className={rowBg}>
+                    {yi === 0 && (
+                      <>
+                        <td rowSpan={group.yearRows.length} className={cx("border border-slate-200 dark:border-slate-700 px-1 py-2 text-center text-xs sticky left-0 z-10", rowBg)}>{gi + 1}</td>
+                        <td rowSpan={group.yearRows.length} className={cx("border border-slate-200 dark:border-slate-700 px-2 py-2 text-xs font-medium sticky left-[50px] z-10", rowBg)}>{group.program.prog_name}</td>
+                      </>
+                    )}
+                    <td className={cx("border border-slate-200 dark:border-slate-700 px-1 py-2 text-center text-xs sticky left-[230px] z-10", rowBg)}>{yr.fiscalYear.year_name}</td>
+                    {cellsOf(yr).map((c, ci) => (
+                      <td key={ci} className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-right text-xs tabular-nums">
+                        {c.money ? fmtMoney(c.v) : (c.v || 0)}
+                      </td>
+                    ))}
+                    <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-xs text-gray-500 dark:text-gray-400">{yr.note || ""}</td>
+                  </tr>
                 ))}
-                <td className="border border-slate-200 dark:border-slate-700 px-1 py-2 text-xs text-gray-500 dark:text-gray-400">{yr.note || ""}</td>
-              </tr>
-            ))
+                <tr key={`${group.program.id}-subtotal`} className={STRIPE.sub}>
+                  <td colSpan={3} className={cx("border border-slate-300 dark:border-slate-600 px-2 py-2 text-xs font-bold text-indigo-900 dark:text-indigo-200 sticky left-0 z-10", STRIPE.sub)}>
+                    รวม {group.program.prog_name}
+                  </td>
+                  {totalCells(groupTotal).map((c, ci) => (
+                    <td key={ci} className={cx("border border-slate-300 dark:border-slate-600 px-1 py-2 text-right text-xs font-bold text-indigo-900 dark:text-indigo-200 tabular-nums", STRIPE.sub)}>
+                      {c.money ? fmtMoney(c.v) : (c.v || 0)}
+                    </td>
+                  ))}
+                  <td className={cx("border border-slate-300 dark:border-slate-600", STRIPE.sub)} />
+                </tr>
+              </Fragment>
+            )
           })
         )}
       </tbody>
@@ -268,8 +285,9 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
         </div>
       )}
 
-      <div ref={tableWrapRef} className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700">
-        <table className="border-collapse text-sm" style={{ tableLayout: "fixed", minWidth: "1200px" }}>
+      <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 px-4 md:px-6">
+        <div ref={tableWrapRef} className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700">
+          <table className="border-collapse text-sm" style={{ tableLayout: "fixed", minWidth: "1200px", width: "100%" }}>
           <ReportHead />
           <ReportBody
             tableRows={tableRows}
@@ -292,9 +310,10 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
               ) : null
             }
           />
-        </table>
+          </table>
+        </div>
+        <StickyTableScrollbar tableRef={tableWrapRef} hidden={!!modal} />
       </div>
-      <StickyTableScrollbar tableRef={tableWrapRef} hidden={!!modal} />
 
       {modal?.mode === "add" && (
         <DebtEntryModal

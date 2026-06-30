@@ -72,10 +72,14 @@ const COL_KEYS = [
   "mobile_amount", "cash_amount", "produce_amount",
 ]
 
+/** Sum every numeric column across an arbitrary set of cohort rows. */
+export function sumRows(rows) {
+  const out = {}
+  for (const k of COL_KEYS) out[k] = rows.reduce((s, r) => s + (r[k] || 0), 0)
+  return out
+}
+
 /** Sum every numeric column across all year rows for the footer totals. */
 export function computeColTotals(tableRows) {
-  const all = tableRows.flatMap((g) => g.yearRows)
-  const out = {}
-  for (const k of COL_KEYS) out[k] = all.reduce((s, r) => s + (r[k] || 0), 0)
-  return out
+  return sumRows(tableRows.flatMap((g) => g.yearRows))
 }

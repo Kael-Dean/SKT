@@ -321,37 +321,32 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
             placeholder="— เลือกโครงการ —"
           />
         </div>
-        <div className="flex items-end gap-2">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่เริ่ม</label>
-            <input
-              type="date"
-              className={cx(baseField, "w-40", rangeInverted && "border-red-400 dark:border-red-500")}
-              value={dateFrom}
-              max={dateTo || undefined}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่สิ้นสุด</label>
-            <input
-              type="date"
-              className={cx(baseField, "w-40", rangeInverted && "border-red-400 dark:border-red-500")}
-              value={dateTo}
-              min={dateFrom || undefined}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </div>
-          {(dateFrom || dateTo) && (
-            <button
-              type="button"
-              onClick={() => { setDateFrom(""); setDateTo("") }}
-              className="mb-[1px] inline-flex items-center rounded-xl px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-            >
-              ล้างวันที่
-            </button>
-          )}
-        </div>
+        <input
+          type="date"
+          aria-label="วันที่เริ่ม"
+          className={cx(baseField, "w-44 !py-3 !text-sm", rangeInverted && "!border-red-400 dark:!border-red-500")}
+          value={dateFrom}
+          max={dateTo || undefined}
+          onChange={(e) => setDateFrom(e.target.value)}
+        />
+        <span className="-mx-1 text-slate-400 dark:text-slate-500">–</span>
+        <input
+          type="date"
+          aria-label="วันที่สิ้นสุด"
+          className={cx(baseField, "w-44 !py-3 !text-sm", rangeInverted && "!border-red-400 dark:!border-red-500")}
+          value={dateTo}
+          min={dateFrom || undefined}
+          onChange={(e) => setDateTo(e.target.value)}
+        />
+        {(dateFrom || dateTo) && (
+          <button
+            type="button"
+            onClick={() => { setDateFrom(""); setDateTo("") }}
+            className="inline-flex items-center rounded-xl px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+          >
+            ล้างวันที่
+          </button>
+        )}
         {canWrite && (
           <button
             onClick={() => setModal({ mode: "add" })}

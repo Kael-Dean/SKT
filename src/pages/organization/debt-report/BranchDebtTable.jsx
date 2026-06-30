@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
-import { cx, secondaryBtnCls } from "../../../lib/styles"
+import { cx, secondaryBtnCls, baseField } from "../../../lib/styles"
 import { EmptyState, ErrorState } from "../../../components/ui"
 import { getRoleId, getHomeBranch } from "../../../lib/auth"
 import { buildReportRows, computeColTotals, sumRows } from "./buildReportRows"
@@ -32,6 +32,13 @@ function PrinterIcon() {
 
 const fmtMoney = (v) =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(v) || 0)
+
+// ISO YYYY-MM-DD → DD/MM/YYYY for display (empty-safe).
+const fmtDate = (iso) => {
+  if (!iso) return ""
+  const [y, m, d] = String(iso).split("-")
+  return d && m && y ? `${d}/${m}/${y}` : iso
+}
 
 const STRIPE = {
   head: "bg-slate-100 dark:bg-slate-700",
@@ -178,15 +185,35 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
     lockedToOwnBranch ? String(homeBranch) : ""
   )
   const [selectedProgramId, setSelectedProgramId] = useState("")
+  // Date range: send BOTH or NEITHER. Cleared (both "") → omit → backend uses
+  // current-FY default. effRange echoes the effective window from the response.
+  const [dateFrom, setDateFrom]     = useState("")
+  const [dateTo, setDateTo]         = useState("")
+  const [effRange, setEffRange]     = useState(null)
   const [reportRows, setReportRows] = useState([])
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState("")
   const [reloadKey, setReloadKey]   = useState(0)
   const [modal, setModal]           = useState(null)
 
+  // Only one bound picked, or from > to → invalid; block the request.
+  const onlyOneDate = (!!dateFrom) !== (!!dateTo)
+  const rangeInverted = !!dateFrom && !!dateTo && dateFrom > dateTo
+
   const tableWrapRef = useRef(null)
 
   useEffect(() => {
+    // Client-side gate before sending: never fire a request we know is invalid.
+    if (onlyOneDate) {
+      setError("เลือกช่วงวันที่ให้ครบทั้งเริ่มและสิ้นสุด หรือล้างทั้งคู่")
+      setLoading(false)
+      return
+    }
+    if (rangeInverted) {
+      setError("date_from ต้องไม่เกิน date_to")
+      setLoading(false)
+      return
+    }
     let alive = true
     setLoading(true)
     setError("")
@@ -197,10 +224,25 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
         const params = new URLSearchParams()
         if (selectedBranchId) params.set("branch_id", selectedBranchId)
         if (selectedProgramId) params.set("program_id", selectedProgramId)
+        // Date bounds: send BOTH or NEITHER (guarded above). Cleared → omit →
+        // backend falls back to the current fiscal-year span.
+        if (dateFrom && dateTo) {
+          params.set("date_from", dateFrom)
+          params.set("date_to", dateTo)
+        }
         const qs = params.toString()
         const url = `/debt/report${qs ? `?${qs}` : ""}`
         const data = await apiAuth(url)
-        if (alive) setReportRows(Array.isArray(data?.rows) ? data.rows : [])
+        if (alive) {
+          setReportRows(Array.isArray(data?.rows) ? data.rows : [])
+          // Echo the effective window the backend actually used (default FY
+          // when neither bound was sent).
+          setEffRange(
+            data?.date_from || data?.date_to
+              ? { from: data.date_from, to: data.date_to }
+              : null
+          )
+        }
       } catch (e) {
         if (alive) setError(e.message || "โหลดรายงานไม่สำเร็จ")
       } finally {
@@ -208,7 +250,7 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
       }
     })()
     return () => { alive = false }
-  }, [selectedBranchId, selectedProgramId, reloadKey])
+  }, [selectedBranchId, selectedProgramId, dateFrom, dateTo, onlyOneDate, rangeInverted, reloadKey])
 
   function refetchReport() { setReloadKey((k) => k + 1) }
 
@@ -279,6 +321,37 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
             placeholder="— เลือกโครงการ —"
           />
         </div>
+        <div className="flex items-end gap-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่เริ่ม</label>
+            <input
+              type="date"
+              className={cx(baseField, "w-40", rangeInverted && "border-red-400 dark:border-red-500")}
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => setDateFrom(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่สิ้นสุด</label>
+            <input
+              type="date"
+              className={cx(baseField, "w-40", rangeInverted && "border-red-400 dark:border-red-500")}
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateTo(e.target.value)}
+            />
+          </div>
+          {(dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={() => { setDateFrom(""); setDateTo("") }}
+              className="mb-[1px] inline-flex items-center rounded-xl px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+            >
+              ล้างวันที่
+            </button>
+          )}
+        </div>
         {canWrite && (
           <button
             onClick={() => setModal({ mode: "add" })}
@@ -294,7 +367,8 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
               subtitle: [
                 selectedBranchId ? `สาขา: ${branchName(selectedBranchId)}` : "ทุกสาขา",
                 selectedProgramId ? `โครงการ: ${programName(selectedProgramId)}` : "ทุกโครงการ",
-              ].join(" · "),
+                effRange ? `ช่วงวันที่: ${fmtDate(effRange.from)} – ${fmtDate(effRange.to)}` : null,
+              ].filter(Boolean).join(" · "),
               tableRows,
               colTotals,
             })
@@ -310,6 +384,16 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
         <div className="mb-4">
           <ErrorState message={error} onRetry={refetchReport} />
         </div>
+      )}
+
+      {!error && effRange && (
+        <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+          แสดงข้อมูลช่วง{" "}
+          <span className="font-semibold text-gray-700 dark:text-gray-200">
+            {fmtDate(effRange.from)} – {fmtDate(effRange.to)}
+          </span>
+          {!dateFrom && !dateTo && " (ปีบัญชีปัจจุบัน)"}
+        </p>
       )}
 
       <div ref={tableWrapRef} className="overflow-auto rounded-2xl border border-slate-200 dark:border-slate-700">

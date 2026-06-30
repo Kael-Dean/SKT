@@ -86,7 +86,7 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
 </head>
 <body>
   <div class="toolbar no-print">
-    <button type="button" onclick="window.print()">พิมพ์ / บันทึกเป็น PDF</button>
+    <button type="button" id="printBtn">พิมพ์ / บันทึกเป็น PDF</button>
   </div>
   <div class="doc-header">
     <img class="doc-logo" src="${logoUrl}" alt="" />
@@ -126,14 +126,21 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
     </tfoot>
   </table>
   <script>
+    function doPrint() { try { window.focus() } catch (e) {} window.print() }
+    // Bind the button explicitly — inline onclick can be unreliable in a
+    // document.write popup. Script sits at end of body so the button exists.
+    var btn = document.getElementById('printBtn')
+    if (btn) btn.addEventListener('click', doPrint)
+    // Auto-open the print dialog once on load, after the logo finishes (so it
+    // appears in the output). 1.5s fallback if the image is slow or fails.
     window.onload = function () {
       var img = document.querySelector('.doc-logo')
-      var done = false
-      function go() { if (done) return; done = true; window.print() }
+      var fired = false
+      function go() { if (fired) return; fired = true; doPrint() }
       if (img && !img.complete) {
         img.onload = go
         img.onerror = go
-        setTimeout(go, 1500) // fallback: never block printing on a slow/failed logo
+        setTimeout(go, 1500)
       } else {
         go()
       }

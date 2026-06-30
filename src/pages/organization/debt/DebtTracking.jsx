@@ -92,7 +92,7 @@ export default function DebtTracking() {
   const TABS = [
     { key: "totals",       label: "ยอดหนี้คงค้าง" },
     { key: "transactions", label: "ธุรกรรม" },
-    ...(canManagePrograms ? [{ key: "programs", label: "โปรแกรมหนี้" }] : []),
+    ...(canManagePrograms ? [{ key: "programs", label: "โครงการหนี้" }] : []),
   ]
 
   return (

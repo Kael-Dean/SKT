@@ -8,7 +8,7 @@ const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
 const SUB_FUNCTIONS = [
   {
     label: "ติดตามผลหนี้",
-    desc: "สรุปยอดหนี้ รายการเคลื่อนไหว และโปรแกรมชำระหนี้",
+    desc: "สรุปยอดหนี้ รายการเคลื่อนไหว และโครงการชำระหนี้",
     path: "/debt-tracking",
     roles: [ROLE.ADMIN, ROLE.HA, ROLE.MKT],
     accent: "indigo",

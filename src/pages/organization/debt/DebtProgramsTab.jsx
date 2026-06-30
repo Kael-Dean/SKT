@@ -49,7 +49,7 @@ export default function DebtProgramsTab({ roleId, programs, onProgramsChanged })
 
   async function handleSave() {
     if (!form.prog_name.trim()) {
-      setSaveMsg("กรุณากรอกชื่อโปรแกรม")
+      setSaveMsg("กรุณากรอกชื่อโครงการ")
       return
     }
     setSaving(true)
@@ -88,25 +88,25 @@ export default function DebtProgramsTab({ roleId, programs, onProgramsChanged })
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          รายการโปรแกรมหนี้ทั้งหมด ({programs.length} รายการ)
+          รายการโครงการหนี้ทั้งหมด ({programs.length} รายการ)
         </p>
         <button onClick={openAdd} className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm")}>
-          + เพิ่มโปรแกรม
+          + เพิ่มโครงการ
         </button>
       </div>
 
       {programs.length === 0 ? (
         <div className={cx(cardCls, "overflow-hidden")}>
           <EmptyState
-            title="ยังไม่มีโปรแกรมหนี้"
-            description="เพิ่มโปรแกรมหนี้รายการแรกเพื่อเริ่มบันทึกยอดหนี้คงค้างของแต่ละสาขา"
+            title="ยังไม่มีโครงการหนี้"
+            description="เพิ่มโครงการหนี้รายการแรกเพื่อเริ่มบันทึกยอดหนี้คงค้างของแต่ละสาขา"
             action={
               <button
                 type="button"
                 onClick={openAdd}
                 className={cx(secondaryBtnCls, "!py-2 !px-4 !text-sm cursor-pointer")}
               >
-                + เพิ่มโปรแกรม
+                + เพิ่มโครงการ
               </button>
             }
           />
@@ -118,7 +118,7 @@ export default function DebtProgramsTab({ roleId, programs, onProgramsChanged })
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-10">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ชื่อโปรแกรม</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ชื่อโครงการ</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">คำอธิบาย</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">สถานะ</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">จัดการ</th>
@@ -165,11 +165,11 @@ export default function DebtProgramsTab({ roleId, programs, onProgramsChanged })
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className={cx(modalCardCls, "max-w-md w-full")}>
               <h2 className={cx(modalTitleCls, "mb-5")}>
-                {modal.mode === "add" ? "เพิ่มโปรแกรมหนี้" : "แก้ไขโปรแกรมหนี้"}
+                {modal.mode === "add" ? "เพิ่มโครงการหนี้" : "แก้ไขโครงการหนี้"}
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className={labelCls}>ชื่อโปรแกรม <span className="text-red-500">*</span></label>
+                  <label className={labelCls}>ชื่อโครงการ <span className="text-red-500">*</span></label>
                   <input
                     className={baseField}
                     value={form.prog_name}
@@ -185,7 +185,7 @@ export default function DebtProgramsTab({ roleId, programs, onProgramsChanged })
                     rows={3}
                     value={form.description}
                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                    placeholder="รายละเอียดโปรแกรม (ไม่จำเป็น)"
+                    placeholder="รายละเอียดโครงการ (ไม่จำเป็น)"
                   />
                 </div>
               </div>
@@ -212,7 +212,7 @@ export default function DebtProgramsTab({ roleId, programs, onProgramsChanged })
             <div className={cx(modalCardCls, "max-w-sm w-full")}>
               <h2 className={cx(modalTitleCls, "mb-2")}>ยืนยันการลบ</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                ต้องการลบโปรแกรม <span className="font-semibold text-gray-900 dark:text-gray-100">"{modal.record.prog_name}"</span> ใช่หรือไม่?
+                ต้องการลบโครงการ <span className="font-semibold text-gray-900 dark:text-gray-100">"{modal.record.prog_name}"</span> ใช่หรือไม่?
               </p>
               {saveMsg && (
                 <p className="mt-3 text-sm text-red-500 dark:text-red-400">{saveMsg}</p>

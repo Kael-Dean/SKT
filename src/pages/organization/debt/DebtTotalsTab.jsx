@@ -55,7 +55,7 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
     ...branches.map((b) => ({ value: String(b.id), label: b.name })),
   ]
   const progOpts = [
-    { value: "", label: "ทุกโปรแกรม" },
+    { value: "", label: "ทุกโครงการ" },
     ...programs.filter((p) => p.is_active !== false).map((p) => ({ value: String(p.id), label: p.prog_name })),
   ]
   const yearOpts = [
@@ -84,7 +84,7 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
             <SelectDropdown options={branchOpts} value={filters.branch_id} onChange={(val) => setFilter("branch_id", val)} />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">โปรแกรมหนี้</label>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">โครงการหนี้</label>
             <SelectDropdown options={progOpts} value={filters.program_id} onChange={(val) => setFilter("program_id", val)} />
           </div>
           <div>
@@ -148,7 +148,7 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
-                  {["สาขา","โปรแกรมหนี้","ปีการผลิต","ยอดหนี้รวม","ชำระแล้ว","ยอดคงเหลือ"].map((h, i) => (
+                  {["สาขา","โครงการหนี้","ปีการผลิต","ยอดหนี้รวม","ชำระแล้ว","ยอดคงเหลือ"].map((h, i) => (
                     <th key={h} className={cx("px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap", i >= 3 ? "text-right" : "text-left")}>
                       {h}
                     </th>

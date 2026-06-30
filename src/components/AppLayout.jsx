@@ -29,6 +29,10 @@ const AppLayout = () => {
   const isHrDashboard = location.pathname === "/hr/dashboard"
   const isHrSubPage = location.pathname.startsWith("/hr/") && !isHrDashboard
 
+  // หน้าตารางหนี้ (แยกสาขา / รวมทุกสาขา) กว้างมาก — ปล่อยเต็มความกว้างจอ
+  // (ไม่บีบด้วย max-w-7xl) เพื่อให้ดูตารางได้โดยไม่ต้องเลื่อนแนวนอนบ่อย
+  const isFullWidth = location.pathname === "/debt-form"
+
   // ปลายทาง + ป้ายของปุ่มย้อนกลับ — ฟังก์ชันซ้อนกลับ parent, HR กลับ dashboard, อื่น ๆ กลับหน้าหลัก
   const parent = PARENT_ROUTES[location.pathname]
   const backTo = parent ? parent.path : isHrSubPage ? "/hr/dashboard" : "/home"
@@ -64,11 +68,11 @@ const AppLayout = () => {
           setDarkMode={setDarkMode}
         />
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto">
           <SidebarContext.Provider value={isSidebarOpen}>
           <div
             key={location.pathname}
-            className="animate-fade-up mx-auto max-w-7xl px-4 py-5 md:px-6 md:py-6"
+            className={`animate-fade-up px-4 py-5 md:px-6 md:py-6 ${isFullWidth ? "w-full" : "mx-auto max-w-7xl"}`}
           >
             {!isHome && (
               <div className="mb-6 flex items-center gap-3">

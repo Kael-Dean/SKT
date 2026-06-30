@@ -58,7 +58,7 @@ export default function AllBranchesTable({ onBack }) {
   const colTotals = useMemo(() => computeColTotals(tableRows), [tableRows])
 
   return (
-    <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 px-4 md:px-6">
+    <div>
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <button
           onClick={onBack}

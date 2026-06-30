@@ -181,7 +181,7 @@ export default function DebtReport() {
   }
 
   return (
-    <div className="space-y-5 py-2">
+    <div className="mx-auto max-w-7xl space-y-5 py-2">
       <div className="flex items-start justify-between">
         <div>
           <h1 className={pageTitleCls}>ตารางหนี้</h1>

@@ -893,7 +893,7 @@ const ServiceBusinessPlanDetail = (props) => {
                       </div>
                     </td>
                     <td rowSpan={2} className={cx(cellClass, STRIPE.footOdd, footerBorder, "align-middle")}>
-                      <div className="text-right font-bold text-[14px] text-emerald-800 dark:text-emerald-300">
+                      <div className="text-right font-bold text-[14px] text-slate-900 dark:text-slate-100">
                         {fmtMoney(sums.grandUnitTotals[String(u.id)].baht)}
                       </div>
                     </td>
@@ -905,7 +905,7 @@ const ServiceBusinessPlanDetail = (props) => {
                   </div>
                 </td>
                 <td rowSpan={2} className={cx(cellClass, STRIPE.footOdd, footerBorder, "align-middle")}>
-                  <div className="text-right font-bold text-[14px] text-emerald-800 dark:text-emerald-300">
+                  <div className="text-right font-bold text-[14px] text-slate-900 dark:text-slate-100">
                     {fmtMoney(sums.grandBranchTotal.baht)}
                   </div>
                 </td>
@@ -920,7 +920,7 @@ const ServiceBusinessPlanDetail = (props) => {
                   <Fragment key={`ft-b-${m.key}`}>
                     {unitCols.map((u) => (
                       <td key={`ft-b-${m.key}-${u.id}`} className={cx(cellClass, monthStripeHead(mi))}>
-                        <div className="px-1.5 text-right font-semibold text-emerald-700 dark:text-emerald-400">
+                        <div className="px-1.5 text-right font-semibold text-slate-900 dark:text-slate-100">
                           {fmtMoney(sums.perMonth[m.key][String(u.id)].baht)}
                         </div>
                       </td>

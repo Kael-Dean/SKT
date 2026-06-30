@@ -363,9 +363,10 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
         <button
           onClick={() =>
             printDebtTable({
-              title: "ตารางหนี้แยกสาขา",
+              title: selectedBranchId
+                ? `รายงานหนี้${branchName(selectedBranchId)}`
+                : "รายงานหนี้รวมทุกสาขา",
               subtitle: [
-                selectedBranchId ? `สาขา: ${branchName(selectedBranchId)}` : "ทุกสาขา",
                 selectedProgramId ? `โครงการ: ${programName(selectedProgramId)}` : "ทุกโครงการ",
                 effRange ? `ช่วงวันที่: ${fmtDate(effRange.from)} – ${fmtDate(effRange.to)}` : null,
               ].filter(Boolean).join(" · "),

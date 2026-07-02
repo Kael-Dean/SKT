@@ -54,8 +54,8 @@ const cellsOf = (yr) => [
   { v: yr.new_amount, money: true },   { v: yr.new_count },
   { v: yr.paid_amount, money: true },  { v: yr.paid_count },
   { v: yr.remain_amount, money: true }, { v: yr.remain_count },
-  { v: yr.mobile_amount, money: true },
   { v: yr.cash_amount, money: true },
+  { v: yr.mobile_amount, money: true },
   { v: yr.produce_amount, money: true },
 ]
 
@@ -64,8 +64,8 @@ const totalCells = (t) => [
   { v: t.new_amount, money: true },   { v: t.new_count },
   { v: t.paid_amount, money: true },  { v: t.paid_count },
   { v: t.remain_amount, money: true }, { v: t.remain_count },
-  { v: t.mobile_amount, money: true },
   { v: t.cash_amount, money: true },
+  { v: t.mobile_amount, money: true },
   { v: t.produce_amount, money: true },
 ]
 
@@ -81,15 +81,15 @@ function ReportHead() {
         <th colSpan={2} className="border border-slate-300 dark:border-slate-600 px-1 py-1.5 text-center text-[11px] font-bold">เพิ่มในปี</th>
         <th colSpan={2} className="border border-slate-300 dark:border-slate-600 px-1 py-1.5 text-center text-[11px] font-bold">ชำระ</th>
         <th colSpan={2} className="border border-slate-300 dark:border-slate-600 px-1 py-1.5 text-center text-[11px] font-bold">คงเหลือ</th>
-        <th colSpan={3} className="border border-slate-300 dark:border-slate-600 px-1 py-1.5 text-center text-[11px] font-bold bg-indigo-50 dark:bg-indigo-900/20">ชำระแยกตามวิธี (บาท)</th>
+        <th colSpan={3} className="border border-slate-300 dark:border-slate-600 px-1 py-1.5 text-center text-[11px] font-bold bg-indigo-50 dark:bg-indigo-900/20">ชำระ</th>
         <th rowSpan={3} className="border border-slate-300 dark:border-slate-600 px-1 py-2 text-center text-[11px] font-bold" style={{ width: 100, minWidth: 100 }}>หมายเหตุ</th>
       </tr>
       <tr className={cx(STRIPE.head, "text-slate-800 dark:text-slate-100")}>
         {Array(8).fill(null).map((_, i) => (
           <th key={i} className="border border-slate-300 dark:border-slate-600" style={{ width: 80, minWidth: 80 }} />
         ))}
-        <th rowSpan={2} className="border border-slate-300 dark:border-slate-600 px-0.5 py-1 text-center text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20" style={{ width: 90, minWidth: 90 }}>โอนผ่านมือถือ</th>
         <th rowSpan={2} className="border border-slate-300 dark:border-slate-600 px-0.5 py-1 text-center text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20" style={{ width: 90, minWidth: 90 }}>เงินสด</th>
+        <th rowSpan={2} className="border border-slate-300 dark:border-slate-600 px-0.5 py-1 text-center text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20" style={{ width: 90, minWidth: 90 }}>โอน</th>
         <th rowSpan={2} className="border border-slate-300 dark:border-slate-600 px-0.5 py-1 text-center text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20" style={{ width: 90, minWidth: 90 }}>ชำระด้วยผลผลิต</th>
       </tr>
       <tr className={cx(STRIPE.head, "text-slate-700 dark:text-slate-300")}>

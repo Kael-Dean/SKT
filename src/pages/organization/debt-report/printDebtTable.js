@@ -9,8 +9,8 @@ const cellVals = (t) => [
   { v: t.new_amount, money: true },    { v: t.new_count },
   { v: t.paid_amount, money: true },   { v: t.paid_count },
   { v: t.remain_amount, money: true }, { v: t.remain_count },
-  { v: t.mobile_amount, money: true },
   { v: t.cash_amount, money: true },
+  { v: t.mobile_amount, money: true },
   { v: t.produce_amount, money: true },
 ]
 
@@ -69,7 +69,8 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Sarabun', 'Noto Sans Thai', 'TH Sarabun New', sans-serif; font-size: 13px; color: #1e293b; padding: 16px; }
     .doc-header { text-align: center; margin-bottom: 16px; }
-    .doc-header .doc-logo { height: 68px; width: auto; margin: 0 auto 6px; display: block; }
+    .doc-header .org-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 6px; }
+    .doc-header .doc-logo { height: 56px; width: auto; flex: none; }
     .doc-header .org-name { font-size: 18px; font-weight: 700; color: #1e293b; }
     .doc-header h1 { font-size: 20px; font-weight: 700; margin-top: 2px; }
     .doc-header .sub { font-size: 13px; color: #475569; margin-top: 4px; }
@@ -83,8 +84,10 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
 </head>
 <body>
   <div class="doc-header">
-    <img class="doc-logo" src="${logoUrl}" alt="" />
-    <div class="org-name">${ORG_NAME}</div>
+    <div class="org-row">
+      <img class="doc-logo" src="${logoUrl}" alt="" />
+      <div class="org-name">${ORG_NAME}</div>
+    </div>
     <h1>${title}</h1>
     <div class="sub">${subtitle ? subtitle + " &nbsp;|&nbsp; " : ""}วันที่พิมพ์: ${todayThai()}</div>
   </div>
@@ -98,9 +101,7 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
         <th colspan="2">เพิ่มในปี</th>
         <th colspan="2">ชำระ</th>
         <th colspan="2">คงเหลือ</th>
-        <th rowspan="2" class="pay" style="width:80px">โอนผ่านมือถือ (บาท)</th>
-        <th rowspan="2" class="pay" style="width:70px">เงินสด (บาท)</th>
-        <th rowspan="2" class="pay" style="width:80px">ผลผลิต (บาท)</th>
+        <th colspan="3" class="pay">ชำระ</th>
         <th rowspan="2" style="width:80px">หมายเหตุ</th>
       </tr>
       <tr>
@@ -108,6 +109,9 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
         <th>บาท</th><th>ราย</th>
         <th>บาท</th><th>ราย</th>
         <th>บาท</th><th>ราย</th>
+        <th class="pay" style="width:70px">เงินสด (บาท)</th>
+        <th class="pay" style="width:80px">โอน (บาท)</th>
+        <th class="pay" style="width:80px">ชำระด้วยผลผลิต (บาท)</th>
       </tr>
     </thead>
     <tbody>${bodyRows}</tbody>

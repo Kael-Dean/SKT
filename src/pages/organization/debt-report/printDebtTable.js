@@ -69,9 +69,8 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Sarabun', 'Noto Sans Thai', 'TH Sarabun New', sans-serif; font-size: 13px; color: #1e293b; padding: 16px; }
     .doc-header { text-align: center; margin-bottom: 16px; }
-    .doc-header .head-row { display: inline-flex; align-items: center; gap: 14px; }
-    .doc-header .doc-logo { height: 64px; width: auto; flex: none; }
-    .doc-header .head-text { text-align: center; }
+    .doc-header .head-text { display: inline-block; position: relative; text-align: center; }
+    .doc-header .doc-logo { position: absolute; right: 100%; top: 50%; transform: translateY(-50%); margin-right: 14px; height: 64px; width: auto; }
     .doc-header .org-name { font-size: 18px; font-weight: 700; color: #1e293b; }
     .doc-header h1 { font-size: 20px; font-weight: 700; margin: 2px 0 0; }
     .doc-header .sub { font-size: 13px; color: #475569; margin-top: 4px; }
@@ -85,12 +84,10 @@ export function printDebtTable({ title, subtitle, tableRows, colTotals }) {
 </head>
 <body>
   <div class="doc-header">
-    <div class="head-row">
+    <div class="head-text">
       <img class="doc-logo" src="${logoUrl}" alt="" />
-      <div class="head-text">
-        <div class="org-name">${ORG_NAME}</div>
-        <h1>${title}</h1>
-      </div>
+      <div class="org-name">${ORG_NAME}</div>
+      <h1>${title}</h1>
     </div>
     <div class="sub">${subtitle ? subtitle + " &nbsp;|&nbsp; " : ""}วันที่พิมพ์: ${todayThai()}</div>
   </div>

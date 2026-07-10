@@ -333,6 +333,196 @@ function ComboBox({
   )
 }
 
+/** ---------- MemberSearchBox (ค้นหาสมาชิก/ลูกค้า → asso_id) ---------- */
+const personLabel = (r) => {
+  const name = [r?.first_name, r?.last_name].filter(Boolean).join(" ").trim()
+  const company = String(r?.company_name || r?.companyName || "").trim()
+  if (name) return name
+  if (company) return company
+  if (r?.member_id) return `สมาชิก ${r.member_id}`
+  return "ไม่ทราบชื่อ"
+}
+
+/**
+ * ช่องค้นหาสมาชิกแบบ autocomplete — reuse endpoint /order/customers/search (เหมือนหน้าซื้อ)
+ * เลือกแล้วส่ง asso_id กลับผ่าน onPick. เป็น component ระดับบนสุด (identity คงที่)
+ * เพื่อไม่ให้ remount ทุกครั้งที่ parent re-render (กัน input เสีย focus)
+ */
+function MemberSearchBox({ valueLabel = "", error = false, onPick, onClear }) {
+  const [q, setQ] = useState("")
+  const [results, setResults] = useState([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [highlight, setHighlight] = useState(-1)
+  const boxRef = useRef(null)
+  const epochRef = useRef(0)
+
+  const selectable = (r) =>
+    r && r.asso_id !== null && r.asso_id !== undefined && String(r.asso_id).trim() !== ""
+
+  // debounce + ค้นหา
+  useEffect(() => {
+    const term = q.trim()
+    if (term.length < 2) {
+      setResults([])
+      setLoading(false)
+      return
+    }
+    const my = ++epochRef.current
+    setLoading(true)
+    const t = setTimeout(async () => {
+      try {
+        const items = (await apiAuth(`/order/customers/search?q=${encodeURIComponent(term)}`)) || []
+        if (my !== epochRef.current) return
+        const arr = Array.isArray(items) ? items : []
+        setResults(arr)
+        setOpen(true)
+        setHighlight(arr.length ? 0 : -1)
+      } catch {
+        if (my !== epochRef.current) return
+        setResults([])
+        setOpen(true)
+      } finally {
+        if (my === epochRef.current) setLoading(false)
+      }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [q])
+
+  // ปิดเมื่อคลิกนอกกล่อง
+  useEffect(() => {
+    const onClick = (e) => {
+      if (boxRef.current && !boxRef.current.contains(e.target)) {
+        setOpen(false)
+        setHighlight(-1)
+      }
+    }
+    document.addEventListener("click", onClick)
+    return () => document.removeEventListener("click", onClick)
+  }, [])
+
+  const pick = (r) => {
+    if (!selectable(r)) return
+    onPick?.(r)
+    setQ("")
+    setResults([])
+    setOpen(false)
+    setHighlight(-1)
+  }
+
+  const onKeyDown = (e) => {
+    if (!open && e.key === "ArrowDown") {
+      if (results.length) setOpen(true)
+      return
+    }
+    if (!open) return
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setHighlight((h) => (h < results.length - 1 ? h + 1 : 0))
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setHighlight((h) => (h > 0 ? h - 1 : results.length - 1))
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      if (highlight >= 0 && highlight < results.length) pick(results[highlight])
+    } else if (e.key === "Escape") {
+      e.preventDefault()
+      setOpen(false)
+      setHighlight(-1)
+    }
+  }
+
+  // สถานะ "เลือกแล้ว" — แสดงชิปพร้อมปุ่มเปลี่ยน
+  if (valueLabel) {
+    return (
+      <div
+        className={cx(
+          "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition",
+          "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20"
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" className="shrink-0 text-emerald-600 dark:text-emerald-300" aria-hidden="true">
+            <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z" />
+          </svg>
+          <span className="truncate font-medium text-emerald-800 dark:text-emerald-100">{valueLabel}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => onClear?.()}
+          className="shrink-0 rounded-xl border border-emerald-300 bg-white px-3 py-1.5 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-700 dark:bg-slate-800 dark:text-emerald-200 dark:hover:bg-slate-700 cursor-pointer"
+        >
+          เปลี่ยน
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative" ref={boxRef}>
+      <input
+        className={cx(baseField, error && "border-red-400 ring-2 ring-red-300/70")}
+        placeholder="พิมพ์ชื่อ / รหัสสมาชิก / เลขบัตร แล้วเลือกจากรายการ"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onFocus={() => { if (results.length) setOpen(true) }}
+        onKeyDown={onKeyDown}
+        autoComplete="off"
+        aria-invalid={error ? true : undefined}
+      />
+      {open && (
+        <div
+          role="listbox"
+          className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        >
+          {loading && (
+            <div className="px-3 py-2.5 text-sm text-slate-500 dark:text-slate-300">กำลังค้นหา…</div>
+          )}
+          {!loading && results.length === 0 && (
+            <div className="px-3 py-2.5 text-sm text-slate-500 dark:text-slate-300">ไม่พบสมาชิกที่ตรงกับคำค้น</div>
+          )}
+          {!loading &&
+            results.map((r, idx) => {
+              const ok = selectable(r)
+              const isActive = idx === highlight
+              const label = personLabel(r)
+              const sub = [
+                r?.type === "member" ? `สมาชิก${r?.member_id ? ` ${r.member_id}` : ""}` : "ลูกค้า",
+                r?.citizen_id ? `บัตร ${r.citizen_id}` : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")
+              return (
+                <button
+                  key={`${r?.asso_id ?? "na"}-${idx}`}
+                  type="button"
+                  role="option"
+                  aria-selected={isActive}
+                  disabled={!ok}
+                  onMouseEnter={() => setHighlight(idx)}
+                  onClick={() => pick(r)}
+                  className={cx(
+                    "flex w-full flex-col items-start gap-0.5 rounded-xl px-3 py-2.5 text-left transition",
+                    !ok && "cursor-not-allowed opacity-50",
+                    ok && isActive && "bg-emerald-100 dark:bg-emerald-400/20",
+                    ok && !isActive && "hover:bg-emerald-50 dark:hover:bg-emerald-900/30",
+                    ok && "cursor-pointer"
+                  )}
+                >
+                  <span className="text-[15px] font-medium">{label}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {sub}
+                    {!ok ? " · ไม่มี asso_id (เลือกไม่ได้)" : ""}
+                  </span>
+                </button>
+              )
+            })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** ---------- รายการรายงาน ---------- */
 const INTERNAL_REPORTS = [
   {
@@ -667,9 +857,11 @@ const PHASE1_REPORTS = [
     endpoint: "/reports/phase1/P05/pdf",
     type: "phase1_pdf",
     badge: "PHASE1",
-    // handoff (4): branch-wide report, one row per member — params branch_id, start_date, end_date
-    require: ["branchId", "startDate", "endDate"],
-    optional: [],
+    // BE: asso_id (บังคับ) + start_date + end_date + branch_id (ไม่บังคับ)
+    // รายงานรายคน — ต้องเลือกสมาชิกก่อน (ค้นหาชื่อ → asso_id)
+    require: ["assoId", "startDate", "endDate"],
+    optional: ["branchId"],
+    memberSearch: true,
   },
   {
     key: "phase1-p06",
@@ -861,7 +1053,8 @@ function Documents() {
     // share filters
     memberId: "",
     assoId: "",
-    klangIds: "", 
+    assoName: "", // ป้ายชื่อสมาชิกที่เลือก (สำหรับ P05 member search)
+    klangIds: "",
     customReportCode: "", 
     // search fields
     speciesLike: "",
@@ -1241,6 +1434,7 @@ function Documents() {
       klangId: "",
       memberId: "",
       assoId: "",
+      assoName: "",
       klangIds: "",
       customReportCode: "",
       speciesLike: "",
@@ -1680,7 +1874,28 @@ function Documents() {
             {hasDates && <FormDates report={report} />}
             {hasBranch && <FormBranchKlang requireBranch={requireBranch} showKlang={false} />}
             {hasSpec && <FormSpecOnly requiredSpec={req.includes("specId")} />}
-            {hasMember && <FormShareIdentity report={report} />}
+            {report.memberSearch ? (
+              <div className="md:col-span-3">
+                <label className={labelCls}>
+                  ค้นหาสมาชิก <span className="text-red-500">*</span>
+                </label>
+                <MemberSearchBox
+                  valueLabel={filters.assoName || (filters.assoId ? `asso_id: ${filters.assoId}` : "")}
+                  error={!!errors.assoId}
+                  onPick={(r) => {
+                    setFilters((p) => ({ ...p, assoId: String(r.asso_id), assoName: personLabel(r) }))
+                    setErrors((e) => ({ ...e, assoId: undefined }))
+                  }}
+                  onClear={() => setFilters((p) => ({ ...p, assoId: "", assoName: "" }))}
+                />
+                <FieldError name="assoId" />
+                <p className={helpTextCls}>
+                  เลือกสมาชิก/ลูกค้าที่ต้องการดูประวัติซื้อข้าวเปลือก แล้วกดพิมพ์ PDF
+                </p>
+              </div>
+            ) : hasMember ? (
+              <FormShareIdentity report={report} />
+            ) : null}
             {hasKlangIds && <FormShareKlangIds />}
           </div>
           <p className={helpTextCls}>

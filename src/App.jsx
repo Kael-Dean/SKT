@@ -52,6 +52,7 @@ const Inbox = lazy(() => import("./pages/work/Inbox.jsx"))
 const FacilityReport = lazy(() => import("./pages/work/FacilityReport.jsx"))
 const ChangePassword = lazy(() => import("./pages/work/ChangePassword.jsx"))
 const MyRelocation = lazy(() => import("./pages/work/MyRelocation.jsx"))
+const LoanRequest = lazy(() => import("./pages/work/LoanRequest.jsx"))
 const ForgotPassword = lazy(() => import("./pages/work/ForgotPassword.jsx"))
 const ResetPassword = lazy(() => import("./pages/work/ResetPassword.jsx"))
 
@@ -349,6 +350,7 @@ function App() {
         <Route path="/leave-request" element={<LeaveRequest />} />
         <Route path="/inbox" element={<Inbox />} />
         <Route path="/my-relocation" element={<MyRelocation />} />
+        <Route path="/loan-request" element={<LoanRequest />} />
 
         {/* ✅ Facility income/expense report — roles 1, 5, 6 */}
         <Route

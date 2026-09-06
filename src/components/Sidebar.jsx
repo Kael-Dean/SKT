@@ -19,6 +19,7 @@ const PERSONAL_MENUS = [
   { label: "📬 กล่องงานรออนุมัติ", path: "/inbox",           roles: "all" },
   { label: "📋 ยื่นใบลา",          path: "/leave-request",   roles: "all" },
   { label: "🚌 คำขอย้ายสาขา",     path: "/my-relocation",   roles: "all" },
+  { label: "💳 ขอสินเชื่อ",         path: "/loan-request",    roles: "all" },
   // Phase 3B — HR admin ทุกฟังก์ชันรวมอยู่ใน Dashboard HR แล้ว
   { label: "📊 Dashboard HR",       path: "/hr/dashboard",    roles: [ROLE.ADMIN] },
   // "รายรับ-รายจ่ายสถานที่" ย้ายไปกลุ่ม "รายงาน & แผน" ในหน้า Home แล้ว

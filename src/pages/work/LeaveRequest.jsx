@@ -2,6 +2,7 @@
 // ยื่นใบลา + ประวัติใบลา — PUT /personnel/me/leaves, GET /personnel/me/leaves/{id}/pdf
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
+import { countLeaveDays, fmtDays, currentFiscalYearBE } from "../../lib/leaveDays"
 import { getUser } from "../../lib/auth"
 import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
 
@@ -169,6 +170,13 @@ const PRINT_CSS = `
 // ─── utils ──────────────────────────────────────────────────────────────────
 function today() {
   return new Date().toISOString().slice(0, 10)
+}
+
+// นับเฉพาะวันทำงาน — ตัดเสาร์-อาทิตย์และวันหยุดที่สหกรณ์ประกาศไว้
+// เป็นเพียงการประมาณการฝั่งหน้าจอ ยอดจริงคำนวณโดยระบบตอนบันทึก
+function workingDays(start, end, holidays, isHalfDay = false) {
+  if (!start || !end) return 0
+  return countLeaveDays({ from: start, to: end, isHalfDay, holidays })
 }
 
 function diffDays(start, end) {
@@ -426,6 +434,7 @@ export default function LeaveRequest() {
     toTime: "",
     fromDate2: "",
     toDate2: "",
+    isHalfDay: false,
     addressDuringLeave: "",
     contactDuringLeave: "",
     lateReason: "",
@@ -433,6 +442,7 @@ export default function LeaveRequest() {
   })
 
   const [form, setForm] = useState(blankForm)
+  const [holidays, setHolidays] = useState([])
   const [errors, setErrors] = useState({})
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -444,6 +454,12 @@ export default function LeaveRequest() {
   const [historyError, setHistoryError] = useState("")
   const [cancellingId, setCancellingId] = useState(null)
   const [downloadingId, setDownloadingId] = useState(null)
+
+  useEffect(() => {
+    apiAuth(`/hr/holidays?fiscal_year=${currentFiscalYearBE()}`)
+      .then((d) => setHolidays(Array.isArray(d) ? d : []))
+      .catch(() => setHolidays([]))
+  }, [])
 
   const fetchHistory = useCallback(() => {
     setLoadingHistory(true)
@@ -488,9 +504,13 @@ export default function LeaveRequest() {
   }
 
   // ── derived values ──────────────────────────────────────────────────────
-  const days1 = diffDays(form.fromDate, form.toDate)
-  const days2 = diffDays(form.fromDate2, form.toDate2)
+  const sameDay = Boolean(form.fromDate) && form.fromDate === form.toDate
+  const halfDayActive = form.isHalfDay && sameDay
+  const days1 = workingDays(form.fromDate, form.toDate, holidays, halfDayActive)
+  const days2 = workingDays(form.fromDate2, form.toDate2, holidays)
   const totalDays = days1 + days2
+  const rawDays1 = diffDays(form.fromDate, form.toDate)
+  const excludedDays = rawDays1 > 0 ? rawDays1 - workingDays(form.fromDate, form.toDate, holidays) : 0
 
   // ── helpers ─────────────────────────────────────────────────────────────
   const set = (field) => (e) =>
@@ -537,11 +557,16 @@ export default function LeaveRequest() {
           comment:              form.reason   || null,
           address_during_leave: form.addressDuringLeave || null,
           contact_during_leave: form.contactDuringLeave || null,
+          is_half_day: halfDayActive,
         },
       })
       setSubmitted(true)
     } catch (err) {
-      setSubmitError(err.message || "ยื่นใบลาไม่สำเร็จ กรุณาลองใหม่")
+      setSubmitError(
+        err.status === 409 ? "มีใบลาในช่วงวันดังกล่าวอยู่แล้ว กรุณาตรวจสอบประวัติการลา"
+        : err.status === 422 ? `ข้อมูลไม่ผ่านการตรวจสอบ: ${err.message || "จำนวนวันลาต้องเป็นจำนวนเต็มหรือครึ่งวัน (.5) เท่านั้น"}`
+        : err.message || "ยื่นใบลาไม่สำเร็จ กรุณาลองใหม่"
+      )
     } finally {
       setSubmitting(false)
     }
@@ -840,19 +865,49 @@ export default function LeaveRequest() {
 
               {days2 > 0 && (
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-2">
-                  ช่วงที่ 2: <span className="font-bold">{days2}</span> วัน
+                  ช่วงที่ 2: <span className="font-bold">{fmtDays(days2)}</span> วัน
                 </p>
               )}
 
+              {/* ลาครึ่งวัน — ใช้ได้เมื่อลาวันเดียว */}
+              <label className={`mt-4 flex items-start gap-3 rounded-xl border px-4 py-3 transition-colors ${sameDay ? "border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30" : "border-gray-100 dark:border-gray-800 opacity-60 cursor-not-allowed"}`}>
+                <input
+                  type="checkbox"
+                  disabled={!sameDay}
+                  checked={halfDayActive}
+                  onChange={(e) => setForm((prev) => ({ ...prev, isHalfDay: e.target.checked }))}
+                  className="mt-0.5 size-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 disabled:cursor-not-allowed"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-gray-800 dark:text-gray-200">ลาครึ่งวัน (0.5 วัน)</span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    {sameDay
+                      ? "ใช้กับการลาวันเดียว หากไม่ติ๊ก ระบบจะนับเป็นครึ่งวันให้เองเมื่อช่วงเวลาที่ระบุไม่เกิน 4 ชั่วโมง"
+                      : "เลือกวันเริ่มและวันสิ้นสุดเป็นวันเดียวกันจึงจะลาครึ่งวันได้"}
+                  </span>
+                </span>
+              </label>
+
               {/* Total */}
               {totalDays > 0 && (
-                <div className="mt-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 px-4 py-3 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-                    รวมระยะเวลาลาทั้งหมด
-                  </span>
-                  <span className="text-lg font-bold text-indigo-700 dark:text-indigo-300">
-                    {totalDays} วัน
-                  </span>
+                <div className="mt-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                      รวมระยะเวลาลาทั้งหมด
+                    </span>
+                    <span className="text-lg font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">
+                      {fmtDays(totalDays)} วัน
+                    </span>
+                  </div>
+                  {excludedDays > 0 && (
+                    <p className="mt-1 text-xs text-indigo-600/80 dark:text-indigo-400/80">
+                      ไม่นับวันเสาร์-อาทิตย์และวันหยุดที่ประกาศไว้ {excludedDays} วัน
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    เป็นการประมาณการจากปฏิทินวันหยุดปัจจุบัน ระบบจะยืนยันจำนวนวันจริงเมื่อบันทึกใบลา
+                    หากลาเกินสิทธิ์ ส่วนที่เกินจะถูกหักจากเงินเดือน
+                  </p>
                 </div>
               )}
             </div>
@@ -1020,7 +1075,7 @@ export default function LeaveRequest() {
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">จำนวนวัน</p>
                       <p className="font-bold text-indigo-700 dark:text-indigo-300">
-                        {r.total_days} วัน
+                        {fmtDays(r.total_days)} วัน
                       </p>
                     </div>
                   </div>

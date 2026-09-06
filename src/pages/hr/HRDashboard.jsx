@@ -23,6 +23,9 @@ import HRSalaryCertTab from "./tabs/HRSalaryCertTab"
 import HRRelocationHistoryTab from "./tabs/HRRelocationHistoryTab"
 import HRLeaveRegisterTab from "./tabs/HRLeaveRegisterTab"
 import HRResignedRetiredTab from "./tabs/HRResignedRetiredTab"
+// Section 14 — ปฏิทินวันหยุด (3N)
+import HRHolidayCalendarTab from "./tabs/HRHolidayCalendarTab"
+import HRHolidayWorkTab from "./tabs/HRHolidayWorkTab"
 
 const fmt = (n) =>
   n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
@@ -72,6 +75,9 @@ const TABS = [
   { key: "relocation-history", label: "📋 ประวัติย้ายสาขา" },
   { key: "leave-register",     label: "📅 ทะเบียนการลา" },
   { key: "resigned-retired",   label: "👋 ลาออก/เกษียณ" },
+  // Section 14 — ปฏิทินวันหยุด
+  { key: "holiday-calendar",   label: "🗓️ ปฏิทินวันหยุด" },
+  { key: "holiday-work",       label: "🛠️ ทำงานวันหยุด" },
 ]
 
 export default function HRDashboard() {
@@ -163,6 +169,8 @@ export default function HRDashboard() {
       case "relocation-history":  return <HRRelocationHistoryTab />
       case "leave-register":      return <HRLeaveRegisterTab />
       case "resigned-retired":    return <HRResignedRetiredTab />
+      case "holiday-calendar":    return <HRHolidayCalendarTab />
+      case "holiday-work":        return <HRHolidayWorkTab />
       default:                    return <HREmployeesTab />
     }
   }

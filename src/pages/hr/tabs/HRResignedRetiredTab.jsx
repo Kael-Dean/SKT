@@ -9,16 +9,25 @@ const TABLE_HEADERS = ["ชื่อ-สกุล", "รหัสเดิม", 
 // 'success' tone reuses emerald (retire); resign keeps its amber 'pending' tone;
 // dismiss keeps 'danger'. exit-type colors carry more meaning than the 5 tones,
 // so map each to the closest Badge tone.
-const EXIT_TYPE_TONE = { resign: "pending", dismiss: "danger", retire: "success" }
+const EXIT_TYPE_TONE = {
+  retired: "success", deceased: "neutral", resigned: "pending",
+  dismissed: "danger", failed_probation: "danger", contract_end: "neutral",
+}
 
 const EXIT_TYPE_OPTIONS = [
-  { value: "",        label: "ทั้งหมด" },
-  { value: "resign",  label: "ลาออก" },
-  { value: "dismiss", label: "ไล่ออก" },
-  { value: "retire",  label: "เกษียณอายุ" },
+  { value: "",                 label: "ทั้งหมด" },
+  { value: "retired",          label: "เกษียณอายุ" },
+  { value: "deceased",         label: "เสียชีวิต" },
+  { value: "resigned",         label: "ลาออก" },
+  { value: "dismissed",        label: "ไล่ออก" },
+  { value: "failed_probation", label: "ไม่ผ่านทดลองงาน" },
+  { value: "contract_end",     label: "สิ้นสุดสัญญาจ้าง" },
 ]
 
-const EXIT_TYPE_LABEL = { resign: "ลาออก", dismiss: "ไล่ออก", retire: "เกษียณอายุ" }
+const EXIT_TYPE_LABEL = {
+  retired: "เกษียณอายุ", deceased: "เสียชีวิต", resigned: "ลาออก",
+  dismissed: "ไล่ออก", failed_probation: "ไม่ผ่านทดลองงาน", contract_end: "สิ้นสุดสัญญาจ้าง",
+}
 
 function fmtBE(d) {
   return d || "—"

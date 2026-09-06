@@ -6,7 +6,25 @@ import { apiAuth } from "../../lib/api"
 import { getUser, getRoleId } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
 import { PageLoader, ErrorState } from "../../components/ui"
+import { fmtDays, parseDays } from "../../lib/leaveDays"
 import lineIcon from "../../assets/line-icon.png"
+
+// LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
+// สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
+const QUOTA_ROWS = [
+  { key: "sick_leave",      label: "ลาป่วย" },
+  { key: "business_leave",  label: "ลากิจส่วนตัว" },
+  { key: "maturity_leave",  label: "ลาคลอดบุตร" },
+  { key: "paternity_leave", label: "ลาช่วยภริยาคลอดบุตร" },
+  { key: "religious_leave", label: "ลาอุปสมบท" },
+  { key: "military_leave",  label: "ลารับราชการทหาร" },
+  { key: "training_leave",  label: "ลาไปฝึกอบรม" },
+  { key: "ow_leave",        label: "ลา อว." },
+  { key: "accompany_leave", label: "ลาติดตามคู่สมรส" },
+  { key: "rehab_leave",     label: "ลาฟื้นฟูสมรรถภาพ" },
+  { key: "other_leave",     label: "อื่นๆ" },
+  { key: "absent",          label: "ขาดงาน" },
+]
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
 const GENDER_LABEL = { M: "ชาย", F: "หญิง", other: "อื่นๆ" }
@@ -337,25 +355,56 @@ export default function MyProfile() {
         </div>
       )}
 
-      {/* โควต้าการลา */}
+      {/* สิทธิ์การลา — LeaveQuotaOut (backend v1.1.0) */}
       {financial && Object.keys(quota).length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
           <SectionTitle>สิทธิ์การลา ปีงบประมาณ {quota.year}</SectionTitle>
+
+          {/* ลาพักผ่อน: สิทธิ์ปีนี้ + ยกมาจากปีก่อน = สิทธิ์รวม — อ่านแบบเดียวกับงบดุลของสหกรณ์ */}
+          <div className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 p-4 mb-3">
+            <p className="text-xs font-semibold text-indigo-900 dark:text-indigo-200 mb-2">ลาพักผ่อนประจำปี</p>
+            <div className="space-y-1 text-sm">
+              <div className="flex items-baseline justify-between">
+                <span className="text-gray-600 dark:text-gray-400">สิทธิ์ปีนี้</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100 tabular-nums">{fmtDays(quota.annual_leave)} วัน</span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-gray-600 dark:text-gray-400">ยกมาจากปีก่อน</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100 tabular-nums">{fmtDays(quota.annual_leave_carried_over)} วัน</span>
+              </div>
+              <div className="flex items-baseline justify-between border-t border-indigo-200/70 dark:border-indigo-800/60 pt-1 mt-1">
+                <span className="font-semibold text-indigo-900 dark:text-indigo-200">สิทธิ์รวม</span>
+                <span className="text-lg font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">
+                  {fmtDays((parseDays(quota.annual_leave) ?? 0) + (parseDays(quota.annual_leave_carried_over) ?? 0))} วัน
+                </span>
+              </div>
+            </div>
+            {parseDays(quota.annual_leave) === 0 && (
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                พนักงานที่บรรจุระหว่างปีงบประมาณจะยังไม่มีสิทธิ์ลาพักผ่อนในปีแรก
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {[
-              { label: "ลาป่วย", days: quota.sick_leave },
-              { label: "ลากิจ", days: quota.business_leave },
-              { label: "ลาพักร้อน", days: quota.annual_leave },
-              { label: "ลาคลอด", days: quota.maternity_leave },
-              { label: "ลาเลี้ยงดูบุตร", days: quota.paternity_leave },
-            ].filter((q) => q.days > 0).map((q) => (
-              <div key={q.label} className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 p-3 text-center">
+            {QUOTA_ROWS.map((q) => (
+              <div key={q.key} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-3 text-center">
                 <p className="text-xs text-gray-500 dark:text-gray-400">{q.label}</p>
-                <p className="text-lg font-bold text-indigo-700 dark:text-indigo-300 mt-0.5 tabular-nums">{q.days}</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-gray-100 mt-0.5 tabular-nums">{fmtDays(quota[q.key])}</p>
                 <p className="text-xs text-gray-400 dark:text-gray-500">วัน/ปี</p>
               </div>
             ))}
+            <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-3 text-center">
+              <p className="text-xs text-gray-500 dark:text-gray-400">ลาทำหมัน</p>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 mt-1.5">ตามแพทย์สั่ง</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">ไม่จำกัดวัน</p>
+            </div>
           </div>
+
+          <p className="mt-3 text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
+            ตัวเลขข้างต้นคือสิทธิ์ทั้งปี วันคงเหลือคำนวณจากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
+            ลาเกินสิทธิ์ทำได้ โดยส่วนที่เกินจะถูกหักจากเงินเดือน
+          </p>
         </div>
       )}
 

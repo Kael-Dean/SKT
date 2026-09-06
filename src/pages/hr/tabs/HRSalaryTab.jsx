@@ -99,7 +99,9 @@ export default function HRSalaryTab() {
       setStepMsg("✅ เลื่อนขั้นสำเร็จ")
       setEmpId("")
     } catch (err) {
-      setStepMsg(`❌ ${err.message || "ไม่สำเร็จ"}`)
+      setStepMsg(err.status === 409
+        ? "❌ เลื่อนขั้นไม่ได้ — ตำแหน่งของเจ้าหน้าที่คนนี้ยังไม่ได้ผูกกับระดับเงินเดือน ตั้งค่าที่แท็บตำแหน่งงานก่อน"
+        : `❌ ${err.message || "ไม่สำเร็จ"}`)
     } finally {
       setAwardingStep(false)
     }

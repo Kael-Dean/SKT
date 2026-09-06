@@ -81,6 +81,13 @@ const emptyCrime = () => ({ charge: "", court: "", case_date: "", outcome: "" })
 const emptyChild = () => ({ child_name: "", child_birthday: "", child_gender: "", child_legal_status: "" })
 const emptyParent = () => ({ parent_type: "", parent_name: "", parent_birthday: "", parent_employment_status: "" })
 
+// EmploymentType (backend v1.1.0) — กำหนดค่าเริ่มต้นของโควตาวันลา (ป่วย/กิจ/พักผ่อน)
+const EMPLOYMENT_TYPE_OPTIONS = [
+  { value: "officer",             label: "เจ้าหน้าที่",        sublabel: "ลาป่วย 30 · ลากิจ 10 · พักผ่อน 6" },
+  { value: "permanent_employee",  label: "ลูกจ้างประจำ",      sublabel: "ลาป่วย 30 · ลากิจ 10 · พักผ่อน 6" },
+  { value: "temporary_employee",  label: "ลูกจ้างชั่วคราว",   sublabel: "ลาป่วย 0 · ลากิจ 3 · พักผ่อน 6" },
+]
+
 export default function HRStaffSignup() {
   const [positions, setPositions] = useState([])
   const [loadingPositions, setLoadingPositions] = useState(true)
@@ -94,6 +101,7 @@ export default function HRStaffSignup() {
     role_id: "",
     branch_location: "",
     position: "",
+    employment_type: "officer",
     email: "",
     hired: "",
     bank_no: "",
@@ -213,6 +221,7 @@ export default function HRStaffSignup() {
         ...(form.role_id && { role_id: Number(form.role_id) }),
         ...(form.branch_location && { branch_location: Number(form.branch_location) }),
         ...(form.position && { position: Number(form.position) }),
+        ...(form.employment_type && { employment_type: form.employment_type }),
         ...(form.email && { email: form.email.trim() }),
         ...(form.hired && { hired: form.hired }),
         ...(form.bank_no && { bank_no: form.bank_no.trim() }),
@@ -308,7 +317,7 @@ export default function HRStaffSignup() {
     setError("")
     setForm({
       first_name: "", last_name: "", cid: "", role_id: "", branch_location: "",
-      position: "", email: "", hired: "", bank_no: "", p_number: "",
+      position: "", employment_type: "officer", email: "", hired: "", bank_no: "", p_number: "",
       e_contact: "", birthday: "", age: "", gender: "", m_status: "",
       children_number: "0", h_address: "", mhoo: "", soi: "", road: "",
       district: "", sub_district: "", province: "", postal_code: "", current_salary: "",
@@ -427,6 +436,14 @@ export default function HRStaffSignup() {
                 placeholder="— เลือกตำแหน่ง —"
                 loading={loadingPositions}
                 options={positions.map((p) => ({ value: p.id, label: p.title }))}
+              />
+            </Field>
+            <Field label="ประเภทการจ้าง">
+              <SelectDropdown
+                value={form.employment_type}
+                onChange={setField("employment_type")}
+                placeholder="— เลือกประเภทการจ้าง —"
+                options={EMPLOYMENT_TYPE_OPTIONS}
               />
             </Field>
             <Field label="สาขา">

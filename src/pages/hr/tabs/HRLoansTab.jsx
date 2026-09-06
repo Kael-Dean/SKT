@@ -15,6 +15,22 @@ const STATUS_LABEL = {
   rejected: "ปฏิเสธ",
 }
 // 5 distinct tones (incl. blue for hr_approved) — keep the explicit map.
+// LoanPurpose (backend v1.1.0) — purpose_code มาคู่กับ purpose ที่เป็น free text
+const PURPOSE_LABEL = {
+  education:          "เพื่อการศึกษา",
+  medical:            "เพื่อการรักษาพยาบาล",
+  housing:            "เพื่อที่อยู่อาศัย",
+  occupation:         "เพื่อการประกอบอาชีพ",
+  family_necessity:   "เพื่อความจำเป็นของครอบครัว",
+  debt_consolidation: "เพื่อรวมหนี้",
+  ceremony:           "เพื่อการฌาปนกิจ/พิธีการ",
+  disaster:           "เพื่อบรรเทาสาธารณภัย",
+  other:              "อื่นๆ (ต้องผ่านคณะกรรมการ)",
+}
+
+// อัตราดอกเบี้ยเป็นค่านโยบายคงที่ (ระเบียบ L9) — ไม่ใช่ค่าที่ HR กรอกได้อีกต่อไป
+const LOAN_INTEREST_RATE = "5.00 % ต่อปี"
+
 const STATUS_COLOR = {
   pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   hr_approved: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
@@ -78,7 +94,9 @@ export default function HRLoansTab() {
       setModal(null)
       fetchLoans()
     } catch (err) {
-      setSubmitMsg(`❌ ${err.message || "ไม่สำเร็จ"}`)
+      setSubmitMsg(err.status === 409
+        ? "❌ ดำเนินการไม่ได้ — สถานะของคำขอนี้ถูกเปลี่ยนไปแล้ว กรุณาโหลดรายการใหม่"
+        : `❌ ${err.message || "ไม่สำเร็จ"}`)
     } finally {
       setSubmitting(false)
     }
@@ -133,9 +151,30 @@ export default function HRLoansTab() {
                       <p className="font-medium text-gray-800 dark:text-gray-200">{fmtDate(loan.created_at)}</p>
                     </div>
                   </div>
-                  {loan.purpose && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+                    <div>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">ดอกเบี้ย</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-200 tabular-nums">{LOAN_INTEREST_RATE}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-xs text-gray-400 dark:text-gray-500">ผู้ค้ำประกัน</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-200">
+                        {loan.guarantor_1_name || loan.guarantor_1_id
+                          ? `${loan.guarantor_1_name ?? "รหัส " + loan.guarantor_1_id}`
+                          : "—"}
+                        {(loan.guarantor_2_name || loan.guarantor_2_id) && (
+                          <>
+                            <span className="mx-1.5 text-gray-300 dark:text-gray-600">·</span>
+                            {loan.guarantor_2_name ?? `รหัส ${loan.guarantor_2_id}`}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  {(loan.purpose_code || loan.purpose) && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-1.5">
-                      วัตถุประสงค์: {loan.purpose}
+                      วัตถุประสงค์: {PURPOSE_LABEL[loan.purpose_code] ?? loan.purpose_code ?? ""}
+                      {loan.purpose && <span className="text-gray-400 dark:text-gray-500"> — {loan.purpose}</span>}
                     </p>
                   )}
                 </div>

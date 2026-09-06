@@ -114,6 +114,7 @@ const ALL_FUNCTIONS = [
       { label: "อนุมัติใบลา",       path: "/hr/leaves",        icon: "📅", roles: [ROLE.ADMIN] },
       { label: "ข้อมูลการเงิน",     path: "/hr/finance",       icon: "💰", roles: [ROLE.ADMIN] },
       { label: "ย้ายสาขา",          path: "/hr/relocation",    icon: "🏢", roles: [ROLE.ADMIN] },
+      { label: "ขอสินเชื่อ",         path: "/loan-request",     icon: "💳", roles: "all" },
     ],
   },
 ]

@@ -78,8 +78,16 @@ function Field({ label, required, children }) {
 const emptyChild = () => ({ child_name: "", child_birthday: "", child_gender: "", child_legal_status: "" })
 const emptyParent = () => ({ parent_type: "", parent_name: "", parent_birthday: "", parent_employment_status: "" })
 
+// EmploymentType (backend v1.1.0) — กำหนดค่าเริ่มต้นของโควตาวันลา (ป่วย/กิจ/พักผ่อน)
+const EMPLOYMENT_TYPE_OPTIONS = [
+  { value: "officer",             label: "เจ้าหน้าที่",        sublabel: "ลาป่วย 30 · ลากิจ 10 · พักผ่อน 6" },
+  { value: "permanent_employee",  label: "ลูกจ้างประจำ",      sublabel: "ลาป่วย 30 · ลากิจ 10 · พักผ่อน 6" },
+  { value: "temporary_employee",  label: "ลูกจ้างชั่วคราว",   sublabel: "ลาป่วย 0 · ลากิจ 3 · พักผ่อน 6" },
+]
+
 const emptyForm = () => ({
   first_name: "", last_name: "", cid: "", role_id: "", branch_location: "", position: "",
+  employment_type: "officer",
   email: "", hired: "", bank_no: "", p_number: "", e_contact: "", birthday: "", age: "",
   gender: "", m_status: "", children_number: "0", underlying_disease: "",
   h_address: "", mhoo: "", soi: "", road: "", sub_district: "", district: "", province: "", postal_code: "",
@@ -240,7 +248,9 @@ export default function HREmployeesTab() {
         fetchUsers()
       }, 1000)
     } catch (err) {
-      setSubmitMsg(`❌ ${err.message || "ลงทะเบียนไม่สำเร็จ"}`)
+      setSubmitMsg(err.status === 409
+        ? "❌ เลขบัตรประชาชนนี้มีอยู่ในระบบแล้ว"
+        : `❌ ${err.message || "ลงทะเบียนไม่สำเร็จ"}`)
     } finally {
       setSubmitting(false)
     }
@@ -401,6 +411,9 @@ export default function HREmployeesTab() {
               </Field>
               <Field label="ตำแหน่งงาน">
                 <SelectDropdown value={form.position} onChange={(v) => setForm(f => ({ ...f, position: v }))} placeholder="เลือกตำแหน่ง" options={positions} />
+              </Field>
+              <Field label="ประเภทการจ้าง">
+                <SelectDropdown value={form.employment_type} onChange={(v) => setForm(f => ({ ...f, employment_type: v }))} placeholder="เลือกประเภทการจ้าง" options={EMPLOYMENT_TYPE_OPTIONS} />
               </Field>
               <Field label="วันที่เริ่มงาน">
                 <input type="date" value={form.hired} onChange={set("hired")} className={inputCls} />

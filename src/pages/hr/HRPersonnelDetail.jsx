@@ -7,6 +7,24 @@ import { apiAuth } from "../../lib/api"
 import { PageLoader, ErrorState, Badge } from "../../components/ui"
 import BranchAssignmentCard from "./BranchAssignmentCard"
 import lineIcon from "../../assets/line-icon.png"
+import { fmtDaysUnit } from "../../lib/leaveDays"
+
+// LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
+// สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
+const QUOTA_ROWS = [
+  { key: "sick_leave",      label: "ลาป่วย" },
+  { key: "business_leave",  label: "ลากิจส่วนตัว" },
+  { key: "maturity_leave",  label: "ลาคลอดบุตร" },
+  { key: "paternity_leave", label: "ลาช่วยภริยาคลอดบุตร" },
+  { key: "religious_leave", label: "ลาอุปสมบท" },
+  { key: "military_leave",  label: "ลารับราชการทหาร" },
+  { key: "training_leave",  label: "ลาไปฝึกอบรม" },
+  { key: "ow_leave",        label: "ลา อว." },
+  { key: "accompany_leave", label: "ลาติดตามคู่สมรส" },
+  { key: "rehab_leave",     label: "ลาฟื้นฟูสมรรถภาพ" },
+  { key: "other_leave",     label: "อื่นๆ" },
+  { key: "absent",          label: "ขาดงาน" },
+]
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
 
@@ -309,13 +327,16 @@ export default function HRPersonnelDetail() {
         </div>
       )}
 
-      {/* โควต้าการลา */}
+      {/* สิทธิ์การลา — LeaveQuotaOut (backend v1.1.0) */}
       {Object.keys(quota).length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
-          <SectionTitle>โควต้าการลา (ปี {quota.year})</SectionTitle>
-          <InfoRow label="ลาป่วย" value={quota.sick_leave != null ? `${quota.sick_leave} วัน` : null} />
-          <InfoRow label="ลากิจ" value={quota.business_leave != null ? `${quota.business_leave} วัน` : null} />
-          <InfoRow label="ลาพักร้อน" value={quota.annual_leave != null ? `${quota.annual_leave} วัน` : null} />
+          <SectionTitle>สิทธิ์การลา (ปีงบประมาณ {quota.year})</SectionTitle>
+          <InfoRow label="ลาพักผ่อนประจำปี" value={fmtDaysUnit(quota.annual_leave)} />
+          <InfoRow label="ยกมาจากปีก่อน" value={fmtDaysUnit(quota.annual_leave_carried_over)} />
+          {QUOTA_ROWS.map((q) => (
+            <InfoRow key={q.key} label={q.label} value={fmtDaysUnit(quota[q.key])} />
+          ))}
+          <InfoRow label="ลาทำหมัน" value="ตามแพทย์สั่ง (ไม่จำกัดวัน)" />
         </div>
       )}
 

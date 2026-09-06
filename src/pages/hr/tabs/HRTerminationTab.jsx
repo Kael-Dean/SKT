@@ -5,11 +5,19 @@ import { apiAuth, apiDownload } from "../../../lib/api"
 import Portal from "../../../components/Portal"
 import { ErrorState, EmptyState } from "../../../components/ui"
 
+// TerminationReason (backend v1.1.0). สามค่าแรกคือค่าที่พบจริงในข้อมูลย้อนหลัง
+// ของสหกรณ์ — เรียงไว้ก่อนเพื่อให้ HR เลือกได้เร็ว
 const EXIT_TYPES = [
-  { value: "resign",  label: "ลาออก" },
-  { value: "dismiss", label: "ไล่ออก" },
-  { value: "retire",  label: "เกษียณอายุ" },
+  { value: "retired",         label: "เกษียณอายุ" },
+  { value: "deceased",        label: "เสียชีวิต" },
+  { value: "resigned",        label: "ลาออก" },
+  { value: "dismissed",       label: "ไล่ออก" },
+  { value: "failed_probation", label: "ไม่ผ่านทดลองงาน" },
+  { value: "contract_end",    label: "สิ้นสุดสัญญาจ้าง" },
 ]
+
+// 409 จาก POST /hr/employees/terminate = พนักงานยังเป็นผู้ค้ำประกันสินเชื่อที่ยังไม่ปิดบัญชี
+const GUARANTOR_BLOCK = "บันทึกไม่ได้ — พนักงานคนนี้ยังเป็นผู้ค้ำประกันสินเชื่อที่ยังไม่ปิดบัญชี ต้องเปลี่ยนผู้ค้ำประกันหรือปิดสินเชื่อก่อน"
 
 function fmt(n) {
   if (n == null || n === "") return "—"
@@ -137,7 +145,7 @@ export default function HRTerminationTab() {
       setSaveMsg({ ok: true, text: "บันทึกสำเร็จ" })
       await loadRecord(selectedEmp)
     } catch (e) {
-      setSaveMsg({ ok: false, text: e.message || "บันทึกไม่สำเร็จ" })
+      setSaveMsg({ ok: false, text: e.status === 409 ? GUARANTOR_BLOCK : e.message || "บันทึกไม่สำเร็จ" })
     } finally {
       setSaving(false)
     }
@@ -156,7 +164,7 @@ export default function HRTerminationTab() {
       setSaveMsg({ ok: true, text: "บันทึกสำเร็จ — พนักงานถูก deactivate แล้ว" })
       await loadRecord(selectedEmp)
     } catch (e) {
-      setSaveMsg({ ok: false, text: e.message || "บันทึกไม่สำเร็จ" })
+      setSaveMsg({ ok: false, text: e.status === 409 ? GUARANTOR_BLOCK : e.message || "บันทึกไม่สำเร็จ" })
     } finally {
       setSaving(false)
     }

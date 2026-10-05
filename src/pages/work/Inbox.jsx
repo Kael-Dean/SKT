@@ -1,21 +1,47 @@
 // src/pages/work/Inbox.jsx
-// กล่องงานรออนุมัติ — Inbox / Approval Queue
-// ยังไม่เชื่อม backend — ใช้ mock data และ UI state ล้วน
-// TODO (when BE ready): filter items by role from API
-//   - ADMIN / MNG: เห็นทุก pending items
-//   - HR: เห็น items ที่ผ่าน branch head มาแล้ว (approvalStep = "pending_manager" หรือสูงกว่า)
-//   - อื่นๆ: เห็นเฉพาะ items ที่ assigned_to ตรงกับ userId ของตัวเอง
-
-import { useState, useMemo } from "react"
-import { createPortal } from "react-dom"
-import SelectDropdown from "../../components/SelectDropdown"
+// กล่องงานรออนุมัติ — real approval queue for 3B (leave) + 3O (out-of-office).
+// api-handoff งวด 2 §1–§4.
+//   leave: GET /hr/leave-requests            → approve/deny per stage
+//   3O   : GET /hr/out-of-office?status=…    → approve/reject per stage
+// Deep link (?type=leave|out_of_office&id=N) from NotificationBell opens the
+// detail after re-checking the request's *current* status (notifications can
+// be stale). One source failing (e.g. 403 for the role) never hides the other.
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
+import Portal from "../../components/Portal"
+import DecisionModal from "../../components/DecisionModal"
 import { EmptyState } from "../../components/ui"
+import { getRoleId, getUser } from "../../lib/auth"
+import { apiAuth } from "../../lib/api"
+import {
+  APPROVAL_ROLE,
+  ROLE_LABEL,
+  STAGE_APPROVE_LABEL,
+  OOO_TYPE_LABEL,
+  hhmm,
+  isApproverRole,
+  isPendingStatus,
+  myStageStatus,
+  statusLabel,
+  statusTone,
+  canActOn,
+} from "../../lib/approval"
+import {
+  KIND,
+  KIND_LABEL,
+  canDecide,
+  fmtDateTh,
+  fmtDateTimeTh,
+  relativeTimeTh,
+  rejectionReason,
+  requesterName,
+  requestNotificationsRefresh,
+} from "../../lib/approvalActions"
 
-// ─── shared style tokens (project-wide) ────────────────────────────────────
 const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5"
 
-// ─── inline icons (currentColor, no emoji) ──────────────────────────────────
+// ─── icons ──────────────────────────────────────────────────────────────────
 const iconBase = {
   "aria-hidden": "true",
   viewBox: "0 0 24 24",
@@ -34,36 +60,11 @@ function IconLeave({ className = "size-5" }) {
     </svg>
   )
 }
-function IconReport({ className = "size-5" }) {
+function IconOut({ className = "size-5" }) {
   return (
     <svg {...iconBase} className={className}>
-      <path d="M3 21h18" />
-      <path d="M5 21V7l7-4 7 4v14" />
-      <path d="M9 9h.01M9 12h.01M9 15h.01M15 9h.01M15 12h.01M15 15h.01" />
-    </svg>
-  )
-}
-function IconDoc({ className = "size-5" }) {
-  return (
-    <svg {...iconBase} className={className}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <path d="M8 13h8M8 17h8" />
-    </svg>
-  )
-}
-function IconPending({ className = "size-5" }) {
-  return (
-    <svg {...iconBase} className={className}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  )
-}
-function IconCheck({ className = "size-5" }) {
-  return (
-    <svg {...iconBase} className={className}>
-      <path d="m5 13 4 4L19 7" />
+      <path d="M12 21s-6-5.33-6-10a6 6 0 1 1 12 0c0 4.67-6 10-6 10Z" />
+      <circle cx="12" cy="11" r="2.2" />
     </svg>
   )
 }
@@ -75,703 +76,612 @@ function IconInbox({ className = "size-5" }) {
     </svg>
   )
 }
-function IconClose({ className = "size-4" }) {
+function IconRefresh({ className = "size-4" }) {
   return (
     <svg {...iconBase} className={className}>
+      <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
+      <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
+      <path d="M21 3v5h-5M3 21v-5h5" />
+    </svg>
+  )
+}
+function IconClose({ className = "size-4" }) {
+  return (
+    <svg {...iconBase} strokeWidth={2} className={className}>
       <path d="M18 6 6 18M6 6l12 12" />
     </svg>
   )
 }
+const KindIcon = ({ kind, className }) =>
+  kind === KIND.OOO ? <IconOut className={className} /> : <IconLeave className={className} />
 
-const TYPE_ICON_CMP = {
-  leave: IconLeave,
-  facility: IconReport,
-  other: IconDoc,
-}
-function TypeIcon({ type, className }) {
-  const Cmp = TYPE_ICON_CMP[type] ?? IconDoc
-  return <Cmp className={className} />
-}
-
-const STATUS_LABEL = {
-  pending_branch_head:       "รอหัวหน้าสาขาอนุมัติ",
-  pending_assistant_manager: "รอผู้ช่วยผู้จัดการอนุมัติ",
-  pending_manager:           "รอผู้จัดการอนุมัติ",
-  approved:                  "อนุมัติแล้ว",
-  rejected:                  "ไม่อนุมัติ",
-}
-
-const STATUS_COLOR = {
-  pending_branch_head:       "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-  pending_assistant_manager: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
-  pending_manager:           "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  approved:                  "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  rejected:                  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-}
-
-const TYPE_LABEL = {
-  leave:    "ใบลา",
-  facility: "รายงาน",
-  other:    "อื่นๆ",
-}
-
-// ─── mock data ──────────────────────────────────────────────────────────────
-const INITIAL_ITEMS = [
-  {
-    id: 1,
-    type: "leave",
-    docRef: "LV-2568-001",
-    fromName: "นายสมชาย ดีใจ",
-    fromPosition: "เจ้าหน้าที่สินเชื่อ",
-    subject: "ขออนุมัติลาพักผ่อน 2 วัน (12-13 พ.ค. 2568)",
-    submittedAt: "2568-05-10T09:30:00",
-    urgency: "normal",
-    status: "pending",
-    approvalStep: "pending_branch_head",
-  },
-  {
-    id: 2,
-    type: "leave",
-    docRef: "LV-2568-002",
-    fromName: "นางสาวมาลี รักงาน",
-    fromPosition: "นักวิชาการเงินและบัญชี",
-    subject: "ขออนุมัติลาป่วย 1 วัน (11 พ.ค. 2568)",
-    submittedAt: "2568-05-10T13:15:00",
-    urgency: "urgent",
-    status: "pending",
-    approvalStep: "pending_branch_head",
-  },
-  {
-    id: 3,
-    type: "facility",
-    docRef: "FC-2568-008",
-    fromName: "นายประสิทธิ์ เก่งมาก",
-    fromPosition: "เจ้าหน้าที่การตลาด",
-    subject: "รายงานค่าใช้จ่ายสถานที่ประจำเดือนเมษายน 2568",
-    submittedAt: "2568-05-09T08:00:00",
-    urgency: "normal",
-    status: "pending",
-    approvalStep: "pending_manager",
-  },
-  {
-    id: 4,
-    type: "leave",
-    docRef: "LV-2568-003",
-    fromName: "นายวิชัย ตั้งใจ",
-    fromPosition: "เจ้าหน้าที่บัญชี",
-    subject: "ขออนุมัติลากิจส่วนตัว 3 วัน (5-7 พ.ค. 2568)",
-    submittedAt: "2568-05-04T10:00:00",
-    urgency: "urgent",
-    status: "approved",
-    approvalStep: "approved",
-  },
-  {
-    id: 5,
-    type: "leave",
-    docRef: "LV-2568-004",
-    fromName: "นางสาวจิราพร สดใส",
-    fromPosition: "เจ้าหน้าที่ทั่วไป",
-    subject: "ขออนุมัติลาพักผ่อน 5 วัน (14-18 พ.ค. 2568)",
-    submittedAt: "2568-05-10T14:45:00",
-    urgency: "normal",
-    status: "pending",
-    approvalStep: "pending_assistant_manager",
-  },
-  {
-    id: 6,
-    type: "other",
-    docRef: "OT-2568-011",
-    fromName: "นายสุรศักดิ์ มุ่งมั่น",
-    fromPosition: "ผู้ช่วยผู้จัดการ",
-    subject: "ขออนุมัติเดินทางไปราชการ จ.อุบลราชธานี (20-22 พ.ค. 2568)",
-    submittedAt: "2568-05-09T15:00:00",
-    urgency: "normal",
-    status: "rejected",
-    approvalStep: "rejected",
-  },
-  {
-    id: 7,
-    type: "leave",
-    docRef: "LV-2568-005",
-    fromName: "นางวิไลวรรณ ใสซื่อ",
-    fromPosition: "เจ้าหน้าที่ธุรการ",
-    subject: "ขออนุมัติลาคลอดบุตร 90 วัน (1 มิ.ย. – 28 ส.ค. 2568)",
-    submittedAt: "2568-05-08T09:00:00",
-    urgency: "normal",
-    status: "pending",
-    approvalStep: "pending_branch_head",
-  },
-]
-
-// ─── utils ──────────────────────────────────────────────────────────────────
-function fmtDateTimeTh(isoStr) {
-  if (!isoStr) return "—"
-  try {
-    const d = new Date(isoStr)
-    return d.toLocaleString("th-TH", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  } catch {
-    return isoStr
+// ─── normalisation ─────────────────────────────────────────────────────────
+function toItem(kind, r) {
+  if (kind === KIND.OOO) {
+    return {
+      key: `${kind}-${r.id}`,
+      kind,
+      req: r,
+      name: requesterName(r),
+      title: OOO_TYPE_LABEL[r.request_type] || "ขอออกนอกสถานที่",
+      when: `${fmtDateTh(r.request_date)} เวลา ${hhmm(r.time_out)}–${hhmm(r.time_back)} น.`,
+      place: r.place,
+      reason: r.reason,
+      submittedAt: r.created_at,
+    }
+  }
+  const time = r.from_time || r.to_time ? ` (${hhmm(r.from_time)}–${hhmm(r.to_time)} น.)` : ""
+  const range = r.from_date === r.to_date ? fmtDateTh(r.from_date) : `${fmtDateTh(r.from_date)} – ${fmtDateTh(r.to_date)}`
+  return {
+    key: `${kind}-${r.id}`,
+    kind,
+    req: r,
+    name: requesterName(r),
+    title: `${r.leave_type_name || "ใบลา"}${r.total_days != null ? ` ${r.total_days} วัน` : ""}`,
+    when: `${range}${time}`,
+    place: r.address_during_leave,
+    reason: r.comment,
+    submittedAt: r.created_at,
   }
 }
 
-function relativeTime(isoStr) {
-  if (!isoStr) return ""
-  try {
-    const d = new Date(isoStr)
-    const now = new Date()
-    const diffMs = now - d
-    const diffMin = Math.floor(diffMs / 60000)
-    if (diffMin < 1) return "เมื่อกี้"
-    if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`
-    const diffHr = Math.floor(diffMin / 60)
-    if (diffHr < 24) return `${diffHr} ชั่วโมงที่แล้ว`
-    const diffDay = Math.floor(diffHr / 24)
-    if (diffDay < 7) return `${diffDay} วันที่แล้ว`
-    return fmtDateTimeTh(isoStr)
-  } catch {
-    return isoStr
-  }
+const isMine = (req) => {
+  const me = getUser()
+  return me?.id != null && req?.user_id != null && Number(me.id) === Number(req.user_id)
 }
 
-// ─── sub-components ──────────────────────────────────────────────────────────
+/** Explains why the opened request is not actionable for this user (null = actionable). */
+function stateNotice(req, roleId) {
+  if (!req) return null
+  const label = statusLabel(req.status)
+  if (!isPendingStatus(req.status)) return { tone: "done", text: `คำขอนี้ดำเนินการไปแล้ว (${label})` }
+  if (canDecide(req)) return null
+  if (roleId !== APPROVAL_ROLE.ADMIN && isMine(req)) {
+    return { tone: "info", text: `เป็นคำขอของคุณเอง พิจารณาเองไม่ได้ (${label})` }
+  }
+  if (!myStageStatus(roleId)) return { tone: "info", text: `สถานะปัจจุบัน: ${label}` }
+  // stage check passes but branch doesn't → branch head outside their branches
+  if (canActOn({ status: req.status, user_id: req.user_id })) {
+    return { tone: "info", text: "คำขอนี้อยู่นอกสาขาที่คุณดูแล" }
+  }
+  return { tone: "done", text: `คำขอนี้ดำเนินการไปแล้ว (${label})` }
+}
 
-function SummaryCard({ label, value, colorCls, icon }) {
+const asList = (data) => (Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [])
+
+// ─── small pieces ───────────────────────────────────────────────────────────
+function StatusBadge({ status }) {
   return (
-    <div className={`${cardCls} flex items-center gap-4`}>
-      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl ${colorCls}`}>
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-tight">{value}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">{label}</p>
-      </div>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(status)}`}>
+      {statusLabel(status)}
+    </span>
+  )
+}
+
+function Notice({ tone = "info", children, onDismiss }) {
+  const toneCls = {
+    success: "bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/30",
+    error: "bg-red-50 text-red-800 ring-red-200 dark:bg-red-500/10 dark:text-red-200 dark:ring-red-500/30",
+    warn: "bg-amber-50 text-amber-900 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30",
+    info: "bg-sky-50 text-sky-900 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-200 dark:ring-sky-500/30",
+    done: "bg-gray-100 text-gray-800 ring-gray-200 dark:bg-gray-700/60 dark:text-gray-100 dark:ring-gray-600",
+  }[tone]
+  return (
+    <div
+      role={tone === "error" ? "alert" : "status"}
+      className={`flex items-start gap-3 rounded-xl px-4 py-3 text-sm ring-1 ${toneCls}`}
+    >
+      <div className="min-w-0 flex-1 break-words">{children}</div>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="ปิดข้อความ"
+          className="-m-1 shrink-0 cursor-pointer rounded-lg p-1 opacity-70 transition hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        >
+          <IconClose className="size-3.5" />
+        </button>
+      )}
     </div>
   )
 }
 
-function StatusBadge({ status }) {
-  const label = STATUS_LABEL[status] ?? status
-  const color = STATUS_COLOR[status] ?? "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+function InboxCard({ item, onView, onDecide }) {
+  const { req } = item
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${color}`}>
-      {label}
-    </span>
-  )
-}
-
-function UrgencyBadge() {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-900/30 dark:text-red-300 ring-1 ring-red-200 dark:ring-red-800">
-      <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse motion-reduce:animate-none" />
-      ด่วน
-    </span>
-  )
-}
-
-// ─── Approve/Reject Modal ────────────────────────────────────────────────────
-function ActionModal({ isOpen, action, item, onClose, onConfirm }) {
-  const [note, setNote] = useState("")
-  const [confirming, setConfirming] = useState(false)
-
-  if (!isOpen || !item) return null
-
-  const isApprove = action === "approve"
-  const title = isApprove ? "ยืนยันอนุมัติ" : "ยืนยันไม่อนุมัติ"
-  const btnCls = isApprove
-    ? "bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 focus:ring-emerald-500"
-    : "bg-red-600 hover:bg-red-500 active:bg-red-700 focus:ring-red-500"
-  const btnLabel = isApprove ? "อนุมัติ" : "ไม่อนุมัติ"
-
-  const handleConfirm = async () => {
-    setConfirming(true)
-    await onConfirm(item.id, action, note)
-    setConfirming(false)
-    setNote("")
-    onClose()
-  }
-
-  const handleClose = () => {
-    if (confirming) return
-    setNote("")
-    onClose()
-  }
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="modal-title"
-    >
-      {/* Backdrop */}
-      <button
-        type="button"
-        aria-label="ปิด"
-        onClick={handleClose}
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm cursor-pointer"
-      />
-
-      {/* Panel */}
-      <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-6 space-y-4">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 id="modal-title" className="text-lg font-bold text-gray-900 dark:text-gray-100">
-              {title}
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              เอกสาร: <span className="font-semibold text-gray-700 dark:text-gray-300">{item.docRef}</span>
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={confirming}
-            className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer disabled:cursor-not-allowed"
-            aria-label="ปิด"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Subject summary */}
-        <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 px-4 py-3 text-sm">
-          <p className="font-semibold text-gray-800 dark:text-gray-200">{item.fromName}</p>
-          <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5">{item.subject}</p>
-        </div>
-
-        {/* Note textarea */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-            หมายเหตุ {isApprove ? "(ไม่บังคับ)" : "(แนะนำให้ระบุเหตุผล)"}
-          </label>
-          <textarea
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"
-            rows={3}
-            placeholder={isApprove ? "ระบุหมายเหตุ (ถ้ามี)" : "ระบุเหตุผลที่ไม่อนุมัติ"}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            disabled={confirming}
-          />
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3 pt-1">
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={confirming}
-            className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            ยกเลิก
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={confirming}
-            className={`flex-1 h-10 rounded-xl text-white text-sm font-semibold transition shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-2 ${btnCls}`}
-          >
-            {confirming ? (
-              <>
-                <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                กำลังบันทึก...
-              </>
-            ) : (
-              btnLabel
-            )}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  )
-}
-
-// ─── Item Row ────────────────────────────────────────────────────────────────
-function InboxItem({ item, onApprove, onReject, onView }) {
-  const isPending = item.status === "pending"
-
-  return (
-    <div className={`${cardCls} space-y-3`}>
-      {/* Top row */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
+    <article className={`${cardCls} space-y-3`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-gray-500 dark:text-gray-400">
-            <TypeIcon type={item.type} className="size-4" />
+            <KindIcon kind={item.kind} className="size-4" />
           </span>
-          <span className="rounded-lg bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:text-gray-300">
-            {TYPE_LABEL[item.type] ?? item.type}
+          <span className="rounded-lg bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+            {KIND_LABEL[item.kind]}
           </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">{item.docRef}</span>
-          {item.urgency === "urgent" && <UrgencyBadge />}
+          <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">#{req.id}</span>
         </div>
-        <StatusBadge status={item.approvalStep} />
+        <StatusBadge status={req.status} />
       </div>
 
-      {/* Subject */}
-      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-snug">
-        {item.subject}
-      </p>
-
-      {/* Meta row */}
-      <div className="flex items-center gap-4 flex-wrap text-xs text-gray-500 dark:text-gray-400">
-        <div className="flex items-center gap-1.5">
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold">
-            {(item.fromName[0] || "?").toUpperCase()}
-          </div>
-          <span className="font-medium text-gray-700 dark:text-gray-300">{item.fromName}</span>
-          <span className="text-gray-400 dark:text-gray-500">·</span>
-          <span>{item.fromPosition}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span title={fmtDateTimeTh(item.submittedAt)}>{relativeTime(item.submittedAt)}</span>
-        </div>
+      <div>
+        <p className="text-sm font-semibold leading-snug text-gray-900 dark:text-gray-100">
+          {item.name}
+          <span className="font-normal text-gray-500 dark:text-gray-400"> ขอ</span>
+          {item.title}
+        </p>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{item.when}</p>
+        {item.kind === KIND.OOO && item.place && (
+          <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-300">สถานที่: {item.place}</p>
+        )}
+        {item.reason && (
+          <p className="mt-2 line-clamp-2 rounded-lg bg-gray-50 px-3 py-1.5 text-xs text-gray-600 dark:bg-gray-700/40 dark:text-gray-300">
+            เหตุผล: {item.reason}
+          </p>
+        )}
       </div>
 
-      {/* Approval step indicator */}
-      {isPending && (
-        <div className="flex items-center gap-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5">
-          <svg className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
-          <span className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">
-            ขั้นตอน: {STATUS_LABEL[item.approvalStep] ?? item.approvalStep}
-          </span>
-        </div>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-gray-100 dark:border-gray-700/50">
+      <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-700/50">
+        <span className="mr-auto text-xs text-gray-500 dark:text-gray-400" title={fmtDateTimeTh(item.submittedAt)}>
+          ยื่นเมื่อ {relativeTimeTh(item.submittedAt) || "—"}
+        </span>
         <button
           type="button"
           onClick={() => onView(item)}
-          className="flex items-center gap-1.5 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-transparent px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition cursor-pointer"
+          className="rounded-lg border border-indigo-300 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-900/20 cursor-pointer"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-          </svg>
           ดูรายละเอียด
         </button>
-
-        {isPending && (
-          <>
-            <button
-              type="button"
-              onClick={() => onApprove(item)}
-              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 active:bg-emerald-700 transition shadow-sm cursor-pointer"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              อนุมัติ
-            </button>
-            <button
-              type="button"
-              onClick={() => onReject(item)}
-              className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 active:bg-red-700 transition shadow-sm cursor-pointer"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              ไม่อนุมัติ
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── Detail Modal ─────────────────────────────────────────────────────────────
-function DetailModal({ item, onClose }) {
-  if (!item) return null
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="detail-modal-title"
-    >
-      <button
-        type="button"
-        aria-label="ปิด"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm cursor-pointer"
-      />
-      <div className="relative w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 shadow-2xl ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-6 space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-gray-500 dark:text-gray-400">
-                <TypeIcon type={item.type} className="size-4" />
-              </span>
-              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 font-mono">{item.docRef}</span>
-              {item.urgency === "urgent" && <UrgencyBadge />}
-            </div>
-            <h2 id="detail-modal-title" className="text-base font-bold text-gray-900 dark:text-gray-100 leading-snug">
-              {item.subject}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
-            aria-label="ปิด"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="rounded-xl bg-gray-50 dark:bg-gray-700/40 divide-y divide-gray-100 dark:divide-gray-700/50">
-          {[
-            ["ประเภท", TYPE_LABEL[item.type] ?? item.type],
-            ["ผู้ยื่น", item.fromName],
-            ["ตำแหน่ง", item.fromPosition],
-            ["วันที่ยื่น", fmtDateTimeTh(item.submittedAt)],
-            ["ขั้นตอน", STATUS_LABEL[item.approvalStep] ?? item.approvalStep],
-          ].map(([k, v]) => (
-            <div key={k} className="flex items-baseline gap-3 px-4 py-2.5 text-sm">
-              <span className="w-24 shrink-0 text-xs text-gray-500 dark:text-gray-400">{k}</span>
-              <span className="font-medium text-gray-800 dark:text-gray-200">{v}</span>
-            </div>
-          ))}
-          <div className="flex items-center gap-3 px-4 py-2.5 text-sm">
-            <span className="w-24 shrink-0 text-xs text-gray-500 dark:text-gray-400">สถานะ</span>
-            <StatusBadge status={item.approvalStep} />
-          </div>
-        </div>
-
-        <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
-          * ข้อมูล mock — จะแสดงรายละเอียดเต็มเมื่อเชื่อม backend
-        </p>
-
         <button
           type="button"
-          onClick={onClose}
-          className="w-full h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer"
+          onClick={() => onDecide(item, "reject")}
+          className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/20 cursor-pointer"
         >
-          ปิด
+          ไม่อนุมัติ
+        </button>
+        <button
+          type="button"
+          onClick={() => onDecide(item, "approve")}
+          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800 cursor-pointer"
+        >
+          {STAGE_APPROVE_LABEL[req.status] || "อนุมัติ"}
         </button>
       </div>
-    </div>,
-    document.body
+    </article>
   )
 }
 
-// ─── main component ──────────────────────────────────────────────────────────
-export default function Inbox() {
-  // Local state for mock data (simulate BE mutation)
-  const [items, setItems] = useState(INITIAL_ITEMS)
+// ─── Detail modal ───────────────────────────────────────────────────────────
+function DetailModal({ state, roleId, onClose, onDecide }) {
+  useEffect(() => {
+    const h = (e) => e.key === "Escape" && onClose()
+    document.addEventListener("keydown", h)
+    return () => document.removeEventListener("keydown", h)
+  }, [onClose])
 
-  // Filters
-  const [filterType, setFilterType] = useState("")
-  const [filterStatus, setFilterStatus] = useState("")
+  const { loading, item, error } = state
+  const req = item?.req
+  const notice = req ? stateNotice(req, roleId) : null
+  const reason = rejectionReason(req)
+  const actionable = req && !notice
 
-  // Modal state
-  const [modal, setModal] = useState({ open: false, action: null, item: null })
-  const [detailItem, setDetailItem] = useState(null)
-
-  // ─── summary counts ────────────────────────────────────────────────────────
-  const pendingCount = useMemo(
-    () => items.filter((i) => i.status === "pending").length,
-    [items]
-  )
-  // วันนี้ = อนุมัติ/ไม่อนุมัติแล้ว (ในชีวิตจริงจะดูจาก updatedAt วันนี้)
-  const resolvedTodayCount = useMemo(
-    () => items.filter((i) => i.status === "approved" || i.status === "rejected").length,
-    [items]
-  )
-  const totalCount = items.length
-
-  // ─── filtered list ─────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    return items.filter((item) => {
-      if (filterType && item.type !== filterType) return false
-      if (filterStatus && item.status !== filterStatus) return false
-      return true
-    })
-  }, [items, filterType, filterStatus])
-
-  // ─── handlers ──────────────────────────────────────────────────────────────
-  const handleApprove = (item) => {
-    setModal({ open: true, action: "approve", item })
-  }
-
-  const handleReject = (item) => {
-    setModal({ open: true, action: "reject", item })
-  }
-
-  const handleView = (item) => {
-    setDetailItem(item)
-  }
-
-  const handleModalClose = () => {
-    setModal({ open: false, action: null, item: null })
-  }
-
-  const handleModalConfirm = async (itemId, action, _note) => {
-    // TODO: call BE API here, e.g.:
-    // await apiAuth(`/approvals/${itemId}/${action}`, { method: "POST", body: { note } })
-    const newStatus = action === "approve" ? "approved" : "rejected"
-    const newStep = action === "approve" ? "approved" : "rejected"
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === itemId
-          ? { ...i, status: newStatus, approvalStep: newStep }
-          : i
-      )
-    )
-  }
-
-  // ─── dropdown options ──────────────────────────────────────────────────────
-  const typeOptions = [
-    { value: "", label: "ทุกประเภท" },
-    { value: "leave", label: "ใบลา" },
-    { value: "facility", label: "รายงาน" },
-    { value: "other", label: "อื่นๆ" },
-  ]
-
-  const statusOptions = [
-    { value: "", label: "ทุกสถานะ" },
-    { value: "pending", label: "รออนุมัติ" },
-    { value: "approved", label: "อนุมัติแล้ว" },
-    { value: "rejected", label: "ไม่อนุมัติ" },
-  ]
+  const rows = !item
+    ? []
+    : item.kind === KIND.OOO
+      ? [
+          ["ผู้ยื่น", item.name],
+          ["ประเภท", item.title],
+          ["วันและเวลา", item.when],
+          ["สถานที่", req.place],
+          ["เหตุผล", req.reason],
+          ["วันที่ยื่น", fmtDateTimeTh(req.created_at)],
+        ]
+      : [
+          ["ผู้ยื่น", item.name],
+          ["ประเภทการลา", req.leave_type_name],
+          ["ช่วงวันลา", item.when],
+          ["จำนวนวัน", req.total_days != null ? `${req.total_days} วัน` : null],
+          ["เหตุผล", req.comment],
+          ["ที่อยู่ระหว่างลา", [req.address_during_leave, req.contact_during_leave && `โทร. ${req.contact_during_leave}`].filter(Boolean).join(" · ")],
+          ["วันที่ยื่น", fmtDateTimeTh(req.created_at)],
+        ]
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5 pb-12">
-      {/* Page title */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">กล่องงานรออนุมัติ</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-          เอกสารที่รอการพิจารณาอนุมัติของคุณ
-        </p>
-      </div>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <SummaryCard
-          label="รออนุมัติ"
-          value={pendingCount}
-          icon={<IconPending className="size-6" />}
-          colorCls="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
-        />
-        <SummaryCard
-          label="ดำเนินการแล้ว"
-          value={resolvedTodayCount}
-          icon={<IconCheck className="size-6" />}
-          colorCls="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
-        />
-        <SummaryCard
-          label="เอกสารทั้งหมด"
-          value={totalCount}
-          icon={<IconInbox className="size-6" />}
-          colorCls="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
-        />
-      </div>
-
-      {/* Filter bar */}
-      <div className={`${cardCls} !p-4`}>
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 shrink-0">กรองตาม:</span>
-          <div className="w-44">
-            <SelectDropdown
-              options={typeOptions}
-              value={filterType}
-              onChange={setFilterType}
-              placeholder="ประเภทเอกสาร"
-            />
-          </div>
-          <div className="w-44">
-            <SelectDropdown
-              options={statusOptions}
-              value={filterStatus}
-              onChange={setFilterStatus}
-              placeholder="สถานะ"
-            />
-          </div>
-          {(filterType || filterStatus) && (
+    <Portal>
+      <div className="fixed inset-0 z-[10055] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="inbox-detail-title">
+        <button type="button" aria-label="ปิด" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-pointer bg-black/50 backdrop-blur-sm" />
+        <div className="relative max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-gray-200/70 dark:bg-gray-800 dark:ring-gray-700/70">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="mb-1 flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <KindIcon kind={state.kind} className="size-4" />
+                <span className="text-xs font-semibold">
+                  {KIND_LABEL[state.kind]} <span className="tabular-nums">#{state.id}</span>
+                </span>
+              </div>
+              <h2 id="inbox-detail-title" className="text-base font-bold leading-snug text-gray-900 dark:text-gray-100">
+                {item ? `${item.name} ขอ${item.title}` : "รายละเอียดคำขอ"}
+              </h2>
+            </div>
             <button
               type="button"
-              onClick={() => { setFilterType(""); setFilterStatus("") }}
-              className="inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 font-medium cursor-pointer transition"
+              onClick={onClose}
+              aria-label="ปิด"
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:bg-gray-700 dark:hover:text-gray-200"
             >
-              ล้างตัวกรอง
-              <IconClose className="size-3" />
+              <IconClose />
             </button>
+          </div>
+
+          {loading ? (
+            <div className="space-y-2" aria-busy="true">
+              <p className="text-sm text-gray-500 dark:text-gray-400">กำลังตรวจสอบสถานะล่าสุด…</p>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-8 animate-pulse rounded-lg bg-gray-100 motion-reduce:animate-none dark:bg-gray-700/60" />
+              ))}
+            </div>
+          ) : error ? (
+            <Notice tone="warn">{error}</Notice>
+          ) : (
+            <>
+              {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
+
+              <dl className="divide-y divide-gray-100 rounded-xl bg-gray-50 dark:divide-gray-700/50 dark:bg-gray-700/40">
+                {rows
+                  .filter(([, v]) => v)
+                  .map(([k, v]) => (
+                    <div key={k} className="flex items-baseline gap-3 px-4 py-2.5 text-sm">
+                      <dt className="w-28 shrink-0 text-xs text-gray-500 dark:text-gray-400">{k}</dt>
+                      <dd className="min-w-0 break-words font-medium text-gray-800 dark:text-gray-200">{v}</dd>
+                    </div>
+                  ))}
+                <div className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                  <dt className="w-28 shrink-0 text-xs text-gray-500 dark:text-gray-400">สถานะ</dt>
+                  <dd>
+                    <StatusBadge status={req.status} />
+                  </dd>
+                </div>
+                {reason && (
+                  <div className="flex items-baseline gap-3 px-4 py-2.5 text-sm">
+                    <dt className="w-28 shrink-0 text-xs text-gray-500 dark:text-gray-400">เหตุผลที่ไม่อนุมัติ</dt>
+                    <dd className="min-w-0 break-words font-medium text-red-700 dark:text-red-300">{reason}</dd>
+                  </div>
+                )}
+              </dl>
+            </>
           )}
-          <span className="ml-auto text-xs text-gray-400 dark:text-gray-500 shrink-0">
-            แสดง {filtered.length} จาก {totalCount} รายการ
-          </span>
+
+          <div className="flex flex-wrap gap-3 pt-1">
+            {actionable ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onDecide(item, "reject")}
+                  className="h-10 flex-1 cursor-pointer rounded-xl border border-red-300 text-sm font-semibold text-red-700 transition duration-200 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/20"
+                >
+                  ไม่อนุมัติ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDecide(item, "approve")}
+                  className="h-10 flex-1 cursor-pointer rounded-xl bg-emerald-600 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800"
+                >
+                  {STAGE_APPROVE_LABEL[req.status] || "อนุมัติ"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-10 w-full cursor-pointer rounded-xl border border-gray-300 text-sm font-semibold text-gray-600 transition duration-200 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                ปิด
+              </button>
+            )}
+          </div>
         </div>
       </div>
+    </Portal>
+  )
+}
 
-      {/* Item list */}
-      {filtered.length === 0 ? (
+// ─── data loading ───────────────────────────────────────────────────────────
+async function loadQueue(kind, stage) {
+  const base = kind === KIND.OOO ? "/hr/out-of-office" : "/hr/leave-requests"
+  const data = await apiAuth(stage ? `${base}?status=${stage}` : base)
+  return asList(data)
+    .filter((r) => isPendingStatus(r.status))
+    .filter((r) => canDecide(r))
+    .map((r) => toItem(kind, r))
+}
+
+/** Fresh lookup of one request: HR list first, then the user's own list. */
+async function lookupRequest(kind, id) {
+  const hrPath = kind === KIND.OOO ? "/hr/out-of-office" : "/hr/leave-requests"
+  const mePath = kind === KIND.OOO ? "/personnel/me/out-of-office" : "/personnel/me/leaves"
+  const roleId = getRoleId()
+  let firstErr = null
+  const paths = isApproverRole(roleId) || roleId === APPROVAL_ROLE.HR ? [hrPath, mePath] : [mePath]
+  for (const p of paths) {
+    try {
+      const found = asList(await apiAuth(p)).find((r) => String(r.id) === String(id))
+      if (found) return found
+    } catch (err) {
+      firstErr = firstErr || err
+    }
+  }
+  if (firstErr && firstErr.status !== 403) throw firstErr
+  return null
+}
+
+const TABS = [
+  { value: "all", label: "ทั้งหมด" },
+  { value: KIND.LEAVE, label: "ใบลา" },
+  { value: KIND.OOO, label: "ขอออกนอกสถานที่" },
+]
+
+// ─── page ───────────────────────────────────────────────────────────────────
+export default function Inbox() {
+  const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const roleId = getRoleId()
+  const approver = isApproverRole(roleId)
+  const stage = myStageStatus(roleId)
+
+  const [items, setItems] = useState({ [KIND.LEAVE]: [], [KIND.OOO]: [] })
+  const [srcError, setSrcError] = useState({ [KIND.LEAVE]: "", [KIND.OOO]: "" })
+  const [loading, setLoading] = useState(approver)
+  const [tab, setTab] = useState("all")
+  const [banner, setBanner] = useState(null) // {tone, text}
+  const [detail, setDetail] = useState(null) // {kind, id, loading, item?, error?, fromLink}
+  const [decision, setDecision] = useState(null) // {item, mode}
+
+  const refetch = useCallback(async () => {
+    if (!approver) return
+    setLoading(true)
+    const kinds = [KIND.LEAVE, KIND.OOO]
+    const results = await Promise.allSettled(kinds.map((k) => loadQueue(k, stage)))
+    const nextItems = {}
+    const nextErr = {}
+    results.forEach((r, i) => {
+      const k = kinds[i]
+      nextItems[k] = r.status === "fulfilled" ? r.value : []
+      nextErr[k] = r.status === "rejected" ? r.reason?.message || "โหลดข้อมูลไม่สำเร็จ" : ""
+    })
+    setItems(nextItems)
+    setSrcError(nextErr)
+    setLoading(false)
+  }, [approver, stage])
+
+  useEffect(() => {
+    refetch()
+  }, [refetch])
+
+  // auto-dismiss success banner
+  useEffect(() => {
+    if (banner?.tone !== "success") return
+    const t = setTimeout(() => setBanner(null), 5000)
+    return () => clearTimeout(t)
+  }, [banner])
+
+  // ── deep link ?type=&id= ──
+  const linkType = params.get("type")
+  const linkId = params.get("id")
+  useEffect(() => {
+    if (!linkId || (linkType !== KIND.LEAVE && linkType !== KIND.OOO)) return
+    let alive = true
+    setDetail({ kind: linkType, id: linkId, loading: true, fromLink: true })
+    lookupRequest(linkType, linkId)
+      .then((req) => {
+        if (!alive) return
+        setDetail({
+          kind: linkType,
+          id: linkId,
+          loading: false,
+          fromLink: true,
+          item: req ? toItem(linkType, req) : null,
+          error: req ? "" : "ไม่พบคำขอนี้ หรือคุณไม่มีสิทธิ์ดูคำขอนี้",
+        })
+      })
+      .catch((err) => {
+        if (!alive) return
+        setDetail({ kind: linkType, id: linkId, loading: false, fromLink: true, error: err?.message || "โหลดคำขอไม่สำเร็จ" })
+      })
+    return () => {
+      alive = false
+    }
+  }, [linkType, linkId])
+
+  const detailFromLink = !!detail?.fromLink
+  const closeDetail = useCallback(() => {
+    if (detailFromLink) setParams({}, { replace: true })
+    setDetail(null)
+  }, [detailFromLink, setParams])
+
+  const openDetail = (item) => {
+    // re-check current status even for list items (list may be a minute old)
+    setDetail({ kind: item.kind, id: item.req.id, loading: true, item })
+    lookupRequest(item.kind, item.req.id)
+      .then((req) =>
+        setDetail((d) =>
+          d && String(d.id) === String(item.req.id)
+            ? { ...d, loading: false, item: req ? toItem(item.kind, req) : item }
+            : d,
+        ),
+      )
+      .catch(() => setDetail((d) => (d ? { ...d, loading: false } : d)))
+  }
+
+  const openDecision = (item, mode) => {
+    if (detail) closeDetail()
+    setDecision({ item, mode })
+  }
+
+  const onDecisionDone = (mode) => {
+    const { item } = decision
+    setDecision(null)
+    setBanner({
+      tone: "success",
+      text:
+        mode === "approve"
+          ? `${STAGE_APPROVE_LABEL[item.req.status] || "อนุมัติ"}คำขอของ ${item.name} แล้ว`
+          : `ไม่อนุมัติคำขอของ ${item.name} แล้ว`,
+    })
+    requestNotificationsRefresh()
+    refetch()
+  }
+
+  const onDecisionConflict = (err) => {
+    setDecision(null)
+    setBanner({ tone: "error", text: err?.message || "คำขอนี้มีการเปลี่ยนแปลงแล้ว" })
+    refetch()
+  }
+
+  const counts = {
+    all: items[KIND.LEAVE].length + items[KIND.OOO].length,
+    [KIND.LEAVE]: items[KIND.LEAVE].length,
+    [KIND.OOO]: items[KIND.OOO].length,
+  }
+
+  const visible = useMemo(() => {
+    const list = tab === "all" ? [...items[KIND.LEAVE], ...items[KIND.OOO]] : items[tab] || []
+    // oldest first — whoever has waited longest is decided first
+    return [...list].sort((a, b) => String(a.submittedAt || "").localeCompare(String(b.submittedAt || "")))
+  }, [items, tab])
+
+  const roleLine =
+    roleId === APPROVAL_ROLE.ADMIN
+      ? "คุณพิจารณาในฐานะผู้ดูแลระบบ ทำได้ทุกขั้น"
+      : stage
+        ? `คุณพิจารณาในฐานะ${ROLE_LABEL[roleId]} · ขั้น${statusLabel(stage)}`
+        : "คำขอที่รอคุณพิจารณา"
+
+  const errorKinds = [KIND.LEAVE, KIND.OOO].filter((k) => srcError[k])
+  const bothFailed = errorKinds.length === 2
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-5 pb-12">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">กล่องงานรออนุมัติ</h1>
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{roleLine}</p>
+        </div>
+        {approver && (
+          <button
+            type="button"
+            onClick={refetch}
+            disabled={loading}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm transition duration-200 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-wait disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            <IconRefresh className={`size-3.5 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} />
+            โหลดใหม่
+          </button>
+        )}
+      </div>
+
+      {banner && (
+        <Notice tone={banner.tone} onDismiss={() => setBanner(null)}>
+          {banner.text}
+        </Notice>
+      )}
+
+      {!approver ? (
         <div className={cardCls}>
           <EmptyState
             icon={<IconInbox className="size-12" />}
-            title={filterType || filterStatus ? "ไม่มีรายการตรงกับตัวกรอง" : "ไม่มีข้อความ"}
-            description={
-              filterType || filterStatus
-                ? "ลองเปลี่ยนตัวกรอง หรือล้างตัวกรองเพื่อดูทั้งหมด"
-                : "ยังไม่มีเอกสารในกล่องรออนุมัติของคุณ"
-            }
+            title="ไม่มีงานที่ต้องอนุมัติ"
+            description={`บทบาท${ROLE_LABEL[roleId] ? ` "${ROLE_LABEL[roleId]}"` : "ของคุณ"} ไม่ได้อยู่ในสายอนุมัติใบลาหรือคำขอออกนอกสถานที่ ติดตามสถานะคำขอของคุณได้จากการแจ้งเตือนหรือหน้าใบลา`}
             action={
-              filterType || filterStatus ? (
-                <button
-                  type="button"
-                  onClick={() => { setFilterType(""); setFilterStatus("") }}
-                  className="rounded-2xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:bg-gray-700/50"
-                >
-                  ล้างตัวกรอง
-                </button>
-              ) : null
+              <button
+                type="button"
+                onClick={() => navigate("/leave-request")}
+                className="rounded-2xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:bg-gray-700/50"
+              >
+                ไปหน้าใบลาของฉัน
+              </button>
             }
           />
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((item) => (
-            <InboxItem
-              key={item.id}
-              item={item}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              onView={handleView}
-            />
+        <>
+          {errorKinds.map((k) => (
+            <Notice key={k} tone="warn">
+              โหลด{KIND_LABEL[k]}ไม่สำเร็จ: {srcError[k]}
+              {!bothFailed && <span className="text-xs opacity-80"> — แสดงเฉพาะรายการที่โหลดได้</span>}
+            </Notice>
           ))}
-        </div>
+
+          <div role="tablist" aria-label="ประเภทคำขอ" className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+            {TABS.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.value}
+                onClick={() => setTab(t.value)}
+                className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                  tab === t.value
+                    ? "bg-white text-indigo-700 shadow-sm dark:bg-gray-700 dark:text-indigo-300"
+                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                }`}
+              >
+                {t.label}
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                    counts[t.value] > 0
+                      ? "bg-amber-500 text-white"
+                      : "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                  }`}
+                >
+                  {loading ? "…" : counts[t.value]}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {loading && visible.length === 0 ? (
+            <div className="space-y-3" aria-busy="true" aria-label="กำลังโหลดคำขอ">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className={`${cardCls} space-y-3`}>
+                  <div className="h-4 w-1/3 animate-pulse rounded bg-gray-100 motion-reduce:animate-none dark:bg-gray-700" />
+                  <div className="h-4 w-2/3 animate-pulse rounded bg-gray-100 motion-reduce:animate-none dark:bg-gray-700" />
+                  <div className="h-8 w-full animate-pulse rounded bg-gray-100 motion-reduce:animate-none dark:bg-gray-700" />
+                </div>
+              ))}
+            </div>
+          ) : visible.length === 0 ? (
+            bothFailed ? null : (
+              <div className={cardCls}>
+                <EmptyState
+                  icon={<IconInbox className="size-12" />}
+                  title={tab === "all" ? "ไม่มีคำขอรอคุณพิจารณา" : `ไม่มี${KIND_LABEL[tab]}รอคุณพิจารณา`}
+                  description="เมื่อมีคำขอใหม่ถึงขั้นของคุณ ระบบจะแจ้งเตือนที่กระดิ่งด้านบน"
+                />
+              </div>
+            )
+          ) : (
+            <div className="space-y-3">
+              {visible.map((item) => (
+                <InboxCard key={item.key} item={item} onView={openDetail} onDecide={openDecision} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Approve/Reject modal */}
-      <ActionModal
-        isOpen={modal.open}
-        action={modal.action}
-        item={modal.item}
-        onClose={handleModalClose}
-        onConfirm={handleModalConfirm}
-      />
+      {detail && <DetailModal state={detail} roleId={roleId} onClose={closeDetail} onDecide={openDecision} />}
 
-      {/* Detail modal */}
-      <DetailModal
-        item={detailItem}
-        onClose={() => setDetailItem(null)}
-      />
+      {decision && (
+        <DecisionModal
+          mode={decision.mode}
+          kind={decision.item.kind}
+          req={decision.item.req}
+          title={`${decision.item.name} — ${decision.item.title}`}
+          summary={decision.item.when}
+          onClose={() => setDecision(null)}
+          onDone={onDecisionDone}
+          onConflict={onDecisionConflict}
+        />
+      )}
     </div>
   )
 }

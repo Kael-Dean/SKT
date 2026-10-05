@@ -10,6 +10,7 @@ const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5, BRANCH: 6 }
 const HR_MENUS = [
   { label: "🏠 หน้าหลัก",      path: "/hr/dashboard" },
   { label: "👤 ข้อมูลส่วนตัว", path: "/my-profile" },
+  { label: "🚶 ขอออกนอกสถานที่", path: "/out-of-office" },
 ]
 
 // เมนูส่วนตัว — แสดงให้ผู้ใช้ทุกคน (ยกเว้น HR ที่ใช้ HR_MENUS แทน)
@@ -18,6 +19,9 @@ const PERSONAL_MENUS = [
   { label: "👤 ข้อมูลส่วนตัว",     path: "/my-profile",      roles: "all" },
   { label: "📬 กล่องงานรออนุมัติ", path: "/inbox",           roles: "all" },
   { label: "📋 ยื่นใบลา",          path: "/leave-request",   roles: "all" },
+  { label: "🚶 ขอออกนอกสถานที่",   path: "/out-of-office",   roles: "all" },
+  // 3O approvers: 2 ผู้จัดการ, 6 หัวหน้าสาขา, 7 ผู้ช่วยผู้จัดการ (backend role ids)
+  { label: "✅ อนุมัติออกนอกสถานที่", path: "/out-of-office/approvals", roles: [ROLE.ADMIN, ROLE.MNG, 6, 7] },
   { label: "🚌 คำขอย้ายสาขา",     path: "/my-relocation",   roles: "all" },
   { label: "💳 ขอสินเชื่อ",         path: "/loan-request",    roles: "all" },
   // Phase 3B — HR admin ทุกฟังก์ชันรวมอยู่ใน Dashboard HR แล้ว

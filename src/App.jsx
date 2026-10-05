@@ -48,6 +48,9 @@ const HRPersonnelDetail = lazy(() => import("./pages/hr/HRPersonnelDetail.jsx"))
 const HRSalaryTier = lazy(() => import("./pages/hr/HRSalaryTier.jsx"))
 const MyProfile = lazy(() => import("./pages/work/MyProfile.jsx"))
 const LeaveRequest = lazy(() => import("./pages/work/LeaveRequest.jsx"))
+/** งวด 2 — 3O ขอออกนอกสถานที่ */
+const OutOfOffice = lazy(() => import("./pages/work/OutOfOffice.jsx"))
+const OutOfOfficeApprovals = lazy(() => import("./pages/work/OutOfOfficeApprovals.jsx"))
 /** Dev-only index of all HR pages (not registered in production builds) */
 const DevHrHub = import.meta.env.DEV ? lazy(() => import("./pages/dev/DevHrHub.jsx")) : null
 const Inbox = lazy(() => import("./pages/work/Inbox.jsx"))
@@ -210,6 +213,13 @@ function RequireAdminOrHR({ children }) {
   return children
 }
 
+/* ✅ Route guard: 3O approvals — roles 1, 2, 3, 6, 7 (backend JWT numbering, see lib/approval.js) */
+function RequireOooApprover({ children }) {
+  const r = getRoleId()
+  if (![1, 2, 3, 6, 7].includes(r)) return <Navigate to="/home" replace />
+  return children
+}
+
 /* ✅ Route guard: เฉพาะ ADMIN — ใช้กับหน้าจัดการการเงิน / ย้ายสาขา */
 function RequireAdmin({ children }) {
   const r = getRoleId()
@@ -351,6 +361,11 @@ function App() {
         {/* ✅ Phase 3B — Personal routes (ทุก role เข้าถึงได้) */}
         <Route path="/my-profile" element={<MyProfile />} />
         <Route path="/leave-request" element={<LeaveRequest />} />
+        <Route path="/out-of-office" element={<OutOfOffice />} />
+        <Route
+          path="/out-of-office/approvals"
+          element={<RequireOooApprover><OutOfOfficeApprovals /></RequireOooApprover>}
+        />
         <Route path="/inbox" element={<Inbox />} />
         <Route path="/my-relocation" element={<MyRelocation />} />
         <Route path="/loan-request" element={<LoanRequest />} />

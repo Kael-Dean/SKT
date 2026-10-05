@@ -9,6 +9,8 @@ const ROLE_NAME = { 1: "ADMIN", 2: "MNG", 3: "HR", 4: "HA", 5: "MKT", 6: "BRANCH
 const EMPLOYEE_PAGES = [
   { to: "/leave-request", label: "ยื่นใบลา", file: "pages/work/LeaveRequest.jsx" },
   { to: "/inbox", label: "กล่องงานรออนุมัติ", file: "pages/work/Inbox.jsx" },
+  { to: "/out-of-office", label: "ขอออกนอกสถานที่ (3O)", file: "pages/work/OutOfOffice.jsx" },
+  { to: "/out-of-office/approvals", label: "อนุมัติออกนอกสถานที่ (role 1/2/3/6/7)", file: "pages/work/OutOfOfficeApprovals.jsx" },
   { to: "/my-profile", label: "โปรไฟล์ของฉัน", file: "pages/work/MyProfile.jsx" },
   { to: "/my-relocation", label: "ขอย้ายสาขา", file: "pages/work/MyRelocation.jsx" },
   { to: "/loan-request", label: "ขอสินเชื่อ", file: "pages/work/LoanRequest.jsx" },
@@ -32,6 +34,7 @@ const HR_PAGES = [
 const DASHBOARD_TABS = [
   ["employees", "เจ้าหน้าที่", "HREmployeesTab"],
   ["leave", "ใบลา", "HRLeaveTab"],
+  ["out-of-office", "ออกนอกสถานที่", "HROutOfOfficeTab"],
   ["relocation", "ย้ายสาขา", "HRRelocationTab"],
   ["issues", "รายงานปัญหา", "HRIssueTab"],
   ["salary", "เงินเดือน", "HRSalaryTab"],

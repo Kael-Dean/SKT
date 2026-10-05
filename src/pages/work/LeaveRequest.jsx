@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
 import { countLeaveDays, fmtDays, currentFiscalYearBE } from "../../lib/leaveDays"
 import { getUser } from "../../lib/auth"
+import { STATUS_LABEL as APPROVAL_STATUS_LABEL, isPendingStatus } from "../../lib/approval"
 import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
 
 // ─── shared style tokens ────────────────────────────────────────────────────
@@ -13,16 +14,8 @@ const inputCls =
 const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5"
 
-const STATUS_LABEL = {
-  pending:                   "รอดำเนินการ",
-  pending_branch_head:       "รอหัวหน้าอนุมัติ",
-  pending_assistant_manager: "รอผู้ช่วยผู้จัดการอนุมัติ",
-  pending_manager:           "รอผู้จัดการอนุมัติ",
-  approved:                  "อนุมัติแล้ว",
-  rejected:                  "ไม่อนุมัติ",
-  denied:                    "ไม่อนุมัติ",
-  cancelled:                 "ยกเลิกแล้ว",
-}
+// labels from the shared approval chain (งวด 2) + legacy "pending"
+const STATUS_LABEL = { pending: "รอดำเนินการ", ...APPROVAL_STATUS_LABEL }
 const STATUS_COLOR = {
   pending:                   "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   pending_branch_head:       "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
@@ -563,7 +556,7 @@ export default function LeaveRequest() {
       setSubmitted(true)
     } catch (err) {
       setSubmitError(
-        err.status === 409 ? "มีใบลาในช่วงวันดังกล่าวอยู่แล้ว กรุณาตรวจสอบประวัติการลา"
+        err.status === 409 ? (err.message || "มีใบลาในช่วงวันดังกล่าวอยู่แล้ว กรุณาตรวจสอบประวัติการลา")
         : err.status === 422 ? `ข้อมูลไม่ผ่านการตรวจสอบ: ${err.message || "จำนวนวันลาต้องเป็นจำนวนเต็มหรือครึ่งวัน (.5) เท่านั้น"}`
         : err.message || "ยื่นใบลาไม่สำเร็จ กรุณาลองใหม่"
       )
@@ -1049,7 +1042,7 @@ export default function LeaveRequest() {
                           </>
                         )}
                       </button>
-                      {r.status === "pending" && (
+                      {(r.status === "pending" || isPendingStatus(r.status)) && (
                         <button
                           onClick={() => handleCancel(r.id)}
                           disabled={cancellingId === r.id}
@@ -1090,9 +1083,13 @@ export default function LeaveRequest() {
                       เหตุผล: {r.comment}
                     </p>
                   )}
-                  {r.hr_comment && (
+                  {(r.status === "rejected" || r.status === "denied") && (r.reject_reason || r.hr_comment) ? (
+                    <p className="text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-1.5">
+                      เหตุผลที่ไม่อนุมัติ: {r.reject_reason || r.hr_comment}
+                    </p>
+                  ) : r.hr_comment && (
                     <p className="text-xs text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg px-3 py-1.5">
-                      ความเห็น HR: {r.hr_comment}
+                      ความเห็นผู้พิจารณา: {r.hr_comment}
                     </p>
                   )}
                   {r.extra_leave_days > 0 && (

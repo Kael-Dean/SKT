@@ -26,6 +26,7 @@ import HRResignedRetiredTab from "./tabs/HRResignedRetiredTab"
 // Section 14 — ปฏิทินวันหยุด (3N)
 import HRHolidayCalendarTab from "./tabs/HRHolidayCalendarTab"
 import HRHolidayWorkTab from "./tabs/HRHolidayWorkTab"
+import HROutOfOfficeTab from "./tabs/HROutOfOfficeTab"
 
 const fmt = (n) =>
   n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
@@ -59,6 +60,7 @@ function StatIcon({ name, className }) {
 const TABS = [
   { key: "employees",          label: "👥 เจ้าหน้าที่" },
   { key: "leave",              label: "📋 ใบลา" },
+  { key: "out-of-office",      label: "🚶 ออกนอกสถานที่" },
   { key: "relocation",         label: "🚌 ย้ายสาขา" },
   { key: "issues",             label: "🔧 รายงานปัญหา" },
   { key: "salary",             label: "💹 เงินเดือน" },
@@ -171,6 +173,7 @@ export default function HRDashboard() {
       case "resigned-retired":    return <HRResignedRetiredTab />
       case "holiday-calendar":    return <HRHolidayCalendarTab />
       case "holiday-work":        return <HRHolidayWorkTab />
+      case "out-of-office":       return <HROutOfOfficeTab />
       default:                    return <HREmployeesTab />
     }
   }

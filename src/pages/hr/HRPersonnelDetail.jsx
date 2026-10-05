@@ -6,6 +6,8 @@ import { useParams, useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 import { PageLoader, ErrorState, Badge } from "../../components/ui"
 import BranchAssignmentCard from "./BranchAssignmentCard"
+import EmployeePositionCard from "../../components/hr/EmployeePositionCard"
+import RelocationPanel from "../../components/hr/RelocationPanel"
 import lineIcon from "../../assets/line-icon.png"
 import { fmtDaysUnit } from "../../lib/leaveDays"
 
@@ -278,6 +280,15 @@ export default function HRPersonnelDetail() {
         <InfoRow label="สถานะบัญชี" value={data.account_status} />
       </div>
 
+      {/* ตำแหน่ง + ประวัติตำแหน่ง (3D) — เปลี่ยนตำแหน่งได้ที่นี่ */}
+      <EmployeePositionCard
+        employeeId={id}
+        employeeName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()}
+        positionId={data.position}
+        positionEnteredDate={pi.position_entered_date}
+        salaryLevel={pi.salary_level}
+      />
+
       {/* สิทธิ์เข้าถึงสาขา (Super Admin เท่านั้น) */}
       <BranchAssignmentCard personnelId={id} personnelName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()} />
 
@@ -450,6 +461,8 @@ export default function HRPersonnelDetail() {
           ))}
         </div>
       )}
+
+      <RelocationPanel userId={id} />
 
       {/* ประวัติย้ายสาขา */}
       {relHist.length > 0 && (

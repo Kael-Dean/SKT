@@ -9,6 +9,21 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  // dev only: backend CORS ไม่อนุญาต origin localhost → ยิงผ่าน proxy นี้แทน
+  // ใช้คู่กับ .env.development.local (VITE_API_BASE_CUSTOM=/api-proxy)
+  server: {
+    proxy: {
+      '/api-proxy': {
+        target: 'https://api.amcsurin.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (p) => p.replace(/^\/api-proxy/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyReq', (req) => req.removeHeader('origin'))
+        },
+      },
+    },
+  },
   build: {
     // route chunks ตั้งใจให้แตกหลายไฟล์แล้ว — ยก warning limit กัน noise
     chunkSizeWarningLimit: 1500,

@@ -48,6 +48,8 @@ const HRPersonnelDetail = lazy(() => import("./pages/hr/HRPersonnelDetail.jsx"))
 const HRSalaryTier = lazy(() => import("./pages/hr/HRSalaryTier.jsx"))
 const MyProfile = lazy(() => import("./pages/work/MyProfile.jsx"))
 const LeaveRequest = lazy(() => import("./pages/work/LeaveRequest.jsx"))
+/** Dev-only index of all HR pages (not registered in production builds) */
+const DevHrHub = import.meta.env.DEV ? lazy(() => import("./pages/dev/DevHrHub.jsx")) : null
 const Inbox = lazy(() => import("./pages/work/Inbox.jsx"))
 const FacilityReport = lazy(() => import("./pages/work/FacilityReport.jsx"))
 const ChangePassword = lazy(() => import("./pages/work/ChangePassword.jsx"))
@@ -237,6 +239,7 @@ function App() {
     <Routes>
       <Route path="/index.html" element={<Navigate to="/" replace />} />
       <Route path="/" element={<Login />} />
+      {DevHrHub && <Route path="/dev/hr" element={<DevHrHub />} />}
 
       <Route element={<RequirePasswordChanged><AppLayout /></RequirePasswordChanged>}>
         <Route path="/home" element={<Home />} />

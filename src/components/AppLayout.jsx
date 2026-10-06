@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useDeferredValue, useEffect, useState } from "react"
 import { Outlet, useNavigate, useLocation } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
@@ -26,6 +26,8 @@ const AppLayout = () => {
   const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(getInitialDark)
+  // หน้าตารางหนักอ่าน SidebarContext — defer เพื่อไม่ให้ re-render บล็อกเฟรมแรกของ drawer slide
+  const deferredSidebarOpen = useDeferredValue(isSidebarOpen)
 
   const isHome = location.pathname === "/home"
   const isHrDashboard = location.pathname === "/hr/dashboard"
@@ -72,7 +74,7 @@ const AppLayout = () => {
         />
 
         <main className="flex-1 overflow-y-auto">
-          <SidebarContext.Provider value={isSidebarOpen}>
+          <SidebarContext.Provider value={deferredSidebarOpen}>
           <div
             key={location.pathname}
             className={`animate-fade-up px-4 py-5 md:px-6 md:py-6 ${

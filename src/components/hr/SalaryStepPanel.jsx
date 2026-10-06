@@ -17,8 +17,8 @@ import SalaryHistoryTable from "./SalaryHistoryTable"
 import SalarySummaryCard from "./SalarySummaryCard"
 import usePositions from "./usePositions"
 import { Notice } from "./HrModal"
-import { refreshPersonnel } from "./personnelCache"
-import { useEmployeeSalary, useLadderMax, useSalaryLookup } from "./salaryData"
+import { getCachedPersonnel, loadPersonnel, refreshPersonnel } from "./personnelCache"
+import { invalidateRosterEmployee, useEmployeeSalary, useLadderMax, useSalaryLookup } from "./salaryData"
 import { thb, fmtLevel, errText, employeeName, inputCls, labelCls, cardCls } from "./positionUtils"
 
 const CHIPS = [
@@ -55,7 +55,13 @@ function validateStep(raw) {
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 
-export default function SalaryStepPanel({ onGoToPositions }) {
+/** list record for a preselected id (from the shared personnel cache), else null */
+const cachedRecord = (id) =>
+  id ? getCachedPersonnel()?.find((p) => String(p.id) === String(id)) ?? null : null
+
+// initialEmployeeId: preselect (read once at mount, e.g. from the URL `&emp=`)
+// onEmployeeChange(id): lets the parent mirror the picked employee into the URL
+export default function SalaryStepPanel({ onGoToPositions, initialEmployeeId = "", onEmployeeChange }) {
   const uid = useId()
   const ids = {
     picker: `${uid}-emp`,
@@ -68,9 +74,22 @@ export default function SalaryStepPanel({ onGoToPositions }) {
   }
 
   const { byId: positionsById, loading: positionsLoading, error: positionsError, reload: reloadPositions } = usePositions()
-  const [empId, setEmpId] = useState("")
-  const [emp, setEmp] = useState(null)
+  const [empId, setEmpId] = useState(() => (initialEmployeeId ? String(initialEmployeeId) : ""))
+  const [emp, setEmp] = useState(() => cachedRecord(initialEmployeeId))
   const [refreshKey, setRefreshKey] = useState(0)
+
+  // deep link before the personnel list was cached: fill the list record once it loads
+  useEffect(() => {
+    if (!empId || emp) return
+    let alive = true
+    loadPersonnel()
+      .then((list) => {
+        const rec = list.find((p) => String(p.id) === String(empId)) ?? null
+        if (alive && rec) setEmp((cur) => cur ?? rec)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [empId, emp])
   const info = useEmployeeSalary(empId, refreshKey, positionsById, emp)
   const { positionId, tierId, currentLevel } = info
 
@@ -149,6 +168,7 @@ export default function SalaryStepPanel({ onGoToPositions }) {
     // reset synchronously so nothing from the previous person survives a render
     setEmpId(v)
     setEmp(record)
+    onEmployeeChange?.(v)
     setChoice("1")
     setCustom("")
     setStepError("")
@@ -216,6 +236,7 @@ export default function SalaryStepPanel({ onGoToPositions }) {
       setCustom("")
       setStepError("")
       setRefreshKey((k) => k + 1)
+      invalidateRosterEmployee(empId) // roster sub-tab re-fetches this person's level
       refreshPersonnel().catch(() => {})
       flashCue()
       // ConfirmDialog returns focus to the submit button, but the form reset

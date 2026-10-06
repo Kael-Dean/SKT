@@ -10,6 +10,7 @@ import EmployeePositionCard from "../../components/hr/EmployeePositionCard"
 import RelocationPanel from "../../components/hr/RelocationPanel"
 import lineIcon from "../../assets/line-icon.png"
 import { fmtDaysUnit } from "../../lib/leaveDays"
+import StatusMsg from "../../components/hr/StatusMsg"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -111,10 +112,10 @@ export default function HRPersonnelDetail() {
       if (editForm.current_loan !== "") body.current_loan = parseFloat(editForm.current_loan)
       if (editForm.job_age !== "") body.job_age = parseInt(editForm.job_age)
       await apiAuth(`/hr/financial/${id}`, { method: "POST", body })
-      setSaveMsg("✅ บันทึกสำเร็จ")
+      setSaveMsg({ tone: "success", text: "บันทึกสำเร็จ" })
       setTimeout(() => { setEditModal(false); fetchDetail() }, 800)
     } catch (err) {
-      setSaveMsg(`❌ ${err.message || "บันทึกไม่สำเร็จ"}`)
+      setSaveMsg({ tone: "error", text: err.message || "บันทึกไม่สำเร็จ" })
     } finally {
       setSaving(false)
     }
@@ -183,10 +184,10 @@ export default function HRPersonnelDetail() {
       }
 
       await apiAuth(`/hr/employees/${id}/personal`, { method: "PATCH", body })
-      setFamilySaveMsg("✅ บันทึกสำเร็จ")
+      setFamilySaveMsg({ tone: "success", text: "บันทึกสำเร็จ" })
       setTimeout(() => { setFamilyModal(false); fetchDetail() }, 800)
     } catch (err) {
-      setFamilySaveMsg(`❌ ${err.message || "บันทึกไม่สำเร็จ"}`)
+      setFamilySaveMsg({ tone: "error", text: err.message || "บันทึกไม่สำเร็จ" })
     } finally {
       setFamilySaving(false)
     }
@@ -697,7 +698,7 @@ export default function HRPersonnelDetail() {
             </div>
 
             {familySaveMsg && (
-              <p className={`text-sm text-center ${familySaveMsg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>{familySaveMsg}</p>
+              <StatusMsg msg={familySaveMsg} center />
             )}
             <div className="flex gap-3">
               <button onClick={() => setFamilyModal(false)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">ยกเลิก</button>
@@ -731,7 +732,7 @@ export default function HRPersonnelDetail() {
               </div>
             </div>
             {saveMsg && (
-              <p className={`text-sm text-center ${saveMsg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>{saveMsg}</p>
+              <StatusMsg msg={saveMsg} center />
             )}
             <div className="flex gap-3">
               <button onClick={() => setEditModal(false)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">ยกเลิก</button>

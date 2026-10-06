@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import { ErrorState, EmptyState, SkeletonTableRows, SkeletonStat } from "../../components/ui"
+import StatusMsg from "../../components/hr/StatusMsg"
+import Portal from "../../components/Portal"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -48,10 +50,10 @@ export default function HRFinance() {
       if (editForm.current_loan !== "") body.current_loan = parseFloat(editForm.current_loan)
       if (editForm.job_age !== "") body.job_age = parseInt(editForm.job_age)
       await apiAuth(`/hr/financial/${editModal.id}`, { method: "POST", body })
-      setSaveMsg("✅ บันทึกสำเร็จ")
+      setSaveMsg({ tone: "success", text: "บันทึกสำเร็จ" })
       setTimeout(() => { setEditModal(null); fetchEmployees() }, 800)
     } catch (err) {
-      setSaveMsg(`❌ ${err.message || "บันทึกไม่สำเร็จ"}`)
+      setSaveMsg({ tone: "error", text: err.message || "บันทึกไม่สำเร็จ" })
     } finally {
       setSaving(false)
     }
@@ -160,9 +162,10 @@ export default function HRFinance() {
 
       {/* Edit Modal */}
       {editModal && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">แก้ไขข้อมูลการเงิน</h3>
+          <div role="dialog" aria-modal="true" aria-labelledby="hr-finance-edit-title" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
+            <h3 id="hr-finance-edit-title" className="text-lg font-bold text-gray-900 dark:text-gray-100">แก้ไขข้อมูลการเงิน</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">{editModal.first_name} {editModal.last_name}</p>
             <div className="space-y-3">
               <div>
@@ -179,7 +182,7 @@ export default function HRFinance() {
               </div>
             </div>
             {saveMsg && (
-              <p className={`text-sm text-center ${saveMsg.startsWith("✅") ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{saveMsg}</p>
+              <StatusMsg msg={saveMsg} center />
             )}
             <div className="flex gap-3">
               <button onClick={() => setEditModal(null)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">ยกเลิก</button>
@@ -189,6 +192,7 @@ export default function HRFinance() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   )

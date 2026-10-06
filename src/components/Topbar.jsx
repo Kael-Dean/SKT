@@ -143,7 +143,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             </div>
             <div className="hidden text-left md:block">
               <div className="text-[13px] font-semibold leading-4 text-gray-800 dark:text-gray-100">{displayName}</div>
-              <div className="text-[11px] text-gray-400 dark:text-gray-500">{displayRole}</div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400">{displayRole}</div>
             </div>
             <svg className="ml-0.5 hidden h-3 w-3 text-gray-400 transition-colors group-hover:text-gray-600 dark:text-gray-500 md:block" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />

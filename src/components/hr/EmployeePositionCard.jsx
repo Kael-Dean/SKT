@@ -2,8 +2,9 @@
 // ตำแหน่งของเจ้าหน้าที่ 1 คน (หน้า HRPersonnelDetail)
 // PATCH /hr/employees/{id}/position {new_position_id, reason, effective_date?}
 // GET   /hr/employees/{id}/position-history
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
+import { ArrowRight } from "lucide-react"
 import SelectDropdown from "../SelectDropdown"
 import ThaiDateInput from "../ThaiDateInput"
 import { ErrorState, Skeleton } from "../ui"
@@ -32,21 +33,33 @@ export default function EmployeePositionCard({ employeeId, employeeName, positio
   const curPositionId = override?.positionId ?? positionId
   const curEntered = override?.enteredDate ?? positionEnteredDate
 
+  // race guard: เฉพาะ request ล่าสุดเขียน state ได้ (เปลี่ยน employeeId เร็ว ๆ / unmount ระหว่างโหลด)
+  const histReq = useRef(0)
   const loadHistory = useCallback(() => {
+    const req = ++histReq.current
     setHistLoading(true)
     setHistError("")
     apiAuth(`/hr/employees/${employeeId}/position-history`)
       .then((d) => {
+        if (req !== histReq.current) return
         const list = Array.isArray(d) ? [...d] : []
         const dateOf = (r) => String(r.promotion_date ?? r.effective_date ?? r.date ?? "")
         list.sort((a, b) => dateOf(b).localeCompare(dateOf(a)) || (b.id ?? 0) - (a.id ?? 0))
         setHistory(list)
       })
-      .catch((e) => { setHistory([]); setHistError(errText(e, "โหลดประวัติตำแหน่งไม่สำเร็จ")) })
-      .finally(() => setHistLoading(false))
+      .catch((e) => {
+        if (req !== histReq.current) return
+        setHistory([])
+        setHistError(errText(e, "โหลดประวัติตำแหน่งไม่สำเร็จ"))
+      })
+      .finally(() => { if (req === histReq.current) setHistLoading(false) })
   }, [employeeId])
 
-  useEffect(() => { loadHistory() }, [loadHistory])
+  useEffect(() => {
+    loadHistory()
+    const guard = histReq
+    return () => { guard.current++ }
+  }, [loadHistory])
 
   useEffect(() => {
     if (!flash) return
@@ -95,8 +108,8 @@ export default function EmployeePositionCard({ employeeId, employeeName, positio
 
   return (
     <section aria-labelledby="pos-card-title" className={cardCls + " p-5"}>
-      <div className="flex items-start justify-between gap-3 mb-3 pb-1 border-b border-indigo-100 dark:border-indigo-900/40">
-        <h3 id="pos-card-title" className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 tracking-wide">ตำแหน่งและขั้นเงินเดือน</h3>
+      <div className="flex items-start justify-between gap-3 mb-3 pb-1 border-b border-gray-100 dark:border-gray-700">
+        <h3 id="pos-card-title" className="text-sm font-semibold text-gray-900 dark:text-gray-100">ตำแหน่งและขั้นเงินเดือน</h3>
         <button type="button" onClick={openModal} disabled={posLoading || !!posError} className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
           เปลี่ยนตำแหน่ง
         </button>
@@ -143,14 +156,17 @@ export default function EmployeePositionCard({ employeeId, employeeName, positio
           <ol className="divide-y divide-gray-100 dark:divide-gray-700/50">
             {history.map((h, i) => {
               const oldTitle = h.old_position_title ?? (h.old_position_id != null ? byId[h.old_position_id]?.title ?? `#${h.old_position_id}` : null)
-              const newId = h.new_position_id ?? h.title
-              const newTitle = h.new_position_title ?? (newId != null ? byId[newId]?.title ?? `#${newId}` : "—")
+              // ชื่อที่ backend ส่งมาก่อน → ค้นจาก id → ไม่ระบุ (h.title คือชื่อ ไม่ใช่ id)
+              const newTitle = h.new_position_title
+                ?? (h.new_position_id != null ? byId[h.new_position_id]?.title ?? `ตำแหน่ง #${h.new_position_id}` : null)
+                ?? h.title
+                ?? "ไม่ระบุตำแหน่ง"
               return (
                 <li key={h.id ?? i} className="py-2.5 grid gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4 text-sm">
                   <span className="text-gray-500 dark:text-gray-400 whitespace-nowrap">{fmtDate(h.promotion_date ?? h.effective_date ?? h.date)}</span>
                   <div className="min-w-0">
                     <p className="text-gray-900 dark:text-gray-100 break-words">
-                      {oldTitle ? <><span className="text-gray-500 dark:text-gray-400">{oldTitle}</span> <span aria-hidden="true" className="text-gray-400">→</span><span className="sr-only">เป็น</span> </> : null}
+                      {oldTitle ? <><span className="text-gray-500 dark:text-gray-400">{oldTitle}</span> <ArrowRight aria-hidden="true" className="inline size-3.5 align-[-2px] text-gray-400 dark:text-gray-500" strokeWidth={1.75} /><span className="sr-only">เป็น</span> </> : null}
                       <span className="font-semibold">{newTitle}</span>
                     </p>
                     {h.reason && <p className="text-xs text-gray-500 dark:text-gray-400 break-words">{reasonLabel(h.reason)}</p>}
@@ -182,14 +198,14 @@ export default function EmployeePositionCard({ employeeId, employeeName, positio
             </p>
             <div>
               <span id="new-pos-label" className={labelCls}>ตำแหน่งใหม่ <span className="text-red-500" aria-hidden="true">*</span></span>
-              <div aria-labelledby="new-pos-label">
-                <SelectDropdown
-                  options={options}
-                  value={form.new_position_id}
-                  onChange={(v) => setForm((f) => ({ ...f, new_position_id: v }))}
-                  placeholder="— เลือกตำแหน่ง (เฉพาะที่ใช้งาน) —"
-                />
-              </div>
+              <SelectDropdown
+                id="new-pos"
+                ariaLabelledby="new-pos-label"
+                options={options}
+                value={form.new_position_id}
+                onChange={(v) => setForm((f) => ({ ...f, new_position_id: v }))}
+                placeholder="— เลือกตำแหน่ง (เฉพาะที่ใช้งาน) —"
+              />
               {target && target.position_tier_id == null && (
                 <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">ตำแหน่งนี้ยังไม่กำหนดระดับ — หลังย้ายจะเลื่อนขั้นเงินเดือนไม่ได้จนกว่าจะกำหนด</p>
               )}
@@ -202,7 +218,7 @@ export default function EmployeePositionCard({ employeeId, employeeName, positio
             </div>
             <div>
               <span className={labelCls}>วันที่มีผล</span>
-              <ThaiDateInput value={form.effective_date} onChange={(v) => setForm((f) => ({ ...f, effective_date: v }))} />
+              <ThaiDateInput ariaLabel="วันที่มีผล" className={inputCls + " focus-within:ring-2 focus-within:ring-indigo-500"} value={form.effective_date} onChange={(v) => setForm((f) => ({ ...f, effective_date: v }))} />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">เว้นว่าง = มีผลวันนี้ · วันที่ดำรงตำแหน่งจะเริ่มนับใหม่จากวันนี้</p>
             </div>
             <Notice tone="info">การเปลี่ยนตำแหน่งตรงนี้ไม่ปรับขั้นเงินเดือนให้อัตโนมัติ ถ้าเป็นการเลื่อนตำแหน่งจากการสอบ ให้บันทึกผลสอบที่แท็บ “เลื่อนตำแหน่ง” แทน</Notice>

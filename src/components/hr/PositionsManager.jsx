@@ -287,14 +287,14 @@ export default function PositionsManager() {
             </div>
             <div>
               <span className={labelCls} id="pos-tier-label">ระดับ (กระบอกเงินเดือน)</span>
-              <div aria-labelledby="pos-tier-label">
-                <SelectDropdown
-                  options={TIER_OPTIONS}
-                  value={form.position_tier_id}
-                  onChange={(v) => setForm((f) => ({ ...f, position_tier_id: v }))}
-                  placeholder="— ยังไม่กำหนด —"
-                />
-              </div>
+              <SelectDropdown
+                id="pos-tier"
+                ariaLabelledby="pos-tier-label"
+                options={TIER_OPTIONS}
+                value={form.position_tier_id}
+                onChange={(v) => setForm((f) => ({ ...f, position_tier_id: v }))}
+                placeholder="— ยังไม่กำหนด —"
+              />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 ระดับใช้คำนวณขั้นเงินเดือน ถ้าไม่กำหนด เจ้าหน้าที่ในตำแหน่งนี้จะเลื่อนขั้นไม่ได้
               </p>

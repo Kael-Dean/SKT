@@ -14,7 +14,7 @@ const THAI_MONTHS = [
  *   onChange  — called with ISO "YYYY-MM-DD" (CE) when complete, or "" when cleared
  *   className — forwarded to the wrapper div (use baseField for form compatibility)
  */
-export default function ThaiDateInput({ value = "", onChange, className = "" }) {
+export default function ThaiDateInput({ value = "", onChange, className = "", ariaLabel, ariaLabelledby }) {
   // Parse incoming CE ISO value into day/month/beYear parts
   function parseISO(iso) {
     if (!iso) return { day: "", month: "", beYear: "" }
@@ -87,6 +87,9 @@ export default function ThaiDateInput({ value = "", onChange, className = "" }) 
 
   return (
     <div
+      role="group"
+      aria-label={ariaLabelledby ? undefined : ariaLabel}
+      aria-labelledby={ariaLabelledby}
       className={
         "flex items-center gap-1 px-3 py-2.5 " + wrapperCls
       }
@@ -98,6 +101,7 @@ export default function ThaiDateInput({ value = "", onChange, className = "" }) 
         max={31}
         inputMode="numeric"
         placeholder="วว"
+        aria-label="วัน"
         value={day}
         onChange={handleDay}
         className="w-10 text-center bg-transparent outline-none border-none p-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-sm"
@@ -109,7 +113,8 @@ export default function ThaiDateInput({ value = "", onChange, className = "" }) 
       <select
         value={month}
         onChange={handleMonth}
-        className="flex-1 bg-transparent outline-none border-none p-0 text-sm cursor-pointer text-inherit dark:text-inherit"
+        aria-label="เดือน"
+        className="flex-1 bg-transparent outline-none border-none p-0 text-sm cursor-pointer text-inherit dark:text-inherit dark:[color-scheme:dark]"
       >
         <option value="">— เดือน —</option>
         {THAI_MONTHS.map((name, i) => (
@@ -126,6 +131,7 @@ export default function ThaiDateInput({ value = "", onChange, className = "" }) 
         type="number"
         inputMode="numeric"
         placeholder="ปปปป"
+        aria-label="ปี พ.ศ."
         value={beYear}
         onChange={handleYear}
         className="w-16 text-center bg-transparent outline-none border-none p-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-sm"

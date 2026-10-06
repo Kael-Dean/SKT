@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react"
 import { Outlet, useNavigate, useLocation } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
+import Toaster from "./ui/Toaster"
 
 export const SidebarContext = createContext(false)
 export const useSidebarOpen = () => useContext(SidebarContext)
@@ -33,11 +34,12 @@ const AppLayout = () => {
   // หน้าตารางหนี้ (แยกสาขา / รวมทุกสาขา) กว้างมาก — ปล่อยเต็มความกว้างจอ
   // (ไม่บีบด้วย max-w-7xl) เพื่อให้ดูตารางได้โดยไม่ต้องเลื่อนแนวนอนบ่อย
   const isFullWidth = location.pathname === "/debt-form"
+  // HR dashboard มี rail ซ้าย (w-60) + เนื้อหา — ใช้ container กว้างขึ้นเพื่อให้พอดีที่ 1280–1920
 
   // ปลายทาง + ป้ายของปุ่มย้อนกลับ — ฟังก์ชันซ้อนกลับ parent, HR กลับ dashboard, อื่น ๆ กลับหน้าหลัก
   const parent = PARENT_ROUTES[location.pathname]
   const backTo = parent ? parent.path : isHrSubPage ? "/hr/dashboard" : "/home"
-  const backLabel = parent ? parent.label : isHrSubPage ? "HR Dashboard" : "หน้าหลัก"
+  const backLabel = parent ? parent.label : isHrSubPage ? "งานบุคคล (HR)" : "หน้าหลัก"
 
   // ใส่/เอาออก class 'dark' ที่ <html>
   useEffect(() => {
@@ -73,7 +75,9 @@ const AppLayout = () => {
           <SidebarContext.Provider value={isSidebarOpen}>
           <div
             key={location.pathname}
-            className={`animate-fade-up px-4 py-5 md:px-6 md:py-6 ${isFullWidth ? "w-full" : "mx-auto max-w-7xl"}`}
+            className={`animate-fade-up px-4 py-5 md:px-6 md:py-6 ${
+              isFullWidth ? "w-full" : isHrDashboard ? "mx-auto max-w-[1600px]" : "mx-auto max-w-7xl"
+            }`}
           >
             {!isHome && (
               <div className="mb-6 flex items-center gap-3">
@@ -94,6 +98,9 @@ const AppLayout = () => {
           </SidebarContext.Provider>
         </main>
       </div>
+
+      {/* Global toast host (toast.success/error/… from components/ui/toast.js) */}
+      <Toaster />
     </div>
   )
 }

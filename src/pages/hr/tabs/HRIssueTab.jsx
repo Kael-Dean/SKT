@@ -2,15 +2,15 @@
 // อนุมัติ / ปฏิเสธ รายงานปัญหาข้อมูล
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
-import { cardCls } from "../../../lib/styles"
-import { PageLoader, ErrorState, EmptyState, Badge } from "../../../components/ui"
+import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
+import { PageLoader, ErrorState, EmptyState, Badge, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import Portal from "../../../components/Portal"
 
 const STATUS_LABEL = { pending: "รอดำเนินการ", approved: "อนุมัติแล้ว", denied: "ปฏิเสธ" }
 const STATUS_TONE = { pending: "pending", approved: "success", denied: "danger" }
 
 export default function HRIssueTab() {
-  const [subTab, setSubTab] = useState("pending")
+  const [subTab, setSubTab] = useSubTab(["pending", "all"], "pending")
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -41,7 +41,7 @@ export default function HRIssueTab() {
   const handleConfirm = async () => {
     if (!modal) return
     if (modal.action === "deny" && !hrComment.trim()) {
-      setSubmitMsg("⚠️ กรุณากรอกเหตุผลการปฏิเสธ")
+      setSubmitMsg("กรุณากรอกเหตุผลการปฏิเสธ")
       return
     }
     setSubmitting(true)
@@ -53,7 +53,7 @@ export default function HRIssueTab() {
       setModal(null)
       fetchReports()
     } catch (err) {
-      setSubmitMsg(`❌ ${err.message || "ดำเนินการไม่สำเร็จ"}`)
+      setSubmitMsg(`${err.message || "ดำเนินการไม่สำเร็จ"}`)
     } finally {
       setSubmitting(false)
     }
@@ -63,21 +63,18 @@ export default function HRIssueTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">
-        {[["pending", "รอดำเนินการ"], ["all", "ทั้งหมด"]].map(([v, label]) => (
-          <button
-            key={v}
-            onClick={() => setSubTab(v)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${subTab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-          >
-            {label}
-            {v === "pending" && pendingCount > 0 && (
-              <span className="ml-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5">{pendingCount}</span>
-            )}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={[
+          { value: "pending", label: "รอดำเนินการ", count: pendingCount > 0 ? pendingCount : null },
+          { value: "all", label: "ทั้งหมด" },
+        ]}
+        value={subTab}
+        onChange={setSubTab}
+        ariaLabel="สถานะรายงานปัญหา"
+        idBase="hr-issues"
+      />
 
+      <div role="tabpanel" id={panelId("hr-issues", subTab)} aria-labelledby={tabId("hr-issues", subTab)} tabIndex={0} className={cx("space-y-4", tabPanelCls)}>
       {error && <ErrorState message={error} onRetry={fetchReports} />}
 
       {loading ? (
@@ -159,6 +156,7 @@ export default function HRIssueTab() {
           ))}
         </div>
       )}
+      </div>
 
       {modal && (
         <Portal>

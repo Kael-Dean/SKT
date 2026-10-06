@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import Portal from "../../../components/Portal"
-import { PageLoader, ErrorState, EmptyState, Badge } from "../../../components/ui"
+import { PageLoader, ErrorState, EmptyState, Badge, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
+import { cx, tabPanelCls } from "../../../lib/styles"
 
 const STATUS_LABEL = { pending: "รออนุมัติ", approved: "อนุมัติแล้ว", denied: "ปฏิเสธ" }
 const STATUS_TONE = { pending: "pending", approved: "success", denied: "danger" }
@@ -19,7 +20,7 @@ function fmtDate(d) {
 }
 
 export default function HRSalaryCertTab() {
-  const [subTab,    setSubTab]    = useState("pending")
+  const [subTab, setSubTab] = useSubTab(["pending", "all"], "pending")
   const [requests,  setRequests]  = useState([])
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState("")
@@ -55,7 +56,7 @@ export default function HRSalaryCertTab() {
   const handleConfirm = async () => {
     if (!modal) return
     if (modal.action === "deny" && !comment.trim()) {
-      setSubmitMsg("⚠️ กรุณาระบุเหตุผลการปฏิเสธ")
+      setSubmitMsg("กรุณาระบุเหตุผลการปฏิเสธ")
       return
     }
     setSubmitting(true)
@@ -67,7 +68,7 @@ export default function HRSalaryCertTab() {
       setModal(null)
       fetchRequests()
     } catch (e) {
-      setSubmitMsg(`❌ ${e.message || "ดำเนินการไม่สำเร็จ"}`)
+      setSubmitMsg(`${e.message || "ดำเนินการไม่สำเร็จ"}`)
     } finally {
       setSubmitting(false)
     }
@@ -87,7 +88,7 @@ export default function HRSalaryCertTab() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
-      setPdfErr(`❌ ${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
+      setPdfErr(`${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
     } finally {
       setPdfLoading((p) => ({ ...p, [key]: false }))
     }
@@ -97,26 +98,18 @@ export default function HRSalaryCertTab() {
 
   return (
     <div className="space-y-4">
-      {/* Sub-tabs */}
-      <div className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">
-        {[["pending", "รออนุมัติ"], ["all", "ทั้งหมด"]].map(([v, label]) => (
-          <button
-            key={v}
-            onClick={() => setSubTab(v)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-              subTab === v
-                ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-            }`}
-          >
-            {label}
-            {v === "pending" && pendingCount > 0 && (
-              <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5">{pendingCount}</span>
-            )}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={[
+          { value: "pending", label: "รออนุมัติ", count: pendingCount > 0 ? pendingCount : null },
+          { value: "all", label: "ทั้งหมด" },
+        ]}
+        value={subTab}
+        onChange={setSubTab}
+        ariaLabel="สถานะคำขอหนังสือรับรองเงินเดือน"
+        idBase="hr-salary-cert"
+      />
 
+      <div role="tabpanel" id={panelId("hr-salary-cert", subTab)} aria-labelledby={tabId("hr-salary-cert", subTab)} tabIndex={0} className={cx("space-y-4", tabPanelCls)}>
       {error && <ErrorState message={error} onRetry={fetchRequests} />}
       {pdfErr && <ErrorState message={pdfErr} />}
 
@@ -207,6 +200,7 @@ export default function HRSalaryCertTab() {
           ))}
         </div>
       )}
+      </div>
 
       {/* Modal */}
       {modal && (

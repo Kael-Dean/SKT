@@ -1,222 +1,534 @@
 // src/components/hr/SalaryStepPanel.jsx
-// เลื่อนขั้นเงินเดือน — POST /hr/employees/{id}/salary-step-award {step > 0, reason}
-// → {old_level, new_level, capped}. capped = ชนขั้นสูงสุดของกระบอก (UAT D2)
-// 409 = ตำแหน่งของเจ้าหน้าที่ยังไม่มีระดับ (position_tier_id) → แสดง detail + บอกให้ไปตั้งระดับก่อน
-import { useEffect, useState } from "react"
+// เลื่อนขั้นเงินเดือน (spec handoff/hr-ux-spec.md §3.1)
+// POST /hr/employees/{id}/salary-step-award {step > 0, reason} → {old_level, new_level, capped}
+//   capped = ถึงขั้นสูงสุดของกระบอก (UAT D2) · 409 = ตำแหน่งยังไม่มีกระบอก (position_tier_id)
+// Preview ก่อนส่ง: GET /hr/salary-ladder?tier= (ขั้นสูงสุด) + GET /hr/salary-ladder/lookup (เงินเดือน)
+// ไม่มีการ POST ก่อนผู้ใช้ยืนยันใน ConfirmDialog
+//
+// Layout: lg 2 คอลัมน์ [picker + สรุป | การ์ดเลื่อนขั้น sticky] แล้วประวัติใต้คอลัมน์ซ้าย
+//         < lg คอลัมน์เดียว: picker → สรุป → การ์ดเลื่อนขั้น → ประวัติ
+import { useEffect, useId, useRef, useState } from "react"
+import { ArrowRight, UserSearch } from "lucide-react"
 import { apiAuth } from "../../lib/api"
+import { cx, focusRingCls, primaryBtnCls } from "../../lib/styles"
+import { ConfirmDialog, EmptyState, ErrorState, Skeleton, toast } from "../ui"
 import EmployeePicker from "./EmployeePicker"
 import SalaryHistoryTable from "./SalaryHistoryTable"
+import SalarySummaryCard from "./SalarySummaryCard"
 import usePositions from "./usePositions"
 import { Notice } from "./HrModal"
-import {
-  tierName, thb, fmtLevel, errText, tierQuery, employeeName,
-  inputCls, labelCls, primaryBtn, cardCls,
-} from "./positionUtils"
+import { refreshPersonnel } from "./personnelCache"
+import { useEmployeeSalary, useLadderMax, useSalaryLookup } from "./salaryData"
+import { thb, fmtLevel, errText, employeeName, inputCls, labelCls, cardCls } from "./positionUtils"
 
-const STEP_PRESETS = ["0.5", "1", "1.5", "2"]
+const CHIPS = [
+  { value: "0.5", label: "0.5" },
+  { value: "1", label: "1" },
+  { value: "1.5", label: "1.5" },
+  { value: "2", label: "2" },
+  { value: "custom", label: "อื่น ๆ" },
+]
+const STEP_MIN = 0.5
+const STEP_MAX = 5
+const REASON_MAX = 255
+
+const CHIP_BASE =
+  "h-9 flex-1 rounded-lg text-sm font-semibold tabular-nums ring-1 ring-inset cursor-pointer " +
+  "transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 " +
+  "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
+const CHIP_OFF =
+  "ring-gray-200 text-gray-700 hover:bg-gray-50 dark:ring-gray-600 dark:text-gray-200 dark:hover:bg-gray-700/50"
+const CHIP_ON = "bg-indigo-600 text-white ring-indigo-600 dark:bg-indigo-500 dark:ring-indigo-500"
+
+const GO_LINK = "rounded font-semibold underline underline-offset-2 cursor-pointer " + focusRingCls
+
+/** "" when valid, else the error copy (spec §5 Step errors). */
+function validateStep(raw) {
+  const s = String(raw ?? "").trim()
+  if (s === "") return "ระบุจำนวนขั้น"
+  const n = Number(s)
+  if (!Number.isFinite(n) || n < STEP_MIN || n > STEP_MAX) return "จำนวนขั้นต้องอยู่ระหว่าง 0.5 ถึง 5"
+  if (!Number.isInteger(n * 2)) return "ระบุทีละครึ่งขั้น เช่น 1.5 หรือ 2.5"
+  return ""
+}
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 
 export default function SalaryStepPanel({ onGoToPositions }) {
-  const { byId: positionsById } = usePositions()
-  const [empId, setEmpId] = useState("")
-  const [emp, setEmp] = useState(null)
-  const [detail, setDetail] = useState(null) // /hr/personnel/{id} — ขั้นปัจจุบัน
-
-  const [step, setStep] = useState("1")
-  const [reason, setReason] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const [fieldError, setFieldError] = useState("")
-  const [apiError, setApiError] = useState(null) // { status, message }
-  const [result, setResult] = useState(null) // { old_level, new_level, capped, salary?, name }
-  const [historyKey, setHistoryKey] = useState(0)
-
-  useEffect(() => {
-    if (!empId) { setDetail(null); return }
-    let alive = true
-    apiAuth(`/hr/personnel/${empId}`)
-      .then((d) => { if (alive) setDetail(d) })
-      .catch(() => { if (alive) setDetail(null) })
-    return () => { alive = false }
-  }, [empId, historyKey])
-
-  const positionId = detail?.position ?? emp?.position
-  const position = positionId != null ? positionsById[positionId] : null
-  const tierId = position?.position_tier_id ?? null
-  const currentLevel = detail?.personnel_info?.salary_level
-
-  const pick = (v, e) => {
-    setEmpId(v)
-    setEmp(e)
-    setResult(null)
-    setApiError(null)
-    setFieldError("")
+  const uid = useId()
+  const ids = {
+    picker: `${uid}-emp`,
+    stepLabel: `${uid}-step-label`,
+    custom: `${uid}-step-custom`,
+    stepErr: `${uid}-step-err`,
+    reason: `${uid}-reason`,
+    reasonCount: `${uid}-reason-count`,
+    hint: `${uid}-submit-hint`,
   }
 
-  const submit = async (e) => {
-    e.preventDefault()
-    setFieldError("")
+  const { byId: positionsById, loading: positionsLoading, error: positionsError, reload: reloadPositions } = usePositions()
+  const [empId, setEmpId] = useState("")
+  const [emp, setEmp] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const info = useEmployeeSalary(empId, refreshKey, positionsById, emp)
+  const { positionId, tierId, currentLevel } = info
+
+  const [choice, setChoice] = useState("1")
+  const [custom, setCustom] = useState("")
+  const [stepError, setStepError] = useState("")
+  const [reason, setReason] = useState("")
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [apiError, setApiError] = useState(null) // { status, message }
+
+  // "just updated" cue on the summary card: "on" (indigo, instant) → "fading" (1.2s back) → "off"
+  const [cue, setCue] = useState("off")
+  const cueTimers = useRef([])
+  const clearCue = () => { cueTimers.current.forEach(clearTimeout); cueTimers.current = [] }
+  useEffect(() => clearCue, [])
+  const flashCue = () => {
+    if (prefersReducedMotion()) return
+    clearCue()
+    setCue("on")
+    cueTimers.current = [
+      setTimeout(() => setCue("fading"), 80),
+      setTimeout(() => setCue("off"), 80 + 1300),
+    ]
+  }
+
+  // chips: roving focus + focus the custom field when "อื่น ๆ" is activated
+  const chipRefs = useRef([])
+  const customRef = useRef(null)
+  const focusCustom = useRef(false)
+  useEffect(() => {
+    if (choice === "custom" && focusCustom.current) {
+      focusCustom.current = false
+      customRef.current?.focus()
+    }
+  }, [choice])
+
+  // ─── derived: step, preview, rules ───────────────────────────────────────
+  const stepRaw = choice === "custom" ? custom : choice
+  const stepProblem = validateStep(stepRaw)
+  const stepValid = !stepProblem
+  const step = stepValid ? Number(stepRaw) : null
+
+  const ladder = useLadderMax(tierId)
+  const max = ladder.status === "ok" ? ladder.max : null
+  const target = step != null && currentLevel != null ? currentLevel + step : null
+  const newLevel = target == null ? null : max != null ? Math.min(target, max) : target
+  const gain = newLevel != null ? newLevel - currentLevel : null
+  const atMax = gain != null && gain <= 0
+  const capped = !atMax && max != null && target != null && newLevel < target
+  const previewReady = tierId != null && newLevel != null && !atMax && ladder.status !== "loading"
+
+  const currentSalary = useSalaryLookup(tierId, currentLevel)
+  const newSalary = useSalaryLookup(tierId, previewReady ? newLevel : null, { debounce: 250 })
+  const delta =
+    currentSalary.status === "ok" && newSalary.status === "ok" ? newSalary.amount - currentSalary.amount : null
+  const deltaPct = delta != null && currentSalary.amount > 0 ? (delta / currentSalary.amount) * 100 : null
+
+  const detailBusy = !!empId && (info.loading || positionsLoading)
+  let hint = ""
+  if (!empId) hint = "เลือกเจ้าหน้าที่ก่อน"
+  else if (detailBusy) hint = "กำลังโหลดข้อมูลเจ้าหน้าที่…"
+  else if (info.error || positionsError) hint = "โหลดข้อมูลไม่สำเร็จ ลองใหม่ที่การ์ดด้านบน"
+  else if (positionId == null) hint = "กำหนดตำแหน่งให้เจ้าหน้าที่ก่อน"
+  else if (tierId == null) hint = "กำหนดกระบอกเงินเดือนของตำแหน่งก่อน"
+  else if (!stepValid) hint = "แก้จำนวนขั้นให้ถูกต้อง"
+  else if (!reason.trim()) hint = "กรอกเหตุผลการเลื่อนขั้น"
+  else if (atMax) hint = "อยู่ขั้นสูงสุดของกระบอกแล้ว"
+  const canSubmit = !hint && !submitting
+
+  const name = employeeName(emp) || (empId ? `รหัส ${empId}` : "")
+
+  // ─── handlers ────────────────────────────────────────────────────────────
+  const pick = (v, record) => {
+    if (String(v) === String(empId)) return
+    // reset synchronously so nothing from the previous person survives a render
+    setEmpId(v)
+    setEmp(record)
+    setChoice("1")
+    setCustom("")
+    setStepError("")
+    setReason("")
     setApiError(null)
-    setResult(null)
-    const n = Number(step)
-    if (!empId) return setFieldError("เลือกเจ้าหน้าที่ก่อน")
-    if (!Number.isFinite(n) || n <= 0) return setFieldError("จำนวนขั้นต้องมากกว่า 0")
-    if (!reason.trim()) return setFieldError("กรอกเหตุผลการเลื่อนขั้น")
+    clearCue()
+    setCue("off")
+  }
+
+  const selectChip = (value, { focusField = false } = {}) => {
+    setChoice(value)
+    setStepError("")
+    if (value === "custom" && focusField) focusCustom.current = true
+  }
+
+  const onChipKeyDown = (e, idx) => {
+    const last = CHIPS.length - 1
+    let next = null
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = idx === last ? 0 : idx + 1
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = idx === 0 ? last : idx - 1
+    else if (e.key === "Home") next = 0
+    else if (e.key === "End") next = last
+    if (next == null) return
+    e.preventDefault()
+    selectChip(CHIPS[next].value)
+    chipRefs.current[next]?.focus()
+  }
+
+  const onSubmit = (e) => {
+    e.preventDefault()
+    if (choice === "custom") setStepError(stepProblem)
+    if (!canSubmit) return
+    setApiError(null)
+    setConfirmOpen(true)
+  }
+
+  const goToPositions = () => {
+    setConfirmOpen(false)
+    onGoToPositions?.()
+  }
+
+  const award = async () => {
+    if (submitting || step == null) return
     setSubmitting(true)
+    setApiError(null)
     try {
       const res = await apiAuth(`/hr/employees/${empId}/salary-step-award`, {
         method: "POST",
-        body: { step: n, reason: reason.trim() },
+        body: { step, reason: reason.trim() },
       })
-      let salary = null
-      if (tierId != null && res?.new_level != null) {
-        try {
-          const row = await apiAuth(`/hr/salary-ladder/lookup?${tierQuery(tierId)}&level=${encodeURIComponent(res.new_level)}`)
-          salary = row?.salary_amount ?? null
-        } catch { /* ไม่มีขั้นนี้ในบัญชี — แค่ไม่แสดงเงินเดือน */ }
+      const oldL = res?.old_level ?? currentLevel
+      const newL = res?.new_level ?? newLevel
+      const desc = `${name} · ขั้น ${fmtLevel(oldL)} → ${fmtLevel(newL)}`
+      if (res?.capped) {
+        const got = Number(newL) - Number(oldL)
+        toast.warning("เลื่อนขั้นเรียบร้อยแล้ว ถึงขั้นสูงสุดของกระบอก", {
+          description: `${desc} · ได้จริง ${fmtLevel(got)} ขั้น`,
+        })
+      } else {
+        toast.success("เลื่อนขั้นเรียบร้อยแล้ว", { description: desc })
       }
-      setResult({ ...res, requested: n, salary, name: employeeName(emp) || `รหัส ${empId}` })
+      setConfirmOpen(false)
       setReason("")
-      setHistoryKey((k) => k + 1)
+      setChoice("1")
+      setCustom("")
+      setStepError("")
+      setRefreshKey((k) => k + 1)
+      refreshPersonnel().catch(() => {})
+      flashCue()
+      // ConfirmDialog returns focus to the submit button, but the form reset
+      // just disabled it, so focus would drop to <body>. Land on the step
+      // chips (start of the form) instead.
+      requestAnimationFrame(() => {
+        const a = document.activeElement
+        if (!a || a === document.body || a.disabled) chipRefs.current[1]?.focus()
+      })
     } catch (err) {
-      setApiError({ status: err?.status, message: errText(err, "เลื่อนขั้นไม่สำเร็จ") })
+      setApiError({ status: err?.status, message: errText(err, "") })
     } finally {
       setSubmitting(false)
     }
   }
 
+  // ─── render ──────────────────────────────────────────────────────────────
+  const showStepError = choice === "custom" && !!stepError
+
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start">
-        <form onSubmit={submit} className={cardCls + " p-5 space-y-4"} noValidate>
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">เลื่อนขั้นเงินเดือน</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">เพิ่มขั้นให้เจ้าหน้าที่ ระบบจะไม่ให้เกินขั้นสูงสุดของกระบอก</p>
-          </div>
-
-          <EmployeePicker id="step-emp" value={empId} onChange={pick} positionsById={positionsById} />
-
-          {empId && (
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl bg-gray-50 dark:bg-gray-900/40 px-3.5 py-3 text-sm">
-              <div className="col-span-2">
-                <dt className="text-xs text-gray-500 dark:text-gray-400">ตำแหน่ง</dt>
-                <dd className="text-gray-900 dark:text-gray-100 break-words">{position?.title ?? (positionId != null ? `ตำแหน่ง #${positionId}` : "ยังไม่มีตำแหน่ง")}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-gray-500 dark:text-gray-400">กระบอก</dt>
-                <dd className={tierId ? "text-gray-900 dark:text-gray-100" : "text-amber-700 dark:text-amber-300"}>{tierName(tierId) ?? "ยังไม่กำหนด"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-gray-500 dark:text-gray-400">ขั้นปัจจุบัน</dt>
-                <dd className="tabular-nums text-gray-900 dark:text-gray-100">{fmtLevel(currentLevel)}</dd>
-              </div>
-            </dl>
-          )}
-
-          {empId && position && tierId == null && (
-            <Notice tone="warning">
-              ตำแหน่ง “{position.title}” ยังไม่ได้กำหนดระดับ ระบบจะปฏิเสธการเลื่อนขั้น — กำหนดระดับของตำแหน่งนี้ก่อน
-              {onGoToPositions && (
-                <> {" "}<button type="button" onClick={onGoToPositions} className="font-semibold underline cursor-pointer">ไปที่ตำแหน่งงาน</button></>
-              )}
-            </Notice>
-          )}
-
-          <div>
-            <label htmlFor="step-amount" className={labelCls}>จำนวนขั้นที่เพิ่ม <span className="text-red-500" aria-hidden="true">*</span></label>
-            <div className="flex gap-2">
-              <input
-                id="step-amount"
-                type="number"
-                inputMode="decimal"
-                min="0.5"
-                step="0.5"
-                value={step}
-                onChange={(e) => setStep(e.target.value)}
-                className={inputCls + " w-24 tabular-nums text-right"}
-              />
-              <div className="flex gap-1" role="group" aria-label="เลือกจำนวนขั้นด่วน">
-                {STEP_PRESETS.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    aria-pressed={Number(step) === Number(s)}
-                    onClick={() => setStep(s)}
-                    className={`h-9 min-w-10 px-2 rounded-lg text-sm tabular-nums font-medium border transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${Number(step) === Number(s) ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-400" : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="step-reason" className={labelCls}>เหตุผล <span className="text-red-500" aria-hidden="true">*</span></label>
-            <input
-              id="step-reason"
-              type="text"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className={inputCls}
-              placeholder="เช่น ผลประเมินประจำปี 2569 ระดับดีเด่น"
-              maxLength={255}
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_1fr] lg:items-start">
+      {/* LEFT top: picker + summary */}
+      <div className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-1">
+        <EmployeePicker id={ids.picker} value={empId} onChange={pick} positionsById={positionsById} />
+        {positionsError && <ErrorState message={positionsError} onRetry={reloadPositions} />}
+        {empId ? (
+          <SalarySummaryCard
+            emp={emp}
+            info={info}
+            positionsLoading={positionsLoading}
+            onGoToPositions={onGoToPositions}
+            highlight={cue}
+          />
+        ) : (
+          <div className={cardCls}>
+            <EmptyState
+              icon={<UserSearch aria-hidden="true" className="size-10" strokeWidth={1.5} />}
+              title="เลือกเจ้าหน้าที่ที่จะเลื่อนขั้น"
+              description="ค้นหาด้วยชื่อ รหัส หรือตำแหน่ง ระบบจะแสดงขั้นปัจจุบันและประวัติการเลื่อนขั้น"
             />
           </div>
+        )}
+      </div>
 
-          {fieldError && <Notice tone="error">{fieldError}</Notice>}
-          {apiError && (
-            <Notice tone="error">
-              <p>{apiError.message}</p>
-              {apiError.status === 409 && (
-                <p className="mt-1">
-                  ตำแหน่งของเจ้าหน้าที่คนนี้ยังไม่มีระดับ (กระบอกเงินเดือน) — ไปกำหนดระดับของตำแหน่งที่แท็บ “ตำแหน่งงาน” ก่อน แล้วค่อยเลื่อนขั้นอีกครั้ง
-                  {onGoToPositions && (
-                    <> {" "}<button type="button" onClick={onGoToPositions} className="font-semibold underline cursor-pointer">ไปที่ตำแหน่งงาน</button></>
-                  )}
-                </p>
+      {/* RIGHT: action card */}
+      <form
+        onSubmit={onSubmit}
+        noValidate
+        aria-labelledby={`${uid}-title`}
+        className={cardCls + " p-5 space-y-5 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-6"}
+      >
+        <div>
+          <h3 id={`${uid}-title`} className="font-semibold text-gray-900 dark:text-gray-100">เลื่อนขั้นเงินเดือน</h3>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">ขั้นใหม่จะไม่เกินขั้นสูงสุดของกระบอก</p>
+        </div>
+
+        {/* Step chips */}
+        <div>
+          <span id={ids.stepLabel} className={labelCls}>
+            จำนวนขั้นที่เลื่อน <span className="text-red-500" aria-hidden="true">*</span>
+          </span>
+          <div role="radiogroup" aria-labelledby={ids.stepLabel} className="flex gap-1.5">
+            {CHIPS.map((c, i) => {
+              const on = choice === c.value
+              return (
+                <button
+                  key={c.value}
+                  ref={(el) => { chipRefs.current[i] = el }}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  tabIndex={on ? 0 : -1}
+                  onClick={() => selectChip(c.value, { focusField: true })}
+                  onKeyDown={(e) => onChipKeyDown(e, i)}
+                  className={cx(CHIP_BASE, on ? CHIP_ON : CHIP_OFF, c.value === "custom" && "flex-[1.4] whitespace-nowrap")}
+                >
+                  {c.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {choice === "custom" && (
+            <div className="mt-3">
+              <label htmlFor={ids.custom} className="sr-only">จำนวนขั้นที่เลื่อน (กำหนดเอง)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  ref={customRef}
+                  id={ids.custom}
+                  type="number"
+                  inputMode="decimal"
+                  step="0.5"
+                  min={STEP_MIN}
+                  max={STEP_MAX}
+                  value={custom}
+                  onChange={(e) => { setCustom(e.target.value); setStepError("") }}
+                  onBlur={() => setStepError(validateStep(custom))}
+                  aria-invalid={showStepError || undefined}
+                  aria-describedby={showStepError ? ids.stepErr : `${uid}-step-help`}
+                  className={cx(inputCls.replace("w-full", "w-28"), "tabular-nums", showStepError && "border-red-400 dark:border-red-500")}
+                  placeholder="เช่น 2.5"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-300">ขั้น</span>
+                <span id={`${uid}-step-help`} className="ml-auto whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">สูงสุด 5 ขั้น</span>
+              </div>
+              {showStepError && (
+                <p id={ids.stepErr} className="mt-1.5 text-xs text-red-600 dark:text-red-400">{stepError}</p>
               )}
-            </Notice>
-          )}
-
-          <button type="submit" disabled={submitting} className={primaryBtn + " w-full"}>
-            {submitting ? "กำลังเลื่อนขั้น…" : "เลื่อนขั้น"}
-          </button>
-        </form>
-
-        <div className="space-y-4 min-w-0" aria-live="polite">
-          {result && <AwardResult result={result} />}
-          {empId ? (
-            <SalaryHistoryTable employeeId={empId} refreshKey={historyKey} />
-          ) : (
-            <div className={cardCls + " p-6 text-sm text-gray-500 dark:text-gray-400"}>
-              เลือกเจ้าหน้าที่เพื่อดูขั้นปัจจุบันและประวัติการเลื่อนขั้น
             </div>
           )}
         </div>
-      </div>
+
+        {/* Preview */}
+        <div aria-live="polite" className="space-y-3">
+          <Preview
+            empId={empId}
+            busy={detailBusy || (!!tierId && ladder.status === "loading")}
+            blocked={!!empId && !detailBusy && (positionId == null || tierId == null || !!info.error)}
+            currentLevel={currentLevel}
+            newLevel={atMax ? currentLevel : newLevel}
+            stepValid={stepValid}
+            currentSalary={currentSalary}
+            newSalary={atMax ? currentSalary : newSalary}
+            delta={atMax ? null : delta}
+            deltaPct={atMax ? null : deltaPct}
+          />
+          {capped && (
+            <Notice tone="warning">
+              เลื่อนได้จริง {fmtLevel(gain)} จาก {fmtLevel(step)} ขั้น เพราะถึงขั้นสูงสุดของกระบอก (ขั้น {fmtLevel(max)})
+            </Notice>
+          )}
+          {atMax && !detailBusy && (
+            <Notice tone="warning">
+              เจ้าหน้าที่คนนี้อยู่ขั้นสูงสุดของกระบอกแล้ว จะเลื่อนขั้นต่อได้เมื่อเลื่อนตำแหน่งไปกระบอกที่สูงกว่า
+            </Notice>
+          )}
+        </div>
+
+        {/* Reason */}
+        <div>
+          <div className="flex items-baseline justify-between gap-2">
+            <label htmlFor={ids.reason} className={labelCls}>
+              เหตุผล <span className="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <span id={ids.reasonCount} className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
+              {reason.length}/{REASON_MAX}
+            </span>
+          </div>
+          <textarea
+            id={ids.reason}
+            rows={3}
+            maxLength={REASON_MAX}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            aria-describedby={ids.reasonCount}
+            className={inputCls + " resize-none leading-relaxed"}
+            placeholder="เช่น ผลประเมินประจำปี 2569 ระดับดีเด่น"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            aria-describedby={hint ? ids.hint : undefined}
+            className={primaryBtnCls + " w-full"}
+          >
+            เลื่อนขั้น
+          </button>
+          {hint && (
+            <p id={ids.hint} className="text-center text-xs text-gray-500 dark:text-gray-400">{hint}</p>
+          )}
+        </div>
+      </form>
+
+      {/* LEFT bottom: history */}
+      {empId && (
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+          <SalaryHistoryTable employeeId={empId} refreshKey={refreshKey} title="ประวัติการเลื่อนขั้น" />
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="ยืนยันการเลื่อนขั้นเงินเดือน"
+        description={`${name} · รหัส ${empId}`}
+        confirmLabel="ยืนยันเลื่อนขั้น"
+        loadingLabel="กำลังบันทึก…"
+        tone="primary"
+        initialFocus="cancel"
+        loading={submitting}
+        onConfirm={award}
+        onCancel={() => { if (!submitting) setConfirmOpen(false) }}
+        error={apiError && (
+          apiError.status === 409 ? (
+            <>
+              ตำแหน่งของเจ้าหน้าที่คนนี้ยังไม่ได้กำหนดกระบอกเงินเดือน กำหนดที่ “ตำแหน่งงาน” ก่อนเลื่อนขั้น
+              {onGoToPositions && (
+                <> <button type="button" onClick={goToPositions} className={GO_LINK}>ไปที่ตำแหน่งงาน</button></>
+              )}
+            </>
+          ) : (
+            <>
+              <p>เลื่อนขั้นไม่สำเร็จ ลองใหม่อีกครั้ง หากยังไม่ได้ แจ้งที่เมนู “รายงานปัญหา”</p>
+              {apiError.message && <p className="mt-1 text-xs opacity-90">{apiError.message}</p>}
+            </>
+          )
+        )}
+      >
+        <dl className="space-y-2 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/40">
+          <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-3">
+            <dt className="text-gray-500 dark:text-gray-400">ขั้น</dt>
+            <dd className="tabular-nums text-gray-900 dark:text-gray-100">
+              {fmtLevel(currentLevel)} <Arrow /> <span className="font-semibold">{fmtLevel(newLevel)}</span>
+              {gain != null && <span className="ml-1.5 text-gray-500 dark:text-gray-400">(+{fmtLevel(gain)} ขั้น)</span>}
+            </dd>
+          </div>
+          <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-3">
+            <dt className="text-gray-500 dark:text-gray-400">เงินเดือน</dt>
+            <dd className="tabular-nums text-gray-900 dark:text-gray-100">
+              {currentSalary.status === "ok" && newSalary.status === "ok" ? (
+                <>{thb(currentSalary.amount)} <Arrow /> <span className="font-semibold">{thb(newSalary.amount)}</span> บาท</>
+              ) : (
+                <span className="text-gray-500 dark:text-gray-400">ไม่พบเงินเดือนของขั้น {fmtLevel(newLevel)} ในบัญชีเงินเดือน</span>
+              )}
+            </dd>
+          </div>
+          <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-3">
+            <dt className="text-gray-500 dark:text-gray-400">เหตุผล</dt>
+            <dd className="break-words text-gray-900 dark:text-gray-100">{reason.trim()}</dd>
+          </div>
+        </dl>
+        {capped && (
+          <p className="mt-3 text-amber-700 dark:text-amber-300">
+            เลื่อนได้จริง {fmtLevel(gain)} จาก {fmtLevel(step)} ขั้น เพราะถึงขั้นสูงสุดของกระบอก (ขั้น {fmtLevel(max)})
+          </p>
+        )}
+        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">บันทึกแล้วจะแก้ไขจากหน้านี้ไม่ได้ ตรวจสอบข้อมูลก่อนยืนยัน</p>
+      </ConfirmDialog>
     </div>
   )
 }
 
-function AwardResult({ result }) {
-  const gained = Number(result.new_level) - Number(result.old_level)
+function Arrow() {
   return (
-    <div className={`rounded-2xl ring-1 p-5 ${result.capped ? "bg-amber-50 ring-amber-200 dark:bg-amber-900/20 dark:ring-amber-700/60" : "bg-emerald-50 ring-emerald-200 dark:bg-emerald-900/20 dark:ring-emerald-800/60"}`}>
-      <p className={`text-sm font-semibold ${result.capped ? "text-amber-900 dark:text-amber-200" : "text-emerald-900 dark:text-emerald-200"}`}>
-        {result.capped ? "ถึงขั้นสูงสุดของกระบอกแล้ว" : "เลื่อนขั้นแล้ว"} · {result.name}
-      </p>
-      <div className="mt-2 flex items-baseline gap-3 tabular-nums">
-        <span className="text-lg text-gray-500 dark:text-gray-400">{fmtLevel(result.old_level)}</span>
-        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-4 text-gray-400 self-center"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-        <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">{fmtLevel(result.new_level)}</span>
-        <span className="sr-only">จากขั้น {fmtLevel(result.old_level)} เป็นขั้น {fmtLevel(result.new_level)}</span>
-        {result.salary != null && <span className="text-sm text-gray-600 dark:text-gray-300">{thb(result.salary)} บาท</span>}
+    <>
+      <ArrowRight aria-hidden="true" className="inline size-4 align-[-3px] text-gray-400 dark:text-gray-500" strokeWidth={1.75} />
+      <span className="sr-only">เป็น</span>
+    </>
+  )
+}
+
+/** before → after block inside the action card (spec §3.1 Preview). */
+function Preview({ empId, busy, blocked, currentLevel, newLevel, stepValid, currentSalary, newSalary, delta, deltaPct }) {
+  const box = "rounded-xl bg-gray-50 p-4 dark:bg-gray-900/40"
+
+  if (!empId || blocked) {
+    return (
+      <div className={cx(box, "text-sm text-gray-500 dark:text-gray-400")}>
+        {!empId ? "เลือกเจ้าหน้าที่เพื่อดูขั้นและเงินเดือนใหม่" : "ยังคำนวณขั้นใหม่ไม่ได้ ดูรายละเอียดที่การ์ดเจ้าหน้าที่"}
       </div>
-      {result.capped ? (
-        <p className="mt-2 text-sm text-amber-900 dark:text-amber-200 text-pretty">
-          ขอเพิ่ม {fmtLevel(result.requested)} ขั้น แต่ได้จริง {fmtLevel(gained)} ขั้น เพราะชนขั้นสูงสุดของกระบอก ({fmtLevel(result.new_level)}) — ถ้าจะให้ขึ้นต่อต้องเลื่อนตำแหน่งไปกระบอกที่สูงกว่า
+    )
+  }
+  if (busy) {
+    return (
+      <div className={cx(box, "space-y-3")} aria-busy="true">
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-5 w-56 max-w-full" />
+      </div>
+    )
+  }
+  if (currentLevel == null) {
+    return <div className={cx(box, "text-sm text-gray-500 dark:text-gray-400")}>ไม่พบขั้นปัจจุบันของเจ้าหน้าที่คนนี้</div>
+  }
+  if (!stepValid) {
+    return <div className={cx(box, "text-sm text-gray-500 dark:text-gray-400")}>แก้จำนวนขั้นให้ถูกต้องเพื่อดูขั้นใหม่</div>
+  }
+
+  return (
+    <div className={cx(box, "space-y-2.5 text-sm")}>
+    <dl className="space-y-2.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <dt className="text-gray-500 dark:text-gray-400">ขั้น</dt>
+        <dd className="flex items-baseline gap-2 tabular-nums">
+          <span className="text-gray-600 dark:text-gray-300">{fmtLevel(currentLevel)}</span>
+          <Arrow />
+          <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{fmtLevel(newLevel)}</span>
+        </dd>
+      </div>
+      <div className="flex items-baseline justify-between gap-3">
+        <dt className="shrink-0 text-gray-500 dark:text-gray-400">เงินเดือน</dt>
+        <dd className="min-w-0 text-right tabular-nums">
+          {newSalary.status === "loading" || currentSalary.status === "loading" ? (
+            <Skeleton className="ml-auto h-5 w-40" />
+          ) : newSalary.status === "ok" ? (
+            <>
+              {currentSalary.status === "ok" && (
+                <><span className="text-gray-600 dark:text-gray-300">{thb(currentSalary.amount)}</span> <Arrow /> </>
+              )}
+              <span className="font-bold text-gray-900 dark:text-gray-100">{thb(newSalary.amount)}</span>
+              <span className="text-gray-500 dark:text-gray-400"> บาท</span>
+            </>
+          ) : (
+            <span className="text-gray-500 dark:text-gray-400">ไม่พบเงินเดือนของขั้น {fmtLevel(newLevel)} ในบัญชีเงินเดือน</span>
+          )}
+        </dd>
+      </div>
+    </dl>
+      {delta != null && delta !== 0 && (
+        <p className="text-right text-sm font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
+          {delta > 0 ? "+" : ""}{thb(delta)} บาท/เดือน
+          {deltaPct != null && ` (${deltaPct > 0 ? "+" : ""}${deltaPct.toFixed(1)}%)`}
         </p>
-      ) : (
-        <p className="mt-2 text-sm text-emerald-900 dark:text-emerald-200">เพิ่ม {fmtLevel(gained)} ขั้น บันทึกลงประวัติแล้ว</p>
       )}
     </div>
   )

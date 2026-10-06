@@ -2,7 +2,8 @@
 // อนุมัติ / ปฏิเสธ คำขอลา + ดาวน์โหลด PDF ใบลา
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
-import { PageLoader, ErrorState, EmptyState } from "../../components/ui"
+import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab, toast } from "../../components/ui"
+import { tabPanelCls } from "../../lib/styles"
 import DecisionModal from "../../components/DecisionModal"
 import LeaveStageActions from "../../components/LeaveStageActions"
 import { isPendingStatus, statusLabel, statusTone } from "../../lib/approval"
@@ -18,7 +19,7 @@ function fmtDate(d) {
 }
 
 export default function HRLeaveManagement() {
-  const [tab, setTab] = useState("pending")
+  const [tab, setTab] = useSubTab(["pending", "all"], "pending")
   const [allRequests, setAllRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -38,7 +39,7 @@ export default function HRLeaveManagement() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      alert(`ดาวน์โหลด PDF ไม่สำเร็จ: ${err.message || "เกิดข้อผิดพลาด"}`)
+      toast.error("ดาวน์โหลด PDF ไม่สำเร็จ", { description: err.message || "เกิดข้อผิดพลาด" })
     } finally {
       setDownloadingId(null)
     }
@@ -124,27 +125,18 @@ export default function HRLeaveManagement() {
 
       {error && <ErrorState message={error} onRetry={fetchRequests} />}
 
-      {/* Tabs */}
-      <div role="tablist" aria-label="ตัวกรองคำขอลา" className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">
-        {[["pending", "รออนุมัติ"], ["all", "ทั้งหมด"]].map(([v, label]) => (
-          <button
-            key={v}
-            role="tab"
-            type="button"
-            aria-selected={tab === v}
-            onClick={() => setTab(v)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800 ${tab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-          >
-            {label}
-            {v === "pending" && pendingCount > 0 && (
-              <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 tabular-nums">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={[
+          { value: "pending", label: "รออนุมัติ", count: pendingCount > 0 ? pendingCount : null },
+          { value: "all", label: "ทั้งหมด" },
+        ]}
+        value={tab}
+        onChange={setTab}
+        ariaLabel="ตัวกรองคำขอลา"
+        idBase="leave-mgmt"
+      />
 
+      <div role="tabpanel" id={panelId("leave-mgmt", tab)} aria-labelledby={tabId("leave-mgmt", tab)} tabIndex={0} className={tabPanelCls}>
       {/* Cards */}
       {loading ? (
         <PageLoader variant="cards" rows={3} message="กำลังโหลดคำขอลา…" />
@@ -255,6 +247,7 @@ export default function HRLeaveManagement() {
           ))}
         </div>
       )}
+      </div>
 
       {decision && (
         <DecisionModal

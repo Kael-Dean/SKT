@@ -1,95 +1,99 @@
 // src/components/hr/EmployeePicker.jsx
 // เลือกเจ้าหน้าที่ (active) — GET /hr/personnel?is_active=true
-// ช่องค้นหากรองรายชื่อ แล้วเลือกผ่าน SelectDropdown ตัวเดิมของโปรเจค (ไม่สร้าง dropdown ใหม่)
+// ช่องเดียว: SelectDropdown แบบ searchable (ค้นชื่อ รหัส รหัสพนักงาน ตำแหน่ง) แสดงครบทุกคน ไม่ตัดจำนวน
+// รายชื่อแคชระดับ module ใน personnelCache.js — เรียก refreshPersonnel() (จากไฟล์นั้น) หลังข้อมูลเปลี่ยน
 import { useEffect, useMemo, useState } from "react"
-import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../SelectDropdown"
-import { inputCls, errText, employeeName } from "./positionUtils"
+import { getCachedPersonnel, loadPersonnel, subscribePersonnel } from "./personnelCache"
+import { errText, employeeName, linkBtn } from "./positionUtils"
 
-const MAX_OPTIONS = 150
+/** รหัสพนักงาน ถ้า backend ส่งมา (ยังไม่มีใน contract ปัจจุบัน — เผื่อไว้) */
+const staffCodeOf = (p) => p?.staff_code ?? p?.employee_code ?? p?.emp_code ?? null
 
-// แคชรายชื่อไว้ระดับ module — หลายแผงในหน้าเดียวกันไม่ต้องยิงซ้ำ
-let cache = null
-let inflight = null
-function loadPersonnel() {
-  if (cache) return Promise.resolve(cache)
-  if (!inflight) {
-    inflight = apiAuth("/hr/personnel?is_active=true")
-      .then((d) => { cache = Array.isArray(d) ? d : []; return cache })
-      .finally(() => { inflight = null })
-  }
-  return inflight
-}
-
-export default function EmployeePicker({ value, onChange, positionsById, label = "เจ้าหน้าที่", id = "emp-picker" }) {
-  const [people, setPeople] = useState(cache ?? [])
-  const [loading, setLoading] = useState(!cache)
+export default function EmployeePicker({
+  value,
+  onChange,
+  positionsById,
+  label = "เจ้าหน้าที่",
+  id = "emp-picker",
+  className = "",
+  disabled = false,
+}) {
+  const [people, setPeople] = useState(() => getCachedPersonnel() ?? [])
+  const [loading, setLoading] = useState(() => !getCachedPersonnel())
   const [error, setError] = useState("")
-  const [q, setQ] = useState("")
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let alive = true
+    const unsubscribe = subscribePersonnel((fresh) => {
+      if (alive && fresh) {
+        setPeople(fresh)
+        setError("")
+        setLoading(false)
+      }
+    })
     loadPersonnel()
-      .then((d) => { if (alive) setPeople(d) })
+      .then((d) => { if (alive) { setPeople(d); setError("") } })
       .catch((e) => { if (alive) setError(errText(e, "โหลดรายชื่อเจ้าหน้าที่ไม่สำเร็จ")) })
       .finally(() => { if (alive) setLoading(false) })
-    return () => { alive = false }
-  }, [])
-
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    const list = s
-      ? people.filter((p) => employeeName(p).toLowerCase().includes(s) || String(p.id) === s)
-      : people
-    return list.slice(0, MAX_OPTIONS)
-  }, [people, q])
-
-  const options = useMemo(() => {
-    const opts = filtered.map((p) => ({
-      value: String(p.id),
-      label: employeeName(p),
-      sublabel: [`รหัส ${p.id}`, positionsById?.[p.position]?.title].filter(Boolean).join(" · "),
-    }))
-    // คงคนที่เลือกไว้ในรายการเสมอ แม้ไม่ตรงคำค้น
-    if (value && !opts.some((o) => o.value === String(value))) {
-      const sel = people.find((p) => String(p.id) === String(value))
-      if (sel) opts.unshift({ value: String(sel.id), label: employeeName(sel), sublabel: `รหัส ${sel.id}` })
+    return () => {
+      alive = false
+      unsubscribe()
     }
-    return opts
-  }, [filtered, people, value, positionsById])
+  }, [attempt])
 
-  const total = q.trim()
-    ? people.filter((p) => employeeName(p).toLowerCase().includes(q.trim().toLowerCase()) || String(p.id) === q.trim()).length
-    : people.length
+  const retry = () => {
+    setError("")
+    setLoading(true)
+    setAttempt((n) => n + 1)
+  }
+
+  const options = useMemo(
+    () => people.map((p) => {
+      const code = staffCodeOf(p)
+      const title = positionsById?.[p.position]?.title
+      return {
+        value: String(p.id),
+        label: employeeName(p),
+        sublabel: [`รหัส ${p.id}`, code ? `รหัสพนักงาน ${code}` : null, title ?? "ยังไม่มีตำแหน่ง"]
+          .filter(Boolean)
+          .join(" · "),
+        keywords: [String(p.id), code, title].filter(Boolean),
+      }
+    }),
+    [people, positionsById],
+  )
+
+  const labelId = `${id}-label`
+  const errId = `${id}-error`
 
   return (
-    <div className="space-y-1.5">
-      <span id={`${id}-label`} className="text-xs font-medium text-gray-600 dark:text-gray-400 block">{label}</span>
-      <div className="grid gap-2 sm:grid-cols-[12rem_minmax(0,1fr)]">
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="ค้นชื่อหรือรหัส"
-          aria-label={`ค้นหา${label}`}
-          className={inputCls}
-        />
-        <div aria-labelledby={`${id}-label`}>
-          <SelectDropdown
-            options={options}
-            value={value ?? ""}
-            onChange={(v) => onChange?.(v, people.find((p) => String(p.id) === v) ?? null)}
-            placeholder={loading ? "กำลังโหลดรายชื่อ…" : "— เลือกเจ้าหน้าที่ —"}
-            loading={loading}
-            error={!!error}
-          />
-        </div>
-      </div>
-      {error ? (
-        <p role="alert" className="text-xs text-red-600 dark:text-red-400">{error}</p>
-      ) : total > MAX_OPTIONS ? (
-        <p className="text-xs text-gray-500 dark:text-gray-400">แสดง {MAX_OPTIONS} จาก {total} คน — พิมพ์ชื่อเพื่อค้นให้แคบลง</p>
-      ) : null}
+    <div className={"space-y-1.5 max-w-xl " + className}>
+      <span id={labelId} className="block text-xs font-medium text-gray-600 dark:text-gray-400">{label}</span>
+      <SelectDropdown
+        id={id}
+        ariaLabelledby={labelId}
+        ariaDescribedby={error ? errId : undefined}
+        options={options}
+        value={value ?? ""}
+        onChange={(v) => onChange?.(v, people.find((p) => String(p.id) === v) ?? null)}
+        placeholder={loading ? "กำลังโหลดรายชื่อ…" : "เลือกเจ้าหน้าที่"}
+        loading={loading}
+        error={!!error}
+        disabled={disabled}
+        searchable
+        searchPlaceholder="ค้นหาชื่อ รหัส หรือตำแหน่ง"
+        emptyText="ไม่พบเจ้าหน้าที่ที่ตรงกับคำค้น"
+        showSwatch={false}
+        showSublabelInTrigger
+      />
+      {error && (
+        <p id={errId} role="alert" className="text-xs text-red-600 dark:text-red-400">
+          โหลดรายชื่อเจ้าหน้าที่ไม่สำเร็จ{" "}
+          <button type="button" onClick={retry} className={linkBtn + " !text-xs"}>ลองใหม่</button>
+        </p>
+      )}
     </div>
   )
 }

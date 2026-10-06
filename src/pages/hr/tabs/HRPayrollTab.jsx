@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
 import Portal from "../../../components/Portal"
-import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
+import { SkeletonTableRows, ErrorState, EmptyState, toast } from "../../../components/ui"
+import StatusMsg from "../../../components/hr/StatusMsg"
 
 const PAYROLL_COLS = 6
 
@@ -60,7 +61,7 @@ export default function HRPayrollTab() {
 
   const handleGenerate = async () => {
     if (!genForm.employee_id || !genForm.month || !genForm.year) {
-      setGenMsg("⚠️ กรุณากรอกรหัสเจ้าหน้าที่และเลือกเดือน")
+      setGenMsg({ tone: "warning", text: "กรุณากรอกรหัสเจ้าหน้าที่และเลือกเดือน" })
       return
     }
     setGenerating(true)
@@ -74,7 +75,7 @@ export default function HRPayrollTab() {
           year: Number(genForm.year),
         },
       })
-      setGenMsg("✅ สร้างเงินเดือนสำเร็จ!")
+      setGenMsg({ tone: "success", text: "สร้างเงินเดือนสำเร็จ!" })
       setTimeout(() => {
         setShowGenerate(false)
         setGenForm({ employee_id: "", month: "", year: "" })
@@ -82,7 +83,7 @@ export default function HRPayrollTab() {
         fetchPayrolls(filterMonth)
       }, 1000)
     } catch (err) {
-      setGenMsg(`❌ ${err.message || "ไม่สำเร็จ"}`)
+      setGenMsg({ tone: "error", text: err.message || "ไม่สำเร็จ" })
     } finally {
       setGenerating(false)
     }
@@ -99,7 +100,7 @@ export default function HRPayrollTab() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      alert(`ดาวน์โหลดไม่สำเร็จ: ${err.message || ""}`)
+      toast.error("ดาวน์โหลดไม่สำเร็จ", { description: err.message || undefined })
     } finally {
       setDownloading(null)
     }
@@ -217,7 +218,7 @@ export default function HRPayrollTab() {
               />
             </div>
             {genMsg && (
-              <p className={`text-sm text-center font-medium ${genMsg.startsWith("✅") ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{genMsg}</p>
+              <StatusMsg msg={genMsg} center />
             )}
             <div className="flex gap-3">
               <button onClick={() => setShowGenerate(false)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">ยกเลิก</button>

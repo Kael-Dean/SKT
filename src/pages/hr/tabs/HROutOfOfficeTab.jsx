@@ -20,7 +20,8 @@ import {
 } from "../../../lib/approval"
 import Portal from "../../../components/Portal"
 import SelectDropdown from "../../../components/SelectDropdown"
-import { Skeleton, ErrorState, EmptyState } from "../../../components/ui"
+import { Skeleton, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
+import { tabPanelCls } from "../../../lib/styles"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -854,7 +855,7 @@ const SUB_TABS = [
 ]
 
 export default function HROutOfOfficeTab() {
-  const [subTab, setSubTab] = useState("requests")
+  const [subTab, setSubTab] = useSubTab(SUB_TABS.map(([v]) => v), "requests")
   const [branches, setBranches] = useState([])
 
   useEffect(() => {
@@ -866,42 +867,17 @@ export default function HROutOfOfficeTab() {
   const branchMap = useMemo(() => new Map(branches.map((b) => [b.value, b.label])), [branches])
   const branchName = useCallback((id) => (id == null ? "" : branchMap.get(String(id)) || ""), [branchMap])
 
-  const onTabKey = (e) => {
-    const i = SUB_TABS.findIndex(([v]) => v === subTab)
-    let n = null
-    if (e.key === "ArrowRight") n = (i + 1) % SUB_TABS.length
-    if (e.key === "ArrowLeft") n = (i - 1 + SUB_TABS.length) % SUB_TABS.length
-    if (n == null) return
-    e.preventDefault()
-    setSubTab(SUB_TABS[n][0])
-    document.getElementById(`ooo-tab-${SUB_TABS[n][0]}`)?.focus()
-  }
-
   return (
     <div className="space-y-4">
-      <div role="tablist" aria-label="ขอออกนอกสถานที่" onKeyDown={onTabKey} className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit max-w-full overflow-x-auto">
-        {SUB_TABS.map(([v, label]) => (
-          <button
-            key={v}
-            id={`ooo-tab-${v}`}
-            role="tab"
-            type="button"
-            aria-selected={subTab === v}
-            aria-controls="ooo-tabpanel"
-            tabIndex={subTab === v ? 0 : -1}
-            onClick={() => setSubTab(v)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors duration-200 cursor-pointer ${focusRing} focus-visible:ring-indigo-500 ${
-              subTab === v
-                ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={SUB_TABS.map(([value, label]) => ({ value, label }))}
+        value={subTab}
+        onChange={setSubTab}
+        ariaLabel="ขอออกนอกสถานที่"
+        idBase="hr-ooo"
+      />
 
-      <div id="ooo-tabpanel" role="tabpanel" aria-labelledby={`ooo-tab-${subTab}`}>
+      <div role="tabpanel" id={panelId("hr-ooo", subTab)} aria-labelledby={tabId("hr-ooo", subTab)} tabIndex={0} className={tabPanelCls}>
         {subTab === "requests" && <RequestsPanel branchOptions={branches} branchName={branchName} />}
         {subTab === "summary" && <SummaryPanel branchName={branchName} />}
         {subTab === "settings" && <SettingsPanel />}

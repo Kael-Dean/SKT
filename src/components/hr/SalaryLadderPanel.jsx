@@ -1,11 +1,12 @@
 // src/components/hr/SalaryLadderPanel.jsx
 // บัญชีขั้นเงินเดือนรายกระบอก — GET /hr/salary-ladder?tier= · PATCH /hr/salary-ladder/{id} {salary_amount}
 // + เครื่องมือค้นเงินเดือนจากขั้น — GET /hr/salary-ladder/lookup?tier=&level=
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../SelectDropdown"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../ui"
 import HrModal, { Notice } from "./HrModal"
+import { clearSalaryCaches } from "./salaryData"
 import {
   TIER_OPTIONS, tierName, thb, fmtLevel, errText, tierQuery,
   inputCls, labelCls, primaryBtn, secondaryBtn, linkBtn, cardCls, thCls,
@@ -23,17 +24,24 @@ export default function SalaryLadderPanel({ defaultTier = "1" }) {
   const [saving, setSaving] = useState(false)
   const [editError, setEditError] = useState("")
 
+  // race guard: สลับกระบอกเร็ว ๆ → เฉพาะ request ล่าสุดเขียน state
+  const reqRef = useRef(0)
   const fetchLadder = useCallback((t) => {
     if (!t) return
+    const req = ++reqRef.current
     setLoading(true)
     setError("")
     apiAuth(`/hr/salary-ladder?${tierQuery(t)}`)
-      .then((d) => setLadder(Array.isArray(d) ? [...d].sort((a, b) => Number(a.level) - Number(b.level)) : []))
-      .catch((e) => { setLadder([]); setError(errText(e, "โหลดบัญชีเงินเดือนไม่สำเร็จ")) })
-      .finally(() => setLoading(false))
+      .then((d) => { if (req === reqRef.current) setLadder(Array.isArray(d) ? [...d].sort((a, b) => Number(a.level) - Number(b.level)) : []) })
+      .catch((e) => { if (req === reqRef.current) { setLadder([]); setError(errText(e, "โหลดบัญชีเงินเดือนไม่สำเร็จ")) } })
+      .finally(() => { if (req === reqRef.current) setLoading(false) })
   }, [])
 
-  useEffect(() => { fetchLadder(tier) }, [tier, fetchLadder])
+  useEffect(() => {
+    fetchLadder(tier)
+    const guard = reqRef
+    return () => { guard.current++ }
+  }, [tier, fetchLadder])
 
   useEffect(() => {
     if (!flash) return
@@ -68,6 +76,7 @@ export default function SalaryLadderPanel({ defaultTier = "1" }) {
     setEditError("")
     try {
       await apiAuth(`/hr/salary-ladder/${editRow.id}`, { method: "PATCH", body: { salary_amount: amount } })
+      clearSalaryCaches() // ให้ preview / สรุปเงินเดือนในแท็บเลื่อนขั้นใช้ค่าใหม่
       setFlash(`บันทึกขั้น ${fmtLevel(editRow.level)} เป็น ${thb(amount)} บาทแล้ว`)
       setEditRow(null)
       fetchLadder(tier)
@@ -85,8 +94,8 @@ export default function SalaryLadderPanel({ defaultTier = "1" }) {
         <div className="space-y-3 min-w-0">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <span id="ladder-tier-label" className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">กระบอกเงินเดือน</span>
-            <div className="sm:w-80" aria-labelledby="ladder-tier-label">
-              <SelectDropdown options={TIER_OPTIONS} value={tier} onChange={setTier} />
+            <div className="sm:w-80">
+              <SelectDropdown id="ladder-tier" ariaLabelledby="ladder-tier-label" options={TIER_OPTIONS} value={tier} onChange={setTier} />
             </div>
           </div>
 
@@ -211,9 +220,7 @@ function SalaryLookup() {
       </div>
       <div>
         <span id="lookup-tier-label" className={labelCls}>กระบอก</span>
-        <div aria-labelledby="lookup-tier-label">
-          <SelectDropdown options={TIER_OPTIONS} value={tier} onChange={(v) => { setTier(v); setResult(null) }} placeholder="— เลือกกระบอก —" />
-        </div>
+        <SelectDropdown id="lookup-tier" ariaLabelledby="lookup-tier-label" options={TIER_OPTIONS} value={tier} onChange={(v) => { setTier(v); setResult(null) }} placeholder="— เลือกกระบอก —" />
       </div>
       <div>
         <label htmlFor="lookup-level" className={labelCls}>ขั้น</label>

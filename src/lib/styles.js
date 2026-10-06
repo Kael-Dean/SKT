@@ -90,6 +90,37 @@ export const secondaryBtnCls =
   "dark:hover:bg-indigo-900/20 dark:hover:border-indigo-500 " +
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
 
+// ─── Compact app buttons (h-10, rounded-xl) — dialogs, toolbars, HR ──────────
+
+/** Shared focus ring for interactive controls (offset follows the card surface) */
+export const focusRingCls =
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 " +
+  "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
+
+/** Primary action (indigo — the one accent) */
+export const primaryBtnCls =
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 h-10 text-sm font-semibold " +
+  "text-white shadow-sm transition-colors duration-200 cursor-pointer hover:bg-indigo-500 " +
+  "dark:bg-indigo-500 dark:hover:bg-indigo-400 " +
+  "disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-indigo-600 dark:disabled:hover:bg-indigo-500 " +
+  focusRingCls
+
+/** Destructive action (red) */
+export const dangerBtnCls =
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 h-10 text-sm font-semibold " +
+  "text-white shadow-sm transition-colors duration-200 cursor-pointer hover:bg-red-500 " +
+  "disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-red-600 " +
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 " +
+  "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
+
+/** Neutral / cancel action */
+export const neutralBtnCls =
+  "inline-flex items-center justify-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold " +
+  "text-gray-700 ring-1 ring-inset ring-gray-300 bg-white hover:bg-gray-50 " +
+  "dark:bg-transparent dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700/60 " +
+  "transition-colors duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed " +
+  focusRingCls
+
 // ─── Cards & Containers ───────────────────────────────────────────────────────
 
 /** Standard content card */

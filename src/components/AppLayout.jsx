@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react"
 import { Outlet, useNavigate, useLocation } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
+import Toaster from "./ui/Toaster"
 
 export const SidebarContext = createContext(false)
 export const useSidebarOpen = () => useContext(SidebarContext)
@@ -94,6 +95,9 @@ const AppLayout = () => {
           </SidebarContext.Provider>
         </main>
       </div>
+
+      {/* Global toast host (toast.success/error/… from components/ui/toast.js) */}
+      <Toaster />
     </div>
   )
 }

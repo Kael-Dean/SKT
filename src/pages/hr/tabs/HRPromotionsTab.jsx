@@ -368,16 +368,14 @@ function ScheduleExamModal({ initial, activePositions, positionsById, onClose, o
         )}
         <div>
           <span id="exam-target-label" className={labelCls}>ตำแหน่งเป้าหมาย <span className="text-red-500" aria-hidden="true">*</span></span>
-          <div aria-labelledby="exam-target-label">
-            <SelectDropdown options={options} value={target} onChange={setTarget} placeholder="— เลือกตำแหน่ง (เฉพาะที่ใช้งาน) —" />
-          </div>
+          <SelectDropdown options={options} value={target} onChange={setTarget} placeholder="— เลือกตำแหน่ง (เฉพาะที่ใช้งาน) —" ariaLabelledby="exam-target-label" />
           {targetPos && targetPos.position_tier_id == null && (
             <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">ตำแหน่งนี้ยังไม่กำหนดระดับ ถ้าสอบผ่านระบบจะเทียบขั้นเงินเดือนให้ไม่ได้</p>
           )}
         </div>
         <div>
-          <span className={labelCls}>วันสอบ <span className="text-red-500" aria-hidden="true">*</span></span>
-          <ThaiDateInput value={examDate} onChange={setExamDate} />
+          <span id="exam-date-label" className={labelCls}>วันสอบ <span className="text-red-500" aria-hidden="true">*</span></span>
+          <ThaiDateInput ariaLabelledby="exam-date-label" className={inputCls + " focus-within:ring-2 focus-within:ring-indigo-500"} value={examDate} onChange={setExamDate} />
         </div>
         <div>
           <label htmlFor="exam-notes" className={labelCls}>หมายเหตุ</label>

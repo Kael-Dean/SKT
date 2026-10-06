@@ -296,13 +296,13 @@ function StatStrip({ stats, loading, error, onRetry, onGo }) {
               <Icon aria-hidden="true" className="size-4" strokeWidth={1.75} />
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-xs leading-snug text-gray-500 dark:text-gray-400" title={t.label}>
+              <span className="line-clamp-2 text-xs leading-snug text-gray-500 dark:text-gray-400" title={t.label}>
                 {t.label}
               </span>
               <span className="mt-0.5 flex items-center gap-1.5">
                 {showDot && <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-amber-500" />}
                 {has ? (
-                  <span className="truncate text-base font-bold leading-tight tabular-nums text-gray-900 dark:text-gray-100">
+                  <span className="min-w-0 break-words text-base font-bold leading-tight tabular-nums text-gray-900 dark:text-gray-100">
                     {t.format(raw)}
                   </span>
                 ) : (
@@ -440,7 +440,7 @@ function HRRail({ activeKey, badges, onNavigate, onOpenSwitcher }) {
           aria-label={`เปิดตัวค้นหาเมนู (${mac ? "⌘K" : "Ctrl K"})`}
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer"
         >
-          <kbd className="block rounded-md px-1.5 font-sans text-[11px] leading-5 text-gray-400 ring-1 ring-gray-200 dark:text-gray-500 dark:ring-gray-700">
+          <kbd className="block rounded-md px-1.5 font-sans text-[11px] leading-6 text-gray-500 ring-1 ring-gray-200 dark:text-gray-400 dark:ring-gray-700">
             {mac ? "⌘K" : "Ctrl K"}
           </kbd>
         </button>
@@ -456,7 +456,7 @@ function HRRail({ activeKey, badges, onNavigate, onOpenSwitcher }) {
             const headId = `hr-rail-${g.group}`
             return (
               <div key={g.group}>
-                <h2 id={headId} className={cx("px-2.5 pb-1.5 text-xs font-semibold text-gray-400 dark:text-gray-500", pt)}>
+                <h2 id={headId} className={cx("px-2.5 pb-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400", pt)}>
                   {g.group}
                 </h2>
                 <ul role="list" aria-labelledby={headId} className="space-y-0.5">
@@ -507,7 +507,7 @@ function QuickSwitcher({ activeKey, badges, onNavigate, onClose }) {
   const go = (it) => {
     if (!it) return
     onNavigate(it.key)
-    onClose()
+    onClose(it.key !== activeKey)
   }
 
   const onKeyDown = (e) => {
@@ -563,7 +563,7 @@ function QuickSwitcher({ activeKey, badges, onNavigate, onClose }) {
           className={cx("size-4 shrink-0", selected ? "text-indigo-600 dark:text-indigo-300" : "text-gray-400 dark:text-gray-500")}
         />
         <span className="min-w-0 flex-1 truncate font-medium">{it.label}</span>
-        {!grouped && <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">{it.group}</span>}
+        {!grouped && <span className="shrink-0 text-xs text-gray-600 dark:text-gray-400">{it.group}</span>}
         <NavBadge count={count} active={false} />
       </div>
     )
@@ -617,7 +617,7 @@ function QuickSwitcher({ activeKey, badges, onNavigate, onClose }) {
                 const headId = `${listId}-g-${g.group}`
                 return (
                   <div key={g.group} role="group" aria-labelledby={headId}>
-                    <div id={headId} role="presentation" className="px-3 pb-1 pt-2 text-xs font-semibold text-gray-400 dark:text-gray-500">
+                    <div id={headId} role="presentation" className="px-3 pb-1 pt-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
                       {g.group}
                     </div>
                     {g.items.map((it) => {
@@ -632,7 +632,7 @@ function QuickSwitcher({ activeKey, badges, onNavigate, onClose }) {
             )}
           </div>
 
-          <div className="border-t border-gray-100 px-4 py-2 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500">
+          <div className="border-t border-gray-100 px-4 py-2 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
             ↑↓ เลือก · Enter เปิด · Esc ปิด
           </div>
         </div>
@@ -651,6 +651,8 @@ export default function HRDashboard() {
 
   const rootRef = useRef(null)
   const openerRef = useRef(null)
+  const contentRef = useRef(null)
+  const focusSectionRef = useRef(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
 
   const [stats, setStats] = useState(null)
@@ -699,15 +701,27 @@ export default function HRDashboard() {
     setSwitcherOpen(true)
   }, [])
 
-  const closeSwitcher = useCallback(() => {
+  const closeSwitcher = useCallback((navigated) => {
     setSwitcherOpen(false)
     const el = openerRef.current
     openerRef.current = null
-    // return focus after the portal unmounts
+    // return focus after the portal unmounts. After navigating, the opener may
+    // be gone (it lived in the old section) — move focus to the new section
+    // heading so keyboard/SR users land in the content, not on <body>.
+    if (navigated === true) {
+      focusSectionRef.current = true // handled by the effect below once the new section mounts
+      return
+    }
     requestAnimationFrame(() => {
       if (el && typeof el.focus === "function" && document.contains(el)) el.focus()
     })
   }, [])
+
+  useEffect(() => {
+    if (!focusSectionRef.current) return
+    focusSectionRef.current = false
+    requestAnimationFrame(() => contentRef.current?.querySelector("h2")?.focus({ preventScroll: true }))
+  }, [activeKey])
 
   // Ctrl+K / ⌘K — only while this page is mounted
   useEffect(() => {
@@ -782,7 +796,7 @@ export default function HRDashboard() {
             />
           </div>
 
-          <div className={cx(cardCls, "min-w-0 p-4 lg:p-5 xl:p-6")}>
+          <div ref={contentRef} className={cx(cardCls, "min-w-0 p-4 lg:p-5 xl:p-6")}>
             <PageSection key={activeKey} title={active.label} description={active.description} icon={active.icon}>
               {renderSection(activeKey, { onGoToPositions: goToPositions })}
             </PageSection>

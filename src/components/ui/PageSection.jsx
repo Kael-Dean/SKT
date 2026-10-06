@@ -34,7 +34,7 @@ export default function PageSection({
             </span>
           )}
           <div className="min-w-0">
-            <Heading id={headingId} className="text-lg font-bold text-balance text-gray-900 dark:text-gray-100">
+            <Heading id={headingId} tabIndex={-1} className="text-lg font-bold text-balance text-gray-900 focus:outline-none dark:text-gray-100">
               {title}
             </Heading>
             {description && (

@@ -140,8 +140,9 @@ export default function HRKpiTab() {
       {subTab === "eval" && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500 dark:text-gray-400">ปีงบประมาณ</label>
+            <label htmlFor="hr-kpi-fiscal-year" className="text-sm text-gray-500 dark:text-gray-400">ปีงบประมาณ</label>
             <input
+              id="hr-kpi-fiscal-year"
               type="number"
               value={filterFiscalYear}
               onChange={(e) => setFilterFiscalYear(e.target.value)}

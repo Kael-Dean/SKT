@@ -27,9 +27,9 @@ const TAB_BASE =
   "disabled:cursor-not-allowed disabled:opacity-50"
 
 const TAB_IDLE =
-  "text-gray-500 hover:bg-white/60 hover:text-gray-800 " +
+  "text-gray-600 hover:bg-white/60 hover:text-gray-800 " +
   "dark:text-gray-400 dark:hover:bg-gray-700/40 dark:hover:text-gray-100 " +
-  "disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:disabled:hover:text-gray-400"
+  "disabled:hover:bg-transparent disabled:hover:text-gray-600 dark:disabled:hover:text-gray-400"
 
 const TAB_ACTIVE =
   "bg-white text-indigo-700 shadow-sm dark:bg-gray-700 dark:text-indigo-300"

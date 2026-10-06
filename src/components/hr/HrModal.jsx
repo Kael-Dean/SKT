@@ -1,9 +1,12 @@
 // src/components/hr/HrModal.jsx
 // Dialog shell for HR position/salary flows — always rendered through <Portal>
-// (CLAUDE.md rule). Esc closes (unless busy), focus moves into the dialog on open
-// and returns to the trigger on close.
+// (CLAUDE.md rule). Esc closes (unless busy or a child handled it), Tab is trapped,
+// focus moves into the dialog on open and returns to the trigger on close.
 import { useEffect, useId, useRef } from "react"
 import Portal from "../Portal"
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 export default function HrModal({ title, subtitle, onClose, busy = false, size = "sm", children, footer }) {
   const titleId = useId()
@@ -23,7 +26,26 @@ export default function HrModal({ title, subtitle, onClose, busy = false, size =
     )
     ;(first || panelRef.current)?.focus()
     const onKey = (e) => {
-      if (e.key === "Escape" && !busyRef.current) closeRef.current?.()
+      if (e.key === "Escape") {
+        // A child (e.g. an open SelectDropdown inside the modal) already handled Esc.
+        if (!e.defaultPrevented && !busyRef.current) closeRef.current?.()
+        return
+      }
+      // Trap Tab inside the dialog (aria-modal). Focus inside a portaled
+      // dropdown panel is managed by that dropdown.
+      const panel = panelRef.current
+      if (e.key !== "Tab" || e.defaultPrevented || !panel) return
+      const nodes = [...panel.querySelectorAll(FOCUSABLE)].filter((n) => n.offsetParent !== null || n === document.activeElement)
+      const active = document.activeElement
+      if (nodes.length === 0) { e.preventDefault(); panel.focus(); return }
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      if (!panel.contains(active)) {
+        if (!active || active === document.body) { e.preventDefault(); first.focus() }
+        return
+      }
+      if (e.shiftKey && (active === first || active === panel)) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus() }
     }
     document.addEventListener("keydown", onKey)
     return () => {
@@ -58,7 +80,7 @@ export default function HrModal({ title, subtitle, onClose, busy = false, size =
               onClick={onClose}
               disabled={busy}
               aria-label="ปิด"
-              className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors duration-200 cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              className="shrink-0 rounded-lg p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors duration-200 cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5">
                 <path d="M18 6 6 18M6 6l12 12" />

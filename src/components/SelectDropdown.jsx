@@ -357,13 +357,13 @@ export default function SelectDropdown({
                 "block truncate",
                 selected && !loading
                   ? "text-slate-900 dark:text-slate-100"
-                  : "text-slate-400 dark:text-slate-500",
+                  : "text-slate-600 dark:text-slate-300",
               ].join(" ")}
             >
               {triggerLabel}
             </span>
             {triggerSub && !loading && (
-              <span className="mt-0.5 block truncate text-xs text-slate-500 dark:text-slate-400">{triggerSub}</span>
+              <span className="mt-0.5 block truncate text-xs text-slate-600 dark:text-slate-300">{triggerSub}</span>
             )}
           </span>
         </span>
@@ -418,7 +418,7 @@ export default function SelectDropdown({
                 }}
                 onKeyDown={onListKey}
                 placeholder={searchPlaceholder}
-                className="h-10 w-full bg-transparent pl-9 pr-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
+                className="h-10 w-full bg-transparent pl-9 pr-3 text-sm text-slate-900 outline-none placeholder:text-slate-500 dark:text-slate-100 dark:placeholder:text-slate-400"
               />
             </div>
           )}
@@ -463,7 +463,7 @@ export default function SelectDropdown({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate" title={opt.label}>{opt.label}</span>
                       {sub && (
-                        <span className="mt-0.5 block truncate text-xs font-normal text-slate-500 dark:text-slate-400">
+                        <span className="mt-0.5 block truncate text-xs font-normal text-slate-600 dark:text-slate-300">
                           {sub}
                         </span>
                       )}

@@ -218,7 +218,7 @@ export default function EmployeePositionCard({ employeeId, employeeName, positio
             </div>
             <div>
               <span className={labelCls}>วันที่มีผล</span>
-              <ThaiDateInput value={form.effective_date} onChange={(v) => setForm((f) => ({ ...f, effective_date: v }))} />
+              <ThaiDateInput ariaLabel="วันที่มีผล" className={inputCls + " focus-within:ring-2 focus-within:ring-indigo-500"} value={form.effective_date} onChange={(v) => setForm((f) => ({ ...f, effective_date: v }))} />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">เว้นว่าง = มีผลวันนี้ · วันที่ดำรงตำแหน่งจะเริ่มนับใหม่จากวันนี้</p>
             </div>
             <Notice tone="info">การเปลี่ยนตำแหน่งตรงนี้ไม่ปรับขั้นเงินเดือนให้อัตโนมัติ ถ้าเป็นการเลื่อนตำแหน่งจากการสอบ ให้บันทึกผลสอบที่แท็บ “เลื่อนตำแหน่ง” แทน</Notice>

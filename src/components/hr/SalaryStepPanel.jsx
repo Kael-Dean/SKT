@@ -218,6 +218,13 @@ export default function SalaryStepPanel({ onGoToPositions }) {
       setRefreshKey((k) => k + 1)
       refreshPersonnel().catch(() => {})
       flashCue()
+      // ConfirmDialog returns focus to the submit button, but the form reset
+      // just disabled it, so focus would drop to <body>. Land on the step
+      // chips (start of the form) instead.
+      requestAnimationFrame(() => {
+        const a = document.activeElement
+        if (!a || a === document.body || a.disabled) chipRefs.current[1]?.focus()
+      })
     } catch (err) {
       setApiError({ status: err?.status, message: errText(err, "") })
     } finally {
@@ -353,7 +360,7 @@ export default function SalaryStepPanel({ onGoToPositions }) {
             <label htmlFor={ids.reason} className={labelCls}>
               เหตุผล <span className="text-red-500" aria-hidden="true">*</span>
             </label>
-            <span id={ids.reasonCount} className="text-xs tabular-nums text-gray-400 dark:text-gray-500">
+            <span id={ids.reasonCount} className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
               {reason.length}/{REASON_MAX}
             </span>
           </div>
@@ -488,7 +495,8 @@ function Preview({ empId, busy, blocked, currentLevel, newLevel, stepValid, curr
   }
 
   return (
-    <dl className={cx(box, "space-y-2.5 text-sm")}>
+    <div className={cx(box, "space-y-2.5 text-sm")}>
+    <dl className="space-y-2.5">
       <div className="flex items-baseline justify-between gap-3">
         <dt className="text-gray-500 dark:text-gray-400">ขั้น</dt>
         <dd className="flex items-baseline gap-2 tabular-nums">
@@ -515,12 +523,13 @@ function Preview({ empId, busy, blocked, currentLevel, newLevel, stepValid, curr
           )}
         </dd>
       </div>
+    </dl>
       {delta != null && delta !== 0 && (
         <p className="text-right text-sm font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
           {delta > 0 ? "+" : ""}{thb(delta)} บาท/เดือน
           {deltaPct != null && ` (${deltaPct > 0 ? "+" : ""}${deltaPct.toFixed(1)}%)`}
         </p>
       )}
-    </dl>
+    </div>
   )
 }

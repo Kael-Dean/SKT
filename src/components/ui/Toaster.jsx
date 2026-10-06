@@ -7,7 +7,7 @@
 // mounted. z-[10080] sits above dropdowns (10050) and dialogs (10070).
 //
 // Max 3 visible, newest at the bottom. Auto-dismiss pauses on hover / focus.
-// success/info/warning → role="status" (polite); error → role="alert".
+// success/info/warning → announced by the persistent aria-live="polite" region; error → role="alert".
 // ─────────────────────────────────────────────────────────────────────────────
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -44,10 +44,11 @@ function ToastCard({ t, onDismiss }) {
   const isError = t.type === "error"
 
   return (
-    <li
-      role={isError ? "alert" : "status"}
-      aria-live={isError ? "assertive" : "polite"}
-      aria-atomic="true"
+    <div
+      // The polite live region is the persistent container (a role="status"
+      // node mounted together with its text is often not announced). Errors
+      // use role="alert", which is announced on insertion.
+      role={isError ? "alert" : undefined}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
@@ -72,14 +73,14 @@ function ToastCard({ t, onDismiss }) {
         onClick={() => onDismiss(t.id)}
         aria-label="ปิดการแจ้งเตือน"
         className={cx(
-          "-m-1 shrink-0 rounded-lg p-1 text-gray-400 transition-colors duration-150 cursor-pointer",
-          "hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-200",
+          "-m-1 shrink-0 rounded-lg p-1 text-gray-500 transition-colors duration-150 cursor-pointer",
+          "hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
         )}
       >
         <X aria-hidden="true" className="size-4" strokeWidth={1.75} />
       </button>
-    </li>
+    </div>
   )
 }
 
@@ -106,14 +107,16 @@ export default function Toaster() {
   if (typeof document === "undefined") return null
 
   return createPortal(
-    <ol
+    <div
+      role="region"
       aria-label="การแจ้งเตือน"
+      aria-live="polite"
       className="pointer-events-none fixed inset-x-4 bottom-4 z-[10080] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:right-4 sm:items-end"
     >
       {toasts.map((t) => (
         <ToastCard key={t.id} t={t} onDismiss={dismiss} />
       ))}
-    </ol>,
+    </div>,
     document.body
   )
 }

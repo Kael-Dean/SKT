@@ -11,8 +11,8 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
 import { getRoleId } from "../../../lib/auth"
-import { cardCls } from "../../../lib/styles"
-import { PageLoader, ErrorState, EmptyState } from "../../../components/ui"
+import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
+import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import Portal from "../../../components/Portal"
 import RelocationTransferModal from "../../../components/hr/RelocationTransferModal"
 
@@ -76,7 +76,7 @@ const ACTION_META = {
 
 export default function HRRelocationTab() {
   const canTransfer = CAN_TRANSFER_ROLES.includes(getRoleId())
-  const [subTab, setSubTab] = useState("pending_branch_head")
+  const [subTab, setSubTab] = useSubTab(TABS.map((t) => t.key), "pending_branch_head")
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -172,22 +172,20 @@ export default function HRRelocationTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div role="tablist" aria-label="สถานะคำขอย้ายสาขา" className="flex flex-wrap gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={subTab === t.key}
-              onClick={() => setSubTab(t.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${subTab === t.key ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-            >
-              {t.label}
-              {subTab === t.key && !loading && t.key.startsWith("pending") && requests.length > 0 && (
-                <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5">{requests.length}</span>
-              )}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          items={TABS.map((t) => ({
+            value: t.key,
+            label: t.label,
+            count:
+              subTab === t.key && !loading && t.key.startsWith("pending") && requests.length > 0
+                ? requests.length
+                : null,
+          }))}
+          value={subTab}
+          onChange={setSubTab}
+          ariaLabel="สถานะคำขอย้ายสาขา"
+          idBase="hr-relocation"
+        />
 
         {canTransfer && (
           <div className="flex flex-col items-end gap-1">
@@ -206,6 +204,7 @@ export default function HRRelocationTab() {
         )}
       </div>
 
+      <div role="tabpanel" id={panelId("hr-relocation", subTab)} aria-labelledby={tabId("hr-relocation", subTab)} tabIndex={0} className={cx("space-y-4", tabPanelCls)}>
       {notice && (
         <p role="status" className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2.5 text-sm text-emerald-800 dark:text-emerald-200 ring-1 ring-emerald-200 dark:ring-emerald-800/60">
           {notice}
@@ -317,6 +316,7 @@ export default function HRRelocationTab() {
           })}
         </div>
       )}
+      </div>
 
       {modal && meta && (
         <Portal>

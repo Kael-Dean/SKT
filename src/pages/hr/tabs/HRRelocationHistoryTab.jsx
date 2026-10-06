@@ -3,8 +3,9 @@
 // 13F (HR side) — ดู detail + ดาวน์โหลด PDF ฟอร์มย้ายสาขา
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
-import { cardCls } from "../../../lib/styles"
-import { PageLoader, ErrorState, EmptyState, SkeletonTableRows } from "../../../components/ui"
+import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
+import { PageLoader, ErrorState, EmptyState, SkeletonTableRows, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
+import { FolderOpen, List } from "lucide-react"
 import Portal from "../../../components/Portal"
 
 function fmtBE(d) {
@@ -12,22 +13,7 @@ function fmtBE(d) {
   return d || "—"
 }
 
-/** Small inline icons (currentColor) used in sub-tab labels + buttons. */
-function ListIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-    </svg>
-  )
-}
-function FolderIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
-    </svg>
-  )
-}
+/** Small inline icon (currentColor) used in buttons. */
 function PdfIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
@@ -38,7 +24,7 @@ function PdfIcon() {
 }
 
 export default function HRRelocationHistoryTab() {
-  const [subTab, setSubTab] = useState("history")  // "history" | "requests"
+  const [subTab, setSubTab] = useSubTab(["history", "requests"], "history")
 
   // ─── 13B: Relocation History ────────────────────────────────────
   const [history,      setHistory]      = useState([])
@@ -80,7 +66,7 @@ export default function HRRelocationHistoryTab() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
-      setPdfErr(`❌ ${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
+      setPdfErr(`${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
     } finally {
       setPdfLoading(false)
     }
@@ -132,7 +118,7 @@ export default function HRRelocationHistoryTab() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
-      setDetailPdfErr(`❌ ${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
+      setDetailPdfErr(`${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
     } finally {
       setDetailPdfLoad(false)
     }
@@ -143,24 +129,18 @@ export default function HRRelocationHistoryTab() {
 
   return (
     <div className="space-y-4">
-      {/* Sub-tabs */}
-      <div className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">
-        {[["history", "ประวัติการย้าย", <ListIcon key="i" />], ["requests", "คำขอย้ายสาขา", <FolderIcon key="i" />]].map(([v, label, icon]) => (
-          <button
-            key={v}
-            onClick={() => setSubTab(v)}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-150 cursor-pointer ${
-              subTab === v
-                ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-            }`}
-          >
-            {icon}
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={[
+          { value: "history", label: "ประวัติการย้าย", icon: List },
+          { value: "requests", label: "คำขอย้ายสาขา", icon: FolderOpen },
+        ]}
+        value={subTab}
+        onChange={setSubTab}
+        ariaLabel="ประวัติย้ายสาขา"
+        idBase="hr-relo-history"
+      />
 
+      <div role="tabpanel" id={panelId("hr-relo-history", subTab)} aria-labelledby={tabId("hr-relo-history", subTab)} tabIndex={0} className={cx("space-y-4", tabPanelCls)}>
       {/* ─── 13B: History ─── */}
       {subTab === "history" && (
         <div className="space-y-3">
@@ -265,7 +245,7 @@ export default function HRRelocationHistoryTab() {
             <div className="space-y-2">
               {detailLoading && (
                 <div className="flex justify-center py-4">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500" />
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
                 </div>
               )}
               {reloRequests.map((r) => (
@@ -286,6 +266,7 @@ export default function HRRelocationHistoryTab() {
           )}
         </div>
       )}
+      </div>
 
       {/* ─── Detail Modal ─── */}
       {detailModal && (

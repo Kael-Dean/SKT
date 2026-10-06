@@ -2,15 +2,16 @@
 // KPI — บันทึกรายเดือน + การประเมิน
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
-import { cardCls } from "../../../lib/styles"
-import { ErrorState, EmptyState, SkeletonTableRows } from "../../../components/ui"
+import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
+import { ErrorState, EmptyState, SkeletonTableRows, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
+import StatusMsg from "../../../components/hr/StatusMsg"
 import Portal from "../../../components/Portal"
 
 const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
 const now = new Date()
 
 export default function HRKpiTab() {
-  const [subTab, setSubTab] = useState("eval")
+  const [subTab, setSubTab] = useSubTab(["eval", "monthly"], "eval")
 
   // ประเมิน KPI
   const [evaluations, setEvaluations] = useState([])
@@ -81,10 +82,10 @@ export default function HRKpiTab() {
           body: { fiscal_year: Number(filterFiscalYear), score: Number(scoreForm.manager_score) },
         })
       }
-      setScoreMsg("✅ บันทึกคะแนนสำเร็จ")
+      setScoreMsg({ tone: "success", text: "บันทึกคะแนนสำเร็จ" })
       setTimeout(() => { setScoreModal(null); fetchEvals(filterFiscalYear) }, 700)
     } catch (err) {
-      setScoreMsg(`❌ ${err.message || "ไม่สำเร็จ"}`)
+      setScoreMsg({ tone: "error", text: err.message || "ไม่สำเร็จ" })
     } finally {
       setScoring(false)
     }
@@ -92,7 +93,7 @@ export default function HRKpiTab() {
 
   const submitKpi = async () => {
     if (!kpiForm.employee_id || !kpiForm.metric || !kpiForm.value) {
-      setKpiMsg("⚠️ กรุณากรอกรหัสเจ้าหน้าที่, ตัวชี้วัด และค่า")
+      setKpiMsg({ tone: "warning", text: "กรุณากรอกรหัสเจ้าหน้าที่, ตัวชี้วัด และค่า" })
       return
     }
     setSubmittingKpi(true)
@@ -109,10 +110,10 @@ export default function HRKpiTab() {
           value: parseFloat(kpiForm.value),
         },
       })
-      setKpiMsg("✅ บันทึก KPI สำเร็จ")
+      setKpiMsg({ tone: "success", text: "บันทึก KPI สำเร็จ" })
       setKpiForm((f) => ({ ...f, metric: "", value: "" }))
     } catch (err) {
-      setKpiMsg(`❌ ${err.message || "ไม่สำเร็จ"}`)
+      setKpiMsg({ tone: "error", text: err.message || "ไม่สำเร็จ" })
     } finally {
       setSubmittingKpi(false)
     }
@@ -122,14 +123,18 @@ export default function HRKpiTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">
-        {[["eval", "การประเมิน KPI"], ["monthly", "บันทึก KPI รายเดือน"]].map(([v, label]) => (
-          <button key={v} onClick={() => setSubTab(v)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${subTab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={[
+          { value: "eval", label: "การประเมิน KPI" },
+          { value: "monthly", label: "บันทึก KPI รายเดือน" },
+        ]}
+        value={subTab}
+        onChange={setSubTab}
+        ariaLabel="KPI"
+        idBase="hr-kpi"
+      />
+
+      <div role="tabpanel" id={panelId("hr-kpi", subTab)} aria-labelledby={tabId("hr-kpi", subTab)} tabIndex={0} className={cx("space-y-4", tabPanelCls)}>
 
       {/* การประเมิน */}
       {subTab === "eval" && (
@@ -238,15 +243,14 @@ export default function HRKpiTab() {
                 className={inputCls} placeholder="0.00" />
             </div>
           </div>
-          {kpiMsg && (
-            <p className={`text-sm font-medium ${kpiMsg.startsWith("✅") ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{kpiMsg}</p>
-          )}
+          {kpiMsg && <StatusMsg msg={kpiMsg} />}
           <button onClick={submitKpi} disabled={submittingKpi}
             className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition shadow-sm disabled:opacity-60 cursor-pointer">
             {submittingKpi ? "กำลังบันทึก..." : "บันทึก KPI"}
           </button>
         </div>
       )}
+      </div>
 
       {/* Score Modal */}
       {scoreModal && (
@@ -279,7 +283,7 @@ export default function HRKpiTab() {
                   onChange={(e) => setScoreForm(f => ({ ...f, manager_score: e.target.value }))} className={inputCls} />
               </div>
             </div>
-            {scoreMsg && <p className={`text-sm text-center ${scoreMsg.startsWith("✅") ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{scoreMsg}</p>}
+            {scoreMsg && <StatusMsg msg={scoreMsg} center />}
             <div className="flex gap-3">
               <button onClick={() => setScoreModal(null)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">ยกเลิก</button>
               <button onClick={saveScore} disabled={scoring}

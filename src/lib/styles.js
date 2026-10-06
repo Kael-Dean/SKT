@@ -97,6 +97,11 @@ export const focusRingCls =
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 " +
   "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
 
+/** Tab panel paired with <Tabs> (focusable per WAI-ARIA; ring only for keyboard focus) */
+export const tabPanelCls =
+  "rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 " +
+  "focus-visible:ring-offset-4 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
+
 /** Primary action (indigo — the one accent) */
 export const primaryBtnCls =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 h-10 text-sm font-semibold " +

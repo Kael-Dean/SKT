@@ -6,6 +6,7 @@ import { apiAuth } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
 import Portal from "../../../components/Portal"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
+import StatusMsg from "../../../components/hr/StatusMsg"
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
 const ROLE_COLOR = {
@@ -170,7 +171,7 @@ export default function HREmployeesTab() {
 
   const handleSignup = async () => {
     if (!form.first_name || !form.last_name || !form.cid || !form.role_id || !form.branch_location) {
-      setSubmitMsg("⚠️ กรุณากรอกข้อมูลที่จำเป็น (ชื่อ, นามสกุล, เลขบัตร, ตำแหน่ง, สาขา)")
+      setSubmitMsg({ tone: "warning", text: "กรุณากรอกข้อมูลที่จำเป็น (ชื่อ, นามสกุล, เลขบัตร, ตำแหน่ง, สาขา)" })
       return
     }
     setSubmitting(true)
@@ -234,7 +235,7 @@ export default function HREmployeesTab() {
       if (parentsPayload.length > 0) body.parents = parentsPayload
 
       await apiAuth("/hr/signup", { method: "POST", body })
-      setSubmitMsg("✅ ลงทะเบียนสำเร็จ!")
+      setSubmitMsg({ tone: "success", text: "ลงทะเบียนสำเร็จ!" })
       setTimeout(() => {
         setShowSignup(false)
         setForm(emptyForm())
@@ -248,9 +249,10 @@ export default function HREmployeesTab() {
         fetchUsers()
       }, 1000)
     } catch (err) {
-      setSubmitMsg(err.status === 409
-        ? "❌ เลขบัตรประชาชนนี้มีอยู่ในระบบแล้ว"
-        : `❌ ${err.message || "ลงทะเบียนไม่สำเร็จ"}`)
+      setSubmitMsg({
+        tone: "error",
+        text: err.status === 409 ? "เลขบัตรประชาชนนี้มีอยู่ในระบบแล้ว" : err.message || "ลงทะเบียนไม่สำเร็จ",
+      })
     } finally {
       setSubmitting(false)
     }
@@ -651,9 +653,7 @@ export default function HREmployeesTab() {
             </div>
 
             {submitMsg && (
-              <p className={`text-sm text-center font-medium ${submitMsg.startsWith("✅") ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                {submitMsg}
-              </p>
+              <StatusMsg msg={submitMsg} center />
             )}
             <div className="flex gap-3 pt-2">
               <button onClick={() => { setShowSignup(false); setHasSpouse(false); setSpouse({ spouse_name: "", spouse_occupation: "", spouse_birthday: "", spouse_marriage_status: "", spouse_phone: "" }); setModalChildren([]); setModalParents([]) }} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">

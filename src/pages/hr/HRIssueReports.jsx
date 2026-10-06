@@ -2,14 +2,15 @@
 // อนุมัติ / ปฏิเสธ รายงานปัญหา — GET/POST /hr/issue-reports
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../lib/api"
-import { cardCls } from "../../lib/styles"
-import { PageLoader, ErrorState, EmptyState, Badge } from "../../components/ui"
+import { cardCls, tabPanelCls } from "../../lib/styles"
+import { PageLoader, ErrorState, EmptyState, Badge, Tabs, tabId, panelId, useSubTab } from "../../components/ui"
+import Portal from "../../components/Portal"
 
 const STATUS_LABEL = { pending: "รอดำเนินการ", approved: "อนุมัติแล้ว", denied: "ปฏิเสธ" }
 const STATUS_TONE = { pending: "pending", approved: "success", denied: "danger" }
 
 export default function HRIssueReports() {
-  const [tab, setTab] = useState("pending")
+  const [tab, setTab] = useSubTab(["pending", "all"], "pending")
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -40,7 +41,7 @@ export default function HRIssueReports() {
   const handleConfirm = async () => {
     if (!modal) return
     if (modal.action === "deny" && !hrComment.trim()) {
-      setSubmitMsg("⚠️ กรุณากรอกเหตุผลการปฏิเสธ")
+      setSubmitMsg("กรุณากรอกเหตุผลการปฏิเสธ")
       return
     }
     setSubmitting(true)
@@ -52,7 +53,7 @@ export default function HRIssueReports() {
       setModal(null)
       fetchReports()
     } catch (err) {
-      setSubmitMsg(`❌ ${err.message || "ดำเนินการไม่สำเร็จ"}`)
+      setSubmitMsg(`${err.message || "ดำเนินการไม่สำเร็จ"}`)
     } finally {
       setSubmitting(false)
     }
@@ -79,24 +80,18 @@ export default function HRIssueReports() {
 
       {error && <ErrorState message={error} onRetry={fetchReports} />}
 
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">
-        {[["pending", "รอดำเนินการ"], ["all", "ทั้งหมด"]].map(([v, label]) => (
-          <button
-            key={v}
-            onClick={() => setTab(v)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${tab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-          >
-            {label}
-            {v === "pending" && pendingCount > 0 && (
-              <span className="ml-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={[
+          { value: "pending", label: "รอดำเนินการ", count: pendingCount > 0 ? pendingCount : null },
+          { value: "all", label: "ทั้งหมด" },
+        ]}
+        value={tab}
+        onChange={setTab}
+        ariaLabel="สถานะรายงานปัญหา"
+        idBase="issue-reports"
+      />
 
+      <div role="tabpanel" id={panelId("issue-reports", tab)} aria-labelledby={tabId("issue-reports", tab)} tabIndex={0} className={tabPanelCls}>
       {/* Cards */}
       {loading ? (
         <PageLoader variant="cards" rows={3} message="กำลังโหลดรายงานปัญหา…" />
@@ -188,12 +183,14 @@ export default function HRIssueReports() {
           ))}
         </div>
       )}
+      </div>
 
       {/* Confirm Modal */}
       {modal && (
+        <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
-            <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
+          <div role="dialog" aria-modal="true" aria-labelledby="issue-report-confirm-title" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
+            <h3 id="issue-report-confirm-title" className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
               {modal.action === "approve" ? (
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-emerald-600 dark:text-emerald-400"><path d="M20 6 9 17l-5-5" /></svg>
               ) : (
@@ -241,6 +238,7 @@ export default function HRIssueReports() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   )

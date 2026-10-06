@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import DecisionModal from "../../../components/DecisionModal"
 import LeaveStageActions from "../../../components/LeaveStageActions"
-import { PageLoader, ErrorState, EmptyState } from "../../../components/ui"
+import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab, toast } from "../../../components/ui"
+import { cx, tabPanelCls } from "../../../lib/styles"
 import { isPendingStatus, statusLabel, statusTone } from "../../../lib/approval"
 import { KIND, requestNotificationsRefresh, rejectionReason } from "../../../lib/approvalActions"
 
@@ -17,7 +18,7 @@ function fmtDate(d) {
 }
 
 export default function HRLeaveTab() {
-  const [subTab, setSubTab] = useState("pending")
+  const [subTab, setSubTab] = useSubTab(["pending", "all"], "pending")
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -37,7 +38,7 @@ export default function HRLeaveTab() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      alert(`ดาวน์โหลด PDF ไม่สำเร็จ: ${err.message || "เกิดข้อผิดพลาด"}`)
+      toast.error("ดาวน์โหลด PDF ไม่สำเร็จ", { description: err.message || "เกิดข้อผิดพลาด" })
     } finally {
       setDownloadingId(null)
     }
@@ -87,27 +88,18 @@ export default function HRLeaveTab() {
 
   return (
     <div className="space-y-4">
-      {/* Sub-tabs */}
-      <div role="tablist" aria-label="ตัวกรองคำขอลา" className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">
-        {[["pending", "รออนุมัติ"], ["all", "ทั้งหมด"]].map(([v, label]) => (
-          <button
-            key={v}
-            role="tab"
-            type="button"
-            aria-selected={subTab === v}
-            onClick={() => setSubTab(v)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800 ${subTab === v ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-          >
-            {label}
-            {v === "pending" && pendingCount > 0 && (
-              <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 tabular-nums">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={[
+          { value: "pending", label: "รออนุมัติ", count: pendingCount > 0 ? pendingCount : null },
+          { value: "all", label: "ทั้งหมด" },
+        ]}
+        value={subTab}
+        onChange={setSubTab}
+        ariaLabel="ตัวกรองคำขอลา"
+        idBase="hr-leave"
+      />
 
+      <div role="tabpanel" id={panelId("hr-leave", subTab)} aria-labelledby={tabId("hr-leave", subTab)} tabIndex={0} className={cx("space-y-4", tabPanelCls)}>
       {banner && (
         <div
           role={banner.tone === "error" ? "alert" : "status"}
@@ -239,6 +231,7 @@ export default function HRLeaveTab() {
           ))}
         </div>
       )}
+      </div>
 
       {decision && (
         <DecisionModal

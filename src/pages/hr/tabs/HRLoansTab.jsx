@@ -82,7 +82,7 @@ export default function HRLoansTab() {
   const handleConfirm = async () => {
     if (!modal) return
     if (modal.action === "reject" && !rejectReason.trim()) {
-      setSubmitMsg("⚠️ กรุณาระบุเหตุผลการปฏิเสธ")
+      setSubmitMsg("กรุณาระบุเหตุผลการปฏิเสธ")
       return
     }
     setSubmitting(true)
@@ -95,8 +95,8 @@ export default function HRLoansTab() {
       fetchLoans()
     } catch (err) {
       setSubmitMsg(err.status === 409
-        ? "❌ ดำเนินการไม่ได้ — สถานะของคำขอนี้ถูกเปลี่ยนไปแล้ว กรุณาโหลดรายการใหม่"
-        : `❌ ${err.message || "ไม่สำเร็จ"}`)
+        ? "ดำเนินการไม่ได้ — สถานะของคำขอนี้ถูกเปลี่ยนไปแล้ว กรุณาโหลดรายการใหม่"
+        : `${err.message || "ไม่สำเร็จ"}`)
     } finally {
       setSubmitting(false)
     }
@@ -129,7 +129,7 @@ export default function HRLoansTab() {
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-gray-900 dark:text-gray-100">{loan.user_first_name} {loan.user_last_name}</p>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[loan.status] ?? "bg-gray-100 text-gray-600"}`}>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[loan.status] ?? "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"}`}>
                       {STATUS_LABEL[loan.status] ?? loan.status}
                     </span>
                   </div>

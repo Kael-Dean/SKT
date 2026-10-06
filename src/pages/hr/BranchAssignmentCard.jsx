@@ -8,6 +8,7 @@ import ReactDOM from "react-dom"
 import { apiAuth } from "../../lib/api"
 import { getRoleId } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
+import StatusMsg from "../../components/hr/StatusMsg"
 
 function SectionTitle({ children }) {
   return (
@@ -81,14 +82,14 @@ export default function BranchAssignmentCard({ personnelId, personnelName }) {
         body: { branch_id: Number(addValue) },
       })
       setAddValue("")
-      setAddMsg("✅ เพิ่มสาขาสำเร็จ")
+      setAddMsg({ tone: "success", text: "เพิ่มสาขาสำเร็จ" })
       load()
       setTimeout(() => setAddMsg(""), 2000)
     } catch (err) {
-      if (err.status === 409) setAddMsg("⚠️ สาขานี้ถูกกำหนดไว้แล้ว")
-      else if (err.status === 400) setAddMsg("⚠️ เป็นสาขาหลักของผู้ใช้อยู่แล้ว")
-      else if (err.status === 404) setAddMsg("❌ ไม่พบสาขาหรือผู้ใช้")
-      else setAddMsg(`❌ ${err.message || "เพิ่มสาขาไม่สำเร็จ"}`)
+      if (err.status === 409) setAddMsg({ tone: "warning", text: "สาขานี้ถูกกำหนดไว้แล้ว" })
+      else if (err.status === 400) setAddMsg({ tone: "warning", text: "เป็นสาขาหลักของผู้ใช้อยู่แล้ว" })
+      else if (err.status === 404) setAddMsg({ tone: "error", text: "ไม่พบสาขาหรือผู้ใช้" })
+      else setAddMsg({ tone: "error", text: err.message || "เพิ่มสาขาไม่สำเร็จ" })
     } finally {
       setAdding(false)
     }
@@ -205,7 +206,7 @@ export default function BranchAssignmentCard({ personnelId, personnelName }) {
               </button>
             </div>
             {addMsg && (
-              <p className={`mt-2 text-sm ${addMsg.startsWith("✅") ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>{addMsg}</p>
+              <StatusMsg msg={addMsg} className="mt-2" />
             )}
           </div>
         </div>

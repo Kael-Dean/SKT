@@ -1,5 +1,7 @@
 # Backend request — `GET /hr/salary-roster` (รายชื่อเงินเดือนทั้งหมด แบบ JSON)
 
+Status: LIVE v1.4.1 — frontend switched (see backend-reply-salary-roster.md)
+
 **From:** Frontend (HR → เงินเดือน → แท็บย่อย "รายชื่อทั้งหมด")
 **Date:** 2026-10-07
 **Priority:** Medium — หน้าใช้งานได้แล้วด้วยวิธีชั่วคราว แต่ยิง request เยอะ (ดูด้านล่าง)

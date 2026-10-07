@@ -43,6 +43,7 @@ const HRLeaveManagement = lazy(() => import("./pages/hr/HRLeaveManagement.jsx"))
 const HRFinance = lazy(() => import("./pages/hr/HRFinance.jsx"))
 const HRRelocation = lazy(() => import("./pages/hr/HRRelocation.jsx"))
 const HRDashboard = lazy(() => import("./pages/hr/HRDashboard.jsx"))
+const HRKpiPage = lazy(() => import("./pages/hr/HRKpiPage.jsx"))
 const HRIssueReports = lazy(() => import("./pages/hr/HRIssueReports.jsx"))
 const HRPersonnelDetail = lazy(() => import("./pages/hr/HRPersonnelDetail.jsx"))
 const HRSalaryTier = lazy(() => import("./pages/hr/HRSalaryTier.jsx"))
@@ -213,6 +214,14 @@ function RequireAdminOrHR({ children }) {
   return children
 }
 
+/* ✅ Route guard: KPI review/approval (v1.4.0) — roles 1, 2 (ผจก.), 3 (HR), 7 (ผช.ผจก.)
+   (/hr/dashboard stays 1·3; /hr/kpi exposes only the KPI section to 2 and 7) */
+function RequireKpiAccess({ children }) {
+  const r = getRoleId()
+  if (![ROLE.ADMIN, ROLE.MNG, ROLE.HR, 7].includes(r)) return <Navigate to="/home" replace />
+  return children
+}
+
 /* ✅ Route guard: 3O approvals — roles 1, 2, 3, 6, 7 (backend JWT numbering, see lib/approval.js) */
 function RequireOooApprover({ children }) {
   const r = getRoleId()
@@ -354,6 +363,7 @@ function App() {
 
         {/* ✅ Phase 3B — HR new pages */}
         <Route path="/hr/dashboard" element={<RequireAdminOrHR><HRDashboard /></RequireAdminOrHR>} />
+        <Route path="/hr/kpi" element={<RequireKpiAccess><HRKpiPage /></RequireKpiAccess>} />
         <Route path="/hr/issues" element={<RequireAdminOrHR><HRIssueReports /></RequireAdminOrHR>} />
         <Route path="/hr/personnel/:id" element={<RequireAdminOrHR><HRPersonnelDetail /></RequireAdminOrHR>} />
         <Route path="/hr/salary-tier" element={<RequireAdminOrHR><HRSalaryTier /></RequireAdminOrHR>} />

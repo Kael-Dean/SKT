@@ -61,7 +61,8 @@ export const errText = (err, fallback = "ดำเนินการไม่ส
 /** เหตุผลมาตรฐานจาก backend → ข้อความไทย (อย่างอื่นแสดงตามจริง) */
 const REASON_LABEL = {
   promotion_adjustment: "ปรับขั้นตามการเลื่อนตำแหน่ง",
-  kpi_award: "เลื่อนขั้นจากผลประเมิน KPI",
+  kpi_award: "เลื่อนขั้นประจำปี (KPI)",
+  kpi_special_step: "ขั้นพิเศษ +0.5 (ผลประกอบการ)",
   manual: "ปรับโดยฝ่ายบุคคล",
 }
 export const reasonLabel = (r) => (r ? REASON_LABEL[r] ?? r : "—")

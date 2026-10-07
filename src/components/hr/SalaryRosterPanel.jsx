@@ -1,12 +1,10 @@
 // src/components/hr/SalaryRosterPanel.jsx
 // รายชื่อทั้งหมด — เจ้าหน้าที่ active ทุกคน + ตำแหน่ง / กระบอก / ขั้น / เงินเดือนปัจจุบัน
-// Data: useSalaryRoster (salaryData.js) — ยังไม่มี bulk endpoint จึงยิง /hr/personnel/{id} ทีละ 6
-//       แถวทยอยแสดง (ขั้น/เงินเดือนเป็น skeleton จนกว่าข้อมูลคนนั้นจะมา)
-// สาขา: GET /order/branch/search (แคชระดับ module)
+// Data: useSalaryRoster (salaryData.js) — GET /hr/salary-roster ครั้งเดียว ได้ครบทุกคน
+//       (สาขา/ตำแหน่ง/กระบอก/ขั้น/เงินเดือน รวมชื่อสาขาใน response แล้ว)
 // Layout: md+ ตาราง (หัวตาราง sticky ในกรอบเลื่อน) · < md รายการการ์ดซ้อนกัน + ตัวเลือกการเรียง
-import { useDeferredValue, useEffect, useId, useMemo, useState } from "react"
+import { useDeferredValue, useId, useMemo, useState } from "react"
 import { ChevronDown, ChevronUp, ChevronsUpDown, RefreshCw, Search, Users } from "lucide-react"
-import { apiAuth } from "../../lib/api"
 import { cx, neutralBtnCls } from "../../lib/styles"
 import SelectDropdown from "../SelectDropdown"
 import { EmptyState, ErrorState, Skeleton, SkeletonTableRows } from "../ui"
@@ -14,34 +12,7 @@ import usePositions from "./usePositions"
 import { useSalaryRoster } from "./salaryData"
 import { POSITION_TIERS, cardCls, fmtLevel, linkBtn, thCls, thb, tierName } from "./positionUtils"
 
-// ─── Branch names (shared, once per session) ────────────────────────────────
-let branchCache = null
-let branchInflight = null
-function loadBranches() {
-  if (branchCache) return Promise.resolve(branchCache)
-  if (!branchInflight) {
-    branchInflight = apiAuth("/order/branch/search")
-      .then((d) => {
-        branchCache = new Map((Array.isArray(d) ? d : []).map((b) => [String(b.id), b.branch_name]))
-        return branchCache
-      })
-      .finally(() => { branchInflight = null })
-  }
-  return branchInflight
-}
-
-function useBranchNames() {
-  const [names, setNames] = useState(() => branchCache)
-  useEffect(() => {
-    if (branchCache) return
-    let alive = true
-    loadBranches()
-      .then((m) => { if (alive) setNames(m) })
-      .catch(() => {}) // non-critical: the column falls back to "สาขา {id}"
-    return () => { alive = false }
-  }, [])
-  return names
-}
+const branchLabel = (r) => (r.branchId == null ? "ไม่ระบุสาขา" : r.branchName ?? `สาขา ${r.branchId}`)
 
 // ─── Sorting ────────────────────────────────────────────────────────────────
 const collator = new Intl.Collator("th")
@@ -89,8 +60,7 @@ const searchCls =
 export default function SalaryRosterPanel({ onOpenEmployee }) {
   const uid = useId()
   const { byId: positionsById, loading: positionsLoading, error: positionsError, reload: reloadPositions } = usePositions()
-  const roster = useSalaryRoster(positionsById, { positionsReady: !positionsLoading })
-  const branchNames = useBranchNames()
+  const roster = useSalaryRoster(positionsById)
 
   const [query, setQuery] = useState("")
   const [branch, setBranch] = useState("")
@@ -98,20 +68,18 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
   const [sort, setSort] = useState({ key: "name", dir: "asc" })
   const deferredQuery = useDeferredValue(query)
 
-  const branchLabel = (id) => (id == null ? "ไม่ระบุสาขา" : branchNames?.get(String(id)) ?? `สาขา ${id}`)
-
   const branchOptions = useMemo(() => {
-    const ids = new Set()
+    const labels = new Map()
     let hasNone = false
     for (const r of roster.rows) {
       if (r.branchId == null) hasNone = true
-      else ids.add(String(r.branchId))
+      else if (!labels.has(String(r.branchId))) labels.set(String(r.branchId), branchLabel(r))
     }
-    const opts = [...ids]
-      .map((id) => ({ value: id, label: branchNames?.get(id) ?? `สาขา ${id}` }))
+    const opts = [...labels]
+      .map(([value, label]) => ({ value, label }))
       .sort((a, b) => collator.compare(a.label, b.label))
     return [{ value: "", label: "ทุกสาขา" }, ...opts, ...(hasNone ? [{ value: NONE, label: "ไม่ระบุสาขา" }] : [])]
-  }, [roster.rows, branchNames])
+  }, [roster.rows])
 
   const filtered = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase()
@@ -128,14 +96,10 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
   const summary = useMemo(() => {
     let sum = 0
     let paid = 0
-    let pending = 0
-    let missing = 0
     for (const r of filtered) {
       if (r.salaryStatus === "ok") { sum += r.salary; paid++ }
-      else if (r.salaryStatus === "loading") pending++
-      else missing++
     }
-    return { count: filtered.length, sum, paid, pending, missing, avg: paid ? sum / paid : null }
+    return { count: filtered.length, sum, paid, missing: filtered.length - paid, avg: paid ? sum / paid : null }
   }, [filtered])
 
   const hasFilters = !!query || !!branch || !!tier
@@ -150,9 +114,7 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
   }
 
   const firstLoad = roster.peopleStatus === "loading"
-  const loadingDetails = roster.total > 0 && roster.done < roster.total
-  const busy = firstLoad || roster.refreshing || loadingDetails || positionsLoading
-  const pct = roster.total ? roster.done / roster.total : 0
+  const busy = firstLoad || roster.refreshing || positionsLoading
 
   if (roster.peopleStatus === "error") {
     return <ErrorState message={roster.peopleError || "โหลดรายชื่อเจ้าหน้าที่ไม่สำเร็จ"} onRetry={roster.retryPeople} />
@@ -202,28 +164,17 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
         <SummaryItem label={hasFilters ? "จำนวนคน (ตามตัวกรอง)" : "จำนวนคน"} loading={firstLoad}>
           {summary.count.toLocaleString("th-TH")} <Unit>คน</Unit>
         </SummaryItem>
-        <SummaryItem label="เงินเดือนรวม/เดือน" loading={firstLoad || (summary.paid === 0 && summary.pending > 0)}>
+        <SummaryItem label="เงินเดือนรวม/เดือน" loading={firstLoad}>
           {summary.paid ? <>{thb(summary.sum)} <Unit>บาท</Unit></> : "—"}
         </SummaryItem>
-        <SummaryItem label="เฉลี่ยต่อคน" loading={firstLoad || (summary.paid === 0 && summary.pending > 0)}>
+        <SummaryItem label="เฉลี่ยต่อคน" loading={firstLoad}>
           {summary.avg != null ? <>{thb(summary.avg)} <Unit>บาท</Unit></> : "—"}
         </SummaryItem>
       </dl>
-      {!firstLoad && (summary.pending > 0 || summary.missing > 0) && (
+      {!firstLoad && summary.missing > 0 && (
         <p className="-mt-2 px-1 text-xs text-gray-500 dark:text-gray-400">
-          {summary.pending > 0
-            ? `ยอดรวมและค่าเฉลี่ยคิดจาก ${summary.paid.toLocaleString("th-TH")} จาก ${summary.count.toLocaleString("th-TH")} คนที่โหลดแล้ว ตัวเลขจะครบเมื่อโหลดเสร็จ`
-            : `ไม่รวม ${summary.missing.toLocaleString("th-TH")} คนที่ยังไม่มีข้อมูลเงินเดือน`}
+          ไม่รวม {summary.missing.toLocaleString("th-TH")} คนที่ยังไม่มีข้อมูลเงินเดือน
         </p>
-      )}
-
-      {roster.failed > 0 && !loadingDetails && (
-        <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200">
-          <span>โหลดข้อมูลเงินเดือนไม่สำเร็จ {roster.failed.toLocaleString("th-TH")} คน (แสดงเป็น “—”)</span>
-          <button type="button" onClick={roster.retryFailed} className={cx(linkBtn, "!text-sm !text-amber-800 dark:!text-amber-200 underline")}>
-            ลองโหลดเฉพาะคนที่ไม่สำเร็จ
-          </button>
-        </div>
       )}
 
       {/* List */}
@@ -240,17 +191,6 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
             )}
           </h3>
           <div className="flex items-center gap-3">
-            {loadingDetails && (
-              <div className="flex items-center gap-2 text-xs tabular-nums text-gray-500 dark:text-gray-400" aria-hidden="true">
-                <span>กำลังโหลด {roster.done.toLocaleString("th-TH")}/{roster.total.toLocaleString("th-TH")}</span>
-                <span className="h-1 w-20 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                  <span
-                    className="block h-full origin-left rounded-full bg-indigo-500 transition-transform duration-300 ease-out"
-                    style={{ transform: `scaleX(${pct})` }}
-                  />
-                </span>
-              </div>
-            )}
             <div className="w-48 md:hidden">
               <SelectDropdown
                 value={`${sort.key}:${sort.dir}`}
@@ -262,7 +202,7 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
             </div>
           </div>
           <p role="status" className="sr-only">
-            {firstLoad ? "กำลังโหลดรายชื่อ" : loadingDetails ? "กำลังโหลดข้อมูลเงินเดือน" : `โหลดข้อมูลเงินเดือนครบ ${roster.total} คน`}
+            {firstLoad ? "กำลังโหลดรายชื่อ" : roster.refreshing ? "กำลังรีเฟรชข้อมูลเงินเดือน" : `โหลดข้อมูลเงินเดือนครบ ${roster.total} คน`}
           </p>
         </div>
 
@@ -303,12 +243,12 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-gray-900 dark:text-gray-100">{r.name}</p>
                             <p className="truncate text-xs tabular-nums text-gray-500 dark:text-gray-400">
-                              รหัส {r.id}<span className="lg:hidden"> · {branchLabel(r.branchId)}</span>
+                              รหัส {r.id}<span className="lg:hidden"> · {branchLabel(r)}</span>
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="hidden whitespace-nowrap px-4 py-2.5 text-gray-600 lg:table-cell dark:text-gray-300">{branchLabel(r.branchId)}</td>
+                      <td className="hidden whitespace-nowrap px-4 py-2.5 text-gray-600 lg:table-cell dark:text-gray-300">{branchLabel(r)}</td>
                       <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300">
                         <PositionText row={r} loading={positionsLoading} />
                       </td>
@@ -345,7 +285,7 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
                         <Avatar name={r.name} />
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-gray-900 dark:text-gray-100">{r.name}</p>
-                          <p className="text-xs tabular-nums text-gray-500 dark:text-gray-400">รหัส {r.id} · {branchLabel(r.branchId)}</p>
+                          <p className="text-xs tabular-nums text-gray-500 dark:text-gray-400">รหัส {r.id} · {branchLabel(r)}</p>
                           <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
                             <PositionText row={r} loading={positionsLoading} />
                           </p>
@@ -443,19 +383,16 @@ function TierText({ row, loading }) {
 }
 
 function LevelText({ row }) {
-  if (row.detailStatus === "loading") return <Skeleton rounded="rounded-md" className="ml-auto inline-block h-3.5 w-8 align-middle" />
-  if (row.detailStatus === "error") return <span title="โหลดข้อมูลไม่สำเร็จ"><Muted>—</Muted><span className="sr-only">โหลดข้อมูลไม่สำเร็จ</span></span>
-  return row.level != null ? fmtLevel(row.level) : <Muted>—</Muted>
+  return row.level != null ? fmtLevel(row.level) : <Muted>—</Muted> // level 0 is real → fmtLevel
 }
 
 function SalaryText({ row }) {
-  if (row.salaryStatus === "loading") return <Skeleton rounded="rounded-md" className="ml-auto inline-block h-3.5 w-20 align-middle" />
   if (row.salaryStatus === "ok") {
     return row.salarySource === "financial" ? (
       <span title="จากข้อมูลการเงินของเจ้าหน้าที่ (ไม่พบในบัญชีเงินเดือน)">{thb(row.salary)}</span>
     ) : thb(row.salary)
   }
-  const why = row.salaryStatus === "error" ? "โหลดข้อมูลไม่สำเร็จ" : "ไม่มีข้อมูลเงินเดือน"
+  const why = "ไม่มีข้อมูลเงินเดือน"
   return <span title={why}><Muted>—</Muted><span className="sr-only">{why}</span></span>
 }
 

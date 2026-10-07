@@ -12,6 +12,7 @@ import {
   LogOut,
   MapPin,
   MapPinCheck,
+  Target,
   UserRound,
   X,
 } from "lucide-react"
@@ -51,6 +52,8 @@ const PERSONAL_MENUS = [
   { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet", path: "/my-relocation", roles: "all" },
   { label: "ขอสินเชื่อ",           icon: CreditCard, tone: "rose",    path: "/loan-request",  roles: "all" },
   // Phase 3B — HR admin ทุกฟังก์ชันรวมอยู่ใน Dashboard HR แล้ว
+  // KPI v1.4.0 — ผจก. (2) อนุมัติ / ผช.ผจก. (7) ตรวจสอบ (admin ใช้แท็บ KPI ใน Dashboard HR)
+  { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target, tone: "indigo", path: "/hr/kpi", roles: [ROLE.MNG, 7] },
   { label: "Dashboard HR",        icon: LayoutDashboard, tone: "blue", path: "/hr/dashboard", roles: [ROLE.ADMIN] },
   // "รายรับ-รายจ่ายสถานที่" ย้ายไปกลุ่ม "รายงาน & แผน" ในหน้า Home แล้ว
 ]

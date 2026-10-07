@@ -13,6 +13,8 @@ const PARENT_ROUTES = {
   "/debt-tracking": { path: "/debt-hub", label: "ติดตามหนี้" },
   "/debt-form": { path: "/debt-hub", label: "ติดตามหนี้" },
   "/out-of-office/approvals": { path: "/out-of-office", label: "ขอออกนอกสถานที่" },
+  // หน้า KPI แยกสำหรับ ผจก./ผช.ผจก. (ไม่มีสิทธิ์เข้า /hr/dashboard) — กลับหน้าหลัก
+  "/hr/kpi": { path: "/home", label: "หน้าหลัก" },
 }
 
 const getInitialDark = () => {

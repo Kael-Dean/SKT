@@ -3,11 +3,7 @@
 //   useEmployeeSalary(empId, refreshKey, positionsById)  GET /hr/personnel/{id}
 //   useSalaryLookup(tierId, level, { debounce })           GET /hr/salary-ladder/lookup?tier&level
 //   useLadderMax(tierId)                                   GET /hr/salary-ladder?tier=
-//   useSalaryRoster(positionsById)                         GET /hr/personnel?is_active=true
-//                                                          + GET /hr/personnel/{id} × N (pool of 6)
-//                                                          + GET /hr/salary-ladder?tier= × distinct tiers
-//     TODO(backend): switch useSalaryRoster to GET /hr/salary-roster (1 request) once it ships —
-//     see handoff/backend-request-salary-roster.md
+//   useSalaryRoster(positionsById)                         GET /hr/salary-roster (1 request)
 //
 // Every result is keyed by its input (employee id / "tier:level" / tier). A result
 // whose key doesn't match the current input is never returned, so switching
@@ -16,8 +12,7 @@
 // apiAuth has no AbortSignal support, hence alive flags instead of AbortController.
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../../lib/api"
-import { employeeName, errText, tierQuery } from "./positionUtils"
-import { getCachedPersonnel, loadPersonnel, refreshPersonnel, subscribePersonnel } from "./personnelCache"
+import { errText, tierQuery } from "./positionUtils"
 
 // ─── Module caches ──────────────────────────────────────────────────────────
 const lookupPromises = new Map() // "tier:level" → Promise<number|null>
@@ -56,7 +51,7 @@ const ladderMaxOf = (ladder) => (ladder && ladder.size ? Math.max(...ladder.keys
 
 /**
  * Whole ladder of one tier → Map<level:number, amount:number|null>. One request
- * per tier, shared by useLadderMax (step preview) and useSalaryRoster (roster).
+ * per tier, used by useLadderMax (step preview).
  * Each row also seeds the per-level lookup cache (same `salary_level` table as
  * /salary-ladder/lookup), so a later useSalaryLookup for that tier is instant.
  */
@@ -192,238 +187,136 @@ export function useLadderMax(tierId) {
 }
 
 // ─── Salary roster (all active employees) ───────────────────────────────────
-// No bulk endpoint yet, so level comes from GET /hr/personnel/{id} per person
-// (pool of ROSTER_CONCURRENCY) and the amount from each tier's ladder.
-// Details are cached per employee id at module level: switching sub-tabs and
-// coming back costs zero requests. Call invalidateRosterEmployee(id) after a
-// step award; refresh() drops everything.
+// GET /hr/salary-roster returns every active employee with branch, position,
+// tier, level and the resolved monthly salary in ONE response (server already
+// applies ladder → current_salary fallback; `salary_source` says which).
+// The response is cached at module level: switching sub-tabs and coming back
+// costs zero requests. invalidateRosterEmployee() (after a step award) marks the
+// cache stale → the next view shows the cached rows and re-fetches in the
+// background. refresh() always re-fetches.
 
-const ROSTER_CONCURRENCY = 6
-const rosterDetail = new Map() // id → { level, positionId, financialSalary }
-const rosterInflight = new Map() // id → Promise (dedupes overlapping runs)
+let rosterCache = null // { list: raw rows[], stale: boolean }
+let rosterGen = 0 // bumped on every invalidation; a response from an older gen lands as stale
+let rosterInflight = null // { gen, promise } — dedupes overlapping loads of the same gen
 
 const toLevel = (raw) => (raw == null || raw === "" || Number.isNaN(Number(raw)) ? null : Number(raw))
 
-function loadRosterDetail(id) {
-  if (rosterDetail.has(id)) return Promise.resolve(rosterDetail.get(id))
-  if (!rosterInflight.has(id)) {
-    const p = apiAuth(`/hr/personnel/${id}`)
+function fetchRoster() {
+  if (!rosterInflight || rosterInflight.gen !== rosterGen) {
+    const gen = rosterGen
+    const entry = { gen, promise: null }
+    entry.promise = apiAuth("/hr/salary-roster")
       .then((d) => {
-        const v = {
-          level: toLevel(d?.personnel_info?.salary_level),
-          positionId: d?.position ?? null,
-          financialSalary: toAmount(d?.financial?.current_salary),
-        }
-        rosterDetail.set(id, v)
-        return v
+        const list = Array.isArray(d) ? d : []
+        rosterCache = { list, stale: gen !== rosterGen }
+        return list
       })
-      .finally(() => rosterInflight.delete(id))
-    rosterInflight.set(id, p)
+      .finally(() => { if (rosterInflight === entry) rosterInflight = null })
+    rosterInflight = entry
   }
-  return rosterInflight.get(id)
-}
-
-/** Forget one employee's cached roster row (call after their level changes). */
-export function invalidateRosterEmployee(id) {
-  if (id != null && id !== "") rosterDetail.delete(String(id))
-}
-
-const detailsFromCache = () => {
-  const out = {}
-  rosterDetail.forEach((v, id) => { out[id] = { status: "ok", ...v } })
-  return out
-}
-const laddersFromCache = () => {
-  const out = {}
-  ladderResolved.forEach((ladder, k) => { out[k] = { status: "ok", ladder } })
-  return out
+  return rosterInflight.promise
 }
 
 /**
- * Every active employee with position, tier, level and monthly salary.
- * Rows stream in: a row's level/salary is "loading" until its detail lands.
- *
- * row: { id, person, name, branchId, positionId, position, tierId, level,
- *        detailStatus: loading|ok|error,
- *        salary, salaryStatus: loading|ok|none|error, salarySource: ladder|financial|null }
- *
- * Salary = ladder amount for (tier, level); falls back to financial.current_salary
- * when the person has no tier/level or the ladder has no such level.
+ * Mark the roster stale (call after anyone's level changes). The bulk endpoint
+ * has no per-employee fetch, so the whole roster re-fetches on its next view.
+ * The id argument is accepted for call-site compatibility and not needed.
  */
-export function useSalaryRoster(positionsById = {}, { positionsReady = true } = {}) {
-  const [people, setPeople] = useState(() => {
-    const cached = getCachedPersonnel()
-    return { list: cached, status: cached ? "ok" : "loading", error: "" }
-  })
-  const [peopleAttempt, setPeopleAttempt] = useState(0)
-  const [details, setDetails] = useState(detailsFromCache)
-  const [ladders, setLadders] = useState(laddersFromCache)
-  const [run, setRun] = useState(0)
-  const [refreshing, setRefreshing] = useState(false)
+export function invalidateRosterEmployee() {
+  rosterGen++
+  if (rosterCache) rosterCache = { ...rosterCache, stale: true }
+}
 
-  // 1) active personnel list (shared module cache with EmployeePicker)
+/** One API row → the roster row shape the panel renders. */
+function toRosterRow(r, positionsById) {
+  const id = String(r?.personnel_id)
+  const positionId = r?.position_id ?? null
+  const known = positionId != null ? positionsById?.[positionId] ?? null : null
+  const position = known ?? (positionId != null && r?.position_title != null
+    ? { id: positionId, title: r.position_title, position_tier_id: r?.position_tier ?? null }
+    : null)
+  const salary = toAmount(r?.salary_amount)
+  return {
+    id,
+    person: r,
+    name: (r?.name ?? "").trim() || `รหัส ${id}`,
+    branchId: r?.branch_id ?? null,
+    branchName: r?.branch_name ?? null,
+    positionId,
+    position,
+    tierId: r?.position_tier ?? known?.position_tier_id ?? null,
+    level: toLevel(r?.salary_level), // 0 is a real level
+    detailStatus: "ok",
+    salary,
+    salaryStatus: salary != null ? "ok" : "none",
+    salarySource: salary != null ? r?.salary_source ?? null : null,
+  }
+}
+
+/**
+ * Every active employee with position, tier, level and monthly salary — one
+ * GET /hr/salary-roster per load / refresh.
+ *
+ * row: { id, person, name, branchId, branchName, positionId, position, tierId, level,
+ *        detailStatus: "ok", salary, salaryStatus: ok|none, salarySource: ladder|financial|null }
+ *
+ * `positionsById` (optional) enriches `position` with the full position record;
+ * without it the row still carries { id, title, position_tier_id } from the response.
+ *
+ * peopleStatus: loading (nothing to show yet) | ok | error (failed with no data).
+ * A failed re-fetch while rows are on screen keeps them and sets peopleError.
+ * Errors (401 / 403 / network) surface as the apiAuth message via errText.
+ */
+export function useSalaryRoster(positionsById = {}) {
+  const [state, setState] = useState(() => ({
+    list: rosterCache?.list ?? null,
+    status: rosterCache ? "ok" : "loading",
+    error: "",
+    fetching: !rosterCache || rosterCache.stale,
+  }))
+  const [run, setRun] = useState(0)
+
   useEffect(() => {
+    if (rosterCache && !rosterCache.stale) return // fresh module cache — zero requests
     let alive = true
-    const unsubscribe = subscribePersonnel((fresh) => {
-      if (alive && fresh) setPeople({ list: fresh, status: "ok", error: "" })
-    })
-    loadPersonnel()
-      .then((d) => { if (alive) setPeople({ list: d, status: "ok", error: "" }) })
+    fetchRoster()
+      .then((list) => { if (alive) setState({ list, status: "ok", error: "", fetching: false }) })
       .catch((e) => {
         if (alive) {
-          setPeople((s) => ({ ...s, status: s.list ? "ok" : "error", error: errText(e, "โหลดรายชื่อเจ้าหน้าที่ไม่สำเร็จ") }))
+          setState((s) => ({
+            ...s,
+            status: s.list ? "ok" : "error",
+            error: errText(e, "โหลดรายชื่อเงินเดือนไม่สำเร็จ"),
+            fetching: false,
+          }))
         }
       })
-    return () => {
-      alive = false
-      unsubscribe()
-    }
-  }, [peopleAttempt])
-
-  const ids = useMemo(() => (people.list ?? []).map((p) => String(p.id)), [people.list])
-
-  // 2) per-employee detail through a fixed-size pool; late responses after
-  //    unmount / refresh still fill the module cache but never touch state.
-  useEffect(() => {
-    let alive = true
-    setDetails((d) => {
-      let changed = false
-      const next = { ...d }
-      for (const id of ids) {
-        if (next[id]?.status !== "ok" && rosterDetail.has(id)) {
-          next[id] = { status: "ok", ...rosterDetail.get(id) }
-          changed = true
-        }
-      }
-      return changed ? next : d
-    })
-    const queue = ids.filter((id) => !rosterDetail.has(id))
-    let cursor = 0
-    const worker = async () => {
-      while (alive && cursor < queue.length) {
-        const id = queue[cursor++]
-        try {
-          const v = await loadRosterDetail(id)
-          if (alive) setDetails((d) => ({ ...d, [id]: { status: "ok", ...v } }))
-        } catch (e) {
-          if (alive) setDetails((d) => ({ ...d, [id]: { status: "error", error: errText(e, "โหลดข้อมูลไม่สำเร็จ") } }))
-        }
-      }
-    }
-    for (let i = 0; i < Math.min(ROSTER_CONCURRENCY, queue.length); i++) worker()
     return () => { alive = false }
-  }, [ids, run])
-
-  // 3) one ladder request per distinct tier in use
-  const tierKey = useMemo(() => {
-    const tiers = new Set()
-    for (const p of people.list ?? []) {
-      const det = details[String(p.id)]
-      const pid = (det?.status === "ok" ? det.positionId : null) ?? p.position
-      const t = pid != null ? positionsById?.[pid]?.position_tier_id : null
-      if (t != null && t !== "") tiers.add(String(Number(t)))
-    }
-    return [...tiers].sort().join(",")
-  }, [people.list, details, positionsById])
-
-  useEffect(() => {
-    if (!tierKey) return
-    let alive = true
-    for (const k of tierKey.split(",")) {
-      if (ladderResolved.has(k)) {
-        const ladder = ladderResolved.get(k)
-        setLadders((l) => (l[k]?.ladder === ladder ? l : { ...l, [k]: { status: "ok", ladder } }))
-        continue
-      }
-      loadLadder(k)
-        .then((ladder) => { if (alive) setLadders((l) => ({ ...l, [k]: { status: "ok", ladder } })) })
-        .catch(() => { if (alive) setLadders((l) => ({ ...l, [k]: { status: "error", ladder: null } })) })
-    }
-    return () => { alive = false }
-  }, [tierKey, run])
+  }, [run])
 
   const rows = useMemo(
-    () => (people.list ?? []).map((p) => {
-      const id = String(p.id)
-      const det = details[id]
-      const detailStatus = det ? det.status : "loading"
-      const ok = detailStatus === "ok"
-      const positionId = (ok ? det.positionId : null) ?? p.position ?? null
-      const position = positionId != null ? positionsById?.[positionId] ?? null : null
-      const tierId = position?.position_tier_id ?? null
-      const level = ok ? det.level : null
-
-      let salary = null
-      let salarySource = null
-      let salaryStatus = "loading"
-      if (detailStatus === "error") salaryStatus = "error"
-      else if (ok && positionsReady) {
-        const lad = tierId != null && tierId !== "" ? ladders[String(Number(tierId))] : null
-        if (tierId != null && level != null && !lad) {
-          salaryStatus = "loading" // ladder for this tier still on its way
-        } else {
-          const fromLadder = lad?.status === "ok" && level != null ? lad.ladder.get(level) ?? null : null
-          if (fromLadder != null) { salary = fromLadder; salarySource = "ladder" }
-          else if (det.financialSalary != null) { salary = det.financialSalary; salarySource = "financial" }
-          salaryStatus = salary != null ? "ok" : "none"
-        }
-      }
-
-      return {
-        id,
-        person: p,
-        name: employeeName(p),
-        branchId: p.branch_location ?? null,
-        positionId,
-        position,
-        tierId,
-        level,
-        detailStatus,
-        salary,
-        salaryStatus,
-        salarySource,
-      }
-    }),
-    [people.list, details, ladders, positionsById, positionsReady],
+    () => (state.list ?? []).map((r) => toRosterRow(r, positionsById)),
+    [state.list, positionsById],
   )
 
-  const done = rows.reduce((n, r) => n + (r.detailStatus !== "loading" ? 1 : 0), 0)
-  const failed = rows.reduce((n, r) => n + (r.detailStatus === "error" ? 1 : 0), 0)
-
   const refresh = useCallback(() => {
-    rosterDetail.clear()
-    clearSalaryCaches()
-    setDetails({})
-    setLadders({})
-    setRefreshing(true)
-    refreshPersonnel()
-      .catch((e) => setPeople((s) => ({ ...s, status: s.list ? "ok" : "error", error: errText(e, "โหลดรายชื่อเจ้าหน้าที่ไม่สำเร็จ") })))
-      .finally(() => setRefreshing(false))
-    setRun((n) => n + 1)
-  }, [])
-
-  /** Re-request only the rows (and ladders) that failed. */
-  const retryFailed = useCallback(() => {
-    setDetails((d) => Object.fromEntries(Object.entries(d).filter(([, v]) => v.status !== "error")))
-    setLadders((l) => Object.fromEntries(Object.entries(l).filter(([, v]) => v.status !== "error")))
+    invalidateRosterEmployee()
+    setState((s) => ({ ...s, error: "", fetching: true }))
     setRun((n) => n + 1)
   }, [])
 
   const retryPeople = useCallback(() => {
-    setPeople((s) => ({ ...s, status: s.list ? "ok" : "loading", error: "" }))
-    setPeopleAttempt((n) => n + 1)
+    setState((s) => ({ ...s, status: s.list ? "ok" : "loading", error: "", fetching: true }))
+    setRun((n) => n + 1)
   }, [])
 
   return {
     rows,
     total: rows.length,
-    done,
-    failed,
-    peopleStatus: people.status,
-    peopleError: people.error,
-    refreshing,
+    peopleStatus: state.status,
+    peopleError: state.error,
+    refreshing: state.fetching && state.list != null,
     refresh,
-    retryFailed,
     retryPeople,
   }
 }

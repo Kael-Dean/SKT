@@ -1,6 +1,6 @@
 // src/components/hr/SalaryStepPanel.jsx
 // เลื่อนขั้นเงินเดือน (spec handoff/hr-ux-spec.md §3.1)
-// POST /hr/employees/{id}/salary-step-award {step > 0, reason} → {old_level, new_level, capped}
+// POST /hr/employees/{id}/salary-step-award {step > 0, reason} → {old_level, new_level, capped, old_salary, new_salary, salary_note}
 //   capped = ถึงขั้นสูงสุดของกระบอก (UAT D2) · 409 = ตำแหน่งยังไม่มีกระบอก (position_tier_id)
 // Preview ก่อนส่ง: GET /hr/salary-ladder?tier= (ขั้นสูงสุด) + GET /hr/salary-ladder/lookup (เงินเดือน)
 // ไม่มีการ POST ก่อนผู้ใช้ยืนยันใน ConfirmDialog
@@ -221,14 +221,19 @@ export default function SalaryStepPanel({ onGoToPositions, initialEmployeeId = "
       })
       const oldL = res?.old_level ?? currentLevel
       const newL = res?.new_level ?? newLevel
-      const desc = `${name} · ขั้น ${fmtLevel(oldL)} → ${fmtLevel(newL)}`
+      // v1.4.0: response adds old_salary / new_salary / salary_note (salary moves to the ladder amount)
+      const hasSalary = res?.old_salary != null && res?.new_salary != null
+      const salaryPart = hasSalary ? ` · เงินเดือน ${thb(res.old_salary)} → ${thb(res.new_salary)} บาท` : ""
+      const notePart = res?.salary_note ? ` · ${res.salary_note}` : ""
+      const desc = `${name} · ขั้น ${fmtLevel(oldL)} → ${fmtLevel(newL)}${salaryPart}${notePart}`
       if (res?.capped) {
         const got = Number(newL) - Number(oldL)
         toast.warning("เลื่อนขั้นเรียบร้อยแล้ว ถึงขั้นสูงสุดของกระบอก", {
           description: `${desc} · ได้จริง ${fmtLevel(got)} ขั้น`,
+          duration: notePart ? 10000 : undefined,
         })
       } else {
-        toast.success("เลื่อนขั้นเรียบร้อยแล้ว", { description: desc })
+        toast.success("เลื่อนขั้นเรียบร้อยแล้ว", { description: desc, duration: notePart ? 10000 : undefined })
       }
       setConfirmOpen(false)
       setReason("")

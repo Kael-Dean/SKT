@@ -172,7 +172,14 @@ export default function HRPayrollTab() {
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{monthDate ? fmtMonth(monthDate.getFullYear(), monthDate.getMonth() + 1) : "—"}</td>
                   <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 tabular-nums hidden sm:table-cell">—</td>
                   <td className="px-4 py-3 text-right text-red-600 dark:text-red-400 tabular-nums hidden md:table-cell">—</td>
-                  <td className="px-4 py-3 text-right font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">{fmt(p.net_payout)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">
+                    {fmt(p.net_payout)}
+                    {Number(p.add_back_pay) > 0 && (
+                      <span className="mt-0.5 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                        รวมเงินเลื่อนขั้นพิเศษตกเบิก {fmt(p.add_back_pay)}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => downloadPayslip(p.id)}

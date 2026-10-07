@@ -1,301 +1,84 @@
 // src/pages/hr/tabs/HRKpiTab.jsx
-// KPI — บันทึกรายเดือน + การประเมิน
-import { useEffect, useState, useCallback } from "react"
-import { apiAuth } from "../../../lib/api"
-import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
-import { ErrorState, EmptyState, SkeletonTableRows, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
-import StatusMsg from "../../../components/hr/StatusMsg"
-import Portal from "../../../components/Portal"
+// KPI v1.4.0 — ประเมิน · สรุปผล · ผช.ผจก. ตรวจสอบ · ผจก. อนุมัติ · ผลประกอบการ · KPI รายเดือน
+// (handoff/api-handoff-kpi-v1.4.0.md). Sub-tab in &sub=, fiscal year in &fy= (both replace).
+// Only the sub-tabs the current role can use are shown (getRoleId → getKpiPerms).
+// Rendered inside HRDashboard (roles 1·3) and standalone at /hr/kpi (roles 1·2·3·7, see App.jsx).
+import { useCallback, useMemo } from "react"
+import { useSearchParams } from "react-router-dom"
+import { cx, tabPanelCls } from "../../../lib/styles"
+import { EmptyState, Tabs, panelId, tabId, useSubTab } from "../../../components/ui"
+import FiscalYearHeader from "../../../components/hr/kpi/FiscalYearHeader"
+import ScoresPanel from "../../../components/hr/kpi/ScoresPanel"
+import FinalizePanel from "../../../components/hr/kpi/FinalizePanel"
+import AsstReviewPanel from "../../../components/hr/kpi/AsstReviewPanel"
+import ManagerApprovePanel from "../../../components/hr/kpi/ManagerApprovePanel"
+import ProfitResultPanel from "../../../components/hr/kpi/ProfitResultPanel"
+import MonthlyKpiPanel from "../../../components/hr/kpi/MonthlyKpiPanel"
+import { useFiscalYearInfo, useKpiPeople } from "../../../components/hr/kpi/useKpi"
+import { currentFiscalYear, getKpiPerms, num, windowPhase } from "../../../components/hr/kpi/kpiUtils"
 
-const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-const now = new Date()
+const ID_BASE = "hr-kpi"
 
 export default function HRKpiTab() {
-  const [subTab, setSubTab] = useSubTab(["eval", "monthly"], "eval")
+  const perms = useMemo(() => getKpiPerms(), [])
+  const [params, setParams] = useSearchParams()
+  const fyRaw = params.get("fy")
+  const fy = /^\d{4}$/.test(fyRaw ?? "") ? Number(fyRaw) : currentFiscalYear()
+  const setFy = useCallback(
+    (next) => setParams((prev) => {
+      const p = new URLSearchParams(prev)
+      p.set("fy", String(next))
+      return p
+    }, { replace: true }),
+    [setParams]
+  )
 
-  // ประเมิน KPI
-  const [evaluations, setEvaluations] = useState([])
-  const [loadingEval, setLoadingEval] = useState(false)
-  const [evalError, setEvalError] = useState("")
-  const [filterFiscalYear, setFilterFiscalYear] = useState(String(now.getFullYear()))
+  const fyState = useFiscalYearInfo(fy)
+  const { info, reload: reloadInfo } = fyState
+  const phase = windowPhase(info)
+  const people = useKpiPeople()
+  const counts = info?.counts ?? {}
 
-  const [scoreModal, setScoreModal] = useState(null)
-  const [scoreForm, setScoreForm] = useState({ branch_head_score: "", asst_manager_score: "", manager_score: "" })
-  const [scoring, setScoring] = useState(false)
-  const [scoreMsg, setScoreMsg] = useState("")
+  const items = useMemo(() => {
+    const all = [
+      { value: "scores", label: "ประเมิน", show: perms.viewList },
+      { value: "finalize", label: "สรุปผล", show: perms.finalize },
+      { value: "asst", label: "ผช.ผจก. ตรวจสอบ", show: perms.asstReview, count: num(counts.finalized) || null },
+      { value: "approve", label: "ผจก. อนุมัติ", show: perms.managerApprove, count: num(counts.asst_reviewed) || null },
+      { value: "profit", label: "ผลประกอบการ", show: perms.profit },
+      { value: "monthly", label: "KPI รายเดือน", show: perms.monthly },
+    ]
+    return all.filter((t) => t.show).map((t) => ({ value: t.value, label: t.label, count: t.count }))
+  }, [perms, counts.finalized, counts.asst_reviewed])
 
-  // บันทึก KPI รายเดือน
-  const [kpiForm, setKpiForm] = useState({
-    employee_id: "",
-    fiscal_year: String(now.getFullYear()),
-    month: String(now.getMonth() + 1),
-    section: "1",
-    metric: "",
-    value: "",
-  })
-  const [submittingKpi, setSubmittingKpi] = useState(false)
-  const [kpiMsg, setKpiMsg] = useState("")
+  const [sub, setSub] = useSubTab(items.map((t) => t.value), items[0]?.value)
 
-  const fetchEvals = useCallback((fiscalYear) => {
-    setLoadingEval(true)
-    setEvalError("")
-    apiAuth(`/hr/kpi/evaluations?fiscal_year=${fiscalYear}`)
-      .then(setEvaluations)
-      .catch((e) => setEvalError(e.message || "โหลดไม่สำเร็จ"))
-      .finally(() => setLoadingEval(false))
-  }, [])
-
-  useEffect(() => {
-    if (subTab === "eval") fetchEvals(filterFiscalYear)
-  }, [subTab, fetchEvals, filterFiscalYear])
-
-  const openScore = (ev) => {
-    setScoreModal(ev)
-    setScoreForm({
-      branch_head_score: ev.branch_head_score != null ? String(ev.branch_head_score) : "",
-      asst_manager_score: ev.asst_manager_score != null ? String(ev.asst_manager_score) : "",
-      manager_score: ev.manager_score != null ? String(ev.manager_score) : "",
-    })
-    setScoreMsg("")
+  if (items.length === 0) {
+    return <EmptyState title="ไม่มีสิทธิ์ใช้งานส่วนนี้" description="บัญชีของคุณไม่มีสิทธิ์ดูหรือบันทึกการประเมิน KPI" />
   }
 
-  const saveScore = async () => {
-    if (!scoreModal) return
-    setScoring(true)
-    setScoreMsg("")
-    try {
-      if (scoreForm.branch_head_score !== "") {
-        await apiAuth(`/hr/kpi/evaluations/${scoreModal.user_id}/branch-head-score`, {
-          method: "PUT",
-          body: { fiscal_year: Number(filterFiscalYear), score: Number(scoreForm.branch_head_score) },
-        })
-      }
-      if (scoreForm.asst_manager_score !== "") {
-        await apiAuth(`/hr/kpi/evaluations/${scoreModal.user_id}/asst-manager-score`, {
-          method: "PUT",
-          body: { fiscal_year: Number(filterFiscalYear), score: Number(scoreForm.asst_manager_score) },
-        })
-      }
-      if (scoreForm.manager_score !== "") {
-        await apiAuth(`/hr/kpi/evaluations/${scoreModal.user_id}/manager-score`, {
-          method: "PUT",
-          body: { fiscal_year: Number(filterFiscalYear), score: Number(scoreForm.manager_score) },
-        })
-      }
-      setScoreMsg({ tone: "success", text: "บันทึกคะแนนสำเร็จ" })
-      setTimeout(() => { setScoreModal(null); fetchEvals(filterFiscalYear) }, 700)
-    } catch (err) {
-      setScoreMsg({ tone: "error", text: err.message || "ไม่สำเร็จ" })
-    } finally {
-      setScoring(false)
-    }
-  }
-
-  const submitKpi = async () => {
-    if (!kpiForm.employee_id || !kpiForm.metric || !kpiForm.value) {
-      setKpiMsg({ tone: "warning", text: "กรุณากรอกรหัสเจ้าหน้าที่, ตัวชี้วัด และค่า" })
-      return
-    }
-    setSubmittingKpi(true)
-    setKpiMsg("")
-    try {
-      await apiAuth("/hr/kpi/monthly", {
-        method: "POST",
-        body: {
-          user_id: Number(kpiForm.employee_id),
-          fiscal_year: Number(kpiForm.fiscal_year),
-          month: Number(kpiForm.month),
-          section: Number(kpiForm.section),
-          metric_name: kpiForm.metric,
-          value: parseFloat(kpiForm.value),
-        },
-      })
-      setKpiMsg({ tone: "success", text: "บันทึก KPI สำเร็จ" })
-      setKpiForm((f) => ({ ...f, metric: "", value: "" }))
-    } catch (err) {
-      setKpiMsg({ tone: "error", text: err.message || "ไม่สำเร็จ" })
-    } finally {
-      setSubmittingKpi(false)
-    }
-  }
-
-  const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
+  const shared = { fy, info, phase, perms, people, onChanged: reloadInfo }
 
   return (
     <div className="space-y-4">
-      <Tabs
-        items={[
-          { value: "eval", label: "การประเมิน KPI" },
-          { value: "monthly", label: "บันทึก KPI รายเดือน" },
-        ]}
-        value={subTab}
-        onChange={setSubTab}
-        ariaLabel="KPI"
-        idBase="hr-kpi"
-      />
+      <FiscalYearHeader fy={fy} onFyChange={setFy} fyState={fyState} canEditWindow={perms.editWindow} />
 
-      <div role="tabpanel" id={panelId("hr-kpi", subTab)} aria-labelledby={tabId("hr-kpi", subTab)} tabIndex={0} className={cx("space-y-4", tabPanelCls)}>
+      <Tabs items={items} value={sub} onChange={setSub} ariaLabel="KPI" idBase={ID_BASE} />
 
-      {/* การประเมิน */}
-      {subTab === "eval" && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <label htmlFor="hr-kpi-fiscal-year" className="text-sm text-gray-500 dark:text-gray-400">ปีงบประมาณ</label>
-            <input
-              id="hr-kpi-fiscal-year"
-              type="number"
-              value={filterFiscalYear}
-              onChange={(e) => setFilterFiscalYear(e.target.value)}
-              className="w-28 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          {evalError && <ErrorState message={evalError} onRetry={() => fetchEvals(filterFiscalYear)} />}
-          {!evalError && evaluations.length === 0 && !loadingEval ? (
-            <div className={cardCls + " p-2"}>
-              <EmptyState
-                title="ยังไม่มีข้อมูลการประเมิน KPI"
-                description={`ไม่พบข้อมูลการประเมินในปีงบประมาณ ${filterFiscalYear}`}
-              />
-            </div>
-          ) : !evalError ? (
-            <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">เจ้าหน้าที่</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden md:table-cell">หัวหน้าสาขา<br/><span className="text-gray-400 dark:text-gray-500">≤42</span></th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden md:table-cell">ผู้ช่วยผจก.<br/><span className="text-gray-400 dark:text-gray-500">≤20</span></th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden md:table-cell">ผู้จัดการ<br/><span className="text-gray-400 dark:text-gray-500">≤10</span></th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">รวม</th>
-                      <th className="px-4 py-3 w-24"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                    {loadingEval ? (
-                      <SkeletonTableRows rows={8} cols={6} />
-                    ) : evaluations.map((ev) => {
-                      const total = (Number(ev.branch_head_score) || 0) + (Number(ev.branch_score_component) || 0) + (Number(ev.asst_manager_score) || 0) + (Number(ev.manager_score) || 0)
-                      return (
-                        <tr key={ev.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-gray-900 dark:text-gray-100">รหัสเจ้าหน้าที่ <span className="tabular-nums">{ev.user_id}</span></p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500">{ev.status}</p>
-                          </td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 tabular-nums hidden md:table-cell">{ev.branch_head_score ?? "—"}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 tabular-nums hidden md:table-cell">{ev.asst_manager_score ?? "—"}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 tabular-nums hidden md:table-cell">{ev.manager_score ?? "—"}</td>
-                          <td className="px-4 py-3 text-right font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">{total > 0 ? total : "—"}</td>
-                          <td className="px-4 py-3 text-center">
-                            <button onClick={() => openScore(ev)} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 rounded">บันทึกคะแนน</button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      {/* บันทึก KPI รายเดือน */}
-      {subTab === "monthly" && (
-        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-6 space-y-4 max-w-lg">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">บันทึก KPI รายเดือน</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">รหัสเจ้าหน้าที่</label>
-              <input type="text" value={kpiForm.employee_id}
-                onChange={(e) => setKpiForm(f => ({ ...f, employee_id: e.target.value }))}
-                className={inputCls} placeholder="รหัสเจ้าหน้าที่" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ปีงบประมาณ</label>
-              <input type="number" value={kpiForm.fiscal_year}
-                onChange={(e) => setKpiForm(f => ({ ...f, fiscal_year: e.target.value }))}
-                className={inputCls} />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">เดือน</label>
-              <select value={kpiForm.month} onChange={(e) => setKpiForm(f => ({ ...f, month: e.target.value }))} className={inputCls}>
-                {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">หมวด</label>
-              <select value={kpiForm.section} onChange={(e) => setKpiForm(f => ({ ...f, section: e.target.value }))} className={inputCls}>
-                <option value="1">หมวด 1</option>
-                <option value="2">หมวด 2</option>
-                <option value="3">หมวด 3</option>
-              </select>
-            </div>
-            <div className="col-span-2">
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ตัวชี้วัด</label>
-              <input type="text" value={kpiForm.metric}
-                onChange={(e) => setKpiForm(f => ({ ...f, metric: e.target.value }))}
-                className={inputCls} placeholder="ชื่อตัวชี้วัด" />
-            </div>
-            <div className="col-span-2">
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ค่า</label>
-              <input type="number" step="0.01" value={kpiForm.value}
-                onChange={(e) => setKpiForm(f => ({ ...f, value: e.target.value }))}
-                className={inputCls} placeholder="0.00" />
-            </div>
-          </div>
-          {kpiMsg && <StatusMsg msg={kpiMsg} />}
-          <button onClick={submitKpi} disabled={submittingKpi}
-            className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition shadow-sm disabled:opacity-60 cursor-pointer">
-            {submittingKpi ? "กำลังบันทึก..." : "บันทึก KPI"}
-          </button>
-        </div>
-      )}
+      <div
+        role="tabpanel"
+        id={panelId(ID_BASE, sub)}
+        aria-labelledby={tabId(ID_BASE, sub)}
+        tabIndex={0}
+        className={cx("space-y-4", tabPanelCls)}
+      >
+        {sub === "scores" && <ScoresPanel key={fy} {...shared} />}
+        {sub === "finalize" && <FinalizePanel key={fy} {...shared} />}
+        {sub === "asst" && <AsstReviewPanel key={fy} {...shared} />}
+        {sub === "approve" && <ManagerApprovePanel key={fy} {...shared} />}
+        {sub === "profit" && <ProfitResultPanel key={fy} {...shared} />}
+        {sub === "monthly" && <MonthlyKpiPanel key={fy} {...shared} />}
       </div>
-
-      {/* Score Modal */}
-      {scoreModal && (
-        <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">บันทึกคะแนน KPI</h3>
-              <button onClick={() => setScoreModal(null)} aria-label="ปิด" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M18 6 6 18M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-semibold text-gray-900 dark:text-gray-100">รหัสเจ้าหน้าที่ <span className="tabular-nums">{scoreModal.user_id}</span></span>
-            </p>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">คะแนนหัวหน้าสาขา (สูงสุด 42)</label>
-                <input type="number" min="0" max="42" value={scoreForm.branch_head_score}
-                  onChange={(e) => setScoreForm(f => ({ ...f, branch_head_score: e.target.value }))} className={inputCls} />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">คะแนนผู้ช่วยผู้จัดการ (สูงสุด 20)</label>
-                <input type="number" min="0" max="20" value={scoreForm.asst_manager_score}
-                  onChange={(e) => setScoreForm(f => ({ ...f, asst_manager_score: e.target.value }))} className={inputCls} />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">คะแนนผู้จัดการ (สูงสุด 10)</label>
-                <input type="number" min="0" max="10" value={scoreForm.manager_score}
-                  onChange={(e) => setScoreForm(f => ({ ...f, manager_score: e.target.value }))} className={inputCls} />
-              </div>
-            </div>
-            {scoreMsg && <StatusMsg msg={scoreMsg} center />}
-            <div className="flex gap-3">
-              <button onClick={() => setScoreModal(null)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">ยกเลิก</button>
-              <button onClick={saveScore} disabled={scoring}
-                className="flex-1 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition shadow-sm disabled:opacity-60 cursor-pointer">
-                {scoring ? "กำลังบันทึก..." : "บันทึกคะแนน"}
-              </button>
-            </div>
-          </div>
-        </div>
-        </Portal>
-      )}
     </div>
   )
 }

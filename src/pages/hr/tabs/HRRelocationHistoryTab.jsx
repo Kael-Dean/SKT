@@ -7,6 +7,7 @@ import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
 import { PageLoader, ErrorState, EmptyState, SkeletonTableRows, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import { FolderOpen, List } from "lucide-react"
 import Portal from "../../../components/Portal"
+import useModalDismiss from "../../../lib/useModalDismiss"
 
 function fmtBE(d) {
   // วันที่จาก BE มาเป็น "DD/MM/BBBB" แล้ว — แสดงตรงๆ
@@ -80,6 +81,7 @@ export default function HRRelocationHistoryTab() {
   const [detailLoading,  setDetailLoading]  = useState(false)
   const [detailPdfLoad,  setDetailPdfLoad]  = useState(false)
   const [detailPdfErr,   setDetailPdfErr]   = useState("")
+  const { backdropProps: detailBackdrop } = useModalDismiss(() => setDetailModal(null), { open: !!detailModal })
 
   const fetchReloRequests = useCallback(() => {
     setReloLoading(true)
@@ -271,8 +273,8 @@ export default function HRRelocationHistoryTab() {
       {/* ─── Detail Modal ─── */}
       {detailModal && (
         <Portal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-            <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4 my-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto" {...detailBackdrop}>
+            <div role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4 my-4">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                   {detailModal.user_first_name} {detailModal.user_last_name}

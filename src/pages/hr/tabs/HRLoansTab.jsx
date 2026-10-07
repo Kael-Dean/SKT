@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
 import { PageLoader, ErrorState, EmptyState } from "../../../components/ui"
+import useModalDismiss from "../../../lib/useModalDismiss"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
@@ -55,6 +56,7 @@ export default function HRLoansTab() {
   const [rejectReason, setRejectReason] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState("")
+  const { backdropProps: modalBackdrop } = useModalDismiss(() => setModal(null), { open: !!modal, disabled: submitting })
 
   const fetchLoans = useCallback(() => {
     setLoading(true)
@@ -198,8 +200,8 @@ export default function HRLoansTab() {
 
       {modal && (
         <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...modalBackdrop}>
+          <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
               {modal.action === "approve" ? "ยืนยันอนุมัติสินเชื่อ" : "ยืนยันปฏิเสธสินเชื่อ"}
             </h3>

@@ -7,6 +7,7 @@ import SelectDropdown from "../../../components/SelectDropdown"
 import Portal from "../../../components/Portal"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 import StatusMsg from "../../../components/hr/StatusMsg"
+import useModalDismiss from "../../../lib/useModalDismiss"
 
 const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
 const ROLE_COLOR = {
@@ -119,6 +120,7 @@ export default function HREmployeesTab() {
   const [spouse, setSpouse] = useState({ spouse_name: "", spouse_occupation: "", spouse_birthday: "", spouse_marriage_status: "", spouse_phone: "" })
   const [modalChildren, setModalChildren] = useState([])
   const [modalParents, setModalParents] = useState([])
+  const { backdropProps: signupBackdrop } = useModalDismiss(() => setShowSignup(false), { open: showSignup, disabled: submitting })
 
   useEffect(() => {
     apiAuth("/order/branch/search")
@@ -374,8 +376,8 @@ export default function HREmployeesTab() {
       {/* Signup Modal */}
       {showSignup && (
         <Portal>
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-12 bg-black/50 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-5 mb-12">
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-12 bg-black/50 backdrop-blur-sm overflow-y-auto" {...signupBackdrop}>
+          <div role="dialog" aria-modal="true" aria-label="ลงทะเบียนเจ้าหน้าที่ใหม่" className="w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-5 mb-12">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">ลงทะเบียนเจ้าหน้าที่ใหม่</h3>
               <button onClick={() => setShowSignup(false)} aria-label="ปิด" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">

@@ -6,6 +6,7 @@ import { getRoleId } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
 import Portal from "../../components/Portal"
 import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 const ROLE_ADMIN = 1
 
@@ -103,6 +104,7 @@ function TransactionModal({ items, defaultDate, tx, onSave, onClose }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const { backdropProps } = useModalDismiss(onClose, { disabled: saving })
 
   const incomeItems = items.filter((i) => i.item_type === "income")
   const expenseItems = items.filter((i) => i.item_type === "expense")
@@ -143,8 +145,8 @@ function TransactionModal({ items, defaultDate, tx, onSave, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" {...backdropProps}>
+      <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">
             {isEdit ? "แก้ไขรายการ" : "บันทึกรายการใหม่"}
@@ -221,6 +223,7 @@ function FacilityModal({ facility, onSave, onClose }) {
   const [form, setForm] = useState({ name: facility?.name ?? "", description: facility?.description ?? "" })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const { backdropProps } = useModalDismiss(onClose, { disabled: saving })
 
   const handleSave = async () => {
     if (!form.name.trim()) { setError("กรุณาระบุชื่อสถานที่"); return }
@@ -246,8 +249,8 @@ function FacilityModal({ facility, onSave, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" {...backdropProps}>
+      <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">
             {isEdit ? "แก้ไขสถานที่" : "เพิ่มสถานที่"}
@@ -293,6 +296,7 @@ function ItemModal({ facilities, item, onSave, onClose }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const { backdropProps } = useModalDismiss(onClose, { disabled: saving })
 
   const facilityOpts = facilities.map((f) => ({ value: f.id, label: f.name }))
   const typeOpts = [
@@ -330,8 +334,8 @@ function ItemModal({ facilities, item, onSave, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" {...backdropProps}>
+      <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">
             {isEdit ? "แก้ไขรายการ" : "เพิ่มรายการ"}

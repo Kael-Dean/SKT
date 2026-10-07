@@ -13,6 +13,7 @@ import {
   ENTRY_TYPES, ENTRY_META, ENTRY_BADGE_CLS, entryLabel,
   PM_LABEL, canWriteEntries, ROLE_GENERAL_STAFF,
 } from "./debtEntryMeta"
+import useModalDismiss from "../../../lib/useModalDismiss"
 
 // Column count for the entries table — keep in sync with the header below.
 const TX_COLS = 9
@@ -37,6 +38,7 @@ export default function DebtTransactionsTab({ roleId, branches, programs, fiscal
   const [modal, setModal]     = useState(null) // {mode:'add'|'edit'|'delete', record?}
   const [deleting, setDeleting] = useState(false)
   const [deleteMsg, setDeleteMsg] = useState("")
+  const { backdropProps: deleteBackdrop } = useModalDismiss(() => setModal(null), { open: modal?.mode === "delete", disabled: deleting })
 
   useEffect(() => {
     let alive = true
@@ -251,8 +253,8 @@ export default function DebtTransactionsTab({ roleId, branches, programs, fiscal
 
       {modal?.mode === "delete" && (
         <Portal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={cx(modalCardCls, "max-w-sm w-full")}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" {...deleteBackdrop}>
+            <div role="dialog" aria-modal="true" className={cx(modalCardCls, "max-w-sm w-full")}>
               <h2 className={cx(modalTitleCls, "mb-2")}>ยืนยันลบรายการ</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 ต้องการลบรายการ{" "}

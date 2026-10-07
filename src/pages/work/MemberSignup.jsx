@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle }
 import { apiAuth } from "../../lib/api"   // ✅ แนบ token อัตโนมัติ + จัดการ 401
 import { cx, baseField, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, secondaryBtnCls, spinnerCls } from "../../lib/styles"
 import { Card, CardHeader, PageLoader } from "../../components/ui"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -361,10 +362,11 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 
 /** ---------- Receipt Modal ---------- */
 function ReceiptModal({ open, onClose, receipt, name }) {
+  const { backdropProps } = useModalDismiss(onClose, { open })
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-black shadow-xl dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" {...backdropProps}>
+      <div role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-black shadow-xl dark:border-slate-700 dark:bg-slate-800 dark:text-white">
         <h3 className="text-xl font-semibold mb-2">บันทึกสำเร็จ & ใบเสร็จซื้อหุ้น</h3>
         <p className="text-slate-700 dark:text-slate-300 mb-4">
           <span className="font-medium">ชื่อสมาชิก:</span> {name || "-"}

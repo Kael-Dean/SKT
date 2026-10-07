@@ -8,6 +8,7 @@ import SelectDropdown from "../../components/SelectDropdown"
 import { PageLoader, ErrorState } from "../../components/ui"
 import { fmtDays, parseDays } from "../../lib/leaveDays"
 import lineIcon from "../../assets/line-icon.png"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -97,6 +98,7 @@ export default function MyProfile() {
   const [reportForm, setReportForm] = useState({ category: "", field_name: "", current_value: "", correct_value: "", description: "" })
   const [reportSubmitting, setReportSubmitting] = useState(false)
   const [reportMsg, setReportMsg] = useState("")
+  const { backdropProps: reportBackdrop } = useModalDismiss(() => setReportModal(false), { open: reportModal, disabled: reportSubmitting })
 
   const loadProfile = () => {
     setLoading(true)
@@ -414,8 +416,8 @@ export default function MyProfile() {
 
       {/* Report Issue Modal */}
       {reportModal && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...reportBackdrop}>
+          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6">
             <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5 text-amber-500">
                 <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z" />

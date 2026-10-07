@@ -12,6 +12,7 @@ import {
   PAYMENT_METHODS, fiscalYearOptionsFor,
   validateEntry, buildEntryBody, buildEntryPatchBody,
 } from "./debtEntryMeta"
+import useModalDismiss from "../../../lib/useModalDismiss"
 
 const sanitizeDecimal = (s) => {
   const clean = String(s ?? "").replace(/[^0-9.]/g, "")
@@ -85,6 +86,7 @@ export default function DebtEntryModal({
   )
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState("")
+  const { backdropProps } = useModalDismiss(onClose, { disabled: saving })
   const [produceTypes, setProduceTypes] = useState([])
 
   const meta = ENTRY_META[form.entry_type] || {}
@@ -160,9 +162,9 @@ export default function DebtEntryModal({
     <Portal>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-        onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}
+        {...backdropProps}
       >
-        <div className={cx(modalCardCls, "max-w-lg w-full max-h-[90vh] overflow-y-auto")}>
+        <div role="dialog" aria-modal="true" className={cx(modalCardCls, "max-w-lg w-full max-h-[90vh] overflow-y-auto")}>
           <h2 className={cx(modalTitleCls, "mb-1")}>
             {isEdit ? "แก้ไขรายการหนี้" : "บันทึกรายการหนี้"}
           </h2>

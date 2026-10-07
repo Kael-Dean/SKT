@@ -4,6 +4,7 @@ import { useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import Portal from "../../../components/Portal"
 import { ErrorState, EmptyState } from "../../../components/ui"
+import useModalDismiss from "../../../lib/useModalDismiss"
 
 // TerminationReason (backend v1.1.0). สามค่าแรกคือค่าที่พบจริงในข้อมูลย้อนหลัง
 // ของสหกรณ์ — เรียงไว้ก่อนเพื่อให้ HR เลือกได้เร็ว
@@ -50,6 +51,7 @@ export default function HRTerminationTab() {
   const [pdfErr,     setPdfErr]     = useState("")
 
   const [confirmModal, setConfirmModal] = useState(false)
+  const { backdropProps: confirmBackdrop } = useModalDismiss(() => setConfirmModal(false), { open: confirmModal, disabled: saving })
 
   // ─── 1. ค้นหาพนักงาน ────────────────────────────────────────────
   const handleSearch = useCallback(async () => {
@@ -429,13 +431,12 @@ export default function HRTerminationTab() {
         <Portal>
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-            onClick={() => setConfirmModal(false)}
+            {...confirmBackdrop}
           >
             <div
               role="dialog"
               aria-modal="true"
               aria-labelledby="term-confirm-title"
-              onClick={(e) => e.stopPropagation()}
               className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4"
             >
               <h3 id="term-confirm-title" className="flex items-center gap-2 text-lg font-bold text-red-600 dark:text-red-400">

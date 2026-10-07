@@ -6,6 +6,7 @@
 // and refetches); any other error stays inline so the user can retry.
 import { useEffect, useId, useRef, useState } from "react"
 import Portal from "./Portal"
+import useModalDismiss from "../lib/useModalDismiss"
 import { STAGE_APPROVE_LABEL, statusLabel } from "../lib/approval"
 import { approveRequest, rejectRequest, KIND } from "../lib/approvalActions"
 
@@ -26,13 +27,7 @@ export default function DecisionModal({ mode, kind, req, title, summary, onClose
     fieldRef.current?.focus()
   }, [])
 
-  useEffect(() => {
-    const h = (e) => {
-      if (e.key === "Escape" && !busy) onClose()
-    }
-    document.addEventListener("keydown", h)
-    return () => document.removeEventListener("keydown", h)
-  }, [busy, onClose])
+  const { backdropProps } = useModalDismiss(onClose, { disabled: busy })
 
   if (!req) return null
 
@@ -69,7 +64,7 @@ export default function DecisionModal({ mode, kind, req, title, summary, onClose
           type="button"
           aria-label="ปิด"
           tabIndex={-1}
-          onClick={() => !busy && onClose()}
+          {...backdropProps}
           className="absolute inset-0 cursor-pointer bg-black/50 backdrop-blur-sm"
         />
         <form

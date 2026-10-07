@@ -186,16 +186,19 @@ export default function SelectDropdown({
   // Escape from anywhere (e.g. after clicking the panel's scrollbar)
   useEffect(() => {
     if (!open) return
+    // Capture phase + preventDefault so an enclosing modal (useModalDismiss,
+    // bubble phase on document) sees the Esc as handled and stays open.
     const handle = (e) => {
-      if (e.key !== "Escape" || e.defaultPrevented) return
+      if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return
+      e.preventDefault()
       setOpen(false)
       setQuery("")
       setActiveIdx(-1)
       const inside = ref.current?.contains(document.activeElement) || panelRef.current?.contains(document.activeElement)
       if (inside) triggerRef.current?.focus({ preventScroll: true })
     }
-    document.addEventListener("keydown", handle)
-    return () => document.removeEventListener("keydown", handle)
+    document.addEventListener("keydown", handle, true)
+    return () => document.removeEventListener("keydown", handle, true)
   }, [open])
 
   const commit = (opt) => {

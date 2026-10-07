@@ -11,6 +11,7 @@ import RelocationPanel from "../../components/hr/RelocationPanel"
 import lineIcon from "../../assets/line-icon.png"
 import { fmtDaysUnit } from "../../lib/leaveDays"
 import StatusMsg from "../../components/hr/StatusMsg"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -80,6 +81,8 @@ export default function HRPersonnelDetail() {
   const [familyForm, setFamilyForm] = useState({ spouse: null, hasSpouse: false, children: [], parents: [] })
   const [familySaving, setFamilySaving] = useState(false)
   const [familySaveMsg, setFamilySaveMsg] = useState("")
+  const { backdropProps: familyBackdrop } = useModalDismiss(() => setFamilyModal(false), { open: familyModal, disabled: familySaving })
+  const { backdropProps: editBackdrop } = useModalDismiss(() => setEditModal(false), { open: editModal, disabled: saving })
 
   const fetchDetail = useCallback(() => {
     setLoading(true)
@@ -481,8 +484,8 @@ export default function HRPersonnelDetail() {
 
       {/* Family Edit Modal */}
       {familyModal && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...familyBackdrop}>
+          <div role="dialog" aria-modal="true" className="w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">แก้ไขข้อมูลครอบครัว</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">{data.first_name} {data.last_name}</p>
 
@@ -713,8 +716,8 @@ export default function HRPersonnelDetail() {
 
       {/* Financial Edit Modal */}
       {editModal && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...editBackdrop}>
+          <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">แก้ไขข้อมูลการเงิน</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">{data.first_name} {data.last_name}</p>
             <div className="space-y-3">

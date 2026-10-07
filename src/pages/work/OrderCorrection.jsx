@@ -4,6 +4,7 @@ import { apiAuth } from "../../lib/api";
 import { getUser } from "../../lib/auth";
 import { cx, baseField, labelCls, submitBtnCls, resetBtnCls, spinnerCls } from "../../lib/styles";
 import { SkeletonTableRows } from "../../components/ui";
+import useModalDismiss from "../../lib/useModalDismiss"
 
 /* ---------------- Utilities (ทนทานต่อค่าที่ไม่ใช่สตริง) ---------------- */
 const asString = (v) => (v === null || v === undefined ? "" : String(v));
@@ -484,6 +485,8 @@ function OrderCorrection() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Esc / click outside the panel close the detail modal (not while saving)
+  const { backdropProps: detailBackdrop } = useModalDismiss(() => closeModal(), { open, disabled: saving || deleting });
   const [rowError, setRowError] = useState("");
   const [touched, setTouched] = useState(new Set());
 
@@ -1134,9 +1137,9 @@ function OrderCorrection() {
 
       {/* EDIT MODAL */}
       <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
-        <div className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={closeModal} />
-        <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5">
-          <div
+        <div className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} />
+        <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5" {...detailBackdrop}>
+          <div role="dialog" aria-modal="true"
             className={`h-[88vh] w-[96vw] max-w-[1280px] transform overflow-hidden rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-slate-800 dark:text-white ${
               open ? "scale-100 opacity-100" : "scale-95 opacity-0"
             }`}

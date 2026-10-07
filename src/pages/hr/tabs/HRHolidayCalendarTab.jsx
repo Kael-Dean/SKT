@@ -10,6 +10,7 @@ import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
 import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../../../components/ui"
 import { currentFiscalYearBE, fmtDays } from "../../../lib/leaveDays"
+import useModalDismiss from "../../../lib/useModalDismiss"
 
 const HOLIDAY_COLS = 5
 
@@ -56,6 +57,9 @@ export default function HRHolidayCalendarTab() {
   const [copying, setCopying] = useState(false)
   const [copyMsg, setCopyMsg] = useState(null) // { ok, text }
   const [copyResult, setCopyResult] = useState(null)
+  const { backdropProps: formBackdrop } = useModalDismiss(() => setModal(null), { open: !!modal, disabled: saving })
+  const { backdropProps: cancelBackdrop } = useModalDismiss(() => setCancelModal(null), { open: !!cancelModal, disabled: cancelling })
+  const { backdropProps: copyBackdrop } = useModalDismiss(() => setCopyModal(false), { open: copyModal, disabled: copying })
 
   const fetchHolidays = useCallback(() => {
     setLoading(true)
@@ -303,8 +307,8 @@ export default function HRHolidayCalendarTab() {
       {/* ประกาศ / แก้ไขวันหยุด */}
       {modal && (
         <Portal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...formBackdrop}>
+            <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                   {modal.mode === "create" ? "ประกาศวันหยุด" : "แก้ไขวันหยุด"}
@@ -384,8 +388,8 @@ export default function HRHolidayCalendarTab() {
       {/* ยกเลิกวันหยุด — ยืนยัน แล้วแสดงใบลาที่ถูกปรับ */}
       {cancelModal && (
         <Portal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...cancelBackdrop}>
+            <div role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                   {cancelModal.result ? "ยกเลิกวันหยุดแล้ว" : "ยืนยันยกเลิกวันหยุด"}
@@ -477,8 +481,8 @@ export default function HRHolidayCalendarTab() {
       {/* คัดลอกปฏิทินจากปีก่อน */}
       {copyModal && (
         <Portal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...copyBackdrop}>
+            <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">คัดลอกปฏิทินวันหยุด</h3>
                 <button onClick={() => setCopyModal(false)} aria-label="ปิด" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">

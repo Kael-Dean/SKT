@@ -5,6 +5,7 @@ import { apiAuth } from "../../lib/api"
 import { cardCls, tabPanelCls } from "../../lib/styles"
 import { PageLoader, ErrorState, EmptyState, Badge, Tabs, tabId, panelId, useSubTab } from "../../components/ui"
 import Portal from "../../components/Portal"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 const STATUS_LABEL = { pending: "รอดำเนินการ", approved: "อนุมัติแล้ว", denied: "ปฏิเสธ" }
 const STATUS_TONE = { pending: "pending", approved: "success", denied: "danger" }
@@ -19,6 +20,7 @@ export default function HRIssueReports() {
   const [hrComment, setHrComment] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState("")
+  const { backdropProps: modalBackdrop } = useModalDismiss(() => setModal(null), { open: !!modal, disabled: submitting })
 
   const fetchReports = useCallback(() => {
     setLoading(true)
@@ -188,7 +190,7 @@ export default function HRIssueReports() {
       {/* Confirm Modal */}
       {modal && (
         <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...modalBackdrop}>
           <div role="dialog" aria-modal="true" aria-labelledby="issue-report-confirm-title" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <h3 id="issue-report-confirm-title" className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
               {modal.action === "approve" ? (

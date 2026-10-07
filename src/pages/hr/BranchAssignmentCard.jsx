@@ -9,6 +9,7 @@ import { apiAuth } from "../../lib/api"
 import { getRoleId } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
 import StatusMsg from "../../components/hr/StatusMsg"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 function SectionTitle({ children }) {
   return (
@@ -39,6 +40,7 @@ export default function BranchAssignmentCard({ personnelId, personnelName }) {
 
   const [removeTarget, setRemoveTarget] = useState(null) // { id, branch_name }
   const [removing, setRemoving] = useState(false)
+  const { backdropProps: removeBackdrop } = useModalDismiss(() => setRemoveTarget(null), { open: !!removeTarget, disabled: removing })
 
   const load = useCallback(() => {
     setLoading(true)
@@ -214,8 +216,8 @@ export default function BranchAssignmentCard({ personnelId, personnelName }) {
 
       {/* Confirm remove dialog */}
       {removeTarget && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...removeBackdrop}>
+          <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">ยืนยันลบสิทธิ์สาขา</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               ลบสิทธิ์เข้าถึงสาขา{" "}

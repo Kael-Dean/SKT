@@ -1,9 +1,10 @@
 // src/components/hr/HrModal.jsx
 // Dialog shell for HR position/salary flows — always rendered through <Portal>
-// (CLAUDE.md rule). Esc closes (unless busy or a child handled it), Tab is trapped,
+// (CLAUDE.md rule). Esc / backdrop close via useModalDismiss (top-most only, not while busy), Tab is trapped,
 // focus moves into the dialog on open and returns to the trigger on close.
 import { useEffect, useId, useRef } from "react"
 import Portal from "../Portal"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -11,13 +12,7 @@ const FOCUSABLE =
 export default function HrModal({ title, subtitle, onClose, busy = false, size = "sm", children, footer }) {
   const titleId = useId()
   const panelRef = useRef(null)
-  const closeRef = useRef(onClose)
-  const busyRef = useRef(busy)
-
-  useEffect(() => {
-    closeRef.current = onClose
-    busyRef.current = busy
-  })
+  const { backdropProps } = useModalDismiss(onClose, { disabled: busy })
 
   useEffect(() => {
     const prevFocus = document.activeElement
@@ -26,11 +21,6 @@ export default function HrModal({ title, subtitle, onClose, busy = false, size =
     )
     ;(first || panelRef.current)?.focus()
     const onKey = (e) => {
-      if (e.key === "Escape") {
-        // A child (e.g. an open SelectDropdown inside the modal) already handled Esc.
-        if (!e.defaultPrevented && !busyRef.current) closeRef.current?.()
-        return
-      }
       // Trap Tab inside the dialog (aria-modal). Focus inside a portaled
       // dropdown panel is managed by that dropdown.
       const panel = panelRef.current
@@ -60,7 +50,7 @@ export default function HrModal({ title, subtitle, onClose, busy = false, size =
     <Portal>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-        onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose?.() }}
+        {...backdropProps}
       >
         <div
           ref={panelRef}

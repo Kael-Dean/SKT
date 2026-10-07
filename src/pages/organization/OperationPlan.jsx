@@ -20,6 +20,7 @@ import BusinessPlanExpenseServiceTableDetail from "./cost/BusinessPlanExpenseSer
 import BusinessPlanExpenseSupportWorkTableDetail from "./cost/BusinessPlanExpenseSupportWorkTableDetail"
 import BusinessPlanRepCostSummaryTableDetail from "./cost/BusinessPlanRepCostSummaryTableDetail"
 import Thonthun from "./thonthun/Thonthun"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 // ---------------- Styles ----------------
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -402,13 +403,8 @@ const OperationPlan = () => {
     if (canShowTable) setModalOpen(true)
   }, [tableKey, canShowTable])
 
-  // Escape key ปิด modal
-  useEffect(() => {
-    if (!modalOpen) return
-    const onKey = (e) => { if (e.key === "Escape") setModalOpen(false) }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [modalOpen])
+  // Escape key ปิด modal (full-screen — ไม่มี backdrop ให้คลิก)
+  useModalDismiss(() => setModalOpen(false), { open: modalOpen && canShowTable })
 
   // Lock body scroll เมื่อ modal เปิด
   useEffect(() => {
@@ -592,7 +588,7 @@ const OperationPlan = () => {
 
       {/* Full-screen Table Modal */}
       {modalOpen && canShowTable && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-[9999] flex flex-col bg-white dark:bg-slate-900 overflow-hidden">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[9999] flex flex-col bg-white dark:bg-slate-900 overflow-hidden">
 
           {/* ── Modal top bar ── */}
           <div className="flex-shrink-0 px-4 md:px-6 pt-3 pb-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm">

@@ -57,6 +57,7 @@ import HRResignedRetiredTab from "./tabs/HRResignedRetiredTab"
 import HRHolidayCalendarTab from "./tabs/HRHolidayCalendarTab"
 import HRHolidayWorkTab from "./tabs/HRHolidayWorkTab"
 import HROutOfOfficeTab from "./tabs/HROutOfOfficeTab"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 // ─── Navigation config (single source of truth) ──────────────────────────────
 
@@ -493,6 +494,8 @@ function QuickSwitcher({ activeKey, badges, onNavigate, onClose }) {
   const [activeIdx, setActiveIdx] = useState(() => Math.max(0, NAV_ITEMS.findIndex((it) => it.key === activeKey)))
   const safeIdx = results.length ? Math.min(activeIdx, results.length - 1) : -1
   const activeItem = safeIdx >= 0 ? results[safeIdx] : null
+  // Esc (top-most modal only) + backdrop click close the switcher
+  const { backdropProps } = useModalDismiss(onClose)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -512,10 +515,7 @@ function QuickSwitcher({ activeKey, badges, onNavigate, onClose }) {
 
   const onKeyDown = (e) => {
     const n = results.length
-    if (e.key === "Escape") {
-      e.preventDefault()
-      onClose()
-    } else if (e.key === "Tab") {
+    if (e.key === "Tab") {
       e.preventDefault() // focus stays in the dialog (single focusable input)
     } else if (!n) {
       return
@@ -573,7 +573,7 @@ function QuickSwitcher({ activeKey, badges, onNavigate, onClose }) {
   return (
     <Portal>
       <div className="fixed inset-0 z-[10060]">
-        <div aria-hidden="true" className="absolute inset-0 bg-gray-950/40" onMouseDown={onClose} />
+        <div aria-hidden="true" className="absolute inset-0 bg-gray-950/40" {...backdropProps} />
         <div
           role="dialog"
           aria-modal="true"

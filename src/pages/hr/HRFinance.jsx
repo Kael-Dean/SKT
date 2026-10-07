@@ -5,6 +5,7 @@ import { apiAuth } from "../../lib/api"
 import { ErrorState, EmptyState, SkeletonTableRows, SkeletonStat } from "../../components/ui"
 import StatusMsg from "../../components/hr/StatusMsg"
 import Portal from "../../components/Portal"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -18,6 +19,7 @@ export default function HRFinance() {
   const [editForm, setEditForm] = useState({ current_salary: "", current_loan: "", job_age: "" })
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState("")
+  const { backdropProps: editBackdrop } = useModalDismiss(() => setEditModal(null), { open: !!editModal, disabled: saving })
 
   const fetchEmployees = () => {
     setLoading(true)
@@ -163,7 +165,7 @@ export default function HRFinance() {
       {/* Edit Modal */}
       {editModal && (
         <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...editBackdrop}>
           <div role="dialog" aria-modal="true" aria-labelledby="hr-finance-edit-title" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <h3 id="hr-finance-edit-title" className="text-lg font-bold text-gray-900 dark:text-gray-100">แก้ไขข้อมูลการเงิน</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">{editModal.first_name} {editModal.last_name}</p>

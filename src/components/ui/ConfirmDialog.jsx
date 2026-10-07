@@ -16,6 +16,7 @@
 import { useEffect, useId, useRef } from "react"
 import { LoaderCircle } from "lucide-react"
 import Portal from "../Portal"
+import useModalDismiss from "../../lib/useModalDismiss"
 import { cx, dangerBtnCls, neutralBtnCls, primaryBtnCls } from "../../lib/styles"
 
 const FOCUSABLE =
@@ -40,27 +41,15 @@ function DialogBody({
   const panelRef = useRef(null)
   const cancelRef = useRef(null)
   const confirmRef = useRef(null)
-  const cancelCb = useRef(onCancel)
-  const loadingRef = useRef(loading)
+  const { backdropProps } = useModalDismiss(onCancel, { disabled: loading })
 
-  useEffect(() => {
-    cancelCb.current = onCancel
-    loadingRef.current = loading
-  })
-
-  // Focus in on open, trap Tab, Esc cancels, focus back to opener on close.
+  // Focus in on open, trap Tab (Esc via useModalDismiss), focus back to opener on close.
   useEffect(() => {
     const opener = document.activeElement
     const target = initialFocus === "confirm" ? confirmRef.current : cancelRef.current
     ;(target || panelRef.current)?.focus()
 
     const onKey = (e) => {
-      if (e.key === "Escape") {
-        // A child (e.g. an open SelectDropdown) already handled Esc.
-        if (e.defaultPrevented) return
-        if (!loadingRef.current) cancelCb.current?.()
-        return
-      }
       if (e.key !== "Tab" || !panelRef.current) return
       const nodes = [...panelRef.current.querySelectorAll(FOCUSABLE)]
       if (nodes.length === 0) {
@@ -99,9 +88,7 @@ function DialogBody({
     <Portal>
       <div
         className="fixed inset-0 z-[10070] flex items-center justify-center bg-gray-950/50 p-4 animate-fade-in"
-        onMouseDown={(e) => {
-          if (e.target === e.currentTarget && !loading) onCancel?.()
-        }}
+        {...backdropProps}
       >
         <div
           ref={panelRef}

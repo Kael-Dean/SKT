@@ -37,6 +37,7 @@ import {
   requesterName,
   requestNotificationsRefresh,
 } from "../../lib/approvalActions"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5"
@@ -252,11 +253,7 @@ function InboxCard({ item, onView, onDecide }) {
 
 // ─── Detail modal ───────────────────────────────────────────────────────────
 function DetailModal({ state, roleId, onClose, onDecide }) {
-  useEffect(() => {
-    const h = (e) => e.key === "Escape" && onClose()
-    document.addEventListener("keydown", h)
-    return () => document.removeEventListener("keydown", h)
-  }, [onClose])
+  const { backdropProps } = useModalDismiss(onClose)
 
   const { loading, item, error } = state
   const req = item?.req
@@ -288,7 +285,7 @@ function DetailModal({ state, roleId, onClose, onDecide }) {
   return (
     <Portal>
       <div className="fixed inset-0 z-[10055] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="inbox-detail-title">
-        <button type="button" aria-label="ปิด" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-pointer bg-black/50 backdrop-blur-sm" />
+        <button type="button" aria-label="ปิด" tabIndex={-1} {...backdropProps} className="absolute inset-0 cursor-pointer bg-black/50 backdrop-blur-sm" />
         <div className="relative max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-gray-200/70 dark:bg-gray-800 dark:ring-gray-700/70">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">

@@ -4,6 +4,7 @@ import { apiAuth } from "../../lib/api"
 import { emitMasterDataChanged } from "../../lib/useProductsByGroup"
 import { invalidateBusinessListCache } from "../../lib/useBusinessList"
 import { SkeletonTableRows, EmptyState } from "../../components/ui"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 /** ---------- Mapping ---------- */
 const BUSINESS_GROUP_MAP = {
@@ -362,6 +363,7 @@ const BusinessEdit = () => {
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState({})
   const [isSaving, setIsSaving] = useState(false)
+  const { backdropProps: formBackdrop } = useModalDismiss(() => setIsModalOpen(false), { open: isModalOpen, disabled: isSaving })
 
   const currentConfig = useMemo(() => TABS.find((t) => t.key === activeTab), [activeTab])
 
@@ -739,8 +741,8 @@ const BusinessEdit = () => {
 
         {/* --- MODAL FORM --- */}
         {isModalOpen && ReactDOM.createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800 transform transition-all animate-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" {...formBackdrop}>
+            <div role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800 transform transition-all animate-in zoom-in-95 duration-200">
               <h2 className="mb-4 flex items-center gap-2 text-xl font-bold border-b border-slate-100 dark:border-slate-700 pb-3 text-slate-800 dark:text-slate-100">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5 text-indigo-500 dark:text-indigo-400 shrink-0">
                   {editingId ? (

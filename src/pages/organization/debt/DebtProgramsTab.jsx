@@ -6,6 +6,7 @@ import {
   submitBtnCls, secondaryBtnCls, resetBtnCls, cardCls,
 } from "../../../lib/styles"
 import { Badge, EmptyState } from "../../../components/ui"
+import useModalDismiss from "../../../lib/useModalDismiss"
 
 const ROLE = { ADMIN: 1, HA: 4 }
 
@@ -16,6 +17,8 @@ export default function DebtProgramsTab({ roleId, programs, onProgramsChanged })
   const [form, setForm] = useState({ prog_name: "", description: "" })
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState("")
+  // Add/Edit and Delete never open together — one dismiss hook serves both
+  const { backdropProps: modalBackdrop } = useModalDismiss(() => closeModal(), { open: !!modal, disabled: saving })
 
   if (!canManage) {
     return (
@@ -162,8 +165,8 @@ export default function DebtProgramsTab({ roleId, programs, onProgramsChanged })
       {/* Add / Edit Modal */}
       {modal && modal.mode !== "delete" && (
         <Portal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={cx(modalCardCls, "max-w-md w-full")}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" {...modalBackdrop}>
+            <div role="dialog" aria-modal="true" className={cx(modalCardCls, "max-w-md w-full")}>
               <h2 className={cx(modalTitleCls, "mb-5")}>
                 {modal.mode === "add" ? "เพิ่มโครงการหนี้" : "แก้ไขโครงการหนี้"}
               </h2>
@@ -208,8 +211,8 @@ export default function DebtProgramsTab({ roleId, programs, onProgramsChanged })
       {/* Delete Modal */}
       {modal?.mode === "delete" && (
         <Portal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className={cx(modalCardCls, "max-w-sm w-full")}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" {...modalBackdrop}>
+            <div role="dialog" aria-modal="true" className={cx(modalCardCls, "max-w-sm w-full")}>
               <h2 className={cx(modalTitleCls, "mb-2")}>ยืนยันการลบ</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 ต้องการลบโครงการ <span className="font-semibold text-gray-900 dark:text-gray-100">"{modal.record.prog_name}"</span> ใช่หรือไม่?

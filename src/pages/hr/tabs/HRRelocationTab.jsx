@@ -15,6 +15,7 @@ import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
 import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import Portal from "../../../components/Portal"
 import RelocationTransferModal from "../../../components/hr/RelocationTransferModal"
+import useModalDismiss from "../../../lib/useModalDismiss"
 
 const TABS = [
   { key: "pending_branch_head", label: "รอหัวหน้าสาขา" },
@@ -122,12 +123,7 @@ export default function HRRelocationTab() {
     setSubmitMsg("")
   }
 
-  useEffect(() => {
-    if (!modal) return
-    const onKey = (e) => { if (e.key === "Escape" && !submitting) setModal(null) }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [modal, submitting])
+  const { backdropProps: modalBackdrop } = useModalDismiss(() => setModal(null), { open: !!modal, disabled: submitting })
 
   const handleConfirm = async () => {
     if (!modal) return
@@ -322,7 +318,7 @@ export default function HRRelocationTab() {
         <Portal>
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            onMouseDown={(e) => { if (e.target === e.currentTarget && !submitting) setModal(null) }}
+            {...modalBackdrop}
           >
             <div
               role="dialog"

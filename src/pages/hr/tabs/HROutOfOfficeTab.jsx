@@ -22,6 +22,7 @@ import Portal from "../../../components/Portal"
 import SelectDropdown from "../../../components/SelectDropdown"
 import { Skeleton, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import { tabPanelCls } from "../../../lib/styles"
+import useModalDismiss from "../../../lib/useModalDismiss"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -91,22 +92,17 @@ function Spinner() {
 }
 
 function ModalShell({ labelledBy, onClose, busy, children }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape" && !busy) onClose() }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [busy, onClose])
+  const { backdropProps } = useModalDismiss(onClose, { disabled: busy })
   return (
     <Portal>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-        onClick={() => !busy && onClose()}
+        {...backdropProps}
       >
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby={labelledBy}
-          onClick={(e) => e.stopPropagation()}
           className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4"
         >
           {children}

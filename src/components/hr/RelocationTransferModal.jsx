@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import Portal from "../Portal"
+import useModalDismiss from "../../lib/useModalDismiss"
 import SelectDropdown from "../SelectDropdown"
 
 const inputCls =
@@ -105,12 +106,8 @@ export default function RelocationTransferModal({ employee = null, onClose, onDo
 
   const isFuture = effectiveDate && effectiveDate > todayISO()
 
-  // Esc ปิด modal
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape" && !submitting) onClose?.() }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [onClose, submitting])
+  // Esc / คลิกนอก modal ปิด (ไม่ปิดระหว่างบันทึก)
+  const { backdropProps } = useModalDismiss(onClose, { disabled: submitting })
 
   useEffect(() => {
     const root = dialogRef.current
@@ -172,7 +169,7 @@ export default function RelocationTransferModal({ employee = null, onClose, onDo
     <Portal>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-        onMouseDown={(e) => { if (e.target === e.currentTarget && !submitting) onClose?.() }}
+        {...backdropProps}
       >
         <div
           ref={dialogRef}

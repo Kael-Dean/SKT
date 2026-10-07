@@ -13,6 +13,7 @@ import {
 import Portal from "../../components/Portal"
 import SelectDropdown from "../../components/SelectDropdown"
 import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -190,6 +191,7 @@ export default function OutOfOffice() {
 
   const [cancelTarget, setCancelTarget] = useState(null)
   const [cancelling, setCancelling] = useState(false)
+  const { backdropProps: cancelBackdrop } = useModalDismiss(() => setCancelTarget(null), { open: !!cancelTarget, disabled: cancelling })
   const [cancelError, setCancelError] = useState("")
   const [notice, setNotice] = useState("")
 
@@ -587,14 +589,12 @@ export default function OutOfOffice() {
         <Portal>
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            onClick={() => !cancelling && setCancelTarget(null)}
-            onKeyDown={(e) => e.key === "Escape" && !cancelling && setCancelTarget(null)}
+            {...cancelBackdrop}
           >
             <div
               role="dialog"
               aria-modal="true"
               aria-labelledby="ooo-cancel-title"
-              onClick={(e) => e.stopPropagation()}
               className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4"
             >
               <h3 id="ooo-cancel-title" className="text-lg font-bold text-gray-900 dark:text-gray-100">

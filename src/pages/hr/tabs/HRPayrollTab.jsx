@@ -6,6 +6,7 @@ import SelectDropdown from "../../../components/SelectDropdown"
 import Portal from "../../../components/Portal"
 import { SkeletonTableRows, ErrorState, EmptyState, toast } from "../../../components/ui"
 import StatusMsg from "../../../components/hr/StatusMsg"
+import useModalDismiss from "../../../lib/useModalDismiss"
 
 const PAYROLL_COLS = 6
 
@@ -39,6 +40,7 @@ export default function HRPayrollTab() {
   const [genForm, setGenForm] = useState({ employee_id: "", month: "", year: "" })
   const [generating, setGenerating] = useState(false)
   const [genMsg, setGenMsg] = useState("")
+  const { backdropProps: genBackdrop } = useModalDismiss(() => setShowGenerate(false), { open: showGenerate, disabled: generating })
 
   const [downloading, setDownloading] = useState(null)
 
@@ -199,8 +201,8 @@ export default function HRPayrollTab() {
       {/* Generate Modal */}
       {showGenerate && (
         <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...genBackdrop}>
+          <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">สร้างเงินเดือน</h3>
               <button onClick={() => setShowGenerate(false)} aria-label="ปิด" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">

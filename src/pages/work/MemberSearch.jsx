@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../components/ui"
+import useModalDismiss from "../../lib/useModalDismiss"
 
 /** ไอคอนแว่นขยาย (inline SVG — currentColor, ไม่มี emoji) */
 function SearchIcon({ className = "size-5" }) {
@@ -294,6 +295,8 @@ const MemberSearch = () => {
   const [draft, setDraft] = useState(null)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  // Esc / click outside the panel close the detail modal (not while saving)
+  const { backdropProps: detailBackdrop } = useModalDismiss(() => closeModal(), { open, disabled: saving })
   const [rowError, setRowError] = useState("")
 
   const hint = useMemo(() => {
@@ -563,9 +566,9 @@ const MemberSearch = () => {
 
       {/* Modal */}
       <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
-        <div className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={closeModal} />
-        <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5">
-          <div className={`h-[88vh] w-[96vw] max-w-[1280px] transform overflow-hidden rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-slate-800 dark:text-white ${open ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
+        <div className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} />
+        <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5" {...detailBackdrop}>
+          <div role="dialog" aria-modal="true" className={`h-[88vh] w-[96vw] max-w-[1280px] transform overflow-hidden rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-slate-800 dark:text-white ${open ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
               <div className="text-xl md:text-2xl font-semibold">
                 {active

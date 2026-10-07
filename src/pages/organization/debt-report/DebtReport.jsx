@@ -11,6 +11,7 @@ import { getRoleId } from "../../../lib/auth"
 import { canManagePrograms } from "../debt/debtEntryMeta"
 import BranchDebtTable from "./BranchDebtTable"
 import AllBranchesTable from "./AllBranchesTable"
+import useModalDismiss from "../../../lib/useModalDismiss"
 
 /** Line-art building icon — branch / per-unit debt entry card. */
 function BranchIcon() {
@@ -65,6 +66,7 @@ export default function DebtReport() {
   const [progForm, setProgForm]           = useState({ prog_name: "", description: "" })
   const [saving, setSaving]               = useState(false)
   const [saveMsg, setSaveMsg]             = useState("")
+  const { backdropProps: programBackdrop } = useModalDismiss(() => closeModal(), { open: modal?.mode === "add_program", disabled: saving })
 
   // Only reference data is loaded here; the actual debt figures are derived
   // server-side and fetched per view from GET /debt/report (v4 waterfall).
@@ -249,9 +251,9 @@ export default function DebtReport() {
         <Portal>
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-            onClick={(e) => { if (e.target === e.currentTarget) closeModal() }}
+            {...programBackdrop}
           >
-            <div className={cx(modalCardCls, "max-w-md w-full")}>
+            <div role="dialog" aria-modal="true" className={cx(modalCardCls, "max-w-md w-full")}>
               <h2 className={cx(modalTitleCls, "mb-4")}>เพิ่มโครงการ</h2>
               <form onSubmit={handleAddProgram} className="space-y-4">
                 <div>

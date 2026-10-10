@@ -4,11 +4,11 @@ import SelectDropdown from "../../../components/SelectDropdown"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { cx, secondaryBtnCls, baseField } from "../../../lib/styles"
 import { EmptyState, ErrorState } from "../../../components/ui"
-import { getRoleId, getHomeBranch } from "../../../lib/auth"
+import { getHomeBranch } from "../../../lib/auth"
 import { buildReportRows, computeColTotals, sumRows } from "./buildReportRows"
 import { printDebtTable } from "./printDebtTable"
 import DebtEntryModal from "../debt/DebtEntryModal"
-import { canWriteEntries, ROLE_GENERAL_STAFF } from "../debt/debtEntryMeta"
+import { canWriteEntries, isOwnBranchOnly } from "../debt/debtEntryMeta"
 
 /** Line-art printer icon for the export button (currentColor, no emoji). */
 function PrinterIcon() {
@@ -174,9 +174,8 @@ export function ReportBody({ tableRows, colTotals, loading, emptyDescription, em
 export { ReportHead, STRIPE }
 
 export default function BranchDebtTable({ programs, fiscalYears, branches, onBack }) {
-  const roleId = getRoleId()
-  const canWrite = canWriteEntries(roleId)
-  const isGeneralStaff = roleId === ROLE_GENERAL_STAFF
+  const canWrite = canWriteEntries()
+  const isGeneralStaff = isOwnBranchOnly()
   const homeBranch = getHomeBranch()
 
   // Role 5 is branch-locked: pin the view to their own branch.

@@ -1,8 +1,6 @@
 import { useNavigate } from "react-router-dom"
-import { getRoleId } from "../../../lib/auth"
+import { can } from "../../../lib/permissions"
 import { cx, cardCls, pageTitleCls } from "../../../lib/styles"
-
-const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5 }
 
 // ฟังก์ชันย่อยภายใต้ "ติดตามหนี้"
 const SUB_FUNCTIONS = [
@@ -10,7 +8,7 @@ const SUB_FUNCTIONS = [
     label: "ติดตามผลหนี้",
     desc: "สรุปยอดหนี้ รายการเคลื่อนไหว และโครงการชำระหนี้",
     path: "/debt-tracking",
-    roles: [ROLE.ADMIN, ROLE.HA, ROLE.MKT],
+    perm: "debt.view",
     accent: "indigo",
     icon: (
       <path
@@ -24,7 +22,7 @@ const SUB_FUNCTIONS = [
     label: "ตารางหนี้",
     desc: "ดูและจัดทำตารางข้อมูลหนี้รายสาขา",
     path: "/debt-form",
-    roles: "all",
+    perm: "debt.view",
     accent: "emerald",
     icon: (
       <path
@@ -49,16 +47,12 @@ const ACCENT = {
   },
 }
 
-function canAccess(item, roleId) {
-  if (item.roles === "all") return true
-  if (Array.isArray(item.roles)) return item.roles.includes(roleId)
-  return false
-}
+// แต่ละการ์ดแสดงตาม permission key (src/lib/permissions.js)
+const canAccess = (item) => can(item.perm)
 
 export default function DebtHub() {
   const navigate = useNavigate()
-  const roleId = getRoleId()
-  const items = SUB_FUNCTIONS.filter((it) => canAccess(it, roleId))
+  const items = SUB_FUNCTIONS.filter(canAccess)
 
   return (
     <div className="space-y-5 p-4 md:p-6">

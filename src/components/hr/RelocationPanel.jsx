@@ -4,14 +4,12 @@
 // usage: <RelocationPanel userId={id} />
 import { useCallback, useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
-import { getRoleId } from "../../lib/auth"
+import { can } from "../../lib/permissions"
 import RelocationTransferModal from "./RelocationTransferModal"
 import RelocationHistoryList from "./RelocationHistoryList"
 
-const CAN_TRANSFER_ROLES = [1, 3] // ADMIN, HR — ตาม API: POST /hr/employees/{id}/relocations
-
 export default function RelocationPanel({ userId }) {
-  const canTransfer = CAN_TRANSFER_ROLES.includes(getRoleId())
+  const canTransfer = can("hr.relocation.direct")
   const [person, setPerson] = useState(null)
   const [branchName, setBranchName] = useState(null)
   const [open, setOpen] = useState(false)

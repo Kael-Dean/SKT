@@ -7,11 +7,11 @@ import {
 } from "../../../lib/styles"
 import { Badge, EmptyState } from "../../../components/ui"
 import useModalDismiss from "../../../lib/useModalDismiss"
+import { canManagePrograms } from "./debtEntryMeta"
 
-const ROLE = { ADMIN: 1, HA: 4 }
 
 export default function DebtProgramsTab({ roleId, programs, onProgramsChanged }) {
-  const canManage = roleId === ROLE.ADMIN || roleId === ROLE.HA
+  const canManage = canManagePrograms(roleId)
 
   const [modal, setModal] = useState(null)
   const [form, setForm] = useState({ prog_name: "", description: "" })

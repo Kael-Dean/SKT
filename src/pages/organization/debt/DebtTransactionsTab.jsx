@@ -11,7 +11,7 @@ import { getHomeBranch } from "../../../lib/auth"
 import DebtEntryModal from "./DebtEntryModal"
 import {
   ENTRY_TYPES, ENTRY_META, ENTRY_BADGE_CLS, entryLabel,
-  PM_LABEL, canWriteEntries, ROLE_GENERAL_STAFF,
+  PM_LABEL, canWriteEntries, isOwnBranchOnly,
 } from "./debtEntryMeta"
 import useModalDismiss from "../../../lib/useModalDismiss"
 
@@ -23,7 +23,7 @@ const fmtMoney = (v) =>
 
 export default function DebtTransactionsTab({ roleId, branches, programs, fiscalYears }) {
   const canWrite = canWriteEntries(roleId)
-  const isGeneralStaff = roleId === ROLE_GENERAL_STAFF
+  const isGeneralStaff = isOwnBranchOnly(roleId)
   const homeBranch = getHomeBranch()
 
   const [entries, setEntries]   = useState([])

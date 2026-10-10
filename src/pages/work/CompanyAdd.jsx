@@ -1,7 +1,7 @@
 // src/pages/CompanyAdd.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
-import { canSeeAddCompany } from "../../lib/auth"
+import { canSeeAddCompany } from "../../lib/permissions"
 import { cx, baseField, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, spinnerCls } from "../../lib/styles"
 import { Card, CardHeader } from "../../components/ui"
 

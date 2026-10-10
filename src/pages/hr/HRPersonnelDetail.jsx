@@ -12,6 +12,7 @@ import lineIcon from "../../assets/line-icon.png"
 import { fmtDaysUnit } from "../../lib/leaveDays"
 import StatusMsg from "../../components/hr/StatusMsg"
 import useModalDismiss from "../../lib/useModalDismiss"
+import { roleLabel } from "../../lib/roles"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -30,7 +31,6 @@ const QUOTA_ROWS = [
   { key: "absent",          label: "ขาดงาน" },
 ]
 
-const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
 
 function fmt(n) {
   if (n == null) return "—"
@@ -239,7 +239,7 @@ export default function HRPersonnelDetail() {
               {data.first_name} {data.last_name}
             </h1>
             <p className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <span>@{data.username} · {ROLE_LABEL[data.role_id] ?? `Role ${data.role_id}`}</span>
+              <span>@{data.username} · {roleLabel(data.role_id)}</span>
               {data.is_active
                 ? <Badge tone="success">ใช้งาน</Badge>
                 : <Badge tone="danger">ไม่ใช้งาน</Badge>}

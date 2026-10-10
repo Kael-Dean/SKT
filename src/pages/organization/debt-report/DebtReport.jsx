@@ -7,7 +7,6 @@ import {
   submitBtnCls, secondaryBtnCls, modalCardCls, modalTitleCls,
 } from "../../../lib/styles"
 import { PageLoader, ErrorState } from "../../../components/ui"
-import { getRoleId } from "../../../lib/auth"
 import { canManagePrograms } from "../debt/debtEntryMeta"
 import BranchDebtTable from "./BranchDebtTable"
 import AllBranchesTable from "./AllBranchesTable"
@@ -55,7 +54,7 @@ function AllBranchesIcon() {
 }
 
 export default function DebtReport() {
-  const canAddProgram = canManagePrograms(getRoleId())
+  const canAddProgram = canManagePrograms()
   const [view, setView]                   = useState(null)
   const [programs, setPrograms]           = useState([])
   const [fiscalYears, setFiscalYears]     = useState([])

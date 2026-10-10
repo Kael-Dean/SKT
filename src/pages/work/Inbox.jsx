@@ -13,9 +13,9 @@ import DecisionModal from "../../components/DecisionModal"
 import { EmptyState } from "../../components/ui"
 import { getRoleId, getUser } from "../../lib/auth"
 import { apiAuth } from "../../lib/api"
+import { ROLE_LABEL } from "../../lib/roles"
+import { can } from "../../lib/permissions"
 import {
-  APPROVAL_ROLE,
-  ROLE_LABEL,
   STAGE_APPROVE_LABEL,
   OOO_TYPE_LABEL,
   hhmm,
@@ -137,7 +137,7 @@ function stateNotice(req, roleId) {
   const label = statusLabel(req.status)
   if (!isPendingStatus(req.status)) return { tone: "done", text: `คำขอนี้ดำเนินการไปแล้ว (${label})` }
   if (canDecide(req)) return null
-  if (roleId !== APPROVAL_ROLE.ADMIN && isMine(req)) {
+  if (!can("approval.anyStage", roleId) && isMine(req)) {
     return { tone: "info", text: `เป็นคำขอของคุณเอง พิจารณาเองไม่ได้ (${label})` }
   }
   if (!myStageStatus(roleId)) return { tone: "info", text: `สถานะปัจจุบัน: ${label}` }
@@ -387,7 +387,7 @@ async function loadQueue(kind, stage) {
   const data = await apiAuth(stage ? `${base}?status=${stage}` : base)
   return asList(data)
     .filter((r) => isPendingStatus(r.status))
-    .filter((r) => canDecide(r))
+    .filter((r) => canDecide(r, kind))
     .map((r) => toItem(kind, r))
 }
 
@@ -397,7 +397,9 @@ async function lookupRequest(kind, id) {
   const mePath = kind === KIND.OOO ? "/personnel/me/out-of-office" : "/personnel/me/leaves"
   const roleId = getRoleId()
   let firstErr = null
-  const paths = isApproverRole(roleId) || roleId === APPROVAL_ROLE.HR ? [hrPath, mePath] : [mePath]
+  // รายการฝั่ง HR เปิดให้เฉพาะผู้มีสิทธิ์ดูรายการ (hr.leave.list / hr.ooo.list) — ที่เหลือดูได้แค่ของตัวเอง
+  const listPerm = kind === KIND.OOO ? "hr.ooo.list" : "hr.leave.list"
+  const paths = can(listPerm, roleId) ? [hrPath, mePath] : [mePath]
   for (const p of paths) {
     try {
       const found = asList(await apiAuth(p)).find((r) => String(r.id) === String(id))
@@ -546,7 +548,7 @@ export default function Inbox() {
   }, [items, tab])
 
   const roleLine =
-    roleId === APPROVAL_ROLE.ADMIN
+    can("approval.anyStage", roleId)
       ? "คุณพิจารณาในฐานะผู้ดูแลระบบ ทำได้ทุกขั้น"
       : stage
         ? `คุณพิจารณาในฐานะ${ROLE_LABEL[roleId]} · ขั้น${statusLabel(stage)}`

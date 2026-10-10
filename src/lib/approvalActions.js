@@ -4,13 +4,14 @@
 // Endpoint mapping follows api-handoff งวด 2 §1, §2, §4. Backend stays
 // authoritative (403/409) — callers show err.message (= backend `detail`) as is.
 import { apiAuth } from "./api"
-import { getRoleId, getUser } from "./auth"
+import { getUser } from "./auth"
+import { can } from "./permissions"
 import {
-  APPROVAL_ROLE,
   STAGE_APPROVE_ACTION,
   STAGE_ROLE,
   ROLE_LABEL,
   canActOn,
+  canApproveStage,
   isPendingStatus,
   myBranchIds,
   statusLabel,
@@ -66,11 +67,11 @@ const isOwn = (req) => {
 }
 
 /** canActOn with branch normalisation + the user's covered branches. */
-export function canDecide(req) {
+export function canDecide(req, kind = KIND.LEAVE) {
   if (!req) return false
   return canActOn(
     { status: req.status, user_id: req.user_id, branch_id: requestBranchId(req) },
-    { coveredBranchIds: myBranchIds() },
+    { coveredBranchIds: myBranchIds(), kind },
   )
 }
 
@@ -78,17 +79,16 @@ export function canDecide(req) {
  * Why the current user cannot act on a request (null when they can).
  * Used for the small hint shown instead of the buttons.
  */
-export function blockedReason(req) {
+export function blockedReason(req, kind = KIND.LEAVE) {
   if (!req) return null
   if (!isPendingStatus(req.status)) return `คำขอนี้ดำเนินการไปแล้ว (${statusLabel(req.status)})`
-  if (canDecide(req)) return null
-  const roleId = getRoleId()
-  if (roleId !== APPROVAL_ROLE.ADMIN && isOwn(req)) return "เป็นคำขอของคุณเอง พิจารณาเองไม่ได้"
-  const stageRole = STAGE_ROLE[req.status]
-  if (stageRole !== roleId) {
+  if (canDecide(req, kind)) return null
+  if (!can("approval.anyStage") && isOwn(req)) return "เป็นคำขอของคุณเอง พิจารณาเองไม่ได้"
+  if (!canApproveStage(req.status, kind)) {
+    const stageRole = STAGE_ROLE[req.status]
     return stageRole ? `ขั้นนี้รอ${ROLE_LABEL[stageRole]}พิจารณา` : "ไม่ใช่ขั้นที่คุณพิจารณา"
   }
-  if (roleId === APPROVAL_ROLE.BRANCH_HEAD) return "อยู่นอกสาขาที่คุณดูแล"
+  if (req.status === "pending_branch_head") return "อยู่นอกสาขาที่คุณดูแล"
   return "ไม่มีสิทธิ์พิจารณาคำขอนี้"
 }
 

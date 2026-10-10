@@ -4,6 +4,8 @@ import { useSidebarOpen } from "../../../components/AppLayout"
 import { useBusinessCosts } from "../../../lib/useBusinessList"
 import { SkeletonTableRows, EmptyState, ErrorState } from "../../../components/ui"
 import { cellInput } from "../../../lib/styles"
+import { useCan } from "../../../lib/permissions"
+import { ReadOnlyFieldset, ReadOnlyNotice } from "../../../components/PlanReadOnly"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -147,6 +149,8 @@ const shortUnit = (name, idx) => {
 }
 
 const BusinessPlanExpenseOilTableDetail = ({ branchId, branchName, yearBE, planId }) => {
+  // บันทึกไปที่ POST /business-plan/{id}/costs/monthly → ต้องมีสิทธิ์ plan.costs.edit; ไม่มีสิทธิ์ = ดูอย่างเดียว
+  const canWrite = useCan().can("plan.costs.edit")
   const { items: businessCosts, nameById: costNameById } = useBusinessCosts(BUSINESS_GROUP_ID)
 
   const ROWS = useMemo(() => buildRowsFromItems(businessCosts), [businessCosts])
@@ -506,7 +510,8 @@ const BusinessPlanExpenseOilTableDetail = ({ branchId, branchName, yearBE, planI
   const noBranch = !effectiveBranchId
 
   return (
-    <>
+    <ReadOnlyFieldset readOnly={!canWrite}>
+      {!canWrite && <ReadOnlyNotice />}
       <div ref={tableCardRef} className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 flex flex-col" style={{ height: tableCardHeight }}>
         <div className="flex-1 min-h-0 overflow-auto" ref={tableWrapRef}>
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
@@ -654,6 +659,7 @@ const BusinessPlanExpenseOilTableDetail = ({ branchId, branchName, yearBE, planI
                     {notice.detail && <div className="mt-1 text-[13px] opacity-95">{notice.detail}</div>}
                 </div>
             )}
+            {canWrite && (
             <div className="flex justify-end gap-3">
                 <button
                 type="button"
@@ -686,10 +692,11 @@ const BusinessPlanExpenseOilTableDetail = ({ branchId, branchName, yearBE, planI
                 {isSaving ? "กำลังบันทึก..." : "บันทึก"}
                 </button>
             </div>
+            )}
         </div>
       </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
-    </>
+    </ReadOnlyFieldset>
   )
 }
 

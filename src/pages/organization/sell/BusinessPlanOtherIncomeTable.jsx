@@ -3,6 +3,8 @@ import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
 import { useBusinessEarnings } from "../../../lib/useBusinessList"
 import { SkeletonTableRows, EmptyState } from "../../../components/ui"
+import { useCan } from "../../../lib/permissions"
+import { ReadOnlyFieldset, ReadOnlyNotice } from "../../../components/PlanReadOnly"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -170,6 +172,8 @@ const normUnit = (u, idx = 0) => {
  * BusinessPlanOtherIncomeTable
  * ===================================================================== */
 const BusinessPlanOtherIncomeTable = (props) => {
+  // บันทึกไปที่ POST /business-plan/{id}/earnings/monthly → ต้องมีสิทธิ์ plan.earnings.edit; ไม่มีสิทธิ์ = ดูอย่างเดียว
+  const canWrite = useCan().can("plan.earnings.edit")
   const {
     branchId, branch_id, branch, selectedBranch,
     branchName: pBranchName,
@@ -568,7 +572,8 @@ const BusinessPlanOtherIncomeTable = (props) => {
   const leftCellItem = cx(cellClass, "sticky z-10 font-semibold", stickyShadow)
 
   return (
-    <>
+    <ReadOnlyFieldset readOnly={!canWrite}>
+      {!canWrite && <ReadOnlyNotice />}
     <div className="space-y-3 w-full p-3">
       {/* Header Info */}
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
@@ -759,6 +764,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
               <div className="opacity-90 mt-0.5">{saveMsg.detail}</div>
             </div>
           )}
+          {canWrite && (
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
             <button
               type="button"
@@ -787,11 +793,12 @@ const BusinessPlanOtherIncomeTable = (props) => {
               {saving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
           </div>
+          )}
         </div>
       </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
-    </>
+    </ReadOnlyFieldset>
   )
 }
 

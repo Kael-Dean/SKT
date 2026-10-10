@@ -1,9 +1,11 @@
 // vite.config.js
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  return {
   base: './',   // ✅ use relative URLs (works from any path)
   plugins: [
     react(),
@@ -11,10 +13,11 @@ export default defineConfig({
   ],
   // dev only: backend CORS ไม่อนุญาต origin localhost → ยิงผ่าน proxy นี้แทน
   // ใช้คู่กับ .env.development.local (VITE_API_BASE_CUSTOM=/api-proxy)
+  // ตั้ง DEV_PROXY_TARGET ใน .env.*.local เพื่อชี้ proxy ไป backend อื่น (เช่น staging)
   server: {
     proxy: {
       '/api-proxy': {
-        target: 'https://api.amcsurin.com',
+        target: env.DEV_PROXY_TARGET || 'https://api.amcsurin.com',
         changeOrigin: true,
         secure: true,
         rewrite: (p) => p.replace(/^\/api-proxy/, ''),
@@ -42,4 +45,5 @@ export default defineConfig({
       },
     },
   },
+  }
 })

@@ -102,11 +102,11 @@ export const ALL_FUNCTIONS = [
     ],
   },
   {
-    group: "HR — บุคลากร",
+    group: "งานบุคคล",
     icon: "👥",
     color: "from-rose-400 to-pink-500",
     items: [
-      { label: "HR Dashboard",       path: "/hr/dashboard",    icon: "👥", perm: "hr.dashboard.view" },
+      { label: "ภาพรวมงานบุคคล",     path: "/hr/dashboard",    icon: "👥", perm: "hr.dashboard.view" },
       { label: "ลงทะเบียนเจ้าหน้าที่", path: "/hr/staff-signup",  icon: "➕", perm: "hr.employees.create" },
       { label: "รายชื่อเจ้าหน้าที่",    path: "/hr/users",         icon: "📋", perm: "hr.employees.list" },
       { label: "อนุมัติใบลา",       path: "/hr/leaves",        icon: "📅", perm: "hr.leave.list" },

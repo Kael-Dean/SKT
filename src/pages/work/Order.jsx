@@ -189,7 +189,7 @@ const Order = () => {
         const opts = (Array.isArray(specs) ? specs : [])
           .map(r => ({
             id: String(r.id),
-            label: String(r.prod_name || r.name || r.spec_name || `spec #${r.id}`).trim(),
+            label: String(r.prod_name || r.name || r.spec_name || "").trim(),
             spec: {
               species_id: r.species_id ?? null,
               variant_id: r.variant_id ?? null,
@@ -251,7 +251,7 @@ const Order = () => {
   /** ---------- คืน subLabel ใต้ label: “ชั้นย่อย: …” ---------- */
   const templateSubLabel = (opt) => {
     const vid = String(opt?.spec?.variant_id ?? "")
-    const vLabel = vid ? (variantLookup[vid] || `#${vid}`) : ""
+    const vLabel = vid ? (variantLookup[vid] || "") : ""
     return vLabel ? `ชั้นย่อย: ${vLabel}` : ""
   }
 
@@ -513,7 +513,7 @@ const Order = () => {
 
       {/* รายการสำเร็จรูป (spec) — โชว์ชั้นย่อยแบบหน้า Buy */}
       <div className="md:col-span-2">
-        <label className={labelCls}>รายการสำเร็จรูป (spec)</label>
+        <label className={labelCls}>รายการสำเร็จรูป</label>
         <ComboBox
           options={specOptions}
           value={filters.specId}
@@ -525,7 +525,7 @@ const Order = () => {
           disabled={loadingSpecs || specOptions.length === 0}
           searchable
           title="รายการสำเร็จรูป"
-          ariaLabel="รายการสำเร็จรูป (spec)"
+          ariaLabel="รายการสำเร็จรูป"
         />
       </div>
 
@@ -597,7 +597,7 @@ const Order = () => {
         return (
           <span className="flex flex-col items-end gap-1">
             <Badge tone="neutral">{d.branch}</Badge>
-            {toNumber(d.sub) > 1 && <Badge tone="info">ย่อย {d.sub}</Badge>}
+            {toNumber(d.sub) > 1 && <Badge tone="info">พ่วง {d.sub}</Badge>}
           </span>
         )
       }}
@@ -864,7 +864,7 @@ const Order = () => {
                   <th className="px-3 py-2 text-right whitespace-nowrap">น้ำหนัก (กก.)</th>
                   <th className="px-3 py-2 text-right whitespace-nowrap">ราคาต่อกก. (บาท)</th>
                   <th className="px-3 py-2 text-right whitespace-nowrap">เป็นเงิน</th>
-                  <th className="px-3 py-2 text-center whitespace-nowrap">#ย่อย</th>
+                  <th className="px-3 py-2 text-center whitespace-nowrap">ลำดับพ่วง</th>
                 </tr>
               )}
             </thead>

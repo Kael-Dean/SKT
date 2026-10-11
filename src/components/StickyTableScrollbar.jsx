@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from "react"
 import ReactDOM from "react-dom"
+import { useIsCoarsePointer } from "../hooks/useMediaQuery"
 
 const H_H = 28    // horizontal bar height (px)
 const V_W = 20    // vertical bar width (px)
@@ -10,6 +11,11 @@ const REPEAT_DELAY = 400
 const REPEAT_INTERVAL = 60
 
 export default function StickyTableScrollbar({ tableRef, hidden = false }) {
+  // Touch devices scroll the table natively (momentum, two-finger pan) — the
+  // custom bars would double-handle touch events and hide the native thumb.
+  const coarse = useIsCoarsePointer()
+  const off = hidden || coarse
+
   // ─── Container position (relative to viewport) ───
   const [pos, setPos] = useState({ left: 0, right: 0, top: 0, bottom: 0 })
 
@@ -45,6 +51,12 @@ export default function StickyTableScrollbar({ tableRef, hidden = false }) {
   const sync = useCallback(() => {
     const el = tableRef?.current
     if (!el) return
+    if (off) {
+      // Keep native scrollbars (no _scsb-hide) and render nothing.
+      setHVis(false)
+      setVVis(false)
+      return
+    }
     syncPos()
 
     const { scrollLeft, scrollWidth, clientWidth, scrollTop, scrollHeight, clientHeight } = el
@@ -79,7 +91,7 @@ export default function StickyTableScrollbar({ tableRef, hidden = false }) {
         setVThumb({ top: pct * (ah - th), height: th })
       })
     }
-  }, [tableRef, syncPos])
+  }, [tableRef, syncPos, off])
 
   // ─── Hide native scrollbars + reserve space for custom bars ───
   useEffect(() => {
@@ -311,7 +323,7 @@ export default function StickyTableScrollbar({ tableRef, hidden = false }) {
     sync()
   }, [tableRef, vThumb, sync])
 
-  if (hidden || (!hVis && !vVis)) return null
+  if (off || (!hVis && !vVis)) return null
 
   // ─── Computed positions ───
   const hLeft   = pos.left

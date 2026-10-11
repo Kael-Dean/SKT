@@ -73,7 +73,7 @@ export default function OrderSummaryPanel({
                 className={cx(
                   "min-w-0 text-right tabular-nums break-words",
                   r.emphasis === "muted"
-                    ? "text-gray-400 dark:text-gray-500"
+                    ? "text-gray-500 dark:text-gray-400"
                     : "font-medium text-gray-900 dark:text-gray-100",
                 )}
               >
@@ -104,10 +104,21 @@ export default function OrderSummaryPanel({
               ref={primaryRef}
               type={primary.type ?? "button"}
               form={primary.form}
-              onClick={primary.onClick}
-              disabled={primary.disabled || primary.loading}
+              // While saving the button stays focusable (aria-disabled, not
+              // disabled): a disabled button drops focus to <body>, so the
+              // ResultSheet would hand focus back to the top of the page.
+              onClick={(e) => {
+                if (primary.loading) { e.preventDefault(); return }
+                primary.onClick?.(e)
+              }}
+              disabled={primary.disabled}
+              aria-disabled={primary.loading || undefined}
               aria-busy={primary.loading || undefined}
-              className={cx(submitBtnCls, "h-12 w-full py-0 hover:scale-100 active:scale-[.98]")}
+              className={cx(
+                submitBtnCls,
+                "h-12 w-full py-0 hover:scale-100 active:scale-[.98]",
+                primary.loading && "cursor-wait opacity-60",
+              )}
             >
               {primary.loading && (
                 <LoaderCircle aria-hidden="true" className="size-4 animate-spin" strokeWidth={2} />

@@ -1361,7 +1361,8 @@ function Sales() {
       stepApiRef.current.goTo(2)
       requestAnimationFrame(() => setTimeout(() => focusTrailerField(idx, "scaleNoFront"), 80))
     } else {
-      focusTrailerField(idx, "scaleNoFront")
+      // after the ResultSheet hands focus back to its opener (the save button)
+      setTimeout(() => focusTrailerField(idx, "scaleNoFront"), 40)
     }
   }
   const retrySubmit = () => {

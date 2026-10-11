@@ -79,7 +79,7 @@ function ToastCard({ t, onDismiss }) {
               onDismiss(t.id)
             }}
             className={cx(
-              "mt-1.5 -ml-2 inline-flex h-9 cursor-pointer items-center rounded-lg px-2 text-sm font-semibold",
+              "mt-1.5 -ml-2 inline-flex h-11 md:h-9 cursor-pointer items-center rounded-lg px-2 text-sm font-semibold",
               "text-indigo-600 transition-colors duration-150 hover:bg-indigo-50 hover:text-indigo-700",
               "dark:text-indigo-300 dark:hover:bg-indigo-500/15 dark:hover:text-indigo-200",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
@@ -94,7 +94,9 @@ function ToastCard({ t, onDismiss }) {
         onClick={() => onDismiss(t.id)}
         aria-label="ปิดการแจ้งเตือน"
         className={cx(
-          "-m-1 shrink-0 rounded-lg p-1 text-gray-500 transition-colors duration-150 cursor-pointer",
+          // 44px hit area on phones (negative margin keeps the 24px visual footprint)
+          "-m-2.5 inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors duration-150 cursor-pointer",
+          "md:-m-1 md:size-auto md:p-1",
           "hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
         )}

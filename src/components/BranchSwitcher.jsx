@@ -83,7 +83,8 @@ export default function BranchSwitcher() {
         aria-haspopup="listbox"
         aria-expanded={open}
         title={`สาขาที่กำลังดู: ${activeName}`}
-        className="inline-flex max-w-[11rem] items-center gap-2 rounded-xl border border-gray-200/80 bg-white px-2.5 py-1.5 text-gray-600 shadow-sm transition-all duration-150 hover:bg-gray-50 hover:text-gray-900 active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white cursor-pointer"
+        aria-label={`สาขาที่กำลังดู: ${activeName}`}
+        className="inline-flex min-h-11 min-w-11 md:min-h-0 md:min-w-0 max-w-[11rem] items-center justify-center gap-2 rounded-xl border border-gray-200/80 bg-white px-2.5 py-1.5 text-gray-600 shadow-sm transition-all duration-150 hover:bg-gray-50 hover:text-gray-900 active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white cursor-pointer"
       >
         <svg className="h-4 w-4 shrink-0 text-indigo-500 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
           <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
@@ -124,7 +125,7 @@ export default function BranchSwitcher() {
                   disabled={switchingId != null}
                   onClick={() => handleSwitch(b)}
                   className={[
-                    "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed",
+                    "flex min-h-11 md:min-h-0 w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed",
                     isActive
                       ? "bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
                       : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700/60",

@@ -306,6 +306,48 @@ const ComboBox = forwardRef(function ComboBox(
   const activeDesc = open && !isPhone && highlight >= 0 && filtered[highlight] ? optId(highlight) : undefined
   const triggerText = loading ? "กำลังโหลด…" : selectedLabel
 
+  // Phone picker: options are real focus stops (roving tabindex) so a keyboard /
+  // switch user — or a desktop browser zoomed below md — can reach and pick them.
+  const rovingIdx = highlight >= 0 && highlight < filtered.length ? highlight : 0
+  const focusOption = (i) => {
+    setHighlight(i)
+    document.getElementById(optId(i))?.focus({ preventScroll: false })
+  }
+  const onPhoneOptionKey = (e, opt, idx) => {
+    const n = filtered.length
+    switch (e.key) {
+      case "Enter":
+      case " ":
+        e.preventDefault()
+        commit(opt)
+        break
+      case "ArrowDown":
+        e.preventDefault()
+        focusOption(idx < n - 1 ? idx + 1 : 0)
+        break
+      case "ArrowUp":
+        e.preventDefault()
+        if (idx === 0 && hasSearch) searchRef.current?.focus()
+        else focusOption(idx > 0 ? idx - 1 : n - 1)
+        break
+      case "Home":
+        e.preventDefault()
+        focusOption(0)
+        break
+      case "End":
+        e.preventDefault()
+        focusOption(n - 1)
+        break
+      default:
+    }
+  }
+  const onPhoneSearchKey = (e) => {
+    if (e.key === "ArrowDown" && filtered.length) {
+      e.preventDefault()
+      focusOption(0)
+    }
+  }
+
   const renderOption = (opt, idx, phone) => {
     const label = getLabel(opt)
     const sub = getSubLabel(opt) || ""
@@ -317,13 +359,15 @@ const ComboBox = forwardRef(function ComboBox(
         id={optId(idx)}
         role="option"
         aria-selected={isChosen}
+        tabIndex={phone ? (idx === rovingIdx ? 0 : -1) : undefined}
+        onKeyDown={phone ? (e) => onPhoneOptionKey(e, opt, idx) : undefined}
         onMouseDown={(e) => e.preventDefault()}
         onMouseMove={() => { if (!phone && !isActive) setHighlight(idx) }}
         onClick={() => commit(opt)}
         className={cx(
           "flex w-full cursor-pointer items-center gap-3 text-left transition-colors duration-100",
           phone
-            ? "min-h-touch px-4 py-2.5 text-base"
+            ? "min-h-touch px-4 py-2.5 text-base outline-none focus-visible:bg-indigo-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:focus-visible:bg-indigo-500/15 dark:focus-visible:ring-indigo-400"
             : "min-h-10 rounded-xl px-3 py-2 text-[15px]",
           isActive && !phone && "bg-indigo-50 dark:bg-indigo-500/15",
           isChosen
@@ -369,7 +413,7 @@ const ComboBox = forwardRef(function ComboBox(
         spellCheck={false}
         value={query}
         onChange={(e) => { setQuery(e.target.value); setHighlight(0) }}
-        onKeyDown={phone ? undefined : onListKey}
+        onKeyDown={phone ? onPhoneSearchKey : onListKey}
         placeholder={searchPlaceholder}
         className={cx(
           "w-full bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-500 dark:text-slate-100 dark:placeholder:text-slate-400",

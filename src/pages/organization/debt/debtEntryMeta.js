@@ -3,20 +3,21 @@
 // Kept framework-free so both the DebtTracking tabs and the report tables can
 // reuse the exact same labels, rules, and request-body builder.
 
+import { getRoleId } from "../../../lib/auth"
+import { can } from "../../../lib/permissions"
 import {
   findCurrentFiscalYearId,
   selectableAppliedFiscalYears,
   pastFiscalYears,
 } from "../../../lib/debtFiscalYear"
 
-// ─── Roles (debt surface) ───────────────────────────────────────────────────
-// Write (create/patch/delete entries) → roles 1, 5. Program mutations → 1, 4.
-export const DEBT_WRITE_ROLES   = [1, 5]
-export const DEBT_PROGRAM_ROLES = [1, 4]
-export const ROLE_GENERAL_STAFF = 5 // branch-locked on writes
-
-export const canWriteEntries  = (roleId) => DEBT_WRITE_ROLES.includes(Number(roleId))
-export const canManagePrograms = (roleId) => DEBT_PROGRAM_ROLES.includes(Number(roleId))
+// ─── Permissions (debt surface) — keys in src/lib/permissions.js ─────────────
+// debt.entries.write        → create/patch/delete entries
+// debt.programs.manage      → program mutations
+// debt.entries.ownBranchOnly → writes locked to the user's home branch
+export const canWriteEntries  = (roleId = getRoleId()) => can("debt.entries.write", roleId)
+export const canManagePrograms = (roleId = getRoleId()) => can("debt.programs.manage", roleId)
+export const isOwnBranchOnly   = (roleId = getRoleId()) => can("debt.entries.ownBranchOnly", roleId)
 
 // ─── Entry types ────────────────────────────────────────────────────────────
 export const ENTRY_TYPES = ["seed", "new_debt", "full_payoff", "partial_payment"]

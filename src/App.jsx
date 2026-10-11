@@ -3,6 +3,8 @@ import { Routes, Route, Navigate } from "react-router-dom"
 import AppLayout from "./components/AppLayout"          // shell หลัก — เก็บ static (อยู่บน critical path)
 import Login from "./pages/work/Login"                  // entry route "/" — เก็บ eager
 import { PageLoader } from "./components/ui"            // fallback ระหว่างโหลด chunk
+import RequirePermission from "./components/RequirePermission"
+import { DOCUMENTS_PERMS, canBringInMill } from "./lib/permissions"
 
 /* -------- หน้าทั้งหมด lazy-load: แต่ละ route แตกเป็น chunk แยก โหลดเมื่อเข้าถึง -------- */
 const Home = lazy(() => import("./pages/work/Home"))
@@ -61,188 +63,12 @@ const MyRelocation = lazy(() => import("./pages/work/MyRelocation.jsx"))
 const LoanRequest = lazy(() => import("./pages/work/LoanRequest.jsx"))
 const ForgotPassword = lazy(() => import("./pages/work/ForgotPassword.jsx"))
 const ResetPassword = lazy(() => import("./pages/work/ResetPassword.jsx"))
+/** Admin — สิทธิ์ตามบทบาท (read-only) */
+const RolePermissions = lazy(() => import("./pages/admin/RolePermissions.jsx"))
 
-/* ---------------- role helpers (robust) ---------------- */
-const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5, BRANCH: 6, STAFF: 7 }
-const ROLE_ALIASES = {
-  ADMIN: ROLE.ADMIN,
-  AD: ROLE.ADMIN,
-
-  MNG: ROLE.MNG,
-  MANAGER: ROLE.MNG,
-
-  HR: ROLE.HR,
-  HUMANRESOURCES: ROLE.HR,
-  HUMAN_RESOURCES: ROLE.HR,
-
-  HA: ROLE.HA,
-  ACCOUNT: ROLE.HA,
-  ACCOUNTING: ROLE.HA,
-  "HEAD ACCOUNTING": ROLE.HA,
-  "HEAD-ACCOUNTING": ROLE.HA,
-  HEADACCOUNTING: ROLE.HA,
-
-  MKT: ROLE.MKT,
-  MARKETING: ROLE.MKT,
-}
-
-const getCurrentUser = () => {
-  try {
-    const keys = ["user", "userdata", "profile", "account", "current_user"]
-    for (const k of keys) {
-      const raw = localStorage.getItem(k)
-      if (raw) return JSON.parse(raw)
-    }
-  } catch {}
-  return null
-}
-
-function normalizeRoleId(raw) {
-  if (raw == null) return 0
-  if (typeof raw === "number" && Number.isFinite(raw)) return raw
-  const s = String(raw).trim()
-  if (!s) return 0
-  if (/^\d+$/.test(s)) return Number(s)
-  const up = s.toUpperCase()
-  if (ROLE_ALIASES[up]) return ROLE_ALIASES[up]
-  if (up.includes("ACCOUNT")) return ROLE.HA
-  if (up.includes("MARKET")) return ROLE.MKT
-  if (up.includes("MANAG")) return ROLE.MNG
-  if (up.includes("ADMIN")) return ROLE.ADMIN
-  if (up === "HR" || up.includes("HUMAN")) return ROLE.HR
-  return 0
-}
-
-function decodeJwtPayload(token) {
-  try {
-    const base64Url = token.split(".")[1] || ""
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=")
-    const json = decodeURIComponent(
-      atob(padded)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    )
-    return JSON.parse(json)
-  } catch {
-    return null
-  }
-}
-
-function pickRoleFromUser(u) {
-  if (!u || typeof u !== "object") return 0
-  const candidates = [
-    u.role_id,
-    u.roleId,
-    u.role,
-    u.role_code,
-    u.roleCode,
-    u.role_name,
-    u.roleName,
-    u.position,
-    u.position_code,
-    u.positionCode,
-  ]
-  for (const c of candidates) {
-    const id = normalizeRoleId(c)
-    if (id) return id
-  }
-  return 0
-}
-
-function getRoleId() {
-  // 1) จาก user object ต่าง ๆ
-  const u = getCurrentUser()
-  const fromUser = pickRoleFromUser(u)
-  if (fromUser) return fromUser
-
-  // 2) จาก JWT
-  const token = localStorage.getItem("token") || localStorage.getItem("access_token") || localStorage.getItem("jwt")
-  if (token) {
-    const p = decodeJwtPayload(token) || {}
-    const claims = [p.role_id, p.roleId, p.role, p.roles, p.authorities, p.scope]
-    for (const c of claims) {
-      const v = Array.isArray(c) ? c[0] : c
-      const id = normalizeRoleId(v)
-      if (id) return id
-    }
-  }
-
-  // 3) จาก key ลอย ๆ ใน localStorage
-  const loose = normalizeRoleId(localStorage.getItem("role"))
-  return loose || 0
-}
-
-/* ---------- Route guard: เฉพาะ user id 17/18 (ของเดิม) ---------- */
-const ALLOWED_USER_IDS = new Set([17, 18])
-function RequireUserId17or18({ children }) {
-  const u = getCurrentUser()
-  const uid = Number(u?.id ?? u?.user_id ?? 0)
-  if (!ALLOWED_USER_IDS.has(uid)) return <Navigate to="/home" replace />
-  return children
-}
-
-/* ---------- Route guard: เฉพาะ mng / admin / HA / MKT ---------- */
-function RequireMngAdminHA({ children }) {
-  const r = getRoleId()
-  const ok = r === ROLE.ADMIN || r === ROLE.MNG || r === ROLE.HA || r === ROLE.MKT
-  if (!ok) return <Navigate to="/home" replace />
-  return children
-}
-
-/* ✅ Route guard: ห้าม Marketing (MKT) — ใช้กับหน้า "สร้างออเดอร์" */
-function RequireNotMarketing({ children }) {
-  const r = getRoleId()
-  if (r === ROLE.MKT) return <Navigate to="/home" replace />
-  return children
-}
-
-/* ✅ Route guard: เฉพาะ ADMIN + HA + MKT — ใช้กับหน้า "สร้างรหัสข้าว" */
-function RequireAdminHA({ children }) {
-  const r = getRoleId()
-  const ok = r === ROLE.ADMIN || r === ROLE.HA || r === ROLE.MKT
-  if (!ok) return <Navigate to="/home" replace />
-  return children
-}
-
-/* ✅ Route guard: เฉพาะ ADMIN + HR — ใช้กับหน้า "ลงทะเบียนเจ้าหน้าที่" */
-function RequireAdminOrHR({ children }) {
-  const r = getRoleId()
-  const ok = r === ROLE.ADMIN || r === ROLE.HR
-  if (!ok) return <Navigate to="/home" replace />
-  return children
-}
-
-/* ✅ Route guard: KPI review/approval (v1.4.0) — roles 1, 2 (ผจก.), 3 (HR), 7 (ผช.ผจก.)
-   (/hr/dashboard stays 1·3; /hr/kpi exposes only the KPI section to 2 and 7) */
-function RequireKpiAccess({ children }) {
-  const r = getRoleId()
-  if (![ROLE.ADMIN, ROLE.MNG, ROLE.HR, 7].includes(r)) return <Navigate to="/home" replace />
-  return children
-}
-
-/* ✅ Route guard: 3O approvals — roles 1, 2, 3, 6, 7 (backend JWT numbering, see lib/approval.js) */
-function RequireOooApprover({ children }) {
-  const r = getRoleId()
-  if (![1, 2, 3, 6, 7].includes(r)) return <Navigate to="/home" replace />
-  return children
-}
-
-/* ✅ Route guard: เฉพาะ ADMIN — ใช้กับหน้าจัดการการเงิน / ย้ายสาขา */
-function RequireAdmin({ children }) {
-  const r = getRoleId()
-  if (r !== ROLE.ADMIN) return <Navigate to="/home" replace />
-  return children
-}
-
-/* ✅ Route guard: Facility report — roles 1 (ADMIN), 5 (MKT), 6 (BRANCH) */
-function RequireFacilityAccess({ children }) {
-  const r = getRoleId()
-  const ok = r === ROLE.ADMIN || r === ROLE.MKT || r === 6
-  if (!ok) return <Navigate to="/home" replace />
-  return children
-}
+/* -------- สิทธิ์: ทุก route guard ใช้ permission key จาก src/lib/permissions.js --------
+   (role ids อยู่ที่ src/lib/roles.js เท่านั้น — ห้าม hardcode เลข role ในไฟล์นี้) */
+const guard = (perm, el) => <RequirePermission perm={perm}>{el}</RequirePermission>
 
 /* ✅ Route guard: บังคับเปลี่ยนรหัสผ่านถ้า account_status === "new"
    ป้องกัน user ที่ยังไม่เปลี่ยนรหัสผ่านเข้าถึง AppLayout โดยตรง */
@@ -263,128 +89,74 @@ function App() {
       <Route element={<RequirePasswordChanged><AppLayout /></RequirePasswordChanged>}>
         <Route path="/home" element={<Home />} />
 
-        {/* ✅ Operation Plan (Mock) */}
-        <Route path="/operation-plan" element={<OperationPlan />} />
-        <Route path="/business-edit" element={<BusinessEdit />} />
+        {/* แผนปฏิบัติงานรายปี / ข้อมูลหลัก */}
+        <Route path="/operation-plan" element={guard("plan.saleGoals.view", <OperationPlan />)} />
+        <Route path="/business-edit" element={guard("plan.master.products", <BusinessEdit />)} />
 
-        <Route path="/documents" element={<Documents />} />
+        <Route path="/documents" element={<RequirePermission anyOf={DOCUMENTS_PERMS}><Documents /></RequirePermission>} />
 
-        <Route path="/order" element={<Order />} />
+        {/* ซื้อ-ขาย / สมาชิก / หุ้น / คลัง (Phase 1) */}
+        <Route path="/order" element={guard("trading.reports.view", <Order />)} />
+        <Route path="/sales" element={guard("trading.sell.create", <Sales />)} />
+        <Route path="/Buy" element={guard("trading.buy.create", <Buy />)} />
+        <Route path="/member-signup" element={guard("members.create", <MemberSignup />)} />
+        <Route path="/search" element={guard("members.search", <MemberSearch />)} />
+        <Route path="/stock" element={guard("trading.reports.view", <Stock />)} />
 
-        <Route path="/sales" element={<Sales />} />
-        <Route path="/Buy" element={<Buy />} />
-        <Route path="/member-signup" element={<MemberSignup />} />
-        <Route path="/search" element={<MemberSearch />} />
-        <Route path="/stock" element={<Stock />} />
+        <Route path="/customer-search" element={guard("members.search", <CustomerSearch />)} />
+        <Route path="/customer-add" element={guard("customers.create", <CustomerAdd />)} />
+        {/* เพิ่มบริษัท: หน้าเองเช็ค canSeeAddCompany() (กฎเฉพาะผู้ใช้) */}
+        <Route path="/company-add" element={guard("customers.create", <CompanyAdd />)} />
+        <Route path="/member-termination" element={guard("members.status", <MemberTermination />)} />
+        <Route path="/share" element={guard("shares.buy", <Share />)} />
 
-        <Route path="/customer-search" element={<CustomerSearch />} />
-        <Route path="/customer-add" element={<CustomerAdd />} />
-        <Route path="/company-add" element={<CompanyAdd />} />
-        <Route path="/member-termination" element={<MemberTermination />} />
-        <Route path="/share" element={<Share />} />
+        <Route path="/bring-in" element={guard("stock.carryover.record", <StockBringIn />)} />
+        <Route path="/transfer-in" element={guard("stock.transfer.confirm", <StockTransferIn />)} />
+        <Route path="/transfer-out" element={guard("stock.transfer.request", <StockTransferOut />)} />
+        <Route path="/transfer-mill" element={guard("stock.mill.record", <StockTransferMill />)} />
+        <Route path="/damage-out" element={guard("stock.cutloss.record", <StockDamageOut />)} />
 
-        <Route path="/bring-in" element={<StockBringIn />} />
-        <Route path="/transfer-in" element={<StockTransferIn />} />
-        <Route path="/transfer-out" element={<StockTransferOut />} />
-        <Route path="/transfer-mill" element={<StockTransferMill />} />
-        <Route path="/damage-out" element={<StockDamageOut />} />
-
+        {/* ยกเข้าโรงสี — กฎเฉพาะผู้ใช้ (user id 17/18) คงไว้โดยเจตนา */}
         <Route
           path="/bring-in-mill"
-          element={
-            <RequireUserId17or18>
-              <StockBringInMill />
-            </RequireUserId17or18>
-          }
+          element={<RequirePermission perm="stock.mill.record" allow={canBringInMill}><StockBringInMill /></RequirePermission>}
         />
 
-        {/* ✅ หน้าแก้ไขออเดอร์ — mng/admin/HA เท่านั้น */}
-        <Route
-          path="/order-correction"
-          element={
-            <RequireMngAdminHA>
-              <OrderCorrection />
-            </RequireMngAdminHA>
-          }
-        />
-
-        {/* ✅ หน้าเพิ่มรหัสข้าว — admin/HA เท่านั้น */}
-        <Route
-          path="/spec/create"
-          element={
-            <RequireAdminHA>
-              <RiceSpecCreate />
-            </RequireAdminHA>
-          }
-        />
+        <Route path="/order-correction" element={guard("trading.orders.edit", <OrderCorrection />)} />
+        <Route path="/spec/create" element={guard("stock.spec.manage", <RiceSpecCreate />)} />
 
         {/* ✅ Section 14 — ติดตามหนี้ (hub: ติดตามผลหนี้ + ตารางหนี้) */}
-        <Route path="/debt-hub" element={<DebtHub />} />
+        <Route path="/debt-hub" element={guard("debt.view", <DebtHub />)} />
+        <Route path="/debt-tracking" element={guard("debt.view", <DebtTracking />)} />
+        <Route path="/debt-form" element={guard("debt.view", <DebtReport />)} />
 
-        <Route
-          path="/debt-tracking"
-          element={
-            <RequireMngAdminHA>
-              <DebtTracking />
-            </RequireMngAdminHA>
-          }
-        />
+        {/* ✅ Phase 3B — HR */}
+        <Route path="/hr/staff-signup" element={guard("hr.employees.create", <HRStaffSignup />)} />
+        <Route path="/hr/users" element={guard("hr.employees.list", <HRUserList />)} />
+        <Route path="/hr/leaves" element={guard("hr.leave.list", <HRLeaveManagement />)} />
+        <Route path="/hr/finance" element={guard("hr.employees.editFinancial", <HRFinance />)} />
+        <Route path="/hr/relocation" element={guard("hr.relocation.list", <HRRelocation />)} />
+        <Route path="/hr/dashboard" element={guard("hr.dashboard.view", <HRDashboard />)} />
+        <Route path="/hr/kpi" element={guard("hr.kpi.evaluations.view", <HRKpiPage />)} />
+        <Route path="/hr/issues" element={guard("hr.issues.list", <HRIssueReports />)} />
+        <Route path="/hr/personnel/:id" element={guard("hr.employees.view", <HRPersonnelDetail />)} />
+        <Route path="/hr/salary-tier" element={guard("hr.salaryLadder.view", <HRSalaryTier />)} />
 
-        {/* ตารางหนี้ — เข้าถึงได้ทุก role */}
-        <Route path="/debt-form" element={<DebtReport />} />
-
-        {/* ✅ Phase 3B — HR routes */}
-        <Route
-          path="/hr/staff-signup"
-          element={
-            <RequireAdminOrHR>
-              <HRStaffSignup />
-            </RequireAdminOrHR>
-          }
-        />
-
-        {/* ✅ Phase 3B — HR management routes */}
-        <Route
-          path="/hr/users"
-          element={<RequireAdminOrHR><HRUserList /></RequireAdminOrHR>}
-        />
-        <Route
-          path="/hr/leaves"
-          element={<RequireAdminOrHR><HRLeaveManagement /></RequireAdminOrHR>}
-        />
-        <Route
-          path="/hr/finance"
-          element={<RequireAdmin><HRFinance /></RequireAdmin>}
-        />
-        <Route
-          path="/hr/relocation"
-          element={<RequireAdmin><HRRelocation /></RequireAdmin>}
-        />
-
-        {/* ✅ Phase 3B — HR new pages */}
-        <Route path="/hr/dashboard" element={<RequireAdminOrHR><HRDashboard /></RequireAdminOrHR>} />
-        <Route path="/hr/kpi" element={<RequireKpiAccess><HRKpiPage /></RequireKpiAccess>} />
-        <Route path="/hr/issues" element={<RequireAdminOrHR><HRIssueReports /></RequireAdminOrHR>} />
-        <Route path="/hr/personnel/:id" element={<RequireAdminOrHR><HRPersonnelDetail /></RequireAdminOrHR>} />
-        <Route path="/hr/salary-tier" element={<RequireAdminOrHR><HRSalaryTier /></RequireAdminOrHR>} />
-
-        {/* ✅ Phase 3B — Personal routes (ทุก role เข้าถึงได้) */}
-        <Route path="/my-profile" element={<MyProfile />} />
-        <Route path="/leave-request" element={<LeaveRequest />} />
-        <Route path="/out-of-office" element={<OutOfOffice />} />
-        <Route
-          path="/out-of-office/approvals"
-          element={<RequireOooApprover><OutOfOfficeApprovals /></RequireOooApprover>}
-        />
+        {/* ✅ Personal routes (ทุกคนที่ล็อกอิน) */}
+        <Route path="/my-profile" element={guard("self.profile.view", <MyProfile />)} />
+        <Route path="/leave-request" element={guard("self.leave.request", <LeaveRequest />)} />
+        <Route path="/out-of-office" element={guard("self.ooo.request", <OutOfOffice />)} />
+        <Route path="/out-of-office/approvals" element={guard("hr.ooo.list", <OutOfOfficeApprovals />)} />
+        {/* กล่องงานรออนุมัติ: เปิดให้ทุกคน — เนื้อหาในหน้ากรองตามสิทธิ์อนุมัติเอง */}
         <Route path="/inbox" element={<Inbox />} />
-        <Route path="/my-relocation" element={<MyRelocation />} />
-        <Route path="/loan-request" element={<LoanRequest />} />
+        <Route path="/my-relocation" element={guard("self.relocation.request", <MyRelocation />)} />
+        <Route path="/loan-request" element={guard("self.loan.apply", <LoanRequest />)} />
 
-        {/* ✅ Facility income/expense report — roles 1, 5, 6 */}
-        <Route
-          path="/facility-report"
-          element={<RequireFacilityAccess><FacilityReport /></RequireFacilityAccess>}
-        />
+        {/* รายรับ-รายจ่ายศูนย์เรียนรู้ */}
+        <Route path="/facility-report" element={guard("facility.view", <FacilityReport />)} />
+
+        {/* Admin — สิทธิ์ตามบทบาท (read-only) */}
+        <Route path="/admin/roles" element={guard("admin.roles.view", <RolePermissions />)} />
       </Route>
 
       {/* ✅ Phase 3B — ChangePassword อยู่นอก AppLayout */}

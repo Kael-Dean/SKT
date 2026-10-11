@@ -7,12 +7,12 @@ import { PageLoader, ErrorState } from "../../../components/ui"
 import DebtTotalsTab       from "./DebtTotalsTab"
 import DebtTransactionsTab from "./DebtTransactionsTab"
 import DebtProgramsTab     from "./DebtProgramsTab"
+import { canManagePrograms as canManageDebtPrograms } from "./debtEntryMeta"
 
-const ROLE = { ADMIN: 1, HA: 4, MKT: 5 }
 
 export default function DebtTracking() {
   const roleId = getRoleId()
-  const canManagePrograms = roleId === ROLE.ADMIN || roleId === ROLE.HA
+  const canManagePrograms = canManageDebtPrograms(roleId)
 
   const [searchParams, setSearchParams] = useSearchParams()
   const rawTab = searchParams.get("tab") || "totals"

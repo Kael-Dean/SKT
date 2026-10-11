@@ -1,7 +1,7 @@
 // src/components/hr/kpi/kpiUtils.js
 // KPI v1.4.0 (handoff/api-handoff-kpi-v1.4.0.md) — labels, permissions, fiscal-year
 // helpers and defensive number parsing. Plain .js (no components) for Fast Refresh.
-import { getRoleId } from "../../../lib/auth"
+import { can } from "../../../lib/permissions"
 
 // ─── Numbers (Decimal fields can arrive as strings) ─────────────────────────
 /** number | null — "95.00" → 95, "" / null / NaN → null */
@@ -61,26 +61,28 @@ export function partialTotal(ev) {
   return any ? Math.round(sum * 100) / 100 : null
 }
 
-// ─── Permissions (role ids from the JWT — spec "Roles") ─────────────────────
-const ROLE_PERMS = {
-  scoreBranchHead: [1, 6],
-  scoreAsst: [1, 2, 7],
-  scoreManager: [1, 2],
-  boardScore: [1, 2],
-  viewList: [1, 2, 3, 7],
-  finalize: [1, 3],
-  editWindow: [1, 2, 3],
-  asstReview: [1, 7],
-  managerApprove: [1, 2],
-  reopen: [1, 2, 7],
-  eligibility: [1, 2, 7],
-  profit: [1, 2],
-  monthly: [1, 3],
+// ─── Permissions → permission keys (src/lib/permissions.js) ─────────────────
+const KPI_PERMISSION_KEYS = {
+  scoreBranchHead: "hr.kpi.score.branchHead",
+  scoreAsst: "hr.kpi.score.asstManager",
+  scoreManager: "hr.kpi.score.manager",
+  boardScore: "hr.kpi.score.board",
+  viewList: "hr.kpi.evaluations.view",
+  finalize: "hr.kpi.finalize",
+  editWindow: "hr.kpi.window.set",
+  asstReview: "hr.kpi.review.asstManager",
+  managerApprove: "hr.kpi.approve.manager",
+  reopen: "hr.kpi.reopen",
+  eligibility: "hr.kpi.reopen", // PATCH .../eligibility อยู่ฟังก์ชันเดียวกับ reopen (matrix #88)
+  profit: "hr.kpi.profit.record",
+  monthly: "hr.kpi.monthly",
 }
 
-/** { scoreAsst: true, … } for the current user */
-export function getKpiPerms(roleId = getRoleId()) {
-  return Object.fromEntries(Object.entries(ROLE_PERMS).map(([k, roles]) => [k, roles.includes(roleId)]))
+/** { scoreAsst: true, … } for the current user (or the given role id) */
+export function getKpiPerms(roleId) {
+  return Object.fromEntries(
+    Object.entries(KPI_PERMISSION_KEYS).map(([k, key]) => [k, roleId === undefined ? can(key) : can(key, roleId)]),
+  )
 }
 
 // ─── Fiscal year (backend: BE year it STARTS in — 2569 = 1 เม.ย. 2569 – 31 มี.ค. 2570) ──

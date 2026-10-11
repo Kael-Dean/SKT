@@ -25,10 +25,14 @@ src/
 ├── index.css             # Tailwind v4 imports
 ├── lib/
 │   ├── api.js            # Fetch helpers: api(), apiAuth(), apiDownload()
-│   └── auth.js           # Token + User management, getRoleId(), canSeeAddCompany()
+│   ├── auth.js           # Token + User management, getRoleId() (ตัวอ่าน role ตัวเดียว)
+│   ├── roles.js          # ROLE ids + ชื่อไทย roleLabel()
+│   └── permissions.js    # PERMISSIONS registry + can()/useCan() + กฎเฉพาะผู้ใช้
 ├── components/
 │   ├── AppLayout.jsx     # Layout หลัก (Sidebar + Topbar + Outlet)
-│   ├── Sidebar.jsx       # Menu แบบ role-based ปิด/เปิดได้
+│   ├── Sidebar.jsx       # Menu ตาม permission key ปิด/เปิดได้
+│   ├── RequirePermission.jsx # Route guard ตาม permission key
+│   ├── Can.jsx           # แสดง UI ตาม permission key
 │   ├── Topbar.jsx        # Header: logo, dark mode toggle, user profile
 │   └── ProtectedRoute.jsx
 ├── pages/
@@ -48,21 +52,54 @@ public/
 
 ## Authentication & Role System
 
-JWT token เก็บใน localStorage — อ่านผ่าน `getToken()`, `getUser()`, `getRoleId()`
+JWT token เก็บใน localStorage — อ่านผ่าน `getToken()`, `getUser()`, `getRoleId()` (`src/lib/auth.js`)
+`getRoleId()` เป็นตัวอ่าน role **ตัวเดียว** ของทั้งแอป (รองรับ claim/ชื่อ role รุ่นเก่าไว้ข้างในแล้ว)
 
-| Role ID | ชื่อ | สิทธิ์หลัก |
-|---------|------|-----------|
-| 1 | ADMIN | เข้าได้เกือบทุกหน้า ยกเว้น /company-add, /order-correction |
-| 2 | MNG | เต็มสิทธิ์ + /company-add ถ้า canSeeAddCompany() = true |
-| 3 | HR | เฉพาะ /order และ /order-correction |
-| 4 | HA | /documents, /share, /search, /customer-search, /order, /order-correction, /spec/create |
-| 5 | MKT | ทุก business route ยกเว้น /documents, /order-correction, /order, /spec/create |
+### Role ids (ตาม JWT claim `role` ของ backend — `require_role(...)` ใน FastAPI)
 
-**Route Guards ใน App.jsx:**
-- `RequireUserId17or18` — เฉพาะ user ID 17 หรือ 18
-- `RequireMngAdminHA` — Role 1, 2, หรือ 4
-- `RequireNotMarketing` — ทุก role ยกเว้น Role 5
-- `RequireAdminHA` — Role 1 หรือ 4
+| Role ID | ชื่อ | ค่าคงที่ (`src/lib/roles.js`) |
+|---------|------|------------------------------|
+| 1 | ผู้ดูแลระบบ (Admin) | `ROLE.ADMIN` |
+| 2 | ผู้จัดการ | `ROLE.MANAGER` |
+| 3 | ฝ่ายบุคคล (HR) | `ROLE.HR` |
+| 4 | หัวหน้าฝ่ายบัญชี/การเงิน | `ROLE.HEAD_ACCOUNTANT` |
+| 5 | พนักงาน | `ROLE.STAFF` |
+| 6 | หัวหน้าสาขา/ฝ่าย (server จำกัดให้เห็นเฉพาะสาขาบ้าน + สาขาที่ได้รับมอบหมาย) | `ROLE.BRANCH_HEAD` |
+| 7 | ผู้ช่วยผู้จัดการ | `ROLE.ASSISTANT_MANAGER` |
+
+ชื่อ/สี badge ของ role: `roleLabel(id)`, `roleShortLabel(id)`, `roleBadgeTone(id)`, `ASSIGNABLE_ROLE_OPTIONS` จาก `src/lib/roles.js`
+
+### Permission registry (`src/lib/permissions.js`)
+
+- `PERMISSIONS` = คีย์แบบ dotted (เช่น `hr.employees.list`, `hr.leave.approve.branchHead`, `trading.buy.create`) →
+  `{ no, module, label, en, roles }` — `no` = เลขฟังก์ชันใน `AMC_Role_Permission_Matrix.xlsx` (sheet "Dev reference")
+- `roles` = `[ids]` | `"any"` (ทุกคนที่ล็อกอิน) | `"public"` — **ตอนนี้ยึด guard ปัจจุบันของ backend เป็นความจริง**
+  หน้าเว็บต้องไม่ให้สิทธิ์เกิน backend. เมื่อลูกค้าส่ง matrix ที่กรอกแล้ว แก้แค่ `roles` ในไฟล์นี้ไฟล์เดียว
+- ดูตารางทั้งหมดได้ที่หน้า **"สิทธิ์ตามบทบาท"** `/admin/roles` (Admin เท่านั้น, read-only)
+- Helpers: `can(key)`, `canAny([keys])`, `canAll([keys])`, `useCan()` — คีย์ที่ไม่รู้จัก = `false` (+ `console.warn` ตอน dev)
+- กฎเฉพาะ "ผู้ใช้" (ไม่ใช่ role) ที่คงไว้โดยเจตนา: `canBringInMill()` (user id 17/18), `canSeeAddCompany()` (role 2 + ผู้ใช้ "HA" role 4)
+
+### ใช้งาน
+
+```jsx
+// Route guard (App.jsx) — ไม่มีสิทธิ์ → toast แจ้ง + พากลับ /home
+<Route path="/hr/dashboard" element={<RequirePermission perm="hr.dashboard.view"><HRDashboard /></RequirePermission>} />
+<RequirePermission anyOf={["hr.leave.list", "hr.ooo.list"]}>…</RequirePermission>
+
+// ซ่อน/แสดงปุ่มหรือส่วนของหน้า
+<Can perm="hr.payroll.generate"><button>…</button></Can>
+const { can } = useCan(); if (can("hr.relocation.approve.manager")) …
+```
+
+### เพิ่ม permission ใหม่
+
+1. เพิ่ม entry ใน `PERMISSIONS` (`src/lib/permissions.js`) — ใส่ `no` ตาม matrix และ `roles` ตาม guard ของ backend
+   (ถ้าเป็นกฎแสดงผลของหน้าเว็บล้วน ใส่ `no: null, feOnly: true`)
+2. ใช้คีย์นั้นใน route (`RequirePermission`), เมนู (`Sidebar.jsx` → `perm`), การ์ดหน้า Home (`perm`/`anyOf`) และปุ่ม (`Can`/`can`)
+3. ตรวจที่ `/admin/roles` ว่าแสดงถูก
+
+**ห้าม hardcode เลข role ใน component** (`roleId === 1`, `[1, 3].includes(role)` ฯลฯ) — เลข role มีได้เฉพาะใน
+`src/lib/roles.js` และ `src/lib/permissions.js` เท่านั้น
 
 ---
 
@@ -139,13 +176,13 @@ npm run lint     # ESLint check
 - `public/data/thai/sub_district.json` ขนาด 2.2MB — ห้ามย้าย ห้ามลบ ไฟล์นี้ถูกใช้ใน form ทุกหน้าที่มีที่อยู่
 - Sidebar menu visibility คำนวณผ่าน `useMemo` ในไฟล์ `Sidebar.jsx` — ถ้าเพิ่ม route ใหม่ต้องอัปเดตที่นั่นด้วย
 - Backend error format มาจาก FastAPI — อย่า parse แบบ generic string อย่างเดียว
-- การ check สิทธิ์ใช้ `getRoleId()` จาก `src/lib/auth.js` เท่านั้น — ห้าม hardcode role ใน component
+- การ check สิทธิ์ใช้ `can()` / `<Can>` / `<RequirePermission>` จาก permission registry เท่านั้น — ห้าม hardcode เลข role ใน component
 
 ### ฟังก์ชันซ้อน (nested / hub) + ปุ่มย้อนกลับ
 
 เมื่อจับหลายฟังก์ชันมารวมเป็น "hub" หน้าเดียว (เช่น `/debt-hub` รวม `ติดตามผลหนี้` + `ตารางหนี้`):
 
-- หน้า hub เป็นหน้า landing แสดงการ์ดของฟังก์ชันย่อย แต่ละการ์ด `navigate()` ไปหน้าจริง (gate ด้วย `getRoleId()` ถ้าจำเป็น)
+- หน้า hub เป็นหน้า landing แสดงการ์ดของฟังก์ชันย่อย แต่ละการ์ด `navigate()` ไปหน้าจริง (gate ด้วย `can("<permission key>")` ถ้าจำเป็น)
 - ปุ่มย้อนกลับเป็น **global** อยู่ใน `src/components/AppLayout.jsx` — โดยปกติเด้งกลับ `/home` (หรือ `/hr/dashboard` สำหรับหน้า HR)
 - ถ้าหน้าใด "ซ้อน" อยู่ใต้ hub ต้องเพิ่ม entry ใน `PARENT_ROUTES` ที่หัวไฟล์ `AppLayout.jsx` เพื่อให้ปุ่มย้อนกลับพากลับไปหน้า parent แทนหน้าหลัก:
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../../components/SelectDropdown"
 import { baseField, labelCls, sectionTitleCls, submitBtnCls } from "../../lib/styles"
+import { ASSIGNABLE_ROLE_OPTIONS } from "../../lib/roles"
 
 const ED_LEVEL_OPTIONS = [
   { value: "มัธยมศึกษาตอนต้น", label: "มัธยมศึกษาตอนต้น (ม.3)" },
@@ -29,12 +30,6 @@ const MARITAL_OPTIONS = [
   { value: "widowed", label: "หม้าย" },
 ]
 
-const ROLE_OPTIONS = [
-  { value: 2, label: "ผู้จัดการ" },
-  { value: 3, label: "ฝ่ายบุคคล" },
-  { value: 4, label: "หัวหน้าบัญชี" },
-  { value: 5, label: "การตลาด" },
-]
 
 function SectionTitle({ children }) {
   return <h3 className={sectionTitleCls}>{children}</h3>
@@ -426,7 +421,7 @@ export default function HRStaffSignup() {
                 value={form.role_id}
                 onChange={setField("role_id")}
                 placeholder="— เลือก Role —"
-                options={ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }))}
+                options={ASSIGNABLE_ROLE_OPTIONS}
               />
             </Field>
             <Field label="ตำแหน่ง (Position)">

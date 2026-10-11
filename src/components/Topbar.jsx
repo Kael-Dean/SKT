@@ -3,16 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { getUser, getRoleId } from "../lib/auth";
 import BranchSwitcher from "./BranchSwitcher";
 import NotificationBell from "./NotificationBell";
+import { roleLabel } from "../lib/roles";
 
-const ROLE_TITLE = {
-  1: "admin",
-  2: "manager",
-  3: "Human Resources",
-  4: "Head Accounting",
-  5: "Marketing",
-  6: "หัวหน้าสาขา",
-  7: "ผู้ช่วยผู้จัดการ",
-};
 
 const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
   const [userInfo, setUserInfo] = useState({ username: "", id: null, roleId: 0 });
@@ -42,9 +34,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
   const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`;
 
   const displayName = userInfo.username || "ไม่พบผู้ใช้";
-  const displayRole =
-    ROLE_TITLE[userInfo.roleId] ??
-    (userInfo.roleId ? `Role ${userInfo.roleId}` : "—");
+  const displayRole = roleLabel(userInfo.roleId);
   const avatarLetter = (displayName[0] || "U").toUpperCase();
 
   return (

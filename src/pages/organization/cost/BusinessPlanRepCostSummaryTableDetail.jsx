@@ -4,6 +4,8 @@ import { useSidebarOpen } from "../../../components/AppLayout"
 import { useAuxCosts } from "../../../lib/useBusinessList"
 import { SkeletonTableRows, EmptyState, ErrorState } from "../../../components/ui"
 import { cellInput } from "../../../lib/styles"
+import { useCan } from "../../../lib/permissions"
+import { ReadOnlyFieldset, ReadOnlyNotice } from "../../../components/PlanReadOnly"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -152,6 +154,8 @@ const monthStripeCell = (idx) => (idx % 2 === 1 ? STRIPE.alt : STRIPE.cell);
 
 
 const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, planId }) => {
+  // บันทึกไปที่ POST /business-plan/{id}/aux/monthly → ต้องมีสิทธิ์ plan.aux.edit; ไม่มีสิทธิ์ = ดูอย่างเดียว
+  const canWrite = useCan().can("plan.aux.edit")
   const { items: auxItems, nameById: auxNameById } = useAuxCosts()
 
   // aux ที่เป็น "รายการหัก" (is_deduction) — ค่าจะถูกหักออกจากต้นทุนรวม
@@ -588,7 +592,8 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
   const noBranch = !effectiveBranchId
 
   return (
-    <>
+    <ReadOnlyFieldset readOnly={!canWrite}>
+      {!canWrite && <ReadOnlyNotice />}
       <div ref={tableCardRef} className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 flex flex-col" style={{ height: tableCardHeight }}>
         <div className="flex-1 min-h-0 overflow-auto" ref={tableWrapRef}>
           <table className="border-collapse text-sm" style={{ width: TOTAL_W, tableLayout: "fixed" }}>
@@ -751,6 +756,7 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                     {notice.detail && <div className="mt-1 text-[13px] opacity-95">{notice.detail}</div>}
                 </div>
             )}
+            {canWrite && (
             <div className="flex justify-end gap-3">
                 <button
                 type="button"
@@ -783,10 +789,11 @@ const BusinessPlanRepCostSummaryTableDetail = ({ branchId, branchName, yearBE, p
                 {isSaving ? "กำลังบันทึก..." : "บันทึก"}
                 </button>
             </div>
+            )}
         </div>
       </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
-    </>
+    </ReadOnlyFieldset>
   )
 }
 

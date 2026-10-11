@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"   // helper แนบ token + BASE URL
 import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import { can } from "../../lib/permissions"
 
 /** ---------- Utils ---------- */
 
@@ -1002,6 +1003,12 @@ const YEAR_OPTIONS = Array.from({ length: 15 }, (_, i) => {
   return { id: pid, label: y }
 })
 
+/** Phase 1 report ที่ผู้ใช้มีสิทธิ์ (คีย์ "phase1-p01" → permission "reports.phase1.p01") */
+const phase1Perm = (key) => key.replace("phase1-", "reports.phase1.")
+function allowedPhase1Reports() {
+  return PHASE1_REPORTS.filter((r) => can(phase1Perm(r.key)))
+}
+
 function Documents() {
   const [mode, setMode] = useState(() => {
     const qs = safeQS()
@@ -1017,7 +1024,7 @@ function Documents() {
   const REPORTS = useMemo(() => {
     if (mode === "share") return SHARE_REPORTS
     if (mode === "plan") return PLAN_REPORTS
-    if (mode === "phase1") return PHASE1_REPORTS
+    if (mode === "phase1") return allowedPhase1Reports()
     return INTERNAL_REPORTS
   }, [mode])
 
@@ -1109,7 +1116,7 @@ function Documents() {
       const foundShare = SHARE_REPORTS.find((r) => r.reportCode === code || r.key === code)
       const foundInternal = INTERNAL_REPORTS.find((r) => r.key === code)
       const foundPlan = PLAN_REPORTS.find((r) => r.key === code)
-      const foundPhase1 = PHASE1_REPORTS.find((r) => r.key === code)
+      const foundPhase1 = allowedPhase1Reports().find((r) => r.key === code)
       const custom = SHARE_REPORTS.find((r) => r.key === "share-custom")
 
       if (foundShare) {
@@ -2024,7 +2031,8 @@ function Documents() {
               </div>
             </div>
 
-            {/* กล่อง 4: รายงาน Phase 1 (สหกรณ์) */}
+            {/* กล่อง 4: รายงาน Phase 1 (สหกรณ์) — แสดงเฉพาะผู้มีสิทธิ์ reports.phase1.* */}
+            {allowedPhase1Reports().length > 0 && (
             <div className="flex flex-col rounded-2xl border border-amber-200 bg-amber-50/40 p-6 shadow-sm dark:border-amber-800/50 dark:bg-amber-900/10 transition-all hover:shadow-md">
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400">
@@ -2039,7 +2047,7 @@ function Documents() {
               </p>
               <div className="mt-auto relative z-5">
                 <ComboBox
-                  options={PHASE1_REPORTS.map((r) => ({ ...r, id: r.key, label: r.title }))}
+                  options={allowedPhase1Reports().map((r) => ({ ...r, id: r.key, label: r.title }))}
                   placeholder="คลิกเพื่อเลือกรายงาน..."
                   value={null}
                   onChange={(v) => {
@@ -2051,6 +2059,7 @@ function Documents() {
                 />
               </div>
             </div>
+            )}
 
           </div>
         )}

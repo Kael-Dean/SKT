@@ -4,6 +4,8 @@ import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
 import { fetchProductsByGroup, onMasterDataChanged, ensureUnitPricesForProducts } from "../../../lib/useProductsByGroup"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
+import { useCan } from "../../../lib/permissions"
+import { ReadOnlyFieldset, ReadOnlyNotice } from "../../../components/PlanReadOnly"
 
 /* รายละเอียดแผนการรวบรวมผลผลิตการเกษตร */
 
@@ -124,6 +126,8 @@ function buildInitialPrice(items) {
  * Component: แผนการรวบรวมผลผลิตการเกษตร
  */
 const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange }) => {
+  // บันทึกไปที่ PUT /revenue/sale-goals/bulk → ต้องมีสิทธิ์ plan.saleGoals.edit; ไม่มีสิทธิ์ = ดูอย่างเดียว
+  const canWrite = useCan().can("plan.saleGoals.edit")
   const [items, setItems] = useState(FALLBACK_ITEMS)
   const [units, setUnits] = useState(FALLBACK_UNITS)
 
@@ -575,7 +579,8 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
   const footerBorder = "border-t-[2px] border-t-emerald-500 dark:border-t-emerald-600"
 
   return (
-    <>
+    <ReadOnlyFieldset readOnly={!canWrite}>
+      {!canWrite && <ReadOnlyNotice />}
       <div className="w-full">
         {/* Table Card */}
         <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -867,6 +872,7 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
               </div>
             )}
 
+            {canWrite && (
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
               <button
                 type="button"
@@ -897,12 +903,13 @@ const AgriCollectionPlanTable = ({ branchId, branchName, yearBE, onYearBEChange 
                 {isSaving ? "กำลังบันทึก..." : "บันทึก"}
               </button>
             </div>
+            )}
           </div>
 
         </div>
       </div>
       <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
-    </>
+    </ReadOnlyFieldset>
   )
 }
 

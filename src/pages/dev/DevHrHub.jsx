@@ -3,18 +3,18 @@
 // import.meta.env.DEV). Lets developers jump straight to any HR screen.
 import { Link } from "react-router-dom"
 import { getUser, getRoleId } from "../../lib/auth"
+import { roleLabel } from "../../lib/roles"
 
-const ROLE_NAME = { 1: "ADMIN", 2: "MNG", 3: "HR", 4: "HA", 5: "MKT", 6: "BRANCH", 7: "STAFF" }
 
 const EMPLOYEE_PAGES = [
   { to: "/leave-request", label: "ยื่นใบลา", file: "pages/work/LeaveRequest.jsx" },
   { to: "/inbox", label: "กล่องงานรออนุมัติ", file: "pages/work/Inbox.jsx" },
   { to: "/out-of-office", label: "ขอออกนอกสถานที่ (3O)", file: "pages/work/OutOfOffice.jsx" },
-  { to: "/out-of-office/approvals", label: "อนุมัติออกนอกสถานที่ (role 1/2/3/6/7)", file: "pages/work/OutOfOfficeApprovals.jsx" },
+  { to: "/out-of-office/approvals", label: "อนุมัติออกนอกสถานที่ (hr.ooo.list)", file: "pages/work/OutOfOfficeApprovals.jsx" },
   { to: "/my-profile", label: "โปรไฟล์ของฉัน", file: "pages/work/MyProfile.jsx" },
   { to: "/my-relocation", label: "ขอย้ายสาขา", file: "pages/work/MyRelocation.jsx" },
   { to: "/loan-request", label: "ขอสินเชื่อ", file: "pages/work/LoanRequest.jsx" },
-  { to: "/facility-report", label: "รายงานรายรับ-รายจ่ายสถานที่ (role 1/5/6)", file: "pages/work/FacilityReport.jsx" },
+  { to: "/facility-report", label: "รายงานรายรับ-รายจ่ายสถานที่ (facility.view)", file: "pages/work/FacilityReport.jsx" },
   { to: "/change-password", label: "เปลี่ยนรหัสผ่าน", file: "pages/work/ChangePassword.jsx" },
 ]
 
@@ -25,8 +25,8 @@ const HR_PAGES = [
   { to: "/hr/staff-signup", label: "ลงทะเบียนเจ้าหน้าที่", file: "pages/hr/HRStaffSignup.jsx" },
   { to: "/hr/issues", label: "รายงานปัญหา", file: "pages/hr/HRIssueReports.jsx" },
   { to: "/hr/salary-tier", label: "ขั้นเงินเดือน", file: "pages/hr/HRSalaryTier.jsx" },
-  { to: "/hr/finance", label: "การเงิน HR (ADMIN)", file: "pages/hr/HRFinance.jsx" },
-  { to: "/hr/relocation", label: "ย้ายสาขา (ADMIN)", file: "pages/hr/HRRelocation.jsx" },
+  { to: "/hr/finance", label: "การเงิน HR", file: "pages/hr/HRFinance.jsx" },
+  { to: "/hr/relocation", label: "ย้ายสาขา", file: "pages/hr/HRRelocation.jsx" },
   { to: "/hr/personnel/1", label: "รายละเอียดบุคลากร (ตัวอย่าง id=1)", file: "pages/hr/HRPersonnelDetail.jsx" },
 ]
 
@@ -94,14 +94,14 @@ export default function DevHrHub() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">หน้า HR ทั้งหมด</h1>
           <p className="text-sm text-gray-600 dark:text-gray-300">
             {user
-              ? `ล็อกอินเป็น ${user.username || "-"} · role ${roleId} (${ROLE_NAME[roleId] || "?"})`
+              ? `ล็อกอินเป็น ${user.username || "-"} · role ${roleId} (${roleLabel(roleId)})`
               : "ยังไม่ล็อกอิน — "}
             {!user && (
               <Link to="/" className="text-indigo-600 underline dark:text-indigo-300">ไปหน้า Login</Link>
             )}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            หน้า HR ต้องใช้ role 1 (ADMIN) หรือ 3 (HR) · /hr/finance และ /hr/relocation ต้อง ADMIN เท่านั้น
+            สิทธิ์เข้าแต่ละหน้าดูที่ /admin/roles (src/lib/permissions.js)
           </p>
         </header>
 

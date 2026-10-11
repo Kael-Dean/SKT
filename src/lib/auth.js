@@ -1,4 +1,6 @@
 // src/lib/auth.js
+import { ROLE } from './roles';
+
 export function decodeJwt(token) {
   try {
     const [, payload] = token.split('.');
@@ -56,42 +58,91 @@ export function isTokenExpired() {
 // 'session_expired' (flag ชั่วคราวที่หน้า Login อ่านเพื่อแจ้งเตือน).
 const AUTH_STORAGE_KEYS = [
   'token', 'access_token', 'jwt', 'role',
-  'user', 'userdata', 'profile', 'account',
+  'user', 'userdata', 'profile', 'account', 'current_user',
 ];
 
 export function logout() {
   for (const k of AUTH_STORAGE_KEYS) localStorage.removeItem(k);
 }
 
-/** ✅ ดึง role_id แบบทนทาน: ใช้ user.role_id ก่อน ถ้าไม่มีค่อยสกัดจาก JWT */
-export function getRoleId() {
-  const u = getUser();
-  if (u?.role_id != null) return Number(u.role_id) || 0;
-  const t = getToken();
-  const p = t ? decodeJwt(t) : null;
-  const raw = p?.role ?? p?.role_id ?? p?.roleId ?? null;
-  return raw == null ? 0 : Number(raw) || 0;
+// ─── Role reader (แหล่งเดียวของ role id ฝั่งหน้าเว็บ) ─────────────────────────
+// ลำดับ: user.role_id (จาก saveAuth) → object ผู้ใช้รุ่นเก่าใน localStorage →
+// claim ใน JWT → key "role" ลอย ๆ. รองรับค่าที่เป็นชื่อ role (legacy) ด้วย
+// เลข role ดู src/lib/roles.js — การเช็คสิทธิ์ให้ใช้ can() จาก src/lib/permissions.js
+
+// ชื่อ role แบบข้อความ (token/ข้อมูลรุ่นเก่า) → role id ของ backend
+const ROLE_NAME_ALIASES = {
+  ADMIN: ROLE.ADMIN, AD: ROLE.ADMIN, SUPERADMIN: ROLE.ADMIN,
+  MNG: ROLE.MANAGER, MANAGER: ROLE.MANAGER,
+  HR: ROLE.HR, HUMANRESOURCES: ROLE.HR, HUMAN_RESOURCES: ROLE.HR,
+  HA: ROLE.HEAD_ACCOUNTANT, ACCOUNT: ROLE.HEAD_ACCOUNTANT, ACCOUNTING: ROLE.HEAD_ACCOUNTANT,
+  "HEAD ACCOUNTING": ROLE.HEAD_ACCOUNTANT, "HEAD-ACCOUNTING": ROLE.HEAD_ACCOUNTANT, HEADACCOUNTING: ROLE.HEAD_ACCOUNTANT,
+  STAFF: ROLE.STAFF, EMPLOYEE: ROLE.STAFF,
+  // legacy: หน้าเว็บรุ่นเก่าเรียก role 5 ว่า MKT/Marketing
+  MKT: ROLE.STAFF, MARKETING: ROLE.STAFF,
+  BRANCH: ROLE.BRANCH_HEAD, BRANCH_HEAD: ROLE.BRANCH_HEAD, "BRANCH HEAD": ROLE.BRANCH_HEAD,
+  ASST: ROLE.ASSISTANT_MANAGER, ASSISTANT_MANAGER: ROLE.ASSISTANT_MANAGER, "ASSISTANT MANAGER": ROLE.ASSISTANT_MANAGER,
 }
 
-/**
- * ใช้เช็คสิทธิ์แสดง/เข้าเมนู "เพิ่มบริษัท"
- * - อนุญาตเฉพาะ role 2 (MNG) โดยตรง
- * - เคสพิเศษ: user ที่ username = "HA" และ role = 4 เห็นได้ด้วย
- * - role 1 (ADMIN) จะไม่ผ่านเงื่อนไขนี้อีกแล้ว
- */
-export function canSeeAddCompany() {
-  const user = getUser();
-  const roleId = getRoleId();
+/** แปลงค่า role (เลข / สตริงเลข / ชื่อ) → role id; ไม่รู้จัก → 0 */
+export function normalizeRoleId(raw) {
+  if (raw == null) return 0
+  if (typeof raw === "number") return Number.isFinite(raw) && raw > 0 ? raw : 0
+  const s = String(raw).trim()
+  if (!s) return 0
+  if (/^\d+$/.test(s)) return Number(s)
+  const up = s.toUpperCase()
+  if (ROLE_NAME_ALIASES[up]) return ROLE_NAME_ALIASES[up]
+  if (up.includes("ASSIST")) return ROLE.ASSISTANT_MANAGER
+  if (up.includes("ACCOUNT")) return ROLE.HEAD_ACCOUNTANT
+  if (up.includes("MARKET")) return ROLE.STAFF
+  if (up.includes("MANAG")) return ROLE.MANAGER
+  if (up.includes("ADMIN")) return ROLE.ADMIN
+  if (up.includes("HUMAN")) return ROLE.HR
+  return 0
+}
 
-  // ตอนนี้ให้สิทธิ์เฉพาะ role 2 เท่านั้น
-  const ALLOW_ROLES = [2];
+const LEGACY_USER_KEYS = ["user", "userdata", "profile", "account", "current_user"]
+const USER_ROLE_FIELDS = [
+  "role_id", "roleId", "role", "role_code", "roleCode", "role_name", "roleName",
+  "position", "position_code", "positionCode",
+]
 
-  if (ALLOW_ROLES.includes(roleId)) return true;
+function roleFromUserObjects() {
+  for (const k of LEGACY_USER_KEYS) {
+    let u = null
+    try {
+      const raw = localStorage.getItem(k)
+      u = raw ? JSON.parse(raw) : null
+    } catch {
+      u = null
+    }
+    if (!u || typeof u !== "object") continue
+    for (const f of USER_ROLE_FIELDS) {
+      const id = normalizeRoleId(u[f])
+      if (id) return id
+    }
+  }
+  return 0
+}
 
-  // เคสพิเศษ: user HA ที่มี role 4
-  if (user?.username === 'HA' && roleId === 4) return true;
+function roleFromJwt() {
+  const t = getToken() || localStorage.getItem("access_token") || localStorage.getItem("jwt")
+  const p = t ? decodeJwt(t) : null
+  if (!p) return 0
+  for (const c of [p.role, p.role_id, p.roleId, p.roles, p.authorities, p.scope, p.position_id]) {
+    const id = normalizeRoleId(Array.isArray(c) ? c[0] : c)
+    if (id) return id
+  }
+  return 0
+}
 
-  return false;
+/** role id ของผู้ใช้ที่ล็อกอินอยู่ (0 = ไม่รู้ / ยังไม่ล็อกอิน) */
+export function getRoleId() {
+  const u = getUser()
+  const direct = normalizeRoleId(u?.role_id)
+  if (direct) return direct
+  return roleFromUserObjects() || roleFromJwt() || normalizeRoleId(localStorage.getItem("role"))
 }
 
 /** สาขาที่กำลังดูอยู่ (active branch) — เปลี่ยนได้หลัง switch-branch */

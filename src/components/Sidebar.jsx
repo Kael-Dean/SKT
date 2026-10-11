@@ -12,13 +12,13 @@ import {
   LogOut,
   MapPin,
   MapPinCheck,
+  ShieldCheck,
   Target,
   UserRound,
   X,
 } from "lucide-react"
-import { getRoleId, logout as authLogout } from "../lib/auth"
-
-const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5, BRANCH: 6 }
+import { logout as authLogout } from "../lib/auth"
+import { useCan } from "../lib/permissions"
 
 // สีของ icon chip — ต้องเขียน class เต็ม (Tailwind v4 ตรวจ class ที่ต่อ string ไม่เจอ)
 const TONES = {
@@ -33,48 +33,47 @@ const TONES = {
   blue:    { chip: "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300",           solid: "bg-blue-500 text-white" },
 }
 
-// เมนูสำหรับ HR role เท่านั้น — 3 รายการ + ออกจากระบบ
+// เมนูแบบย่อสำหรับผู้ใช้ที่มีสิทธิ์ nav.hrCompactMenu (ฝ่ายบุคคล) — 3 รายการ + ออกจากระบบ
 const HR_MENUS = [
-  { label: "หน้าหลัก",         icon: House,     tone: "indigo", path: "/hr/dashboard" },
-  { label: "ข้อมูลส่วนตัว",    icon: UserRound, tone: "sky",    path: "/my-profile" },
-  { label: "ขอออกนอกสถานที่", icon: MapPin,    tone: "orange", path: "/out-of-office" },
+  { label: "หน้าหลัก",         icon: House,     tone: "indigo", path: "/hr/dashboard",  perm: "hr.dashboard.view" },
+  { label: "ข้อมูลส่วนตัว",    icon: UserRound, tone: "sky",    path: "/my-profile",    perm: "self.profile.view" },
+  { label: "ขอออกนอกสถานที่", icon: MapPin,    tone: "orange", path: "/out-of-office", perm: "self.ooo.request" },
 ]
 
-// เมนูส่วนตัว — แสดงให้ผู้ใช้ทุกคน (ยกเว้น HR ที่ใช้ HR_MENUS แทน)
+// เมนูส่วนตัว — แต่ละรายการแสดงตาม permission key (src/lib/permissions.js)
+//   perm  = ต้องมีสิทธิ์นี้
+//   unless = ซ่อนถ้ามีสิทธิ์นี้ (เช่น KPI: คนที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้นแทน)
 const PERSONAL_MENUS = [
-  { label: "หน้าหลัก",            icon: House,      tone: "indigo",  path: "/home",          roles: "all" },
-  { label: "ข้อมูลส่วนตัว",       icon: UserRound,  tone: "sky",     path: "/my-profile",    roles: "all" },
-  { label: "กล่องงานรออนุมัติ",   icon: Inbox,      tone: "amber",   path: "/inbox",         roles: "all" },
-  { label: "ยื่นใบลา",            icon: FileText,   tone: "emerald", path: "/leave-request", roles: "all" },
-  { label: "ขอออกนอกสถานที่",     icon: MapPin,     tone: "orange",  path: "/out-of-office", roles: "all" },
-  // 3O approvers: 2 ผู้จัดการ, 6 หัวหน้าสาขา, 7 ผู้ช่วยผู้จัดการ (backend role ids)
-  { label: "อนุมัติออกนอกสถานที่", icon: MapPinCheck, tone: "teal", path: "/out-of-office/approvals", roles: [ROLE.ADMIN, ROLE.MNG, 6, 7] },
-  { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet", path: "/my-relocation", roles: "all" },
-  { label: "ขอสินเชื่อ",           icon: CreditCard, tone: "rose",    path: "/loan-request",  roles: "all" },
-  // Phase 3B — HR admin ทุกฟังก์ชันรวมอยู่ใน Dashboard HR แล้ว
-  // KPI v1.4.0 — ผจก. (2) อนุมัติ / ผช.ผจก. (7) ตรวจสอบ (admin ใช้แท็บ KPI ใน Dashboard HR)
-  { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target, tone: "indigo", path: "/hr/kpi", roles: [ROLE.MNG, 7] },
-  { label: "Dashboard HR",        icon: LayoutDashboard, tone: "blue", path: "/hr/dashboard", roles: [ROLE.ADMIN] },
+  { label: "หน้าหลัก",            icon: House,      tone: "indigo",  path: "/home" },
+  { label: "ข้อมูลส่วนตัว",       icon: UserRound,  tone: "sky",     path: "/my-profile",    perm: "self.profile.view" },
+  { label: "กล่องงานรออนุมัติ",   icon: Inbox,      tone: "amber",   path: "/inbox" },
+  { label: "ยื่นใบลา",            icon: FileText,   tone: "emerald", path: "/leave-request", perm: "self.leave.request" },
+  { label: "ขอออกนอกสถานที่",     icon: MapPin,     tone: "orange",  path: "/out-of-office", perm: "self.ooo.request" },
+  { label: "อนุมัติออกนอกสถานที่", icon: MapPinCheck, tone: "teal", path: "/out-of-office/approvals", perm: "hr.ooo.list" },
+  { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet", path: "/my-relocation", perm: "self.relocation.request" },
+  { label: "ขอสินเชื่อ",           icon: CreditCard, tone: "rose",    path: "/loan-request",  perm: "self.loan.apply" },
+  // KPI v1.4.0 — ผจก. อนุมัติ / ผช.ผจก. ตรวจสอบ (ผู้ที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้น)
+  { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target, tone: "indigo", path: "/hr/kpi", perm: "hr.kpi.evaluations.view", unless: "hr.dashboard.view" },
+  { label: "Dashboard HR",        icon: LayoutDashboard, tone: "blue", path: "/hr/dashboard", perm: "hr.dashboard.view" },
+  { label: "สิทธิ์ตามบทบาท",      icon: ShieldCheck, tone: "violet", path: "/admin/roles", perm: "admin.roles.view" },
   // "รายรับ-รายจ่ายสถานที่" ย้ายไปกลุ่ม "รายงาน & แผน" ในหน้า Home แล้ว
 ]
 
-function canSeeSidebarItem(item, roleId) {
-  if (item.roles === "all") return true
-  if (Array.isArray(item.roles)) return item.roles.includes(roleId)
-  return false
+function canSeeSidebarItem(item, can) {
+  if (item.perm && !can(item.perm)) return false
+  if (item.unless && can(item.unless)) return false
+  return true
 }
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigate = useNavigate()
   const location = useLocation()
-  const roleId = useMemo(() => getRoleId(), [])
+  const { can } = useCan()
   const closeBtnRef = useRef(null)
 
   const visibleMenus = useMemo(
-    () => roleId === ROLE.HR
-      ? HR_MENUS
-      : PERSONAL_MENUS.filter((item) => canSeeSidebarItem(item, roleId)),
-    [roleId]
+    () => (can("nav.hrCompactMenu") ? HR_MENUS : PERSONAL_MENUS).filter((item) => canSeeSidebarItem(item, can)),
+    [can]
   )
 
   // ไม่ล็อก body scroll — scroller จริงคือ <main> ใน AppLayout; lock body ทำให้ layout shift เปล่า ๆ

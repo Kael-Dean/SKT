@@ -2,10 +2,10 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
-import { getUser, getRoleId, canSeeAddCompany } from "../../lib/auth"
+import { getUser, getRoleId } from "../../lib/auth"
+import { roleLabel as getRoleLabel } from "../../lib/roles"
+import { DOCUMENTS_PERMS, canBringInMill, canSeeAddCompany, checkAccess } from "../../lib/permissions"
 import { SkeletonStat } from "../../components/ui"
-
-const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5, BRANCH: 6, STAFF: 7 }
 
 // Line-art group icons (currentColor) — replaces decorative emoji headers.
 const groupIconPaths = {
@@ -39,31 +39,22 @@ function GroupIcon({ group, className }) {
   )
 }
 
-const ROLE_LABEL = {
-  1: "ผู้ดูแลระบบ",
-  2: "ผู้จัดการ",
-  3: "ฝ่ายบุคคล",
-  4: "หัวหน้าบัญชี",
-  5: "การตลาด",
-  6: "สาขา",
-  7: "เจ้าหน้าที่สาขา",
-}
-
-// ฟังก์ชันทั้งหมดที่ใช้ในการทำงาน (แสดงตาม role)
+// ฟังก์ชันทั้งหมดที่ใช้ในการทำงาน — แต่ละการ์ดแสดงตาม permission key
+// (perm / anyOf / allow — ดู checkAccess ใน src/lib/permissions.js)
 const ALL_FUNCTIONS = [
   {
     group: "ธุรกิจรวบรวมผลผลิต",
     icon: "🌾",
     color: "from-green-400 to-emerald-500",
     items: [
-      { label: "ยกมา", path: "/bring-in", icon: "📤", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "ยกเข้าโรงสี", path: "/bring-in-mill", icon: "🏭", roles: "special" },
-      { label: "ซื้อข้าว", path: "/Buy", icon: "🛒", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "ขายข้าว", path: "/sales", icon: "💰", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "รับเข้า", path: "/transfer-in", icon: "📥", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "โอนออก", path: "/transfer-out", icon: "📦", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "ส่งสี", path: "/transfer-mill", icon: "🔄", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "ตัดเสียหาย", path: "/damage-out", icon: "⚠️", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
+      { label: "ยกมา", path: "/bring-in", icon: "📤", perm: "stock.carryover.record" },
+      { label: "ยกเข้าโรงสี", path: "/bring-in-mill", icon: "🏭", perm: "stock.mill.record", allow: canBringInMill },
+      { label: "ซื้อข้าว", path: "/Buy", icon: "🛒", perm: "trading.buy.create" },
+      { label: "ขายข้าว", path: "/sales", icon: "💰", perm: "trading.sell.create" },
+      { label: "รับเข้า", path: "/transfer-in", icon: "📥", perm: "stock.transfer.confirm" },
+      { label: "โอนออก", path: "/transfer-out", icon: "📦", perm: "stock.transfer.request" },
+      { label: "ส่งสี", path: "/transfer-mill", icon: "🔄", perm: "stock.mill.record" },
+      { label: "ตัดเสียหาย", path: "/damage-out", icon: "⚠️", perm: "stock.cutloss.record" },
     ],
   },
   {
@@ -71,13 +62,13 @@ const ALL_FUNCTIONS = [
     icon: "🪪",
     color: "from-blue-400 to-indigo-500",
     items: [
-      { label: "สมัครสมาชิก", path: "/member-signup", icon: "📝", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.MKT] },
-      { label: "เพิ่มลูกค้าทั่วไป", path: "/customer-add", icon: "📝", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.MKT] },
-      { label: "เพิ่มบริษัท", path: "/company-add", icon: "📝", roles: "company" },
-      { label: "ค้นหาสมาชิก", path: "/search", icon: "🔎", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HA, ROLE.MKT] },
-      { label: "ค้นหาลูกค้าทั่วไป", path: "/customer-search", icon: "🔎", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HA, ROLE.MKT] },
-      { label: "สมาชิกสิ้นสภาพ", path: "/member-termination", icon: "🪪", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.MKT] },
-      { label: "ซื้อหุ้น", path: "/share", icon: "📈", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HA, ROLE.MKT] },
+      { label: "สมัครสมาชิก", path: "/member-signup", icon: "📝", perm: "members.create" },
+      { label: "เพิ่มลูกค้าทั่วไป", path: "/customer-add", icon: "📝", perm: "customers.create" },
+      { label: "เพิ่มบริษัท", path: "/company-add", icon: "📝", perm: "customers.create", allow: canSeeAddCompany },
+      { label: "ค้นหาสมาชิก", path: "/search", icon: "🔎", perm: "members.search" },
+      { label: "ค้นหาลูกค้าทั่วไป", path: "/customer-search", icon: "🔎", perm: "members.search" },
+      { label: "สมาชิกสิ้นสภาพ", path: "/member-termination", icon: "🪪", perm: "members.status" },
+      { label: "ซื้อหุ้น", path: "/share", icon: "📈", perm: "shares.buy" },
     ],
   },
   {
@@ -85,10 +76,10 @@ const ALL_FUNCTIONS = [
     icon: "📦",
     color: "from-orange-400 to-amber-500",
     items: [
-      { label: "ดูออเดอร์ซื้อขาย", path: "/order", icon: "📝", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.HA, ROLE.MKT] },
-      { label: "แก้ไขออเดอร์", path: "/order-correction", icon: "🛠️", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.HA, ROLE.MKT] },
-      { label: "คลังสินค้า", path: "/stock", icon: "🏭", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "เพิ่มรหัสข้าว", path: "/spec/create", icon: "🌾", roles: [ROLE.ADMIN, ROLE.HA, ROLE.MKT] },
+      { label: "ดูออเดอร์ซื้อขาย", path: "/order", icon: "📝", perm: "trading.reports.view" },
+      { label: "แก้ไขออเดอร์", path: "/order-correction", icon: "🛠️", perm: "trading.orders.edit" },
+      { label: "คลังสินค้า", path: "/stock", icon: "🏭", perm: "trading.reports.view" },
+      { label: "เพิ่มรหัสข้าว", path: "/spec/create", icon: "🌾", perm: "stock.spec.manage" },
     ],
   },
   {
@@ -96,11 +87,11 @@ const ALL_FUNCTIONS = [
     icon: "📊",
     color: "from-purple-400 to-violet-500",
     items: [
-      { label: "รายงาน", path: "/documents", icon: "📝", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HA, ROLE.STAFF] },
-      { label: "แผนปฏิบัติงานรายปี", path: "/operation-plan", icon: "🗺️", roles: "all" },
-      { label: "แก้ไขข้อมูลธุรกิจ", path: "/business-edit", icon: "⚙️", roles: "all" },
-      { label: "ติดตามหนี้", path: "/debt-hub", icon: "💳", roles: "all" },
-      { label: "รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์", path: "/facility-report", icon: "🏢", roles: [ROLE.ADMIN, ROLE.MKT, ROLE.BRANCH] },
+      { label: "รายงาน", path: "/documents", icon: "📝", anyOf: DOCUMENTS_PERMS },
+      { label: "แผนปฏิบัติงานรายปี", path: "/operation-plan", icon: "🗺️", perm: "plan.saleGoals.view" },
+      { label: "แก้ไขข้อมูลธุรกิจ", path: "/business-edit", icon: "⚙️", perm: "plan.master.products" },
+      { label: "ติดตามหนี้", path: "/debt-hub", icon: "💳", perm: "debt.view" },
+      { label: "รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์", path: "/facility-report", icon: "🏢", perm: "facility.view" },
     ],
   },
   {
@@ -108,25 +99,19 @@ const ALL_FUNCTIONS = [
     icon: "👥",
     color: "from-rose-400 to-pink-500",
     items: [
-      { label: "HR Dashboard",       path: "/hr/dashboard",    icon: "👥", roles: [ROLE.ADMIN, ROLE.HR] },
-      { label: "ลงทะเบียนเจ้าหน้าที่", path: "/hr/staff-signup",  icon: "➕", roles: [ROLE.ADMIN] },
-      { label: "รายชื่อเจ้าหน้าที่",    path: "/hr/users",         icon: "📋", roles: [ROLE.ADMIN] },
-      { label: "อนุมัติใบลา",       path: "/hr/leaves",        icon: "📅", roles: [ROLE.ADMIN] },
-      { label: "ข้อมูลการเงิน",     path: "/hr/finance",       icon: "💰", roles: [ROLE.ADMIN] },
-      { label: "ย้ายสาขา",          path: "/hr/relocation",    icon: "🏢", roles: [ROLE.ADMIN] },
-      { label: "ขอสินเชื่อ",         path: "/loan-request",     icon: "💳", roles: "all" },
+      { label: "HR Dashboard",       path: "/hr/dashboard",    icon: "👥", perm: "hr.dashboard.view" },
+      { label: "ลงทะเบียนเจ้าหน้าที่", path: "/hr/staff-signup",  icon: "➕", perm: "hr.employees.create" },
+      { label: "รายชื่อเจ้าหน้าที่",    path: "/hr/users",         icon: "📋", perm: "hr.employees.list" },
+      { label: "อนุมัติใบลา",       path: "/hr/leaves",        icon: "📅", perm: "hr.leave.list" },
+      { label: "ข้อมูลการเงิน",     path: "/hr/finance",       icon: "💰", perm: "hr.employees.editFinancial" },
+      { label: "ย้ายสาขา",          path: "/hr/relocation",    icon: "🏢", perm: "hr.relocation.list" },
+      { label: "ขอสินเชื่อ",         path: "/loan-request",     icon: "💳", perm: "self.loan.apply" },
     ],
   },
 ]
 
-function canAccessItem(item, roleId, uid, canCompany) {
-  if (item.path === "/bring-in-mill") {
-    return uid === 17 || uid === 18
-  }
-  if (item.roles === "all") return true
-  if (item.roles === "company") return canCompany
-  if (Array.isArray(item.roles)) return item.roles.includes(roleId)
-  return false
+function canAccessItem(item, roleId) {
+  return checkAccess({ perm: item.perm, anyOf: item.anyOf, allow: item.allow }, roleId)
 }
 
 function FunctionCard({ item, onClick }) {
@@ -157,9 +142,7 @@ export default function Home() {
 
   const localUser = getUser() || {}
   const roleId = getRoleId()
-  const roleLabel = ROLE_LABEL[roleId] ?? `Role ${roleId}`
-  const uid = Number(localUser.id ?? 0)
-  const canCompany = canSeeAddCompany()
+  const roleLabel = getRoleLabel(roleId)
 
   const displayName =
     apiUser?.first_name && apiUser?.last_name
@@ -204,7 +187,7 @@ export default function Home() {
   const visibleGroups = ALL_FUNCTIONS
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => canAccessItem(item, roleId, uid, canCompany)),
+      items: group.items.filter((item) => canAccessItem(item, roleId)),
     }))
     .filter((group) => group.items.length > 0)
 

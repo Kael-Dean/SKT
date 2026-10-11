@@ -5,6 +5,7 @@ import { emitMasterDataChanged } from "../../lib/useProductsByGroup"
 import { invalidateBusinessListCache } from "../../lib/useBusinessList"
 import { SkeletonTableRows, EmptyState } from "../../components/ui"
 import useModalDismiss from "../../lib/useModalDismiss"
+import { can } from "../../lib/permissions"
 
 /** ---------- Mapping ---------- */
 const BUSINESS_GROUP_MAP = {
@@ -26,6 +27,7 @@ const BUSINESS_GROUP_OPTIONS = Object.entries(BUSINESS_GROUP_MAP).map(([val, lab
 const TABS = [
   {
     key: "products",
+    managePerm: "plan.master.products", // permission key ที่ต้องมีเพื่อเพิ่ม/แก้ไข/ลบ
     label: "📦 สินค้า (Products)",
     endpoint: "/products",
     fields: [
@@ -36,6 +38,7 @@ const TABS = [
   },
   {
     key: "cost-types",
+    managePerm: "plan.master.costTypes", // permission key ที่ต้องมีเพื่อเพิ่ม/แก้ไข/ลบ
     label: "💰 ประเภทตค่าใช้จ่าย (Cost Types)",
     endpoint: "/cost-types",
     fields: [
@@ -46,6 +49,7 @@ const TABS = [
   },
   {
     key: "earning-types",
+    managePerm: "plan.master.earningTypes", // permission key ที่ต้องมีเพื่อเพิ่ม/แก้ไข/ลบ
     label: "💵 ประเภทรายได้ (Earning Types)",
     endpoint: "/earning-types",
     fields: [
@@ -56,6 +60,7 @@ const TABS = [
   },
   {
     key: "aux-costs",
+    managePerm: "plan.master.auxCosts", // permission key ที่ต้องมีเพื่อเพิ่ม/แก้ไข/ลบ
     label: "🧾 ต้นทุน (Aux Costs)",
     endpoint: "/aux-costs",
     fields: [
@@ -73,6 +78,7 @@ const TABS = [
   },
   {
     key: "branches",
+    managePerm: "plan.master.branches", // permission key ที่ต้องมีเพื่อเพิ่ม/แก้ไข/ลบ
     label: "🏢 สาขา (Branches)",
     endpoint: "/branches",
     fields: [
@@ -366,6 +372,8 @@ const BusinessEdit = () => {
   const { backdropProps: formBackdrop } = useModalDismiss(() => setIsModalOpen(false), { open: isModalOpen, disabled: isSaving })
 
   const currentConfig = useMemo(() => TABS.find((t) => t.key === activeTab), [activeTab])
+  // ไม่มีสิทธิ์จัดการแท็บนี้ → ดูได้อย่างเดียว (ซ่อนปุ่มเพิ่ม/แก้ไข/ลบ)
+  const canManage = can(currentConfig?.managePerm)
 
   const filteredData = useMemo(() => {
     if (!searchText.trim()) return data
@@ -566,7 +574,7 @@ const BusinessEdit = () => {
                 แก้ไขข้อมูลธุรกิจ (Master Data)
               </h1>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                เพิ่ม/แก้ไข/ลบ ข้อมูลพื้นฐานที่ใช้ในระบบ (เฉพาะ Admin เท่านั้นที่สามารถจัดการได้)
+                เพิ่ม/แก้ไข/ลบ ข้อมูลพื้นฐานที่ใช้ในระบบ (แท็บที่บทบาทของคุณไม่มีสิทธิ์จัดการจะดูได้อย่างเดียว)
               </p>
             </div>
           </div>
@@ -628,12 +636,14 @@ const BusinessEdit = () => {
                     </button>
                   )}
                 </div>
+                {canManage && (
                 <button
                   onClick={handleAdd}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer transform hover:scale-105 active:scale-95 shadow-md hover:shadow-lg shrink-0"
                 >
                   + เพิ่มข้อมูล
                 </button>
+                )}
               </div>
             </div>
 
@@ -702,6 +712,7 @@ const BusinessEdit = () => {
                           </td>
                         ))}
                         <td className="border border-slate-300 p-3 text-center dark:border-slate-600">
+                          {canManage ? (
                           <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => handleEdit(row)}
@@ -728,6 +739,9 @@ const BusinessEdit = () => {
                               </svg>
                             </button>
                           </div>
+                          ) : (
+                            <span className="text-xs text-slate-500 dark:text-slate-400">ดูอย่างเดียว</span>
+                          )}
                         </td>
                       </tr>
                     ))

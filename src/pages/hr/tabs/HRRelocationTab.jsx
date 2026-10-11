@@ -10,7 +10,7 @@
 //   POST /hr/employees/{id}/relocations                    (ย้ายโดยตรง — ดู RelocationTransferModal)
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
-import { getRoleId } from "../../../lib/auth"
+import { can } from "../../../lib/permissions"
 import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
 import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import Portal from "../../../components/Portal"
@@ -43,8 +43,6 @@ const STATUS_COLOR = {
   cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
 }
 
-const CAN_TRANSFER_ROLES = [1, 3] // ADMIN, HR
-
 const inputCls =
   "w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm " +
   "text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 " +
@@ -76,7 +74,7 @@ const ACTION_META = {
 }
 
 export default function HRRelocationTab() {
-  const canTransfer = CAN_TRANSFER_ROLES.includes(getRoleId())
+  const canTransfer = can("hr.relocation.direct")
   const [subTab, setSubTab] = useSubTab(TABS.map((t) => t.key), "pending_branch_head")
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
@@ -288,7 +286,8 @@ export default function HRRelocationTab() {
                     )}
                   </div>
 
-                  {(r.status === "pending_branch_head" || r.status === "pending_manager") && (
+                  {((r.status === "pending_branch_head" && can("hr.relocation.approve.branchHead")) ||
+                    (r.status === "pending_manager" && can("hr.relocation.approve.manager"))) && (
                     <div className="flex gap-2 shrink-0">
                       <button
                         onClick={() => openModal(r, r.status === "pending_branch_head" ? "bh_approve" : "mgr_approve")}

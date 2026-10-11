@@ -2,10 +2,12 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../../lib/api" // ✅ แนบ token อัตโนมัติ + JSON ให้แล้ว
 import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
-import { ErrorState } from "../../components/ui"
+import { ErrorState, toast } from "../../components/ui"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
+/** แสดงข้อความจาก backend เฉพาะเมื่อเป็นภาษาไทยแล้ว ไม่งั้นใช้ข้อความกลาง */
+const friendly = (e, fallback) => (/[฀-๿]/.test(e?.message || "") ? e.message : fallback)
 function useDebounce(value, delay = 350) {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -204,7 +206,7 @@ function MemberTermination() {
         if (!aborted) {
           setResults([])
           setShowList(false)
-          setSearchError(err?.message || "ค้นหาสมาชิกไม่สำเร็จ")
+          setSearchError(friendly(err, "ค้นหาสมาชิกไม่สำเร็จ ลองใหม่อีกครั้ง"))
         }
       } finally {
         if (!aborted) setLoading(false)
@@ -320,11 +322,11 @@ function MemberTermination() {
           recipient_name: recipient,            // ผู้รับเงิน / ผู้รับผลประโยชน์
         },
       })
-      alert(mode === "resigned" ? "บันทึกการลาออกเรียบร้อย ✅" : "บันทึกการเสียชีวิตเรียบร้อย ✅")
+      toast.success(mode === "resigned" ? "บันทึกการลาออกแล้ว" : "บันทึกการเสียชีวิตแล้ว")
       reset()
     } catch (err) {
       console.error(err)
-      alert(`บันทึกล้มเหลว: ${err?.message || "ไม่ทราบสาเหตุ"}`)
+      toast.error("บันทึกไม่สำเร็จ", { description: friendly(err, "ข้อมูลที่กรอกยังอยู่ ลองบันทึกใหม่อีกครั้ง") })
     } finally {
       setSubmitting(false)
     }
@@ -335,7 +337,7 @@ function MemberTermination() {
 
   const pickedPreview = useMemo(() => {
     if (!picked) return ""
-    return `#${picked.member_id} • ${picked.first_name || "-"} ${picked.last_name || "-"} • ${picked.citizen_id || "-"}`
+    return `เลขสมาชิก ${picked.member_id} • ${picked.first_name || "-"} ${picked.last_name || "-"} • ${picked.citizen_id || "-"}`
   }, [picked])
 
   /** ---------- UI ---------- */
@@ -470,7 +472,7 @@ function MemberTermination() {
                     )}
                     <div className="flex-1">
                       <div className="font-medium">
-                        {full} <span className="text-xs text-slate-500">#{r.member_id}</span>
+                        {full} <span className="text-xs text-slate-500">เลขสมาชิก {r.member_id}</span>
                       </div>
                       <div className="text-sm text-slate-600 dark:text-slate-300">
                         บัตร {r.citizen_id ?? "-"} • โทร {r.phone_number ?? "-"}

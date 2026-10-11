@@ -58,7 +58,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
           }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
@@ -757,8 +757,9 @@ function OrderCorrection() {
           )}
           <div className="grid gap-3 md:grid-cols-6">
             <div>
-              <label className={labelCls}>วันที่เริ่ม</label>
+              <label className={labelCls} htmlFor="oc-start">วันที่เริ่ม</label>
               <DateInput
+                id="oc-start"
                 value={filters.startDate}
                 onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
                 error={!!errors.startDate}
@@ -767,8 +768,9 @@ function OrderCorrection() {
             </div>
 
             <div>
-              <label className={labelCls}>วันที่สิ้นสุด</label>
+              <label className={labelCls} htmlFor="oc-end">วันที่สิ้นสุด</label>
               <DateInput
+                id="oc-end"
                 value={filters.endDate}
                 onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
                 error={!!errors.endDate}
@@ -779,6 +781,8 @@ function OrderCorrection() {
             <div>
               <label className={labelCls}>สาขา</label>
               <ComboBox
+                title="สาขา"
+                ariaLabel="สาขา"
                 options={branchOptions}
                 value={filters.branchId}
                 getValue={(o) => o.id}
@@ -798,6 +802,8 @@ function OrderCorrection() {
             <div>
               <label className={labelCls}>คลัง</label>
               <ComboBox
+                title="คลัง"
+                ariaLabel="คลัง"
                 options={klangOptions}
                 value={filters.klangId}
                 getValue={(o) => o.id}
@@ -808,10 +814,11 @@ function OrderCorrection() {
             </div>
 
             <div className="md:col-span-2">
-              <label className={labelCls}>
+              <label className={labelCls} htmlFor="oc-q">
                 {mode === "buy" ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)" : "ค้นหา (ชื่อ / ปชช. / ใบรับเงินขายสินค้า / เลขที่ใบชั่ง)"}
               </label>
               <input
+                id="oc-q"
                 className={baseField}
                 value={filters.q}
                 onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
@@ -1059,8 +1066,9 @@ function OrderCorrection() {
 
               {/* Jump to page */}
               <div className="ml-2 flex items-center gap-2">
-                <label className="text-sm text-slate-600 dark:text-slate-300">ไปหน้า</label>
+                <label className="text-sm text-slate-600 dark:text-slate-300" htmlFor="oc-jump">ไปหน้า</label>
                 <input
+                  id="oc-jump"
                   type="number"
                   min={1}
                   max={totalPages}
@@ -1194,13 +1202,14 @@ function OrderCorrection() {
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">วันที่เอกสาร</label>
+                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300" htmlFor="oc-edit-date">วันที่เอกสาร</label>
                       {!editing ? (
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
                           {draft.date ? new Date(draft.date).toLocaleDateString("th-TH") : "-"}
                         </div>
                       ) : (
                         <DateInput
+                          id="oc-edit-date"
                           value={draft.date}
                           onChange={(e) => {
                             setD({ date: e.target.value });
@@ -1218,6 +1227,8 @@ function OrderCorrection() {
                         </div>
                       ) : (
                         <ComboBox
+                          title="รายการสำเร็จรูป (เปลี่ยนสเปก)"
+                          ariaLabel="รายการสำเร็จรูป (เปลี่ยนสเปก)"
                           options={specOptions}
                           value={draft.spec_id}
                           getValue={(o) => o.id}
@@ -1238,6 +1249,8 @@ function OrderCorrection() {
                         </div>
                       ) : (
                         <ComboBox
+                          title="สาขา"
+                          ariaLabel="สาขา"
                           options={branchOptions}
                           value={draft.branch_location}
                           getValue={(o) => o.id}
@@ -1258,6 +1271,8 @@ function OrderCorrection() {
                         </div>
                       ) : (
                         <ComboBox
+                          title="คลัง"
+                          ariaLabel="คลัง"
                           options={klangOptions}
                           value={draft.klang_location}
                           getValue={(o) => o.id}
@@ -1279,6 +1294,8 @@ function OrderCorrection() {
                         </div>
                       ) : (
                         <ComboBox
+                          title="วิธีชำระเงิน"
+                          ariaLabel="วิธีชำระเงิน"
                           options={draft.type === "sell" ? paymentSell : paymentBuy}
                           value={draft.payment_id}
                           getValue={(o) => o.id}

@@ -53,7 +53,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
         }}
         aria-label="เปิดตัวเลือกวันที่"
         className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
-                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+                   transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
@@ -454,8 +454,9 @@ const Order = () => {
     <>
       {/* วันที่เริ่ม */}
       <div>
-        <label className={labelCls}>วันที่เริ่ม</label>
+        <label className={labelCls} htmlFor="order-start">วันที่เริ่ม</label>
         <DateInput
+          id="order-start"
           value={filters.startDate}
           onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
           error={!!errors.startDate}
@@ -465,8 +466,9 @@ const Order = () => {
 
       {/* วันที่สิ้นสุด */}
       <div>
-        <label className={labelCls}>วันที่สิ้นสุด</label>
+        <label className={labelCls} htmlFor="order-end">วันที่สิ้นสุด</label>
         <DateInput
+          id="order-end"
           value={filters.endDate}
           onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
           error={!!errors.endDate}

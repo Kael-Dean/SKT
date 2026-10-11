@@ -98,7 +98,7 @@ const DateInput = forwardRef(function DateInput(
         }}
         aria-label="เปิดตัวเลือกวันที่"
         className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
-                    transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+                    transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer bg-transparent"
       >
         <svg
           viewBox="0 0 24 24"
@@ -469,9 +469,11 @@ function Share() {
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>วันที่ซื้อ</label>
+              <label className={labelCls} htmlFor="share-date">วันที่ซื้อ</label>
               <DateInput
                 ref={dateRef}
+                id="share-date"
+                aria-describedby={errors.buyDate ? "share-date-err" : undefined}
                 value={buyDate}
                 onChange={(e) => {
                   setBuyDate(e.target.value)
@@ -486,14 +488,16 @@ function Share() {
                 error={!!errors.buyDate}
                 aria-invalid={errors.buyDate ? true : undefined}
               />
-              {errors.buyDate && <p className={errorTextCls}>{errors.buyDate}</p>}
+              {errors.buyDate && <p id="share-date-err" className={errorTextCls}>{errors.buyDate}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>จำนวนที่ซื้อ (บาท)</label>
+              <label className={labelCls} htmlFor="share-amount">จำนวนที่ซื้อ (บาท)</label>
               <div className="relative">
                 <input
                   ref={amountRef}
+                  id="share-amount"
+                  aria-describedby={errors.amount ? "share-amount-help share-amount-err" : "share-amount-help"}
                   inputMode="decimal"
                   className={cx(baseField, "pr-12", errors.amount && fieldError)}
                   value={amountRaw}
@@ -516,8 +520,8 @@ function Share() {
                   ฿
                 </div>
               </div>
-              <p className={helpTextCls}>รองรับทศนิยมไม่เกิน 3 ตำแหน่ง</p>
-              {errors.amount && <p className={errorTextCls}>{errors.amount}</p>}
+              <p id="share-amount-help" className={helpTextCls}>รองรับทศนิยมไม่เกิน 3 ตำแหน่ง</p>
+              {errors.amount && <p id="share-amount-err" className={errorTextCls}>{errors.amount}</p>}
             </div>
           </div>
         </SectionCard>

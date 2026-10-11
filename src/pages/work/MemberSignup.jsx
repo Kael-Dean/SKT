@@ -730,8 +730,9 @@ const MemberSignup = () => {
             <div className="grid gap-4 md:grid-cols-4">
               {/* เลขสมาชิก */}
               <div>
-                <label className={labelCls}>เลขสมาชิก (member_id)</label>
+                <label className={labelCls} htmlFor="ms-member_id">เลขสมาชิก (member_id)</label>
                 <input
+                  id="ms-member_id"
                   ref={refs.member_id}
                   inputMode="numeric"
                   className={cx(baseField, errors.member_id && fieldError)}
@@ -766,8 +767,9 @@ const MemberSignup = () => {
 
               {/* วันที่สมัคร */}
               <div className="md:col-span-2">
-                <label className={labelCls}>วันที่สมัคร (regis_date)</label>
+                <label className={labelCls} htmlFor="ms-regis_date">วันที่สมัคร (regis_date)</label>
                 <DateInput
+                  id="ms-regis_date"
                   ref={refs.regis_date}
                   value={form.regis_date}
                   onChange={(e) => { clearError("regis_date"); update("regis_date", e.target.value) }}
@@ -780,8 +782,9 @@ const MemberSignup = () => {
 
               {/* ชื่อ */}
               <div className="md:col-span-2">
-                <label className={labelCls}>ชื่อ</label>
+                <label className={labelCls} htmlFor="ms-first_name">ชื่อ</label>
                 <input
+                  id="ms-first_name"
                   ref={refs.first_name}
                   className={cx(baseField, errors.first_name && fieldError)}
                   value={form.first_name}
@@ -796,8 +799,9 @@ const MemberSignup = () => {
 
               {/* นามสกุล */}
               <div className="md:col-span-2">
-                <label className={labelCls}>นามสกุล</label>
+                <label className={labelCls} htmlFor="ms-last_name">นามสกุล</label>
                 <input
+                  id="ms-last_name"
                   ref={refs.last_name}
                   className={cx(baseField, errors.last_name && fieldError)}
                   value={form.last_name}
@@ -812,8 +816,9 @@ const MemberSignup = () => {
 
               {/* บัตรประชาชน */}
               <div className="md:col-span-2">
-                <label className={labelCls}>เลขบัตรประชาชน (13 หลัก)</label>
+                <label className={labelCls} htmlFor="ms-citizen_id">เลขบัตรประชาชน (13 หลัก)</label>
                 <input
+                  id="ms-citizen_id"
                   ref={refs.citizen_id}
                   inputMode="numeric"
                   maxLength={13}
@@ -854,8 +859,9 @@ const MemberSignup = () => {
 
               {/* คู่สมรส */}
               <div className="md:col-span-2">
-                <label className={labelCls}>ชื่อคู่สมรส (spouce_name)</label>
+                <label className={labelCls} htmlFor="ms-spouce_name">ชื่อคู่สมรส (spouce_name)</label>
                 <input
+                  id="ms-spouce_name"
                   ref={refs.spouce_name}
                   className={baseField}
                   value={form.spouce_name}
@@ -875,8 +881,9 @@ const MemberSignup = () => {
             ) : (
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>บ้านเลขที่ (address)</label>
+                <label className={labelCls} htmlFor="ms-address">บ้านเลขที่ (address)</label>
                 <input
+                  id="ms-address"
                   ref={refs.address}
                   className={cx(baseField, errors.address && fieldError)}
                   value={form.address}
@@ -890,8 +897,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>หมู่ (mhoo)</label>
+                <label className={labelCls} htmlFor="ms-mhoo">หมู่ (mhoo)</label>
                 <input
+                  id="ms-mhoo"
                   ref={refs.mhoo}
                   className={baseField}
                   value={form.mhoo}
@@ -959,8 +967,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>อำเภอย่อย/รหัสอำเภอ (subprov)</label>
+                <label className={labelCls} htmlFor="ms-subprov">อำเภอย่อย/รหัสอำเภอ (subprov)</label>
                 <input
+                  id="ms-subprov"
                   ref={refs.subprov}
                   inputMode="numeric"
                   className={baseField}
@@ -972,8 +981,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>รหัสไปรษณีย์ </label>
+                <label className={labelCls} htmlFor="ms-postal_code">รหัสไปรษณีย์ </label>
                 <input
+                  id="ms-postal_code"
                   ref={refs.postal_code}
                   inputMode="numeric"
                   maxLength={5}
@@ -989,8 +999,9 @@ const MemberSignup = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className={labelCls}>โทรศัพท์ (phone_number)</label>
+                <label className={labelCls} htmlFor="ms-phone_number">โทรศัพท์ (phone_number)</label>
                 <input
+                  id="ms-phone_number"
                   ref={refs.phone_number}
                   inputMode="tel"
                   className={cx(baseField, errors.phone_number && fieldError)}
@@ -1012,8 +1023,9 @@ const MemberSignup = () => {
             <CardHeader title="ข้อมูลเพิ่มเติมและการเงิน" />
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>กลุ่ม (tgs_group)</label>
+                <label className={labelCls} htmlFor="ms-tgs_group">กลุ่ม (tgs_group)</label>
                 <input
+                  id="ms-tgs_group"
                   ref={refs.tgs_group}
                   inputMode="numeric"
                   className={cx(baseField, errors.tgs_group && fieldError)}
@@ -1028,8 +1040,9 @@ const MemberSignup = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className={labelCls}>บัญชีธนาคาร (bank_account)</label>
+                <label className={labelCls} htmlFor="ms-bank_account">บัญชีธนาคาร (bank_account)</label>
                 <input
+                  id="ms-bank_account"
                   ref={refs.bank_account}
                   className={baseField}
                   value={form.bank_account}
@@ -1040,8 +1053,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>รหัสสมาชิกในระบบ (tgs_id)</label>
+                <label className={labelCls} htmlFor="ms-tgs_id">รหัสสมาชิกในระบบ (tgs_id)</label>
                 <input
+                  id="ms-tgs_id"
                   ref={refs.tgs_id}
                   className={cx(baseField, errors.tgs_id && fieldError)}
                   value={form.tgs_id}
@@ -1058,8 +1072,9 @@ const MemberSignup = () => {
             <h3 className="mt-6 mb-3 text-lg font-semibold text-slate-800 dark:text-slate-100">ซื้อหุ้น</h3>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>มูลค่าที่ซื้อ (บาท)</label>
+                <label className={labelCls} htmlFor="ms-buy_amount">มูลค่าที่ซื้อ (บาท)</label>
                 <input
+                  id="ms-buy_amount"
                   ref={refs.buy_amount}
                   inputMode="decimal"
                   className={cx(baseField, errors.buy_amount && fieldError)}
@@ -1074,8 +1089,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>วันที่ซื้อ (ไม่ระบุก็ได้)</label>
+                <label className={labelCls} htmlFor="ms-buy_date">วันที่ซื้อ (ไม่ระบุก็ได้)</label>
                 <DateInput
+                  id="ms-buy_date"
                   ref={refs.buy_date}
                   value={form.buy_date}
                   onChange={(e) => update("buy_date", e.target.value)}
@@ -1089,8 +1105,9 @@ const MemberSignup = () => {
             <CardHeader title="ข้อมูลเกษตร" />
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>รหัสทะเบียนเกษตรกร (fid)</label>
+                <label className={labelCls} htmlFor="ms-fid">รหัสทะเบียนเกษตรกร (fid)</label>
                 <input
+                  id="ms-fid"
                   ref={refs.fid}
                   inputMode="numeric"
                   className={cx(baseField, errors.fid && fieldError)}
@@ -1105,8 +1122,9 @@ const MemberSignup = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className={labelCls}>ผู้ขึ้นทะเบียนเกษตรกร (fid_owner)</label>
+                <label className={labelCls} htmlFor="ms-fid_owner">ผู้ขึ้นทะเบียนเกษตรกร (fid_owner)</label>
                 <input
+                  id="ms-fid_owner"
                   ref={refs.fid_owner}
                   className={cx(baseField, errors.fid_owner && fieldError)}
                   value={form.fid_owner}
@@ -1120,8 +1138,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>ประเภทการเกษตร (agri_type)</label>
+                <label className={labelCls} htmlFor="ms-agri_type">ประเภทการเกษตร (agri_type)</label>
                 <input
+                  id="ms-agri_type"
                   ref={refs.agri_type}
                   inputMode="numeric"
                   className={cx(baseField, errors.agri_type && fieldError)}
@@ -1136,8 +1155,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>ช่วงระยะเวลาการใช้ปุ๋ย (fertilizing_period)</label>
+                <label className={labelCls} htmlFor="ms-fertilizing_period">ช่วงระยะเวลาการใช้ปุ๋ย (fertilizing_period)</label>
                 <input
+                  id="ms-fertilizing_period"
                   ref={refs.fertilizing_period}
                   inputMode="numeric"
                   className={cx(baseField, errors.fertilizing_period && fieldError)}
@@ -1152,8 +1172,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>สูตรที่ใช้ปุ๋ย (fertilizer_type)</label>
+                <label className={labelCls} htmlFor="ms-fertilizer_type">สูตรที่ใช้ปุ๋ย (fertilizer_type)</label>
                 <input
+                  id="ms-fertilizer_type"
                   ref={refs.fertilizer_type}
                   inputMode="numeric"
                   className={cx(baseField, errors.fertilizer_type && fieldError)}

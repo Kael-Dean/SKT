@@ -1,8 +1,11 @@
 // src/pages/Order.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { apiAuth } from "../../lib/api"  // ✅ helper รวม token/BASE URL
-import { cx, baseField } from "../../lib/styles"
-import { EmptyState, SkeletonTableRows } from "../../components/ui"
+import { cx, baseField, primaryBtnCls, neutralBtnCls, focusRingCls } from "../../lib/styles"
+import { EmptyState, ErrorState, SkeletonTableRows, DataList, Badge } from "../../components/ui"
+import ComboBox from "../../components/ComboBox"
+import { useIsPhone } from "../../hooks/useMediaQuery"
 
 /** ----------- Utils ----------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -25,189 +28,6 @@ function useDebounce(value, delay = 400) {
 }
 
 /** ---------- class helpers ---------- */
-
-/** ---------- Reusable ComboBox (เหมือนหน้า Buy: รองรับ subLabel) ---------- */
-function ComboBox({
-  options = [],
-  value,
-  onChange,
-  placeholder = "— เลือก —",
-  getLabel = (o) => o?.label ?? "",
-  getValue = (o) => o?.value ?? o?.id ?? "",
-  getSubLabel = (o) => o?.subLabel ?? "",
-  disabled = false,
-  error = false,
-  buttonRef = null,
-  hintRed = false,
-  clearHint = () => {},
-  onEnterNext,
-}) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(-1)
-  const boxRef = useRef(null)
-  const listRef = useRef(null)
-  const internalBtnRef = useRef(null)
-  const controlRef = buttonRef || internalBtnRef
-
-  const selectedObj = useMemo(
-    () => options.find((o) => String(getValue(o)) === String(value)),
-    [options, value, getValue]
-  )
-  const selectedLabel = selectedObj ? getLabel(selectedObj) : ""
-  const selectedSubLabel = selectedObj ? (getSubLabel(selectedObj) || "") : ""
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (!boxRef.current) return
-      if (!boxRef.current.contains(e.target)) {
-        setOpen(false)
-        setHighlight(-1)
-      }
-    }
-    document.addEventListener("click", onClick)
-    return () => document.removeEventListener("click", onClick)
-  }, [])
-
-  const commit = (opt) => {
-    const v = String(getValue(opt))
-    onChange?.(v, opt)
-    setOpen(false)
-    setHighlight(-1)
-    clearHint?.()
-    requestAnimationFrame(() => {
-      controlRef.current?.focus()
-      onEnterNext?.()
-    })
-  }
-
-  const scrollHighlightedIntoView = (index) => {
-    const listEl = listRef.current
-    const itemEl = listEl?.children?.[index]
-    if (!listEl || !itemEl) return
-    const itemRect = itemEl.getBoundingClientRect()
-    const listRect = listEl.getBoundingClientRect()
-    const buffer = 6
-    if (itemRect.top < listRect.top + buffer) {
-      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
-    } else if (itemRect.bottom > listRect.bottom - buffer) {
-      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
-    }
-  }
-
-  const onKeyDown = (e) => {
-    if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault()
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
-      clearHint?.()
-      return
-    }
-    if (!open) return
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const next = h < options.length - 1 ? h + 1 : 0
-        requestAnimationFrame(() => scrollHighlightedIntoView(next))
-        return next
-      })
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const prev = h > 0 ? h - 1 : options.length - 1
-        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
-        return prev
-      })
-    } else if (e.key === "Enter") {
-      e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      setOpen(false)
-      setHighlight(-1)
-    }
-  }
-
-  return (
-    <div className="relative" ref={boxRef}>
-      <button
-        type="button"
-        ref={controlRef}
-        disabled={disabled}
-        onClick={() => { if (!disabled) { setOpen((o) => !o); clearHint?.() } }}
-        onKeyDown={onKeyDown}
-        onFocus={() => clearHint?.() }
-        className={cx(
-          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          error
-            ? "border-red-400 ring-2 ring-red-300/70"
-            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80",
-          hintRed && "ring-2 ring-red-300 animate-pulse"
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-invalid={error || hintRed ? true : undefined}
-      >
-        {selectedLabel ? (
-          <div className="flex flex-col">
-            <span>{selectedLabel}</span>
-            {selectedSubLabel && (
-              <span className="text-[13px] text-slate-600 dark:text-slate-300">{selectedSubLabel}</span>
-            )}
-          </div>
-        ) : (
-          <span className="text-slate-500 dark:text-white/70">{placeholder}</span>
-        )}
-      </button>
-
-      {open && (
-        <div
-          ref={listRef}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
-          )}
-          {options.map((opt, idx) => {
-            const label = getLabel(opt)
-            const sub = getSubLabel(opt) || ""
-            const isActive = idx === highlight
-            const isChosen = String(getValue(opt)) === String(value)
-            return (
-              <button
-                key={String(getValue(opt)) || label || idx}
-                type="button"
-                role="option"
-                aria-selected={isChosen}
-                onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)}
-                className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
-                  isActive
-                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                )}
-              >
-                {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-                )}
-                <span className="flex-1">
-                  <div className="">{label}</div>
-                  {sub && <div className="text-sm text-slate-600 dark:text-slate-300">{sub}</div>}
-                </span>
-                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
 
 /** ---------- DateInput (รองรับ error) ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
@@ -232,8 +52,8 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
           else { el.focus(); el.click?.() }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
+                   transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
@@ -243,17 +63,65 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
+/** ---------- Row derivations (shared by the desktop table and the phone cards) ---------- */
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("th-TH") : "—")
+const deriveBuy = (r) => {
+  const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
+  const exit = toNumber(r.exit_weight ?? r.exitWeight ?? r.exit ?? 0)
+  const net = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry))
+  const deduct = Math.max(0, entry - exit - net)
+  const price = toNumber(r.price ?? r.amountTHB ?? 0)
+  const pricePerKgRaw = toNumber(r.price_per_kilo ?? r.pricePerKilo ?? r.unit_price ?? 0)
+  const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)
+  return {
+    entry, exit, net, deduct, price, pricePerKg,
+    date: fmtDate(r.date),
+    serial: r.order_serial || r.paymentRefNo || "—",
+    customer: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.customer_name || "—",
+    species: r.species || r.rice_type || r.riceType || "—",
+    branch: r.branch_name || r.branchName || "—",
+    klang: r.klang_name || r.klangName || "—",
+  }
+}
+const deriveSell = (r) => {
+  const net = toNumber(r.weight ?? 0)
+  const price = toNumber(r.price ?? 0)
+  const pricePerKgRaw = toNumber(r.price_per_kilo ?? 0)
+  const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)
+  return {
+    net, price, pricePerKg,
+    date: fmtDate(r.date),
+    saleId: r.sale_id || "—",
+    serial: r.order_serial || "—",
+    customer: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "—",
+    species: r.species || "—",
+    branch: r.branch_name || "—",
+    klang: r.klang_name || "—",
+    sub: r.sub_order,
+  }
+}
+const buyKey = (r) => r.id ?? `${r.order_serial}-${r.date}-${r.first_name ?? ""}-${r.last_name ?? ""}`
+const sellKey = (r) => `${r.id ?? r.sale_id}-${r.sub_order ?? 0}`
+
 /** ---------- Page: Order ---------- */
 const PAGE_SIZE = 100
+const PAGE_BTN_ACTIVE = "bg-emerald-600 text-white"
+const MODE_BTN_ACTIVE = "bg-emerald-600 text-white shadow"
+const MODE_BTN_IDLE = "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
+const PAGE_BTN_IDLE = "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
 
 const Order = () => {
   const today = new Date().toISOString().slice(0, 10)
   const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
 
+  const isPhone = useIsPhone()
+
   /** ---------- State ---------- */
   const [mode, setMode] = useState("buy") // 'buy' | 'sell'
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
+  // Phone only: show ErrorState instead of a silent empty list when the fetch fails.
+  const [loadError, setLoadError] = useState("")
 
   // ⭐ Request guard — ทำให้ผลคำขอเก่าถูกเมินเมื่อมีคำขอใหม่กว่า
   const listReqId = useRef(0)
@@ -427,10 +295,12 @@ const Order = () => {
       if (listReqId.current !== myReq) return  // ถ้าไม่ใช่คำขอล่าสุดให้เมินผลนี้
       setRows(Array.isArray(data) ? data : [])
       setPage(1); setPageInput("1")
+      setLoadError("")
     } catch (e) {
       console.error(e)
       if (listReqId.current !== myReq) return
       setRows([]); setPage(1); setPageInput("1")
+      setLoadError("โหลดข้อมูลไม่สำเร็จ")
     } finally {
       if (listReqId.current === myReq) {
         setLoading(false)
@@ -517,12 +387,11 @@ const Order = () => {
     const n = Math.min(Math.max(1, toNumber(p)), totalPages)
     setPage(n); setPageInput(String(n))
     try {
+      // The body is the document scroller now (plan §A7); keep the old <main>
+      // call for safety — it is a no-op when <main> does not scroll.
       const main = document.querySelector("main")
-      if (main && typeof main.scrollTo === "function") {
-        main.scrollTo({ top: 0, behavior: "smooth" })
-      } else {
-        window?.scrollTo?.({ top: 0, behavior: "smooth" })
-      }
+      if (main && typeof main.scrollTo === "function") main.scrollTo({ top: 0, behavior: "smooth" })
+      window?.scrollTo?.({ top: 0, behavior: "smooth" })
     } catch { /* no-op */ }
   }
   const nextPage = () => goToPage(page + 1)
@@ -567,12 +436,215 @@ const Order = () => {
   const endIndex = Math.min(rows.length, page * PAGE_SIZE)
   // จำนวนคอลัมน์จริงต่อโหมด — ใช้กับ skeleton/empty ให้ตรง layout
   const colCount = mode === "buy" ? 12 : 11
+  const dateError = !!errors.startDate || !!errors.endDate
+
+  // Active filters (badge on the phone disclosure). Dates count only when changed from the default range.
+  const activeFilterCount =
+    (filters.startDate !== firstDayThisMonth ? 1 : 0) +
+    (filters.endDate !== today ? 1 : 0) +
+    (filters.branchId ? 1 : 0) +
+    (filters.klangId ? 1 : 0) +
+    (filters.specId ? 1 : 0) +
+    (filters.q.trim() ? 1 : 0)
+
+  const labelCls = "mb-1 block text-sm text-slate-700 dark:text-slate-300"
+
+  // Filter fields — the SAME nodes on desktop (card grid) and phone (<details>).
+  const filterFields = (
+    <>
+      {/* วันที่เริ่ม */}
+      <div>
+        <label className={labelCls} htmlFor="order-start">วันที่เริ่ม</label>
+        <DateInput
+          id="order-start"
+          aria-invalid={errors.startDate ? true : undefined}
+          aria-describedby={errors.startDate ? "order-start-err" : undefined}
+          value={filters.startDate}
+          onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
+          error={!!errors.startDate}
+        />
+        {errors.startDate && <div id="order-start-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.startDate}</div>}
+      </div>
+
+      {/* วันที่สิ้นสุด */}
+      <div>
+        <label className={labelCls} htmlFor="order-end">วันที่สิ้นสุด</label>
+        <DateInput
+          id="order-end"
+          aria-invalid={errors.endDate ? true : undefined}
+          aria-describedby={errors.endDate ? "order-end-err" : undefined}
+          value={filters.endDate}
+          onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
+          error={!!errors.endDate}
+        />
+        {errors.endDate && <div id="order-end-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.endDate}</div>}
+      </div>
+
+      {/* สาขา */}
+      <div>
+        <label className={labelCls}>สาขา</label>
+        <ComboBox
+          options={branchOptions}
+          value={filters.branchId}
+          getValue={(o) => o.id}
+          onChange={(id, found) =>
+            setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" }))}
+          placeholder="— เลือกสาขา —"
+          title="สาขา"
+          ariaLabel="สาขา"
+        />
+      </div>
+
+      {/* คลัง */}
+      <div>
+        <label className={labelCls}>คลัง</label>
+        <ComboBox
+          options={klangOptions}
+          value={filters.klangId}
+          getValue={(o) => o.id}
+          onChange={(id, found) =>
+            setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" }))}
+          placeholder="— เลือกคลัง —"
+          disabled={!filters.branchId}
+          title="คลัง"
+          ariaLabel="คลัง"
+        />
+      </div>
+
+      {/* รายการสำเร็จรูป (spec) — โชว์ชั้นย่อยแบบหน้า Buy */}
+      <div className="md:col-span-2">
+        <label className={labelCls}>รายการสำเร็จรูป (spec)</label>
+        <ComboBox
+          options={specOptions}
+          value={filters.specId}
+          getValue={(o) => o.id}
+          getSubLabel={(o) => templateSubLabel(o)}
+          onChange={(id, found) =>
+            setFilters((p) => ({ ...p, specId: id || "", specLabel: found?.label ?? "" }))}
+          placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
+          disabled={loadingSpecs || specOptions.length === 0}
+          searchable
+          title="รายการสำเร็จรูป"
+          ariaLabel="รายการสำเร็จรูป (spec)"
+        />
+      </div>
+
+      {/* Search box */}
+      <div className="md:col-span-2">
+        <label className={labelCls} htmlFor="order-q">
+          {mode === "buy"
+            ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)"
+            : "ค้นหา (ชื่อ / ปชช. / ใบรับเงินขายสินค้า / เลขที่ใบชั่ง)"}
+        </label>
+        <input
+          id="order-q"
+          className={baseField}
+          value={filters.q}
+          onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
+          placeholder="พิมพ์อย่างน้อย 2 ตัวอักษร แล้วระบบจะค้นหาอัตโนมัติ"
+        />
+      </div>
+    </>
+  )
+
+  // ---------- phone list ----------
+  const emptyPhone = (
+    <EmptyState
+      title="ไม่พบออเดอร์"
+      description={`ไม่มีรายการ${mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}ในช่วงวันที่และตัวกรองนี้`}
+      action={activeFilterCount > 0 ? (
+        <button type="button" onClick={resetFilters} className={neutralBtnCls}>ล้างตัวกรอง</button>
+      ) : null}
+    />
+  )
+  const phoneList = loadError && !loading ? (
+    <ErrorState message={loadError} onRetry={fetchOrders} />
+  ) : mode === "buy" ? (
+    <DataList
+      items={pagedRows}
+      keyOf={buyKey}
+      loading={loading}
+      skeletonRows={6}
+      emptyState={emptyPhone}
+      title={(r) => deriveBuy(r).customer}
+      subtitle={(r) => {
+        const d = deriveBuy(r)
+        return [d.date, d.serial, d.klang !== "—" ? d.klang : null].filter(Boolean).join(" · ")
+      }}
+      badge={(r) => <Badge tone="neutral">{deriveBuy(r).branch}</Badge>}
+      fields={[
+        { label: "ชนิดข้าว", value: (r) => deriveBuy(r).species, span: 2 },
+        { label: "นน.สุทธิ (กก.)", value: (r) => deriveBuy(r).net.toLocaleString(), align: "right" },
+        { label: "หัก นน. (กก.)", value: (r) => { const d = deriveBuy(r).deduct; return d > 0 ? d.toLocaleString() : "—" }, align: "right" },
+        { label: "ราคา/กก. (บาท)", value: (r) => baht(deriveBuy(r).pricePerKg), align: "right" },
+        { label: "เป็นเงิน", value: (r) => thb(deriveBuy(r).price), align: "right", emphasis: true },
+      ]}
+    />
+  ) : (
+    <DataList
+      items={pagedRows}
+      keyOf={sellKey}
+      loading={loading}
+      skeletonRows={6}
+      emptyState={emptyPhone}
+      title={(r) => deriveSell(r).customer}
+      subtitle={(r) => {
+        const d = deriveSell(r)
+        return <span className="line-clamp-2">{`${d.date} · ใบรับเงิน ${d.saleId} · ใบชั่ง ${d.serial}`}</span>
+      }}
+      badge={(r) => {
+        const d = deriveSell(r)
+        return (
+          <span className="flex flex-col items-end gap-1">
+            <Badge tone="neutral">{d.branch}</Badge>
+            {toNumber(d.sub) > 1 && <Badge tone="info">ย่อย {d.sub}</Badge>}
+          </span>
+        )
+      }}
+      fields={[
+        { label: "ชนิดข้าว", value: (r) => deriveSell(r).species, span: 2 },
+        { label: "น้ำหนัก (กก.)", value: (r) => deriveSell(r).net.toLocaleString(), align: "right" },
+        { label: "ราคา/กก. (บาท)", value: (r) => baht(deriveSell(r).pricePerKg), align: "right" },
+        { label: "เป็นเงิน", value: (r) => thb(deriveSell(r).price), align: "right", emphasis: true, span: 2 },
+      ]}
+    />
+  )
+
+  const phonePager = rows.length > 0 && !loading && (
+    <nav aria-label="เลขหน้า" className="mt-4">
+      <div className="flex items-center justify-between gap-1.5">
+        <button type="button" onClick={prevPage} disabled={page <= 1} aria-label="หน้าก่อนหน้า" className={cx(neutralBtnCls, "shrink-0 gap-1 whitespace-nowrap px-2.5")}>
+          <ChevronLeft aria-hidden="true" className="size-4" /> ก่อนหน้า
+        </button>
+        <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+          <span className="hidden min-[380px]:inline">หน้า</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            aria-label="ไปหน้า"
+            value={pageInput}
+            onChange={(e) => setPageInput(onlyDigits(e.target.value))}
+            onKeyDown={(e) => e.key === "Enter" && onCommitPageInput()}
+            onBlur={onCommitPageInput}
+            className="h-11 w-14 shrink-0 rounded-xl border border-slate-300 bg-slate-100 px-1 text-center text-base tabular-nums text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <span className="tabular-nums">/ {totalPages.toLocaleString()}</span>
+        </div>
+        <button type="button" onClick={nextPage} disabled={page >= totalPages} aria-label="หน้าถัดไป" className={cx(neutralBtnCls, "shrink-0 gap-1 whitespace-nowrap px-2.5")}>
+          ถัดไป <ChevronRight aria-hidden="true" className="size-4" />
+        </button>
+      </div>
+      <p className="mt-2 text-center text-xs tabular-nums text-gray-500 dark:text-gray-400">
+        {startIndex.toLocaleString()}–{endIndex.toLocaleString()} จาก {rows.length.toLocaleString()}
+      </p>
+    </nav>
+  )
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-[1800px] p-4 md:p-6">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="flex items-center gap-2.5 text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="flex items-center gap-2.5 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
             <svg
               aria-hidden="true"
               viewBox="0 0 24 24"
@@ -601,151 +673,86 @@ const Order = () => {
             {mode === "buy" ? "รายการออเดอร์ซื้อข้าวเปลือก" : "รายการออเดอร์ขายข้าวเปลือก"}
           </h1>
 
-          {/* Toggle Buy/Sell */}
-          <div className="inline-flex items-center rounded-2xl border border-slate-300 p-1 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-600">
-            <button
-              type="button"
-              onClick={() => switchMode("buy")}
-              className={cx(
-                "px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer",
-                mode === "buy" ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
-              )}
-            >
-              โหมดซื้อ
-            </button>
-            <button
-              type="button"
-              onClick={() => switchMode("sell")}
-              className={cx(
-                "px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer",
-                mode === "sell" ? "bg-emerald-600 text-white shadow" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
-              )}
-            >
-              โหมดขาย
-            </button>
+          {/* Toggle Buy/Sell — stays outside the filter disclosure on phones */}
+          <div role="radiogroup" aria-label="โหมด" className="inline-flex items-center rounded-2xl border border-slate-300 p-1 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-600">
+            {[["buy", "โหมดซื้อ"], ["sell", "โหมดขาย"]].map(([m, l]) => (
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={mode === m}
+                onClick={() => switchMode(m)}
+                className={cx(
+                  "min-h-touch flex-1 px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer md:min-h-0 md:flex-none",
+                  mode === m ? MODE_BTN_ACTIVE : MODE_BTN_IDLE
+                )}
+              >
+                {l}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Filters */}
-        <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-          <div className="grid gap-3 md:grid-cols-6">
-            {/* วันที่เริ่ม */}
-            <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่เริ่ม</label>
-              <DateInput
-                value={filters.startDate}
-                onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
-                error={!!errors.startDate}
-              />
-              {errors.startDate && <div className="mt-1 text-sm text-red-500">{errors.startDate}</div>}
+        {isPhone ? (
+          <details className="group mb-4 rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+            <summary className={cx("flex min-h-touch cursor-pointer list-none items-center gap-2 rounded-2xl px-4 py-2 text-base font-semibold text-gray-700 dark:text-gray-200 [&::-webkit-details-marker]:hidden", focusRingCls)}>
+              ตัวกรอง
+              {activeFilterCount > 0 && <Badge tone="info">{activeFilterCount} ตัวกรอง</Badge>}
+              <ChevronDown aria-hidden="true" className="ml-auto size-5 text-gray-400 transition-transform duration-150 group-open:rotate-180 dark:text-gray-500" />
+            </summary>
+            <div className="grid gap-3 border-t border-slate-100 p-4 dark:border-slate-700">
+              {filterFields}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button type="button" onClick={resetFilters} className={neutralBtnCls}>ล้างตัวกรอง</button>
+                <button type="button" onClick={fetchOrders} disabled={dateError} className={primaryBtnCls}>ค้นหา</button>
+              </div>
             </div>
+          </details>
+        ) : (
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+            <div className="grid gap-3 md:grid-cols-6">
+              {filterFields}
 
-            {/* วันที่สิ้นสุด */}
-            <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">วันที่สิ้นสุด</label>
-              <DateInput
-                value={filters.endDate}
-                onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
-                error={!!errors.endDate}
-              />
-              {errors.endDate && <div className="mt-1 text-sm text-red-500">{errors.endDate}</div>}
-            </div>
-
-            {/* สาขา */}
-            <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">สาขา</label>
-              <ComboBox
-                options={branchOptions}
-                value={filters.branchId}
-                getValue={(o) => o.id}
-                onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, branchId: id || "", branchName: found?.label ?? "", klangId: "", klangName: "" }))}
-                placeholder="— เลือกสาขา —"
-              />
-            </div>
-
-            {/* คลัง */}
-            <div>
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">คลัง</label>
-              <ComboBox
-                options={klangOptions}
-                value={filters.klangId}
-                getValue={(o) => o.id}
-                onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, klangId: id || "", klangName: found?.label ?? "" }))}
-                placeholder="— เลือกคลัง —"
-                disabled={!filters.branchId}
-              />
-            </div>
-
-            {/* รายการสำเร็จรูป (spec) — โชว์ชั้นย่อยแบบหน้า Buy */}
-            <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">รายการสำเร็จรูป (spec)</label>
-              <ComboBox
-                options={specOptions}
-                value={filters.specId}
-                getValue={(o) => o.id}
-                getSubLabel={(o) => templateSubLabel(o)}
-                onChange={(id, found) =>
-                  setFilters((p) => ({ ...p, specId: id || "", specLabel: found?.label ?? "" }))}
-                placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
-                disabled={loadingSpecs || specOptions.length === 0}
-              />
-            </div>
-
-            {/* Search box */}
-            <div className="md:col-span-2">
-              <label className="mb-1 block text-sm text-slate-700 dark:text-slate-300">
-                {mode === "buy"
-                  ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)"
-                  : "ค้นหา (ชื่อ / ปชช. / ใบรับเงินขายสินค้า / เลขที่ใบชั่ง)"}
-              </label>
-              <input
-                className={baseField}
-                value={filters.q}
-                onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
-                placeholder="พิมพ์อย่างน้อย 2 ตัวอักษร แล้วระบบจะค้นหาอัตโนมัติ"
-              />
-            </div>
-
-            <div className="flex items-end gap-2 md:col-span-6">
-              <button
-                onClick={fetchOrders}
-                type="button"
-                disabled={!!errors.startDate || !!errors.endDate}
-                className={cx(
-                  "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-base font-semibold text-white transition-all duration-300 ease-out cursor-pointer",
-                  (!!errors.startDate || !!errors.endDate)
-                    ? "bg-emerald-400/60 pointer-events-none"
-                    : "bg-emerald-600 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97]"
-                )}
-              >
-                ค้นหา
-              </button>
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="inline-flex items-center justify-center rounded-2xl
-                           border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700
-                           shadow-sm transition-all duration-300 ease-out
-                           hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                           active:scale-[.97]
-                           dark:border-slate-600 dark:bg-slate-700/60 dark:text-white
-                           dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
-              >
-                รีเซ็ต
-              </button>
+              <div className="flex items-end gap-2 md:col-span-6">
+                <button
+                  onClick={fetchOrders}
+                  type="button"
+                  disabled={dateError}
+                  className={cx(
+                    "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-base font-semibold text-white transition-all duration-300 ease-out cursor-pointer",
+                    dateError
+                      ? "bg-emerald-400/60 pointer-events-none"
+                      : "bg-emerald-600 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97]"
+                  )}
+                >
+                  ค้นหา
+                </button>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="inline-flex items-center justify-center rounded-2xl
+                             border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700
+                             shadow-sm transition-all duration-300 ease-out
+                             hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
+                             active:scale-[.97]
+                             dark:border-slate-600 dark:bg-slate-700/60 dark:text-white
+                             dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                >
+                  รีเซ็ต
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Summary */}
-        <div className="mb-4 grid gap-3 md:grid-cols-3">
+        {/* Summary — 2 columns on phones */}
+        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3">
           {/* จำนวนรายการ */}
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200
                         dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-            <div className="text-slate-500 dark:text-slate-400">จำนวนรายการ</div>
-            <div className="text-2xl font-semibold">
+            <div className="text-sm md:text-base text-slate-500 dark:text-slate-400">จำนวนรายการ</div>
+            <div className="text-xl md:text-2xl font-semibold tabular-nums">
               {rows.length.toLocaleString()}
             </div>
           </div>
@@ -753,61 +760,77 @@ const Order = () => {
           {/* น้ำหนักรวม */}
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200
                         dark:bg-slate-800 dark:text-white dark:ring-slate-700">
-            <div className="text-slate-500 dark:text-slate-400">น้ำหนักสุทธิรวม (กก.)</div>
-            <div className="text-2xl font-semibold">
+            <div className="text-sm md:text-base text-slate-500 dark:text-slate-400">น้ำหนักสุทธิรวม (กก.)</div>
+            <div className="text-xl md:text-2xl font-semibold tabular-nums">
               {(Math.round(toNumber(totals.weight) * 100) / 100).toLocaleString()}
             </div>
           </div>
 
           {/* หัก นน.รวม */}
-          <div className="rounded-2xl bg-amber-50 p-4 text-black shadow-sm ring-1 ring-amber-300
+          <div className="rounded-2xl bg-amber-50 p-4 text-amber-950 shadow-sm ring-1 ring-amber-300
                         dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700">
-            <div className="text-amber-700 dark:text-amber-300">หัก นน.รวม (กก.)</div>
-            <div className="text-2xl font-semibold">
+            <div className="text-sm md:text-base text-amber-700 dark:text-amber-300">หัก นน.รวม (กก.)</div>
+            <div className="text-xl md:text-2xl font-semibold tabular-nums">
               {totals.deduct.toLocaleString()}
             </div>
           </div>
 
+          {/* ราคาเฉลี่ย — phone tile (desktop shows it inside the value block) */}
+          {isPhone && (
+            <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+              <div className="text-sm text-slate-500 dark:text-slate-400">ราคาเฉลี่ย (บาท/กก.)</div>
+              <div className="text-xl font-semibold tabular-nums">{baht(toNumber(totals.avgUnitPrice))}</div>
+            </div>
+          )}
+
           {/* 👉 แถวล่าง : มูลค่ารวม (สีเขียว) */}
-          <div className="md:col-span-3 rounded-2xl bg-emerald-50 p-6 text-black shadow-sm
+          <div className="col-span-2 md:col-span-3 rounded-2xl bg-emerald-50 p-4 md:p-6 text-emerald-950 shadow-sm
                 ring-1 ring-emerald-300
                 flex flex-col items-center justify-center text-center
                 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700">
 
             <div className="text-emerald-700 dark:text-emerald-300">มูลค่ารวม</div>
-            <div className="text-2xl font-semibold">
+            <div className="text-2xl font-semibold tabular-nums">
               {thb(toNumber(totals.revenue))}
             </div>
 
             {/* ✅ ราคาเฉลี่ยของ “ราคาต่อกก.” ของออเดอร์ทั้งหมดตามฟิลเตอร์ ณ ตอนนั้น (ทำให้เด่น + มีกล่อง) */}
-            <div
-              className="mt-4 inline-flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1
-                         rounded-2xl border-2 border-emerald-600/60 bg-white/70 px-5 py-3
-                         shadow-sm ring-1 ring-emerald-600/10
-                         dark:border-emerald-400/60 dark:bg-slate-900/30 dark:ring-emerald-400/10"
-            >
-              <span className="text-sm md:text-base font-semibold text-emerald-800 dark:text-emerald-200">
-                ราคาเฉลี่ยต่อกก.
-              </span>
-
-              <span className="text-xl md:text-2xl font-extrabold text-emerald-900 dark:text-emerald-100">
-                {baht(toNumber(totals.avgUnitPrice))}
-              </span>
-
-              <span className="text-sm md:text-base font-semibold text-emerald-800/90 dark:text-emerald-200/90">
-                บาท/กก.
-              </span>
-
-              {totals.unitCount ? (
-                <span className="text-sm md:text-base text-emerald-800/80 dark:text-emerald-200/80">
-                  ({totals.unitCount.toLocaleString()} รายการ)
+            {!isPhone && (
+              <div
+                className="mt-4 inline-flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1
+                           rounded-2xl border-2 border-emerald-600/60 bg-white/70 px-5 py-3
+                           shadow-sm ring-1 ring-emerald-600/10
+                           dark:border-emerald-400/60 dark:bg-slate-900/30 dark:ring-emerald-400/10"
+              >
+                <span className="text-sm md:text-base font-semibold text-emerald-800 dark:text-emerald-200">
+                  ราคาเฉลี่ยต่อกก.
                 </span>
-              ) : null}
-            </div>
+
+                <span className="text-xl md:text-2xl font-extrabold text-emerald-900 dark:text-emerald-100">
+                  {baht(toNumber(totals.avgUnitPrice))}
+                </span>
+
+                <span className="text-sm md:text-base font-semibold text-emerald-800/90 dark:text-emerald-200/90">
+                  บาท/กก.
+                </span>
+
+                {totals.unitCount ? (
+                  <span className="text-sm md:text-base text-emerald-800/80 dark:text-emerald-200/80">
+                    ({totals.unitCount.toLocaleString()} รายการ)
+                  </span>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Table */}
+        {/* List: cards on phones (conditional render — not CSS hide), table from md */}
+        {isPhone ? (
+          <div aria-busy={loading ? "true" : "false"}>
+            {phoneList}
+            {phonePager}
+          </div>
+        ) : (
         <div
           className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
           aria-busy={loading ? "true" : "false"}
@@ -860,59 +883,48 @@ const Order = () => {
                 </tr>
               ) : mode === "buy" ? (
                 pagedRows.map((r) => {
-                  const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0)
-                  const exit = toNumber(r.exit_weight ?? r.exitWeight ?? r.exit ?? 0)
-                  const net = toNumber(r.weight) || Math.max(0, Math.abs(exit - entry))
-                  const deduct = Math.max(0, entry - exit - net)
-                  const price = toNumber(r.price ?? r.amountTHB ?? 0)
-                  const pricePerKgRaw = toNumber(r.price_per_kilo ?? r.pricePerKilo ?? r.unit_price ?? 0)
-                  const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)
-
+                  const d = deriveBuy(r)
                   return (
                     <tr
-                      key={r.id ?? `${r.order_serial}-${r.date}-${r.first_name ?? ""}-${r.last_name ?? ""}`}
+                      key={buyKey(r)}
                       className="odd:bg-white even:bg-slate-50/70 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700/40 dark:hover:bg-slate-700/70 transition-colors duration-150"
                     >
-                      <td className="px-3 py-2 whitespace-nowrap">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.order_serial || r.paymentRefNo || "—"}</td>
-                      <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.customer_name || "—"}</td>
-                      <td className="px-3 py-2">{r.species || r.rice_type || r.riceType || "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.branch_name || r.branchName || "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.klang_name || r.klangName || "—"}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">{entry.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">{exit.toLocaleString()}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{d.date}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{d.serial}</td>
+                      <td className="px-3 py-2">{d.customer}</td>
+                      <td className="px-3 py-2">{d.species}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{d.branch}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{d.klang}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{d.entry.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{d.exit.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap text-amber-700 dark:text-amber-400">
-                        {deduct > 0 ? deduct.toLocaleString() : "—"}
+                        {d.deduct > 0 ? d.deduct.toLocaleString() : "—"}
                       </td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">{net.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">{baht(pricePerKg)}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">{thb(price)}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{d.net.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{baht(d.pricePerKg)}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{thb(d.price)}</td>
                     </tr>
                   )
                 })
               ) : (
                 pagedRows.map((r) => {
-                  const net = toNumber(r.weight ?? 0)
-                  const price = toNumber(r.price ?? 0)
-                  const pricePerKgRaw = toNumber(r.price_per_kilo ?? 0)
-                  const pricePerKg = pricePerKgRaw || (net > 0 ? price / net : 0)
-
+                  const d = deriveSell(r)
                   return (
                     <tr
-                      key={`${r.id ?? r.sale_id}-${r.sub_order ?? 0}`}
+                      key={sellKey(r)}
                       className="odd:bg-white even:bg-slate-50/70 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700/40 dark:hover:bg-slate-700/70 transition-colors duration-150"
                     >
-                      <td className="px-3 py-2 whitespace-nowrap">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.sale_id || "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.order_serial || "—"}</td>
-                      <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "—"}</td>
-                      <td className="px-3 py-2">{r.species || "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.branch_name || "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.klang_name || "—"}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">{net.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">{baht(pricePerKg)}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">{thb(price)}</td>
-                      <td className="px-3 py-2 text-center whitespace-nowrap">{r.sub_order ?? "-"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{d.date}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{d.saleId}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{d.serial}</td>
+                      <td className="px-3 py-2">{d.customer}</td>
+                      <td className="px-3 py-2">{d.species}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{d.branch}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{d.klang}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{d.net.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{baht(d.pricePerKg)}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{thb(d.price)}</td>
+                      <td className="px-3 py-2 text-center whitespace-nowrap">{d.sub ?? "-"}</td>
                     </tr>
                   )
                 })
@@ -953,11 +965,10 @@ const Order = () => {
                       key={`p-${it}`}
                       type="button"
                       onClick={() => goToPage(it)}
+                      aria-current={it === page ? "page" : undefined}
                       className={cx(
                         "h-10 min-w-[40px] rounded-xl px-3 text-sm font-semibold transition",
-                        it === page
-                          ? "bg-emerald-600 text-white"
-                          : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600",
+                        it === page ? PAGE_BTN_ACTIVE : PAGE_BTN_IDLE,
                         "border border-slate-300 dark:border-slate-600"
                       )}
                     >
@@ -984,8 +995,9 @@ const Order = () => {
 
               {/* Jump to page */}
               <div className="ml-2 flex items-center gap-2">
-                <label className="text-sm text-slate-600 dark:text-slate-300">ไปหน้า</label>
+                <label className="text-sm text-slate-600 dark:text-slate-300" htmlFor="order-jump">ไปหน้า</label>
                 <input
+                  id="order-jump"
                   type="number"
                   min={1}
                   max={totalPages}
@@ -1002,6 +1014,7 @@ const Order = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   )

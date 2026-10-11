@@ -8,24 +8,10 @@ import Portal from "../../../components/Portal"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 import StatusMsg from "../../../components/hr/StatusMsg"
 import useModalDismiss from "../../../lib/useModalDismiss"
-
-const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
-const ROLE_COLOR = {
-  1: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  2: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
-  3: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  4: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  5: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
-}
+import { ASSIGNABLE_ROLE_OPTIONS, roleBadgeTone, roleLabel } from "../../../lib/roles"
 
 const EMPLOYEE_COLS = 6
 
-const ROLE_OPTIONS = [
-  { value: 2, label: "ผู้จัดการ" },
-  { value: 3, label: "ฝ่ายบุคคล" },
-  { value: 4, label: "หัวหน้าบัญชี" },
-  { value: 5, label: "การตลาด" },
-]
 
 const GENDER_OPTIONS = [
   { value: "M", label: "ชาย" },
@@ -357,8 +343,8 @@ export default function HREmployeesTab() {
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden md:table-cell">{u.position ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden lg:table-cell">{u.branch_location ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${ROLE_COLOR[u.role_id] ?? "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"}`}>
-                      {ROLE_LABEL[u.role_id] ?? `Role ${u.role_id}`}
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleBadgeTone(u.role_id)}`}>
+                      {roleLabel(u.role_id)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -408,7 +394,7 @@ export default function HREmployeesTab() {
                 <SelectDropdown value={form.m_status} onChange={(v) => setForm(f => ({ ...f, m_status: v }))} placeholder="เลือกสถานภาพ" options={MARITAL_OPTIONS} />
               </Field>
               <Field label="ตำแหน่ง/Role" required>
-                <SelectDropdown value={form.role_id} onChange={(v) => setForm(f => ({ ...f, role_id: v }))} placeholder="เลือก Role" options={ROLE_OPTIONS} />
+                <SelectDropdown value={form.role_id} onChange={(v) => setForm(f => ({ ...f, role_id: v }))} placeholder="เลือก Role" options={ASSIGNABLE_ROLE_OPTIONS} />
               </Field>
               <Field label="สาขา" required>
                 <SelectDropdown value={form.branch_location} onChange={(v) => setForm(f => ({ ...f, branch_location: v }))} placeholder="เลือกสาขา" options={branches} />

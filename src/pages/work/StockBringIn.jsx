@@ -8,207 +8,75 @@ import {
   labelCls,
   helpTextCls,
   errorTextCls,
-  cardPaddedCls,
+  cardCls,
   sectionTitleCls,
   submitBtnCls,
   resetBtnCls,
   spinnerCls,
 } from "../../lib/styles"
+import ComboBox from "../../components/ComboBox"
+import { StickyActionBar, toast } from "../../components/ui"
+import { useIsPhone } from "../../hooks/useMediaQuery"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/[^\d]/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
+const nf = (n) =>
+  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(isFinite(n) ? Number(n) : 0)
 const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
   )
-/** ---------- Styles ---------- */
+/** option value ของหน้านี้ = id ก่อน value (คง default ของ ComboBox copy เดิม) */
+const getOptValue = (o) => o?.id ?? o?.value ?? ""
 
-/** ---------- ComboBox (generic) ---------- */
-function ComboBox({
-  options = [],
-  value,
-  onChange,
-  placeholder = "— เลือก —",
-  getLabel = (o) => o?.label ?? "",
-  getValue = (o) => o?.id ?? o?.value ?? "",
-  disabled = false,
-  error = false,
-  buttonRef = null,
-  hintRed = false,
-  clearHint = () => {},
-  /** ===== โหมด Enter ข้ามช่อง ===== */
-  enterMovesFocus = false,
-  onEnterWhenClosed = null,
-}) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(-1)
-  const boxRef = useRef(null)
-  const listRef = useRef(null)
-  const internalBtnRef = useRef(null)
-  const controlRef = buttonRef || internalBtnRef
+/** ชื่อฟิลด์สั้นสำหรับ toast "กรอกไม่ครบ" (mobile-copy §3.3 / §9.3) */
+const FIELD_LABELS = {
+  product_id: "ประเภทสินค้า",
+  species_id: "ชนิดข้าว",
+  variant_id: "ชั้นย่อย",
+  product_year: "ปี/ฤดูกาล",
+  condition_id: "สภาพ",
+  field_type: "ประเภทนา",
+  program: "โปรแกรม",
+  business_type: "ประเภทธุรกิจ",
+  co_klang: "คลังปลายทาง",
+  co_available: "ปริมาณยกมา",
+  prices: "ราคา 1 และ 2",
+}
+const missingDescription = (keys) => {
+  const names = keys.map((k) => FIELD_LABELS[k]).filter(Boolean)
+  const rest = names.length - 3
+  return `ยังไม่ได้กรอก: ${names.slice(0, 3).join(", ")}${rest > 0 ? ` และอีก ${rest} ช่อง` : ""}`
+}
 
-  const selectedLabel = useMemo(() => {
-    const found = options.find((o) => String(getValue(o)) === String(value))
-    return found ? getLabel(found) : ""
-  }, [options, value, getLabel, getValue])
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (!boxRef.current) return
-      if (!boxRef.current.contains(e.target)) {
-        setOpen(false)
-        setHighlight(-1)
-      }
-    }
-    document.addEventListener("click", onClick)
-    return () => document.removeEventListener("click", onClick)
-  }, [])
-
-  const commit = (opt) => {
-    const v = String(getValue(opt))
-    onChange?.(v, opt)
-    setOpen(false)
-    setHighlight(-1)
-    clearHint?.()
-    requestAnimationFrame(() => controlRef.current?.focus())
-  }
-
-  const scrollHighlightedIntoView = (index) => {
-    const listEl = listRef.current
-    const itemEl = listEl?.children?.[index]
-    if (!listEl || !itemEl) return
-    const itemRect = itemEl.getBoundingClientRect()
-    const listRect = listEl.getBoundingClientRect()
-    const buffer = 6
-    if (itemRect.top < listRect.top + buffer) listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
-    else if (itemRect.bottom > listRect.bottom - buffer) listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
-  }
-
-  const onKeyDown = (e) => {
-    if (disabled) return
-
-    // ----- ปิดอยู่ -----
-    if (!open) {
-      // กด Enter เพื่อ "ข้ามช่อง"
-      if (enterMovesFocus && e.key === "Enter") {
-        e.preventDefault()
-        onEnterWhenClosed?.()
-        return
-      }
-      // เปิดรายการด้วย Space / ArrowDown (หรือ Enter ถ้าไม่ใช่โหมดข้ามช่อง)
-      if (e.key === " " || e.key === "ArrowDown" || (!enterMovesFocus && e.key === "Enter")) {
-        e.preventDefault()
-        setOpen(true)
-        setHighlight((h) => (h >= 0 ? h : 0))
-        clearHint?.()
-        return
-      }
-      return
-    }
-
-    // ----- เปิดอยู่ -----
-    if (e.key === "ArrowDown") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const next = h < options.length - 1 ? h + 1 : 0
-        requestAnimationFrame(() => scrollHighlightedIntoView(next))
-        return next
-      })
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const prev = h > 0 ? h - 1 : options.length - 1
-        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
-        return prev
-      })
-    } else if (e.key === "Enter") {
-      e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      setOpen(false)
-      setHighlight(-1)
-    }
-  }
-
-  return (
-    <div className="relative" ref={boxRef}>
-      <button
-        type="button"
-        ref={controlRef}
-        disabled={disabled}
-        onClick={() => {
-          if (disabled) return
-          setOpen((prev) => {
-            const next = !prev
-            // เปิดด้วยการคลิก (รวมโปรแกรมคลิก) ให้ไฮไลต์ตัวแรกเสมอ
-            if (next) setHighlight((h) => (h >= 0 ? h : 0))
-            else setHighlight(-1)
-            return next
-          })
-        }}
-        onKeyDown={onKeyDown}
-        className={cx(
-          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          error
-            ? "border-red-400 ring-2 ring-red-300/70"
-            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80",
-          hintRed && "ring-2 ring-red-300 animate-pulse"
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-invalid={error || hintRed ? true : undefined}
-      >
-        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
-      </button>
-
-      {open && (
-        <div
-          ref={listRef}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
-          )}
-          {options.map((opt, idx) => {
-            const label = getLabel(opt)
-            const isActive = idx === highlight
-            const isChosen = String(getValue(opt)) === String(value)
-            return (
-              <button
-                key={String(getValue(opt)) || label || idx}
-                type="button"
-                role="option"
-                aria-selected={isChosen}
-                onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)}
-                className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
-                  isActive
-                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                )}
-              >
-                {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-                )}
-                <span className="flex-1">{label}</span>
-                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
+/** แปลง error จากหลังบ้านเป็นข้อความไทย (mobile-copy §4.3–4.4) */
+const SAVE_ERR_TH = [
+  [/failed to fetch|networkerror|timeout/i, "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"],
+  [/field required/i, "ข้อมูลบางช่องไม่ครบ"],
+  [/value is not a valid|type_error/i, "รูปแบบข้อมูลบางช่องไม่ถูกต้อง"],
+  [/greater than 0|ensure this value is greater/i, "น้ำหนักหรือราคาต้องมากกว่า 0"],
+  [/not found[\s\S]*(klang|warehouse)|(klang|warehouse)[\s\S]*not found/i, "ไม่พบคลังที่เลือก"],
+  [/duplicate|already exists/i, "รายการนี้มีอยู่แล้ว"],
+  [/unauthorized|forbidden|credentials/i, "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"],
+]
+function describeSaveError(err) {
+  const status = err?.status
+  const raw = String(err?.message || "")
+  const isThai = /[฀-๿]/.test(raw)
+  const hit = SAVE_ERR_TH.find(([re]) => re.test(raw))?.[1]
+  if (hit) return { title: status === 422 ? "ข้อมูลไม่ผ่านการตรวจ" : "บันทึกไม่สำเร็จ", description: hit }
+  if (!status) return { title: "บันทึกไม่สำเร็จ", description: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสัญญาณแล้วลองใหม่ ข้อมูลที่กรอกยังอยู่" }
+  if (status === 401 || status === 403) return { title: "ไม่มีสิทธิ์บันทึก", description: "สิทธิ์ของบัญชีนี้ไม่ครอบคลุมรายการนี้ หรือหมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }
+  if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "รายการนี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
+  if (status === 422) return { title: "ข้อมูลไม่ผ่านการตรวจ", description: isThai ? raw : "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่" }
+  if (status >= 500) return { title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" }
+  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : `เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง · รหัส: ${status}` }
 }
 
 /** ---------- Main Page: Carry Over (ยอดยกมาเข้าคลัง) ---------- */
 function StockBringIn() {
+  const isPhone = useIsPhone()
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
   const [missingHints, setMissingHints] = useState({})
@@ -532,21 +400,22 @@ function StockBringIn() {
     } catch { /* scroll/focus best-effort */ }
   }
 
+  const MISSING_ORDER = [
+    "product_id",
+    "species_id",
+    "variant_id",
+    "product_year",
+    "condition_id",
+    "field_type",
+    "program",
+    "business_type",
+    "co_klang",
+    "co_available",
+    "prices",
+  ]
+
   const focusFirstInvalid = (hints, e) => {
-    const order = [
-      "product_id",
-      "species_id",
-      "variant_id",
-      "product_year",
-      "condition_id",
-      "field_type",
-      "program",
-      "business_type",
-      "co_klang",
-      "co_available",
-      "prices",
-    ]
-    const firstKey = order.find((k) => hints[k] || e[k])
+    const firstKey = MISSING_ORDER.find((k) => hints[k] || e[k])
     if (!firstKey) return
     // ชี้แดงแบบ hint และโฟกัสช่องแรกที่ผิด
     setMissingHints((prev) => ({ ...prev, [firstKey]: true }))
@@ -557,7 +426,7 @@ function StockBringIn() {
 
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e?.preventDefault?.()
 
     // เลื่อนขึ้นบนสุดให้เหมือนหน้า Sales
     scrollToPageTop()
@@ -567,9 +436,11 @@ function StockBringIn() {
 
     const { ok, e: ev } = validate()
 
-    // ❌ แจ้งเตือนแบบหน้า Sales เมื่อฟอร์มไม่ผ่าน
+    // แจ้งเตือนเมื่อฟอร์มไม่ผ่าน (toast แทน alert)
     if (!ok || Object.values(hints).some(Boolean)) {
-      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      const missingKeys = MISSING_ORDER.filter((k) => hints[k])
+      if (missingKeys.length) toast.error("กรอกไม่ครบ", { description: missingDescription(missingKeys) })
+      else toast.error("ข้อมูลไม่ถูกต้อง", { description: Object.values(ev)[0] })
       focusFirstInvalid(hints, ev)
       return
     }
@@ -595,8 +466,9 @@ function StockBringIn() {
     try {
       await post("/carryover/create", payload)
 
-      // ✅ แจ้งเตือนแบบหน้า Sales (ปรับข้อความให้ตรงหน้าฟอร์ม)
-      alert("✅✅✅✅✅✅✅✅✅ บันทึกยอดยกเข้าเรียบร้อย ✅✅✅✅✅✅✅✅✅")
+      toast.success("บันทึกยอดยกมาแล้ว", {
+        description: `${nf(toNumber(form.co_available))} กก. · ${thb(totalValuation)}`,
+      })
 
       // รีเซ็ตค่าทุกอย่าง + ล้าง error/hint + เด้งไปบนสุด + โฟกัสช่องแรก
       setForm(initialForm)
@@ -607,22 +479,39 @@ function StockBringIn() {
       setTimeout(() => productRef.current?.focus(), 200)
     } catch (err) {
       console.error(err)
-      const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : (err?.message ? `\n\nรายละเอียด:\n${err.message}` : "")
-      // ❌ แจ้งเตือนสไตล์เดียวกับหน้า Sales เมื่อเกิดข้อผิดพลาดจาก BE
-      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌${detail}`)
+      const { title, description } = describeSaveError(err)
+      toast.error(title, { description })
     } finally {
       setLoading(false)
     }
   }
 
+  const handleReset = () => setForm(initialForm)
+
+  /** ---------- Sticky bar summary (<md) ---------- */
+  const speciesLabel = speciesOptions.find((o) => String(o.id) === String(form.species_id))?.label
+  const klangLabel = klangOptions.find((o) => String(o.id) === String(form.co_klang))?.label
+  const barSummary = (
+    <div className="min-w-0">
+      <p className="truncate text-gray-900 dark:text-gray-100">
+        {speciesLabel || klangLabel ? [speciesLabel, klangLabel].filter(Boolean).join(" · ") : "ยังไม่ได้เลือกสเปค"}
+      </p>
+      <p className="tabular-nums text-gray-500 dark:text-gray-400">
+        {nf(toNumber(form.co_available))} กก. · {thb(totalValuation)}
+      </p>
+    </div>
+  )
+
+  const cardSectionCls = cx(cardCls, "p-4 md:p-5 mb-4 md:mb-6")
+
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
         {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด (เหมือนหน้า Sales) */}
         <div ref={pageTopRef} />
 
-        <h1 className="mb-4 flex items-center gap-2.5 text-3xl font-bold text-gray-900 dark:text-white">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-7 text-indigo-600 dark:text-indigo-400">
+        <h1 className="mb-4 flex items-center gap-2.5 text-xl md:text-3xl font-bold text-gray-900 dark:text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-6 md:size-7 text-indigo-600 dark:text-indigo-400">
             <path d="M12 13V2" />
             <path d="m8 9 4 4 4-4" />
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -631,22 +520,25 @@ function StockBringIn() {
         </h1>
 
         {/* สเปคสินค้า */}
-        <div className={cx(cardPaddedCls, "mb-6")}>
+        <div className={cardSectionCls}>
           <h2 className={sectionTitleCls}>กำหนดสเปคสินค้า</h2>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>ประเภทสินค้า<span className="text-red-500"> *</span></label>
               <ComboBox
+                title="ประเภทสินค้า"
+                ariaLabel="ประเภทสินค้า"
                 options={productOptions}
                 value={form.product_id}
+                getValue={getOptValue}
                 onChange={(v) => { clearError("product_id"); clearHint("product_id"); update("product_id", v) }}
                 error={!!errors.product_id}
                 hintRed={!!missingHints.product_id}
                 clearHint={() => clearHint("product_id")}
                 placeholder="— เลือกประเภทสินค้า —"
                 buttonRef={productRef}
-                enterMovesFocus
-                onEnterWhenClosed={() => focusNextAndOpenIfCombo(productRef)}
+                enterMovesWhenFilled
+                onEnterNext={() => focusNextAndOpenIfCombo(productRef)}
               />
               {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
             </div>
@@ -654,16 +546,20 @@ function StockBringIn() {
             <div>
               <label className={labelCls}>ชนิดข้าว (Species)<span className="text-red-500"> *</span></label>
               <ComboBox
+                title="ชนิดข้าว"
+                ariaLabel="ชนิดข้าว"
+                searchable
                 options={speciesOptions}
                 value={form.species_id}
+                getValue={getOptValue}
                 onChange={(v) => { clearError("species_id"); clearHint("species_id"); update("species_id", v) }}
                 error={!!errors.species_id}
                 hintRed={!!missingHints.species_id}
                 clearHint={() => clearHint("species_id")}
                 placeholder="— เลือกชนิดข้าว —"
                 buttonRef={speciesRef}
-                enterMovesFocus
-                onEnterWhenClosed={() => focusNextAndOpenIfCombo(speciesRef)}
+                enterMovesWhenFilled
+                onEnterNext={() => focusNextAndOpenIfCombo(speciesRef)}
               />
               {errors.species_id && <p className={errorTextCls}>{errors.species_id}</p>}
             </div>
@@ -671,16 +567,20 @@ function StockBringIn() {
             <div>
               <label className={labelCls}>ชั้นย่อย/สายพันธุ์ (Variant)<span className="text-red-500"> *</span></label>
               <ComboBox
+                title="ชั้นย่อย/สายพันธุ์"
+                ariaLabel="ชั้นย่อย/สายพันธุ์"
+                searchable
                 options={variantOptions}
                 value={form.variant_id}
+                getValue={getOptValue}
                 onChange={(v) => { clearError("variant_id"); clearHint("variant_id"); update("variant_id", v) }}
                 error={!!errors.variant_id}
                 hintRed={!!missingHints.variant_id}
                 clearHint={() => clearHint("variant_id")}
                 placeholder="— เลือกชั้นย่อย —"
                 buttonRef={variantRef}
-                enterMovesFocus
-                onEnterWhenClosed={() => focusNextAndOpenIfCombo(variantRef)}
+                enterMovesWhenFilled
+                onEnterNext={() => focusNextAndOpenIfCombo(variantRef)}
               />
               {errors.variant_id && <p className={errorTextCls}>{errors.variant_id}</p>}
             </div>
@@ -688,16 +588,19 @@ function StockBringIn() {
             <div>
               <label className={labelCls}>ปีสินค้า/ฤดูกาล<span className="text-red-500"> *</span></label>
               <ComboBox
+                title="ปีสินค้า/ฤดูกาล"
+                ariaLabel="ปีสินค้า/ฤดูกาล"
                 options={yearOptions}
                 value={form.product_year}
+                getValue={getOptValue}
                 onChange={(v) => { clearError("product_year"); clearHint("product_year"); update("product_year", v) }}
                 error={!!errors.product_year}
                 hintRed={!!missingHints.product_year}
                 clearHint={() => clearHint("product_year")}
                 placeholder="— เลือกปี/ฤดูกาล —"
                 buttonRef={yearRef}
-                enterMovesFocus
-                onEnterWhenClosed={() => focusNextAndOpenIfCombo(yearRef)}
+                enterMovesWhenFilled
+                onEnterNext={() => focusNextAndOpenIfCombo(yearRef)}
               />
               {errors.product_year && <p className={errorTextCls}>{errors.product_year}</p>}
             </div>
@@ -705,16 +608,19 @@ function StockBringIn() {
             <div>
               <label className={labelCls}>สภาพ/เงื่อนไข<span className="text-red-500"> *</span></label>
               <ComboBox
+                title="สภาพ/เงื่อนไข"
+                ariaLabel="สภาพ/เงื่อนไข"
                 options={conditionOptions}
                 value={form.condition_id}
+                getValue={getOptValue}
                 onChange={(v) => { clearError("condition_id"); clearHint("condition_id"); update("condition_id", v) }}
                 error={!!errors.condition_id}
                 hintRed={!!missingHints.condition_id}
                 clearHint={() => clearHint("condition_id")}
                 placeholder="— เลือกสภาพ/เงื่อนไข —"
                 buttonRef={conditionRef}
-                enterMovesFocus
-                onEnterWhenClosed={() => focusNextAndOpenIfCombo(conditionRef)}
+                enterMovesWhenFilled
+                onEnterNext={() => focusNextAndOpenIfCombo(conditionRef)}
               />
               {errors.condition_id && <p className={errorTextCls}>{errors.condition_id}</p>}
             </div>
@@ -722,16 +628,19 @@ function StockBringIn() {
             <div>
               <label className={labelCls}>ประเภทนา<span className="text-red-500"> *</span></label>
               <ComboBox
+                title="ประเภทนา"
+                ariaLabel="ประเภทนา"
                 options={fieldTypeOptions}
                 value={form.field_type}
+                getValue={getOptValue}
                 onChange={(v) => { clearError("field_type"); clearHint("field_type"); update("field_type", v) }}
                 error={!!errors.field_type}
                 hintRed={!!missingHints.field_type}
                 clearHint={() => clearHint("field_type")}
                 placeholder="— เลือกประเภทนา —"
                 buttonRef={fieldTypeRef}
-                enterMovesFocus
-                onEnterWhenClosed={() => focusNextAndOpenIfCombo(fieldTypeRef)}
+                enterMovesWhenFilled
+                onEnterNext={() => focusNextAndOpenIfCombo(fieldTypeRef)}
               />
               {errors.field_type && <p className={errorTextCls}>{errors.field_type}</p>}
             </div>
@@ -739,16 +648,19 @@ function StockBringIn() {
             <div>
               <label className={labelCls}>โปรแกรม<span className="text-red-500"> *</span></label>
               <ComboBox
+                title="โปรแกรม"
+                ariaLabel="โปรแกรม"
                 options={programOptions}
                 value={form.program}
+                getValue={getOptValue}
                 onChange={(v) => { clearError("program"); clearHint("program"); update("program", v) }}
                 error={!!errors.program}
                 hintRed={!!missingHints.program}
                 clearHint={() => clearHint("program")}
                 placeholder="— เลือกโปรแกรม —"
                 buttonRef={programRef}
-                enterMovesFocus
-                onEnterWhenClosed={() => focusNextAndOpenIfCombo(programRef)}
+                enterMovesWhenFilled
+                onEnterNext={() => focusNextAndOpenIfCombo(programRef)}
               />
               {errors.program && <p className={errorTextCls}>{errors.program}</p>}
             </div>
@@ -756,16 +668,19 @@ function StockBringIn() {
             <div>
               <label className={labelCls}>ประเภทธุรกิจ<span className="text-red-500"> *</span></label>
               <ComboBox
+                title="ประเภทธุรกิจ"
+                ariaLabel="ประเภทธุรกิจ"
                 options={businessOptions}
                 value={form.business_type}
+                getValue={getOptValue}
                 onChange={(v) => { clearError("business_type"); clearHint("business_type"); update("business_type", v) }}
                 error={!!errors.business_type}
                 hintRed={!!missingHints.business_type}
                 clearHint={() => clearHint("business_type")}
                 placeholder="— เลือกประเภทธุรกิจ —"
                 buttonRef={businessRef}
-                enterMovesFocus
-                onEnterWhenClosed={() => focusNextAndOpenIfCombo(businessRef)}
+                enterMovesWhenFilled
+                onEnterNext={() => focusNextAndOpenIfCombo(businessRef)}
               />
               {errors.business_type && <p className={errorTextCls}>{errors.business_type}</p>}
             </div>
@@ -773,32 +688,36 @@ function StockBringIn() {
         </div>
 
         {/* คลังปลายทาง & ปริมาณ */}
-        <div className={cx(cardPaddedCls, "mb-6")}>
+        <div className={cardSectionCls}>
           <h2 className={sectionTitleCls}>คลังปลายทางและปริมาณยกเข้า</h2>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className={labelCls}>เลือกคลังปลายทาง<span className="text-red-500"> *</span></label>
               <ComboBox
+                title="คลังปลายทาง"
+                ariaLabel="คลังปลายทาง"
                 options={klangOptions}
                 value={form.co_klang}
+                getValue={getOptValue}
                 onChange={(v) => { clearError("co_klang"); clearHint("co_klang"); update("co_klang", v) }}
                 error={!!errors.co_klang}
                 hintRed={!!missingHints.co_klang}
                 clearHint={() => clearHint("co_klang")}
                 placeholder="— เลือกคลัง —"
                 buttonRef={klangRef}
-                enterMovesFocus
-                onEnterWhenClosed={() => focusNextAndOpenIfCombo(klangRef)}
+                enterMovesWhenFilled
+                onEnterNext={() => focusNextAndOpenIfCombo(klangRef)}
               />
               {errors.co_klang && <p className={errorTextCls}>{errors.co_klang}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>ปริมาณยกมา (กก.)<span className="text-red-500"> *</span></label>
+              <label htmlFor="co_available" className={labelCls}>ปริมาณยกมา (กก.)<span className="text-red-500"> *</span></label>
               <input
+                id="co_available"
                 ref={coAvailableRef}
                 inputMode="decimal"
-                className={cx(baseField, (errors.co_available || missingHints.co_available) && "border-red-500 ring-2 ring-red-300")}
+                className={cx(baseField, "tabular-nums", (errors.co_available || missingHints.co_available) && "border-red-500 ring-2 ring-red-300")}
                 value={form.co_available}
                 onChange={(e) => update("co_available", onlyDigits(e.target.value))}
                 onFocus={() => { setErrors((p)=>({ ...p, co_available: undefined })); clearHint("co_available") }}
@@ -813,15 +732,16 @@ function StockBringIn() {
         </div>
 
         {/* ราคายกเข้า */}
-        <div className={cx(cardPaddedCls, "mb-6")}>
+        <div className={cardSectionCls}>
           <h2 className={sectionTitleCls}>ราคายกเข้า<span className="text-red-500"> *</span></h2>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div>
-              <label className={labelCls}>ราคา 1 (บาท/กก.)</label>
+              <label htmlFor="price1" className={labelCls}>ราคา 1 (บาท/กก.)</label>
               <input
+                id="price1"
                 ref={price1Ref}
                 inputMode="decimal"
-                className={cx(baseField, errors.prices && "border-red-400 ring-2 ring-red-300/70")}
+                className={cx(baseField, "tabular-nums", errors.prices && "border-red-400 ring-2 ring-red-300/70")}
                 value={form.price1}
                 onChange={(e) => update("price1", e.target.value.replace(/[^\d.]/g, ""))}
                 onFocus={() => setErrors((p)=>({ ...p, prices: undefined }))}
@@ -832,11 +752,12 @@ function StockBringIn() {
             </div>
 
             <div>
-              <label className={labelCls}>ราคา 2 (บาท/กก.)</label>
+              <label htmlFor="price2" className={labelCls}>ราคา 2 (บาท/กก.)</label>
               <input
+                id="price2"
                 ref={price2Ref}
                 inputMode="decimal"
-                className={cx(baseField, errors.prices && "border-red-400 ring-2 ring-red-300/70")}
+                className={cx(baseField, "tabular-nums", errors.prices && "border-red-400 ring-2 ring-red-300/70")}
                 value={form.price2}
                 onChange={(e) => update("price2", e.target.value.replace(/[^\d.]/g, ""))}
                 onFocus={() => setErrors((p)=>({ ...p, prices: undefined }))}
@@ -845,9 +766,9 @@ function StockBringIn() {
               />
             </div>
 
-            <div>
+            <div className="col-span-2 md:col-span-1">
               <label className={labelCls}>มูลค่าประเมินรวม</label>
-              <input disabled className={cx(baseField, fieldDisabled)} value={thb(totalValuation)} />
+              <input disabled aria-label="มูลค่าประเมินรวม" className={cx(baseField, fieldDisabled, "tabular-nums")} value={thb(totalValuation)} />
               <p className={helpTextCls}>คำนวณจาก ราคา 1 × ปริมาณ</p>
             </div>
           </div>
@@ -855,11 +776,12 @@ function StockBringIn() {
         </div>
 
         {/* บันทึกเพิ่มเติม / เหตุผล (ผู้รับ) */}
-        <div className={cx(cardPaddedCls, "mb-6")}>
+        <div className={cardSectionCls}>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="md:col-span-3">
-              <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
+              <label htmlFor="co_comment" className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
               <input
+                id="co_comment"
                 ref={commentRef}
                 className={baseField}
                 value={form.comment}
@@ -871,29 +793,37 @@ function StockBringIn() {
           </div>
         </div>
 
-        {/* ปุ่ม */}
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <button
-            ref={submitBtnRef}
-            type="button"
-            onClick={handleSubmit}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(e) } }}
-            disabled={loading}
-            className={submitBtnCls}
-            aria-busy={loading ? "true" : "false"}
-          >
-            {loading && <span className={spinnerCls} aria-hidden="true" />}
-            {loading ? "กำลังบันทึก..." : "บันทึก"}
-          </button>
+        {/* ปุ่ม — <md: แถบติดล่าง (UI-SPEC §7) · ≥md: ปุ่มเดิม (คง submitBtnRef สำหรับ Enter-flow) */}
+        {isPhone ? (
+          <StickyActionBar
+            summary={barSummary}
+            secondary={{ label: "ล้างฟอร์ม", onClick: handleReset, disabled: loading }}
+            primary={{ label: loading ? "กำลังบันทึก…" : "บันทึก", onClick: handleSubmit, loading }}
+          />
+        ) : (
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <button
+              ref={submitBtnRef}
+              type="button"
+              onClick={handleSubmit}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(e) } }}
+              disabled={loading}
+              className={submitBtnCls}
+              aria-busy={loading ? "true" : "false"}
+            >
+              {loading && <span className={spinnerCls} aria-hidden="true" />}
+              {loading ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setForm(initialForm)}
-            className={resetBtnCls}
-          >
-            รีเซ็ต
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={handleReset}
+              className={resetBtnCls}
+            >
+              รีเซ็ต
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

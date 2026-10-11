@@ -12,13 +12,16 @@ import {
   LogOut,
   MapPin,
   MapPinCheck,
+  Moon,
+  ShieldCheck,
+  Sun,
   Target,
   UserRound,
   X,
 } from "lucide-react"
-import { getRoleId, logout as authLogout } from "../lib/auth"
-
-const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5, BRANCH: 6 }
+import { logout as authLogout, getRoleId } from "../lib/auth"
+import { useCan } from "../lib/permissions"
+import { TRADING_GROUP, canAccessItem, lucideFor } from "../lib/homeFunctions"
 
 // สีของ icon chip — ต้องเขียน class เต็ม (Tailwind v4 ตรวจ class ที่ต่อ string ไม่เจอ)
 const TONES = {
@@ -33,49 +36,55 @@ const TONES = {
   blue:    { chip: "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300",           solid: "bg-blue-500 text-white" },
 }
 
-// เมนูสำหรับ HR role เท่านั้น — 3 รายการ + ออกจากระบบ
+// เมนูแบบย่อสำหรับผู้ใช้ที่มีสิทธิ์ nav.hrCompactMenu (ฝ่ายบุคคล) — 3 รายการ + ออกจากระบบ
 const HR_MENUS = [
-  { label: "หน้าหลัก",         icon: House,     tone: "indigo", path: "/hr/dashboard" },
-  { label: "ข้อมูลส่วนตัว",    icon: UserRound, tone: "sky",    path: "/my-profile" },
-  { label: "ขอออกนอกสถานที่", icon: MapPin,    tone: "orange", path: "/out-of-office" },
+  { label: "หน้าหลัก",         icon: House,     tone: "indigo", path: "/hr/dashboard",  perm: "hr.dashboard.view" },
+  { label: "ข้อมูลส่วนตัว",    icon: UserRound, tone: "sky",    path: "/my-profile",    perm: "self.profile.view" },
+  { label: "ขอออกนอกสถานที่", icon: MapPin,    tone: "orange", path: "/out-of-office", perm: "self.ooo.request" },
 ]
 
-// เมนูส่วนตัว — แสดงให้ผู้ใช้ทุกคน (ยกเว้น HR ที่ใช้ HR_MENUS แทน)
+// เมนูส่วนตัว — แต่ละรายการแสดงตาม permission key (src/lib/permissions.js)
+//   perm  = ต้องมีสิทธิ์นี้
+//   unless = ซ่อนถ้ามีสิทธิ์นี้ (เช่น KPI: คนที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้นแทน)
 const PERSONAL_MENUS = [
-  { label: "หน้าหลัก",            icon: House,      tone: "indigo",  path: "/home",          roles: "all" },
-  { label: "ข้อมูลส่วนตัว",       icon: UserRound,  tone: "sky",     path: "/my-profile",    roles: "all" },
-  { label: "กล่องงานรออนุมัติ",   icon: Inbox,      tone: "amber",   path: "/inbox",         roles: "all" },
-  { label: "ยื่นใบลา",            icon: FileText,   tone: "emerald", path: "/leave-request", roles: "all" },
-  { label: "ขอออกนอกสถานที่",     icon: MapPin,     tone: "orange",  path: "/out-of-office", roles: "all" },
-  // 3O approvers: 2 ผู้จัดการ, 6 หัวหน้าสาขา, 7 ผู้ช่วยผู้จัดการ (backend role ids)
-  { label: "อนุมัติออกนอกสถานที่", icon: MapPinCheck, tone: "teal", path: "/out-of-office/approvals", roles: [ROLE.ADMIN, ROLE.MNG, 6, 7] },
-  { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet", path: "/my-relocation", roles: "all" },
-  { label: "ขอสินเชื่อ",           icon: CreditCard, tone: "rose",    path: "/loan-request",  roles: "all" },
-  // Phase 3B — HR admin ทุกฟังก์ชันรวมอยู่ใน Dashboard HR แล้ว
-  // KPI v1.4.0 — ผจก. (2) อนุมัติ / ผช.ผจก. (7) ตรวจสอบ (admin ใช้แท็บ KPI ใน Dashboard HR)
-  { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target, tone: "indigo", path: "/hr/kpi", roles: [ROLE.MNG, 7] },
-  { label: "Dashboard HR",        icon: LayoutDashboard, tone: "blue", path: "/hr/dashboard", roles: [ROLE.ADMIN] },
+  { label: "หน้าหลัก",            icon: House,      tone: "indigo",  path: "/home" },
+  { label: "ข้อมูลส่วนตัว",       icon: UserRound,  tone: "sky",     path: "/my-profile",    perm: "self.profile.view" },
+  { label: "กล่องงานรออนุมัติ",   icon: Inbox,      tone: "amber",   path: "/inbox" },
+  { label: "ยื่นใบลา",            icon: FileText,   tone: "emerald", path: "/leave-request", perm: "self.leave.request" },
+  { label: "ขอออกนอกสถานที่",     icon: MapPin,     tone: "orange",  path: "/out-of-office", perm: "self.ooo.request" },
+  { label: "อนุมัติออกนอกสถานที่", icon: MapPinCheck, tone: "teal", path: "/out-of-office/approvals", perm: "hr.ooo.list" },
+  { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet", path: "/my-relocation", perm: "self.relocation.request" },
+  { label: "ขอสินเชื่อ",           icon: CreditCard, tone: "rose",    path: "/loan-request",  perm: "self.loan.apply" },
+  // KPI v1.4.0 — ผจก. อนุมัติ / ผช.ผจก. ตรวจสอบ (ผู้ที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้น)
+  { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target, tone: "indigo", path: "/hr/kpi", perm: "hr.kpi.evaluations.view", unless: "hr.dashboard.view" },
+  { label: "Dashboard HR",        icon: LayoutDashboard, tone: "blue", path: "/hr/dashboard", perm: "hr.dashboard.view" },
+  { label: "สิทธิ์ตามบทบาท",      icon: ShieldCheck, tone: "violet", path: "/admin/roles", perm: "admin.roles.view" },
   // "รายรับ-รายจ่ายสถานที่" ย้ายไปกลุ่ม "รายงาน & แผน" ในหน้า Home แล้ว
 ]
 
-function canSeeSidebarItem(item, roleId) {
-  if (item.roles === "all") return true
-  if (Array.isArray(item.roles)) return item.roles.includes(roleId)
-  return false
+function canSeeSidebarItem(item, can) {
+  if (item.perm && !can(item.perm)) return false
+  if (item.unless && can(item.unless)) return false
+  return true
 }
 
-const Sidebar = ({ isOpen, setIsOpen }) => {
+const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
   const navigate = useNavigate()
   const location = useLocation()
-  const roleId = useMemo(() => getRoleId(), [])
+  const { can } = useCan()
   const closeBtnRef = useRef(null)
 
   const visibleMenus = useMemo(
-    () => roleId === ROLE.HR
-      ? HR_MENUS
-      : PERSONAL_MENUS.filter((item) => canSeeSidebarItem(item, roleId)),
-    [roleId]
+    () => (can("nav.hrCompactMenu") ? HR_MENUS : PERSONAL_MENUS).filter((item) => canSeeSidebarItem(item, can)),
+    [can]
   )
+
+  // หมวด "ธุรกิจรวบรวมผลผลิต" — เฉพาะมือถือ (md:hidden) ให้ไปหน้าซื้อ/ขาย/คลังได้โดยไม่ต้องกลับ Home
+  const tradingMenus = useMemo(() => {
+    const roleId = getRoleId()
+    return TRADING_GROUP.items.filter((item) => canAccessItem(item, roleId))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- role comes from localStorage; recompute with permissions
+  }, [can])
 
   // ไม่ล็อก body scroll — scroller จริงคือ <main> ใน AppLayout; lock body ทำให้ layout shift เปล่า ๆ
 
@@ -124,7 +133,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         aria-label="เมนูส่วนตัว"
         aria-hidden={isOpen ? undefined : "true"}
         inert={!isOpen}
-        className={`fixed left-0 top-0 z-[9999] h-full w-72 bg-white will-change-transform transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none dark:bg-gray-900 ${
+        className={`fixed left-0 top-0 z-[9999] h-dvh w-72 bg-white will-change-transform transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none dark:bg-gray-900 ${
           isOpen ? "translate-x-0 shadow-xl" : "-translate-x-full shadow-none"
         }`}
       >
@@ -143,7 +152,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               type="button"
               aria-label="ปิดเมนู"
               onClick={() => setIsOpen(false)}
-              className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+              className="flex size-11 md:size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
             >
               <X aria-hidden="true" strokeWidth={1.75} className="size-5" />
             </button>
@@ -171,12 +180,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                           : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100"
                       }`}
                     >
-                      {active && (
-                        <span
-                          aria-hidden="true"
-                          className="absolute -left-3 top-2.5 bottom-2.5 w-[3px] rounded-r-full bg-indigo-500 dark:bg-indigo-400"
-                        />
-                      )}
                       <span
                         aria-hidden="true"
                         className={`flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${
@@ -191,10 +194,75 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 )
               })}
             </ul>
+
+            {tradingMenus.length > 0 && (
+              <div className="mt-3 border-t border-gray-200/70 pt-3 md:hidden dark:border-gray-800">
+                <p className="px-2 pb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">{TRADING_GROUP.group}</p>
+                <ul className="space-y-1">
+                  {tradingMenus.map((item) => {
+                    const active = isActive(item.path)
+                    const Icon = lucideFor(item.path)
+                    return (
+                      <li key={item.path}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsOpen(false)
+                            navigate(item.path)
+                          }}
+                          aria-current={active ? "page" : undefined}
+                          className={`relative flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
+                            active
+                              ? "bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200"
+                              : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                          }`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${
+                              active ? TONES.emerald.solid : TONES.emerald.chip
+                            }`}
+                          >
+                            <Icon strokeWidth={1.75} className="size-[18px]" />
+                          </span>
+                          <span className="min-w-0 truncate">{item.label}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
           </nav>
 
-          {/* Logout */}
-          <div className="shrink-0 border-t border-gray-200/70 p-3 dark:border-gray-800">
+          {/* Dark mode (phone — the Topbar toggle is hidden below md) + Logout */}
+          <div className="shrink-0 space-y-2 border-t border-gray-200/70 p-3 pb-safe-3 dark:border-gray-800">
+            {setDarkMode && (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={darkMode}
+                onClick={() => setDarkMode((v) => !v)}
+                className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100 md:hidden"
+              >
+                <span aria-hidden="true" className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${TONES.indigo.chip}`}>
+                  {darkMode ? <Sun strokeWidth={1.75} className="size-[18px]" /> : <Moon strokeWidth={1.75} className="size-[18px]" />}
+                </span>
+                <span className="min-w-0 flex-1 truncate">โหมดมืด</span>
+                <span
+                  aria-hidden="true"
+                  className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors duration-200 ${
+                    darkMode ? "bg-indigo-600 dark:bg-indigo-500" : "bg-gray-300 dark:bg-gray-600"
+                  }`}
+                >
+                  <span
+                    className={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                      darkMode ? "translate-x-[18px]" : "translate-x-0.5"
+                    }`}
+                  />
+                </span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleLogout}

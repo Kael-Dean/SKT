@@ -1,4 +1,19 @@
-import { useState, useRef, useEffect } from "react"
+// src/components/ThaiDatePicker.jsx
+// Buddhist-calendar date picker. value/onChange are ISO "YYYY-MM-DD" (CE).
+//
+// Desktop: the calendar is portaled to <body> (position: fixed, z 10050 via
+// useAnchoredPanel) so no table scrollbar / overflow wrapper can clip it.
+// Phone (<md): opens as a bottom <Sheet size="sm"> with 44px day buttons.
+import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
+import useAnchoredPanel from "../lib/useAnchoredPanel"
+import { useIsPhone } from "../hooks/useMediaQuery"
+import Sheet from "./ui/Sheet"
+import { cx, focusRingCls } from "../lib/styles"
+
+const PANEL_Z = 10050
+const PANEL_W = 288
 
 const THAI_MONTHS = [
   "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน",
@@ -33,28 +48,135 @@ function firstDayOfMonth(year, month) {
   return new Date(year, month - 1, 1).getDay()
 }
 
-export default function ThaiDatePicker({ value = "", onChange, className = "" }) {
+const navBtnCls =
+  "flex size-11 md:size-9 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-colors " +
+  "duration-150 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100 " +
+  focusRingCls
+
+/** Month grid — shared by the desktop popover and the phone sheet. */
+function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, onToday }) {
+  const totalDays = daysInMonth(viewYear, viewMonth)
+  const firstDay = firstDayOfMonth(viewYear, viewMonth)
+  const cells = [
+    ...Array(firstDay).fill(null),
+    ...Array.from({ length: totalDays }, (_, i) => i + 1),
+  ]
+  while (cells.length % 7 !== 0) cells.push(null)
+
+  return (
+    <div className="select-none">
+      <div className="mb-2 flex items-center justify-between">
+        <button type="button" onClick={onPrev} aria-label="เดือนก่อนหน้า" className={navBtnCls}>
+          <ChevronLeft aria-hidden="true" className="size-5" strokeWidth={2} />
+        </button>
+        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100" aria-live="polite">
+          {THAI_MONTHS[viewMonth - 1]} {viewYear + 543}
+        </span>
+        <button type="button" onClick={onNext} aria-label="เดือนถัดไป" className={navBtnCls}>
+          <ChevronRight aria-hidden="true" className="size-5" strokeWidth={2} />
+        </button>
+      </div>
+
+      <div className="mb-1 grid grid-cols-7" aria-hidden="true">
+        {DAY_HEADERS.map((d, i) => (
+          <div
+            key={d}
+            className={cx("py-1 text-center text-xs font-medium", i === 0 ? "text-red-400" : "text-gray-400 dark:text-gray-500")}
+          >
+            {d}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-0.5" role="grid" aria-label="ปฏิทิน">
+        {cells.map((day, i) => {
+          if (!day) return <div key={i} aria-hidden="true" />
+          const iso = `${viewYear}-${String(viewMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+          const isSelected = iso === value
+          const isToday = iso === today
+          const isSun = i % 7 === 0
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onPick(day)}
+              aria-pressed={isSelected}
+              aria-label={`${day} ${THAI_MONTHS[viewMonth - 1]} ${viewYear + 543}`}
+              className={cx(
+                "h-11 w-full cursor-pointer rounded-xl text-sm font-medium tabular-nums transition-colors duration-150 md:h-9",
+                focusRingCls,
+                isSelected
+                  ? "bg-indigo-600 text-white shadow-sm dark:bg-indigo-500"
+                  : isToday
+                    ? "bg-indigo-50 font-bold text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300"
+                    : isSun
+                      ? "text-red-500 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700"
+                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700",
+              )}
+            >
+              {day}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="mt-2 border-t border-gray-100 pt-2 text-center dark:border-gray-700">
+        <button
+          type="button"
+          onClick={onToday}
+          className={cx("min-h-touch cursor-pointer rounded-lg px-3 text-sm text-indigo-600 hover:underline dark:text-indigo-400 md:min-h-8", focusRingCls)}
+        >
+          วันนี้
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default function ThaiDatePicker({ value = "", onChange, className = "", id, ariaLabel = "เลือกวันที่" }) {
   const today = todayISO()
   const parsed = parseCE(value)
   const now = new Date()
 
-  const [viewYear, setViewYear]   = useState(parsed?.year  ?? now.getFullYear())
+  const [viewYear, setViewYear] = useState(parsed?.year ?? now.getFullYear())
   const [viewMonth, setViewMonth] = useState(parsed?.month ?? now.getMonth() + 1)
-  const [open, setOpen]           = useState(false)
+  const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
+  const triggerRef = useRef(null)
+  const panelRef = useRef(null)
+  const isPhone = useIsPhone()
+  const { style } = useAnchoredPanel(triggerRef, { open: open && !isPhone, minW: PANEL_W, maxW: PANEL_W, maxH: 400 })
 
   useEffect(() => {
     if (parsed) { setViewYear(parsed.year); setViewMonth(parsed.month) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync the view only when the ISO value changes
   }, [value])
 
+  // Desktop popover: outside click closes (trigger + portaled panel both count as inside)
   useEffect(() => {
-    if (!open) return
+    if (!open || isPhone) return
     function onDown(e) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+      if (wrapRef.current?.contains(e.target)) return
+      if (panelRef.current?.contains(e.target)) return
+      setOpen(false)
     }
     document.addEventListener("mousedown", onDown)
     return () => document.removeEventListener("mousedown", onDown)
-  }, [open])
+  }, [open, isPhone])
+
+  // Esc closes the popover only (capture + preventDefault so a parent modal
+  // using useModalDismiss stays open).
+  useEffect(() => {
+    if (!open || isPhone) return
+    function onKey(e) {
+      if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return
+      e.preventDefault()
+      setOpen(false)
+      triggerRef.current?.focus({ preventScroll: true })
+    }
+    document.addEventListener("keydown", onKey, true)
+    return () => document.removeEventListener("keydown", onKey, true)
+  }, [open, isPhone])
 
   function prevMonth() {
     if (viewMonth === 1) { setViewYear(y => y - 1); setViewMonth(12) }
@@ -65,125 +187,78 @@ export default function ThaiDatePicker({ value = "", onChange, className = "" })
     else setViewMonth(m => m + 1)
   }
 
+  function close(refocus = true) {
+    setOpen(false)
+    if (refocus) triggerRef.current?.focus({ preventScroll: true })
+  }
+
   function selectDay(day) {
     const iso = `${viewYear}-${String(viewMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`
     onChange?.(iso)
-    setOpen(false)
+    close()
   }
 
   function goToday() {
     onChange?.(today)
     const p = parseCE(today)
     if (p) { setViewYear(p.year); setViewMonth(p.month) }
-    setOpen(false)
+    close()
   }
-
-  const totalDays = daysInMonth(viewYear, viewMonth)
-  const firstDay  = firstDayOfMonth(viewYear, viewMonth)
-  const cells = [
-    ...Array(firstDay).fill(null),
-    ...Array.from({ length: totalDays }, (_, i) => i + 1),
-  ]
-  while (cells.length % 7 !== 0) cells.push(null)
 
   const wrapperCls = className
     .split(" ")
     .filter(c => !c.startsWith("w-") && c !== "block")
     .join(" ")
 
+  const calendar = (
+    <Calendar
+      value={value}
+      today={today}
+      viewYear={viewYear}
+      viewMonth={viewMonth}
+      onPrev={prevMonth}
+      onNext={nextMonth}
+      onPick={selectDay}
+      onToday={goToday}
+    />
+  )
+
   return (
     <div ref={wrapRef} className="relative">
-      {/* Trigger */}
       <button
+        ref={triggerRef}
+        id={id}
         type="button"
         onClick={() => setOpen(o => !o)}
-        className={`flex items-center justify-between gap-2 w-full text-left cursor-pointer ${wrapperCls}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`${ariaLabel}${value ? `: ${formatDisplay(value)}` : ""}`}
+        className={`flex w-full cursor-pointer items-center justify-between gap-2 text-left ${wrapperCls}`}
       >
         <span className={value ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500"}>
           {formatDisplay(value) || "— เลือกวันที่ —"}
         </span>
-        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
+        <CalendarDays aria-hidden="true" className="size-4 shrink-0 text-gray-400 dark:text-gray-500" strokeWidth={1.75} />
       </button>
 
-      {/* Calendar panel */}
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-[60] bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-3 w-72 select-none">
-          {/* Header: prev / month+year / next */}
-          <div className="flex items-center justify-between mb-2">
-            <button
-              type="button"
-              onClick={prevMonth}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-pointer transition-colors text-lg leading-none"
-            >
-              ‹
-            </button>
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {THAI_MONTHS[viewMonth - 1]} {viewYear + 543}
-            </span>
-            <button
-              type="button"
-              onClick={nextMonth}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-pointer transition-colors text-lg leading-none"
-            >
-              ›
-            </button>
-          </div>
-
-          {/* Day-of-week headers */}
-          <div className="grid grid-cols-7 mb-1">
-            {DAY_HEADERS.map((d, i) => (
-              <div
-                key={d}
-                className={`text-center text-xs font-medium py-1 ${i === 0 ? "text-red-400" : "text-gray-400 dark:text-gray-500"}`}
-              >
-                {d}
-              </div>
-            ))}
-          </div>
-
-          {/* Day cells */}
-          <div className="grid grid-cols-7 gap-0.5">
-            {cells.map((day, i) => {
-              if (!day) return <div key={i} />
-              const iso = `${viewYear}-${String(viewMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-              const isSelected = iso === value
-              const isToday    = iso === today
-              const isSun      = i % 7 === 0
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => selectDay(day)}
-                  className={[
-                    "h-9 w-full rounded-xl text-sm font-medium transition-colors cursor-pointer",
-                    isSelected
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : isToday
-                        ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300 font-bold"
-                        : isSun
-                          ? "text-red-500 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700",
-                  ].join(" ")}
-                >
-                  {day}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Today button */}
-          <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 text-center">
-            <button
-              type="button"
-              onClick={goToday}
-              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-            >
-              วันนี้
-            </button>
-          </div>
-        </div>
+      {isPhone ? (
+        <Sheet open={open} onClose={() => close()} title={ariaLabel} size="sm" z={PANEL_Z} initialFocus={null}>
+          {calendar}
+        </Sheet>
+      ) : (
+        open &&
+        createPortal(
+          <div
+            ref={panelRef}
+            role="dialog"
+            aria-label={ariaLabel}
+            style={{ ...style, zIndex: PANEL_Z }}
+            className="overflow-y-auto rounded-2xl border border-gray-200 bg-white p-3 shadow-xl dark:border-gray-700 dark:bg-gray-800"
+          >
+            {calendar}
+          </div>,
+          document.body,
+        )
       )}
     </div>
   )

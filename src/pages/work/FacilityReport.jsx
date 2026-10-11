@@ -2,13 +2,12 @@
 // รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์ — POST/GET/PATCH/DELETE /facility-report/*
 import { useEffect, useRef, useState, useMemo } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
-import { getRoleId } from "../../lib/auth"
+import { can } from "../../lib/permissions"
 import SelectDropdown from "../../components/SelectDropdown"
 import Portal from "../../components/Portal"
 import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
 import useModalDismiss from "../../lib/useModalDismiss"
 
-const ROLE_ADMIN = 1
 
 // ─── utils ────────────────────────────────────────────────────────────────────
 function today() { return new Date().toISOString().slice(0, 10) }
@@ -49,7 +48,7 @@ function SectionTitle({ children }) {
 }
 
 // ─── TxRow ────────────────────────────────────────────────────────────────────
-function TxRow({ tx, itemMap, isAdmin, onEdit, onDelete }) {
+function TxRow({ tx, itemMap, canDelete, onEdit, onDelete }) {
   const item = itemMap[tx.facility_item_id]
   const isIncome = item?.item_type === "income"
   return (
@@ -76,7 +75,7 @@ function TxRow({ tx, itemMap, isAdmin, onEdit, onDelete }) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           </button>
-          {isAdmin && (
+          {canDelete && (
             <button
               onClick={onDelete}
               className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition cursor-pointer"
@@ -397,8 +396,9 @@ function ItemModal({ facilities, item, onSave, onClose }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function FacilityReport() {
-  const roleId = getRoleId()
-  const isAdmin = roleId === ROLE_ADMIN
+  // ลบรายการ = facility.transactions.delete · จัดการสถานที่/รายการ = facility.setup.manage
+  const canDelete = can("facility.transactions.delete")
+  const canManageSetup = can("facility.setup.manage")
   const autoSelectedRef = useRef(false)
 
   const [tab, setTab] = useState("record")
@@ -575,7 +575,7 @@ export default function FacilityReport() {
   const tabs = [
     { v: "record", label: "บันทึกรายการ" },
     { v: "report", label: "สร้างรายงาน PDF" },
-    ...(isAdmin ? [{ v: "admin", label: "จัดการสถานที่" }] : []),
+    ...(canManageSetup ? [{ v: "admin", label: "จัดการสถานที่" }] : []),
   ]
 
   return (
@@ -712,7 +712,7 @@ export default function FacilityReport() {
                   <div className="mb-3">
                     <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-2 px-1">รายรับ</p>
                     {incomeTx.map((tx) => (
-                      <TxRow key={tx.id} tx={tx} itemMap={itemMap} isAdmin={isAdmin}
+                      <TxRow key={tx.id} tx={tx} itemMap={itemMap} canDelete={canDelete}
                         onEdit={() => setTxModal({ tx })}
                         onDelete={() => handleDeleteTx(tx.id)} />
                     ))}
@@ -722,14 +722,14 @@ export default function FacilityReport() {
                   <div className="mb-3">
                     <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-2 px-1">รายจ่าย</p>
                     {expenseTx.map((tx) => (
-                      <TxRow key={tx.id} tx={tx} itemMap={itemMap} isAdmin={isAdmin}
+                      <TxRow key={tx.id} tx={tx} itemMap={itemMap} canDelete={canDelete}
                         onEdit={() => setTxModal({ tx })}
                         onDelete={() => handleDeleteTx(tx.id)} />
                     ))}
                   </div>
                 )}
                 {unclassifiedTx.map((tx) => (
-                  <TxRow key={tx.id} tx={tx} itemMap={itemMap} isAdmin={isAdmin}
+                  <TxRow key={tx.id} tx={tx} itemMap={itemMap} canDelete={canDelete}
                     onEdit={() => setTxModal({ tx })}
                     onDelete={() => handleDeleteTx(tx.id)} />
                 ))}
@@ -816,7 +816,7 @@ export default function FacilityReport() {
       )}
 
       {/* ══════════ ADMIN TAB ══════════ */}
-      {tab === "admin" && isAdmin && !loadingFacilities && (
+      {tab === "admin" && canManageSetup && !loadingFacilities && (
         <div className="space-y-5">
           {/* Facilities */}
           <div className={cardCls}>

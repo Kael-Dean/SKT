@@ -6,6 +6,10 @@
 // locks body scroll for as long as it is mounted, and the toaster is always
 // mounted. z-[10080] sits above dropdowns (10050) and dialogs (10070).
 //
+// Bottom offset follows `--sticky-bar-h` (set by a visible phone
+// <StickyActionBar>) so a toast never covers "ถัดไป"/"บันทึก"; without a bar it
+// clears the iOS home indicator (max of bar height and safe-area inset) + 1rem.
+//
 // Max 3 visible, newest at the bottom. Auto-dismiss pauses on hover / focus.
 // success/info/warning → announced by the persistent aria-live="polite" region; error → role="alert".
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,13 +71,32 @@ function ToastCard({ t, onDismiss }) {
             {t.description}
           </p>
         )}
+        {t.action && (
+          <button
+            type="button"
+            onClick={() => {
+              t.action.onClick?.()
+              onDismiss(t.id)
+            }}
+            className={cx(
+              "mt-1.5 -ml-2 inline-flex h-11 md:h-9 cursor-pointer items-center rounded-lg px-2 text-sm font-semibold",
+              "text-indigo-600 transition-colors duration-150 hover:bg-indigo-50 hover:text-indigo-700",
+              "dark:text-indigo-300 dark:hover:bg-indigo-500/15 dark:hover:text-indigo-200",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            )}
+          >
+            {t.action.label}
+          </button>
+        )}
       </div>
       <button
         type="button"
         onClick={() => onDismiss(t.id)}
         aria-label="ปิดการแจ้งเตือน"
         className={cx(
-          "-m-1 shrink-0 rounded-lg p-1 text-gray-500 transition-colors duration-150 cursor-pointer",
+          // 44px hit area on phones (negative margin keeps the 24px visual footprint)
+          "-m-2.5 inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors duration-150 cursor-pointer",
+          "md:-m-1 md:size-auto md:p-1",
           "hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
         )}
@@ -111,7 +134,8 @@ export default function Toaster() {
       role="region"
       aria-label="การแจ้งเตือน"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-4 bottom-4 z-[10080] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:right-4 sm:items-end"
+      style={{ bottom: "calc(max(var(--sticky-bar-h, 0px), env(safe-area-inset-bottom, 0px)) + 1rem)" }}
+      className="pointer-events-none fixed inset-x-4 z-[10080] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:right-4 sm:items-end"
     >
       {toasts.map((t) => (
         <ToastCard key={t.id} t={t} onDismiss={dismiss} />

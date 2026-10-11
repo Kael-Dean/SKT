@@ -9,7 +9,9 @@ import {
 } from "react"
 import { apiAuth } from "../../lib/api" // ✅ แนบ token + JSON ให้แล้ว
 import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
-import { ErrorState } from "../../components/ui"
+import { ErrorState, SearchField, StickyActionBar, ResultSheet, toast } from "../../components/ui"
+import { useIsPhone } from "../../hooks/useMediaQuery"
+import { describeApiError, thb } from "./buy/buyShared"
 
 /** ---------- Utils ---------- */
 // debounce สำหรับช่องค้นหา
@@ -95,8 +97,8 @@ const DateInput = forwardRef(function DateInput(
           }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-                    transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+        className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
+                    transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer bg-transparent"
       >
         <svg
           viewBox="0 0 24 24"
@@ -135,6 +137,9 @@ function Share() {
   const [amountRaw, setAmountRaw] = useState("") // เก็บรูปแบบที่ผู้ใช้พิมพ์
   const [submitting, setSubmitting] = useState(false)
   const [receipt, setReceipt] = useState(null) // response จาก BE
+  const [failure, setFailure] = useState(null) // ResultSheet (แทน alert)
+  const isPhone = useIsPhone()
+  const receiptRef = useRef(null)
 
   // error
   const [errors, setErrors] = useState({})
@@ -197,7 +202,8 @@ function Share() {
       if (!listBoxRef.current && !searchRef.current) return
       if (
         listBoxRef.current?.contains(e.target) ||
-        searchRef.current?.contains(e.target)
+        searchRef.current?.contains(e.target) ||
+        e.target?.closest?.("#member-results") // SearchField portals the list on desktop
       )
         return
       setShowList(false)
@@ -319,9 +325,13 @@ function Share() {
       setReceipt(res) // แสดงใบเสร็จจาก BE
       // เคลียร์เฉพาะช่องจำนวนเพื่อพร้อมซื้อซ้ำสมาชิกเดิม
       setAmountRaw("")
+      toast.success("บันทึกการซื้อหุ้นแล้ว", { description: "ดูใบเสร็จด้านล่าง" })
+      requestAnimationFrame(() => {
+        try { receiptRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch { /* ignore */ }
+      })
     } catch (err) {
       console.error(err)
-      alert(`บันทึกล้มเหลว: ${err?.message || "ไม่ทราบสาเหตุ"}`)
+      setFailure(describeApiError(err))
     } finally {
       setSubmitting(false)
     }
@@ -338,7 +348,7 @@ function Share() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-5xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-1 flex items-center gap-2 text-3xl font-bold">
+        <h1 className="mb-1 flex items-center gap-2 text-xl md:text-3xl font-bold">
           <svg
             aria-hidden="true"
             viewBox="0 0 24 24"
@@ -347,26 +357,25 @@ function Share() {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="size-7 text-emerald-600 dark:text-emerald-400"
+            className="size-6 md:size-7 text-emerald-600 dark:text-emerald-400"
           >
             <path d="M3 3v18h18" />
             <path d="m19 9-5 5-4-4-3 3" />
           </svg>
           ซื้อหุ้น
         </h1>
-        <p className="mb-5 text-slate-600 dark:text-slate-300">
+        <p className="mb-5 text-sm md:text-base leading-relaxed text-slate-600 dark:text-slate-300">
           ค้นหาและเลือกสมาชิก กรอกวันที่และจำนวนที่ซื้อ แล้วบันทึกเพื่อส่งไปยังระบบหลังบ้าน
         </p>
 
         {/* เลือกสมาชิก */}
         <SectionCard title="เลือกสมาชิก" className="mb-6">
           <label className={labelCls}>ค้นหาสมาชิกจากชื่อ-นามสกุล หรือเลขบัตรประชาชน</label>
-          <input
-            ref={searchRef}
-            className={cx(baseField, errors.picked && fieldError)}
+          <SearchField
+            inputRef={searchRef}
+            id="share-member-q"
             value={query}
-            onChange={(e) => {
-              const v = e.target.value
+            onChange={(v) => {
               setQuery(v)
               setErrors((p) => ({ ...p, picked: undefined }))
               setPicked(null)
@@ -383,13 +392,31 @@ function Share() {
               }
             }}
             onKeyDown={onSearchKeyDown}
+            open={showList && results.length > 0}
+            loading={loading}
+            results={results}
+            listId="member-results"
+            highlightedIndex={highlighted}
+            onHighlight={setHighlighted}
+            onPick={(r) => pickResult(r)}
+            ariaLabel="ค้นหาสมาชิกจากชื่อ-นามสกุล หรือเลขบัตรประชาชน"
             placeholder="ตัวอย่าง: สมชาย ใจดี หรือ 1234567890123"
-            aria-expanded={showList}
-            aria-controls="member-results"
-            role="combobox"
-            aria-autocomplete="list"
-            aria-invalid={errors.picked ? true : undefined}
-            autoComplete="off"
+            renderResult={(r) => (
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">
+                    {`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "(ไม่มีชื่อ)"}{" "}
+                    <span className="text-xs text-slate-500 dark:text-slate-400">#{r.member_id}</span>
+                  </div>
+                  <div className="truncate text-sm text-slate-600 dark:text-slate-300">
+                    บัตร {r.citizen_id ?? "-"} · โทร {r.phone_number ?? "-"}
+                  </div>
+                </div>
+                <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-xs dark:bg-slate-700">
+                  {r.province || r.district || "—"}
+                </span>
+              </div>
+            )}
           />
           {errors.picked && <p className={errorTextCls}>{errors.picked}</p>}
           <div className="mt-1 text-xs md:text-sm text-slate-500 dark:text-slate-400">
@@ -416,55 +443,6 @@ function Share() {
             </div>
           )}
 
-          {showList && results.length > 0 && (
-            <div
-              id="member-results"
-              ref={listBoxRef}
-              className="mt-1 max-h-80 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-              role="listbox"
-            >
-              {results.map((r, idx) => {
-                const isActive = idx === highlighted
-                const full = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "(ไม่มีชื่อ)"
-                return (
-                  <button
-                    type="button"
-                    ref={(el) => (itemRefs.current[idx] = el)}
-                    key={`${r.member_id}-${r.citizen_id}-${idx}`}
-                    onClick={() => pickResult(r)}
-                    onMouseEnter={() => {
-                      setHighlighted(idx)
-                      requestAnimationFrame(() => scrollIntoView(idx))
-                    }}
-                    role="option"
-                    aria-selected={isActive}
-                    className={cx(
-                      "relative flex w-full items-start gap-3 px-3 py-2.5 text-left transition rounded-xl cursor-pointer",
-                      isActive
-                        ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                        : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                    )}
-                  >
-                    {isActive && (
-                      <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-                    )}
-                    <div className="flex-1">
-                      <div className="font-medium">
-                        {full} <span className="text-xs text-slate-500">#{r.member_id}</span>
-                      </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-300">
-                        บัตร {r.citizen_id ?? "-"} • โทร {r.phone_number ?? "-"}
-                      </div>
-                    </div>
-                    <div className="text-xs px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700">
-                      {r.province || r.district || "—"}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
           {/* แสดงสมาชิกที่เลือก */}
           <div className="mt-5">
             <div className="text-sm text-slate-600 dark:text-slate-300">สมาชิกที่เลือก</div>
@@ -478,7 +456,7 @@ function Share() {
                   : "bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800/60 dark:text-slate-200 dark:ring-slate-700/60"
               )}
             >
-              {picked ? pickedPreview : "— ยังไม่ได้เลือก —"}
+              <span className="break-words">{picked ? pickedPreview : "— ยังไม่ได้เลือก —"}</span>
             </div>
           </div>
         </SectionCard>
@@ -491,9 +469,11 @@ function Share() {
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>วันที่ซื้อ</label>
+              <label className={labelCls} htmlFor="share-date">วันที่ซื้อ</label>
               <DateInput
                 ref={dateRef}
+                id="share-date"
+                aria-describedby={errors.buyDate ? "share-date-err" : undefined}
                 value={buyDate}
                 onChange={(e) => {
                   setBuyDate(e.target.value)
@@ -508,14 +488,16 @@ function Share() {
                 error={!!errors.buyDate}
                 aria-invalid={errors.buyDate ? true : undefined}
               />
-              {errors.buyDate && <p className={errorTextCls}>{errors.buyDate}</p>}
+              {errors.buyDate && <p id="share-date-err" className={errorTextCls}>{errors.buyDate}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>จำนวนที่ซื้อ (บาท)</label>
+              <label className={labelCls} htmlFor="share-amount">จำนวนที่ซื้อ (บาท)</label>
               <div className="relative">
                 <input
                   ref={amountRef}
+                  id="share-amount"
+                  aria-describedby={errors.amount ? "share-amount-help share-amount-err" : "share-amount-help"}
                   inputMode="decimal"
                   className={cx(baseField, "pr-12", errors.amount && fieldError)}
                   value={amountRaw}
@@ -538,13 +520,31 @@ function Share() {
                   ฿
                 </div>
               </div>
-              <p className={helpTextCls}>รองรับทศนิยมไม่เกิน 3 ตำแหน่ง</p>
-              {errors.amount && <p className={errorTextCls}>{errors.amount}</p>}
+              <p id="share-amount-help" className={helpTextCls}>รองรับทศนิยมไม่เกิน 3 ตำแหน่ง</p>
+              {errors.amount && <p id="share-amount-err" className={errorTextCls}>{errors.amount}</p>}
             </div>
           </div>
         </SectionCard>
 
-        {/* ปุ่ม */}
+        {/* ปุ่ม — phone: StickyActionBar; desktop: เดิม */}
+        {isPhone ? (
+          <StickyActionBar
+            summary={
+              <p className="flex items-baseline gap-2">
+                <span className="min-w-0 truncate">
+                  {picked
+                    ? `${picked.first_name ?? ""} ${picked.last_name ?? ""}`.trim() || "-"
+                    : <span className="text-gray-500 dark:text-gray-400">ยังไม่ได้เลือกสมาชิก</span>}
+                </span>
+                {Number(amountRaw) > 0 && (
+                  <span className="ml-auto shrink-0 text-lg font-bold tabular-nums text-gray-900 dark:text-gray-100">{thb(Number(amountRaw))}</span>
+                )}
+              </p>
+            }
+            secondary={{ label: "รีเซ็ต", onClick: reset, disabled: submitting }}
+            primary={{ label: submitting ? "กำลังบันทึก…" : "ซื้อหุ้น", onClick: submit, loading: submitting }}
+          />
+        ) : (
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
@@ -583,9 +583,11 @@ function Share() {
             รีเซ็ต
           </button>
         </div>
+        )}
 
         {/* ใบเสร็จ/ผลลัพธ์จาก BE */}
         {receipt && (
+          <div ref={receiptRef} className="scroll-mt-[calc(var(--topbar-h)+1rem)]">
           <SectionCard title="ผลการซื้อ / ใบเสร็จ" className="mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[15px] md:text-base">
               <div>
@@ -619,8 +621,24 @@ function Share() {
               * ค่าธรรมเนียมจะคิดในกรณีเป็นการซื้อครั้งแรกของสมาชิก ตามสเปคฝั่ง BE.
             </p>
           </SectionCard>
+          </div>
         )}
       </div>
+
+      <ResultSheet
+        open={!!failure}
+        tone="error"
+        title={failure?.title ?? ""}
+        description={failure?.description}
+        lines={failure?.lines ?? []}
+        primary={
+          failure?.primary === "retry"
+            ? { label: "ลองอีกครั้ง", onClick: () => { setFailure(null); setTimeout(submit, 0) } }
+            : { label: "แก้ไขข้อมูล", onClick: () => setFailure(null) }
+        }
+        secondary={{ label: "ปิด", onClick: () => setFailure(null) }}
+        onClose={() => setFailure(null)}
+      />
     </div>
   )
 }

@@ -2,200 +2,14 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, secondaryBtnCls, spinnerCls } from "../../lib/styles"
-import { Card, CardHeader, PageLoader, ErrorState } from "../../components/ui"
+import { Card, CardHeader, PageLoader, ErrorState, StickyActionBar, toast } from "../../components/ui"
+import ComboBox from "../../components/ComboBox"
+import { useIsPhone } from "../../hooks/useMediaQuery"
 
 /** ---------- Utils ---------- */
 const toInt = (v) => {
   const n = Number(v)
   return Number.isFinite(n) ? Math.trunc(n) : NaN
-}
-
-/** ---------- ComboBox (คัดสไตล์จากหน้า Sales) ---------- */
-function ComboBox({
-  options = [],
-  value,
-  onChange,
-  placeholder = "— เลือก —",
-  getLabel = (o) => o?.label ?? "",
-  getValue = (o) => o?.value ?? o?.id ?? "",
-  getSubLabel = (o) => o?.subLabel ?? "",
-  disabled = false,
-  error = false,
-  buttonRef = null,
-  clearHint = () => {},
-  onEnterNext,
-}) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(-1)
-  const boxRef = useRef(null)
-  const listRef = useRef(null)
-  const internalBtnRef = useRef(null)
-  const controlRef = buttonRef || internalBtnRef
-
-  const selectedObj = useMemo(
-    () => options.find((o) => String(getValue(o)) === String(value)),
-    [options, value, getValue]
-  )
-  const selectedLabel = selectedObj ? getLabel(selectedObj) : ""
-  const selectedSubLabel = selectedObj ? (getSubLabel(selectedObj) || "") : ""
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (!boxRef.current) return
-      if (!boxRef.current.contains(e.target)) {
-        setOpen(false)
-        setHighlight(-1)
-      }
-    }
-    document.addEventListener("click", onClick)
-    return () => document.removeEventListener("click", onClick)
-  }, [])
-
-  const commit = (opt) => {
-    const v = String(getValue(opt))
-    onChange?.(v, opt)
-    setOpen(false)
-    setHighlight(-1)
-    clearHint?.()
-    requestAnimationFrame(() => {
-      controlRef.current?.focus()
-      onEnterNext?.()
-    })
-  }
-
-  const scrollHighlightedIntoView = (index) => {
-    const listEl = listRef.current
-    const itemEl = listEl?.children?.[index]
-    if (!listEl || !itemEl) return
-    const itemRect = itemEl.getBoundingClientRect()
-    const listRect = listEl.getBoundingClientRect()
-    const buffer = 6
-    if (itemRect.top < listRect.top + buffer) {
-      listEl.scrollTop -= listRect.top + buffer - itemRect.top
-    } else if (itemRect.bottom > listRect.bottom - buffer) {
-      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
-    }
-  }
-
-  const onKeyDown = (e) => {
-    if (disabled) return
-
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault()
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
-      clearHint?.()
-      return
-    }
-
-    if (!open) return
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const next = h < options.length - 1 ? h + 1 : 0
-        requestAnimationFrame(() => scrollHighlightedIntoView(next))
-        return next
-      })
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const prev = h > 0 ? h - 1 : options.length - 1
-        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
-        return prev
-      })
-    } else if (e.key === "Enter") {
-      e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      setOpen(false)
-      setHighlight(-1)
-    }
-  }
-
-  return (
-    <div className="relative" ref={boxRef}>
-      <button
-        type="button"
-        ref={controlRef}
-        disabled={disabled}
-        onClick={() => {
-          if (!disabled) {
-            setOpen((o) => !o)
-            clearHint?.()
-          }
-        }}
-        onKeyDown={onKeyDown}
-        onFocus={() => clearHint?.()}
-        className={cx(
-          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          error
-            ? "border-red-400 ring-2 ring-red-300/70"
-            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80"
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-invalid={error ? true : undefined}
-      >
-        {selectedLabel ? (
-          <div className="flex flex-col">
-            <span>{selectedLabel}</span>
-            {selectedSubLabel && (
-              <span className="text-[13px] text-slate-600 dark:text-slate-300">{selectedSubLabel}</span>
-            )}
-          </div>
-        ) : (
-          <span className="text-slate-500 dark:text-white/70">{placeholder}</span>
-        )}
-      </button>
-
-      {open && (
-        <div
-          ref={listRef}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
-          )}
-          {options.map((opt, idx) => {
-            const label = getLabel(opt)
-            const sub = getSubLabel(opt) || ""
-            const isActive = idx === highlight
-            const isChosen = String(getValue(opt)) === String(value)
-            return (
-              <button
-                key={String(getValue(opt)) || label || idx}
-                type="button"
-                role="option"
-                aria-selected={isChosen}
-                onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)}
-                className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
-                  isActive
-                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                )}
-              >
-                {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-                )}
-                <span className="flex-1">
-                  <div>{label}</div>
-                  {sub && <div className="text-sm text-slate-600 dark:text-slate-300">{sub}</div>}
-                </span>
-                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
 }
 
 /** ---------- Field wrapper (label + error) ---------- */
@@ -211,6 +25,7 @@ function ComboField({
   errorText,
   buttonRef,
   onEnterNext,
+  searchable = "auto",
 }) {
   const finalPlaceholder = loading ? "กำลังโหลด..." : placeholder
 
@@ -221,6 +36,9 @@ function ComboField({
       </label>
 
       <ComboBox
+        title={String(label).replace(/\s*\([^)]*\)\s*$/, "")}
+        ariaLabel={label}
+        searchable={searchable}
         options={options}
         value={value}
         onChange={(v) => onChange?.(v)}
@@ -238,6 +56,7 @@ function ComboField({
 
 /** ---------- หน้าเพิ่ม “รหัสข้าว” (ProductSpec) ---------- */
 function RiceSpecCreate() {
+  const isPhone = useIsPhone()
   /**
    * ✅ ปรับ endpoint ให้ตรงกับ BE (ชุดเดียวกับหน้า Sales)
    * - Master data: /order/...
@@ -472,6 +291,7 @@ function RiceSpecCreate() {
     })
 
     setErrors(e)
+    if (Object.keys(e).length) toast.error("กรอกไม่ครบ", { description: Object.values(e)[0] })
     return Object.keys(e).length === 0
   }
 
@@ -523,10 +343,12 @@ function RiceSpecCreate() {
       })
       setResult(res)
       setErrors({})
+      toast.success("สร้างรหัสข้าวแล้ว", { description: res?.prod_name || undefined })
     } catch (err) {
       console.error(err)
       const msg = err?.message || "บันทึกล้มเหลว"
       setSubmitError(msg)
+      toast.error(err?.status === 409 ? "รายการนี้มีอยู่แล้ว" : "บันทึกไม่สำเร็จ", { description: msg })
     } finally {
       setSubmitting(false)
     }
@@ -577,14 +399,14 @@ function RiceSpecCreate() {
   /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      <div className="mx-auto max-w-5xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-1 text-3xl font-bold text-gray-900 dark:text-white">เพิ่มรหัสข้าว</h1>
+      <div className="mx-auto max-w-5xl p-4 md:p-6 lg:p-8">
+        <h1 className="mb-1 text-xl md:text-3xl font-bold text-gray-900 dark:text-white">เพิ่มรหัสข้าว</h1>
         <p className="mb-5 text-slate-600 dark:text-slate-300">
           เลือกข้อมูลให้ครบ (อย่างน้อย 3 ช่องแรก) แล้วกดบันทึก ระบบหลังบ้านจะสร้าง{" "}
           <span className="font-semibold">prod_name</span> ให้อัตโนมัติ
         </p>
 
-        <Card className="mb-6">
+        <Card className="mb-4 md:mb-6">
           <CardHeader title="ข้อมูลรหัสข้าว (Spec)" subtitle="ช่องที่มี * เป็นช่องบังคับ" />
           {/* hint สิทธิ์ */}
           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 dark:border-amber-500/30 dark:bg-amber-900/20 dark:text-amber-200">
@@ -605,7 +427,7 @@ function RiceSpecCreate() {
               type="button"
               onClick={reloadAll}
               disabled={anyLoading}
-              className={cx(secondaryBtnCls, "!px-4 !py-2 !text-sm")}
+              className={cx(secondaryBtnCls, "!px-4 !py-2 !text-sm min-h-touch md:min-h-0")}
             >
               โหลดรายการใหม่
             </button>
@@ -639,6 +461,7 @@ function RiceSpecCreate() {
 
             <ComboField
               label="ชนิด/สายพันธุ์ (Species)"
+              searchable
               required
               buttonRef={speciesRef}
               value={form.species_id}
@@ -656,6 +479,7 @@ function RiceSpecCreate() {
 
             <ComboField
               label="พันธุ์/รูปแบบ (Variant)"
+              searchable
               required
               buttonRef={variantRef}
               value={form.variant_id}
@@ -782,7 +606,14 @@ function RiceSpecCreate() {
           )}
         </Card>
 
-        {/* ปุ่ม */}
+        {/* ปุ่ม — <md: แถบติดล่าง (UI-SPEC §7) · ≥md: ปุ่มเดิม (submitRef อยู่ใน Enter chain) */}
+        {isPhone ? (
+          <StickyActionBar
+            summary={<p className="truncate text-gray-900 dark:text-gray-100">{previewName || "ยังไม่ได้เลือกสเปค"}</p>}
+            secondary={{ label: "ล้างฟอร์ม", onClick: reset, disabled: submitting }}
+            primary={{ label: submitting ? "กำลังบันทึก…" : "บันทึก", onClick: submit, loading: submitting }}
+          />
+        ) : (
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
@@ -811,6 +642,7 @@ function RiceSpecCreate() {
             รีเซ็ต
           </button>
         </div>
+        )}
 
         {/* ผลลัพธ์ */}
         {result && (

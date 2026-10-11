@@ -7,8 +7,11 @@
 //   toast.success("บันทึกแล้ว", { description: "…" })
 //   toast.error("บันทึกไม่สำเร็จ", { description: err.message })
 //   const id = toast.info("…"); toast.dismiss(id)
+//   toast.error("กรอกไม่ครบ", { description: "…", action: { label: "ไปที่ขั้น 2", onClick: () => setStep(1) } })
 //
 // Duration: 4s default, 7s for errors. Pass `duration: Infinity` to keep it open.
+// `action` renders a small text button inside the card; pressing it runs
+// onClick and dismisses that toast.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const listeners = new Set()
@@ -29,6 +32,7 @@ function show(type, title, opts = {}) {
       type,
       title,
       description: opts.description,
+      action: opts.action && opts.action.label ? opts.action : undefined,
       duration: opts.duration ?? DEFAULT_DURATION[type] ?? 4000,
     },
   })

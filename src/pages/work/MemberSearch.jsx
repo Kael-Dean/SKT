@@ -1,8 +1,9 @@
 // src/pages/MemberSearch.jsx
 import { useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ
-import { SkeletonTableRows, ErrorState, EmptyState } from "../../components/ui"
-import useModalDismiss from "../../lib/useModalDismiss"
+import { SkeletonTableRows, ErrorState, EmptyState, Sheet, SearchField, DataList, toast } from "../../components/ui"
+import { useIsPhone } from "../../hooks/useMediaQuery"
+import { cx, neutralBtnCls, secondaryBtnCls, submitBtnCls } from "../../lib/styles"
 
 /** ไอคอนแว่นขยาย (inline SVG — currentColor, ไม่มี emoji) */
 function SearchIcon({ className = "size-5" }) {
@@ -22,10 +23,6 @@ function SearchIcon({ className = "size-5" }) {
     </svg>
   )
 }
-
-/** ============ ตำแหน่งหยุดของหัวตารางใต้ App Bar ============ */
-/** ถ้าหัวตารางไปซ้อนกับแถวข้อมูลให้ใช้ 0 (หรือปรับตาม layout จริงของ App Bar) */
-const STICKY_TOP_PX = 0
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -295,8 +292,7 @@ const MemberSearch = () => {
   const [draft, setDraft] = useState(null)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
-  // Esc / click outside the panel close the detail modal (not while saving)
-  const { backdropProps: detailBackdrop } = useModalDismiss(() => closeModal(), { open, disabled: saving })
+  const isPhone = useIsPhone()
   const [rowError, setRowError] = useState("")
 
   const hint = useMemo(() => {
@@ -327,7 +323,7 @@ const MemberSearch = () => {
     run()
   }, [dq, reloadKey])
 
-  const openModal = (row) => {
+  const openModal = (row, { edit = false } = {}) => {
     const r = normalizeRecord(row)
     setActive(r)
 
@@ -344,7 +340,7 @@ const MemberSearch = () => {
     setDraft(d)
 
     setRowError("")
-    setEditing(false)
+    setEditing(edit)
     setOpen(true)
   }
 
@@ -433,6 +429,7 @@ const MemberSearch = () => {
     } catch (e) {
       setRows((cur) => cur)
       setRowError(e?.message || "บันทึกไม่สำเร็จ")
+      toast.error("บันทึกไม่สำเร็จ", { description: e?.message || "ลองใหม่อีกครั้ง" })
     } finally {
       setSaving(false)
     }
@@ -440,36 +437,88 @@ const MemberSearch = () => {
 
   const loaderCols = TABLE_COLUMNS.length + 1
 
+  /* ── shared field-input class for the detail sheet ── */
+  const inputCls =
+    "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none " +
+    "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+  const readCls = "rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base break-words text-gray-900 dark:border-slate-700 dark:bg-slate-700/60 dark:text-gray-100"
+  const inputModeFor = (type) => (type === "cid" || type === "number" ? "numeric" : type === "decimal" ? "decimal" : undefined)
+
+  const fullName = (r) => `${r?.first_name ?? ""} ${r?.last_name ?? ""}`.trim() || "(ไม่มีชื่อ)"
+
+  const emptyBefore = (
+    <EmptyState
+      icon={<SearchIcon className="size-12" />}
+      title="เริ่มต้นด้วยการค้นหาสมาชิก"
+      description="พิมพ์ชื่อ นามสกุล เลขบัตรประชาชน หรือเลขทะเบียนสมาชิกในช่องด้านบนเพื่อแสดงรายชื่อ"
+    />
+  )
+  const emptyNone = (
+    <EmptyState
+      title={`ไม่พบข้อมูลที่ตรงกับ “${dq}”`}
+      description="ลองตรวจสอบการสะกด หรือค้นหาด้วยคำอื่น เช่น เลขบัตรประชาชน หรือเลขทะเบียนสมาชิก"
+      action={
+        <button type="button" onClick={() => setQ("")} className={neutralBtnCls}>
+          ล้างตัวกรอง
+        </button>
+      }
+    />
+  )
+
+  const sheetFooter = active ? (
+    <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
+      {!editing ? (
+        <>
+          <button type="button" onClick={closeModal} className={cx(neutralBtnCls, "h-12 md:h-10")}>
+            ปิด
+          </button>
+          <button type="button" onClick={() => setEditing(true)} className={cx(secondaryBtnCls, "h-12 py-0 text-sm md:h-10")}>
+            แก้ไข
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => { setEditing(false); openModal(active) }}
+            className={cx(neutralBtnCls, "h-12 md:h-10")}
+          >
+            ยกเลิก
+          </button>
+          <button type="button" onClick={save} disabled={saving} aria-busy={saving || undefined} className={cx(submitBtnCls, "h-12 py-0 text-sm md:h-10")}>
+            {saving ? "กำลังบันทึก…" : "บันทึก"}
+          </button>
+        </>
+      )}
+    </div>
+  ) : null
+
   return (
     <div className="min-h-screen rounded-2xl bg-white text-black dark:bg-slate-900 dark:text-white">
-      <div
-        className="mx-auto max-w-6xl p-4 md:p-6 text-base md:text-lg"
-        style={{ scrollMarginTop: STICKY_TOP_PX }}
-      >
-        <h1 className="mb-4 flex items-center gap-2 text-2xl md:text-3xl font-bold">
-          <SearchIcon className="size-6 text-emerald-600 dark:text-emerald-400" />
+      <div className="mx-auto max-w-6xl p-4 md:p-6 text-base md:text-lg">
+        <h1 className="mb-4 flex items-center gap-2 text-xl md:text-3xl font-bold">
+          <SearchIcon className="size-6 text-indigo-600 dark:text-indigo-400" />
           ค้นหาสมาชิก
         </h1>
 
         {/* การ์ดค้นหา */}
-        <div className="rounded-2xl border border-slate-200/60 bg-white/85 p-5 md:p-6 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/40">
-          <label className="mb-2 block text-sm md:text-base text-slate-700 dark:text-slate-300">คำค้นหา</label>
-          <div className="relative">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="ค้นหาตามชื่อหรือนามสกุล เลขบัตรประชาชน หรือเลขทะเบียนสมาชิก"
-              className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3 pr-12 text-base outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 dark:border-white/10 dark:bg-slate-800 dark:placeholder:text-slate-400 dark:focus:border-emerald-500 dark:focus:ring-emerald-500/20"
-            />
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
-              <SearchIcon />
-            </span>
-          </div>
-          <div className="mt-2 text-xs md:text-sm text-slate-500 dark:text-slate-400">
-            {dq ? (loading ? <>กำลังค้นหา “{dq}”...</> : <>ผลลัพธ์ {rows.length.toLocaleString()} รายการ</>) : <>พิมพ์อย่างน้อย 1 ตัวอักษรเพื่อค้นหา</>}
+        <div className="rounded-2xl border border-slate-200/60 bg-white p-4 md:p-6 shadow-sm dark:border-white/10 dark:bg-slate-800/60">
+          <label htmlFor="member-search-q" className="mb-2 block text-sm md:text-base text-slate-700 dark:text-slate-300">คำค้นหา</label>
+          <SearchField
+            id="member-search-q"
+            value={q}
+            onChange={setQ}
+            open={false}
+            loading={loading}
+            placeholder={isPhone ? "ชื่อ นามสกุล เลขบัตร หรือเลขสมาชิก" : "ค้นหาตามชื่อหรือนามสกุล เลขบัตรประชาชน หรือเลขทะเบียนสมาชิก"}
+            ariaLabel="ค้นหาสมาชิก"
+          />
+          <div className="mt-2 text-sm text-slate-500 dark:text-slate-400" aria-live="polite">
+            {dq ? (loading ? <>กำลังค้นหา “{dq}”…</> : <>พบ {rows.length.toLocaleString()} รายการ</>) : <>พิมพ์อย่างน้อย 1 ตัวอักษรเพื่อค้นหา</>}
           </div>
           {hint && !loading && dq && (
-            <div className="mt-1 text-xs md:text-sm text-slate-500 dark:text-slate-400">{hint}</div>
+            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{hint}</div>
           )}
           {error && (
             <ErrorState
@@ -480,15 +529,42 @@ const MemberSearch = () => {
           )}
         </div>
 
-        {/* ตาราง */}
-        <div className="mt-5 rounded-2xl border border-slate-200/60 bg-white/85 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/40">
-          <div className="overflow-x-auto rounded-2xl">
+        {/* ผลลัพธ์ */}
+        {isPhone ? (
+          <div className="mt-4">
+            <DataList
+              items={error ? [] : rows}
+              keyOf={(r, i) => r.asso_id ?? r.member_id ?? r.citizen_id ?? i}
+              loading={loading}
+              skeletonRows={4}
+              title={(r) => fullName(r)}
+              subtitle={(r) => r.citizen_id || "ไม่มีเลขบัตร"}
+              fields={[
+                { label: "โทรศัพท์", value: (r) => r.phone_number || "-" },
+                { label: "อำเภอ/จังหวัด", value: (r) => [r.district, r.province].filter(Boolean).join(", ") || "-" },
+                { label: "วันที่สมัคร", value: (r) => formatDate(r.regis_date) },
+                { label: "เลขสมาชิก", value: (r) => r.member_id ?? "-", align: "right" },
+              ]}
+              onClick={(r) => openModal(r)}
+              actions={(r) => (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); openModal(r, { edit: true }) }}
+                  className={cx(secondaryBtnCls, "h-11 px-4 py-0 text-sm")}
+                  aria-label={`แก้ไข ${fullName(r)}`}
+                >
+                  แก้ไข
+                </button>
+              )}
+              emptyState={error ? null : dq ? emptyNone : emptyBefore}
+            />
+          </div>
+        ) : (
+        <div className="mt-5 rounded-2xl border border-slate-200/60 bg-white shadow-sm dark:border-white/10 dark:bg-slate-800/40">
+          <div className="overflow-x-auto rounded-2xl xl:overflow-x-clip">
             <table className="w-full text-base tabular-nums">
               <thead className="text-slate-700 dark:text-slate-100">
-                <tr
-                  className="sticky z-10 bg-slate-50 dark:bg-slate-700"
-                  style={{ top: STICKY_TOP_PX }}
-                >
+                <tr className="sticky top-0 xl:top-(--topbar-h) z-10 bg-slate-50 dark:bg-slate-700">
                   {TABLE_COLUMNS.map((c) => (
                     <th key={c.key} className="whitespace-nowrap px-5 py-4 text-left text-[15px] md:text-base font-semibold">
                       {c.label}
@@ -505,41 +581,21 @@ const MemberSearch = () => {
                 {/* ก่อนเริ่มค้นหา — สอนขั้นตอนถัดไป */}
                 {!loading && !error && !dq && (
                   <tr>
-                    <td colSpan={loaderCols} className="p-0">
-                      <EmptyState
-                        icon={<SearchIcon className="size-12" />}
-                        title="เริ่มต้นด้วยการค้นหาสมาชิก"
-                        description="พิมพ์ชื่อ นามสกุล เลขบัตรประชาชน หรือเลขทะเบียนสมาชิกในช่องด้านบนเพื่อแสดงรายชื่อ"
-                      />
-                    </td>
+                    <td colSpan={loaderCols} className="p-0">{emptyBefore}</td>
                   </tr>
                 )}
 
                 {/* ค้นหาแล้วแต่ไม่พบผลลัพธ์ */}
                 {!loading && !error && dq && rows.length === 0 && (
                   <tr>
-                    <td colSpan={loaderCols} className="p-0">
-                      <EmptyState
-                        title={`ไม่พบข้อมูลที่ตรงกับ “${dq}”`}
-                        description="ลองตรวจสอบการสะกด หรือค้นหาด้วยคำอื่น เช่น เลขบัตรประชาชน หรือเลขทะเบียนสมาชิก"
-                        action={
-                          <button
-                            type="button"
-                            onClick={() => setQ("")}
-                            className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50"
-                          >
-                            ล้างตัวกรอง
-                          </button>
-                        }
-                      />
-                    </td>
+                    <td colSpan={loaderCols} className="p-0">{emptyNone}</td>
                   </tr>
                 )}
 
                 {!loading &&
-                  rows.map((r) => (
+                  rows.map((r, i) => (
                     <tr
-                      key={r.asso_id ?? r.member_id ?? r.citizen_id ?? Math.random()}
+                      key={r.asso_id ?? r.member_id ?? r.citizen_id ?? i}
                       className="odd:bg-white/90 even:bg-slate-50/70 hover:bg-emerald-50/70 dark:odd:bg-slate-800/40 dark:even:bg-slate-800/25 dark:hover:bg-emerald-400/10 transition-colors"
                     >
                       {TABLE_COLUMNS.map((c) => (
@@ -551,7 +607,7 @@ const MemberSearch = () => {
                         <button
                           type="button"
                           onClick={() => openModal(r)}
-                          className="whitespace-nowrap rounded-2xl bg-emerald-600/90 px-4 py-2 text-sm md:text-base font-semibold text-white shadow-sm ring-1 ring-emerald-700/50 hover:bg-emerald-600 active:scale-[.98] dark:bg-emerald-500/85 dark:hover:bg-emerald-500"
+                          className="min-h-touch md:min-h-0 whitespace-nowrap rounded-2xl bg-emerald-600/90 px-4 py-2 text-sm md:text-base font-semibold text-white shadow-sm ring-1 ring-emerald-700/50 hover:bg-emerald-600 active:scale-[.98] dark:bg-emerald-500/85 dark:hover:bg-emerald-500"
                         >
                           ดูรายละเอียด
                         </button>
@@ -562,239 +618,136 @@ const MemberSearch = () => {
             </table>
           </div>
         </div>
+        )}
       </div>
 
-      {/* Modal */}
-      <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
-        <div className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} />
-        <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5" {...detailBackdrop}>
-          <div role="dialog" aria-modal="true" className={`h-[88vh] w-[96vw] max-w-[1280px] transform overflow-hidden rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-slate-800 dark:text-white ${open ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
-              <div className="text-xl md:text-2xl font-semibold">
-                {active
-                  ? `รายละเอียดสมาชิก #${active.member_id ?? (active.asso_id ? String(active.asso_id).slice(0, 8) : "-")}`
-                  : "รายละเอียดสมาชิก"}
-              </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
-              >
-                ปิด
-              </button>
+      {/* รายละเอียดสมาชิก — Sheet (bottom sheet <md, centered dialog ≥md) */}
+      <Sheet
+        open={open && !!active}
+        onClose={closeModal}
+        title={active ? fullName(active) : "รายละเอียดสมาชิก"}
+        subtitle={
+          active
+            ? `สมาชิก #${active.member_id ?? (active.asso_id ? String(active.asso_id).slice(0, 8) : "-")}${active.citizen_id ? ` · ${active.citizen_id}` : ""}`
+            : undefined
+        }
+        size="lg"
+        busy={saving}
+        footer={sheetFooter}
+      >
+        {active && (
+          <div className="text-base text-gray-900 dark:text-gray-100">
+            <div className="mb-3 text-sm text-slate-600 dark:text-slate-300">
+              สร้างเมื่อ: {formatDate(active.regis_date)}
+              {editing && <span className="ml-2 font-medium text-indigo-700 dark:text-indigo-300">· กำลังแก้ไข</span>}
             </div>
 
-            <div className="h-[calc(88vh-64px)] overflow-y-auto p-4 md:p-6 text-base md:text-lg">
-              {!active ? (
-                <div className="text-slate-600 dark:text-slate-300">ไม่มีข้อมูล</div>
-              ) : (
-                <>
-                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm md:text-base text-slate-600 dark:text-slate-300">
-                      สร้างเมื่อ: {formatDate(active.regis_date)}
-                    </div>
+            {/* ข้อมูลหุ้น */}
+            <div className="mb-4 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-400/40 dark:bg-indigo-900/10">
+              <div className="mb-2 text-base font-semibold text-indigo-800 dark:text-indigo-200">ข้อมูลหุ้น</div>
+              <div className="rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
+                <div className="text-sm text-slate-600 dark:text-slate-300">ยอดหุ้นสะสม (total_shares)</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatShares(active?.total_shares)}</div>
+              </div>
+            </div>
 
+            {/* โครงการที่เข้าร่วม */}
+            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-400/40 dark:bg-emerald-900/10">
+              <div className="mb-2 text-base font-semibold text-emerald-800 dark:text-emerald-200">โครงการที่เข้าร่วม</div>
+              {!editing ? <ProgramBadges row={active} /> : <ProgramToggles value={draft} onChange={onToggleProgram} />}
+            </div>
+
+            {rowError && (
+              <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-base text-red-700 dark:border-red-400 dark:bg-red-900/20 dark:text-red-200">
+                {rowError}
+              </div>
+            )}
+
+            {/* ข้อมูลทั่วไป */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {[
+                { key: "first_name", label: "ชื่อ", type: "text" },
+                { key: "last_name", label: "นามสกุล", type: "text" },
+                ...FIELD_CONFIG.filter((f) => !LAND_KEYS.includes(f.key) && f.key !== "first_name" && f.key !== "last_name"),
+              ].map((f) => {
+                const val = editing ? draft?.[f.key] ?? "" : active?.[f.key]
+                const fid = `member-f-${f.key}`
+                return (
+                  <div key={f.key}>
+                    <label htmlFor={editing ? fid : undefined} className="mb-1.5 block text-sm font-medium text-slate-600 dark:text-slate-300">
+                      {f.label}
+                    </label>
                     {!editing ? (
-                      <button
-                        type="button"
-                        onClick={() => setEditing(true)}
-                        className="rounded-2xl bg-emerald-600 px-4 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98]"
-                      >
-                        แก้ไข
-                      </button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={save}
-                          disabled={saving}
-                          className="rounded-2xl bg-emerald-600 px-5 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98] disabled:opacity-60"
-                        >
-                          {saving ? "กำลังบันทึก..." : "บันทึก"
-                          }
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditing(false)
-                            openModal(active)
-                          }}
-                          className="rounded-2xl border border-slate-300 px-5 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
-                        >
-                          ยกเลิก
-                        </button>
+                      <div className={readCls}>
+                        {(f.type === "date" || f.type === "date-optional")
+                          ? formatDate(val)
+                          : (f.key === "normal_share" ? formatShares(val) : (val === "" || val == null ? "-" : val))}
                       </div>
+                    ) : f.type === "select" ? (
+                      <select id={fid} className={inputCls} value={val ?? ""} onChange={(e) => onChangeField(f.key, e.target.value)}>
+                        {f.options.map((op) => (
+                          <option key={op} value={op}>{op === "" ? "— เลือก —" : op}</option>
+                        ))}
+                      </select>
+                    ) : f.type === "date" || f.type === "date-optional" ? (
+                      <input id={fid} type="date" className={inputCls} value={val ?? ""} onChange={(e) => onChangeField(f.key, e.target.value)} />
+                    ) : (
+                      <input
+                        id={fid}
+                        className={inputCls}
+                        value={val ?? ""}
+                        inputMode={inputModeFor(f.type)}
+                        maxLength={f.type === "cid" ? 13 : undefined}
+                        onChange={(e) => onChangeField(f.key, e.target.value)}
+                        placeholder={f.type === "cid" ? "13 หลัก" : ""}
+                      />
                     )}
                   </div>
+                )
+              })}
+            </div>
 
-                  {/* 📈 ข้อมูลหุ้น */}
-                  <div className="mb-5 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-400 dark:bg-indigo-900/10">
-                    <div className="mb-2 text-base font-semibold text-indigo-800 dark:text-indigo-200">ข้อมูลหุ้น</div>
-                    <div className="grid grid-cols-1 gap-4">
-                      <div className="rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
-                        <div className="text-sm text-slate-600 dark:text-slate-300">ยอดหุ้นสะสม (total_shares)</div>
-                        <div className="mt-1 text-2xl font-semibold">
-                          {formatShares(active?.total_shares)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* โครงการที่เข้าร่วม */}
-                  <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-400 dark:bg-emerald-900/10">
-                    <div className="mb-2 text-base font-semibold text-emerald-800 dark:text-emerald-200">โครงการที่เข้าร่วม</div>
-                    {!editing ? (
-                      <ProgramBadges row={active} />
-                    ) : (
-                      <ProgramToggles value={draft} onChange={onToggleProgram} />
-                    )}
-                  </div>
-
-                  {rowError && (
-                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-base text-red-700 dark:border-red-400 dark:bg-red-900/20 dark:text-red-200">
-                      {rowError}
-                    </div>
-                  )}
-
-                  {/* ข้อมูลทั่วไป */}
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                    <div className="md:col-span-2 xl:col-span-3">
-                      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                        <div>
-                          <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
-                            ชื่อ
-                          </label>
+            {/* ข้อมูลที่ดิน */}
+            <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-400/40 dark:bg-emerald-900/10">
+              <div className="mb-3 text-lg font-semibold text-emerald-800 dark:text-emerald-200">ข้อมูลที่ดิน</div>
+              {[
+                { title: "ถือครอง", keys: ["own_rai","own_ngan","own_wa"] },
+                { title: "เช่าทำกิน", keys: ["rent_rai","rent_ngan","rent_wa"] },
+                { title: "อื่นๆ", keys: ["other_rai","other_ngan","other_wa"] },
+              ].map((sec) => (
+                <div key={sec.title} className="mb-4 last:mb-0">
+                  <div className="mb-1.5 text-base font-medium text-slate-700 dark:text-slate-300">{sec.title}</div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {sec.keys.map((k) => {
+                      const label = k.endsWith("_rai") ? "ไร่" : k.endsWith("_ngan") ? "งาน" : "ตารางวา"
+                      const val = editing ? draft?.[k] ?? 0 : (active?.[k] ?? 0)
+                      return (
+                        <div key={k}>
                           {!editing ? (
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                              {active?.first_name ?? "-"}
-                            </div>
+                            <div className={cx(readCls, "tabular-nums")}>{val}</div>
                           ) : (
                             <input
-                              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                              value={draft?.first_name ?? ""}
-                              onChange={(e) => onChangeField("first_name", e.target.value)}
-                              placeholder="ชื่อ"
+                              inputMode="numeric"
+                              aria-label={`${sec.title} (${label})`}
+                              className={cx(inputCls, "tabular-nums")}
+                              value={val}
+                              onChange={(e) => setDraft((p) => ({ ...p, [k]: clampLandValue(k, e.target.value) }))}
+                              placeholder={label}
                             />
                           )}
-                        </div>
-
-                        <div>
-                          <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
-                            นามสกุล
-                          </label>
-                          {!editing ? (
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                              {active?.last_name ?? "-"}
-                            </div>
-                          ) : (
-                            <input
-                              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                              value={draft?.last_name ?? ""}
-                              onChange={(e) => onChangeField("last_name", e.target.value)}
-                              placeholder="นามสกุล"
-                            />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {FIELD_CONFIG
-                      .filter(f => !LAND_KEYS.includes(f.key) && f.key !== "first_name" && f.key !== "last_name")
-                      .map((f) => {
-                        const val = editing ? draft?.[f.key] ?? "" : active?.[f.key]
-                        return (
-                          <div key={f.key}>
-                            <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">{f.label}</label>
-                            {!editing ? (
-                              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                                {(f.type === "date" || f.type === "date-optional")
-                                  ? formatDate(val)
-                                  : (f.key === "normal_share" ? formatShares(val) : (val ?? "-"))}
-                              </div>
-                            ) : f.type === "select" ? (
-                              <select
-                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                                value={val ?? ""}
-                                onChange={(e) => onChangeField(f.key, e.target.value)}
-                              >
-                                {f.options.map((op) => (
-                                  <option key={op} value={op}>{op === "" ? "— เลือก —" : op}</option>
-                                ))}
-                              </select>
-                            ) : f.type === "date" || f.type === "date-optional" ? (
-                              <input
-                                type="date"
-                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                                value={val ?? ""}
-                                onChange={(e) => onChangeField(f.key, e.target.value)}
-                              />
-                            ) : (
-                              <input
-                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                                value={val ?? ""}
-                                onChange={(e) => onChangeField(f.key, e.target.value)}
-                                placeholder={f.type === "cid" ? "13 หลัก" : ""}
-                              />
-                            )}
+                          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                            {label}{k.endsWith("_ngan") && " (0–3)"}{k.endsWith("_wa") && " (0–99)"}
                           </div>
-                        )
-                      })}
-                  </div>
-
-                  {/* ข้อมูลที่ดิน */}
-                  <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-400 dark:bg-emerald-900/10">
-                    <div className="mb-3 text-lg font-semibold text-emerald-800 dark:text-emerald-200">ข้อมูลที่ดิน</div>
-
-                    {[
-                      { title: "ถือครอง", keys: ["own_rai","own_ngan","own_wa"] },
-                      { title: "เช่าทำกิน", keys: ["rent_rai","rent_ngan","rent_wa"] },
-                      { title: "อื่นๆ", keys: ["other_rai","other_ngan","other_wa"] },
-                    ].map((sec) => (
-                      <div key={sec.title} className="mb-5 last:mb-0">
-                        <div className="mb-1.5 text-base font-medium text-slate-700 dark:text-slate-300">{sec.title}</div>
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                          {sec.keys.map((k) => {
-                            const label = k.endsWith("_rai") ? "ไร่" : k.endsWith("_ngan") ? "งาน" : "ตารางวา"
-                            const val = editing ? draft?.[k] ?? 0 : (active?.[k] ?? 0)
-                            return (
-                              <div key={k}>
-                                {!editing ? (
-                                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                                    {val}
-                                  </div>
-                                ) : (
-                                  <input
-                                    inputMode="numeric"
-                                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                                    value={val}
-                                    onChange={(e) => {
-                                      const newVal = e.target.value
-                                      const n = Number(onlyDigits(String(newVal ?? "")))
-                                      const clamped =
-                                        k.endsWith("_ngan") ? Math.min(Math.max(n, 0), 3) :
-                                        k.endsWith("_wa") ? Math.min(Math.max(n, 0), 99) :
-                                        Math.max(n, 0)
-                                      setDraft((p) => ({ ...p, [k]: clamped }))
-                                    }}
-                                    placeholder={label}
-                                  />
-                                )}
-                                <div className="mt-1 text-xs md:text-sm text-slate-500 dark:text-slate-400">
-                                  {label}{k.endsWith("_ngan") && " (0–3)"}{k.endsWith("_wa") && " (0–99)"}
-                                </div>
-                              </div>
-                            )
-                          })}
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
-                </>
-              )}
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      </div>
+        )}
+      </Sheet>
     </div>
   )
 }

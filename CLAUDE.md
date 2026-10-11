@@ -25,10 +25,14 @@ src/
 ├── index.css             # Tailwind v4 imports
 ├── lib/
 │   ├── api.js            # Fetch helpers: api(), apiAuth(), apiDownload()
-│   └── auth.js           # Token + User management, getRoleId(), canSeeAddCompany()
+│   ├── auth.js           # Token + User management, getRoleId() (ตัวอ่าน role ตัวเดียว)
+│   ├── roles.js          # ROLE ids + ชื่อไทย roleLabel()
+│   └── permissions.js    # PERMISSIONS registry + can()/useCan() + กฎเฉพาะผู้ใช้
 ├── components/
 │   ├── AppLayout.jsx     # Layout หลัก (Sidebar + Topbar + Outlet)
-│   ├── Sidebar.jsx       # Menu แบบ role-based ปิด/เปิดได้
+│   ├── Sidebar.jsx       # Menu ตาม permission key ปิด/เปิดได้
+│   ├── RequirePermission.jsx # Route guard ตาม permission key
+│   ├── Can.jsx           # แสดง UI ตาม permission key
 │   ├── Topbar.jsx        # Header: logo, dark mode toggle, user profile
 │   └── ProtectedRoute.jsx
 ├── pages/
@@ -48,21 +52,54 @@ public/
 
 ## Authentication & Role System
 
-JWT token เก็บใน localStorage — อ่านผ่าน `getToken()`, `getUser()`, `getRoleId()`
+JWT token เก็บใน localStorage — อ่านผ่าน `getToken()`, `getUser()`, `getRoleId()` (`src/lib/auth.js`)
+`getRoleId()` เป็นตัวอ่าน role **ตัวเดียว** ของทั้งแอป (รองรับ claim/ชื่อ role รุ่นเก่าไว้ข้างในแล้ว)
 
-| Role ID | ชื่อ | สิทธิ์หลัก |
-|---------|------|-----------|
-| 1 | ADMIN | เข้าได้เกือบทุกหน้า ยกเว้น /company-add, /order-correction |
-| 2 | MNG | เต็มสิทธิ์ + /company-add ถ้า canSeeAddCompany() = true |
-| 3 | HR | เฉพาะ /order และ /order-correction |
-| 4 | HA | /documents, /share, /search, /customer-search, /order, /order-correction, /spec/create |
-| 5 | MKT | ทุก business route ยกเว้น /documents, /order-correction, /order, /spec/create |
+### Role ids (ตาม JWT claim `role` ของ backend — `require_role(...)` ใน FastAPI)
 
-**Route Guards ใน App.jsx:**
-- `RequireUserId17or18` — เฉพาะ user ID 17 หรือ 18
-- `RequireMngAdminHA` — Role 1, 2, หรือ 4
-- `RequireNotMarketing` — ทุก role ยกเว้น Role 5
-- `RequireAdminHA` — Role 1 หรือ 4
+| Role ID | ชื่อ | ค่าคงที่ (`src/lib/roles.js`) |
+|---------|------|------------------------------|
+| 1 | ผู้ดูแลระบบ (Admin) | `ROLE.ADMIN` |
+| 2 | ผู้จัดการ | `ROLE.MANAGER` |
+| 3 | ฝ่ายบุคคล (HR) | `ROLE.HR` |
+| 4 | หัวหน้าฝ่ายบัญชี/การเงิน | `ROLE.HEAD_ACCOUNTANT` |
+| 5 | พนักงาน | `ROLE.STAFF` |
+| 6 | หัวหน้าสาขา/ฝ่าย (server จำกัดให้เห็นเฉพาะสาขาบ้าน + สาขาที่ได้รับมอบหมาย) | `ROLE.BRANCH_HEAD` |
+| 7 | ผู้ช่วยผู้จัดการ | `ROLE.ASSISTANT_MANAGER` |
+
+ชื่อ/สี badge ของ role: `roleLabel(id)`, `roleShortLabel(id)`, `roleBadgeTone(id)`, `ASSIGNABLE_ROLE_OPTIONS` จาก `src/lib/roles.js`
+
+### Permission registry (`src/lib/permissions.js`)
+
+- `PERMISSIONS` = คีย์แบบ dotted (เช่น `hr.employees.list`, `hr.leave.approve.branchHead`, `trading.buy.create`) →
+  `{ no, module, label, en, roles }` — `no` = เลขฟังก์ชันใน `AMC_Role_Permission_Matrix.xlsx` (sheet "Dev reference")
+- `roles` = `[ids]` | `"any"` (ทุกคนที่ล็อกอิน) | `"public"` — **ตอนนี้ยึด guard ปัจจุบันของ backend เป็นความจริง**
+  หน้าเว็บต้องไม่ให้สิทธิ์เกิน backend. เมื่อลูกค้าส่ง matrix ที่กรอกแล้ว แก้แค่ `roles` ในไฟล์นี้ไฟล์เดียว
+- ดูตารางทั้งหมดได้ที่หน้า **"สิทธิ์ตามบทบาท"** `/admin/roles` (Admin เท่านั้น, read-only)
+- Helpers: `can(key)`, `canAny([keys])`, `canAll([keys])`, `useCan()` — คีย์ที่ไม่รู้จัก = `false` (+ `console.warn` ตอน dev)
+- กฎเฉพาะ "ผู้ใช้" (ไม่ใช่ role) ที่คงไว้โดยเจตนา: `canBringInMill()` (user id 17/18), `canSeeAddCompany()` (role 2 + ผู้ใช้ "HA" role 4)
+
+### ใช้งาน
+
+```jsx
+// Route guard (App.jsx) — ไม่มีสิทธิ์ → toast แจ้ง + พากลับ /home
+<Route path="/hr/dashboard" element={<RequirePermission perm="hr.dashboard.view"><HRDashboard /></RequirePermission>} />
+<RequirePermission anyOf={["hr.leave.list", "hr.ooo.list"]}>…</RequirePermission>
+
+// ซ่อน/แสดงปุ่มหรือส่วนของหน้า
+<Can perm="hr.payroll.generate"><button>…</button></Can>
+const { can } = useCan(); if (can("hr.relocation.approve.manager")) …
+```
+
+### เพิ่ม permission ใหม่
+
+1. เพิ่ม entry ใน `PERMISSIONS` (`src/lib/permissions.js`) — ใส่ `no` ตาม matrix และ `roles` ตาม guard ของ backend
+   (ถ้าเป็นกฎแสดงผลของหน้าเว็บล้วน ใส่ `no: null, feOnly: true`)
+2. ใช้คีย์นั้นใน route (`RequirePermission`), เมนู (`Sidebar.jsx` → `perm`), การ์ดหน้า Home (`perm`/`anyOf`) และปุ่ม (`Can`/`can`)
+3. ตรวจที่ `/admin/roles` ว่าแสดงถูก
+
+**ห้าม hardcode เลข role ใน component** (`roleId === 1`, `[1, 3].includes(role)` ฯลฯ) — เลข role มีได้เฉพาะใน
+`src/lib/roles.js` และ `src/lib/permissions.js` เท่านั้น
 
 ---
 
@@ -104,11 +141,23 @@ Table:   overflow-x-auto wrapper, even:bg-gray-50 dark:even:bg-gray-700/30
 ```
 
 ### Component Pattern
-- ComboBox มี keyboard nav (Up/Down/Enter) — อย่าสร้าง dropdown ใหม่ ให้ reuse ตัวเดิม
+- **ComboBox ใช้ตัวกลาง `src/components/ComboBox.jsx` เท่านั้น** (portaled, keyboard Up/Down/Enter/Esc, มือถือเปิดเป็น picker sheet) — ห้ามเขียน `function ComboBox` ในหน้าอีก. default `getValue = o.value ?? o.id` (ถ้าข้อมูลต้องการ `id` ก่อนให้ส่ง `getValue` เอง); `title` = หัวข้อ picker; `enterMovesWhenFilled` สำหรับหน้าแบบ StockTransferOut
 - Page padding: `p-4 md:p-6`
 - Animation duration: `duration-200` (hover/focus), `duration-300` (layout animations)
 - **Popup / Modal ต้อง render ผ่าน `<Portal>` เสมอ** (`src/components/Portal.jsx`) — ทำแบบ popup หน้า "กล่องงานรออนุมัติ" (Inbox). ห้าม render overlay `fixed inset-0` ไว้กลาง component tree ตรง ๆ เพราะถ้ามี ancestor ที่มี `transform`/`filter`/`backdrop-filter` `position: fixed` จะอิงกล่องนั้นแทน viewport → modal ไม่อยู่กลางจอ. Portal render เข้าที่ `document.body` + lock body scroll ให้อัตโนมัติ
 - **Dropdown / popup panel ห้ามมีอะไรมาทับตอนเปิดเลือก** — panel ต้อง portal เข้า `document.body` + `position: fixed` วาง coord จาก trigger rect (ไม่ใช่ `absolute z-30` กลาง tree) และ z-index ต้องสูงกว่า `StickyTableScrollbar` (z-index 10000). ดู `src/components/SelectDropdown.jsx` (ใช้ `PANEL_Z = 10050`, reposition ตอน scroll/resize, outside-click เช็คทั้ง trigger + panel ref). เคยมี sticky table scrollbar ลอยทับ dropdown จนกดเลือกไม่ได้ — อย่าให้เกิดอีก
+
+### Mobile (<768px) — กฎหลัง mobile overhaul (ต.ค. 2026)
+- **body เป็นตัว scroll** (AppLayout `min-h-dvh`, `<main>` ไม่มี `overflow-y-auto`) — header ที่ `sticky` ในหน้าใช้ `top-(--topbar-h)` (Topbar ตั้งค่าให้ผ่าน ResizeObserver). ยกเว้นหัวตารางที่อยู่ใน wrapper `overflow-x-auto` ให้ใช้ `top-0`
+- **ตรวจมือถือใน JS ใช้ `useIsPhone()` / `useIsCoarsePointer()`** จาก `src/hooks/useMediaQuery.js` (breakpoint ตรงกับ Tailwind `md`). เลือก layout ด้วย conditional render เมื่อสอง layout ใช้ ref ชุดเดียวกัน (เช่น Buy/Sales) — ห้าม render ทั้งคู่แล้วซ่อนด้วย CSS
+- **Modal ใหม่ใช้ `<Sheet>`** (`src/components/ui`) — bottom sheet บนมือถือ, dialog กลางจอบน desktop; จัดการ Portal/focus trap/Esc/dvh/safe-area/keyboard ให้แล้ว
+- **ตารางบนมือถือ → `<DataList>`** (card list) เมื่อคอลัมน์เกิน ~4; `fields[].value` ส่งเป็น function `(item) => …` (string = ชื่อ key)
+- **ฟอร์มยาวบนมือถือ → `<StickyActionBar>`** (ปุ่มหลักติดล่างจอ, `primary.tone: "primary"` = ถัดไป/indigo, default `"submit"` = บันทึก/emerald) + `<Stepper>` ถ้าเป็นหลายขั้น
+- **ห้าม `alert()` / `confirm()`** — ใช้ `toast` (รับ `action`) / `<ResultSheet>` / `<ConfirmDialog>`
+- **ช่องกรอกบนมือถือต้อง ≥16px** (กัน iOS zoom) — มี global rule ใน `index.css` แล้ว; ช่องในตาราง grid หนาแน่นใส่ class `cell-input` เพื่อยกเว้น
+- **Touch target ≥44px** บนมือถือ: ใช้ `iconBtnCls` / `min-h-touch` / `size-11 md:size-9`
+- **z-index stack:** Sidebar 9990/9999 < StickyTableScrollbar 10000 < Sheet 10040 < ComboBox/SelectDropdown panel, picker sheet, ThaiDatePicker 10050 < ConfirmDialog 10070 < Toaster 10080
+- Spec/ที่มา: `handoff/mobile-ux-spec.md`, `handoff/mobile-copy.md`, `handoff/mobile-qa-report.md`, `handoff/mobile-perf.md`; demo primitive ที่ `/#/dev/mobile-kit` (dev เท่านั้น)
 
 ---
 
@@ -139,13 +188,13 @@ npm run lint     # ESLint check
 - `public/data/thai/sub_district.json` ขนาด 2.2MB — ห้ามย้าย ห้ามลบ ไฟล์นี้ถูกใช้ใน form ทุกหน้าที่มีที่อยู่
 - Sidebar menu visibility คำนวณผ่าน `useMemo` ในไฟล์ `Sidebar.jsx` — ถ้าเพิ่ม route ใหม่ต้องอัปเดตที่นั่นด้วย
 - Backend error format มาจาก FastAPI — อย่า parse แบบ generic string อย่างเดียว
-- การ check สิทธิ์ใช้ `getRoleId()` จาก `src/lib/auth.js` เท่านั้น — ห้าม hardcode role ใน component
+- การ check สิทธิ์ใช้ `can()` / `<Can>` / `<RequirePermission>` จาก permission registry เท่านั้น — ห้าม hardcode เลข role ใน component
 
 ### ฟังก์ชันซ้อน (nested / hub) + ปุ่มย้อนกลับ
 
 เมื่อจับหลายฟังก์ชันมารวมเป็น "hub" หน้าเดียว (เช่น `/debt-hub` รวม `ติดตามผลหนี้` + `ตารางหนี้`):
 
-- หน้า hub เป็นหน้า landing แสดงการ์ดของฟังก์ชันย่อย แต่ละการ์ด `navigate()` ไปหน้าจริง (gate ด้วย `getRoleId()` ถ้าจำเป็น)
+- หน้า hub เป็นหน้า landing แสดงการ์ดของฟังก์ชันย่อย แต่ละการ์ด `navigate()` ไปหน้าจริง (gate ด้วย `can("<permission key>")` ถ้าจำเป็น)
 - ปุ่มย้อนกลับเป็น **global** อยู่ใน `src/components/AppLayout.jsx` — โดยปกติเด้งกลับ `/home` (หรือ `/hr/dashboard` สำหรับหน้า HR)
 - ถ้าหน้าใด "ซ้อน" อยู่ใต้ hub ต้องเพิ่ม entry ใน `PARENT_ROUTES` ที่หัวไฟล์ `AppLayout.jsx` เพื่อให้ปุ่มย้อนกลับพากลับไปหน้า parent แทนหน้าหลัก:
 

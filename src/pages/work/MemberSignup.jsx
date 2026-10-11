@@ -1,9 +1,10 @@
 // src/pages/MemberSignup.jsx
-import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../../lib/api"   // ✅ แนบ token อัตโนมัติ + จัดการ 401
 import { cx, baseField, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, secondaryBtnCls, spinnerCls } from "../../lib/styles"
-import { Card, CardHeader, PageLoader } from "../../components/ui"
-import useModalDismiss from "../../lib/useModalDismiss"
+import { Card, CardHeader, PageLoader, Sheet, StickyActionBar, toast } from "../../components/ui"
+import ComboBox from "../../components/ComboBox"
+import { useIsPhone } from "../../hooks/useMediaQuery"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -165,167 +166,6 @@ const TAMBONS_BY_AMPHOE = {
   "กาบเชิง": ["กาบเชิง","คูตัน","ด่าน","แนงมุด","โคกตะเคียน","ตะเคียน"],
 }
 
-/** ---------- Reusable ComboBox ---------- */
-function ComboBox({
-  options = [],
-  value,
-  onChange,
-  placeholder = "— เลือก —",
-  getLabel = (o) => o?.label ?? "",
-  getValue = (o) => o?.value ?? o?.id ?? "",
-  disabled = false,
-  error = false,
-  buttonRef = null,
-  onEnterNext,
-}) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(-1)
-  const boxRef = useRef(null)
-  const listRef = useRef(null)
-  const internalBtnRef = useRef(null)
-  const controlRef = buttonRef || internalBtnRef
-
-  const selectedLabel = useMemo(() => {
-    const found = options.find((o) => String(getValue(o)) === String(value))
-    return found ? getLabel(found) : ""
-  }, [options, value, getLabel, getValue])
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (!boxRef.current) return
-      if (!boxRef.current.contains(e.target)) {
-        setOpen(false)
-        setHighlight(-1)
-      }
-    }
-    document.addEventListener("click", onClick)
-    return () => document.removeEventListener("click", onClick)
-  }, [])
-
-  const commit = (opt) => {
-    const v = String(getValue(opt))
-    onChange?.(v, opt)
-    setOpen(false)
-    setHighlight(-1)
-    requestAnimationFrame(() => {
-      controlRef.current?.focus()
-      onEnterNext?.()
-    })
-  }
-
-  const scrollHighlightedIntoView = (index) => {
-    const listEl = listRef.current
-    const itemEl = listEl?.children?.[index]
-    if (!listEl || !itemEl) return
-    const itemRect = itemEl.getBoundingClientRect()
-    const listRect = listEl.getBoundingClientRect()
-    const buffer = 6
-    if (itemRect.top < listRect.top + buffer) {
-      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
-    } else if (itemRect.bottom > listRect.bottom - buffer) {
-      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
-    }
-  }
-
-  const onKeyDown = (e) => {
-    if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault()
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
-      return
-    }
-    if (!open) return
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const next = h < options.length - 1 ? h + 1 : 0
-        requestAnimationFrame(() => scrollHighlightedIntoView(next))
-        return next
-      })
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const prev = h > 0 ? h - 1 : options.length - 1
-        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
-        return prev
-      })
-    } else if (e.key === "Enter") {
-      e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      setOpen(false)
-      setHighlight(-1)
-    }
-  }
-
-  return (
-    <div className="relative" ref={boxRef}>
-      <button
-        type="button"
-        ref={controlRef}
-        disabled={disabled}
-        onClick={() => { if (!disabled) setOpen((o) => !o) }}
-        onKeyDown={onKeyDown}
-        className={cx(
-          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-200 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          error
-            ? "border-red-400 ring-2 ring-red-300/70"
-            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80"
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-invalid={error ? true : undefined}
-      >
-        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
-      </button>
-
-      {open && (
-        <div
-          ref={listRef}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
-          )}
-          {options.map((opt, idx) => {
-            const label = getLabel(opt)
-            const isActive = idx === highlight
-            const isChosen = String(getValue(opt)) === String(value)
-            return (
-              <button
-                key={String(getValue(opt)) || label || idx}
-                type="button"
-                role="option"
-                aria-selected={isChosen}
-                onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)}
-                className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
-                  isActive
-                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                )}
-              >
-                {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-                )}
-                <span className="flex-1">{label}</span>
-                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
 /** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
   const inputRef = useRef(null)
@@ -349,10 +189,10 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
           else { el.focus(); el.click?.() }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-                    transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+        className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
+                    transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer bg-transparent"
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
         </svg>
       </button>
@@ -360,63 +200,60 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
-/** ---------- Receipt Modal ---------- */
+/** ---------- Receipt (Sheet: bottom sheet <md / dialog ≥md) — ปุ่มพิมพ์ใบเสร็จคงเดิม ---------- */
 function ReceiptModal({ open, onClose, receipt, name }) {
-  const { backdropProps } = useModalDismiss(onClose, { open })
-  if (!open) return null
+  const rows = [
+    { label: "มูลค่าที่ซื้อ", value: `${n3(receipt?.value_bought)} บาท` },
+    { label: "ค่าธรรมเนียม", value: `${n2(receipt?.fee)} บาท` },
+    { label: "รวมชำระ", value: `${n2(receipt?.total_due)} บาท` },
+    { label: "ยอดรวมหุ้นสะสมหลังซื้อ", value: `${n3(receipt?.total_share_after)} บาท` },
+  ]
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" {...backdropProps}>
-      <div role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-black shadow-xl dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-        <h3 className="text-xl font-semibold mb-2">บันทึกสำเร็จ & ใบเสร็จซื้อหุ้น</h3>
-        <p className="text-slate-700 dark:text-slate-300 mb-4">
-          <span className="font-medium">ชื่อสมาชิก:</span> {name || "-"}
-        </p>
-
-        <div className="rounded-xl bg-slate-50 p-4 text-slate-800 dark:bg-slate-700/40 dark:text-slate-100">
-          <div className="flex justify-between py-1">
-            <span>มูลค่าที่ซื้อ</span>
-            <span className="font-semibold">{n3(receipt?.value_bought)} บาท</span>
-          </div>
-          <div className="flex justify-between py-1">
-            <span>ค่าธรรมเนียม</span>
-            <span className="font-semibold">{n2(receipt?.fee)} บาท</span>
-          </div>
-          <div className="flex justify-between py-1">
-            <span>รวมชำระ</span>
-            <span className="font-semibold">{n2(receipt?.total_due)} บาท</span>
-          </div>
-          <div className="flex justify-between py-1">
-            <span>ยอดรวมหุ้นสะสมหลังซื้อ</span>
-            <span className="font-semibold">{n3(receipt?.total_share_after)} บาท</span>
-          </div>
-          <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-            วันที่ซื้อ: {receipt?.buy_date || "-"} | รหัสสมาชิกในระบบ: {receipt?.tgs_id || "-"}
-          </div>
-        </div>
-
-        <div className="mt-5 flex justify-end gap-2">
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="บันทึกสำเร็จ & ใบเสร็จซื้อหุ้น"
+      subtitle={`ชื่อสมาชิก: ${name?.trim() || "-"}`}
+      size="md"
+      initialFocus="[data-autofocus]"
+      footer={
+        <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
           <button
             type="button"
             onClick={() => window.print()}
-            className={cx(secondaryBtnCls, "!px-5 !py-2.5 !text-sm")}
+            className={cx(secondaryBtnCls, "h-12 md:h-10 !px-5 !py-0 !text-sm")}
           >
             พิมพ์ใบเสร็จ
           </button>
           <button
             type="button"
+            data-autofocus
             onClick={onClose}
-            className={cx(submitBtnCls, "!px-5 !py-2.5 !text-sm")}
+            className={cx(submitBtnCls, "h-12 md:h-10 !px-5 !py-0 !text-sm hover:!scale-100")}
           >
             ตกลง
           </button>
         </div>
-      </div>
-    </div>
+      }
+    >
+      <dl className="divide-y divide-slate-200/70 rounded-xl bg-slate-50 px-4 text-slate-800 dark:divide-slate-600/60 dark:bg-slate-700/40 dark:text-slate-100">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-baseline justify-between gap-4 py-2.5">
+            <dt className="text-sm text-slate-600 dark:text-slate-300">{r.label}</dt>
+            <dd className="text-right font-semibold tabular-nums">{r.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+        วันที่ซื้อ: {receipt?.buy_date || "-"} · รหัสสมาชิกในระบบ: {receipt?.tgs_id || "-"}
+      </p>
+    </Sheet>
   )
 }
 
 /** ---------- Component ---------- */
 const MemberSignup = () => {
+  const isPhone = useIsPhone()
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [shouldScrollError, setShouldScrollError] = useState(false)
@@ -669,10 +506,10 @@ const MemberSignup = () => {
   const toISODate = (d) => (d ? new Date(d).toISOString() : null)
 
   const handleSubmit = async (ev) => {
-    ev.preventDefault()
+    ev?.preventDefault?.()
     const ok = validateAll()
     if (!ok) {
-      alert("สมัครสมาชิก/ซื้อหุ้นไม่สำเร็จ ⚠️\n\nกรุณากรอกข้อมูลให้ครบในช่องที่มีกรอบสีแดง")
+      toast.error("กรอกไม่ครบ", { description: "ตรวจช่องที่มีกรอบสีแดง" })
       setShouldScrollError(true)
       return
     }
@@ -754,11 +591,11 @@ const MemberSignup = () => {
         setReceipt(receiptFromBE)
         setReceiptOpen(true)
       } else {
-        alert("บันทึกสมาชิกสำเร็จ (ไม่มีรายการซื้อหุ้น)")
+        toast.success("บันทึกสมาชิกแล้ว", { description: "ไม่มีรายการซื้อหุ้น" })
       }
     } catch (err) {
       console.error(err)
-      alert(`บันทึก/ซื้อหุ้นล้มเหลว: ${err.message || err}`)
+      toast.error("บันทึก/ซื้อหุ้นไม่สำเร็จ", { description: String(err?.message || err || "ลองใหม่อีกครั้ง") })
     } finally {
       setSubmitting(false)
     }
@@ -831,16 +668,16 @@ const MemberSignup = () => {
   /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
         <div ref={topRef} tabIndex={-1} className="mb-5 outline-none">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">สมัครสมาชิก</h1>
+          <h1 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-white">สมัครสมาชิก</h1>
           <p className="mt-1 text-[15px] text-slate-600 dark:text-slate-400">
             กรอกข้อมูลสมาชิกและรายการซื้อหุ้นครั้งแรก จังหวัดถูกล็อกเป็นสุรินทร์
           </p>
         </div>
 
         {/* ฟอร์ม — แต่ละส่วนเป็นการ์ดแยก (ไม่ซ้อนการ์ด) */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
           {/* โครงการที่เข้าร่วม */}
           <Card>
             <CardHeader title="โครงการที่เข้าร่วม" />
@@ -893,8 +730,9 @@ const MemberSignup = () => {
             <div className="grid gap-4 md:grid-cols-4">
               {/* เลขสมาชิก */}
               <div>
-                <label className={labelCls}>เลขสมาชิก (member_id)</label>
+                <label className={labelCls} htmlFor="ms-member_id">เลขสมาชิก (member_id)</label>
                 <input
+                  id="ms-member_id"
                   ref={refs.member_id}
                   inputMode="numeric"
                   className={cx(baseField, errors.member_id && fieldError)}
@@ -917,6 +755,8 @@ const MemberSignup = () => {
                     value={form.precode}
                     onChange={(v) => onChangePrecode(v)}
                     placeholder="— เลือกคำนำหน้า —"
+                    title="คำนำหน้า"
+                    ariaLabel="คำนำหน้า"
                     error={!!errors.precode}
                     buttonRef={refs.precode}
                     onEnterNext={() => focusNext("precode")}
@@ -927,8 +767,9 @@ const MemberSignup = () => {
 
               {/* วันที่สมัคร */}
               <div className="md:col-span-2">
-                <label className={labelCls}>วันที่สมัคร (regis_date)</label>
+                <label className={labelCls} htmlFor="ms-regis_date">วันที่สมัคร (regis_date)</label>
                 <DateInput
+                  id="ms-regis_date"
                   ref={refs.regis_date}
                   value={form.regis_date}
                   onChange={(e) => { clearError("regis_date"); update("regis_date", e.target.value) }}
@@ -941,8 +782,9 @@ const MemberSignup = () => {
 
               {/* ชื่อ */}
               <div className="md:col-span-2">
-                <label className={labelCls}>ชื่อ</label>
+                <label className={labelCls} htmlFor="ms-first_name">ชื่อ</label>
                 <input
+                  id="ms-first_name"
                   ref={refs.first_name}
                   className={cx(baseField, errors.first_name && fieldError)}
                   value={form.first_name}
@@ -957,8 +799,9 @@ const MemberSignup = () => {
 
               {/* นามสกุล */}
               <div className="md:col-span-2">
-                <label className={labelCls}>นามสกุล</label>
+                <label className={labelCls} htmlFor="ms-last_name">นามสกุล</label>
                 <input
+                  id="ms-last_name"
                   ref={refs.last_name}
                   className={cx(baseField, errors.last_name && fieldError)}
                   value={form.last_name}
@@ -973,8 +816,9 @@ const MemberSignup = () => {
 
               {/* บัตรประชาชน */}
               <div className="md:col-span-2">
-                <label className={labelCls}>เลขบัตรประชาชน (13 หลัก)</label>
+                <label className={labelCls} htmlFor="ms-citizen_id">เลขบัตรประชาชน (13 หลัก)</label>
                 <input
+                  id="ms-citizen_id"
                   ref={refs.citizen_id}
                   inputMode="numeric"
                   maxLength={13}
@@ -1004,6 +848,8 @@ const MemberSignup = () => {
                     value={form.sex}
                     onChange={() => {}}
                     placeholder="— เลือกคำนำหน้าเพื่อกำหนด —"
+                    title="เพศ"
+                    ariaLabel="เพศ"
                     error={!!errors.sex}
                     disabled
                   />
@@ -1013,8 +859,9 @@ const MemberSignup = () => {
 
               {/* คู่สมรส */}
               <div className="md:col-span-2">
-                <label className={labelCls}>ชื่อคู่สมรส (spouce_name)</label>
+                <label className={labelCls} htmlFor="ms-spouce_name">ชื่อคู่สมรส (spouce_name)</label>
                 <input
+                  id="ms-spouce_name"
                   ref={refs.spouce_name}
                   className={baseField}
                   value={form.spouce_name}
@@ -1034,8 +881,9 @@ const MemberSignup = () => {
             ) : (
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>บ้านเลขที่ (address)</label>
+                <label className={labelCls} htmlFor="ms-address">บ้านเลขที่ (address)</label>
                 <input
+                  id="ms-address"
                   ref={refs.address}
                   className={cx(baseField, errors.address && fieldError)}
                   value={form.address}
@@ -1049,8 +897,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>หมู่ (mhoo)</label>
+                <label className={labelCls} htmlFor="ms-mhoo">หมู่ (mhoo)</label>
                 <input
+                  id="ms-mhoo"
                   ref={refs.mhoo}
                   className={baseField}
                   value={form.mhoo}
@@ -1069,6 +918,8 @@ const MemberSignup = () => {
                     value={form.province}
                     onChange={() => {}}
                     placeholder={PROV_SURIN}
+                    title="จังหวัด"
+                    ariaLabel="จังหวัด"
                     disabled
                     error={!!errors.province}
                   />
@@ -1085,6 +936,8 @@ const MemberSignup = () => {
                     value={form.district}
                     onChange={(v) => { clearError("district"); update("district", v) }}
                     placeholder="— เลือกอำเภอ —"
+                    title="อำเภอ"
+                    ariaLabel="อำเภอ"
                     error={!!errors.district}
                     buttonRef={refs.district}
                     onEnterNext={() => focusNext("district")}
@@ -1102,6 +955,8 @@ const MemberSignup = () => {
                     value={form.sub_district}
                     onChange={(v) => { clearError("sub_district"); update("sub_district", v) }}
                     placeholder={form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}
+                    title="ตำบล"
+                    ariaLabel="ตำบล"
                     error={!!errors.sub_district}
                     disabled={!form.district}
                     buttonRef={refs.sub_district}
@@ -1112,8 +967,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>อำเภอย่อย/รหัสอำเภอ (subprov)</label>
+                <label className={labelCls} htmlFor="ms-subprov">อำเภอย่อย/รหัสอำเภอ (subprov)</label>
                 <input
+                  id="ms-subprov"
                   ref={refs.subprov}
                   inputMode="numeric"
                   className={baseField}
@@ -1125,8 +981,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>รหัสไปรษณีย์ </label>
+                <label className={labelCls} htmlFor="ms-postal_code">รหัสไปรษณีย์ </label>
                 <input
+                  id="ms-postal_code"
                   ref={refs.postal_code}
                   inputMode="numeric"
                   maxLength={5}
@@ -1142,8 +999,9 @@ const MemberSignup = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className={labelCls}>โทรศัพท์ (phone_number)</label>
+                <label className={labelCls} htmlFor="ms-phone_number">โทรศัพท์ (phone_number)</label>
                 <input
+                  id="ms-phone_number"
                   ref={refs.phone_number}
                   inputMode="tel"
                   className={cx(baseField, errors.phone_number && fieldError)}
@@ -1165,8 +1023,9 @@ const MemberSignup = () => {
             <CardHeader title="ข้อมูลเพิ่มเติมและการเงิน" />
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>กลุ่ม (tgs_group)</label>
+                <label className={labelCls} htmlFor="ms-tgs_group">กลุ่ม (tgs_group)</label>
                 <input
+                  id="ms-tgs_group"
                   ref={refs.tgs_group}
                   inputMode="numeric"
                   className={cx(baseField, errors.tgs_group && fieldError)}
@@ -1181,8 +1040,9 @@ const MemberSignup = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className={labelCls}>บัญชีธนาคาร (bank_account)</label>
+                <label className={labelCls} htmlFor="ms-bank_account">บัญชีธนาคาร (bank_account)</label>
                 <input
+                  id="ms-bank_account"
                   ref={refs.bank_account}
                   className={baseField}
                   value={form.bank_account}
@@ -1193,8 +1053,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>รหัสสมาชิกในระบบ (tgs_id)</label>
+                <label className={labelCls} htmlFor="ms-tgs_id">รหัสสมาชิกในระบบ (tgs_id)</label>
                 <input
+                  id="ms-tgs_id"
                   ref={refs.tgs_id}
                   className={cx(baseField, errors.tgs_id && fieldError)}
                   value={form.tgs_id}
@@ -1211,8 +1072,9 @@ const MemberSignup = () => {
             <h3 className="mt-6 mb-3 text-lg font-semibold text-slate-800 dark:text-slate-100">ซื้อหุ้น</h3>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>มูลค่าที่ซื้อ (บาท)</label>
+                <label className={labelCls} htmlFor="ms-buy_amount">มูลค่าที่ซื้อ (บาท)</label>
                 <input
+                  id="ms-buy_amount"
                   ref={refs.buy_amount}
                   inputMode="decimal"
                   className={cx(baseField, errors.buy_amount && fieldError)}
@@ -1227,8 +1089,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>วันที่ซื้อ (ไม่ระบุก็ได้)</label>
+                <label className={labelCls} htmlFor="ms-buy_date">วันที่ซื้อ (ไม่ระบุก็ได้)</label>
                 <DateInput
+                  id="ms-buy_date"
                   ref={refs.buy_date}
                   value={form.buy_date}
                   onChange={(e) => update("buy_date", e.target.value)}
@@ -1242,8 +1105,9 @@ const MemberSignup = () => {
             <CardHeader title="ข้อมูลเกษตร" />
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>รหัสทะเบียนเกษตรกร (fid)</label>
+                <label className={labelCls} htmlFor="ms-fid">รหัสทะเบียนเกษตรกร (fid)</label>
                 <input
+                  id="ms-fid"
                   ref={refs.fid}
                   inputMode="numeric"
                   className={cx(baseField, errors.fid && fieldError)}
@@ -1258,8 +1122,9 @@ const MemberSignup = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className={labelCls}>ผู้ขึ้นทะเบียนเกษตรกร (fid_owner)</label>
+                <label className={labelCls} htmlFor="ms-fid_owner">ผู้ขึ้นทะเบียนเกษตรกร (fid_owner)</label>
                 <input
+                  id="ms-fid_owner"
                   ref={refs.fid_owner}
                   className={cx(baseField, errors.fid_owner && fieldError)}
                   value={form.fid_owner}
@@ -1273,8 +1138,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>ประเภทการเกษตร (agri_type)</label>
+                <label className={labelCls} htmlFor="ms-agri_type">ประเภทการเกษตร (agri_type)</label>
                 <input
+                  id="ms-agri_type"
                   ref={refs.agri_type}
                   inputMode="numeric"
                   className={cx(baseField, errors.agri_type && fieldError)}
@@ -1289,8 +1155,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>ช่วงระยะเวลาการใช้ปุ๋ย (fertilizing_period)</label>
+                <label className={labelCls} htmlFor="ms-fertilizing_period">ช่วงระยะเวลาการใช้ปุ๋ย (fertilizing_period)</label>
                 <input
+                  id="ms-fertilizing_period"
                   ref={refs.fertilizing_period}
                   inputMode="numeric"
                   className={cx(baseField, errors.fertilizing_period && fieldError)}
@@ -1305,8 +1172,9 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls}>สูตรที่ใช้ปุ๋ย (fertilizer_type)</label>
+                <label className={labelCls} htmlFor="ms-fertilizer_type">สูตรที่ใช้ปุ๋ย (fertilizer_type)</label>
                 <input
+                  id="ms-fertilizer_type"
                   ref={refs.fertilizer_type}
                   inputMode="numeric"
                   className={cx(baseField, errors.fertilizer_type && fieldError)}
@@ -1321,7 +1189,8 @@ const MemberSignup = () => {
               </div>
             </div>
 
-            {/* ปุ่ม */}
+            {/* ปุ่ม — <md: แถบติดล่าง (UI-SPEC §7) · ≥md: ปุ่มเดิม (refs.submitBtn อยู่ใน Enter chain) */}
+            {!isPhone && (
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
                 ref={refs.submitBtn}
@@ -1343,7 +1212,21 @@ const MemberSignup = () => {
                 รีเซ็ต
               </button>
             </div>
+            )}
           </Card>
+
+          {isPhone && (
+            <StickyActionBar
+              summary={
+                <p className="truncate text-gray-900 dark:text-gray-100">
+                  {[form.first_name, form.last_name].filter(Boolean).join(" ").trim() || "ยังไม่ได้กรอกชื่อสมาชิก"}
+                  {form.buy_amount ? <span className="tabular-nums text-gray-500 dark:text-gray-400"> · ซื้อหุ้น {form.buy_amount} บาท</span> : null}
+                </p>
+              }
+              secondary={{ label: "ล้างฟอร์ม", onClick: handleReset, disabled: submitting }}
+              primary={{ label: submitting ? "กำลังบันทึก…" : "บันทึก", onClick: handleSubmit, loading: submitting }}
+            />
+          )}
         </form>
 
         {/* Receipt Modal */}

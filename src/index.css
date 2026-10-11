@@ -2,6 +2,28 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ─── Mobile foundation tokens ─────────────────────────────────────────────
+   --spacing-touch → `min-h-touch` / `size-touch` / `h-touch` = 44px tap target.
+   pb-safe / pt-safe / mb-safe → iOS home-indicator + notch insets
+   (viewport-fit=cover is set in index.html). */
+@theme {
+  --spacing-touch: 2.75rem;
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+@utility mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* pb-safe-3 = 0.75rem + home-indicator inset (sheet footers, sticky bars) */
+@utility pb-safe-* {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--spacing) * --value(integer));
+}
+
 /* ─── Sarabun — self-hosted (thai, latin, latin-ext) ──────────────────────────
    เลิกพึ่ง Google Fonts CDN (render-blocking + external). Vite hash ไฟล์เข้า
    /assets/ → immutable cache. browser โหลดเฉพาะ subset ที่ใช้ตาม unicode-range. */
@@ -61,12 +83,19 @@
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out:    cubic-bezier(0.4, 0, 0.2, 1);
+  /* Measured Topbar height (Topbar.jsx writes it via ResizeObserver). The body
+     is the document scroller, so anything `sticky` inside a page must sit
+     below the sticky Topbar: use `top-(--topbar-h)` instead of `top-0`. */
+  --topbar-h: 64px;
 }
 
 /* ─── Page Entrance ────────────────────────────────────────────────────────── */
+/* End states use `transform: none` (not translate(0)/scale(1)): with
+   animation-fill-mode: both, a retained transform turns the wrapper into a
+   containing block for position: fixed descendants → overlays/popovers drift. */
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0);   }
+  to   { opacity: 1; transform: none;            }
 }
 
 @keyframes fade-in {
@@ -85,11 +114,21 @@
 /* Dialog panel entrance (ConfirmDialog): opacity + subtle scale, 150ms */
 @keyframes dialog-in {
   from { opacity: 0; transform: scale(0.98); }
-  to   { opacity: 1; transform: scale(1);    }
+  to   { opacity: 1; transform: none;        }
 }
 
 .animate-dialog-in {
   animation: dialog-in 0.15s var(--ease-out-quart) both;
+}
+
+/* Sheet entrance (ui/Sheet.jsx): short rise + fade, 200ms */
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none;             }
+}
+
+.animate-sheet-in {
+  animation: sheet-in 0.2s var(--ease-out-quart) both;
 }
 
 /* Stagger helpers */
@@ -274,3 +313,22 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 /* Hide native scrollbars when StickyTableScrollbar custom ones are active */
 ._scsb-hide::-webkit-scrollbar { display: none; }
 ._scsb-hide { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* ─── Mobile: no-zoom inputs ──────────────────────────────────────────────── */
+/* iOS Safari zooms the page when a focused field is < 16px. This rule is
+   intentionally UNLAYERED (outside @layer) so it beats Tailwind's layered
+   `text-sm` / `text-[13px]` utilities on phones. Opt out with `.cell-input`
+   (dense plan-grid cells, lib/styles.js → cellInput). */
+@media (max-width: 767.98px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.cell-input),
+  select:not(.cell-input),
+  textarea:not(.cell-input) {
+    font-size: 16px;
+  }
+}
+
+/* While a <Sheet> is open (Portal sets body[data-sheet-open]) keep rubber-band
+   scrolling from leaking to the page behind the sheet. */
+body[data-sheet-open] {
+  overscroll-behavior: contain;
+}

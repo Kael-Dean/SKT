@@ -27,8 +27,11 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Check, ChevronDown, Search } from "lucide-react"
+import useAnchoredPanel from "../lib/useAnchoredPanel"
+import { useIsCoarsePointer, useIsPhone } from "../hooks/useMediaQuery"
 
-// Must sit above StickyTableScrollbar (z-index 10000) and any other overlay.
+// Must sit above StickyTableScrollbar (z-index 10000) and the Sheet (10040).
+// Full z-stack: see src/components/ui/Sheet.jsx header.
 const PANEL_Z = 10050
 const PANEL_MAX_H = 288 // max-h-72
 const PANEL_MIN_W = 288 // 18rem
@@ -108,8 +111,15 @@ export default function SelectDropdown({
   const panelRef = useRef(null)
   const searchRef = useRef(null)
   const typeAhead = useRef({ buf: "", timer: 0 })
-  // Fixed-position rect for the portaled panel + whether to flip above the trigger.
-  const [rect, setRect] = useState({ left: 0, top: 0, width: 0, openUp: false })
+  // Fixed coords for the portaled panel (flip-up, clamp, reposition on scroll).
+  const { style: panelStyle } = useAnchoredPanel(triggerRef, {
+    open, maxH: PANEL_MAX_H, minW: PANEL_MIN_W, maxW: PANEL_MAX_W, gap: GAP, edge: EDGE,
+  })
+  // On touch devices the on-screen keyboard would cover the list before the
+  // user sees it — let them tap the search box when they actually need it.
+  const isPhone = useIsPhone()
+  const isCoarse = useIsCoarsePointer()
+  const autoFocusSearch = searchable && !isPhone && !isCoarse
 
   const uid = useId()
   const listId = `${uid}-listbox`
@@ -124,36 +134,10 @@ export default function SelectDropdown({
     return options.filter((o) => match(o, q))
   }, [options, query, searchable, filterFn])
 
-  // Position the portaled panel from the trigger's viewport rect.
-  const reposition = () => {
-    const el = triggerRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const vw = window.innerWidth
-    const width = Math.min(Math.max(r.width, PANEL_MIN_W), PANEL_MAX_W, vw - EDGE * 2)
-    const left = Math.max(EDGE, Math.min(r.left, vw - width - EDGE))
-    const spaceBelow = window.innerHeight - r.bottom
-    const openUp = spaceBelow < PANEL_MAX_H + GAP && r.top > spaceBelow
-    setRect({ left, top: openUp ? r.top : r.bottom, width, openUp })
-  }
-
   useLayoutEffect(() => {
     if (!open) return
-    reposition()
-    if (searchable) searchRef.current?.focus({ preventScroll: true })
-  }, [open, searchable])
-
-  // Keep the panel glued to the trigger while scrolling/resizing.
-  useEffect(() => {
-    if (!open) return
-    const handle = () => reposition()
-    window.addEventListener("scroll", handle, true) // capture: catch inner scroll containers
-    window.addEventListener("resize", handle)
-    return () => {
-      window.removeEventListener("scroll", handle, true)
-      window.removeEventListener("resize", handle)
-    }
-  }, [open])
+    if (autoFocusSearch) searchRef.current?.focus({ preventScroll: true })
+  }, [open, autoFocusSearch])
 
   // Keep the active option visible.
   useEffect(() => {
@@ -385,16 +369,8 @@ export default function SelectDropdown({
       {open && createPortal(
         <div
           ref={panelRef}
-          style={{
-            position: "fixed",
-            left: rect.left,
-            width: rect.width,
-            zIndex: PANEL_Z,
-            ...(rect.openUp
-              ? { bottom: window.innerHeight - rect.top + GAP }
-              : { top: rect.top + GAP }),
-          }}
-          className="flex max-h-72 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
+          style={{ ...panelStyle, zIndex: PANEL_Z }}
+          className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
         >
           {searchable && (
             <div className="relative shrink-0 border-b border-slate-200 dark:border-slate-700">
@@ -421,7 +397,7 @@ export default function SelectDropdown({
                 }}
                 onKeyDown={onListKey}
                 placeholder={searchPlaceholder}
-                className="h-10 w-full bg-transparent pl-9 pr-3 text-sm text-slate-900 outline-none placeholder:text-slate-500 dark:text-slate-100 dark:placeholder:text-slate-400"
+                className="h-11 w-full bg-transparent pl-9 pr-3 text-base text-slate-900 outline-none placeholder:text-slate-500 md:h-10 md:text-sm dark:text-slate-100 dark:placeholder:text-slate-400"
               />
             </div>
           )}

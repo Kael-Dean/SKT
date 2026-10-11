@@ -1,11 +1,106 @@
 // src/pages/Home.jsx
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
-import { getUser, getRoleId, canSeeAddCompany } from "../../lib/auth"
-import { SkeletonStat } from "../../components/ui"
+import { getUser, getRoleId } from "../../lib/auth"
+import { roleLabel as getRoleLabel } from "../../lib/roles"
+import { ALL_FUNCTIONS, ALL_ITEMS, canAccessItem, lucideFor } from "../../lib/homeFunctions"
+import { getRecent } from "../../lib/recentRoutes"
+import { cx, focusRingCls } from "../../lib/styles"
+import { Skeleton, SkeletonStat } from "../../components/ui"
+import { useIsPhone } from "../../hooks/useMediaQuery"
 
-const ROLE = { ADMIN: 1, MNG: 2, HR: 3, HA: 4, MKT: 5, BRANCH: 6, STAFF: 7 }
+/** Pinned shortcuts, in this order (UI-SPEC §2.1): ซื้อ · ขาย · คลัง · ออเดอร์ */
+const PINNED_PATHS = ["/Buy", "/sales", "/stock", "/order"]
+const TRADING_GROUP_NAME = "ธุรกิจรวบรวมผลผลิต"
+
+/** Lucide icon in a soft square (same anatomy as PageSection's icon chip) */
+function IconChip({ path, className = "" }) {
+  const Icon = lucideFor(path)
+  return (
+    <span
+      aria-hidden="true"
+      className={cx(
+        "flex size-9 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-200",
+        className,
+      )}
+    >
+      <Icon className="size-5" strokeWidth={1.75} />
+    </span>
+  )
+}
+
+/** Phone-only horizontal strip: pinned functions, then recent ones (no dupes). */
+function ShortcutStrip({ roleId, onOpen }) {
+  const items = useMemo(() => {
+    const byPath = (p) => ALL_ITEMS.find((i) => i.path === p)
+    const pinned = PINNED_PATHS.map(byPath).filter(Boolean).map((i) => ({ ...i, kind: "pinned" }))
+    const recent = getRecent()
+      .filter((p) => !PINNED_PATHS.includes(p))
+      .map(byPath)
+      .filter(Boolean)
+      .map((i) => ({ ...i, kind: "recent" }))
+    return [...pinned, ...recent].filter((i) => canAccessItem(i, roleId))
+  }, [roleId])
+
+  if (items.length === 0) return null
+  const hasBoth = items.some((i) => i.kind === "pinned") && items.some((i) => i.kind === "recent")
+
+  return (
+    <nav aria-labelledby="home-shortcuts-title" className="md:hidden">
+      <h2 id="home-shortcuts-title" className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        ทางลัด
+        <span className="sr-only"> ไปฟังก์ชันที่ใช้บ่อย</span>
+      </h2>
+      <ul className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {items.map((item) => (
+          <li key={item.path} className="flex shrink-0 snap-start">
+            <button
+              type="button"
+              onClick={() => onOpen(item.path)}
+              aria-label={hasBoth ? `${item.label} (${item.kind === "pinned" ? "ปักหมุด" : "ใช้ล่าสุด"})` : item.label}
+              className={cx(
+                "flex h-full min-h-touch w-[4.75rem] cursor-pointer flex-col items-center gap-1.5 rounded-2xl bg-white px-1.5 py-2.5 ring-1 ring-gray-200/70 shadow-sm",
+                "transition-colors duration-150 active:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700/70 dark:active:bg-gray-700/60",
+                focusRingCls,
+              )}
+            >
+              <IconChip path={item.path} />
+              <span className="text-center text-xs font-medium leading-snug text-balance text-gray-700 dark:text-gray-200">{item.label}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+/** Phone tile — trading group: 2 columns, icon left, label left-aligned (14px).
+ *  Other groups: 3 columns, icon on top, label 12px. */
+function PhoneTile({ item, onClick, wide }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(item.path)}
+      className={cx(
+        "flex min-h-touch w-full cursor-pointer rounded-2xl bg-white ring-1 ring-gray-200/70 shadow-sm",
+        "transition-colors duration-150 active:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700/70 dark:active:bg-gray-700/60",
+        wide ? "items-center gap-3 p-3 text-left" : "flex-col items-center gap-1.5 px-1.5 py-3 text-center",
+        focusRingCls,
+      )}
+    >
+      <IconChip path={item.path} />
+      <span
+        className={cx(
+          "font-medium text-gray-800 dark:text-gray-100",
+          wide ? "min-w-0 text-sm leading-relaxed" : "text-xs leading-snug text-balance",
+        )}
+      >
+        {item.label}
+      </span>
+    </button>
+  )
+}
 
 // Line-art group icons (currentColor) — replaces decorative emoji headers.
 const groupIconPaths = {
@@ -39,95 +134,7 @@ function GroupIcon({ group, className }) {
   )
 }
 
-const ROLE_LABEL = {
-  1: "ผู้ดูแลระบบ",
-  2: "ผู้จัดการ",
-  3: "ฝ่ายบุคคล",
-  4: "หัวหน้าบัญชี",
-  5: "การตลาด",
-  6: "สาขา",
-  7: "เจ้าหน้าที่สาขา",
-}
-
-// ฟังก์ชันทั้งหมดที่ใช้ในการทำงาน (แสดงตาม role)
-const ALL_FUNCTIONS = [
-  {
-    group: "ธุรกิจรวบรวมผลผลิต",
-    icon: "🌾",
-    color: "from-green-400 to-emerald-500",
-    items: [
-      { label: "ยกมา", path: "/bring-in", icon: "📤", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "ยกเข้าโรงสี", path: "/bring-in-mill", icon: "🏭", roles: "special" },
-      { label: "ซื้อข้าว", path: "/Buy", icon: "🛒", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "ขายข้าว", path: "/sales", icon: "💰", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "รับเข้า", path: "/transfer-in", icon: "📥", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "โอนออก", path: "/transfer-out", icon: "📦", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "ส่งสี", path: "/transfer-mill", icon: "🔄", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "ตัดเสียหาย", path: "/damage-out", icon: "⚠️", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-    ],
-  },
-  {
-    group: "ทะเบียนสมาชิก",
-    icon: "🪪",
-    color: "from-blue-400 to-indigo-500",
-    items: [
-      { label: "สมัครสมาชิก", path: "/member-signup", icon: "📝", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.MKT] },
-      { label: "เพิ่มลูกค้าทั่วไป", path: "/customer-add", icon: "📝", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.MKT] },
-      { label: "เพิ่มบริษัท", path: "/company-add", icon: "📝", roles: "company" },
-      { label: "ค้นหาสมาชิก", path: "/search", icon: "🔎", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HA, ROLE.MKT] },
-      { label: "ค้นหาลูกค้าทั่วไป", path: "/customer-search", icon: "🔎", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HA, ROLE.MKT] },
-      { label: "สมาชิกสิ้นสภาพ", path: "/member-termination", icon: "🪪", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.MKT] },
-      { label: "ซื้อหุ้น", path: "/share", icon: "📈", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HA, ROLE.MKT] },
-    ],
-  },
-  {
-    group: "ออเดอร์ & คลังสินค้า",
-    icon: "📦",
-    color: "from-orange-400 to-amber-500",
-    items: [
-      { label: "ดูออเดอร์ซื้อขาย", path: "/order", icon: "📝", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.HA, ROLE.MKT] },
-      { label: "แก้ไขออเดอร์", path: "/order-correction", icon: "🛠️", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.HA, ROLE.MKT] },
-      { label: "คลังสินค้า", path: "/stock", icon: "🏭", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HR, ROLE.MKT] },
-      { label: "เพิ่มรหัสข้าว", path: "/spec/create", icon: "🌾", roles: [ROLE.ADMIN, ROLE.HA, ROLE.MKT] },
-    ],
-  },
-  {
-    group: "รายงาน & แผน",
-    icon: "📊",
-    color: "from-purple-400 to-violet-500",
-    items: [
-      { label: "รายงาน", path: "/documents", icon: "📝", roles: [ROLE.ADMIN, ROLE.MNG, ROLE.HA, ROLE.STAFF] },
-      { label: "แผนปฏิบัติงานรายปี", path: "/operation-plan", icon: "🗺️", roles: "all" },
-      { label: "แก้ไขข้อมูลธุรกิจ", path: "/business-edit", icon: "⚙️", roles: "all" },
-      { label: "ติดตามหนี้", path: "/debt-hub", icon: "💳", roles: "all" },
-      { label: "รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์", path: "/facility-report", icon: "🏢", roles: [ROLE.ADMIN, ROLE.MKT, ROLE.BRANCH] },
-    ],
-  },
-  {
-    group: "HR — บุคลากร",
-    icon: "👥",
-    color: "from-rose-400 to-pink-500",
-    items: [
-      { label: "HR Dashboard",       path: "/hr/dashboard",    icon: "👥", roles: [ROLE.ADMIN, ROLE.HR] },
-      { label: "ลงทะเบียนเจ้าหน้าที่", path: "/hr/staff-signup",  icon: "➕", roles: [ROLE.ADMIN] },
-      { label: "รายชื่อเจ้าหน้าที่",    path: "/hr/users",         icon: "📋", roles: [ROLE.ADMIN] },
-      { label: "อนุมัติใบลา",       path: "/hr/leaves",        icon: "📅", roles: [ROLE.ADMIN] },
-      { label: "ข้อมูลการเงิน",     path: "/hr/finance",       icon: "💰", roles: [ROLE.ADMIN] },
-      { label: "ย้ายสาขา",          path: "/hr/relocation",    icon: "🏢", roles: [ROLE.ADMIN] },
-      { label: "ขอสินเชื่อ",         path: "/loan-request",     icon: "💳", roles: "all" },
-    ],
-  },
-]
-
-function canAccessItem(item, roleId, uid, canCompany) {
-  if (item.path === "/bring-in-mill") {
-    return uid === 17 || uid === 18
-  }
-  if (item.roles === "all") return true
-  if (item.roles === "company") return canCompany
-  if (Array.isArray(item.roles)) return item.roles.includes(roleId)
-  return false
-}
+// ALL_FUNCTIONS / canAccessItem ย้ายไป src/lib/homeFunctions.js (ใช้ร่วมกับ Sidebar + recentRoutes)
 
 function FunctionCard({ item, onClick }) {
   return (
@@ -145,6 +152,7 @@ function FunctionCard({ item, onClick }) {
 
 export default function Home() {
   const navigate = useNavigate()
+  const isPhone = useIsPhone()
   const [apiUser, setApiUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -157,9 +165,7 @@ export default function Home() {
 
   const localUser = getUser() || {}
   const roleId = getRoleId()
-  const roleLabel = ROLE_LABEL[roleId] ?? `Role ${roleId}`
-  const uid = Number(localUser.id ?? 0)
-  const canCompany = canSeeAddCompany()
+  const roleLabel = getRoleLabel(roleId)
 
   const displayName =
     apiUser?.first_name && apiUser?.last_name
@@ -192,6 +198,12 @@ export default function Home() {
             <div className="h-5 w-44 animate-pulse rounded-md bg-slate-200 dark:bg-slate-700" />
           </div>
         </div>
+        {/* Shortcut strip skeleton (phone only) */}
+        <div aria-hidden="true" className="flex gap-2 overflow-hidden md:hidden">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-[4.5rem] w-[4.75rem] shrink-0" rounded="rounded-2xl" />
+          ))}
+        </div>
         {/* Group skeletons */}
         {Array.from({ length: 3 }).map((_, gi) => (
           <SkeletonStat key={gi} />
@@ -204,7 +216,7 @@ export default function Home() {
   const visibleGroups = ALL_FUNCTIONS
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => canAccessItem(item, roleId, uid, canCompany)),
+      items: group.items.filter((item) => canAccessItem(item, roleId)),
     }))
     .filter((group) => group.items.length > 0)
 
@@ -241,6 +253,9 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ทางลัด — phone only */}
+      {isPhone && <ShortcutStrip roleId={roleId} onOpen={navigate} />}
+
       {/* Function cards by group */}
       {visibleGroups.map((group, gi) => (
         <div
@@ -253,11 +268,19 @@ export default function Home() {
             </span>
             <h2 className="text-[13px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{group.group}</h2>
           </div>
-          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-            {group.items.map((item) => (
-              <FunctionCard key={item.path} item={item} onClick={navigate} />
-            ))}
-          </div>
+          {isPhone ? (
+            <div className={cx("grid gap-2.5", group.group === TRADING_GROUP_NAME ? "grid-cols-2" : "grid-cols-3")}>
+              {group.items.map((item) => (
+                <PhoneTile key={item.path} item={item} onClick={navigate} wide={group.group === TRADING_GROUP_NAME} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+              {group.items.map((item) => (
+                <FunctionCard key={item.path} item={item} onClick={navigate} />
+              ))}
+            </div>
+          )}
         </div>
       ))}
 

@@ -7,18 +7,10 @@ import { cx } from "../../lib/styles"
 import { ErrorState, EmptyState, Badge, SkeletonTableRows } from "../../components/ui"
 
 import SelectDropdown from "../../components/SelectDropdown"
+import { roleBadgeTone, roleLabel } from "../../lib/roles"
 
 const COLS = 6 // รหัส · ชื่อ-นามสกุล · ตำแหน่ง · สาขา · Role · สถานะ
 
-const ROLE_LABEL = { 1: "ผู้ดูแลระบบ", 2: "ผู้จัดการ", 3: "ฝ่ายบุคคล", 4: "หัวหน้าบัญชี", 5: "การตลาด" }
-// 5 ตำแหน่งให้สีเฉพาะตัว (เกินขอบเขต tone กลางของ Badge) — เก็บ map เดิมไว้
-const ROLE_COLOR = {
-  1: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  2: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
-  3: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  4: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  5: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
-}
 
 const thCls =
   "text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide"
@@ -229,9 +221,9 @@ export default function HRUserList() {
                     <td className="px-4 py-3">
                       <span className={cx(
                         "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                        ROLE_COLOR[u.role_id] ?? "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+                        roleBadgeTone(u.role_id),
                       )}>
-                        {ROLE_LABEL[u.role_id] ?? `Role ${u.role_id}`}
+                        {roleLabel(u.role_id)}
                       </span>
                     </td>
                     <td className="px-4 py-3">

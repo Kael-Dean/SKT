@@ -13,7 +13,7 @@ export const cx = (...a) => a.filter(Boolean).join(" ")
 
 /** Standard full-width input / select / textarea */
 export const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
+  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-base md:text-[15px] " +
   "text-slate-900 outline-none placeholder:text-slate-400 " +
   "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 shadow-none " +
   "dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400 " +
@@ -26,7 +26,7 @@ export const fieldDisabled =
 
 /** Read-only display field (not editable, but not greyed out) */
 export const readonlyFieldCls =
-  "w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-[15px] md:text-base " +
+  "w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-base md:text-[15px] " +
   "text-slate-700 select-text " +
   "dark:border-slate-600 dark:bg-slate-800/50 dark:text-slate-300"
 
@@ -43,15 +43,17 @@ export const labelCls =
 export const helpTextCls =
   "mt-1 text-sm text-slate-500 dark:text-slate-400"
 
-/** Validation error message below a field */
+/** Validation error message below a field (red-600: 4.8:1 on white — red-500 was 3.8:1) */
 export const errorTextCls =
-  "mt-1 text-sm text-red-500 dark:text-red-400"
+  "mt-1 text-sm text-red-600 dark:text-red-400"
 
 // ─── Table Cell Input ─────────────────────────────────────────────────────────
 
-/** Compact numeric input for data-entry tables */
+/** Compact numeric input for data-entry tables.
+ *  `cell-input` opts out of the global 16px-on-phone rule (index.css) — plan
+ *  grids are dense by design and are pinch-zoomed, not tapped field by field. */
 export const cellInput =
-  "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-1.5 py-1 " +
+  "cell-input w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-1.5 py-1 " +
   "text-right text-[12px] md:text-[13px] text-slate-900 outline-none tabular-nums " +
   "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 " +
   "dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 " +
@@ -59,11 +61,12 @@ export const cellInput =
 
 // ─── Buttons ─────────────────────────────────────────────────────────────────
 
-/** Primary save / submit button (emerald — semantic: success/positive action) */
+/** Primary save / submit button (emerald — semantic: success/positive action).
+ *  emerald-700 keeps white text at 5.4:1 (emerald-600 was 3.65:1 — fails AA). */
 export const submitBtnCls =
-  "inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3 " +
+  "inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-6 py-3 " +
   "text-base font-semibold text-white shadow-sm cursor-pointer " +
-  "hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.35)] hover:scale-[1.02] " +
+  "hover:bg-emerald-800 hover:shadow-[0_8px_20px_rgba(16,185,129,0.35)] hover:scale-[1.02] " +
   "active:scale-[.97] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 " +
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 " +
   "transition-all duration-200"
@@ -104,7 +107,7 @@ export const tabPanelCls =
 
 /** Primary action (indigo — the one accent) */
 export const primaryBtnCls =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 h-10 text-sm font-semibold " +
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 h-11 md:h-10 text-sm font-semibold " +
   "text-white shadow-sm transition-colors duration-200 cursor-pointer hover:bg-indigo-500 " +
   "dark:bg-indigo-500 dark:hover:bg-indigo-400 " +
   "disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-indigo-600 dark:disabled:hover:bg-indigo-500 " +
@@ -112,7 +115,7 @@ export const primaryBtnCls =
 
 /** Destructive action (red) */
 export const dangerBtnCls =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 h-10 text-sm font-semibold " +
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 h-11 md:h-10 text-sm font-semibold " +
   "text-white shadow-sm transition-colors duration-200 cursor-pointer hover:bg-red-500 " +
   "disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-red-600 " +
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 " +
@@ -120,11 +123,35 @@ export const dangerBtnCls =
 
 /** Neutral / cancel action */
 export const neutralBtnCls =
-  "inline-flex items-center justify-center gap-2 rounded-xl px-4 h-10 text-sm font-semibold " +
+  "inline-flex items-center justify-center gap-2 rounded-xl px-4 h-11 md:h-10 text-sm font-semibold " +
   "text-gray-700 ring-1 ring-inset ring-gray-300 bg-white hover:bg-gray-50 " +
   "dark:bg-transparent dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700/60 " +
   "transition-colors duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed " +
   focusRingCls
+
+/** Icon-only button (needs aria-label) — 44px tap target on phones, 36px on desktop */
+export const iconBtnCls =
+  "inline-flex size-11 md:size-9 shrink-0 items-center justify-center rounded-xl " +
+  "text-gray-600 hover:bg-gray-100 hover:text-gray-900 " +
+  "dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100 " +
+  "transition-colors duration-150 cursor-pointer active:scale-95 " +
+  "disabled:opacity-60 disabled:cursor-not-allowed " +
+  focusRingCls
+
+/** Segmented control (buyer type, buy/sell, …) — wrap with `segmentedCls`, each
+ *  option is a button with `segmentedItemCls` + `segmentedItemActiveCls` when
+ *  selected. Use role="radiogroup" + aria-checked on the items. */
+export const segmentedCls =
+  "inline-flex w-full items-stretch gap-1 rounded-2xl bg-gray-100 p-1 " +
+  "dark:bg-gray-800 ring-1 ring-inset ring-gray-200/70 dark:ring-gray-700/70"
+export const segmentedItemCls =
+  "flex-1 min-h-touch md:min-h-9 rounded-xl px-3 text-sm font-medium cursor-pointer " +
+  "text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 " +
+  "transition-colors duration-150 " +
+  focusRingCls
+export const segmentedItemActiveCls =
+  "bg-white text-indigo-700 shadow-sm ring-1 ring-gray-200/70 " +
+  "dark:bg-gray-700 dark:text-indigo-200 dark:ring-gray-600"
 
 // ─── Cards & Containers ───────────────────────────────────────────────────────
 

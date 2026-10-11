@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import ReactDOM from "react-dom"
 import { apiAuth } from "../../lib/api"
-import { getRoleId } from "../../lib/auth"
+import { can } from "../../lib/permissions"
 import SelectDropdown from "../../components/SelectDropdown"
 import StatusMsg from "../../components/hr/StatusMsg"
 import useModalDismiss from "../../lib/useModalDismiss"
@@ -27,7 +27,7 @@ function fmtDateTime(d) {
 }
 
 export default function BranchAssignmentCard({ personnelId, personnelName }) {
-  const isSuperAdmin = getRoleId() === 1
+  const isSuperAdmin = can("hr.employees.branchAssign")
 
   const [data, setData] = useState(null) // { home_branch, extra_branches }
   const [allBranches, setAllBranches] = useState([])

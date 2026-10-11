@@ -5,9 +5,8 @@
 // Used by the HR dashboard tab and by /out-of-office/approvals (roles 2/6/7).
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../../../lib/api"
-import { getRoleId } from "../../../lib/auth"
+import { can } from "../../../lib/permissions"
 import {
-  APPROVAL_ROLE,
   OOO_TYPE_LABEL,
   STATUS,
   STATUS_LABEL,
@@ -144,8 +143,7 @@ const STATUS_FILTER_OPTIONS = [
 ]
 
 function RequestsPanel({ branchOptions, branchName }) {
-  const roleId = getRoleId()
-  const myStage = myStageStatus(roleId)
+  const myStage = myStageStatus()
 
   const [filters, setFilters] = useState({ status: myStage || "", branch_id: "", from_date: "", to_date: "" })
   const [rows, setRows] = useState([])
@@ -188,7 +186,7 @@ function RequestsPanel({ branchOptions, branchName }) {
 
   // Role 6 lists are already scoped to their branches by the API, so no
   // coveredBranchIds is passed — the backend's 403 stays authoritative.
-  const actable = (r) => canActOn(r)
+  const actable = (r) => canActOn(r, { kind: "out_of_office" })
 
   const openModal = (kind, req) => {
     setModal({ kind, req })
@@ -616,8 +614,7 @@ const fromForm = (f) => ({
 })
 
 function SettingsPanel() {
-  const roleId = getRoleId()
-  const canEdit = roleId === APPROVAL_ROLE.ADMIN || roleId === APPROVAL_ROLE.HR
+  const canEdit = can("hr.ooo.settings.edit")
 
   const [original, setOriginal] = useState(null)
   const [form, setForm] = useState(toForm(null))

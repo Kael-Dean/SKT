@@ -8,6 +8,7 @@ import DecisionModal from "../../components/DecisionModal"
 import LeaveStageActions from "../../components/LeaveStageActions"
 import { isPendingStatus, statusLabel, statusTone } from "../../lib/approval"
 import { KIND, requestNotificationsRefresh, rejectionReason } from "../../lib/approvalActions"
+import { can } from "../../lib/permissions"
 
 // legacy "pending" rows (pre-งวด 2) still show a sensible label
 const leaveStatusLabel = (s) => (s === "pending" ? "รอดำเนินการ" : statusLabel(s))
@@ -27,6 +28,8 @@ export default function HRLeaveManagement() {
   const [decision, setDecision] = useState(null) // { req, mode: "approve"|"reject" }
   const [banner, setBanner] = useState(null) // { tone: "success"|"error", text }
   const [downloadingId, setDownloadingId] = useState(null)
+  // PDF ใบลา (GET /hr/employees/{id}/leaves/{id}/pdf) = HR/Admin เท่านั้น — ผู้อนุมัติสายอื่นไม่เห็นปุ่ม
+  const canPrint = can("hr.leave.print")
 
   const handlePdfDownload = async (employeeId, leaveId) => {
     setDownloadingId(leaveId)
@@ -221,6 +224,7 @@ export default function HRLeaveManagement() {
                 </div>
 
                 <div className="flex flex-col gap-2 shrink-0">
+                  {canPrint && (
                   <button
                     onClick={() => handlePdfDownload(r.user_id, r.id)}
                     disabled={downloadingId === r.id}
@@ -240,6 +244,7 @@ export default function HRLeaveManagement() {
                       </>
                     )}
                   </button>
+                  )}
                   <LeaveStageActions req={r} onDecide={openDecision} />
                 </div>
               </div>

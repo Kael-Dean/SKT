@@ -3,6 +3,8 @@ import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { useSidebarOpen } from "../../../components/AppLayout"
 import { useBusinessEarnings } from "../../../lib/useBusinessList"
 import { SkeletonTableRows, EmptyState } from "../../../components/ui"
+import { useCan } from "../../../lib/permissions"
+import { ReadOnlyFieldset, ReadOnlyNotice } from "../../../components/PlanReadOnly"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -177,6 +179,8 @@ function buildInitialValues(unitIds, rows) {
  * BusinessPlanRevenueByBusinessTable
  * ===================================================================== */
 const BusinessPlanRevenueByBusinessTable = (props) => {
+  // บันทึกไปที่ POST /business-plan/{id}/earnings/monthly → ต้องมีสิทธิ์ plan.earnings.edit; ไม่มีสิทธิ์ = ดูอย่างเดียว
+  const canWrite = useCan().can("plan.earnings.edit")
   const branchId = Number(props?.branchId ?? props?.branch_id ?? 0) || 0
   const branchName = String(props?.branchName ?? props?.branch_name ?? "").trim()
   const yearBE = props?.yearBE ?? props?.year_be ?? props?.year ?? null
@@ -533,7 +537,8 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
   const rowDivider = "border-b-[2px] border-b-slate-300 dark:border-b-slate-600"
 
   return (
-    <>
+    <ReadOnlyFieldset readOnly={!canWrite}>
+      {!canWrite && <ReadOnlyNotice />}
     <div className="space-y-3 w-full p-3">
       {/* Table Card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -704,6 +709,7 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
               <div className="opacity-90 mt-0.5">{saveMsg.detail}</div>
             </div>
           )}
+          {canWrite && (
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
             <button
               type="button"
@@ -732,11 +738,12 @@ const BusinessPlanRevenueByBusinessTable = (props) => {
               {isSaving ? "กำลังบันทึก..." : "บันทึก"}
             </button>
           </div>
+          )}
         </div>
       </div>
     </div>
     <StickyTableScrollbar tableRef={tableWrapRef} sidebarOpen={sidebarOpen} />
-    </>
+    </ReadOnlyFieldset>
   )
 }
 

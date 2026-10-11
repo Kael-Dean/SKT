@@ -5,6 +5,7 @@ import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
 import { PageLoader, ErrorState, EmptyState } from "../../../components/ui"
 import useModalDismiss from "../../../lib/useModalDismiss"
+import { can } from "../../../lib/permissions"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
@@ -53,6 +54,7 @@ export default function HRLoansTab() {
   const [error, setError] = useState("")
 
   const [modal, setModal] = useState(null)
+  const canHrApprove = can("hr.loans.approve.hr")
   const [rejectReason, setRejectReason] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [submitMsg, setSubmitMsg] = useState("")
@@ -180,7 +182,7 @@ export default function HRLoansTab() {
                     </p>
                   )}
                 </div>
-                {loan.status === "pending" && (
+                {loan.status === "pending" && canHrApprove && (
                   <div className="flex gap-2 shrink-0">
                     <button onClick={() => openModal(loan, "approve")} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors duration-200 shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">
                       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-4"><polyline points="20 6 9 17 4 12" /></svg>

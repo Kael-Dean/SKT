@@ -1,8 +1,28 @@
 // src/pages/CustomerSearch.jsx
 import { useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../../lib/api"
-import { SkeletonTableRows, ErrorState, EmptyState } from "../../components/ui"
-import useModalDismiss from "../../lib/useModalDismiss"
+import {
+  SkeletonTableRows,
+  SkeletonText,
+  ErrorState,
+  EmptyState,
+  Sheet,
+  SearchField,
+  DataList,
+  toast,
+} from "../../components/ui"
+import ComboBox from "../../components/ComboBox"
+import { useIsPhone } from "../../hooks/useMediaQuery"
+import {
+  cx,
+  baseField,
+  readonlyFieldCls,
+  labelCls,
+  neutralBtnCls,
+  secondaryBtnCls,
+  submitBtnCls,
+  spinnerCls,
+} from "../../lib/styles"
 
 /** ไอคอนแว่นขยาย (inline SVG — currentColor, ไม่มี emoji) */
 function SearchIcon({ className = "size-5" }) {
@@ -111,6 +131,8 @@ const TABLE_COLUMNS = [
   { key: "district",     label: "อำเภอ",             render: (row) => row.district || "-" },
 ]
 
+const fullName = (r) => [r?.first_name, r?.last_name].filter(Boolean).join(" ").trim()
+
 /** ---------- ตัวแผนที่ id -> ข้อความความสัมพันธ์ FID + options ---------- */
 function useFIDRelationshipMap() {
   const [map, setMap] = useState({})
@@ -147,8 +169,19 @@ async function patchCustomer(id, body) {
   return await apiAuth(`/member/customers/${id}`, { method: "PATCH", body })
 }
 
+/** ช่องแสดงผล/แก้ไข 1 ฟิลด์ใน Sheet (label + read-only หรือ input) */
+function Field({ label, editing, display, children, className = "" }) {
+  return (
+    <div className={className}>
+      <span className={labelCls}>{label}</span>
+      {editing ? children : <div className={cx(readonlyFieldCls, "min-h-12 break-words")}>{display || "-"}</div>}
+    </div>
+  )
+}
+
 /** ---------- หน้าค้นหา ลูกค้าทั่วไป (แก้ไขได้) ---------- */
 const CustomerSearch = () => {
+  const isPhone = useIsPhone()
   const [q, setQ] = useState("")
   const dq = useDebounce(q, 450)
 
@@ -157,14 +190,12 @@ const CustomerSearch = () => {
   const [error, setError] = useState("")
   const [reloadKey, setReloadKey] = useState(0)   // ↻ สำหรับปุ่ม "ลองใหม่"
 
-  // modal
+  // detail sheet
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(null)   // normalized row (ของจริง)
   const [draft, setDraft] = useState(null)     // ค่าที่แก้ไขอยู่
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
-  // Esc / click outside the panel close the detail modal (not while saving)
-  const { backdropProps: detailBackdrop } = useModalDismiss(() => closeModal(), { open, disabled: saving })
   const [rowError, setRowError] = useState("")
 
   // FID relationship
@@ -200,11 +231,7 @@ const CustomerSearch = () => {
     run()
   }, [dq, reloadKey])
 
-  const openModal = (row) => {
-    const r = normalizeCustomerRecord(row)
-    setActive(r)
-
-    // เตรียม draft เริ่มต้น (เป็น string/รูปแบบพร้อมแก้)
+  const draftFrom = (r) => {
     const d = {}
     CUSTOMER_FIELD_KEYS.forEach((key) => {
       let v = r[key]
@@ -215,10 +242,15 @@ const CustomerSearch = () => {
     })
     // ล็อก sex จาก precode (กรณีไม่มีในข้อมูลเดิม)
     d.sex = sexFromPrefix(d.precode) || d.sex || ""
-    setDraft(d)
+    return d
+  }
 
+  const openModal = (row, { edit = false } = {}) => {
+    const r = normalizeCustomerRecord(row)
+    setActive(r)
+    setDraft(draftFrom(r))
     setRowError("")
-    setEditing(false)
+    setEditing(edit)
     setOpen(true)
   }
 
@@ -229,6 +261,13 @@ const CustomerSearch = () => {
     setEditing(false)
     setSaving(false)
     setRowError("")
+  }
+
+  const cancelEdit = () => {
+    if (!active) return
+    setDraft(draftFrom(active))
+    setRowError("")
+    setEditing(false)
   }
 
   const onChangeField = (key, val) => {
@@ -282,7 +321,6 @@ const CustomerSearch = () => {
       if (!idForPatch && idForPatch !== 0) throw new Error("ไม่พบรหัสลูกค้า (id) สำหรับบันทึก")
 
       // optimistic update
-      const prev = rows
       setRows((cur) => cur.map((x) => ((x.asso_id ?? x.id) === idForPatch ? { ...x, ...diff } : x)))
 
       // เรียก PATCH
@@ -292,21 +330,14 @@ const CustomerSearch = () => {
       // sync กลับเข้าตาราง + active + draft
       setRows((cur) => cur.map((x) => ((x.asso_id ?? x.id) === idForPatch ? updated : x)))
       setActive(updated)
-
-      const nd = {}
-      CUSTOMER_FIELD_KEYS.forEach((key) => {
-        let v = updated[key]
-        if (key === "citizen_id") v = onlyDigits(String(v || "")).slice(0, 13)
-        else if (["postal_code", "precode", "fid_relationship"].includes(key)) v = v == null ? "" : String(v)
-        else v = v ?? ""
-        nd[key] = v
-      })
-      nd.sex = sexFromPrefix(nd.precode) || nd.sex || ""
-      setDraft(nd)
+      setDraft(draftFrom(updated))
 
       setEditing(false)
+      toast.success("บันทึกแล้ว", { description: fullName(updated) || undefined })
     } catch (e) {
-      setRowError(e?.message || "บันทึกไม่สำเร็จ")
+      const msg = e?.message || "บันทึกไม่สำเร็จ"
+      setRowError(msg)
+      toast.error("บันทึกไม่สำเร็จ", { description: msg })
     } finally {
       setSaving(false)
     }
@@ -314,33 +345,85 @@ const CustomerSearch = () => {
 
   const loaderCols = TABLE_COLUMNS.length + 1 // + Actions column
 
+  /** ---------- states (ใช้ร่วม table ≥md / DataList <md) ---------- */
+  const idleState = (
+    <EmptyState
+      icon={<SearchIcon className="size-12" />}
+      title="ค้นหาลูกค้าทั่วไป"
+      description="พิมพ์ชื่อ นามสกุล หรือเลขบัตรประชาชน"
+    />
+  )
+  const notFoundState = (
+    <EmptyState
+      title={`ไม่พบลูกค้าที่ตรงกับ "${dq}"`}
+      description="ลองพิมพ์แค่บางส่วนของชื่อ"
+      action={
+        <button type="button" onClick={() => setQ("")} className={neutralBtnCls}>
+          ล้างคำค้นหา
+        </button>
+      }
+    />
+  )
+
+  const inputCls = cx(baseField, "min-h-12")
+  const sheetTitle = active ? fullName(active) || "รายละเอียดลูกค้า" : "รายละเอียดลูกค้า"
+
+  const sheetFooter = active ? (
+    editing ? (
+      <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
+        <button type="button" onClick={cancelEdit} disabled={saving} className={cx(neutralBtnCls, "h-12 md:h-10")}>
+          ยกเลิก
+        </button>
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          aria-busy={saving || undefined}
+          className={cx(submitBtnCls, "h-12 md:h-10 !py-0 !text-sm hover:!scale-100")}
+        >
+          {saving && <span className={spinnerCls} aria-hidden="true" />}
+          {saving ? "กำลังบันทึก…" : "บันทึก"}
+        </button>
+      </div>
+    ) : (
+      <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
+        <button type="button" onClick={closeModal} className={cx(neutralBtnCls, "h-12 md:h-10")}>
+          ปิด
+        </button>
+        <button type="button" onClick={() => setEditing(true)} className={cx(secondaryBtnCls, "h-12 md:h-10 !py-0 !text-sm")}>
+          แก้ไข
+        </button>
+      </div>
+    )
+  ) : null
+
   return (
     <div className="min-h-screen rounded-2xl bg-white text-black dark:bg-slate-900 dark:text-white">
       <div className="mx-auto max-w-6xl p-4 md:p-6 text-base md:text-lg">
-        <h1 className="mb-4 flex items-center gap-2 text-2xl md:text-3xl font-bold">
+        <h1 className="mb-4 flex items-center gap-2 text-xl md:text-3xl font-bold">
           <SearchIcon className="size-6 text-emerald-600 dark:text-emerald-400" />
           ค้นหาลูกค้าทั่วไป
         </h1>
 
         {/* การ์ดค้นหา */}
-        <div className="rounded-2xl border border-slate-200/60 bg-white/85 p-5 md:p-6 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/40">
-          <label className="mb-2 block text-sm md:text-base text-slate-700 dark:text-slate-300">คำค้นหา</label>
-          <div className="relative">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="ค้นหาตามชื่อหรือนามสกุล หรือเลขบัตรประชาชน"
-              className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3 pr-12 text-base outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 dark:border-white/10 dark:bg-slate-800 dark:placeholder:text-slate-400 dark:focus:border-emerald-500 dark:focus:ring-emerald-500/20"
-            />
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
-              <SearchIcon />
-            </span>
-          </div>
-          <div className="mt-2 text-xs md:text-sm text-slate-500 dark:text-slate-400">
-            {dq ? (loading ? <>กำลังค้นหา “{dq}”...</> : <>ผลลัพธ์ {rows.length.toLocaleString()} รายการ</>) : <>พิมพ์อย่างน้อย 1 ตัวอักษรเพื่อค้นหา</>}
+        <div className="rounded-2xl border border-slate-200/60 bg-white/85 p-4 md:p-6 shadow-sm dark:border-white/10 dark:bg-slate-900/40">
+          <label htmlFor="customer-search-q" className="mb-2 block text-sm md:text-base text-slate-700 dark:text-slate-300">คำค้นหา</label>
+          {/* ผลลัพธ์แสดงใน DataList/ตารางด้านล่าง ไม่ใช่ dropdown → open={false} */}
+          <SearchField
+            id="customer-search-q"
+            value={q}
+            onChange={setQ}
+            open={false}
+            loading={loading}
+            minChars={1}
+            placeholder="ค้นหาตามชื่อหรือนามสกุล หรือเลขบัตรประชาชน"
+            ariaLabel="ค้นหาลูกค้าทั่วไป"
+          />
+          <div className="mt-2 text-sm text-slate-500 dark:text-slate-400" aria-live="polite">
+            {dq ? (loading ? <>กำลังค้นหา "{dq}"…</> : <>พบ {rows.length.toLocaleString()} รายการ</>) : <>พิมพ์อย่างน้อย 1 ตัวอักษร</>}
           </div>
           {hint && !loading && dq && (
-            <div className="mt-1 text-xs md:text-sm text-slate-500 dark:text-slate-400">{hint}</div>
+            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{hint}</div>
           )}
           {error && (
             <ErrorState
@@ -351,355 +434,206 @@ const CustomerSearch = () => {
           )}
         </div>
 
-        {/* ตาราง */}
-        <div className="mt-5 rounded-2xl border border-slate-200/60 bg-white/85 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/40">
-          <div className="overflow-x-auto rounded-2xl">
-            <table className="w-full text-base tabular-nums">
-              <thead className="text-slate-700 dark:text-slate-100">
-                <tr className="sticky top-0 z-10 bg-slate-50/95 supports-[backdrop-filter]:bg-slate-50/60 dark:bg-slate-700/60">
-                  {TABLE_COLUMNS.map((c) => (
-                    <th key={c.key} className="whitespace-nowrap px-5 py-4 text-left text-[15px] md:text-base font-semibold">
-                      {c.label}
-                    </th>
-                  ))}
-                  <th className="px-5 py-4 text-right text-[15px] md:text-base font-semibold whitespace-nowrap min-w-[132px]">
-                    การกระทำ
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200/70 dark:divide-white/8">
-                {loading && <SkeletonTableRows rows={8} cols={loaderCols} />}
-
-                {/* ก่อนเริ่มค้นหา — สอนขั้นตอนถัดไป */}
-                {!loading && !error && !dq && (
-                  <tr>
-                    <td colSpan={loaderCols} className="p-0">
-                      <EmptyState
-                        icon={<SearchIcon className="size-12" />}
-                        title="เริ่มต้นด้วยการค้นหาลูกค้า"
-                        description="พิมพ์ชื่อ นามสกุล หรือเลขบัตรประชาชนในช่องด้านบนเพื่อแสดงรายชื่อลูกค้า"
-                      />
-                    </td>
-                  </tr>
-                )}
-
-                {/* ค้นหาแล้วแต่ไม่พบผลลัพธ์ */}
-                {!loading && !error && dq && rows.length === 0 && (
-                  <tr>
-                    <td colSpan={loaderCols} className="p-0">
-                      <EmptyState
-                        title={`ไม่พบข้อมูลที่ตรงกับ “${dq}”`}
-                        description="ลองตรวจสอบการสะกด หรือค้นหาด้วยคำอื่น เช่น เลขบัตรประชาชน"
-                        action={
-                          <button
-                            type="button"
-                            onClick={() => setQ("")}
-                            className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50"
-                          >
-                            ล้างตัวกรอง
-                          </button>
-                        }
-                      />
-                    </td>
-                  </tr>
-                )}
-
-                {!loading &&
-                  rows.map((r) => (
-                    <tr
-                      key={r.asso_id ?? r.citizen_id ?? Math.random()}
-                      className="odd:bg-white/90 even:bg-slate-50/70 hover:bg-emerald-50/70 dark:odd:bg-slate-800/40 dark:even:bg-slate-800/25 dark:hover:bg-emerald-400/10 transition-colors"
-                    >
-                      {TABLE_COLUMNS.map((c) => (
-                        <td key={c.key} className="px-5 py-4">
-                          {c.render ? c.render(r) : (r[c.key] ?? "-")}
-                        </td>
-                      ))}
-                      <td className="px-5 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openModal(r)}
-                          className="whitespace-nowrap rounded-2xl bg-emerald-600/90 px-4 py-2 text-sm md:text-base font-semibold text-white shadow-sm ring-1 ring-emerald-700/50 hover:bg-emerald-600 active:scale-[.98] dark:bg-emerald-500/85 dark:hover:bg-emerald-500"
-                        >
-                          ดูรายละเอียด
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Modal */}
-      <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
-        <div className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} />
-        <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5" {...detailBackdrop}>
-          <div role="dialog" aria-modal="true" className={`h-[88vh] w-[96vw] max-w-[1100px] transform overflow-hidden rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-slate-800 dark:text-white ${open ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
-              <div className="text-xl md:text-2xl font-semibold">
-                รายละเอียดลูกค้า {active?.first_name || active?.last_name ? `• ${active?.first_name ?? ""} ${active?.last_name ?? ""}` : ""}
-              </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-xl border border-slate-300 px-4 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
-              >
-                ปิด
-              </button>
-            </div>
-
-            <div className="h-[calc(88vh-64px)] overflow-y-auto p-4 md:p-6 text-base md:text-lg">
-              {!active ? (
-                <div className="text-slate-600 dark:text-slate-300">ไม่มีข้อมูล</div>
+        {/* ผลลัพธ์: <md = การ์ด (DataList) · ≥md = ตารางเดิม */}
+        {isPhone ? (
+          <div className="mt-4">
+            {!error && (
+              !dq ? (
+                <div className="rounded-2xl bg-white ring-1 ring-gray-200/70 dark:bg-gray-800 dark:ring-gray-700/70">{idleState}</div>
               ) : (
-                <>
-                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm md:text-base text-slate-600 dark:text-slate-300">
-                      วันที่สร้างข้อมูล: {formatDate(active.created_at)}
-                    </div>
+                <DataList
+                  items={rows}
+                  keyOf={(r, i) => r.asso_id ?? r.citizen_id ?? i}
+                  loading={loading}
+                  skeletonRows={4}
+                  emptyState={<div className="rounded-2xl bg-white ring-1 ring-gray-200/70 dark:bg-gray-800 dark:ring-gray-700/70">{notFoundState}</div>}
+                  title={(r) => fullName(r) || "-"}
+                  subtitle={(r) => <span className="tabular-nums">{r.citizen_id || "-"}</span>}
+                  fields={[
+                    { label: "โทรศัพท์", value: (r) => <span className="tabular-nums">{r.phone_number || "-"}</span> },
+                    { label: "อำเภอ/จังหวัด", value: (r) => [r.district, r.province].filter(Boolean).join(", ") || "-" },
+                  ]}
+                  onClick={(r) => openModal(r)}
+                  actions={(r) => (
+                    <button type="button" onClick={() => openModal(r, { edit: true })} className={cx(secondaryBtnCls, "h-11 !py-0 !text-sm")}>
+                      แก้ไข
+                    </button>
+                  )}
+                />
+              )
+            )}
+          </div>
+        ) : (
+          <div className="mt-5 rounded-2xl border border-slate-200/60 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-900/40">
+            <div className="overflow-x-auto rounded-2xl">
+              <table className="w-full text-base tabular-nums">
+                {/* sticky top-0: อยู่ใน overflow-x-auto wrapper (scroll container) — top-(--topbar-h) จะลอยทับแถวแรก */}
+                <thead className="text-slate-700 dark:text-slate-100">
+                  <tr className="sticky top-0 z-10 bg-slate-50/95 supports-[backdrop-filter]:bg-slate-50/60 dark:bg-slate-700/60">
+                    {TABLE_COLUMNS.map((c) => (
+                      <th key={c.key} className="whitespace-nowrap px-5 py-4 text-left text-[15px] md:text-base font-semibold">
+                        {c.label}
+                      </th>
+                    ))}
+                    <th className="px-5 py-4 text-right text-[15px] md:text-base font-semibold whitespace-nowrap min-w-[132px]">
+                      การกระทำ
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/70 dark:divide-white/8">
+                  {loading && <SkeletonTableRows rows={8} cols={loaderCols} />}
 
-                    {!editing ? (
-                      <button
-                        type="button"
-                        onClick={() => setEditing(true)}
-                        className="rounded-2xl bg-emerald-600 px-4 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98]"
-                      >
-                        แก้ไข
-                      </button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={save}
-                          disabled={saving}
-                          className="rounded-2xl bg-emerald-600 px-5 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98] disabled:opacity-60"
-                        >
-                          {saving ? "กำลังบันทึก..." : "บันทึก"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditing(false)
-                            openModal(active)
-                          }}
-                          className="rounded-2xl border border-slate-300 px-5 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
-                        >
-                          ยกเลิก
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {rowError && (
-                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-base text-red-700 dark:border-red-400 dark:bg-red-900/20 dark:text-red-200">
-                      {rowError}
-                    </div>
+                  {/* ก่อนเริ่มค้นหา — สอนขั้นตอนถัดไป */}
+                  {!loading && !error && !dq && (
+                    <tr>
+                      <td colSpan={loaderCols} className="p-0">{idleState}</td>
+                    </tr>
                   )}
 
-                  {/* แถวแรก: ชื่อ นามสกุล */}
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    {/* ชื่อ */}
-                    <div>
-                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">ชื่อ</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {active.first_name || "-"}
-                        </div>
-                      ) : (
-                        <input
-                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                          value={draft.first_name ?? ""}
-                          onChange={(e) => onChangeField("first_name", e.target.value)}
-                          placeholder="ชื่อ"
-                        />
-                      )}
-                    </div>
+                  {/* ค้นหาแล้วแต่ไม่พบผลลัพธ์ */}
+                  {!loading && !error && dq && rows.length === 0 && (
+                    <tr>
+                      <td colSpan={loaderCols} className="p-0">{notFoundState}</td>
+                    </tr>
+                  )}
 
-                    {/* นามสกุล */}
-                    <div>
-                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">นามสกุล</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {active.last_name || "-"}
-                        </div>
-                      ) : (
-                        <input
-                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                          value={draft.last_name ?? ""}
-                          onChange={(e) => onChangeField("last_name", e.target.value)}
-                          placeholder="นามสกุล"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* คำนำหน้า + เพศ + เลขบัตร + โทรศัพท์ */}
-                  <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-4">
-                    {/* precode */}
-                    <div>
-                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">คำนำหน้า (precode)</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {PREFIX_OPTIONS.find(op => op.value === String(active.precode))?.label || "-"}
-                        </div>
-                      ) : (
-                        <select
-                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                          value={draft.precode ?? ""}
-                          onChange={(e) => onChangeField("precode", e.target.value)}
-                        >
-                          {PREFIX_OPTIONS.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
-                        </select>
-                      )}
-                    </div>
-
-                    {/* sex (ล็อกจาก precode) */}
-                    <div>
-                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">เพศ (กำหนดจากคำนำหน้า)</label>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                        {(editing ? sexFromPrefix(draft.precode) : active.sex) || "-"}
-                      </div>
-                    </div>
-
-                    {/* citizen_id */}
-                    <div>
-                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">เลขบัตรประชาชน</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60 break-all">
-                          {active.citizen_id || "-"}
-                        </div>
-                      ) : (
-                        <input
-                          inputMode="numeric"
-                          maxLength={13}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                          value={draft.citizen_id ?? ""}
-                          onChange={(e) => onChangeField("citizen_id", e.target.value)}
-                          placeholder="13 หลัก"
-                        />
-                      )}
-                    </div>
-
-                    {/* phone */}
-                    <div>
-                      <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">โทรศัพท์</label>
-                      {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {active.phone_number || "-"}
-                        </div>
-                      ) : (
-                        <input
-                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                          value={draft.phone_number ?? ""}
-                          onChange={(e) => onChangeField("phone_number", e.target.value)}
-                          placeholder="08x-xxx-xxxx"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ที่อยู่ */}
-                  <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-400 dark:bg-emerald-900/10">
-                    <div className="mb-3 text-lg font-semibold text-emerald-800 dark:text-emerald-200">ที่อยู่</div>
-                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                      {[
-                        { key: "address", label: "ที่อยู่" },
-                        { key: "mhoo", label: "หมู่" },
-                        { key: "sub_district", label: "ตำบล" },
-                        { key: "district", label: "อำเภอ" },
-                        { key: "province", label: "จังหวัด" },
-                        { key: "postal_code", label: "รหัสไปรษณีย์", numeric: true },
-                      ].map(({ key, label, numeric }) => (
-                        <div key={key}>
-                          <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">{label}</label>
-                          {!editing ? (
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                              {active[key] || "-"}
-                            </div>
-                          ) : (
-                            <input
-                              inputMode={numeric ? "numeric" : undefined}
-                              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                              value={draft[key] ?? ""}
-                              onChange={(e) => onChangeField(key, e.target.value)}
-                              placeholder={label}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* ข้อมูล FID */}
-                  <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-400 dark:bg-emerald-900/10">
-                    <div className="mb-3 text-lg font-semibold text-emerald-800 dark:text-emerald-200">ข้อมูล FID</div>
-                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                      {/* fid */}
-                      <div>
-                        <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">FID</label>
-                        {!editing ? (
-                          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                            {active.fid ?? "-"}
-                          </div>
-                        ) : (
-                          <input
-                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                            value={draft.fid ?? ""}
-                            onChange={(e) => onChangeField("fid", e.target.value)}
-                            placeholder="เช่น FID-001234 หรือ 123456"
-                          />
-                        )}
-                      </div>
-
-                      {/* fid_owner */}
-                      <div>
-                        <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">ชื่อผู้ถือ FID</label>
-                        {!editing ? (
-                          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                            {active.fid_owner || "-"}
-                          </div>
-                        ) : (
-                          <input
-                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                            value={draft.fid_owner ?? ""}
-                            onChange={(e) => onChangeField("fid_owner", e.target.value)}
-                            placeholder="เช่น นายสมชาย ใจดี"
-                          />
-                        )}
-                      </div>
-
-                      {/* fid_relationship */}
-                      <div>
-                        <label className="mb-1.5 block text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">ความสัมพันธ์</label>
-                        {!editing ? (
-                          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                            {active.fid_relationship != null
-                              ? (fidMap?.[active.fid_relationship] ?? active.fid_relationship)
-                              : "-"}
-                          </div>
-                        ) : (
-                          <select
-                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-                            value={draft.fid_relationship ?? ""}
-                            onChange={(e) => onChangeField("fid_relationship", e.target.value)}
+                  {!loading &&
+                    rows.map((r, i) => (
+                      <tr
+                        key={r.asso_id ?? r.citizen_id ?? `row-${i}`}
+                        className="odd:bg-white/90 even:bg-slate-50/70 hover:bg-emerald-50/70 dark:odd:bg-slate-800/40 dark:even:bg-slate-800/25 dark:hover:bg-emerald-400/10 transition-colors"
+                      >
+                        {TABLE_COLUMNS.map((c) => (
+                          <td key={c.key} className="px-5 py-4">
+                            {c.render ? c.render(r) : (r[c.key] ?? "-")}
+                          </td>
+                        ))}
+                        <td className="px-5 py-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => openModal(r)}
+                            className="whitespace-nowrap rounded-2xl bg-emerald-600/90 px-4 py-2 text-sm md:text-base font-semibold text-white shadow-sm ring-1 ring-emerald-700/50 hover:bg-emerald-600 active:scale-[.98] dark:bg-emerald-500/85 dark:hover:bg-emerald-500 cursor-pointer"
                           >
-                            <option value="">— เลือก —</option>
-                            {fidOptions.map((op) => (
-                              <option key={op.value} value={op.value}>{op.label}</option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
+                            ดูรายละเอียด
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
+        )}
       </div>
+
+      {/* รายละเอียดลูกค้า — Sheet (bottom sheet <md / dialog ≥md), portal + focus trap */}
+      <Sheet
+        open={open}
+        onClose={closeModal}
+        title={sheetTitle}
+        subtitle={active?.citizen_id ? `เลขบัตร ${active.citizen_id}` : undefined}
+        size="lg"
+        busy={saving}
+        footer={sheetFooter}
+      >
+        {!active || !draft ? (
+          <SkeletonText lines={6} />
+        ) : (
+          <div className="text-base">
+            <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
+              วันที่สร้างข้อมูล: {formatDate(active.created_at)}
+            </p>
+
+            {rowError && (
+              <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-400/60 dark:bg-red-900/20 dark:text-red-200">
+                {rowError}
+              </div>
+            )}
+
+            {/* ข้อมูลหลัก */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="ชื่อ" editing={editing} display={active.first_name}>
+                <input aria-label="ชื่อ" className={inputCls} value={draft.first_name ?? ""} onChange={(e) => onChangeField("first_name", e.target.value)} placeholder="ชื่อ" />
+              </Field>
+              <Field label="นามสกุล" editing={editing} display={active.last_name}>
+                <input aria-label="นามสกุล" className={inputCls} value={draft.last_name ?? ""} onChange={(e) => onChangeField("last_name", e.target.value)} placeholder="นามสกุล" />
+              </Field>
+              <Field label="คำนำหน้า (precode)" editing={editing} display={PREFIX_OPTIONS.find((op) => op.value === String(active.precode))?.label}>
+                <ComboBox
+                  title="คำนำหน้า"
+                  ariaLabel="คำนำหน้า"
+                  searchable={false}
+                  options={PREFIX_OPTIONS}
+                  value={draft.precode ?? ""}
+                  onChange={(v) => onChangeField("precode", v)}
+                  placeholder="— เลือก —"
+                />
+              </Field>
+              <Field label="เพศ (กำหนดจากคำนำหน้า)" editing={false} display={(editing ? sexFromPrefix(draft.precode) : active.sex) || "-"} />
+              <Field label="เลขบัตรประชาชน" editing={editing} display={<span className="tabular-nums">{active.citizen_id}</span>}>
+                <input aria-label="เลขบัตรประชาชน" inputMode="numeric" maxLength={13} className={cx(inputCls, "tabular-nums")} value={draft.citizen_id ?? ""} onChange={(e) => onChangeField("citizen_id", e.target.value)} placeholder="13 หลัก" />
+              </Field>
+              <Field label="โทรศัพท์" editing={editing} display={<span className="tabular-nums">{active.phone_number}</span>}>
+                <input aria-label="โทรศัพท์" inputMode="tel" className={cx(inputCls, "tabular-nums")} value={draft.phone_number ?? ""} onChange={(e) => onChangeField("phone_number", e.target.value)} placeholder="08x-xxx-xxxx" />
+              </Field>
+            </div>
+
+            {/* ที่อยู่ */}
+            <section className="mt-6">
+              <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">ที่อยู่</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {[
+                  { key: "address", label: "ที่อยู่" },
+                  { key: "mhoo", label: "หมู่" },
+                  { key: "sub_district", label: "ตำบล" },
+                  { key: "district", label: "อำเภอ" },
+                  { key: "province", label: "จังหวัด" },
+                  { key: "postal_code", label: "รหัสไปรษณีย์", numeric: true },
+                ].map(({ key, label, numeric }) => (
+                  <Field key={key} label={label} editing={editing} display={active[key]}>
+                    <input
+                      aria-label={label}
+                      inputMode={numeric ? "numeric" : undefined}
+                      className={cx(inputCls, numeric && "tabular-nums")}
+                      value={draft[key] ?? ""}
+                      onChange={(e) => onChangeField(key, e.target.value)}
+                      placeholder={label}
+                    />
+                  </Field>
+                ))}
+              </div>
+            </section>
+
+            {/* ข้อมูล FID */}
+            <section className="mt-6">
+              <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">ข้อมูล FID</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label="FID" editing={editing} display={active.fid}>
+                  <input aria-label="FID" className={inputCls} value={draft.fid ?? ""} onChange={(e) => onChangeField("fid", e.target.value)} placeholder="เช่น FID-001234 หรือ 123456" />
+                </Field>
+                <Field label="ชื่อผู้ถือ FID" editing={editing} display={active.fid_owner}>
+                  <input aria-label="ชื่อผู้ถือ FID" className={inputCls} value={draft.fid_owner ?? ""} onChange={(e) => onChangeField("fid_owner", e.target.value)} placeholder="เช่น นายสมชาย ใจดี" />
+                </Field>
+                <Field
+                  label="ความสัมพันธ์"
+                  editing={editing}
+                  display={active.fid_relationship != null ? (fidMap?.[active.fid_relationship] ?? active.fid_relationship) : "-"}
+                >
+                  <ComboBox
+                    title="ความสัมพันธ์"
+                    ariaLabel="ความสัมพันธ์"
+                    options={fidOptions}
+                    value={draft.fid_relationship ?? ""}
+                    onChange={(v) => onChangeField("fid_relationship", v)}
+                    placeholder="— เลือก —"
+                    emptyText="ไม่มีตัวเลือก"
+                  />
+                </Field>
+              </div>
+            </section>
+          </div>
+        )}
+      </Sheet>
     </div>
   )
 }

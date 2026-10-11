@@ -1,9 +1,15 @@
 // src/pages/Stock.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
+import { ChevronDown } from "lucide-react"
 import { apiAuth } from "../../lib/api" // ← รวม base URL + token + JSON ให้แล้ว
-import { cx } from "../../lib/styles"
+import { cx, cardCls, secondaryBtnCls } from "../../lib/styles"
 import Skeleton from "../../components/ui/Skeleton"
 import { ErrorState, EmptyState } from "../../components/ui"
+import ComboBox from "../../components/ComboBox"
+import { useIsPhone } from "../../hooks/useMediaQuery"
+
+/** option value ของหน้านี้ = id ก่อน value (คง default ของ ComboBox copy เดิม) */
+const getOptValue = (o) => o?.id ?? o?.value ?? ""
 
 /** ---------- Utils ---------- */
 const nf = (n) =>
@@ -108,106 +114,6 @@ function sumValueFromUI(/* riceArray */) {
   return null
 }
 
-/** ---------- ComboBox (reusable) ---------- */
-function ComboBox({
-  options = [],
-  value,
-  onChange,
-  placeholder = "— เลือก —",
-  getLabel = (o) => o?.label ?? "",
-  getValue = (o) => o?.id ?? o?.value ?? "",
-  disabled = false,
-}) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(-1)
-  const boxRef = useRef(null)
-  const btnRef = useRef(null)
-
-  const selectedLabel = (() => {
-    const found = options.find((o) => String(getValue(o)) === String(value))
-    return found ? getLabel(found) : ""
-  })()
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (!boxRef.current) return
-      if (!boxRef.current.contains(e.target)) {
-        setOpen(false)
-        setHighlight(-1)
-      }
-    }
-    document.addEventListener("click", onClick)
-    return () => document.removeEventListener("click", onClick)
-  }, [])
-
-  const commit = (opt) => {
-    const v = String(getValue(opt))
-    onChange?.(v, opt)
-    setOpen(false)
-    setHighlight(-1)
-    requestAnimationFrame(() => btnRef.current?.focus())
-  }
-
-  return (
-    <div className="relative" ref={boxRef}>
-      <button
-        type="button"
-        ref={btnRef}
-        disabled={disabled}
-        onClick={() => !disabled && setOpen((o) => !o)}
-        className={[
-          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "text-black placeholder:text-slate-500",
-          "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-700/70 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30",
-        ].join(" ")}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
-      </button>
-
-      {open && (
-        <div
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
-          )}
-          {options.map((opt, idx) => {
-            const label = getLabel(opt)
-            const isChosen = String(getValue(opt)) === String(value)
-            return (
-              <button
-                key={String(getValue(opt)) || label || idx}
-                type="button"
-                role="option"
-                aria-selected={isChosen}
-                onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)}
-                className={[
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
-                  idx === highlight
-                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30",
-                ].join(" ")}
-              >
-                {idx === highlight && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-                )}
-                <span className="flex-1">{label}</span>
-                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
 /** ---------- UI Bits ---------- */
 function Pill({ children }) {
   return (
@@ -221,7 +127,7 @@ function Pill({ children }) {
 function StockTreeSkeleton({ rows = 4 }) {
   return (
     <div className="space-y-3" role="status" aria-busy="true" aria-live="polite">
-      <span className="sr-only">กำลังโหลดข้อมูลคลังสินค้า…</span>
+      <span className="sr-only">กำลังโหลดคลังสินค้า…</span>
       {Array.from({ length: rows }).map((_, i) => (
         <div
           key={i}
@@ -239,20 +145,45 @@ function StockTreeSkeleton({ rows = 4 }) {
   )
 }
 
+/** ลูกศรของ <details> — หมุนเมื่อเปิด (ใช้ class `group` บน details) */
+// ใช้ named group (group/rice, group/sub, group/klang) — details ซ้อนกัน 3 ชั้น
+// ถ้าใช้ group-open เฉย ๆ ลูกศรชั้นในจะหมุนตามชั้นนอก
+const CHEVRON_OPEN = {
+  klang: "group-open/klang:rotate-180",
+  rice: "group-open/rice:rotate-180",
+  sub: "group-open/sub:rotate-180",
+}
+function Chevron({ group, className = "" }) {
+  return (
+    <ChevronDown
+      aria-hidden="true"
+      strokeWidth={1.75}
+      className={cx(
+        "shrink-0 text-gray-400 dark:text-gray-500 transition-transform duration-200 motion-reduce:transition-none",
+        CHEVRON_OPEN[group],
+        className
+      )}
+    />
+  )
+}
+
 /** ---------- Tree Rows (ใช้ field ชื่อใหม่: rice, subrice, year) ---------- */
 function RiceRow({ node }) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm">
-      <details className="group open:!bg-white dark:open:!bg-gray-900 rounded-xl">
-        <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="size-2.5 rounded-full bg-emerald-500/80"></div>
-            <div className="font-semibold">
+      <details className="group/rice open:!bg-white dark:open:!bg-gray-900 rounded-xl">
+        <summary className="cursor-pointer list-none min-h-touch px-4 py-3 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="size-2.5 shrink-0 rounded-full bg-emerald-500/80"></div>
+            <div className="font-semibold leading-snug text-gray-900 dark:text-gray-100">
               {node.rice ?? "—"}{" "}
               <span className="text-gray-400 dark:text-gray-500 text-sm ml-2">#{node.rice_id ?? "-"}</span>
             </div>
           </div>
-          <div className="text-right tabular-nums font-semibold">{nf(node.total)} กก.</div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100">{nf(node.total)} กก.</div>
+            <Chevron group="rice" className="size-5" />
+          </div>
         </summary>
         <div className="px-4 pb-3">
           {(node.items || []).map((sub) => (
@@ -267,16 +198,19 @@ function RiceRow({ node }) {
 function SubriceRow({ node }) {
   return (
     <div className="ml-2 my-2 rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40">
-      <details className="group open:!bg-white/70 dark:open:!bg-gray-900/60 rounded-lg">
-        <summary className="cursor-pointer list-none px-3 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="size-2 rounded-full bg-teal-400/80"></div>
-            <div className="font-medium">
+      <details className="group/sub open:!bg-white/70 dark:open:!bg-gray-900/60 rounded-lg">
+        <summary className="cursor-pointer list-none min-h-touch px-3 py-2 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="size-2 shrink-0 rounded-full bg-teal-400/80"></div>
+            <div className="font-medium leading-snug text-gray-900 dark:text-gray-100">
               {node.subrice ?? "—"}{" "}
               <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">#{node.subrice_id ?? "-"}</span>
             </div>
           </div>
-          <div className="text-right tabular-nums">{nf(node.total)} กก.</div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="text-right tabular-nums text-gray-900 dark:text-gray-100">{nf(node.total)} กก.</div>
+            <Chevron group="sub" className="size-4" />
+          </div>
         </summary>
         <div className="px-3 pb-2">
           {(node.items || []).map((y) => (
@@ -292,7 +226,7 @@ function YearRow({ node }) {
   const hasCondition = Array.isArray(node.items) && node.items.length > 0
   return (
     <div className="ml-2 my-1 rounded-md border border-gray-100 dark:border-gray-800">
-      <div className="px-3 py-2 flex items-center justify-between">
+      <div className="px-3 py-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm">
           <div className="size-1.5 rounded-full bg-cyan-400/80"></div>
           <div className="font-medium">ปี {node.year ?? "—"}</div>
@@ -307,13 +241,13 @@ function YearRow({ node }) {
             {node.items.map((c) => (
               <div
                 key={`${c.condition_id}-${c.condition}`}
-                className="rounded-md border border-gray-100 dark:border-gray-800 px-3 py-2 flex items-center justify-between"
+                className="rounded-md border border-gray-100 dark:border-gray-800 px-3 py-2 flex items-center justify-between gap-3"
               >
-                <div className="text-xs text-gray-600 dark:text-gray-300">
+                <div className="text-xs text-gray-600 dark:text-gray-300 min-w-0">
                   {c.condition ?? "—"}{" "}
                   <span className="text-gray-400 dark:text-gray-500">#{c.condition_id ?? "-"}</span>
                 </div>
-                <div className="tabular-nums text-sm font-medium">{nf(c.available)} กก.</div>
+                <div className="tabular-nums text-sm font-medium shrink-0">{nf(c.available)} กก.</div>
               </div>
             ))}
           </div>
@@ -323,8 +257,59 @@ function YearRow({ node }) {
   )
 }
 
+/** การ์ด "คลัง" ในโหมดดูทั้งสาขา — บนมือถือหุบได้ (UI-SPEC §6.6), ≥md เปิดค้างแบบเดิม */
+function KlangSection({ klang, payload, totals, isPhone }) {
+  const pills = (
+    <div className="flex flex-wrap gap-2 text-sm">
+      <Pill>รวม: {nf(totals.weight)} กก.</Pill>
+      <Pill>{totals.value === null ? "มูลค่า: —" : `มูลค่า: ${thb(totals.value)}`}</Pill>
+    </div>
+  )
+  const body =
+    payload.length === 0 ? (
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-4">
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">คลังนี้ยังไม่มีสต็อก</p>
+        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">รายการจะปรากฏเมื่อมีซื้อข้าว รับเข้า หรือยกมาเข้าคลังนี้</p>
+      </div>
+    ) : (
+      <div className="space-y-3">
+        {payload.map((r) => (
+          <RiceRow key={`${klang.id}-${r.rice_id}-${r.rice}`} node={r} />
+        ))}
+      </div>
+    )
+
+  if (isPhone) {
+    return (
+      <details className={cx(cardCls, "group/klang")}>
+        <summary className="cursor-pointer list-none min-h-touch px-4 py-3 flex items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-semibold leading-snug text-gray-900 dark:text-gray-100">คลัง: {klang.label}</h3>
+            <div className="mt-1.5">{pills}</div>
+          </div>
+          <Chevron group="klang" className="size-5 mt-1" />
+        </summary>
+        <div className="px-4 pb-4">{body}</div>
+      </details>
+    )
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <h3 className="text-base sm:text-lg font-semibold">คลัง: {klang.label}</h3>
+        {pills}
+      </div>
+      {body}
+    </div>
+  )
+}
+
 /** ---------- Main Page ---------- */
 const Stock = () => {
+  const isPhone = useIsPhone()
+  const branchBoxRef = useRef(null)
+
   /** dropdown options */
   const [branchOptions, setBranchOptions] = useState([]) // [{id,label}]
   const [klangOptions, setKlangOptions] = useState([])   // [{id,label}]
@@ -451,12 +436,15 @@ const Stock = () => {
     return out
   }, [dataByKlang, klangOptions])
 
+  const statTileCls =
+    "rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4 min-w-0"
+
   /** ---------- UI ---------- */
   return (
     <div className="p-4 sm:p-6">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h1 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
           คลังสินค้า
           <span className="block text-sm font-normal text-gray-500 dark:text-gray-400">
             สรุปตาม <span className="font-medium">สาขา</span> และ <span className="font-medium">คลัง</span>
@@ -474,10 +462,15 @@ const Stock = () => {
           <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
-                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">สาขา</label>
+                <label htmlFor="stock-branch" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">สาขา</label>
                 <ComboBox
+                  ref={branchBoxRef}
+                  id="stock-branch"
+                  title="สาขา"
+                  ariaLabel="สาขา"
                   options={branchOptions}
                   value={branchId}
+                  getValue={getOptValue}
                   onChange={(id, found) => {
                     setBranchId(id || "")
                     setBranchName(found?.label ?? "")
@@ -486,10 +479,14 @@ const Stock = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">คลัง (ทางเลือก)</label>
+                <label htmlFor="stock-klang" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">คลัง (ทางเลือก)</label>
                 <ComboBox
+                  id="stock-klang"
+                  title="คลัง"
+                  ariaLabel="คลัง (ทางเลือก)"
                   options={klangOptions}
                   value={klangId}
+                  getValue={getOptValue}
                   onChange={(id, found) => {
                     setKlangId(id || "")
                     setKlangName(found?.label ?? "")
@@ -497,13 +494,16 @@ const Stock = () => {
                   placeholder="— เลือกคลัง —"
                   disabled={!branchId}
                 />
+                {!branchId && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">เลือกสาขาก่อน</p>}
               </div>
-              <div className="flex items-end">
-                <div className="flex flex-wrap gap-2">
-                  {branchId && <Pill>สาขา: {branchName || branchId}</Pill>}
-                  {klangId && <Pill>คลัง: {klangName || klangId}</Pill>}
+              {(branchId || klangId) && (
+                <div className="flex items-end">
+                  <div className="flex flex-wrap gap-2">
+                    {branchId && <Pill>สาขา: {branchName || branchId}</Pill>}
+                    {klangId && <Pill>คลัง: {klangName || klangId}</Pill>}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Error */}
@@ -519,29 +519,29 @@ const Stock = () => {
 
         {/* Summary */}
         <div className="lg:col-span-3">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
             {klangId ? (
               <>
-                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
+                <div className={statTileCls}>
                   <div className="text-sm text-gray-500 dark:text-gray-400">ปริมาณรวม (คลังที่เลือก)</div>
-                  <div className="text-2xl font-bold mt-1 tabular-nums text-gray-900 dark:text-gray-100">{nf(totalSingle.weight)} กก.</div>
+                  <div className="text-xl md:text-2xl font-bold mt-1 tabular-nums text-gray-900 dark:text-gray-100">{nf(totalSingle.weight)} กก.</div>
                 </div>
-                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
+                <div className={statTileCls}>
                   <div className="text-sm text-gray-500 dark:text-gray-400">มูลค่ารวม (คลังที่เลือก)</div>
-                  <div className="text-2xl font-bold mt-1 tabular-nums text-gray-900 dark:text-gray-100">
+                  <div className="text-xl md:text-2xl font-bold mt-1 tabular-nums text-gray-900 dark:text-gray-100">
                     {totalSingle.value === null ? "—" : thb(totalSingle.value)}
                   </div>
                   {totalSingle.value === null && (
-                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       ไม่พบข้อมูลราคาจาก API (value/price_per_kg)
                     </div>
                   )}
                 </div>
               </>
             ) : (
-              <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm p-4">
+              <div className={cx(statTileCls, "col-span-2 lg:col-span-1")}>
                 <div className="text-sm text-gray-500 dark:text-gray-400">เลือกรายการด้านล่างเพื่อดูรวมรายคลัง</div>
-                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">ตอนนี้จะแสดงแยก “แต่ละคลัง” ด้านล่าง</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">ตอนนี้จะแสดงแยก “แต่ละคลัง” ด้านล่าง</div>
               </div>
             )}
           </div>
@@ -555,8 +555,17 @@ const Stock = () => {
         {!loading && !branchId && (
           <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60">
             <EmptyState
-              title="เลือกสาขาเพื่อเริ่มดูสต็อก"
-              description="เลือกสาขาจากตัวเลือกด้านบน ระบบจะแสดงปริมาณสต็อกของแต่ละคลังให้อัตโนมัติ"
+              title="เลือกสาขาเพื่อดูคลัง"
+              description="สต็อกจะแสดงแยกตามคลังของสาขาที่เลือก"
+              action={
+                <button
+                  type="button"
+                  className={cx(secondaryBtnCls, "h-11 !py-0")}
+                  onClick={() => branchBoxRef.current?.open?.()}
+                >
+                  เลือกสาขา
+                </button>
+              }
               icon={
                 <svg
                   aria-hidden="true"
@@ -579,8 +588,17 @@ const Stock = () => {
         {!loading && branchId && klangId && dataSingle.length === 0 && (
           <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60">
             <EmptyState
-              title="ไม่พบข้อมูลสต็อก"
-              description="ไม่มีสต็อกสำหรับคลังและเงื่อนไขที่เลือกในขณะนี้ ลองเลือกคลังอื่นหรือกลับไปดูทั้งสาขา"
+              title="ไม่พบสต็อกตามเงื่อนไข"
+              description="ลองเลือกคลังอื่นหรือดูทั้งสาขา"
+              action={
+                <button
+                  type="button"
+                  className={cx(secondaryBtnCls, "h-11 !py-0")}
+                  onClick={() => { setKlangId(""); setKlangName("") }}
+                >
+                  ดูทั้งสาขา
+                </button>
+              }
             />
           </div>
         )}
@@ -602,36 +620,19 @@ const Stock = () => {
               <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60">
                 <EmptyState
                   title="สาขานี้ยังไม่มีคลัง"
-                  description="เมื่อมีการเพิ่มคลังให้สาขานี้ ปริมาณสต็อกจะแสดงที่นี่"
+                  description="เพิ่มคลังได้ที่หน้าแก้ไขข้อมูลธุรกิจ"
                 />
               </div>
             )}
-            {klangOptions.map((k) => {
-              const payload = dataByKlang[k.id] || []
-              const totals = totalsByKlang[k.id] || { weight: 0, value: null }
-              return (
-                <div key={k.id} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-base sm:text-lg font-semibold">คลัง: {k.label}</h3>
-                    <div className="flex gap-3 text-sm">
-                      <Pill>รวม: {nf(totals.weight)} กก.</Pill>
-                      <Pill>{totals.value === null ? "มูลค่า: —" : `มูลค่า: ${thb(totals.value)}`}</Pill>
-                    </div>
-                  </div>
-                  {payload.length === 0 ? (
-                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-4 text-sm text-gray-500 dark:text-gray-400">
-                      ไม่มีสต็อกในคลังนี้
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {payload.map((r) => (
-                        <RiceRow key={`${k.id}-${r.rice_id}-${r.rice}`} node={r} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+            {klangOptions.map((k) => (
+              <KlangSection
+                key={k.id}
+                klang={k}
+                payload={dataByKlang[k.id] || []}
+                totals={totalsByKlang[k.id] || { weight: 0, value: null }}
+                isPhone={isPhone}
+              />
+            ))}
           </>
         )}
       </div>

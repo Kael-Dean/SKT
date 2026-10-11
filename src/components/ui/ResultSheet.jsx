@@ -11,12 +11,17 @@
 //
 //   tone      'success' | 'error'   (error: title gets role="alert")
 //   lines     [{ label, value, tone? }]  — Sales passes one line per trailer
-//   primary   { label, onClick, loading }  secondary same; both optional
+//   primary   { label, onClick, loading, disabled, tone? }  secondary same (neutral); both optional
+//             tone defaults from the sheet: success → "submit" (emerald —
+//             spec §3.6), error → "primary" (indigo — recovering is not saving).
+//             Pass primary.tone to override.
 // Built on <Sheet size="sm">; primary button takes initial focus.
 // ─────────────────────────────────────────────────────────────────────────────
 import { CircleCheck, CircleX } from "lucide-react"
 import Sheet from "./Sheet"
-import { cx, neutralBtnCls, primaryBtnCls } from "../../lib/styles"
+import { cx, neutralBtnCls, primaryBtnCls, submitBtnCls } from "../../lib/styles"
+
+const BTN_TONE = { submit: submitBtnCls, primary: primaryBtnCls }
 
 const TONE = {
   success: { Icon: CircleCheck, ring: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300" },
@@ -34,6 +39,7 @@ export default function ResultSheet({
   onClose,
 }) {
   const { Icon, ring } = TONE[tone] ?? TONE.success
+  const primaryTone = primary?.tone ?? (tone === "error" ? "primary" : "submit")
   return (
     <Sheet open={open} onClose={onClose} title={title} size="sm" initialFocus="[data-autofocus]" hideHandle>
       <div className="flex flex-col items-center text-center">
@@ -80,7 +86,8 @@ export default function ResultSheet({
               data-autofocus
               onClick={primary.onClick}
               disabled={primary.disabled || primary.loading}
-              className={cx(primaryBtnCls, "h-12 w-full md:flex-1")}
+              aria-busy={primary.loading || undefined}
+              className={cx(BTN_TONE[primaryTone] ?? BTN_TONE.submit, "h-12 w-full md:flex-1")}
             >
               {primary.label}
             </button>

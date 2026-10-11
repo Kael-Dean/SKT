@@ -218,7 +218,7 @@ export default function BuyMobileStepper({ form }) {
   const isLast = current === BUY_STEPS.length - 1
   const primary = isLast
     ? { label: submitting ? "กำลังบันทึก…" : "บันทึกออเดอร์", onClick: () => handleSubmit(), loading: submitting, disabled: submitting }
-    : { label: "ถัดไป", onClick: next }
+    : { label: "ถัดไป", onClick: next, tone: "primary" }
   const secondary = current > 0 ? { label: "ย้อนกลับ", onClick: back, disabled: submitting } : undefined
 
   return (

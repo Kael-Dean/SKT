@@ -10,7 +10,10 @@
 //     secondary={{ label: "ย้อนกลับ", onClick: prev }}
 //     primary={{ label: "ถัดไป", onClick: next, disabled, loading, type: "button" }} />
 //
-//   primary / secondary   { label, onClick, disabled, loading, type = "button" }
+//   primary     { label, onClick, disabled, loading, type = "button", tone = "submit" }
+//               tone "submit"  = emerald — saves/confirms ("บันทึก…")
+//               tone "primary" = indigo  — moves on ("ถัดไป"); spec §1.3: ถัดไป ≠ บันทึก
+//   secondary   { label, onClick, disabled, loading, type = "button" } (neutral)
 //   summary               node shown above (phone) / left of (desktop) the buttons
 //   hideWhenKeyboard      default true
 //
@@ -26,13 +29,14 @@ import { createPortal } from "react-dom"
 import { LoaderCircle } from "lucide-react"
 import useVisualViewport from "../../hooks/useVisualViewport"
 import { useIsPhone } from "../../hooks/useMediaQuery"
-import { cx, neutralBtnCls, submitBtnCls } from "../../lib/styles"
+import { cx, neutralBtnCls, primaryBtnCls, submitBtnCls } from "../../lib/styles"
 
 const BAR_VAR = "--sticky-bar-h"
+const PRIMARY_TONE = { submit: submitBtnCls, primary: primaryBtnCls }
 
 function ActionButton({ action, variant }) {
   if (!action) return null
-  const { label, onClick, disabled = false, loading = false, type = "button" } = action
+  const { label, onClick, disabled = false, loading = false, type = "button", tone = "submit" } = action
   const isPrimary = variant === "primary"
   return (
     <button
@@ -41,7 +45,7 @@ function ActionButton({ action, variant }) {
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cx(
-        isPrimary ? submitBtnCls : neutralBtnCls,
+        isPrimary ? (PRIMARY_TONE[tone] ?? submitBtnCls) : neutralBtnCls,
         "h-12 px-4 py-0",
         isPrimary ? "flex-[2]" : "flex-1",
         "md:flex-none md:px-6",

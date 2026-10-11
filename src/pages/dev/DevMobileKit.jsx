@@ -489,7 +489,7 @@ export default function DevMobileKit() {
               </div>
             }
             secondary={{ label: "ย้อนกลับ", onClick: () => setStep((s) => Math.max(0, s - 1)) }}
-            primary={{ label: "ถัดไป", onClick: () => toast.success("ถัดไป", { description: "validator ของขั้นผ่าน" }) }}
+            primary={{ label: "ถัดไป", tone: "primary", onClick: () => toast.success("ถัดไป", { description: "validator ของขั้นผ่าน" }) }}
           />
         </Section>
       </main>

@@ -247,7 +247,7 @@ export default function SalesMobileStepper({ form }) {
   })()
 
   const primary = current < 3
-    ? { label: "ถัดไป", onClick: next }
+    ? { label: "ถัดไป", onClick: next, tone: "primary" }
     : { label: submitting ? "กำลังบันทึก…" : "บันทึกออเดอร์", onClick: (e) => handleSubmit(e), loading: submitting, disabled: submitting }
   const secondary = current > 0 ? { label: "ย้อนกลับ", onClick: back, disabled: submitting } : undefined
 

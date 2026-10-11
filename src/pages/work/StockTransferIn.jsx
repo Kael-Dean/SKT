@@ -586,7 +586,7 @@ function StockTransferIn() {
             </div>
           )}
           {errors.transfer_id && requests.length > 0 && (
-            <p className="mt-3 text-sm text-red-500 dark:text-red-400">{errors.transfer_id}</p>
+            <p className="mt-3 text-sm text-red-600 dark:text-red-400">{errors.transfer_id}</p>
           )}
         </div>
 

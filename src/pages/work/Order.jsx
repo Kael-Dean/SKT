@@ -457,11 +457,13 @@ const Order = () => {
         <label className={labelCls} htmlFor="order-start">วันที่เริ่ม</label>
         <DateInput
           id="order-start"
+          aria-invalid={errors.startDate ? true : undefined}
+          aria-describedby={errors.startDate ? "order-start-err" : undefined}
           value={filters.startDate}
           onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
           error={!!errors.startDate}
         />
-        {errors.startDate && <div className="mt-1 text-sm text-red-500">{errors.startDate}</div>}
+        {errors.startDate && <div id="order-start-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.startDate}</div>}
       </div>
 
       {/* วันที่สิ้นสุด */}
@@ -469,11 +471,13 @@ const Order = () => {
         <label className={labelCls} htmlFor="order-end">วันที่สิ้นสุด</label>
         <DateInput
           id="order-end"
+          aria-invalid={errors.endDate ? true : undefined}
+          aria-describedby={errors.endDate ? "order-end-err" : undefined}
           value={filters.endDate}
           onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
           error={!!errors.endDate}
         />
-        {errors.endDate && <div className="mt-1 text-sm text-red-500">{errors.endDate}</div>}
+        {errors.endDate && <div id="order-end-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.endDate}</div>}
       </div>
 
       {/* สาขา */}

@@ -760,22 +760,26 @@ function OrderCorrection() {
               <label className={labelCls} htmlFor="oc-start">วันที่เริ่ม</label>
               <DateInput
                 id="oc-start"
+                aria-invalid={errors.startDate ? true : undefined}
+                aria-describedby={errors.startDate ? "oc-start-err" : undefined}
                 value={filters.startDate}
                 onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
                 error={!!errors.startDate}
               />
-              {errors.startDate && <div className="mt-1 text-sm text-red-500">{errors.startDate}</div>}
+              {errors.startDate && <div id="oc-start-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.startDate}</div>}
             </div>
 
             <div>
               <label className={labelCls} htmlFor="oc-end">วันที่สิ้นสุด</label>
               <DateInput
                 id="oc-end"
+                aria-invalid={errors.endDate ? true : undefined}
+                aria-describedby={errors.endDate ? "oc-end-err" : undefined}
                 value={filters.endDate}
                 onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
                 error={!!errors.endDate}
               />
-              {errors.endDate && <div className="mt-1 text-sm text-red-500">{errors.endDate}</div>}
+              {errors.endDate && <div id="oc-end-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.endDate}</div>}
             </div>
 
             <div>

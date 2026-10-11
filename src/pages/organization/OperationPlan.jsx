@@ -269,7 +269,7 @@ const OperationPlan = () => {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-12">
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-12">
               <div className="md:col-span-3">
                 <label className={labelCls}>ปี (พ.ศ.)</label>
                 <ComboBox

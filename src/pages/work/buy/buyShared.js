@@ -306,8 +306,17 @@ export const describeApiError = (err) => {
 
   if (network)
     return { kind: "network", title: "บันทึกไม่สำเร็จ", description: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสัญญาณแล้วลองใหม่ ข้อมูลที่กรอกยังอยู่", lines: [], primary: "retry" }
-  if (status === 422)
-    return { kind: "422", title: "ข้อมูลไม่ผ่านการตรวจ", description: translated[0] ?? "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่", lines, primary: "edit" }
+  if (status === 422) {
+    // first translated message is the description — only list the others
+    const rest = [...new Set(translated.slice(1))].filter((m) => m !== translated[0])
+    return {
+      kind: "422",
+      title: "ข้อมูลไม่ผ่านการตรวจ",
+      description: translated[0] ?? "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่",
+      lines: translated.length ? rest.map((m) => ({ label: "รายละเอียด", value: m })) : lines,
+      primary: "edit",
+    }
+  }
   if (status === 401 || status === 403)
     return { kind: "auth", title: "ไม่มีสิทธิ์บันทึก", description: "สิทธิ์ของบัญชีนี้ไม่ครอบคลุมรายการนี้ หรือหมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง", lines: [], primary: "login" }
   if (status === 409)

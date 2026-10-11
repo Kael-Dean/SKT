@@ -328,6 +328,8 @@ const Buy = () => {
 
   // 🔒 กันกดซ้ำในระดับ micro (setState ยังไม่ทัน)
   const submitLockRef = useRef(false)
+  /** branch id the current klangOptions were loaded for (guards auto-select) */
+  const klangOptionsBranchRef = useRef(null)
 const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
   /** ▼ จุดยึดบนสุด */
@@ -870,14 +872,39 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       try {
         const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
         const data = await apiAuth(`/order/klang/search?${qs}`)
+        klangOptionsBranchRef.current = bId != null ? String(bId) : null
         setKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
       } catch (e) {
         console.error("Load klang error:", e)
+        klangOptionsBranchRef.current = null
         setKlangOptions([])
       }
     }
     loadKlang()
   }, [order.branchId, order.branchName])
+
+  /** คลัง: เลือกให้อัตโนมัติเมื่อมีตัวเดียว หรือคืนค่าคลังล่าสุดของสาขานี้ (localStorage)
+   *  — ทำเฉพาะตอนยังไม่ได้เลือก และเมื่อรายการคลังเป็นของสาขาปัจจุบันแล้วเท่านั้น */
+  useEffect(() => {
+    const bId = order.branchId
+    if (bId == null || klangOptions.length === 0) return
+    if (klangOptionsBranchRef.current !== String(bId)) return
+    if (order.klangId != null && klangOptions.some((o) => String(o.id) === String(order.klangId))) return
+    let pick = klangOptions.length === 1 ? klangOptions[0] : null
+    if (!pick) {
+      try {
+        const saved = localStorage.getItem(`buy.lastKlang.${bId}`)
+        if (saved) pick = klangOptions.find((o) => String(o.id) === saved) || null
+      } catch { /* storage blocked */ }
+    }
+    if (pick) setOrder((p) => ({ ...p, klangId: pick.id, klangName: pick.label }))
+  }, [klangOptions, order.branchId, order.klangId])
+
+  /** จำคลังล่าสุดต่อสาขา */
+  useEffect(() => {
+    if (order.branchId == null || order.klangId == null) return
+    try { localStorage.setItem(`buy.lastKlang.${order.branchId}`, String(order.klangId)) } catch { /* storage blocked */ }
+  }, [order.branchId, order.klangId])
 
   /** map record -> UI (เฉพาะบุคคล) */
   const mapSimplePersonToUI = (r = {}) => {
@@ -1767,9 +1794,9 @@ if (buyerType === "person") {
     // ✅ คงสาขาที่กำลังใช้งานไว้
     branchName: prev.branchName,
     branchId: prev.branchId,
-    // 🔄 รีเซ็ตคลังใหม่ แต่ยัง "เลือกได้ปกติ"
-    klangName: "",
-    klangId: null,
+    // ✅ คงคลังเดิมไว้ (รถคันถัดไปส่วนใหญ่ลงคลังเดียวกัน — R2)
+    klangName: prev.klangName,
+    klangId: prev.klangId,
     registeredPlace: "",
     comment: "",
   }))
@@ -1843,6 +1870,53 @@ if (buyerType === "person") {
     isPhone, stepApiRef, resetKey,
   }
 
+  /** ---------- Desktop keyboard (R2) ---------- */
+  // ช่องแรกของลูกค้า (บุคคล → เลขบัตร, บริษัท → ชื่อบริษัท). Desktop only — on
+  // phones focusing a field pops the keyboard over the stepper.
+  const citizenIdRef = refs.citizenId
+  const companyNameRef = refs.companyName
+  const focusFirstCustomerField = () => {
+    if (isPhone) return
+    // after Sheet/ConfirmDialog restore focus to their opener (sync, on close)
+    // and after handleReset re-renders person mode
+    setTimeout(() => {
+      const el = citizenIdRef.current || companyNameRef.current
+      try { el?.focus({ preventScroll: true }) } catch { el?.focus?.() }
+    }, 60)
+  }
+
+  // autofocus on load (unless focus is already inside the form)
+  useEffect(() => {
+    if (isPhone) return
+    const t = setTimeout(() => {
+      if (document.activeElement?.closest?.("#buy-form")) return
+      const el = citizenIdRef.current || companyNameRef.current
+      try { el?.focus({ preventScroll: true }) } catch { el?.focus?.() }
+    }, 0)
+    return () => clearTimeout(t)
+  }, [isPhone, citizenIdRef, companyNameRef])
+
+  // Ctrl+S / Ctrl+Enter (⌘ on Mac) = บันทึก — goes through handleSubmit, so the
+  // submit lock and every validation step still apply. e.code catches Ctrl+S on
+  // the Thai layout (e.key = "ห"). Ignored while a Sheet / dialog is open.
+  const handleSubmitRef = useRef(handleSubmit)
+  useEffect(() => { handleSubmitRef.current = handleSubmit })
+  useEffect(() => {
+    if (isPhone) return
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return
+      const isSave = e.code === "KeyS" || e.key === "s" || e.key === "S"
+      const isEnter = e.key === "Enter" && !e.isComposing
+      if (!isSave && !isEnter) return
+      if (isSave) e.preventDefault() // never the browser's "Save page" dialog on this page
+      if (e.repeat || document.body.dataset.sheetOpen) return
+      e.preventDefault()
+      handleSubmitRef.current?.()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [isPhone])
+
   /** ---------- ResultSheet actions (copy §4.1 / §4.3) ---------- */
   const closeResult = () => setResult(null)
   const resultButtons = (() => {
@@ -1850,7 +1924,7 @@ if (buyerType === "person") {
     if (result.tone === "success") {
       return {
         // ฟอร์มถูก reset แล้ว — ปิด = ทำรายการใหม่
-        primary: { label: "ทำรายการใหม่", onClick: () => { closeResult(); stepApiRef.current?.goTo(0); scrollToPageTop() } },
+        primary: { label: "ทำรายการใหม่", onClick: () => { closeResult(); stepApiRef.current?.goTo(0); scrollToPageTop(); focusFirstCustomerField() } },
         secondary: can("trading.reports.view") ? { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order") } } : undefined,
       }
     }
@@ -1951,7 +2025,7 @@ if (buyerType === "person") {
         confirmLabel="ล้างฟอร์ม"
         cancelLabel="เก็บไว้"
         tone="danger"
-        onConfirm={() => { setConfirmReset(false); handleReset() }}
+        onConfirm={() => { setConfirmReset(false); handleReset(); focusFirstCustomerField() }}
         onCancel={() => setConfirmReset(false)}
       />
       {resultSheet}

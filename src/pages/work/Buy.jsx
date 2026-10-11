@@ -1353,29 +1353,31 @@ const pickNameResult = async (rec) => {
   const isTemplateActive = true 
   const applyTemplateBySpec = (spec) => { 
     if (!spec) return 
-    const S = (v) => (v == null ? "" : String(v)) 
-    setOrder((p) => ({ 
-      ...p, 
-      // ตั้งค่าเป็น "id" ทั้งหมดก่อน แล้วให้ hook ด้านล่างเติม label ตาม options 
-      productId: S(spec.product_id), 
-      riceId: S(spec.species_id), 
-      subriceId: S(spec.variant_id), 
-      riceYearId: S(spec.product_year), 
-      conditionId: S(spec.condition_id), 
-      fieldTypeId: S(spec.field_type), 
-      programId: S(spec.program), 
-      businessTypeId: S(spec.business_type), 
-      // เคลียร์ชื่อเดิมเพื่อรอ sync id->label 
-      productName: "", 
-      riceType: "", 
-      subriceName: "", 
-      riceYear: "", 
-      condition: "", 
-      fieldType: "", 
-      programName: "", 
-      businessType: "", 
-    })) 
-  } 
+    const S = (v) => (v == null ? "" : String(v))
+    // ตั้งค่าเป็น "id" แล้วให้ hook ด้านล่างเติม label ตาม options — เคลียร์ชื่อเดิม
+    // เฉพาะคู่ที่ id เปลี่ยน (ถ้า id เดิม hook sync จะไม่ทำงานซ้ำ ชื่อต้องคงไว้)
+    const pairs = [
+      ["productId", "productName", spec.product_id],
+      ["riceId", "riceType", spec.species_id],
+      ["subriceId", "subriceName", spec.variant_id],
+      ["riceYearId", "riceYear", spec.product_year],
+      ["conditionId", "condition", spec.condition_id],
+      ["fieldTypeId", "fieldType", spec.field_type],
+      ["programId", "programName", spec.program],
+      ["businessTypeId", "businessType", spec.business_type],
+    ]
+    setOrder((p) => {
+      const next = { ...p }
+      for (const [idKey, nameKey, raw] of pairs) {
+        const v = S(raw)
+        if (String(p[idKey] ?? "") !== v) {
+          next[idKey] = v
+          next[nameKey] = ""
+        }
+      }
+      return next
+    })
+  }
   // เลือก template → อัด spec ลงฟอร์มทันที 
   useEffect(() => { 
     if (!formTemplate) return 
@@ -1755,27 +1757,29 @@ if (buyerType === "person") {
     brPostalCode: "",
   })
 
-  // ⭐ คงค่า issueDate และสาขาเดิมไว้ และรีเซ็ตเฉพาะ "คลัง"
+  // ⭐ คงค่า issueDate, สาขา และสเปคจากฟอร์มสำเร็จรูปเดิมไว้ (LOCK_SPEC — สเปค
+  // มาจาก formTemplate ที่ยังเลือกอยู่เสมอ; เดิมล้าง id ทิ้งแต่ formTemplate ไม่เปลี่ยน
+  // → effect ไม่ re-apply → ต้องเลือกฟอร์มใหม่ทุกครั้งหลังบันทึก)
   setOrder((prev) => ({
-    productId: "",
-    productName: "",
-    riceId: "",
-    riceType: "",
-    subriceId: "",
-    subriceName: "",
+    productId: prev.productId,
+    productName: prev.productName,
+    riceId: prev.riceId,
+    riceType: prev.riceType,
+    subriceId: prev.subriceId,
+    subriceName: prev.subriceName,
     gram: "",
-    riceYear: "",
-    riceYearId: "",
-    condition: "",
-    conditionId: "",
-    fieldType: "",
-    fieldTypeId: "",
-    programId: "",
-    programName: "",
+    riceYear: prev.riceYear,
+    riceYearId: prev.riceYearId,
+    condition: prev.condition,
+    conditionId: prev.conditionId,
+    fieldType: prev.fieldType,
+    fieldTypeId: prev.fieldTypeId,
+    programId: prev.programId,
+    programName: prev.programName,
     paymentMethod: "",
     paymentMethodId: "",
-    businessType: "",
-    businessTypeId: "",
+    businessType: prev.businessType,
+    businessTypeId: prev.businessTypeId,
     entryWeightKg: "",
     exitWeightKg: "",
     moisturePct: "",
@@ -1796,10 +1800,8 @@ if (buyerType === "person") {
     comment: "",
   }))
 
-  // ❌ อย่าล้างรายการคลัง เพื่อให้ดรอปดาวใช้งานได้ทันที
-  setRiceOptions([])
-  setSubriceOptions([])
-  // setKlangOptions([])  // ← เอาออก
+  // ❌ อย่าล้างรายการตัวเลือก (ชนิดข้าว/ชั้นย่อย/คลัง) — สเปคยังเป็นชุดเดิม
+  // และ effect โหลดตัวเลือกจะไม่ทำงานซ้ำเพราะ id ไม่เปลี่ยน
 
   setDept({
     allowedPeriod: 30,
@@ -1811,7 +1813,10 @@ if (buyerType === "person") {
   // ❌ ไม่ต้อง enforceBranchLock หรือบังคับ reload คลัง
 
   setPendingTemplateLabel("")
-  // ไม่เปลี่ยน formTemplate เพื่อรักษาค่าเดิมที่ผู้ใช้ตั้งไว้
+  // ไม่เปลี่ยน formTemplate เพื่อรักษาค่าเดิมที่ผู้ใช้ตั้งไว้ — ถ้าสเปคใน state
+  // ไม่ตรงกับฟอร์ม (เช่น ฟอร์มโหลดมาทีหลัง) ให้อัดสเปคจากฟอร์มปัจจุบันซ้ำ
+  const currentTpl = templateOptions.find((o) => String(o.id) === String(formTemplate))
+  if (currentTpl?.spec) applyTemplateBySpec(currentTpl.spec)
   setResetKey((k) => k + 1) // phone stepper → ขั้น 1
   if (typeof requestAnimationFrame === "function") {
     requestAnimationFrame(() => scrollToPageTop())

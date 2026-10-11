@@ -13,7 +13,7 @@ import {
   cx, baseField, labelCls, helpTextCls, errorTextCls, compactInput, cardCls,
   segmentedCls, segmentedItemCls, segmentedItemActiveCls,
 } from "../../../lib/styles"
-import { onlyDigits, validateThaiCitizenId, focusRefWithRetry, fieldId, errId, describedBy } from "./buyShared"
+import { onlyDigits, validateThaiCitizenId, validateThaiTaxId, focusRefWithRetry, fieldId, errId, describedBy } from "./buyShared"
 import DateInput from "./DateInput"
 
 export default function BuyCustomerSection({ form }) {
@@ -514,15 +514,22 @@ function DesktopCustomerSection({ form }) {
             id={fieldId("payment")}
             options={paymentOptions}
             value={order.paymentMethodId || ""}
-            onChange={(id, found) =>
-              setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "", paymentMethodId: id }))}
+            onChange={(id, found) => {
+              setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "", paymentMethodId: id }))
+              clearError("payment")
+            }}
             placeholder="— เลือกวิธีชำระเงิน —"
             buttonRef={refs.payment}
             onEnterNext={() => focusRefWithRetry(refs.paymentRefNo)}
             searchable={false}
+            error={!!errors.payment}
+            hintRed={!!form.missingHints.payment}
+            clearHint={() => clearHint("payment")}
+            ariaDescribedBy={describedBy(errors, "payment")}
             title="วิธีชำระเงิน"
             ariaLabel="วิธีชำระเงิน"
           />
+          {errors.payment && <p id={errId("payment")} className={errorTextCls}>{errors.payment}</p>}
         </div>
 
         <div>
@@ -750,7 +757,8 @@ function DesktopCustomerSection({ form }) {
         </div>
       ) : (
         /* -------------------- โหมดบริษัท -------------------- */
-        <div className="mt-4 md:col-span-2" ref={companyBoxRef}>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div ref={companyBoxRef}>
           <label className={labelCls} htmlFor={fieldId("companyName")}>ชื่อบริษัท / นิติบุคคล</label>
           <input
             id={fieldId("companyName")}
@@ -829,6 +837,45 @@ function DesktopCustomerSection({ form }) {
               })}
             </div>
           )}
+        </div>
+
+        <div>
+          <label className={labelCls} htmlFor={fieldId("taxId")}>เลขประจำตัวผู้เสียภาษี</label>
+          <input
+            id={fieldId("taxId")}
+            ref={refs.taxId}
+            inputMode="numeric"
+            maxLength={13}
+            className={cx(baseField, redFieldCls("taxId"))}
+            value={customer.taxId}
+            onChange={(e) => { updateCustomer("taxId", onlyDigits(e.target.value)); clearError("taxId") }}
+            onFocus={() => clearHint("taxId")}
+            onKeyDown={onEnter("taxId")}
+            placeholder="13 หลัก"
+            aria-invalid={errors.taxId ? true : undefined}
+            aria-describedby={errors.taxId ? errId("taxId") : "buy-taxId-help"}
+          />
+          {errors.taxId
+            ? <p id={errId("taxId")} className={errorTextCls}>{errors.taxId}</p>
+            : <p id="buy-taxId-help" className={helpTextCls}>
+                {customer.taxId.length > 0 && !validateThaiTaxId(customer.taxId) ? `กรอกแล้ว ${customer.taxId.length} จาก 13 หลัก` : "13 หลัก ค้นหาบริษัทให้อัตโนมัติ"}
+              </p>}
+        </div>
+
+        <div>
+          <label className={labelCls} htmlFor={fieldId("companyPhone")}>เบอร์โทร</label>
+          <input
+            id={fieldId("companyPhone")}
+            ref={refs.companyPhone}
+            inputMode="tel"
+            maxLength={20}
+            className={baseField}
+            value={customer.companyPhone}
+            onChange={(e) => updateCustomer("companyPhone", e.target.value.replace(/[^\d+]/g, ""))}
+            onKeyDown={onEnter("companyPhone")}
+            placeholder="เช่น 044123456"
+          />
+        </div>
         </div>
       )}
       {/* ========== จบฟิลด์ลูกค้าในกรอบเดียว ========== */}

@@ -11,13 +11,16 @@ import { useEffect, useState } from "react"
 export const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 export const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
 export const round2 = (n) => Math.round((isFinite(n) ? n : 0) * 100) / 100
-export const thb = (n) =>
-  new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
-    isFinite(n) ? n : 0
-  )
+// Formatters are built once per module (perf, handoff/mobile-perf.md): a new
+// Intl.NumberFormat per call is ~58× slower than a cached one, and the first
+// th-TH construction (~24 ms, ICU locale setup) landed inside the first
+// trailer-weight keystroke as a ~100 ms long task at 4× CPU. Same locale +
+// options → identical output.
+const THB_FMT = new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 })
+const NUM_FMT = new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 })
+export const thb = (n) => THB_FMT.format(isFinite(n) ? n : 0)
 /** Plain number formatter (th-TH, ≤2 decimals, no forced ".00") — used for weights in copy (`nf()`). */
-export const nf = (n) =>
-  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(isFinite(Number(n)) ? Number(n) : 0)
+export const nf = (n) => NUM_FMT.format(isFinite(Number(n)) ? Number(n) : 0)
 
 export const formatMoneyInput = (val) => {
   let s = String(val).replace(/[^0-9.]/g, "")

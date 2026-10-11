@@ -10,13 +10,16 @@ import { useEffect, useState } from "react"
 /** ----------- Utils ------------ */
 export const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 export const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
-export const thb = (n) =>
-  new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
-    isFinite(n) ? n : 0
-  )
+// Formatters are built once per module (perf, handoff/mobile-perf.md): a new
+// Intl.NumberFormat per call is ~58× slower than a cached one and the summary
+// calls these on every keystroke; the first th-TH construction (~24 ms, ICU
+// locale setup) otherwise lands inside a keystroke. Same locale + options →
+// identical output.
+const THB_FMT = new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 })
+const NUM_FMT = new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 })
+export const thb = (n) => THB_FMT.format(isFinite(n) ? n : 0)
 /** Plain number (weights) — th-TH grouping, ≤2 decimals, no forced ".00" (copy §0 V3) */
-export const nf = (n) =>
-  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(isFinite(Number(n)) ? Number(n) : 0)
+export const nf = (n) => NUM_FMT.format(isFinite(Number(n)) ? Number(n) : 0)
 
 export const findLabelById = (opts = [], id) => {
   const s = String(id ?? "")

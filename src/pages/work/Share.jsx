@@ -185,7 +185,7 @@ function Share() {
         if (!aborted) {
           setResults([])
           setShowList(false)
-          setSearchError(err?.message || "ค้นหาสมาชิกไม่สำเร็จ")
+          setSearchError(/[฀-๿]/.test(err?.message || "") ? err.message : "ค้นหาสมาชิกไม่สำเร็จ ลองใหม่อีกครั้ง")
         }
       } finally {
         if (!aborted) setLoading(false)
@@ -279,7 +279,7 @@ function Share() {
     } else {
       // ตรวจจำนวนทศนิยม
       const decimals = (amountRaw.split(".")[1] || "").length
-      if (decimals > 3) e.amount = "ไม่ต่ำกว่า 100 บาท"
+      if (decimals > 3) e.amount = "ทศนิยมได้ไม่เกิน 3 ตำแหน่ง"
     }
     setErrors(e)
     return Object.keys(e).length === 0
@@ -307,7 +307,7 @@ function Share() {
       if (!tgs) {
         setErrors((p) => ({
           ...p,
-          picked: "ไม่พบรหัสสมาชิก (tgs_id) ของรายการที่เลือก",
+          picked: "สมาชิกที่เลือกยังไม่มีรหัส TGS จึงซื้อหุ้นไม่ได้",
         }))
         return
       }
@@ -339,7 +339,7 @@ function Share() {
 
   const pickedPreview = useMemo(() => {
     if (!picked) return ""
-    return `#${picked.member_id ?? "?"} • ${picked.first_name || "-"} ${
+    return `${picked.member_id != null ? `เลขสมาชิก ${picked.member_id} • ` : ""}${picked.first_name || "-"} ${
       picked.last_name || "-"
     } • ${picked.citizen_id || "-"}${picked.tgs_id ? " • TGS " + picked.tgs_id : ""}`
   }, [picked])
@@ -365,7 +365,7 @@ function Share() {
           ซื้อหุ้น
         </h1>
         <p className="mb-5 text-sm md:text-base leading-relaxed text-slate-600 dark:text-slate-300">
-          ค้นหาและเลือกสมาชิก กรอกวันที่และจำนวนที่ซื้อ แล้วบันทึกเพื่อส่งไปยังระบบหลังบ้าน
+          ค้นหาและเลือกสมาชิก กรอกวันที่และจำนวนที่ซื้อ แล้วกดซื้อหุ้น
         </p>
 
         {/* เลือกสมาชิก */}
@@ -406,7 +406,7 @@ function Share() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">
                     {`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "(ไม่มีชื่อ)"}{" "}
-                    <span className="text-xs text-slate-500 dark:text-slate-400">#{r.member_id}</span>
+                    {r.member_id != null && <span className="text-xs text-slate-500 dark:text-slate-400">เลขสมาชิก {r.member_id}</span>}
                   </div>
                   <div className="truncate text-sm text-slate-600 dark:text-slate-300">
                     บัตร {r.citizen_id ?? "-"} · โทร {r.phone_number ?? "-"}
@@ -439,7 +439,7 @@ function Share() {
           {/* ค้นหาแล้วไม่พบ (ยังไม่ได้เลือก) */}
           {!loading && !searchError && query.trim().length >= 2 && results.length === 0 && !picked && (
             <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
-              ไม่พบสมาชิกที่ตรงกับ “{query.trim()}” — ลองตรวจสอบการสะกด หรือค้นด้วยเลขบัตรประชาชน
+              ไม่พบสมาชิกที่ตรงกับ “{query.trim()}” ลองตรวจการสะกด หรือค้นด้วยเลขบัตรประชาชน
             </div>
           )}
 
@@ -618,7 +618,7 @@ function Share() {
               </div>
             </div>
             <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
-              * ค่าธรรมเนียมจะคิดในกรณีเป็นการซื้อครั้งแรกของสมาชิก ตามสเปคฝั่ง BE.
+              * คิดค่าธรรมเนียมเฉพาะการซื้อครั้งแรกของสมาชิก
             </p>
           </SectionCard>
           </div>

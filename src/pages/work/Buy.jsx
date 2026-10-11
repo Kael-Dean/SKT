@@ -3,18 +3,20 @@
 // บันทึกออเดอร์ซื้อข้าวเปลือก — CONTROLLER (plan §A2).
 // This file owns every piece of state, every effect, the refs map, validation,
 // handleSubmit / handleReset and the payload. The JSX lives in ./buy/*:
-//   BuyCustomerSection · BuySpecSection · BuyWeighSection · BuySummary
+//   BuyCustomerSection · BuySpecSection · BuyWeighSection (+ BuyMobileStepper)
 // Sections receive one props-bag `form` (built at the bottom of this file).
-// Desktop (≥md) renders the same 3-card <form> as before, node for node, so the
-// Enter-to-next flow (useEnterNavigation in ./buy/buyShared.js) is unchanged.
+// Desktop (≥md, R2): 3 section cards (ลูกค้า · สินค้าและคลัง · ชั่งน้ำหนักและราคา)
+// + a sticky <OrderSummaryPanel> (≥lg right column) that owns the save button
+// (refs.submitBtn). Enter-to-next order (useEnterNavigation in ./buy/buyShared.js)
+// is unchanged; the 8 template-locked spec ComboBoxes are not rendered on
+// desktop, so their refs are null and the flow skips them.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth, post } from "../../lib/api" // ✅ helper แนบโทเคนอัตโนมัติ
 import { logout } from "../../lib/auth"
 import { useCan } from "../../lib/permissions"
-import { cx, baseField, labelCls, helpTextCls } from "../../lib/styles"
-import { ResultSheet, toast } from "../../components/ui"
+import { ResultSheet, ConfirmDialog, OrderSummaryPanel, Kbd, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import {
   onlyDigits,
@@ -27,46 +29,30 @@ import {
   formatMoneyInput,
   suggestDeductionWeight,
   isEnabledInput,
+  focusRefWithRetry,
   useEnterNavigation,
   deriveLockedBranch,
   ERROR_SCAN_ORDER,
   FIELD_SHORT,
   describeMissing,
   describeApiError,
+  SPEC_LOCKED_KEYS,
 } from "./buy/buyShared"
 import { validateAllErrors } from "./buy/buyValidation"
 import BuyCustomerSection from "./buy/BuyCustomerSection"
 import BuySpecSection from "./buy/BuySpecSection"
 import BuyWeighSection from "./buy/BuyWeighSection"
-import BuySummary from "./buy/BuySummary"
 import BuyMobileStepper from "./buy/BuyMobileStepper"
 
 /** ---------- Component ---------- */
 const Buy = () => {
-  // --- FIX: force re-load warehouses (คลัง) even when branchId stays the same ---
-  async function forceKlangLoad(branchId, branchName) {
-    const bId = branchId ?? null
-    const bName = String(branchName ?? "").trim()
-    if (bId == null && !bName) {
-      setKlangOptions([])
-      setOrder((p) => ({ ...p, klangName: "", klangId: null }))
-      return
-    }
-    try {
-      const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
-      const data = await apiAuth(`/order/klang/search?${qs}`)
-      setKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
-    } catch (e) {
-      console.error("Load klang error:", e)
-      setKlangOptions([])
-    }
-  }
-
   const isPhone = useIsPhone()
   const navigate = useNavigate()
   const { can } = useCan()
   /** Outcome of the last save → <ResultSheet> (replaces alert()) */
   const [result, setResult] = useState(null)
+  /** Desktop "ล้างฟอร์ม" → <ConfirmDialog> (phone stepper owns its own) */
+  const [confirmReset, setConfirmReset] = useState(false)
   /** Bumped by handleReset so the phone stepper returns to step 1 */
   const [resetKey, setResetKey] = useState(0)
   /** Phone stepper registers { goTo, showErrors } here (null on desktop) */
@@ -102,6 +88,7 @@ const Buy = () => {
   const [subriceOptions, setSubriceOptions] = useState([]) // variant
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
+  const [klangStatus, setKlangStatus] = useState("idle") // idle | loading | ready | error
   const [conditionOptions, setConditionOptions] = useState([])
   const [fieldTypeOptions, setFieldTypeOptions] = useState([])
   const [yearOptions, setYearOptions] = useState([])
@@ -116,6 +103,8 @@ const Buy = () => {
 
   // ไม่มีตัวเลือก “ไม่ล็อก” อีกต่อไป
   const [templateOptions, setTemplateOptions] = useState([])
+  /** "loading" | "ready" | "error" — desktop picker shows a real empty/error state */
+  const [templatesStatus, setTemplatesStatus] = useState("loading")
   const [formTemplate, setFormTemplate] = useState("") // ต้องเลือกเสมอ
   const [selectedTemplateLabel, setSelectedTemplateLabel] = useState("") // เก็บ label ที่เลือกไว้
   const [pendingTemplateLabel, setPendingTemplateLabel] = useState("") // ใช้ดักเติม species หลังโหลด riceOptions
@@ -157,7 +146,7 @@ const Buy = () => {
   /** คืนข้อความบรรทัดย่อยของ template: “ชั้นย่อย …” */
   const templateSubLabel = (opt) => {
     const vid = String(opt?.spec?.variant_id ?? "")
-    const vLabel = vid ? (variantLookup[vid] || `#${vid}`) : ""
+    const vLabel = vid ? (variantLookup[vid] || "") : ""
     return vLabel ? `ชั้นย่อย: ${vLabel}` : ""
   }
 
@@ -343,6 +332,8 @@ const Buy = () => {
 
   // 🔒 กันกดซ้ำในระดับ micro (setState ยังไม่ทัน)
   const submitLockRef = useRef(false)
+  /** branch id the current klangOptions were loaded for (guards auto-select) */
+  const klangOptionsBranchRef = useRef(null)
 const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
 
   /** ▼ จุดยึดบนสุด */
@@ -642,6 +633,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
           .filter((o) => o.id && o.label) 
 
         setTemplateOptions(mapped)
+        setTemplatesStatus("ready")
 
         // ตั้งค่า template เริ่มต้น: ใช้อันที่เซฟไว้ หรืออันแรก
         let nextId = ""
@@ -671,6 +663,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       } catch (e) {
         console.error("load form templates error:", e)
         setTemplateOptions([])
+        setTemplatesStatus("error")
       }
     }
     loadForms()
@@ -700,15 +693,6 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
     }
   }, [branchOptions])
 
-  // ใช้ซ้ำเพื่อย้ำล็อกเวลารีเซ็ต
-  const enforceBranchLock = () => {
-    const b = lockedBranch || deriveLockedBranch(branchOptions)
-    if (!b) { setBranchLocked(false); return null }
-    setBranchLocked(true)
-    setOrder((p) => ({ ...p, branchId: b.id, branchName: b.label, klangName: "", klangId: null }))
-    setKlangReloadKey((n) => n + 1) // ⟳ บังคับให้โหลดคลัง
-    return b
-  }
 
 // ปิด dropdown บริษัทเมื่อคลิกนอก
   useEffect(() => {
@@ -891,17 +875,45 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       return
     }
     const loadKlang = async () => {
+      setKlangStatus("loading")
       try {
         const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
         const data = await apiAuth(`/order/klang/search?${qs}`)
+        klangOptionsBranchRef.current = bId != null ? String(bId) : null
         setKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
+        setKlangStatus("ready")
       } catch (e) {
         console.error("Load klang error:", e)
+        klangOptionsBranchRef.current = null
         setKlangOptions([])
+        setKlangStatus("error")
       }
     }
     loadKlang()
   }, [order.branchId, order.branchName])
+
+  /** คลัง: เลือกให้อัตโนมัติเมื่อมีตัวเดียว หรือคืนค่าคลังล่าสุดของสาขานี้ (localStorage)
+   *  — ทำเฉพาะตอนยังไม่ได้เลือก และเมื่อรายการคลังเป็นของสาขาปัจจุบันแล้วเท่านั้น */
+  useEffect(() => {
+    const bId = order.branchId
+    if (bId == null || klangOptions.length === 0) return
+    if (klangOptionsBranchRef.current !== String(bId)) return
+    if (order.klangId != null && klangOptions.some((o) => String(o.id) === String(order.klangId))) return
+    let pick = klangOptions.length === 1 ? klangOptions[0] : null
+    if (!pick) {
+      try {
+        const saved = localStorage.getItem(`buy.lastKlang.${bId}`)
+        if (saved) pick = klangOptions.find((o) => String(o.id) === saved) || null
+      } catch { /* storage blocked */ }
+    }
+    if (pick) setOrder((p) => ({ ...p, klangId: pick.id, klangName: pick.label }))
+  }, [klangOptions, order.branchId, order.klangId])
+
+  /** จำคลังล่าสุดต่อสาขา */
+  useEffect(() => {
+    if (order.branchId == null || order.klangId == null) return
+    try { localStorage.setItem(`buy.lastKlang.${order.branchId}`, String(order.klangId)) } catch { /* storage blocked */ }
+  }, [order.branchId, order.klangId])
 
   /** map record -> UI (เฉพาะบุคคล) */
   const mapSimplePersonToUI = (r = {}) => {
@@ -1152,15 +1164,22 @@ if (!mid) return
     tryFocusRef(refs.entryWeightKg)
   }
 
+  /** ปลายทางหลังช่องชื่อ (Enter / เลือกผลค้นหา). Desktop: ชื่อ → วิธีชำระเงิน → เลขที่ใบชั่ง →
+   *  คลัง → น้ำหนัก… (R2 full-page Enter flow). Phone stepper: คงเดิม (คลัง/สาขา/น้ำหนัก). */
+  const focusAfterName = () => {
+    if (isPhone) return focusKlangOrBranchOrEntry()
+    focusRefWithRetry(refs.payment)
+  }
+
 const pickNameResult = async (rec) => {
     suppressNameSearchRef.current = true
     await fillFromRecord(rec)
     setShowNameList(false)
     setNameResults([])
     setHighlightedIndex(-1)
-    // หลังเลือกชื่อแล้ว ให้โฟกัสไปที่ "คลัง" (ถ้าเลือกได้) ถ้าไม่ได้ให้ไปที่ "สาขา" หรือ "น้ำหนักก่อนชั่ง"
+    // หลังเลือกชื่อ: desktop → "วิธีชำระเงิน" (Enter-flow ทั้งหน้า R2); มือถือ → "คลัง" / "สาขา" / "น้ำหนักก่อนชั่ง" ตามเดิม
     requestAnimationFrame(() => {
-      focusKlangOrBranchOrEntry()
+      focusAfterName()
     })
   }
 
@@ -1211,7 +1230,7 @@ const pickNameResult = async (rec) => {
       if (showNameList && nameResults.length > 0 && highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
         await pickNameResult(nameResults[highlightedIndex])
       } else {
-        focusKlangOrBranchOrEntry()
+        focusAfterName()
       }
     } else if (e.key === "Escape" && showNameList) {
       e.preventDefault()
@@ -1349,33 +1368,33 @@ const pickNameResult = async (rec) => {
   }
 
 /** ---------- Template mapping (ใหม่/อิง spec จาก BE โดยตรง) ---------- */
-  // โหมดนี้บังคับใช้ template เสมอ
-  const isTemplateActive = true 
   const applyTemplateBySpec = (spec) => { 
     if (!spec) return 
-    const S = (v) => (v == null ? "" : String(v)) 
-    setOrder((p) => ({ 
-      ...p, 
-      // ตั้งค่าเป็น "id" ทั้งหมดก่อน แล้วให้ hook ด้านล่างเติม label ตาม options 
-      productId: S(spec.product_id), 
-      riceId: S(spec.species_id), 
-      subriceId: S(spec.variant_id), 
-      riceYearId: S(spec.product_year), 
-      conditionId: S(spec.condition_id), 
-      fieldTypeId: S(spec.field_type), 
-      programId: S(spec.program), 
-      businessTypeId: S(spec.business_type), 
-      // เคลียร์ชื่อเดิมเพื่อรอ sync id->label 
-      productName: "", 
-      riceType: "", 
-      subriceName: "", 
-      riceYear: "", 
-      condition: "", 
-      fieldType: "", 
-      programName: "", 
-      businessType: "", 
-    })) 
-  } 
+    const S = (v) => (v == null ? "" : String(v))
+    // ตั้งค่าเป็น "id" แล้วให้ hook ด้านล่างเติม label ตาม options — เคลียร์ชื่อเดิม
+    // เฉพาะคู่ที่ id เปลี่ยน (ถ้า id เดิม hook sync จะไม่ทำงานซ้ำ ชื่อต้องคงไว้)
+    const pairs = [
+      ["productId", "productName", spec.product_id],
+      ["riceId", "riceType", spec.species_id],
+      ["subriceId", "subriceName", spec.variant_id],
+      ["riceYearId", "riceYear", spec.product_year],
+      ["conditionId", "condition", spec.condition_id],
+      ["fieldTypeId", "fieldType", spec.field_type],
+      ["programId", "programName", spec.program],
+      ["businessTypeId", "businessType", spec.business_type],
+    ]
+    setOrder((p) => {
+      const next = { ...p }
+      for (const [idKey, nameKey, raw] of pairs) {
+        const v = S(raw)
+        if (String(p[idKey] ?? "") !== v) {
+          next[idKey] = v
+          next[nameKey] = ""
+        }
+      }
+      return next
+    })
+  }
   // เลือก template → อัด spec ลงฟอร์มทันที 
   useEffect(() => { 
     if (!formTemplate) return 
@@ -1474,7 +1493,7 @@ const pickNameResult = async (rec) => {
     if (!firstKey) return
     const keyToFocus = firstKey
 
-    const el = refs[keyToFocus]?.current || (firstKey === "payment" ? refs.payment?.current : null)
+    const el = refs[keyToFocus]?.current || (SPEC_LOCKED_KEYS.includes(firstKey) ? refs.formTemplate?.current : null)
     if (el && typeof el.focus === "function") {
       try { el.focus({ preventScroll: true }) } catch { el.focus() }
       try { el.select?.() } catch (_e) {}
@@ -1486,7 +1505,7 @@ const pickNameResult = async (rec) => {
     const keys = ERROR_SCAN_ORDER(buyerType)
     const firstKey = keys.find((k) => hintsObj[k])
     if (!firstKey) return
-    const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
+    const el = refs[firstKey]?.current || (SPEC_LOCKED_KEYS.includes(firstKey) ? refs.formTemplate?.current : null)
     if (el && typeof el.focus === "function") {
       try { el.focus({ preventScroll: true }) } catch { el.focus() }
       try { el.select?.() } catch (_e) {}
@@ -1597,15 +1616,15 @@ if (buyerType === "person") {
     // copy §3.1 B4
     if (isPhone && stepApiRef.current) {
       toast.error("ยังไม่ได้ระบุสมาชิก", {
-        description: "กรอกรหัสสมาชิก (member_id) หรือเลือกชื่อจากผลค้นหา",
+        description: "กรอกรหัสสมาชิก หรือเลือกชื่อจากผลค้นหา",
         action: { label: "ไปที่ขั้น 1", onClick: () => stepApiRef.current?.goTo(0, "memberId") },
       })
       stepApiRef.current.goTo(0, "memberId")
     } else {
-      toast.error("ยังไม่ได้ระบุสมาชิก", { description: "กรอกรหัสสมาชิก (member_id) หรือเลือกชื่อจากผลค้นหา" })
+      toast.error("ยังไม่ได้ระบุสมาชิก", { description: "กรอกรหัสสมาชิก หรือเลือกชื่อจากผลค้นหา" })
       scrollToFirstError({ memberId: true })
     }
-    setErrors((p) => ({ ...p, memberId: "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกจากรายชื่อที่มี asso_id" }))
+    setErrors((p) => ({ ...p, memberId: "กรอกรหัสสมาชิก หรือเลือกชื่อจากผลค้นหา" }))
     return
   }
 
@@ -1755,27 +1774,29 @@ if (buyerType === "person") {
     brPostalCode: "",
   })
 
-  // ⭐ คงค่า issueDate และสาขาเดิมไว้ และรีเซ็ตเฉพาะ "คลัง"
+  // ⭐ คงค่า issueDate, สาขา และสเปคจากฟอร์มสำเร็จรูปเดิมไว้ (LOCK_SPEC — สเปค
+  // มาจาก formTemplate ที่ยังเลือกอยู่เสมอ; เดิมล้าง id ทิ้งแต่ formTemplate ไม่เปลี่ยน
+  // → effect ไม่ re-apply → ต้องเลือกฟอร์มใหม่ทุกครั้งหลังบันทึก)
   setOrder((prev) => ({
-    productId: "",
-    productName: "",
-    riceId: "",
-    riceType: "",
-    subriceId: "",
-    subriceName: "",
+    productId: prev.productId,
+    productName: prev.productName,
+    riceId: prev.riceId,
+    riceType: prev.riceType,
+    subriceId: prev.subriceId,
+    subriceName: prev.subriceName,
     gram: "",
-    riceYear: "",
-    riceYearId: "",
-    condition: "",
-    conditionId: "",
-    fieldType: "",
-    fieldTypeId: "",
-    programId: "",
-    programName: "",
+    riceYear: prev.riceYear,
+    riceYearId: prev.riceYearId,
+    condition: prev.condition,
+    conditionId: prev.conditionId,
+    fieldType: prev.fieldType,
+    fieldTypeId: prev.fieldTypeId,
+    programId: prev.programId,
+    programName: prev.programName,
     paymentMethod: "",
     paymentMethodId: "",
-    businessType: "",
-    businessTypeId: "",
+    businessType: prev.businessType,
+    businessTypeId: prev.businessTypeId,
     entryWeightKg: "",
     exitWeightKg: "",
     moisturePct: "",
@@ -1789,17 +1810,15 @@ if (buyerType === "person") {
     // ✅ คงสาขาที่กำลังใช้งานไว้
     branchName: prev.branchName,
     branchId: prev.branchId,
-    // 🔄 รีเซ็ตคลังใหม่ แต่ยัง "เลือกได้ปกติ"
-    klangName: "",
-    klangId: null,
+    // ✅ คงคลังเดิมไว้ (รถคันถัดไปส่วนใหญ่ลงคลังเดียวกัน — R2)
+    klangName: prev.klangName,
+    klangId: prev.klangId,
     registeredPlace: "",
     comment: "",
   }))
 
-  // ❌ อย่าล้างรายการคลัง เพื่อให้ดรอปดาวใช้งานได้ทันที
-  setRiceOptions([])
-  setSubriceOptions([])
-  // setKlangOptions([])  // ← เอาออก
+  // ❌ อย่าล้างรายการตัวเลือก (ชนิดข้าว/ชั้นย่อย/คลัง) — สเปคยังเป็นชุดเดิม
+  // และ effect โหลดตัวเลือกจะไม่ทำงานซ้ำเพราะ id ไม่เปลี่ยน
 
   setDept({
     allowedPeriod: 30,
@@ -1811,7 +1830,10 @@ if (buyerType === "person") {
   // ❌ ไม่ต้อง enforceBranchLock หรือบังคับ reload คลัง
 
   setPendingTemplateLabel("")
-  // ไม่เปลี่ยน formTemplate เพื่อรักษาค่าเดิมที่ผู้ใช้ตั้งไว้
+  // ไม่เปลี่ยน formTemplate เพื่อรักษาค่าเดิมที่ผู้ใช้ตั้งไว้ — ถ้าสเปคใน state
+  // ไม่ตรงกับฟอร์ม (เช่น ฟอร์มโหลดมาทีหลัง) ให้อัดสเปคจากฟอร์มปัจจุบันซ้ำ
+  const currentTpl = templateOptions.find((o) => String(o.id) === String(formTemplate))
+  if (currentTpl?.spec) applyTemplateBySpec(currentTpl.spec)
   setResetKey((k) => k + 1) // phone stepper → ขั้น 1
   if (typeof requestAnimationFrame === "function") {
     requestAnimationFrame(() => scrollToPageTop())
@@ -1841,10 +1863,10 @@ if (buyerType === "person") {
     customer, updateCustomer, memberMeta, customerFound, loadingCustomer,
     order, setOrder, updateOrder,
     errors, missingHints, clearHint, clearError, redFieldCls, redHintCls,
-    formTemplate, templateOptions, selectedTemplateLabel, templateSubLabel, onTemplateChange,
+    formTemplate, templateOptions, selectedTemplateLabel, templateSubLabel, onTemplateChange, templatesStatus,
     LOCK_SPEC, branchLocked, lockedBranch,
     paymentOptions, productOptions, riceOptions, subriceOptions, conditionOptions,
-    fieldTypeOptions, yearOptions, programOptions, businessOptions, branchOptions, klangOptions,
+    fieldTypeOptions, yearOptions, programOptions, businessOptions, branchOptions, klangOptions, klangStatus,
     grossFromScale, autoDeduct, netWeight,
     submitting,
     // refs
@@ -1859,10 +1881,57 @@ if (buyerType === "person") {
     showCompanyList, setShowCompanyList, companyResults, companyHighlighted, setCompanyHighlighted,
     handleCompanyKeyDown, pickCompanyResult,
     // actions
-    handleSubmit, handleReset, scrollToPageTop, resolvePaymentId, setErrors,
+    handleSubmit, handleReset, scrollToPageTop, resolvePaymentId, setErrors, focusKlangOrBranchOrEntry,
     // phone stepper plumbing
     isPhone, stepApiRef, resetKey,
   }
+
+  /** ---------- Desktop keyboard (R2) ---------- */
+  // ช่องแรกของลูกค้า (บุคคล → เลขบัตร, บริษัท → ชื่อบริษัท). Desktop only — on
+  // phones focusing a field pops the keyboard over the stepper.
+  const citizenIdRef = refs.citizenId
+  const companyNameRef = refs.companyName
+  const focusFirstCustomerField = () => {
+    if (isPhone) return
+    // after Sheet/ConfirmDialog restore focus to their opener (sync, on close)
+    // and after handleReset re-renders person mode
+    setTimeout(() => {
+      const el = citizenIdRef.current || companyNameRef.current
+      try { el?.focus({ preventScroll: true }) } catch { el?.focus?.() }
+    }, 60)
+  }
+
+  // autofocus on load (unless focus is already inside the form)
+  useEffect(() => {
+    if (isPhone) return
+    const t = setTimeout(() => {
+      if (document.activeElement?.closest?.("#buy-form")) return
+      const el = citizenIdRef.current || companyNameRef.current
+      try { el?.focus({ preventScroll: true }) } catch { el?.focus?.() }
+    }, 0)
+    return () => clearTimeout(t)
+  }, [isPhone, citizenIdRef, companyNameRef])
+
+  // Ctrl+S / Ctrl+Enter (⌘ on Mac) = บันทึก — goes through handleSubmit, so the
+  // submit lock and every validation step still apply. e.code catches Ctrl+S on
+  // the Thai layout (e.key = "ห"). Ignored while a Sheet / dialog is open.
+  const handleSubmitRef = useRef(handleSubmit)
+  useEffect(() => { handleSubmitRef.current = handleSubmit })
+  useEffect(() => {
+    if (isPhone) return
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return
+      const isSave = e.code === "KeyS" || e.key === "s" || e.key === "S"
+      const isEnter = e.key === "Enter" && !e.isComposing
+      if (!isSave && !isEnter) return
+      if (isSave) e.preventDefault() // never the browser's "Save page" dialog on this page
+      if (e.repeat || document.body.dataset.sheetOpen) return
+      e.preventDefault()
+      handleSubmitRef.current?.()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [isPhone])
 
   /** ---------- ResultSheet actions (copy §4.1 / §4.3) ---------- */
   const closeResult = () => setResult(null)
@@ -1871,7 +1940,7 @@ if (buyerType === "person") {
     if (result.tone === "success") {
       return {
         // ฟอร์มถูก reset แล้ว — ปิด = ทำรายการใหม่
-        primary: { label: "ทำรายการใหม่", onClick: () => { closeResult(); stepApiRef.current?.goTo(0); scrollToPageTop() } },
+        primary: { label: "ทำรายการใหม่", onClick: () => { closeResult(); stepApiRef.current?.goTo(0); scrollToPageTop(); focusFirstCustomerField() } },
         secondary: can("trading.reports.view") ? { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order") } } : undefined,
       }
     }
@@ -1911,95 +1980,70 @@ if (buyerType === "person") {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
+  /* ---------- Desktop (≥md): 3 section cards + sticky OrderSummaryPanel (R2) ---------- */
+  const customerName = (buyerType === "person" ? customer.fullName : customer.companyName).trim()
+  const templateLabel =
+    templateOptions.find((o) => String(o.id) === String(formTemplate))?.label || (templateOptions.length ? selectedTemplateLabel : "") || ""
+  const unitPriceNum = Number(order.unitPrice)
+  const hasUnitPrice = String(order.unitPrice).trim() !== "" && Number.isFinite(unitPriceNum)
+  const panelRows = [
+    { label: "ลูกค้า", value: customerName || "ยังไม่ได้เลือก", emphasis: customerName ? undefined : "muted" },
+    { label: "สินค้า", value: templateLabel || "ยังไม่ได้เลือก", emphasis: templateLabel ? undefined : "muted" },
+    { label: "คลัง", value: order.klangName || "ยังไม่ได้เลือก", emphasis: order.klangName ? undefined : "muted" },
+    { label: "น้ำหนักสุทธิ", value: `${nf(netWeight)} กก.` },
+    { label: "ราคา/กก.", value: hasUnitPrice ? `${thb(unitPriceNum)}/กก.` : "—", emphasis: hasUnitPrice ? undefined : "muted" },
+    { label: "ยอดเงิน", value: thb(moneyToNumber(order.amountTHB)), emphasis: "total" },
+  ]
 
+  return (
+    <div className="text-base text-gray-900 dark:text-gray-100">
+      <div className="mx-auto max-w-7xl p-4 md:p-6">
         {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด */}
         <div ref={pageTopRef} />
 
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
+        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-gray-50">บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
 
-        {/* กล่องข้อมูลลูกค้า */}
-        <BuyCustomerSection form={form} />
-
-        {/* ฟอร์มออเดอร์ */}
         <form
+          id="buy-form"
           onSubmit={handleSubmit}
-          className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-         onKeyDown={(e)=>{ if(submitting && e.key==="Enter"){ e.preventDefault() } }}>
-          <h2 className="mb-3 text-xl font-semibold">รายละเอียดการซื้อ</h2>
+          noValidate
+          className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
+          onKeyDown={(e) => { if (submitting && e.key === "Enter") e.preventDefault() }}
+        >
+          <div className="min-w-0 space-y-5">
+            <BuyCustomerSection form={form} />
+            <BuySpecSection form={form} />
+            <BuyWeighSection form={form} />
+          </div>
 
-          {/* สเปค + สาขา/คลัง */}
-          <BuySpecSection form={form} />
-
-          {/* กรอบตัวเลข */}
-          <BuyWeighSection form={form} />
-
-          {/* สรุป */}
-          <BuySummary form={form} />
-
-          {/* หมายเหตุ */}
-          <div className="mt-6">
-            <label className={labelCls} htmlFor="buy-comment">หมายเหตุ / คอมเมนต์ </label>
-            <textarea
-              id="buy-comment"
-              ref={refs.comment}
-              rows={3}
-              className={cx(baseField)}
-              value={order.comment}
-              onChange={(e) => updateOrder("comment", e.target.value)}
-              onKeyDown={onEnter("comment")}
-              placeholder="เช่น ลูกค้าขอรับเงินโอนพรุ่งนี้, ความชื้นวัดซ้ำรอบบ่าย, ฯลฯ"
+          <aside className="md:ml-auto md:w-full md:max-w-sm lg:sticky lg:top-[calc(var(--topbar-h)+1rem)] lg:max-w-none">
+            <OrderSummaryPanel
+              title="สรุปรายการ"
+              rows={panelRows}
+              primaryRef={refs.submitBtn}
+              primary={{
+                label: submitting ? "กำลังบันทึก…" : "บันทึกออเดอร์",
+                type: "button",
+                onClick: () => handleSubmit(),
+                loading: submitting,
+              }}
+              secondary={{ label: "ล้างฟอร์ม", onClick: () => setConfirmReset(true), disabled: submitting }}
+              hint={<><Kbd>Enter</Kbd> ไปช่องถัดไป · <Kbd>Ctrl</Kbd>+<Kbd>S</Kbd> บันทึก</>}
             />
-            <p className={helpTextCls}>ข้อความนี้จะถูกส่งไปเก็บในออเดอร์ด้วย</p>
-          </div>
-
-          {/* ปุ่ม */}
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button
-              ref={refs.submitBtn}
-              type="submit" disabled={submitting} aria-busy={submitting}
-              onClick={scrollToPageTop}
-              className="inline-flex items-center justify-center rounded-2xl 
-                bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                transition-all duration-300 ease-out
-                hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                hover:scale-[1.05] active:scale-[.97] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {submitting ? (
-  <span className="inline-flex items-center gap-2">
-    <svg viewBox="0 0 24 24" width="18" height="18" className="animate-spin">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25"></circle>
-      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none"></path>
-    </svg>
-    กำลังบันทึก...
-  </span>
-) : (
-  <>บันทึก</>
-)}
-
-            </button>
-
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center justify-center rounded-2xl 
-          border border-slate-300 bg-white px-6 py-3 text-base font-medium 
-          text-slate-700 dark:text-white
-          shadow-sm
-          transition-all duration-300 ease-out
-          hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-          active:scale-[.97]
-          dark:border-slate-600 dark:bg-slate-700/60
-          dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
-            >
-              รีเซ็ต
-            </button>
-          </div>
+          </aside>
         </form>
       </div>
+
+      <ConfirmDialog
+        open={confirmReset}
+        title="ล้างข้อมูลที่กรอกไว้"
+        description="ข้อมูลลูกค้า น้ำหนัก และราคาจะหาย ฟอร์มสินค้าและคลังยังอยู่"
+        confirmLabel="ล้างฟอร์ม"
+        cancelLabel="เก็บไว้"
+        tone="danger"
+        onConfirm={() => { setConfirmReset(false); handleReset(); focusFirstCustomerField() }}
+        onCancel={() => setConfirmReset(false)}
+      />
       {resultSheet}
     </div>
   )

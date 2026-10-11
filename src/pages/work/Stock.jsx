@@ -11,6 +11,9 @@ import { useIsPhone } from "../../hooks/useMediaQuery"
 /** option value ของหน้านี้ = id ก่อน value (คง default ของ ComboBox copy เดิม) */
 const getOptValue = (o) => o?.id ?? o?.value ?? ""
 
+/** แสดงข้อความจาก backend เฉพาะเมื่อเป็นภาษาไทยแล้ว ไม่งั้นใช้ข้อความกลาง */
+const friendly = (e, fallback) => (/[฀-๿]/.test(e?.message || "") ? e.message : fallback)
+
 /** ---------- Utils ---------- */
 const nf = (n) =>
   new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(isFinite(n) ? Number(n) : 0)
@@ -176,8 +179,7 @@ function RiceRow({ node }) {
           <div className="flex items-center gap-3 min-w-0">
             <div className="size-2.5 shrink-0 rounded-full bg-emerald-500/80"></div>
             <div className="font-semibold leading-snug text-gray-900 dark:text-gray-100">
-              {node.rice ?? "—"}{" "}
-              <span className="text-gray-400 dark:text-gray-500 text-sm ml-2">#{node.rice_id ?? "-"}</span>
+              {node.rice ?? "—"}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -203,8 +205,7 @@ function SubriceRow({ node }) {
           <div className="flex items-center gap-2 min-w-0">
             <div className="size-2 shrink-0 rounded-full bg-teal-400/80"></div>
             <div className="font-medium leading-snug text-gray-900 dark:text-gray-100">
-              {node.subrice ?? "—"}{" "}
-              <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">#{node.subrice_id ?? "-"}</span>
+              {node.subrice ?? "—"}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -244,8 +245,7 @@ function YearRow({ node }) {
                 className="rounded-md border border-gray-100 dark:border-gray-800 px-3 py-2 flex items-center justify-between gap-3"
               >
                 <div className="text-xs text-gray-600 dark:text-gray-300 min-w-0">
-                  {c.condition ?? "—"}{" "}
-                  <span className="text-gray-400 dark:text-gray-500">#{c.condition_id ?? "-"}</span>
+                  {c.condition ?? "—"}
                 </div>
                 <div className="tabular-nums text-sm font-medium shrink-0">{nf(c.available)} กก.</div>
               </div>
@@ -412,7 +412,7 @@ const Stock = () => {
           setDataByKlang(map)
         }
       } catch (e) {
-        setError(e?.message || "โหลดข้อมูลไม่สำเร็จ")
+        setError(friendly(e, "โหลดข้อมูลคลังไม่สำเร็จ ลองใหม่อีกครั้ง"))
       } finally {
         setLoading(false)
       }
@@ -450,10 +450,6 @@ const Stock = () => {
             สรุปตาม <span className="font-medium">สาขา</span> และ <span className="font-medium">คลัง</span>
           </span>
         </h1>
-        <div className="hidden sm:flex items-center gap-2">
-          <Pill>API: /report/stock/tree</Pill>
-          <Pill>Method: GET</Pill>
-        </div>
       </div>
 
       {/* Controls */}
@@ -499,8 +495,8 @@ const Stock = () => {
               {(branchId || klangId) && (
                 <div className="flex items-end">
                   <div className="flex flex-wrap gap-2">
-                    {branchId && <Pill>สาขา: {branchName || branchId}</Pill>}
-                    {klangId && <Pill>คลัง: {klangName || klangId}</Pill>}
+                    {branchId && <Pill>สาขา: {branchName || "—"}</Pill>}
+                    {klangId && <Pill>คลัง: {klangName || "—"}</Pill>}
                   </div>
                 </div>
               )}
@@ -533,7 +529,7 @@ const Stock = () => {
                   </div>
                   {totalSingle.value === null && (
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      ไม่พบข้อมูลราคาจาก API (value/price_per_kg)
+                      ยังไม่มีข้อมูลราคา
                     </div>
                   )}
                 </div>

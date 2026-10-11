@@ -29,14 +29,14 @@ const getOptValue = (o) => o?.id ?? o?.value ?? ""
 
 /** ชื่อฟิลด์สั้นสำหรับ toast "กรอกไม่ครบ" (mobile-copy §3.3) */
 const FIELD_LABELS = {
-  lot_number: "เลข LOT",
-  total_weight: "น้ำหนักรวม LOT",
+  lot_number: "เลขล็อต",
+  total_weight: "น้ำหนักรวมล็อต",
   branch_id: "สาขา",
   klang_id: "คลัง",
   product_id: "ประเภทสินค้า",
   rice_id: "ชนิดข้าว",
   subrice_id: "ชั้นย่อย",
-  picks: "รายการในลอต",
+  picks: "รายการในล็อต",
 }
 const missingDescription = (keys) => {
   const names = keys.map((k) => FIELD_LABELS[k]).filter(Boolean)
@@ -62,11 +62,14 @@ function describeSaveError(err) {
   if (hit) return { title: status === 422 ? "ข้อมูลไม่ผ่านการตรวจ" : "บันทึกไม่สำเร็จ", description: hit }
   if (!status) return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสัญญาณแล้วลองใหม่ ข้อมูลที่กรอกยังอยู่" }
   if (status === 401 || status === 403) return { title: "ไม่มีสิทธิ์บันทึก", description: "สิทธิ์ของบัญชีนี้ไม่ครอบคลุมรายการนี้ หรือหมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }
-  if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "เลข LOT นี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
+  if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "เลขล็อตนี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
   if (status === 422) return { title: "ข้อมูลไม่ผ่านการตรวจ", description: isThai ? raw : "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่" }
   if (status >= 500) return { title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" }
-  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : `เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง · รหัส: ${status}` }
+  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : "เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง" }
 }
+
+/** แสดงข้อความจาก backend เฉพาะเมื่อเป็นภาษาไทยแล้ว ไม่งั้นใช้ข้อความกลาง */
+const friendly = (e, fallback) => (/[฀-๿]/.test(e?.message || "") ? e.message : fallback)
 
 /** ---------- Styles ---------- */
 const sectionCardCls =
@@ -202,7 +205,7 @@ function StockTransferMill() {
   // ยืนยันก่อนล้างรายการเมื่อ "สเปกสินค้า" เปลี่ยน (ไม่ใช่สาขา/คลัง)
   const confirmClearIfNeeded = useCallback(() => {
     if (picks.length === 0) return true
-    return window.confirm("มีรายการอยู่ในลอต การเปลี่ยนสเปกสินค้าจะล้างรายการทั้งหมดในลอต ต้องการทำต่อหรือไม่?")
+    return window.confirm("มีรายการอยู่ในล็อต การเปลี่ยนสเปคสินค้าจะล้างรายการทั้งหมดในล็อต ต้องการทำต่อหรือไม่?")
   }, [picks.length])
 
   // เคลียร์เฉพาะผลค้นหา (เก็บ picks ไว้) เวลาที่ตั้งเปลี่ยน
@@ -458,7 +461,7 @@ function StockTransferMill() {
   // ⭐ เปลี่ยนให้คืน "e object" เพื่อใช้แจ้งเตือนแบบหน้า Sales
   const validateBeforeSubmit = () => {
     const e = {}
-    if (!form.lot_number?.trim()) e.lot_number = "กรุณาใส่เลข LOT"
+    if (!form.lot_number?.trim()) e.lot_number = "กรุณาใส่เลขล็อต"
     // ไม่บังคับ klang_id
     if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
     if (!form.rice_id) e.rice_id = "กรุณาเลือกชนิดข้าว"
@@ -558,18 +561,18 @@ function StockTransferMill() {
         const merged = Array.from(map.values())
         setEligible(merged)
         if (merged.length === 0) {
-          setEligibleErr("ไม่พบบัญชี TempStock ที่เข้าเกณฑ์จากทุกคลัง")
+          setEligibleErr("ไม่พบสต็อกที่ตรงสเปคในทุกคลัง")
         }
       } else {
         const payload = buildSpecPayload(true) // รวม klang เฉพาะที่เลือก
         const rows = await post("/mill/eligible", payload)
         setEligible(Array.isArray(rows) ? rows : [])
-        if (!rows || rows.length === 0) setEligibleErr("ไม่พบบัญชี TempStock ที่เข้าเกณฑ์")
+        if (!rows || rows.length === 0) setEligibleErr("ไม่พบสต็อกที่ตรงสเปคในคลังนี้")
       }
     } catch (err) {
       console.error(err)
       setEligible([])
-      setEligibleErr(err?.message || "ดึงคลังเข้าเกณฑ์ไม่สำเร็จ")
+      setEligibleErr(friendly(err, "ดึงคลังที่เข้าเกณฑ์ไม่สำเร็จ ลองใหม่อีกครั้ง"))
     } finally {
       setLoadingEligible(false)
     }
@@ -658,7 +661,7 @@ function StockTransferMill() {
       await post("/mill/records", payload)
 
       toast.success("บันทึกส่งสีแล้ว", {
-        description: `LOT ${form.lot_number.trim()} · ${nf(toInt(form.total_weight))} กก. · ${picks.length} คลัง`,
+        description: `ล็อต ${form.lot_number.trim()} · ${nf(toInt(form.total_weight))} กก. · ${picks.length} คลัง`,
       })
 
       // Reset เฉพาะส่วนสินค้า (คง branch/klang/โหมดทุกคลัง เผื่อดึงต่อ)
@@ -756,8 +759,8 @@ function StockTransferMill() {
   const picksEmpty = (
     <EmptyState
       className="!py-10"
-      title="ยังไม่มีรายการในลอต"
-      description="เพิ่มคลังจาก “เลือกคลังเข้าลอต” ด้านบน เพื่อรวมน้ำหนักให้ครบตามที่ต้องการ"
+      title="ยังไม่มีรายการในล็อต"
+      description="เพิ่มคลังจาก “เลือกคลังเข้าล็อต” ด้านบน เพื่อรวมน้ำหนักให้ครบตามที่ต้องการ"
     />
   )
 
@@ -774,16 +777,16 @@ function StockTransferMill() {
             <path d="M3 7h18" />
             <path d="M12 11v3" />
           </svg>
-          ส่งสี / สร้างล็อตสี (ตัดสต็อก TempStock)
+          ส่งสี / สร้างล็อตสี
         </h1>
 
         <form onSubmit={handleSubmit}>
           {/* กรอบที่ 1: ข้อมูล LOT */}
           <div className={sectionCardCls}>
-            <h2 className={sectionTitleTextCls}>ข้อมูล LOT</h2>
+            <h2 className={sectionTitleTextCls}>ข้อมูลล็อต</h2>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <label htmlFor="lot_number" className={labelCls}>เลข LOT</label>
+                <label htmlFor="lot_number" className={labelCls}>เลขล็อต</label>
                 <input
                   id="lot_number"
                   ref={lotNumberRef}
@@ -807,7 +810,7 @@ function StockTransferMill() {
               </div>
 
               <div>
-                <label htmlFor="total_weight" className={labelCls}>น้ำหนักรวม LOT (กก.)</label>
+                <label htmlFor="total_weight" className={labelCls}>น้ำหนักรวมล็อต (กก.)</label>
                 <input
                   id="total_weight"
                   ref={totalWeightRef}
@@ -838,7 +841,7 @@ function StockTransferMill() {
                   placeholder="เช่น 5000"
                   aria-invalid={errors.total_weight ? true : undefined}
                 />
-                <p className={helpTextCls}>ต้องเป็นจำนวนเต็ม เพื่อให้ตรงกับสคีมาของ TempStock (Integer)</p>
+                <p className={helpTextCls}>กรอกเป็นจำนวนเต็ม</p>
                 {errors.total_weight && <p className={errorTextCls}>{errors.total_weight}</p>}
               </div>
 
@@ -943,7 +946,7 @@ function StockTransferMill() {
                 <p className={helpTextCls}>
                   {selectAllKlangs
                     ? "กำลังใช้โหมดดึงจากทุกคลัง (ปิดการเลือกคลังเดี่ยว)"
-                    : "เลือกคลัง → ดึงรายการ → เพิ่มเข้า “ลอต” ได้หลายคลัง"}
+                    : "เลือกคลัง → ดึงรายการ → เพิ่มเข้า “ล็อต” ได้หลายคลัง"}
                 </p>
                 {!selectAllKlangs && errors.klang_id && <p className={errorTextCls}>{errors.klang_id}</p>}
               </div>
@@ -983,7 +986,7 @@ function StockTransferMill() {
 
               {/* ชนิดข้าว */}
               <div>
-                <label className={labelCls}>ชนิดข้าว (Species)</label>
+                <label className={labelCls}>ชนิดข้าว</label>
                 <ComboBox
                   title="ชนิดข้าว"
                   ariaLabel="ชนิดข้าว"
@@ -1016,7 +1019,7 @@ function StockTransferMill() {
 
               {/* ชั้นย่อย */}
               <div>
-                <label className={labelCls}>ชั้นย่อย (Variant)</label>
+                <label className={labelCls}>ชั้นย่อย</label>
                 <ComboBox
                   title="ชั้นย่อย"
                   ariaLabel="ชั้นย่อย"
@@ -1186,7 +1189,7 @@ function StockTransferMill() {
 
           {/* กรอบที่ 3: รายการคลังที่เข้าเกณฑ์ + เพิ่มเข้าลอต */}
           <div className={sectionCardCls}>
-            <h2 className={sectionTitleTextCls}>เลือกคลังเข้าลอต</h2>
+            <h2 className={sectionTitleTextCls}>เลือกคลังเข้าล็อต</h2>
 
             {isPhone ? (
               eligibleErr && !loadingEligible ? (
@@ -1199,8 +1202,8 @@ function StockTransferMill() {
                   skeletonRows={3}
                   emptyState={eligibleEmpty}
                   title={(r) => `คลัง ${r.stock_klang ?? "—"}`}
-                  subtitle={(r) => `${r.stock_branch ?? "—"} · Temp #${r.tempstock_id} · Stock #${r.stock_id}`}
-                  badge={(r) => (picks.some((p) => p.tempstock_id === r.tempstock_id) ? <Badge tone="success">ในลอต</Badge> : null)}
+                  subtitle={(r) => r.stock_branch ?? "—"}
+                  badge={(r) => (picks.some((p) => p.tempstock_id === r.tempstock_id) ? <Badge tone="success">ในล็อต</Badge> : null)}
                   fields={[{ label: "คงเหลือ", value: (r) => `${nf(r.amount_available ?? 0)} กก.`, align: "right", emphasis: true, span: 2 }]}
                   actions={(r) => (
                     <EligibleActions
@@ -1217,8 +1220,6 @@ function StockTransferMill() {
                 <table className="min-w-full text-left text-sm">
                   <thead className="bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300">
                     <tr>
-                      <th className="px-3 py-2 font-medium">TempStock ID</th>
-                      <th className="px-3 py-2 font-medium">Stock ID</th>
                       <th className="px-3 py-2 font-medium">สาขา</th>
                       <th className="px-3 py-2 font-medium">คลัง</th>
                       <th className="px-3 py-2 text-right font-medium">คงเหลือ (กก.)</th>
@@ -1228,16 +1229,16 @@ function StockTransferMill() {
                   </thead>
                   <tbody>
                     {loadingEligible ? (
-                      <SkeletonTableRows rows={5} cols={7} />
+                      <SkeletonTableRows rows={5} cols={5} />
                     ) : eligibleErr ? (
                       <tr>
-                        <td colSpan={7} className="px-3 py-4">
+                        <td colSpan={5} className="px-3 py-4">
                           <ErrorState message={eligibleErr} onRetry={fetchEligible} />
                         </td>
                       </tr>
                     ) : eligible.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-3 py-2">{eligibleEmpty}</td>
+                        <td colSpan={5} className="px-3 py-2">{eligibleEmpty}</td>
                       </tr>
                     ) : (
                       eligible.map((row) => (
@@ -1257,7 +1258,7 @@ function StockTransferMill() {
 
           {/* กรอบที่ 4: สรุปรายการในลอต */}
           <div className={sectionCardCls}>
-            <h2 className={sectionTitleTextCls}>รายการในลอต</h2>
+            <h2 className={sectionTitleTextCls}>รายการในล็อต</h2>
 
             {isPhone ? (
               <>
@@ -1266,7 +1267,7 @@ function StockTransferMill() {
                   keyOf={(p) => p.tempstock_id}
                   emptyState={picksEmpty}
                   title={(p) => `คลัง ${p.stock_klang ?? "—"}`}
-                  subtitle={(p) => `Temp #${p.tempstock_id}`}
+                  subtitle={(p) => p.stock_branch ?? "—"}
                   fields={[
                     { label: "คงเหลือ", value: (p) => `${nf(p.amount_available)} กก.`, align: "right" },
                     {
@@ -1304,7 +1305,7 @@ function StockTransferMill() {
                   <table className="min-w-full text-left text-sm">
                     <thead className="bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300">
                       <tr>
-                        <th className="px-3 py-2 font-medium">TempStock ID</th>
+                        <th className="px-3 py-2 font-medium">สาขา</th>
                         <th className="px-3 py-2 font-medium">คลัง</th>
                         <th className="px-3 py-2 text-right font-medium">คงเหลือ</th>
                         <th className="px-3 py-2 w-40 font-medium">กก. ที่ใช้</th>
@@ -1319,7 +1320,7 @@ function StockTransferMill() {
                       )}
                       {picks.map((p) => (
                         <tr key={p.tempstock_id} className="border-t border-slate-100 dark:border-slate-700/60">
-                          <td className="px-3 py-2 tabular-nums text-slate-700 dark:text-slate-200">{p.tempstock_id}</td>
+                          <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{p.stock_branch ?? "—"}</td>
                           <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{p.stock_klang}</td>
                           <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-200">{p.amount_available.toLocaleString()} กก.</td>
                           <td className="px-3 py-2">
@@ -1435,8 +1436,6 @@ function RowEligible({ row, defaultWeight, onAdd }) {
 
   return (
     <tr className="border-t border-slate-100 dark:border-slate-700/60">
-      <td className="px-3 py-2 tabular-nums text-slate-700 dark:text-slate-200">{row.tempstock_id}</td>
-      <td className="px-3 py-2 tabular-nums text-slate-700 dark:text-slate-200">{row.stock_id}</td>
       <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{row.stock_branch ?? "—"}</td>
       <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{row.stock_klang}</td>
       <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-200">{row.amount_available?.toLocaleString()} กก.</td>

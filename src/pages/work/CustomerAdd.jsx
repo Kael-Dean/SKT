@@ -5,11 +5,13 @@ import { apiAuth } from "../../lib/api"
 // ✅ โหลดฐานข้อมูลที่อยู่ไทยแบบ fetch-on-demand (sub_district.json 2.2MB ไม่ถูกฝังใน bundle)
 import { useThaiAddressData } from "../../hooks/useThaiAddressData"
 import { cx, baseField, labelCls, errorTextCls, submitBtnCls, resetBtnCls, spinnerCls } from "../../lib/styles"
-import { Card, CardHeader, PageLoader, ErrorState } from "../../components/ui"
+import { Card, CardHeader, PageLoader, ErrorState, toast } from "../../components/ui"
 import ComboBox from "../../components/ComboBox"
 
 /* -------------------------- Utilities & helpers -------------------------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
+/** แสดงข้อความจาก backend เฉพาะเมื่อเป็นภาษาไทยแล้ว ไม่งั้นใช้ข้อความกลาง */
+const isThaiText = (s) => typeof s === "string" && /[฀-๿]/.test(s)
 
 // แปลงชุดข้อมูลเป็น options ที่ ComboBox ใช้
 const toOptions = (rows, labelKey, valueKey, extra = (r)=>({})) =>
@@ -299,7 +301,7 @@ const CustomerAdd = () => {
     scrollToPageTop()
     const eObj = validateAll()
     if (Object.keys(eObj).length > 0) {
-      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      toast.error("กรอกไม่ครบ", { description: "ตรวจช่องที่มีกรอบสีแดง" })
       scrollToFirstError(eObj)
       return
     }
@@ -334,19 +336,17 @@ const CustomerAdd = () => {
 
     try {
       await apiAuth(`/member/customers/signup`, { method: "POST", body: payload })
-      alert("✅✅✅✅✅✅ บันทึกสมัครลูกค้าทั้วไปเรียบร้อย ✅✅✅✅✅✅")
+      toast.success("บันทึกลูกค้าทั่วไปแล้ว")
       handleReset()
       requestAnimationFrame(() => scrollToPageTop())
       try { submitBtnRef.current?.blur?.() } catch {}
     } catch (err) {
       console.error(err)
       const msg =
-        (err && err.detail) ||
-        (typeof err?.message === "string" ? err.message : "") ||
-        "บันทึกล้มเหลว กรุณาลองใหม่"
-      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
-
-สาเหตุ: ${msg}`)
+        (isThaiText(err?.detail) && err.detail) ||
+        (isThaiText(err?.message) && err.message) ||
+        "ข้อมูลที่กรอกยังอยู่ ลองบันทึกใหม่อีกครั้ง"
+      toast.error("บันทึกไม่สำเร็จ", { description: msg })
     } finally {
       setSubmitting(false)
     }
@@ -455,7 +455,7 @@ const CustomerAdd = () => {
 
             {addressError ? (
               <ErrorState
-                message={`โหลดฐานข้อมูลที่อยู่ไม่สำเร็จ: ${addressError.message}`}
+                message="โหลดรายชื่อจังหวัด อำเภอ ตำบลไม่สำเร็จ ลองใหม่อีกครั้ง"
                 onRetry={reloadAddress}
               />
             ) : !addressReady ? (
@@ -482,7 +482,7 @@ const CustomerAdd = () => {
               </div>
 
               <div>
-                <label className={labelCls}>คำนำหน้า (precode)</label>
+                <label className={labelCls}>คำนำหน้า</label>
                 <div ref={refs.precode}>
                   <ComboBox
                     options={PREFIX_OPTIONS}
@@ -648,7 +648,7 @@ const CustomerAdd = () => {
                 <label className={labelCls}>เพศ (กำหนดจากคำนำหน้า)</label>
                 <div ref={refs.sex}>
                   <ComboBox
-                    options={[{ value: "M", label: "ชาย (M)" }, { value: "F", label: "หญิง (F)" }]}
+                    options={[{ value: "M", label: "ชาย" }, { value: "F", label: "หญิง" }]}
                     value={form.sex}
                     onChange={() => {}}
                     placeholder="— เลือกคำนำหน้าเพื่อกำหนด —"
@@ -660,14 +660,14 @@ const CustomerAdd = () => {
               {/* FID block */}
               <div className="md:col-span-3 grid gap-4 md:grid-cols-3">
                 <div>
-                  <label className={labelCls}>เลขที่ทะเบียนเกษตรกร (FID)</label>
+                  <label className={labelCls}>เลขทะเบียนเกษตรกร</label>
                   <input
                     ref={refs.fid}
                     className={cx(baseField, errors.fid && fieldError)}
                     value={form.fid}
                     onChange={(e) => { clearError("fid"); update("fid", e.target.value) }}
                     onFocus={() => clearError("fid")}
-                    placeholder="เช่น FID-001234 หรือ 123456"
+                    placeholder="เช่น 123456"
                     aria-invalid={errors.fid ? true : undefined}
                     {...bindEnter(10)}
                   />
@@ -675,7 +675,7 @@ const CustomerAdd = () => {
                 </div>
 
                 <div>
-                  <label className={labelCls}>ชื่อทะเบียนเกษตรกร (FID Owner)</label>
+                  <label className={labelCls}>ชื่อผู้ขึ้นทะเบียนเกษตรกร</label>
                   <input
                     ref={refs.fid_owner}
                     className={baseField}
@@ -687,7 +687,7 @@ const CustomerAdd = () => {
                 </div>
 
                 <div>
-                  <label className={labelCls}>ความสัมพันธ์ (FID Relationship)</label>
+                  <label className={labelCls}>ความสัมพันธ์กับผู้ขึ้นทะเบียน</label>
                   <div ref={refs.fid_relationship}>
                     <ComboBox
                       options={fidRelOptions}

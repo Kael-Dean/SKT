@@ -75,6 +75,10 @@ export const orderOrder = [
   "comment", "issueDate"
 ]
 
+/** Template-locked spec keys validated by salesValidation.validateSpec
+ *  (program is optional). Desktop maps their errors onto the product-form picker. */
+export const SPEC_KEYS = ["product", "riceType", "subrice", "condition", "fieldType", "riceYear", "businessType"]
+
 export const useEnterNavigation = (refs, buyerType, order) => {
   let list = (buyerType === "person" ? personOrder : companyOrder).concat(orderOrder)
   list = list.filter((key) => {
@@ -127,11 +131,17 @@ export const newTrailer = () => ({
   gramBack: "",
 })
 
-/** Label of the sale_id reference-document field (dynamic on payment method). */
+/** Credit sale? — matched on the payment label (BE has no flag). */
+export const isCreditLabel = (label = "") => {
+  const s = String(label).trim().toLowerCase()
+  return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
+}
+
+/** Label of the reference-document field (sent as sale_id; dynamic on payment method). */
 export const refDocLabel = (order, mobile = false) => {
   if (order.__isCredit) return mobile ? "เลขที่ใบกำกับสินค้า" : "เลขที่ใบกำกับสินค้า (ขายเชื่อ)"
-  if (order.__isCash) return mobile ? "เลขที่ใบรับเงิน" : "ใบรับเงินขายสินค้า (ขายสด)"
-  return mobile ? "เอกสารอ้างอิง" : "เอกสารอ้างอิง (เลือกวิธีชำระเงินเพื่อกรอก)"
+  if (order.__isCash) return mobile ? "เลขที่ใบรับเงิน" : "เลขที่ใบรับเงิน (ขายสด)"
+  return "เอกสารอ้างอิง"
 }
 
 export const buyerTypeOptions = [

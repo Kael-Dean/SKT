@@ -27,6 +27,9 @@ function SearchIcon({ className = "size-5" }) {
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 
+/** แสดงข้อความจาก backend เฉพาะเมื่อเป็นภาษาไทยแล้ว ไม่งั้นใช้ข้อความกลาง */
+const friendly = (e, fallback) => (/[฀-๿]/.test(e?.message || "") ? e.message : fallback)
+
 /** debounce */
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value)
@@ -85,11 +88,11 @@ const toBool = (v) => v === true || v === 1 || v === "1" || String(v).toLowerCas
 /** ---------- ฟิลด์ทั้งหมด (ยกเว้นโครงการ) ---------- */
 const FIELD_CONFIG = [
   { key: "member_id", label: "เลขสมาชิก", type: "text" },
-  { key: "precode", label: "คำนำหน้า (รหัส)", type: "number" },
+  { key: "precode", label: "คำนำหน้า", type: "number", options: [{ value: "", label: "— เลือก —" }, { value: "1", label: "นาย" }, { value: "2", label: "นาง" }, { value: "3", label: "นางสาว" }] },
   { key: "first_name", label: "ชื่อ", type: "text" },
   { key: "last_name", label: "นามสกุล", type: "text" },
   { key: "citizen_id", label: "เลขบัตรประชาชน", type: "cid" },
-  { key: "sex", label: "เพศ (M/F)", type: "select", options: ["", "M", "F"] },
+  { key: "sex", label: "เพศ", type: "select", options: [{ value: "", label: "— เลือก —" }, { value: "M", label: "ชาย" }, { value: "F", label: "หญิง" }] },
   { key: "phone_number", label: "โทรศัพท์", type: "text" },
   { key: "address", label: "ที่อยู่", type: "text" },
   { key: "mhoo", label: "หมู่", type: "text" },
@@ -100,7 +103,7 @@ const FIELD_CONFIG = [
   { key: "subprov", label: "อำเภอย่อย/รหัสอำเภอ", type: "number" },
   { key: "tgs_group", label: "กลุ่ม", type: "number" },
   { key: "bank_account", label: "บัญชีธนาคาร", type: "text" },
-  { key: "tgs_id", label: "รหัสสมาชิกในระบบ (tgs_id)", type: "text" },
+  { key: "tgs_id", label: "รหัส TGS", type: "text" },
   { key: "spouce_name", label: "ชื่อคู่สมรส", type: "text" },
   { key: "orders_placed", label: "จำนวนครั้งที่ซื้อ", type: "number" },
   { key: "regis_date", label: "วันที่สมัคร", type: "date" },
@@ -315,7 +318,7 @@ const MemberSearch = () => {
         const normalized = (Array.isArray(data) ? data : []).map(normalizeRecord)
         setRows(normalized)
       } catch (e) {
-        setError(e?.message || "ค้นหาไม่สำเร็จ")
+        setError(friendly(e, "ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง"))
       } finally {
         setLoading(false)
       }
@@ -398,7 +401,7 @@ const MemberSearch = () => {
       })
 
       const idForPatch = active.member_id
-      if (!idForPatch && idForPatch !== 0) throw new Error("ไม่พบเลขสมาชิก (member_id) สำหรับบันทึก")
+      if (!idForPatch && idForPatch !== 0) throw new Error("รายการนี้ไม่มีเลขสมาชิก จึงบันทึกการแก้ไขไม่ได้")
 
       // ✅ ส่งค่า member_id กลับไปเป็น string เสมอ (แก้กรณี BE ต้องการ string)
       diff.member_id = String(idForPatch)
@@ -428,8 +431,8 @@ const MemberSearch = () => {
       setEditing(false)
     } catch (e) {
       setRows((cur) => cur)
-      setRowError(e?.message || "บันทึกไม่สำเร็จ")
-      toast.error("บันทึกไม่สำเร็จ", { description: e?.message || "ลองใหม่อีกครั้ง" })
+      setRowError(friendly(e, "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"))
+      toast.error("บันทึกไม่สำเร็จ", { description: friendly(e, "ข้อมูลที่แก้ยังอยู่ ลองบันทึกใหม่อีกครั้ง") })
     } finally {
       setSaving(false)
     }
@@ -628,7 +631,7 @@ const MemberSearch = () => {
         title={active ? fullName(active) : "รายละเอียดสมาชิก"}
         subtitle={
           active
-            ? `สมาชิก #${active.member_id ?? (active.asso_id ? String(active.asso_id).slice(0, 8) : "-")}${active.citizen_id ? ` · ${active.citizen_id}` : ""}`
+            ? [active.member_id != null && active.member_id !== "" ? `เลขสมาชิก ${active.member_id}` : "", active.citizen_id || ""].filter(Boolean).join(" · ") || undefined
             : undefined
         }
         size="lg"
@@ -646,7 +649,7 @@ const MemberSearch = () => {
             <div className="mb-4 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-400/40 dark:bg-indigo-900/10">
               <div className="mb-2 text-base font-semibold text-indigo-800 dark:text-indigo-200">ข้อมูลหุ้น</div>
               <div className="rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
-                <div className="text-sm text-slate-600 dark:text-slate-300">ยอดหุ้นสะสม (total_shares)</div>
+                <div className="text-sm text-slate-600 dark:text-slate-300">ยอดหุ้นสะสม</div>
                 <div className="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatShares(active?.total_shares)}</div>
               </div>
             </div>
@@ -681,12 +684,14 @@ const MemberSearch = () => {
                       <div className={readCls}>
                         {(f.type === "date" || f.type === "date-optional")
                           ? formatDate(val)
-                          : (f.key === "normal_share" ? formatShares(val) : (val === "" || val == null ? "-" : val))}
+                          : f.options && val !== "" && val != null
+                            ? (f.options.find((op) => op.value === String(val))?.label ?? val)
+                            : (f.key === "normal_share" ? formatShares(val) : (val === "" || val == null ? "-" : val))}
                       </div>
-                    ) : f.type === "select" ? (
+                    ) : f.options ? (
                       <select id={fid} className={inputCls} value={val ?? ""} onChange={(e) => onChangeField(f.key, e.target.value)}>
                         {f.options.map((op) => (
-                          <option key={op} value={op}>{op === "" ? "— เลือก —" : op}</option>
+                          <option key={op.value} value={op.value}>{op.label}</option>
                         ))}
                       </select>
                     ) : f.type === "date" || f.type === "date-optional" ? (

@@ -91,7 +91,7 @@ function describeSaveError(err) {
   if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "รายการนี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
   if (status === 422) return { title: "ข้อมูลไม่ผ่านการตรวจ", description: isThai ? raw : "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่" }
   if (status >= 500) return { title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" }
-  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : `เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง · รหัส: ${status}` }
+  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : "เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง" }
 }
 
 /** ---------- DateInput ---------- */
@@ -148,7 +148,7 @@ function StockTransferOut() {
   const [variantLookup, setVariantLookup] = useState({})
   const templateSubLabel = (opt) => {
     const vid = String(opt?.spec?.variant_id ?? "")
-    const vLabel = vid ? (variantLookup[vid] || `#${vid}`) : ""
+    const vLabel = vid ? (variantLookup[vid] || "") : ""
     return vLabel ? `ชั้นย่อย: ${vLabel}` : ""
   }
 
@@ -638,7 +638,7 @@ function StockTransferOut() {
   const lookupOriginStock = async (transferQty) => {
     const body = { klang_id: Number(form.from_klang_id), spec: buildSpec() }
     const rows = await post("/transfer/stock/lookup", body)
-    if (!rows || rows.length === 0) throw new Error("ไม่พบสต็อกต้นทางของสเปกนี้ในคลังที่เลือก")
+    if (!rows || rows.length === 0) throw new Error("ไม่พบสต็อกต้นทางของสเปคนี้ในคลังที่เลือก")
     const available = Number(rows[0].available ?? 0)
     if (available < transferQty) {
       throw new Error(`สต็อกคงเหลือต้นทางไม่พอ (คงเหลือ ${available.toLocaleString()} กก.)`)
@@ -969,7 +969,7 @@ function StockTransferOut() {
             update("product_id", id)
             update("product_name", found?.label ?? "")
           }}
-          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          placeholder="—"
           error={!!errors.product_id}
           hintRed={!!missingHints.product_id}
           disabled={LOCK_SPEC}
@@ -995,7 +995,7 @@ function StockTransferOut() {
             update("rice_id", id)
             update("rice_type", found?.label ?? "")
           }}
-          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          placeholder="—"
           disabled={LOCK_SPEC}
           error={!!errors.rice_id}
           hintRed={!!missingHints.rice_id}
@@ -1004,11 +1004,11 @@ function StockTransferOut() {
       </div>
 
       <div>
-        <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
+        <label className={labelCls}>ชั้นย่อย</label>
         <ComboBox
           ref={subriceRef}
           title="ชั้นย่อย"
-          ariaLabel="ชั้นย่อย (Sub-class)"
+          ariaLabel="ชั้นย่อย"
           searchable
           options={subriceOptions}
           value={form.subrice_id}
@@ -1021,7 +1021,7 @@ function StockTransferOut() {
             update("subrice_id", id)
             update("subrice_name", found?.label ?? "")
           }}
-          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          placeholder="—"
           disabled={LOCK_SPEC}
           error={!!errors.subrice_id}
           hintRed={!!missingHints.subrice_id}
@@ -1044,7 +1044,7 @@ function StockTransferOut() {
             update("condition_id", id)
             update("condition_label", found?.label ?? "")
           }}
-          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          placeholder="—"
           disabled={LOCK_SPEC}
         />
       </div>
@@ -1066,7 +1066,7 @@ function StockTransferOut() {
             update("field_type_id", id)
             update("field_type_label", found?.label ?? "")
           }}
-          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          placeholder="—"
           error={!!errors.field_type_id}
           hintRed={!!missingHints.field_type_id}
           disabled={LOCK_SPEC}
@@ -1089,7 +1089,7 @@ function StockTransferOut() {
             update("rice_year_id", id)
             update("rice_year_label", found?.label ?? "")
           }}
-          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          placeholder="—"
           disabled={LOCK_SPEC}
         />
       </div>
@@ -1109,7 +1109,7 @@ function StockTransferOut() {
             update("program_id", id)
             update("program_label", found?.label ?? "")
           }}
-          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          placeholder="—"
           disabled={LOCK_SPEC}
         />
       </div>
@@ -1131,7 +1131,7 @@ function StockTransferOut() {
             update("business_type_id", id)
             update("business_type_label", found?.label ?? "")
           }}
-          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          placeholder="—"
           error={!!errors.business_type_id}
           hintRed={!!missingHints.business_type_id}
           disabled={LOCK_SPEC}
@@ -1195,7 +1195,7 @@ function StockTransferOut() {
                   placeholder="— เลือกฟอร์มสำเร็จรูป —"
                 />
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  ระบบ <b>ล็อกสเปกจากฟอร์มสำเร็จรูป</b> เท่านั้น: <b>ประเภทสินค้า</b>, <b>ชนิดข้าว</b>, <b>ชั้นย่อย</b>, <b>สภาพ</b>, <b>ประเภทนา</b>, <b>ปี/ฤดูกาล</b>, <b>โปรแกรม</b>, <b>ประเภทธุรกิจ</b>
+                  สเปคสินค้ามาจากฟอร์มสำเร็จรูปที่เลือก
                 </p>
               </div>
             </div>
@@ -1419,7 +1419,7 @@ function StockTransferOut() {
                     </div>
                   ))}
                 </dl>
-                <p className={helpTextCls}>ล็อกตามฟอร์มสำเร็จรูป</p>
+                <p className={helpTextCls}>ตามฟอร์มสำเร็จรูป</p>
                 <details className="group mt-3">
                   <summary className="flex min-h-touch cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 text-sm font-medium text-gray-700 dark:text-gray-200 [&::-webkit-details-marker]:hidden">
                     ดูช่องสเปคทั้งหมด

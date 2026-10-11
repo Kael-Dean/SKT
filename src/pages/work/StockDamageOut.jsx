@@ -67,7 +67,7 @@ function describeSaveError(err) {
   if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "รายการนี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
   if (status === 422) return { title: "ข้อมูลไม่ผ่านการตรวจ", description: isThai ? raw : "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่" }
   if (status >= 500) return { title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" }
-  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : `เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง · รหัส: ${status}` }
+  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : "เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง" }
 }
 
 /** ---------- DateInput ---------- */
@@ -338,8 +338,8 @@ const StockDamageOut = () => {
     if (!form.klang_id) e.klang_id = "กรุณาเลือกคลัง"
 
     if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
-    if (!form.species_id) e.species_id = "กรุณาเลือกชนิดข้าว (Species)"
-    if (!form.variant_id) e.variant_id = "กรุณาเลือกชั้นย่อย (Variant)"
+    if (!form.species_id) e.species_id = "กรุณาเลือกชนิดข้าว"
+    if (!form.variant_id) e.variant_id = "กรุณาเลือกชั้นย่อย"
 
     if (toNumber(form.weight_out) <= 0) e.weight_out = "น้ำหนักต้องมากกว่า 0"
     if (form.cost_per_kg === "" || toNumber(form.cost_per_kg) < 0) e.cost_per_kg = "ค่าเสียหาย/กก. ต้องไม่ติดลบ"
@@ -486,7 +486,7 @@ const StockDamageOut = () => {
             <line x1="12" y1="9" x2="12" y2="13" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
-          ตัดเสียหาย (Damage Out)
+          ตัดเสียหาย
         </h1>
 
         <form onSubmit={handleSubmit}>
@@ -592,7 +592,7 @@ const StockDamageOut = () => {
               </div>
 
               <div>
-                <label className={labelCls}>ชนิดข้าว (Species)</label>
+                <label className={labelCls}>ชนิดข้าว</label>
                 <ComboBox
                   title="ชนิดข้าว"
                   ariaLabel="ชนิดข้าว"
@@ -618,7 +618,7 @@ const StockDamageOut = () => {
               </div>
 
               <div>
-                <label className={labelCls}>ชั้นย่อย (Variant)</label>
+                <label className={labelCls}>ชั้นย่อย</label>
                 <ComboBox
                   title="ชั้นย่อย"
                   ariaLabel="ชั้นย่อย"

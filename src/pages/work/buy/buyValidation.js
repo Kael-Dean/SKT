@@ -19,7 +19,7 @@ export function validateCustomer({ buyerType, customer, memberMeta, order, resol
     if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
     const _midStr = String(memberMeta.memberId ?? customer.memberId ?? "").trim()
     if (!_midStr && !memberMeta.assoId) {
-      e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกจากรายชื่อที่มี asso_id"
+      e.memberId = "กรอกรหัสสมาชิก หรือเลือกชื่อจากผลค้นหา"
     }
   } else {
     if (!customer.companyName.trim()) e.companyName = "กรุณากรอกชื่อบริษัท"
@@ -37,8 +37,8 @@ export function validateCustomer({ buyerType, customer, memberMeta, order, resol
 export function validateSpec({ order }) {
   const e = {}
   if (!order.productId) e.product = "เลือกฟอร์มสำเร็จรูปให้มีสเปกสินค้า"
-  if (!order.riceId) e.riceType = "เลือกฟอร์มสำเร็จรูปให้มีชนิดข้าว (species)"
-  if (!order.subriceId) e.subrice = "เลือกฟอร์มสำเร็จรูปให้มีชั้นย่อย (variant)"
+  if (!order.riceId) e.riceType = "เลือกฟอร์มสำเร็จรูปให้มีชนิดข้าว"
+  if (!order.subriceId) e.subrice = "เลือกฟอร์มสำเร็จรูปให้มีชั้นย่อย"
   if (!order.conditionId) e.condition = "เลือกฟอร์มสำเร็จรูปให้มีสภาพ/เงื่อนไข"
   if (!order.fieldTypeId) e.fieldType = "เลือกฟอร์มสำเร็จรูปให้มีประเภทนา"
   if (!order.riceYearId) e.riceYear = "เลือกฟอร์มสำเร็จรูปให้มีปี/ฤดูกาล"
@@ -59,7 +59,7 @@ export function validateWeigh({ order, grossFromScale }) {
 
   if (order.moisturePct === "" || isNaN(Number(order.moisturePct))) e.moisturePct = "กรอกความชื้น (%)"
   if (order.impurityPct === "" || isNaN(Number(order.impurityPct))) e.impurityPct = "กรอกสิ่งเจือปน (%)"
-  if (order.gram === "" || isNaN(Number(order.gram))) e.gram = "กรอกคุณภาพข้าว (gram)"
+  if (order.gram === "" || isNaN(Number(order.gram))) e.gram = "กรอกคุณภาพข้าว (กรัม)"
   if (order.unitPrice === "" || isNaN(Number(order.unitPrice))) e.unitPrice = "กรอกราคาต่อกก. (บาท)"
 
   const amt = moneyToNumber(order.amountTHB)

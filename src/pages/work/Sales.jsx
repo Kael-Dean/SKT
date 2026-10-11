@@ -11,17 +11,16 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth, post } from "../../lib/api"
 import { useCan } from "../../lib/permissions"
-import { ResultSheet, toast } from "../../components/ui"
+import { ResultSheet, ConfirmDialog, OrderSummaryPanel, Kbd, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import {
   onlyDigits, toNumber, round2, nf, thb, useDebounce, isEnabledInput, useEnterNavigation,
-  trailerOrder, newTrailer, deriveLockedBranch, translateSaveError,
+  trailerOrder, newTrailer, deriveLockedBranch, translateSaveError, SPEC_KEYS, isCreditLabel,
 } from "./sales/salesShared"
 import { validateAll as validateAllPure, computeMissingHints as computeMissingHintsPure, describeErrors } from "./sales/salesValidation"
 import SalesCustomerSection from "./sales/SalesCustomerSection"
 import SalesSpecSection from "./sales/SalesSpecSection"
 import SalesTrailerSection from "./sales/SalesTrailerSection"
-import SalesSummary, { SalesCommentField } from "./sales/SalesSummary"
 import SalesMobileStepper from "./sales/SalesMobileStepper"
 
 // =====================================================================
@@ -42,6 +41,7 @@ function Sales() {
   // Outcome of the last save → <ResultSheet> (replaces alert()).
   //   { kind: "ok" | "partial" | "allfail", results, rows, ok, n }
   const [saveResult, setSaveResult] = useState(null)
+  const [confirmReset, setConfirmReset] = useState(false) // desktop "ล้างฟอร์ม"
   // Phone stepper registers { showErrors, goTo, openTrailer, reset } here;
   // null on desktop (plan §A2 — the controller never imports step state).
   const stepApiRef = useRef(null)
@@ -202,6 +202,14 @@ function Sales() {
 
   const updateTrailer = (idx, key, value) => {
     setTrailers((prev) => prev.map((t, i) => (i === idx ? { ...t, [key]: value } : t)))
+  }
+  // Desktop "ลบรถคันที่ n": drop that trailer (not just the last one). Count and
+  // list shrink together, so the count effect above sees equal lengths → no-op.
+  const removeTrailer = (idx) => {
+    if (trailers.length <= 1) return
+    setTrailers((prev) => prev.filter((_, i) => i !== idx))
+    setTrailersCount((c) => Math.max(1, c - 1))
+    setErrors((prev) => (prev.trailers ? { ...prev, trailers: prev.trailers.filter((_, i) => i !== idx) } : prev))
   }
 
   // น้ำหนัก/ราคา/ยอดเงินของรถพ่วงที่กรอกไว้ (ไว้ใช้สรุปด้านล่าง)
@@ -463,6 +471,29 @@ function Sales() {
     loadKlang()
   }, [order.branchId, order.branchName])
 
+  // ---------- คลัง: เลือกให้อัตโนมัติ (ตัวเดียว / ที่ใช้ล่าสุดของสาขานี้) ----------
+  // Runs when the warehouse list of a branch arrives. Keeps a valid current
+  // pick (reset keeps the warehouse); otherwise uses the one remembered for
+  // this branch, or the only one.
+  useEffect(() => {
+    if (!klangOptions.length) return
+    setOrder((p) => {
+      if (p.klangId != null && klangOptions.some((o) => String(o.id) === String(p.klangId))) return p
+      let pick = null
+      try {
+        const saved = p.branchId != null ? localStorage.getItem(`sales.lastKlang.${p.branchId}`) : null
+        if (saved) pick = klangOptions.find((o) => String(o.id) === String(saved)) || null
+      } catch { /* storage unavailable */ }
+      if (!pick && klangOptions.length === 1) pick = klangOptions[0]
+      if (!pick) return p
+      return { ...p, klangId: pick.id, klangName: pick.label }
+    })
+  }, [klangOptions])
+  useEffect(() => {
+    if (order.branchId == null || order.klangId == null) return
+    try { localStorage.setItem(`sales.lastKlang.${order.branchId}`, String(order.klangId)) } catch { /* storage unavailable */ }
+  }, [order.branchId, order.klangId])
+
   // ---------- โหลดรายการฟอร์มสำเร็จรูปจาก BE (ล็อกสเปก) ----------
   useEffect(() => {
     const loadForms = async () => {
@@ -642,7 +673,9 @@ function Sales() {
 
   // 🔎 member_id (ค้นหาแบบเก็บศูนย์นำหน้าได้)
   useEffect(() => {
-    if (!autoSearchEnabled) { setCustomerFound(null); return }
+    // Auto-search paused (submit / reset): keep what was found — clearing it
+    // here dropped the picked customer's asso_id after a failed save attempt.
+    if (!autoSearchEnabled) return
     if (buyerType !== "person") { setCustomerFound(null); return }
     // ถ้าเป็นอัปเดตที่มาจากการเลือกชื่อ ให้ข้าม
     if (suppressMemberSearchRef.current) {
@@ -673,7 +706,7 @@ function Sales() {
 
   // 🔎 citizen_id
   useEffect(() => {
-    if (!autoSearchEnabled) { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: "" }); return }
+    if (!autoSearchEnabled) return // see member_id effect above
     if (buyerType !== "person") { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: "" }); return }
     // ถ้าเป็นอัปเดตที่มาจากการเลือกชื่อ ให้ข้าม
     if (suppressCitizenSearchRef.current) {
@@ -761,7 +794,36 @@ function Sales() {
     setShowNameList(false); setNameResults([]); setHighlightedIndex(-1)
   }
 
-  // ⭐ ปรับ Enter บนลิสต์ชื่อ → ไป "ประเภทสินค้า"
+  // หลังเลือกชื่อ → ไปช่องแรกที่กรอกได้: คลัง → สาขา → จำนวนรถพ่วง (เหมือน Buy
+  // `focusKlangOrBranchOrEntry`). เดิมไป `product` ซึ่ง disabled เสมอ → focus ค้าง
+  const focusKlangOrBranchOrTrailer = () => {
+    for (const r of [refs.klangName, refs.branchName, refs.trailerCount]) {
+      const el = r?.current
+      if (el && isEnabledInput(el)) {
+        try { el.scrollIntoView({ block: "center" }) } catch { /* ignore */ }
+        el.focus?.()
+        try { el.select?.() } catch { /* ignore */ }
+        return true
+      }
+    }
+    return false
+  }
+
+  // หลังช่องลูกค้าช่องสุดท้าย (ชื่อ / เบอร์โทรบริษัท): desktop → วิธีชำระเงิน
+  // (แถวถัดไปในการ์ด); มือถือคงเดิม (คลัง… ซึ่งไม่อยู่ในขั้น 1 → ไม่ขยับ)
+  const focusAfterCustomer = () => {
+    if (!isPhone) {
+      const el = refs.payment?.current
+      if (el && isEnabledInput(el)) {
+        try { el.scrollIntoView({ block: "center" }) } catch { /* ignore */ }
+        el.focus?.()
+        return true
+      }
+    }
+    return focusKlangOrBranchOrTrailer()
+  }
+
+  // Enter บนลิสต์ชื่อ → เลือก แล้วไปช่องถัดไป (วิธีชำระเงิน)
   const handleNameKeyDown = async (e) => {
     if (!showNameList || nameResults.length === 0) return
     if (e.key === "ArrowDown") {
@@ -776,13 +838,7 @@ function Sales() {
       e.preventDefault()
       if (highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
         await pickNameResult(nameResults[highlightedIndex])
-        requestAnimationFrame(() => {
-          const el = refs.product?.current
-          if (el && isEnabledInput(el)) {
-            try { el.scrollIntoView({ block: "center" }) } catch {}
-            el.focus?.()
-          }
-        })
+        requestAnimationFrame(() => { focusAfterCustomer() })
       }
     } else if (e.key === "Escape") {
       e.preventDefault(); setShowNameList(false); setHighlightedIndex(-1)
@@ -902,8 +958,7 @@ function Sales() {
   const isCreditPayment = () => {
     const pid = resolvePaymentId()
     const label = (order.paymentMethod || "").trim() || (paymentOptions.find((o) => Number(o.id) === Number(pid))?.label || "").trim()
-    const s = label.toLowerCase()
-    return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
+    return isCreditLabel(label)
   }
   const resolvePaymentIdForBE = () => (isCreditPayment() ? 2 : 1)
   useEffect(() => {
@@ -922,6 +977,15 @@ function Sales() {
     return e
   }
 
+  // Desktop renders no spec ComboBoxes (spec comes from the product form) →
+  // spec errors land on the product-form picker instead.
+  const fieldElFor = (key) => {
+    const el = refs[key]?.current
+    if (el) return el
+    if (SPEC_KEYS.includes(key)) return refs.formTemplate?.current || null
+    return null
+  }
+
   const scrollToFirstError = (eObj) => {
     const personKeys = ["memberId", "fullName"]
     const companyKeys = ["companyName", "taxId"]
@@ -929,7 +993,7 @@ function Sales() {
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
     const firstKey = keys.find((k) => k in eObj)
     if (firstKey) {
-      const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
+      const el = fieldElFor(firstKey)
       if (el && typeof el.focus === "function") { try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} el.focus() }
       return
     }
@@ -944,7 +1008,7 @@ function Sales() {
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
     const firstKey = keys.find((k) => hintsObj[k])
     if (!firstKey) return
-    const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
+    const el = fieldElFor(firstKey)
     if (el && typeof el.focus === "function") {
       try { el.focus({ preventScroll: true }) } catch { el.focus() }
       try { el.select?.() } catch {}
@@ -970,6 +1034,17 @@ function Sales() {
     try { return new Date(`${yyyyMmDd}T12:00:00Z`).toISOString() } catch { return new Date().toISOString() }
   }
 
+  // Desktop: first customer field = เลขบัตรประชาชน (reset always returns to
+  // "บุคคล"). After a render so the person row exists again; preventScroll
+  // because reset/save scroll to the top themselves.
+  const focusFirstCustomerField = () => {
+    setTimeout(() => {
+      if (document.body.dataset.sheetOpen) return // a dialog/sheet owns focus
+      const el = refs.citizenId?.current || refs.companyName?.current
+      if (el && isEnabledInput(el)) { try { el.focus({ preventScroll: true }) } catch { el.focus?.() } }
+    }, 40)
+  }
+
   const handleReset = () => {
     // ปิด auto-search ชั่วคราว + ยกเลิกผล async ค้าง
     setAutoSearchEnabled(false)
@@ -983,6 +1058,7 @@ function Sales() {
       brHouseNo: "", brMoo: "", brSubdistrict: "", brDistrict: "", brProvince: "", brPostalCode: "",
     })
     setMemberMeta({ type: "unknown", assoId: null, memberId: "" })
+    setCustomerFound(null)
     setOrder((prev) => ({
       productId: prev.productId, productName: prev.productName,
       riceId: prev.riceId, riceType: prev.riceType,
@@ -995,7 +1071,8 @@ function Sales() {
       // คงสาขาที่ล็อกไว้ (ถ้ามี)
       branchName: branchLocked ? (lockedBranch?.label || prev.branchName) : prev.branchName,
       branchId: branchLocked ? (lockedBranch?.id ?? prev.branchId) : prev.branchId,
-      klangName: "", klangId: null,
+      // คลังคงไว้ (round 2: งานถัดไปมักใช้คลังเดิม)
+      klangName: prev.klangName, klangId: prev.klangId,
       issueDate: prev.issueDate, comment: "",
       paymentMethod: "", paymentMethodId: "",
       cashReceiptNo: "", creditInvoiceNo: "",
@@ -1009,7 +1086,8 @@ function Sales() {
     setTrailers([newTrailer()])
     setShowNameList(false); setNameResults([]); setHighlightedIndex(-1)
     setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1)
-    try { refs.buyerType?.current?.focus() } catch {}
+    if (isPhone) { try { refs.buyerType?.current?.focus() } catch { /* ignore */ } }
+    else focusFirstCustomerField()
     requestAnimationFrame(() => scrollToPageTop())
   }
 
@@ -1074,7 +1152,7 @@ function Sales() {
             requestAnimationFrame(() => setTimeout(() => { try { refs.memberId.current?.focus() } catch { /* ignore */ } }, 60))
           }
           toast.error("ยังไม่ได้ระบุสมาชิก", {
-            description: "กรอกรหัสสมาชิก (member_id) หรือเลือกชื่อจากผลค้นหา",
+            description: "กรอกรหัสสมาชิก หรือเลือกชื่อจากผลค้นหา",
             action: stepApiRef.current ? { label: "แตะเพื่อไปที่ขั้น 1", onClick: goMember } : undefined,
           })
           if (!stepApiRef.current) goMember()
@@ -1205,6 +1283,37 @@ function Sales() {
     }
   }
 
+  // ---------- Desktop keyboard: autofocus + Ctrl+S / Ctrl+Enter ----------
+  const submitRef = useRef(handleSubmit)
+  submitRef.current = handleSubmit
+  const didAutofocusRef = useRef(false)
+  useEffect(() => {
+    if (isPhone || didAutofocusRef.current) return
+    const id = requestAnimationFrame(() => {
+      didAutofocusRef.current = true
+      const el = refs.citizenId.current
+      // only if nothing else took focus first (e.g. the user already clicked)
+      if (el && (document.activeElement === document.body || !document.activeElement)) {
+        try { el.focus({ preventScroll: true }) } catch { el.focus() }
+      }
+    })
+    return () => cancelAnimationFrame(id)
+  }, [isPhone]) // eslint-disable-line react-hooks/exhaustive-deps -- refs are stable useRef objects
+  useEffect(() => {
+    if (isPhone) return
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.isComposing) return
+      // KeyS also covers the Thai layout (key = "ห")
+      const isSave = e.code === "KeyS" || e.key === "s" || e.key === "S" || e.key === "Enter"
+      if (!isSave) return
+      if (document.body.dataset.sheetOpen) return // a dialog / sheet is open
+      e.preventDefault()
+      submitRef.current({ preventDefault() {} }) // same path as the button: validation first
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [isPhone])
+
   // ---------------- UI ----------------
   const handleFullNameKeyDown = (e) => {
     if (showNameList && nameResults.length > 0) {
@@ -1212,13 +1321,7 @@ function Sales() {
     }
     if (e.key === "Enter" && !e.isComposing) {
       e.preventDefault()
-      const el = refs.product?.current
-      if (el && isEnabledInput(el)) {
-        try { el.scrollIntoView({ block: "center" }) } catch {}
-        el.focus?.()
-        try { el.select?.() } catch {}
-        return
-      }
+      if (focusAfterCustomer()) return
       focusNext("fullName")
     }
   }
@@ -1229,7 +1332,7 @@ function Sales() {
     // state
     errors, missingHints, loadingCustomer, customerFound, submitting,
     buyerType, setBuyerType, customer, memberMeta, order, setOrder, dept, setDept,
-    trailersCount, setTrailersCount, trailers, trailerSummary,
+    trailersCount, setTrailersCount, trailers, trailerSummary, removeTrailer,
     templateOptions, formTemplate, setFormTemplate, selectedTemplateLabel, setSelectedTemplateLabel, templateSubLabel, applyTemplateBySpec,
     productOptions, riceOptions, subriceOptions, conditionOptions, fieldTypeOptions, yearOptions, programOptions,
     paymentOptions, branchOptions, klangOptions, businessOptions, branchLocked, lockedBranch,
@@ -1238,7 +1341,7 @@ function Sales() {
     beforeFocusTrailerRef,
     // search panels
     nameBoxRef, nameInputRef, listContainerRef, itemRefs, showNameList, setShowNameList, nameResults, highlightedIndex, setHighlightedIndex,
-    pickNameResult, scrollHighlightedIntoView2, handleFullNameKeyDown,
+    pickNameResult, scrollHighlightedIntoView2, handleFullNameKeyDown, focusKlangOrBranchOrTrailer, focusAfterCustomer,
     companyBoxRef, companyInputRef, companyItemRefs, showCompanyList, setShowCompanyList, companyResults, companyHighlighted, setCompanyHighlighted,
     pickCompanyResult, handleCompanyKeyDown,
     // handlers
@@ -1258,7 +1361,8 @@ function Sales() {
       stepApiRef.current.goTo(2)
       requestAnimationFrame(() => setTimeout(() => focusTrailerField(idx, "scaleNoFront"), 80))
     } else {
-      focusTrailerField(idx, "scaleNoFront")
+      // after the ResultSheet hands focus back to its opener (the save button)
+      setTimeout(() => focusTrailerField(idx, "scaleNoFront"), 40)
     }
   }
   const retrySubmit = () => {
@@ -1284,7 +1388,7 @@ function Sales() {
           })),
           { key: "total", label: "รวม", value: thb(totalAmt) },
         ],
-        primary: { label: "ทำรายการใหม่", onClick: closeResult },
+        primary: { label: "ทำรายการใหม่", onClick: () => { closeResult(); if (!isPhone) focusFirstCustomerField() } },
         secondary: can("trading.reports.view") ? { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order") } } : undefined,
       }
     }
@@ -1314,7 +1418,12 @@ function Sales() {
       secondary: { label: "แก้ไขรถพ่วง", onClick: editTrailers },
     }
   })()
-  const resultSheet = <ResultSheet open={!!resultProps} onClose={closeResult} {...(resultProps || {})} />
+  const onResultClose = () => {
+    const wasOk = saveResult?.kind === "ok"
+    closeResult()
+    if (wasOk && !isPhone) focusFirstCustomerField()
+  }
+  const resultSheet = <ResultSheet open={!!resultProps} onClose={onResultClose} {...(resultProps || {})} />
 
   if (isPhone) {
     return (
@@ -1326,74 +1435,72 @@ function Sales() {
     )
   }
 
+  // ---------- Desktop summary panel (round 2) ----------
+  const { totals } = trailerSummary
+  const customerName = buyerType === "person" ? customer.fullName.trim() : customer.companyName.trim()
+  const productLabel = selectedTemplateLabel || order.productName
+  const panelRows = [
+    { label: "ลูกค้า", value: customerName || "ยังไม่ได้เลือก", emphasis: customerName ? undefined : "muted" },
+    { label: "สินค้า", value: productLabel || "ยังไม่ได้เลือก", emphasis: productLabel ? undefined : "muted" },
+    { label: "คลัง", value: order.klangName || "ยังไม่ได้เลือก", emphasis: order.klangName ? undefined : "muted" },
+    { label: "จำนวนรถ", value: `${trailers.length} คัน` },
+    { label: "น้ำหนักสุทธิรวม", value: `${nf(totals.net)} กก.`, emphasis: totals.net > 0 ? undefined : "muted" },
+    { label: "ราคาเฉลี่ย/กก.", value: totals.weightedUnit > 0 ? `${thb(totals.weightedUnit)}/กก.` : "—", emphasis: totals.weightedUnit > 0 ? undefined : "muted" },
+    { label: "ยอดเงินรวม", value: thb(totals.amount), emphasis: "total" },
+  ]
+  const formDirty =
+    [customer.citizenId, customer.memberId, customer.fullName, customer.companyName, customer.taxId, order.comment, order.paymentMethod]
+      .some((v) => String(v || "").trim() !== "") ||
+    trailers.some((t) => Object.values(t).some((v) => String(v ?? "").trim() !== ""))
+  const askReset = () => { if (formDirty) setConfirmReset(true); else handleReset() }
+
   return (
-    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด (ให้เหมือน Buy) */}
-        <div ref={pageTopRef} />
+    <div className="text-base text-gray-900 dark:text-gray-100">
+      {/* same page frame as Buy (round 2) */}
+      <div className="mx-auto max-w-7xl p-4 md:p-6">
+      {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด */}
+      <div ref={pageTopRef} />
 
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ขาย (หลายพ่วง)</h1>
+      <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-gray-50">บันทึกออเดอร์ขาย</h1>
 
-        {/* กล่องข้อมูลลูกค้า */}
-        <SalesCustomerSection form={form} />
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <div className="min-w-0 space-y-5">
+          <SalesCustomerSection form={form} />
 
-        {/* ฟอร์มออเดอร์ */}
-        <form onSubmit={handleSubmit} onKeyDown={(e)=>{ if(submitting && e.key==="Enter"){ e.preventDefault() } }} className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-          <h2 className="mb-3 text-xl font-semibold">รายละเอียดการขาย</h2>
+          <form
+            id="sales-form"
+            noValidate
+            onSubmit={handleSubmit}
+            onKeyDown={(e) => { if (submitting && e.key === "Enter") e.preventDefault() }}
+            className="space-y-5"
+          >
+            <SalesSpecSection form={form} />
+            <SalesTrailerSection form={form} />
+          </form>
+        </div>
 
-          {/* สเปค (ล็อกจากฟอร์ม) + สาขา/คลัง */}
-          <SalesSpecSection form={form} />
+        <aside className="md:ml-auto md:w-full md:max-w-sm lg:sticky lg:top-[calc(var(--topbar-h)+1rem)] lg:max-w-none lg:self-start">
+          <OrderSummaryPanel
+            title="สรุปรายการ"
+            rows={panelRows}
+            primary={{ label: submitting ? "กำลังบันทึก…" : "บันทึกออเดอร์", type: "submit", form: "sales-form", loading: submitting }}
+            primaryRef={refs.submitBtn}
+            secondary={{ label: "ล้างฟอร์ม", onClick: askReset, disabled: submitting }}
+            hint={<><Kbd>Enter</Kbd> ไปช่องถัดไป · <Kbd>Ctrl</Kbd>+<Kbd>S</Kbd> บันทึก</>}
+          />
+        </aside>
+      </div>
 
-          {/* รถพ่วงหลายคัน */}
-          <SalesTrailerSection form={form} />
-
-          {/* หมายเหตุ */}
-          <SalesCommentField form={form} />
-
-          {/* สรุปสั้น ๆ + ตารางพ่วง + รวมเงิน */}
-          <SalesSummary form={form} />
-
-          {/* ปุ่มบันทึก/รีเซ็ต */}
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <button
-              ref={refs.submitBtn}
-              type="submit" disabled={submitting} aria-busy={submitting}
-              className="inline-flex items-center justify-center rounded-2xl
-                bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                transition-all duration-300 ease-out
-                hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                hover:scale-[1.05] active:scale-[.97] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {submitting ? (
-                <span className="inline-flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" width="18" height="18" className="animate-spin">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25"></circle>
-                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none"></path>
-                  </svg>
-                  กำลังบันทึก...
-                </span>
-              ) : (
-                <>บันทึก</>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center justify-center rounded-2xl
-                border border-slate-300 bg-white px-6 py-3 text-base font-medium
-                text-slate-700 dark:text-white
-                shadow-sm
-                transition-all duration-300 ease-out
-                hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                active:scale-[.97]
-                dark:border-slate-600 dark:bg-slate-700/60
-                dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
-            >
-              รีเซ็ต
-            </button>
-          </div>
-        </form>
+      <ConfirmDialog
+        open={confirmReset}
+        title="ล้างข้อมูลที่กรอกไว้"
+        description="ข้อมูลลูกค้า รถพ่วง และหมายเหตุจะหาย · ฟอร์มสินค้าและคลังยังอยู่"
+        confirmLabel="ล้างฟอร์ม"
+        cancelLabel="เก็บไว้"
+        tone="danger"
+        onConfirm={() => { setConfirmReset(false); handleReset() }}
+        onCancel={() => setConfirmReset(false)}
+      />
       </div>
       {resultSheet}
     </div>

@@ -9,6 +9,8 @@ import { useIsPhone } from "../../hooks/useMediaQuery"
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
+/** แสดงข้อความจาก backend เฉพาะเมื่อเป็นภาษาไทยแล้ว ไม่งั้นใช้ข้อความกลาง */
+const friendly = (e, fallback) => (/[฀-๿]/.test(e?.message || "") ? e.message : fallback)
 
 // ตรวจเลขบัตร ปชช.ไทย (13 หลัก)
 function validateThaiCitizenId(id) {
@@ -245,7 +247,7 @@ function ReceiptModal({ open, onClose, receipt, name }) {
         ))}
       </dl>
       <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
-        วันที่ซื้อ: {receipt?.buy_date || "-"} · รหัสสมาชิกในระบบ: {receipt?.tgs_id || "-"}
+        วันที่ซื้อ: {receipt?.buy_date || "-"} · รหัส TGS: {receipt?.tgs_id || "-"}
       </p>
     </Sheet>
   )
@@ -452,7 +454,7 @@ const MemberSignup = () => {
     if (!amountNum || isNaN(amountNum) || amountNum < 100) {
       e.buy_amount = "มูลค่าที่ซื้อต้องเป็นจำนวนเงิน ≥ 100"
     }
-    if (!form.tgs_id) e.tgs_id = "กรอกรหัสสมาชิกในระบบ (tgs_id) เพื่อทำการซื้อหุ้น"
+    if (!form.tgs_id) e.tgs_id = "กรอกรหัส TGS เพื่อซื้อหุ้น"
 
     // ช่วงค่าที่ดิน
     const landTriples = [
@@ -595,7 +597,7 @@ const MemberSignup = () => {
       }
     } catch (err) {
       console.error(err)
-      toast.error("บันทึก/ซื้อหุ้นไม่สำเร็จ", { description: String(err?.message || err || "ลองใหม่อีกครั้ง") })
+      toast.error("บันทึก/ซื้อหุ้นไม่สำเร็จ", { description: friendly(err, "ข้อมูลที่กรอกยังอยู่ ลองบันทึกใหม่อีกครั้ง") })
     } finally {
       setSubmitting(false)
     }
@@ -672,7 +674,7 @@ const MemberSignup = () => {
         <div ref={topRef} tabIndex={-1} className="mb-5 outline-none">
           <h1 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-white">สมัครสมาชิก</h1>
           <p className="mt-1 text-[15px] text-slate-600 dark:text-slate-400">
-            กรอกข้อมูลสมาชิกและรายการซื้อหุ้นครั้งแรก จังหวัดถูกล็อกเป็นสุรินทร์
+            กรอกข้อมูลสมาชิกและรายการซื้อหุ้นครั้งแรก · จังหวัดสุรินทร์
           </p>
         </div>
 
@@ -730,7 +732,7 @@ const MemberSignup = () => {
             <div className="grid gap-4 md:grid-cols-4">
               {/* เลขสมาชิก */}
               <div>
-                <label className={labelCls} htmlFor="ms-member_id">เลขสมาชิก (member_id)</label>
+                <label className={labelCls} htmlFor="ms-member_id">เลขสมาชิก</label>
                 <input
                   id="ms-member_id"
                   ref={refs.member_id}
@@ -748,7 +750,7 @@ const MemberSignup = () => {
 
               {/* คำนำหน้า */}
               <div>
-                <label className={labelCls}>คำนำหน้า (precode)</label>
+                <label className={labelCls}>คำนำหน้า</label>
                 <div ref={refs.precode}>
                   <ComboBox
                     options={[{value:"1",label:"นาย"},{value:"2",label:"นาง"},{value:"3",label:"นางสาว"}]}
@@ -767,7 +769,7 @@ const MemberSignup = () => {
 
               {/* วันที่สมัคร */}
               <div className="md:col-span-2">
-                <label className={labelCls} htmlFor="ms-regis_date">วันที่สมัคร (regis_date)</label>
+                <label className={labelCls} htmlFor="ms-regis_date">วันที่สมัคร</label>
                 <DateInput
                   id="ms-regis_date"
                   ref={refs.regis_date}
@@ -842,8 +844,8 @@ const MemberSignup = () => {
                 <div ref={refs.sex}>
                   <ComboBox
                     options={[
-                      { value: "M", label: "ชาย (M)" },
-                      { value: "F", label: "หญิง (F)" },
+                      { value: "M", label: "ชาย" },
+                      { value: "F", label: "หญิง" },
                     ]}
                     value={form.sex}
                     onChange={() => {}}
@@ -859,7 +861,7 @@ const MemberSignup = () => {
 
               {/* คู่สมรส */}
               <div className="md:col-span-2">
-                <label className={labelCls} htmlFor="ms-spouce_name">ชื่อคู่สมรส (spouce_name)</label>
+                <label className={labelCls} htmlFor="ms-spouce_name">ชื่อคู่สมรส</label>
                 <input
                   id="ms-spouce_name"
                   ref={refs.spouce_name}
@@ -867,7 +869,7 @@ const MemberSignup = () => {
                   value={form.spouce_name}
                   onChange={(e) => update("spouce_name", e.target.value)}
                   onKeyDown={onEnter("spouce_name")}
-                  placeholder="ชื่อคุ๋สมรส"
+                  placeholder="เช่น สมศรี ใจดี"
                 />
               </div>
             </div>
@@ -881,7 +883,7 @@ const MemberSignup = () => {
             ) : (
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls} htmlFor="ms-address">บ้านเลขที่ (address)</label>
+                <label className={labelCls} htmlFor="ms-address">บ้านเลขที่</label>
                 <input
                   id="ms-address"
                   ref={refs.address}
@@ -897,7 +899,7 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls} htmlFor="ms-mhoo">หมู่ (mhoo)</label>
+                <label className={labelCls} htmlFor="ms-mhoo">หมู่</label>
                 <input
                   id="ms-mhoo"
                   ref={refs.mhoo}
@@ -929,7 +931,7 @@ const MemberSignup = () => {
 
               {/* อำเภอ */}
               <div>
-                <label className={labelCls}>อำเภอ (district)</label>
+                <label className={labelCls}>อำเภอ</label>
                 <div ref={refs.district}>
                   <ComboBox
                     options={amphoeOptions}
@@ -948,7 +950,7 @@ const MemberSignup = () => {
 
               {/* ตำบล */}
               <div>
-                <label className={labelCls}>ตำบล (sub_district)</label>
+                <label className={labelCls}>ตำบล</label>
                 <div ref={refs.sub_district}>
                   <ComboBox
                     options={tambonOptions}
@@ -967,7 +969,7 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls} htmlFor="ms-subprov">อำเภอย่อย/รหัสอำเภอ (subprov)</label>
+                <label className={labelCls} htmlFor="ms-subprov">อำเภอย่อย/รหัสอำเภอ</label>
                 <input
                   id="ms-subprov"
                   ref={refs.subprov}
@@ -981,7 +983,7 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls} htmlFor="ms-postal_code">รหัสไปรษณีย์ </label>
+                <label className={labelCls} htmlFor="ms-postal_code">รหัสไปรษณีย์</label>
                 <input
                   id="ms-postal_code"
                   ref={refs.postal_code}
@@ -999,7 +1001,7 @@ const MemberSignup = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className={labelCls} htmlFor="ms-phone_number">โทรศัพท์ (phone_number)</label>
+                <label className={labelCls} htmlFor="ms-phone_number">โทรศัพท์</label>
                 <input
                   id="ms-phone_number"
                   ref={refs.phone_number}
@@ -1023,7 +1025,7 @@ const MemberSignup = () => {
             <CardHeader title="ข้อมูลเพิ่มเติมและการเงิน" />
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls} htmlFor="ms-tgs_group">กลุ่ม (tgs_group)</label>
+                <label className={labelCls} htmlFor="ms-tgs_group">กลุ่ม</label>
                 <input
                   id="ms-tgs_group"
                   ref={refs.tgs_group}
@@ -1040,7 +1042,7 @@ const MemberSignup = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className={labelCls} htmlFor="ms-bank_account">บัญชีธนาคาร (bank_account)</label>
+                <label className={labelCls} htmlFor="ms-bank_account">บัญชีธนาคาร</label>
                 <input
                   id="ms-bank_account"
                   ref={refs.bank_account}
@@ -1053,7 +1055,7 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls} htmlFor="ms-tgs_id">รหัสสมาชิกในระบบ (tgs_id)</label>
+                <label className={labelCls} htmlFor="ms-tgs_id">รหัส TGS</label>
                 <input
                   id="ms-tgs_id"
                   ref={refs.tgs_id}
@@ -1105,7 +1107,7 @@ const MemberSignup = () => {
             <CardHeader title="ข้อมูลเกษตร" />
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls} htmlFor="ms-fid">รหัสทะเบียนเกษตรกร (fid)</label>
+                <label className={labelCls} htmlFor="ms-fid">เลขทะเบียนเกษตรกร</label>
                 <input
                   id="ms-fid"
                   ref={refs.fid}
@@ -1122,7 +1124,7 @@ const MemberSignup = () => {
               </div>
 
               <div className="md:col-span-2">
-                <label className={labelCls} htmlFor="ms-fid_owner">ผู้ขึ้นทะเบียนเกษตรกร (fid_owner)</label>
+                <label className={labelCls} htmlFor="ms-fid_owner">ผู้ขึ้นทะเบียนเกษตรกร</label>
                 <input
                   id="ms-fid_owner"
                   ref={refs.fid_owner}
@@ -1138,7 +1140,7 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls} htmlFor="ms-agri_type">ประเภทการเกษตร (agri_type)</label>
+                <label className={labelCls} htmlFor="ms-agri_type">ประเภทการเกษตร</label>
                 <input
                   id="ms-agri_type"
                   ref={refs.agri_type}
@@ -1155,7 +1157,7 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls} htmlFor="ms-fertilizing_period">ช่วงระยะเวลาการใช้ปุ๋ย (fertilizing_period)</label>
+                <label className={labelCls} htmlFor="ms-fertilizing_period">ช่วงระยะเวลาการใช้ปุ๋ย</label>
                 <input
                   id="ms-fertilizing_period"
                   ref={refs.fertilizing_period}
@@ -1172,7 +1174,7 @@ const MemberSignup = () => {
               </div>
 
               <div>
-                <label className={labelCls} htmlFor="ms-fertilizer_type">สูตรที่ใช้ปุ๋ย (fertilizer_type)</label>
+                <label className={labelCls} htmlFor="ms-fertilizer_type">สูตรที่ใช้ปุ๋ย</label>
                 <input
                   id="ms-fertilizer_type"
                   ref={refs.fertilizer_type}

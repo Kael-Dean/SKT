@@ -28,6 +28,9 @@ export const errId = (key) => `buy-${key}-err`
 /** aria-describedby value: the error <p> id while that key has an error. */
 export const describedBy = (errors, key) => (errors?.[key] ? errId(key) : undefined)
 
+/** Desktop section card heading (R2 compact layout) */
+export const sectionH2Cls = "text-lg font-semibold leading-snug text-gray-900 dark:text-gray-100"
+
 export const findLabelById = (opts = [], id) => {
   const s = String(id ?? "")
   if (!s) return ""
@@ -311,7 +314,6 @@ export const describeApiError = (err) => {
     : typeof detail === "string" ? [detail] : []
   const translated = detailMsgs.map(translateApiMessage).filter(Boolean)
   const lines = (translated.length ? translated : detailMsgs.filter(isThai)).slice(0, 4).map((m) => ({ label: "รายละเอียด", value: m }))
-  const code = status ?? err?.code ?? err?.name ?? "—"
   const network = !status || /failed to fetch|networkerror|timeout/i.test(String(err?.message))
 
   if (network)
@@ -338,7 +340,7 @@ export const describeApiError = (err) => {
     kind: "unknown",
     title: "บันทึกไม่สำเร็จ",
     description: isThai(msg) ? msg : "เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง",
-    lines: [...lines, { label: "รหัส", value: String(code) }],
+    lines,
     primary: "retry",
   }
 }

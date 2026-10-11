@@ -122,7 +122,7 @@ function RiceSpecCreate() {
       console.error("load", key, "failed:", e)
       setLoadErr((p) => ({
         ...p,
-        [key]: "โหลดรายการไม่สำเร็จ (ตรวจสอบ endpoint/สิทธิ์การเข้าถึง)",
+        [key]: "โหลดรายการไม่สำเร็จ กด “โหลดรายการใหม่” เพื่อลองอีกครั้ง",
       }))
       return []
     }
@@ -271,9 +271,9 @@ function RiceSpecCreate() {
   const validate = () => {
     const e = {}
 
-    if (!form.product_id) e.product_id = "เลือกประเภทสินค้า (product)"
-    if (!form.species_id) e.species_id = "เลือกชนิด/สายพันธุ์ (species)"
-    if (!form.variant_id) e.variant_id = "เลือกพันธุ์/รูปแบบ (variant)"
+    if (!form.product_id) e.product_id = "เลือกประเภทสินค้า"
+    if (!form.species_id) e.species_id = "เลือกชนิด/สายพันธุ์"
+    if (!form.variant_id) e.variant_id = "เลือกพันธุ์/รูปแบบ"
 
     // กันกรณีได้ค่าที่ไม่ใช่ตัวเลข
     ;[
@@ -346,9 +346,14 @@ function RiceSpecCreate() {
       toast.success("สร้างรหัสข้าวแล้ว", { description: res?.prod_name || undefined })
     } catch (err) {
       console.error(err)
-      const msg = err?.message || "บันทึกล้มเหลว"
+      const isDup = err?.status === 409
+      const msg = /[฀-๿]/.test(err?.message || "")
+        ? err.message
+        : isDup
+          ? "มีรหัสข้าวสเปคนี้อยู่แล้ว ใช้รหัสเดิมได้เลย"
+          : "ข้อมูลที่เลือกยังอยู่ ลองบันทึกใหม่อีกครั้ง"
       setSubmitError(msg)
-      toast.error(err?.status === 409 ? "รายการนี้มีอยู่แล้ว" : "บันทึกไม่สำเร็จ", { description: msg })
+      toast.error(isDup ? "รายการนี้มีอยู่แล้ว" : "บันทึกไม่สำเร็จ", { description: msg })
     } finally {
       setSubmitting(false)
     }
@@ -382,6 +387,23 @@ function RiceSpecCreate() {
     return parts.filter(Boolean).join(" / ")
   }, [form, opts])
 
+  // ผลลัพธ์หลังสร้าง: แปลง id ที่ได้กลับมาเป็นชื่อจากรายการตัวเลือกในหน้า (แปลงไม่ได้ = ไม่แสดงแถวนั้น)
+  const resultSpecRows = useMemo(() => {
+    if (!result) return []
+    const nameOf = (arr, v) =>
+      v == null || v === "" ? null : (arr || []).find((x) => String(x.id) === String(v))?.label || null
+    return [
+      { label: "ประเภทสินค้า", value: nameOf(opts.products, result.product_id) },
+      { label: "ชนิด/สายพันธุ์", value: nameOf(opts.species, result.species_id) },
+      { label: "พันธุ์/รูปแบบ", value: nameOf(opts.variants, result.variant_id) },
+      { label: "ปีผลผลิต", value: nameOf(opts.years, result.product_year) },
+      { label: "สภาพ/เงื่อนไข", value: nameOf(opts.conditions, result.condition_id) },
+      { label: "ประเภทนา", value: nameOf(opts.fieldTypes, result.field_type) },
+      { label: "โปรแกรม", value: nameOf(opts.programs, result.program) },
+      { label: "ประเภทธุรกิจ", value: nameOf(opts.businessTypes, result.business_type) },
+    ].filter((r) => r.value)
+  }, [result, opts])
+
   const anyLoading = loading.static || loading.species || loading.variants
 
   // โหลด master ครั้งแรกล้มเหลวทั้งหมด → โชว์ ErrorState พร้อมปุ่มลองใหม่
@@ -402,18 +424,16 @@ function RiceSpecCreate() {
       <div className="mx-auto max-w-5xl p-4 md:p-6 lg:p-8">
         <h1 className="mb-1 text-xl md:text-3xl font-bold text-gray-900 dark:text-white">เพิ่มรหัสข้าว</h1>
         <p className="mb-5 text-slate-600 dark:text-slate-300">
-          เลือกข้อมูลให้ครบ (อย่างน้อย 3 ช่องแรก) แล้วกดบันทึก ระบบหลังบ้านจะสร้าง{" "}
-          <span className="font-semibold">prod_name</span> ให้อัตโนมัติ
+          เลือกข้อมูลให้ครบ (อย่างน้อย 3 ช่องแรก) แล้วกดบันทึก ชื่อรหัสข้าวจะสร้างให้อัตโนมัติ
         </p>
 
         <Card className="mb-4 md:mb-6">
-          <CardHeader title="ข้อมูลรหัสข้าว (Spec)" subtitle="ช่องที่มี * เป็นช่องบังคับ" />
+          <CardHeader title="ข้อมูลรหัสข้าว" subtitle="ช่องที่มี * เป็นช่องบังคับ" />
           {/* hint สิทธิ์ */}
           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 dark:border-amber-500/30 dark:bg-amber-900/20 dark:text-amber-200">
             <div className="font-semibold">หมายเหตุ</div>
             <div className="text-sm leading-relaxed">
-              API ฝั่ง BE อนุญาตให้สร้างได้เฉพาะบทบาท{" "}
-              <span className="font-semibold">HA / ADMIN</span> เท่านั้น
+              สร้างรหัสข้าวได้เฉพาะผู้ดูแลระบบและบัญชี HA
             </div>
           </div>
 
@@ -421,7 +441,7 @@ function RiceSpecCreate() {
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
               {anyLoading && <span className={cx(spinnerCls, "!border-indigo-400/40 !border-t-indigo-500")} aria-hidden="true" />}
-              {anyLoading ? "กำลังโหลดรายการ..." : "รายการตัวเลือกถูกโหลดจากระบบ"}
+              {anyLoading ? "กำลังโหลดรายการ..." : "โหลดรายการตัวเลือกแล้ว"}
             </div>
             <button
               type="button"
@@ -445,7 +465,7 @@ function RiceSpecCreate() {
           {/* แถวตัวเลือก */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <ComboField
-              label="ประเภทสินค้า (Product)"
+              label="ประเภทสินค้า"
               required
               buttonRef={productRef}
               value={form.product_id}
@@ -460,7 +480,7 @@ function RiceSpecCreate() {
             />
 
             <ComboField
-              label="ชนิด/สายพันธุ์ (Species)"
+              label="ชนิด/สายพันธุ์"
               searchable
               required
               buttonRef={speciesRef}
@@ -478,7 +498,7 @@ function RiceSpecCreate() {
             />
 
             <ComboField
-              label="พันธุ์/รูปแบบ (Variant)"
+              label="พันธุ์/รูปแบบ"
               searchable
               required
               buttonRef={variantRef}
@@ -496,7 +516,7 @@ function RiceSpecCreate() {
             />
 
             <ComboField
-              label="ปีผลผลิต (Year)"
+              label="ปีผลผลิต"
               buttonRef={yearRef}
               value={form.product_year}
               onChange={(v) => {
@@ -511,7 +531,7 @@ function RiceSpecCreate() {
             />
 
             <ComboField
-              label="สภาพ/เงื่อนไข (Condition)"
+              label="สภาพ/เงื่อนไข"
               buttonRef={conditionRef}
               value={form.condition_id}
               onChange={(v) => {
@@ -526,7 +546,7 @@ function RiceSpecCreate() {
             />
 
             <ComboField
-              label="ประเภทแปลง (Field Type)"
+              label="ประเภทนา"
               buttonRef={fieldTypeRef}
               value={form.field_type}
               onChange={(v) => {
@@ -541,7 +561,7 @@ function RiceSpecCreate() {
             />
 
             <ComboField
-              label="โครงการ (Program)"
+              label="โปรแกรม"
               buttonRef={programRef}
               value={form.program}
               onChange={(v) => {
@@ -556,7 +576,7 @@ function RiceSpecCreate() {
             />
 
             <ComboField
-              label="ประเภทธุรกิจ (Business Type)"
+              label="ประเภทธุรกิจ"
               buttonRef={businessRef}
               value={form.business_type}
               onChange={(v) => {
@@ -573,7 +593,7 @@ function RiceSpecCreate() {
 
           {/* preview */}
           <div className="mt-5">
-            <div className="text-sm text-slate-600 dark:text-slate-300">ตัวอย่างชื่อ (Preview)</div>
+            <div className="text-sm text-slate-600 dark:text-slate-300">ตัวอย่างชื่อ</div>
             <div
               className={cx(
                 "mt-2 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-base md:text-lg leading-relaxed",
@@ -587,19 +607,15 @@ function RiceSpecCreate() {
               {previewName || "— เลือกข้อมูลเพื่อแสดงตัวอย่าง —"}
             </div>
             <p className={helpTextCls}>
-              * ชื่อจริงที่บันทึกจะถูกสร้างจากฝั่ง BE (prod_name) อาจต่างจาก preview
-              หาก master data ไม่ตรงกัน
+              * ชื่อที่บันทึกจริงอาจต่างจากตัวอย่างเล็กน้อย
             </p>
           </div>
 
           {/* submit error */}
           {submitError && (
             <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-500/30 dark:bg-red-900/20 dark:text-red-200" role="alert">
-              <div className="font-semibold">บันทึกล้มเหลว</div>
+              <div className="font-semibold">บันทึกไม่สำเร็จ</div>
               <div className="text-sm leading-relaxed">{submitError}</div>
-              <div className="mt-2 text-xs opacity-80">
-                ถ้าเป็นเคสซ้ำ ระบบหลังบ้านจะตอบ 409 (Spec ซ้ำ)
-              </div>
             </div>
           )}
           </>
@@ -649,54 +665,22 @@ function RiceSpecCreate() {
           <Card className="mt-6">
             <CardHeader title="สร้างรหัสข้าวสำเร็จ" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[15px] md:text-base">
-              <div>
-                <div className="text-slate-500 dark:text-slate-300">Spec ID</div>
-                <div className="font-semibold">{result.id ?? "—"}</div>
-              </div>
               <div className="md:col-span-2">
-                <div className="text-slate-500 dark:text-slate-300">ชื่อที่ระบบสร้าง (prod_name)</div>
+                <div className="text-slate-500 dark:text-slate-300">ชื่อรหัสข้าว</div>
                 <div className="font-semibold">{result.prod_name ?? "—"}</div>
               </div>
-              <div>
-                <div className="text-slate-500 dark:text-slate-300">product_id</div>
-                <div className="font-semibold">{String(result.product_id ?? "—")}</div>
-              </div>
-              <div>
-                <div className="text-slate-500 dark:text-slate-300">species_id</div>
-                <div className="font-semibold">{String(result.species_id ?? "—")}</div>
-              </div>
-              <div>
-                <div className="text-slate-500 dark:text-slate-300">variant_id</div>
-                <div className="font-semibold">{String(result.variant_id ?? "—")}</div>
-              </div>
-
-              <div>
-                <div className="text-slate-500 dark:text-slate-300">product_year</div>
-                <div className="font-semibold">{String(result.product_year ?? "—")}</div>
-              </div>
-              <div>
-                <div className="text-slate-500 dark:text-slate-300">condition_id</div>
-                <div className="font-semibold">{String(result.condition_id ?? "—")}</div>
-              </div>
-              <div>
-                <div className="text-slate-500 dark:text-slate-300">field_type</div>
-                <div className="font-semibold">{String(result.field_type ?? "—")}</div>
-              </div>
-              <div>
-                <div className="text-slate-500 dark:text-slate-300">program</div>
-                <div className="font-semibold">{String(result.program ?? "—")}</div>
-              </div>
-              <div>
-                <div className="text-slate-500 dark:text-slate-300">business_type</div>
-                <div className="font-semibold">{String(result.business_type ?? "—")}</div>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <div className="text-sm text-slate-600 dark:text-slate-300">Raw response (เผื่อดีบั๊ก)</div>
-              <pre className="mt-2 overflow-auto rounded-2xl bg-slate-900 p-4 text-xs text-slate-100 dark:bg-slate-950">
-                {JSON.stringify(result, null, 2)}
-              </pre>
+              {result.id != null && (
+                <div>
+                  <div className="text-slate-500 dark:text-slate-300">รหัส</div>
+                  <div className="font-semibold tabular-nums">{result.id}</div>
+                </div>
+              )}
+              {resultSpecRows.map((r) => (
+                <div key={r.label}>
+                  <div className="text-slate-500 dark:text-slate-300">{r.label}</div>
+                  <div className="font-semibold">{r.value}</div>
+                </div>
+              ))}
             </div>
           </Card>
         )}

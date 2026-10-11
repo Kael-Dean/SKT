@@ -4,6 +4,7 @@ import { apiAuth, apiDownload } from "../../lib/api"   // helper แนบ token
 import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
 import { can } from "../../lib/permissions"
 import ComboBox from "../../components/ComboBox"
+import { toast } from "../../components/ui"
 
 /** ---------- Utils ---------- */
 
@@ -62,28 +63,21 @@ const parseCsvInts = (csv) => {
 const reportErrorMessage = (err) => {
   const status = Number(err?.status) || 0
 
+  // ข้อความจาก backend ที่เป็นภาษาไทยอยู่แล้ว แสดงต่อได้ (ภาษาอังกฤษ/โค้ดดิบ ไม่แสดง)
+  const raw = String(err?.message || "")
+  const thaiDetail = /[฀-๿]/.test(raw) ? raw.slice(0, 200) : ""
+
   if (status === 404)
-    return "ยังไม่มี endpoint รายงานนี้ที่ฝั่งเซิร์ฟเวอร์ (backend ยังไม่เปิด route) — แจ้งทีม backend"
+    return "รายงานนี้ยังไม่พร้อมใช้งาน"
   if (status === 403)
-    return "บัญชีนี้ไม่มีสิทธิ์เปิดรายงาน (ต้องเป็น admin / HR / ผู้ดูรายงาน)"
+    return "บัญชีนี้ไม่มีสิทธิ์เปิดรายงานนี้ ติดต่อผู้ดูแลระบบถ้าต้องใช้"
   if (status === 401)
-    return "เซสชันหมดอายุหรือยังไม่ได้เข้าสู่ระบบ — กรุณาเข้าสู่ระบบใหม่"
+    return "หมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง"
 
-  if (status === 422) {
-    // FastAPI 422: { detail: [{ msg }] } หรือ { detail: "string" }
-    let detail = ""
-    try {
-      const j = JSON.parse(err?.message || "")
-      if (Array.isArray(j?.detail)) detail = j.detail.map((d) => d?.msg).filter(Boolean).join(", ")
-      else if (typeof j?.detail === "string") detail = j.detail
-    } catch {
-      detail = String(err?.message || "").slice(0, 200)
-    }
-    return `พารามิเตอร์ไม่ถูกต้อง (422)${detail ? `: ${detail}` : " — ตรวจสอบค่าที่กรอกอีกครั้ง"}`
-  }
+  if (status === 422)
+    return thaiDetail || "ข้อมูลที่เลือกไม่ถูกต้อง ตรวจแล้วลองใหม่"
 
-  const extra = String(err?.message || "").slice(0, 200)
-  return `เกิดข้อผิดพลาดในการดึงรายงาน${status ? ` (${status})` : ""}${extra ? `: ${extra}` : ""}`
+  return thaiDetail || "ดึงรายงานไม่สำเร็จ ลองใหม่อีกครั้ง"
 }
 
 /** ---------- Icons ---------- */
@@ -335,7 +329,7 @@ function MemberSearchBox({ valueLabel = "", error = false, onPick, onClear }) {
                   <span className="text-[15px] font-medium">{label}</span>
                   <span className="text-xs text-slate-500 dark:text-slate-400">
                     {sub}
-                    {!ok ? " · ไม่มี asso_id (เลือกไม่ได้)" : ""}
+                    {!ok ? " · เลือกไม่ได้ ข้อมูลรายนี้ไม่ครบ" : ""}
                   </span>
                 </button>
               )
@@ -403,8 +397,9 @@ const INTERNAL_REPORTS = [
     optional: [],
   },
   {
+    // รายงานนี้ออกเป็น JSON เท่านั้น ซ่อนจากหน้ารายงาน (ดู VISIBLE_INTERNAL_REPORTS) · ดูสต็อกที่หน้า "คลังสินค้า"
     key: "stockTree",
-    title: "โครงสร้างสต๊อก (JSON)",
+    title: "โครงสร้างสต๊อก",
     endpoint: "/report/stock/tree", 
     type: "json",
     badge: "JSON",
@@ -484,6 +479,8 @@ const INTERNAL_REPORTS = [
     optional: ["branchId", "klangId", "specId"],
   },
 ]
+/** รายงานที่แสดงให้ผู้ใช้เลือก (ไม่รวมรายงานที่ออกเป็น JSON อย่างเดียว) */
+const VISIBLE_INTERNAL_REPORTS = INTERNAL_REPORTS.filter((r) => r.type !== "json")
 
 // -----------------------------
 // PDF (Share) - “รายงานทะเบียนหุ้น”
@@ -510,17 +507,17 @@ const SHARE_REPORTS = [
     optional: ["branchId", "memberId", "assoId"],
     requireAny: [["memberId", "assoId"]],
     sendTgsIdAlias: false,
-    memberLabel: "member_id",
-    memberPlaceholder: "เช่น M12345",
-    memberHelp: "กรอก member_id (รหัสสมาชิก) หรือกรอก asso_id อย่างใดอย่างหนึ่ง",
-    assoLabel: "asso_id (UUID)",
-    assoPlaceholder: "เช่น 550e8400-e29b-41d4-a716-446655440000",
-    assoHelp: "กรอก asso_id แทน member_id ได้",
+    memberLabel: "เลขสมาชิก",
+    memberPlaceholder: "เช่น 11263",
+    memberHelp: "กรอกเลขสมาชิก หรือรหัสลูกค้าทั่วไป อย่างใดอย่างหนึ่ง",
+    assoLabel: "รหัสลูกค้าทั่วไป",
+    assoPlaceholder: "รหัสลูกค้าทั่วไป",
+    assoHelp: "ใช้แทนเลขสมาชิกได้",
   },
   {
     key: "share-buy-by-day",
     reportCode: "buy-by-day",
-    title: "รับซื้อรายวัน (Share PDF)",
+    title: "รับซื้อรายวัน (PDF)",
     endpoint: "/share/reports/buy-by-day.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -530,7 +527,7 @@ const SHARE_REPORTS = [
   {
     key: "share-by-price",
     reportCode: "by-price",
-    title: "สรุปตามราคาต่อกก. (Share PDF)",
+    title: "สรุปตามราคาต่อกก. (PDF)",
     endpoint: "/share/reports/by-price.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -540,7 +537,7 @@ const SHARE_REPORTS = [
   {
     key: "share-sell-by-day",
     reportCode: "sell-by-day",
-    title: "ขายรายวัน (Share PDF)",
+    title: "ขายรายวัน (PDF)",
     endpoint: "/share/reports/sell-by-day.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -550,7 +547,7 @@ const SHARE_REPORTS = [
   {
     key: "share-rice-summary",
     reportCode: "rice-summary",
-    title: "สรุปซื้อขายรวม (Share PDF)",
+    title: "สรุปซื้อขายรวม (PDF)",
     endpoint: "/share/reports/rice-summary.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -560,7 +557,7 @@ const SHARE_REPORTS = [
   {
     key: "share-collection-report",
     reportCode: "collection-report",
-    title: "รายงานรวบรวม (Share PDF)",
+    title: "รายงานรวบรวม (PDF)",
     endpoint: "/share/reports/collection-report.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -570,7 +567,7 @@ const SHARE_REPORTS = [
   {
     key: "share-daily-report",
     reportCode: "daily-report",
-    title: "รายงานประจำวัน (Share PDF)",
+    title: "รายงานประจำวัน (PDF)",
     endpoint: "/share/reports/daily-report.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -580,7 +577,7 @@ const SHARE_REPORTS = [
   {
     key: "share-control-report",
     reportCode: "control-report",
-    title: "รายงานควบคุม (Share PDF)",
+    title: "รายงานควบคุม (PDF)",
     endpoint: "/share/reports/control-report.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -590,7 +587,7 @@ const SHARE_REPORTS = [
   {
     key: "share-branch-summary",
     reportCode: "branch-summary",
-    title: "สรุปสาขา/คลัง (Share PDF)",
+    title: "สรุปสาขา/คลัง (PDF)",
     endpoint: "/share/reports/branch-summary.pdf",
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -599,7 +596,7 @@ const SHARE_REPORTS = [
   },
   {
     key: "share-custom",
-    title: "รายงานทะเบียนหุ้น (ระบุ report_code เอง) (PDF)",
+    title: "รายงานทะเบียนหุ้น ระบุรหัสรายงานเอง (PDF)",
     endpoint: (f) => `/share/reports/${encodeURIComponent(String(f.customReportCode || "").trim())}.pdf`,
     type: "share_pdf",
     badge: "SHARE PDF",
@@ -613,24 +610,24 @@ const SHARE_REPORTS = [
 // แมพเข้ากับ Backend (report_router.py) ซึ่งบังคับใช้ `plan_id` และบางเส้นทางใช้ `branch_id`
 // -----------------------------
 const PLAN_REPORTS = [
-  { key: "plan-01", title: "รูปแบบที่ 01 - Sale Goal (รวมกลุ่ม)", endpoint: "/repgen/report/sale-goal", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-02", title: "รูปแบบที่ 02 - Branch Sale Goal", endpoint: "/repgen/report/branch-sale-goal", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-03", title: "รูปแบบที่ 03 - Business Costs", endpoint: "/repgen/report/business-costs", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-04", title: "รูปแบบที่ 04 - Business Earnings", endpoint: "/repgen/report/business-earnings", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-05", title: "รูปแบบที่ 05 - Unit Aux Cost", endpoint: "/repgen/report/unit-aux-cost", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-06", title: "รูปแบบที่ 06 - Unit Purchase Cost", endpoint: "/repgen/report/unit-purchase-cost", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-07", title: "รูปแบบที่ 07 - Branch Financial Summary", endpoint: "/repgen/report/branch-financial-summary", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-08", title: "รูปแบบที่ 08 - Org Sale Goal (รวม Product)", endpoint: "/repgen/report/org-salegoal", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-09", title: "รูปแบบที่ 09 - Org Purchase Cost", endpoint: "/repgen/report/org-purchase-cost", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-10", title: "รูปแบบที่ 10 - Org Sale Goal Product", endpoint: "/repgen/report/org-salegoal-product", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-11", title: "รูปแบบที่ 11 - Org Business Costs", endpoint: "/repgen/report/org-business-costs", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-12", title: "รูปแบบที่ 12 - Org Business Earnings", endpoint: "/repgen/report/org-business-earnings", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-13", title: "รูปแบบที่ 13 - Org Aux Costs", endpoint: "/repgen/report/org-aux-costs", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-14", title: "รูปแบบที่ 14 - Org Purchase Summary", endpoint: "/repgen/report/org-purchase-summary", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-15", title: "รูปแบบที่ 15 - Org Profit By Group", endpoint: "/repgen/report/org-profit-by-group", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-16", title: "รูปแบบที่ 16 - Org Financial Summary", endpoint: "/repgen/report/org-financial-summary", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-17", title: "รูปแบบที่ 17 - Monthly Costs", endpoint: "/repgen/report/monthly-costs", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-18", title: "รูปแบบที่ 18 - Monthly Earnings & Aux", endpoint: "/repgen/report/monthly-earnings-aux", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-01", title: "รูปแบบที่ 01 - เป้าหมายการขาย (รวมกลุ่ม)", endpoint: "/repgen/report/sale-goal", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-02", title: "รูปแบบที่ 02 - เป้าหมายการขายรายสาขา", endpoint: "/repgen/report/branch-sale-goal", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-03", title: "รูปแบบที่ 03 - ค่าใช้จ่ายธุรกิจ", endpoint: "/repgen/report/business-costs", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-04", title: "รูปแบบที่ 04 - รายได้ธุรกิจ", endpoint: "/repgen/report/business-earnings", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-05", title: "รูปแบบที่ 05 - ค่าใช้จ่ายเสริมต่อหน่วย", endpoint: "/repgen/report/unit-aux-cost", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-06", title: "รูปแบบที่ 06 - ต้นทุนซื้อต่อหน่วย", endpoint: "/repgen/report/unit-purchase-cost", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-07", title: "รูปแบบที่ 07 - สรุปการเงินรายสาขา", endpoint: "/repgen/report/branch-financial-summary", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-08", title: "รูปแบบที่ 08 - เป้าหมายการขายทั้งองค์กร (รวมสินค้า)", endpoint: "/repgen/report/org-salegoal", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-09", title: "รูปแบบที่ 09 - ต้นทุนซื้อทั้งองค์กร", endpoint: "/repgen/report/org-purchase-cost", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-10", title: "รูปแบบที่ 10 - เป้าหมายการขายทั้งองค์กร แยกสินค้า", endpoint: "/repgen/report/org-salegoal-product", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-11", title: "รูปแบบที่ 11 - ค่าใช้จ่ายธุรกิจทั้งองค์กร", endpoint: "/repgen/report/org-business-costs", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-12", title: "รูปแบบที่ 12 - รายได้ธุรกิจทั้งองค์กร", endpoint: "/repgen/report/org-business-earnings", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-13", title: "รูปแบบที่ 13 - ค่าใช้จ่ายเสริมทั้งองค์กร", endpoint: "/repgen/report/org-aux-costs", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-14", title: "รูปแบบที่ 14 - สรุปการซื้อทั้งองค์กร", endpoint: "/repgen/report/org-purchase-summary", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-15", title: "รูปแบบที่ 15 - กำไรทั้งองค์กร แยกกลุ่ม", endpoint: "/repgen/report/org-profit-by-group", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-16", title: "รูปแบบที่ 16 - สรุปการเงินทั้งองค์กร", endpoint: "/repgen/report/org-financial-summary", type: "pdf", badge: "PLAN", require: ["planId"] },
+  { key: "plan-17", title: "รูปแบบที่ 17 - ค่าใช้จ่ายรายเดือน", endpoint: "/repgen/report/monthly-costs", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-18", title: "รูปแบบที่ 18 - รายได้และค่าใช้จ่ายเสริมรายเดือน", endpoint: "/repgen/report/monthly-earnings-aux", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
 ]
 
 // -----------------------------
@@ -731,9 +728,9 @@ const PHASE1_REPORTS = [
     badge: "PHASE1",
     require: ["memberId"],
     optional: ["branchId"],
-    memberLabel: "รหัสสมาชิก (member_id)",
+    memberLabel: "เลขสมาชิก",
     memberPlaceholder: "เช่น 12345",
-    memberHelp: "รายงานนี้แสดงข้อมูลของสมาชิกคนเดียว — กรุณาระบุรหัสสมาชิก",
+    memberHelp: "รายงานนี้ออกทีละคน ระบุเลขสมาชิก",
   },
   {
     key: "phase1-p11",
@@ -847,7 +844,7 @@ function Documents() {
     if (mode === "share") return SHARE_REPORTS
     if (mode === "plan") return PLAN_REPORTS
     if (mode === "phase1") return allowedPhase1Reports()
-    return INTERNAL_REPORTS
+    return VISIBLE_INTERNAL_REPORTS
   }, [mode])
 
   /** ---------- โหลดตัวเลือกพื้นฐาน ---------- */
@@ -862,7 +859,7 @@ function Documents() {
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
 
-  const [previewJson, setPreviewJson] = useState(null)
+  const [, setPreviewJson] = useState(null)
 
   const today = new Date().toISOString().slice(0, 10)
   const firstDayThisMonth = useMemo(() => {
@@ -936,7 +933,7 @@ function Documents() {
 
     if (code) {
       const foundShare = SHARE_REPORTS.find((r) => r.reportCode === code || r.key === code)
-      const foundInternal = INTERNAL_REPORTS.find((r) => r.key === code)
+      const foundInternal = VISIBLE_INTERNAL_REPORTS.find((r) => r.key === code)
       const foundPlan = PLAN_REPORTS.find((r) => r.key === code)
       const foundPhase1 = allowedPhase1Reports().find((r) => r.key === code)
       const custom = SHARE_REPORTS.find((r) => r.key === "share-custom")
@@ -1003,7 +1000,7 @@ function Documents() {
         const opts = (rows || [])
           .map((r) => ({
             id: String(r.id),
-            label: String(r.prod_name || r.name || r.spec_name || `spec #${r.id}`).trim(),
+            label: String(r.prod_name || r.name || r.spec_name || "").trim(),
           }))
           .filter((o) => o.id && o.label)
 
@@ -1065,10 +1062,10 @@ function Documents() {
     }
 
     const niceField = (f) => {
-      if (f === "memberId") return "member_id"
-      if (f === "assoId") return "asso_id"
-      if (f === "customReportCode") return "report_code"
-      if (f === "planId") return "plan_id"
+      if (f === "memberId") return "เลขสมาชิก"
+      if (f === "assoId") return "รหัสลูกค้าทั่วไป"
+      if (f === "customReportCode") return "รหัสรายงาน"
+      if (f === "planId") return "แผน"
       return f
     }
 
@@ -1175,7 +1172,7 @@ function Documents() {
         const hint = doc.createElement("div")
         hint.style.marginTop = "6px"
         hint.style.color = "#64748b"
-        hint.textContent = "ถ้าหน้านี้ไม่เปลี่ยนเป็น PDF ให้ตรวจสอบสิทธิ์/การเชื่อมต่อ"
+        hint.textContent = "ถ้าหน้านี้ไม่เปลี่ยนเป็น PDF ให้กลับไปหน้ารายงานเพื่อดูสาเหตุ"
 
         wrap.appendChild(heading)
         wrap.appendChild(hint)
@@ -1247,7 +1244,7 @@ function Documents() {
       try {
         preOpenWin?.close?.()
       } catch { /* ignore */ }
-      alert(reportErrorMessage(err))
+      toast.error("เปิดรายงานไม่สำเร็จ", { description: reportErrorMessage(err) })
     } finally {
       setDownloading(false)
     }
@@ -1314,7 +1311,7 @@ function Documents() {
   const FormSpecOnly = ({ requiredSpec = false }) => (
     <div>
       <label className={labelCls}>
-        รายการสำเร็จรูป (spec){requiredSpec && <span className="text-red-500"> *</span>}
+        รายการสำเร็จรูป{requiredSpec && <span className="text-red-500"> *</span>}
       </label>
 
       {specOptions.length > 0 ? (
@@ -1329,16 +1326,16 @@ function Documents() {
       ) : (
         <input
           className={cx(baseField, requiredSpec && errors.specId && "border-red-400 ring-2 ring-red-300/70")}
-          placeholder="ใส่ spec_id (ถ้าระบบไม่โหลดรายการให้)"
+          placeholder="รหัสสเปค (ตัวเลข)"
           value={filters.specId}
           onChange={(e) => setFilter("specId", e.target.value)}
         />
       )}
 
       {requiredSpec && <FieldError name="specId" />}
-      <p className={helpTextCls}>
-        ถ้าเข้าหน้านี้แบบไม่ login รายการตัวเลือกอาจโหลดไม่ได้ ให้พิมพ์ <code>spec_id</code> เองได้
-      </p>
+      {specOptions.length === 0 && !loadingSpecs && (
+        <p className={helpTextCls}>รายการไม่ขึ้น พิมพ์รหัสสเปคเป็นตัวเลขแทนได้</p>
+      )}
     </div>
   )
 
@@ -1360,7 +1357,7 @@ function Documents() {
         ) : (
           <input
             className={cx(baseField, requireBranch && errors.branchId && "border-red-400 ring-2 ring-red-300/70")}
-            placeholder="ใส่ branch_id (ถ้าระบบไม่โหลดรายการให้)"
+            placeholder="รหัสสาขา (ตัวเลข)"
             value={filters.branchId}
             onChange={(e) => setFilter("branchId", e.target.value)}
           />
@@ -1384,7 +1381,7 @@ function Documents() {
           ) : (
             <input
               className={baseField}
-              placeholder="ใส่ klang_id (ถ้าระบบไม่โหลดรายการให้)"
+              placeholder="รหัสคลัง (ตัวเลข)"
               value={filters.klangId}
               onChange={(e) => setFilter("klangId", e.target.value)}
             />
@@ -1410,16 +1407,16 @@ function Documents() {
     const needMember = req.includes("memberId") || inAny("memberId")
     const needAsso = req.includes("assoId") || inAny("assoId")
 
-    const memberLabel = report?.memberLabel || "member_id"
-    const memberPlaceholder = report?.memberPlaceholder || "เช่น M12345"
+    const memberLabel = report?.memberLabel || "เลขสมาชิก"
+    const memberPlaceholder = report?.memberPlaceholder || "เช่น 11263"
     const memberHelp =
       report?.memberHelp ||
-      "ใส่เพื่อกรองรายงานเฉพาะสมาชิก (ถ้า report รองรับ) หรือปล่อยว่างเพื่อดึงทั้งหมด"
+      "ใส่เพื่อดูเฉพาะสมาชิกคนนี้ หรือเว้นว่างเพื่อดูทั้งหมด"
 
-    const assoLabel = report?.assoLabel || "asso_id"
-    const assoPlaceholder = report?.assoPlaceholder || "เช่น UUID / รหัสสมาคม (แล้วแต่ระบบ)"
+    const assoLabel = report?.assoLabel || "รหัสลูกค้าทั่วไป"
+    const assoPlaceholder = report?.assoPlaceholder || "รหัสลูกค้าทั่วไป"
     const assoHelp =
-      report?.assoHelp || "ถ้าระบบใช้ asso_id เป็น UUID ให้กรอกเป็นข้อความได้เลย"
+      report?.assoHelp || "ใช้แทนเลขสมาชิกได้"
 
     return (
       <>
@@ -1461,7 +1458,7 @@ function Documents() {
   const FormCustomReportCode = () => (
     <div>
       <label className={labelCls}>
-        report_code <span className="text-red-500">*</span>
+        รหัสรายงาน <span className="text-red-500">*</span>
       </label>
       <input
         className={cx(baseField, errors.customReportCode && "border-red-400 ring-2 ring-red-300/70")}
@@ -1470,16 +1467,15 @@ function Documents() {
         onChange={(e) => setFilter("customReportCode", e.target.value)}
       />
       <FieldError name="customReportCode" />
-      <p className={helpTextCls}>ระบบจะเรียก <code>/share/reports/&lt;report_code&gt;.pdf</code></p>
     </div>
   )
 
   const FormShareKlangIds = () => (
     <div className="md:col-span-3">
-      <label className={labelCls}>คลังหลายรายการ (klang_ids) (ไม่บังคับ)</label>
+      <label className={labelCls}>คลังหลายรายการ (ไม่บังคับ)</label>
       <input
         className={baseField}
-        placeholder="เช่น 1,2,3 (เว้นวรรคได้)"
+        placeholder="รหัสคลัง (ตัวเลข) เช่น 1,2,3"
         value={filters.klangIds}
         onChange={(e) => setFilter("klangIds", e.target.value)}
       />
@@ -1509,7 +1505,7 @@ function Documents() {
             type="button"
             onClick={() => setFilter("klangIds", "")}
             className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-50 dark:bg-slate-700/50 dark:text-slate-100 dark:border-slate-600"
-            title="ล้าง klang_ids"
+            title="ล้างคลังที่เลือก"
           >
             ล้าง
           </button>
@@ -1517,7 +1513,7 @@ function Documents() {
       )}
 
       <p className={helpTextCls}>
-        ถ้ากรอก <code>klang_ids</code> แล้ว ระบบจะส่งเป็น <code>klang_ids=1&amp;klang_ids=2</code> ไปให้ BE
+        {klangOptions.length > 0 ? "กดเลือกได้หลายคลัง หรือเว้นว่างเพื่อรวมทุกคลัง" : "เว้นว่างเพื่อรวมทุกคลัง"}
       </p>
     </div>
   )
@@ -1535,7 +1531,7 @@ function Documents() {
             {requireBranch && <FormBranchKlang requireBranch={true} showKlang={false} />}
           </div>
           <p className={helpTextCls}>
-            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์ (ระบบดึงข้อมูลตาม Plan ID ที่ระบุ)
+            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์ ข้อมูลตามปีแผนงานที่เลือก
           </p>
         </>
       )
@@ -1559,7 +1555,7 @@ function Documents() {
             <FormBranchKlang requireBranch />
             <FormSpecOnly requiredSpec={false} />
           </div>
-          <p className={helpTextCls}>ถ้าไม่เลือกสเปก ระบบจะออกรวมทุกชนิดในสาขาที่เลือก</p>
+          <p className={helpTextCls}>ถ้าไม่เลือกสเปค จะออกรวมทุกชนิดในสาขาที่เลือก</p>
         </>
       )
     }
@@ -1570,15 +1566,15 @@ function Documents() {
           <FormDates report={report} />
           <FormBranchKlang requireBranch={false} />
           <div>
-            <label className={labelCls}>ค้นหาชื่อสายพันธุ์ (`species_like`)</label>
+            <label className={labelCls}>ค้นหาชื่อสายพันธุ์</label>
             <input className={baseField} placeholder="เช่น มะลิ" value={filters.speciesLike} onChange={(e) => setFilter("speciesLike", e.target.value)} />
           </div>
           <div>
-            <label className={labelCls}>ที่อยู่ บรรทัด 4 (`addr_line4`)</label>
+            <label className={labelCls}>ที่อยู่ บรรทัด 4</label>
             <input className={baseField} value={filters.addrLine4} onChange={(e) => setFilter("addrLine4", e.target.value)} />
           </div>
           <div>
-            <label className={labelCls}>ที่อยู่ บรรทัด 5 (`addr_line5`)</label>
+            <label className={labelCls}>ที่อยู่ บรรทัด 5</label>
             <input className={baseField} value={filters.addrLine5} onChange={(e) => setFilter("addrLine5", e.target.value)} />
           </div>
         </div>
@@ -1609,7 +1605,7 @@ function Documents() {
           <div className="grid gap-4 md:grid-cols-3">
             <FormBranchKlang requireBranch />
             <div>
-              <label className={labelCls}>ประเภทสินค้า (product_id) *</label>
+              <label className={labelCls}>ประเภทสินค้า *</label>
               {productOptions.length > 0 ? (
                 <ComboBox
                   options={withEmpty(productOptions, "— เลือก —")}
@@ -1621,7 +1617,7 @@ function Documents() {
               ) : (
                 <input
                   className={cx(baseField, errors.productId && "border-red-400 ring-2 ring-red-300/70")}
-                  placeholder="ใส่ product_id"
+                  placeholder="รหัสประเภทสินค้า (ตัวเลข)"
                   value={filters.productId}
                   onChange={(e) => setFilter("productId", e.target.value)}
                 />
@@ -1629,13 +1625,6 @@ function Documents() {
               <FieldError name="productId" />
             </div>
           </div>
-
-          {previewJson && (
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-800">
-              <div className="mb-2 font-semibold">ตัวอย่างผลลัพธ์ (JSON)</div>
-              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words">{JSON.stringify(previewJson, null, 2)}</pre>
-            </div>
-          )}
         </>
       )
     }
@@ -1649,7 +1638,7 @@ function Documents() {
             <FormSpecOnly requiredSpec={false} />
           </div>
           <p className={helpTextCls}>
-            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์ (ระบบจะเรียกเส้นทางตามที่กำหนดในชุดรายงาน)
+            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์
           </p>
         </>
       )
@@ -1680,7 +1669,7 @@ function Documents() {
           </div>
 
           <p className={helpTextCls}>
-            โหมดนี้จะเรียก BE <code>/share/reports/&lt;report_code&gt;.pdf</code> (รายงานทะเบียนหุ้น / Share)
+            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์
           </p>
         </>
       )
@@ -1709,7 +1698,7 @@ function Documents() {
                   ค้นหาสมาชิก <span className="text-red-500">*</span>
                 </label>
                 <MemberSearchBox
-                  valueLabel={filters.assoName || (filters.assoId ? `asso_id: ${filters.assoId}` : "")}
+                  valueLabel={filters.assoName || (filters.assoId ? "เลือกสมาชิกแล้ว" : "")}
                   error={!!errors.assoId}
                   onPick={(r) => {
                     setFilters((p) => ({ ...p, assoId: String(r.asso_id), assoName: personLabel(r) }))
@@ -1808,7 +1797,7 @@ function Documents() {
                 <h2 className="text-xl font-bold text-violet-800 dark:text-violet-300">รายงานทะเบียนหุ้น</h2>
               </div>
               <p className="mb-6 text-sm text-violet-700/80 dark:text-violet-400/80">
-                เอกสารข้อมูลสมาชิกสมาคม, ทุนเรือนหุ้น และประวัติการทำรายการ (Share PDF)
+                เอกสารข้อมูลสมาชิกสมาคม, ทุนเรือนหุ้น และประวัติการทำรายการ (PDF)
               </p>
               <div className="mt-auto relative z-20">
                 <ComboBox
@@ -1862,7 +1851,7 @@ function Documents() {
                     <path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.54 15.86.5 13.31.5c-1.38 0-2.61.56-3.51 1.46L9 2.77l-.8-.81C7.3 1.06 6.07.5 4.69.5 2.14.5 0 2.54 0 4.64c0 .48.11.92.18 1.36H0v2h20V6zm-5.47 0H9.47C9.17 5.56 9 4.98 9 4.64c0-1.03.9-2.14 1.94-2.14.54 0 1.05.24 1.42.62L14 4.88l1.64-1.76C16.01 2.74 16.52 2.5 17.06 2.5 18.1 2.5 19 3.61 19 4.64c0 .34-.17.92-.47 1.36zM1 20c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V9H1v11zm8-8h6v2H9v-2z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-amber-800 dark:text-amber-300">รายงาน Phase 1</h2>
+                <h2 className="text-xl font-bold text-amber-800 dark:text-amber-300">รายงานธุรกิจรวบรวมผลผลิต</h2>
               </div>
               <p className="mb-6 text-sm text-amber-700/80 dark:text-amber-400/80">
                 รายงานสหกรณ์ P01–P19: ซื้อ/ขายข้าว, ทะเบียนหุ้น, ทะเบียนสมาชิก และสรุปสาขา (PDF)
@@ -1939,7 +1928,7 @@ function Documents() {
                     </span>
                   )
                 ) : (
-                  downloading ? "กำลังดึงข้อมูล..." : "👁️‍🗨️ พรีวิว + ดาวน์โหลด JSON"
+                  downloading ? "กำลังดึงข้อมูล..." : "ดาวน์โหลด"
                 )}
               </button>
 

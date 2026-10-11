@@ -15,6 +15,8 @@ const asString = (v) => (v === null || v === undefined ? "" : String(v));
 const onlyDigits = (s = "") => asString(s).replace(/\D+/g, "");
 const cleanDecimal = (s = "") => asString(s).replace(/[^\d.]/g, "");
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v));
+/** แสดงข้อความจาก backend เฉพาะเมื่อเป็นภาษาไทยแล้ว ไม่งั้นใช้ข้อความกลาง */
+const friendly = (e, fallback) => (/[฀-๿]/.test(e?.message || "") ? e.message : fallback);
 const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
@@ -104,7 +106,7 @@ function OrderCorrection() {
   const [paymentSell, setPaymentSell] = useState([]); // 1,2
   const getPaymentLabel = (type, id) => {
     const opts = type === "sell" ? paymentSell : paymentBuy;
-    return opts.find((o) => String(o.id) === String(id))?.label || (id ? String(id) : "-");
+    return opts.find((o) => String(o.id) === String(id))?.label || "—";
   };
 
   /* filters */
@@ -154,7 +156,7 @@ function OrderCorrection() {
         const opts = (Array.isArray(specs) ? specs : [])
           .map((r) => ({
             id: String(r.id),
-            label: String(r.prod_name || r.name || r.spec_name || `spec #${r.id}`).trim(),
+            label: String(r.prod_name || r.name || r.spec_name || "").trim(),
             raw: r,
           }))
           .filter((o) => o.id && o.label);
@@ -344,7 +346,7 @@ function OrderCorrection() {
   const touch = (k) => setTouched((prev) => new Set([...prev, String(k)]));
   const setD = (patch) =>
     setDraft((p) => ({ ...(p || {}), ...(typeof patch === "function" ? patch(p || {}) : patch) }));
-  const getSpecLabel = (id) => specOptions.find((o) => String(o.id) === String(id))?.label || `#${id}`;
+  const getSpecLabel = (id) => specOptions.find((o) => String(o.id) === String(id))?.label || "—";
 
   const tryPrefillBranchKlang = async (row) => {
     let foundBranch = branchOptions.find((b) => (b.label || "").trim() === (row.branch_name || "").trim());
@@ -522,7 +524,7 @@ function OrderCorrection() {
 
     const editorId = Number(draft.edited_by);
     if (!Number.isFinite(editorId) || editorId <= 0) {
-      setRowError("กรุณากรอก 'รหัสเจ้าหน้าที่ผู้แก้ไข (edited_by)' เป็นตัวเลขให้ถูกต้อง");
+      setRowError("ไม่พบรหัสเจ้าหน้าที่ของบัญชีนี้ ออกจากระบบแล้วเข้าใหม่ก่อนบันทึก");
       return;
     }
 
@@ -569,9 +571,9 @@ function OrderCorrection() {
       await fetchOrders();
     } catch (e) {
       console.error(e);
-      setRowError(e?.message || "บันทึกไม่สำเร็จ");
+      setRowError(friendly(e, "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"));
       // Sheet stays open with the draft (UI-SPEC §9).
-      toast.error("บันทึกไม่สำเร็จ", { description: e?.message || undefined });
+      toast.error("บันทึกไม่สำเร็จ", { description: friendly(e, "ข้อมูลที่แก้ยังอยู่ ลองบันทึกใหม่อีกครั้ง") });
     } finally {
       setSaving(false);
     }
@@ -613,8 +615,8 @@ function OrderCorrection() {
     } catch (e) {
       console.error(e);
       setConfirmDelete(false);
-      setRowError(e?.message || "ลบออเดอร์ไม่สำเร็จ");
-      toast.error("ลบออเดอร์ไม่สำเร็จ", { description: e?.message || undefined });
+      setRowError(friendly(e, "ลบออเดอร์ไม่สำเร็จ ลองใหม่อีกครั้ง"));
+      toast.error("ลบออเดอร์ไม่สำเร็จ", { description: friendly(e, "ลองใหม่อีกครั้ง") });
     } finally {
       setDeleting(false);
     }
@@ -668,7 +670,7 @@ function OrderCorrection() {
         return (
           <span className="flex flex-col items-end gap-1">
             <Badge tone="neutral">{v.branch}</Badge>
-            {mode === "sell" && toNumber(v.sub) > 1 && <Badge tone="info">ย่อย {v.sub}</Badge>}
+            {mode === "sell" && toNumber(v.sub) > 1 && <Badge tone="info">พ่วง {v.sub}</Badge>}
           </span>
         );
       }}
@@ -752,7 +754,7 @@ function OrderCorrection() {
           {optionsLoading && (
             <div className="mb-3 inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400" role="status" aria-live="polite">
               <span className={cx(spinnerCls, "!border-indigo-400/40 !border-t-indigo-500")} aria-hidden="true" />
-              กำลังเตรียมตัวเลือกสาขา/คลัง/สเปก…
+              กำลังเตรียมตัวเลือกสาขา/คลัง/สเปค…
             </div>
           )}
           <div className="grid gap-3 md:grid-cols-6">
@@ -908,7 +910,7 @@ function OrderCorrection() {
                   <th className="px-3 py-2 text-right">น้ำหนัก (กก.)</th>
                   <th className="px-3 py-2 text-right">ราคาต่อกก. (บาท)</th>
                   <th className="px-3 py-2 text-right">เป็นเงิน</th>
-                  <th className="px-3 py-2 text-center">#ย่อย</th>
+                  <th className="px-3 py-2 text-center">ลำดับพ่วง</th>
                   <th className="px-3 py-2 text-right">การกระทำ</th>
                 </tr>
               )}
@@ -1155,7 +1157,7 @@ function OrderCorrection() {
                   <div className="mb-5 grid gap-4 md:grid-cols-3">
                     <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
                       <div className="text-sm text-slate-600 dark:text-slate-300 mb-1">
-                        รหัสเจ้าหน้าที่ผู้แก้ไข (edited_by) *
+                        รหัสเจ้าหน้าที่ผู้แก้ไข
                       </div>
                       {!editing ? (
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
@@ -1171,13 +1173,13 @@ function OrderCorrection() {
                             disabled
                           />
                           <div className="mt-1 text-xs text-slate-500 dark:text-slate-300">
-                            ล็อกโดยระบบ (ใช้บัญชีผู้ใช้งานปัจจุบัน)
+                            ตามบัญชีที่เข้าสู่ระบบ
                           </div>
                         </>
                       )}
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40 md:col-span-2">
-                      <div className="text-sm text-slate-600 dark:text-slate-300 mb-1">เหตุผลในการแก้ไข (reason)</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-300 mb-1">เหตุผลในการแก้ไข</div>
                       {!editing ? (
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
                           {draft.reason || "-"}
@@ -1201,7 +1203,7 @@ function OrderCorrection() {
                     <div>
                       <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ประเภทเอกสาร</label>
                       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                        {draft.type === "sell" ? "ขาย (SELL)" : "ซื้อ (BUY)"}
+                        {draft.type === "sell" ? "ขาย" : "ซื้อ"}
                       </div>
                     </div>
 
@@ -1224,15 +1226,15 @@ function OrderCorrection() {
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">รายการสำเร็จรูป (เปลี่ยนสเปก)</label>
+                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">รายการสำเร็จรูป (เปลี่ยนสเปค)</label>
                       {!editing ? (
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
                           {draft.spec_id ? getSpecLabel(draft.spec_id) : "-"}
                         </div>
                       ) : (
                         <ComboBox
-                          title="รายการสำเร็จรูป (เปลี่ยนสเปก)"
-                          ariaLabel="รายการสำเร็จรูป (เปลี่ยนสเปก)"
+                          title="รายการสำเร็จรูป (เปลี่ยนสเปค)"
+                          ariaLabel="รายการสำเร็จรูป (เปลี่ยนสเปค)"
                           options={specOptions}
                           value={draft.spec_id}
                           getValue={(o) => o.id}
@@ -1344,7 +1346,7 @@ function OrderCorrection() {
                         ["price", "เป็นเงิน (บาท)", "number"],
                         ["humidity", "ความชื้น (%)", "number"],
                         ["impurity", "สิ่งเจือปน (%)", "number"],
-                        ["gram", "คุณภาพข้าว (gram)", "number"],
+                        ["gram", "คุณภาพข้าว (กรัม)", "number"],
                       ].map(([key, label, type]) => (
                         <div key={key}>
                           <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">{label}</label>
@@ -1380,7 +1382,7 @@ function OrderCorrection() {
                               ? "เลขที่ใบกำกับสินค้า (ขายเชื่อ)"
                               : isSellCash(draft.payment_id)
                               ? "ใบรับเงินขายสินค้า (ขายสด)"
-                              : "เอกสารอ้างอิงการขาย (sale_id)"}
+                              : "เอกสารอ้างอิงการขาย"}
                           </label>
                           {!editing ? (
                             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">

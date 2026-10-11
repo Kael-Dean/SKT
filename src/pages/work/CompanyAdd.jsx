@@ -3,10 +3,12 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import { canSeeAddCompany } from "../../lib/permissions"
 import { cx, baseField, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, spinnerCls } from "../../lib/styles"
-import { Card, CardHeader } from "../../components/ui"
+import { Card, CardHeader, toast } from "../../components/ui"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
+/** แสดงข้อความจาก backend เฉพาะเมื่อเป็นภาษาไทยแล้ว */
+const isThaiText = (s) => typeof s === "string" && /[฀-๿]/.test(s)
 const is13 = (s = "") => onlyDigits(s).length === 13
 const toNull = (s) => {
   const v = (s ?? "").trim()
@@ -168,12 +170,12 @@ const CompanyAddInner = () => {
     if (!is13(form.tax_id)) e.tax_id = "เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก"
 
     // HQ minimal required (บังคับให้ครบเพื่อคุณภาพข้อมูล)
-    if (!form.hq_address.trim()) e.hq_address = "กรุณากรอกบ้านเลขที่/ที่อยู่ (HQ)"
-    if (!form.hq_tambon.trim()) e.hq_tambon = "กรุณากรอกตำบล (HQ)"
-    if (!form.hq_amphur.trim()) e.hq_amphur = "กรุณากรอกอำเภอ (HQ)"
-    if (!form.hq_province.trim()) e.hq_province = "กรุณากรอกจังหวัด (HQ)"
+    if (!form.hq_address.trim()) e.hq_address = "กรุณากรอกบ้านเลขที่/ที่อยู่ (สำนักงานใหญ่)"
+    if (!form.hq_tambon.trim()) e.hq_tambon = "กรุณากรอกตำบล (สำนักงานใหญ่)"
+    if (!form.hq_amphur.trim()) e.hq_amphur = "กรุณากรอกอำเภอ (สำนักงานใหญ่)"
+    if (!form.hq_province.trim()) e.hq_province = "กรุณากรอกจังหวัด (สำนักงานใหญ่)"
     if (form.hq_postal_code && onlyDigits(form.hq_postal_code).length !== 5)
-      e.hq_postal_code = "รหัสไปรษณีย์ (HQ) ต้องมี 5 หลัก"
+      e.hq_postal_code = "รหัสไปรษณีย์ (สำนักงานใหญ่) ต้องมี 5 หลัก"
 
     // Branch optional—but if filled, postal must be 5 digits
     if (form.branch_postal_code && onlyDigits(form.branch_postal_code).length !== 5)
@@ -249,15 +251,15 @@ const CompanyAddInner = () => {
 
     try {
       await apiAuth("/member/customers/company-signup", { method: "POST", body: payload })
-      alert("บันทึกข้อมูลบริษัทเรียบร้อย ✅")
+      toast.success("บันทึกข้อมูลบริษัทแล้ว")
       handleReset()
     } catch (err) {
       console.error(err)
       const msg =
-        (err && err.detail) ||
-        (typeof err?.message === "string" ? err.message : "") ||
-        "บันทึกล้มเหลว กรุณาลองใหม่"
-      alert(msg)
+        (isThaiText(err?.detail) && err.detail) ||
+        (isThaiText(err?.message) && err.message) ||
+        "ข้อมูลที่กรอกยังอยู่ ลองบันทึกใหม่อีกครั้ง"
+      toast.error("บันทึกไม่สำเร็จ", { description: msg })
     } finally {
       setSubmitting(false)
     }
@@ -361,11 +363,11 @@ const CompanyAddInner = () => {
 
             {/* HQ */}
             <div className="mt-6">
-              <SubSectionLabel>ที่อยู่สำนักงานใหญ่ (HQ)</SubSectionLabel>
+              <SubSectionLabel>ที่อยู่สำนักงานใหญ่</SubSectionLabel>
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
-                  <label className={labelCls}>บ้านเลขที่ / ที่อยู่ (HQ)</label>
+                  <label className={labelCls}>บ้านเลขที่ / ที่อยู่ (สำนักงานใหญ่)</label>
                   <input
                     ref={refs.hq_address}
                     className={cx(baseField, errors.hq_address && fieldError)}
@@ -383,7 +385,7 @@ const CompanyAddInner = () => {
                 </div>
 
                 <div>
-                  <label className={labelCls}>หมู่ (HQ)</label>
+                  <label className={labelCls}>หมู่ (สำนักงานใหญ่)</label>
                   <input
                     ref={refs.hq_moo}
                     className={baseField}
@@ -395,7 +397,7 @@ const CompanyAddInner = () => {
                 </div>
 
                 <div>
-                  <label className={labelCls}>ตำบล (HQ)</label>
+                  <label className={labelCls}>ตำบล (สำนักงานใหญ่)</label>
                   <input
                     ref={refs.hq_tambon}
                     className={cx(baseField, errors.hq_tambon && fieldError)}
@@ -413,7 +415,7 @@ const CompanyAddInner = () => {
                 </div>
 
                 <div>
-                  <label className={labelCls}>อำเภอ (HQ)</label>
+                  <label className={labelCls}>อำเภอ (สำนักงานใหญ่)</label>
                   <input
                     ref={refs.hq_amphur}
                     className={cx(baseField, errors.hq_amphur && fieldError)}
@@ -431,7 +433,7 @@ const CompanyAddInner = () => {
                 </div>
 
                 <div>
-                  <label className={labelCls}>จังหวัด (HQ)</label>
+                  <label className={labelCls}>จังหวัด (สำนักงานใหญ่)</label>
                   <input
                     ref={refs.hq_province}
                     className={cx(baseField, errors.hq_province && fieldError)}
@@ -449,7 +451,7 @@ const CompanyAddInner = () => {
                 </div>
 
                 <div>
-                  <label className={labelCls}>รหัสไปรษณีย์ (HQ)</label>
+                  <label className={labelCls}>รหัสไปรษณีย์ (สำนักงานใหญ่)</label>
                   <input
                     ref={refs.hq_postal_code}
                     inputMode="numeric"

@@ -76,6 +76,10 @@ const PREFIX_OPTIONS = [
   { value: "3", label: "นางสาว" },
 ]
 const sexFromPrefix = (pre) => (pre === "1" ? "M" : pre === "2" || pre === "3" ? "F" : "")
+const SEX_LABEL = { M: "ชาย", F: "หญิง" }
+
+/** แสดงข้อความจาก backend เฉพาะเมื่อเป็นภาษาไทยแล้ว ไม่งั้นใช้ข้อความกลาง */
+const friendly = (e, fallback) => (/[฀-๿]/.test(e?.message || "") ? e.message : fallback)
 
 /** ---------- ฟิลด์ของ "ลูกค้าทั่วไป" ตามฝั่ง BE ---------- */
 const CUSTOMER_FIELD_KEYS = [
@@ -223,7 +227,7 @@ const CustomerSearch = () => {
         const normalized = (Array.isArray(data) ? data : []).map(normalizeCustomerRecord)
         setRows(normalized)
       } catch (e) {
-        setError(e?.message || "ค้นหาไม่สำเร็จ")
+        setError(friendly(e, "ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง"))
       } finally {
         setLoading(false)
       }
@@ -318,7 +322,7 @@ const CustomerSearch = () => {
       })
 
       const idForPatch = active.asso_id ?? active.id
-      if (!idForPatch && idForPatch !== 0) throw new Error("ไม่พบรหัสลูกค้า (id) สำหรับบันทึก")
+      if (!idForPatch && idForPatch !== 0) throw new Error("ไม่พบข้อมูลลูกค้ารายนี้ในระบบ จึงบันทึกการแก้ไขไม่ได้")
 
       // optimistic update
       setRows((cur) => cur.map((x) => ((x.asso_id ?? x.id) === idForPatch ? { ...x, ...diff } : x)))
@@ -335,9 +339,8 @@ const CustomerSearch = () => {
       setEditing(false)
       toast.success("บันทึกแล้ว", { description: fullName(updated) || undefined })
     } catch (e) {
-      const msg = e?.message || "บันทึกไม่สำเร็จ"
-      setRowError(msg)
-      toast.error("บันทึกไม่สำเร็จ", { description: msg })
+      setRowError(friendly(e, "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"))
+      toast.error("บันทึกไม่สำเร็จ", { description: friendly(e, "ข้อมูลที่แก้ยังอยู่ ลองบันทึกใหม่อีกครั้ง") })
     } finally {
       setSaving(false)
     }
@@ -558,7 +561,7 @@ const CustomerSearch = () => {
               <Field label="นามสกุล" editing={editing} display={active.last_name}>
                 <input aria-label="นามสกุล" className={inputCls} value={draft.last_name ?? ""} onChange={(e) => onChangeField("last_name", e.target.value)} placeholder="นามสกุล" />
               </Field>
-              <Field label="คำนำหน้า (precode)" editing={editing} display={PREFIX_OPTIONS.find((op) => op.value === String(active.precode))?.label}>
+              <Field label="คำนำหน้า" editing={editing} display={PREFIX_OPTIONS.find((op) => op.value === String(active.precode))?.label}>
                 <ComboBox
                   title="คำนำหน้า"
                   ariaLabel="คำนำหน้า"
@@ -569,7 +572,7 @@ const CustomerSearch = () => {
                   placeholder="— เลือก —"
                 />
               </Field>
-              <Field label="เพศ (กำหนดจากคำนำหน้า)" editing={false} display={(editing ? sexFromPrefix(draft.precode) : active.sex) || "-"} />
+              <Field label="เพศ (กำหนดจากคำนำหน้า)" editing={false} display={SEX_LABEL[editing ? sexFromPrefix(draft.precode) : active.sex] || "-"} />
               <Field label="เลขบัตรประชาชน" editing={editing} display={<span className="tabular-nums">{active.citizen_id}</span>}>
                 <input aria-label="เลขบัตรประชาชน" inputMode="numeric" maxLength={13} className={cx(inputCls, "tabular-nums")} value={draft.citizen_id ?? ""} onChange={(e) => onChangeField("citizen_id", e.target.value)} placeholder="13 หลัก" />
               </Field>
@@ -606,22 +609,22 @@ const CustomerSearch = () => {
 
             {/* ข้อมูล FID */}
             <section className="mt-6">
-              <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">ข้อมูล FID</h3>
+              <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">ทะเบียนเกษตรกร</h3>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Field label="FID" editing={editing} display={active.fid}>
-                  <input aria-label="FID" className={inputCls} value={draft.fid ?? ""} onChange={(e) => onChangeField("fid", e.target.value)} placeholder="เช่น FID-001234 หรือ 123456" />
+                <Field label="เลขทะเบียนเกษตรกร" editing={editing} display={active.fid}>
+                  <input aria-label="เลขทะเบียนเกษตรกร" className={inputCls} value={draft.fid ?? ""} onChange={(e) => onChangeField("fid", e.target.value)} placeholder="เช่น 123456" />
                 </Field>
-                <Field label="ชื่อผู้ถือ FID" editing={editing} display={active.fid_owner}>
-                  <input aria-label="ชื่อผู้ถือ FID" className={inputCls} value={draft.fid_owner ?? ""} onChange={(e) => onChangeField("fid_owner", e.target.value)} placeholder="เช่น นายสมชาย ใจดี" />
+                <Field label="ชื่อผู้ขึ้นทะเบียนเกษตรกร" editing={editing} display={active.fid_owner}>
+                  <input aria-label="ชื่อผู้ขึ้นทะเบียนเกษตรกร" className={inputCls} value={draft.fid_owner ?? ""} onChange={(e) => onChangeField("fid_owner", e.target.value)} placeholder="เช่น นายสมชาย ใจดี" />
                 </Field>
                 <Field
-                  label="ความสัมพันธ์"
+                  label="ความสัมพันธ์กับผู้ขึ้นทะเบียน"
                   editing={editing}
-                  display={active.fid_relationship != null ? (fidMap?.[active.fid_relationship] ?? active.fid_relationship) : "-"}
+                  display={active.fid_relationship != null ? (fidMap?.[active.fid_relationship] ?? "—") : "-"}
                 >
                   <ComboBox
-                    title="ความสัมพันธ์"
-                    ariaLabel="ความสัมพันธ์"
+                    title="ความสัมพันธ์กับผู้ขึ้นทะเบียน"
+                    ariaLabel="ความสัมพันธ์กับผู้ขึ้นทะเบียน"
                     options={fidOptions}
                     value={draft.fid_relationship ?? ""}
                     onChange={(v) => onChangeField("fid_relationship", v)}

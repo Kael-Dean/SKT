@@ -1,4 +1,5 @@
 // src/pages/hr/tabs/HRHolidayCalendarTab.jsx
+import { cx, baseField } from "../../../lib/styles"
 // ปฏิทินวันหยุด (3N) — GET/POST /hr/holidays, PATCH/DELETE /hr/holidays/{id},
 // POST /hr/holidays/copy-year
 //
@@ -21,7 +22,7 @@ const HOLIDAY_TYPES = [
 const TYPE_LABEL = { annual: "วันหยุดประจำปี", special: "วันหยุดพิเศษ" }
 const TYPE_TONE = { annual: "info", special: "pending" }
 
-const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 function fmtDate(d) {
   if (!d) return "—"

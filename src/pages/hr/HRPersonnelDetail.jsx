@@ -1,4 +1,5 @@
 // src/pages/hr/HRPersonnelDetail.jsx
+import { cx, baseField } from "../../lib/styles"
 // โปรไฟล์เจ้าหน้าที่แบบเต็ม — GET /hr/personnel/{user_id}
 import { useEffect, useState, useCallback } from "react"
 import ReactDOM from "react-dom"
@@ -61,7 +62,7 @@ function InfoRow({ label, value }) {
   )
 }
 
-const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 export default function HRPersonnelDetail() {
   const { id } = useParams()

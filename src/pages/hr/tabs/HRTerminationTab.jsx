@@ -1,4 +1,5 @@
 // src/pages/hr/tabs/HRTerminationTab.jsx
+import { cx, baseField } from "../../../lib/styles"
 // 13E — Termination Settlement: ค้นหาพนักงาน → GET prefill → POST/PATCH → PDF
 import { useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
@@ -30,7 +31,7 @@ function fmtNum(n) {
   return Number(n).toLocaleString("th-TH")
 }
 
-const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/60"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 export default function HRTerminationTab() {
   const [searchInput, setSearchInput]   = useState("")

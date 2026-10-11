@@ -317,13 +317,19 @@ export default function SelectDropdown({
         className={[
           "w-full min-w-0 rounded-2xl border py-3 pl-4 pr-9 text-left text-sm outline-none transition-all relative",
           isDisabled
-            ? "cursor-not-allowed opacity-60 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600"
-            : "cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-slate-300 dark:border-slate-600",
+            ? "cursor-not-allowed opacity-60 bg-slate-100 dark:bg-white/[.03] border-slate-300"
+            : "cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-field dark:hover:bg-field border-slate-300",
+          // dark border color is set in exactly one branch so state colors
+          // never compete with a base color on CSS source order
           open
-            ? "border-indigo-500 ring-2 ring-indigo-500/25 dark:border-indigo-400"
+            ? "border-indigo-500 ring-2 ring-indigo-500/25 dark:border-indigo-400 dark:ring-[3px] dark:ring-indigo-400/30"
             : error
             ? "border-red-400 ring-2 ring-red-300/50 dark:border-red-500 dark:ring-red-500/30"
-            : "focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 dark:focus-visible:border-indigo-400",
+            : "focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 " +
+              "dark:focus-visible:border-indigo-400 dark:focus-visible:ring-[3px] dark:focus-visible:ring-indigo-400/30" +
+              // disabled keeps the dim hairline (inactive controls are exempt
+              // from 1.4.11; the dimmer edge signals "off")
+              (isDisabled ? " dark:border-line-strong" : " dark:border-line-field dark:hover:border-line-field-hover"),
         ].join(" ")}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -343,8 +349,8 @@ export default function SelectDropdown({
               className={[
                 "block truncate",
                 selected && !loading
-                  ? "text-slate-900 dark:text-slate-100"
-                  : "text-slate-600 dark:text-slate-300",
+                  ? "text-slate-900 dark:text-gray-100"
+                  : "text-slate-600 dark:text-gray-400",
               ].join(" ")}
             >
               {triggerLabel}
@@ -370,10 +376,10 @@ export default function SelectDropdown({
         <div
           ref={panelRef}
           style={{ ...panelStyle, zIndex: PANEL_Z }}
-          className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
+          className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-line-strong dark:bg-raised dark:shadow-2xl dark:shadow-black/60"
         >
           {searchable && (
-            <div className="relative shrink-0 border-b border-slate-200 dark:border-slate-700">
+            <div className="relative shrink-0 border-b border-slate-200 dark:border-line">
               <Search
                 aria-hidden="true"
                 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400 dark:text-slate-500"
@@ -430,10 +436,10 @@ export default function SelectDropdown({
                     onClick={() => commit(opt)}
                     className={[
                       "flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-100",
-                      isActive ? "bg-indigo-50 dark:bg-indigo-500/15" : "",
+                      isActive ? "bg-indigo-50 " + (isChosen ? "dark:bg-indigo-500/20" : "dark:bg-white/[.06]") : "",
                       isChosen
-                        ? "font-semibold text-indigo-700 dark:text-indigo-300"
-                        : "text-slate-800 dark:text-slate-200",
+                        ? "font-semibold text-indigo-700 dark:text-indigo-200" + (isActive ? "" : " dark:bg-indigo-500/15")
+                        : "text-slate-800 dark:text-gray-200",
                     ].join(" ")}
                   >
                     {/* ช่องสีเล็กซ้ายมือ */}

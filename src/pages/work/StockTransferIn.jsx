@@ -861,7 +861,9 @@ function StockTransferIn() {
                   border border-red-300 bg-white px-6 py-3 text-base font-semibold text-red-600
                   shadow-sm transition-all duration-300 ease-out
                   hover:bg-red-50 hover:shadow-md hover:scale-[1.03]
-                  active:scale-[.97] cursor-pointer"
+                  active:scale-[.97] cursor-pointer
+                  dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300
+                  dark:hover:bg-red-500/20"
               >
                 ปฏิเสธคำขอ
               </button>

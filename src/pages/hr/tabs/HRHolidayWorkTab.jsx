@@ -1,4 +1,5 @@
 // src/pages/hr/tabs/HRHolidayWorkTab.jsx
+import { cx, baseField } from "../../../lib/styles"
 // ทะเบียนทำงานวันหยุด (3N) — GET/POST /hr/holiday-work, DELETE /hr/holiday-work/{id}
 //
 // บันทึกกรณีที่พนักงานถูกสั่งให้มาทำงานในวันที่ไม่ใช่วันทำงาน (เสาร์-อาทิตย์
@@ -12,7 +13,7 @@ import useModalDismiss from "../../../lib/useModalDismiss"
 
 const WORK_COLS = 6
 
-const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 const fmtMul = (v) => (v == null ? "—" : `${Number(v).toLocaleString("th-TH", { minimumFractionDigits: 1 })} เท่า`)
 

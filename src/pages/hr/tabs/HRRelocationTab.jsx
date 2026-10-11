@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
 import { can } from "../../../lib/permissions"
-import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
+import { baseField, cardCls, cx, tabPanelCls } from "../../../lib/styles"
 import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import Portal from "../../../components/Portal"
 import RelocationTransferModal from "../../../components/hr/RelocationTransferModal"
@@ -43,10 +43,7 @@ const STATUS_COLOR = {
   cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
 }
 
-const inputCls =
-  "w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm " +
-  "text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 " +
-  "focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-colors duration-200"
+const inputCls = cx(baseField, "!rounded-xl !px-3 !py-2 md:!text-sm")
 const labelCls = "block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
 
 function fmtDate(value) {

@@ -1,4 +1,5 @@
 // src/pages/work/MyRelocation.jsx
+import { cx, baseField } from "../../lib/styles"
 // คำขอย้ายสาขา — PUT /personnel/me/relocation (extended 13F) + GET /personnel/me/relocations
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../lib/api"
@@ -23,8 +24,7 @@ function fmtDate(d) {
   try { return new Date(d).toLocaleDateString("th-TH") } catch { return d }
 }
 
-const inputCls =
-  "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 const selectCls = inputCls
 
 const EMPTY_FORM = {
@@ -327,7 +327,7 @@ export default function MyRelocation() {
                   <p className="font-semibold text-indigo-700 dark:text-indigo-300">
                     {r.branch_pref_1_name ?? r.requested_branch_name ?? r.branch_name ?? `สาขาอันดับ 1`}
                   </p>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[r.status] ?? "bg-gray-100 text-gray-600"}`}>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[r.status] ?? "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"}`}>
                     {STATUS_LABEL[r.status] ?? r.status}
                   </span>
                 </div>

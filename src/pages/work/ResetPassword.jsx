@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useSearchParams, Navigate } from "react-router-dom"
 import { api } from "../../lib/api"
+import { cx, baseField } from "../../lib/styles"
 import sktBg from "../../assets/skt_bg.webp"
 
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
@@ -84,8 +85,7 @@ export default function ResetPassword() {
     }
   }
 
-  const inputCls =
-    "w-full rounded-2xl border border-gray-200 px-4 py-2.5 pr-12 text-sm shadow-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-indigo-500"
+  const inputCls = cx(baseField, "!pl-4 !pr-12 !py-2.5 md:!text-sm !shadow-sm")
 
   return (
     <div

@@ -1168,6 +1168,14 @@ function Documents() {
         // สร้าง placeholder ด้วย DOM API (createElement + textContent) แทน innerHTML
         // เพื่อกันการ inject HTML — ไม่มีการนำข้อมูล user/dynamic มา assign ผ่าน innerHTML
         const doc = preOpenWin.document
+        // The pre-opened tab is a blank document (white by default) — follow the
+        // app theme so the muted hint keeps its contrast in dark mode too.
+        const isDark = document.documentElement.classList.contains("dark")
+        if (isDark) {
+          doc.documentElement.style.colorScheme = "dark"
+          doc.body.style.background = "#0B0B0F"
+          doc.body.style.color = "#EDEDF0"
+        }
         const wrap = doc.createElement("div")
         wrap.style.fontFamily = "sans-serif"
         wrap.style.padding = "16px"
@@ -1179,7 +1187,7 @@ function Documents() {
 
         const hint = doc.createElement("div")
         hint.style.marginTop = "6px"
-        hint.style.color = "#64748b"
+        hint.style.color = isDark ? "#9A9AA5" : "#64748b"
         hint.textContent = "ถ้าหน้านี้ไม่เปลี่ยนเป็น PDF ให้กลับไปหน้ารายงานเพื่อดูสาเหตุ"
 
         wrap.appendChild(heading)

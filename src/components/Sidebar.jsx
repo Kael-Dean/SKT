@@ -133,13 +133,13 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
         aria-label="เมนูส่วนตัว"
         aria-hidden={isOpen ? undefined : "true"}
         inert={!isOpen}
-        className={`fixed left-0 top-0 z-[9999] h-dvh w-72 bg-white will-change-transform transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none dark:bg-gray-900 ${
+        className={`fixed left-0 top-0 z-[9999] h-dvh w-72 bg-white will-change-transform transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none dark:bg-surface dark:ring-1 dark:ring-line ${
           isOpen ? "translate-x-0 shadow-xl" : "-translate-x-full shadow-none"
         }`}
       >
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200/70 py-3.5 pl-4 pr-3 dark:border-gray-800">
+          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200/70 py-3.5 pl-4 pr-3 dark:border-line">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-xs font-bold text-white">
               AMC
             </div>
@@ -152,7 +152,7 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
               type="button"
               aria-label="ปิดเมนู"
               onClick={() => setIsOpen(false)}
-              className="flex size-11 md:size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+              className="flex size-11 md:size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-gray-400 dark:hover:bg-white/[.06] dark:hover:text-gray-100"
             >
               <X aria-hidden="true" strokeWidth={1.75} className="size-5" />
             </button>
@@ -176,8 +176,8 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
                       aria-current={active ? "page" : undefined}
                       className={`relative flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
                         active
-                          ? "bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200"
-                          : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                          ? "bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/[.12] dark:text-indigo-200"
+                          : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/[.06] dark:hover:text-gray-100"
                       }`}
                     >
                       <span
@@ -196,7 +196,7 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
             </ul>
 
             {tradingMenus.length > 0 && (
-              <div className="mt-3 border-t border-gray-200/70 pt-3 md:hidden dark:border-gray-800">
+              <div className="mt-3 border-t border-gray-200/70 pt-3 md:hidden dark:border-line">
                 <p className="px-2 pb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">{TRADING_GROUP.group}</p>
                 <ul className="space-y-1">
                   {tradingMenus.map((item) => {
@@ -213,8 +213,8 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
                           aria-current={active ? "page" : undefined}
                           className={`relative flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
                             active
-                              ? "bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200"
-                              : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                              ? "bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/[.12] dark:text-indigo-200"
+                              : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/[.06] dark:hover:text-gray-100"
                           }`}
                         >
                           <span
@@ -236,14 +236,14 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
           </nav>
 
           {/* Dark mode (phone — the Topbar toggle is hidden below md) + Logout */}
-          <div className="shrink-0 space-y-2 border-t border-gray-200/70 p-3 pb-safe-3 dark:border-gray-800">
+          <div className="shrink-0 space-y-2 border-t border-gray-200/70 p-3 pb-safe-3 dark:border-line">
             {setDarkMode && (
               <button
                 type="button"
                 role="switch"
                 aria-checked={darkMode}
                 onClick={() => setDarkMode((v) => !v)}
-                className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100 md:hidden"
+                className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:text-gray-300 dark:hover:bg-white/[.06] dark:hover:text-gray-100 md:hidden"
               >
                 <span aria-hidden="true" className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${TONES.indigo.chip}`}>
                   {darkMode ? <Sun strokeWidth={1.75} className="size-[18px]" /> : <Moon strokeWidth={1.75} className="size-[18px]" />}
@@ -252,7 +252,7 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
                 <span
                   aria-hidden="true"
                   className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors duration-200 ${
-                    darkMode ? "bg-indigo-600 dark:bg-indigo-500" : "bg-gray-300 dark:bg-gray-600"
+                    darkMode ? "bg-indigo-600 dark:bg-indigo-500" : "bg-gray-300 dark:bg-gray-500"
                   }`}
                 >
                   <span

@@ -57,6 +57,10 @@ const AppLayout = () => {
     const root = document.documentElement
     root.classList.toggle("dark", darkMode)
     localStorage.setItem("darkMode", String(darkMode))
+    // Browser chrome (mobile address bar / PWA title bar) follows the in-app
+    // theme, not the OS one: canvas #0B0B0F dark, gray-50 light.
+    const themeColor = darkMode ? "#0b0b0f" : "#f9fafb"
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", themeColor))
   }, [darkMode])
 
   // ปิด sidebar อัตโนมัติเมื่อกว้าง >= md (กันค้างสถานะ)
@@ -75,7 +79,7 @@ const AppLayout = () => {
   }, [location.pathname])
 
   return (
-    <div className="flex min-h-dvh bg-gray-50 text-gray-900 transition-colors duration-300 dark:bg-gray-950 dark:text-gray-100">
+    <div className="flex min-h-dvh bg-gray-50 text-gray-900 transition-colors duration-300 dark:bg-canvas dark:text-gray-100">
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} darkMode={darkMode} setDarkMode={setDarkMode} />
 
@@ -101,7 +105,7 @@ const AppLayout = () => {
               <div className="mb-6 hidden items-center gap-3 md:flex">
                 <button
                   onClick={() => navigate(back.to)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm transition-all duration-150 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-indigo-600 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-300 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm transition-all duration-150 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:border-line-strong dark:bg-white/[.04] dark:text-gray-300 dark:shadow-none dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-200 cursor-pointer"
                   type="button"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

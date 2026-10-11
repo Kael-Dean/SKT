@@ -1,4 +1,5 @@
 // src/pages/work/MyProfile.jsx
+import { cx, baseField } from "../../lib/styles"
 // ข้อมูลส่วนตัวของผู้ใช้ปัจจุบัน — GET /personnel/me + GET /personnel/me/financial
 import { useEffect, useState } from "react"
 import ReactDOM from "react-dom"
@@ -79,7 +80,7 @@ function maskCID(c) {
   return c[0] + "X".repeat(c.length - 4) + c.slice(-3)
 }
 
-const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 export default function MyProfile() {
   const localUser = getUser() || {}

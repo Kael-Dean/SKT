@@ -50,7 +50,7 @@ function firstDayOfMonth(year, month) {
 
 const navBtnCls =
   "flex size-11 md:size-9 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-colors " +
-  "duration-150 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100 " +
+  "duration-150 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/[.08] dark:hover:text-gray-100 " +
   focusRingCls
 
 /** Month grid — shared by the desktop popover and the phone sheet. */
@@ -81,7 +81,7 @@ function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, o
         {DAY_HEADERS.map((d, i) => (
           <div
             key={d}
-            className={cx("py-1 text-center text-xs font-medium", i === 0 ? "text-red-400" : "text-gray-400 dark:text-gray-500")}
+            className={cx("py-1 text-center text-xs font-medium", i === 0 ? "text-red-400" : "text-gray-400")}
           >
             {d}
           </div>
@@ -106,12 +106,12 @@ function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, o
                 "h-11 w-full cursor-pointer rounded-xl text-sm font-medium tabular-nums transition-colors duration-150 md:h-9",
                 focusRingCls,
                 isSelected
-                  ? "bg-indigo-600 text-white shadow-sm dark:bg-indigo-500"
+                  ? "bg-indigo-600 text-white shadow-sm dark:bg-indigo-600"
                   : isToday
-                    ? "bg-indigo-50 font-bold text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300"
+                    ? "bg-indigo-50 font-bold text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-200"
                     : isSun
-                      ? "text-red-500 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700"
-                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700",
+                      ? "text-red-500 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-white/[.06]"
+                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[.06]",
               )}
             >
               {day}
@@ -120,7 +120,7 @@ function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, o
         })}
       </div>
 
-      <div className="mt-2 border-t border-gray-100 pt-2 text-center dark:border-gray-700">
+      <div className="mt-2 border-t border-gray-100 pt-2 text-center dark:border-line">
         <button
           type="button"
           onClick={onToday}
@@ -235,7 +235,7 @@ export default function ThaiDatePicker({ value = "", onChange, className = "", i
         aria-label={`${ariaLabel}${value ? `: ${formatDisplay(value)}` : ""}`}
         className={`flex w-full cursor-pointer items-center justify-between gap-2 text-left ${wrapperCls}`}
       >
-        <span className={value ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500"}>
+        <span className={value ? "text-gray-900 dark:text-gray-100" : "text-gray-400"}>
           {formatDisplay(value) || "— เลือกวันที่ —"}
         </span>
         <CalendarDays aria-hidden="true" className="size-4 shrink-0 text-gray-400 dark:text-gray-500" strokeWidth={1.75} />
@@ -253,7 +253,7 @@ export default function ThaiDatePicker({ value = "", onChange, className = "", i
             role="dialog"
             aria-label={ariaLabel}
             style={{ ...style, zIndex: PANEL_Z }}
-            className="overflow-y-auto rounded-2xl border border-gray-200 bg-white p-3 shadow-xl dark:border-gray-700 dark:bg-gray-800"
+            className="overflow-y-auto rounded-2xl border border-gray-200 bg-white p-3 shadow-xl dark:border-line-strong dark:bg-raised dark:shadow-2xl dark:shadow-black/60"
           >
             {calendar}
           </div>,

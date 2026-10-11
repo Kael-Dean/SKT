@@ -161,7 +161,7 @@ const Login = () => {
               </label>
               <input
                 type="text"
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[15px] text-gray-900 outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 dark:border-gray-600 dark:bg-gray-700/80 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-indigo-500 dark:focus:bg-gray-700 dark:focus:ring-indigo-400/25"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[15px] text-gray-900 outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 dark:border-line-field dark:bg-field dark:text-gray-100 dark:placeholder:text-gray-400 dark:hover:border-line-field-hover dark:focus:border-indigo-400 dark:focus:bg-field dark:focus:ring-[3px] dark:focus:ring-indigo-400/30"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
@@ -178,7 +178,7 @@ const Login = () => {
               <div className="relative">
                 <input
                   type={showPass ? "text" : "password"}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-[15px] text-gray-900 outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 dark:border-gray-600 dark:bg-gray-700/80 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-indigo-500 dark:focus:bg-gray-700 dark:focus:ring-indigo-400/25"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-[15px] text-gray-900 outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 dark:border-line-field dark:bg-field dark:text-gray-100 dark:placeholder:text-gray-400 dark:hover:border-line-field-hover dark:focus:border-indigo-400 dark:focus:bg-field dark:focus:ring-[3px] dark:focus:ring-indigo-400/30"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"

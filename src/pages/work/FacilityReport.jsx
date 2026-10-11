@@ -1,4 +1,5 @@
 // src/pages/work/FacilityReport.jsx
+import { cx, baseField } from "../../lib/styles"
 // รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์ — POST/GET/PATCH/DELETE /facility-report/*
 import { useEffect, useRef, useState, useMemo } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
@@ -20,8 +21,7 @@ function fmtAmt(n) {
 }
 
 // ─── style tokens ─────────────────────────────────────────────────────────────
-const inputCls =
-  "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5"
 

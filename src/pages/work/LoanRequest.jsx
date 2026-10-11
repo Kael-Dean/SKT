@@ -1,4 +1,5 @@
 // src/pages/work/LoanRequest.jsx
+import { cx, baseField } from "../../lib/styles"
 // ขอสินเชื่อสวัสดิการ — POST /personnel/me/loans + GET /personnel/me/loans
 //
 // ระเบียบเงินกู้ของสหกรณ์ (api-handoff payment-1) ที่หน้าจอนี้ต้องบังคับให้ตรงกัน:
@@ -41,8 +42,7 @@ const STATUS_COLOR = {
   rejected:    "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
 }
 
-const inputCls =
-  "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 const money = (n) =>
   n == null || n === "" ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
@@ -253,7 +253,7 @@ export default function LoanRequest() {
                   ประเภทการกู้ <span className="text-red-500">*</span>
                 </label>
                 <select value={form.purpose_code} onChange={(e) => setField("purpose_code", e.target.value)}
-                  className={`${inputCls} ${errors.purpose_code ? "border-red-400 focus:ring-red-400" : ""}`}>
+                  className={`${inputCls} ${errors.purpose_code ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}>
                   <option value="">— เลือกวัตถุประสงค์ —</option>
                   {PURPOSE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
@@ -280,7 +280,7 @@ export default function LoanRequest() {
                     จำนวนเงินที่ขอกู้ (บาท) <span className="text-red-500">*</span>
                   </label>
                   <input type="number" min="0" step="1000" value={form.amount} onChange={(e) => setField("amount", e.target.value)}
-                    className={`${inputCls} tabular-nums ${errors.amount ? "border-red-400 focus:ring-red-400" : ""}`} placeholder="0" />
+                    className={`${inputCls} tabular-nums ${errors.amount ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`} placeholder="0" />
                   <ErrMsg field="amount" />
                 </div>
                 <div>
@@ -288,7 +288,7 @@ export default function LoanRequest() {
                     จำนวนงวด (เดือน) <span className="text-red-500">*</span>
                   </label>
                   <input type="number" min="1" max={MAX_MONTHS} value={form.repayment_months} onChange={(e) => setField("repayment_months", e.target.value)}
-                    className={`${inputCls} tabular-nums ${errors.repayment_months ? "border-red-400 focus:ring-red-400" : ""}`} placeholder={`ไม่เกิน ${MAX_MONTHS}`} />
+                    className={`${inputCls} tabular-nums ${errors.repayment_months ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`} placeholder={`ไม่เกิน ${MAX_MONTHS}`} />
                   <ErrMsg field="repayment_months" />
                 </div>
               </div>
@@ -328,7 +328,7 @@ export default function LoanRequest() {
                     ผู้ค้ำประกันคนที่ 1 <span className="text-red-500">*</span>
                   </label>
                   <input type="text" value={form.guarantor_1_id} onChange={(e) => setField("guarantor_1_id", e.target.value)}
-                    className={`${inputCls} tabular-nums ${errors.guarantor_1_id ? "border-red-400 focus:ring-red-400" : ""}`} placeholder="รหัสเจ้าหน้าที่" />
+                    className={`${inputCls} tabular-nums ${errors.guarantor_1_id ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`} placeholder="รหัสเจ้าหน้าที่" />
                   <ErrMsg field="guarantor_1_id" />
                 </div>
                 <div>
@@ -336,7 +336,7 @@ export default function LoanRequest() {
                     ผู้ค้ำประกันคนที่ 2 <span className="text-red-500">*</span>
                   </label>
                   <input type="text" value={form.guarantor_2_id} onChange={(e) => setField("guarantor_2_id", e.target.value)}
-                    className={`${inputCls} tabular-nums ${errors.guarantor_2_id ? "border-red-400 focus:ring-red-400" : ""}`} placeholder="รหัสเจ้าหน้าที่" />
+                    className={`${inputCls} tabular-nums ${errors.guarantor_2_id ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`} placeholder="รหัสเจ้าหน้าที่" />
                   <ErrMsg field="guarantor_2_id" />
                 </div>
               </div>
@@ -370,7 +370,7 @@ export default function LoanRequest() {
                     <p className="font-semibold text-gray-900 dark:text-gray-100">
                       {PURPOSE_LABEL[l.purpose_code] ?? l.purpose_code ?? "สินเชื่อสวัสดิการ"}
                     </p>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[l.status] ?? "bg-gray-100 text-gray-600"}`}>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[l.status] ?? "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"}`}>
                       {STATUS_LABEL[l.status] ?? l.status}
                     </span>
                   </div>

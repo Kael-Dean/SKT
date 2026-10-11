@@ -17,7 +17,7 @@ import { panelId, tabId } from "./tabIds"
 
 const TRACK =
   "inline-flex max-w-full gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 " +
-  "ring-1 ring-inset ring-gray-200/60 dark:bg-gray-900/60 dark:ring-gray-700/60 " +
+  "ring-1 ring-inset ring-gray-200/60 dark:bg-field dark:ring-line " +
   "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 
 const TAB_BASE =
@@ -28,11 +28,11 @@ const TAB_BASE =
 
 const TAB_IDLE =
   "text-gray-600 hover:bg-white/60 hover:text-gray-800 " +
-  "dark:text-gray-400 dark:hover:bg-gray-700/40 dark:hover:text-gray-100 " +
+  "dark:text-gray-400 dark:hover:bg-white/[.06] dark:hover:text-gray-100 " +
   "disabled:hover:bg-transparent disabled:hover:text-gray-600 dark:disabled:hover:text-gray-400"
 
 const TAB_ACTIVE =
-  "bg-white text-indigo-700 shadow-sm dark:bg-gray-700 dark:text-indigo-300"
+  "bg-white text-indigo-700 shadow-sm dark:bg-raised dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-line-strong"
 
 const SIZE = { md: "h-9", sm: "h-8" }
 

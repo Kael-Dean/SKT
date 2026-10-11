@@ -1,4 +1,5 @@
 // src/pages/work/LeaveRequest.jsx
+import { cx, baseField } from "../../lib/styles"
 // ยื่นใบลา + ประวัติใบลา — PUT /personnel/me/leaves, GET /personnel/me/leaves/{id}/pdf
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
@@ -8,8 +9,7 @@ import { STATUS_LABEL as APPROVAL_STATUS_LABEL, isPendingStatus } from "../../li
 import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
 
 // ─── shared style tokens ────────────────────────────────────────────────────
-const inputCls =
-  "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5"
@@ -679,7 +679,7 @@ export default function LeaveRequest() {
                 <Field label="ข้าพเจ้า (ชื่อ-นามสกุล)" required className="sm:col-span-2">
                   <input
                     type="text"
-                    className={`${inputCls} ${errors.fullName ? "border-red-400 focus:ring-red-400" : ""}`}
+                    className={`${inputCls} ${errors.fullName ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
                     placeholder="กรอกชื่อ-นามสกุล"
                     value={form.fullName}
                     onChange={set("fullName")}
@@ -689,7 +689,7 @@ export default function LeaveRequest() {
                 <Field label="ตำแหน่ง" required>
                   <input
                     type="text"
-                    className={`${inputCls} ${errors.position ? "border-red-400 focus:ring-red-400" : ""}`}
+                    className={`${inputCls} ${errors.position ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
                     placeholder="ระบุตำแหน่ง"
                     value={form.position}
                     onChange={set("position")}
@@ -699,7 +699,7 @@ export default function LeaveRequest() {
                 <Field label="สังกัด / แผนก" required>
                   <input
                     type="text"
-                    className={`${inputCls} ${errors.department ? "border-red-400 focus:ring-red-400" : ""}`}
+                    className={`${inputCls} ${errors.department ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
                     placeholder="ระบุสังกัด"
                     value={form.department}
                     onChange={set("department")}
@@ -791,7 +791,7 @@ export default function LeaveRequest() {
                 <Field label="ตั้งแต่วันที่" required>
                   <input
                     type="date"
-                    className={`${inputCls} ${errors.fromDate ? "border-red-400 focus:ring-red-400" : ""}`}
+                    className={`${inputCls} ${errors.fromDate ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
                     value={form.fromDate}
                     onChange={set("fromDate")}
                   />
@@ -809,7 +809,7 @@ export default function LeaveRequest() {
                 <Field label="ถึงวันที่" required>
                   <input
                     type="date"
-                    className={`${inputCls} ${errors.toDate ? "border-red-400 focus:ring-red-400" : ""}`}
+                    className={`${inputCls} ${errors.toDate ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
                     value={form.toDate}
                     min={form.fromDate || undefined}
                     onChange={set("toDate")}
@@ -847,7 +847,7 @@ export default function LeaveRequest() {
                 <Field label="ถึงวันที่">
                   <input
                     type="date"
-                    className={`${inputCls} ${errors.toDate2 ? "border-red-400 focus:ring-red-400" : ""}`}
+                    className={`${inputCls} ${errors.toDate2 ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
                     value={form.toDate2}
                     min={form.fromDate2 || undefined}
                     onChange={set("toDate2")}

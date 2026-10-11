@@ -8,6 +8,99 @@
    (viewport-fit=cover is set in index.html). */
 @theme {
   --spacing-touch: 2.75rem;
+
+  /* ─── Graphite surface tokens (dark mode only) ────────────────────────────
+     Used exclusively behind `dark:` variants (dark:bg-surface, dark:border-line…).
+     Elevation = lightness: canvas < field (recessed) < surface < raised.
+     Text tones live in the remapped gray ramp below (.dark): 100 text,
+     400 muted, 500 subtle. */
+  --color-canvas: #0b0b0f;      /* app background */
+  --color-field: #0f0f13;       /* input bg — recessed below the card */
+  --color-surface: #141419;     /* card / modal / sidebar */
+  --color-raised: #1c1c22;      /* popover, menu, active segment */
+  --color-line: rgb(255 255 255 / 0.08);        /* hairline divider/border */
+  --color-line-strong: rgb(255 255 255 / 0.14); /* overlay ring, button edge */
+  /* Field boundary (input/select/combobox). Must reach 3:1 against the field
+     fill AND the card around it (WCAG 1.4.11): line-strong was 1.47:1.
+     #6a6a74 → 3.58 on field · 3.43 on surface · 3.17 on raised.
+     Hover is one step brighter (#7e7e89 → 4.77 on field). Disabled fields keep
+     line-strong on purpose — inactive controls are exempt and the dimmer edge
+     reads as "off". */
+  --color-line-field: #6a6a74;
+  --color-line-field-hover: #7e7e89;
+}
+
+/* ─── Dark: one graphite neutral ramp ───────────────────────────────────────
+   Tailwind v4 utilities read palette colors through CSS variables
+   (bg-gray-800 → var(--color-gray-800)), so remapping the ramp here collapses
+   the old mixed gray/slate (blue-tinted, two hues) dark UI into one neutral
+   graphite tone app-wide. Light mode is untouched — this only applies under
+   <html class="dark">. gray and slate share the same ramp on purpose.
+   `:root.dark` (0,2,0) so these win over the unlayered `:root` block further
+   down (same specificity + later = the light --focus-ring-* used to win). */
+:root.dark,
+.dark {
+  color-scheme: dark;
+
+  --color-gray-50: #f6f6f8;
+  --color-gray-100: #ededf0;
+  --color-gray-200: #dcdce2;
+  --color-gray-300: #c4c4cc;
+  --color-gray-400: #9a9aa5;
+  --color-gray-500: #6b6b76;
+  --color-gray-600: #33333b;
+  --color-gray-700: #26262d;
+  --color-gray-800: #141419;
+  --color-gray-900: #0d0d11; /* recessed inset: below surface (ΔL* 2.8), just above canvas */
+  --color-gray-950: #0b0b0f;
+
+  --color-slate-50: #f6f6f8;
+  --color-slate-100: #ededf0;
+  --color-slate-200: #dcdce2;
+  --color-slate-300: #c4c4cc;
+  --color-slate-400: #9a9aa5;
+  --color-slate-500: #6b6b76;
+  --color-slate-600: #33333b;
+  --color-slate-700: #26262d;
+  --color-slate-800: #141419;
+  --color-slate-900: #0d0d11;
+  --color-slate-950: #0b0b0f;
+
+  /* Focus halo for native fields (see focus-ring-in below): indigo-400 reads
+     on graphite; indigo-500 at 20% vanishes. */
+  --focus-ring-from: rgb(129 140 248 / 0.45);
+  --focus-ring-to: rgb(129 140 248 / 0.3);
+}
+
+/* ─── Dark: browser autofill ────────────────────────────────────────────────
+   Chrome/Safari paint autofilled fields with an opaque light/yellow bg that
+   ignores background-color. Cover it with an inset field-colored shadow and
+   delay the UA background via a very long transition. */
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark textarea:-webkit-autofill,
+.dark textarea:-webkit-autofill:hover,
+.dark select:-webkit-autofill,
+.dark select:-webkit-autofill:hover {
+  -webkit-box-shadow: 0 0 0 1000px var(--color-field) inset;
+  box-shadow: 0 0 0 1000px var(--color-field) inset;
+  -webkit-text-fill-color: #ededf0;
+  caret-color: #ededf0;
+  transition: background-color 9999s ease-in-out 0s;
+}
+/* Focused + autofilled: keep the inset cover AND draw the focus halo
+   (the plain focus-ring-in animation would replace the inset shadow). */
+.dark input:-webkit-autofill:focus,
+.dark textarea:-webkit-autofill:focus,
+.dark select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ededf0;
+  caret-color: #ededf0;
+  transition: background-color 9999s ease-in-out 0s;
+  animation: focus-ring-autofill 0.15s var(--ease-out-quart) both;
+}
+@keyframes focus-ring-autofill {
+  from { box-shadow: 0 0 0 1000px var(--color-field) inset, 0 0 0 0 var(--focus-ring-from); }
+  to   { box-shadow: 0 0 0 1000px var(--color-field) inset, 0 0 0 3px var(--focus-ring-to); }
 }
 
 @utility pb-safe {
@@ -87,6 +180,9 @@
      is the document scroller, so anything `sticky` inside a page must sit
      below the sticky Topbar: use `top-(--topbar-h)` instead of `top-0`. */
   --topbar-h: 64px;
+  /* Native field focus halo (light values; .dark overrides above). */
+  --focus-ring-from: rgb(99 102 241 / 0.4);
+  --focus-ring-to: rgb(99 102 241 / 0.2);
 }
 
 /* ─── Page Entrance ────────────────────────────────────────────────────────── */
@@ -192,8 +288,8 @@
 
 /* Focus ring — smooth expand from center */
 @keyframes focus-ring-in {
-  from { box-shadow: 0 0 0 0px rgb(99 102 241 / 0.4); }
-  to   { box-shadow: 0 0 0 3px rgb(99 102 241 / 0.2); }
+  from { box-shadow: 0 0 0 0px var(--focus-ring-from); }
+  to   { box-shadow: 0 0 0 3px var(--focus-ring-to); }
 }
 /* Buttons that declare their own Tailwind ring (focus-visible:ring-* / focus:ring-*)
    are excluded: with fill-mode `both` the animation's final box-shadow would
@@ -247,9 +343,9 @@ button:focus-visible:not([class*="focus-visible:ring"]):not([class*="focus:ring"
 .dark .skeleton-shimmer {
   background-image: linear-gradient(
     90deg,
-    rgb(51 65 85 / 0) 25%,
-    rgb(71 85 105 / 0.9) 50%,
-    rgb(51 65 85 / 0) 75%
+    rgb(255 255 255 / 0) 25%,
+    rgb(255 255 255 / 0.06) 50%,
+    rgb(255 255 255 / 0) 75%
   );
 }
 
@@ -297,11 +393,11 @@ button:focus-visible:not([class*="focus-visible:ring"]):not([class*="focus:ring"
 
 /* Dark mode scrollbar */
 .dark ::-webkit-scrollbar-thumb {
-  background: rgb(107 114 128 / 0.4);
+  background: rgb(255 255 255 / 0.12);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgb(107 114 128 / 0.6);
+  background: rgb(255 255 255 / 0.22);
 }
 
 /* Firefox */
@@ -311,7 +407,7 @@ button:focus-visible:not([class*="focus-visible:ring"]):not([class*="focus:ring"
 }
 
 .dark * {
-  scrollbar-color: rgb(107 114 128 / 0.4) transparent;
+  scrollbar-color: rgb(255 255 255 / 0.14) transparent;
 }
 
 /* Hide native scrollbars when StickyTableScrollbar custom ones are active */

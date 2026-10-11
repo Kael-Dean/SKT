@@ -57,7 +57,22 @@ function describeSaveError(err) {
   if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "รายการนี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
   if (status === 422) return { title: "ข้อมูลไม่ผ่านการตรวจ", description: isThai ? raw : "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่" }
   if (status >= 500) return { title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" }
-  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : `เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง · รหัส: ${status}` }
+  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : "เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง" }
+}
+
+/** แสดงข้อความจาก backend เฉพาะเมื่อเป็นภาษาไทยแล้ว ไม่งั้นใช้ข้อความกลาง */
+const friendly = (e, fallback) => (/[฀-๿]/.test(e?.message || "") ? e.message : fallback)
+
+/** สถานะคำขอโอน → ภาษาไทย (ค่าที่ไม่รู้จักแสดงตามเดิม) */
+const TRANSFER_STATUS_TH = { pending: "รอรับ", approved: "รับแล้ว", confirmed: "รับแล้ว", rejected: "ปฏิเสธ" }
+const statusLabel = (s) => TRANSFER_STATUS_TH[String(s ?? "").toLowerCase()] || s || "—"
+
+/** ชื่อคลังจากคำขอ ถ้า backend ส่งมาแค่เลข id จะได้ค่าว่าง (ไม่แสดงเลข id) */
+const klangNameOf = (r, side) => r?.[`${side}_klang_name`] || r?.[`${side}_klang`]?.klang_name || ""
+const routeLabel = (r) => {
+  const from = klangNameOf(r, "from")
+  const to = klangNameOf(r, "to")
+  return from || to ? `${from || "—"} → ${to || "—"}` : ""
 }
 
 /** ---------- Styles ---------- */
@@ -181,7 +196,7 @@ function StockTransferIn() {
       // โพลล์พื้นหลังที่ล้มเหลว: เก็บข้อมูลเดิมไว้ ไม่ต้องโชว์ error ทับ
       if (!background) {
         setRequests([])
-        setRequestsError(err?.message || "ไม่สามารถโหลดคำขอโอนเข้าได้")
+        setRequestsError(friendly(err, "โหลดคำขอโอนเข้าไม่สำเร็จ ลองใหม่อีกครั้ง"))
       }
     } finally {
       if (token === reloadTokenRef.current) {
@@ -289,7 +304,7 @@ function StockTransferIn() {
     if (!form.transfer_id) e.transfer_id = "กรุณาเลือกคำขอโอนจากรายการด้านบนก่อน"
     if (form.weight_in === "" || weightIn <= 0) e.weight_in = "น้ำหนักชั่งเข้า ต้องเป็นจำนวนเต็มมากกว่า 0"
     if (form.weight_out === "" || weightOut < 0) e.weight_out = "น้ำหนักชั่งออก ต้องเป็นจำนวนเต็ม (≥ 0)"
-    if (netWeightInt <= 0) e.net_weight = "น้ำหนักสุทธ้องมากกว่า 0 (ชั่งเข้า − ชั่งออก)"
+    if (netWeightInt <= 0) e.net_weight = "น้ำหนักสุทธิต้องมากกว่า 0 (ชั่งเข้า − ชั่งออก)"
 
     const dq = Number(form.dest_quality)
     if (form.dest_quality === "") e.dest_quality = "กรุณากรอกคุณภาพ (0–100)"
@@ -511,7 +526,7 @@ function StockTransferIn() {
                 skeletonRows={2}
                 emptyState={requestsEmpty}
                 title={(r) => `คำขอ #${r.id}`}
-                subtitle={(r) => `คลัง ${r.from_klang ?? "-"} → คลัง ${r.to_klang ?? "-"} · ${r.status ?? "-"}`}
+                subtitle={(r) => [routeLabel(r), statusLabel(r.status)].filter(Boolean).join(" · ")}
                 badge={(r) => (String(form.transfer_id ?? "") === String(r.id) ? <Badge tone="success">เลือกแล้ว</Badge> : null)}
                 fields={(r) =>
                   r.price_per_kilo != null
@@ -573,9 +588,9 @@ function StockTransferIn() {
                     </div>
                   </div>
                   <div className="mt-2 space-y-0.5 text-sm text-slate-700 dark:text-slate-300">
-                    <div>จากคลัง (ID): <span className="tabular-nums">{req.from_klang ?? "-"}</span></div>
-                    <div>ไปคลัง (ID): <span className="tabular-nums">{req.to_klang ?? "-"}</span></div>
-                    <div>สถานะ: {req.status ?? "-"}</div>
+                    {klangNameOf(req, "from") && <div>จากคลัง: {klangNameOf(req, "from")}</div>}
+                    {klangNameOf(req, "to") && <div>ไปคลัง: {klangNameOf(req, "to")}</div>}
+                    <div>สถานะ: {statusLabel(req.status)}</div>
                     {req.price_per_kilo != null && (
                       <div>ราคาต้นทุน/กก. ที่เสนอ: <span className="tabular-nums">{Number(req.price_per_kilo).toFixed(2)}</span> บาท</div>
                     )}
@@ -848,7 +863,7 @@ function StockTransferIn() {
                   hover:bg-red-50 hover:shadow-md hover:scale-[1.03]
                   active:scale-[.97] cursor-pointer"
               >
-                ปฏิเสธคำขอ (REJECT)
+                ปฏิเสธคำขอ
               </button>
 
               <button

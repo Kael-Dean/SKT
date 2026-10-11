@@ -79,7 +79,7 @@ function describeSaveError(err) {
   if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "รายการนี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
   if (status === 422) return { title: "ข้อมูลไม่ผ่านการตรวจ", description: isThai ? raw : "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่" }
   if (status >= 500) return { title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" }
-  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : `เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง · รหัส: ${status}` }
+  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : "เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง" }
 }
 
 /** ---------- Main Page: Bring In to Mill (ยกเข้าโรงสี) ---------- */
@@ -180,7 +180,7 @@ function StockBringInMill() {
         setYearOptions((years || []).map((x, i) => ({ id: String(x.id ?? x.value ?? i), label: String(x.year ?? x.name ?? x.label ?? "").trim() })))
         setProgramOptions((programs || []).map((x, i) => ({ id: String(x.id ?? x.value ?? i), label: String(x.program ?? x.name ?? x.label ?? "").trim() })))
         setBusinessOptions((businesses || []).map((x, i) => ({ id: String(x.id ?? x.value ?? i), label: String(x.business ?? x.name ?? x.label ?? "").trim() })))
-        setKlangOptions((klangs || []).map((k) => ({ id: String(k.id ?? k.klang_id ?? ""), label: String(k.klang_name ?? k.name ?? `คลัง #${k.id ?? k.klang_id}`) })))
+        setKlangOptions((klangs || []).map((k) => ({ id: String(k.id ?? k.klang_id ?? ""), label: String(k.klang_name ?? k.name ?? "ไม่ทราบชื่อคลัง") })))
       } catch {
         if (!alive) return
         setProductOptions([]); setConditionOptions([]); setFieldTypeOptions([])
@@ -382,7 +382,7 @@ function StockBringInMill() {
             <path d="M3 7h18" />
             <path d="M12 11v3" />
           </svg>
-          ยอดยกเข้าโรงสี (Bring In to Mill)
+          ยอดยกเข้าโรงสี
         </h1>
 
         {/* สเปคสินค้า */}
@@ -407,7 +407,7 @@ function StockBringInMill() {
             </div>
 
             <div>
-              <label className={labelCls}>ชนิดข้าว (Species)</label>
+              <label className={labelCls}>ชนิดข้าว</label>
               <ComboBox
                 title="ชนิดข้าว"
                 ariaLabel="ชนิดข้าว"
@@ -425,7 +425,7 @@ function StockBringInMill() {
             </div>
 
             <div>
-              <label className={labelCls}>ชั้นย่อย/สายพันธุ์ (Variant)</label>
+              <label className={labelCls}>ชั้นย่อย/สายพันธุ์</label>
               <ComboBox
                 title="ชั้นย่อย/สายพันธุ์"
                 ariaLabel="ชั้นย่อย/สายพันธุ์"

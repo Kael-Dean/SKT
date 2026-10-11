@@ -1,0 +1,368 @@
+
+> skt@0.0.0 lint
+> eslint .
+
+
+D:\SKT-dev\src\components\AppLayout.jsx
+  7:14  error  Fast refresh only works when a file only exports components. Move your React context(s) to a separate file                      react-refresh/only-export-components
+  8:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+D:\SKT-dev\src\components\ThaiDatePicker.jsx
+  48:6  warning  React Hook useEffect has a missing dependency: 'parsed'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\SKT-dev\src\pages\organization\BusinessEdit.jsx
+  401:6  warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\SKT-dev\src\pages\organization\OperationPlan.jsx
+  29:7  error  'readonlyField' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\SKT-dev\src\pages\organization\cost\BusinessPlanExpenseCollectionTableDetail.jsx
+   30:7   error  'fmtMoney' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  145:7   error  'shortUnit' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  183:9   error  'periodLabel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  209:16  error  'e' is defined but never used                                                                no-unused-vars
+  410:37  error  Empty block statement                                                                        no-empty
+  576:39  error  'rIdx' is defined but never used                                                             no-unused-vars
+  629:37  error  'mIdx' is defined but never used                                                             no-unused-vars
+
+D:\SKT-dev\src\pages\organization\cost\BusinessPlanExpenseOilTableDetail.jsx
+   30:7   error  'fmtMoney' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  145:7   error  'shortUnit' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  183:9   error  'periodLabel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  209:16  error  'e' is defined but never used                                                                no-unused-vars
+  409:37  error  Empty block statement                                                                        no-empty
+  575:39  error  'rIdx' is defined but never used                                                             no-unused-vars
+  628:37  error  'mIdx' is defined but never used                                                             no-unused-vars
+
+D:\SKT-dev\src\pages\organization\cost\BusinessPlanExpenseProcessingTableDetail.jsx
+   30:7   error  'fmtMoney' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  145:7   error  'shortUnit' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  183:9   error  'periodLabel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  209:16  error  'e' is defined but never used                                                                no-unused-vars
+  409:37  error  Empty block statement                                                                        no-empty
+  575:39  error  'rIdx' is defined but never used                                                             no-unused-vars
+  629:37  error  'mIdx' is defined but never used                                                             no-unused-vars
+
+D:\SKT-dev\src\pages\organization\cost\BusinessPlanExpenseSeedProcessingTableDetail.jsx
+   30:7   error  'fmtMoney' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  145:7   error  'shortUnit' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  183:9   error  'periodLabel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  209:16  error  'e' is defined but never used                                                                no-unused-vars
+  409:37  error  Empty block statement                                                                        no-empty
+  575:39  error  'rIdx' is defined but never used                                                             no-unused-vars
+  628:37  error  'mIdx' is defined but never used                                                             no-unused-vars
+
+D:\SKT-dev\src\pages\organization\cost\BusinessPlanExpenseServiceTableDetail.jsx
+   30:7   error  'fmtMoney' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  145:7   error  'shortUnit' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  183:9   error  'periodLabel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  209:16  error  'e' is defined but never used                                                                no-unused-vars
+  409:37  error  Empty block statement                                                                        no-empty
+  575:39  error  'rIdx' is defined but never used                                                             no-unused-vars
+  628:37  error  'mIdx' is defined but never used                                                             no-unused-vars
+
+D:\SKT-dev\src\pages\organization\cost\BusinessPlanExpenseSupportWorkTableDetail.jsx
+   30:7   error  'fmtMoney' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  142:7   error  'shortUnit' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  180:9   error  'periodLabel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  206:16  error  'e' is defined but never used                                                                no-unused-vars
+  406:37  error  Empty block statement                                                                        no-empty
+  570:39  error  'rIdx' is defined but never used                                                             no-unused-vars
+  623:37  error  'mIdx' is defined but never used                                                             no-unused-vars
+
+D:\SKT-dev\src\pages\organization\cost\BusinessPlanExpenseTableDetail.jsx
+   29:7   error  'fmtMoney' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u             no-unused-vars
+  111:7   error  'shortUnit' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u            no-unused-vars
+  132:9   error  'effectiveBranchName' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  150:9   error  'periodLabel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u          no-unused-vars
+  178:16  error  'e' is defined but never used                                                                        no-unused-vars
+  375:37  error  Empty block statement                                                                                no-empty
+  530:39  error  'rIdx' is defined but never used                                                                     no-unused-vars
+  583:37  error  'mIdx' is defined but never used                                                                     no-unused-vars
+
+D:\SKT-dev\src\pages\organization\cost\BusinessPlanRepCostSummaryTableDetail.jsx
+  208:9   error  'periodLabel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  489:37  error  Empty block statement                                                                        no-empty
+  723:37  error  'mIdx' is defined but never used                                                             no-unused-vars
+
+D:\SKT-dev\src\pages\organization\sell\AgriCollectionPlanTable.jsx
+   31:7   error  'baseField' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  128:66  error  'onYearBEChange' is defined but never used                                                 no-unused-vars
+  233:13  error  Empty block statement                                                                      no-empty
+  260:13  error  Empty block statement                                                                      no-empty
+  439:37  error  Empty block statement                                                                      no-empty
+  525:9   error  'payload' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  619:37  error  'i' is defined but never used                                                              no-unused-vars
+
+D:\SKT-dev\src\pages\organization\sell\AgriProcessingPlanDetail.jsx
+  234:19  error    Empty block statement                                                                                                no-empty
+  247:19  error    Empty block statement                                                                                                no-empty
+  308:10  error    'isLoadingUnitPrices' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                  no-unused-vars
+  410:10  error    'isLoadingSaved' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                       no-unused-vars
+  427:13  error    Empty block statement                                                                                                no-empty
+  584:37  error    Empty block statement                                                                                                no-empty
+  642:6   warning  React Hook useCallback has an unnecessary dependency: 'loadUnits'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+  710:35  error    'i' is defined but never used                                                                                        no-unused-vars
+
+D:\SKT-dev\src\pages\organization\sell\BusinessPlanOtherIncomeTable.jsx
+  163:7   error    'normBranchName' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                            no-unused-vars
+  164:7   error    'normBranchId' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                              no-unused-vars
+  193:10  error    'isLoadingUnits' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                            no-unused-vars
+  234:17  error    Empty block statement                                                                                                                     no-empty
+  244:15  error    Empty block statement                                                                                                                     no-empty
+  320:6   warning  React Hook useEffect has a missing dependency: 'unitIds'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
+  320:7   warning  React Hook useEffect has a complex expression in the dependency array. Extract it to a separate variable so it can be statically checked  react-hooks/exhaustive-deps
+  374:6   warning  React Hook useCallback has a missing dependency: 'itemRows'. Either include it or remove the dependency array                             react-hooks/exhaustive-deps
+  436:37  error    Empty block statement                                                                                                                     no-empty
+  468:6   warning  React Hook useMemo has a missing dependency: 'itemRows'. Either include it or remove the dependency array                                 react-hooks/exhaustive-deps
+
+D:\SKT-dev\src\pages\organization\sell\BusinessPlanRevenueByBusinessTable.jsx
+  261:6   warning  React Hook useEffect has a missing dependency: 'unitIds'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
+  261:7   warning  React Hook useEffect has a complex expression in the dependency array. Extract it to a separate variable so it can be statically checked  react-hooks/exhaustive-deps
+  377:37  error    Empty block statement                                                                                                                     no-empty
+
+D:\SKT-dev\src\pages\organization\sell\ProcurementPlanDetail.jsx
+  188:10  error  'isLoadingUnits' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u       no-unused-vars
+  236:19  error  Empty block statement                                                                                no-empty
+  247:15  error  Empty block statement                                                                                no-empty
+  253:9   error  'savableUnits' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u         no-unused-vars
+  275:10  error  'isLoadingUnitPrices' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  410:10  error  'isLoadingSaved' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u       no-unused-vars
+  426:13  error  Empty block statement                                                                                no-empty
+  603:37  error  Empty block statement                                                                                no-empty
+  715:35  error  'i' is defined but never used                                                                        no-unused-vars
+
+D:\SKT-dev\src\pages\organization\sell\SeedProjectSalesPlanDetail.jsx
+  122:7   error  'baseField' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u       no-unused-vars
+  180:69  error  'onYearBEChange' is defined but never used                                                      no-unused-vars
+  189:9   error  'periodLabel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  194:10  error  'isLoadingUnits' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  322:10  error  'isLoadingSaved' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  338:13  error  Empty block statement                                                                           no-empty
+  504:37  error  Empty block statement                                                                           no-empty
+
+D:\SKT-dev\src\pages\organization\sell\ServiceBusinessPlanDetail.jsx
+  202:11  error  Empty block statement          no-empty
+  577:37  error  Empty block statement          no-empty
+  705:35  error  'i' is defined but never used  no-unused-vars
+
+D:\SKT-dev\src\pages\organization\thonthun\Thonthun.jsx
+   23:7   error  'fmtMoney0' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u       no-unused-vars
+  101:7   error  'readonlyField' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u   no-unused-vars
+  199:9   error  'computedPlanId' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  230:10  error  'itemsSource' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  327:10  error  'savedSource' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  413:9   error  'computed' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u        no-unused-vars
+  575:1   error  Unnecessary try/catch wrapper                                                                   no-useless-catch
+
+D:\SKT-dev\src\pages\organization\thonthun\ThonthunDetail.jsx
+  110:37  error    'branchName' is defined but never used                                                                              no-unused-vars
+  155:6   warning  React Hook useCallback has an unnecessary dependency: 'branchId'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+  258:37  error    Empty block statement                                                                                               no-empty
+
+D:\SKT-dev\src\pages\work\Buy.jsx
+    21:7    error    'toIntOrNull' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                            no-unused-vars
+   137:59   error    '_e' is defined but never used                                                                                         no-unused-vars
+   137:63   error    Empty block statement                                                                                                  no-empty
+   139:47   error    '_e' is defined but never used                                                                                         no-unused-vars
+   139:51   error    Empty block statement                                                                                                  no-empty
+   427:18   error    'forceKlangLoad' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                  no-unused-vars
+   491:10   error    'pendingTemplateLabel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                   no-unused-vars
+   638:9    error    'updateDept' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                             no-unused-vars
+   716:18   error    'focusNext' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                              no-unused-vars
+   738:14   error    '_e' is defined but never used                                                                                         no-unused-vars
+   738:18   error    Empty block statement                                                                                                  no-empty
+   743:95   error    '_e' is defined but never used                                                                                         no-unused-vars
+   743:99   error    Empty block statement                                                                                                  no-empty
+   762:16   error    '_' is defined but never used                                                                                          no-unused-vars
+   762:19   error    Empty block statement                                                                                                  no-empty
+  1028:18   error    '_e' is defined but never used                                                                                         no-unused-vars
+  1028:22   error    Empty block statement                                                                                                  no-empty
+  1039:20   error    '_e' is defined but never used                                                                                         no-unused-vars
+  1039:24   error    Empty block statement                                                                                                  no-empty
+  1074:9    error    'enforceBranchLock' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                      no-unused-vars
+  1079:5    error    'setKlangReloadKey' is not defined                                                                                     no-undef
+  1168:6    warning  React Hook useEffect has a missing dependency: 'pickCompanyResult'. Either include it or remove the dependency array   react-hooks/exhaustive-deps
+  1179:65   error    '_e' is defined but never used                                                                                         no-unused-vars
+  1179:69   error    Empty block statement                                                                                                  no-empty
+  1187:65   error    '_e' is defined but never used                                                                                         no-unused-vars
+  1187:69   error    Empty block statement                                                                                                  no-empty
+  1379:6    warning  React Hook useEffect has a missing dependency: 'fillFromRecord'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+  1422:6    warning  React Hook useEffect has a missing dependency: 'fillFromRecord'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+  1513:63   error    '_e' is defined but never used                                                                                         no-unused-vars
+  1513:67   error    Empty block statement                                                                                                  no-empty
+  1515:38   error    '_e' is defined but never used                                                                                         no-unused-vars
+  1515:42   error    Empty block statement                                                                                                  no-empty
+  1723:9    error    'isTemplateActive' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                       no-unused-vars
+  1763:6    warning  React Hook useEffect has a missing dependency: 'order.productName'. Either include it or remove the dependency array   react-hooks/exhaustive-deps
+  1769:6    warning  React Hook useEffect has a missing dependency: 'order.riceType'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+  1775:6    warning  React Hook useEffect has a missing dependency: 'order.subriceName'. Either include it or remove the dependency array   react-hooks/exhaustive-deps
+  1781:6    warning  React Hook useEffect has a missing dependency: 'order.condition'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+  1787:6    warning  React Hook useEffect has a missing dependency: 'order.fieldType'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+  1793:6    warning  React Hook useEffect has a missing dependency: 'order.riceYear'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+  1799:6    warning  React Hook useEffect has a missing dependency: 'order.programName'. Either include it or remove the dependency array   react-hooks/exhaustive-deps
+  1805:6    warning  React Hook useEffect has a missing dependency: 'order.businessType'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  1821:14   error    '_e' is defined but never used                                                                                         no-unused-vars
+  1821:18   error    Empty block statement                                                                                                  no-empty
+  1902:36   error    '_e' is defined but never used                                                                                         no-unused-vars
+  1902:40   error    Empty block statement                                                                                                  no-empty
+  1922:36   error    '_e' is defined but never used                                                                                         no-unused-vars
+  1922:40   error    Empty block statement                                                                                                  no-empty
+  2086:16   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2086:20   error    Empty block statement                                                                                                  no-empty
+  2106:56   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2106:60   error    Empty block statement                                                                                                  no-empty
+  2107:59   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2107:63   error    Empty block statement                                                                                                  no-empty
+  2111:55   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2111:59   error    Empty block statement                                                                                                  no-empty
+  2112:58   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2112:62   error    Empty block statement                                                                                                  no-empty
+  2291:28   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2291:32   error    Empty block statement                                                                                                  no-empty
+  2319:77   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2319:81   error    Empty block statement                                                                                                  no-empty
+  2321:52   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2321:56   error    Empty block statement                                                                                                  no-empty
+  2363:79   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2363:83   error    Empty block statement                                                                                                  no-empty
+  2365:54   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2365:58   error    Empty block statement                                                                                                  no-empty
+  2618:111  error    '_e' is defined but never used                                                                                         no-unused-vars
+  2618:115  error    Empty block statement                                                                                                  no-empty
+  2869:77   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2869:81   error    Empty block statement                                                                                                  no-empty
+  2871:52   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2871:56   error    Empty block statement                                                                                                  no-empty
+  2909:77   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2909:81   error    Empty block statement                                                                                                  no-empty
+  2911:52   error    '_e' is defined but never used                                                                                         no-unused-vars
+  2911:56   error    Empty block statement                                                                                                  no-empty
+  3104:80   error    '_e' is defined but never used                                                                                         no-unused-vars
+  3104:84   error    Empty block statement                                                                                                  no-empty
+
+D:\SKT-dev\src\pages\work\CompanyAdd.jsx
+   71:13  error  Empty block statement  no-empty
+   75:13  error  Empty block statement  no-empty
+  211:15  error  Empty block statement  no-empty
+
+D:\SKT-dev\src\pages\work\CustomerAdd.jsx
+   14:55  error    'r' is defined but never used                                                                                                 no-unused-vars
+   85:6   warning  React Hook useEffect has a missing dependency: 'scrollHighlightedIntoView'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  446:82  error    Empty block statement                                                                                                         no-empty
+  450:15  error    Empty block statement                                                                                                         no-empty
+  459:90  error    Empty block statement                                                                                                         no-empty
+  469:82  error    Empty block statement                                                                                                         no-empty
+  485:15  error    Empty block statement                                                                                                         no-empty
+  606:52  error    Empty block statement                                                                                                         no-empty
+  645:92  error    Empty block statement                                                                                                         no-empty
+
+D:\SKT-dev\src\pages\work\CustomerSearch.jsx
+  285:13  error  'prev' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\SKT-dev\src\pages\work\MemberSignup.jsx
+   19:7   error  'clampNgan' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u      no-unused-vars
+   23:7   error  'clampWa' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u        no-unused-vars
+  105:78  error  Empty block statement                                                                          no-empty
+  107:33  error  Empty block statement                                                                          no-empty
+  124:7   error  'fieldDisabled' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  662:82  error  Empty block statement                                                                          no-empty
+
+D:\SKT-dev\src\pages\work\MemberTermination.jsx
+  175:42  error  Empty block statement  no-empty
+  231:13  error  Empty block statement  no-empty
+  305:92  error  Empty block statement  no-empty
+
+D:\SKT-dev\src\pages\work\OrderCorrection.jsx
+  349:5   warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+  439:14  error    '_' is defined but never used                                                                   no-unused-vars
+  439:17  error    Empty block statement                                                                           no-empty
+  509:15  error    Empty block statement                                                                           no-empty
+
+D:\SKT-dev\src\pages\work\RiceSpecCreate.jsx
+  418:13  error  Empty block statement  no-empty
+
+D:\SKT-dev\src\pages\work\Sales.jsx
+     9:7    error    'toIntOrNull' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                            no-unused-vars
+    82:58   error    Empty block statement                                                                                                  no-empty
+    84:46   error    Empty block statement                                                                                                  no-empty
+   340:94   error    Empty block statement                                                                                                  no-empty
+   623:58   error    Empty block statement                                                                                                  no-empty
+   625:33   error    Empty block statement                                                                                                  no-empty
+   635:68   error    Empty block statement                                                                                                  no-empty
+   659:16   error    '_' is defined but never used                                                                                          no-unused-vars
+   659:19   error    Empty block statement                                                                                                  no-empty
+   793:17   error    Empty block statement                                                                                                  no-empty
+   803:19   error    Empty block statement                                                                                                  no-empty
+   852:6    warning  React Hook useEffect has a missing dependency: 'order.productName'. Either include it or remove the dependency array   react-hooks/exhaustive-deps
+   858:6    warning  React Hook useEffect has a missing dependency: 'order.riceType'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+   864:6    warning  React Hook useEffect has a missing dependency: 'order.subriceName'. Either include it or remove the dependency array   react-hooks/exhaustive-deps
+   870:6    warning  React Hook useEffect has a missing dependency: 'order.condition'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+   876:6    warning  React Hook useEffect has a missing dependency: 'order.fieldType'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+   882:6    warning  React Hook useEffect has a missing dependency: 'order.riceYear'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+   888:6    warning  React Hook useEffect has a missing dependency: 'order.programName'. Either include it or remove the dependency array   react-hooks/exhaustive-deps
+   894:6    warning  React Hook useEffect has a missing dependency: 'order.businessType'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   898:102  error    Empty block statement                                                                                                  no-empty
+   964:6    warning  React Hook useEffect has a missing dependency: 'fillFromRecord'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+   996:6    warning  React Hook useEffect has a missing dependency: 'fillFromRecord'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+  1045:82   error    Empty block statement                                                                                                  no-empty
+  1074:66   error    Empty block statement                                                                                                  no-empty
+  1166:6    warning  React Hook useEffect has a missing dependency: 'pickCompanyResult'. Either include it or remove the dependency array   react-hooks/exhaustive-deps
+  1169:285  error    Empty block statement                                                                                                  no-empty
+  1170:288  error    Empty block statement                                                                                                  no-empty
+  1204:6    warning  React Hook useEffect has a missing dependency: 'isCreditPayment'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+  1294:124  error    Empty block statement                                                                                                  no-empty
+  1298:90   error    Empty block statement                                                                                                  no-empty
+  1311:35   error    Empty block statement                                                                                                  no-empty
+  1373:52   error    Empty block statement                                                                                                  no-empty
+  1534:17   error    Empty block statement                                                                                                  no-empty
+  1538:57   error    Empty block statement                                                                                                  no-empty
+  1565:62   error    Empty block statement                                                                                                  no-empty
+  1567:37   error    Empty block statement                                                                                                  no-empty
+  1574:9    error    'frontHeadCls' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                           no-unused-vars
+  1575:9    error    'frontCellCls' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                           no-unused-vars
+  1576:9    error    'backHeadCls' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                            no-unused-vars
+  1577:9    error    'backCellCls' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                            no-unused-vars
+  1647:27   error    Empty block statement                                                                                                  no-empty
+  1673:76   error    Empty block statement                                                                                                  no-empty
+  1674:65   error    Empty block statement                                                                                                  no-empty
+  1723:80   error    Empty block statement                                                                                                  no-empty
+  1724:69   error    Empty block statement                                                                                                  no-empty
+  1749:80   error    Empty block statement                                                                                                  no-empty
+  1750:69   error    Empty block statement                                                                                                  no-empty
+  1805:33   error    Redundant double negation                                                                                              no-extra-boolean-cast
+  1913:87   error    Empty block statement                                                                                                  no-empty
+  1984:186  error    Empty block statement                                                                                                  no-empty
+  2163:76   error    Empty block statement                                                                                                  no-empty
+  2165:51   error    Empty block statement                                                                                                  no-empty
+  2196:76   error    Empty block statement                                                                                                  no-empty
+
+D:\SKT-dev\src\pages\work\Share.jsx
+  152:13  error  Empty block statement  no-empty
+  212:13  error  Empty block statement  no-empty
+
+D:\SKT-dev\src\pages\work\StockTransferMill.jsx
+  511:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+  541:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+  569:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+  665:6  warning  React Hook useCallback has a missing dependency: 'allKlangsCache'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\SKT-dev\src\pages\work\StockTransferOut.jsx
+  565:6  warning  React Hook useEffect has a missing dependency: 'form.product_name'. Either include it or remove the dependency array         react-hooks/exhaustive-deps
+  569:6  warning  React Hook useEffect has a missing dependency: 'form.rice_type'. Either include it or remove the dependency array            react-hooks/exhaustive-deps
+  573:6  warning  React Hook useEffect has a missing dependency: 'form.subrice_name'. Either include it or remove the dependency array         react-hooks/exhaustive-deps
+  577:6  warning  React Hook useEffect has a missing dependency: 'form.condition_label'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+  581:6  warning  React Hook useEffect has a missing dependency: 'form.field_type_label'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+  585:6  warning  React Hook useEffect has a missing dependency: 'form.rice_year_label'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+  589:6  warning  React Hook useEffect has a missing dependency: 'form.program_label'. Either include it or remove the dependency array        react-hooks/exhaustive-deps
+  593:6  warning  React Hook useEffect has a missing dependency: 'form.business_type_label'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  623:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+  674:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+  697:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+D:\SKT-dev\vite.config.js
+  7:29  error  'process' is not defined  no-undef
+
+✖ 292 problems (242 errors, 50 warnings)
+  1 error and 7 warnings potentially fixable with the `--fix` option.
+

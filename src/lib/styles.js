@@ -43,9 +43,9 @@ export const labelCls =
 export const helpTextCls =
   "mt-1 text-sm text-slate-500 dark:text-slate-400"
 
-/** Validation error message below a field */
+/** Validation error message below a field (red-600: 4.8:1 on white — red-500 was 3.8:1) */
 export const errorTextCls =
-  "mt-1 text-sm text-red-500 dark:text-red-400"
+  "mt-1 text-sm text-red-600 dark:text-red-400"
 
 // ─── Table Cell Input ─────────────────────────────────────────────────────────
 
@@ -61,11 +61,12 @@ export const cellInput =
 
 // ─── Buttons ─────────────────────────────────────────────────────────────────
 
-/** Primary save / submit button (emerald — semantic: success/positive action) */
+/** Primary save / submit button (emerald — semantic: success/positive action).
+ *  emerald-700 keeps white text at 5.4:1 (emerald-600 was 3.65:1 — fails AA). */
 export const submitBtnCls =
-  "inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3 " +
+  "inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-6 py-3 " +
   "text-base font-semibold text-white shadow-sm cursor-pointer " +
-  "hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.35)] hover:scale-[1.02] " +
+  "hover:bg-emerald-800 hover:shadow-[0_8px_20px_rgba(16,185,129,0.35)] hover:scale-[1.02] " +
   "active:scale-[.97] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 " +
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 " +
   "transition-all duration-200"

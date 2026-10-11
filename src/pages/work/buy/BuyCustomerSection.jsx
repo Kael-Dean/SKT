@@ -420,9 +420,11 @@ function PhoneCustomerSection({ form }) {
 
 /* ═══════════════════════════════ DESKTOP (≥md) — R2 compact card ═══════════════════════════════
  * Header row: title · status chip · buyer-type segmented (←/→).
- * Row: วิธีชำระเงิน | ลงวันที่ | เลขที่ใบชั่ง.  Row: person (บัตร | รหัสสมาชิก | ชื่อ) or
- * company (ชื่อ | เลขผู้เสียภาษี | เบอร์โทร). Person address + phone sit in a closed
- * <details>; the Enter-flow skips them (ชื่อ → คลัง) exactly as before.
+ * Row: person (บัตร | รหัสสมาชิก | ชื่อ) or company (ชื่อ | เลขผู้เสียภาษี | เบอร์โทร).
+ * Person address + phone sit in a closed <details>. Row: วิธีชำระเงิน | ลงวันที่ | เลขที่ใบชั่ง.
+ * Full-page Enter flow (R2): บัตร → รหัสสมาชิก → ชื่อ (or ชื่อบริษัท → เลขผู้เสียภาษี → เบอร์โทร)
+ * → วิธีชำระเงิน (enterMovesWhenFilled) → เลขที่ใบชั่ง → คลัง → น้ำหนัก…  ลงวันที่ is left out
+ * of the chain (defaults to today; reachable with Tab / click).
  * ═══════════════════════════════════════════════════════════════════════════════════════════════ */
 
 const BUYER_TYPES = [["person", "บุคคลธรรมดา"], ["company", "บริษัท / นิติบุคคล"]]
@@ -509,7 +511,7 @@ function DesktopCustomerSection({ form }) {
     handleNameKeyDown, pickNameResult, scrollHighlightedIntoView2,
     companyBoxRef, companyInputRef, companyItemRefs,
     showCompanyList, setShowCompanyList, companyResults, companyHighlighted, setCompanyHighlighted,
-    handleCompanyKeyDown, pickCompanyResult,
+    handleCompanyKeyDown, pickCompanyResult, focusKlangOrBranchOrEntry,
   } = form
 
   const isPerson = buyerType === "person"
@@ -522,7 +524,14 @@ function DesktopCustomerSection({ form }) {
   const addrSummary = [addrText, customer.phone && `โทร ${customer.phone}`].filter(Boolean).join(" · ")
 
   /** text input row helper (label + input + help/error), desktop sizing */
-  const textField = (key, label, { digits = false, tel = false, inputMode, maxLength, placeholder, help, numeric = false, red = true } = {}) => {
+  /** last customer field (เบอร์โทร) → วิธีชำระเงิน (desktop full-page Enter flow) */
+  const enterToPayment = (e) => {
+    if (e.key !== "Enter" || e.isComposing) return
+    e.preventDefault()
+    focusRefWithRetry(refs.payment)
+  }
+
+  const textField = (key, label, { digits = false, tel = false, inputMode, maxLength, placeholder, help, numeric = false, red = true, onEnterKey } = {}) => {
     const helpId = `buy-${key}-help`
     return (
       <div key={key}>
@@ -540,7 +549,7 @@ function DesktopCustomerSection({ form }) {
             clearError(key)
           }}
           onFocus={() => clearHint(key)}
-          onKeyDown={onEnter(key)}
+          onKeyDown={onEnterKey ?? onEnter(key)}
           placeholder={placeholder}
           aria-invalid={errors[key] ? true : undefined}
           aria-describedby={errors[key] ? errId(key) : help ? helpId : undefined}
@@ -560,72 +569,6 @@ function DesktopCustomerSection({ form }) {
         <CustomerStatus buyerType={buyerType} memberMeta={memberMeta} />
         <div className="ml-auto">
           <BuyerTypeSegmented value={buyerType} onChange={(v) => setBuyerType(String(v))} firstRef={refs.buyerType} />
-        </div>
-      </div>
-
-      {/* วิธีชำระเงิน | ลงวันที่ | เลขที่ใบชั่ง */}
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
-        <div>
-          <label className={labelCls} htmlFor={fieldId("payment")}>วิธีชำระเงิน</label>
-          <ComboBox
-            id={fieldId("payment")}
-            options={paymentOptions}
-            value={order.paymentMethodId || ""}
-            onChange={(id, found) => {
-              setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "", paymentMethodId: id }))
-              clearError("payment")
-            }}
-            placeholder="เลือกวิธีชำระเงิน"
-            buttonRef={refs.payment}
-            onEnterNext={() => focusRefWithRetry(refs.paymentRefNo)}
-            searchable={false}
-            error={!!errors.payment}
-            hintRed={!!missingHints.payment}
-            clearHint={() => clearHint("payment")}
-            ariaDescribedBy={describedBy(errors, "payment")}
-            title="วิธีชำระเงิน"
-            ariaLabel="วิธีชำระเงิน"
-          />
-          {errors.payment && <p id={errId("payment")} className={errorTextCls}>{errors.payment}</p>}
-        </div>
-
-        <div>
-          <label className={labelCls} htmlFor={fieldId("issueDate")}>ลงวันที่</label>
-          <DateInput
-            id={fieldId("issueDate")}
-            ref={refs.issueDate}
-            value={order.issueDate}
-            onChange={(e) => setOrder((p) => ({ ...p, issueDate: e.target.value }))}
-            onFocus={() => clearHint("issueDate")}
-            error={!!errors.issueDate}
-            className={redHintCls("issueDate")}
-            onKeyDown={onEnter("issueDate")}
-            aria-invalid={errors.issueDate ? true : undefined}
-            aria-describedby={describedBy(errors, "issueDate")}
-          />
-          {errors.issueDate && <p id={errId("issueDate")} className={errorTextCls}>{errors.issueDate}</p>}
-        </div>
-
-        <div>
-          <label className={labelCls} htmlFor={fieldId("paymentRefNo")}>เลขที่ใบชั่ง/ใบเบิกเงิน</label>
-          <input
-            id={fieldId("paymentRefNo")}
-            ref={refs.paymentRefNo}
-            className={cx(baseField, redFieldCls("paymentRefNo"))}
-            value={order.paymentRefNo}
-            onChange={(e) => { updateOrder("paymentRefNo", e.target.value); clearError("paymentRefNo") }}
-            onFocus={() => clearHint("paymentRefNo")}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.isComposing) {
-                e.preventDefault()
-                focusRefWithRetry(refs[isPerson ? "fullName" : "companyName"])
-              }
-            }}
-            placeholder="เช่น 011-0000123456"
-            aria-invalid={errors.paymentRefNo ? true : undefined}
-            aria-describedby={describedBy(errors, "paymentRefNo")}
-          />
-          {errors.paymentRefNo && <p id={errId("paymentRefNo")} className={errorTextCls}>{errors.paymentRefNo}</p>}
         </div>
       </div>
 
@@ -756,7 +699,7 @@ function DesktopCustomerSection({ form }) {
               {textField("district", "อำเภอ", { placeholder: "เช่น เมือง", red: false })}
               {textField("province", "จังหวัด", { placeholder: "เช่น สุรินทร์", red: false })}
               {textField("postalCode", "รหัสไปรษณีย์", { inputMode: "numeric", maxLength: 5, digits: true, numeric: true, placeholder: "เช่น 32000", red: false })}
-              {textField("phone", "เบอร์โทร", { inputMode: "tel", maxLength: 20, tel: true, numeric: true, placeholder: "เช่น 0812345678", red: false })}
+              {textField("phone", "เบอร์โทร", { inputMode: "tel", maxLength: 20, tel: true, numeric: true, placeholder: "เช่น 0812345678", red: false, onEnterKey: enterToPayment })}
             </div>
           </details>
         </>
@@ -831,9 +774,76 @@ function DesktopCustomerSection({ form }) {
             inputMode: "numeric", maxLength: 13, digits: true, numeric: true, placeholder: "13 หลัก",
             help: taxPartial ? `กรอกแล้ว ${customer.taxId.length} จาก 13 หลัก` : "13 หลัก ค้นหาบริษัทให้อัตโนมัติ",
           })}
-          {textField("companyPhone", "เบอร์โทร", { inputMode: "tel", maxLength: 20, tel: true, numeric: true, placeholder: "เช่น 044123456", red: false })}
+          {textField("companyPhone", "เบอร์โทร", { inputMode: "tel", maxLength: 20, tel: true, numeric: true, placeholder: "เช่น 044123456", red: false, onEnterKey: enterToPayment })}
         </div>
       )}
+
+      {/* วิธีชำระเงิน | ลงวันที่ | เลขที่ใบชั่ง — after the customer row so Enter runs top to bottom */}
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div>
+          <label className={labelCls} htmlFor={fieldId("payment")}>วิธีชำระเงิน</label>
+          <ComboBox
+            id={fieldId("payment")}
+            options={paymentOptions}
+            value={order.paymentMethodId || ""}
+            onChange={(id, found) => {
+              setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "", paymentMethodId: id }))
+              clearError("payment")
+            }}
+            placeholder="เลือกวิธีชำระเงิน"
+            buttonRef={refs.payment}
+            onEnterNext={() => focusRefWithRetry(refs.paymentRefNo)}
+            searchable={false}
+            enterMovesWhenFilled
+            error={!!errors.payment}
+            hintRed={!!missingHints.payment}
+            clearHint={() => clearHint("payment")}
+            ariaDescribedBy={describedBy(errors, "payment")}
+            title="วิธีชำระเงิน"
+            ariaLabel="วิธีชำระเงิน"
+          />
+          {errors.payment && <p id={errId("payment")} className={errorTextCls}>{errors.payment}</p>}
+        </div>
+
+        <div>
+          <label className={labelCls} htmlFor={fieldId("issueDate")}>ลงวันที่</label>
+          <DateInput
+            id={fieldId("issueDate")}
+            ref={refs.issueDate}
+            value={order.issueDate}
+            onChange={(e) => setOrder((p) => ({ ...p, issueDate: e.target.value }))}
+            onFocus={() => clearHint("issueDate")}
+            error={!!errors.issueDate}
+            className={redHintCls("issueDate")}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); focusRefWithRetry(refs.paymentRefNo) } }}
+            aria-invalid={errors.issueDate ? true : undefined}
+            aria-describedby={describedBy(errors, "issueDate")}
+          />
+          {errors.issueDate && <p id={errId("issueDate")} className={errorTextCls}>{errors.issueDate}</p>}
+        </div>
+
+        <div>
+          <label className={labelCls} htmlFor={fieldId("paymentRefNo")}>เลขที่ใบชั่ง/ใบเบิกเงิน</label>
+          <input
+            id={fieldId("paymentRefNo")}
+            ref={refs.paymentRefNo}
+            className={cx(baseField, redFieldCls("paymentRefNo"))}
+            value={order.paymentRefNo}
+            onChange={(e) => { updateOrder("paymentRefNo", e.target.value); clearError("paymentRefNo") }}
+            onFocus={() => clearHint("paymentRefNo")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.isComposing) {
+                e.preventDefault()
+                focusKlangOrBranchOrEntry() // → คลัง (Enter บนคลังที่มีค่าแล้วไปน้ำหนักก่อนชั่ง)
+              }
+            }}
+            placeholder="เช่น 011-0000123456"
+            aria-invalid={errors.paymentRefNo ? true : undefined}
+            aria-describedby={describedBy(errors, "paymentRefNo")}
+          />
+          {errors.paymentRefNo && <p id={errId("paymentRefNo")} className={errorTextCls}>{errors.paymentRefNo}</p>}
+        </div>
+      </div>
     </section>
   )
 }

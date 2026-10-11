@@ -29,6 +29,7 @@ import {
   formatMoneyInput,
   suggestDeductionWeight,
   isEnabledInput,
+  focusRefWithRetry,
   useEnterNavigation,
   deriveLockedBranch,
   ERROR_SCAN_ORDER,
@@ -1163,15 +1164,22 @@ if (!mid) return
     tryFocusRef(refs.entryWeightKg)
   }
 
+  /** ปลายทางหลังช่องชื่อ (Enter / เลือกผลค้นหา). Desktop: ชื่อ → วิธีชำระเงิน → เลขที่ใบชั่ง →
+   *  คลัง → น้ำหนัก… (R2 full-page Enter flow). Phone stepper: คงเดิม (คลัง/สาขา/น้ำหนัก). */
+  const focusAfterName = () => {
+    if (isPhone) return focusKlangOrBranchOrEntry()
+    focusRefWithRetry(refs.payment)
+  }
+
 const pickNameResult = async (rec) => {
     suppressNameSearchRef.current = true
     await fillFromRecord(rec)
     setShowNameList(false)
     setNameResults([])
     setHighlightedIndex(-1)
-    // หลังเลือกชื่อแล้ว ให้โฟกัสไปที่ "คลัง" (ถ้าเลือกได้) ถ้าไม่ได้ให้ไปที่ "สาขา" หรือ "น้ำหนักก่อนชั่ง"
+    // หลังเลือกชื่อ: desktop → "วิธีชำระเงิน" (Enter-flow ทั้งหน้า R2); มือถือ → "คลัง" / "สาขา" / "น้ำหนักก่อนชั่ง" ตามเดิม
     requestAnimationFrame(() => {
-      focusKlangOrBranchOrEntry()
+      focusAfterName()
     })
   }
 
@@ -1222,7 +1230,7 @@ const pickNameResult = async (rec) => {
       if (showNameList && nameResults.length > 0 && highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
         await pickNameResult(nameResults[highlightedIndex])
       } else {
-        focusKlangOrBranchOrEntry()
+        focusAfterName()
       }
     } else if (e.key === "Escape" && showNameList) {
       e.preventDefault()
@@ -1873,7 +1881,7 @@ if (buyerType === "person") {
     showCompanyList, setShowCompanyList, companyResults, companyHighlighted, setCompanyHighlighted,
     handleCompanyKeyDown, pickCompanyResult,
     // actions
-    handleSubmit, handleReset, scrollToPageTop, resolvePaymentId, setErrors,
+    handleSubmit, handleReset, scrollToPageTop, resolvePaymentId, setErrors, focusKlangOrBranchOrEntry,
     // phone stepper plumbing
     isPhone, stepApiRef, resetKey,
   }

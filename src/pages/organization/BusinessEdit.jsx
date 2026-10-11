@@ -6,6 +6,7 @@ import { invalidateBusinessListCache } from "../../lib/useBusinessList"
 import { SkeletonTableRows, EmptyState } from "../../components/ui"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { can } from "../../lib/permissions"
+import ComboBox from "../../components/ComboBox"
 
 /** ---------- Mapping ---------- */
 const BUSINESS_GROUP_MAP = {
@@ -95,130 +96,6 @@ const labelCls = "mb-1 block text-sm font-medium text-slate-700 dark:text-slate-
 /** ---------- Reusable ComboBox ---------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
 
-function ComboBox({
-  options = [],
-  value,
-  onChange,
-  placeholder = "— เลือก —",
-  getLabel = (o) => o?.label ?? "",
-  getValue = (o) => o?.value ?? o?.id ?? "",
-  disabled = false,
-}) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(-1)
-  const boxRef = useRef(null)
-  const listRef = useRef(null)
-  const btnRef = useRef(null)
-
-  const selectedObj = useMemo(
-    () => options.find((o) => String(getValue(o)) === String(value)),
-    [options, value, getValue]
-  )
-  const selectedLabel = selectedObj ? getLabel(selectedObj) : ""
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (!boxRef.current) return
-      if (!boxRef.current.contains(e.target)) {
-        setOpen(false)
-        setHighlight(-1)
-      }
-    }
-    document.addEventListener("click", onClick)
-    return () => document.removeEventListener("click", onClick)
-  }, [])
-
-  const commit = (opt) => {
-    onChange?.(getValue(opt), opt)
-    setOpen(false)
-    setHighlight(-1)
-    btnRef.current?.focus()
-  }
-
-  const onKeyDown = (e) => {
-    if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault()
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
-      return
-    }
-    if (!open) return
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault()
-      setHighlight((h) => (h < options.length - 1 ? h + 1 : 0))
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setHighlight((h) => (h > 0 ? h - 1 : options.length - 1))
-    } else if (e.key === "Enter") {
-      e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      setOpen(false)
-      setHighlight(-1)
-    }
-  }
-
-  return (
-    <div className={cx("relative w-full", open && "z-[1000]")} ref={boxRef}>
-      <button
-        type="button"
-        ref={btnRef}
-        disabled={disabled}
-        onClick={() => !disabled && setOpen((o) => !o)}
-        onKeyDown={onKeyDown}
-        className={cx(
-          baseInput,
-          "text-left flex justify-between items-center shadow-none",
-          disabled ? "cursor-not-allowed opacity-80" : "cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600"
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span className={selectedLabel ? "text-slate-800 dark:text-slate-100" : "text-slate-500 dark:text-slate-400"}>
-          {selectedLabel || placeholder}
-        </span>
-        <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-        </svg>
-      </button>
-
-      {open && (
-        <div
-          ref={listRef}
-          role="listbox"
-          className="absolute z-[1100] mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white text-sm text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          {options.length === 0 && <div className="p-3 text-slate-500">ไม่มีตัวเลือก</div>}
-          {options.map((opt, idx) => {
-            const label = getLabel(opt)
-            const isActive = idx === highlight
-            const isChosen = String(getValue(opt)) === String(value)
-            return (
-              <button
-                key={String(getValue(opt)) || idx}
-                type="button"
-                role="option"
-                aria-selected={isChosen}
-                onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)}
-                className={cx(
-                  "flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors cursor-pointer",
-                  isActive ? "bg-emerald-100 dark:bg-emerald-400/20" : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                )}
-              >
-                <span>{label}</span>
-                {isChosen && <span className="text-emerald-600 dark:text-emerald-300 text-xs font-bold">✓</span>}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
 
 /** ---------- Reusable MultiSelect ComboBox ---------- */
 function MultiSelectComboBox({
@@ -398,6 +275,7 @@ const BusinessEdit = () => {
   useEffect(() => {
     setSearchText("")
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
 
   const fetchData = async () => {

@@ -7,6 +7,7 @@
 import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, cardCls } from "../../../lib/styles"
 import {
   onlyDigits, thb, nf, moneyToNumber, formatMoneyInput, suggestDeductionWeight, isEnabledInput, MOISTURE_STD,
+  fieldId, errId, describedBy,
 } from "./buyShared"
 
 export default function BuyWeighSection({ form }) {
@@ -50,9 +51,9 @@ function PhoneWeighSection({ form }) {
 
   const numField = (key, label, opts) => (
     <div>
-      <label className={phoneLabelCls} htmlFor={`buy-${key}`}>{label}</label>
+      <label className={phoneLabelCls} htmlFor={fieldId(key)}>{label}</label>
       <UnitInput
-        id={`buy-${key}`}
+        id={fieldId(key)}
         inputRef={refs[key]}
         inputMode={opts.inputMode ?? "decimal"}
         suffix={opts.suffix}
@@ -60,15 +61,15 @@ function PhoneWeighSection({ form }) {
         big={opts.big}
         className={redFieldCls(key)}
         value={order[key]}
-        onChange={(e) => updateOrder(key, opts.sanitize(e.target.value))}
-        onFocus={() => { clearHint(key); clearError(key) }}
+        onChange={(e) => { updateOrder(key, opts.sanitize(e.target.value)); clearError(key) }}
+        onFocus={() => clearHint(key)}
         onKeyDown={opts.onKeyDown ?? onEnter(key)}
         placeholder={opts.placeholder}
         aria-invalid={errors[key] ? true : undefined}
-        aria-describedby={opts.help ? `buy-${key}-help` : undefined}
+        aria-describedby={errors[key] ? errId(key) : opts.help ? `buy-${key}-help` : undefined}
       />
       {opts.help && !errors[key] && <p id={`buy-${key}-help`} className={helpTextCls}>{opts.help}</p>}
-      {errors[key] && <p className={errorTextCls}>{errors[key]}</p>}
+      {errors[key] && <p id={errId(key)} className={errorTextCls}>{errors[key]}</p>}
     </div>
   )
   const dec = (v) => v.replace(/[^\d.]/g, "")
@@ -120,9 +121,9 @@ function PhoneWeighSection({ form }) {
         </label>
         {order.manualDeduct && (
           <div className="mt-3">
-            <label className={phoneLabelCls} htmlFor="buy-deductWeightKg">หักน้ำหนัก (กก.)</label>
+            <label className={phoneLabelCls} htmlFor={fieldId("deductWeightKg")}>หักน้ำหนัก (กก.)</label>
             <UnitInput
-              id="buy-deductWeightKg"
+              id={fieldId("deductWeightKg")}
               inputRef={refs.deductWeightKg}
               inputMode="decimal"
               suffix="กก."
@@ -133,8 +134,9 @@ function PhoneWeighSection({ form }) {
               onKeyDown={onEnter("deductWeightKg")}
               placeholder={String(suggested)}
               aria-invalid={errors.deductWeightKg ? true : undefined}
+              aria-describedby={describedBy(errors, "deductWeightKg")}
             />
-            {errors.deductWeightKg && <p className={errorTextCls}>{errors.deductWeightKg}</p>}
+            {errors.deductWeightKg && <p id={errId("deductWeightKg")} className={errorTextCls}>{errors.deductWeightKg}</p>}
           </div>
         )}
       </section>
@@ -177,86 +179,90 @@ function DesktopWeighSection({ form }) {
       {/* น้ำหนักก่อนชั่ง */}
       <div className="grid gap-4 md:grid-cols-3">
         <div>
-          <label className={labelCls}>น้ำหนักก่อนชั่ง (กก.)</label>
+          <label className={labelCls} htmlFor={fieldId("entryWeightKg")}>น้ำหนักก่อนชั่ง (กก.)</label>
           <input
+            id={fieldId("entryWeightKg")}
+            aria-describedby={describedBy(errors, "entryWeightKg")}
             ref={refs.entryWeightKg}
             inputMode="decimal"
             className={cx(baseField, redFieldCls("entryWeightKg"))}
             value={order.entryWeightKg}
-            onChange={(e) => updateOrder("entryWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-            onFocus={() => {
-              clearHint("entryWeightKg")
-              clearError("entryWeightKg")
-            }}
+            onChange={(e) => { updateOrder("entryWeightKg", e.target.value.replace(/[^\d.]/g, "")); clearError("entryWeightKg") }}
+            onFocus={() => clearHint("entryWeightKg")}
             onKeyDown={onEnter("entryWeightKg")}
             placeholder="เช่น 12000"
             aria-invalid={errors.entryWeightKg ? true : undefined}
           />
-          {errors.entryWeightKg && <p className={errorTextCls}>{errors.entryWeightKg}</p>}
+          {errors.entryWeightKg && <p id={errId("entryWeightKg")} className={errorTextCls}>{errors.entryWeightKg}</p>}
         </div>
 
         <div>
-          <label className={labelCls}>น้ำหนักหลังชั่ง (กก.)</label>
+          <label className={labelCls} htmlFor={fieldId("exitWeightKg")}>น้ำหนักหลังชั่ง (กก.)</label>
           <input
+            id={fieldId("exitWeightKg")}
+            aria-describedby={describedBy(errors, "exitWeightKg")}
             ref={refs.exitWeightKg}
             inputMode="decimal"
             className={cx(baseField, redFieldCls("exitWeightKg"))}
             value={order.exitWeightKg}
-            onChange={(e) => updateOrder("exitWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-            onFocus={() => {
-              clearHint("exitWeightKg")
-              clearError("exitWeightKg")
-            }}
+            onChange={(e) => { updateOrder("exitWeightKg", e.target.value.replace(/[^\d.]/g, "")); clearError("exitWeightKg") }}
+            onFocus={() => clearHint("exitWeightKg")}
             onKeyDown={onEnter("exitWeightKg")}
             placeholder="เช่น 7000"
             aria-invalid={errors.exitWeightKg ? true : undefined}
           />
-          {errors.exitWeightKg && <p className={errorTextCls}>{errors.exitWeightKg}</p>}
+          {errors.exitWeightKg && <p id={errId("exitWeightKg")} className={errorTextCls}>{errors.exitWeightKg}</p>}
         </div>
 
         <div>
-          <label className={labelCls}>น้ำหนักจากตาชั่ง (กก.)</label>
-          <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(grossFromScale * 100) / 100} />
+          <label className={labelCls} htmlFor={fieldId("grossFromScale")}>น้ำหนักจากตาชั่ง (กก.)</label>
+          <input id={fieldId("grossFromScale")} disabled className={cx(baseField, fieldDisabled)} value={Math.round(grossFromScale * 100) / 100} />
           <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
         </div>
 
         {/* ความชื้น */}
         <div>
-          <label className={labelCls}>ความชื้น (%)</label>
+          <label className={labelCls} htmlFor={fieldId("moisturePct")}>ความชื้น (%)</label>
           <input
+            id={fieldId("moisturePct")}
+            aria-describedby={describedBy(errors, "moisturePct")}
             ref={refs.moisturePct}
             inputMode="decimal"
             className={cx(baseField, redFieldCls("moisturePct"))}
             value={order.moisturePct}
-            onChange={(e) => updateOrder("moisturePct", onlyDigits(e.target.value))}
-            onFocus={() => { clearHint("moisturePct"); clearError("moisturePct") }}
+            onChange={(e) => { updateOrder("moisturePct", onlyDigits(e.target.value)); clearError("moisturePct") }}
+            onFocus={() => clearHint("moisturePct")}
             onKeyDown={onEnter("moisturePct")}
             placeholder="เช่น 18"
+            aria-invalid={errors.moisturePct ? true : undefined}
           />
           <p className={helpTextCls}>{MOISTURE_STD}</p>
-          {errors.moisturePct && <p className={errorTextCls}>{errors.moisturePct}</p>}
+          {errors.moisturePct && <p id={errId("moisturePct")} className={errorTextCls}>{errors.moisturePct}</p>}
         </div>
 
         {/* สิ่งเจือปน */}
         <div>
-          <label className={labelCls}>สิ่งเจือปน (%)</label>
+          <label className={labelCls} htmlFor={fieldId("impurityPct")}>สิ่งเจือปน (%)</label>
           <input
+            id={fieldId("impurityPct")}
+            aria-describedby={describedBy(errors, "impurityPct")}
             ref={refs.impurityPct}
             inputMode="decimal"
             className={cx(baseField, redFieldCls("impurityPct"))}
             value={order.impurityPct}
-            onChange={(e) => updateOrder("impurityPct", onlyDigits(e.target.value))}
-            onFocus={() => { clearHint("impurityPct"); clearError("impurityPct") }}
+            onChange={(e) => { updateOrder("impurityPct", onlyDigits(e.target.value)); clearError("impurityPct") }}
+            onFocus={() => clearHint("impurityPct")}
             onKeyDown={onEnter("impurityPct")}
             placeholder="เช่น 2"
+            aria-invalid={errors.impurityPct ? true : undefined}
           />
-          {errors.impurityPct && <p className={errorTextCls}>{errors.impurityPct}</p>}
+          {errors.impurityPct && <p id={errId("impurityPct")} className={errorTextCls}>{errors.impurityPct}</p>}
         </div>
 
         {/* หักน้ำหนัก */}
         <div className="">
           <div className="flex items-center justify-between">
-            <label className={labelCls}>หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)</label>
+            <label className={labelCls} htmlFor={fieldId("deductWeightKg")}>หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)</label>
             <label className="flex cursor-pointer items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -267,6 +273,8 @@ function DesktopWeighSection({ form }) {
             </label>
           </div>
           <input
+            id={fieldId("deductWeightKg")}
+            aria-describedby={describedBy(errors, "deductWeightKg")}
             ref={refs.deductWeightKg}
             inputMode="decimal"
             disabled={!order.manualDeduct}
@@ -287,60 +295,65 @@ function DesktopWeighSection({ form }) {
             placeholder="ระบบคำนวณให้ หรือกำหนดเอง"
             aria-invalid={errors.deductWeightKg ? true : undefined}
           />
-          {errors.deductWeightKg && <p className={errorTextCls}>{errors.deductWeightKg}</p>}
+          {errors.deductWeightKg && <p id={errId("deductWeightKg")} className={errorTextCls}>{errors.deductWeightKg}</p>}
         </div>
 
         <div>
-          <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
-          <input disabled className={cx(baseField, fieldDisabled)} value={Math.round(netWeight * 100) / 100} />
+          <label className={labelCls} htmlFor={fieldId("netWeight")}>น้ำหนักสุทธิ (กก.)</label>
+          <input id={fieldId("netWeight")} disabled className={cx(baseField, fieldDisabled)} value={Math.round(netWeight * 100) / 100} />
         </div>
 
         {/* gram */}
         <div>
-          <label className={labelCls}>คุณภาพข้าว (gram)</label>
+          <label className={labelCls} htmlFor={fieldId("gram")}>คุณภาพข้าว (gram)</label>
           <input
+            id={fieldId("gram")}
+            aria-describedby={describedBy(errors, "gram")}
             ref={refs.gram}
             inputMode="numeric"
             className={cx(baseField, redFieldCls("gram"))}
             value={order.gram}
-            onChange={(e) => updateOrder("gram", onlyDigits(e.target.value))}
-            onFocus={() => { clearHint("gram"); clearError("gram") }}
+            onChange={(e) => { updateOrder("gram", onlyDigits(e.target.value)); clearError("gram") }}
+            onFocus={() => clearHint("gram")}
             onKeyDown={onEnter("gram")}
             placeholder="เช่น 85"
+            aria-invalid={errors.gram ? true : undefined}
           />
-          {errors.gram && <p className={errorTextCls}>{errors.gram}</p>}
+          {errors.gram && <p id={errId("gram")} className={errorTextCls}>{errors.gram}</p>}
         </div>
 
         {/* ราคาต่อกก. */}
         <div>
-          <label className={labelCls}>ราคาต่อกก. (บาท)</label>
+          <label className={labelCls} htmlFor={fieldId("unitPrice")}>ราคาต่อกก. (บาท)</label>
           <input
+            id={fieldId("unitPrice")}
+            aria-describedby={describedBy(errors, "unitPrice")}
             ref={refs.unitPrice}
             inputMode="decimal"
             className={cx(baseField, redFieldCls("unitPrice"))}
             value={order.unitPrice}
-            onChange={(e) => updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, ""))}
-            onFocus={() => { clearHint("unitPrice"); clearError("unitPrice") }}
+            onChange={(e) => { updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, "")); clearError("unitPrice") }}
+            onFocus={() => clearHint("unitPrice")}
             onKeyDown={onEnter("unitPrice")}
             placeholder="เช่น 12.50"
+            aria-invalid={errors.unitPrice ? true : undefined}
           />
           <p className={helpTextCls}>ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
-          {errors.unitPrice && <p className={errorTextCls}>{errors.unitPrice}</p>}
+          {errors.unitPrice && <p id={errId("unitPrice")} className={errorTextCls}>{errors.unitPrice}</p>}
         </div>
 
         {/* เป็นเงิน */}
         <div>
-          <label className={labelCls}>เป็นเงิน (บาท)</label>
+          <label className={labelCls} htmlFor={fieldId("amountTHB")}>เป็นเงิน (บาท)</label>
           <input
+            id={fieldId("amountTHB")}
+            aria-describedby={describedBy(errors, "amountTHB")}
             ref={refs.amountTHB}
             inputMode="decimal"
             className={cx(baseField, redFieldCls("amountTHB"))}
             value={order.amountTHB}
-            onChange={(e) => updateOrder("amountTHB", formatMoneyInput(e.target.value))}
-            onFocus={() => {
-              clearHint("amountTHB")
-              clearError("amountTHB")
-            }}
+            onChange={(e) => { updateOrder("amountTHB", formatMoneyInput(e.target.value)); clearError("amountTHB") }}
+            onFocus={() => clearHint("amountTHB")}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.isComposing) {
                 e.preventDefault()
@@ -355,7 +368,7 @@ function DesktopWeighSection({ form }) {
             aria-invalid={errors.amountTHB ? true : undefined}
           />
           {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(moneyToNumber(order.amountTHB))}</p>}
-          {errors.amountTHB && <p className={errorTextCls}>{errors.amountTHB}</p>}
+          {errors.amountTHB && <p id={errId("amountTHB")} className={errorTextCls}>{errors.amountTHB}</p>}
         </div>
       </div>
     </div>

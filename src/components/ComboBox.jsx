@@ -92,6 +92,7 @@ const ComboBox = forwardRef(function ComboBox(
     searchPlaceholder = "ค้นหา…",
     id,
     ariaLabel,
+    ariaDescribedBy, // id(s) of the field's error/help text → aria-describedby on the trigger
     title,
     className = "",
   },
@@ -456,6 +457,7 @@ const ComboBox = forwardRef(function ComboBox(
         aria-controls={open && !isPhone ? listId : undefined}
         aria-activedescendant={!hasSearch ? activeDesc : undefined}
         aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy || undefined}
         aria-invalid={error || hintRed ? true : undefined}
         title={selectedLabel || undefined}
         className={cx(

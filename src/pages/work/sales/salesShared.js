@@ -22,6 +22,15 @@ export const thb = (n) => THB_FMT.format(isFinite(n) ? n : 0)
 /** Plain number formatter (th-TH, ≤2 decimals, no forced ".00") — used for weights in copy (`nf()`). */
 export const nf = (n) => NUM_FMT.format(isFinite(Number(n)) ? Number(n) : 0)
 
+// ---------------- a11y ids (label ↔ field ↔ error) ----------------
+// Phone and desktop layouts never render together, so one id per key is safe.
+export const fieldId = (key) => `sales-${key}`
+export const errId = (key) => `sales-${key}-err`
+/** aria-describedby value: the error <p> id while that key has an error. */
+export const describedBy = (errors, key) => (errors?.[key] ? errId(key) : undefined)
+/** Per-trailer ids (`sales-t0-weight`) — each trailer renders the same field set. */
+export const trailerFieldId = (idx, key) => `sales-t${idx}-${key}`
+
 export const formatMoneyInput = (val) => {
   let s = String(val).replace(/[^0-9.]/g, "")
   if (s === "") return ""

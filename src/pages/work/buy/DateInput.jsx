@@ -3,7 +3,7 @@
 // markup, same behaviour). forwardRef exposes the <input> so refs.issueDate and
 // the Enter-flow keep working.
 import { forwardRef, useImperativeHandle, useRef } from "react"
-import { cx, baseField } from "../../../lib/styles"
+import { cx, baseField, focusRingCls } from "../../../lib/styles"
 
 const DateInput = forwardRef(function DateInput(
   { error = false, className = "", ...props },
@@ -38,9 +38,11 @@ const DateInput = forwardRef(function DateInput(
           }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
-transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer
-bg-transparent"
+        className={cx(
+          "absolute right-1 md:right-2 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl",
+          "transition-transform hover:scale-110 active:scale-95 cursor-pointer bg-transparent",
+          focusRingCls
+        )}
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />

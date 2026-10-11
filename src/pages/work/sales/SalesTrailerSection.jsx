@@ -8,13 +8,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import ComboBox from "../../../components/ComboBox"
 import { cx, baseField, fieldDisabled, labelCls, errorTextCls } from "../../../lib/styles"
-import { onlyDigits, formatMoneyInput, trailerCountOptions, round2, thb } from "./salesShared"
+import { onlyDigits, formatMoneyInput, trailerCountOptions, round2, thb, fieldId, trailerFieldId } from "./salesShared"
 
 /** จำนวนรถพ่วง (1–10). */
 export function TrailerCountCombo({ form }) {
   const { trailersCount, setTrailersCount, refs, focusFirstOfTrailer } = form
   return (
     <ComboBox
+      id={fieldId("trailerCount")}
       options={trailerCountOptions}
       value={String(trailersCount)}
       onChange={(id) => setTrailersCount(Number(id))}
@@ -55,11 +56,16 @@ export function TrailerSideFields({ form, idx, side = "front", amount = 0, mobil
   const lbl = (k) => (mobile ? MOBILE_LABELS[k] : (L[k] ?? MOBILE_LABELS[k]))
   const red = (key) => terr[key] && "border-red-500 ring-2 ring-red-300"
   const numCls = mobile ? "text-right tabular-nums" : ""
+  // a11y: K.* already carries the side (scaleNoFront…), so `sales-t{idx}-{key}` is unique
+  const fid = (key) => trailerFieldId(idx, key)
+  const eid = (key) => `${fid(key)}-err`
+  const desc = (key) => (terr[key] ? eid(key) : undefined)
   return (
     <>
       <div className="md:col-span-1">
-        <label className={labelCls}>{lbl("scaleNo")}</label>
+        <label className={labelCls} htmlFor={fid(K.scaleNo)}>{lbl("scaleNo")}</label>
         <input
+          id={fid(K.scaleNo)}
           ref={getTRef(idx, K.scaleNo)}
           className={cx(baseField, red(K.scaleNo))}
           value={t[K.scaleNo]}
@@ -67,13 +73,15 @@ export function TrailerSideFields({ form, idx, side = "front", amount = 0, mobil
           onKeyDown={onEnterTrailer(idx, K.scaleNo)}
           placeholder={P.scaleNo}
           aria-invalid={terr[K.scaleNo] ? true : undefined}
+          aria-describedby={desc(K.scaleNo)}
         />
-        {terr[K.scaleNo] && <p className={errorTextCls}>{terr[K.scaleNo]}</p>}
+        {terr[K.scaleNo] && <p id={eid(K.scaleNo)} className={errorTextCls}>{terr[K.scaleNo]}</p>}
       </div>
 
       <div>
-        <label className={labelCls}>{lbl("unitPrice")}</label>
+        <label className={labelCls} htmlFor={fid(K.unitPrice)}>{lbl("unitPrice")}</label>
         <input
+          id={fid(K.unitPrice)}
           ref={getTRef(idx, K.unitPrice)}
           inputMode="decimal"
           className={cx(baseField, numCls, red(K.unitPrice))}
@@ -82,13 +90,15 @@ export function TrailerSideFields({ form, idx, side = "front", amount = 0, mobil
           onKeyDown={onEnterTrailer(idx, K.unitPrice)}
           placeholder="เช่น 15.00"
           aria-invalid={terr[K.unitPrice] ? true : undefined}
+          aria-describedby={desc(K.unitPrice)}
         />
-        {terr[K.unitPrice] && <p className={errorTextCls}>{terr[K.unitPrice]}</p>}
+        {terr[K.unitPrice] && <p id={eid(K.unitPrice)} className={errorTextCls}>{terr[K.unitPrice]}</p>}
       </div>
 
       <div>
-        <label className={labelCls}>{lbl("gram")}</label>
+        <label className={labelCls} htmlFor={fid(K.gram)}>{lbl("gram")}</label>
         <input
+          id={fid(K.gram)}
           ref={getTRef(idx, K.gram)}
           inputMode="numeric"
           className={cx(baseField, numCls)}
@@ -100,8 +110,9 @@ export function TrailerSideFields({ form, idx, side = "front", amount = 0, mobil
       </div>
 
       <div>
-        <label className={labelCls}>{lbl("plate")}</label>
+        <label className={labelCls} htmlFor={fid(K.plate)}>{lbl("plate")}</label>
         <input
+          id={fid(K.plate)}
           ref={getTRef(idx, K.plate)}
           className={cx(baseField, red(K.plate))}
           value={t[K.plate]}
@@ -109,13 +120,16 @@ export function TrailerSideFields({ form, idx, side = "front", amount = 0, mobil
           onKeyDown={onEnterTrailer(idx, K.plate)}
           placeholder={P.plate}
           autoCapitalize="characters"
+          aria-invalid={terr[K.plate] ? true : undefined}
+          aria-describedby={desc(K.plate)}
         />
-        {terr[K.plate] && <p className={errorTextCls}>{terr[K.plate]}</p>}
+        {terr[K.plate] && <p id={eid(K.plate)} className={errorTextCls}>{terr[K.plate]}</p>}
       </div>
 
       <div>
-        <label className={labelCls}>{lbl("weight")}</label>
+        <label className={labelCls} htmlFor={fid(K.weight)}>{lbl("weight")}</label>
         <input
+          id={fid(K.weight)}
           ref={getTRef(idx, K.weight)}
           inputMode="decimal"
           className={cx(baseField, numCls, mobile && "text-lg", red(K.weight))}
@@ -124,13 +138,15 @@ export function TrailerSideFields({ form, idx, side = "front", amount = 0, mobil
           onKeyDown={onEnterTrailer(idx, K.weight)}
           placeholder={P.weight}
           aria-invalid={terr[K.weight] ? true : undefined}
+          aria-describedby={desc(K.weight)}
         />
-        {terr[K.weight] && <p className={errorTextCls}>{terr[K.weight]}</p>}
+        {terr[K.weight] && <p id={eid(K.weight)} className={errorTextCls}>{terr[K.weight]}</p>}
       </div>
 
       <div className="md:col-span-1">
-        <label className={labelCls}>{lbl("amount")}</label>
+        <label className={labelCls} htmlFor={fid(K.amount)}>{lbl("amount")}</label>
         <input
+          id={fid(K.amount)}
           ref={getTRef(idx, K.amount)}
           className={cx(baseField, fieldDisabled, numCls)}
           value={formatMoneyInput(String(amount))}
@@ -157,7 +173,7 @@ export default function SalesTrailerSection({ form }) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="w-full sm:w-64 md:w-60">
-          <label className={labelCls}>จำนวนรถพ่วง</label>
+          <label className={labelCls} htmlFor={fieldId("trailerCount")}>จำนวนรถพ่วง</label>
           <TrailerCountCombo form={form} />
         </div>
       </div>

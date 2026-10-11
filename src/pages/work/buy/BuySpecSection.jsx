@@ -10,7 +10,7 @@ import { Badge } from "../../../components/ui"
 import {
   cx, labelCls, helpTextCls, errorTextCls, cardCls, sectionTitleCls, secondaryBtnCls, readonlyFieldCls,
 } from "../../../lib/styles"
-import { focusRefWithRetry } from "./buyShared"
+import { focusRefWithRetry, fieldId, errId, describedBy } from "./buyShared"
 
 export default function BuySpecSection({ form }) {
   return form.isPhone ? <PhoneSpecSection form={form} /> : <DesktopSpecSection form={form} />
@@ -46,8 +46,10 @@ function PhoneSpecSection({ form }) {
   // semantics are untouched; they live in a collapsed <details>.
   const combo = (key, label, options, value, onChange, getValue, extra = {}) => (
     <div key={key}>
-      <label className={phoneLabelCls}>{label}</label>
+      <label className={phoneLabelCls} htmlFor={fieldId(key)}>{label}</label>
       <ComboBox
+        id={fieldId(key)}
+        ariaDescribedBy={describedBy(errors, key)}
         options={options}
         value={value}
         getValue={getValue}
@@ -62,7 +64,7 @@ function PhoneSpecSection({ form }) {
         ariaLabel={label}
         {...extra}
       />
-      {errors[key] && <p className={errorTextCls}>{errors[key]}</p>}
+      {errors[key] && <p id={errId(key)} className={errorTextCls}>{errors[key]}</p>}
     </div>
   )
 
@@ -131,7 +133,7 @@ function PhoneSpecSection({ form }) {
       <section className={cx(cardCls, "space-y-4 p-4")}>
         <h3 className={sectionTitleCls}>สาขาและคลัง</h3>
         <div>
-          <label className={phoneLabelCls}>สาขา</label>
+          <label className={phoneLabelCls} htmlFor={branchLocked && order.branchId != null ? undefined : fieldId("branchName")}>สาขา</label>
           {branchLocked && order.branchId != null ? (
             <div className={cx(readonlyFieldCls, "flex items-center justify-between gap-3")}>
               <span className="truncate">{order.branchName || "—"}</span>
@@ -139,6 +141,8 @@ function PhoneSpecSection({ form }) {
             </div>
           ) : (
             <ComboBox
+              id={fieldId("branchName")}
+              ariaDescribedBy={describedBy(errors, "branchName")}
               options={branchOptions}
               value={order.branchId}
               getValue={(o) => o.id}
@@ -156,11 +160,13 @@ function PhoneSpecSection({ form }) {
               ariaLabel="สาขา"
             />
           )}
-          {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
+          {errors.branchName && <p id={errId("branchName")} className={errorTextCls}>{errors.branchName}</p>}
         </div>
         <div>
-          <label className={phoneLabelCls}>คลัง</label>
+          <label className={phoneLabelCls} htmlFor={fieldId("klangName")}>คลัง</label>
           <ComboBox
+            id={fieldId("klangName")}
+            ariaDescribedBy={describedBy(errors, "klangName")}
             options={klangOptions}
             value={order.klangId}
             getValue={(o) => o.id}
@@ -178,7 +184,7 @@ function PhoneSpecSection({ form }) {
             title="คลัง"
             ariaLabel="คลัง"
           />
-          {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
+          {errors.klangName && <p id={errId("klangName")} className={errorTextCls}>{errors.klangName}</p>}
         </div>
       </section>
     </div>
@@ -199,8 +205,10 @@ function DesktopSpecSection({ form }) {
       {/* เลือกประเภท/ปี/โปรแกรม/ธุรกิจ */}
       <div className="grid gap-4 md:grid-cols-3">
         <div>
-          <label className={labelCls}>ประเภทสินค้า</label>
+          <label className={labelCls} htmlFor={fieldId("product")}>ประเภทสินค้า</label>
           <ComboBox
+            id={fieldId("product")}
+            ariaDescribedBy={describedBy(errors, "product")}
             options={productOptions}
             value={order.productId}
             onChange={(id, found) => {
@@ -223,12 +231,14 @@ function DesktopSpecSection({ form }) {
             title="ประเภทสินค้า"
             ariaLabel="ประเภทสินค้า"
           />
-          {errors.product && <p className={errorTextCls}>{errors.product}</p>}
+          {errors.product && <p id={errId("product")} className={errorTextCls}>{errors.product}</p>}
         </div>
 
         <div>
-          <label className={labelCls}>ชนิดข้าว</label>
+          <label className={labelCls} htmlFor={fieldId("riceType")}>ชนิดข้าว</label>
           <ComboBox
+            id={fieldId("riceType")}
+            ariaDescribedBy={describedBy(errors, "riceType")}
             options={riceOptions}
             value={order.riceId}
             onChange={(id, found) => {
@@ -250,12 +260,14 @@ function DesktopSpecSection({ form }) {
             title="ชนิดข้าว"
             ariaLabel="ชนิดข้าว"
           />
-          {errors.riceType && <p className={errorTextCls}>{errors.riceType}</p>}
+          {errors.riceType && <p id={errId("riceType")} className={errorTextCls}>{errors.riceType}</p>}
         </div>
 
         <div>
-          <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
+          <label className={labelCls} htmlFor={fieldId("subrice")}>ชั้นย่อย (Sub-class)</label>
           <ComboBox
+            id={fieldId("subrice")}
+            ariaDescribedBy={describedBy(errors, "subrice")}
             options={subriceOptions}
             value={order.subriceId}
             onChange={(id, found) => {
@@ -271,12 +283,14 @@ function DesktopSpecSection({ form }) {
             title="ชั้นย่อย"
             ariaLabel="ชั้นย่อย"
           />
-          {errors.subrice && <p className={errorTextCls}>{errors.subrice}</p>}
+          {errors.subrice && <p id={errId("subrice")} className={errorTextCls}>{errors.subrice}</p>}
         </div>
 
         <div>
-          <label className={labelCls}>สภาพ/เงื่อนไข</label>
+          <label className={labelCls} htmlFor={fieldId("condition")}>สภาพ/เงื่อนไข</label>
           <ComboBox
+            id={fieldId("condition")}
+            ariaDescribedBy={describedBy(errors, "condition")}
             options={conditionOptions}
             value={order.conditionId}
             getValue={(o) => o.id}
@@ -295,12 +309,14 @@ function DesktopSpecSection({ form }) {
             title="สภาพ/เงื่อนไข"
             ariaLabel="สภาพ/เงื่อนไข"
           />
-          {errors.condition && <p className={errorTextCls}>{errors.condition}</p>}
+          {errors.condition && <p id={errId("condition")} className={errorTextCls}>{errors.condition}</p>}
         </div>
 
         <div>
-          <label className={labelCls}>ประเภทนา</label>
+          <label className={labelCls} htmlFor={fieldId("fieldType")}>ประเภทนา</label>
           <ComboBox
+            id={fieldId("fieldType")}
+            ariaDescribedBy={describedBy(errors, "fieldType")}
             options={fieldTypeOptions}
             value={order.fieldTypeId}
             getValue={(o) => o.id}
@@ -319,12 +335,14 @@ function DesktopSpecSection({ form }) {
             title="ประเภทนา"
             ariaLabel="ประเภทนา"
           />
-          {errors.fieldType && <p className={errorTextCls}>{errors.fieldType}</p>}
+          {errors.fieldType && <p id={errId("fieldType")} className={errorTextCls}>{errors.fieldType}</p>}
         </div>
 
         <div>
-          <label className={labelCls}>ปี/ฤดูกาล</label>
+          <label className={labelCls} htmlFor={fieldId("riceYear")}>ปี/ฤดูกาล</label>
           <ComboBox
+            id={fieldId("riceYear")}
+            ariaDescribedBy={describedBy(errors, "riceYear")}
             options={yearOptions}
             value={order.riceYearId}
             getValue={(o) => o.id}
@@ -343,13 +361,15 @@ function DesktopSpecSection({ form }) {
             title="ปี/ฤดูกาล"
             ariaLabel="ปี/ฤดูกาล"
           />
-          {errors.riceYear && <p className={errorTextCls}>{errors.riceYear}</p>}
+          {errors.riceYear && <p id={errId("riceYear")} className={errorTextCls}>{errors.riceYear}</p>}
         </div>
 
         {/* ประเภทธุรกิจ */}
         <div>
-          <label className={labelCls}>ประเภทธุรกิจ</label>
+          <label className={labelCls} htmlFor={fieldId("businessType")}>ประเภทธุรกิจ</label>
           <ComboBox
+            id={fieldId("businessType")}
+            ariaDescribedBy={describedBy(errors, "businessType")}
             options={businessOptions}
             value={order.businessTypeId}
             getValue={(o) => o.id}
@@ -368,12 +388,14 @@ function DesktopSpecSection({ form }) {
             title="ประเภทธุรกิจ"
             ariaLabel="ประเภทธุรกิจ"
           />
-          {errors.businessType && <p className={errorTextCls}>{errors.businessType}</p>}
+          {errors.businessType && <p id={errId("businessType")} className={errorTextCls}>{errors.businessType}</p>}
         </div>
 
         <div>
-          <label className={labelCls}>โปรแกรม</label>
+          <label className={labelCls} htmlFor={fieldId("program")}>โปรแกรม</label>
           <ComboBox
+            id={fieldId("program")}
+            ariaDescribedBy={describedBy(errors, "program")}
             options={programOptions}
             value={order.programId}
             getValue={(o) => o.id}
@@ -393,15 +415,17 @@ function DesktopSpecSection({ form }) {
             ariaLabel="โปรแกรม"
           />
 
-          {errors.program && <p className={errorTextCls}>{errors.program}</p>}
+          {errors.program && <p id={errId("program")} className={errorTextCls}>{errors.program}</p>}
         </div>
       </div>
 
       {/* สาขา + คลัง */}
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         <div>
-          <label className={labelCls}>สาขา</label>
+          <label className={labelCls} htmlFor={fieldId("branchName")}>สาขา</label>
           <ComboBox
+            id={fieldId("branchName")}
+            ariaDescribedBy={describedBy(errors, "branchName")}
             options={
               branchLocked && order.branchId != null
                 ? branchOptions.filter((o) => String(o.id) === String(order.branchId))
@@ -429,12 +453,14 @@ function DesktopSpecSection({ form }) {
             ariaLabel="สาขา"
           />
           {branchLocked && <p className={helpTextCls}>สาขาถูกล็อกตามรหัสผู้ใช้</p>}
-          {errors.branchName && <p className={errorTextCls}>{errors.branchName}</p>}
+          {errors.branchName && <p id={errId("branchName")} className={errorTextCls}>{errors.branchName}</p>}
         </div>
 
         <div>
-          <label className={labelCls}>คลัง</label>
+          <label className={labelCls} htmlFor={fieldId("klangName")}>คลัง</label>
           <ComboBox
+            id={fieldId("klangName")}
+            ariaDescribedBy={describedBy(errors, "klangName")}
             options={klangOptions}
             value={order.klangId}
             getValue={(o) => o.id}
@@ -455,7 +481,7 @@ function DesktopSpecSection({ form }) {
             title="คลัง"
             ariaLabel="คลัง"
           />
-          {errors.klangName && <p className={errorTextCls}>{errors.klangName}</p>}
+          {errors.klangName && <p id={errId("klangName")} className={errorTextCls}>{errors.klangName}</p>}
         </div>
       </div>
     </>

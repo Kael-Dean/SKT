@@ -1941,8 +1941,9 @@ if (buyerType === "person") {
 
           {/* หมายเหตุ */}
           <div className="mt-6">
-            <label className={labelCls}>หมายเหตุ / คอมเมนต์ </label>
+            <label className={labelCls} htmlFor="buy-comment">หมายเหตุ / คอมเมนต์ </label>
             <textarea
+              id="buy-comment"
               ref={refs.comment}
               rows={3}
               className={cx(baseField)}

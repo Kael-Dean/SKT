@@ -22,7 +22,7 @@ import {
   segmentedCls, segmentedItemCls, segmentedItemActiveCls, focusRingCls, baseField,
 } from "../../../lib/styles"
 import { validateCustomer, validateSpec, validateTrailers, trailersHaveErrors, describeErrors, STEP_OF_KEY, TRAILER_ERROR_KEY_ORDER } from "./salesValidation"
-import { nf, thb, round2, onlyDigits, refDocLabel } from "./salesShared"
+import { nf, thb, round2, onlyDigits, refDocLabel, fieldId, errId, describedBy } from "./salesShared"
 import {
   CustomerStatusChip, TemplateCombo, PaymentCombo, IssueDateField, RefDocField, CreditTermsFields,
   CitizenIdField, MemberIdField, FullNameField, CompanyNameField,
@@ -45,13 +45,14 @@ const dash = (v) => (v === undefined || v === null || String(v).trim() === "" ? 
 const trailerIsEmpty = (t = {}) => Object.values(t).every((v) => String(v ?? "").trim() === "")
 
 /* ---------- small building blocks ---------- */
-function Field({ label, children, hint, error }) {
+/** `htmlFor` = the control's id; `errorId` = id for the error text (pair it with the control's aria-describedby). */
+function Field({ label, children, hint, error, htmlFor, errorId }) {
   return (
     <div>
-      <label className={labelCls}>{label}</label>
+      <label className={labelCls} htmlFor={htmlFor}>{label}</label>
       {children}
       {hint && !error && <p className={helpTextCls}>{hint}</p>}
-      {error && <p className={errorTextCls}>{error}</p>}
+      {error && <p id={errorId} className={errorTextCls}>{error}</p>}
     </div>
   )
 }
@@ -307,7 +308,7 @@ export default function SalesMobileStepper({ form }) {
 
               <div>
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <label className={cx(labelCls, "mb-0")}>ฟอร์มสำเร็จรูป</label>
+                  <label className={cx(labelCls, "mb-0")} htmlFor={fieldId("formTemplate")}>ฟอร์มสำเร็จรูป</label>
                   {formTemplate && <Badge tone="info">ล็อกสเปคแล้ว</Badge>}
                 </div>
                 <TemplateCombo form={form} />
@@ -318,10 +319,10 @@ export default function SalesMobileStepper({ form }) {
 
               {buyerType === "person" ? (
                 <>
-                  <Field label="เลขบัตรประชาชน"><CitizenIdField form={form} /></Field>
-                  <Field label="รหัสสมาชิก (member_id)"><MemberIdField form={form} /></Field>
+                  <Field label="เลขบัตรประชาชน" htmlFor={fieldId("citizenId")}><CitizenIdField form={form} /></Field>
+                  <Field label="รหัสสมาชิก (member_id)" htmlFor={fieldId("memberId")}><MemberIdField form={form} /></Field>
                   <div ref={nameBoxRef}>
-                    <label className={labelCls}>ชื่อ–สกุล</label>
+                    <label className={labelCls} htmlFor={fieldId("fullName")}>ชื่อ–สกุล</label>
                     <FullNameField form={form} />
                     {!errors.fullName && <p className={helpTextCls}>พิมพ์ 2 ตัวอักษรเพื่อค้นหา</p>}
                   </div>
@@ -329,21 +330,22 @@ export default function SalesMobileStepper({ form }) {
               ) : (
                 <>
                   <div ref={companyBoxRef}>
-                    <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
+                    <label className={labelCls} htmlFor={fieldId("companyName")}>ชื่อบริษัท / นิติบุคคล</label>
                     <CompanyNameField form={form} />
                     {!errors.companyName && <p className={helpTextCls}>พิมพ์ 2 ตัวอักษรเพื่อค้นหา</p>}
                   </div>
-                  <Field label="เลขผู้เสียภาษี" error={errors.taxId}>
+                  <Field label="เลขผู้เสียภาษี" error={errors.taxId} htmlFor={fieldId("taxId")} errorId={errId("taxId")}>
                     <input
+                      id={fieldId("taxId")}
                       ref={refs.taxId}
                       inputMode="numeric"
                       maxLength={13}
                       className={cx(baseField, errors.taxId && "border-red-500 ring-2 ring-red-300")}
                       value={customer.taxId}
-                      onChange={(e) => updateCustomer("taxId", onlyDigits(e.target.value))}
-                      onFocus={() => clearError("taxId")}
+                      onChange={(e) => { updateCustomer("taxId", onlyDigits(e.target.value)); clearError("taxId") }}
                       placeholder="13 หลัก"
                       aria-invalid={errors.taxId ? true : undefined}
+                      aria-describedby={describedBy(errors, "taxId")}
                     />
                   </Field>
                 </>
@@ -351,9 +353,11 @@ export default function SalesMobileStepper({ form }) {
             </section>
 
             <section className={cx(cardCls, "space-y-4 p-4")}>
-              <Field label="วิธีชำระเงิน" error={errors.payment}><PaymentCombo form={form} /></Field>
-              <Field label="ลงวันที่"><IssueDateField form={form} /></Field>
-              <Field label={refDocLabel(order, true)} hint={order.paymentMethod ? "ไม่บังคับ" : undefined}>
+              <Field label="วิธีชำระเงิน" error={errors.payment} htmlFor={fieldId("payment")} errorId={errId("payment")}>
+                <PaymentCombo form={form} describedById={describedBy(errors, "payment")} />
+              </Field>
+              <Field label="ลงวันที่" htmlFor={fieldId("issueDate")}><IssueDateField form={form} /></Field>
+              <Field label={refDocLabel(order, true)} hint={order.paymentMethod ? "ไม่บังคับ" : undefined} htmlFor={fieldId("refDoc")}>
                 <RefDocField form={form} mobile />
               </Field>
             </section>
@@ -421,7 +425,7 @@ export default function SalesMobileStepper({ form }) {
         {current === 2 && (
           <>
             <section className={cx(cardCls, "p-4")}>
-              <Field label="จำนวนรถพ่วง"><TrailerCountCombo form={form} /></Field>
+              <Field label="จำนวนรถพ่วง" htmlFor={fieldId("trailerCount")}><TrailerCountCombo form={form} /></Field>
             </section>
 
             <div id="trailers-block" className="space-y-3">

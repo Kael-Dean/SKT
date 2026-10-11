@@ -6,7 +6,7 @@
 // phone: step 4). Phone step 4 uses DataList instead (SalesMobileStepper).
 // ─────────────────────────────────────────────────────────────────────────────
 import { baseField, labelCls } from "../../../lib/styles"
-import { round2, thb } from "./salesShared"
+import { round2, thb, fieldId } from "./salesShared"
 
 const tileCls = "rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700"
 
@@ -14,8 +14,9 @@ export function SalesCommentField({ form, mobile = false }) {
   const { refs, order, updateOrder, onEnter } = form
   return (
     <div className={mobile ? undefined : "mt-4"}>
-      <label className={labelCls}>{mobile ? "หมายเหตุ / คอมเมนต์ (ไม่บังคับ)" : "หมายเหตุ / คอมเมนต์"}</label>
+      <label className={labelCls} htmlFor={fieldId("comment")}>{mobile ? "หมายเหตุ / คอมเมนต์ (ไม่บังคับ)" : "หมายเหตุ / คอมเมนต์"}</label>
       <textarea
+        id={fieldId("comment")}
         ref={refs.comment}
         rows={3}
         className={baseField}

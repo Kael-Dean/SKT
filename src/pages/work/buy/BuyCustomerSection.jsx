@@ -13,7 +13,7 @@ import {
   cx, baseField, labelCls, helpTextCls, errorTextCls, compactInput, cardCls,
   segmentedCls, segmentedItemCls, segmentedItemActiveCls,
 } from "../../../lib/styles"
-import { onlyDigits, validateThaiCitizenId, focusRefWithRetry } from "./buyShared"
+import { onlyDigits, validateThaiCitizenId, focusRefWithRetry, fieldId, errId, describedBy } from "./buyShared"
 import DateInput from "./DateInput"
 
 export default function BuyCustomerSection({ form }) {
@@ -92,31 +92,32 @@ function PhoneCustomerSection({ form }) {
 
   const field = (key, label, props = {}, extra = null) => (
     <div>
-      <label className={phoneLabelCls} htmlFor={`buy-${key}`}>{label}</label>
+      <label className={phoneLabelCls} htmlFor={fieldId(key)}>{label}</label>
       <input
-        id={`buy-${key}`}
+        id={fieldId(key)}
         ref={refs[key]}
         className={cx(baseField, redFieldCls(key))}
         value={customer[key]}
-        onChange={(e) => updateCustomer(key, props.digits ? onlyDigits(e.target.value) : e.target.value)}
-        onFocus={() => { clearHint(key); clearError(key) }}
+        onChange={(e) => { updateCustomer(key, props.digits ? onlyDigits(e.target.value) : e.target.value); clearError(key) }}
+        onFocus={() => clearHint(key)}
         onKeyDown={onEnter(key)}
         inputMode={props.inputMode}
         maxLength={props.maxLength}
         placeholder={props.placeholder}
         aria-invalid={errors[key] ? true : undefined}
+        aria-describedby={describedBy(errors, key)}
       />
       {extra}
-      {errors[key] && <p className={errorTextCls}>{errors[key]}</p>}
+      {errors[key] && <p id={errId(key)} className={errorTextCls}>{errors[key]}</p>}
     </div>
   )
 
   const addressFields = (prefix, keys) =>
     keys.map(([k, label, ph, extraProps]) => (
       <div key={k}>
-        <label className={phoneLabelCls} htmlFor={`buy-${k}`}>{label}</label>
+        <label className={phoneLabelCls} htmlFor={fieldId(k)}>{label}</label>
         <input
-          id={`buy-${k}`}
+          id={fieldId(k)}
           ref={refs[k]}
           className={baseField}
           value={customer[k]}
@@ -158,10 +159,11 @@ function PhoneCustomerSection({ form }) {
       {/* 2. ฟอร์มสำเร็จรูป */}
       <div>
         <div className="mb-1 flex items-center justify-between gap-2">
-          <label className={phoneLabelCls + " mb-0"}>ฟอร์มสำเร็จรูป</label>
+          <label className={phoneLabelCls + " mb-0"} htmlFor={fieldId("formTemplate")}>ฟอร์มสำเร็จรูป</label>
           {formTemplate && <Badge tone="info">ล็อกสเปคแล้ว</Badge>}
         </div>
         <ComboBox
+          id={fieldId("formTemplate")}
           options={templateOptions}
           value={formTemplate}
           getSubLabel={(o) => templateSubLabel(o)}
@@ -204,10 +206,11 @@ function PhoneCustomerSection({ form }) {
               value={customer.fullName}
               onChange={(e) => {
                 updateCustomer("fullName", e.target.value)
+                clearError("fullName")
                 if (e.target.value.trim().length >= 2) setShowNameList(true)
                 else { setShowNameList(false); setHighlightedIndex(-1) }
               }}
-              onFocus={() => { clearHint("fullName"); clearError("fullName") }}
+              onFocus={() => clearHint("fullName")}
               onKeyDown={handleNameKeyDown}
               placeholder="เช่น นายสมชาย ใจดี"
               aria-expanded={showNameList}
@@ -215,9 +218,10 @@ function PhoneCustomerSection({ form }) {
               role="combobox"
               aria-autocomplete="list"
               aria-invalid={errors.fullName ? true : undefined}
+              aria-describedby={describedBy(errors, "fullName")}
             />
             {!errors.fullName && <p className={helpTextCls}>พิมพ์แล้วเลือกจากรายชื่อ</p>}
-            {errors.fullName && <p className={errorTextCls}>{errors.fullName}</p>}
+            {errors.fullName && <p id={errId("fullName")} className={errorTextCls}>{errors.fullName}</p>}
             <SearchResults
               open={showNameList && nameResults.length > 0}
               inline
@@ -273,10 +277,10 @@ function PhoneCustomerSection({ form }) {
               value={customer.companyName}
               onChange={(e) => {
                 updateCustomer("companyName", e.target.value)
+                clearError("companyName")
                 if (e.target.value.trim().length >= 2) setShowCompanyList(true)
                 else { setShowCompanyList(false); setCompanyHighlighted(-1) }
               }}
-              onFocus={() => clearError("companyName")}
               onKeyDown={handleCompanyKeyDown}
               onKeyDownCapture={onEnter("companyName")}
               placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
@@ -285,8 +289,9 @@ function PhoneCustomerSection({ form }) {
               role="combobox"
               aria-autocomplete="list"
               aria-invalid={errors.companyName ? true : undefined}
+              aria-describedby={describedBy(errors, "companyName")}
             />
-            {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
+            {errors.companyName && <p id={errId("companyName")} className={errorTextCls}>{errors.companyName}</p>}
             <SearchResults
               open={showCompanyList && companyResults.length > 0}
               inline
@@ -343,8 +348,10 @@ function PhoneCustomerSection({ form }) {
 
       {/* 5. วิธีชำระเงิน */}
       <div>
-        <label className={phoneLabelCls}>วิธีชำระเงิน</label>
+        <label className={phoneLabelCls} htmlFor={fieldId("payment")}>วิธีชำระเงิน</label>
         <ComboBox
+          id={fieldId("payment")}
+          ariaDescribedBy={describedBy(errors, "payment")}
           options={paymentOptions}
           value={order.paymentMethodId || ""}
           onChange={(id, found) => {
@@ -359,13 +366,15 @@ function PhoneCustomerSection({ form }) {
           title="วิธีชำระเงิน"
           ariaLabel="วิธีชำระเงิน"
         />
-        {errors.payment && <p className={errorTextCls}>{errors.payment}</p>}
+        {errors.payment && <p id={errId("payment")} className={errorTextCls}>{errors.payment}</p>}
       </div>
 
       {/* 6. ลงวันที่ */}
       <div>
-        <label className={phoneLabelCls}>ลงวันที่</label>
+        <label className={phoneLabelCls} htmlFor={fieldId("issueDate")}>ลงวันที่</label>
         <DateInput
+          id={fieldId("issueDate")}
+          aria-describedby={describedBy(errors, "issueDate")}
           ref={refs.issueDate}
           value={order.issueDate}
           onChange={(e) => setOrder((p) => ({ ...p, issueDate: e.target.value }))}
@@ -375,19 +384,19 @@ function PhoneCustomerSection({ form }) {
           onKeyDown={onEnter("issueDate")}
           aria-invalid={errors.issueDate ? true : undefined}
         />
-        {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
+        {errors.issueDate && <p id={errId("issueDate")} className={errorTextCls}>{errors.issueDate}</p>}
       </div>
 
       {/* 7. เลขที่ใบชั่ง */}
       <div>
-        <label className={phoneLabelCls} htmlFor="buy-paymentRefNo">เลขที่ใบชั่ง</label>
+        <label className={phoneLabelCls} htmlFor={fieldId("paymentRefNo")}>เลขที่ใบชั่ง</label>
         <input
-          id="buy-paymentRefNo"
+          id={fieldId("paymentRefNo")}
           ref={refs.paymentRefNo}
           className={cx(baseField, redFieldCls("paymentRefNo"))}
           value={order.paymentRefNo}
-          onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
-          onFocus={() => { clearHint("paymentRefNo"); clearError("paymentRefNo") }}
+          onChange={(e) => { updateOrder("paymentRefNo", e.target.value); clearError("paymentRefNo") }}
+          onFocus={() => clearHint("paymentRefNo")}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.isComposing) {
               e.preventDefault()
@@ -397,9 +406,10 @@ function PhoneCustomerSection({ form }) {
           autoCapitalize="characters"
           placeholder="เช่น 011-0000123456"
           aria-invalid={errors.paymentRefNo ? true : undefined}
+          aria-describedby={describedBy(errors, "paymentRefNo")}
         />
         {!errors.paymentRefNo && <p className={helpTextCls}>หรือเลขที่ใบเบิกเงิน</p>}
-        {errors.paymentRefNo && <p className={errorTextCls}>{errors.paymentRefNo}</p>}
+        {errors.paymentRefNo && <p id={errId("paymentRefNo")} className={errorTextCls}>{errors.paymentRefNo}</p>}
       </div>
     </div>
   )
@@ -460,8 +470,9 @@ function DesktopCustomerSection({ form }) {
 
         {/* ดรอปดาว: ประเภทผู้ซื้อ */}
         <div className="ml-auto w-full sm:w-64 self-start">
-          <label className={labelCls}>ประเภทผู้ซื้อ</label>
+          <label className={labelCls} htmlFor={fieldId("buyerType")}>ประเภทผู้ซื้อ</label>
           <ComboBox
+            id={fieldId("buyerType")}
             options={buyerTypeOptions}
             value={buyerType}
             onChange={(id) => setBuyerType(String(id))}
@@ -474,8 +485,9 @@ function DesktopCustomerSection({ form }) {
 
         {/* ดรอปดาวฟอร์มสำเร็จรูป (มุมขวา) — โหลดจาก BE (โหมดล็อกสเปก) */}
         <div className="w-full sm:w-72 self-start">
-          <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
+          <label className={labelCls} htmlFor={fieldId("formTemplate")}>ฟอร์มสำเร็จรูป</label>
           <ComboBox
+            id={fieldId("formTemplate")}
             options={templateOptions}
             value={formTemplate}
             /** ⭐ เพิ่มบรรทัดย่อยใต้ชื่อ: ชื่อชั้นย่อยของ template */
@@ -497,8 +509,9 @@ function DesktopCustomerSection({ form }) {
       {/* วิธีชำระเงิน + วันที่ + ใบชั่ง/ใบเบิกเงิน */}
       <div className="grid gap-4 md:grid-cols-3">
         <div>
-          <label className={labelCls}>วิธีชำระเงิน</label>
+          <label className={labelCls} htmlFor={fieldId("payment")}>วิธีชำระเงิน</label>
           <ComboBox
+            id={fieldId("payment")}
             options={paymentOptions}
             value={order.paymentMethodId || ""}
             onChange={(id, found) =>
@@ -513,8 +526,9 @@ function DesktopCustomerSection({ form }) {
         </div>
 
         <div>
-          <label className={labelCls}>ลงวันที่</label>
+          <label className={labelCls} htmlFor={fieldId("issueDate")}>ลงวันที่</label>
           <DateInput
+            id={fieldId("issueDate")}
             ref={refs.issueDate}
             value={order.issueDate}
             onChange={(e) => setOrder((p) => ({ ...p, issueDate: e.target.value }))}
@@ -523,18 +537,20 @@ function DesktopCustomerSection({ form }) {
             className={redHintCls("issueDate")}
             onKeyDown={onEnter("issueDate")}
             aria-invalid={errors.issueDate ? true : undefined}
+            aria-describedby={describedBy(errors, "issueDate")}
           />
-          {errors.issueDate && <p className={errorTextCls}>{errors.issueDate}</p>}
+          {errors.issueDate && <p id={errId("issueDate")} className={errorTextCls}>{errors.issueDate}</p>}
         </div>
 
         <div>
-          <label className={labelCls}>เลขที่ใบชั่ง/ใบเบิกเงิน</label>
+          <label className={labelCls} htmlFor={fieldId("paymentRefNo")}>เลขที่ใบชั่ง/ใบเบิกเงิน</label>
           <input
+            id={fieldId("paymentRefNo")}
             ref={refs.paymentRefNo}
             className={cx(baseField, redFieldCls("paymentRefNo"))}
             value={order.paymentRefNo}
-            onChange={(e) => updateOrder("paymentRefNo", e.target.value)}
-            onFocus={() => { clearHint("paymentRefNo"); clearError("paymentRefNo") }}
+            onChange={(e) => { updateOrder("paymentRefNo", e.target.value); clearError("paymentRefNo") }}
+            onFocus={() => clearHint("paymentRefNo")}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.isComposing) {
                 e.preventDefault()
@@ -543,8 +559,10 @@ function DesktopCustomerSection({ form }) {
               }
             }}
             placeholder="เช่น 011-0000123456"
+            aria-invalid={errors.paymentRefNo ? true : undefined}
+            aria-describedby={describedBy(errors, "paymentRefNo")}
           />
-          {errors.paymentRefNo && <p className={errorTextCls}>{errors.paymentRefNo}</p>}
+          {errors.paymentRefNo && <p id={errId("paymentRefNo")} className={errorTextCls}>{errors.paymentRefNo}</p>}
         </div>
       </div>
 
@@ -552,8 +570,9 @@ function DesktopCustomerSection({ form }) {
       {buyerType === "person" ? (
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           <div>
-            <label className={labelCls}>เลขที่บัตรประชาชน (เพื่อค้นหาที่อยู่)</label>
+            <label className={labelCls} htmlFor={fieldId("citizenId")}>เลขที่บัตรประชาชน (เพื่อค้นหาที่อยู่)</label>
             <input
+              id={fieldId("citizenId")}
               ref={refs.citizenId}
               inputMode="numeric"
               maxLength={13}
@@ -575,29 +594,31 @@ function DesktopCustomerSection({ form }) {
 
           {/* ⭐ member_id */}
           <div>
-            <label className={labelCls}>รหัสสมาชิก (member_id)</label>
+            <label className={labelCls} htmlFor={fieldId("memberId")}>รหัสสมาชิก (member_id)</label>
             <input
+              id={fieldId("memberId")}
               ref={refs.memberId}
               inputMode="numeric"
               className={cx(baseField, redFieldCls("memberId"))}
               value={customer.memberId}
-              onChange={(e) => updateCustomer("memberId", onlyDigits(e.target.value))}
-              onFocus={() => clearError("memberId")}
+              onChange={(e) => { updateCustomer("memberId", onlyDigits(e.target.value)); clearError("memberId") }}
               onKeyDown={onEnter("memberId")}
               placeholder="เช่น 100234"
               aria-invalid={errors.memberId ? true : undefined}
+              aria-describedby={describedBy(errors, "memberId")}
             />
             {!!memberMeta.memberId && (
               <p className={helpTextCls}>พบสมาชิก: member_id {memberMeta.memberId}</p>
             )}
-            {errors.memberId && <p className={errorTextCls}>{errors.memberId}</p>}
+            {errors.memberId && <p id={errId("memberId")} className={errorTextCls}>{errors.memberId}</p>}
           </div>
 
           <div className="md:col-span-1" />
 
           <div className="md:col-span-2" ref={nameBoxRef}>
-            <label className={labelCls}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
+            <label className={labelCls} htmlFor={fieldId("fullName")}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
             <input
+              id={fieldId("fullName")}
               ref={(el) => {
                 refs.fullName.current = el
                 nameInputRef.current = el
@@ -606,6 +627,7 @@ function DesktopCustomerSection({ form }) {
               value={customer.fullName}
               onChange={(e) => {
                 updateCustomer("fullName", e.target.value)
+                clearError("fullName")
                 if (e.target.value.trim().length >= 2) {
                   setShowNameList(true)
                 } else {
@@ -613,10 +635,7 @@ function DesktopCustomerSection({ form }) {
                   setHighlightedIndex(-1)
                 }
               }}
-              onFocus={() => {
-                clearHint("fullName")
-                clearError("fullName")
-              }}
+              onFocus={() => clearHint("fullName")}
               onKeyDown={handleNameKeyDown}
               placeholder="เช่น นายสมชาย ใจดี"
               aria-expanded={showNameList}
@@ -624,8 +643,9 @@ function DesktopCustomerSection({ form }) {
               role="combobox"
               aria-autocomplete="list"
               aria-invalid={errors.fullName ? true : undefined}
+              aria-describedby={describedBy(errors, "fullName")}
             />
-            {errors.fullName && <p className={errorTextCls}>{errors.fullName}</p>}
+            {errors.fullName && <p id={errId("fullName")} className={errorTextCls}>{errors.fullName}</p>}
 
             {showNameList && nameResults.length > 0 && (
               <div
@@ -682,8 +702,9 @@ function DesktopCustomerSection({ form }) {
             ["province", "จังหวัด", "เช่น ขอนแก่น"],
           ].map(([k, label, ph]) => (
             <div key={k}>
-              <label className={labelCls}>{label}</label>
+              <label className={labelCls} htmlFor={fieldId(k)}>{label}</label>
               <input
+                id={fieldId(k)}
                 ref={refs[k]}
                 className={cx(baseField, compactInput)}
                 value={customer[k]}
@@ -696,8 +717,9 @@ function DesktopCustomerSection({ form }) {
           ))}
 
           <div>
-            <label className={labelCls}>รหัสไปรษณีย์</label>
+            <label className={labelCls} htmlFor={fieldId("postalCode")}>รหัสไปรษณีย์</label>
             <input
+              id={fieldId("postalCode")}
               ref={refs.postalCode}
               inputMode="numeric"
               maxLength={5}
@@ -711,8 +733,9 @@ function DesktopCustomerSection({ form }) {
           </div>
 
           <div>
-            <label className={labelCls}>เบอร์โทรศัพท์ </label>
+            <label className={labelCls} htmlFor={fieldId("phone")}>เบอร์โทรศัพท์ </label>
             <input
+              id={fieldId("phone")}
               ref={refs.phone}
               inputMode="tel"
               maxLength={20}
@@ -728,8 +751,9 @@ function DesktopCustomerSection({ form }) {
       ) : (
         /* -------------------- โหมดบริษัท -------------------- */
         <div className="mt-4 md:col-span-2" ref={companyBoxRef}>
-          <label className={labelCls}>ชื่อบริษัท / นิติบุคคล</label>
+          <label className={labelCls} htmlFor={fieldId("companyName")}>ชื่อบริษัท / นิติบุคคล</label>
           <input
+            id={fieldId("companyName")}
             ref={(el) => {
               refs.companyName.current = el
               companyInputRef.current = el
@@ -738,6 +762,7 @@ function DesktopCustomerSection({ form }) {
             value={customer.companyName}
             onChange={(e) => {
               updateCustomer("companyName", e.target.value)
+              clearError("companyName")
               if (buyerType === "company") {
                 if (e.target.value.trim().length >= 2) {
                   setShowCompanyList(true)
@@ -747,7 +772,6 @@ function DesktopCustomerSection({ form }) {
                 }
               }
             }}
-            onFocus={() => clearError("companyName")}
             onKeyDown={handleCompanyKeyDown}
             onKeyDownCapture={onEnter("companyName")}
             placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
@@ -756,8 +780,9 @@ function DesktopCustomerSection({ form }) {
             role="combobox"
             aria-autocomplete="list"
             aria-invalid={errors.companyName ? true : undefined}
+            aria-describedby={describedBy(errors, "companyName")}
           />
-          {errors.companyName && <p className={errorTextCls}>{errors.companyName}</p>}
+          {errors.companyName && <p id={errId("companyName")} className={errorTextCls}>{errors.companyName}</p>}
 
           {buyerType === "company" && showCompanyList && companyResults.length > 0 && (
             <div

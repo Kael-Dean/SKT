@@ -21,6 +21,13 @@ export const thb = (n) => THB_FMT.format(isFinite(n) ? n : 0)
 /** Plain number (weights) — th-TH grouping, ≤2 decimals, no forced ".00" (copy §0 V3) */
 export const nf = (n) => NUM_FMT.format(isFinite(Number(n)) ? Number(n) : 0)
 
+/** ----------- a11y ids (label ↔ field ↔ error) ------------
+ *  Phone and desktop layouts never render together, so one id per key is safe. */
+export const fieldId = (key) => `buy-${key}`
+export const errId = (key) => `buy-${key}-err`
+/** aria-describedby value: the error <p> id while that key has an error. */
+export const describedBy = (errors, key) => (errors?.[key] ? errId(key) : undefined)
+
 export const findLabelById = (opts = [], id) => {
   const s = String(id ?? "")
   if (!s) return ""

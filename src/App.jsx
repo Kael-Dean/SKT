@@ -56,6 +56,7 @@ const OutOfOffice = lazy(() => import("./pages/work/OutOfOffice.jsx"))
 const OutOfOfficeApprovals = lazy(() => import("./pages/work/OutOfOfficeApprovals.jsx"))
 /** Dev-only index of all HR pages (not registered in production builds) */
 const DevHrHub = import.meta.env.DEV ? lazy(() => import("./pages/dev/DevHrHub.jsx")) : null
+const DevMobileKit = import.meta.env.DEV ? lazy(() => import("./pages/dev/DevMobileKit.jsx")) : null
 const Inbox = lazy(() => import("./pages/work/Inbox.jsx"))
 const FacilityReport = lazy(() => import("./pages/work/FacilityReport.jsx"))
 const ChangePassword = lazy(() => import("./pages/work/ChangePassword.jsx"))
@@ -85,6 +86,7 @@ function App() {
       <Route path="/index.html" element={<Navigate to="/" replace />} />
       <Route path="/" element={<Login />} />
       {DevHrHub && <Route path="/dev/hr" element={<DevHrHub />} />}
+      {DevMobileKit && <Route path="/dev/mobile-kit" element={<DevMobileKit />} />}
 
       <Route element={<RequirePasswordChanged><AppLayout /></RequirePasswordChanged>}>
         <Route path="/home" element={<Home />} />

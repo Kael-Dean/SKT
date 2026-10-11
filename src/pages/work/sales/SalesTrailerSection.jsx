@@ -309,7 +309,7 @@ export default function SalesTrailerSection({ form }) {
                       onClick={() => removeTrailer(idx)}
                       aria-label={`ลบรถคันที่ ${idx + 1}`}
                       title={`ลบรถคันที่ ${idx + 1}`}
-                      className={cx(iconBtnCls, "-my-1 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400")}
+                      className={cx(iconBtnCls, "-my-1 hover:text-red-700 dark:hover:text-red-400")}
                     >
                       <Trash2 aria-hidden="true" className="size-4" strokeWidth={1.75} />
                     </button>

@@ -809,7 +809,21 @@ function Sales() {
     return false
   }
 
-  // Enter บนลิสต์ชื่อ → เลือก แล้วไป "คลัง"
+  // หลังช่องลูกค้าช่องสุดท้าย (ชื่อ / เบอร์โทรบริษัท): desktop → วิธีชำระเงิน
+  // (แถวถัดไปในการ์ด); มือถือคงเดิม (คลัง… ซึ่งไม่อยู่ในขั้น 1 → ไม่ขยับ)
+  const focusAfterCustomer = () => {
+    if (!isPhone) {
+      const el = refs.payment?.current
+      if (el && isEnabledInput(el)) {
+        try { el.scrollIntoView({ block: "center" }) } catch { /* ignore */ }
+        el.focus?.()
+        return true
+      }
+    }
+    return focusKlangOrBranchOrTrailer()
+  }
+
+  // Enter บนลิสต์ชื่อ → เลือก แล้วไปช่องถัดไป (วิธีชำระเงิน)
   const handleNameKeyDown = async (e) => {
     if (!showNameList || nameResults.length === 0) return
     if (e.key === "ArrowDown") {
@@ -824,7 +838,7 @@ function Sales() {
       e.preventDefault()
       if (highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
         await pickNameResult(nameResults[highlightedIndex])
-        requestAnimationFrame(() => { focusKlangOrBranchOrTrailer() })
+        requestAnimationFrame(() => { focusAfterCustomer() })
       }
     } else if (e.key === "Escape") {
       e.preventDefault(); setShowNameList(false); setHighlightedIndex(-1)
@@ -1307,7 +1321,7 @@ function Sales() {
     }
     if (e.key === "Enter" && !e.isComposing) {
       e.preventDefault()
-      if (focusKlangOrBranchOrTrailer()) return
+      if (focusAfterCustomer()) return
       focusNext("fullName")
     }
   }
@@ -1327,7 +1341,7 @@ function Sales() {
     beforeFocusTrailerRef,
     // search panels
     nameBoxRef, nameInputRef, listContainerRef, itemRefs, showNameList, setShowNameList, nameResults, highlightedIndex, setHighlightedIndex,
-    pickNameResult, scrollHighlightedIntoView2, handleFullNameKeyDown, focusKlangOrBranchOrTrailer,
+    pickNameResult, scrollHighlightedIntoView2, handleFullNameKeyDown, focusKlangOrBranchOrTrailer, focusAfterCustomer,
     companyBoxRef, companyInputRef, companyItemRefs, showCompanyList, setShowCompanyList, companyResults, companyHighlighted, setCompanyHighlighted,
     pickCompanyResult, handleCompanyKeyDown,
     // handlers

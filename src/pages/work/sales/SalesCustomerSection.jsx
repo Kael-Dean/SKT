@@ -68,7 +68,7 @@ export function TemplateCombo({ form, error = false, describedById, title = "ฟ
 
 /* ---------- วิธีชำระเงิน ---------- */
 /** `describedById`: the caller's error text id (the phone `Field` renders it; desktop shows no payment error text). */
-export function PaymentCombo({ form, describedById }) {
+export function PaymentCombo({ form, describedById, desktop = false }) {
   const { paymentOptions, order, setOrder, refs } = form
   return (
     <ComboBox
@@ -90,6 +90,7 @@ export function PaymentCombo({ form, describedById }) {
       searchable={false}
       title="วิธีชำระเงิน"
       ariaLabel="วิธีชำระเงิน"
+      enterMovesWhenFilled={desktop}
       error={!!form.errors.payment}
       hintRed={!!form.missingHints.payment}
       clearHint={() => form.clearHint("payment")}
@@ -137,13 +138,14 @@ export function IssueDateField({ form }) {
 
 /* ---------- เอกสารอ้างอิง (ส่งเป็น sale_id) ---------- */
 export function RefDocField({ form, mobile = false }) {
-  const { refs, order, updateOrder, buyerType, focusNext } = form
+  const { refs, order, updateOrder, buyerType, focusNext, focusKlangOrBranchOrTrailer } = form
   const goName = () => {
-    // Desktop credit sale: the credit terms sit between this row and the
-    // customer fields → go there first. Otherwise (and on phones) → name.
-    if (!mobile && order.__isCredit) {
+    // Desktop: forward — credit terms (credit sale) → คลัง → จำนวนรถพ่วง.
+    // Phone keeps the original jump to the name field.
+    if (!mobile) {
       const credit = refs.deptAllowed?.current
-      if (credit && isEnabledInput(credit)) { credit.focus(); try { credit.select() } catch { /* ignore */ } return true }
+      if (order.__isCredit && credit && isEnabledInput(credit)) { credit.focus(); try { credit.select() } catch { /* ignore */ } return true }
+      return focusKlangOrBranchOrTrailer()
     }
     const key = buyerType === "person" ? "fullName" : "companyName"
     const el = refs[key]?.current
@@ -201,14 +203,9 @@ export function RefDocField({ form, mobile = false }) {
 
 /* ---------- เงื่อนไขเครดิต — 3 fields (card chrome is the caller's) ---------- */
 export function CreditTermsFields({ form, mobile = false }) {
-  const { refs, dept, setDept, buyerType } = form
-  // After the credit terms: phone → ลงวันที่ (original); desktop → the
-  // customer fields right below (ชื่อ–สกุล / ชื่อบริษัท, like the ref doc)
-  const after = () => {
-    if (mobile) return refs.issueDate?.current?.focus()
-    const el = refs[buyerType === "person" ? "fullName" : "companyName"]?.current
-    if (el) { el.focus(); try { el.select() } catch { /* ignore */ } }
-  }
+  const { refs, dept, setDept, focusKlangOrBranchOrTrailer } = form
+  // After the credit terms: phone → ลงวันที่ (original); desktop → คลัง → …
+  const after = () => (mobile ? refs.issueDate?.current?.focus() : focusKlangOrBranchOrTrailer())
   const allowedInput = (
     <input
       id={fieldId("deptAllowed")}
@@ -223,6 +220,7 @@ export function CreditTermsFields({ form, mobile = false }) {
   )
   const postponeBox = (
     <input
+      id={fieldId("deptPostpone")}
       ref={refs.deptPostpone}
       type="checkbox"
       className="size-5 accent-indigo-600"
@@ -348,7 +346,7 @@ export function FullNameField({ form, placeholder = "เช่น นายส�
     refs, nameInputRef, customer, updateCustomer, setShowNameList, setHighlightedIndex,
     clearHint, clearError, handleFullNameKeyDown, showNameList, nameResults, errors, redFieldCls,
     listContainerRef, highlightedIndex, itemRefs, pickNameResult, scrollHighlightedIntoView2,
-    focusKlangOrBranchOrTrailer,
+    focusAfterCustomer,
   } = form
   return (
     <>
@@ -392,7 +390,7 @@ export function FullNameField({ form, placeholder = "เช่น นายส�
                 key={`${r.type}-${r.asso_id}-${idx}`}
                 onClick={async () => {
                   await pickNameResult(r)
-                  requestAnimationFrame(() => { focusKlangOrBranchOrTrailer() })
+                  requestAnimationFrame(() => { focusAfterCustomer() })
                 }}
                 onMouseEnter={() => { setHighlightedIndex(idx); requestAnimationFrame(() => scrollHighlightedIntoView2(idx)) }}
                 role="option"
@@ -515,7 +513,7 @@ export function TaxIdField({ form }) {
 }
 
 export function CompanyPhoneField({ form }) {
-  const { refs, customer, updateCustomer, onEnter } = form
+  const { refs, customer, updateCustomer, onEnter, focusAfterCustomer } = form
   return (
     <input
       id={fieldId("companyPhone")}
@@ -525,7 +523,9 @@ export function CompanyPhoneField({ form }) {
       className={cx(baseField, "tabular-nums")}
       value={customer.companyPhone}
       onChange={(e) => updateCustomer("companyPhone", e.target.value)}
-      onKeyDown={onEnter("companyPhone")}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); if (!focusAfterCustomer()) onEnter("companyPhone")(e) }
+      }}
       placeholder="ไม่บังคับ"
     />
   )
@@ -573,8 +573,9 @@ function BuyerTypeSegmented({ form }) {
 const sectionTitle = "text-lg font-semibold leading-snug text-gray-900 dark:text-gray-100"
 
 /* ============================ DESKTOP CARD ============================ */
-// Same structure as Buy (round 2): header (title · status · buyer type),
-// payment row, credit terms, then the person / company row.
+// Round 2: header (title · status · buyer type), person / company row, then
+// payment row (+ credit terms). Desktop Enter runs top → bottom through the
+// whole page: customer → วิธีชำระเงิน → เอกสารอ้างอิง → [เครดิต] → คลัง → …
 export default function SalesCustomerSection({ form }) {
   const { buyerType, order, errors, isCreditPayment, nameBoxRef, companyBoxRef } = form
   return (
@@ -586,32 +587,6 @@ export default function SalesCustomerSection({ form }) {
           <BuyerTypeSegmented form={form} />
         </div>
       </div>
-
-      {/* วิธีชำระเงิน | ลงวันที่ | เอกสารอ้างอิง */}
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
-        <div>
-          <label className={labelCls} htmlFor={fieldId("payment")}>วิธีชำระเงิน</label>
-          <PaymentCombo form={form} describedById={describedBy(errors, "payment")} />
-          {errors.payment && <p id={errId("payment")} className={errorTextCls}>{errors.payment}</p>}
-        </div>
-        <div>
-          <label className={labelCls} htmlFor={fieldId("issueDate")}>ลงวันที่</label>
-          <IssueDateField form={form} />
-        </div>
-        <div>
-          <label className={labelCls} htmlFor={fieldId("refDoc")}>{refDocLabel(order)}</label>
-          <RefDocField form={form} />
-        </div>
-      </div>
-
-      {isCreditPayment() && (
-        <div className="mt-4 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/40">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">เงื่อนไขขายเชื่อ</h3>
-          <div className="mt-3 grid gap-4 md:grid-cols-3">
-            <CreditTermsFields form={form} />
-          </div>
-        </div>
-      )}
 
       {buyerType === "person" ? (
         <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -641,6 +616,32 @@ export default function SalesCustomerSection({ form }) {
           <div>
             <label className={labelCls} htmlFor={fieldId("companyPhone")}>เบอร์โทร</label>
             <CompanyPhoneField form={form} />
+          </div>
+        </div>
+      )}
+
+      {/* วิธีชำระเงิน | ลงวันที่ | เอกสารอ้างอิง */}
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div>
+          <label className={labelCls} htmlFor={fieldId("payment")}>วิธีชำระเงิน</label>
+          <PaymentCombo form={form} describedById={describedBy(errors, "payment")} desktop />
+          {errors.payment && <p id={errId("payment")} className={errorTextCls}>{errors.payment}</p>}
+        </div>
+        <div>
+          <label className={labelCls} htmlFor={fieldId("issueDate")}>ลงวันที่</label>
+          <IssueDateField form={form} />
+        </div>
+        <div>
+          <label className={labelCls} htmlFor={fieldId("refDoc")}>{refDocLabel(order)}</label>
+          <RefDocField form={form} />
+        </div>
+      </div>
+
+      {isCreditPayment() && (
+        <div className="mt-4 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/40">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">เงื่อนไขขายเชื่อ</h3>
+          <div className="mt-3 grid gap-4 md:grid-cols-3">
+            <CreditTermsFields form={form} />
           </div>
         </div>
       )}

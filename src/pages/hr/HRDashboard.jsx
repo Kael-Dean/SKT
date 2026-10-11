@@ -413,7 +413,7 @@ function HRRail({ activeKey, badges, onNavigate, onOpenSwitcher }) {
 
   let firstHeader = true
   return (
-    <nav aria-label="เมนูงานบุคคล" className="sticky top-6 hidden self-start lg:block">
+    <nav aria-label="เมนูงานบุคคล" className="sticky top-[calc(var(--topbar-h)+1.5rem)] hidden self-start lg:block">
       <div className="relative">
         <label htmlFor={filterId} className="sr-only">ค้นหาเมนู</label>
         <Search

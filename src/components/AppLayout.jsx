@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
 import Toaster from "./ui/Toaster"
+import { recordVisit } from "../lib/recentRoutes"
 
 export const SidebarContext = createContext(false)
 export const useSidebarOpen = () => useContext(SidebarContext)
@@ -23,6 +24,10 @@ const getInitialDark = () => {
   return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? false
 }
 
+// Layout shell. The <body> is the document scroller (plan §A7) — no h-screen /
+// overflow-y-auto on <main> — so 100dvh is honest on iOS, Portal's body lock
+// works, and `position: sticky` inside pages sticks below the Topbar via
+// `top-(--topbar-h)` (Topbar.jsx measures itself into that variable).
 const AppLayout = () => {
   const navigate = useNavigate()
   const location = useLocation()
@@ -44,6 +49,8 @@ const AppLayout = () => {
   const parent = PARENT_ROUTES[location.pathname]
   const backTo = parent ? parent.path : isHrSubPage ? "/hr/dashboard" : "/home"
   const backLabel = parent ? parent.label : isHrSubPage ? "งานบุคคล (HR)" : "หน้าหลัก"
+  // <md: ปุ่มย้อนกลับย้ายเข้า Topbar (ซ้ายสุด 44px) — ปุ่ม inline ด้านล่างเป็น hidden md:flex
+  const back = !isHome ? { to: backTo, label: backLabel } : null
 
   // ใส่/เอาออก class 'dark' ที่ <html>
   useEffect(() => {
@@ -61,10 +68,16 @@ const AppLayout = () => {
     return () => window.removeEventListener("resize", onResize)
   }, [])
 
+  // จำ route ของโมดูลรวบรวมผลผลิตที่เพิ่งเปิด (Home "ทางลัด") + เริ่มทุกหน้าที่ด้านบน
+  useEffect(() => {
+    recordVisit(location.pathname)
+    window.scrollTo(0, 0)
+  }, [location.pathname])
+
   return (
-    <div className="flex h-screen bg-gray-50 text-gray-900 transition-colors duration-300 dark:bg-gray-950 dark:text-gray-100">
+    <div className="flex min-h-dvh bg-gray-50 text-gray-900 transition-colors duration-300 dark:bg-gray-950 dark:text-gray-100">
       {/* Sidebar */}
-      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} darkMode={darkMode} setDarkMode={setDarkMode} />
 
       {/* Main */}
       <div className="relative flex min-w-0 flex-1 flex-col">
@@ -73,9 +86,10 @@ const AppLayout = () => {
           isSidebarOpen={isSidebarOpen}
           darkMode={darkMode}
           setDarkMode={setDarkMode}
+          back={back}
         />
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="min-w-0 flex-1">
           <SidebarContext.Provider value={deferredSidebarOpen}>
           <div
             key={location.pathname}
@@ -83,17 +97,17 @@ const AppLayout = () => {
               isFullWidth ? "w-full" : isHrDashboard ? "mx-auto max-w-[1600px]" : "mx-auto max-w-7xl"
             }`}
           >
-            {!isHome && (
-              <div className="mb-6 flex items-center gap-3">
+            {back && (
+              <div className="mb-6 hidden items-center gap-3 md:flex">
                 <button
-                  onClick={() => navigate(backTo)}
+                  onClick={() => navigate(back.to)}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm transition-all duration-150 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-indigo-600 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-300 cursor-pointer"
                   type="button"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
-                  {backLabel}
+                  {back.label}
                 </button>
               </div>
             )}

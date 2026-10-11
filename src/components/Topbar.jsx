@@ -1,12 +1,30 @@
 // src/components/Topbar.jsx
-import { useEffect, useMemo, useState } from "react";
+// Sticky app header. Measures its own height into `--topbar-h` (index.css)
+// so page-level `sticky top-(--topbar-h)` elements (Stepper, table headers)
+// stack under it now that <body> is the scroller.
+//
+// <md layout:  [back ◀ 44px][☰ 44px] ……… [branch (compact)][🔔][avatar]
+// ≥md layout:  [☰][logo + org name]  [search (decorative)]  [branch][🔔][dark][profile]
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChevronLeft, Menu, Moon, Sun, X } from "lucide-react";
 import { getUser, getRoleId } from "../lib/auth";
 import BranchSwitcher from "./BranchSwitcher";
 import NotificationBell from "./NotificationBell";
 import { roleLabel } from "../lib/roles";
 
+// Shared chrome for the icon buttons; display + size are set per button so
+// `hidden md:inline-flex` on the dark toggle is not out-ranked by `inline-flex`.
+const chromeBtnBase =
+  "shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-white text-gray-600 shadow-sm " +
+  "transition-all duration-150 hover:bg-gray-50 hover:text-gray-900 active:scale-95 cursor-pointer " +
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 " +
+  "dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white";
+const chromeBtnCls = `inline-flex size-11 md:size-10 ${chromeBtnBase}`;
 
-const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
+const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = null }) => {
+  const navigate = useNavigate();
+  const headerRef = useRef(null);
   const [userInfo, setUserInfo] = useState({ username: "", id: null, roleId: 0 });
 
   useEffect(() => {
@@ -26,6 +44,21 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // Publish the real header height as --topbar-h (default 64px in index.css).
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty("--topbar-h", `${Math.round(el.getBoundingClientRect().height)}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--topbar-h");
+    };
+  }, []);
+
   const toggleLabel = useMemo(
     () => (darkMode ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด"),
     [darkMode]
@@ -38,26 +71,37 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
   const avatarLetter = (displayName[0] || "U").toUpperCase();
 
   return (
-    <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70">
-      <div className="flex items-center justify-between gap-4 px-4 py-3 md:px-6">
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70"
+    >
+      <div className="flex items-center justify-between gap-2 px-3 py-2 md:gap-4 md:px-6 md:py-3">
 
-        {/* Left: hamburger + logo */}
-        <div className="flex items-center gap-4">
+        {/* Left: back (phone) + hamburger + logo */}
+        <div className="flex min-w-0 items-center gap-2 md:gap-4">
+          {back && (
+            <button
+              type="button"
+              onClick={() => navigate(back.to)}
+              aria-label={`ย้อนกลับไป ${back.label}`}
+              title={back.label}
+              className={`${chromeBtnCls} md:hidden`}
+            >
+              <ChevronLeft aria-hidden="true" className="size-5" strokeWidth={2} />
+            </button>
+          )}
+
           <button
             onClick={onToggleSidebar}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-white text-gray-600 shadow-sm transition-all duration-150 hover:bg-gray-50 hover:text-gray-900 active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
+            className={chromeBtnCls}
             aria-label={sidebarBtnLabel}
             title={sidebarBtnLabel}
             type="button"
           >
             {isSidebarOpen ? (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
+              <X aria-hidden="true" className="size-5" strokeWidth={2} />
             ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <Menu aria-hidden="true" className="size-5" strokeWidth={2} />
             )}
           </button>
 
@@ -84,8 +128,8 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
           </div>
         </div>
 
-        {/* Center: search */}
-        <div className="flex min-w-0 flex-1 justify-center px-4">
+        {/* Center: search (desktop only — decorative, not wired) */}
+        <div className="hidden min-w-0 flex-1 justify-center px-4 md:flex">
           <div className="relative w-full max-w-xs md:max-w-sm lg:max-w-md">
             <input
               type="text"
@@ -100,10 +144,12 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
           </div>
         </div>
 
-        {/* Right: branch switcher + inbox bell + dark mode + profile */}
-        <div className="flex shrink-0 items-center gap-2">
-          {/* Branch switcher — แสดงเฉพาะผู้ใช้ที่เข้าถึงได้หลายสาขา */}
-          <BranchSwitcher />
+        {/* Right: branch switcher + inbox bell + dark mode (desktop) + profile */}
+        <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
+          {/* Branch switcher — แสดงเฉพาะผู้ใช้ที่เข้าถึงได้หลายสาขา; บีบความกว้างบนมือถือ */}
+          <div className="min-w-0 max-w-[7rem] md:max-w-none">
+            <BranchSwitcher />
+          </div>
 
           {/* Notification bell — polls /personnel/me/notifications */}
           <NotificationBell />
@@ -112,17 +158,22 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode }) => {
             onClick={() => setDarkMode((v) => !v)}
             aria-label={toggleLabel}
             title={toggleLabel}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200/80 bg-white text-lg shadow-sm transition-all duration-150 hover:bg-gray-50 active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800"
+            className={`hidden md:inline-flex md:size-9 ${chromeBtnBase}`}
             type="button"
           >
-            {darkMode ? "☀️" : "🌙"}
+            {darkMode ? (
+              <Sun aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
+            ) : (
+              <Moon aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
+            )}
           </button>
 
           <div className="hidden h-5 w-px bg-gray-200 dark:bg-gray-700 md:block" />
 
           <button
-            className="group inline-flex items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white px-2.5 py-1.5 shadow-sm transition-all duration-150 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+            className="group inline-flex min-h-11 items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white px-2 py-1.5 shadow-sm transition-all duration-150 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 md:min-h-0 md:px-2.5"
             title="โปรไฟล์ฉัน"
+            aria-label={`โปรไฟล์: ${displayName} · ${displayRole}`}
             type="button"
           >
             <div className="relative shrink-0">

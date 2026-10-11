@@ -12,13 +12,16 @@ import {
   LogOut,
   MapPin,
   MapPinCheck,
+  Moon,
   ShieldCheck,
+  Sun,
   Target,
   UserRound,
   X,
 } from "lucide-react"
-import { logout as authLogout } from "../lib/auth"
+import { logout as authLogout, getRoleId } from "../lib/auth"
 import { useCan } from "../lib/permissions"
+import { TRADING_GROUP, canAccessItem, lucideFor } from "../lib/homeFunctions"
 
 // สีของ icon chip — ต้องเขียน class เต็ม (Tailwind v4 ตรวจ class ที่ต่อ string ไม่เจอ)
 const TONES = {
@@ -65,7 +68,7 @@ function canSeeSidebarItem(item, can) {
   return true
 }
 
-const Sidebar = ({ isOpen, setIsOpen }) => {
+const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const { can } = useCan()
@@ -75,6 +78,13 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     () => (can("nav.hrCompactMenu") ? HR_MENUS : PERSONAL_MENUS).filter((item) => canSeeSidebarItem(item, can)),
     [can]
   )
+
+  // หมวด "ธุรกิจรวบรวมผลผลิต" — เฉพาะมือถือ (md:hidden) ให้ไปหน้าซื้อ/ขาย/คลังได้โดยไม่ต้องกลับ Home
+  const tradingMenus = useMemo(() => {
+    const roleId = getRoleId()
+    return TRADING_GROUP.items.filter((item) => canAccessItem(item, roleId))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- role comes from localStorage; recompute with permissions
+  }, [can])
 
   // ไม่ล็อก body scroll — scroller จริงคือ <main> ใน AppLayout; lock body ทำให้ layout shift เปล่า ๆ
 
@@ -123,7 +133,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         aria-label="เมนูส่วนตัว"
         aria-hidden={isOpen ? undefined : "true"}
         inert={!isOpen}
-        className={`fixed left-0 top-0 z-[9999] h-full w-72 bg-white will-change-transform transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none dark:bg-gray-900 ${
+        className={`fixed left-0 top-0 z-[9999] h-dvh w-72 bg-white will-change-transform transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none dark:bg-gray-900 ${
           isOpen ? "translate-x-0 shadow-xl" : "-translate-x-full shadow-none"
         }`}
       >
@@ -170,12 +180,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                           : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100"
                       }`}
                     >
-                      {active && (
-                        <span
-                          aria-hidden="true"
-                          className="absolute -left-3 top-2.5 bottom-2.5 w-[3px] rounded-r-full bg-indigo-500 dark:bg-indigo-400"
-                        />
-                      )}
                       <span
                         aria-hidden="true"
                         className={`flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${
@@ -190,10 +194,75 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 )
               })}
             </ul>
+
+            {tradingMenus.length > 0 && (
+              <div className="mt-3 border-t border-gray-200/70 pt-3 md:hidden dark:border-gray-800">
+                <p className="px-2 pb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">{TRADING_GROUP.group}</p>
+                <ul className="space-y-1">
+                  {tradingMenus.map((item) => {
+                    const active = isActive(item.path)
+                    const Icon = lucideFor(item.path)
+                    return (
+                      <li key={item.path}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsOpen(false)
+                            navigate(item.path)
+                          }}
+                          aria-current={active ? "page" : undefined}
+                          className={`relative flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
+                            active
+                              ? "bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200"
+                              : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                          }`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${
+                              active ? TONES.emerald.solid : TONES.emerald.chip
+                            }`}
+                          >
+                            <Icon strokeWidth={1.75} className="size-[18px]" />
+                          </span>
+                          <span className="min-w-0 truncate">{item.label}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
           </nav>
 
-          {/* Logout */}
-          <div className="shrink-0 border-t border-gray-200/70 p-3 dark:border-gray-800">
+          {/* Dark mode (phone — the Topbar toggle is hidden below md) + Logout */}
+          <div className="shrink-0 space-y-2 border-t border-gray-200/70 p-3 pb-safe-3 dark:border-gray-800">
+            {setDarkMode && (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={darkMode}
+                onClick={() => setDarkMode((v) => !v)}
+                className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100 md:hidden"
+              >
+                <span aria-hidden="true" className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${TONES.indigo.chip}`}>
+                  {darkMode ? <Sun strokeWidth={1.75} className="size-[18px]" /> : <Moon strokeWidth={1.75} className="size-[18px]" />}
+                </span>
+                <span className="min-w-0 flex-1 truncate">โหมดมืด</span>
+                <span
+                  aria-hidden="true"
+                  className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors duration-200 ${
+                    darkMode ? "bg-indigo-600 dark:bg-indigo-500" : "bg-gray-300 dark:bg-gray-600"
+                  }`}
+                >
+                  <span
+                    className={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                      darkMode ? "translate-x-[18px]" : "translate-x-0.5"
+                    }`}
+                  />
+                </span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleLogout}

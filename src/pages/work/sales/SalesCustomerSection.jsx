@@ -1,82 +1,53 @@
 // src/pages/work/sales/SalesCustomerSection.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Sales "ข้อมูลลูกค้า" card. The default export renders the DESKTOP card with
-// the exact DOM the page had before the split (refs / Enter-chain / aria stay
-// identical). The named sub-components are the same inputs, exported so
+// Sales "ลูกค้า" section. The default export is the DESKTOP card (round 2:
+// segmented buyer type, person/company row, payment row, credit terms).
+// The product-form picker moved to SalesSpecSection ("สินค้าและคลัง").
+// The named sub-components are the same inputs, exported so
 // SalesMobileStepper can lay them out one column at a time while sharing the
 // controller's refs and handlers (plan §A2). `form` = props-bag from Sales.jsx.
 // ─────────────────────────────────────────────────────────────────────────────
+import { useRef } from "react"
 import ComboBox from "../../../components/ComboBox"
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../../../lib/styles"
+import {
+  cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, cardCls,
+  segmentedCls, segmentedItemCls, segmentedItemActiveCls,
+} from "../../../lib/styles"
 import DateInput from "./DateInput"
 import { isEnabledInput, onlyDigits, buyerTypeOptions, refDocLabel, fieldId, errId, describedBy } from "./salesShared"
 
 /* ---------- status chip next to the heading ---------- */
+const chipBase = "inline-flex items-center gap-2 self-start rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset"
+const CHIP_TONE = {
+  member: "bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-900/25 dark:text-emerald-200 dark:ring-emerald-700/60",
+  neutral: "bg-gray-100 text-gray-700 ring-gray-200 dark:bg-gray-700/60 dark:text-gray-200 dark:ring-gray-600",
+  pending: "bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-900/25 dark:text-amber-200 dark:ring-amber-700/60",
+}
+const DOT_TONE = { member: "bg-emerald-500", neutral: "bg-gray-400", pending: "bg-amber-500" }
+
 export function CustomerStatusChip({ form }) {
   const { buyerType, memberMeta, customerFound } = form
-  if (buyerType !== "person") {
-    return (
-      <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-indigo-700 ring-1 ring-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-200 dark:ring-indigo-700/60 self-start">
-        <span className="h-2 w-2 rounded-full bg-indigo-500" />
-        บริษัท / นิติบุคคล
-      </span>
-    )
-  }
-  if (memberMeta.type === "member") {
-    return (
-      <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60 self-start">
-        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-        สมาชิก • member_id {memberMeta.memberId ?? "-"}
-      </span>
-    )
-  }
-  if (customerFound === true && memberMeta.type === "customer") {
-    return (
-      <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-900/20 dark:text-sky-200 dark:ring-sky-700/60 self-start">
-        <span className="h-2 w-2 rounded-full bg-sky-500" />
-        ลูกค้าทั่วไป • asso {memberMeta.assoId ?? "-"}
-      </span>
-    )
-  }
-  if (memberMeta.type === "customer") {
-    return (
-      <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-600 self-start">
-        <span className="h-2 w-2 rounded-full bg-slate-500" />
-        ลูกค้าทั่วไป (เลือกจากรายชื่อเพื่อใช้ asso_id)
-      </span>
-    )
-  }
+  let tone = "pending"
+  let text = "ยังไม่ได้เลือกลูกค้า"
+  if (buyerType !== "person") { tone = "neutral"; text = "บริษัท / นิติบุคคล" }
+  else if (memberMeta.type === "member") { tone = "member"; text = `สมาชิก · รหัส ${memberMeta.memberId || "-"}` }
+  else if (customerFound === true && memberMeta.type === "customer") { tone = "neutral"; text = "ลูกค้าทั่วไป" }
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60 self-start">
-      <span className="h-2 w-2 rounded-full bg-amber-500" />
-      <span>โปรดกรอก <b>member_id</b> หรือค้นหาชื่อเพื่อเลือกบุคคล</span>
+    <span className={cx(chipBase, CHIP_TONE[tone])} role="status">
+      <span aria-hidden="true" className={cx("size-2 rounded-full", DOT_TONE[tone])} />
+      {text}
     </span>
   )
 }
 
-/* ---------- ประเภทผู้ซื้อ ---------- */
-export function BuyerTypeCombo({ form }) {
-  const { buyerType, setBuyerType, refs } = form
-  return (
-    <ComboBox
-      id={fieldId("buyerType")}
-      options={buyerTypeOptions}
-      value={buyerType}
-      onChange={(id) => setBuyerType(String(id))}
-      buttonRef={refs.buyerType}
-      searchable={false}
-      title="ประเภทผู้ซื้อ"
-      ariaLabel="ประเภทผู้ซื้อ"
-    />
-  )
-}
-
 /* ---------- ฟอร์มสำเร็จรูป ---------- */
-export function TemplateCombo({ form }) {
+export function TemplateCombo({ form, error = false, describedById, title = "ฟอร์มสำเร็จรูป" }) {
   const { templateOptions, formTemplate, setFormTemplate, templateSubLabel, setSelectedTemplateLabel, applyTemplateBySpec, refs } = form
   return (
     <ComboBox
       id={fieldId("formTemplate")}
+      error={error}
+      ariaDescribedBy={describedById}
       options={templateOptions}
       value={formTemplate}
       getSubLabel={(o) => templateSubLabel(o)}
@@ -93,8 +64,9 @@ export function TemplateCombo({ form }) {
       }}
       buttonRef={refs.formTemplate}
       searchable
-      title="ฟอร์มสำเร็จรูป"
-      ariaLabel="ฟอร์มสำเร็จรูป"
+      placeholder="— เลือกฟอร์ม —"
+      title={title}
+      ariaLabel={title}
     />
   )
 }
@@ -109,7 +81,7 @@ export function PaymentCombo({ form, describedById }) {
       ariaDescribedBy={describedById}
       options={paymentOptions}
       value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
-      onChange={(_id, found) => setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" }))}
+      onChange={(_id, found) => { setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" })); form.clearError("payment") }}
       placeholder="— เลือกวิธีชำระเงิน —"
       buttonRef={refs.payment}
       searchable={false}
@@ -158,7 +130,7 @@ export function IssueDateField({ form }) {
   )
 }
 
-/* ---------- เอกสารอ้างอิง (sale_id) ---------- */
+/* ---------- เอกสารอ้างอิง (ส่งเป็น sale_id) ---------- */
 export function RefDocField({ form, mobile = false }) {
   const { refs, order, updateOrder, buyerType, focusNext } = form
   const goName = () => {
@@ -213,61 +185,95 @@ export function RefDocField({ form, mobile = false }) {
       />
     )
   }
-  return <input key="none" id={fieldId("refDoc")} className={cx(baseField, fieldDisabled)} readOnly placeholder={mobile ? "เลือกวิธีชำระเงินก่อน" : "โปรดเลือกวิธีชำระเงินก่อน"} />
+  return <input key="none" id={fieldId("refDoc")} className={cx(baseField, fieldDisabled)} readOnly placeholder={mobile ? "เลือกวิธีชำระเงินก่อน" : "เลือกวิธีชำระเงินก่อน"} />
 }
 
 /* ---------- เงื่อนไขเครดิต — 3 fields (card chrome is the caller's) ---------- */
 export function CreditTermsFields({ form, mobile = false }) {
   const { refs, dept, setDept } = form
+  const allowedInput = (
+    <input
+      id={fieldId("deptAllowed")}
+      ref={refs.deptAllowed}
+      inputMode="numeric"
+      className={cx(baseField, !mobile && "text-right tabular-nums")}
+      value={String(dept.allowedPeriod ?? 0)}
+      onChange={(e) => setDept((p) => ({ ...p, allowedPeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
+      onKeyDown={(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); refs.deptPostpone?.current?.focus(); } }}
+      placeholder="เช่น 30"
+    />
+  )
+  const postponeBox = (
+    <input
+      ref={refs.deptPostpone}
+      type="checkbox"
+      className="size-5 accent-indigo-600"
+      checked={!!dept.postpone}
+      onChange={(e) => setDept((p) => ({ ...p, postpone: e.target.checked }))}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.isComposing) {
+          e.preventDefault()
+          if (dept.postpone) refs.deptPostponePeriod?.current?.focus()
+          else refs.issueDate?.current?.focus()
+        }
+      }}
+    />
+  )
+  const periodLabel = mobile ? "ปลอดดอกเบี้ย (วัน)" : "ระยะปลอดดอกเบี้ย (วัน)"
+  const periodInput = (
+    <input
+      id={fieldId("deptPostponePeriod")}
+      ref={refs.deptPostponePeriod}
+      inputMode="numeric"
+      className={cx(baseField, !mobile && "text-right tabular-nums")}
+      value={String(dept.postponePeriod ?? 0)}
+      onChange={(e) => setDept((p) => ({ ...p, postponePeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
+      onKeyDown={(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); refs.issueDate?.current?.focus(); } }}
+      placeholder="เช่น 15"
+    />
+  )
+
+  if (!mobile) {
+    // Desktop: one row of 3 — days | checkbox (aligned to the inputs) | period
+    return (
+      <>
+        <div>
+          <label className={labelCls} htmlFor={fieldId("deptAllowed")}>กำหนดชำระ (วัน)</label>
+          {allowedInput}
+        </div>
+        <div className="flex md:pt-7">
+          <label className="flex min-h-12 cursor-pointer items-center gap-3 text-[15px] text-gray-800 dark:text-gray-200">
+            {postponeBox}
+            <span>ปลอดดอกเบี้ยชั่วคราว</span>
+          </label>
+        </div>
+        {dept.postpone && (
+          <div>
+            <label className={labelCls} htmlFor={fieldId("deptPostponePeriod")}>{periodLabel}</label>
+            {periodInput}
+          </div>
+        )}
+      </>
+    )
+  }
+
   return (
     <>
       <div>
         <label className={labelCls} htmlFor={fieldId("deptAllowed")}>กำหนดชำระ (วัน)</label>
-        <input
-          id={fieldId("deptAllowed")}
-          ref={refs.deptAllowed}
-          inputMode="numeric"
-          className={baseField}
-          value={String(dept.allowedPeriod ?? 0)}
-          onChange={(e) => setDept((p) => ({ ...p, allowedPeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); refs.deptPostpone?.current?.focus(); } }}
-          placeholder="เช่น 30"
-        />
+        {allowedInput}
       </div>
 
-      <div className={mobile ? undefined : "md:col-span-2"}>
-        {!mobile && <label className={labelCls}>ตัวเลือก</label>}
-        <label className={cx("flex items-center gap-3", mobile && "min-h-touch cursor-pointer")}>
-          <input
-            ref={refs.deptPostpone}
-            type="checkbox"
-            className={mobile ? "size-5 accent-indigo-600" : undefined}
-            checked={!!dept.postpone}
-            onChange={(e) => setDept((p) => ({ ...p, postpone: e.target.checked }))}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.isComposing) {
-                e.preventDefault()
-                if (dept.postpone) refs.deptPostponePeriod?.current?.focus()
-                else refs.issueDate?.current?.focus()
-              }
-            }}
-          />
-          <span>{mobile ? "ปลอดดอกเบี้ยชั่วคราว" : "อนุญาตให้ปลอดดอกเบี้ยชั่วคราว"}</span>
+      <div>
+        <label className="flex min-h-touch cursor-pointer items-center gap-3">
+          {postponeBox}
+          <span>ปลอดดอกเบี้ยชั่วคราว</span>
         </label>
 
         {dept.postpone && (
           <div className="mt-3">
-            <label className={labelCls} htmlFor={fieldId("deptPostponePeriod")}>{mobile ? "ปลอดดอกเบี้ย (วัน)" : "ระยะเวลาปลอดดอกเบี้ย (วัน)"}</label>
-            <input
-              id={fieldId("deptPostponePeriod")}
-              ref={refs.deptPostponePeriod}
-              inputMode="numeric"
-              className={baseField}
-              value={String(dept.postponePeriod ?? 0)}
-              onChange={(e) => setDept((p) => ({ ...p, postponePeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); refs.issueDate?.current?.focus(); } }}
-              placeholder="เช่น 15"
-            />
+            <label className={labelCls} htmlFor={fieldId("deptPostponePeriod")}>{periodLabel}</label>
+            {periodInput}
           </div>
         )}
       </div>
@@ -275,7 +281,7 @@ export function CreditTermsFields({ form, mobile = false }) {
   )
 }
 
-/* ---------- บุคคล: บัตร / member_id / ชื่อ (+ผลค้นหา) ---------- */
+/* ---------- บุคคล: บัตร / รหัสสมาชิก / ชื่อ (+ผลค้นหา) ---------- */
 export function CitizenIdField({ form }) {
   const { refs, customer, updateCustomer, clearHint, onEnter, loadingCustomer } = form
   return (
@@ -312,14 +318,14 @@ export function MemberIdField({ form }) {
         aria-invalid={errors.memberId ? true : undefined}
         aria-describedby={describedBy(errors, "memberId")}
       />
-      {!!memberMeta.memberId && <p className={helpTextCls}>พบสมาชิก: member_id {memberMeta.memberId}</p>}
+      {!!memberMeta.memberId && <p className={helpTextCls}>พบสมาชิก · รหัส {memberMeta.memberId}</p>}
       {errors.memberId && <p id={errId("memberId")} className={errorTextCls}>{errors.memberId}</p>}
     </>
   )
 }
 
 /** ชื่อ–สกุล input + inline listbox. Caller wraps in a div with `ref={nameBoxRef}`. */
-export function FullNameField({ form }) {
+export function FullNameField({ form, placeholder = "เช่น นายสมชาย ใจดี" }) {
   const {
     refs, nameInputRef, customer, updateCustomer, setShowNameList, setHighlightedIndex,
     clearHint, clearError, handleFullNameKeyDown, showNameList, nameResults, errors, redFieldCls,
@@ -341,7 +347,7 @@ export function FullNameField({ form }) {
         }}
         onFocus={() => clearHint("fullName")}
         onKeyDown={handleFullNameKeyDown}
-        placeholder="เช่น นายสมชาย ใจดี"
+        placeholder={placeholder}
         aria-expanded={showNameList}
         aria-controls="name-results"
         role="combobox"
@@ -382,7 +388,7 @@ export function FullNameField({ form }) {
                 <div className="flex-1">
                   <div className="font-medium">{full || "(ไม่มีชื่อ)"}</div>
                   <div className="text-sm text-slate-600 dark:text-slate-300">
-                    {r.type === "member" ? `สมาชิก • member_id ${r.member_id ?? "-"}` : `ลูกค้าทั่วไป • ปชช. ${r.citizen_id ?? "-"}`}
+                    {r.type === "member" ? `สมาชิก · รหัส ${r.member_id ?? "-"}` : `ลูกค้าทั่วไป · บัตร ${r.citizen_id ?? "-"}`}
                   </div>
                 </div>
               </button>
@@ -455,7 +461,7 @@ export function CompanyNameField({ form }) {
               >
                 <div className="flex-1">
                   <div className="font-medium">{name}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-300">ภาษี {tid} • โทร {r.phone_number ?? "-"}</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-300">เลขผู้เสียภาษี {tid} · โทร {r.phone_number ?? "-"}</div>
                 </div>
               </button>
             )
@@ -507,94 +513,78 @@ export function CompanyPhoneField({ form }) {
   )
 }
 
+/* ---------- ประเภทผู้ซื้อ (desktop segmented, roving tabindex) ---------- */
+function BuyerTypeSegmented({ form }) {
+  const { buyerType, setBuyerType, refs } = form
+  const btnRefs = useRef([])
+  const pick = (j) => {
+    setBuyerType(buyerTypeOptions[j].id)
+    btnRefs.current[j]?.focus()
+  }
+  const onKeyDown = (e, i) => {
+    const n = buyerTypeOptions.length
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); pick((i + 1) % n) }
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); pick((i - 1 + n) % n) }
+    else if (e.key === "Home") { e.preventDefault(); pick(0) }
+    else if (e.key === "End") { e.preventDefault(); pick(n - 1) }
+  }
+  return (
+    <div role="radiogroup" aria-label="ประเภทผู้ซื้อ" className={cx(segmentedCls, "max-w-sm")}>
+      {buyerTypeOptions.map((o, i) => {
+        const on = buyerType === o.id
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={on ? 0 : -1}
+            ref={(el) => { btnRefs.current[i] = el; if (on) refs.buyerType.current = el }}
+            onClick={() => setBuyerType(o.id)}
+            onKeyDown={(e) => onKeyDown(e, i)}
+            className={cx(segmentedItemCls, "md:min-h-10", on && segmentedItemActiveCls)}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+const sectionTitle = "text-lg font-semibold text-gray-900 dark:text-gray-100"
+
 /* ============================ DESKTOP CARD ============================ */
 export default function SalesCustomerSection({ form }) {
-  const { buyerType, order, isCreditPayment, nameBoxRef, companyBoxRef } = form
+  const { buyerType, order, errors, isCreditPayment, nameBoxRef, companyBoxRef } = form
   return (
-    <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-      <div className="mb-3 flex flex-wrap items-start gap-2">
-        <h2 className="text-xl font-semibold">ข้อมูลลูกค้า</h2>
-
+    <section aria-labelledby="sales-sec-customer" className={cx(cardCls, "p-5 lg:p-6")}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h2 id="sales-sec-customer" className={sectionTitle}>ลูกค้า</h2>
         <CustomerStatusChip form={form} />
-
-        {/* ประเภทผู้ซื้อ */}
-        <div className="ml-auto w-full sm:w-64 self-start">
-          <label className={labelCls} htmlFor={fieldId("buyerType")}>ประเภทผู้ซื้อ</label>
-          <BuyerTypeCombo form={form} />
-        </div>
-
-        {/* ฟอร์มสำเร็จรูป (จาก BE, โหมดล็อก) */}
-        <div className="w-full sm:w-72 self-start">
-          <label className={labelCls} htmlFor={fieldId("formTemplate")}>ฟอร์มสำเร็จรูป</label>
-          <TemplateCombo form={form} />
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            ระบบ <b>ล็อกสเปกจากฟอร์มสำเร็จรูป</b> เท่านั้น:
-            <b> ประเภทสินค้า</b>, <b>ชนิดข้าว</b>, <b>ชั้นย่อย</b>, <b>เงื่อนไข</b>, <b>ประเภทนา</b>, <b>ปี/ฤดูกาล</b>, <b>โปรแกรม</b>, <b>ประเภทธุรกิจ</b> จะไม่สามารถแก้จากแบบฟอร์มด้านล่างได้
-          </p>
-        </div>
       </div>
 
-      {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div>
-          <label className={labelCls} htmlFor={fieldId("payment")}>วิธีชำระเงิน</label>
-          <PaymentCombo form={form} />
-        </div>
-
-        <div>
-          <label className={labelCls} htmlFor={fieldId("issueDate")}>ลงวันที่</label>
-          <IssueDateField form={form} />
-        </div>
-
-        <div>
-          <label className={labelCls} htmlFor={fieldId("refDoc")}>{refDocLabel(order)}</label>
-          <RefDocField form={form} />
-          <div className={helpTextCls}>* ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>sale_id</code></div>
-        </div>
+      <div className="mt-4">
+        <BuyerTypeSegmented form={form} />
       </div>
 
-      {/* เงื่อนไขเครดิต */}
-      {isCreditPayment() && (
-        <div className="md:col-span-3 mt-2">
-          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-sm dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-100">
-            <div className="mb-2 flex items-center gap-2">
-              <svg viewBox="0 0 24 24" width="18" height="18" className="opacity-80" fill="currentColor">
-                <path d="M3 5a2 2 0 0 0-2 2v2h22V7a2 2 0 0 0 2-2H3zm20 6H1v6a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-6zM4 17h6v-2H4v2z"/>
-              </svg>
-              <div className="font-semibold">รายละเอียดเครดิต (ขายเชื่อ)</div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <CreditTermsFields form={form} />
-            </div>
-
-            <p className="mt-2 text-sm opacity-80">
-              ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>allowed_period</code>, <code>postpone</code>, <code>postpone_period</code>
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ส่วนฟอร์มลูกค้า */}
       {buyerType === "person" ? (
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)]">
           <div>
-            <label className={labelCls} htmlFor={fieldId("citizenId")}>เลขที่บัตรประชาชน (เพื่อค้นหาที่อยู่)</label>
+            <label className={labelCls} htmlFor={fieldId("citizenId")}>เลขบัตรประชาชน</label>
             <CitizenIdField form={form} />
           </div>
           <div>
-            <label className={labelCls} htmlFor={fieldId("memberId")}>รหัสสมาชิก (member_id)</label>
+            <label className={labelCls} htmlFor={fieldId("memberId")}>รหัสสมาชิก</label>
             <MemberIdField form={form} />
           </div>
-          <div className="md:col-span-1" />
-          <div className="md:col-span-2" ref={nameBoxRef}>
-            <label className={labelCls} htmlFor={fieldId("fullName")}>ชื่อ–สกุล (พิมพ์เพื่อค้นหาอัตโนมัติ)</label>
-            <FullNameField form={form} />
+          <div ref={nameBoxRef}>
+            <label className={labelCls} htmlFor={fieldId("fullName")}>ชื่อ–สกุล</label>
+            <FullNameField form={form} placeholder="พิมพ์ชื่อเพื่อค้นหา" />
           </div>
         </div>
       ) : (
-        // ---------------- บริษัท ----------------
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <div ref={companyBoxRef}>
             <label className={labelCls} htmlFor={fieldId("companyName")}>ชื่อบริษัท / นิติบุคคล</label>
             <CompanyNameField form={form} />
@@ -609,6 +599,32 @@ export default function SalesCustomerSection({ form }) {
           </div>
         </div>
       )}
-    </div>
+
+      {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง */}
+      <div className="mt-5 grid gap-4 border-t border-gray-200/80 pt-5 md:grid-cols-3 dark:border-gray-700/70">
+        <div>
+          <label className={labelCls} htmlFor={fieldId("payment")}>วิธีชำระเงิน</label>
+          <PaymentCombo form={form} describedById={describedBy(errors, "payment")} />
+          {errors.payment && <p id={errId("payment")} className={errorTextCls}>{errors.payment}</p>}
+        </div>
+        <div>
+          <label className={labelCls} htmlFor={fieldId("issueDate")}>ลงวันที่</label>
+          <IssueDateField form={form} />
+        </div>
+        <div>
+          <label className={labelCls} htmlFor={fieldId("refDoc")}>{refDocLabel(order)}</label>
+          <RefDocField form={form} />
+        </div>
+      </div>
+
+      {isCreditPayment() && (
+        <div className="mt-4 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/40">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">เงื่อนไขขายเชื่อ</h3>
+          <div className="mt-3 grid gap-4 md:grid-cols-3">
+            <CreditTermsFields form={form} />
+          </div>
+        </div>
+      )}
+    </section>
   )
 }

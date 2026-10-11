@@ -11,17 +11,16 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth, post } from "../../lib/api"
 import { useCan } from "../../lib/permissions"
-import { ResultSheet, toast } from "../../components/ui"
+import { ResultSheet, ConfirmDialog, OrderSummaryPanel, Kbd, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import {
   onlyDigits, toNumber, round2, nf, thb, useDebounce, isEnabledInput, useEnterNavigation,
-  trailerOrder, newTrailer, deriveLockedBranch, translateSaveError,
+  trailerOrder, newTrailer, deriveLockedBranch, translateSaveError, SPEC_KEYS,
 } from "./sales/salesShared"
 import { validateAll as validateAllPure, computeMissingHints as computeMissingHintsPure, describeErrors } from "./sales/salesValidation"
 import SalesCustomerSection from "./sales/SalesCustomerSection"
 import SalesSpecSection from "./sales/SalesSpecSection"
 import SalesTrailerSection from "./sales/SalesTrailerSection"
-import SalesSummary, { SalesCommentField } from "./sales/SalesSummary"
 import SalesMobileStepper from "./sales/SalesMobileStepper"
 
 // =====================================================================
@@ -42,6 +41,7 @@ function Sales() {
   // Outcome of the last save → <ResultSheet> (replaces alert()).
   //   { kind: "ok" | "partial" | "allfail", results, rows, ok, n }
   const [saveResult, setSaveResult] = useState(null)
+  const [confirmReset, setConfirmReset] = useState(false) // desktop "ล้างฟอร์ม"
   // Phone stepper registers { showErrors, goTo, openTrailer, reset } here;
   // null on desktop (plan §A2 — the controller never imports step state).
   const stepApiRef = useRef(null)
@@ -202,6 +202,14 @@ function Sales() {
 
   const updateTrailer = (idx, key, value) => {
     setTrailers((prev) => prev.map((t, i) => (i === idx ? { ...t, [key]: value } : t)))
+  }
+  // Desktop "ลบรถคันที่ n": drop that trailer (not just the last one). Count and
+  // list shrink together, so the count effect above sees equal lengths → no-op.
+  const removeTrailer = (idx) => {
+    if (trailers.length <= 1) return
+    setTrailers((prev) => prev.filter((_, i) => i !== idx))
+    setTrailersCount((c) => Math.max(1, c - 1))
+    setErrors((prev) => (prev.trailers ? { ...prev, trailers: prev.trailers.filter((_, i) => i !== idx) } : prev))
   }
 
   // น้ำหนัก/ราคา/ยอดเงินของรถพ่วงที่กรอกไว้ (ไว้ใช้สรุปด้านล่าง)
@@ -931,6 +939,15 @@ function Sales() {
     return e
   }
 
+  // Desktop renders no spec ComboBoxes (spec comes from the product form) →
+  // spec errors land on the product-form picker instead.
+  const fieldElFor = (key) => {
+    const el = refs[key]?.current
+    if (el) return el
+    if (SPEC_KEYS.includes(key)) return refs.formTemplate?.current || null
+    return null
+  }
+
   const scrollToFirstError = (eObj) => {
     const personKeys = ["memberId", "fullName"]
     const companyKeys = ["companyName", "taxId"]
@@ -938,7 +955,7 @@ function Sales() {
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
     const firstKey = keys.find((k) => k in eObj)
     if (firstKey) {
-      const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
+      const el = fieldElFor(firstKey)
       if (el && typeof el.focus === "function") { try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} el.focus() }
       return
     }
@@ -953,7 +970,7 @@ function Sales() {
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
     const firstKey = keys.find((k) => hintsObj[k])
     if (!firstKey) return
-    const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
+    const el = fieldElFor(firstKey)
     if (el && typeof el.focus === "function") {
       try { el.focus({ preventScroll: true }) } catch { el.focus() }
       try { el.select?.() } catch {}
@@ -1232,7 +1249,7 @@ function Sales() {
     // state
     errors, missingHints, loadingCustomer, customerFound, submitting,
     buyerType, setBuyerType, customer, memberMeta, order, setOrder, dept, setDept,
-    trailersCount, setTrailersCount, trailers, trailerSummary,
+    trailersCount, setTrailersCount, trailers, trailerSummary, removeTrailer,
     templateOptions, formTemplate, setFormTemplate, selectedTemplateLabel, setSelectedTemplateLabel, templateSubLabel, applyTemplateBySpec,
     productOptions, riceOptions, subriceOptions, conditionOptions, fieldTypeOptions, yearOptions, programOptions,
     paymentOptions, branchOptions, klangOptions, businessOptions, branchLocked, lockedBranch,
@@ -1329,75 +1346,70 @@ function Sales() {
     )
   }
 
+  // ---------- Desktop summary panel (round 2) ----------
+  const { totals } = trailerSummary
+  const customerName = buyerType === "person" ? customer.fullName.trim() : customer.companyName.trim()
+  const productLabel = selectedTemplateLabel || order.productName
+  const panelRows = [
+    { label: "ลูกค้า", value: customerName || "ยังไม่ได้เลือก", emphasis: customerName ? undefined : "muted" },
+    { label: "สินค้า", value: productLabel || "ยังไม่ได้เลือก", emphasis: productLabel ? undefined : "muted" },
+    { label: "คลัง", value: order.klangName || "ยังไม่ได้เลือก", emphasis: order.klangName ? undefined : "muted" },
+    { label: "จำนวนรถ", value: `${trailers.length} คัน` },
+    { label: "น้ำหนักสุทธิรวม", value: `${nf(totals.net)} กก.`, emphasis: totals.net > 0 ? undefined : "muted" },
+    { label: "ราคาเฉลี่ย/กก.", value: totals.weightedUnit > 0 ? `${thb(totals.weightedUnit)}/กก.` : "—", emphasis: totals.weightedUnit > 0 ? undefined : "muted" },
+    { label: "ยอดเงินรวม", value: thb(totals.amount), emphasis: "total" },
+  ]
+  const formDirty =
+    [customer.citizenId, customer.memberId, customer.fullName, customer.companyName, customer.taxId, order.comment, order.paymentMethod]
+      .some((v) => String(v || "").trim() !== "") ||
+    trailers.some((t) => Object.values(t).some((v) => String(v ?? "").trim() !== ""))
+  const askReset = () => { if (formDirty) setConfirmReset(true); else handleReset() }
+
   return (
-    <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด (ให้เหมือน Buy) */}
-        <div ref={pageTopRef} />
+    <div className="text-gray-900 dark:text-gray-100">
+      {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด */}
+      <div ref={pageTopRef} />
 
-        <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">🧾 บันทึกออเดอร์ขาย (หลายพ่วง)</h1>
+      <h1 className="mb-5 text-2xl font-bold text-gray-900 dark:text-gray-100">บันทึกออเดอร์ขาย</h1>
 
-        {/* กล่องข้อมูลลูกค้า */}
-        <SalesCustomerSection form={form} />
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0 space-y-6">
+          <SalesCustomerSection form={form} />
 
-        {/* ฟอร์มออเดอร์ */}
-        <form onSubmit={handleSubmit} onKeyDown={(e)=>{ if(submitting && e.key==="Enter"){ e.preventDefault() } }} className="rounded-2xl border border-slate-200 bg-white p-5 text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-          <h2 className="mb-3 text-xl font-semibold">รายละเอียดการขาย</h2>
+          <form
+            id="sales-form"
+            noValidate
+            onSubmit={handleSubmit}
+            onKeyDown={(e) => { if (submitting && e.key === "Enter") e.preventDefault() }}
+            className="space-y-6"
+          >
+            <SalesSpecSection form={form} />
+            <SalesTrailerSection form={form} />
+          </form>
+        </div>
 
-          {/* สเปค (ล็อกจากฟอร์ม) + สาขา/คลัง */}
-          <SalesSpecSection form={form} />
-
-          {/* รถพ่วงหลายคัน */}
-          <SalesTrailerSection form={form} />
-
-          {/* หมายเหตุ */}
-          <SalesCommentField form={form} />
-
-          {/* สรุปสั้น ๆ + ตารางพ่วง + รวมเงิน */}
-          <SalesSummary form={form} />
-
-          {/* ปุ่มบันทึก/รีเซ็ต */}
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <button
-              ref={refs.submitBtn}
-              type="submit" disabled={submitting} aria-busy={submitting}
-              className="inline-flex items-center justify-center rounded-2xl
-                bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                transition-all duration-300 ease-out
-                hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                hover:scale-[1.05] active:scale-[.97] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {submitting ? (
-                <span className="inline-flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" width="18" height="18" className="animate-spin">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25"></circle>
-                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none"></path>
-                  </svg>
-                  กำลังบันทึก...
-                </span>
-              ) : (
-                <>บันทึก</>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center justify-center rounded-2xl
-                border border-slate-300 bg-white px-6 py-3 text-base font-medium
-                text-slate-700 dark:text-white
-                shadow-sm
-                transition-all duration-300 ease-out
-                hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                active:scale-[.97]
-                dark:border-slate-600 dark:bg-slate-700/60
-                dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
-            >
-              รีเซ็ต
-            </button>
-          </div>
-        </form>
+        <aside className="lg:sticky lg:top-[calc(var(--topbar-h)+1rem)] lg:self-start">
+          <OrderSummaryPanel
+            title="สรุปออเดอร์"
+            rows={panelRows}
+            primary={{ label: submitting ? "กำลังบันทึก…" : "บันทึกออเดอร์", type: "submit", form: "sales-form", loading: submitting }}
+            primaryRef={refs.submitBtn}
+            secondary={{ label: "ล้างฟอร์ม", onClick: askReset, disabled: submitting }}
+            hint={<><Kbd>Enter</Kbd> ไปช่องถัดไป · <Kbd>Ctrl</Kbd>+<Kbd>S</Kbd> บันทึก</>}
+          />
+        </aside>
       </div>
+
+      <ConfirmDialog
+        open={confirmReset}
+        title="ล้างข้อมูลที่กรอกไว้"
+        description="ข้อมูลลูกค้า รถพ่วง และหมายเหตุจะหาย · ฟอร์มสินค้าและคลังยังอยู่"
+        confirmLabel="ล้างฟอร์ม"
+        cancelLabel="เก็บไว้"
+        tone="danger"
+        onConfirm={() => { setConfirmReset(false); handleReset() }}
+        onCancel={() => setConfirmReset(false)}
+      />
       {resultSheet}
     </div>
   )

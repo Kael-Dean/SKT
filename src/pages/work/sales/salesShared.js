@@ -127,6 +127,54 @@ export const buyerTypeOptions = [
   { id: "company", label: "บริษัท / นิติบุคคล" },
 ]
 
+// ---------------- Backend error → Thai (copy deck §4.3 / §4.4) ----------------
+const MSG_MAP = [
+  [["failed to fetch", "networkerror", "timeout"], "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"],
+  [["field required"], "ข้อมูลบางช่องไม่ครบ"],
+  [["value is not a valid", "type_error"], "รูปแบบข้อมูลบางช่องไม่ถูกต้อง"],
+  [["greater than 0", "ensure this value is greater"], "น้ำหนักหรือราคาต้องมากกว่า 0"],
+  [["duplicate", "already exists"], "รายการนี้มีอยู่แล้ว"],
+  [["unauthorized", "forbidden", "credentials"], "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"],
+]
+const hasThai = (s) => /[฀-๿]/.test(String(s || ""))
+
+/** First FastAPI detail message, if any (`{detail:[{msg}]}` or `{detail:"…"}`). */
+export const firstDetailMsg = (detail) => {
+  if (!detail) return ""
+  if (typeof detail === "string") return detail
+  if (Array.isArray(detail)) {
+    const m = detail[0]?.msg ?? detail[0]
+    return typeof m === "string" ? m : ""
+  }
+  if (typeof detail === "object" && typeof detail.msg === "string") return detail.msg
+  return ""
+}
+
+/**
+ * Human message for one failed save (§4.4 table; Thai backend text passes
+ * through; unmatched English falls back to a generic line). Never returns
+ * raw JSON.
+ */
+export const translateSaveError = (err = {}) => {
+  const raw = String(err.message || "")
+  const det = firstDetailMsg(err.detail)
+  const candidates = [det, raw].filter(Boolean)
+  for (const c of candidates) if (hasThai(c)) return c
+  const low = candidates.join(" ").toLowerCase()
+  if (low.includes("not found")) {
+    if (low.includes("member")) return "ไม่พบสมาชิกรหัสนี้"
+    if (low.includes("klang") || low.includes("warehouse")) return "ไม่พบคลังที่เลือก"
+  }
+  for (const [needles, th] of MSG_MAP) if (needles.some((n) => low.includes(n))) return th
+  const status = err.status
+  if (status === 422) return "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่"
+  if (status === 401 || status === 403) return "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"
+  if (status === 409) return "รายการนี้มีอยู่แล้ว"
+  if (status >= 500) return "เซิร์ฟเวอร์ขัดข้อง ลองใหม่ในอีกสักครู่"
+  if (!status) return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"
+  return "เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง"
+}
+
 /* ==================== JWT Branch Lock (เหมือนหน้า Buy) ==================== */
 const getToken = () =>
   localStorage.getItem("access_token") ||

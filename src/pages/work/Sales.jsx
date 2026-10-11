@@ -8,28 +8,43 @@
 // Sections receive one props-bag (`form`) — see `buildForm()` at the bottom.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { apiAuth, post } from "../../lib/api"
+import { useCan } from "../../lib/permissions"
+import { ResultSheet, toast } from "../../components/ui"
+import { useIsPhone } from "../../hooks/useMediaQuery"
 import {
-  onlyDigits, toNumber, round2, useDebounce, isEnabledInput, useEnterNavigation,
-  trailerOrder, newTrailer, deriveLockedBranch,
+  onlyDigits, toNumber, round2, nf, thb, useDebounce, isEnabledInput, useEnterNavigation,
+  trailerOrder, newTrailer, deriveLockedBranch, translateSaveError,
 } from "./sales/salesShared"
-import { validateAll as validateAllPure, computeMissingHints as computeMissingHintsPure } from "./sales/salesValidation"
+import { validateAll as validateAllPure, computeMissingHints as computeMissingHintsPure, describeErrors } from "./sales/salesValidation"
 import SalesCustomerSection from "./sales/SalesCustomerSection"
 import SalesSpecSection from "./sales/SalesSpecSection"
 import SalesTrailerSection from "./sales/SalesTrailerSection"
 import SalesSummary, { SalesCommentField } from "./sales/SalesSummary"
+import SalesMobileStepper from "./sales/SalesMobileStepper"
 
 // =====================================================================
 //                              Sales Page (ขาย: หลายพ่วง)
 // =====================================================================
 // (ไฟล์นี้แก้ให้ member_id เป็นสตริงเสมอเพื่อคงเลขศูนย์นำหน้า)
 function Sales() {
+  const isPhone = useIsPhone()
+  const navigate = useNavigate()
+  const { can } = useCan()
+
   // ---------- state พื้นฐาน ----------
   const [errors, setErrors] = useState({})
   const [missingHints, setMissingHints] = useState({})
   const [loadingCustomer, setLoadingCustomer] = useState(false)
   const [customerFound, setCustomerFound] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  // Outcome of the last save → <ResultSheet> (replaces alert()).
+  //   { kind: "ok" | "partial" | "allfail", results, rows, ok, n }
+  const [saveResult, setSaveResult] = useState(null)
+  // Phone stepper registers { showErrors, goTo, openTrailer, reset } here;
+  // null on desktop (plan §A2 — the controller never imports step state).
+  const stepApiRef = useRef(null)
 
   // 🔒 Kill‑switch auto-search + anti‑race (เหมือนหน้า Buy)
   const [autoSearchEnabled, setAutoSearchEnabled] = useState(true)
@@ -1012,13 +1027,20 @@ function Sales() {
       setMissingHints(hints)
       const eObj = validateAll()
 
+      // S1/S2 (copy §3.2): toast instead of alert(). Phone → the stepper
+      // shows the toast, red dots and jumps to the first bad step.
       if (Object.keys(eObj).length > 0) {
-        alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+        if (stepApiRef.current) { stepApiRef.current.showErrors(eObj); return }
+        const { text } = describeErrors(eObj, buyerType)
+        toast.error("บันทึกไม่สำเร็จ", { description: [text, "ดูช่องที่มีกรอบสีแดง"].filter(Boolean).join(" · ") })
         scrollToFirstError(eObj)
         return
       }
       if (Object.values(hints).some(Boolean)) {
-        alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+        const hintErrs = Object.fromEntries(Object.entries(hints).filter(([, v]) => v).map(([k]) => [k, true]))
+        if (stepApiRef.current) { stepApiRef.current.showErrors(hintErrs); return }
+        const { text } = describeErrors(hintErrs, buyerType)
+        toast.error("บันทึกไม่สำเร็จ", { description: [text, "ดูช่องที่มีกรอบสีแดง"].filter(Boolean).join(" · ") })
         scrollToFirstMissing(hints)
         return
       }
@@ -1046,7 +1068,16 @@ function Sales() {
         const assoIdVal = memberMeta.assoId || null
 
         if (!memberIdStr && !assoIdVal) {
-          alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id จากผลค้นหา")
+          // S3 (copy §3.2 = B4)
+          const goMember = () => {
+            stepApiRef.current?.goTo(0)
+            requestAnimationFrame(() => setTimeout(() => { try { refs.memberId.current?.focus() } catch { /* ignore */ } }, 60))
+          }
+          toast.error("ยังไม่ได้ระบุสมาชิก", {
+            description: "กรอกรหัสสมาชิก (member_id) หรือเลือกชื่อจากผลค้นหา",
+            action: stepApiRef.current ? { label: "แตะเพื่อไปที่ขั้น 1", onClick: goMember } : undefined,
+          })
+          if (!stepApiRef.current) goMember()
           return
         }
 
@@ -1142,10 +1173,12 @@ function Sales() {
           results.push({ index: i + 1, success: true, id: r?.order_id })
         } catch (err) {
           console.error("SAVE ERROR (trailer", i + 1, "):", err?.data || err)
-          results.push({ index: i + 1, success: false, message: err?.message || "เกิดข้อผิดพลาด", detail: err?.data?.detail })
+          results.push({ index: i + 1, success: false, message: err?.message || "เกิดข้อผิดพลาด", detail: err?.data?.detail, status: err?.status })
         }
       }
 
+      // Snapshot per-trailer kg/amount for the ResultSheet (the form is reset on success).
+      const rowsSnap = trailerSummary.rows.map((r) => ({ index: r.index, net: r.net, amount: r.amount }))
       const failed = results.filter((x) => !x.success)
       if (failed.length === 0) {
         try {
@@ -1154,20 +1187,17 @@ function Sales() {
           localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl))
           localStorage.setItem("sales.formTemplate", String(formTemplate))
         } catch {}
-        alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
+        // S4 → ResultSheet (copy §4.2 ok)
+        setSaveResult({ kind: "ok", results, rows: rowsSnap, ok, n: trailers.length })
         handleReset()
+        stepApiRef.current?.reset()
         requestAnimationFrame(() => scrollToPageTop())
         try { refs.submitBtn?.current?.blur?.() } catch {}
       } else {
-        const summary = failed
-          .map((f) => `• คันที่ ${f.index}: ${f.message}${f.detail ? `\nรายละเอียด: ${JSON.stringify(f.detail)}` : ""}`)
-          .join("\n\n")
-        alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
-
-บันทึกสำเร็จ ${ok}/${trailers.length} รายการ
-
-รายการที่ผิดพลาด:
-${summary}`)
+        // S5 / S6 → ResultSheet (copy §4.2 partial / allfail). The loop above
+        // re-sends EVERY trailer on the next submit (no "already saved" mark),
+        // so the partial copy uses the "check before re-saving" wording (§11.3).
+        setSaveResult({ kind: ok === 0 ? "allfail" : "partial", results, rows: rowsSnap, ok, n: trailers.length })
       }
     } finally {
       submitLockRef.current = false
@@ -1214,6 +1244,86 @@ ${summary}`)
     // handlers
     updateCustomer, updateOrder, updateTrailer, clearError, clearHint, hasRed, redFieldCls, redHintCls,
     isCreditPayment, resolvePaymentId, handleSubmit, handleReset, scrollToPageTop,
+    setErrors, stepApiRef,
+  }
+
+  // ---------- ResultSheet (replaces the success / failure alert()) ----------
+  const closeResult = () => setSaveResult(null)
+  const editTrailers = () => {
+    const firstFail = saveResult?.results.find((r) => !r.success)
+    closeResult()
+    const idx = Math.max(0, (firstFail?.index ?? 1) - 1)
+    if (stepApiRef.current) {
+      stepApiRef.current.openTrailer(idx)
+      stepApiRef.current.goTo(2)
+      requestAnimationFrame(() => setTimeout(() => focusTrailerField(idx, "scaleNoFront"), 80))
+    } else {
+      focusTrailerField(idx, "scaleNoFront")
+    }
+  }
+  const retrySubmit = () => {
+    closeResult()
+    handleSubmit({ preventDefault() {} })
+  }
+  const resultProps = (() => {
+    const r = saveResult
+    if (!r) return null
+    const totalKg = r.rows.reduce((s, x) => s + x.net, 0)
+    const totalAmt = r.rows.reduce((s, x) => s + x.amount, 0)
+    const rowOf = (i) => r.rows.find((x) => x.index === i) || { net: 0, amount: 0 }
+    if (r.kind === "ok") {
+      return {
+        tone: "success",
+        title: "บันทึกออเดอร์แล้ว",
+        description: `${r.n} คัน · รวม ${nf(totalKg)} กก. · ${thb(totalAmt)}`,
+        lines: [
+          ...r.results.map((x) => ({
+            key: x.index,
+            label: `คันที่ ${x.index}`,
+            value: `${nf(rowOf(x.index).net)} กก. · ${thb(rowOf(x.index).amount)}${x.id != null ? ` · เลขที่ ${x.id}` : ""}`,
+          })),
+          { key: "total", label: "รวม", value: thb(totalAmt) },
+        ],
+        primary: { label: "ทำรายการใหม่", onClick: closeResult },
+        secondary: can("trading.reports.view") ? { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order") } } : undefined,
+      }
+    }
+    const lines = r.results.map((x) => ({
+      key: x.index,
+      label: `คันที่ ${x.index}`,
+      value: x.success ? "บันทึกแล้ว" : translateSaveError(x),
+      tone: x.success ? "success" : "error",
+    }))
+    if (r.kind === "partial") {
+      return {
+        tone: "error",
+        title: `บันทึกได้ ${r.ok} จาก ${r.n} คัน`,
+        description: "ตรวจรายการด้านล่างก่อนบันทึกซ้ำ เพื่อไม่ให้คันที่สำเร็จแล้วถูกบันทึกซ้ำ",
+        lines,
+        primary: { label: "แก้ไขรถพ่วง", onClick: editTrailers },
+        secondary: { label: "ปิด", onClick: closeResult },
+      }
+    }
+    const allNetwork = r.results.every((x) => !x.status)
+    return {
+      tone: "error",
+      title: "บันทึกไม่สำเร็จ",
+      description: allNetwork ? "เชื่อมต่อไม่ได้ ตรวจสัญญาณแล้วลองใหม่" : "ยังไม่ได้บันทึกคันใดเลย ตรวจรายการด้านล่างแล้วลองใหม่",
+      lines,
+      primary: { label: "ลองอีกครั้ง", onClick: retrySubmit },
+      secondary: { label: "แก้ไขรถพ่วง", onClick: editTrailers },
+    }
+  })()
+  const resultSheet = <ResultSheet open={!!resultProps} onClose={closeResult} {...(resultProps || {})} />
+
+  if (isPhone) {
+    return (
+      <>
+        <div ref={pageTopRef} />
+        <SalesMobileStepper form={form} />
+        {resultSheet}
+      </>
+    )
   }
 
   return (
@@ -1285,6 +1395,7 @@ ${summary}`)
           </div>
         </form>
       </div>
+      {resultSheet}
     </div>
   )
 }

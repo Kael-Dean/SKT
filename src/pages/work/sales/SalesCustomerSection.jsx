@@ -49,7 +49,7 @@ export function CustomerStatusChip({ form }) {
   return (
     <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700/60 self-start">
       <span className="h-2 w-2 rounded-full bg-amber-500" />
-      โปรดกรอก <b>member_id</b> หรือค้นหาชื่อเพื่อเลือกบุคคล
+      <span>โปรดกรอก <b>member_id</b> หรือค้นหาชื่อเพื่อเลือกบุคคล</span>
     </span>
   )
 }

@@ -195,7 +195,11 @@
   from { box-shadow: 0 0 0 0px rgb(99 102 241 / 0.4); }
   to   { box-shadow: 0 0 0 3px rgb(99 102 241 / 0.2); }
 }
-input:focus, select:focus, textarea:focus, button:focus-visible {
+/* Buttons that declare their own Tailwind ring (focus-visible:ring-* / focus:ring-*)
+   are excluded: with fill-mode `both` the animation's final box-shadow would
+   override that ring and leave only a faint 20% halo (~1.3:1, WCAG 2.4.7 / 1.4.11). */
+input:focus, select:focus, textarea:focus,
+button:focus-visible:not([class*="focus-visible:ring"]):not([class*="focus:ring"]) {
   animation: focus-ring-in 0.15s var(--ease-out-quart) both;
 }
 

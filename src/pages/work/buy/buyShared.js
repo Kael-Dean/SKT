@@ -268,9 +268,58 @@ export const ERROR_SCAN_ORDER = (buyerType) =>
   ])
 
 /** "ยังไม่ได้กรอก: a, b, c และอีก k ช่อง" (copy §3.3 / §9.3) */
-export const describeMissing = (keys = []) => {
+export const describeMissing = (keys = [], unit = "ช่อง") => {
   const names = keys.map((k) => FIELD_SHORT[k] ?? k)
   const head = names.slice(0, 3).join(", ")
   const rest = names.length - 3
-  return rest > 0 ? `${head} และอีก ${rest} ช่อง` : head
+  return rest > 0 ? `${head} และอีก ${rest} ${unit}` : head
+}
+
+/** Map an API failure to ResultSheet copy (copy §4.3 / §4.4) */
+const THAI_MSG = [
+  [/failed to fetch|networkerror|timeout/i, "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"],
+  [/field required/i, "ข้อมูลบางช่องไม่ครบ"],
+  [/value is not a valid|type_error/i, "รูปแบบข้อมูลบางช่องไม่ถูกต้อง"],
+  [/greater than 0|ensure this value is greater/i, "น้ำหนักหรือราคาต้องมากกว่า 0"],
+  [/not found.*member|member.*not found/i, "ไม่พบสมาชิกรหัสนี้"],
+  [/not found.*(klang|warehouse)|(klang|warehouse).*not found/i, "ไม่พบคลังที่เลือก"],
+  [/duplicate|already exists/i, "รายการนี้มีอยู่แล้ว"],
+  [/unauthorized|forbidden|credentials/i, "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"],
+]
+export const translateApiMessage = (msg) => {
+  const s = String(msg ?? "")
+  const hit = THAI_MSG.find(([re]) => re.test(s))
+  return hit ? hit[1] : null
+}
+const isThai = (s) => /[฀-๿]/.test(String(s ?? ""))
+
+export const describeApiError = (err) => {
+  const status = Number(err?.status) || null
+  const detail = err?.data?.detail
+  const detailMsgs = Array.isArray(detail)
+    ? detail.map((d) => (d?.msg ? String(d.msg) : typeof d === "string" ? d : JSON.stringify(d)))
+    : typeof detail === "string" ? [detail] : []
+  const translated = detailMsgs.map(translateApiMessage).filter(Boolean)
+  const lines = (translated.length ? translated : detailMsgs.filter(isThai)).slice(0, 4).map((m) => ({ label: "รายละเอียด", value: m }))
+  const code = status ?? err?.code ?? err?.name ?? "—"
+  const network = !status || /failed to fetch|networkerror|timeout/i.test(String(err?.message))
+
+  if (network)
+    return { kind: "network", title: "บันทึกไม่สำเร็จ", description: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสัญญาณแล้วลองใหม่ ข้อมูลที่กรอกยังอยู่", lines: [], primary: "retry" }
+  if (status === 422)
+    return { kind: "422", title: "ข้อมูลไม่ผ่านการตรวจ", description: translated[0] ?? "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่", lines, primary: "edit" }
+  if (status === 401 || status === 403)
+    return { kind: "auth", title: "ไม่มีสิทธิ์บันทึก", description: "สิทธิ์ของบัญชีนี้ไม่ครอบคลุมรายการนี้ หรือหมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง", lines: [], primary: "login" }
+  if (status === 409)
+    return { kind: "409", title: "รายการนี้มีอยู่แล้ว", description: "เลขที่ใบชั่งนี้ถูกบันทึกไปแล้ว ตรวจที่ดูออเดอร์ก่อนบันทึกซ้ำ", lines: [], primary: "orders" }
+  if (status >= 500)
+    return { kind: "5xx", title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ", lines: [], primary: "retry" }
+  const msg = err?.message
+  return {
+    kind: "unknown",
+    title: "บันทึกไม่สำเร็จ",
+    description: isThai(msg) ? msg : "เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง",
+    lines: [...lines, { label: "รหัส", value: String(code) }],
+    primary: "retry",
+  }
 }

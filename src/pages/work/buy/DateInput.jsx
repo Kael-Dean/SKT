@@ -38,7 +38,7 @@ const DateInput = forwardRef(function DateInput(
           }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
+        className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
 transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer
 bg-transparent"
       >

@@ -9,11 +9,18 @@
 // Enter-to-next flow (useEnterNavigation in ./buy/buyShared.js) is unchanged.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { apiAuth, post } from "../../lib/api" // ✅ helper แนบโทเคนอัตโนมัติ
+import { logout } from "../../lib/auth"
+import { useCan } from "../../lib/permissions"
 import { cx, baseField, labelCls, helpTextCls } from "../../lib/styles"
+import { ResultSheet, toast } from "../../components/ui"
+import { useIsPhone } from "../../hooks/useMediaQuery"
 import {
   onlyDigits,
   toNumber,
+  thb,
+  nf,
   findLabelById,
   useDebounce,
   moneyToNumber,
@@ -23,12 +30,16 @@ import {
   useEnterNavigation,
   deriveLockedBranch,
   ERROR_SCAN_ORDER,
+  FIELD_SHORT,
+  describeMissing,
+  describeApiError,
 } from "./buy/buyShared"
 import { validateAllErrors } from "./buy/buyValidation"
 import BuyCustomerSection from "./buy/BuyCustomerSection"
 import BuySpecSection from "./buy/BuySpecSection"
 import BuyWeighSection from "./buy/BuyWeighSection"
 import BuySummary from "./buy/BuySummary"
+import BuyMobileStepper from "./buy/BuyMobileStepper"
 
 /** ---------- Component ---------- */
 const Buy = () => {
@@ -50,6 +61,16 @@ const Buy = () => {
       setKlangOptions([])
     }
   }
+
+  const isPhone = useIsPhone()
+  const navigate = useNavigate()
+  const { can } = useCan()
+  /** Outcome of the last save → <ResultSheet> (replaces alert()) */
+  const [result, setResult] = useState(null)
+  /** Bumped by handleReset so the phone stepper returns to step 1 */
+  const [resetKey, setResetKey] = useState(0)
+  /** Phone stepper registers { goTo, showErrors } here (null on desktop) */
+  const stepApiRef = useRef(null)
 
   const [loadingCustomer, setLoadingCustomer] = useState(false)
   const [customerFound, setCustomerFound] = useState(null)
@@ -1448,17 +1469,7 @@ const pickNameResult = async (rec) => {
 
   // ✅ เลื่อนโฟกัสไป "ช่องที่ขาดตัวบนสุด"
   const scrollToFirstError = (eObj) => {
-    const personKeys = ["memberId", "fullName"]
-    const companyKeys = ["companyName", "taxId"]
-
-    const commonOrderKeys = [
-      "payment","issueDate","paymentRefNo",
-      "product","riceType","subrice","condition","fieldType","riceYear","program","businessType",
-      "branchName","klangName",
-      "entryWeightKg","exitWeightKg","moisturePct","impurityPct","deductWeightKg","gram","unitPrice","amountTHB",
-    ]
-
-    const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
+    const keys = ERROR_SCAN_ORDER(buyerType)
     const firstKey = keys.find((k) => k in eObj)
     if (!firstKey) return
     const keyToFocus = firstKey
@@ -1472,15 +1483,7 @@ const pickNameResult = async (rec) => {
 
   // ✅ โฟกัสตัวแรกตาม missing hints
   const scrollToFirstMissing = (hintsObj) => {
-    const personKeys = ["memberId","fullName"]
-    const companyKeys = ["companyName","taxId"]
-    const commonOrderKeys = [
-      "payment","issueDate","paymentRefNo",
-      "product","riceType","subrice","condition","fieldType","riceYear","program","businessType",
-      "branchName","klangName",
-      "entryWeightKg","exitWeightKg","moisturePct","impurityPct","deductWeightKg","gram","unitPrice","amountTHB",
-    ]
-    const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
+    const keys = ERROR_SCAN_ORDER(buyerType)
     const firstKey = keys.find((k) => hintsObj[k])
     if (!firstKey) return
     const el = refs[firstKey]?.current || (firstKey === "payment" ? refs.payment?.current : null)
@@ -1495,9 +1498,25 @@ const pickNameResult = async (rec) => {
     try { return new Date(`${yyyyMmDd}T12:00:00Z`).toISOString() } catch { return new Date().toISOString() }
   }
 
+  /** Validation failure feedback (replaces the two alert() calls — copy §3.1 B1/B2).
+   *  Phone: the stepper marks the bad steps, toasts and jumps. Desktop: toast +
+   *  focus the first red field exactly as before. */
+  const reportIncomplete = (eObj, { hints = false } = {}) => {
+    const keys = ERROR_SCAN_ORDER(buyerType).filter((k) => (hints ? !!eObj[k] : k in eObj) && FIELD_SHORT[k])
+    if (isPhone && stepApiRef.current) {
+      stepApiRef.current.showErrors(hints ? Object.fromEntries(keys.map((k) => [k, "กรอกข้อมูล"])) : eObj, { title: "บันทึกไม่สำเร็จ" })
+      return
+    }
+    toast.error("บันทึกไม่สำเร็จ", {
+      description: keys.length ? `ยังไม่ได้กรอก: ${describeMissing(keys)} · ดูช่องที่มีกรอบสีแดง` : "ดูช่องที่มีกรอบสีแดง",
+    })
+    if (hints) scrollToFirstMissing(eObj)
+    else scrollToFirstError(eObj)
+  }
+
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e?.preventDefault?.()
     // 🔒 กันกดบันทึกซ้ำทั้งจากคลิกและ Enter
     if (submitLockRef.current || submitting) { return }
     submitLockRef.current = true /* placeholder will be fixed below */
@@ -1506,24 +1525,21 @@ const pickNameResult = async (rec) => {
     // ปิดออโต้ค้นหาทันทีที่เริ่มบันทึก + ยกเลิกผล async เก่า
     setAutoSearchEnabled(false)
     bumpSearchEpoch()
-    e.preventDefault()
 
-    // เด้งขึ้นบนสุด
-    scrollToPageTop()
+    // เด้งขึ้นบนสุด (desktop; the phone stepper scrolls to the field it reports)
+    if (!isPhone) scrollToPageTop()
 
     const hints = computeMissingHints()
     setMissingHints(hints)
     const eObj = validateAll()
 
      if (Object.keys(eObj).length > 0) {
-    alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง") 
-    scrollToFirstError(eObj) 
-    return 
-  } 
-  if (Object.values(hints).some(Boolean)) { 
-    alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง") 
-    scrollToFirstMissing(hints) 
-    return 
+    reportIncomplete(eObj)
+    return
+  }
+  if (Object.values(hints).some(Boolean)) {
+    reportIncomplete(hints, { hints: true })
+    return
   }
 
     // แยกชื่อ (เฉพาะบุคคล)
@@ -1536,7 +1552,9 @@ const pickNameResult = async (rec) => {
     const subriceId = /^\d+$/.test(order.subriceId) ? Number(order.subriceId) : null // variant_id
     const b = lockedBranch || deriveLockedBranch(branchOptions)
     if (!b) {
-      alert("ล็อกสาขาไม่สำเร็จ: ไม่พบสาขาจากสิทธิ์ผู้ใช้ในระบบ")
+      // copy §3.1 B3
+      toast.error("ไม่พบสาขาของผู้ใช้", { description: "บัญชีนี้ยังไม่ได้ผูกสาขา แจ้งผู้ดูแลระบบเพื่อตั้งค่าก่อนบันทึก" })
+      stepApiRef.current?.showErrors({ branchName: "เลือกสาขา" }, { title: "ไม่พบสาขาของผู้ใช้" })
       return
     }
     const branchId = Number(b.id)
@@ -1576,7 +1594,18 @@ if (buyerType === "person") {
   const assoIdVal = memberMeta.assoId || null 
 
   if (!memberIdStr && !assoIdVal) {
-    alert("กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id จากผลค้นหา")
+    // copy §3.1 B4
+    if (isPhone && stepApiRef.current) {
+      toast.error("ยังไม่ได้ระบุสมาชิก", {
+        description: "กรอกรหัสสมาชิก (member_id) หรือเลือกชื่อจากผลค้นหา",
+        action: { label: "ไปที่ขั้น 1", onClick: () => stepApiRef.current?.goTo(0, "memberId") },
+      })
+      stepApiRef.current.goTo(0, "memberId")
+    } else {
+      toast.error("ยังไม่ได้ระบุสมาชิก", { description: "กรอกรหัสสมาชิก (member_id) หรือเลือกชื่อจากผลค้นหา" })
+      scrollToFirstError({ memberId: true })
+    }
+    setErrors((p) => ({ ...p, memberId: "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกจากรายชื่อที่มี asso_id" }))
     return
   }
 
@@ -1643,7 +1672,7 @@ if (buyerType === "person") {
     }
 
     try {
-      await post("/order/customers/save/buy", payload)
+      const res = await post("/order/customers/save/buy", payload)
       try {
         // บันทึก template id และ label ให้หน้า Sell ใช้งานต่อ
         const currentTpl = templateOptions.find((o) => String(o.id) === String(formTemplate))
@@ -1651,14 +1680,23 @@ if (buyerType === "person") {
         localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl))
         localStorage.setItem("buy.formTemplate", String(formTemplate))
       } catch (_e) {}
-      alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
-      // ⬇️ เคลียร์ฟอร์มทั้งหมด + ปิดออโต้ค้นหา จนกว่าจะพิมพ์ใหม่
+      // Snapshot for the ResultSheet (copy §4.1) — taken before the form is cleared
+      const orderNo = res?.order_no ?? res?.order_serial ?? res?.order_id ?? res?.id ?? null
+      const lines = [
+        { label: "ลูกค้า", value: buyerType === "person" ? customer.fullName.trim() : customer.companyName.trim() },
+        { label: "สเปค", value: [order.riceType, order.subriceName].filter(Boolean).join(" · ") || "—" },
+        { label: "น้ำหนักสุทธิ", value: `${nf(netW)} กก.` },
+        { label: "เป็นเงิน", value: <span className="text-xl font-bold">{thb(moneyToNumber(order.amountTHB))}</span> },
+        ...(orderNo != null && orderNo !== "" ? [{ label: "เลขที่ออเดอร์", value: String(orderNo) }] : []),
+      ]
+      // ⬇️ เคลียร์ฟอร์มทั้งหมด + ปิดออโต้ค้นหา จนกว่าจะพิมพ์ใหม่ (พฤติกรรมเดิมหลัง alert)
       handleReset()
       requestAnimationFrame(() => scrollToPageTop())
+      setResult({ tone: "success", title: "บันทึกออเดอร์แล้ว", lines })
     } catch (err) {
       console.error("SAVE ERROR:", err?.data || err)
-      const detail = err?.data?.detail ? `\n\nรายละเอียด:\n${JSON.stringify(err.data.detail, null, 2)}` : ""
-      alert(`บันทึกล้มเหลว: ${err.message || "เกิดข้อผิดพลาด"}${detail}`)
+      const d = describeApiError(err)
+      setResult({ tone: "error", ...d })
     }
     } finally {
       submitLockRef.current = false
@@ -1774,6 +1812,7 @@ if (buyerType === "person") {
 
   setPendingTemplateLabel("")
   // ไม่เปลี่ยน formTemplate เพื่อรักษาค่าเดิมที่ผู้ใช้ตั้งไว้
+  setResetKey((k) => k + 1) // phone stepper → ขั้น 1
   if (typeof requestAnimationFrame === "function") {
     requestAnimationFrame(() => scrollToPageTop())
   } else {
@@ -1820,10 +1859,58 @@ if (buyerType === "person") {
     showCompanyList, setShowCompanyList, companyResults, companyHighlighted, setCompanyHighlighted,
     handleCompanyKeyDown, pickCompanyResult,
     // actions
-    handleSubmit, handleReset, scrollToPageTop,
+    handleSubmit, handleReset, scrollToPageTop, resolvePaymentId, setErrors,
+    // phone stepper plumbing
+    isPhone, stepApiRef, resetKey,
   }
 
+  /** ---------- ResultSheet actions (copy §4.1 / §4.3) ---------- */
+  const closeResult = () => setResult(null)
+  const resultButtons = (() => {
+    if (!result) return {}
+    if (result.tone === "success") {
+      return {
+        // ฟอร์มถูก reset แล้ว — ปิด = ทำรายการใหม่
+        primary: { label: "ทำรายการใหม่", onClick: () => { closeResult(); stepApiRef.current?.goTo(0); scrollToPageTop() } },
+        secondary: can("trading.reports.view") ? { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order") } } : undefined,
+      }
+    }
+    const retry = { label: "ลองอีกครั้ง", onClick: () => { closeResult(); setTimeout(() => handleSubmit(), 0) } }
+    const close = { label: "ปิด", onClick: closeResult }
+    switch (result.primary) {
+      case "edit": return { primary: { label: "แก้ไขข้อมูล", onClick: closeResult }, secondary: close }
+      case "login": return { primary: { label: "เข้าสู่ระบบใหม่", onClick: () => { logout(); navigate("/") } }, secondary: close }
+      case "orders": return { primary: { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order") } }, secondary: close }
+      default: return { primary: retry, secondary: close }
+    }
+  })()
+  const resultSheet = (
+    <ResultSheet
+      open={!!result}
+      tone={result?.tone ?? "success"}
+      title={result?.title ?? ""}
+      description={result?.description}
+      lines={result?.lines ?? []}
+      primary={resultButtons.primary}
+      secondary={resultButtons.secondary}
+      onClose={result?.tone === "success" ? resultButtons.primary.onClick : closeResult}
+    />
+  )
+
   /** ---------- UI ---------- */
+  if (isPhone) {
+    return (
+      <div className="min-h-dvh bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-base">
+        <div className="mx-auto max-w-7xl p-4">
+          <div ref={pageTopRef} />
+          <h1 className="mb-3 text-xl font-bold leading-relaxed text-gray-900 dark:text-white">บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
+          <BuyMobileStepper form={form} />
+        </div>
+        {resultSheet}
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
@@ -1912,6 +1999,7 @@ if (buyerType === "person") {
           </div>
         </form>
       </div>
+      {resultSheet}
     </div>
   )
 }

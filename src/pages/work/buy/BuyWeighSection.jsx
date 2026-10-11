@@ -1,13 +1,13 @@
 // src/pages/work/buy/BuyWeighSection.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// "ตัวเลขและการคำนวณ" — entry/exit weight, gross, moisture, impurity, deduction
-// (auto or manual), net, gram, unit price, amount. Desktop card moved verbatim
-// out of Buy.jsx's <form>.
+// Weights, moisture/impurity, deduction (auto or manual), net, gram, unit
+// price, amount. Phone: one field per row + calc cards. Desktop (≥md, R2):
+// "ชั่งน้ำหนักและราคา" card (2 input rows + read-only calc strip + หมายเหตุ).
 // ─────────────────────────────────────────────────────────────────────────────
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, cardCls } from "../../../lib/styles"
+import { cx, baseField, labelCls, helpTextCls, errorTextCls, cardCls } from "../../../lib/styles"
 import {
   onlyDigits, thb, nf, moneyToNumber, formatMoneyInput, suggestDeductionWeight, isEnabledInput, MOISTURE_STD,
-  fieldId, errId, describedBy,
+  fieldId, errId, describedBy, sectionH2Cls,
 } from "./buyShared"
 
 export default function BuyWeighSection({ form }) {
@@ -161,216 +161,178 @@ function PhoneWeighSection({ form }) {
   )
 }
 
-/* ═══════════════════════════════ DESKTOP (≥md) — unchanged tree ═══════════════════════════════ */
+/* ═══════════════════════════════ DESKTOP (≥md) — R2 "ชั่งน้ำหนักและราคา" ═══════════════════════════════
+ * Row 1: ก่อนชั่ง | หลังชั่ง | ความชื้น | สิ่งเจือปน.  Calc strip (read-only figures, not
+ * disabled inputs): จากตาชั่ง − หัก (switch "กำหนดเอง" swaps in an input) = สุทธิ.
+ * Row 2: คุณภาพ (กรัม) | ราคาต่อกก. | เป็นเงิน (2 cols).  หมายเหตุ last.
+ * Enter order is unchanged: entry → exit → moisture → impurity → [deduct] → gram →
+ * unitPrice → amountTHB → ปุ่มบันทึก (refs.submitBtn lives in OrderSummaryPanel).
+ * ════════════════════════════════════════════════════════════════════════════════════════════════════ */
 
 function DesktopWeighSection({ form }) {
   const {
     order, updateOrder, refs, errors, clearHint, clearError, redFieldCls, redHintCls, onEnter,
-    grossFromScale, netWeight,
+    grossFromScale, autoDeduct, netWeight,
   } = form
+  const suggested = Math.round(suggestDeductionWeight(grossFromScale, order.moisturePct, order.impurityPct) * 100) / 100
+  const dec = (v) => v.replace(/[^\d.]/g, "")
+
+  const numField = (key, label, opts) => {
+    const helpId = `buy-${key}-help`
+    return (
+      <div className={opts.span}>
+        <label className={cx(labelCls, opts.labelHint && "flex items-baseline justify-between gap-2")} htmlFor={fieldId(key)}>
+          {label}
+          {opts.labelHint && <span className="text-sm font-normal text-gray-500 dark:text-gray-400">{opts.labelHint}</span>}
+        </label>
+        <UnitInput
+          id={fieldId(key)}
+          inputRef={refs[key]}
+          inputMode={opts.inputMode ?? "decimal"}
+          suffix={opts.suffix}
+          prefix={opts.prefix}
+          big={opts.big}
+          className={cx(opts.pad, redFieldCls(key))}
+          value={order[key]}
+          onChange={(e) => { updateOrder(key, opts.sanitize(e.target.value)); clearError(key) }}
+          onFocus={() => clearHint(key)}
+          onKeyDown={opts.onKeyDown ?? onEnter(key)}
+          placeholder={opts.placeholder}
+          autoComplete="off"
+          aria-invalid={errors[key] ? true : undefined}
+          aria-describedby={errors[key] ? errId(key) : opts.help ? helpId : undefined}
+        />
+        {errors[key]
+          ? <p id={errId(key)} className={errorTextCls}>{errors[key]}</p>
+          : opts.help ? <p id={helpId} className={helpTextCls}>{opts.help}</p> : null}
+      </div>
+    )
+  }
+
+  const toggleManual = (checked) => {
+    updateOrder("manualDeduct", checked)
+    if (checked) {
+      // start from the computed figure so สุทธิ doesn't jump to the gross weight
+      if (String(order.deductWeightKg).trim() === "") updateOrder("deductWeightKg", String(suggested))
+      requestAnimationFrame(() => {
+        const el = refs.deductWeightKg?.current
+        el?.focus()
+        try { el?.select() } catch { /* ignore */ }
+      })
+    }
+  }
 
   return (
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ring-1 ring-transparent dark:border-slate-700 dark:bg-slate-800">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-        <h3 className="text-lg font-semibold">ตัวเลขและการคำนวณ</h3>
+    <section aria-labelledby="buy-sec-weigh" className={cx(cardCls, "p-5")}>
+      <h2 id="buy-sec-weigh" className={sectionH2Cls}>ชั่งน้ำหนักและราคา</h2>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-4">
+        {numField("entryWeightKg", "น้ำหนักก่อนชั่ง", { suffix: "กก.", sanitize: dec, placeholder: "0" })}
+        {numField("exitWeightKg", "น้ำหนักหลังชั่ง", { suffix: "กก.", sanitize: dec, placeholder: "0" })}
+        {numField("moisturePct", "ความชื้น", { suffix: "%", sanitize: onlyDigits, placeholder: "0", labelHint: `เกณฑ์ ${MOISTURE_STD}%` })}
+        {numField("impurityPct", "สิ่งเจือปน", { suffix: "%", sanitize: onlyDigits, placeholder: "0" })}
       </div>
 
-      {/* น้ำหนักก่อนชั่ง */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div>
-          <label className={labelCls} htmlFor={fieldId("entryWeightKg")}>น้ำหนักก่อนชั่ง (กก.)</label>
-          <input
-            id={fieldId("entryWeightKg")}
-            aria-describedby={describedBy(errors, "entryWeightKg")}
-            ref={refs.entryWeightKg}
-            inputMode="decimal"
-            className={cx(baseField, redFieldCls("entryWeightKg"))}
-            value={order.entryWeightKg}
-            onChange={(e) => { updateOrder("entryWeightKg", e.target.value.replace(/[^\d.]/g, "")); clearError("entryWeightKg") }}
-            onFocus={() => clearHint("entryWeightKg")}
-            onKeyDown={onEnter("entryWeightKg")}
-            placeholder="เช่น 12000"
-            aria-invalid={errors.entryWeightKg ? true : undefined}
-          />
-          {errors.entryWeightKg && <p id={errId("entryWeightKg")} className={errorTextCls}>{errors.entryWeightKg}</p>}
-        </div>
-
-        <div>
-          <label className={labelCls} htmlFor={fieldId("exitWeightKg")}>น้ำหนักหลังชั่ง (กก.)</label>
-          <input
-            id={fieldId("exitWeightKg")}
-            aria-describedby={describedBy(errors, "exitWeightKg")}
-            ref={refs.exitWeightKg}
-            inputMode="decimal"
-            className={cx(baseField, redFieldCls("exitWeightKg"))}
-            value={order.exitWeightKg}
-            onChange={(e) => { updateOrder("exitWeightKg", e.target.value.replace(/[^\d.]/g, "")); clearError("exitWeightKg") }}
-            onFocus={() => clearHint("exitWeightKg")}
-            onKeyDown={onEnter("exitWeightKg")}
-            placeholder="เช่น 7000"
-            aria-invalid={errors.exitWeightKg ? true : undefined}
-          />
-          {errors.exitWeightKg && <p id={errId("exitWeightKg")} className={errorTextCls}>{errors.exitWeightKg}</p>}
-        </div>
-
-        <div>
-          <label className={labelCls} htmlFor={fieldId("grossFromScale")}>น้ำหนักจากตาชั่ง (กก.)</label>
-          <input id={fieldId("grossFromScale")} disabled className={cx(baseField, fieldDisabled)} value={Math.round(grossFromScale * 100) / 100} />
-          <p className={helpTextCls}>คำนวณจาก |หลังชั่ง − ก่อนชั่ง|</p>
-        </div>
-
-        {/* ความชื้น */}
-        <div>
-          <label className={labelCls} htmlFor={fieldId("moisturePct")}>ความชื้น (%)</label>
-          <input
-            id={fieldId("moisturePct")}
-            aria-describedby={describedBy(errors, "moisturePct")}
-            ref={refs.moisturePct}
-            inputMode="decimal"
-            className={cx(baseField, redFieldCls("moisturePct"))}
-            value={order.moisturePct}
-            onChange={(e) => { updateOrder("moisturePct", onlyDigits(e.target.value)); clearError("moisturePct") }}
-            onFocus={() => clearHint("moisturePct")}
-            onKeyDown={onEnter("moisturePct")}
-            placeholder="เช่น 18"
-            aria-invalid={errors.moisturePct ? true : undefined}
-          />
-          <p className={helpTextCls}>{MOISTURE_STD}</p>
-          {errors.moisturePct && <p id={errId("moisturePct")} className={errorTextCls}>{errors.moisturePct}</p>}
-        </div>
-
-        {/* สิ่งเจือปน */}
-        <div>
-          <label className={labelCls} htmlFor={fieldId("impurityPct")}>สิ่งเจือปน (%)</label>
-          <input
-            id={fieldId("impurityPct")}
-            aria-describedby={describedBy(errors, "impurityPct")}
-            ref={refs.impurityPct}
-            inputMode="decimal"
-            className={cx(baseField, redFieldCls("impurityPct"))}
-            value={order.impurityPct}
-            onChange={(e) => { updateOrder("impurityPct", onlyDigits(e.target.value)); clearError("impurityPct") }}
-            onFocus={() => clearHint("impurityPct")}
-            onKeyDown={onEnter("impurityPct")}
-            placeholder="เช่น 2"
-            aria-invalid={errors.impurityPct ? true : undefined}
-          />
-          {errors.impurityPct && <p id={errId("impurityPct")} className={errorTextCls}>{errors.impurityPct}</p>}
-        </div>
-
-        {/* หักน้ำหนัก */}
-        <div className="">
-          <div className="flex items-center justify-between">
-            <label className={labelCls} htmlFor={fieldId("deductWeightKg")}>หักน้ำหนัก (ความชื้น+สิ่งเจือปน) (กก.)</label>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={order.manualDeduct}
-                onChange={(e) => updateOrder("manualDeduct", e.target.checked)}
-              />
-              กำหนดเอง
-            </label>
+      {/* แถบคำนวณ: จากตาชั่ง − หัก = สุทธิ */}
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-gray-50 px-4 py-3 ring-1 ring-inset ring-gray-200/70 dark:bg-gray-900/40 dark:ring-gray-700/70">
+        <dl className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 text-sm text-gray-600 dark:text-gray-300">
+          <div className="flex items-baseline gap-1.5">
+            <dt>จากตาชั่ง</dt>
+            <dd className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">{nf(grossFromScale)} กก.</dd>
           </div>
-          <input
-            id={fieldId("deductWeightKg")}
-            aria-describedby={describedBy(errors, "deductWeightKg")}
-            ref={refs.deductWeightKg}
-            inputMode="decimal"
-            disabled={!order.manualDeduct}
-            className={cx(
-              baseField,
-              !order.manualDeduct && fieldDisabled,
-              errors.deductWeightKg && "border-red-400",
-              order.manualDeduct && redHintCls("deductWeightKg")
-            )}
-            value={
-              order.manualDeduct
-                ? order.deductWeightKg
-                : String(Math.round(suggestDeductionWeight(grossFromScale, order.moisturePct, order.impurityPct) * 100) / 100)
-            }
-            onChange={(e) => updateOrder("deductWeightKg", e.target.value.replace(/[^\d.]/g, ""))}
-            onFocus={() => clearHint("deductWeightKg")}
-            onKeyDown={onEnter("deductWeightKg")}
-            placeholder="ระบบคำนวณให้ หรือกำหนดเอง"
-            aria-invalid={errors.deductWeightKg ? true : undefined}
-          />
-          {errors.deductWeightKg && <p id={errId("deductWeightKg")} className={errorTextCls}>{errors.deductWeightKg}</p>}
-        </div>
+          <span aria-hidden="true" className="text-gray-400 dark:text-gray-500">−</span>
+          <div className="flex items-center gap-1.5">
+            <dt>{order.manualDeduct ? <label htmlFor={fieldId("deductWeightKg")}>หัก</label> : "หัก"}</dt>
+            <dd className="tabular-nums">
+              {order.manualDeduct ? (
+                <UnitInput
+                  id={fieldId("deductWeightKg")}
+                  inputRef={refs.deductWeightKg}
+                  inputMode="decimal"
+                  suffix="กก."
+                  className={cx("w-36 !py-1.5", errors.deductWeightKg && "border-red-500", redHintCls("deductWeightKg"))}
+                  value={order.deductWeightKg}
+                  onChange={(e) => { updateOrder("deductWeightKg", dec(e.target.value)); clearError("deductWeightKg") }}
+                  onFocus={() => clearHint("deductWeightKg")}
+                  onKeyDown={onEnter("deductWeightKg")}
+                  placeholder={String(suggested)}
+                  autoComplete="off"
+                  aria-invalid={errors.deductWeightKg ? true : undefined}
+                  aria-describedby={describedBy(errors, "deductWeightKg")}
+                />
+              ) : (
+                <span className="font-semibold text-gray-900 dark:text-gray-100">{nf(autoDeduct)} กก.</span>
+              )}
+            </dd>
+          </div>
+          <span aria-hidden="true" className="text-gray-400 dark:text-gray-500">=</span>
+          <div className="flex items-baseline gap-1.5">
+            <dt className="font-medium text-gray-700 dark:text-gray-200">สุทธิ</dt>
+            <dd className="text-lg font-bold tabular-nums text-gray-900 dark:text-gray-50" aria-live="polite">{nf(netWeight)} กก.</dd>
+          </div>
+        </dl>
 
-        <div>
-          <label className={labelCls} htmlFor={fieldId("netWeight")}>น้ำหนักสุทธิ (กก.)</label>
-          <input id={fieldId("netWeight")} disabled className={cx(baseField, fieldDisabled)} value={Math.round(netWeight * 100) / 100} />
-        </div>
-
-        {/* gram */}
-        <div>
-          <label className={labelCls} htmlFor={fieldId("gram")}>คุณภาพข้าว (gram)</label>
-          <input
-            id={fieldId("gram")}
-            aria-describedby={describedBy(errors, "gram")}
-            ref={refs.gram}
-            inputMode="numeric"
-            className={cx(baseField, redFieldCls("gram"))}
-            value={order.gram}
-            onChange={(e) => { updateOrder("gram", onlyDigits(e.target.value)); clearError("gram") }}
-            onFocus={() => clearHint("gram")}
-            onKeyDown={onEnter("gram")}
-            placeholder="เช่น 85"
-            aria-invalid={errors.gram ? true : undefined}
-          />
-          {errors.gram && <p id={errId("gram")} className={errorTextCls}>{errors.gram}</p>}
-        </div>
-
-        {/* ราคาต่อกก. */}
-        <div>
-          <label className={labelCls} htmlFor={fieldId("unitPrice")}>ราคาต่อกก. (บาท)</label>
-          <input
-            id={fieldId("unitPrice")}
-            aria-describedby={describedBy(errors, "unitPrice")}
-            ref={refs.unitPrice}
-            inputMode="decimal"
-            className={cx(baseField, redFieldCls("unitPrice"))}
-            value={order.unitPrice}
-            onChange={(e) => { updateOrder("unitPrice", e.target.value.replace(/[^\d.]/g, "")); clearError("unitPrice") }}
-            onFocus={() => clearHint("unitPrice")}
-            onKeyDown={onEnter("unitPrice")}
-            placeholder="เช่น 12.50"
-            aria-invalid={errors.unitPrice ? true : undefined}
-          />
-          <p className={helpTextCls}>ถ้ากรอกราคา ระบบจะคำนวณ “เป็นเงิน” ให้อัตโนมัติ</p>
-          {errors.unitPrice && <p id={errId("unitPrice")} className={errorTextCls}>{errors.unitPrice}</p>}
-        </div>
-
-        {/* เป็นเงิน */}
-        <div>
-          <label className={labelCls} htmlFor={fieldId("amountTHB")}>เป็นเงิน (บาท)</label>
-          <input
-            id={fieldId("amountTHB")}
-            aria-describedby={describedBy(errors, "amountTHB")}
-            ref={refs.amountTHB}
-            inputMode="decimal"
-            className={cx(baseField, redFieldCls("amountTHB"))}
-            value={order.amountTHB}
-            onChange={(e) => { updateOrder("amountTHB", formatMoneyInput(e.target.value)); clearError("amountTHB") }}
-            onFocus={() => clearHint("amountTHB")}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.isComposing) {
-                e.preventDefault()
-                const btn = refs.submitBtn?.current
-                if (btn && isEnabledInput(btn)) {
-                  try { btn.scrollIntoView({ block: "center" }) } catch { /* ignore */ }
-                  btn.focus?.()
-                }
-              }
-            }}
-            placeholder="เช่น 60,000"
-            aria-invalid={errors.amountTHB ? true : undefined}
-          />
-          {!!order.amountTHB && <p className={helpTextCls}>≈ {thb(moneyToNumber(order.amountTHB))}</p>}
-          {errors.amountTHB && <p id={errId("amountTHB")} className={errorTextCls}>{errors.amountTHB}</p>}
-        </div>
+        <label className="ml-auto inline-flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+          <span className="relative inline-flex items-center">
+            <input
+              type="checkbox"
+              role="switch"
+              className="peer sr-only"
+              checked={order.manualDeduct}
+              onChange={(e) => toggleManual(e.target.checked)}
+            />
+            <span
+              aria-hidden="true"
+              className={cx(
+                "block h-5 w-9 rounded-full bg-gray-300 transition-colors duration-150 dark:bg-gray-600",
+                "peer-checked:bg-indigo-600 dark:peer-checked:bg-indigo-500",
+                "peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-500 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-gray-50 dark:peer-focus-visible:ring-offset-gray-900",
+              )}
+            />
+            <span aria-hidden="true" className="pointer-events-none absolute left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform duration-150 peer-checked:translate-x-4" />
+          </span>
+          กำหนดน้ำหนักหักเอง
+        </label>
       </div>
-    </div>
+      {errors.deductWeightKg && <p id={errId("deductWeightKg")} className={errorTextCls}>{errors.deductWeightKg}</p>}
+
+      <div className="mt-4 grid gap-4 md:grid-cols-4">
+        {numField("gram", "คุณภาพข้าว", { inputMode: "numeric", suffix: "กรัม", sanitize: onlyDigits, placeholder: "เช่น 85" })}
+        {numField("unitPrice", "ราคาต่อกก.", { suffix: "บาท/กก.", pad: "!pr-20", sanitize: dec, placeholder: "0.00" })}
+        {numField("amountTHB", "เป็นเงิน", {
+          span: "md:col-span-2",
+          prefix: "฿",
+          big: true,
+          sanitize: formatMoneyInput,
+          placeholder: "0.00",
+          labelHint: "คำนวณจากน้ำหนัก × ราคา แก้ได้",
+          onKeyDown: (e) => {
+            if (e.key === "Enter" && !e.isComposing) {
+              e.preventDefault()
+              const btn = refs.submitBtn?.current
+              if (btn && isEnabledInput(btn)) {
+                try { btn.scrollIntoView({ block: "nearest" }) } catch { /* ignore */ }
+                btn.focus?.()
+              }
+            }
+          },
+        })}
+      </div>
+
+      <div className="mt-4">
+        <label className={labelCls} htmlFor="buy-comment">หมายเหตุ</label>
+        <textarea
+          id="buy-comment"
+          ref={refs.comment}
+          rows={2}
+          className={cx(baseField, "resize-y")}
+          value={order.comment}
+          onChange={(e) => updateOrder("comment", e.target.value)}
+          onKeyDown={onEnter("comment")}
+          placeholder="เช่น ความชื้นวัดซ้ำรอบบ่าย"
+        />
+      </div>
+    </section>
   )
 }
+

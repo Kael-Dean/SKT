@@ -28,6 +28,9 @@ export const errId = (key) => `buy-${key}-err`
 /** aria-describedby value: the error <p> id while that key has an error. */
 export const describedBy = (errors, key) => (errors?.[key] ? errId(key) : undefined)
 
+/** Desktop section card heading (R2 compact layout) */
+export const sectionH2Cls = "text-lg font-semibold leading-snug text-gray-900 dark:text-gray-100"
+
 export const findLabelById = (opts = [], id) => {
   const s = String(id ?? "")
   if (!s) return ""

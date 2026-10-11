@@ -6,6 +6,10 @@
 // locks body scroll for as long as it is mounted, and the toaster is always
 // mounted. z-[10080] sits above dropdowns (10050) and dialogs (10070).
 //
+// Bottom offset follows `--sticky-bar-h` (set by a visible phone
+// <StickyActionBar>) so a toast never covers "ถัดไป"/"บันทึก"; without a bar it
+// clears the iOS home indicator (max of bar height and safe-area inset) + 1rem.
+//
 // Max 3 visible, newest at the bottom. Auto-dismiss pauses on hover / focus.
 // success/info/warning → announced by the persistent aria-live="polite" region; error → role="alert".
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,7 +132,8 @@ export default function Toaster() {
       role="region"
       aria-label="การแจ้งเตือน"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-4 bottom-4 z-[10080] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:right-4 sm:items-end"
+      style={{ bottom: "calc(max(var(--sticky-bar-h, 0px), env(safe-area-inset-bottom, 0px)) + 1rem)" }}
+      className="pointer-events-none fixed inset-x-4 z-[10080] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:right-4 sm:items-end"
     >
       {toasts.map((t) => (
         <ToastCard key={t.id} t={t} onDismiss={dismiss} />

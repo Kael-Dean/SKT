@@ -110,24 +110,12 @@ export default function BuyMobileStepper({ form }) {
     else focusLater(specMissing.length && targetStep === 0 ? "formTemplate" : firstKey)
   }
 
-  // Workaround (Toaster primitive): on phones the toast stack sits at bottom-4,
-  // right over the StickyActionBar, and would swallow taps on "ถัดไป" for up to
-  // 7s. Once the user starts correcting (types, or taps anything that is not the
-  // toast itself) the toast has done its job → dismiss it so the bar is usable.
-  useEffect(() => {
-    const dismiss = (e) => {
-      if (!toastIdRef.current) return
-      if (e.type === "pointerdown" && e.target?.closest?.('[aria-label="การแจ้งเตือน"]')) return
-      toast.dismiss(toastIdRef.current)
-      toastIdRef.current = null
-    }
-    document.addEventListener("pointerdown", dismiss, true)
-    document.addEventListener("input", dismiss, true)
-    return () => {
-      document.removeEventListener("pointerdown", dismiss, true)
-      document.removeEventListener("input", dismiss, true)
-    }
-  }, [])
+  // A step's "กรอกไม่ครบ" toast is stale once the user moves to another step.
+  const dismissStepToast = () => {
+    if (!toastIdRef.current) return
+    toast.dismiss(toastIdRef.current)
+    toastIdRef.current = null
+  }
 
   // Once a step has been flagged, re-run its validator as the user edits and
   // drop the messages that are now satisfied (auto-fill from a member lookup
@@ -181,6 +169,7 @@ export default function BuyMobileStepper({ form }) {
       return
     }
     setErrorSteps((s) => s.filter((i) => i !== current))
+    dismissStepToast()
     const n = current + 1
     setMaxReached((m) => Math.max(m, n))
     setCurrent(n)
@@ -190,7 +179,7 @@ export default function BuyMobileStepper({ form }) {
       focusLater(first)
     }
   }
-  const back = () => goTo(current - 1)
+  const back = () => { dismissStepToast(); goTo(current - 1) }
 
   /* ── sticky bar summary per step (copy §2.2) ── */
   const customerName = buyerType === "person" ? customer.fullName.trim() : customer.companyName.trim()

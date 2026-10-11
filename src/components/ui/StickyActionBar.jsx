@@ -16,12 +16,19 @@
 //
 // Phone layout reserves space with a spacer (h-24) so the page can scroll its
 // last field above the bar. z-30 (below Sidebar 9990 and every overlay).
+//
+// While the phone bar is visible it publishes its height (incl. the safe-area
+// padding) as `--sticky-bar-h` on <html>; <Toaster> reads it to float toasts
+// above the bar. Removed on unmount and while hidden. One bar per page.
 // ─────────────────────────────────────────────────────────────────────────────
+import { useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { LoaderCircle } from "lucide-react"
 import useVisualViewport from "../../hooks/useVisualViewport"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import { cx, neutralBtnCls, submitBtnCls } from "../../lib/styles"
+
+const BAR_VAR = "--sticky-bar-h"
 
 function ActionButton({ action, variant }) {
   if (!action) return null
@@ -56,6 +63,22 @@ export default function StickyActionBar({
   const isPhone = useIsPhone()
   const { keyboardOpen } = useVisualViewport()
   const hidden = isPhone && hideWhenKeyboard && keyboardOpen
+  const barRef = useRef(null)
+
+  // Publish the visible bar's height so the Toaster can sit above it.
+  useEffect(() => {
+    const el = barRef.current
+    const root = document.documentElement
+    if (!isPhone || hidden || !el) return
+    const write = () => root.style.setProperty(BAR_VAR, `${Math.ceil(el.getBoundingClientRect().height)}px`)
+    write()
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(write) : null
+    ro?.observe(el)
+    return () => {
+      ro?.disconnect()
+      root.style.removeProperty(BAR_VAR)
+    }
+  }, [isPhone, hidden])
 
   const buttons = (
     <div className="flex items-center gap-3">
@@ -79,6 +102,7 @@ export default function StickyActionBar({
       <div aria-hidden="true" className="h-24" />
       {createPortal(
         <div
+          ref={barRef}
           aria-hidden={hidden || undefined}
           className={cx(
             "fixed inset-x-0 bottom-0 z-30 border-t border-gray-200/80 bg-white/90 px-4 pt-3 pb-safe-3 backdrop-blur-md",

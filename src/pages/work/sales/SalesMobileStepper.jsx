@@ -138,11 +138,12 @@ export default function SalesMobileStepper({ form }) {
     Object.keys(eObj).forEach((k) => { if (STEP_OF_KEY[k]) badSteps.add(STEP_OF_KEY[k] - 1) })
     setErrorSteps(Array.from(badSteps))
     const sameStep = stepIdx === current
-    const action = !sameStep ? { label: `แตะเพื่อไปที่ขั้น ${stepIdx + 1}`, onClick: () => { goTo(stepIdx); focusLater(() => focusFirst(firstKey, firstTrailer, eObj)) } } : undefined
-    // Fixed id: repeated presses replace the toast instead of stacking over
-    // the sticky bar (the Toaster sits at bottom-4 on phones — see report).
-    toast.error(jump ? "บันทึกไม่สำเร็จ" : "กรอกไม่ครบ", { id: STEP_TOAST_ID, description: text || undefined, action, duration: 4000 })
-    if (jump && !sameStep) goTo(stepIdx)
+    const willJump = jump && !sameStep
+    // Jump BEFORE showing the toast — goTo() dismisses STEP_TOAST_ID.
+    if (willJump) goTo(stepIdx)
+    const action = !sameStep && !willJump ? { label: `แตะเพื่อไปที่ขั้น ${stepIdx + 1}`, onClick: () => { goTo(stepIdx); focusLater(() => focusFirst(firstKey, firstTrailer, eObj)) } } : undefined
+    // Fixed id: repeated presses replace the toast instead of stacking.
+    toast.error(jump ? "บันทึกไม่สำเร็จ" : "กรอกไม่ครบ", { id: STEP_TOAST_ID, description: text || undefined, action })
     focusLater(() => focusFirst(firstKey, firstTrailer, eObj))
   }
   const focusFirst = (firstKey, firstTrailer, eObj) => {

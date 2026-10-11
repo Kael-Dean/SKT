@@ -1,7 +1,8 @@
 // src/pages/work/sales/SalesCustomerSection.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Sales "ลูกค้า" section. The default export is the DESKTOP card (round 2:
-// segmented buyer type, person/company row, payment row, credit terms).
+// Sales "ลูกค้า" section. The default export is the DESKTOP card (round 2,
+// same structure as Buy: header with status + segmented buyer type, payment
+// row, credit terms, person/company row).
 // The product-form picker moved to SalesSpecSection ("สินค้าและคลัง").
 // The named sub-components are the same inputs, exported so
 // SalesMobileStepper can lay them out one column at a time while sharing the
@@ -9,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useRef } from "react"
 import ComboBox from "../../../components/ComboBox"
+import Badge from "../../../components/ui/Badge"
 import {
   cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, cardCls,
   segmentedCls, segmentedItemCls, segmentedItemActiveCls,
@@ -17,25 +19,17 @@ import DateInput from "./DateInput"
 import { isEnabledInput, isCreditLabel, onlyDigits, buyerTypeOptions, refDocLabel, fieldId, errId, describedBy } from "./salesShared"
 
 /* ---------- status chip next to the heading ---------- */
-const chipBase = "inline-flex items-center gap-2 self-start rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset"
-const CHIP_TONE = {
-  member: "bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-900/25 dark:text-emerald-200 dark:ring-emerald-700/60",
-  neutral: "bg-gray-100 text-gray-700 ring-gray-200 dark:bg-gray-700/60 dark:text-gray-200 dark:ring-gray-600",
-  pending: "bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-900/25 dark:text-amber-200 dark:ring-amber-700/60",
-}
-const DOT_TONE = { member: "bg-emerald-500", neutral: "bg-gray-400", pending: "bg-amber-500" }
-
+// Same wording/tones as Buy's CustomerStatus (round 2).
 export function CustomerStatusChip({ form }) {
   const { buyerType, memberMeta, customerFound } = form
   let tone = "pending"
   let text = "ยังไม่ได้เลือกลูกค้า"
-  if (buyerType !== "person") { tone = "neutral"; text = "บริษัท / นิติบุคคล" }
-  else if (memberMeta.type === "member") { tone = "member"; text = `สมาชิก · รหัส ${memberMeta.memberId || "-"}` }
-  else if (customerFound === true && memberMeta.type === "customer") { tone = "neutral"; text = "ลูกค้าทั่วไป" }
+  if (buyerType !== "person") { tone = "info"; text = "บริษัท / นิติบุคคล" }
+  else if (memberMeta.type === "member") { tone = "success"; text = memberMeta.memberId ? `สมาชิก · รหัส ${memberMeta.memberId}` : "สมาชิก" }
+  else if (memberMeta.type === "customer" && (customerFound === true || memberMeta.assoId)) { tone = "info"; text = "ลูกค้าทั่วไป" }
   return (
-    <span className={cx(chipBase, CHIP_TONE[tone])} role="status">
-      <span aria-hidden="true" className={cx("size-2 rounded-full", DOT_TONE[tone])} />
-      {text}
+    <span role="status" aria-live="polite" className="inline-flex">
+      <Badge tone={tone}>{text}</Badge>
     </span>
   )
 }
@@ -50,7 +44,8 @@ export function TemplateCombo({ form, error = false, describedById, title = "ฟ
       ariaDescribedBy={describedById}
       options={templateOptions}
       value={formTemplate}
-      getSubLabel={(o) => templateSubLabel(o)}
+      // sub-line (ชั้นย่อย) only in the list — the selected form's spec is shown as chips
+      getSubLabel={(o) => (String(o.id) === String(formTemplate) ? "" : templateSubLabel(o))}
       onChange={(id, found) => {
         const idStr = String(id)
         setFormTemplate(idStr)
@@ -142,15 +137,13 @@ export function IssueDateField({ form }) {
 
 /* ---------- เอกสารอ้างอิง (ส่งเป็น sale_id) ---------- */
 export function RefDocField({ form, mobile = false }) {
-  const { refs, order, updateOrder, buyerType, focusNext, focusKlangOrBranchOrTrailer } = form
+  const { refs, order, updateOrder, buyerType, focusNext } = form
   const goName = () => {
-    // Desktop (round 2): the payment row sits BELOW the customer fields, so
-    // Enter moves forward — credit terms (if any), then คลัง → … (not back up
-    // to the name). Phone keeps the original jump to the name field.
-    if (!mobile) {
+    // Desktop credit sale: the credit terms sit between this row and the
+    // customer fields → go there first. Otherwise (and on phones) → name.
+    if (!mobile && order.__isCredit) {
       const credit = refs.deptAllowed?.current
-      if (order.__isCredit && credit && isEnabledInput(credit)) { credit.focus(); try { credit.select() } catch { /* ignore */ } return true }
-      return focusKlangOrBranchOrTrailer()
+      if (credit && isEnabledInput(credit)) { credit.focus(); try { credit.select() } catch { /* ignore */ } return true }
     }
     const key = buyerType === "person" ? "fullName" : "companyName"
     const el = refs[key]?.current
@@ -208,9 +201,14 @@ export function RefDocField({ form, mobile = false }) {
 
 /* ---------- เงื่อนไขเครดิต — 3 fields (card chrome is the caller's) ---------- */
 export function CreditTermsFields({ form, mobile = false }) {
-  const { refs, dept, setDept, focusKlangOrBranchOrTrailer } = form
-  // After the credit terms: phone → ลงวันที่ (original); desktop → คลัง … (forward)
-  const after = () => (mobile ? refs.issueDate?.current?.focus() : focusKlangOrBranchOrTrailer())
+  const { refs, dept, setDept, buyerType } = form
+  // After the credit terms: phone → ลงวันที่ (original); desktop → the
+  // customer fields right below (ชื่อ–สกุล / ชื่อบริษัท, like the ref doc)
+  const after = () => {
+    if (mobile) return refs.issueDate?.current?.focus()
+    const el = refs[buyerType === "person" ? "fullName" : "companyName"]?.current
+    if (el) { el.focus(); try { el.select() } catch { /* ignore */ } }
+  }
   const allowedInput = (
     <input
       id={fieldId("deptAllowed")}
@@ -549,7 +547,7 @@ function BuyerTypeSegmented({ form }) {
     else if (e.key === "End") { e.preventDefault(); pick(n - 1) }
   }
   return (
-    <div role="radiogroup" aria-label="ประเภทผู้ซื้อ" className={cx(segmentedCls, "max-w-sm")}>
+    <div role="radiogroup" aria-label="ประเภทผู้ซื้อ" className={cx(segmentedCls, "w-auto")}>
       {buyerTypeOptions.map((o, i) => {
         const on = buyerType === o.id
         return (
@@ -562,7 +560,7 @@ function BuyerTypeSegmented({ form }) {
             ref={(el) => { btnRefs.current[i] = el; if (on) refs.buyerType.current = el }}
             onClick={() => setBuyerType(o.id)}
             onKeyDown={(e) => onKeyDown(e, i)}
-            className={cx(segmentedItemCls, "md:min-h-10", on && segmentedItemActiveCls)}
+            className={cx(segmentedItemCls, "flex-none whitespace-nowrap px-4", on && segmentedItemActiveCls)}
           >
             {o.label}
           </button>
@@ -572,56 +570,25 @@ function BuyerTypeSegmented({ form }) {
   )
 }
 
-const sectionTitle = "text-lg font-semibold text-gray-900 dark:text-gray-100"
+const sectionTitle = "text-lg font-semibold leading-snug text-gray-900 dark:text-gray-100"
 
 /* ============================ DESKTOP CARD ============================ */
+// Same structure as Buy (round 2): header (title · status · buyer type),
+// payment row, credit terms, then the person / company row.
 export default function SalesCustomerSection({ form }) {
   const { buyerType, order, errors, isCreditPayment, nameBoxRef, companyBoxRef } = form
   return (
-    <section aria-labelledby="sales-sec-customer" className={cx(cardCls, "p-5 lg:p-6")}>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+    <section aria-labelledby="sales-sec-customer" className={cx(cardCls, "p-5")}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <h2 id="sales-sec-customer" className={sectionTitle}>ลูกค้า</h2>
         <CustomerStatusChip form={form} />
+        <div className="ml-auto">
+          <BuyerTypeSegmented form={form} />
+        </div>
       </div>
 
-      <div className="mt-4">
-        <BuyerTypeSegmented form={form} />
-      </div>
-
-      {buyerType === "person" ? (
-        <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)]">
-          <div>
-            <label className={labelCls} htmlFor={fieldId("citizenId")}>เลขบัตรประชาชน</label>
-            <CitizenIdField form={form} />
-          </div>
-          <div>
-            <label className={labelCls} htmlFor={fieldId("memberId")}>รหัสสมาชิก</label>
-            <MemberIdField form={form} />
-          </div>
-          <div ref={nameBoxRef}>
-            <label className={labelCls} htmlFor={fieldId("fullName")}>ชื่อ–สกุล</label>
-            <FullNameField form={form} placeholder="พิมพ์ชื่อเพื่อค้นหา" />
-          </div>
-        </div>
-      ) : (
-        <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
-          <div ref={companyBoxRef}>
-            <label className={labelCls} htmlFor={fieldId("companyName")}>ชื่อบริษัท / นิติบุคคล</label>
-            <CompanyNameField form={form} />
-          </div>
-          <div>
-            <label className={labelCls} htmlFor={fieldId("taxId")}>เลขประจำตัวผู้เสียภาษี</label>
-            <TaxIdField form={form} />
-          </div>
-          <div>
-            <label className={labelCls} htmlFor={fieldId("companyPhone")}>เบอร์โทร</label>
-            <CompanyPhoneField form={form} />
-          </div>
-        </div>
-      )}
-
-      {/* วิธีชำระเงิน + วันที่ + เอกสารอ้างอิง */}
-      <div className="mt-5 grid gap-4 border-t border-gray-200/80 pt-5 md:grid-cols-3 dark:border-gray-700/70">
+      {/* วิธีชำระเงิน | ลงวันที่ | เอกสารอ้างอิง */}
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
         <div>
           <label className={labelCls} htmlFor={fieldId("payment")}>วิธีชำระเงิน</label>
           <PaymentCombo form={form} describedById={describedBy(errors, "payment")} />
@@ -642,6 +609,38 @@ export default function SalesCustomerSection({ form }) {
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">เงื่อนไขขายเชื่อ</h3>
           <div className="mt-3 grid gap-4 md:grid-cols-3">
             <CreditTermsFields form={form} />
+          </div>
+        </div>
+      )}
+
+      {buyerType === "person" ? (
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div>
+            <label className={labelCls} htmlFor={fieldId("citizenId")}>เลขบัตรประชาชน</label>
+            <CitizenIdField form={form} />
+          </div>
+          <div>
+            <label className={labelCls} htmlFor={fieldId("memberId")}>รหัสสมาชิก</label>
+            <MemberIdField form={form} />
+          </div>
+          <div ref={nameBoxRef}>
+            <label className={labelCls} htmlFor={fieldId("fullName")}>ชื่อ–สกุล</label>
+            <FullNameField form={form} placeholder="พิมพ์ชื่อเพื่อค้นหา" />
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div ref={companyBoxRef}>
+            <label className={labelCls} htmlFor={fieldId("companyName")}>ชื่อบริษัท / นิติบุคคล</label>
+            <CompanyNameField form={form} />
+          </div>
+          <div>
+            <label className={labelCls} htmlFor={fieldId("taxId")}>เลขประจำตัวผู้เสียภาษี</label>
+            <TaxIdField form={form} />
+          </div>
+          <div>
+            <label className={labelCls} htmlFor={fieldId("companyPhone")}>เบอร์โทร</label>
+            <CompanyPhoneField form={form} />
           </div>
         </div>
       )}

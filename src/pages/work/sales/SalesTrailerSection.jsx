@@ -170,7 +170,7 @@ const MAX_TRAILERS = trailerCountOptions.length
 // One grid template for the column header and both rows (≥lg). Column order
 // = trailerOrder (scaleNo → unitPrice → gram → plate → weight → amount) so
 // Tab order and the Enter chain run left → right.
-const ROW_COLS = "lg:grid-cols-[3rem_minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1.15fr)]"
+const ROW_COLS = "lg:grid-cols-[3rem_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1.15fr)_minmax(0,1.25fr)]"
 const COLUMNS = [
   { k: "scaleNo", head: "ใบชั่ง", label: "เลขที่ใบชั่ง" },
   { k: "unitPrice", head: "ราคา/กก. (บาท)", label: "ราคาต่อกก. (บาท)", num: true, suffix: "บาท" },
@@ -276,9 +276,9 @@ export default function SalesTrailerSection({ form }) {
     setTimeout(() => focusFirstOfTrailer(next), 60)
   }
   return (
-    <section id="trailers-block" aria-labelledby="sales-sec-trailers" className={cx(cardCls, "p-5 lg:p-6")}>
+    <section id="trailers-block" aria-labelledby="sales-sec-trailers" className={cx(cardCls, "p-5")}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="sales-sec-trailers" className="text-lg font-semibold text-gray-900 dark:text-gray-100">รถพ่วง</h2>
+        <h2 id="sales-sec-trailers" className="text-lg font-semibold leading-snug text-gray-900 dark:text-gray-100">รถพ่วง</h2>
         <div className="flex items-center gap-3">
           <label htmlFor={fieldId("trailerCount")} className="text-sm font-medium text-gray-700 dark:text-gray-200">จำนวนรถพ่วง</label>
           <div className="w-32">
@@ -321,7 +321,7 @@ export default function SalesTrailerSection({ form }) {
               <div aria-hidden="true" className={cx("mt-2 hidden gap-x-2 text-xs font-medium text-gray-500 lg:grid dark:text-gray-400", ROW_COLS)}>
                 <span />
                 {COLUMNS.map((c) => (
-                  <span key={c.k} className={cx("truncate px-2.5", c.num && "text-right")}>{c.head}</span>
+                  <span key={c.k} className={cx("truncate", c.num ? "pr-2.5 text-right" : "pl-2.5")}>{c.head}</span>
                 ))}
               </div>
 

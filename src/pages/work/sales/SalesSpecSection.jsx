@@ -7,7 +7,6 @@
 // on the product-form picker instead. `SpecCombos` / `BranchKlangFields` stay
 // exported for the phone stepper (they must stay MOUNTED on phones — plan §A3).
 // ─────────────────────────────────────────────────────────────────────────────
-import { Lock } from "lucide-react"
 import ComboBox from "../../../components/ComboBox"
 import { cx, cardCls, labelCls, helpTextCls, errorTextCls, readonlyFieldCls } from "../../../lib/styles"
 import { isEnabledInput, fieldId, errId, describedBy, SPEC_KEYS } from "./salesShared"
@@ -196,17 +195,14 @@ export function BranchKlangFields({ form, desktop = false }) {
         // Desktop: a locked branch is a fact, not a choice → read-only field
         <div>
           <label className={labelCls} htmlFor={fieldId("branchName")}>สาขา</label>
-          <div className="relative">
-            <input
-              id={fieldId("branchName")}
-              readOnly
-              tabIndex={-1}
-              value={order.branchName || ""}
-              title="สาขาตามบัญชีผู้ใช้"
-              className={cx(readonlyFieldCls, "pr-10")}
-            />
-            <Lock aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" strokeWidth={2} />
-          </div>
+          <input
+            id={fieldId("branchName")}
+            readOnly
+            tabIndex={-1}
+            value={order.branchName || ""}
+            title="สาขาตามบัญชีผู้ใช้"
+            className={cx(readonlyFieldCls, "truncate")}
+          />
         </div>
       ) : (
       <div>
@@ -303,10 +299,10 @@ export default function SalesSpecSection({ form }) {
   const missing = SPEC_KEYS.filter((k) => errors[k] || missingHints[k])
   const missingNames = missing.map((k) => SHORT_LABEL[k] || k).join(", ")
   return (
-    <section aria-labelledby="sales-sec-spec" className={cx(cardCls, "p-5 lg:p-6")}>
-      <h2 id="sales-sec-spec" className="text-lg font-semibold text-gray-900 dark:text-gray-100">สินค้าและคลัง</h2>
+    <section aria-labelledby="sales-sec-spec" className={cx(cardCls, "p-5")}>
+      <h2 id="sales-sec-spec" className="text-lg font-semibold leading-snug text-gray-900 dark:text-gray-100">สินค้าและคลัง</h2>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
         <div>
           <label className={labelCls} htmlFor={fieldId("formTemplate")}>ฟอร์มสินค้า</label>
           <TemplateCombo
@@ -322,21 +318,24 @@ export default function SalesSpecSection({ form }) {
         <BranchKlangFields form={form} desktop />
       </div>
 
-      <dl className="mt-4 flex flex-wrap gap-2 text-sm">
+      {/* สเปคตามฟอร์ม — อ่านอย่างเดียว (chip เดียวกับ Buy; ค่าที่ขาดแสดงเป็นสีแดงเมื่อมี error) */}
+      <dl aria-label="สเปคสินค้าตามฟอร์ม" className="mt-3 flex flex-wrap items-center gap-1.5">
         {SPEC_ROWS.map(([key, label, field]) => {
           const bad = missing.includes(key)
+          if (!order[field] && !bad) return null
           return (
             <div
               key={key}
+              title={label}
               className={cx(
-                "inline-flex items-baseline gap-1.5 rounded-lg px-2.5 py-1",
-                bad ? "bg-red-50 ring-1 ring-inset ring-red-200 dark:bg-red-900/20 dark:ring-red-800/60" : "bg-gray-100 dark:bg-gray-700/50",
+                "inline-flex items-center rounded-lg px-2 py-0.5 text-sm",
+                bad
+                  ? "bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-900/20 dark:text-red-300 dark:ring-red-800/60"
+                  : "bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-200",
               )}
             >
-              <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
-              <dd className={cx("font-medium", bad ? "text-red-700 dark:text-red-300" : "text-gray-900 dark:text-gray-100")}>
-                {order[field] || "—"}
-              </dd>
+              <dt className={bad ? "mr-1" : "sr-only"}>{label}</dt>
+              <dd>{order[field] || "—"}</dd>
             </div>
           )
         })}

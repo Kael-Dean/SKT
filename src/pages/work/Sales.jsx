@@ -1440,14 +1440,16 @@ function Sales() {
   const askReset = () => { if (formDirty) setConfirmReset(true); else handleReset() }
 
   return (
-    <div className="text-gray-900 dark:text-gray-100">
+    <div className="text-base text-gray-900 dark:text-gray-100">
+      {/* same page frame as Buy (round 2) */}
+      <div className="mx-auto max-w-7xl p-4 md:p-6">
       {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด */}
       <div ref={pageTopRef} />
 
-      <h1 className="mb-5 text-2xl font-bold text-gray-900 dark:text-gray-100">บันทึกออเดอร์ขาย</h1>
+      <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-gray-50">บันทึกออเดอร์ขาย</h1>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="min-w-0 space-y-6">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <div className="min-w-0 space-y-5">
           <SalesCustomerSection form={form} />
 
           <form
@@ -1455,16 +1457,16 @@ function Sales() {
             noValidate
             onSubmit={handleSubmit}
             onKeyDown={(e) => { if (submitting && e.key === "Enter") e.preventDefault() }}
-            className="space-y-6"
+            className="space-y-5"
           >
             <SalesSpecSection form={form} />
             <SalesTrailerSection form={form} />
           </form>
         </div>
 
-        <aside className="lg:sticky lg:top-[calc(var(--topbar-h)+1rem)] lg:self-start">
+        <aside className="md:ml-auto md:w-full md:max-w-sm lg:sticky lg:top-[calc(var(--topbar-h)+1rem)] lg:max-w-none lg:self-start">
           <OrderSummaryPanel
-            title="สรุปออเดอร์"
+            title="สรุปรายการ"
             rows={panelRows}
             primary={{ label: submitting ? "กำลังบันทึก…" : "บันทึกออเดอร์", type: "submit", form: "sales-form", loading: submitting }}
             primaryRef={refs.submitBtn}
@@ -1484,6 +1486,7 @@ function Sales() {
         onConfirm={() => { setConfirmReset(false); handleReset() }}
         onCancel={() => setConfirmReset(false)}
       />
+      </div>
       {resultSheet}
     </div>
   )

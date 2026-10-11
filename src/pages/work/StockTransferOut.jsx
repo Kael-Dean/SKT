@@ -1,5 +1,6 @@
 // src/pages/StockTransferOut.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
+import { ChevronDown } from "lucide-react"
 import { get, post } from "../../lib/api"
 import {
   cx,
@@ -8,12 +9,15 @@ import {
   labelCls,
   helpTextCls,
   errorTextCls,
-  cardPaddedCls,
+  cardCls,
   sectionTitleCls,
   submitBtnCls,
   resetBtnCls,
   spinnerCls,
 } from "../../lib/styles"
+import ComboBox from "../../components/ComboBox"
+import { StickyActionBar, toast } from "../../components/ui"
+import { useIsPhone } from "../../hooks/useMediaQuery"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -21,6 +25,8 @@ const toInt = (v) => {
   const n = Number(onlyDigits(String(v ?? "")))
   return Number.isFinite(n) ? n : 0
 }
+const nf = (n) =>
+  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(isFinite(n) ? Number(n) : 0)
 const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
@@ -31,232 +37,62 @@ const findLabelById = (opts = [], id) => {
   const f = opts.find((o) => String(o.id ?? o.value) === s)
   return f ? String(f.label ?? "") : ""
 }
+/** option value ของหน้านี้ = id ก่อน value (คง default ของ ComboBox copy เดิม — WP2 ระบุให้ส่ง explicit) */
+const getOptValue = (o) => o?.id ?? o?.value ?? ""
 
+/** ชื่อฟิลด์สั้นสำหรับ toast "กรอกไม่ครบ" (mobile-copy §3.3) */
+const FIELD_LABELS = {
+  transfer_date: "วันที่โอน",
+  from_branch_id: "สาขาต้นทาง",
+  from_klang_id: "คลังต้นทาง",
+  to_branch_id: "สาขาปลายทาง",
+  to_klang_id: "คลังปลายทาง",
+  driver_name: "ชื่อผู้ขนส่ง",
+  plate_number: "ทะเบียนรถ",
+  product_id: "ประเภทสินค้า",
+  rice_id: "ชนิดข้าว",
+  subrice_id: "ชั้นย่อย",
+  field_type_id: "ประเภทนา",
+  rice_year_id: "ปี/ฤดูกาล",
+  program_id: "โปรแกรม",
+  business_type_id: "ประเภทธุรกิจ",
+  weight_in: "น้ำหนักขาเข้า",
+  weight_out: "น้ำหนักขาออก",
+  net_weight: "น้ำหนักสุทธิ",
+  cost_per_kg: "ราคาต้นทุน",
+  impurity_percent: "สิ่งเจือปน",
+}
+const missingDescription = (keys) => {
+  const names = keys.map((k) => FIELD_LABELS[k]).filter(Boolean)
+  const rest = names.length - 3
+  return `ยังไม่ได้กรอก: ${names.slice(0, 3).join(", ")}${rest > 0 ? ` และอีก ${rest} ช่อง` : ""}`
+}
 
-/** ---------- ComboBox (เพิ่ม subLabel + Enter ➜ ไปช่องถัดไป) ---------- */
-const ComboBox = forwardRef(function ComboBox(
-  {
-    options = [],
-    value,
-    onChange,
-    placeholder = "— เลือก —",
-    getLabel = (o) => o?.label ?? "",
-    getValue = (o) => o?.id ?? o?.value ?? "",
-    /** ⭐ เพิ่มบรรทัดอธิบายย่อยใต้ชื่อ (ใช้กับฟอร์มสำเร็จรูป) */
-    getSubLabel = (o) => o?.subLabel ?? "",
-    disabled = false,
-    error = false,
-    hintRed = false,
-    clearHint = () => {},
-    onMoveNext,
-  },
-  ref
-) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(-1)
-  const boxRef = useRef(null)
-  const listRef = useRef(null)
-  const buttonRef = useRef(null)
-  const suppressNextClickRef = useRef(false)
-
-  useImperativeHandle(ref, () => ({
-    focus: () => buttonRef.current?.focus(),
-    open: () => {
-      if (!disabled) {
-        setOpen(true)
-        setHighlight((h) => (h >= 0 ? h : 0))
-      }
-    },
-    close: () => setOpen(false),
-  }))
-
-  const selectedObj = useMemo(
-    () => options.find((o) => String(getValue(o)) === String(value)),
-    [options, value, getValue]
-  )
-  const selectedLabel = selectedObj ? getLabel(selectedObj) : ""
-  const selectedSubLabel = selectedObj ? getSubLabel(selectedObj) || "" : ""
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (!boxRef.current) return
-      if (!boxRef.current.contains(e.target)) {
-        setOpen(false)
-        setHighlight(-1)
-      }
-    }
-    document.addEventListener("click", onClick)
-    return () => document.removeEventListener("click", onClick)
-  }, [])
-
-  const commit = (opt) => {
-    const v = String(getValue(opt))
-    onChange?.(v, opt)
-    setOpen(false)
-    setHighlight(-1)
-    clearHint?.()
-    requestAnimationFrame(() => {
-      buttonRef.current?.focus()
-      onMoveNext?.()
-    })
-  }
-
-  const scrollHighlightedIntoView = (index) => {
-    const listEl = listRef.current
-    const itemEl = listEl?.children?.[index]
-    if (!listEl || !itemEl) return
-    const itemRect = itemEl.getBoundingClientRect()
-    const listRect = listEl.getBoundingClientRect()
-    const buffer = 6
-    if (itemRect.top < listRect.top + buffer) {
-      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
-    } else if (itemRect.bottom > listRect.bottom - buffer) {
-      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
-    }
-  }
-
-  const onKeyDown = (e) => {
-    if (disabled) return
-
-    if (e.key === "Enter") {
-      e.preventDefault()
-      suppressNextClickRef.current = true
-
-      const hasValue = !(value === null || value === undefined || String(value) === "")
-
-      if (open && highlight >= 0 && highlight < options.length) {
-        commit(options[highlight])
-      } else if (hasValue) {
-        onMoveNext?.()
-      } else {
-        setOpen(true)
-        setHighlight((h) => (h >= 0 ? h : 0))
-        clearHint?.()
-      }
-      return
-    }
-
-    if (!open && (e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault()
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
-      clearHint?.()
-      return
-    }
-    if (!open) return
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const next = h < options.length - 1 ? h + 1 : 0
-        requestAnimationFrame(() => scrollHighlightedIntoView(next))
-        return next
-      })
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const prev = h > 0 ? h - 1 : options.length - 1
-        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
-        return prev
-      })
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      setOpen(false)
-      setHighlight(-1)
-    }
-  }
-
-  return (
-    <div className="relative" ref={boxRef}>
-      <button
-        type="button"
-        ref={buttonRef}
-        disabled={disabled}
-        onClick={() => {
-          if (suppressNextClickRef.current) {
-            suppressNextClickRef.current = false
-            return
-          }
-          if (!disabled) {
-            setOpen((o) => !o)
-            clearHint?.()
-          }
-        }}
-        onKeyDown={onKeyDown}
-        onKeyUp={(e) => {
-          if (e.key === "Enter") suppressNextClickRef.current = false
-        }}
-        onFocus={() => clearHint?.()}
-        className={cx(
-          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          error
-            ? "border-red-400 ring-2 ring-red-300/70"
-            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80",
-          hintRed && "ring-2 ring-red-300 animate-pulse"
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-invalid={error || hintRed ? true : undefined}
-      >
-        {selectedLabel ? (
-          <div className="flex flex-col">
-            <span>{selectedLabel}</span>
-            {selectedSubLabel && (
-              <span className="text-[13px] text-slate-600 dark:text-slate-300">{selectedSubLabel}</span>
-            )}
-          </div>
-        ) : (
-          <span className="text-slate-500 dark:text-white/70">{placeholder}</span>
-        )}
-      </button>
-
-      {open && (
-        <div
-          ref={listRef}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
-          )}
-          {options.map((opt, idx) => {
-            const label = getLabel(opt)
-            const sub = getSubLabel(opt) || ""
-            const isActive = idx === highlight
-            const isChosen = String(getValue(opt)) === String(value)
-            return (
-              <button
-                key={String(getValue(opt)) || label || idx}
-                type="button"
-                role="option"
-                aria-selected={isChosen}
-                onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)}
-                className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
-                  isActive
-                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                )}
-              >
-                {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-                )}
-                <span className="flex-1">
-                  <div>{label}</div>
-                  {sub && <div className="text-sm text-slate-600 dark:text-slate-300">{sub}</div>}
-                </span>
-                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-})
+/** แปลง error จากหลังบ้านเป็นข้อความไทย (mobile-copy §4.3–4.4) */
+const SAVE_ERR_TH = [
+  [/failed to fetch|networkerror|timeout/i, "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"],
+  [/field required/i, "ข้อมูลบางช่องไม่ครบ"],
+  [/value is not a valid|type_error/i, "รูปแบบข้อมูลบางช่องไม่ถูกต้อง"],
+  [/greater than 0|ensure this value is greater/i, "น้ำหนักหรือราคาต้องมากกว่า 0"],
+  [/not found[\s\S]*(klang|warehouse)|(klang|warehouse)[\s\S]*not found/i, "ไม่พบคลังที่เลือก"],
+  [/duplicate|already exists/i, "รายการนี้มีอยู่แล้ว"],
+  [/unauthorized|forbidden|credentials/i, "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"],
+]
+function describeSaveError(err) {
+  const status = err?.status
+  const raw = String(err?.message || "")
+  const isThai = /[฀-๿]/.test(raw)
+  // ข้อความไทยที่หน้าสร้างเอง (lookupOriginStock) ส่งต่อตรง ๆ
+  if (!status && isThai) return { title: "บันทึกไม่สำเร็จ", description: raw }
+  const hit = SAVE_ERR_TH.find(([re]) => re.test(raw))?.[1]
+  if (hit) return { title: status === 422 ? "ข้อมูลไม่ผ่านการตรวจ" : "บันทึกไม่สำเร็จ", description: hit }
+  if (!status) return { title: "บันทึกไม่สำเร็จ", description: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสัญญาณแล้วลองใหม่ ข้อมูลที่กรอกยังอยู่" }
+  if (status === 401 || status === 403) return { title: "ไม่มีสิทธิ์บันทึก", description: "สิทธิ์ของบัญชีนี้ไม่ครอบคลุมรายการนี้ หรือหมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }
+  if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "รายการนี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
+  if (status === 422) return { title: "ข้อมูลไม่ผ่านการตรวจ", description: isThai ? raw : "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่" }
+  if (status >= 500) return { title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" }
+  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : `เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง · รหัส: ${status}` }
+}
 
 /** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
@@ -289,10 +125,10 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
           }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-        transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+        className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
+        transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer bg-transparent"
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
         </svg>
       </button>
@@ -302,6 +138,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 
 /** ---------- Page ---------- */
 function StockTransferOut() {
+  const isPhone = useIsPhone()
   const [submitting, setSubmitting] = useState(false)
 
   /** ---------- Template lock (เหมือนหน้า Buy) ---------- */
@@ -962,9 +799,15 @@ function StockTransferOut() {
     if (firstKey) focusByKey(firstKey)
   }
 
+  const notifyInvalid = (hints, eObj) => {
+    const missingKeys = errorOrder.filter((k) => hints[k] && k !== "net_weight" && (form[k] === "" || form[k] == null))
+    if (missingKeys.length) toast.error("กรอกไม่ครบ", { description: missingDescription(missingKeys) })
+    else toast.error("ข้อมูลไม่ถูกต้อง", { description: Object.values(eObj)[0] || "ตรวจช่องที่มีกรอบสีแดง" })
+  }
+
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e?.preventDefault?.()
     scrollToPageTop()
 
     const hints = computeMissingHints()
@@ -972,12 +815,12 @@ function StockTransferOut() {
     const eObj = validate()
 
     if (Object.keys(eObj).length > 0) {
-      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      notifyInvalid(hints, eObj)
       scrollToFirstError(eObj)
       return
     }
     if (Object.values(hints).some(Boolean)) {
-      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      notifyInvalid(hints, {})
       scrollToFirstMissing(hints)
       return
     }
@@ -986,7 +829,7 @@ function StockTransferOut() {
     if (!(transferQty > 0)) {
       const e2 = { net_weight: "น้ำหนักสุทธิไม่ถูกต้อง" }
       setErrors((prev) => ({ ...prev, ...e2 }))
-      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนตรวจสอบ “น้ำหนักสุทธิ” ให้ถูกต้อง")
+      toast.error("ข้อมูลไม่ถูกต้อง", { description: "ตรวจน้ำหนักสุทธิให้ถูกต้อง" })
       scrollToFirstError(e2)
       return
     }
@@ -1025,7 +868,9 @@ function StockTransferOut() {
 
       await post("/transfer/request", payload)
 
-      alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
+      toast.success("บันทึกโอนออกแล้ว", {
+        description: `${form.from_klang_name || "คลังต้นทาง"} → ${form.to_klang_name || "คลังปลายทาง"} · ${nf(transferQty)} กก.`,
+      })
       setForm((f) => ({
         ...f,
         weight_in: "",
@@ -1037,23 +882,271 @@ function StockTransferOut() {
       try { saveBtnRef.current?.blur?.() } catch { /* blur best-effort */ }
     } catch (err) {
       console.error(err)
-      const baseMsg = err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก"
-      const detail = err?.data?.detail
-      const summary = detail ? `\n\nรายละเอียด: ${typeof detail === "string" ? detail : JSON.stringify(detail)}` : ""
-      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
-
-${baseMsg}${summary}`)
+      const { title, description } = describeSaveError(err)
+      toast.error(title, { description })
     } finally {
       setSubmitting(false)
     }
   }
 
+  const handleReset = () =>
+    setForm((f) => ({
+      ...f,
+      weight_in: "",
+      weight_out: "",
+      cost_per_kg: "",
+      impurity_percent: "",
+    }))
+
+  /** ---------- สรุป (ใช้ทั้ง tile ≥md และ dl <md) ---------- */
+  const summaryRows = [
+    { label: "วันที่โอน", value: form.transfer_date || "—", numeric: true },
+    { label: "จาก (สาขา/คลัง)", value: `${form.from_branch_name || "—"}${form.from_klang_name ? `\n${form.from_klang_name}` : ""}` },
+    { label: "ไป (สาขา/คลัง)", value: `${form.to_branch_name || "—"}${form.to_klang_name ? `\n${form.to_klang_name}` : ""}` },
+    { label: "สินค้า", value: form.product_name || "—" },
+    { label: "ชนิดข้าว", value: form.rice_type || "—" },
+    { label: "ชั้นย่อย", value: form.subrice_name || "—" },
+    { label: "สภาพ", value: form.condition_label || "—" },
+    { label: "ประเภทนา", value: form.field_type_label || "—" },
+    { label: "ปี/ฤดูกาล", value: form.rice_year_label || "—" },
+    { label: "โปรแกรม", value: form.program_label || "—" },
+    { label: "ประเภทธุรกิจ", value: form.business_type_label || "—" },
+    { label: "น้ำหนักขาเข้า", value: `${toInt(form.weight_in).toLocaleString()} กก.`, numeric: true },
+    { label: "น้ำหนักขาออก", value: `${toInt(form.weight_out).toLocaleString()} กก.`, numeric: true },
+    { label: "น้ำหนักสุทธิ", value: `${netWeightInt.toLocaleString()} กก.`, numeric: true },
+    { label: "ราคาต้นทุน/กก.", value: form.cost_per_kg ? `${Number(form.cost_per_kg).toFixed(2)} บาท/กก.` : "—", numeric: true },
+    { label: "ราคารวม", value: thb(totalCost), numeric: true },
+    { label: "สิ่งเจือปน", value: form.impurity_percent !== "" ? `${Number(form.impurity_percent)} %` : "—", numeric: true },
+    { label: "ผู้ขนส่ง", value: form.driver_name || "—" },
+    { label: "ทะเบียนรถ", value: form.plate_number || "—", numeric: true },
+    { label: "บันทึกเพิ่มเติม", value: form.quality_note || "—" },
+  ]
+
+  /** สเปคที่ล็อกจากฟอร์มสำเร็จรูป — read-only card บน <md (UI-SPEC §7) */
+  const lockedSpecRows = [
+    { key: "product_id", label: "ประเภทสินค้า", value: form.product_name },
+    { key: "rice_id", label: "ชนิดข้าว", value: form.rice_type },
+    { key: "subrice_id", label: "ชั้นย่อย", value: form.subrice_name },
+    { key: "condition_id", label: "สภาพ/เงื่อนไข", value: form.condition_label },
+    { key: "field_type_id", label: "ประเภทนา", value: form.field_type_label },
+    { key: "rice_year_id", label: "ปี/ฤดูกาล", value: form.rice_year_label },
+    { key: "program_id", label: "โปรแกรม", value: form.program_label },
+    { key: "business_type_id", label: "ประเภทธุรกิจ", value: form.business_type_label },
+  ]
+
+  /** ---------- Sticky bar summary (<md) ---------- */
+  const barSummary = (
+    <div className="min-w-0">
+      <p className="truncate text-gray-900 dark:text-gray-100">
+        {form.from_klang_name || form.to_klang_name
+          ? `${form.from_klang_name || "คลังต้นทาง"} → ${form.to_klang_name || "คลังปลายทาง"}`
+          : "ยังไม่ได้เลือกคลัง"}
+      </p>
+      <p className="tabular-nums text-gray-500 dark:text-gray-400">
+        สุทธิ {nf(netWeightInt)} กก. · {thb(totalCost)}
+      </p>
+    </div>
+  )
+
+  const cardSectionCls = cx(cardCls, "p-4 md:p-5 mb-4 md:mb-6")
+
+  const specGrid = (
+    <div className="grid gap-4 md:grid-cols-3">
+      <div>
+        <label className={labelCls}>ประเภทสินค้า</label>
+        <ComboBox
+          ref={productRef}
+          title="ประเภทสินค้า"
+          ariaLabel="ประเภทสินค้า"
+          options={productOptions}
+          value={form.product_id}
+          getValue={getOptValue}
+          enterMovesWhenFilled
+          onMoveNext={() => {/* skip */}}
+          onChange={(id, found) => {
+            clearError("product_id")
+            clearHint("product_id")
+            update("product_id", id)
+            update("product_name", found?.label ?? "")
+          }}
+          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          error={!!errors.product_id}
+          hintRed={!!missingHints.product_id}
+          disabled={LOCK_SPEC}
+        />
+        {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
+      </div>
+
+      <div>
+        <label className={labelCls}>ชนิดข้าว</label>
+        <ComboBox
+          ref={riceRef}
+          title="ชนิดข้าว"
+          ariaLabel="ชนิดข้าว"
+          searchable
+          options={riceOptions}
+          value={form.rice_id}
+          getValue={getOptValue}
+          enterMovesWhenFilled
+          onMoveNext={() => {/* skip */}}
+          onChange={(id, found) => {
+            clearError("rice_id")
+            clearHint("rice_id")
+            update("rice_id", id)
+            update("rice_type", found?.label ?? "")
+          }}
+          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          disabled={LOCK_SPEC}
+          error={!!errors.rice_id}
+          hintRed={!!missingHints.rice_id}
+        />
+        {errors.rice_id && <p className={errorTextCls}>{errors.rice_id}</p>}
+      </div>
+
+      <div>
+        <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
+        <ComboBox
+          ref={subriceRef}
+          title="ชั้นย่อย"
+          ariaLabel="ชั้นย่อย (Sub-class)"
+          searchable
+          options={subriceOptions}
+          value={form.subrice_id}
+          getValue={getOptValue}
+          enterMovesWhenFilled
+          onMoveNext={() => {/* skip */}}
+          onChange={(id, found) => {
+            clearError("subrice_id")
+            clearHint("subrice_id")
+            update("subrice_id", id)
+            update("subrice_name", found?.label ?? "")
+          }}
+          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          disabled={LOCK_SPEC}
+          error={!!errors.subrice_id}
+          hintRed={!!missingHints.subrice_id}
+        />
+        {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
+      </div>
+
+      <div>
+        <label className={labelCls}>สภาพ/เงื่อนไข</label>
+        <ComboBox
+          ref={conditionRef}
+          title="สภาพ/เงื่อนไข"
+          ariaLabel="สภาพ/เงื่อนไข"
+          options={conditionOptions}
+          value={form.condition_id}
+          getValue={getOptValue}
+          enterMovesWhenFilled
+          onMoveNext={() => {/* ไม่อยู่ใน flow */}}
+          onChange={(id, found) => {
+            update("condition_id", id)
+            update("condition_label", found?.label ?? "")
+          }}
+          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          disabled={LOCK_SPEC}
+        />
+      </div>
+
+      <div>
+        <label className={labelCls}>ประเภทนา</label>
+        <ComboBox
+          ref={fieldRef}
+          title="ประเภทนา"
+          ariaLabel="ประเภทนา"
+          options={fieldOptions}
+          value={form.field_type_id}
+          getValue={getOptValue}
+          enterMovesWhenFilled
+          onMoveNext={() => {/* skip */}}
+          onChange={(id, found) => {
+            clearError("field_type_id")
+            clearHint("field_type_id")
+            update("field_type_id", id)
+            update("field_type_label", found?.label ?? "")
+          }}
+          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          error={!!errors.field_type_id}
+          hintRed={!!missingHints.field_type_id}
+          disabled={LOCK_SPEC}
+        />
+        {errors.field_type_id && <p className={errorTextCls}>{errors.field_type_id}</p>}
+      </div>
+
+      <div>
+        <label className={labelCls}>ปี/ฤดูกาล</label>
+        <ComboBox
+          ref={yearRef}
+          title="ปี/ฤดูกาล"
+          ariaLabel="ปี/ฤดูกาล"
+          options={yearOptions}
+          value={form.rice_year_id}
+          getValue={getOptValue}
+          enterMovesWhenFilled
+          onMoveNext={() => {/* skip */}}
+          onChange={(id, found) => {
+            update("rice_year_id", id)
+            update("rice_year_label", found?.label ?? "")
+          }}
+          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          disabled={LOCK_SPEC}
+        />
+      </div>
+
+      <div>
+        <label className={labelCls}>โปรแกรม</label>
+        <ComboBox
+          ref={programRef}
+          title="โปรแกรม"
+          ariaLabel="โปรแกรม"
+          options={programOptions}
+          value={form.program_id}
+          getValue={getOptValue}
+          enterMovesWhenFilled
+          onMoveNext={() => {/* skip */}}
+          onChange={(id, found) => {
+            update("program_id", id)
+            update("program_label", found?.label ?? "")
+          }}
+          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          disabled={LOCK_SPEC}
+        />
+      </div>
+
+      <div>
+        <label className={labelCls}>ประเภทธุรกิจ</label>
+        <ComboBox
+          ref={businessRef}
+          title="ประเภทธุรกิจ"
+          ariaLabel="ประเภทธุรกิจ"
+          options={businessOptions}
+          value={form.business_type_id}
+          getValue={getOptValue}
+          enterMovesWhenFilled
+          onMoveNext={() => {/* ไม่อยู่ใน flow */}}
+          onChange={(id, found) => {
+            clearError("business_type_id")
+            clearHint("business_type_id")
+            update("business_type_id", id)
+            update("business_type_label", found?.label ?? "")
+          }}
+          placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
+          error={!!errors.business_type_id}
+          hintRed={!!missingHints.business_type_id}
+          disabled={LOCK_SPEC}
+        />
+        {errors.business_type_id && <p className={errorTextCls}>{errors.business_type_id}</p>}
+      </div>
+    </div>
+  )
+
   /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 flex items-center gap-2.5 text-3xl font-bold text-gray-900 dark:text-white">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-7 text-indigo-600 dark:text-indigo-400">
+      <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
+        <h1 className="mb-4 flex items-center gap-2.5 text-xl md:text-3xl font-bold text-gray-900 dark:text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-6 md:size-7 text-indigo-600 dark:text-indigo-400">
             <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
             <path d="M15 18H9" />
             <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" />
@@ -1065,17 +1158,22 @@ ${baseMsg}${summary}`)
 
         <form onSubmit={handleSubmit}>
           {/* กล่องข้อมูลการโอน + ดรอปดาวน์ฟอร์มสำเร็จรูป (ตำแหน่งแบบเดียวกับหน้า Buy) */}
-          <div className={cx(cardPaddedCls, "mb-6")}>
+          <div className={cardSectionCls}>
             <div className="mb-3 flex flex-wrap items-start gap-2">
-              <h2 className="text-xl font-semibold">ข้อมูลการโอน</h2>
+              <h2 className="text-lg md:text-xl font-semibold">ข้อมูลการโอน</h2>
 
               <div className="ml-auto w-full sm:w-72 self-start">
                 <label className={labelCls}>ฟอร์มสำเร็จรูป</label>
                 <ComboBox
                   ref={templateRef}
+                  title="ฟอร์มสำเร็จรูป"
+                  ariaLabel="ฟอร์มสำเร็จรูป"
+                  searchable
                   options={templateOptions}
                   value={formTemplate}
+                  getValue={getOptValue}
                   getSubLabel={(o) => templateSubLabel(o)}
+                  enterMovesWhenFilled
                   onChange={(id, found) => {
                     const idStr = String(id)
                     setFormTemplate(idStr)
@@ -1105,8 +1203,9 @@ ${baseMsg}${summary}`)
             <div className="grid gap-4 md:grid-cols-3">
               {/* วันที่ */}
               <div>
-                <label className={labelCls}>วันที่โอน</label>
+                <label htmlFor="transfer_date" className={labelCls}>วันที่โอน</label>
                 <DateInput
+                  id="transfer_date"
                   ref={dateRef}
                   value={form.transfer_date}
                   onChange={(e) => {
@@ -1135,8 +1234,9 @@ ${baseMsg}${summary}`)
 
               {/* ชื่อผู้ขนส่ง */}
               <div>
-                <label className={labelCls}>ชื่อผู้ขนส่ง</label>
+                <label htmlFor="driver_name" className={labelCls}>ชื่อผู้ขนส่ง</label>
                 <input
+                  id="driver_name"
                   ref={driverRef}
                   className={cx(baseField, redFieldCls("driver_name"))}
                   value={form.driver_name}
@@ -1154,8 +1254,9 @@ ${baseMsg}${summary}`)
 
               {/* ทะเบียนรถ */}
               <div>
-                <label className={labelCls}>ทะเบียนรถขนส่ง</label>
+                <label htmlFor="plate_number" className={labelCls}>ทะเบียนรถขนส่ง</label>
                 <input
+                  id="plate_number"
                   ref={plateRef}
                   className={cx(baseField, redFieldCls("plate_number"))}
                   value={form.plate_number}
@@ -1181,9 +1282,12 @@ ${baseMsg}${summary}`)
                 <label className={labelCls}>สาขาต้นทาง</label>
                 <ComboBox
                   ref={fromBranchRef}
+                  title="สาขาต้นทาง"
+                  ariaLabel="สาขาต้นทาง"
                   options={fromBranchOptions}
                   value={form.from_branch_id}
                   getValue={(o) => o.id}
+                  enterMovesWhenFilled
                   onMoveNext={() => focusComboRef(fromKlangRef)}
                   onChange={(_val, found) => {
                     clearError("from_branch_id")
@@ -1196,6 +1300,7 @@ ${baseMsg}${summary}`)
                   placeholder="— เลือกสาขาต้นทาง —"
                   error={!!errors.from_branch_id}
                   hintRed={!!missingHints.from_branch_id}
+                  clearHint={() => clearHint("from_branch_id")}
                 />
                 {errors.from_branch_id && <p className={errorTextCls}>{errors.from_branch_id}</p>}
               </div>
@@ -1204,9 +1309,12 @@ ${baseMsg}${summary}`)
                 <label className={labelCls}>คลังต้นทาง</label>
                 <ComboBox
                   ref={fromKlangRef}
+                  title="คลังต้นทาง"
+                  ariaLabel="คลังต้นทาง"
                   options={fromKlangOptions}
                   value={form.from_klang_id}
                   getValue={(o) => o.id}
+                  enterMovesWhenFilled
                   onMoveNext={() => focusComboRef(toBranchRef)}
                   onChange={(_val, found) => {
                     clearError("from_klang_id")
@@ -1218,7 +1326,9 @@ ${baseMsg}${summary}`)
                   disabled={!form.from_branch_id}
                   error={!!errors.from_klang_id}
                   hintRed={!!missingHints.from_klang_id}
+                  clearHint={() => clearHint("from_klang_id")}
                 />
+                {!form.from_branch_id && <p className={helpTextCls}>เลือกสาขาต้นทางก่อน</p>}
                 {errors.from_klang_id && <p className={errorTextCls}>{errors.from_klang_id}</p>}
               </div>
 
@@ -1229,9 +1339,12 @@ ${baseMsg}${summary}`)
                 <label className={labelCls}>สาขาปลายทาง</label>
                 <ComboBox
                   ref={toBranchRef}
+                  title="สาขาปลายทาง"
+                  ariaLabel="สาขาปลายทาง"
                   options={toBranchOptions}
                   value={form.to_branch_id}
                   getValue={(o) => o.id}
+                  enterMovesWhenFilled
                   onMoveNext={() => focusComboRef(toKlangRef)}
                   onChange={(_val, found) => {
                     clearError("to_branch_id")
@@ -1244,6 +1357,7 @@ ${baseMsg}${summary}`)
                   placeholder="— เลือกสาขาปลายทาง —"
                   error={!!errors.to_branch_id}
                   hintRed={!!missingHints.to_branch_id}
+                  clearHint={() => clearHint("to_branch_id")}
                 />
                 {errors.to_branch_id && <p className={errorTextCls}>{errors.to_branch_id}</p>}
               </div>
@@ -1252,9 +1366,12 @@ ${baseMsg}${summary}`)
                 <label className={labelCls}>คลังปลายทาง</label>
                 <ComboBox
                   ref={toKlangRef}
+                  title="คลังปลายทาง"
+                  ariaLabel="คลังปลายทาง"
                   options={toKlangOptions}
                   value={form.to_klang_id}
                   getValue={(o) => o.id}
+                  enterMovesWhenFilled
                   /** ⭐ เลือกคลังปลายทางเสร็จ ➜ ไป "น้ำหนักขาเข้า (รถเปล่า)" */
                   onMoveNext={() => {
                     try {
@@ -1274,7 +1391,9 @@ ${baseMsg}${summary}`)
                   disabled={!form.to_branch_id}
                   error={!!errors.to_klang_id}
                   hintRed={!!missingHints.to_klang_id}
+                  clearHint={() => clearHint("to_klang_id")}
                 />
+                {!form.to_branch_id && <p className={helpTextCls}>เลือกสาขาปลายทางก่อน</p>}
                 {errors.to_klang_id && <p className={errorTextCls}>{errors.to_klang_id}</p>}
               </div>
 
@@ -1283,172 +1402,45 @@ ${baseMsg}${summary}`)
           </div>
 
           {/* สินค้า + เมตาดาต้า (ล็อกจาก Template) */}
-          <div className={cx(cardPaddedCls, "mb-6")}>
+          <div className={cardSectionCls}>
             <h2 className={sectionTitleCls}>สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
 
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <label className={labelCls}>ประเภทสินค้า</label>
-                <ComboBox
-                  ref={productRef}
-                  options={productOptions}
-                  value={form.product_id}
-                  onMoveNext={() => {/* skip */}}
-                  onChange={(id, found) => {
-                    clearError("product_id")
-                    clearHint("product_id")
-                    update("product_id", id)
-                    update("product_name", found?.label ?? "")
-                  }}
-                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
-                  error={!!errors.product_id}
-                  hintRed={!!missingHints.product_id}
-                  disabled={LOCK_SPEC}
-                />
-                {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>ชนิดข้าว</label>
-                <ComboBox
-                  ref={riceRef}
-                  options={riceOptions}
-                  value={form.rice_id}
-                  onMoveNext={() => {/* skip */}}
-                  onChange={(id, found) => {
-                    clearError("rice_id")
-                    clearHint("rice_id")
-                    update("rice_id", id)
-                    update("rice_type", found?.label ?? "")
-                  }}
-                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
-                  disabled={LOCK_SPEC}
-                  error={!!errors.rice_id}
-                  hintRed={!!missingHints.rice_id}
-                />
-                {errors.rice_id && <p className={errorTextCls}>{errors.rice_id}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>ชั้นย่อย (Sub-class)</label>
-                <ComboBox
-                  ref={subriceRef}
-                  options={subriceOptions}
-                  value={form.subrice_id}
-                  onMoveNext={() => {/* skip */}}
-                  onChange={(id, found) => {
-                    clearError("subrice_id")
-                    clearHint("subrice_id")
-                    update("subrice_id", id)
-                    update("subrice_name", found?.label ?? "")
-                  }}
-                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
-                  disabled={LOCK_SPEC}
-                  error={!!errors.subrice_id}
-                  hintRed={!!missingHints.subrice_id}
-                />
-                {errors.subrice_id && <p className={errorTextCls}>{errors.subrice_id}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>สภาพ/เงื่อนไข</label>
-                <ComboBox
-                  ref={conditionRef}
-                  options={conditionOptions}
-                  value={form.condition_id}
-                  onMoveNext={() => {/* ไม่อยู่ใน flow */}}
-                  onChange={(id, found) => {
-                    update("condition_id", id)
-                    update("condition_label", found?.label ?? "")
-                  }}
-                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
-                  disabled={LOCK_SPEC}
-                />
-              </div>
-
-              <div>
-                <label className={labelCls}>ประเภทนา</label>
-                <ComboBox
-                  ref={fieldRef}
-                  options={fieldOptions}
-                  value={form.field_type_id}
-                  onMoveNext={() => {/* skip */}}
-                  onChange={(id, found) => {
-                    clearError("field_type_id")
-                    clearHint("field_type_id")
-                    update("field_type_id", id)
-                    update("field_type_label", found?.label ?? "")
-                  }}
-                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
-                  error={!!errors.field_type_id}
-                  hintRed={!!missingHints.field_type_id}
-                  disabled={LOCK_SPEC}
-                />
-                {errors.field_type_id && <p className={errorTextCls}>{errors.field_type_id}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>ปี/ฤดูกาล</label>
-                <ComboBox
-                  ref={yearRef}
-                  options={yearOptions}
-                  value={form.rice_year_id}
-                  onMoveNext={() => {/* skip */}}
-                  onChange={(id, found) => {
-                    update("rice_year_id", id)
-                    update("rice_year_label", found?.label ?? "")
-                  }}
-                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
-                  disabled={LOCK_SPEC}
-                />
-              </div>
-
-              <div>
-                <label className={labelCls}>โปรแกรม</label>
-                <ComboBox
-                  ref={programRef}
-                  options={programOptions}
-                  value={form.program_id}
-                  onMoveNext={() => {/* skip */}}
-                  onChange={(id, found) => {
-                    update("program_id", id)
-                    update("program_label", found?.label ?? "")
-                  }}
-                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
-                  disabled={LOCK_SPEC}
-                />
-              </div>
-
-              <div>
-                <label className={labelCls}>ประเภทธุรกิจ</label>
-                <ComboBox
-                  ref={businessRef}
-                  options={businessOptions}
-                  value={form.business_type_id}
-                  onMoveNext={() => {/* ไม่อยู่ใน flow */}} 
-                  onChange={(id, found) => {
-                    clearError("business_type_id")
-                    clearHint("business_type_id")
-                    update("business_type_id", id)
-                    update("business_type_label", found?.label ?? "")
-                  }}
-                  placeholder="— ล็อกโดยฟอร์มสำเร็จรูป —"
-                  error={!!errors.business_type_id}
-                  hintRed={!!missingHints.business_type_id}
-                  disabled={LOCK_SPEC}
-                />
-                {errors.business_type_id && <p className={errorTextCls}>{errors.business_type_id}</p>}
-              </div>
-            </div>
+            {isPhone ? (
+              <>
+                {/* read-only card ของสเปคที่ล็อก (UI-SPEC §7 / §3.2) */}
+                <dl className="divide-y divide-gray-100 rounded-2xl bg-gray-50 px-4 dark:divide-gray-700/70 dark:bg-gray-900/40">
+                  {lockedSpecRows.map((r) => (
+                    <div key={r.key} className="py-2.5">
+                      <div className="flex items-baseline justify-between gap-4">
+                        <dt className="text-sm text-gray-500 dark:text-gray-400">{r.label}</dt>
+                        <dd className="text-right text-base font-medium leading-relaxed text-gray-900 dark:text-gray-100">{r.value || "—"}</dd>
+                      </div>
+                      {errors[r.key] && <p className={errorTextCls}>{errors[r.key]}</p>}
+                    </div>
+                  ))}
+                </dl>
+                <p className={helpTextCls}>ล็อกตามฟอร์มสำเร็จรูป</p>
+                <details className="group mt-3">
+                  <summary className="flex min-h-touch cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 text-sm font-medium text-gray-700 dark:text-gray-200 [&::-webkit-details-marker]:hidden">
+                    ดูช่องสเปคทั้งหมด
+                    <ChevronDown aria-hidden="true" strokeWidth={1.75} className="size-5 text-gray-400 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none dark:text-gray-500" />
+                  </summary>
+                  <div className="pt-3">{specGrid}</div>
+                </details>
+              </>
+            ) : (
+              specGrid
+            )}
           </div>
 
           {/* ชั่ง/ราคา */}
-          <div className={cx(cardPaddedCls, "mb-6")}>
+          <div className={cardSectionCls}>
             <h2 className={sectionTitleCls}>ชั่งน้ำหนักและต้นทุน</h2>
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>น้ำหนักขาเข้า (รถเปล่า) กก.</label>
+                <label htmlFor="weight_in" className={labelCls}>น้ำหนักขาเข้า (รถเปล่า) กก.</label>
                 <input
+                  id="weight_in"
                   ref={weightInRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
@@ -1468,8 +1460,9 @@ ${baseMsg}${summary}`)
               </div>
 
               <div>
-                <label className={labelCls}>น้ำหนักขาออก (รถ + ข้าว) กก.</label>
+                <label htmlFor="weight_out" className={labelCls}>น้ำหนักขาออก (รถ + ข้าว) กก.</label>
                 <input
+                  id="weight_out"
                   ref={weightOutRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
@@ -1488,16 +1481,34 @@ ${baseMsg}${summary}`)
                 <p className={helpTextCls}>* ต้องเป็นจำนวนเต็มกิโลกรัม และมากกว่า “ขาเข้า”</p>
               </div>
 
-              <div>
-                <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
-                <input disabled className={cx(baseField, fieldDisabled, "tabular-nums")} value={netWeightInt} />
+              <div className="col-span-2 md:col-span-1">
+                {isPhone ? (
+                  <div
+                    className={cx(
+                      "rounded-2xl bg-gray-50 p-4 ring-1 ring-indigo-200/60 dark:bg-gray-800/60 dark:ring-indigo-500/30",
+                      errors.net_weight && "ring-red-300 dark:ring-red-500/50"
+                    )}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <p className="text-sm text-gray-500 dark:text-gray-400">น้ำหนักสุทธิ</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{nf(netWeightInt)} กก.</p>
+                    <p className={helpTextCls}>คำนวณ = น้ำหนักขาออก − น้ำหนักขาเข้า</p>
+                  </div>
+                ) : (
+                  <>
+                    <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
+                    <input disabled aria-label="น้ำหนักสุทธิ (กก.)" className={cx(baseField, fieldDisabled, "tabular-nums")} value={netWeightInt} />
+                    <p className={helpTextCls}>คำนวณ = น้ำหนักขาออก − น้ำหนักขาเข้า</p>
+                  </>
+                )}
                 {errors.net_weight && <p className={errorTextCls}>{errors.net_weight}</p>}
-                <p className={helpTextCls}>คำนวณ = น้ำหนักขาออก − น้ำหนักขาเข้า</p>
               </div>
 
               <div>
-                <label className={labelCls}>ราคาต้นทุน (บาท/กก.)</label>
+                <label htmlFor="cost_per_kg" className={labelCls}>ราคาต้นทุน (บาท/กก.)</label>
                 <input
+                  id="cost_per_kg"
                   ref={costRef}
                   inputMode="decimal"
                   className={cx(baseField, "tabular-nums", redFieldCls("cost_per_kg"))}
@@ -1513,13 +1524,14 @@ ${baseMsg}${summary}`)
 
               <div>
                 <label className={labelCls}>ราคาสุทธิ (บาท)</label>
-                <input disabled className={cx(baseField, fieldDisabled, "tabular-nums")} value={thb(totalCost)} />
+                <input disabled aria-label="ราคาสุทธิ (บาท)" className={cx(baseField, fieldDisabled, "tabular-nums")} value={thb(totalCost)} />
                 <p className={helpTextCls}>คำนวณ = ราคาต้นทุน × น้ำหนักสุทธิ</p>
               </div>
 
-              <div>
-                <label className={labelCls}>สิ่งเจือปน (%)</label>
+              <div className="col-span-2 md:col-span-1">
+                <label htmlFor="impurity_percent" className={labelCls}>สิ่งเจือปน (%)</label>
                 <input
+                  id="impurity_percent"
                   ref={impurityRef}
                   inputMode="decimal"
                   className={cx(baseField, "tabular-nums", redFieldCls("impurity_percent"))}
@@ -1537,74 +1549,66 @@ ${baseMsg}${summary}`)
           </div>
 
           {/* สรุปก่อนบันทึก */}
-          <div className="mb-6">
+          <div className="mb-4 md:mb-6">
             <h2 className={sectionTitleCls}>สรุปก่อนบันทึก</h2>
-            <div className="grid gap-4 md:grid-cols-5">
-              {[
-                { label: "วันที่โอน", value: form.transfer_date || "—", numeric: true },
-                { label: "จาก (สาขา/คลัง)", value: `${form.from_branch_name || "—"}${form.from_klang_name ? `\n${form.from_klang_name}` : ""}` },
-                { label: "ไป (สาขา/คลัง)", value: `${form.to_branch_name || "—"}${form.to_klang_name ? `\n${form.to_klang_name}` : ""}` },
-                { label: "สินค้า", value: form.product_name || "—" },
-                { label: "ชนิดข้าว", value: form.rice_type || "—" },
-                { label: "ชั้นย่อย", value: form.subrice_name || "—" },
-                { label: "สภาพ", value: form.condition_label || "—" },
-                { label: "ประเภทนา", value: form.field_type_label || "—" },
-                { label: "ปี/ฤดูกาล", value: form.rice_year_label || "—" },
-                { label: "โปรแกรม", value: form.program_label || "—" },
-                { label: "ประเภทธุรกิจ", value: form.business_type_label || "—" },
-                { label: "น้ำหนักขาเข้า", value: `${toInt(form.weight_in).toLocaleString()} กก.`, numeric: true },
-                { label: "น้ำหนักขาออก", value: `${toInt(form.weight_out).toLocaleString()} กก.`, numeric: true },
-                { label: "น้ำหนักสุทธิ", value: `${netWeightInt.toLocaleString()} กก.`, numeric: true },
-                { label: "ราคาต้นทุน/กก.", value: form.cost_per_kg ? `${Number(form.cost_per_kg).toFixed(2)} บาท/กก.` : "—", numeric: true },
-                { label: "ราคารวม", value: thb(totalCost), numeric: true },
-                { label: "สิ่งเจือปน", value: form.impurity_percent !== "" ? `${Number(form.impurity_percent)} %` : "—", numeric: true },
-                { label: "ผู้ขนส่ง", value: form.driver_name || "—" },
-                { label: "ทะเบียนรถ", value: form.plate_number || "—", numeric: true },
-                { label: "บันทึกเพิ่มเติม", value: form.quality_note || "—" },
-              ].map((c) => (
-                <div
-                  key={c.label}
-                  className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 transition-shadow duration-150 hover:shadow-md dark:bg-slate-800 dark:text-white dark:ring-slate-700"
-                >
-                  <div className="text-sm text-slate-600 dark:text-slate-300">{c.label}</div>
-                  <div className={cx("text-lg md:text-xl font-semibold whitespace-pre-line", c.numeric && "tabular-nums")}>
-                    {c.value}
+            {isPhone ? (
+              <dl className={cx(cardCls, "divide-y divide-gray-100 px-4 dark:divide-gray-700/70")}>
+                {summaryRows.map((c) => (
+                  <div key={c.label} className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="shrink-0 text-sm text-gray-500 dark:text-gray-400">{c.label}</dt>
+                    <dd className={cx("min-w-0 text-right text-base font-medium leading-relaxed whitespace-pre-line text-gray-900 dark:text-gray-100", c.numeric && "tabular-nums")}>
+                      {c.value}
+                    </dd>
                   </div>
-                </div>
-              ))}
+                ))}
+              </dl>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-5">
+                {summaryRows.map((c) => (
+                  <div
+                    key={c.label}
+                    className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 transition-shadow duration-150 hover:shadow-md dark:bg-slate-800 dark:text-white dark:ring-slate-700"
+                  >
+                    <div className="text-sm text-slate-600 dark:text-slate-300">{c.label}</div>
+                    <div className={cx("text-lg md:text-xl font-semibold whitespace-pre-line", c.numeric && "tabular-nums")}>
+                      {c.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ปุ่ม — <md: แถบติดล่าง (UI-SPEC §7) · ≥md: ปุ่มเดิม (saveBtnRef อยู่ใน Enter flow) */}
+          {isPhone ? (
+            <StickyActionBar
+              summary={barSummary}
+              secondary={{ label: "ล้างฟอร์ม", onClick: handleReset, disabled: submitting }}
+              primary={{ label: submitting ? "กำลังบันทึก…" : "บันทึก", onClick: handleSubmit, loading: submitting }}
+            />
+          ) : (
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button
+                ref={saveBtnRef}
+                type="submit"
+                disabled={submitting}
+                onClick={scrollToPageTop}
+                className={submitBtnCls}
+                aria-busy={submitting ? "true" : "false"}
+              >
+                {submitting && <span className={spinnerCls} aria-hidden="true" />}
+                {submitting ? "กำลังบันทึก..." : "บันทึก"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleReset}
+                className={resetBtnCls}
+              >
+                รีเซ็ต
+              </button>
             </div>
-          </div>
-
-          {/* ปุ่ม */}
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button
-              ref={saveBtnRef}
-              type="submit"
-              disabled={submitting}
-              onClick={scrollToPageTop}
-              className={submitBtnCls}
-              aria-busy={submitting ? "true" : "false"}
-            >
-              {submitting && <span className={spinnerCls} aria-hidden="true" />}
-              {submitting ? "กำลังบันทึก..." : "บันทึก"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setForm((f) => ({
-                  ...f,
-                  weight_in: "",
-                  weight_out: "",
-                  cost_per_kg: "",
-                  impurity_percent: "",
-                }))
-              }
-              className={resetBtnCls}
-            >
-              รีเซ็ต
-            </button>
-          </div>
+          )}
         </form>
       </div>
     </div>

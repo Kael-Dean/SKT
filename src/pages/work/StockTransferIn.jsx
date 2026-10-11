@@ -1,8 +1,9 @@
 // src/pages/StockTransferIn.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { get, post } from "../../lib/api"
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
-import { PageLoader, EmptyState, ErrorState, Badge } from "../../components/ui"
+import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, secondaryBtnCls } from "../../lib/styles"
+import { PageLoader, EmptyState, ErrorState, Badge, DataList, StickyActionBar, toast } from "../../components/ui"
+import { useIsPhone } from "../../hooks/useMediaQuery"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -10,19 +11,61 @@ const toInt = (v) => {
   const n = Number(onlyDigits(String(v ?? "")))
   return Number.isFinite(n) ? n : 0
 }
+const nf = (n) =>
+  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(isFinite(n) ? Number(n) : 0)
 const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
   )
-/** ---------- ALERT MESSAGES (ให้เหมือนหน้าขาย) ---------- */
-const ALERT_FAIL =
-  "❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌"
-const ALERT_FAIL_HINT =
-  `${ALERT_FAIL}\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง`
-const ALERT_SUCCESS =
-  "✅✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅✅"
+
+/** ชื่อฟิลด์สั้นสำหรับ toast "กรอกไม่ครบ" (mobile-copy §3.3) */
+const FIELD_LABELS = {
+  transfer_id: "คำขอที่จะรับเข้า",
+  transfer_date: "วันที่รับเข้า",
+  weight_in: "ชั่งเข้า",
+  weight_out: "ชั่งออก",
+  net_weight: "น้ำหนักสุทธิ",
+  dest_quality: "คุณภาพ",
+  impurity_percent: "สิ่งเจือปน",
+  price_per_kilo: "ราคาต้นทุน/กก.",
+}
+const MISSING_ORDER = ["transfer_id", "transfer_date", "weight_in", "weight_out", "net_weight", "dest_quality", "impurity_percent", "price_per_kilo"]
+const missingDescription = (keys) => {
+  const names = keys.map((k) => FIELD_LABELS[k]).filter(Boolean)
+  const rest = names.length - 3
+  return `ยังไม่ได้กรอก: ${names.slice(0, 3).join(", ")}${rest > 0 ? ` และอีก ${rest} ช่อง` : ""}`
+}
+
+/** แปลง error จากหลังบ้านเป็นข้อความไทย (mobile-copy §4.3–4.4) */
+const SAVE_ERR_TH = [
+  [/failed to fetch|networkerror|timeout/i, "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"],
+  [/field required/i, "ข้อมูลบางช่องไม่ครบ"],
+  [/value is not a valid|type_error/i, "รูปแบบข้อมูลบางช่องไม่ถูกต้อง"],
+  [/greater than 0|ensure this value is greater/i, "น้ำหนักหรือราคาต้องมากกว่า 0"],
+  [/not found[\s\S]*(klang|warehouse)|(klang|warehouse)[\s\S]*not found/i, "ไม่พบคลังที่เลือก"],
+  [/duplicate|already exists/i, "รายการนี้มีอยู่แล้ว"],
+  [/unauthorized|forbidden|credentials/i, "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"],
+]
+function describeSaveError(err) {
+  const status = err?.status
+  const raw = String(err?.message || "")
+  const isThai = /[฀-๿]/.test(raw)
+  const hit = SAVE_ERR_TH.find(([re]) => re.test(raw))?.[1]
+  if (hit) return { title: status === 422 ? "ข้อมูลไม่ผ่านการตรวจ" : "บันทึกไม่สำเร็จ", description: hit }
+  if (!status) return { title: "บันทึกไม่สำเร็จ", description: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสัญญาณแล้วลองใหม่ ข้อมูลที่กรอกยังอยู่" }
+  if (status === 401 || status === 403) return { title: "ไม่มีสิทธิ์บันทึก", description: "สิทธิ์ของบัญชีนี้ไม่ครอบคลุมรายการนี้ หรือหมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }
+  if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "รายการนี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
+  if (status === 422) return { title: "ข้อมูลไม่ผ่านการตรวจ", description: isThai ? raw : "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่" }
+  if (status >= 500) return { title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" }
+  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : `เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง · รหัส: ${status}` }
+}
 
 /** ---------- Styles ---------- */
+const sectionCardCls =
+  "mb-4 md:mb-6 rounded-2xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800"
+const sectionTitleTextCls = "mb-3 text-lg md:text-xl font-semibold"
+const rejectBtnCls =
+  "inline-flex items-center justify-center rounded-xl border border-red-300 px-3 py-1.5 text-red-600 font-medium transition-colors duration-150 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 dark:border-red-800/70 dark:text-red-300 dark:hover:bg-red-900/20 cursor-pointer"
 
 /** ---------- DateInput ---------- */
 const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
@@ -55,10 +98,10 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
           }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-        transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+        className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
+        transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer bg-transparent"
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
         </svg>
       </button>
@@ -68,6 +111,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 
 /** ---------- Main Page (รับเข้า) + FormGuard ---------- */
 function StockTransferIn() {
+  const isPhone = useIsPhone()
   const [submitting, setSubmitting] = useState(false)
 
   /** ---------- Requests (inbox) ---------- */
@@ -289,17 +333,7 @@ function StockTransferIn() {
   }
 
   const focusFirstInvalid = (hints, e) => {
-    const order = [
-      "transfer_id",
-      "transfer_date",
-      "weight_in",
-      "weight_out",
-      "net_weight",
-      "dest_quality",
-      "impurity_percent",
-      "price_per_kilo",
-    ]
-    const firstKey = order.find((k) => hints[k] || e[k])
+    const firstKey = MISSING_ORDER.find((k) => hints[k] || e[k])
     if (!firstKey) return
     setMissingHints((prev) => ({ ...prev, [firstKey]: true }))
     const ref = fieldRefByKey[firstKey]
@@ -308,14 +342,15 @@ function StockTransferIn() {
 
   /** ---------- Submit (ACCEPT) + FormGuard flow ---------- */
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e?.preventDefault?.()
     const hints = computeMissingHints()
     setMissingHints(hints)
     const { ok, e: ev } = validate()
     if (!ok) {
       focusFirstInvalid(hints, ev)
-      // ใช้ข้อความเตือนเหมือนหน้า Sales.jsx
-      alert(ALERT_FAIL_HINT)
+      const missingKeys = MISSING_ORDER.filter((k) => hints[k] && k !== "net_weight" && (form[k] === "" || form[k] == null))
+      if (missingKeys.length) toast.error("กรอกไม่ครบ", { description: missingDescription(missingKeys) })
+      else toast.error("ข้อมูลไม่ถูกต้อง", { description: Object.values(ev)[0] })
       return
     }
 
@@ -334,8 +369,9 @@ function StockTransferIn() {
     setSubmitting(true)
     try {
       await post(`/transfer/confirm/${encodeURIComponent(form.transfer_id)}`, payload)
-      // สำเร็จ: แจ้งเตือนแบบเดียวกับหน้าขาย
-      alert(ALERT_SUCCESS)
+      toast.success("รับเข้าแล้ว", {
+        description: `คำขอ #${form.transfer_id} · สุทธิ ${nf(netWeightInt)} กก. · ${thb(totalCost)}`,
+      })
 
       // ล้างฟอร์ม (ยกเว้นวันที่), รีโหลดรายการ, เด้งไปบนสุด + โฟกัสวันที่
       setForm((f) => ({
@@ -358,20 +394,30 @@ function StockTransferIn() {
     } catch (err) {
       console.error(err)
       const msg = err?.message || ""
-      let detail
       if (/Integer|จำนวนเต็ม|whole kg|move quantity/i.test(msg)) {
-        detail = "ต้องกรอกน้ำหนักเป็น ‘จำนวนเต็มกก.’ เท่านั้น (TempStock เป็น Integer)"
+        toast.error("บันทึกไม่สำเร็จ", { description: "ต้องกรอกน้ำหนักเป็นจำนวนเต็มกก. เท่านั้น" })
       } else if (/Insufficient stock|409/.test(msg)) {
-        detail = "สต็อกต้นทางไม่พอ กรุณาติดต่อสาขาต้นทาง"
+        toast.error("สต็อกต้นทางไม่พอ", { description: "ติดต่อสาขาต้นทางก่อนรับเข้า" })
       } else {
-        detail = msg || "เกิดข้อผิดพลาดระหว่างบันทึก"
+        const { title, description } = describeSaveError(err)
+        toast.error(title, { description })
       }
-      // ล้มเหลว: แสดงหัวข้อความล้มเหลวแบบเดียวกับหน้าขาย แล้วตามด้วยรายละเอียด
-      alert(`${ALERT_FAIL}\n\n${detail}`)
     } finally {
       setSubmitting(false)
     }
   }
+
+  const handleReset = () =>
+    setForm((f) => ({
+      ...f,
+      transfer_id: null,
+      weight_in: "",
+      weight_out: "",
+      quality_note: "",
+      impurity_percent: "",
+      price_per_kilo: "",
+      dest_quality: "",
+    }))
 
   /** ---------- Reject ---------- */
   const handleReject = async (reqId) => {
@@ -382,19 +428,50 @@ function StockTransferIn() {
         action: "REJECT",
         receiver_note: note.trim() || null,
       })
-      alert("ปฏิเสธคำขอเรียบร้อย")
+      toast.success("ปฏิเสธคำขอแล้ว", { description: `คำขอ #${reqId}` })
       loadRequests({ background: true })
     } catch (e) {
       console.error(e)
-      alert(e?.message || "ปฏิเสธไม่สำเร็จ")
+      const { title, description } = describeSaveError(e)
+      toast.error(title === "บันทึกไม่สำเร็จ" ? "ปฏิเสธไม่สำเร็จ" : title, { description })
     }
   }
 
+  const rejectSelected = () => {
+    if (!form.transfer_id) {
+      toast.warning("ยังไม่ได้เลือกรายการ", { description: "เลือกคำขอก่อน แล้วค่อยปฏิเสธ" })
+      return
+    }
+    handleReject(form.transfer_id)
+  }
+
+  const requestsEmpty = (
+    <EmptyState
+      title="ไม่มีรายการรอรับเข้า"
+      description="เมื่อสาขาอื่นโอนออกมาที่นี่ รายการจะขึ้นที่นี่"
+      action={
+        <button type="button" className={cx(secondaryBtnCls, "h-11 !py-0")} onClick={() => loadRequests()}>
+          รีเฟรช
+        </button>
+      }
+    />
+  )
+
+  /** ---------- Sticky bar summary (<md) ---------- */
+  const barSummary = (
+    <div className="min-w-0">
+      <p className="truncate text-gray-900 dark:text-gray-100">
+        {form.transfer_id ? `คำขอ #${form.transfer_id} · สุทธิ ${nf(netWeightInt)} กก.` : "ยังไม่ได้เลือกรายการ"}
+      </p>
+      <p className="tabular-nums text-gray-500 dark:text-gray-400">รวมต้นทุน {thb(totalCost)}</p>
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 flex items-center gap-2.5 text-3xl font-bold text-gray-900 dark:text-white">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-7 text-indigo-600 dark:text-indigo-400">
+      <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
+        <h1 className="mb-4 flex items-center gap-2.5 text-xl md:text-3xl font-bold text-gray-900 dark:text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-6 md:size-7 text-indigo-600 dark:text-indigo-400">
             <path d="m7.5 4.27 9 5.15" />
             <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
             <path d="m3.3 7 8.7 5 8.7-5" />
@@ -407,12 +484,13 @@ function StockTransferIn() {
         <div
           ref={requestsBoxRef}
           className={cx(
-            "mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 transition-shadow duration-150",
+            sectionCardCls,
+            "transition-shadow duration-150",
             (errors.transfer_id || missingHints.transfer_id) && "ring-2 ring-red-300"
           )}
         >
-          <div className="mb-3 flex items-center gap-3">
-            <h2 className="text-xl font-semibold">คำขอโอนเข้าที่รอดำเนินการ</h2>
+          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h2 className="text-lg md:text-xl font-semibold">คำขอโอนเข้าที่รอดำเนินการ</h2>
             {loadingRequests && !requestsLoadedOnce ? (
               <Badge tone="neutral">กำลังโหลด…</Badge>
             ) : requestsError ? (
@@ -422,15 +500,42 @@ function StockTransferIn() {
             )}
           </div>
 
-          {loadingRequests && !requestsLoadedOnce ? (
-            <PageLoader variant="cards" rows={2} message="กำลังโหลดคำขอโอนเข้า…" />
+          {isPhone ? (
+            requestsError && !(loadingRequests && !requestsLoadedOnce) ? (
+              <ErrorState message={requestsError} onRetry={() => loadRequests()} />
+            ) : (
+              <DataList
+                items={requests}
+                keyOf={(r) => r.id}
+                loading={loadingRequests && !requestsLoadedOnce}
+                skeletonRows={2}
+                emptyState={requestsEmpty}
+                title={(r) => `คำขอ #${r.id}`}
+                subtitle={(r) => `คลัง ${r.from_klang ?? "-"} → คลัง ${r.to_klang ?? "-"} · ${r.status ?? "-"}`}
+                badge={(r) => (String(form.transfer_id ?? "") === String(r.id) ? <Badge tone="success">เลือกแล้ว</Badge> : null)}
+                fields={(r) =>
+                  r.price_per_kilo != null
+                    ? [{ label: "ราคาต้นทุน/กก. ที่เสนอ", value: `${Number(r.price_per_kilo).toFixed(2)} บาท`, align: "right", span: 2 }]
+                    : []
+                }
+                actions={(r) => (
+                  <>
+                    <button type="button" onClick={() => handleReject(r.id)} className={cx(rejectBtnCls, "h-11 px-4")}>
+                      ปฏิเสธ
+                    </button>
+                    <button type="button" onClick={() => pickRequest(r)} className={cx(secondaryBtnCls, "h-11 !py-0")}>
+                      เลือก
+                    </button>
+                  </>
+                )}
+              />
+            )
+          ) : loadingRequests && !requestsLoadedOnce ? (
+            <PageLoader variant="cards" rows={2} message="กำลังโหลดรายการโอนเข้า…" />
           ) : requestsError ? (
             <ErrorState message={requestsError} onRetry={() => loadRequests()} />
           ) : requests.length === 0 ? (
-            <EmptyState
-              title="ยังไม่มีคำขอโอนเข้า"
-              description="เมื่อมีสาขาอื่นส่งคำขอโอนเข้ามาที่สาขาของคุณ รายการจะปรากฏที่นี่โดยอัตโนมัติ"
-            />
+            requestsEmpty
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
               {requests.map((req) => {
@@ -454,14 +559,14 @@ function StockTransferIn() {
                       <button
                         type="button"
                         onClick={() => handleReject(req.id)}
-                        className="rounded-xl border border-red-300 px-3 py-1.5 text-red-600 font-medium transition-colors duration-150 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 dark:border-red-800/70 dark:text-red-300 dark:hover:bg-red-900/20"
+                        className={rejectBtnCls}
                       >
                         ปฏิเสธ
                       </button>
                       <button
                         type="button"
                         onClick={() => pickRequest(req)}
-                        className="rounded-xl bg-emerald-600 px-3 py-1.5 text-white font-medium transition-colors duration-150 hover:bg-emerald-700 active:scale-[.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-800"
+                        className="rounded-xl bg-emerald-600 px-3 py-1.5 text-white font-medium transition-colors duration-150 hover:bg-emerald-700 active:scale-[.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-800 cursor-pointer"
                       >
                         รับเข้า
                       </button>
@@ -488,13 +593,14 @@ function StockTransferIn() {
         {/* ฟอร์มรับเข้า */}
         <form onSubmit={handleSubmit}>
           {/* กล่อง: ข้อมูลการรับเข้า */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">ข้อมูลการรับเข้า</h2>
+          <div className={sectionCardCls}>
+            <h2 className={sectionTitleTextCls}>ข้อมูลการรับเข้า</h2>
 
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <label className={labelCls}>วันที่รับเข้า</label>
+                <label htmlFor="transfer_date" className={labelCls}>วันที่รับเข้า</label>
                 <DateInput
+                  id="transfer_date"
                   ref={dateRef}
                   value={form.transfer_date}
                   onChange={(e) => {
@@ -511,31 +617,34 @@ function StockTransferIn() {
               </div>
 
               <div>
-                <label className={labelCls}>เลขคำขอที่เลือก</label>
+                <label htmlFor="transfer_id_display" className={labelCls}>เลขคำขอที่เลือก</label>
                 <input
+                  id="transfer_id_display"
                   disabled
                   className={cx(baseField, fieldDisabled)}
                   value={form.transfer_id ?? ""}
-                  placeholder="ยังไม่ได้เลือก"
+                  placeholder="ยังไม่ได้เลือกรายการ"
                 />
+                {!form.transfer_id && !errors.transfer_id && <p className={helpTextCls}>แตะรายการด้านบนเพื่อรับเข้า</p>}
                 {errors.transfer_id && <p className={errorTextCls}>{errors.transfer_id}</p>}
               </div>
             </div>
           </div>
 
-            {/* กล่อง: ชั่งน้ำหนักและบันทึก */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">ชั่งน้ำหนักและบันทึก</h2>
+          {/* กล่อง: ชั่งน้ำหนักและบันทึก */}
+          <div className={sectionCardCls}>
+            <h2 className={sectionTitleTextCls}>ชั่งน้ำหนักและบันทึก</h2>
 
             {/* แถวที่ 1: น้ำหนักเข้า/ออก/สุทธิ */}
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
               <div>
-                <label className={labelCls}>น้ำหนักชั่งเข้า (กก.)</label>
+                <label htmlFor="weight_in" className={labelCls}>น้ำหนักชั่งเข้า (กก.)</label>
                 <input
+                  id="weight_in"
                   ref={weightInRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  className={cx(baseField, redFieldCls("weight_in"))}
+                  className={cx(baseField, "tabular-nums", redFieldCls("weight_in"))}
                   value={form.weight_in}
                   onChange={(e) => update("weight_in", onlyDigits(e.target.value))}
                   onFocus={() => {
@@ -551,12 +660,13 @@ function StockTransferIn() {
               </div>
 
               <div>
-                <label className={labelCls}>น้ำหนักชั่งออก (กก.)</label>
+                <label htmlFor="weight_out" className={labelCls}>น้ำหนักชั่งออก (กก.)</label>
                 <input
+                  id="weight_out"
                   ref={weightOutRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  className={cx(baseField, redFieldCls("weight_out"))}
+                  className={cx(baseField, "tabular-nums", redFieldCls("weight_out"))}
                   value={form.weight_out}
                   onChange={(e) => update("weight_out", onlyDigits(e.target.value))}
                   onFocus={() => {
@@ -571,27 +681,46 @@ function StockTransferIn() {
                 <p className={helpTextCls}>* ต้องเป็นจำนวนเต็มกิโลกรัม</p>
               </div>
 
-              <div>
-                <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
-                <input
-                  disabled
-                  className={cx(baseField, fieldDisabled)}
-                  value={netWeightInt}
-                />
+              <div className="col-span-2 md:col-span-1">
+                {isPhone ? (
+                  <div
+                    className={cx(
+                      "rounded-2xl bg-gray-50 p-4 ring-1 ring-indigo-200/60 dark:bg-gray-800/60 dark:ring-indigo-500/30",
+                      errors.net_weight && "ring-red-300 dark:ring-red-500/50"
+                    )}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <p className="text-sm text-gray-500 dark:text-gray-400">น้ำหนักสุทธิ</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{nf(netWeightInt)} กก.</p>
+                    <p className={helpTextCls}>คำนวณ = ชั่งเข้า − ชั่งออก</p>
+                  </div>
+                ) : (
+                  <>
+                    <label className={labelCls}>น้ำหนักสุทธิ (กก.)</label>
+                    <input
+                      disabled
+                      aria-label="น้ำหนักสุทธิ (กก.)"
+                      className={cx(baseField, fieldDisabled)}
+                      value={netWeightInt}
+                    />
+                    <p className={helpTextCls}>คำนวณ = ชั่งเข้า − ชั่งออก</p>
+                  </>
+                )}
                 {errors.net_weight && <p className={errorTextCls}>{errors.net_weight}</p>}
-                <p className={helpTextCls}>คำนวณ = ชั่งเข้า − ชั่งออก</p>
               </div>
             </div>
 
             {/* แถวที่ 2: คุณภาพ & สิ่งเจือปน */}
-            <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3">
               <div>
-                <label className={labelCls}>คุณภาพ <span className="text-red-500">*</span></label>
+                <label htmlFor="dest_quality" className={labelCls}>คุณภาพ <span className="text-red-500">*</span></label>
                 <input
+                  id="dest_quality"
                   ref={destQualityRef}
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  className={cx(baseField, redFieldCls("dest_quality"))}
+                  className={cx(baseField, "tabular-nums", redFieldCls("dest_quality"))}
                   value={form.dest_quality}
                   onChange={(e) => update("dest_quality", onlyDigits(e.target.value))}
                   onFocus={() => { clearError("dest_quality"); clearHint("dest_quality") }}
@@ -603,11 +732,12 @@ function StockTransferIn() {
               </div>
 
               <div>
-                <label className={labelCls}>สิ่งเจือปน (%) <span className="text-red-500">*</span></label>
+                <label htmlFor="impurity_percent" className={labelCls}>สิ่งเจือปน (%) <span className="text-red-500">*</span></label>
                 <input
+                  id="impurity_percent"
                   ref={impurityRef}
                   inputMode="decimal"
-                  className={cx(baseField, redFieldCls("impurity_percent"))}
+                  className={cx(baseField, "tabular-nums", redFieldCls("impurity_percent"))}
                   value={form.impurity_percent}
                   onChange={(e) => {
                     const v = e.target.value.replace(/[^\d.]/g, "")
@@ -625,15 +755,16 @@ function StockTransferIn() {
           </div>
 
           {/* กล่อง: ต้นทุนและคุณภาพ */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <h2 className="mb-3 text-xl font-semibold">ต้นทุนและคุณภาพ</h2>
+          <div className={sectionCardCls}>
+            <h2 className={sectionTitleTextCls}>ต้นทุนและคุณภาพ</h2>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <label className={labelCls}>ราคาต้นทุน/กก. (บาท) <span className="text-red-500">*</span></label>
+                <label htmlFor="price_per_kilo" className={labelCls}>ราคาต้นทุน/กก. (บาท) <span className="text-red-500">*</span></label>
                 <input
+                  id="price_per_kilo"
                   ref={priceRef}
                   inputMode="decimal"
-                  className={cx(baseField, redFieldCls("price_per_kilo"))}
+                  className={cx(baseField, "tabular-nums", redFieldCls("price_per_kilo"))}
                   value={form.price_per_kilo}
                   onChange={(e) => update("price_per_kilo", e.target.value.replace(/[^\d.]/g, ""))}
                   onFocus={() => { clearError("price_per_kilo"); clearHint("price_per_kilo") }}
@@ -650,22 +781,24 @@ function StockTransferIn() {
                 ref={totalCostAnchorRef}
                 tabIndex={0}
                 role="group"
+                aria-label="รวมต้นทุน (ประมาณ)"
                 onKeyDown={(e) => onEnterKey(e, totalCostAnchorRef)}
-                className="focus:outline-none focus:ring-2 focus:ring-emerald-500/30 rounded-2xl"
+                className="focus:outline-none focus:ring-2 focus:ring-indigo-500/30 rounded-2xl"
               >
                 <label className={labelCls}>รวมต้นทุน (ประมาณ)</label>
-                <input disabled className={cx(baseField, fieldDisabled)} value={thb(totalCost)} placeholder="—" />
+                <input disabled aria-label="รวมต้นทุน (ประมาณ)" className={cx(baseField, fieldDisabled, "tabular-nums")} value={thb(totalCost)} placeholder="—" />
                 <p className={helpTextCls}>คำนวณ = ราคาต้นทุน/กก. × น้ำหนักสุทธิ</p>
               </div>
             </div>
           </div>
 
           {/* บันทึกเพิ่มเติม */}
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <div className={sectionCardCls}>
             <div className="grid gap-4 md:grid-cols-3">
               <div className="md:col-span-3">
-                <label className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
+                <label htmlFor="quality_note" className={labelCls}>บันทึกเพิ่มเติม / เหตุผล (ผู้รับ)</label>
                 <input
+                  id="quality_note"
                   ref={noteRef}
                   className={baseField}
                   value={form.quality_note}
@@ -674,69 +807,66 @@ function StockTransferIn() {
                 />
               </div>
             </div>
+            {isPhone && (
+              <button type="button" onClick={rejectSelected} className={cx(rejectBtnCls, "mt-4 h-11 w-full px-4")}>
+                ปฏิเสธคำขอที่เลือก
+              </button>
+            )}
           </div>
 
-          {/* ปุ่ม */}
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button
-              ref={submitBtnRef}
-              type="submit"
-              disabled={submitting}
-              className="inline-flex items-center justify-center rounded-2xl 
-                bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                transition-all duration-300 ease-out
-                hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                hover:scale-[1.05] active:scale-[.97]
-                disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-              aria-busy={submitting ? "true" : "false"}
-            >
-              {submitting ? "กำลังบันทึก..." : "บันทึก"}
-            </button>
+          {/* ปุ่ม — <md: แถบติดล่าง (UI-SPEC §7) · ≥md: ปุ่มเดิม (submitBtnRef อยู่ใน Enter chain) */}
+          {isPhone ? (
+            <StickyActionBar
+              summary={barSummary}
+              secondary={{ label: "ล้างฟอร์ม", onClick: handleReset, disabled: submitting }}
+              primary={{ label: submitting ? "กำลังบันทึก…" : "รับเข้า", onClick: handleSubmit, loading: submitting }}
+            />
+          ) : (
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button
+                ref={submitBtnRef}
+                type="submit"
+                disabled={submitting}
+                className="inline-flex items-center justify-center rounded-2xl
+                  bg-emerald-600 px-6 py-3 text-base font-semibold text-white
+                  shadow-[0_6px_16px_rgba(16,185,129,0.35)]
+                  transition-all duration-300 ease-out
+                  hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
+                  hover:scale-[1.05] active:scale-[.97]
+                  disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                aria-busy={submitting ? "true" : "false"}
+              >
+                {submitting ? "กำลังบันทึก..." : "บันทึก"}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (!form.transfer_id) {
-                  alert("กรุณาเลือกคำขอเพื่อปฏิเสธ")
-                  return
-                }
-                handleReject(form.transfer_id)
-              }}
-              className="inline-flex items-center justify-center rounded-2xl 
-                border border-red-300 bg-white px-6 py-3 text-base font-semibold text-red-600 
-                shadow-sm transition-all duration-300 ease-out
-                hover:bg-red-50 hover:shadow-md hover:scale-[1.03]
-                active:scale-[.97] cursor-pointer"
-            >
-              ปฏิเสธคำขอ (REJECT)
-            </button>
+              <button
+                type="button"
+                onClick={rejectSelected}
+                className="inline-flex items-center justify-center rounded-2xl
+                  border border-red-300 bg-white px-6 py-3 text-base font-semibold text-red-600
+                  shadow-sm transition-all duration-300 ease-out
+                  hover:bg-red-50 hover:shadow-md hover:scale-[1.03]
+                  active:scale-[.97] cursor-pointer"
+              >
+                ปฏิเสธคำขอ (REJECT)
+              </button>
 
-            <button
-              type="button"
-              onClick={() =>
-                setForm((f) => ({
-                  ...f,
-                  transfer_id: null,
-                  weight_in: "",
-                  weight_out: "",
-                  quality_note: "",
-                  impurity_percent: "",
-                  price_per_kilo: "",
-                  dest_quality: "",
-                }))}
-              className="inline-flex items-center justify-center rounded-2xl 
-                border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 
-                shadow-sm
-                transition-all duration-300 ease-out
-                hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                active:scale-[.97]
-                dark:border-slate-600 dark:bg-slate-700/60 dark:text-white 
-                dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
-            >
-              รีเซ็ต
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="inline-flex items-center justify-center rounded-2xl
+                  border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700
+                  shadow-sm
+                  transition-all duration-300 ease-out
+                  hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
+                  active:scale-[.97]
+                  dark:border-slate-600 dark:bg-slate-700/60 dark:text-white
+                  dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+              >
+                รีเซ็ต
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>

@@ -8,179 +8,66 @@ import {
   labelCls,
   helpTextCls,
   errorTextCls,
-  cardPaddedCls,
+  cardCls,
   sectionTitleCls,
   resetBtnCls,
   spinnerCls,
 } from "../../lib/styles"
+import ComboBox from "../../components/ComboBox"
+import { StickyActionBar, toast } from "../../components/ui"
+import { useIsPhone } from "../../hooks/useMediaQuery"
 
 /** ---------- Utils ---------- */
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
+const nf = (n) =>
+  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(isFinite(n) ? Number(n) : 0)
 const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
   )
-/** ---------- Styles ---------- */
+/** option value ของหน้านี้ = id ก่อน value (คง default ของ ComboBox copy เดิม) */
+const getOptValue = (o) => o?.id ?? o?.value ?? ""
 
-/** ---------- ComboBox ---------- */
-function ComboBox({
-  options = [],
-  value,
-  onChange,
-  placeholder = "— เลือก —",
-  getLabel = (o) => o?.label ?? "",
-  getValue = (o) => o?.id ?? o?.value ?? "",
-  disabled = false,
-  error = false,
-  buttonRef = null,
-  hintRed = false,
-  clearHint = () => {},
-}) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(-1)
-  const boxRef = useRef(null)
-  const listRef = useRef(null)
-  const internalBtnRef = useRef(null)
-  const controlRef = buttonRef || internalBtnRef
+/** ชื่อฟิลด์สั้นสำหรับ toast "กรอกไม่ครบ" (mobile-copy §3.3) */
+const FIELD_LABELS = {
+  damage_date: "วันที่ตัดเสียหาย",
+  branch_id: "สาขา",
+  klang_id: "คลัง",
+  product_id: "ประเภทสินค้า",
+  species_id: "ชนิดข้าว",
+  variant_id: "ชั้นย่อย",
+  weight_out: "น้ำหนักที่ตัดออก",
+  cost_per_kg: "ค่าเสียหาย/กก.",
+}
+const MISSING_ORDER = ["damage_date", "branch_id", "klang_id", "product_id", "species_id", "variant_id", "weight_out", "cost_per_kg"]
+const missingDescription = (keys) => {
+  const names = keys.map((k) => FIELD_LABELS[k]).filter(Boolean)
+  const rest = names.length - 3
+  return `ยังไม่ได้กรอก: ${names.slice(0, 3).join(", ")}${rest > 0 ? ` และอีก ${rest} ช่อง` : ""}`
+}
 
-  const selectedLabel = useMemo(() => {
-    const found = options.find((o) => String(getValue(o)) === String(value))
-    return found ? getLabel(found) : ""
-  }, [options, value, getLabel, getValue])
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (!boxRef.current) return
-      if (!boxRef.current.contains(e.target)) {
-        setOpen(false)
-        setHighlight(-1)
-      }
-    }
-    document.addEventListener("click", onClick)
-    return () => document.removeEventListener("click", onClick)
-  }, [])
-
-  const commit = (opt) => {
-    const v = String(getValue(opt))
-    onChange?.(v, opt)
-    setOpen(false)
-    setHighlight(-1)
-    clearHint?.()
-    requestAnimationFrame(() => controlRef.current?.focus())
-  }
-
-  const scrollHighlightedIntoView = (index) => {
-    const listEl = listRef.current
-    const itemEl = listEl?.children?.[index]
-    if (!listEl || !itemEl) return
-    const itemRect = itemEl.getBoundingClientRect()
-    const listRect = listEl.getBoundingClientRect()
-    const buffer = 6
-    if (itemRect.top < listRect.top + buffer) listEl.scrollTop -= (listRect.top + buffer) - itemRect.top
-    else if (itemRect.bottom > listRect.bottom - buffer) listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer)
-  }
-
-  const onKeyDown = (e) => {
-    if (disabled) return
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault()
-      setOpen(true)
-      setHighlight((h) => (h >= 0 ? h : 0))
-      clearHint?.()
-      return
-    }
-    if (!open) return
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const next = h < options.length - 1 ? h + 1 : 0
-        requestAnimationFrame(() => scrollHighlightedIntoView(next))
-        return next
-      })
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setHighlight((h) => {
-        const prev = h > 0 ? h - 1 : options.length - 1
-        requestAnimationFrame(() => scrollHighlightedIntoView(prev))
-        return prev
-      })
-    } else if (e.key === "Enter") {
-      e.preventDefault()
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight])
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      setOpen(false)
-      setHighlight(-1)
-    }
-  }
-
-  return (
-    <div className="relative" ref={boxRef}>
-      <button
-        type="button"
-        ref={controlRef}
-        disabled={disabled}
-        onClick={() => {
-          if (!disabled) {
-            setOpen((o) => !o)
-            clearHint?.()
-          }
-        }}
-        onKeyDown={onKeyDown}
-        onFocus={() => clearHint?.()}
-        className={cx(
-          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          error
-            ? "border-red-400 ring-2 ring-red-300/70"
-            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-700/80",
-          hintRed && "ring-2 ring-red-300 animate-pulse"
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-invalid={error || hintRed ? true : undefined}
-      >
-        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
-      </button>
-
-      {open && (
-        <div
-          ref={listRef}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          {options.length === 0 && <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>}
-          {options.map((opt, idx) => {
-            const label = getLabel(opt)
-            const isActive = idx === highlight
-            const isChosen = String(getValue(opt)) === String(value)
-            return (
-              <button
-                key={String(getValue(opt)) || label || idx}
-                type="button"
-                role="option"
-                aria-selected={isChosen}
-                onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)}
-                className={cx(
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
-                  isActive
-                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                )}
-              >
-                {isActive && <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />}
-                <span className="flex-1">{label}</span>
-                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
+/** แปลง error จากหลังบ้านเป็นข้อความไทย (mobile-copy §4.3–4.4) */
+const SAVE_ERR_TH = [
+  [/failed to fetch|networkerror|timeout/i, "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"],
+  [/field required/i, "ข้อมูลบางช่องไม่ครบ"],
+  [/value is not a valid|type_error/i, "รูปแบบข้อมูลบางช่องไม่ถูกต้อง"],
+  [/greater than 0|ensure this value is greater/i, "น้ำหนักหรือราคาต้องมากกว่า 0"],
+  [/not found[\s\S]*(klang|warehouse)|(klang|warehouse)[\s\S]*not found/i, "ไม่พบคลังที่เลือก"],
+  [/duplicate|already exists/i, "รายการนี้มีอยู่แล้ว"],
+  [/unauthorized|forbidden|credentials/i, "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"],
+]
+function describeSaveError(err) {
+  const status = err?.status
+  const raw = String(err?.message || "")
+  const isThai = /[฀-๿]/.test(raw)
+  const hit = SAVE_ERR_TH.find(([re]) => re.test(raw))?.[1]
+  if (hit) return { title: status === 422 ? "ข้อมูลไม่ผ่านการตรวจ" : "บันทึกไม่สำเร็จ", description: hit }
+  if (!status) return { title: "บันทึกไม่สำเร็จ", description: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสัญญาณแล้วลองใหม่ ข้อมูลที่กรอกยังอยู่" }
+  if (status === 401 || status === 403) return { title: "ไม่มีสิทธิ์บันทึก", description: "สิทธิ์ของบัญชีนี้ไม่ครอบคลุมรายการนี้ หรือหมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }
+  if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "รายการนี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
+  if (status === 422) return { title: "ข้อมูลไม่ผ่านการตรวจ", description: isThai ? raw : "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่" }
+  if (status >= 500) return { title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" }
+  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : `เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง · รหัส: ${status}` }
 }
 
 /** ---------- DateInput ---------- */
@@ -209,10 +96,10 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
           }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-        transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+        className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
+        transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer bg-transparent"
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
         </svg>
       </button>
@@ -222,6 +109,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 
 /** ---------- Page: ตัดเสียหาย (นำออกจากคลัง) ---------- */
 const StockDamageOut = () => {
+  const isPhone = useIsPhone()
   const [submitting, setSubmitting] = useState(false)
 
   /** ---------- Dropdown options ---------- */
@@ -457,19 +345,21 @@ const StockDamageOut = () => {
     if (form.cost_per_kg === "" || toNumber(form.cost_per_kg) < 0) e.cost_per_kg = "ค่าเสียหาย/กก. ต้องไม่ติดลบ"
 
     setErrors(e)
-    return Object.keys(e).length === 0
+    return { ok: Object.keys(e).length === 0, e }
   }
 
   /** ---------- Submit ---------- */
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e?.preventDefault?.()
     const hints = computeMissingHints()
     setMissingHints(hints)
-    const okForm = validate()
+    const { ok: okForm, e: ev } = validate()
 
-    // ❌ แจ้งเตือน “ไม่สำเร็จ” แบบหน้า Sales เมื่อฟอร์มไม่ครบ/ไม่ผ่าน
+    // แจ้งเตือนเมื่อฟอร์มไม่ครบ/ไม่ผ่าน (toast แทน alert)
     if (!okForm || Object.values(hints).some(Boolean)) {
-      alert("❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌\n\n                   รบกวนกรอกข้อมูลที่จำเป็นให้ครบในช่องที่มีกรอบสีแดง")
+      const missingKeys = MISSING_ORDER.filter((k) => hints[k] && (form[k] === "" || form[k] == null))
+      if (missingKeys.length) toast.error("กรอกไม่ครบ", { description: missingDescription(missingKeys) })
+      else toast.error("ข้อมูลไม่ถูกต้อง", { description: Object.values(ev)[0] || "ตรวจช่องที่มีกรอบสีแดง" })
       return
     }
 
@@ -512,8 +402,9 @@ const StockDamageOut = () => {
 
       await post("/carryover/create", payload)
 
-      // ✅ แจ้งเตือน “สำเร็จ” แบบเดียวกับหน้า Sales
-      alert("✅✅✅✅✅✅✅✅ บันทึกออเดอร์เรียบร้อย ✅✅✅✅✅✅✅✅")
+      toast.success("บันทึกตัดเสียหายแล้ว", {
+        description: `ตัด ${nf(amountVal)} กก. · ${thb(totalDamage)}`,
+      })
 
       setForm((f) => ({
         ...f,
@@ -540,26 +431,57 @@ const StockDamageOut = () => {
       }))
     } catch (err) {
       console.error(err)
-      const detail = err?.response?.data?.detail
-      const msg = Array.isArray(detail)
-        ? detail.map((d) => (d?.loc ? `${d.loc.join(" > ")}: ${d?.msg}` : d?.msg || String(d))).join("\n")
-        : (typeof detail === "string" ? detail : (err?.message || "เกิดข้อผิดพลาดระหว่างบันทึก"))
-
-      // ❌ แจ้งเตือน “ไม่สำเร็จ” แบบหน้า Sales + โชว์รายละเอียด
-      alert(`❌❌❌❌❌❌❌❌❌ บันทึกไม่สำเร็จ ❌❌❌❌❌❌❌❌❌
-
-รายละเอียด:
-${msg}`)
+      const { title, description } = describeSaveError(err)
+      toast.error(title, { description })
     } finally {
       setSubmitting(false)
     }
   }
 
+  const handleReset = () =>
+    setForm((f) => ({
+      ...f,
+      // เคลียร์เฉพาะข้อมูลสินค้า/น้ำหนัก/ราคา
+      product_id: "",
+      product_name: "",
+      species_id: "",
+      species_name: "",
+      variant_id: "",
+      variant_name: "",
+      condition_id: "",
+      condition_label: "",
+      field_type_id: "",
+      field_type_label: "",
+      rice_year_id: "",
+      rice_year_label: "",
+      program_id: "",
+      program_label: "",
+      business_type_id: "",
+      business_type_label: "",
+      weight_out: "",
+      cost_per_kg: "",
+      reason: "",
+    }))
+
+  /** ---------- Sticky bar summary (<md) ---------- */
+  const barSummary = (
+    <div className="min-w-0">
+      <p className="truncate text-gray-900 dark:text-gray-100">
+        {weightOut > 0 || form.klang_name
+          ? [`ตัด ${nf(weightOut)} กก.`, form.klang_name].filter(Boolean).join(" · ")
+          : "ยังไม่ได้กรอกน้ำหนัก"}
+      </p>
+      <p className="tabular-nums text-gray-500 dark:text-gray-400">มูลค่าเสียหาย {thb(totalDamage)}</p>
+    </div>
+  )
+
+  const cardSectionCls = cx(cardCls, "p-4 md:p-5 mb-4 md:mb-6")
+
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-4 flex items-center gap-2.5 text-3xl font-bold text-gray-900 dark:text-white">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-7 text-red-600 dark:text-red-400">
+      <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
+        <h1 className="mb-4 flex items-center gap-2.5 text-xl md:text-3xl font-bold text-gray-900 dark:text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-6 md:size-7 text-red-600 dark:text-red-400">
             <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
             <line x1="12" y1="9" x2="12" y2="13" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -569,12 +491,13 @@ ${msg}`)
 
         <form onSubmit={handleSubmit}>
           {/* กรอบที่ 1: ที่ตั้ง (สาขา/คลัง) & วันที่ */}
-          <div className={cx(cardPaddedCls, "mb-6")}>
+          <div className={cardSectionCls}>
             <h2 className={sectionTitleCls}>ข้อมูลตัดเสียหาย</h2>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <label className={labelCls}>วันที่ตัดเสียหาย</label>
+                <label htmlFor="damage_date" className={labelCls}>วันที่ตัดเสียหาย</label>
                 <DateInput
+                  id="damage_date"
                   value={form.damage_date}
                   onChange={(e) => {
                     clearError("damage_date")
@@ -591,6 +514,8 @@ ${msg}`)
               <div>
                 <label className={labelCls}>สาขา</label>
                 <ComboBox
+                  title="สาขา"
+                  ariaLabel="สาขา"
                   options={branchOptions}
                   value={form.branch_id}
                   getValue={(o) => o.id}
@@ -605,6 +530,7 @@ ${msg}`)
                   placeholder="— เลือกสาขา —"
                   error={!!errors.branch_id}
                   hintRed={!!missingHints.branch_id}
+                  clearHint={() => clearHint("branch_id")}
                 />
                 {errors.branch_id && <p className={errorTextCls}>{errors.branch_id}</p>}
               </div>
@@ -612,6 +538,8 @@ ${msg}`)
               <div>
                 <label className={labelCls}>คลัง</label>
                 <ComboBox
+                  title="คลัง"
+                  ariaLabel="คลัง"
                   options={klangOptions}
                   value={form.klang_id}
                   getValue={(o) => o.id}
@@ -625,21 +553,26 @@ ${msg}`)
                   disabled={!form.branch_id}
                   error={!!errors.klang_id}
                   hintRed={!!missingHints.klang_id}
+                  clearHint={() => clearHint("klang_id")}
                 />
+                {!form.branch_id && <p className={helpTextCls}>เลือกสาขาก่อน</p>}
                 {errors.klang_id && <p className={errorTextCls}>{errors.klang_id}</p>}
               </div>
             </div>
           </div>
 
           {/* กรอบที่ 2: สินค้า / คุณสมบัติ */}
-          <div className={cx(cardPaddedCls, "mb-6")}>
+          <div className={cardSectionCls}>
             <h2 className={sectionTitleCls}>สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <label className={labelCls}>ประเภทสินค้า</label>
                 <ComboBox
+                  title="ประเภทสินค้า"
+                  ariaLabel="ประเภทสินค้า"
                   options={productOptions}
                   value={form.product_id}
+                  getValue={getOptValue}
                   onChange={(id, found) => {
                     clearError("product_id")
                     clearHint("product_id")
@@ -653,6 +586,7 @@ ${msg}`)
                   placeholder="— เลือกประเภทสินค้า —"
                   error={!!errors.product_id}
                   hintRed={!!missingHints.product_id}
+                  clearHint={() => clearHint("product_id")}
                 />
                 {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
               </div>
@@ -660,8 +594,12 @@ ${msg}`)
               <div>
                 <label className={labelCls}>ชนิดข้าว (Species)</label>
                 <ComboBox
+                  title="ชนิดข้าว"
+                  ariaLabel="ชนิดข้าว"
+                  searchable
                   options={speciesOptions}
                   value={form.species_id}
+                  getValue={getOptValue}
                   onChange={(id, found) => {
                     clearError("species_id")
                     clearHint("species_id")
@@ -674,6 +612,7 @@ ${msg}`)
                   disabled={!form.product_id}
                   error={!!errors.species_id}
                   hintRed={!!missingHints.species_id}
+                  clearHint={() => clearHint("species_id")}
                 />
                 {errors.species_id && <p className={errorTextCls}>{errors.species_id}</p>}
               </div>
@@ -681,8 +620,12 @@ ${msg}`)
               <div>
                 <label className={labelCls}>ชั้นย่อย (Variant)</label>
                 <ComboBox
+                  title="ชั้นย่อย"
+                  ariaLabel="ชั้นย่อย"
+                  searchable
                   options={variantOptions}
                   value={form.variant_id}
+                  getValue={getOptValue}
                   onChange={(id, found) => {
                     clearError("variant_id")
                     clearHint("variant_id")
@@ -693,6 +636,7 @@ ${msg}`)
                   disabled={!form.species_id}
                   error={!!errors.variant_id}
                   hintRed={!!missingHints.variant_id}
+                  clearHint={() => clearHint("variant_id")}
                 />
                 {errors.variant_id && <p className={errorTextCls}>{errors.variant_id}</p>}
               </div>
@@ -701,8 +645,11 @@ ${msg}`)
               <div>
                 <label className={labelCls}>สภาพ/เงื่อนไข</label>
                 <ComboBox
+                  title="สภาพ/เงื่อนไข"
+                  ariaLabel="สภาพ/เงื่อนไข"
                   options={conditionOptions}
                   value={form.condition_id}
+                  getValue={getOptValue}
                   onChange={(id, found) => {
                     update("condition_id", id)
                     update("condition_label", found?.label ?? "")
@@ -715,8 +662,11 @@ ${msg}`)
               <div>
                 <label className={labelCls}>ประเภทนา</label>
                 <ComboBox
+                  title="ประเภทนา"
+                  ariaLabel="ประเภทนา"
                   options={fieldOptions}
                   value={form.field_type_id}
+                  getValue={getOptValue}
                   onChange={(id, found) => {
                     update("field_type_id", id)
                     update("field_type_label", found?.label ?? "")
@@ -729,8 +679,11 @@ ${msg}`)
               <div>
                 <label className={labelCls}>ปี/ฤดูกาล</label>
                 <ComboBox
+                  title="ปี/ฤดูกาล"
+                  ariaLabel="ปี/ฤดูกาล"
                   options={yearOptions}
                   value={form.rice_year_id}
+                  getValue={getOptValue}
                   onChange={(id, found) => {
                     update("rice_year_id", id)
                     update("rice_year_label", found?.label ?? "")
@@ -743,8 +696,11 @@ ${msg}`)
               <div>
                 <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
                 <ComboBox
+                  title="โปรแกรม"
+                  ariaLabel="โปรแกรม (ไม่บังคับ)"
                   options={programOptions}
                   value={form.program_id}
+                  getValue={getOptValue}
                   onChange={(id, found) => {
                     update("program_id", id)
                     update("program_label", found?.label ?? "")
@@ -757,8 +713,11 @@ ${msg}`)
               <div>
                 <label className={labelCls}>ประเภทธุรกิจ</label>
                 <ComboBox
+                  title="ประเภทธุรกิจ"
+                  ariaLabel="ประเภทธุรกิจ"
                   options={businessOptions}
                   value={form.business_type_id}
+                  getValue={getOptValue}
                   onChange={(id, found) => {
                     update("business_type_id", id)
                     update("business_type_label", found?.label ?? "")
@@ -770,12 +729,13 @@ ${msg}`)
           </div>
 
           {/* กรอบที่ 3: น้ำหนักและค่าเสียหาย */}
-          <div className={cx(cardPaddedCls, "mb-6")}>
+          <div className={cardSectionCls}>
             <h2 className={sectionTitleCls}>น้ำหนักและค่าเสียหาย</h2>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls}>น้ำหนักที่ตัดออก (กก.)</label>
+                <label htmlFor="weight_out" className={labelCls}>น้ำหนักที่ตัดออก (กก.)</label>
                 <input
+                  id="weight_out"
                   inputMode="decimal"
                   className={cx(baseField, "tabular-nums", redFieldCls("weight_out"))}
                   value={form.weight_out}
@@ -791,8 +751,9 @@ ${msg}`)
               </div>
 
               <div>
-                <label className={labelCls}>ค่าเสียหาย / กก. (บาท)</label>
+                <label htmlFor="cost_per_kg" className={labelCls}>ค่าเสียหาย / กก. (บาท)</label>
                 <input
+                  id="cost_per_kg"
                   inputMode="decimal"
                   className={cx(baseField, "tabular-nums", redFieldCls("cost_per_kg"))}
                   value={form.cost_per_kg}
@@ -809,13 +770,14 @@ ${msg}`)
 
               <div>
                 <label className={labelCls}>มูลค่าเสียหายรวม (บาท)</label>
-                <input disabled className={cx(baseField, fieldDisabled, "tabular-nums")} value={thb(totalDamage)} />
+                <input disabled aria-label="มูลค่าเสียหายรวม (บาท)" className={cx(baseField, fieldDisabled, "tabular-nums font-semibold")} value={thb(totalDamage)} />
                 <p className={helpTextCls}>คำนวณ = น้ำหนัก × ค่าเสียหาย/กก.</p>
               </div>
 
               <div className="md:col-span-4">
-                <label className={labelCls}>เหตุผล / บันทึกเพิ่มเติม</label>
+                <label htmlFor="damage_reason" className={labelCls}>เหตุผล / บันทึกเพิ่มเติม</label>
                 <textarea
+                  id="damage_reason"
                   className={baseField}
                   rows={3}
                   value={form.reason}
@@ -826,57 +788,41 @@ ${msg}`)
             </div>
           </div>
 
-          {/* ปุ่ม */}
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl
-                bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-sm cursor-pointer
-                transition-all duration-200
-                hover:bg-red-700 hover:shadow-[0_8px_20px_rgba(220,38,38,0.35)] hover:scale-[1.02]
-                active:scale-[.97]
-                disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2
-                dark:focus-visible:ring-offset-slate-900"
-              aria-busy={submitting ? "true" : "false"}
-            >
-              {submitting && <span className={spinnerCls} aria-hidden="true" />}
-              {submitting ? "กำลังบันทึก..." : "บันทึก"}
-            </button>
+          {/* ปุ่ม — <md: แถบติดล่าง (UI-SPEC §7) · ≥md: ปุ่มเดิม (type=submit ใน <form>) */}
+          {isPhone ? (
+            <StickyActionBar
+              summary={barSummary}
+              secondary={{ label: "ล้างฟอร์ม", onClick: handleReset, disabled: submitting }}
+              primary={{ label: submitting ? "กำลังบันทึก…" : "บันทึก", onClick: handleSubmit, loading: submitting }}
+            />
+          ) : (
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl
+                  bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-sm cursor-pointer
+                  transition-all duration-200
+                  hover:bg-red-700 hover:shadow-[0_8px_20px_rgba(220,38,38,0.35)] hover:scale-[1.02]
+                  active:scale-[.97]
+                  disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2
+                  dark:focus-visible:ring-offset-slate-900"
+                aria-busy={submitting ? "true" : "false"}
+              >
+                {submitting && <span className={spinnerCls} aria-hidden="true" />}
+                {submitting ? "กำลังบันทึก..." : "บันทึก"}
+              </button>
 
-            <button
-              type="button"
-              onClick={() =>
-                setForm((f) => ({
-                  ...f,
-                  // เคลียร์เฉพาะข้อมูลสินค้า/น้ำหนัก/ราคา
-                  product_id: "",
-                  product_name: "",
-                  species_id: "",
-                  species_name: "",
-                  variant_id: "",
-                  variant_name: "",
-                  condition_id: "",
-                  condition_label: "",
-                  field_type_id: "",
-                  field_type_label: "",
-                  rice_year_id: "",
-                  rice_year_label: "",
-                  program_id: "",
-                  program_label: "",
-                  business_type_id: "",
-                  business_type_label: "",
-                  weight_out: "",
-                  cost_per_kg: "",
-                  reason: "",
-                }))
-              }
-              className={resetBtnCls}
-            >
-              รีเซ็ต
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={handleReset}
+                className={resetBtnCls}
+              >
+                รีเซ็ต
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>

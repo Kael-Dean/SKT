@@ -147,7 +147,7 @@ function PhoneWeighSection({ form }) {
         <dd className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100" aria-live="polite">{nf(netWeight)} กก.</dd>
       </dl>
 
-      {numField("gram", "คุณภาพ (gram)", { inputMode: "numeric", sanitize: onlyDigits, placeholder: "เช่น 85" })}
+      {numField("gram", "คุณภาพ (กรัม)", { inputMode: "numeric", sanitize: onlyDigits, placeholder: "เช่น 85" })}
       {numField("unitPrice", "ราคาต่อกก. (บาท)", { suffix: "บาท/กก.", big: true, sanitize: dec, placeholder: "0.00" })}
       {numField("amountTHB", "เป็นเงิน (บาท)", {
         prefix: "฿", big: true, sanitize: formatMoneyInput, placeholder: "0.00",

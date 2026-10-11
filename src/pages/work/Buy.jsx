@@ -142,7 +142,7 @@ const Buy = () => {
   /** คืนข้อความบรรทัดย่อยของ template: “ชั้นย่อย …” */
   const templateSubLabel = (opt) => {
     const vid = String(opt?.spec?.variant_id ?? "")
-    const vLabel = vid ? (variantLookup[vid] || `#${vid}`) : ""
+    const vLabel = vid ? (variantLookup[vid] || "") : ""
     return vLabel ? `ชั้นย่อย: ${vLabel}` : ""
   }
 
@@ -1600,15 +1600,15 @@ if (buyerType === "person") {
     // copy §3.1 B4
     if (isPhone && stepApiRef.current) {
       toast.error("ยังไม่ได้ระบุสมาชิก", {
-        description: "กรอกรหัสสมาชิก (member_id) หรือเลือกชื่อจากผลค้นหา",
+        description: "กรอกรหัสสมาชิก หรือเลือกชื่อจากผลค้นหา",
         action: { label: "ไปที่ขั้น 1", onClick: () => stepApiRef.current?.goTo(0, "memberId") },
       })
       stepApiRef.current.goTo(0, "memberId")
     } else {
-      toast.error("ยังไม่ได้ระบุสมาชิก", { description: "กรอกรหัสสมาชิก (member_id) หรือเลือกชื่อจากผลค้นหา" })
+      toast.error("ยังไม่ได้ระบุสมาชิก", { description: "กรอกรหัสสมาชิก หรือเลือกชื่อจากผลค้นหา" })
       scrollToFirstError({ memberId: true })
     }
-    setErrors((p) => ({ ...p, memberId: "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกจากรายชื่อที่มี asso_id" }))
+    setErrors((p) => ({ ...p, memberId: "กรอกรหัสสมาชิก หรือเลือกชื่อจากผลค้นหา" }))
     return
   }
 

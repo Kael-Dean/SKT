@@ -86,9 +86,9 @@ function PhoneCustomerSection({ form }) {
 
   const statusBadge =
     buyerType !== "person" ? null : memberMeta.type === "member" ? (
-      <Badge tone="success">สมาชิก · member_id {memberMeta.memberId ?? "-"}</Badge>
+      <Badge tone="success">สมาชิก · รหัส {memberMeta.memberId ?? "-"}</Badge>
     ) : customerFound === true && memberMeta.type === "customer" ? (
-      <Badge tone="info">ลูกค้าทั่วไป · asso {memberMeta.assoId ?? "-"}</Badge>
+      <Badge tone="info">ลูกค้าทั่วไป</Badge>
     ) : memberMeta.type === "customer" ? (
       <Badge tone="neutral">ลูกค้าทั่วไป</Badge>
     ) : null
@@ -196,7 +196,7 @@ function PhoneCustomerSection({ form }) {
 
           {/* 3b รหัสสมาชิก */}
           {field("memberId", "รหัสสมาชิก", { inputMode: "numeric", digits: true, placeholder: "เช่น 100234" }, (
-            memberMeta.memberId ? <p className={helpTextCls}>พบสมาชิก: member_id {memberMeta.memberId}</p> : null
+            memberMeta.memberId ? <p className={helpTextCls}>พบสมาชิก รหัส {memberMeta.memberId}</p> : null
           ))}
 
           {/* 3c ชื่อ-สกุล + ผลค้นหา inline */}
@@ -242,7 +242,7 @@ function PhoneCustomerSection({ form }) {
                   <div ref={(el) => (itemRefs.current[nameResults.indexOf(r)] = el)} className={cx(active && "font-medium")}>
                     <div className="truncate text-base">{full || "(ไม่มีชื่อ)"}</div>
                     <div className="truncate text-sm text-gray-500 dark:text-gray-400">
-                      {r.type === "member" ? `สมาชิก · member_id ${r.member_id ?? "-"}` : `ลูกค้าทั่วไป · ปชช. ${r.citizen_id ?? "-"}`}
+                      {r.type === "member" ? `สมาชิก · รหัส ${r.member_id ?? "-"}` : `ลูกค้าทั่วไป · บัตร ${r.citizen_id ?? "-"}`}
                     </div>
                   </div>
                 )

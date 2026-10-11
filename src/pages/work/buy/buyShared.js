@@ -314,7 +314,6 @@ export const describeApiError = (err) => {
     : typeof detail === "string" ? [detail] : []
   const translated = detailMsgs.map(translateApiMessage).filter(Boolean)
   const lines = (translated.length ? translated : detailMsgs.filter(isThai)).slice(0, 4).map((m) => ({ label: "รายละเอียด", value: m }))
-  const code = status ?? err?.code ?? err?.name ?? "—"
   const network = !status || /failed to fetch|networkerror|timeout/i.test(String(err?.message))
 
   if (network)
@@ -341,7 +340,7 @@ export const describeApiError = (err) => {
     kind: "unknown",
     title: "บันทึกไม่สำเร็จ",
     description: isThai(msg) ? msg : "เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง",
-    lines: [...lines, { label: "รหัส", value: String(code) }],
+    lines,
     primary: "retry",
   }
 }

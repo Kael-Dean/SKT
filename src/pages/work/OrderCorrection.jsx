@@ -2,9 +2,13 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { apiAuth } from "../../lib/api";
 import { getUser } from "../../lib/auth";
-import { cx, baseField, labelCls, submitBtnCls, resetBtnCls, spinnerCls } from "../../lib/styles";
-import { SkeletonTableRows } from "../../components/ui";
-import useModalDismiss from "../../lib/useModalDismiss"
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  cx, baseField, labelCls, submitBtnCls, resetBtnCls, spinnerCls, primaryBtnCls, neutralBtnCls, dangerBtnCls,
+} from "../../lib/styles";
+import { SkeletonTableRows, Sheet, DataList, Badge, EmptyState, ConfirmDialog, toast } from "../../components/ui";
+import ComboBox from "../../components/ComboBox";
+import { useIsPhone } from "../../hooks/useMediaQuery";
 
 /* ---------------- Utilities (ทนทานต่อค่าที่ไม่ใช่สตริง) ---------------- */
 const asString = (v) => (v === null || v === undefined ? "" : String(v));
@@ -27,160 +31,6 @@ function useDebounce(value, delay = 400) {
     return () => clearTimeout(t);
   }, [value, delay]);
   return debounced;
-}
-
-/* ---------------- Reusable ComboBox ---------------- */
-function ComboBox({
-  options = [],
-  value,
-  onChange,
-  placeholder = "— เลือก —",
-  getLabel = (o) => o?.label ?? "",
-  getValue = (o) => o?.value ?? o?.id ?? "",
-  disabled = false,
-  error = false,
-}) {
-  const [open, setOpen] = useState(false);
-  const [highlight, setHighlight] = useState(-1);
-  const boxRef = useRef(null);
-  const listRef = useRef(null);
-  const btnRef = useRef(null);
-
-  const selectedLabel = useMemo(() => {
-    const found = options.find((o) => String(getValue(o)) === String(value));
-    return found ? getLabel(found) : "";
-  }, [options, value, getLabel, getValue]);
-
-  useEffect(() => {
-    const onClick = (e) => {
-      if (!boxRef.current) return;
-      if (!boxRef.current.contains(e.target)) {
-        setOpen(false);
-        setHighlight(-1);
-      }
-    };
-    document.addEventListener("click", onClick);
-    return () => document.removeEventListener("click", onClick);
-  }, []);
-
-  const commit = (opt) => {
-    const v = String(getValue(opt));
-    onChange?.(v, opt);
-    setOpen(false);
-    setHighlight(-1);
-    requestAnimationFrame(() => btnRef.current?.focus());
-  };
-
-  const scrollHighlightedIntoView = (index) => {
-    const listEl = listRef.current;
-    const itemEl = listEl?.children?.[index];
-    if (!listEl || !itemEl) return;
-    const itemRect = itemEl.getBoundingClientRect();
-    const listRect = listEl.getBoundingClientRect();
-    const buffer = 6;
-    if (itemRect.top < listRect.top + buffer) {
-      listEl.scrollTop -= (listRect.top + buffer) - itemRect.top;
-    } else if (itemRect.bottom > listRect.bottom - buffer) {
-      listEl.scrollTop += itemRect.bottom - (listRect.bottom - buffer);
-    }
-  };
-
-  const onKeyDown = (e) => {
-    if (disabled) return;
-    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
-      e.preventDefault();
-      setOpen(true);
-      setHighlight((h) => (h >= 0 ? h : 0));
-      return;
-    }
-    if (!open) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHighlight((h) => {
-        const next = h < options.length - 1 ? h + 1 : 0;
-        requestAnimationFrame(() => scrollHighlightedIntoView(next));
-        return next;
-      });
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHighlight((h) => {
-        const prev = h > 0 ? h - 1 : options.length - 1;
-        requestAnimationFrame(() => scrollHighlightedIntoView(prev));
-        return prev;
-      });
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (highlight >= 0 && highlight < options.length) commit(options[highlight]);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      setOpen(false);
-      setHighlight(-1);
-    }
-  };
-
-  return (
-    <div className="relative" ref={boxRef}>
-      <button
-        type="button"
-        ref={btnRef}
-        disabled={disabled}
-        onClick={() => !disabled && setOpen((o) => !o)}
-        onKeyDown={onKeyDown}
-        className={[
-          "w-full rounded-2xl border p-3 text-left text-[15px] md:text-base outline-none transition shadow-none",
-          disabled ? "bg-slate-100 cursor-not-allowed" : "bg-slate-100 hover:bg-slate-200 cursor-pointer",
-          error
-            ? "border-red-400 ring-2 ring-red-300/70"
-            : "border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30",
-          "text-black placeholder:text-slate-500",
-          "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-700/70 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30",
-        ].join(" ")}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        {selectedLabel || <span className="text-slate-500 dark:text-white/70">{placeholder}</span>}
-      </button>
-
-      {open && (
-        <div
-          ref={listRef}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white text-black shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-slate-600 dark:text-slate-300">ไม่มีตัวเลือก</div>
-          )}
-          {options.map((opt, idx) => {
-            const label = getLabel(opt);
-            const isActive = idx === highlight;
-            const isChosen = String(getValue(opt)) === String(value);
-            return (
-              <button
-                key={String(getValue(opt)) || label || idx}
-                type="button"
-                role="option"
-                aria-selected={isChosen}
-                onMouseEnter={() => setHighlight(idx)}
-                onClick={() => commit(opt)}
-                className={[
-                  "relative flex w-full items-center gap-2 px-3 py-2.5 text-left text-[15px] md:text-base transition rounded-xl cursor-pointer",
-                  isActive
-                    ? "bg-emerald-100 ring-1 ring-emerald-300 dark:bg-emerald-400/20 dark:ring-emerald-500"
-                    : "hover:bg-emerald-50 dark:hover:bg-emerald-900/30",
-                ].join(" ")}
-              >
-                {isActive && (
-                  <span className="absolute left-0 top-0 h-full w-1 bg-emerald-600 dark:bg-emerald-400/70 rounded-l-xl" />
-                )}
-                <span className="flex-1">{label}</span>
-                {isChosen && <span className="text-emerald-600 dark:text-emerald-300">✓</span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
 }
 
 /* ---------------- DateInput (เหมือนหน้าออเดอร์) ---------------- */
@@ -208,7 +58,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
           }
         }}
         aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
+        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
           <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
@@ -222,6 +72,7 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
 const PAGE_SIZE = 100;
 
 function OrderCorrection() {
+  const isPhone = useIsPhone();
   /* Dates */
   const today = new Date().toISOString().slice(0, 10);
   const firstDayThisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
@@ -435,7 +286,7 @@ function OrderCorrection() {
     try {
       const main = document.querySelector("main");
       if (main && typeof main.scrollTo === "function") main.scrollTo({ top: 0, behavior: "smooth" });
-      else window?.scrollTo?.({ top: 0, behavior: "smooth" });
+      window?.scrollTo?.({ top: 0, behavior: "smooth" }); // body is the scroller now (plan §A7)
     } catch (_) {}
   };
   const nextPage = () => goToPage(page + 1);
@@ -485,8 +336,8 @@ function OrderCorrection() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  // Esc / click outside the panel close the detail modal (not while saving)
-  const { backdropProps: detailBackdrop } = useModalDismiss(() => closeModal(), { open, disabled: saving || deleting });
+  // Esc / backdrop / X are handled by <Sheet> (disabled while `busy`).
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [rowError, setRowError] = useState("");
   const [touched, setTouched] = useState(new Set());
 
@@ -719,6 +570,8 @@ function OrderCorrection() {
     } catch (e) {
       console.error(e);
       setRowError(e?.message || "บันทึกไม่สำเร็จ");
+      // Sheet stays open with the draft (UI-SPEC §9).
+      toast.error("บันทึกไม่สำเร็จ", { description: e?.message || undefined });
     } finally {
       setSaving(false);
     }
@@ -748,19 +601,20 @@ function OrderCorrection() {
 
   const confirmAndDelete = async () => {
     if (!active || !draft || deleting) return;
-    const ok = window.confirm(
-      `ต้องการลบออเดอร์ #${active.id ?? draft.order_id} จริงหรือไม่?\nการลบจะย้อนสต๊อก/เครดิต และไม่สามารถยกเลิกได้`
-    );
-    if (!ok) return;
+    // Confirmation now comes from <ConfirmDialog> (was window.confirm).
     setRowError("");
     setDeleting(true);
     try {
       await deleteOrder();
-      setOpen(false);
+      setConfirmDelete(false);
+      closeModal();
+      toast.success("ลบออเดอร์แล้ว");
       await fetchOrders();
     } catch (e) {
       console.error(e);
+      setConfirmDelete(false);
       setRowError(e?.message || "ลบออเดอร์ไม่สำเร็จ");
+      toast.error("ลบออเดอร์ไม่สำเร็จ", { description: e?.message || undefined });
     } finally {
       setDeleting(false);
     }
@@ -772,6 +626,90 @@ function OrderCorrection() {
 
   const isSellCredit = (pid) => Number(pid) === 2;
   const isSellCash = (pid) => Number(pid) === 1;
+
+  /* ---------- phone: card list + compact pager (UI-SPEC §6.1 / §9) ---------- */
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("th-TH") : "—");
+  const rowView = (r) => {
+    const isBuy = mode === "buy";
+    const entry = toNumber(r.entry_weight ?? r.entryWeight ?? r.entry ?? 0);
+    const exit = toNumber(r.exit_weight ?? r.exitWeight ?? r.exit ?? 0);
+    const net = isBuy ? toNumber(r.weight) || Math.max(0, Math.abs(exit - entry)) : toNumber(r.weight ?? 0);
+    const price = toNumber(isBuy ? r.price ?? r.amountTHB ?? 0 : r.price ?? 0);
+    const raw = toNumber(isBuy ? r.price_per_kilo ?? r.pricePerKilo ?? r.unit_price ?? 0 : r.price_per_kilo ?? 0);
+    return {
+      net, price, pricePerKg: raw || (net > 0 ? price / net : 0),
+      customer: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.customer_name || "—",
+      species: r.species || r.rice_type || r.riceType || "—",
+      branch: r.branch_name || r.branchName || "—",
+      klang: r.klang_name || r.klangName || "",
+      subtitle: isBuy
+        ? [fmtDate(r.date), r.order_serial || r.paymentRefNo || "—", r.klang_name || r.klangName].filter(Boolean).join(" · ")
+        : `${fmtDate(r.date)} · ใบรับเงิน ${r.sale_id || "—"} · ใบชั่ง ${r.order_serial || "—"}`,
+      sub: r.sub_order,
+    };
+  };
+  const phoneList = (
+    <DataList
+      items={pagedRows}
+      keyOf={(r) => (mode === "buy" ? r.id ?? `${r.order_serial}-${r.date}-${r.first_name ?? ""}-${r.last_name ?? ""}` : `${r.id ?? r.sale_id}-${r.sub_order ?? 0}`)}
+      loading={loading}
+      skeletonRows={6}
+      emptyState={
+        <EmptyState
+          title="ไม่พบออเดอร์"
+          description={`ไม่มีรายการ${mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}ในช่วงวันที่และตัวกรองนี้`}
+          action={<button type="button" onClick={resetFilters} className={neutralBtnCls}>ล้างตัวกรอง</button>}
+        />
+      }
+      title={(r) => rowView(r).customer}
+      subtitle={(r) => <span className="line-clamp-2">{rowView(r).subtitle}</span>}
+      badge={(r) => {
+        const v = rowView(r);
+        return (
+          <span className="flex flex-col items-end gap-1">
+            <Badge tone="neutral">{v.branch}</Badge>
+            {mode === "sell" && toNumber(v.sub) > 1 && <Badge tone="info">ย่อย {v.sub}</Badge>}
+          </span>
+        );
+      }}
+      fields={[
+        { label: "ชนิดข้าว", value: (r) => rowView(r).species, span: 2 },
+        { label: "นน.สุทธิ (กก.)", value: (r) => rowView(r).net.toLocaleString(), align: "right" },
+        { label: "ราคา/กก. (บาท)", value: (r) => baht(rowView(r).pricePerKg), align: "right" },
+        { label: "เป็นเงิน", value: (r) => thb(rowView(r).price), align: "right", emphasis: true, span: 2 },
+      ]}
+      onClick={(r) => openModal(r)}
+    />
+  );
+  const phonePager = rows.length > 0 && !loading && (
+    <nav aria-label="เลขหน้า" className="mt-4">
+      <div className="flex items-center justify-between gap-1.5">
+        <button type="button" onClick={prevPage} disabled={page <= 1} aria-label="หน้าก่อนหน้า" className={cx(neutralBtnCls, "shrink-0 gap-1 whitespace-nowrap px-2.5")}>
+          <ChevronLeft aria-hidden="true" className="size-4" /> ก่อนหน้า
+        </button>
+        <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+          <span className="hidden min-[380px]:inline">หน้า</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            aria-label="ไปหน้า"
+            value={pageInput}
+            onChange={(e) => setPageInput(onlyDigits(e.target.value))}
+            onKeyDown={(e) => e.key === "Enter" && onCommitPageInput()}
+            onBlur={onCommitPageInput}
+            className="h-11 w-14 shrink-0 rounded-xl border border-slate-300 bg-slate-100 px-1 text-center text-base tabular-nums text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <span className="tabular-nums">/ {totalPages.toLocaleString()}</span>
+        </div>
+        <button type="button" onClick={nextPage} disabled={page >= totalPages} aria-label="หน้าถัดไป" className={cx(neutralBtnCls, "shrink-0 gap-1 whitespace-nowrap px-2.5")}>
+          ถัดไป <ChevronRight aria-hidden="true" className="size-4" />
+        </button>
+      </div>
+      <p className="mt-2 text-center text-xs tabular-nums text-gray-500 dark:text-gray-400">
+        {startIndex.toLocaleString()}–{endIndex.toLocaleString()} จาก {rows.length.toLocaleString()}
+      </p>
+    </nav>
+  );
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
@@ -786,7 +724,7 @@ function OrderCorrection() {
               type="button"
               onClick={() => switchMode("buy")}
               className={[
-                "px-4 py-2 rounded-xl text-sm font-semibold transition",
+                "min-h-touch md:min-h-0 px-4 py-2 rounded-xl text-sm font-semibold transition",
                 mode === "buy"
                   ? "bg-emerald-600 text-white shadow"
                   : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700",
@@ -798,7 +736,7 @@ function OrderCorrection() {
               type="button"
               onClick={() => switchMode("sell")}
               className={[
-                "px-4 py-2 rounded-xl text-sm font-semibold transition",
+                "min-h-touch md:min-h-0 px-4 py-2 rounded-xl text-sm font-semibold transition",
                 mode === "sell"
                   ? "bg-emerald-600 text-white shadow"
                   : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700",
@@ -919,7 +857,13 @@ function OrderCorrection() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* List: cards on phones (conditional render — not CSS hide), table from md */}
+        {isPhone ? (
+          <div aria-busy={loading ? "true" : "false"}>
+            {phoneList}
+            {phonePager}
+          </div>
+        ) : (
         <div
           className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
           aria-busy={loading ? "true" : "false"}
@@ -1133,82 +1077,62 @@ function OrderCorrection() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
-      {/* EDIT MODAL */}
-      <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
-        <div className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} />
-        <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-5" {...detailBackdrop}>
-          <div role="dialog" aria-modal="true"
-            className={`h-[88vh] w-[96vw] max-w-[1280px] transform overflow-hidden rounded-2xl bg-white text-black shadow-2xl transition-all dark:bg-slate-800 dark:text-white ${
-              open ? "scale-100 opacity-100" : "scale-95 opacity-0"
-            }`}
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
-              <div className="text-xl md:text-2xl font-semibold">
-                {active ? `แก้ไขออเดอร์ #${active.id ?? "-"}` : "แก้ไขออเดอร์"}
-              </div>
+      {/* EDIT SHEET — portaled bottom sheet (<md) / centered dialog (≥md) */}
+      <Sheet
+        open={open && !!active && !!draft}
+        onClose={closeModal}
+        title={active ? `แก้ไขออเดอร์ #${active.id ?? "-"}` : "แก้ไขออเดอร์"}
+        subtitle={draft ? `วันที่เอกสาร: ${draft.date ? new Date(draft.date).toLocaleDateString("th-TH") : "-"}` : undefined}
+        size="full"
+        hideHandle
+        busy={saving || deleting}
+        footer={
+          !editing ? (
+            <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
               <button
                 type="button"
-                onClick={closeModal}
-                className="rounded-2xl border border-slate-300 px-4 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
+                onClick={() => setConfirmDelete(true)}
+                disabled={deleting}
+                className={cx(dangerBtnCls, "h-12 md:h-10")}
               >
-                ปิด
+                {deleting ? "กำลังลบ…" : "ลบออเดอร์"}
+              </button>
+              <button type="button" onClick={() => setEditing(true)} className={cx(primaryBtnCls, "h-12 md:h-10")}>
+                แก้ไข
               </button>
             </div>
-
-            <div className="h-[calc(88vh-64px)] overflow-y-auto p-4 md:p-6 text-base md:text-lg">
-              {!active || !draft ? (
-                <div className="text-slate-600 dark:text-slate-300">ไม่มีข้อมูล</div>
-              ) : (
-                <>
-                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm md:text-base text-slate-600 dark:text-slate-300">
-                      วันที่เอกสาร: {draft.date ? new Date(draft.date).toLocaleDateString("th-TH") : "-"}
-                    </div>
-
-                    {!editing ? (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setEditing(true)}
-                          className="rounded-2xl bg-emerald-600 px-4 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98]"
-                        >
-                          แก้ไข
-                        </button>
-                        <button
-                          type="button"
-                          onClick={confirmAndDelete}
-                          disabled={deleting}
-                          className="rounded-2xl bg-red-600 px-4 py-2 text-base font-semibold text-white hover:bg-red-700 active:scale-[.98] disabled:opacity-60"
-                        >
-                          {deleting ? "กำลังลบ..." : "ลบออเดอร์"}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={save}
-                          disabled={saving}
-                          className="rounded-2xl bg-emerald-600 px-5 py-2 text-base font-semibold text-white hover:bg-emerald-700 active:scale-[.98] disabled:opacity-60"
-                        >
-                          {saving ? "กำลังบันทึก..." : "บันทึก"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditing(false);
-                            openModal(active);
-                          }}
-                          className="rounded-2xl border border-slate-300 px-5 py-2 text-base hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
-                        >
-                          ยกเลิก
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
+          ) : (
+            <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(false);
+                  openModal(active);
+                }}
+                disabled={saving}
+                className={cx(neutralBtnCls, "h-12 md:h-10")}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={save}
+                disabled={saving}
+                aria-busy={saving || undefined}
+                className={cx(submitBtnCls, "h-12 py-0 md:h-10 md:text-sm")}
+              >
+                {saving && <span className={spinnerCls} aria-hidden="true" />}
+                {saving ? "กำลังบันทึก…" : "บันทึก"}
+              </button>
+            </div>
+          )
+        }
+      >
+        {active && draft && (
+          <div className="text-base md:text-lg">
                   {rowError && (
                     <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-base text-red-700 dark:border-red-400 dark:bg-red-900/20 dark:text-red-200">
                       {rowError}
@@ -1467,7 +1391,7 @@ function OrderCorrection() {
                       <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2">
                         {/* พ่วงหน้า */}
                         <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-                          <div className="mb-3 font-semibold">● พ่วงหน้า</div>
+                          <div className="mb-3 flex items-center gap-2 font-semibold"><span aria-hidden="true" className="inline-flex size-2 rounded-full bg-emerald-500" />พ่วงหน้า</div>
                           <div className="grid grid-cols-1 gap-4">
                             <div>
                               <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
@@ -1579,7 +1503,7 @@ function OrderCorrection() {
 
                         {/* พ่วงหลัง */}
                         <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-                          <div className="mb-3 font-semibold">● พ่วงหลัง</div>
+                          <div className="mb-3 flex items-center gap-2 font-semibold"><span aria-hidden="true" className="inline-flex size-2 rounded-full bg-slate-500" />พ่วงหลัง</div>
                           <div className="grid grid-cols-1 gap-4">
                             <div>
                               <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
@@ -1692,12 +1616,22 @@ function OrderCorrection() {
                       </div>
                     </>
                   )}
-                </>
-              )}
-            </div>
           </div>
-        </div>
-      </div>
+        )}
+      </Sheet>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`ลบออเดอร์ #${active?.id ?? draft?.order_id ?? ""}`}
+        description="การลบจะย้อนสต๊อก/เครดิต และไม่สามารถยกเลิกได้"
+        confirmLabel="ลบออเดอร์"
+        cancelLabel="เก็บไว้"
+        tone="danger"
+        loading={deleting}
+        loadingLabel="กำลังลบ…"
+        onConfirm={confirmAndDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   );
 }

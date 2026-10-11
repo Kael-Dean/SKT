@@ -324,6 +324,7 @@ export function FullNameField({ form }) {
     refs, nameInputRef, customer, updateCustomer, setShowNameList, setHighlightedIndex,
     clearHint, clearError, handleFullNameKeyDown, showNameList, nameResults, errors, redFieldCls,
     listContainerRef, highlightedIndex, itemRefs, pickNameResult, scrollHighlightedIntoView2,
+    focusKlangOrBranchOrTrailer,
   } = form
   return (
     <>
@@ -367,13 +368,7 @@ export function FullNameField({ form }) {
                 key={`${r.type}-${r.asso_id}-${idx}`}
                 onClick={async () => {
                   await pickNameResult(r)
-                  requestAnimationFrame(() => {
-                    const elP = refs.product?.current
-                    if (elP && isEnabledInput(elP)) {
-                      try { elP.scrollIntoView({ block: "center" }) } catch {}
-                      elP.focus?.()
-                    }
-                  })
+                  requestAnimationFrame(() => { focusKlangOrBranchOrTrailer() })
                 }}
                 onMouseEnter={() => { setHighlightedIndex(idx); requestAnimationFrame(() => scrollHighlightedIntoView2(idx)) }}
                 role="option"
@@ -471,6 +466,47 @@ export function CompanyNameField({ form }) {
   )
 }
 
+/* ---------- บริษัท: เลขผู้เสียภาษี (บังคับ — salesValidation) + เบอร์โทร ---------- */
+export function TaxIdField({ form }) {
+  const { refs, customer, updateCustomer, clearError, clearHint, onEnter, errors, redFieldCls } = form
+  return (
+    <>
+      <input
+        id={fieldId("taxId")}
+        ref={refs.taxId}
+        inputMode="numeric"
+        maxLength={13}
+        className={cx(baseField, "tabular-nums", redFieldCls("taxId"))}
+        value={customer.taxId}
+        onChange={(e) => { updateCustomer("taxId", onlyDigits(e.target.value)); clearError("taxId") }}
+        onFocus={() => clearHint("taxId")}
+        onKeyDown={onEnter("taxId")}
+        placeholder="13 หลัก"
+        aria-invalid={errors.taxId ? true : undefined}
+        aria-describedby={describedBy(errors, "taxId")}
+      />
+      {errors.taxId && <p id={errId("taxId")} className={errorTextCls}>{errors.taxId}</p>}
+    </>
+  )
+}
+
+export function CompanyPhoneField({ form }) {
+  const { refs, customer, updateCustomer, onEnter } = form
+  return (
+    <input
+      id={fieldId("companyPhone")}
+      ref={refs.companyPhone}
+      type="tel"
+      inputMode="tel"
+      className={cx(baseField, "tabular-nums")}
+      value={customer.companyPhone}
+      onChange={(e) => updateCustomer("companyPhone", e.target.value)}
+      onKeyDown={onEnter("companyPhone")}
+      placeholder="ไม่บังคับ"
+    />
+  )
+}
+
 /* ============================ DESKTOP CARD ============================ */
 export default function SalesCustomerSection({ form }) {
   const { buyerType, order, isCreditPayment, nameBoxRef, companyBoxRef } = form
@@ -558,9 +594,19 @@ export default function SalesCustomerSection({ form }) {
         </div>
       ) : (
         // ---------------- บริษัท ----------------
-        <div className="md:col-span-2" ref={companyBoxRef}>
-          <label className={labelCls} htmlFor={fieldId("companyName")}>ชื่อบริษัท / นิติบุคคล</label>
-          <CompanyNameField form={form} />
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div ref={companyBoxRef}>
+            <label className={labelCls} htmlFor={fieldId("companyName")}>ชื่อบริษัท / นิติบุคคล</label>
+            <CompanyNameField form={form} />
+          </div>
+          <div>
+            <label className={labelCls} htmlFor={fieldId("taxId")}>เลขประจำตัวผู้เสียภาษี</label>
+            <TaxIdField form={form} />
+          </div>
+          <div>
+            <label className={labelCls} htmlFor={fieldId("companyPhone")}>เบอร์โทร</label>
+            <CompanyPhoneField form={form} />
+          </div>
         </div>
       )}
     </div>

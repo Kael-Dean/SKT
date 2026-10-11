@@ -761,7 +761,22 @@ function Sales() {
     setShowNameList(false); setNameResults([]); setHighlightedIndex(-1)
   }
 
-  // ⭐ ปรับ Enter บนลิสต์ชื่อ → ไป "ประเภทสินค้า"
+  // หลังเลือกชื่อ → ไปช่องแรกที่กรอกได้: คลัง → สาขา → จำนวนรถพ่วง (เหมือน Buy
+  // `focusKlangOrBranchOrEntry`). เดิมไป `product` ซึ่ง disabled เสมอ → focus ค้าง
+  const focusKlangOrBranchOrTrailer = () => {
+    for (const r of [refs.klangName, refs.branchName, refs.trailerCount]) {
+      const el = r?.current
+      if (el && isEnabledInput(el)) {
+        try { el.scrollIntoView({ block: "center" }) } catch {}
+        el.focus?.()
+        try { el.select?.() } catch {}
+        return true
+      }
+    }
+    return false
+  }
+
+  // Enter บนลิสต์ชื่อ → เลือก แล้วไป "คลัง"
   const handleNameKeyDown = async (e) => {
     if (!showNameList || nameResults.length === 0) return
     if (e.key === "ArrowDown") {
@@ -776,13 +791,7 @@ function Sales() {
       e.preventDefault()
       if (highlightedIndex >= 0 && highlightedIndex < nameResults.length) {
         await pickNameResult(nameResults[highlightedIndex])
-        requestAnimationFrame(() => {
-          const el = refs.product?.current
-          if (el && isEnabledInput(el)) {
-            try { el.scrollIntoView({ block: "center" }) } catch {}
-            el.focus?.()
-          }
-        })
+        requestAnimationFrame(() => { focusKlangOrBranchOrTrailer() })
       }
     } else if (e.key === "Escape") {
       e.preventDefault(); setShowNameList(false); setHighlightedIndex(-1)
@@ -1212,13 +1221,7 @@ function Sales() {
     }
     if (e.key === "Enter" && !e.isComposing) {
       e.preventDefault()
-      const el = refs.product?.current
-      if (el && isEnabledInput(el)) {
-        try { el.scrollIntoView({ block: "center" }) } catch {}
-        el.focus?.()
-        try { el.select?.() } catch {}
-        return
-      }
+      if (focusKlangOrBranchOrTrailer()) return
       focusNext("fullName")
     }
   }
@@ -1238,7 +1241,7 @@ function Sales() {
     beforeFocusTrailerRef,
     // search panels
     nameBoxRef, nameInputRef, listContainerRef, itemRefs, showNameList, setShowNameList, nameResults, highlightedIndex, setHighlightedIndex,
-    pickNameResult, scrollHighlightedIntoView2, handleFullNameKeyDown,
+    pickNameResult, scrollHighlightedIntoView2, handleFullNameKeyDown, focusKlangOrBranchOrTrailer,
     companyBoxRef, companyInputRef, companyItemRefs, showCompanyList, setShowCompanyList, companyResults, companyHighlighted, setCompanyHighlighted,
     pickCompanyResult, handleCompanyKeyDown,
     // handlers

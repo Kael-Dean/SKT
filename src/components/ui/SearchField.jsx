@@ -18,7 +18,13 @@
 // out of room). Phone: the list renders inline under the field so the
 // keyboard stays open and the page scrolls naturally.
 // a11y: input role=combobox + aria-activedescendant, ul role=listbox,
-// li role=option; rows are 44px tap targets.
+// li role=option; rows are 44px tap targets. aria-controls only while the
+// list is rendered.
+//
+// Plain search box: pass `open={false}` without `onPick` (results render in
+// the page — DataList/table, e.g. MemberSearch). The input is then a normal
+// type=search box: no combobox role, no aria-expanded, no list.
+// Clear (×) button = 44px on phones, 36px from md.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -134,7 +140,9 @@ export default function SearchField({
   const blurTimer = useRef(0)
 
   const ready = String(value ?? "").trim().length >= minChars
-  const open = openProp ?? (focused && ready)
+  // A field that can never show a list is a plain search box, not a combobox.
+  const isCombobox = openProp !== false || typeof onPick === "function"
+  const open = isCombobox && (openProp ?? (focused && ready))
   const activeDesc = open && highlightedIndex >= 0 ? optionId(lid, highlightedIndex) : undefined
 
   const handleKeyDown = (e) => {
@@ -176,9 +184,9 @@ export default function SearchField({
         ref={ref}
         id={id}
         type="search"
-        role="combobox"
-        aria-autocomplete="list"
-        aria-expanded={open}
+        role={isCombobox ? "combobox" : undefined}
+        aria-autocomplete={isCombobox ? "list" : undefined}
+        aria-expanded={isCombobox ? open : undefined}
         aria-controls={open ? lid : undefined}
         aria-activedescendant={activeDesc}
         aria-label={ariaLabel}
@@ -202,9 +210,9 @@ export default function SearchField({
           blurTimer.current = setTimeout(() => setFocused(false), 150)
           onBlur?.(e)
         }}
-        className={cx(baseField, "pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")}
+        className={cx(baseField, "pl-10 pr-12 md:pr-10 [&::-webkit-search-cancel-button]:hidden")}
       />
-      <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center">
+      <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center md:right-2">
         {loading ? (
           <LoaderCircle aria-hidden="true" className="mr-2 size-4 animate-spin text-slate-400" strokeWidth={2} />
         ) : value ? (
@@ -213,14 +221,14 @@ export default function SearchField({
             aria-label="ล้างคำค้นหา"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => { onChange?.(""); ref.current?.focus() }}
-            className="flex size-9 cursor-pointer items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+            className="flex size-11 cursor-pointer items-center justify-center rounded-xl text-slate-500 transition-colors duration-150 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 md:size-9 dark:text-slate-400 dark:hover:text-slate-200"
           >
             <X aria-hidden="true" className="size-4" strokeWidth={2} />
           </button>
         ) : null}
       </span>
 
-      <SearchResults
+      {isCombobox && <SearchResults
         open={open}
         anchorRef={wrapRef}
         results={results}
@@ -231,7 +239,7 @@ export default function SearchField({
         listId={lid}
         emptyText={emptyText}
         loading={loading}
-      />
+      />}
     </div>
   )
 }

@@ -1,8 +1,9 @@
 // src/pages/work/sales/salesValidation.js
 // ─────────────────────────────────────────────────────────────────────────────
-// Per-step validators for the Sales page. Messages are the ORIGINAL strings
-// from Sales.jsx `validateAll` (copy deck §9.2 "เดิม" column — lead decision
-// §11.2: no rewording this round). `validateAll` merges the three steps and
+// Per-step validators for the Sales page. Messages are the original strings
+// from Sales.jsx `validateAll` (copy deck §9.2 "เดิม" column), except the
+// round-2 jargon cleanup: no field/DB names (member_id, asso_id) and spec
+// errors say the product form lacks the value. `validateAll` merges the three steps and
 // returns the exact shape the page always produced:
 //   { fullName?, memberId?, companyName?, taxId?, product?, …, klangName?,
 //     payment?, issueDate?, trailers?: [{ scaleNoFront?, frontWeightKg?, … _net? }] }
@@ -17,7 +18,7 @@ export function validateCustomer({ buyerType, customer, memberMeta, paymentId, o
     if (!customer.fullName) e.fullName = "กรุณากรอกชื่อ–สกุล"
     const memberIdStrForValidate = onlyDigits(String(customer.memberId || ""))
     if (!memberIdStrForValidate && !memberMeta.assoId) {
-      e.memberId = "กรุณาระบุรหัสสมาชิก (member_id) หรือเลือกบุคคลที่มี asso_id"
+      e.memberId = "กรอกรหัสสมาชิก หรือเลือกชื่อจากผลค้นหา"
     }
   } else {
     if (!customer.companyName.trim()) e.companyName = "กรุณากรอกชื่อบริษัท"
@@ -28,16 +29,16 @@ export function validateCustomer({ buyerType, customer, memberMeta, paymentId, o
   return e
 }
 
-/** Step 2 — สเปค (ล็อกจากฟอร์ม) + สาขา/คลัง */
+/** Step 2 — สเปค (มาจากฟอร์มสินค้า) + สาขา/คลัง */
 export function validateSpec({ order }) {
   const e = {}
-  if (!order.productId) e.product = "เลือกประเภทสินค้า (ล็อกจากฟอร์มสำเร็จรูป)"
-  if (!order.riceId) e.riceType = "เลือกชนิดข้าว (ล็อกจากฟอร์มสำเร็จรูป)"
-  if (!order.subriceId) e.subrice = "เลือกชั้นย่อย (ล็อกจากฟอร์มสำเร็จรูป)"
-  if (!order.conditionId) e.condition = "เลือกสภาพ/เงื่อนไข (ล็อกจากฟอร์มสำเร็จรูป)"
-  if (!order.fieldTypeId) e.fieldType = "เลือกประเภทนา (ล็อกจากฟอร์มสำเร็จรูป)"
-  if (!order.riceYearId) e.riceYear = "เลือกปี/ฤดูกาล (ล็อกจากฟอร์มสำเร็จรูป)"
-  if (!order.businessTypeId) e.businessType = "เลือกประเภทธุรกิจ (ล็อกจากฟอร์มสำเร็จรูป)"
+  if (!order.productId) e.product = "ฟอร์มนี้ไม่ได้กำหนดประเภทสินค้า · เลือกฟอร์มอื่น"
+  if (!order.riceId) e.riceType = "ฟอร์มนี้ไม่ได้กำหนดชนิดข้าว · เลือกฟอร์มอื่น"
+  if (!order.subriceId) e.subrice = "ฟอร์มนี้ไม่ได้กำหนดชั้นย่อย · เลือกฟอร์มอื่น"
+  if (!order.conditionId) e.condition = "ฟอร์มนี้ไม่ได้กำหนดสภาพ/เงื่อนไข · เลือกฟอร์มอื่น"
+  if (!order.fieldTypeId) e.fieldType = "ฟอร์มนี้ไม่ได้กำหนดประเภทนา · เลือกฟอร์มอื่น"
+  if (!order.riceYearId) e.riceYear = "ฟอร์มนี้ไม่ได้กำหนดปี/ฤดูกาล · เลือกฟอร์มอื่น"
+  if (!order.businessTypeId) e.businessType = "ฟอร์มนี้ไม่ได้กำหนดประเภทธุรกิจ · เลือกฟอร์มอื่น"
   if (!order.branchName) e.branchName = "เลือกสาขา"
   if (!order.klangName) e.klangName = "เลือกคลัง"
   return e

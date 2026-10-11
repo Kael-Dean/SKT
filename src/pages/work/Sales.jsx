@@ -1138,7 +1138,7 @@ function Sales() {
             requestAnimationFrame(() => setTimeout(() => { try { refs.memberId.current?.focus() } catch { /* ignore */ } }, 60))
           }
           toast.error("ยังไม่ได้ระบุสมาชิก", {
-            description: "กรอกรหัสสมาชิก (member_id) หรือเลือกชื่อจากผลค้นหา",
+            description: "กรอกรหัสสมาชิก หรือเลือกชื่อจากผลค้นหา",
             action: stepApiRef.current ? { label: "แตะเพื่อไปที่ขั้น 1", onClick: goMember } : undefined,
           })
           if (!stepApiRef.current) goMember()

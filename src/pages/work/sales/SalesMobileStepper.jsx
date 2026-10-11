@@ -309,10 +309,10 @@ export default function SalesMobileStepper({ form }) {
               <div>
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <label className={cx(labelCls, "mb-0")} htmlFor={fieldId("formTemplate")}>ฟอร์มสำเร็จรูป</label>
-                  {formTemplate && <Badge tone="info">ล็อกสเปคแล้ว</Badge>}
+                  {formTemplate && <Badge tone="info">สเปคตามฟอร์ม</Badge>}
                 </div>
                 <TemplateCombo form={form} />
-                <p className={helpTextCls}>ฟอร์มจะล็อกสเปคสินค้าในขั้นถัดไป</p>
+                <p className={helpTextCls}>สเปคสินค้าจะใช้ตามฟอร์มนี้</p>
               </div>
 
               <div><CustomerStatusChip form={form} /></div>
@@ -320,7 +320,7 @@ export default function SalesMobileStepper({ form }) {
               {buyerType === "person" ? (
                 <>
                   <Field label="เลขบัตรประชาชน" htmlFor={fieldId("citizenId")}><CitizenIdField form={form} /></Field>
-                  <Field label="รหัสสมาชิก (member_id)" htmlFor={fieldId("memberId")}><MemberIdField form={form} /></Field>
+                  <Field label="รหัสสมาชิก" htmlFor={fieldId("memberId")}><MemberIdField form={form} /></Field>
                   <div ref={nameBoxRef}>
                     <label className={labelCls} htmlFor={fieldId("fullName")}>ชื่อ–สกุล</label>
                     <FullNameField form={form} />
@@ -364,11 +364,8 @@ export default function SalesMobileStepper({ form }) {
 
             {isCreditPayment() && (
               <section className={cx(cardCls, "space-y-4 p-4")}>
-                <h3 className={sectionTitleCls}>เงื่อนไขเครดิต</h3>
+                <h3 className={sectionTitleCls}>เงื่อนไขขายเชื่อ</h3>
                 <CreditTermsFields form={form} mobile />
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  ส่งไปหลังบ้านเป็น <code>allowed_period</code>, <code>postpone</code>, <code>postpone_period</code>
-                </p>
               </section>
             )}
           </>
@@ -380,7 +377,7 @@ export default function SalesMobileStepper({ form }) {
             <section className={cx(cardCls, "p-4")}>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h3 className={cx(sectionTitleCls, "mb-0 border-b-0 pb-0")}>สเปคสินค้า</h3>
-                <Badge tone="info">ล็อกโดยฟอร์ม</Badge>
+                <Badge tone="info">ตามฟอร์ม</Badge>
               </div>
               <p className="mb-3 text-sm font-medium text-gray-900 dark:text-gray-100">ฟอร์ม: {dash(templateLabel)}</p>
               <Dl rows={[
@@ -403,7 +400,7 @@ export default function SalesMobileStepper({ form }) {
               {/* The 8 locked ComboBoxes stay mounted (refs + force-included `product`). */}
               <details className="mt-3 group">
                 <summary className={cx("flex min-h-touch cursor-pointer list-none items-center justify-between gap-2 text-sm text-gray-700 dark:text-gray-200", focusRingCls, "rounded-lg")}>
-                  ดู/แก้สเปครายตัว
+                  ดูสเปครายตัว
                   <ChevronDown aria-hidden="true" className="size-5 text-gray-400 transition-transform duration-150 group-open:rotate-180 dark:text-gray-500" />
                 </summary>
                 <div className="mt-2 grid gap-4">
@@ -546,7 +543,7 @@ export default function SalesMobileStepper({ form }) {
                 <div><dt className="text-xs text-gray-500 dark:text-gray-400">รวมพ่วงหลัง</dt><dd className="tabular-nums text-gray-900 dark:text-gray-100">{nf(totals.backWeight)} กก.</dd></div>
                 <div><dt className="text-xs text-gray-500 dark:text-gray-400">สุทธิรวม</dt><dd className="font-bold tabular-nums text-gray-900 dark:text-gray-100">{nf(totals.net)} กก.</dd></div>
                 <div><dt className="text-xs text-gray-500 dark:text-gray-400">ราคาเฉลี่ย (บ./กก.)</dt><dd className="tabular-nums text-gray-900 dark:text-gray-100">{totals.weightedUnit > 0 ? nf(round2(totals.weightedUnit)) : "—"}</dd></div>
-                <div><dt className="text-xs text-gray-500 dark:text-gray-400">gram เฉลี่ย</dt><dd className="tabular-nums text-gray-900 dark:text-gray-100">{totals.weightedGram > 0 ? totals.weightedGram : "—"}</dd></div>
+                <div><dt className="text-xs text-gray-500 dark:text-gray-400">คุณภาพเฉลี่ย (กรัม)</dt><dd className="tabular-nums text-gray-900 dark:text-gray-100">{totals.weightedGram > 0 ? totals.weightedGram : "—"}</dd></div>
                 <div className="col-span-2 mt-1 border-t border-gray-100 pt-2 text-right dark:border-gray-700/70">
                   <dt className="text-xs text-gray-500 dark:text-gray-400">เป็นเงินรวม</dt>
                   <dd className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{thb(totals.amount)}</dd>

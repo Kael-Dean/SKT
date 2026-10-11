@@ -131,6 +131,12 @@ export const newTrailer = () => ({
   gramBack: "",
 })
 
+/** Credit sale? — matched on the payment label (BE has no flag). */
+export const isCreditLabel = (label = "") => {
+  const s = String(label).trim().toLowerCase()
+  return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
+}
+
 /** Label of the reference-document field (sent as sale_id; dynamic on payment method). */
 export const refDocLabel = (order, mobile = false) => {
   if (order.__isCredit) return mobile ? "เลขที่ใบกำกับสินค้า" : "เลขที่ใบกำกับสินค้า (ขายเชื่อ)"

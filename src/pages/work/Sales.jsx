@@ -15,7 +15,7 @@ import { ResultSheet, ConfirmDialog, OrderSummaryPanel, Kbd, toast } from "../..
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import {
   onlyDigits, toNumber, round2, nf, thb, useDebounce, isEnabledInput, useEnterNavigation,
-  trailerOrder, newTrailer, deriveLockedBranch, translateSaveError, SPEC_KEYS,
+  trailerOrder, newTrailer, deriveLockedBranch, translateSaveError, SPEC_KEYS, isCreditLabel,
 } from "./sales/salesShared"
 import { validateAll as validateAllPure, computeMissingHints as computeMissingHintsPure, describeErrors } from "./sales/salesValidation"
 import SalesCustomerSection from "./sales/SalesCustomerSection"
@@ -471,6 +471,29 @@ function Sales() {
     loadKlang()
   }, [order.branchId, order.branchName])
 
+  // ---------- คลัง: เลือกให้อัตโนมัติ (ตัวเดียว / ที่ใช้ล่าสุดของสาขานี้) ----------
+  // Runs when the warehouse list of a branch arrives. Keeps a valid current
+  // pick (reset keeps the warehouse); otherwise uses the one remembered for
+  // this branch, or the only one.
+  useEffect(() => {
+    if (!klangOptions.length) return
+    setOrder((p) => {
+      if (p.klangId != null && klangOptions.some((o) => String(o.id) === String(p.klangId))) return p
+      let pick = null
+      try {
+        const saved = p.branchId != null ? localStorage.getItem(`sales.lastKlang.${p.branchId}`) : null
+        if (saved) pick = klangOptions.find((o) => String(o.id) === String(saved)) || null
+      } catch { /* storage unavailable */ }
+      if (!pick && klangOptions.length === 1) pick = klangOptions[0]
+      if (!pick) return p
+      return { ...p, klangId: pick.id, klangName: pick.label }
+    })
+  }, [klangOptions])
+  useEffect(() => {
+    if (order.branchId == null || order.klangId == null) return
+    try { localStorage.setItem(`sales.lastKlang.${order.branchId}`, String(order.klangId)) } catch { /* storage unavailable */ }
+  }, [order.branchId, order.klangId])
+
   // ---------- โหลดรายการฟอร์มสำเร็จรูปจาก BE (ล็อกสเปก) ----------
   useEffect(() => {
     const loadForms = async () => {
@@ -650,7 +673,9 @@ function Sales() {
 
   // 🔎 member_id (ค้นหาแบบเก็บศูนย์นำหน้าได้)
   useEffect(() => {
-    if (!autoSearchEnabled) { setCustomerFound(null); return }
+    // Auto-search paused (submit / reset): keep what was found — clearing it
+    // here dropped the picked customer's asso_id after a failed save attempt.
+    if (!autoSearchEnabled) return
     if (buyerType !== "person") { setCustomerFound(null); return }
     // ถ้าเป็นอัปเดตที่มาจากการเลือกชื่อ ให้ข้าม
     if (suppressMemberSearchRef.current) {
@@ -681,7 +706,7 @@ function Sales() {
 
   // 🔎 citizen_id
   useEffect(() => {
-    if (!autoSearchEnabled) { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: "" }); return }
+    if (!autoSearchEnabled) return // see member_id effect above
     if (buyerType !== "person") { setCustomerFound(null); setMemberMeta({ type: "unknown", assoId: null, memberId: "" }); return }
     // ถ้าเป็นอัปเดตที่มาจากการเลือกชื่อ ให้ข้าม
     if (suppressCitizenSearchRef.current) {
@@ -775,9 +800,9 @@ function Sales() {
     for (const r of [refs.klangName, refs.branchName, refs.trailerCount]) {
       const el = r?.current
       if (el && isEnabledInput(el)) {
-        try { el.scrollIntoView({ block: "center" }) } catch {}
+        try { el.scrollIntoView({ block: "center" }) } catch { /* ignore */ }
         el.focus?.()
-        try { el.select?.() } catch {}
+        try { el.select?.() } catch { /* ignore */ }
         return true
       }
     }
@@ -919,8 +944,7 @@ function Sales() {
   const isCreditPayment = () => {
     const pid = resolvePaymentId()
     const label = (order.paymentMethod || "").trim() || (paymentOptions.find((o) => Number(o.id) === Number(pid))?.label || "").trim()
-    const s = label.toLowerCase()
-    return s.includes("ค้าง") || s.includes("เครดิต") || s.includes("credit") || s.includes("เชื่อ") || s.includes("ติด")
+    return isCreditLabel(label)
   }
   const resolvePaymentIdForBE = () => (isCreditPayment() ? 2 : 1)
   useEffect(() => {
@@ -996,6 +1020,17 @@ function Sales() {
     try { return new Date(`${yyyyMmDd}T12:00:00Z`).toISOString() } catch { return new Date().toISOString() }
   }
 
+  // Desktop: first customer field = เลขบัตรประชาชน (reset always returns to
+  // "บุคคล"). After a render so the person row exists again; preventScroll
+  // because reset/save scroll to the top themselves.
+  const focusFirstCustomerField = () => {
+    setTimeout(() => {
+      if (document.body.dataset.sheetOpen) return // a dialog/sheet owns focus
+      const el = refs.citizenId?.current || refs.companyName?.current
+      if (el && isEnabledInput(el)) { try { el.focus({ preventScroll: true }) } catch { el.focus?.() } }
+    }, 40)
+  }
+
   const handleReset = () => {
     // ปิด auto-search ชั่วคราว + ยกเลิกผล async ค้าง
     setAutoSearchEnabled(false)
@@ -1009,6 +1044,7 @@ function Sales() {
       brHouseNo: "", brMoo: "", brSubdistrict: "", brDistrict: "", brProvince: "", brPostalCode: "",
     })
     setMemberMeta({ type: "unknown", assoId: null, memberId: "" })
+    setCustomerFound(null)
     setOrder((prev) => ({
       productId: prev.productId, productName: prev.productName,
       riceId: prev.riceId, riceType: prev.riceType,
@@ -1021,7 +1057,8 @@ function Sales() {
       // คงสาขาที่ล็อกไว้ (ถ้ามี)
       branchName: branchLocked ? (lockedBranch?.label || prev.branchName) : prev.branchName,
       branchId: branchLocked ? (lockedBranch?.id ?? prev.branchId) : prev.branchId,
-      klangName: "", klangId: null,
+      // คลังคงไว้ (round 2: งานถัดไปมักใช้คลังเดิม)
+      klangName: prev.klangName, klangId: prev.klangId,
       issueDate: prev.issueDate, comment: "",
       paymentMethod: "", paymentMethodId: "",
       cashReceiptNo: "", creditInvoiceNo: "",
@@ -1035,7 +1072,8 @@ function Sales() {
     setTrailers([newTrailer()])
     setShowNameList(false); setNameResults([]); setHighlightedIndex(-1)
     setShowCompanyList(false); setCompanyResults([]); setCompanyHighlighted(-1)
-    try { refs.buyerType?.current?.focus() } catch {}
+    if (isPhone) { try { refs.buyerType?.current?.focus() } catch { /* ignore */ } }
+    else focusFirstCustomerField()
     requestAnimationFrame(() => scrollToPageTop())
   }
 
@@ -1231,6 +1269,37 @@ function Sales() {
     }
   }
 
+  // ---------- Desktop keyboard: autofocus + Ctrl+S / Ctrl+Enter ----------
+  const submitRef = useRef(handleSubmit)
+  submitRef.current = handleSubmit
+  const didAutofocusRef = useRef(false)
+  useEffect(() => {
+    if (isPhone || didAutofocusRef.current) return
+    const id = requestAnimationFrame(() => {
+      didAutofocusRef.current = true
+      const el = refs.citizenId.current
+      // only if nothing else took focus first (e.g. the user already clicked)
+      if (el && (document.activeElement === document.body || !document.activeElement)) {
+        try { el.focus({ preventScroll: true }) } catch { el.focus() }
+      }
+    })
+    return () => cancelAnimationFrame(id)
+  }, [isPhone]) // eslint-disable-line react-hooks/exhaustive-deps -- refs are stable useRef objects
+  useEffect(() => {
+    if (isPhone) return
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.isComposing) return
+      // KeyS also covers the Thai layout (key = "ห")
+      const isSave = e.code === "KeyS" || e.key === "s" || e.key === "S" || e.key === "Enter"
+      if (!isSave) return
+      if (document.body.dataset.sheetOpen) return // a dialog / sheet is open
+      e.preventDefault()
+      submitRef.current({ preventDefault() {} }) // same path as the button: validation first
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [isPhone])
+
   // ---------------- UI ----------------
   const handleFullNameKeyDown = (e) => {
     if (showNameList && nameResults.length > 0) {
@@ -1304,7 +1373,7 @@ function Sales() {
           })),
           { key: "total", label: "รวม", value: thb(totalAmt) },
         ],
-        primary: { label: "ทำรายการใหม่", onClick: closeResult },
+        primary: { label: "ทำรายการใหม่", onClick: () => { closeResult(); if (!isPhone) focusFirstCustomerField() } },
         secondary: can("trading.reports.view") ? { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order") } } : undefined,
       }
     }
@@ -1334,7 +1403,12 @@ function Sales() {
       secondary: { label: "แก้ไขรถพ่วง", onClick: editTrailers },
     }
   })()
-  const resultSheet = <ResultSheet open={!!resultProps} onClose={closeResult} {...(resultProps || {})} />
+  const onResultClose = () => {
+    const wasOk = saveResult?.kind === "ok"
+    closeResult()
+    if (wasOk && !isPhone) focusFirstCustomerField()
+  }
+  const resultSheet = <ResultSheet open={!!resultProps} onClose={onResultClose} {...(resultProps || {})} />
 
   if (isPhone) {
     return (

@@ -14,7 +14,7 @@ import {
   segmentedCls, segmentedItemCls, segmentedItemActiveCls,
 } from "../../../lib/styles"
 import DateInput from "./DateInput"
-import { isEnabledInput, onlyDigits, buyerTypeOptions, refDocLabel, fieldId, errId, describedBy } from "./salesShared"
+import { isEnabledInput, isCreditLabel, onlyDigits, buyerTypeOptions, refDocLabel, fieldId, errId, describedBy } from "./salesShared"
 
 /* ---------- status chip next to the heading ---------- */
 const chipBase = "inline-flex items-center gap-2 self-start rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset"
@@ -81,7 +81,15 @@ export function PaymentCombo({ form, describedById }) {
       ariaDescribedBy={describedById}
       options={paymentOptions}
       value={paymentOptions.find((o) => o.label === order.paymentMethod)?.id ?? ""}
-      onChange={(_id, found) => { setOrder((p) => ({ ...p, paymentMethod: found?.label ?? "" })); form.clearError("payment") }}
+      onChange={(_id, found) => {
+        // Set the cash/credit flag in the same update (not only via the
+        // controller effect) so the right ref-doc input is mounted before
+        // onEnterNext moves focus into it.
+        const label = found?.label ?? ""
+        const credit = isCreditLabel(label)
+        setOrder((p) => ({ ...p, paymentMethod: label, __isCredit: credit, __isCash: !credit }))
+        form.clearError("payment")
+      }}
       placeholder="— เลือกวิธีชำระเงิน —"
       buttonRef={refs.payment}
       searchable={false}
@@ -91,8 +99,10 @@ export function PaymentCombo({ form, describedById }) {
       hintRed={!!form.missingHints.payment}
       clearHint={() => form.clearHint("payment")}
       onEnterNext={() => {
+        // Only one of the two ref-doc inputs is mounted; `order` here is the
+        // pre-pick closure (credit/cash flag not updated yet) → try both refs.
         const tryFocusDoc = () => {
-          const el = order.__isCredit ? refs.creditInvoiceNo?.current : refs.cashReceiptNo?.current
+          const el = refs.creditInvoiceNo?.current || refs.cashReceiptNo?.current
           if (el && isEnabledInput(el)) {
             try { el.scrollIntoView({ block: "center" }) } catch {}
             el.focus?.(); try { el.select?.() } catch {}
@@ -132,8 +142,16 @@ export function IssueDateField({ form }) {
 
 /* ---------- เอกสารอ้างอิง (ส่งเป็น sale_id) ---------- */
 export function RefDocField({ form, mobile = false }) {
-  const { refs, order, updateOrder, buyerType, focusNext } = form
+  const { refs, order, updateOrder, buyerType, focusNext, focusKlangOrBranchOrTrailer } = form
   const goName = () => {
+    // Desktop (round 2): the payment row sits BELOW the customer fields, so
+    // Enter moves forward — credit terms (if any), then คลัง → … (not back up
+    // to the name). Phone keeps the original jump to the name field.
+    if (!mobile) {
+      const credit = refs.deptAllowed?.current
+      if (order.__isCredit && credit && isEnabledInput(credit)) { credit.focus(); try { credit.select() } catch { /* ignore */ } return true }
+      return focusKlangOrBranchOrTrailer()
+    }
     const key = buyerType === "person" ? "fullName" : "companyName"
     const el = refs[key]?.current
     if (el && isEnabledInput(el)) {
@@ -190,7 +208,9 @@ export function RefDocField({ form, mobile = false }) {
 
 /* ---------- เงื่อนไขเครดิต — 3 fields (card chrome is the caller's) ---------- */
 export function CreditTermsFields({ form, mobile = false }) {
-  const { refs, dept, setDept } = form
+  const { refs, dept, setDept, focusKlangOrBranchOrTrailer } = form
+  // After the credit terms: phone → ลงวันที่ (original); desktop → คลัง … (forward)
+  const after = () => (mobile ? refs.issueDate?.current?.focus() : focusKlangOrBranchOrTrailer())
   const allowedInput = (
     <input
       id={fieldId("deptAllowed")}
@@ -214,7 +234,7 @@ export function CreditTermsFields({ form, mobile = false }) {
         if (e.key === "Enter" && !e.isComposing) {
           e.preventDefault()
           if (dept.postpone) refs.deptPostponePeriod?.current?.focus()
-          else refs.issueDate?.current?.focus()
+          else after()
         }
       }}
     />
@@ -228,7 +248,7 @@ export function CreditTermsFields({ form, mobile = false }) {
       className={cx(baseField, !mobile && "text-right tabular-nums")}
       value={String(dept.postponePeriod ?? 0)}
       onChange={(e) => setDept((p) => ({ ...p, postponePeriod: Number((e.target.value || '').replace(/\D+/g, '')) }))}
-      onKeyDown={(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); refs.issueDate?.current?.focus(); } }}
+      onKeyDown={(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); after() } }}
       placeholder="เช่น 15"
     />
   )

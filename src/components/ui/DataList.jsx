@@ -22,6 +22,13 @@
 //   fields   [{ label, value: key | (item) => node, align: 'left'|'right', emphasis, span: 1|2 }]
 //            or (item) => [...]; numbers → align:'right' (tabular-nums);
 //            span: 2 = full row of the 2-col dl (e.g. ชนิดข้าว)
+//
+//   ⚠ fields[].value — a STRING/NUMBER is a PROPERTY KEY, not display text:
+//        { value: "netKg" }            → item.netKg
+//        { value: "1,240 กก." }        → item["1,240 กก."] → undefined → "—"  ✗
+//      To show a literal or formatted value ALWAYS pass a function:
+//        { value: () => "ล็อกแล้ว" }, { value: (r) => nf(r.netKg) }
+//      Dev builds console.warn once per key when the key is missing on an item.
 //   onClick  makes the whole card a 44px+ tap target (stretched button) and
 //            shows a chevron; `actions` stay independently clickable.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -31,7 +38,33 @@ import EmptyState from "./EmptyState"
 import { SkeletonCard } from "./Skeleton"
 
 const call = (v, item) => (typeof v === "function" ? v(item) : v)
-const fieldValue = (f, item) => (typeof f.value === "function" ? f.value(item) : item?.[f.value])
+const warnedKeys = new Set()
+
+/**
+ * Resolve a field's display value.
+ * @param {{ value: string | number | ((item: any) => import("react").ReactNode) }} f
+ *   `value` as a function → called with the item (use this for literals/formatting).
+ *   `value` as a string/number → treated as a PROPERTY KEY of the item (backward compatible).
+ * @param {object} item
+ */
+function fieldValue(f, item) {
+  if (typeof f.value === "function") return f.value(item)
+  if (
+    import.meta.env.DEV &&
+    f.value != null &&
+    item != null &&
+    typeof item === "object" &&
+    !(f.value in item) &&
+    !warnedKeys.has(f.value)
+  ) {
+    warnedKeys.add(f.value)
+    console.warn(
+      `[DataList] fields[].value "${f.value}" (label "${f.label}") is not a key of the item — ` +
+        `a string value is read as item[key]. To display a literal or formatted value pass a function: value: () => …`,
+    )
+  }
+  return item?.[f.value]
+}
 
 export default function DataList({
   items = [],

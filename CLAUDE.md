@@ -141,11 +141,23 @@ Table:   overflow-x-auto wrapper, even:bg-gray-50 dark:even:bg-gray-700/30
 ```
 
 ### Component Pattern
-- ComboBox มี keyboard nav (Up/Down/Enter) — อย่าสร้าง dropdown ใหม่ ให้ reuse ตัวเดิม
+- **ComboBox ใช้ตัวกลาง `src/components/ComboBox.jsx` เท่านั้น** (portaled, keyboard Up/Down/Enter/Esc, มือถือเปิดเป็น picker sheet) — ห้ามเขียน `function ComboBox` ในหน้าอีก. default `getValue = o.value ?? o.id` (ถ้าข้อมูลต้องการ `id` ก่อนให้ส่ง `getValue` เอง); `title` = หัวข้อ picker; `enterMovesWhenFilled` สำหรับหน้าแบบ StockTransferOut
 - Page padding: `p-4 md:p-6`
 - Animation duration: `duration-200` (hover/focus), `duration-300` (layout animations)
 - **Popup / Modal ต้อง render ผ่าน `<Portal>` เสมอ** (`src/components/Portal.jsx`) — ทำแบบ popup หน้า "กล่องงานรออนุมัติ" (Inbox). ห้าม render overlay `fixed inset-0` ไว้กลาง component tree ตรง ๆ เพราะถ้ามี ancestor ที่มี `transform`/`filter`/`backdrop-filter` `position: fixed` จะอิงกล่องนั้นแทน viewport → modal ไม่อยู่กลางจอ. Portal render เข้าที่ `document.body` + lock body scroll ให้อัตโนมัติ
 - **Dropdown / popup panel ห้ามมีอะไรมาทับตอนเปิดเลือก** — panel ต้อง portal เข้า `document.body` + `position: fixed` วาง coord จาก trigger rect (ไม่ใช่ `absolute z-30` กลาง tree) และ z-index ต้องสูงกว่า `StickyTableScrollbar` (z-index 10000). ดู `src/components/SelectDropdown.jsx` (ใช้ `PANEL_Z = 10050`, reposition ตอน scroll/resize, outside-click เช็คทั้ง trigger + panel ref). เคยมี sticky table scrollbar ลอยทับ dropdown จนกดเลือกไม่ได้ — อย่าให้เกิดอีก
+
+### Mobile (<768px) — กฎหลัง mobile overhaul (ต.ค. 2026)
+- **body เป็นตัว scroll** (AppLayout `min-h-dvh`, `<main>` ไม่มี `overflow-y-auto`) — header ที่ `sticky` ในหน้าใช้ `top-(--topbar-h)` (Topbar ตั้งค่าให้ผ่าน ResizeObserver). ยกเว้นหัวตารางที่อยู่ใน wrapper `overflow-x-auto` ให้ใช้ `top-0`
+- **ตรวจมือถือใน JS ใช้ `useIsPhone()` / `useIsCoarsePointer()`** จาก `src/hooks/useMediaQuery.js` (breakpoint ตรงกับ Tailwind `md`). เลือก layout ด้วย conditional render เมื่อสอง layout ใช้ ref ชุดเดียวกัน (เช่น Buy/Sales) — ห้าม render ทั้งคู่แล้วซ่อนด้วย CSS
+- **Modal ใหม่ใช้ `<Sheet>`** (`src/components/ui`) — bottom sheet บนมือถือ, dialog กลางจอบน desktop; จัดการ Portal/focus trap/Esc/dvh/safe-area/keyboard ให้แล้ว
+- **ตารางบนมือถือ → `<DataList>`** (card list) เมื่อคอลัมน์เกิน ~4; `fields[].value` ส่งเป็น function `(item) => …` (string = ชื่อ key)
+- **ฟอร์มยาวบนมือถือ → `<StickyActionBar>`** (ปุ่มหลักติดล่างจอ, `primary.tone: "primary"` = ถัดไป/indigo, default `"submit"` = บันทึก/emerald) + `<Stepper>` ถ้าเป็นหลายขั้น
+- **ห้าม `alert()` / `confirm()`** — ใช้ `toast` (รับ `action`) / `<ResultSheet>` / `<ConfirmDialog>`
+- **ช่องกรอกบนมือถือต้อง ≥16px** (กัน iOS zoom) — มี global rule ใน `index.css` แล้ว; ช่องในตาราง grid หนาแน่นใส่ class `cell-input` เพื่อยกเว้น
+- **Touch target ≥44px** บนมือถือ: ใช้ `iconBtnCls` / `min-h-touch` / `size-11 md:size-9`
+- **z-index stack:** Sidebar 9990/9999 < StickyTableScrollbar 10000 < Sheet 10040 < ComboBox/SelectDropdown panel, picker sheet, ThaiDatePicker 10050 < ConfirmDialog 10070 < Toaster 10080
+- Spec/ที่มา: `handoff/mobile-ux-spec.md`, `handoff/mobile-copy.md`, `handoff/mobile-qa-report.md`, `handoff/mobile-perf.md`; demo primitive ที่ `/#/dev/mobile-kit` (dev เท่านั้น)
 
 ---
 

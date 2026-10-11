@@ -20,3 +20,6 @@ From `src/pages/work/Buy.jsx` `useEnterNavigation` (lines 97-152). The post-chan
 - order: product → riceType → subrice → condition → fieldType → riceYear → businessType → program → branchName → klangName → entryWeightKg → exitWeightKg → moisturePct → impurityPct → deductWeightKg (only when manualDeduct) → gram → unitPrice → amountTHB → paymentRefNo → comment → payment → issueDate
 
 Live recording (playwright-cli at 1280, activeElement per Enter) is deferred to QA (WP6) because it needs staging login credentials — QA will record it on the pre-change deploy (vercel deployment of this commit) vs. post-change.
+
+## Correction (2026-10-11, lead)
+The order lists above are the `useEnterNavigation` arrays only. In the baseline, the **fullName** field does not use `onEnter`: its own `handleNameKeyDown` (Buy.jsx@48ed1a3:1568-1585) picks the highlighted search result, or otherwise calls `focusKlangOrBranchOrEntry()` and jumps straight to คลัง/สาขา/น้ำหนักเข้า, skipping the address fields. That jump is **original behaviour, not a regression** — both QA runs (a11y-qa and perf) recorded the same order on baseline and on the overhauled build.

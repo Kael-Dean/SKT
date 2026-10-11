@@ -215,15 +215,17 @@ function DesktopSpecSection({ form }) {
   const {
     order, setOrder, refs, errors, missingHints, clearHint, clearError,
     branchOptions, klangOptions, branchLocked,
-    formTemplate, templateOptions, templateSubLabel, onTemplateChange,
+    formTemplate, templateOptions, templateSubLabel, onTemplateChange, templatesStatus, klangStatus,
   } = form
 
   const specError = SPEC_LOCKED_KEYS.some((k) => errors[k] || missingHints[k])
   const templatesLoaded = templateOptions.length > 0
+  const templatesFailed = templatesStatus === "error" || (templatesStatus === "ready" && !templatesLoaded)
+  const klangEmpty = !!order.branchId && klangStatus !== "loading" && klangOptions.length === 0
   // ids come straight from the template (sync) — a null id means the template itself lacks it
   const missingInTemplate = formTemplate && templatesLoaded ? SPEC_CHIPS.filter(([, idKey]) => !order[idKey]) : []
   const chips = SPEC_CHIPS.filter(([labelKey]) => order[labelKey])
-  const templateMsgId = specError ? errId("formTemplate") : missingInTemplate.length ? "buy-formTemplate-warn" : "buy-spec-chips"
+  const templateMsgId = specError ? errId("formTemplate") : templatesFailed ? "buy-formTemplate-load" : missingInTemplate.length ? "buy-formTemplate-warn" : "buy-spec-chips"
   const branchReadOnly = branchLocked && order.branchId != null
 
   const clearSpecFlags = () => SPEC_LOCKED_KEYS.forEach((k) => { clearError(k); clearHint(k) })
@@ -247,7 +249,7 @@ function DesktopSpecSection({ form }) {
             buttonRef={refs.formTemplate}
             searchable
             placeholder="เลือกฟอร์มสินค้า"
-            loading={!templatesLoaded}
+            loading={templatesStatus === "loading"}
             error={specError}
             ariaDescribedBy={templateMsgId}
             title="ฟอร์มสินค้า"
@@ -256,6 +258,10 @@ function DesktopSpecSection({ form }) {
           {specError ? (
             <p id={errId("formTemplate")} className={errorTextCls}>
               {formTemplate ? "ฟอร์มสินค้านี้ข้อมูลไม่ครบ เลือกฟอร์มอื่น" : "เลือกฟอร์มสินค้า"}
+            </p>
+          ) : templatesFailed ? (
+            <p id="buy-formTemplate-load" className={errorTextCls}>
+              {templatesStatus === "error" ? "โหลดฟอร์มสินค้าไม่สำเร็จ รีเฟรชหน้าแล้วลองใหม่" : "ยังไม่มีฟอร์มสินค้า แจ้งผู้ดูแลระบบให้สร้างฟอร์ม"}
             </p>
           ) : missingInTemplate.length > 0 ? (
             <p id="buy-formTemplate-warn" className="mt-1 text-sm text-amber-700 dark:text-amber-300">
@@ -321,7 +327,8 @@ function DesktopSpecSection({ form }) {
             }}
             placeholder={!order.branchId ? "เลือกสาขาก่อน" : "เลือกคลัง"}
             disabled={!order.branchId}
-            loading={!!order.branchId && klangOptions.length === 0}
+            loading={!!order.branchId && klangStatus === "loading"}
+            emptyText="สาขานี้ยังไม่มีคลัง"
             error={!!errors.klangName}
             hintRed={!!missingHints.klangName}
             clearHint={() => clearHint("klangName")}
@@ -331,7 +338,13 @@ function DesktopSpecSection({ form }) {
             title="คลัง"
             ariaLabel="คลัง"
           />
-          {errors.klangName && <p id={errId("klangName")} className={errorTextCls}>{errors.klangName}</p>}
+          {errors.klangName ? (
+            <p id={errId("klangName")} className={errorTextCls}>{errors.klangName}</p>
+          ) : klangEmpty ? (
+            <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
+              {klangStatus === "error" ? "โหลดรายการคลังไม่สำเร็จ รีเฟรชหน้าแล้วลองใหม่" : "สาขานี้ยังไม่มีคลัง แจ้งผู้ดูแลระบบ"}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -349,7 +362,7 @@ function DesktopSpecSection({ form }) {
             </div>
           ))}
         </dl>
-      ) : (
+      ) : templatesFailed ? null : (
         <p id="buy-spec-chips" className="mt-3 text-sm text-gray-500 dark:text-gray-400">
           {formTemplate ? "กำลังโหลดสเปค…" : "เลือกฟอร์มสินค้าเพื่อกำหนดสเปค"}
         </p>

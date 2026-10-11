@@ -490,7 +490,7 @@ const resultItemCls = (active) =>
   cx(
     "flex w-full flex-col items-start rounded-lg px-3 py-2 text-left cursor-pointer transition-colors duration-150",
     active
-      ? "bg-indigo-50 text-gray-900 dark:bg-indigo-500/15 dark:text-gray-100"
+      ? "bg-indigo-50 text-indigo-950 dark:bg-indigo-500/15 dark:text-indigo-50"
       : "text-gray-900 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-700/60",
   )
 const detailsSummaryCls =

@@ -87,6 +87,7 @@ const Buy = () => {
   const [subriceOptions, setSubriceOptions] = useState([]) // variant
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
+  const [klangStatus, setKlangStatus] = useState("idle") // idle | loading | ready | error
   const [conditionOptions, setConditionOptions] = useState([])
   const [fieldTypeOptions, setFieldTypeOptions] = useState([])
   const [yearOptions, setYearOptions] = useState([])
@@ -101,6 +102,8 @@ const Buy = () => {
 
   // ไม่มีตัวเลือก “ไม่ล็อก” อีกต่อไป
   const [templateOptions, setTemplateOptions] = useState([])
+  /** "loading" | "ready" | "error" — desktop picker shows a real empty/error state */
+  const [templatesStatus, setTemplatesStatus] = useState("loading")
   const [formTemplate, setFormTemplate] = useState("") // ต้องเลือกเสมอ
   const [selectedTemplateLabel, setSelectedTemplateLabel] = useState("") // เก็บ label ที่เลือกไว้
   const [pendingTemplateLabel, setPendingTemplateLabel] = useState("") // ใช้ดักเติม species หลังโหลด riceOptions
@@ -629,6 +632,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
           .filter((o) => o.id && o.label) 
 
         setTemplateOptions(mapped)
+        setTemplatesStatus("ready")
 
         // ตั้งค่า template เริ่มต้น: ใช้อันที่เซฟไว้ หรืออันแรก
         let nextId = ""
@@ -658,6 +662,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       } catch (e) {
         console.error("load form templates error:", e)
         setTemplateOptions([])
+        setTemplatesStatus("error")
       }
     }
     loadForms()
@@ -869,15 +874,18 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       return
     }
     const loadKlang = async () => {
+      setKlangStatus("loading")
       try {
         const qs = bId != null ? `branch_id=${bId}` : `branch_name=${encodeURIComponent(bName)}`
         const data = await apiAuth(`/order/klang/search?${qs}`)
         klangOptionsBranchRef.current = bId != null ? String(bId) : null
         setKlangOptions((data || []).map((k) => ({ id: k.id, label: k.klang_name })))
+        setKlangStatus("ready")
       } catch (e) {
         console.error("Load klang error:", e)
         klangOptionsBranchRef.current = null
         setKlangOptions([])
+        setKlangStatus("error")
       }
     }
     loadKlang()
@@ -1847,10 +1855,10 @@ if (buyerType === "person") {
     customer, updateCustomer, memberMeta, customerFound, loadingCustomer,
     order, setOrder, updateOrder,
     errors, missingHints, clearHint, clearError, redFieldCls, redHintCls,
-    formTemplate, templateOptions, selectedTemplateLabel, templateSubLabel, onTemplateChange,
+    formTemplate, templateOptions, selectedTemplateLabel, templateSubLabel, onTemplateChange, templatesStatus,
     LOCK_SPEC, branchLocked, lockedBranch,
     paymentOptions, productOptions, riceOptions, subriceOptions, conditionOptions,
-    fieldTypeOptions, yearOptions, programOptions, businessOptions, branchOptions, klangOptions,
+    fieldTypeOptions, yearOptions, programOptions, businessOptions, branchOptions, klangOptions, klangStatus,
     grossFromScale, autoDeduct, netWeight,
     submitting,
     // refs
@@ -1967,7 +1975,7 @@ if (buyerType === "person") {
   /* ---------- Desktop (≥md): 3 section cards + sticky OrderSummaryPanel (R2) ---------- */
   const customerName = (buyerType === "person" ? customer.fullName : customer.companyName).trim()
   const templateLabel =
-    selectedTemplateLabel || templateOptions.find((o) => String(o.id) === String(formTemplate))?.label || ""
+    templateOptions.find((o) => String(o.id) === String(formTemplate))?.label || (templateOptions.length ? selectedTemplateLabel : "") || ""
   const unitPriceNum = Number(order.unitPrice)
   const hasUnitPrice = String(order.unitPrice).trim() !== "" && Number.isFinite(unitPriceNum)
   const panelRows = [

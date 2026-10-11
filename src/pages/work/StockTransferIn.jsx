@@ -515,7 +515,7 @@ function StockTransferIn() {
                 badge={(r) => (String(form.transfer_id ?? "") === String(r.id) ? <Badge tone="success">เลือกแล้ว</Badge> : null)}
                 fields={(r) =>
                   r.price_per_kilo != null
-                    ? [{ label: "ราคาต้นทุน/กก. ที่เสนอ", value: `${Number(r.price_per_kilo).toFixed(2)} บาท`, align: "right", span: 2 }]
+                    ? [{ label: "ราคาต้นทุน/กก. ที่เสนอ", value: () => `${Number(r.price_per_kilo).toFixed(2)} บาท`, align: "right", span: 2 }]
                     : []
                 }
                 actions={(r) => (

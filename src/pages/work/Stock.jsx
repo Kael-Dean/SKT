@@ -146,13 +146,21 @@ function StockTreeSkeleton({ rows = 4 }) {
 }
 
 /** ลูกศรของ <details> — หมุนเมื่อเปิด (ใช้ class `group` บน details) */
-function Chevron({ className = "" }) {
+// ใช้ named group (group/rice, group/sub, group/klang) — details ซ้อนกัน 3 ชั้น
+// ถ้าใช้ group-open เฉย ๆ ลูกศรชั้นในจะหมุนตามชั้นนอก
+const CHEVRON_OPEN = {
+  klang: "group-open/klang:rotate-180",
+  rice: "group-open/rice:rotate-180",
+  sub: "group-open/sub:rotate-180",
+}
+function Chevron({ group, className = "" }) {
   return (
     <ChevronDown
       aria-hidden="true"
       strokeWidth={1.75}
       className={cx(
-        "shrink-0 text-gray-400 dark:text-gray-500 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none",
+        "shrink-0 text-gray-400 dark:text-gray-500 transition-transform duration-200 motion-reduce:transition-none",
+        CHEVRON_OPEN[group],
         className
       )}
     />
@@ -163,7 +171,7 @@ function Chevron({ className = "" }) {
 function RiceRow({ node }) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60 shadow-sm">
-      <details className="group open:!bg-white dark:open:!bg-gray-900 rounded-xl">
+      <details className="group/rice open:!bg-white dark:open:!bg-gray-900 rounded-xl">
         <summary className="cursor-pointer list-none min-h-touch px-4 py-3 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
           <div className="flex items-center gap-3 min-w-0">
             <div className="size-2.5 shrink-0 rounded-full bg-emerald-500/80"></div>
@@ -174,7 +182,7 @@ function RiceRow({ node }) {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <div className="text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100">{nf(node.total)} กก.</div>
-            <Chevron className="size-5" />
+            <Chevron group="rice" className="size-5" />
           </div>
         </summary>
         <div className="px-4 pb-3">
@@ -190,7 +198,7 @@ function RiceRow({ node }) {
 function SubriceRow({ node }) {
   return (
     <div className="ml-2 my-2 rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40">
-      <details className="group open:!bg-white/70 dark:open:!bg-gray-900/60 rounded-lg">
+      <details className="group/sub open:!bg-white/70 dark:open:!bg-gray-900/60 rounded-lg">
         <summary className="cursor-pointer list-none min-h-touch px-3 py-2 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
           <div className="flex items-center gap-2 min-w-0">
             <div className="size-2 shrink-0 rounded-full bg-teal-400/80"></div>
@@ -201,7 +209,7 @@ function SubriceRow({ node }) {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <div className="text-right tabular-nums text-gray-900 dark:text-gray-100">{nf(node.total)} กก.</div>
-            <Chevron className="size-4" />
+            <Chevron group="sub" className="size-4" />
           </div>
         </summary>
         <div className="px-3 pb-2">
@@ -273,13 +281,13 @@ function KlangSection({ klang, payload, totals, isPhone }) {
 
   if (isPhone) {
     return (
-      <details className={cx(cardCls, "group")}>
+      <details className={cx(cardCls, "group/klang")}>
         <summary className="cursor-pointer list-none min-h-touch px-4 py-3 flex items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
           <div className="min-w-0 flex-1">
             <h3 className="text-base font-semibold leading-snug text-gray-900 dark:text-gray-100">คลัง: {klang.label}</h3>
             <div className="mt-1.5">{pills}</div>
           </div>
-          <Chevron className="size-5 mt-1" />
+          <Chevron group="klang" className="size-5 mt-1" />
         </summary>
         <div className="px-4 pb-4">{body}</div>
       </details>

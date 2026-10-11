@@ -467,8 +467,9 @@ const CustomerSearch = () => {
           <div className="mt-5 rounded-2xl border border-slate-200/60 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-900/40">
             <div className="overflow-x-auto rounded-2xl">
               <table className="w-full text-base tabular-nums">
+                {/* sticky top-0: อยู่ใน overflow-x-auto wrapper (scroll container) — top-(--topbar-h) จะลอยทับแถวแรก */}
                 <thead className="text-slate-700 dark:text-slate-100">
-                  <tr className="sticky top-(--topbar-h) z-10 bg-slate-50/95 supports-[backdrop-filter]:bg-slate-50/60 dark:bg-slate-700/60">
+                  <tr className="sticky top-0 z-10 bg-slate-50/95 supports-[backdrop-filter]:bg-slate-50/60 dark:bg-slate-700/60">
                     {TABLE_COLUMNS.map((c) => (
                       <th key={c.key} className="whitespace-nowrap px-5 py-4 text-left text-[15px] md:text-base font-semibold">
                         {c.label}

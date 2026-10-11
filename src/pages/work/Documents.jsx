@@ -828,6 +828,14 @@ function allowedPhase1Reports() {
   return PHASE1_REPORTS.filter((r) => can(phase1Perm(r.key)))
 }
 
+// Phase 1 split for the landing cards: member/share registry vs rice buy/sell.
+// Anything not listed here falls into the rice group.
+const PHASE1_MEMBER_KEYS = new Set([
+  "phase1-p01", "phase1-p03", "phase1-p09", "phase1-p10", "phase1-p11",
+  "phase1-p14", "phase1-p15", "phase1-p16", "phase1-p17", "phase1-p18",
+])
+const isPhase1Member = (r) => PHASE1_MEMBER_KEYS.has(r.key)
+
 function Documents() {
   const [mode, setMode] = useState(() => {
     const qs = safeQS()
@@ -1756,28 +1764,30 @@ function Documents() {
 
         {/* --- หน้าแรก: กล่องหมวดหมู่ 3 กล่อง พร้อม Dropdown ประจำกล่อง --- */}
         {!reportObj && (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
 
-            {/* กล่อง 1: รายงานระบบ */}
-            <div className="flex flex-col rounded-2xl border border-emerald-200 bg-emerald-50/40 p-6 shadow-sm dark:border-emerald-800/50 dark:bg-emerald-900/10 transition-all hover:shadow-md">
+            {/* กล่อง 1: รายงานซื้อขายข้าว (Phase 1) — แสดงเฉพาะผู้มีสิทธิ์ reports.phase1.* */}
+            {allowedPhase1Reports().some((r) => !isPhase1Member(r)) && (
+            <div className="flex flex-col rounded-2xl border border-amber-200 bg-amber-50/40 p-6 shadow-sm dark:border-amber-800/50 dark:bg-amber-900/10 transition-all hover:shadow-md">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M3 3h18v2H3V3zm0 4h18v14H3V7zm2 2v10h14V9H5z" />
+                    <path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.54 15.86.5 13.31.5c-1.38 0-2.61.56-3.51 1.46L9 2.77l-.8-.81C7.3 1.06 6.07.5 4.69.5 2.14.5 0 2.54 0 4.64c0 .48.11.92.18 1.36H0v2h20V6zm-5.47 0H9.47C9.17 5.56 9 4.98 9 4.64c0-1.03.9-2.14 1.94-2.14.54 0 1.05.24 1.42.62L14 4.88l1.64-1.76C16.01 2.74 16.52 2.5 17.06 2.5 18.1 2.5 19 3.61 19 4.64c0 .34-.17.92-.47 1.36zM1 20c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V9H1v11zm8-8h6v2H9v-2z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-emerald-800 dark:text-emerald-300">รายงานระบบ</h2>
+                <h2 className="text-xl font-bold text-amber-800 dark:text-amber-300">รายงานซื้อขายข้าว</h2>
               </div>
-              <p className="mb-6 text-sm text-emerald-700/80 dark:text-emerald-400/80">
-                เอกสารสรุปซื้อ-ขาย, สต๊อกสินค้า และการดำเนินการภายในสาขา (PDF/Excel)
+              <p className="mb-6 text-sm text-amber-700/80 dark:text-amber-400/80">
+                ซื้อ/ขายข้าวเปลือกรายวัน รายคน แยกราคา ทะเบียนคุม และสรุปสาขา (PDF)
               </p>
-              <div className="mt-auto relative z-30">
+              <div className="mt-auto">
                 <ComboBox
-                  options={INTERNAL_REPORTS.filter((r) => r.type === "pdf").map((r) => ({ ...r, id: r.key, label: r.title }))}
+                  options={allowedPhase1Reports().filter((r) => !isPhase1Member(r)).map((r) => ({ ...r, id: r.key, label: r.title }))}
                   placeholder="คลิกเพื่อเลือกรายงาน..."
+                  title="รายงานซื้อขายข้าว"
                   value={null}
                   onChange={(v) => {
-                    setMode("internal")
+                    setMode("phase1")
                     setActiveReport(v)
                     setPreviewJson(null)
                     setErrors({})
@@ -1785,8 +1795,10 @@ function Documents() {
                 />
               </div>
             </div>
+            )}
 
-            {/* กล่อง 2: รายงานทะเบียนหุ้น */}
+            {/* กล่อง 2: รายงานสมาชิกและทุนเรือนหุ้น (Phase 1) */}
+            {allowedPhase1Reports().some(isPhase1Member) && (
             <div className="flex flex-col rounded-2xl border border-violet-200 bg-violet-50/40 p-6 shadow-sm dark:border-violet-800/50 dark:bg-violet-900/10 transition-all hover:shadow-md">
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400">
@@ -1794,18 +1806,19 @@ function Documents() {
                     <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-violet-800 dark:text-violet-300">รายงานทะเบียนหุ้น</h2>
+                <h2 className="text-xl font-bold text-violet-800 dark:text-violet-300">รายงานสมาชิก</h2>
               </div>
               <p className="mb-6 text-sm text-violet-700/80 dark:text-violet-400/80">
-                เอกสารข้อมูลสมาชิกสมาคม, ทุนเรือนหุ้น และประวัติการทำรายการ (PDF)
+                ทะเบียนสมาชิก สมาชิกใหม่/ลาออก ทุนเรือนหุ้น และการจ่ายคืนค่าหุ้น (PDF)
               </p>
-              <div className="mt-auto relative z-20">
+              <div className="mt-auto">
                 <ComboBox
-                  options={SHARE_REPORTS.map((r) => ({ ...r, id: r.key, label: r.title }))}
+                  options={allowedPhase1Reports().filter(isPhase1Member).map((r) => ({ ...r, id: r.key, label: r.title }))}
                   placeholder="คลิกเพื่อเลือกรายงาน..."
+                  title="รายงานสมาชิก"
                   value={null}
                   onChange={(v) => {
-                    setMode("share")
+                    setMode("phase1")
                     setActiveReport(v)
                     setPreviewJson(null)
                     setErrors({})
@@ -1813,6 +1826,7 @@ function Documents() {
                 />
               </div>
             </div>
+            )}
 
             {/* กล่อง 3: รายงานแผนดำเนินงานประจำปี */}
             <div className="flex flex-col rounded-2xl border border-blue-200 bg-blue-50/40 p-6 shadow-sm dark:border-blue-800/50 dark:bg-blue-900/10 transition-all hover:shadow-md">
@@ -1842,35 +1856,6 @@ function Documents() {
               </div>
             </div>
 
-            {/* กล่อง 4: รายงาน Phase 1 (สหกรณ์) — แสดงเฉพาะผู้มีสิทธิ์ reports.phase1.* */}
-            {allowedPhase1Reports().length > 0 && (
-            <div className="flex flex-col rounded-2xl border border-amber-200 bg-amber-50/40 p-6 shadow-sm dark:border-amber-800/50 dark:bg-amber-900/10 transition-all hover:shadow-md">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.54 15.86.5 13.31.5c-1.38 0-2.61.56-3.51 1.46L9 2.77l-.8-.81C7.3 1.06 6.07.5 4.69.5 2.14.5 0 2.54 0 4.64c0 .48.11.92.18 1.36H0v2h20V6zm-5.47 0H9.47C9.17 5.56 9 4.98 9 4.64c0-1.03.9-2.14 1.94-2.14.54 0 1.05.24 1.42.62L14 4.88l1.64-1.76C16.01 2.74 16.52 2.5 17.06 2.5 18.1 2.5 19 3.61 19 4.64c0 .34-.17.92-.47 1.36zM1 20c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V9H1v11zm8-8h6v2H9v-2z"/>
-                  </svg>
-                </div>
-                <h2 className="text-xl font-bold text-amber-800 dark:text-amber-300">รายงานธุรกิจรวบรวมผลผลิต</h2>
-              </div>
-              <p className="mb-6 text-sm text-amber-700/80 dark:text-amber-400/80">
-                รายงานสหกรณ์ P01–P19: ซื้อ/ขายข้าว, ทะเบียนหุ้น, ทะเบียนสมาชิก และสรุปสาขา (PDF)
-              </p>
-              <div className="mt-auto relative z-5">
-                <ComboBox
-                  options={allowedPhase1Reports().map((r) => ({ ...r, id: r.key, label: r.title }))}
-                  placeholder="คลิกเพื่อเลือกรายงาน..."
-                  value={null}
-                  onChange={(v) => {
-                    setMode("phase1")
-                    setActiveReport(v)
-                    setPreviewJson(null)
-                    setErrors({})
-                  }}
-                />
-              </div>
-            </div>
-            )}
 
           </div>
         )}

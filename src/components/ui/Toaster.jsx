@@ -67,6 +67,23 @@ function ToastCard({ t, onDismiss }) {
             {t.description}
           </p>
         )}
+        {t.action && (
+          <button
+            type="button"
+            onClick={() => {
+              t.action.onClick?.()
+              onDismiss(t.id)
+            }}
+            className={cx(
+              "mt-1.5 -ml-2 inline-flex h-9 cursor-pointer items-center rounded-lg px-2 text-sm font-semibold",
+              "text-indigo-600 transition-colors duration-150 hover:bg-indigo-50 hover:text-indigo-700",
+              "dark:text-indigo-300 dark:hover:bg-indigo-500/15 dark:hover:text-indigo-200",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            )}
+          >
+            {t.action.label}
+          </button>
+        )}
       </div>
       <button
         type="button"

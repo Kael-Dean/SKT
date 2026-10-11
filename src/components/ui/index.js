@@ -26,3 +26,11 @@ export { default as PageSection } from "./PageSection"
 export { default as Toaster } from "./Toaster"
 export { toast } from "./toast"
 export { default as useSubTab } from "../../lib/useSubTab"
+
+// Mobile foundation (plan §B2). Shared ComboBox lives in ../ComboBox.jsx.
+export { default as Sheet } from "./Sheet"
+export { default as Stepper } from "./Stepper"
+export { default as StickyActionBar } from "./StickyActionBar"
+export { default as DataList } from "./DataList"
+export { default as SearchField, SearchResults } from "./SearchField"
+export { default as ResultSheet } from "./ResultSheet"

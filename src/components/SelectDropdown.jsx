@@ -322,11 +322,11 @@ export default function SelectDropdown({
           // dark border color is set in exactly one branch so state colors
           // never compete with a base color on CSS source order
           open
-            ? "border-indigo-500 ring-2 ring-indigo-500/25 dark:border-indigo-400 dark:ring-[3px] dark:ring-indigo-400/30"
+            ? "border-indigo-500 ring-2 ring-indigo-500/25 dark:border-indigo-400 dark:ring-1 dark:ring-indigo-400"
             : error
             ? "border-red-400 ring-2 ring-red-300/50 dark:border-red-500 dark:ring-red-500/30"
             : "focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 " +
-              "dark:focus-visible:border-indigo-400 dark:focus-visible:ring-[3px] dark:focus-visible:ring-indigo-400/30" +
+              "dark:focus-visible:border-indigo-400 dark:focus-visible:ring-1 dark:focus-visible:ring-indigo-400" +
               // disabled keeps the dim hairline (inactive controls are exempt
               // from 1.4.11; the dimmer edge signals "off")
               (isDisabled ? " dark:border-line-strong" : " dark:border-line-field dark:hover:border-line-field-hover"),

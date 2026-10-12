@@ -66,10 +66,11 @@
   --color-slate-900: #0d0d11;
   --color-slate-950: #0b0b0f;
 
-  /* Focus halo for native fields (see focus-ring-in below): indigo-400 reads
-     on graphite; indigo-500 at 20% vanishes. */
-  --focus-ring-from: rgb(129 140 248 / 0.45);
-  --focus-ring-to: rgb(129 140 248 / 0.3);
+  /* Focus for native fields (see focus-ring-in below): no soft glow in dark —
+     a crisp 1px solid ring on top of the indigo-400 border = clean 2px edge. */
+  --focus-ring-from: rgb(129 140 248 / 0);
+  --focus-ring-to: rgb(129 140 248);
+  --focus-ring-width: 1px;
 }
 
 /* ─── Dark: browser autofill ────────────────────────────────────────────────
@@ -100,7 +101,7 @@
 }
 @keyframes focus-ring-autofill {
   from { box-shadow: 0 0 0 1000px var(--color-field) inset, 0 0 0 0 var(--focus-ring-from); }
-  to   { box-shadow: 0 0 0 1000px var(--color-field) inset, 0 0 0 3px var(--focus-ring-to); }
+  to   { box-shadow: 0 0 0 1000px var(--color-field) inset, 0 0 0 var(--focus-ring-width, 3px) var(--focus-ring-to); }
 }
 
 @utility pb-safe {
@@ -289,7 +290,7 @@
 /* Focus ring — smooth expand from center */
 @keyframes focus-ring-in {
   from { box-shadow: 0 0 0 0px var(--focus-ring-from); }
-  to   { box-shadow: 0 0 0 3px var(--focus-ring-to); }
+  to   { box-shadow: 0 0 0 var(--focus-ring-width, 3px) var(--focus-ring-to); }
 }
 /* Buttons that declare their own Tailwind ring (focus-visible:ring-* / focus:ring-*)
    are excluded: with fill-mode `both` the animation's final box-shadow would

@@ -422,7 +422,7 @@ const ComboBox = forwardRef(function ComboBox(
         className={cx(
           "w-full bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-500 dark:text-slate-100 dark:placeholder:text-slate-400",
           phone
-            ? "h-12 rounded-2xl border border-slate-300 bg-slate-100 pl-10 pr-11 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 dark:border-line-field dark:bg-field dark:hover:border-line-field-hover dark:focus:border-indigo-400 dark:focus:ring-[3px] dark:focus:ring-indigo-400/30"
+            ? "h-12 rounded-2xl border border-slate-300 bg-slate-100 pl-10 pr-11 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 dark:border-line-field dark:bg-field dark:hover:border-line-field-hover dark:focus:border-indigo-400 dark:focus:ring-1 dark:focus:ring-indigo-400"
             : "h-10 pl-9 pr-9 md:text-sm",
         )}
       />
@@ -471,10 +471,10 @@ const ComboBox = forwardRef(function ComboBox(
           error
             ? "border-red-400 ring-2 ring-red-300/70 dark:border-red-500 dark:ring-red-500/30"
             : open
-              ? "border-indigo-500 ring-2 ring-indigo-500/25 dark:border-indigo-400 dark:ring-[3px] dark:ring-indigo-400/30"
+              ? "border-indigo-500 ring-2 ring-indigo-500/25 dark:border-indigo-400 dark:ring-1 dark:ring-indigo-400"
               : cx(
                   "border-slate-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/25",
-                  "dark:border-line-field dark:focus-visible:border-indigo-400 dark:focus-visible:ring-[3px] dark:focus-visible:ring-indigo-400/30",
+                  "dark:border-line-field dark:focus-visible:border-indigo-400 dark:focus-visible:ring-1 dark:focus-visible:ring-indigo-400",
                   !isDisabled && "dark:hover:border-line-field-hover",
                 ),
           "text-slate-900 dark:text-gray-100",

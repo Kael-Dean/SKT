@@ -134,7 +134,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
             <input
               type="text"
               placeholder="ค้นหา"
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-sm outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-line-field dark:bg-field dark:text-gray-100 dark:placeholder:text-gray-400 dark:hover:border-line-field-hover dark:focus:border-indigo-400 dark:focus:bg-field dark:focus:ring-[3px] dark:focus:ring-indigo-400/30"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-sm outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-line-field dark:bg-field dark:text-gray-100 dark:placeholder:text-gray-400 dark:hover:border-line-field-hover dark:focus:border-indigo-400 dark:focus:bg-field dark:focus:ring-1 dark:focus:ring-indigo-400"
               onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
               aria-label="ค้นหา"
             />

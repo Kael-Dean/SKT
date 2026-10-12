@@ -25,7 +25,7 @@ export const baseField =
   "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 shadow-none " +
   "dark:border-line-field dark:bg-field dark:text-gray-100 dark:placeholder:text-gray-400 " +
   "dark:hover:border-line-field-hover " +
-  "dark:focus:border-indigo-400 dark:focus:ring-[3px] dark:focus:ring-indigo-400/30 " +
+  "dark:focus:border-indigo-400 dark:focus:ring-1 dark:focus:ring-indigo-400 " +
   "transition-colors duration-150"
 
 /** Append to baseField when the field is disabled/read-only.
@@ -68,7 +68,7 @@ export const cellInput =
   "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 " +
   "dark:border-line-field dark:bg-field dark:text-gray-100 dark:placeholder:text-gray-400 " +
   "dark:hover:border-line-field-hover " +
-  "dark:focus:border-indigo-400 dark:focus:ring-indigo-400/30 transition-colors duration-150"
+  "dark:focus:border-indigo-400 dark:focus:ring-1 dark:focus:ring-indigo-400 transition-colors duration-150"
 
 // ─── Buttons ─────────────────────────────────────────────────────────────────
 

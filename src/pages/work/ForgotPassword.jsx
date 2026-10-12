@@ -115,7 +115,7 @@ export default function ForgotPassword() {
                   <input
                     type="text"
                     autoFocus
-                    className="w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-sm shadow-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 dark:border-line-field dark:bg-field dark:text-gray-100 dark:placeholder:text-gray-400 dark:hover:border-line-field-hover dark:focus:border-indigo-400 dark:focus:ring-[3px] dark:focus:ring-indigo-400/30"
+                    className="w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-sm shadow-sm outline-none transition placeholder:text-gray-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 dark:border-line-field dark:bg-field dark:text-gray-100 dark:placeholder:text-gray-400 dark:hover:border-line-field-hover dark:focus:border-indigo-400 dark:focus:ring-1 dark:focus:ring-indigo-400"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="กรอกชื่อผู้ใช้ของคุณ"

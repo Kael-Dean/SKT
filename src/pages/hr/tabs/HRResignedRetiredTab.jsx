@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../../../components/ui"
+import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 
 const TABLE_HEADERS = ["ชื่อ-สกุล", "รหัสเดิม", "รหัสประจำตัว", "วันเกิด", "การศึกษา", "ตำแหน่ง", "สาขา", "วันบรรจุ", "วันที่ออก", "ประเภท"]
 
@@ -138,6 +139,14 @@ export default function HRResignedRetiredTab() {
             </>
           )}
         </button>
+        <ExcelDownloadButton
+          label="ดาวน์โหลด Excel"
+          getPdfPath={() => {
+            const qs = buildQs()
+            return `/hr/reports/resigned-retired-pdf${qs ? "?" + qs : ""}`
+          }}
+          fallbackName="resigned-retired.xlsx"
+        />
       </div>
 
       {pdfErr && <ErrorState message={pdfErr} />}

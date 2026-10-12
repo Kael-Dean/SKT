@@ -7,6 +7,7 @@ import { EmptyState, ErrorState } from "../../../components/ui"
 import { getHomeBranch } from "../../../lib/auth"
 import { buildReportRows, computeColTotals, sumRows } from "./buildReportRows"
 import { printDebtTable } from "./printDebtTable"
+import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 import DebtEntryModal from "../debt/DebtEntryModal"
 import { canWriteEntries, isOwnBranchOnly } from "../debt/debtEntryMeta"
 
@@ -201,6 +202,21 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
 
   const tableWrapRef = useRef(null)
 
+  // branch_id + program_id are independent optional filters; omit each
+  // entirely when "all" is selected (never send empty/0). Date bounds: send
+  // BOTH or NEITHER (guarded below). Cleared → omit → backend falls back to
+  // the current fiscal-year span. Shared by the table fetch and the Excel twin.
+  const reportQs = useMemo(() => {
+    const params = new URLSearchParams()
+    if (selectedBranchId) params.set("branch_id", selectedBranchId)
+    if (selectedProgramId) params.set("program_id", selectedProgramId)
+    if (dateFrom && dateTo) {
+      params.set("date_from", dateFrom)
+      params.set("date_to", dateTo)
+    }
+    return params.toString()
+  }, [selectedBranchId, selectedProgramId, dateFrom, dateTo])
+
   useEffect(() => {
     // Client-side gate before sending: never fire a request we know is invalid.
     if (onlyOneDate) {
@@ -218,19 +234,7 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
     setError("")
     ;(async () => {
       try {
-        // branch_id + program_id are independent optional filters; omit each
-        // entirely when "all" is selected (never send empty/0).
-        const params = new URLSearchParams()
-        if (selectedBranchId) params.set("branch_id", selectedBranchId)
-        if (selectedProgramId) params.set("program_id", selectedProgramId)
-        // Date bounds: send BOTH or NEITHER (guarded above). Cleared → omit →
-        // backend falls back to the current fiscal-year span.
-        if (dateFrom && dateTo) {
-          params.set("date_from", dateFrom)
-          params.set("date_to", dateTo)
-        }
-        const qs = params.toString()
-        const url = `/debt/report${qs ? `?${qs}` : ""}`
+        const url = `/debt/report${reportQs ? `?${reportQs}` : ""}`
         const data = await apiAuth(url)
         if (alive) {
           setReportRows(Array.isArray(data?.rows) ? data.rows : [])
@@ -249,7 +253,7 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
       }
     })()
     return () => { alive = false }
-  }, [selectedBranchId, selectedProgramId, dateFrom, dateTo, onlyOneDate, rangeInverted, reloadKey])
+  }, [reportQs, onlyOneDate, rangeInverted, reloadKey])
 
   function refetchReport() { setReloadKey((k) => k + 1) }
 
@@ -378,6 +382,12 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
           <PrinterIcon />
           พิมพ์ PDF
         </button>
+        {/* Server-side Excel twin of GET /debt/report — same filters as the table */}
+        <ExcelDownloadButton
+          getPdfPath={() => `/debt/report${reportQs ? `?${reportQs}` : ""}`}
+          fallbackName="debt_cohort_report.xlsx"
+          disabled={onlyOneDate || rangeInverted}
+        />
       </div>
 
       {error && !loading && (

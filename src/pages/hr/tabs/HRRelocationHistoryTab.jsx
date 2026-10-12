@@ -6,6 +6,7 @@ import { apiAuth, apiDownload } from "../../../lib/api"
 import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
 import { PageLoader, ErrorState, EmptyState, SkeletonTableRows, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import { FolderOpen, List } from "lucide-react"
+import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 import Portal from "../../../components/Portal"
 import useModalDismiss from "../../../lib/useModalDismiss"
 
@@ -159,7 +160,7 @@ export default function HRRelocationHistoryTab() {
                 <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/60" />
               </div>
-              <div className="flex items-end gap-2">
+              <div className="flex flex-wrap items-end gap-2">
                 <button onClick={fetchHistory} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition cursor-pointer">
                   ค้นหา
                 </button>
@@ -175,6 +176,16 @@ export default function HRRelocationHistoryTab() {
                   )}
                   PDF
                 </button>
+                <ExcelDownloadButton
+                  getPdfPath={() => {
+                    const params = new URLSearchParams()
+                    if (fromDate) params.set("from_date", fromDate)
+                    if (toDate)   params.set("to_date", toDate)
+                    const qs = params.toString()
+                    return `/hr/reports/relocation-history-pdf${qs ? "?" + qs : ""}`
+                  }}
+                  fallbackName="relocation-history.xlsx"
+                />
               </div>
             </div>
             {pdfErr && <p className="text-xs text-red-600 dark:text-red-400">{pdfErr}</p>}

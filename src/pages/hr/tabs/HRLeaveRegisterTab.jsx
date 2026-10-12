@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
+import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 
 // ปีงบประมาณไทย (Apr→Mar): ปัจจุบัน
 function currentFiscalYear() {
@@ -121,6 +122,17 @@ export default function HRLeaveRegisterTab() {
             </>
           )}
         </button>
+        {/* Excel twins: same query, -pdf → -xlsx (independent loading state) */}
+        <ExcelDownloadButton
+          label="Excel สรุปประจำปี"
+          getPdfPath={() => `/hr/leave/annual-summary-pdf?fiscal_year=${fiscalYear}`}
+          fallbackName={`leave-summary-${fiscalYear}.xlsx`}
+        />
+        <ExcelDownloadButton
+          label="Excel ทะเบียนการลา"
+          getPdfPath={() => `/hr/leave/register-pdf?fiscal_year=${fiscalYear}`}
+          fallbackName={`leave-register-${fiscalYear}.xlsx`}
+        />
       </div>
       {pdfErr && <ErrorState message={pdfErr} />}
 

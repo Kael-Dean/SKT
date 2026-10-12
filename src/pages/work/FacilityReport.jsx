@@ -1,4 +1,5 @@
 // src/pages/work/FacilityReport.jsx
+import { cx, neutralBtnCls } from "../../lib/styles"
 // รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์ — POST/GET/PATCH/DELETE /facility-report/*
 import { useEffect, useRef, useState, useMemo } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
@@ -6,6 +7,7 @@ import { can } from "../../lib/permissions"
 import SelectDropdown from "../../components/SelectDropdown"
 import Portal from "../../components/Portal"
 import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
+import ExcelDownloadButton from "../../components/ExcelDownloadButton"
 import useModalDismiss from "../../lib/useModalDismiss"
 
 
@@ -502,14 +504,24 @@ export default function FacilityReport() {
   const facilityOpts = useMemo(() => facilities.map((f) => ({ value: f.id, label: f.name })), [facilities])
 
   // ── PDF report ───────────────────────────────────────────────────────────────
+  // Shared by the PDF and Excel buttons: validates, then returns the PDF path
+  // (Excel derives /facility-report/report/xlsx from it). null = invalid.
+  const reportPdfPath = () => {
+    if (!reportFacilityIds.length) { setReportError("กรุณาเลือกสถานที่อย่างน้อย 1 แห่ง"); return null }
+    if (!reportFrom || !reportTo) { setReportError("กรุณาระบุช่วงวันที่"); return null }
+    if (reportFrom > reportTo) { setReportError("วันเริ่มต้นต้องไม่หลังวันสิ้นสุด"); return null }
+    setReportError("")
+    const p = new URLSearchParams({ from_date: reportFrom, to_date: reportTo })
+    reportFacilityIds.forEach((id) => p.append("facility_ids", id))
+    return `/facility-report/report/pdf?${p}`
+  }
+
   const handleGeneratePdf = async () => {
-    if (!reportFacilityIds.length) { setReportError("กรุณาเลือกสถานที่อย่างน้อย 1 แห่ง"); return }
-    if (!reportFrom || !reportTo) { setReportError("กรุณาระบุช่วงวันที่"); return }
-    setGeneratingPdf(true); setReportError("")
+    const path = reportPdfPath()
+    if (!path) return
+    setGeneratingPdf(true)
     try {
-      const p = new URLSearchParams({ from_date: reportFrom, to_date: reportTo })
-      reportFacilityIds.forEach((id) => p.append("facility_ids", id))
-      const { blob, filename } = await apiDownload(`/facility-report/report/pdf?${p}`)
+      const { blob, filename } = await apiDownload(path)
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url; a.download = filename || `facility_report_${reportFrom}_${reportTo}.pdf`
@@ -742,7 +754,7 @@ export default function FacilityReport() {
       {/* ══════════ REPORT TAB ══════════ */}
       {tab === "report" && !loadingFacilities && (
         <div className={`${cardCls} space-y-5`}>
-          <SectionTitle>สร้างรายงาน PDF</SectionTitle>
+          <SectionTitle>สร้างรายงาน PDF / Excel</SectionTitle>
 
           <div>
             <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
@@ -812,6 +824,12 @@ export default function FacilityReport() {
               </>
             )}
           </button>
+          <ExcelDownloadButton
+            label="ดาวน์โหลดรายงาน Excel"
+            getPdfPath={reportPdfPath}
+            fallbackName={`facility_report_${reportFrom}_${reportTo}.xlsx`}
+            className={cx(neutralBtnCls, "w-full !h-12")}
+          />
         </div>
       )}
 

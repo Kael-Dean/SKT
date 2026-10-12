@@ -59,32 +59,35 @@ async function _call(path, { method = "GET", body, headers } = {}) {
     : await res.text().catch(() => "");
 
   if (!res.ok) {
-    // สกัดข้อความ error ให้เข้าใจง่าย (รองรับ FastAPI 422 detail ทั้งแบบ string/array/dict)
-    let msg = "Request failed";
-    if (typeof data === "string" && data) msg = data;
-    else if (data?.detail) {
-      const d = data.detail;
-      if (Array.isArray(d)) {
-        msg = d.map((x) => (x?.msg ? x.msg : JSON.stringify(x))).join(" | ");
-      } else if (typeof d === "string") {
-        msg = d;
-      } else if (typeof d === "object") {
-        // FastAPI HTTPException(422, {"msg": "...", ...})
-        const baseMsg = d.msg || d.message || "";
-        const extras = [];
-        if (Array.isArray(d.missing_product_ids) && d.missing_product_ids.length) {
-          extras.push(`product_ids: ${d.missing_product_ids.join(", ")}`);
-        }
-        msg = (baseMsg + (extras.length ? ` (${extras.join("; ")})` : "")) || JSON.stringify(d);
-      }
-    } else if (data?.message) msg = data.message;
-
-    const error = new Error(msg || `HTTP ${res.status}`);
+    const error = new Error(errorMessageFrom(data) || `HTTP ${res.status}`);
     error.status = res.status;
     error.data = data;
     throw error;
   }
   return data;
+}
+
+/** สกัดข้อความ error ให้เข้าใจง่าย (รองรับ FastAPI 422 detail ทั้งแบบ string/array/dict) */
+function errorMessageFrom(data) {
+  let msg = "Request failed";
+  if (typeof data === "string" && data) msg = data;
+  else if (data?.detail) {
+    const d = data.detail;
+    if (Array.isArray(d)) {
+      msg = d.map((x) => (x?.msg ? x.msg : JSON.stringify(x))).join(" | ");
+    } else if (typeof d === "string") {
+      msg = d;
+    } else if (typeof d === "object") {
+      // FastAPI HTTPException(422, {"msg": "...", ...})
+      const baseMsg = d.msg || d.message || "";
+      const extras = [];
+      if (Array.isArray(d.missing_product_ids) && d.missing_product_ids.length) {
+        extras.push(`product_ids: ${d.missing_product_ids.join(", ")}`);
+      }
+      msg = (baseMsg + (extras.length ? ` (${extras.join("; ")})` : "")) || JSON.stringify(d);
+    }
+  } else if (data?.message) msg = data.message;
+  return msg;
 }
 
 // public API
@@ -163,17 +166,17 @@ export async function apiDownload(path, opts = {}) {
     },
   });
   if (!res.ok) {
+    // Errors come back as JSON (FastAPI) — surface `detail` instead of the raw
+    // body text, and keep the parsed payload on err.data for callers.
     const text = await res.text().catch(() => "");
-    let msg = text;
-    try {
-      const d = JSON.parse(text)?.detail;
-      if (typeof d === "string" && d) msg = d;
-      else if (Array.isArray(d)) msg = d.map((x) => x?.msg || JSON.stringify(x)).join(" | ");
-    } catch {
-      // ไม่ใช่ JSON — ใช้ข้อความดิบ
+    let data = text;
+    if ((res.headers.get("content-type") || "").includes("application/json")) {
+      try { data = JSON.parse(text); } catch { /* keep raw text */ }
     }
+    const msg = data && typeof data === "object" ? errorMessageFrom(data) : text;
     const err = new Error(msg || res.statusText || "Download failed");
     err.status = res.status;
+    err.data = data;
     if (res.status === 401 && token && !_redirecting401) _expireSession();
     if (res.status === 403) _notifyForbidden(path, err);
     throw err;

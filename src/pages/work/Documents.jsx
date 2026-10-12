@@ -1,7 +1,8 @@
 // src/pages/Documents.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"   // helper แนบ token + BASE URL
-import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import { cx, baseField, labelCls, helpTextCls, errorTextCls, secondaryBtnCls } from "../../lib/styles"
+import ExcelDownloadButton from "../../components/ExcelDownloadButton"
 import { can } from "../../lib/permissions"
 import ComboBox from "../../components/ComboBox"
 import BranchLockNote from "../../components/BranchLockNote"
@@ -565,24 +566,24 @@ const SHARE_REPORTS = [
 // แมพเข้ากับ Backend (report_router.py) ซึ่งบังคับใช้ `plan_id` และบางเส้นทางใช้ `branch_id`
 // -----------------------------
 const PLAN_REPORTS = [
-  { key: "plan-01", title: "รูปแบบที่ 01 - เป้าหมายการขาย (รวมกลุ่ม)", endpoint: "/repgen/report/sale-goal", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-02", title: "รูปแบบที่ 02 - เป้าหมายการขายรายสาขา", endpoint: "/repgen/report/branch-sale-goal", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-03", title: "รูปแบบที่ 03 - ค่าใช้จ่ายธุรกิจ", endpoint: "/repgen/report/business-costs", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-04", title: "รูปแบบที่ 04 - รายได้ธุรกิจ", endpoint: "/repgen/report/business-earnings", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-05", title: "รูปแบบที่ 05 - ค่าใช้จ่ายเสริมต่อหน่วย", endpoint: "/repgen/report/unit-aux-cost", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-06", title: "รูปแบบที่ 06 - ต้นทุนซื้อต่อหน่วย", endpoint: "/repgen/report/unit-purchase-cost", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-07", title: "รูปแบบที่ 07 - สรุปการเงินรายสาขา", endpoint: "/repgen/report/branch-financial-summary", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-08", title: "รูปแบบที่ 08 - เป้าหมายการขายทั้งองค์กร (รวมสินค้า)", endpoint: "/repgen/report/org-salegoal", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-09", title: "รูปแบบที่ 09 - ต้นทุนซื้อทั้งองค์กร", endpoint: "/repgen/report/org-purchase-cost", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-10", title: "รูปแบบที่ 10 - เป้าหมายการขายทั้งองค์กร แยกสินค้า", endpoint: "/repgen/report/org-salegoal-product", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-11", title: "รูปแบบที่ 11 - ค่าใช้จ่ายธุรกิจทั้งองค์กร", endpoint: "/repgen/report/org-business-costs", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-12", title: "รูปแบบที่ 12 - รายได้ธุรกิจทั้งองค์กร", endpoint: "/repgen/report/org-business-earnings", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-13", title: "รูปแบบที่ 13 - ค่าใช้จ่ายเสริมทั้งองค์กร", endpoint: "/repgen/report/org-aux-costs", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-14", title: "รูปแบบที่ 14 - สรุปการซื้อทั้งองค์กร", endpoint: "/repgen/report/org-purchase-summary", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-15", title: "รูปแบบที่ 15 - กำไรทั้งองค์กร แยกกลุ่ม", endpoint: "/repgen/report/org-profit-by-group", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-16", title: "รูปแบบที่ 16 - สรุปการเงินทั้งองค์กร", endpoint: "/repgen/report/org-financial-summary", type: "pdf", badge: "PLAN", require: ["planId"] },
-  { key: "plan-17", title: "รูปแบบที่ 17 - ค่าใช้จ่ายรายเดือน", endpoint: "/repgen/report/monthly-costs", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
-  { key: "plan-18", title: "รูปแบบที่ 18 - รายได้และค่าใช้จ่ายเสริมรายเดือน", endpoint: "/repgen/report/monthly-earnings-aux", type: "pdf", badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-01", title: "รูปแบบที่ 01 - เป้าหมายการขาย (รวมกลุ่ม)", endpoint: "/repgen/report/sale-goal", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-02", title: "รูปแบบที่ 02 - เป้าหมายการขายรายสาขา", endpoint: "/repgen/report/branch-sale-goal", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-03", title: "รูปแบบที่ 03 - ค่าใช้จ่ายธุรกิจ", endpoint: "/repgen/report/business-costs", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-04", title: "รูปแบบที่ 04 - รายได้ธุรกิจ", endpoint: "/repgen/report/business-earnings", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-05", title: "รูปแบบที่ 05 - ค่าใช้จ่ายเสริมต่อหน่วย", endpoint: "/repgen/report/unit-aux-cost", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-06", title: "รูปแบบที่ 06 - ต้นทุนซื้อต่อหน่วย", endpoint: "/repgen/report/unit-purchase-cost", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-07", title: "รูปแบบที่ 07 - สรุปการเงินรายสาขา", endpoint: "/repgen/report/branch-financial-summary", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-08", title: "รูปแบบที่ 08 - เป้าหมายการขายทั้งองค์กร (รวมสินค้า)", endpoint: "/repgen/report/org-salegoal", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId"] },
+  { key: "plan-09", title: "รูปแบบที่ 09 - ต้นทุนซื้อทั้งองค์กร", endpoint: "/repgen/report/org-purchase-cost", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId"] },
+  { key: "plan-10", title: "รูปแบบที่ 10 - เป้าหมายการขายทั้งองค์กร แยกสินค้า", endpoint: "/repgen/report/org-salegoal-product", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId"] },
+  { key: "plan-11", title: "รูปแบบที่ 11 - ค่าใช้จ่ายธุรกิจทั้งองค์กร", endpoint: "/repgen/report/org-business-costs", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId"] },
+  { key: "plan-12", title: "รูปแบบที่ 12 - รายได้ธุรกิจทั้งองค์กร", endpoint: "/repgen/report/org-business-earnings", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId"] },
+  { key: "plan-13", title: "รูปแบบที่ 13 - ค่าใช้จ่ายเสริมทั้งองค์กร", endpoint: "/repgen/report/org-aux-costs", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId"] },
+  { key: "plan-14", title: "รูปแบบที่ 14 - สรุปการซื้อทั้งองค์กร", endpoint: "/repgen/report/org-purchase-summary", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId"] },
+  { key: "plan-15", title: "รูปแบบที่ 15 - กำไรทั้งองค์กร แยกกลุ่ม", endpoint: "/repgen/report/org-profit-by-group", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId"] },
+  { key: "plan-16", title: "รูปแบบที่ 16 - สรุปการเงินทั้งองค์กร", endpoint: "/repgen/report/org-financial-summary", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId"] },
+  { key: "plan-17", title: "รูปแบบที่ 17 - ค่าใช้จ่ายรายเดือน", endpoint: "/repgen/report/monthly-costs", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId", "branchId"] },
+  { key: "plan-18", title: "รูปแบบที่ 18 - รายได้และค่าใช้จ่ายเสริมรายเดือน", endpoint: "/repgen/report/monthly-earnings-aux", type: "pdf", xlsx: true, badge: "PLAN", require: ["planId", "branchId"] },
 ]
 
 // -----------------------------
@@ -595,6 +596,7 @@ const PHASE1_REPORTS = [
     title: "P01 — ขออนุมัติและจ่ายค่าหุ้นลาออก",
     endpoint: "/reports/phase1/P01/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: [],
@@ -604,6 +606,7 @@ const PHASE1_REPORTS = [
     title: "P02 — ขายแยกตามวัน",
     endpoint: "/reports/phase1/P02/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: [],
@@ -613,6 +616,7 @@ const PHASE1_REPORTS = [
     title: "P03 — จ่ายคืนค่าหุ้นสมาชิกลาออก",
     endpoint: "/reports/phase1/P03/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: [],
@@ -622,6 +626,7 @@ const PHASE1_REPORTS = [
     title: "P04 — ซื้อขายแยกราคา",
     endpoint: "/reports/phase1/P04/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: [],
@@ -631,6 +636,7 @@ const PHASE1_REPORTS = [
     title: "P05 — ซื้อข้าวเปลือกรายคน",
     endpoint: "/reports/phase1/P05/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     // BE: asso_id (บังคับ) + start_date + end_date + branch_id (ไม่บังคับ)
     // รายงานรายคน — ต้องเลือกสมาชิกก่อน (ค้นหาชื่อ → asso_id)
@@ -643,6 +649,7 @@ const PHASE1_REPORTS = [
     title: "P06 — ซื้อแยกตามวัน",
     endpoint: "/reports/phase1/P06/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: [],
@@ -652,6 +659,7 @@ const PHASE1_REPORTS = [
     title: "P07 — ทะเบียนคุม",
     endpoint: "/reports/phase1/P07/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     // handoff (4): params branch_id, start_date, end_date (no spec_id)
     require: ["branchId", "startDate", "endDate"],
@@ -662,6 +670,7 @@ const PHASE1_REPORTS = [
     title: "P08 — รายงานการรวบรวม",
     endpoint: "/reports/phase1/P08/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: [],
@@ -671,6 +680,7 @@ const PHASE1_REPORTS = [
     title: "P09 — เคลื่อนไหวทุนเรือนหุ้นรายกลุ่ม",
     endpoint: "/reports/phase1/P09/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: [],
@@ -680,6 +690,7 @@ const PHASE1_REPORTS = [
     title: "P10 — ทะเบียนทุนเรือนหุ้น (รายคน)",
     endpoint: "/reports/phase1/P10/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["memberId"],
     optional: ["branchId"],
@@ -692,6 +703,7 @@ const PHASE1_REPORTS = [
     title: "P11 — ทุนเรือนหุ้นคงเหลือรายคน",
     endpoint: "/reports/phase1/P11/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId"],
     optional: [],
@@ -701,6 +713,7 @@ const PHASE1_REPORTS = [
     title: "P12 — รายงานรวมสาขา",
     endpoint: "/reports/phase1/P12/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: [],
@@ -710,6 +723,7 @@ const PHASE1_REPORTS = [
     title: "P13 — รายงานรายวัน",
     endpoint: "/reports/phase1/P13/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     // handoff (4): params branch_id, start_date, end_date (no spec_id)
     require: ["branchId", "startDate", "endDate"],
@@ -720,6 +734,7 @@ const PHASE1_REPORTS = [
     title: "P14 — รายงานสมาชิก",
     endpoint: "/reports/phase1/P14/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: ["klangIds"],
@@ -729,6 +744,7 @@ const PHASE1_REPORTS = [
     title: "P15 — สมาชิกขอลาออกรายคน",
     endpoint: "/reports/phase1/P15/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: [],
@@ -738,6 +754,7 @@ const PHASE1_REPORTS = [
     title: "P16 — รายงานสมาชิกใหม่",
     endpoint: "/reports/phase1/P16/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: [],
@@ -747,6 +764,7 @@ const PHASE1_REPORTS = [
     title: "P17 — สรุปการเคลื่อนไหวทุนเรือนหุ้นรายกลุ่ม",
     endpoint: "/reports/phase1/P17/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: [],
@@ -756,6 +774,7 @@ const PHASE1_REPORTS = [
     title: "P18 — สรุปจำนวนสมาชิกและการถือหุ้น",
     endpoint: "/reports/phase1/P18/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId"],
     optional: [],
@@ -765,6 +784,7 @@ const PHASE1_REPORTS = [
     title: "P19 — รายงานสาขา1 (สรุปข้าว)",
     endpoint: "/reports/phase1/P19/pdf",
     type: "phase1_pdf",
+    xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: [],
@@ -1221,6 +1241,15 @@ function Documents() {
     } finally {
       setDownloading(false)
     }
+  }
+
+  /** PDF path (endpoint + same query) for the Excel twin — null when the form is invalid.
+   *  No `preview` param: that one is PDF-only. ExcelDownloadButton maps it via excelUrl(). */
+  const excelPdfPath = (report) => {
+    if (Object.keys(validate(report)).length) return null
+    const endpoint = typeof report.endpoint === "function" ? report.endpoint(filters) : report.endpoint
+    const qs = buildParams(report).toString()
+    return qs ? `${endpoint}?${qs}` : endpoint
   }
 
   const resetForm = () =>
@@ -1885,6 +1914,16 @@ function Documents() {
                   downloading ? "กำลังดึงข้อมูล..." : "ดาวน์โหลด"
                 )}
               </button>
+
+              {reportObj.xlsx && (
+                <ExcelDownloadButton
+                  key={reportObj.key}
+                  label="ดาวน์โหลด Excel"
+                  getPdfPath={() => excelPdfPath(reportObj)}
+                  fallbackName={`${reportObj.key}${reportObj.require.includes("startDate") ? `_${filters.startDate}_${filters.endDate}` : ""}.xlsx`}
+                  className={cx(secondaryBtnCls, "disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100")}
+                />
+              )}
 
               <button
                 type="button"

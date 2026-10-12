@@ -5,6 +5,7 @@ import { cx, secondaryBtnCls } from "../../../lib/styles"
 import { Badge, ErrorState } from "../../../components/ui"
 import { buildReportRows, computeColTotals } from "./buildReportRows"
 import { printDebtTable } from "./printDebtTable"
+import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 import { ReportHead, ReportBody } from "./BranchDebtTable"
 
 /** Line-art printer icon for the export button (currentColor, no emoji). */
@@ -85,6 +86,11 @@ export default function AllBranchesTable({ onBack }) {
           <PrinterIcon />
           พิมพ์ PDF
         </button>
+        {/* Server-side Excel twin of GET /debt/report (no filters = all branches) */}
+        <ExcelDownloadButton
+          getPdfPath={() => "/debt/report"}
+          fallbackName="debt_cohort_report.xlsx"
+        />
       </div>
 
       {error && !loading && (

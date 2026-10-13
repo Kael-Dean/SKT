@@ -107,7 +107,7 @@ function App() {
 
         <Route path="/customer-search" element={guard("members.search", <CustomerSearch />)} />
         <Route path="/customer-add" element={guard("customers.create", <CustomerAdd />)} />
-        {/* เพิ่มบริษัท: หน้าเองเช็ค canSeeAddCompany() (กฎเฉพาะผู้ใช้) */}
+        {/* เพิ่มบริษัท: customer.register เหมือน backend (canSeeAddCompany) */}
         <Route path="/company-add" element={guard("customers.create", <CompanyAdd />)} />
         <Route path="/member-termination" element={guard("members.status", <MemberTermination />)} />
         <Route path="/share" element={guard("shares.buy", <Share />)} />

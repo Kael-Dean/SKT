@@ -4,6 +4,7 @@ import { apiAuth } from "../../lib/api"   // ✅ ใช้ helper แนบโ�
 import { SkeletonTableRows, ErrorState, EmptyState, Sheet, SearchField, DataList, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import { cx, neutralBtnCls, secondaryBtnCls, submitBtnCls } from "../../lib/styles"
+import DateInput from "../../components/ThaiDateField"
 
 /** ไอคอนแว่นขยาย (inline SVG — currentColor, ไม่มี emoji) */
 function SearchIcon({ className = "size-5" }) {
@@ -744,7 +745,7 @@ const MemberSearch = () => {
                         ))}
                       </select>
                     ) : f.type === "date" || f.type === "date-optional" ? (
-                      <input id={fid} type="date" className={inputCls} value={val ?? ""} onChange={(e) => onChangeField(f.key, e.target.value)} />
+                      <DateInput id={fid} ariaLabel={f.label} value={val ?? ""} onChange={(e) => onChangeField(f.key, e.target.value)} />
                     ) : (
                       <input
                         id={fid}

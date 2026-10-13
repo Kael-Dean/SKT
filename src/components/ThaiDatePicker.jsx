@@ -4,7 +4,7 @@
 // Desktop: the calendar is portaled to <body> (position: fixed, z 10050 via
 // useAnchoredPanel) so no table scrollbar / overflow wrapper can clip it.
 // Phone (<md): opens as a bottom <Sheet size="sm"> with 44px day buttons.
-import { useEffect, useRef, useState } from "react"
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
 import useAnchoredPanel from "../lib/useAnchoredPanel"
@@ -23,8 +23,10 @@ const THAI_MONTHS = [
 
 const DAY_HEADERS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"]
 
+/** วันนี้ตามเวลาเครื่อง (ไม่ผ่าน UTC — กันวันเพี้ยนช่วงเช้ามืดเวลาไทย) */
 function todayISO() {
-  return new Date().toISOString().split("T")[0]
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
 function parseCE(iso) {
@@ -133,7 +135,14 @@ function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, o
   )
 }
 
-export default function ThaiDatePicker({ value = "", onChange, className = "", id, ariaLabel = "เลือกวันที่" }) {
+/**
+ * ref → ปุ่มเปิดปฏิทิน (focus() ได้เหมือน input เดิม — ใช้กับ Enter-flow ของฟอร์ม)
+ * onKeyDown / error / disabled / ariaDescribedBy ส่งต่อให้ปุ่ม
+ */
+const ThaiDatePicker = forwardRef(function ThaiDatePicker({
+  value = "", onChange, className = "", id, ariaLabel = "เลือกวันที่",
+  onKeyDown, onFocus, error = false, disabled = false, ariaDescribedBy, placeholder = "— เลือกวันที่ —",
+}, ref) {
   const today = todayISO()
   const parsed = parseCE(value)
   const now = new Date()
@@ -144,6 +153,7 @@ export default function ThaiDatePicker({ value = "", onChange, className = "", i
   const wrapRef = useRef(null)
   const triggerRef = useRef(null)
   const panelRef = useRef(null)
+  useImperativeHandle(ref, () => triggerRef.current)
   const isPhone = useIsPhone()
   const { style } = useAnchoredPanel(triggerRef, { open: open && !isPhone, minW: PANEL_W, maxW: PANEL_W, maxH: 400 })
 
@@ -229,14 +239,23 @@ export default function ThaiDatePicker({ value = "", onChange, className = "", i
         ref={triggerRef}
         id={id}
         type="button"
+        disabled={disabled}
         onClick={() => setOpen(o => !o)}
+        onKeyDown={onKeyDown}
+        onFocus={onFocus}
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-invalid={error || undefined}
+        aria-describedby={ariaDescribedBy}
         aria-label={`${ariaLabel}${value ? `: ${formatDisplay(value)}` : ""}`}
-        className={`flex w-full cursor-pointer items-center justify-between gap-2 text-left ${wrapperCls}`}
+        className={cx(
+          "flex w-full cursor-pointer items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-70",
+          wrapperCls,
+          error && "!border-red-500 ring-2 ring-red-300 dark:ring-red-500/40",
+        )}
       >
         <span className={value ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500"}>
-          {formatDisplay(value) || "— เลือกวันที่ —"}
+          {formatDisplay(value) || placeholder}
         </span>
         <CalendarDays aria-hidden="true" className="size-4 shrink-0 text-gray-400 dark:text-gray-500" strokeWidth={1.75} />
       </button>
@@ -262,4 +281,6 @@ export default function ThaiDatePicker({ value = "", onChange, className = "", i
       )}
     </div>
   )
-}
+})
+
+export default ThaiDatePicker

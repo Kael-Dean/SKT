@@ -315,7 +315,7 @@ export const PERMISSIONS = Object.freeze({
   "approval.anyStage": { code: "superadmin", no: null, module: "Frontend only", label: "พิจารณาคำขอได้ทุกขั้น (ใบลา / ออกนอกสถานที่)", en: "Act on any approval stage", roles: [1], feOnly: true, note: "สอดคล้อง backend: role 1 อยู่ในทุก guard ของขั้นอนุมัติ" },
   "nav.hrCompactMenu": { code: (me) => HR_POSITION_IDS.has(me.roleId), no: null, module: "Frontend only", label: "ใช้เมนูด้านข้างแบบ HR (ย่อ)", en: "Use the compact HR sidebar", roles: [3], feOnly: true },
   "debt.entries.ownBranchOnly": { code: (me) => me.scope === "own_branch", no: null, module: "Frontend only", label: "บันทึกหนี้ได้เฉพาะสาขาตนเอง", en: "Debt entries locked to own branch", roles: [5], feOnly: true, note: "ตำแหน่ง scope own_branch — backend ล็อกสาขาเอง" },
-  "customers.company.add": { code: (me) => me.roleId === MANAGER_POSITION_ID, no: null, module: "Frontend only", label: "เพิ่มบริษัท (ลูกค้านิติบุคคล)", en: "Add company customer", roles: [2], feOnly: true, note: "กฎธุรกิจเดิม: ผู้จัดการ + ผู้ใช้ชื่อ HA (ดู canSeeAddCompany) — backend เช็คแค่ customer.register" },
+  "customers.company.add": { code: "customer.register", no: null, module: "Frontend only", label: "เพิ่มบริษัท (ลูกค้านิติบุคคล)", en: "Add company customer", roles: "any", feOnly: true, note: "ตาม backend: POST /member/customers/company-signup ต้องมี customer.register (Super Admin ผ่านเสมอ)" },
 })
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -538,12 +538,9 @@ export function canBringInMill(user = getUser()) {
 }
 
 /**
- * เมนู/หน้า "เพิ่มบริษัท" — คีย์ customers.company.add (ผู้จัดการ)
- * + เคสพิเศษ: ผู้ใช้ชื่อ "HA" (หัวหน้าฝ่ายบัญชี) — ต้องมีสิทธิ์สมัครลูกค้าด้วย
+ * เมนู/หน้า "เพิ่มบริษัท" — เปิดตามสิทธิ์ customer.register เหมือน backend
+ * (POST /member/customers/company-signup) · Super Admin ผ่านเสมอ (handoff F29)
  */
-export function canSeeAddCompany(user = getUser(), roleId = getRoleId()) {
-  if (can("customers.company.add", roleId)) return true
-  if (user?.username !== "HA") return false
-  if (isRbacMode()) return can("customers.create")
-  return Number(roleId) === ROLE.HEAD_ACCOUNTANT
+export function canSeeAddCompany(roleId = getRoleId()) {
+  return can("customers.company.add", roleId) || can("customers.create", roleId)
 }

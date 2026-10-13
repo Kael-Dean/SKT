@@ -1,11 +1,12 @@
 // src/pages/MemberSignup.jsx
-import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useThaiAddressData } from "../../hooks/useThaiAddressData"
 import { apiAuth } from "../../lib/api"   // ✅ แนบ token อัตโนมัติ + จัดการ 401
 import { cx, baseField, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, secondaryBtnCls, spinnerCls } from "../../lib/styles"
 import { Card, CardHeader, PageLoader, Sheet, StickyActionBar, toast } from "../../components/ui"
 import ComboBox from "../../components/ComboBox"
 import { useIsPhone } from "../../hooks/useMediaQuery"
+import DateInput from "../../components/ThaiDateField"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -170,38 +171,7 @@ const TAMBONS_BY_AMPHOE = {
 }
 
 /** ---------- DateInput ---------- */
-const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
-  const inputRef = useRef(null)
-  useImperativeHandle(ref, () => inputRef.current)
-
-  return (
-    <div className="relative">
-      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
-      <input
-        type="date"
-        ref={inputRef}
-        className={cx(baseField, "pr-12 cursor-pointer", error && fieldError, className)}
-        {...props}
-      />
-      <button
-        type="button"
-        onClick={() => {
-          const el = inputRef.current
-          if (!el) return
-          if (typeof el.showPicker === "function") el.showPicker()
-          else { el.focus(); el.click?.() }
-        }}
-        aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
-                    transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer bg-transparent"
-      >
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
-          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
-        </svg>
-      </button>
-    </div>
-  )
-})
+// ช่องวันที่ไทย (วัน เดือน พ.ศ.) ตัวกลาง — API เหมือน input เดิม (handoff F25)
 
 /** ---------- Receipt (Sheet: bottom sheet <md / dialog ≥md) — ปุ่มพิมพ์ใบเสร็จคงเดิม ---------- */
 function ReceiptModal({ open, onClose, receipt, name }) {
@@ -704,7 +674,7 @@ const MemberSignup = () => {
             <CardHeader title="โครงการที่เข้าร่วม" />
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               {[
-                { key: "seedling_prog",  label: "โครงการผลิตเมล็ดพันธ์" },
+                { key: "seedling_prog",  label: "โครงการผลิตเมล็ดพันธุ์" },
                 { key: "slowdown_rice",  label: "โครงการชะลอข้าวเปลือก" },
                 { key: "organic_prog",   label: "โครงการอินทรีย์" },
                 { key: "product_loan",   label: "โครงการสินค้าเป็นเงินเชื่อ" },

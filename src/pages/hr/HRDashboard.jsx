@@ -58,26 +58,30 @@ import HRHolidayCalendarTab from "./tabs/HRHolidayCalendarTab"
 import HRHolidayWorkTab from "./tabs/HRHolidayWorkTab"
 import HROutOfOfficeTab from "./tabs/HROutOfOfficeTab"
 import useModalDismiss from "../../lib/useModalDismiss"
+import { HR_KPI_PERMS, can, checkAccess } from "../../lib/permissions"
+import { useMyPermissionsVersion } from "../../lib/myPermissions"
+import { ForbiddenState } from "../../components/RequirePermission"
 
 // ─── Navigation config (single source of truth) ──────────────────────────────
 
+// perm / anyOf = permission key ของแต่ละแท็บ (src/lib/permissions.js) — ผู้ใช้เห็นเฉพาะแท็บที่มีสิทธิ์
 const HR_NAV = [
   {
     group: "บุคลากร",
     items: [
-      { key: "employees", label: "เจ้าหน้าที่", icon: Users,
+      { key: "employees", perm: "hr.employees.list", label: "เจ้าหน้าที่", icon: Users,
         description: "ข้อมูลเจ้าหน้าที่ทั้งหมด ค้นหา ลงทะเบียน และดูประวัติรายบุคคล",
         keywords: ["พนักงาน", "บุคลากร", "รายชื่อ", "ลงทะเบียน", "employees"] },
-      { key: "positions", label: "ตำแหน่งงาน", icon: BriefcaseBusiness,
+      { key: "positions", perm: "hr.positions.view", label: "ตำแหน่งงาน", icon: BriefcaseBusiness,
         description: "กำหนดตำแหน่งงานและกระบอกเงินเดือนของแต่ละตำแหน่ง",
         keywords: ["ตำแหน่ง", "กระบอก", "positions"] },
-      { key: "promotions", label: "เลื่อนตำแหน่ง", icon: Award,
+      { key: "promotions", anyOf: ["hr.promotions.eligible", "hr.promotions.exams"], label: "เลื่อนตำแหน่ง", icon: Award,
         description: "ผู้มีสิทธิ์สอบเลื่อนตำแหน่ง และการสอบที่นัดไว้",
         keywords: ["สอบ", "เลื่อนระดับ", "promotion"] },
-      { key: "termination", label: "บันทึกออกจากงาน", icon: UserMinus,
+      { key: "termination", perm: "hr.employees.terminate", label: "บันทึกออกจากงาน", icon: UserMinus,
         description: "บันทึกการออกจากงานของเจ้าหน้าที่ พร้อมเหตุผลและวันที่มีผล",
         keywords: ["ออกจากงาน", "เลิกจ้าง", "เงินชดเชย", "termination"] },
-      { key: "resigned-retired", label: "ประวัติออกจากงาน", icon: Archive,
+      { key: "resigned-retired", perm: "hr.reports.resignedRetired", label: "ประวัติออกจากงาน", icon: Archive,
         description: "รายชื่อเจ้าหน้าที่ที่ลาออก เกษียณ หรือพ้นสภาพ",
         keywords: ["ลาออก", "เกษียณ", "ไล่ออก", "ลาออก/เกษียณ"] },
     ],
@@ -85,16 +89,16 @@ const HR_NAV = [
   {
     group: "การลาและเวลา",
     items: [
-      { key: "leave", label: "คำขอลา", icon: FileText, badgeKey: "pending_leave_requests",
+      { key: "leave", perm: "hr.leave.list", label: "คำขอลา", icon: FileText, badgeKey: "pending_leave_requests",
         description: "ตรวจและอนุมัติคำขอลาของเจ้าหน้าที่",
         keywords: ["ลา", "leave", "อนุมัติ", "ใบลา"] },
-      { key: "leave-register", label: "ทะเบียนการลา", icon: BookOpen,
+      { key: "leave-register", anyOf: ["hr.reports.leaveAnnual", "hr.reports.leaveRegister"], label: "ทะเบียนการลา", icon: BookOpen,
         description: "สรุปวันลาที่ใช้ไปและคงเหลือของเจ้าหน้าที่แต่ละคน",
         keywords: ["ลา", "วันลา", "สรุปการลา"] },
-      { key: "out-of-office", label: "ออกนอกสถานที่", icon: MapPin,
+      { key: "out-of-office", perm: "hr.ooo.list", label: "ออกนอกสถานที่", icon: MapPin,
         description: "คำขอออกนอกสถานที่และสถานะการอนุมัติ",
         keywords: ["นอกสถานที่", "ไปราชการ", "อนุมัติ"] },
-      { key: "holiday-work", label: "ทำงานวันหยุด", icon: CalendarClock,
+      { key: "holiday-work", perm: "hr.holidayWork.view", label: "ทำงานวันหยุด", icon: CalendarClock,
         description: "บันทึกการทำงานในวันหยุดของเจ้าหน้าที่",
         keywords: ["วันหยุด", "โอที", "ot"] },
     ],
@@ -102,10 +106,10 @@ const HR_NAV = [
   {
     group: "การย้าย",
     items: [
-      { key: "relocation", label: "ย้ายสาขา", icon: ArrowRightLeft, badgeKey: "pending_relocation_requests",
+      { key: "relocation", perm: "hr.relocation.list", label: "ย้ายสาขา", icon: ArrowRightLeft, badgeKey: "pending_relocation_requests",
         description: "คำขอย้ายสาขาและการอนุมัติ",
         keywords: ["ย้าย", "สาขา", "โยกย้าย", "อนุมัติ"] },
-      { key: "relocation-history", label: "ประวัติย้ายสาขา", icon: History,
+      { key: "relocation-history", anyOf: ["hr.relocation.list", "hr.reports.relocations"], label: "ประวัติย้ายสาขา", icon: History,
         description: "ประวัติการย้ายสาขาของเจ้าหน้าที่",
         keywords: ["ย้าย", "สาขา", "ประวัติ"] },
     ],
@@ -113,19 +117,19 @@ const HR_NAV = [
   {
     group: "เงินเดือนและสวัสดิการ",
     items: [
-      { key: "salary", label: "เงินเดือน", icon: Coins,
+      { key: "salary", anyOf: ["hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward"], label: "เงินเดือน", icon: Coins,
         description: "เลื่อนขั้นเงินเดือนเจ้าหน้าที่ และดูอัตราเงินเดือนแต่ละขั้นของกระบอก",
         keywords: ["ขั้น", "เลื่อนขั้น", "บัญชีเงินเดือน", "กระบอก", "salary"] },
-      { key: "payroll", label: "จ่ายเงินเดือน", icon: Banknote,
+      { key: "payroll", perm: "hr.payroll.list", label: "จ่ายเงินเดือน", icon: Banknote,
         description: "สร้างและตรวจรายการเงินเดือนประจำเดือน",
         keywords: ["สลิป", "จ่าย", "payroll", "เงินเดือน"] },
-      { key: "loans", label: "สินเชื่อ", icon: HandCoins,
+      { key: "loans", perm: "hr.loans.list", label: "สินเชื่อ", icon: HandCoins,
         description: "สินเชื่อของเจ้าหน้าที่และการผ่อนชำระ",
         keywords: ["กู้", "เงินกู้", "loan", "ผ่อน"] },
-      { key: "salary-cert", label: "หนังสือรับรองเงินเดือน", icon: ScrollText,
+      { key: "salary-cert", perm: "hr.salaryCert.list", label: "หนังสือรับรองเงินเดือน", icon: ScrollText,
         description: "คำขอและการออกหนังสือรับรองเงินเดือน",
         keywords: ["หนังสือรับรอง", "รับรองเงินเดือน", "certificate"] },
-      { key: "kpi", label: "KPI", icon: Target,
+      { key: "kpi", anyOf: HR_KPI_PERMS, label: "KPI", icon: Target,
         description: "ประเมิน KPI ประจำปี สรุปผล ตรวจสอบ อนุมัติเลื่อนขั้น และบันทึกผลประกอบการ",
         keywords: ["ประเมิน", "ตัวชี้วัด", "คะแนน", "kpi", "เลื่อนขั้นประจำปี", "อนุมัติ", "ผลประกอบการ"] },
     ],
@@ -133,10 +137,10 @@ const HR_NAV = [
   {
     group: "ตั้งค่า",
     items: [
-      { key: "leave-types", label: "ประเภทการลา", icon: ListChecks,
+      { key: "leave-types", perm: "hr.leaveTypes.manage", label: "ประเภทการลา", icon: ListChecks,
         description: "กำหนดประเภทการลาและสิทธิ์วันลา",
         keywords: ["ลา", "ประเภท", "สิทธิ์ลา"] },
-      { key: "holiday-calendar", label: "ปฏิทินวันหยุด", icon: CalendarDays,
+      { key: "holiday-calendar", perm: "hr.holidays.manage", label: "ปฏิทินวันหยุด", icon: CalendarDays,
         description: "กำหนดวันหยุดประจำปีขององค์กร",
         keywords: ["วันหยุด", "ปฏิทิน", "holiday"] },
     ],
@@ -144,19 +148,24 @@ const HR_NAV = [
   {
     group: "ระบบ",
     items: [
-      { key: "issues", label: "รายงานปัญหา", icon: Wrench, badgeKey: "pending_issue_reports",
+      { key: "issues", perm: "hr.issues.list", label: "รายงานปัญหา", icon: Wrench, badgeKey: "pending_issue_reports",
         description: "รายงานปัญหาการใช้งานระบบและสถานะการแก้ไข",
         keywords: ["ปัญหา", "แจ้งปัญหา", "บั๊ก", "issue"] },
-      { key: "audit", label: "ประวัติการใช้งาน", icon: ClipboardList,
+      { key: "audit", perm: "hr.audit.view", label: "ประวัติการใช้งาน", icon: ClipboardList,
         description: "ประวัติการใช้งานและการแก้ไขข้อมูลในระบบ HR",
         keywords: ["ประวัติระบบ", "log", "audit"] },
     ],
   },
 ]
 
-const NAV_ITEMS = HR_NAV.flatMap((g) => g.items.map((it) => ({ ...it, group: g.group })))
-const NAV_BY_KEY = Object.fromEntries(NAV_ITEMS.map((it) => [it.key, it]))
-const DEFAULT_TAB = "employees"
+/** เมนูเฉพาะแท็บที่ผู้ใช้ปัจจุบันมีสิทธิ์ → { groups, items, byKey } */
+function buildNav() {
+  const groups = HR_NAV
+    .map((g) => ({ group: g.group, items: g.items.filter((it) => checkAccess({ perm: it.perm, anyOf: it.anyOf })) }))
+    .filter((g) => g.items.length > 0)
+  const items = groups.flatMap((g) => g.items.map((it) => ({ ...it, group: g.group })))
+  return { groups, items, byKey: Object.fromEntries(items.map((it) => [it.key, it])) }
+}
 
 // ─── Matching (label + keywords + key) ───────────────────────────────────────
 
@@ -184,9 +193,9 @@ function matchScore(item, q) {
   return null
 }
 
-function rankItems(query) {
+function rankItems(items, query) {
   const q = norm(query)
-  return NAV_ITEMS
+  return items
     .map((it, i) => ({ it, i, s: matchScore(it, q) }))
     .filter((x) => x.s != null)
     .sort((a, b) => a.s - b.s || a.i - b.i)
@@ -376,7 +385,7 @@ function HRNavItem({ item, active, count, onNavigate, itemRef }) {
   )
 }
 
-function HRRail({ activeKey, badges, onNavigate, onOpenSwitcher }) {
+function HRRail({ nav, activeKey, badges, onNavigate, onOpenSwitcher }) {
   const [filter, setFilter] = useState("")
   const activeRef = useRef(null)
   const filterId = useId()
@@ -385,11 +394,11 @@ function HRRail({ activeKey, badges, onNavigate, onOpenSwitcher }) {
 
   const groups = useMemo(
     () =>
-      HR_NAV.map((g) => ({
+      nav.groups.map((g) => ({
         group: g.group,
         items: g.items.filter((it) => matchScore(it, q) != null),
       })).filter((g) => g.items.length > 0),
-    [q]
+    [nav, q]
   )
 
   useEffect(() => {
@@ -399,7 +408,7 @@ function HRRail({ activeKey, badges, onNavigate, onOpenSwitcher }) {
 
   const onFilterKey = (e) => {
     if (e.key === "Enter") {
-      const first = rankItems(filter)[0]
+      const first = rankItems(nav.items, filter)[0]
       if (first) {
         e.preventDefault()
         onNavigate(first.key)
@@ -483,15 +492,15 @@ function HRRail({ activeKey, badges, onNavigate, onOpenSwitcher }) {
 
 // ─── Ctrl/⌘K quick switcher ──────────────────────────────────────────────────
 
-function QuickSwitcher({ activeKey, badges, onNavigate, onClose }) {
+function QuickSwitcher({ nav, activeKey, badges, onNavigate, onClose }) {
   const [query, setQuery] = useState("")
   const inputRef = useRef(null)
   const listId = useId()
   const optId = (key) => `${listId}-opt-${key}`
 
-  const results = useMemo(() => rankItems(query), [query])
+  const results = useMemo(() => rankItems(nav.items, query), [nav, query])
   const grouped = !norm(query)
-  const [activeIdx, setActiveIdx] = useState(() => Math.max(0, NAV_ITEMS.findIndex((it) => it.key === activeKey)))
+  const [activeIdx, setActiveIdx] = useState(() => Math.max(0, nav.items.findIndex((it) => it.key === activeKey)))
   const safeIdx = results.length ? Math.min(activeIdx, results.length - 1) : -1
   const activeItem = safeIdx >= 0 ? results[safeIdx] : null
   // Esc (top-most modal only) + backdrop click close the switcher
@@ -613,7 +622,7 @@ function QuickSwitcher({ activeKey, badges, onNavigate, onClose }) {
                 ไม่พบเมนูที่ตรงกับ “{query.trim()}”
               </p>
             ) : grouped ? (
-              HR_NAV.map((g) => {
+              nav.groups.map((g) => {
                 const headId = `${listId}-g-${g.group}`
                 return (
                   <div key={g.group} role="group" aria-labelledby={headId}>
@@ -622,7 +631,7 @@ function QuickSwitcher({ activeKey, badges, onNavigate, onClose }) {
                     </div>
                     {g.items.map((it) => {
                       idx += 1
-                      return renderOption(NAV_BY_KEY[it.key], idx)
+                      return renderOption(nav.byKey[it.key], idx)
                     })}
                   </div>
                 )
@@ -646,8 +655,13 @@ function QuickSwitcher({ activeKey, badges, onNavigate, onClose }) {
 export default function HRDashboard() {
   const [searchParams, setSearchParams] = useSearchParams()
   const rawTab = searchParams.get("tab")
-  const activeKey = rawTab && NAV_BY_KEY[rawTab] ? rawTab : DEFAULT_TAB
-  const active = NAV_BY_KEY[activeKey]
+  const permVersion = useMyPermissionsVersion()
+  const nav = useMemo(buildNav, [permVersion]) // permVersion: สร้างเมนูใหม่เมื่อสิทธิ์เปลี่ยน
+  const defaultTab = nav.items[0]?.key ?? null
+  const activeKey = rawTab && nav.byKey[rawTab] ? rawTab : defaultTab
+  const active = activeKey ? nav.byKey[activeKey] : null
+  // แถบสถิติ (GET /hr/dashboard) ต้องมี hr.dashboard — ไม่มีก็ไม่ยิง (กัน 403) และไม่แสดง
+  const canSeeStats = can("hr.dashboard.view")
 
   const rootRef = useRef(null)
   const openerRef = useRef(null)
@@ -662,7 +676,7 @@ export default function HRDashboard() {
 
   // Invalid / missing tab → rewrite to the default (replace, no history entry)
   useEffect(() => {
-    if (rawTab !== activeKey) {
+    if (activeKey && rawTab !== activeKey) {
       setSearchParams((prev) => {
         const p = new URLSearchParams(prev)
         p.set("tab", activeKey)
@@ -673,6 +687,10 @@ export default function HRDashboard() {
   }, [rawTab, activeKey, setSearchParams])
 
   useEffect(() => {
+    if (!canSeeStats) {
+      setLoadingStats(false)
+      return undefined
+    }
     let alive = true
     setLoadingStats(true)
     setStatsError(false)
@@ -681,10 +699,10 @@ export default function HRDashboard() {
       .catch(() => { if (alive) { setStats(null); setStatsError(true) } })
       .finally(() => { if (alive) setLoadingStats(false) })
     return () => { alive = false }
-  }, [statsReq])
+  }, [statsReq, canSeeStats])
 
   // Badges only when stats loaded cleanly (the strip reports errors itself)
-  const badges = !loadingStats && !statsError ? stats : null
+  const badges = canSeeStats && !loadingStats && !statsError ? stats : null
 
   const setTab = useCallback((key) => {
     setSearchParams({ tab: key }) // push; drops `sub`
@@ -742,12 +760,12 @@ export default function HRDashboard() {
     return () => { document.title = prev }
   }, [])
   useEffect(() => {
-    document.title = `${active.label} · HR`
-  }, [active.label])
+    if (active) document.title = `${active.label} · HR`
+  }, [active])
 
   const menuOptions = useMemo(
     () =>
-      NAV_ITEMS.map((it) => {
+      nav.items.map((it) => {
         const n = it.badgeKey ? badges?.[it.badgeKey] : undefined
         return {
           value: it.key,
@@ -756,8 +774,11 @@ export default function HRDashboard() {
           keywords: it.keywords,
         }
       }),
-    [badges]
+    [nav, badges]
   )
+
+  // ไม่มีแท็บไหนที่ใช้ได้ (route guard ควรกันไว้แล้ว — กันไว้อีกชั้นไม่ให้จอว่าง)
+  if (!active) return <ForbiddenState />
 
   return (
     <div ref={rootRef} className="space-y-6 pb-10">
@@ -768,16 +789,18 @@ export default function HRDashboard() {
         </p>
       </header>
 
-      <StatStrip
-        stats={stats}
-        loading={loadingStats}
-        error={statsError}
-        onRetry={() => setStatsReq((n) => n + 1)}
-        onGo={setTab}
-      />
+      {canSeeStats && (
+        <StatStrip
+          stats={stats}
+          loading={loadingStats}
+          error={statsError}
+          onRetry={() => setStatsReq((n) => n + 1)}
+          onGo={(key) => nav.byKey[key] && setTab(key)}
+        />
+      )}
 
       <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-8">
-        <HRRail activeKey={activeKey} badges={badges} onNavigate={setTab} onOpenSwitcher={openSwitcher} />
+        <HRRail nav={nav} activeKey={activeKey} badges={badges} onNavigate={setTab} onOpenSwitcher={openSwitcher} />
 
         <div className="min-w-0 space-y-3">
           {/* <lg: searchable section menu replaces the rail */}
@@ -805,7 +828,7 @@ export default function HRDashboard() {
       </div>
 
       {switcherOpen && (
-        <QuickSwitcher activeKey={activeKey} badges={badges} onNavigate={setTab} onClose={closeSwitcher} />
+        <QuickSwitcher nav={nav} activeKey={activeKey} badges={badges} onNavigate={setTab} onClose={closeSwitcher} />
       )}
     </div>
   )

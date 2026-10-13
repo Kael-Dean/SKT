@@ -44,7 +44,7 @@ import {
   Warehouse,
   Wheat,
 } from "lucide-react"
-import { DOCUMENTS_PERMS, canBringInMill, canSeeAddCompany, checkAccess } from "./permissions"
+import { DOCUMENTS_PERMS, HR_HUB_PERMS, canBringInMill, canSeeAddCompany, checkAccess } from "./permissions"
 
 // ฟังก์ชันทั้งหมดที่ใช้ในการทำงาน — แต่ละการ์ดแสดงตาม permission key
 // (perm / anyOf / allow — ดู checkAccess ใน src/lib/permissions.js)
@@ -106,7 +106,7 @@ export const ALL_FUNCTIONS = [
     icon: "👥",
     color: "from-rose-400 to-pink-500",
     items: [
-      { label: "ภาพรวมงานบุคคล",     path: "/hr/dashboard",    icon: "👥", perm: "hr.dashboard.view" },
+      { label: "ภาพรวมงานบุคคล",     path: "/hr/dashboard",    icon: "👥", anyOf: HR_HUB_PERMS },
       { label: "ลงทะเบียนเจ้าหน้าที่", path: "/hr/staff-signup",  icon: "➕", perm: "hr.employees.create" },
       { label: "รายชื่อเจ้าหน้าที่",    path: "/hr/users",         icon: "📋", perm: "hr.employees.list" },
       { label: "อนุมัติใบลา",       path: "/hr/leaves",        icon: "📅", perm: "hr.leave.list" },

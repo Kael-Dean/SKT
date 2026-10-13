@@ -5,6 +5,7 @@ import Topbar from "./Topbar"
 import Toaster from "./ui/Toaster"
 import { recordVisit } from "../lib/recentRoutes"
 import { loadMyPermissions, useMyPermissionsVersion } from "../lib/myPermissions"
+import { HR_HUB_PERMS, canAny } from "../lib/permissions"
 
 export const SidebarContext = createContext(false)
 export const useSidebarOpen = () => useContext(SidebarContext)
@@ -53,8 +54,10 @@ const AppLayout = () => {
 
   // ปลายทาง + ป้ายของปุ่มย้อนกลับ — ฟังก์ชันซ้อนกลับ parent, HR กลับ dashboard, อื่น ๆ กลับหน้าหลัก
   const parent = PARENT_ROUTES[location.pathname]
-  const backTo = parent ? parent.path : isHrSubPage ? "/hr/dashboard" : "/home"
-  const backLabel = parent ? parent.label : isHrSubPage ? "งานบุคคล (HR)" : "หน้าหลัก"
+  // หน้า HR รวมแท็บ — ไม่มีสิทธิ์แท็บไหนเลยกลับหน้าหลักแทน (ไม่ให้ชน "ไม่มีสิทธิ์")
+  const hrBack = isHrSubPage && canAny(HR_HUB_PERMS)
+  const backTo = parent ? parent.path : hrBack ? "/hr/dashboard" : "/home"
+  const backLabel = parent ? parent.label : hrBack ? "งานบุคคล (HR)" : "หน้าหลัก"
   // <md: ปุ่มย้อนกลับย้ายเข้า Topbar (ซ้ายสุด 44px) — ปุ่ม inline ด้านล่างเป็น hidden md:flex
   const back = !isHome ? { to: backTo, label: backLabel } : null
 

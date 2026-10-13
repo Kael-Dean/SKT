@@ -505,6 +505,18 @@ export function permissionRows() {
     .sort((a, b) => (a.no ?? 9999) - (b.no ?? 9999) || Number(Boolean(a.variant)) - Number(Boolean(b.variant)))
 }
 
+/** คีย์ KPI ทั้งหมด — แท็บ KPI ในหน้า HR แสดงเมื่อมีอย่างน้อยหนึ่ง (แท็บย่อยกรองต่อด้วย getKpiPerms) */
+export const HR_KPI_PERMS = Object.freeze(Object.keys(PERMISSIONS).filter((k) => k.startsWith("hr.kpi.")))
+
+/**
+ * หน้า "งานบุคคล (HR)" (/hr/dashboard) — เข้าได้ถ้ามีอย่างน้อยหนึ่งแท็บ (แต่ละแท็บเช็คคีย์ของตัวเองใน HRDashboard.jsx).
+ * hr.dashboard.view คุมเฉพาะแถบสถิติด้านบน (matrix ใหม่ให้ Super Admin เท่านั้น)
+ */
+export const HR_HUB_PERMS = Object.freeze([
+  "hr.dashboard.view",
+  ...new Set(["hr.employees.list", "hr.positions.view", "hr.promotions.eligible", "hr.promotions.exams", "hr.employees.terminate", "hr.reports.resignedRetired", "hr.leave.list", "hr.reports.leaveAnnual", "hr.reports.leaveRegister", "hr.ooo.list", "hr.holidayWork.view", "hr.relocation.list", "hr.reports.relocations", "hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward", "hr.payroll.list", "hr.loans.list", "hr.salaryCert.list", "hr.leaveTypes.manage", "hr.holidays.manage", "hr.issues.list", "hr.audit.view", ...HR_KPI_PERMS]),
+])
+
 /** คีย์ Phase 1 report ทั้ง 19 ตัว (P01–P19) */
 export const PHASE1_REPORT_PERMS = Object.freeze(
   Array.from({ length: 19 }, (_, i) => `reports.phase1.p${String(i + 1).padStart(2, "0")}`),

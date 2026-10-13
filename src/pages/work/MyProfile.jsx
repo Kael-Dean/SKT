@@ -10,7 +10,7 @@ import { fmtDays, parseDays } from "../../lib/leaveDays"
 import lineIcon from "../../assets/line-icon.png"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel as getRoleLabel } from "../../lib/roles"
-import { myRoleLabel } from "../../lib/permissions"
+import { can, myRoleLabel } from "../../lib/permissions"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -106,7 +106,10 @@ export default function MyProfile() {
     Promise.all([
       apiAuth("/personnel/me"),
       apiAuth("/personnel/me/financial").catch(() => null),
-      apiAuth("/hr/positions").catch(() => []),
+      // GET /hr/positions ต้องมีสิทธิ์ตำแหน่ง/HR (backend PR #13) — พนักงานทั่วไปอ่านตำแหน่งตัวเองจาก /personnel/me/position
+      can("hr.positions.view")
+        ? apiAuth("/hr/positions").catch(() => [])
+        : apiAuth("/personnel/me/position").then((p) => (p && typeof p === "object" && !Array.isArray(p) ? [p] : p)).catch(() => []),
       apiAuth("/order/branch/search").catch(() => []),
       apiAuth("/personnel/me/branches").catch(() => null),
     ])

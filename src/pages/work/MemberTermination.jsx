@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { apiAuth } from "../../lib/api" // ✅ แนบ token อัตโนมัติ + JSON ให้แล้ว
 import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
-import { ErrorState, toast } from "../../components/ui"
+import { ErrorState, ConfirmDialog, toast } from "../../components/ui"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -147,6 +147,7 @@ function MemberTermination() {
   const [picked, setPicked] = useState(null)
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false) // ยืนยันก่อนบันทึก (handoff F10)
   const topRef = useRef(null)
 
   /** ---------- ฟิลด์ใหม่ตามที่ขอ ---------- */
@@ -308,6 +309,12 @@ function MemberTermination() {
     })
   }
 
+  /** ปุ่มบันทึก → ตรวจ แล้วเปิดกล่องยืนยัน (บันทึกแล้วย้อนกลับในหน้านี้ไม่ได้) */
+  const askConfirm = () => {
+    if (!validate()) return
+    setConfirmOpen(true)
+  }
+
   const submit = async () => {
     if (!validate()) return
     try {
@@ -322,7 +329,10 @@ function MemberTermination() {
           recipient_name: recipient,            // ผู้รับเงิน / ผู้รับผลประโยชน์
         },
       })
-      toast.success(mode === "resigned" ? "บันทึกการลาออกแล้ว" : "บันทึกการเสียชีวิตแล้ว")
+      toast.success(mode === "resigned" ? "บันทึกการลาออกแล้ว" : "บันทึกการเสียชีวิตแล้ว", {
+        description: `${picked.first_name ?? ""} ${picked.last_name ?? ""}`.trim(),
+      })
+      setConfirmOpen(false)
       reset()
     } catch (err) {
       console.error(err)
@@ -603,7 +613,7 @@ function MemberTermination() {
             type="button"
             ref={submitBtnRef}
             disabled={submitting}
-            onClick={submit}
+            onClick={askConfirm}
             className="inline-flex items-center justify-center rounded-2xl 
                       bg-emerald-600 px-6 py-3 text-base font-semibold text-white
                       shadow-[0_6px_16px_rgba(16,185,129,0.35)]
@@ -613,7 +623,7 @@ function MemberTermination() {
                       disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
             aria-busy={submitting ? "true" : "false"}
             onKeyDown={(e) => {
-              if (e.key === "Enter") { e.preventDefault(); submit() }
+              if (e.key === "Enter") { e.preventDefault(); askConfirm() }
             }}
           >
             {submitting ? "กำลังบันทึก..." : actionLabel}
@@ -634,6 +644,30 @@ function MemberTermination() {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={`ยืนยัน${actionLabel}`}
+        description="ตรวจข้อมูลก่อนบันทึก — สมาชิกจะสิ้นสภาพและหายจากการค้นหาปกติ บันทึกแล้วแก้ไขในหน้านี้ไม่ได้"
+        confirmLabel={`ยืนยัน${actionLabel}`}
+        tone="danger"
+        loading={submitting}
+        onConfirm={submit}
+        onCancel={() => setConfirmOpen(false)}
+      >
+        {picked && (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-base">
+            <dt className="text-slate-500 dark:text-slate-400">สมาชิก</dt>
+            <dd className="font-medium text-slate-900 dark:text-slate-100">{`${picked.first_name ?? ""} ${picked.last_name ?? ""}`.trim() || "-"}</dd>
+            <dt className="text-slate-500 dark:text-slate-400">เลขสมาชิก</dt>
+            <dd className="tabular-nums text-slate-900 dark:text-slate-100">{picked.member_id ?? "-"}</dd>
+            <dt className="text-slate-500 dark:text-slate-400">ประเภท</dt>
+            <dd className="font-medium text-slate-900 dark:text-slate-100">{mode === "passed" ? "เสียชีวิต" : "ลาออก"}</dd>
+            <dt className="text-slate-500 dark:text-slate-400">{dynamicRecipientLabel}</dt>
+            <dd className="text-slate-900 dark:text-slate-100">{recipient || "-"}</dd>
+          </dl>
+        )}
+      </ConfirmDialog>
     </div>
   )
 }

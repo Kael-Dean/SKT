@@ -72,7 +72,7 @@ function formatShares(v) {
   if (v === null || v === undefined) return "—"
   const n = Number(v)
   return Number.isFinite(n)
-    ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    ? n.toLocaleString("th-TH", { minimumFractionDigits: 3, maximumFractionDigits: 3 })
     : "—"
 }
 

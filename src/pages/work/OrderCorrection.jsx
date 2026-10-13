@@ -8,6 +8,8 @@ import {
 } from "../../lib/styles";
 import { SkeletonTableRows, Sheet, DataList, Badge, EmptyState, ConfirmDialog, toast } from "../../components/ui";
 import ComboBox from "../../components/ComboBox";
+import ProductFormPicker, { SpecChips } from "../../components/ProductFormPicker";
+import useProductForms from "../../lib/useProductForms";
 import { useIsPhone } from "../../hooks/useMediaQuery";
 import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock";
 import BranchLockNote from "../../components/BranchLockNote";
@@ -103,6 +105,7 @@ function OrderCorrection() {
   const [branchOptions, setBranchOptions] = useState([]);
   const [klangOptions, setKlangOptions] = useState([]);
   const [specOptions, setSpecOptions] = useState([]);
+  const productForms = useProductForms();
   const [specDict, setSpecDict] = useState({});
   const [paymentBuy, setPaymentBuy] = useState([]); // 3,4
   const [paymentSell, setPaymentSell] = useState([]); // 1,2
@@ -360,6 +363,33 @@ function OrderCorrection() {
     setDraft((p) => ({ ...(p || {}), ...(typeof patch === "function" ? patch(p || {}) : patch) }));
   const getSpecLabel = (id) => specOptions.find((o) => String(o.id) === String(id))?.label || "—";
 
+  /** แก้ราคาต่อกก./น้ำหนัก → คำนวณ "เป็นเงิน" ใหม่ (ยังแก้เองได้ เหมือนหน้าสร้าง) — handoff F4 */
+  const money = (w, ppk) => {
+    const a = Number(cleanDecimal(asString(w ?? "")));
+    const b = Number(cleanDecimal(asString(ppk ?? "")));
+    return Number.isFinite(a) && Number.isFinite(b) && a > 0 && b > 0 ? String(Math.round(a * b * 100) / 100) : null;
+  };
+  const setNumAndRecalc = (key, value) => {
+    const next = { ...(draft || {}), [key]: value };
+    const patch = { [key]: value };
+    const changed = [key];
+    if (next.type === "sell") {
+      if (key === "price_per_kilo" || key === "weight_1") {
+        const v = money(next.weight_1, next.price_per_kilo);
+        if (v != null) { patch.price_1 = v; changed.push("price_1"); }
+      }
+      if (key === "price_per_kilo" || key === "weight_2") {
+        const v = money(next.weight_2, next.price_per_kilo);
+        if (v != null) { patch.price_2 = v; changed.push("price_2"); }
+      }
+    } else if (key === "price_per_kilo" || key === "weight") {
+      const v = money(next.weight, next.price_per_kilo);
+      if (v != null) { patch.price = v; changed.push("price"); }
+    }
+    setD(patch);
+    changed.forEach(touch);
+  };
+
   const tryPrefillBranchKlang = async (row) => {
     let foundBranch = branchOptions.find((b) => (b.label || "").trim() === (row.branch_name || "").trim());
     let branchId = foundBranch?.id || "";
@@ -379,7 +409,7 @@ function OrderCorrection() {
   };
 
   const buildProductSpecIn = (specId) => {
-    const raw = specDict[String(specId)];
+    const raw = specDict[String(specId)] || productForms.findForm(specId)?.spec;
     if (!raw) return null;
     return {
       product_id: raw.product_id,
@@ -580,6 +610,7 @@ function OrderCorrection() {
       await tryPatch(primary);
       setEditing(false);
       setOpen(false);
+      toast.success("บันทึกการแก้ไขออเดอร์แล้ว");
       await fetchOrders();
     } catch (e) {
       console.error(e);
@@ -595,22 +626,9 @@ function OrderCorrection() {
   const deleteOrder = async () => {
     const id = draft?.order_id;
     if (!id) return;
-    const prefer = draft?.type === "sell" ? "sell" : "buy";
-    const candidates = [
-      `/order/orders/${id}`,
-      `/order/orders/${id}?force_type=${prefer}`,
-      `/order/orders/${id}?force_type=${prefer === "buy" ? "sell" : "buy"}`,
-    ];
-    let lastErr = null;
-    for (const url of candidates) {
-      try {
-        await apiAuth(url, { method: "DELETE" });
-        return;
-      } catch (e) {
-        lastErr = e;
-      }
-    }
-    throw lastErr;
+    // โหมดรู้อยู่แล้ว → ส่ง force_type ตั้งแต่ครั้งแรก (เดิมได้ 409 Ambiguous แล้วลองใหม่) — handoff F12
+    const forceType = draft?.type === "sell" ? "sell" : "buy";
+    await apiAuth(`/order/orders/${id}?force_type=${forceType}`, { method: "DELETE" });
   };
 
   const confirmAndDelete = async () => {
@@ -1240,23 +1258,29 @@ function OrderCorrection() {
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">รายการสำเร็จรูป (เปลี่ยนสเปค)</label>
                       {!editing ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
-                          {draft.spec_id ? getSpecLabel(draft.spec_id) : "-"}
-                        </div>
+                        <>
+                          <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">ฟอร์มสินค้า</label>
+                          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-700/60">
+                            {/* ฟอร์มที่ปิดใช้งานแล้วยังแสดงชื่อจากออเดอร์ (handoff F30) */}
+                            {productForms.findForm(draft.spec_id)?.label ||
+                              (draft.spec_id && getSpecLabel(draft.spec_id) !== "—" ? getSpecLabel(draft.spec_id) : "") ||
+                              active?.prod_name || active?.spec_name || "-"}
+                          </div>
+                          {productForms.findForm(draft.spec_id) && (
+                            <SpecChips chips={productForms.chipsFor(productForms.findForm(draft.spec_id).spec)} className="mt-2" />
+                          )}
+                        </>
                       ) : (
-                        <ComboBox
-                          title="รายการสำเร็จรูป (เปลี่ยนสเปค)"
-                          ariaLabel="รายการสำเร็จรูป (เปลี่ยนสเปค)"
-                          options={specOptions}
+                        <ProductFormPicker
+                          id="order-edit-form"
+                          label="ฟอร์มสินค้า (เปลี่ยนสเปค)"
+                          forms={productForms}
                           value={draft.spec_id}
-                          getValue={(o) => o.id}
                           onChange={(id) => {
                             setD({ spec_id: id || "" });
                             touch("spec_id");
                           }}
-                          placeholder="— ไม่เปลี่ยน —"
                         />
                       )}
                     </div>
@@ -1377,8 +1401,8 @@ function OrderCorrection() {
                               className={baseField}
                               value={asString(draft[key] ?? "")}
                               onChange={(e) => {
-                                setD({ [key]: type === "number" ? cleanDecimal(e.target.value) : e.target.value });
-                                touch(key);
+                                if (type === "number") setNumAndRecalc(key, cleanDecimal(e.target.value));
+                                else { setD({ [key]: e.target.value }); touch(key); }
                               }}
                             />
                           )}
@@ -1419,9 +1443,6 @@ function OrderCorrection() {
                               }
                             />
                           )}
-                          <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                            * ค่านี้จะถูกส่งไปหลังบ้านเป็น <code>sale_id</code>
-                          </div>
                         </div>
                       </div>
 
@@ -1434,7 +1455,7 @@ function OrderCorrection() {
                           <div className="grid grid-cols-1 gap-4">
                             <div>
                               <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
-                                เลขที่ใบสำคัญ 1
+                                เลขที่ใบชั่งพ่วงหน้า
                               </label>
                               {!editing ? (
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
@@ -1486,8 +1507,7 @@ function OrderCorrection() {
                                   className={baseField}
                                   value={asString(draft.weight_1 ?? "")}
                                   onChange={(e) => {
-                                    setD({ weight_1: cleanDecimal(e.target.value) });
-                                    touch("weight_1");
+                                    setNumAndRecalc("weight_1", cleanDecimal(e.target.value));
                                   }}
                                 />
                               )}
@@ -1507,8 +1527,7 @@ function OrderCorrection() {
                                   className={baseField}
                                   value={asString(draft.price_per_kilo ?? "")}
                                   onChange={(e) => {
-                                    setD({ price_per_kilo: cleanDecimal(e.target.value) });
-                                    touch("price_per_kilo");
+                                    setNumAndRecalc("price_per_kilo", cleanDecimal(e.target.value));
                                   }}
                                 />
                               )}
@@ -1546,7 +1565,7 @@ function OrderCorrection() {
                           <div className="grid grid-cols-1 gap-4">
                             <div>
                               <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">
-                                เลขที่ใบสำคัญ 2
+                                เลขที่ใบชั่งพ่วงหลัง
                               </label>
                               {!editing ? (
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/60">
@@ -1598,8 +1617,7 @@ function OrderCorrection() {
                                   className={baseField}
                                   value={asString(draft.weight_2 ?? "")}
                                   onChange={(e) => {
-                                    setD({ weight_2: cleanDecimal(e.target.value) });
-                                    touch("weight_2");
+                                    setNumAndRecalc("weight_2", cleanDecimal(e.target.value));
                                   }}
                                 />
                               )}
@@ -1620,8 +1638,7 @@ function OrderCorrection() {
                                   className={baseField}
                                   value={asString(draft.price_per_kilo ?? "")}
                                   onChange={(e) => {
-                                    setD({ price_per_kilo: cleanDecimal(e.target.value) });
-                                    touch("price_per_kilo");
+                                    setNumAndRecalc("price_per_kilo", cleanDecimal(e.target.value));
                                   }}
                                 />
                               )}

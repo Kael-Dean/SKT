@@ -14,12 +14,12 @@ import { useEffect, useRef } from "react"
 import ComboBox from "./ComboBox"
 import { cx, labelCls, errorTextCls, helpTextCls } from "../lib/styles"
 
-export const NO_FORM_HINT = "ไม่พบฟอร์มที่ต้องการ? ติดต่อผู้ดูแลระบบ/ฝ่ายบัญชีเพื่อเพิ่มรหัสข้าว"
+const NO_FORM_HINT = "ไม่พบฟอร์มที่ต้องการ? ติดต่อผู้ดูแลระบบ/ฝ่ายบัญชีเพื่อเพิ่มรหัสข้าว"
 
 const readSaved = (key) => {
   try { return key ? localStorage.getItem(key) : null } catch { return null }
 }
-export const rememberForm = (key, id) => {
+const rememberForm = (key, id) => {
   try { if (key && id) localStorage.setItem(key, String(id)) } catch { /* storage blocked */ }
 }
 
@@ -48,6 +48,7 @@ export default function ProductFormPicker({
   onChange,
   storageKey,
   label = "ฟอร์มสินค้า",
+  required = false, // แสดง * สีแดงหลัง label
   id = "product-form",
   error,            // string | boolean
   hintRed = false,
@@ -80,7 +81,9 @@ export default function ProductFormPicker({
 
   return (
     <div className={className}>
-      <label className={labelCls} htmlFor={id}>{label}</label>
+      <label className={labelCls} htmlFor={id}>
+        {label}{required && <span className="text-red-500"> *</span>}
+      </label>
       <ComboBox
         id={id}
         options={list}

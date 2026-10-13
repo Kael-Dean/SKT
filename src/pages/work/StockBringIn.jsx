@@ -16,6 +16,11 @@ import {
   spinnerCls,
 } from "../../lib/styles"
 import ComboBox from "../../components/ComboBox"
+import ProductFormPicker from "../../components/ProductFormPicker"
+import useProductForms, { specFromForm } from "../../lib/useProductForms"
+import useBranchLock from "../../hooks/useBranchLock"
+import BranchLockNote from "../../components/BranchLockNote"
+import { getActiveBranch } from "../../lib/auth"
 import { StickyActionBar, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 
@@ -33,14 +38,8 @@ const getOptValue = (o) => o?.id ?? o?.value ?? ""
 
 /** ชื่อฟิลด์สั้นสำหรับ toast "กรอกไม่ครบ" (mobile-copy §3.3 / §9.3) */
 const FIELD_LABELS = {
-  product_id: "ประเภทสินค้า",
-  species_id: "ชนิดข้าว",
-  variant_id: "ชั้นย่อย",
-  product_year: "ปี/ฤดูกาล",
-  condition_id: "สภาพ",
-  field_type: "ประเภทนา",
-  program: "โปรแกรม",
-  business_type: "ประเภทธุรกิจ",
+  form_id: "ฟอร์มสินค้า",
+  co_branch: "สาขา",
   co_klang: "คลังปลายทาง",
   co_available: "ปริมาณยกมา",
   prices: "ราคา 1 และ 2",
@@ -91,29 +90,19 @@ function StockBringIn() {
     try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
   }
 
-  // lookups (id/label)
-  const [productOptions, setProductOptions] = useState([])
-  const [speciesOptions, setSpeciesOptions] = useState([])
-  const [variantOptions, setVariantOptions] = useState([])
-  const [yearOptions, setYearOptions] = useState([])
-  const [conditionOptions, setConditionOptions] = useState([])
-  const [fieldTypeOptions, setFieldTypeOptions] = useState([])
-  const [programOptions, setProgramOptions] = useState([])
-  const [businessOptions, setBusinessOptions] = useState([])
+  // ฟอร์มสินค้า (handoff F30) + สาขา/คลัง (F23: คลังแยกตามสาขา)
+  const productForms = useProductForms()
+  const branchLock = useBranchLock()
+  const [branchOptions, setBranchOptions] = useState([])
+  const [branchStatus, setBranchStatus] = useState("loading")
   const [klangOptions, setKlangOptions] = useState([])
+  const [klangStatus, setKlangStatus] = useState("idle")
 
   const initialForm = {
-    // ProductSpecIn (บังคับทุกช่อง)
-    product_id: "",
-    species_id: "",
-    variant_id: "",
-    product_year: "",
-    condition_id: "",
-    field_type: "",
-    program: "",
-    business_type: "",
+    form_id: "",
 
     // CarryOver (บังคับราคา 1 & 2, ปริมาณ, คลัง)
+    co_branch: getActiveBranch() != null ? String(getActiveBranch()) : "",
     co_klang: "",
     price1: "",
     price2: "",
@@ -123,121 +112,42 @@ function StockBringIn() {
 
   const [form, setForm] = useState(initialForm)
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
+  const selectedForm = productForms.findForm(form.form_id)
 
-  /** ---------- helpers ---------- */
-  const fetchFirstOkJson = async (paths = []) => {
-    for (const p of paths) {
-      try {
-        const data = await get(p)
-        if (Array.isArray(data)) return data
-        if (data && typeof data === "object") return data
-      } catch { /* try next candidate path */ }
-    }
-    return Array.isArray(paths) ? [] : {}
-  }
-
-  /** ---------- Load lookups ---------- */
+  /** ---------- Load branches ---------- */
   useEffect(() => {
     let alive = true
-    async function loadInitial() {
-      try {
-        const [products, conditions, fields, years, programs, businesses, klangs] = await Promise.all([
-          fetchFirstOkJson(["/order/product/search"]),
-          fetchFirstOkJson(["/order/condition/search"]),
-          fetchFirstOkJson(["/order/field/search", "/order/field_type/list", "/order/field-type/list"]),
-          fetchFirstOkJson(["/order/year/search"]),
-          fetchFirstOkJson(["/order/program/search"]),
-          fetchFirstOkJson(["/order/business/search"]),
-          fetchFirstOkJson(["/order/klang/search"]),
-        ])
+    get("/order/branch/search")
+      .then((arr) => {
         if (!alive) return
-
-        setProductOptions(
-          (products || [])
-            .map((x) => ({
-              id: String(x.id ?? x.product_id ?? x.value ?? ""),
-              label: String(x.product_type ?? x.name ?? x.label ?? "").trim(),
-            }))
-            .filter((o) => o.id && o.label)
-        )
-        setConditionOptions(
-          (conditions || []).map((x, i) => ({ id: String(x.id ?? x.value ?? i), label: String(x.condition ?? x.name ?? x.label ?? "").trim() }))
-        )
-        setFieldTypeOptions(
-          (fields || []).map((x, i) => ({
-            id: String(x.id ?? x.value ?? i),
-            label: String(x.field ?? x.field_type ?? x.name ?? x.label ?? (typeof x === "string" ? x : "")).trim(),
-          }))
-        )
-        setYearOptions((years || []).map((x, i) => ({ id: String(x.id ?? x.value ?? i), label: String(x.year ?? x.name ?? x.label ?? "").trim() })))
-        setProgramOptions((programs || []).map((x, i) => ({ id: String(x.id ?? x.value ?? i), label: String(x.program ?? x.name ?? x.label ?? "").trim() })))
-        setBusinessOptions((businesses || []).map((x, i) => ({ id: String(x.id ?? x.value ?? i), label: String(x.business ?? x.name ?? x.label ?? "").trim() })))
-        setKlangOptions((klangs || []).map((k) => ({ id: String(k.id ?? k.klang_id ?? ""), label: String(k.klang_name ?? k.name ?? "ไม่ทราบชื่อคลัง") })))
-      } catch {
-        if (!alive) return
-        setProductOptions([]); setConditionOptions([]); setFieldTypeOptions([])
-        setYearOptions([]); setProgramOptions([]); setBusinessOptions([]); setKlangOptions([])
-      }
-    }
-    loadInitial()
+        setBranchOptions((arr || []).map((b) => ({ id: String(b.id), label: String(b.branch_name ?? b.name ?? "") })))
+        setBranchStatus("ready")
+      })
+      .catch(() => { if (alive) { setBranchOptions([]); setBranchStatus("error") } })
     return () => { alive = false }
   }, [])
 
-  /** ---------- Cascades ---------- */
+  // ล็อกสาขา (scope own_branch) → สาขาที่ใช้งานอยู่
   useEffect(() => {
-    const pid = form.product_id
-    if (!pid) {
-      setSpeciesOptions([]); setVariantOptions([])
-      setForm((p) => ({ ...p, species_id: "", variant_id: "" }))
-      return
-    }
-    let alive = true
-    const loadSpecies = async () => {
-      try {
-        const arr = (await get(`/order/species/search?product_id=${encodeURIComponent(pid)}`)) || []
-        const mapped = arr
-          .map((x) => ({ id: String(x.id ?? x.species_id ?? x.value ?? ""), label: String(x.species ?? x.name ?? x.label ?? "").trim() }))
-          .filter((o) => o.id && o.label)
-        if (!alive) return
-        setSpeciesOptions(mapped)
-        setVariantOptions([])
-        setForm((p) => ({ ...p, species_id: "", variant_id: "" }))
-      } catch {
-        if (!alive) return
-        setSpeciesOptions([]); setVariantOptions([])
-        setForm((p) => ({ ...p, species_id: "", variant_id: "" }))
-      }
-    }
-    loadSpecies()
-    return () => { alive = false }
-  }, [form.product_id])
+    if (!branchLock.locked || !branchLock.activeKey) return
+    setForm((p) => (p.co_branch === branchLock.activeKey ? p : { ...p, co_branch: branchLock.activeKey, co_klang: "" }))
+  }, [branchLock.locked, branchLock.activeKey])
 
+  /** ---------- สาขา → คลัง ---------- */
   useEffect(() => {
-    const sid = form.species_id
-    if (!sid) {
-      setVariantOptions([])
-      setForm((p) => ({ ...p, variant_id: "" }))
-      return
-    }
+    const bid = form.co_branch
+    if (!bid) { setKlangOptions([]); setKlangStatus("idle"); return }
     let alive = true
-    const loadVariant = async () => {
-      try {
-        const arr = (await get(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)) || []
-        const mapped = arr
-          .map((x) => ({ id: String(x.id ?? x.variant_id ?? x.value ?? ""), label: String(x.variant ?? x.name ?? x.label ?? "").trim() }))
-          .filter((o) => o.id && o.label)
+    setKlangStatus("loading")
+    get(`/order/klang/search?branch_id=${encodeURIComponent(bid)}`)
+      .then((arr) => {
         if (!alive) return
-        setVariantOptions(mapped)
-        setForm((p) => ({ ...p, variant_id: "" }))
-      } catch {
-        if (!alive) return
-        setVariantOptions([])
-        setForm((p) => ({ ...p, variant_id: "" }))
-      }
-    }
-    loadVariant()
+        setKlangOptions((arr || []).map((k) => ({ id: String(k.id ?? k.klang_id ?? ""), label: String(k.klang_name ?? k.name ?? "ไม่ทราบชื่อคลัง") })))
+        setKlangStatus("ready")
+      })
+      .catch(() => { if (alive) { setKlangOptions([]); setKlangStatus("error") } })
     return () => { alive = false }
-  }, [form.species_id])
+  }, [form.co_branch])
 
   /** ---------- Derived ---------- */
   const pricesArr = useMemo(() => {
@@ -266,14 +176,8 @@ function StockBringIn() {
   /** ---------- Validate ---------- */
   const computeMissingHints = () => {
     const m = {}
-    if (!form.product_id) m.product_id = true
-    if (!form.species_id) m.species_id = true
-    if (!form.variant_id) m.variant_id = true
-    if (!form.product_year) m.product_year = true
-    if (!form.condition_id) m.condition_id = true
-    if (!form.field_type) m.field_type = true
-    if (!form.program) m.program = true
-    if (!form.business_type) m.business_type = true
+    if (!form.form_id) m.form_id = true
+    if (!form.co_branch) m.co_branch = true
     if (!form.co_klang) m.co_klang = true
     // บังคับราคา 1 และ 2 > 0
     if (!(toNumber(form.price1) > 0 && toNumber(form.price2) > 0)) m.prices = true
@@ -284,14 +188,9 @@ function StockBringIn() {
 
   const validate = () => {
     const e = {}
-    if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
-    if (!form.species_id) e.species_id = "กรุณาเลือกชนิดข้าว"
-    if (!form.variant_id) e.variant_id = "กรุณาเลือกชั้นย่อย/สายพันธุ์"
-    if (!form.product_year) e.product_year = "กรุณาเลือกปี/ฤดูกาล"
-    if (!form.condition_id) e.condition_id = "กรุณาเลือกสภาพ/เงื่อนไข"
-    if (!form.field_type) e.field_type = "กรุณาเลือกประเภทนา"
-    if (!form.program) e.program = "กรุณาเลือกโปรแกรม"
-    if (!form.business_type) e.business_type = "กรุณาเลือกประเภทธุรกิจ"
+    if (!form.form_id) e.form_id = "กรุณาเลือกฟอร์มสินค้า"
+    else if (!selectedForm) e.form_id = "ฟอร์มสินค้านี้ใช้งานไม่ได้แล้ว เลือกฟอร์มอื่น"
+    if (!form.co_branch) e.co_branch = "กรุณาเลือกสาขา"
     if (!form.co_klang) e.co_klang = "กรุณาเลือกคลังปลายทาง"
     // ต้องมีราคา 1 และ ราคา 2 และทั้งคู่ > 0
     if (!(toNumber(form.price1) > 0 && toNumber(form.price2) > 0)) {
@@ -305,14 +204,8 @@ function StockBringIn() {
 
   /** ---------- ===== Keyboard Flow: Enter ไล่โฟกัส + เปิด dropdown ถัดไป ===== ---------- */
   // refs เรียงซ้าย -> ขวา
-  const productRef = useRef(null)
-  const speciesRef = useRef(null)
-  const variantRef = useRef(null)
-  const yearRef = useRef(null)
-  const conditionRef = useRef(null)
-  const fieldTypeRef = useRef(null)
-  const programRef = useRef(null)
-  const businessRef = useRef(null)
+  const productRef = useRef(null) // ฟอร์มสินค้า
+  const branchRef = useRef(null)
   const klangRef = useRef(null)
   const coAvailableRef = useRef(null)
   const price1Ref = useRef(null)
@@ -323,13 +216,7 @@ function StockBringIn() {
   const orderedRefs = useMemo(
     () => [
       productRef,
-      speciesRef,
-      variantRef,
-      yearRef,
-      conditionRef,
-      fieldTypeRef,
-      programRef,
-      businessRef,
+      branchRef,
       klangRef,
       coAvailableRef,
       price1Ref,
@@ -372,14 +259,8 @@ function StockBringIn() {
 
   /** ---------- Helper: focus + scroll to first invalid ---------- */
   const fieldRefByKey = {
-    product_id: productRef,
-    species_id: speciesRef,
-    variant_id: variantRef,
-    product_year: yearRef,
-    condition_id: conditionRef,
-    field_type: fieldTypeRef,
-    program: programRef,
-    business_type: businessRef,
+    form_id: productRef,
+    co_branch: branchRef,
     co_klang: klangRef,
     co_available: coAvailableRef,
     prices: price1Ref,
@@ -403,14 +284,8 @@ function StockBringIn() {
   }
 
   const MISSING_ORDER = [
-    "product_id",
-    "species_id",
-    "variant_id",
-    "product_year",
-    "condition_id",
-    "field_type",
-    "program",
-    "business_type",
+    "form_id",
+    "co_branch",
     "co_klang",
     "co_available",
     "prices",
@@ -448,16 +323,7 @@ function StockBringIn() {
     }
 
     const payload = {
-      spec: {
-        product_id: Number(form.product_id),
-        species_id: Number(form.species_id),
-        variant_id: Number(form.variant_id),
-        product_year: Number(form.product_year),
-        condition_id: Number(form.condition_id),
-        field_type: Number(form.field_type),
-        program: Number(form.program),
-        business_type: Number(form.business_type),
-      },
+      spec: specFromForm(selectedForm),
       co_klang: Number(form.co_klang),
       prices: pricesArr, // ต้องมี 2 ค่า (> 0)
       co_available: Number(form.co_available),
@@ -473,7 +339,8 @@ function StockBringIn() {
       })
 
       // รีเซ็ตค่าทุกอย่าง + ล้าง error/hint + เด้งไปบนสุด + โฟกัสช่องแรก
-      setForm(initialForm)
+      // คงฟอร์มสินค้า/สาขา/คลังไว้ (มักยกมาสินค้าเดิมซ้ำ)
+      setForm((p) => ({ ...initialForm, form_id: p.form_id, co_branch: p.co_branch, co_klang: p.co_klang }))
       setErrors({})
       setMissingHints({})
       requestAnimationFrame(() => scrollToPageTop())
@@ -488,15 +355,15 @@ function StockBringIn() {
     }
   }
 
-  const handleReset = () => setForm(initialForm)
+  const handleReset = () => setForm((p) => ({ ...initialForm, co_branch: p.co_branch }))
 
   /** ---------- Sticky bar summary (<md) ---------- */
-  const speciesLabel = speciesOptions.find((o) => String(o.id) === String(form.species_id))?.label
+  const speciesLabel = selectedForm?.label
   const klangLabel = klangOptions.find((o) => String(o.id) === String(form.co_klang))?.label
   const barSummary = (
     <div className="min-w-0">
       <p className="truncate text-gray-900 dark:text-gray-100">
-        {speciesLabel || klangLabel ? [speciesLabel, klangLabel].filter(Boolean).join(" · ") : "ยังไม่ได้เลือกสเปค"}
+        {speciesLabel || klangLabel ? [speciesLabel, klangLabel].filter(Boolean).join(" · ") : "ยังไม่ได้เลือกฟอร์มสินค้า"}
       </p>
       <p className="tabular-nums text-gray-500 dark:text-gray-400">
         {nf(toNumber(form.co_available))} กก. · {thb(totalValuation)}
@@ -521,178 +388,52 @@ function StockBringIn() {
           ยอดยกมา
         </h1>
 
-        {/* สเปคสินค้า */}
+        {/* สินค้า — ฟอร์มสินค้าตัวเดียว + ชิปสเปค (handoff F30) */}
         <div className={cardSectionCls}>
-          <h2 className={sectionTitleCls}>กำหนดสเปคสินค้า</h2>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <label className={labelCls}>ประเภทสินค้า<span className="text-red-500"> *</span></label>
-              <ComboBox
-                title="ประเภทสินค้า"
-                ariaLabel="ประเภทสินค้า"
-                options={productOptions}
-                value={form.product_id}
-                getValue={getOptValue}
-                onChange={(v) => { clearError("product_id"); clearHint("product_id"); update("product_id", v) }}
-                error={!!errors.product_id}
-                hintRed={!!missingHints.product_id}
-                clearHint={() => clearHint("product_id")}
-                placeholder="— เลือกประเภทสินค้า —"
-                buttonRef={productRef}
-                enterMovesWhenFilled
-                onEnterNext={() => focusNextAndOpenIfCombo(productRef)}
-              />
-              {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>ชนิดข้าว<span className="text-red-500"> *</span></label>
-              <ComboBox
-                title="ชนิดข้าว"
-                ariaLabel="ชนิดข้าว"
-                searchable
-                options={speciesOptions}
-                value={form.species_id}
-                getValue={getOptValue}
-                onChange={(v) => { clearError("species_id"); clearHint("species_id"); update("species_id", v) }}
-                error={!!errors.species_id}
-                hintRed={!!missingHints.species_id}
-                clearHint={() => clearHint("species_id")}
-                placeholder="— เลือกชนิดข้าว —"
-                buttonRef={speciesRef}
-                enterMovesWhenFilled
-                onEnterNext={() => focusNextAndOpenIfCombo(speciesRef)}
-              />
-              {errors.species_id && <p className={errorTextCls}>{errors.species_id}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>ชั้นย่อย/สายพันธุ์<span className="text-red-500"> *</span></label>
-              <ComboBox
-                title="ชั้นย่อย/สายพันธุ์"
-                ariaLabel="ชั้นย่อย/สายพันธุ์"
-                searchable
-                options={variantOptions}
-                value={form.variant_id}
-                getValue={getOptValue}
-                onChange={(v) => { clearError("variant_id"); clearHint("variant_id"); update("variant_id", v) }}
-                error={!!errors.variant_id}
-                hintRed={!!missingHints.variant_id}
-                clearHint={() => clearHint("variant_id")}
-                placeholder="— เลือกชั้นย่อย —"
-                buttonRef={variantRef}
-                enterMovesWhenFilled
-                onEnterNext={() => focusNextAndOpenIfCombo(variantRef)}
-              />
-              {errors.variant_id && <p className={errorTextCls}>{errors.variant_id}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>ปีสินค้า/ฤดูกาล<span className="text-red-500"> *</span></label>
-              <ComboBox
-                title="ปีสินค้า/ฤดูกาล"
-                ariaLabel="ปีสินค้า/ฤดูกาล"
-                options={yearOptions}
-                value={form.product_year}
-                getValue={getOptValue}
-                onChange={(v) => { clearError("product_year"); clearHint("product_year"); update("product_year", v) }}
-                error={!!errors.product_year}
-                hintRed={!!missingHints.product_year}
-                clearHint={() => clearHint("product_year")}
-                placeholder="— เลือกปี/ฤดูกาล —"
-                buttonRef={yearRef}
-                enterMovesWhenFilled
-                onEnterNext={() => focusNextAndOpenIfCombo(yearRef)}
-              />
-              {errors.product_year && <p className={errorTextCls}>{errors.product_year}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>สภาพ/เงื่อนไข<span className="text-red-500"> *</span></label>
-              <ComboBox
-                title="สภาพ/เงื่อนไข"
-                ariaLabel="สภาพ/เงื่อนไข"
-                options={conditionOptions}
-                value={form.condition_id}
-                getValue={getOptValue}
-                onChange={(v) => { clearError("condition_id"); clearHint("condition_id"); update("condition_id", v) }}
-                error={!!errors.condition_id}
-                hintRed={!!missingHints.condition_id}
-                clearHint={() => clearHint("condition_id")}
-                placeholder="— เลือกสภาพ/เงื่อนไข —"
-                buttonRef={conditionRef}
-                enterMovesWhenFilled
-                onEnterNext={() => focusNextAndOpenIfCombo(conditionRef)}
-              />
-              {errors.condition_id && <p className={errorTextCls}>{errors.condition_id}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>ประเภทนา<span className="text-red-500"> *</span></label>
-              <ComboBox
-                title="ประเภทนา"
-                ariaLabel="ประเภทนา"
-                options={fieldTypeOptions}
-                value={form.field_type}
-                getValue={getOptValue}
-                onChange={(v) => { clearError("field_type"); clearHint("field_type"); update("field_type", v) }}
-                error={!!errors.field_type}
-                hintRed={!!missingHints.field_type}
-                clearHint={() => clearHint("field_type")}
-                placeholder="— เลือกประเภทนา —"
-                buttonRef={fieldTypeRef}
-                enterMovesWhenFilled
-                onEnterNext={() => focusNextAndOpenIfCombo(fieldTypeRef)}
-              />
-              {errors.field_type && <p className={errorTextCls}>{errors.field_type}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>โปรแกรม<span className="text-red-500"> *</span></label>
-              <ComboBox
-                title="โปรแกรม"
-                ariaLabel="โปรแกรม"
-                options={programOptions}
-                value={form.program}
-                getValue={getOptValue}
-                onChange={(v) => { clearError("program"); clearHint("program"); update("program", v) }}
-                error={!!errors.program}
-                hintRed={!!missingHints.program}
-                clearHint={() => clearHint("program")}
-                placeholder="— เลือกโปรแกรม —"
-                buttonRef={programRef}
-                enterMovesWhenFilled
-                onEnterNext={() => focusNextAndOpenIfCombo(programRef)}
-              />
-              {errors.program && <p className={errorTextCls}>{errors.program}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>ประเภทธุรกิจ<span className="text-red-500"> *</span></label>
-              <ComboBox
-                title="ประเภทธุรกิจ"
-                ariaLabel="ประเภทธุรกิจ"
-                options={businessOptions}
-                value={form.business_type}
-                getValue={getOptValue}
-                onChange={(v) => { clearError("business_type"); clearHint("business_type"); update("business_type", v) }}
-                error={!!errors.business_type}
-                hintRed={!!missingHints.business_type}
-                clearHint={() => clearHint("business_type")}
-                placeholder="— เลือกประเภทธุรกิจ —"
-                buttonRef={businessRef}
-                enterMovesWhenFilled
-                onEnterNext={() => focusNextAndOpenIfCombo(businessRef)}
-              />
-              {errors.business_type && <p className={errorTextCls}>{errors.business_type}</p>}
-            </div>
-          </div>
+          <h2 className={sectionTitleCls}>สินค้า</h2>
+          <ProductFormPicker
+            id="bringin-form"
+            required
+            forms={productForms}
+            value={form.form_id}
+            storageKey="bringIn.formTemplate"
+            onChange={(id) => { clearError("form_id"); clearHint("form_id"); update("form_id", id) }}
+            error={errors.form_id}
+            hintRed={!!missingHints.form_id}
+            clearHint={() => clearHint("form_id")}
+            buttonRef={productRef}
+            onEnterNext={() => focusNextAndOpenIfCombo(productRef)}
+            className="md:max-w-2xl"
+          />
         </div>
 
         {/* คลังปลายทาง & ปริมาณ */}
         <div className={cardSectionCls}>
           <h2 className={sectionTitleCls}>คลังปลายทางและปริมาณยกเข้า</h2>
           <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label className={labelCls}>สาขา<span className="text-red-500"> *</span></label>
+              <ComboBox
+                title="สาขา"
+                ariaLabel="สาขา"
+                options={branchOptions}
+                value={form.co_branch}
+                getValue={getOptValue}
+                onChange={(v) => { clearError("co_branch"); clearHint("co_branch"); setForm((p) => ({ ...p, co_branch: v, co_klang: "" })) }}
+                error={!!errors.co_branch}
+                hintRed={!!missingHints.co_branch}
+                clearHint={() => clearHint("co_branch")}
+                placeholder={branchStatus === "loading" ? "กำลังโหลดสาขา…" : "— เลือกสาขา —"}
+                loading={branchStatus === "loading"}
+                disabled={branchLock.locked}
+                buttonRef={branchRef}
+                enterMovesWhenFilled
+                onEnterNext={() => focusNextAndOpenIfCombo(branchRef)}
+              />
+              {errors.co_branch && <p className={errorTextCls}>{errors.co_branch}</p>}
+              {branchLock.locked && <BranchLockNote />}
+            </div>
+
             <div>
               <label className={labelCls}>เลือกคลังปลายทาง<span className="text-red-500"> *</span></label>
               <ComboBox
@@ -705,12 +446,16 @@ function StockBringIn() {
                 error={!!errors.co_klang}
                 hintRed={!!missingHints.co_klang}
                 clearHint={() => clearHint("co_klang")}
-                placeholder="— เลือกคลัง —"
+                placeholder={!form.co_branch ? "เลือกสาขาก่อน" : klangStatus === "loading" ? "กำลังโหลดคลัง…" : "— เลือกคลัง —"}
+                loading={klangStatus === "loading"}
+                disabled={!form.co_branch}
+                emptyText="สาขานี้ยังไม่มีคลัง"
                 buttonRef={klangRef}
                 enterMovesWhenFilled
                 onEnterNext={() => focusNextAndOpenIfCombo(klangRef)}
               />
               {errors.co_klang && <p className={errorTextCls}>{errors.co_klang}</p>}
+              {klangStatus === "error" && <p className={errorTextCls}>โหลดรายการคลังไม่สำเร็จ รีเฟรชหน้าแล้วลองใหม่</p>}
             </div>
 
             <div>

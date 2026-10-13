@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react"
 import { logout as authLogout, getRoleId } from "../lib/auth"
-import { useCan } from "../lib/permissions"
+import { HR_HUB_PERMS, useCan } from "../lib/permissions"
 import { TRADING_GROUP, canAccessItem, lucideFor } from "../lib/homeFunctions"
 
 // สีของ icon chip — ต้องเขียน class เต็ม (Tailwind v4 ตรวจ class ที่ต่อ string ไม่เจอ)
@@ -38,7 +38,7 @@ const TONES = {
 
 // เมนูแบบย่อสำหรับผู้ใช้ที่มีสิทธิ์ nav.hrCompactMenu (ฝ่ายบุคคล) — 3 รายการ + ออกจากระบบ
 const HR_MENUS = [
-  { label: "หน้าหลัก",         icon: House,     tone: "indigo", path: "/hr/dashboard",  perm: "hr.dashboard.view" },
+  { label: "หน้าหลัก",         icon: House,     tone: "indigo", path: "/hr/dashboard",  anyOf: HR_HUB_PERMS },
   { label: "ข้อมูลส่วนตัว",    icon: UserRound, tone: "sky",    path: "/my-profile",    perm: "self.profile.view" },
   { label: "ขอออกนอกสถานที่", icon: MapPin,    tone: "orange", path: "/out-of-office", perm: "self.ooo.request" },
 ]
@@ -56,27 +56,30 @@ const PERSONAL_MENUS = [
   { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet", path: "/my-relocation", perm: "self.relocation.request" },
   { label: "ขอสินเชื่อ",           icon: CreditCard, tone: "rose",    path: "/loan-request",  perm: "self.loan.apply" },
   // KPI v1.4.0 — ผจก. อนุมัติ / ผช.ผจก. ตรวจสอบ (ผู้ที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้น)
-  { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target, tone: "indigo", path: "/hr/kpi", perm: "hr.kpi.evaluations.view", unless: "hr.dashboard.view" },
-  { label: "Dashboard HR",        icon: LayoutDashboard, tone: "blue", path: "/hr/dashboard", perm: "hr.dashboard.view" },
+  { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target, tone: "indigo", path: "/hr/kpi", perm: "hr.kpi.evaluations.view", unlessAny: HR_HUB_PERMS },
+  { label: "Dashboard HR",        icon: LayoutDashboard, tone: "blue", path: "/hr/dashboard", anyOf: HR_HUB_PERMS },
   { label: "สิทธิ์ตามบทบาท",      icon: ShieldCheck, tone: "violet", path: "/admin/roles", perm: "admin.roles.view" },
   // "รายรับ-รายจ่ายสถานที่" ย้ายไปกลุ่ม "รายงาน & แผน" ในหน้า Home แล้ว
 ]
 
-function canSeeSidebarItem(item, can) {
+function canSeeSidebarItem(item, { can, canAny }) {
   if (item.perm && !can(item.perm)) return false
+  if (item.anyOf && !canAny(item.anyOf)) return false
   if (item.unless && can(item.unless)) return false
+  if (item.unlessAny && canAny(item.unlessAny)) return false
   return true
 }
 
 const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { can } = useCan()
+  const perms = useCan()
+  const { can } = perms
   const closeBtnRef = useRef(null)
 
   const visibleMenus = useMemo(
-    () => (can("nav.hrCompactMenu") ? HR_MENUS : PERSONAL_MENUS).filter((item) => canSeeSidebarItem(item, can)),
-    [can]
+    () => (can("nav.hrCompactMenu") ? HR_MENUS : PERSONAL_MENUS).filter((item) => canSeeSidebarItem(item, perms)),
+    [can, perms]
   )
 
   // หมวด "ธุรกิจรวบรวมผลผลิต" — เฉพาะมือถือ (md:hidden) ให้ไปหน้าซื้อ/ขาย/คลังได้โดยไม่ต้องกลับ Home

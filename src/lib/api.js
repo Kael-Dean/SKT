@@ -35,14 +35,23 @@ function joinUrl(base, path) {
 async function _call(path, { method = "GET", body, headers } = {}) {
   const isJsonBody = body != null && !(body instanceof FormData);
 
-  const res = await fetch(joinUrl(API_BASE, path), {
-    method,
-    headers: {
-      ...(isJsonBody ? { "Content-Type": "application/json" } : {}),
-      ...(headers || {}),
-    },
-    body: isJsonBody ? JSON.stringify(body) : body,
-  });
+  let res;
+  try {
+    res = await fetch(joinUrl(API_BASE, path), {
+      method,
+      headers: {
+        ...(isJsonBody ? { "Content-Type": "application/json" } : {}),
+        ...(headers || {}),
+      },
+      body: isJsonBody ? JSON.stringify(body) : body,
+    });
+  } catch (e) {
+    // เน็ตหลุด / CORS / DNS — ไม่มี HTTP status (status 0) ให้หน้าเว็บแสดงข้อความไทยแทน "Failed to fetch"
+    const error = new Error("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่");
+    error.status = 0;
+    error.cause = e;
+    throw error;
+  }
 
   const ct = res.headers.get("content-type") || "";
   const data = ct.includes("application/json")
@@ -94,6 +103,17 @@ import { getToken, getUser, logout } from "./auth";
 // guard: ป้องกัน 401 หลายตัวพร้อมกัน (เช่น Promise.all) redirect ซ้ำหลายครั้ง
 let _redirecting401 = false;
 
+// 403 = ล็อกอินอยู่แต่ตำแหน่งไม่มีสิทธิ์ใช้ฟังก์ชันนี้ (backend RBAC) → แจ้ง myPermissions.js ให้โหลดสิทธิ์ใหม่
+// (ใช้ event แทน import ตรง ๆ เพื่อไม่ให้ไฟล์ import วนกัน). ข้อความให้ผู้ใช้ = err.message (detail จาก backend)
+export const API_FORBIDDEN_EVENT = "api:forbidden";
+const PERMISSIONS_PATH = "/auth/me/permissions";
+
+function _notifyForbidden(path, err) {
+  if (typeof window === "undefined") return;
+  if (String(path || "").replace(/^\/+/, "/").startsWith(PERMISSIONS_PATH)) return; // กันวน
+  window.dispatchEvent(new CustomEvent(API_FORBIDDEN_EVENT, { detail: { path, message: err?.message } }));
+}
+
 function _expireSession() {
   _redirecting401 = true;
   logout();
@@ -128,6 +148,7 @@ export async function apiAuth(path, opts = {}) {
     if (err.status === 401 && redirectOn401 && !_redirecting401) {
       _expireSession();
     }
+    if (err.status === 403) _notifyForbidden(path, err);
     throw err;
   }
 }
@@ -156,6 +177,8 @@ export async function apiDownload(path, opts = {}) {
     const err = new Error(msg || res.statusText || "Download failed");
     err.status = res.status;
     err.data = data;
+    if (res.status === 401 && token && !_redirecting401) _expireSession();
+    if (res.status === 403) _notifyForbidden(path, err);
     throw err;
   }
   const blob = await res.blob();

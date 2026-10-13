@@ -11,6 +11,7 @@ import { useEffect } from "react"
 import { Navigate, useLocation, useNavigate } from "react-router-dom"
 import { ShieldOff } from "lucide-react"
 import { checkAccess } from "../lib/permissions"
+import { useMyPermissionsVersion } from "../lib/myPermissions"
 import { toast } from "./ui"
 
 const DENIED_TOAST_ID = "permission-denied"
@@ -49,6 +50,7 @@ export function ForbiddenState({ homePath = "/home" }) {
 
 export default function RequirePermission({ perm, anyOf, allOf, allow, redirectTo = "/home", children }) {
   const location = useLocation()
+  useMyPermissionsVersion() // ประเมินใหม่เมื่อสิทธิ์โหลดเสร็จ/เปลี่ยน (เช่นหลัง 403)
   if (checkAccess({ perm, anyOf, allOf, allow })) return children
   if (location.pathname === redirectTo) return <ForbiddenState homePath="/home" />
   return <DeniedRedirect to={redirectTo} />

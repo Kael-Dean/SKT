@@ -9,6 +9,8 @@ import {
 import { SkeletonTableRows, Sheet, DataList, Badge, EmptyState, ConfirmDialog, toast } from "../../components/ui";
 import ComboBox from "../../components/ComboBox";
 import { useIsPhone } from "../../hooks/useMediaQuery";
+import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock";
+import BranchLockNote from "../../components/BranchLockNote";
 
 /* ---------------- Utilities (ทนทานต่อค่าที่ไม่ใช่สตริง) ---------------- */
 const asString = (v) => (v === null || v === undefined ? "" : String(v));
@@ -109,11 +111,14 @@ function OrderCorrection() {
     return opts.find((o) => String(o.id) === String(id))?.label || "—";
   };
 
+  /* สาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่ */
+  const branchLock = useBranchLock();
+
   /* filters */
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
-    branchId: "",
+    branchId: branchLock.activeKey,
     branchName: "",
     klangId: "",
     klangName: "",
@@ -182,6 +187,12 @@ function OrderCorrection() {
     loadInitial();
   }, []);
 
+  /* ล็อกสาขา (โหลดสิทธิ์เสร็จทีหลัง) → บังคับ filter เป็นสาขาที่ใช้งานอยู่ */
+  useEffect(() => {
+    if (!branchLock.locked) return;
+    setFilters((p) => (p.branchId === branchLock.activeKey ? p : { ...p, branchId: branchLock.activeKey, branchName: "", klangId: "", klangName: "" }));
+  }, [branchLock.locked, branchLock.activeKey]);
+
   /* branch -> klang */
   useEffect(() => {
     const run = async () => {
@@ -212,7 +223,8 @@ function OrderCorrection() {
       const params = new URLSearchParams();
       params.set("start_date", filters.startDate);
       params.set("end_date", filters.endDate);
-      if (filters.branchId) params.set("branch_id", filters.branchId);
+      const branchId = scopedBranchId(filters.branchId);
+      if (branchId) params.set("branch_id", branchId);
       if (filters.klangId) params.set("klang_id", filters.klangId);
       if (filters.q?.trim()) params.set("q", filters.q.trim());
 
@@ -319,13 +331,13 @@ function OrderCorrection() {
     setFilters({
       startDate: firstDayThisMonth,
       endDate: today,
-      branchId: "",
+      branchId: branchLock.activeKey,
       branchName: "",
       klangId: "",
       klangName: "",
       q: "",
     });
-    setKlangOptions([]);
+    if (!branchLock.locked) setKlangOptions([]);
     setPage(1);
     setPageInput("1");
     setErrors({ startDate: "", endDate: "" });
@@ -802,7 +814,9 @@ function OrderCorrection() {
                   }))
                 }
                 placeholder="— เลือกสาขา —"
+                disabled={branchLock.locked}
               />
+              {branchLock.locked && <BranchLockNote />}
             </div>
 
             <div>
@@ -1265,8 +1279,10 @@ function OrderCorrection() {
                             touch("branch_location");
                           }}
                           placeholder="— เลือกสาขา —"
+                          disabled={branchLock.locked}
                         />
                       )}
+                      {editing && branchLock.locked && <BranchLockNote />}
                     </div>
 
                     <div>

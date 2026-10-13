@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 import { getUser, getRoleId } from "../../lib/auth"
-import { roleLabel as getRoleLabel } from "../../lib/roles"
+import { myRoleLabel } from "../../lib/permissions"
+import { useMyPermissionsVersion } from "../../lib/myPermissions"
 import { ALL_FUNCTIONS, ALL_ITEMS, canAccessItem, lucideFor } from "../../lib/homeFunctions"
 import { getRecent } from "../../lib/recentRoutes"
 import { cx, focusRingCls } from "../../lib/styles"
@@ -31,7 +32,7 @@ function IconChip({ path, className = "" }) {
 }
 
 /** Phone-only horizontal strip: pinned functions, then recent ones (no dupes). */
-function ShortcutStrip({ roleId, onOpen }) {
+function ShortcutStrip({ roleId, permVersion, onOpen }) {
   const items = useMemo(() => {
     const byPath = (p) => ALL_ITEMS.find((i) => i.path === p)
     const pinned = PINNED_PATHS.map(byPath).filter(Boolean).map((i) => ({ ...i, kind: "pinned" }))
@@ -41,7 +42,8 @@ function ShortcutStrip({ roleId, onOpen }) {
       .filter(Boolean)
       .map((i) => ({ ...i, kind: "recent" }))
     return [...pinned, ...recent].filter((i) => canAccessItem(i, roleId))
-  }, [roleId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- permVersion: คำนวณใหม่เมื่อสิทธิ์จาก backend เปลี่ยน
+  }, [roleId, permVersion])
 
   if (items.length === 0) return null
   const hasBoth = items.some((i) => i.kind === "pinned") && items.some((i) => i.kind === "recent")
@@ -165,7 +167,8 @@ export default function Home() {
 
   const localUser = getUser() || {}
   const roleId = getRoleId()
-  const roleLabel = getRoleLabel(roleId)
+  const permVersion = useMyPermissionsVersion() // การ์ดฟังก์ชันอัปเดตเมื่อสิทธิ์โหลดเสร็จ/เปลี่ยน
+  const roleLabel = myRoleLabel()
 
   const displayName =
     apiUser?.first_name && apiUser?.last_name
@@ -254,7 +257,7 @@ export default function Home() {
       </div>
 
       {/* ทางลัด — phone only */}
-      {isPhone && <ShortcutStrip roleId={roleId} onOpen={navigate} />}
+      {isPhone && <ShortcutStrip roleId={roleId} permVersion={permVersion} onOpen={navigate} />}
 
       {/* Function cards by group */}
       {visibleGroups.map((group, gi) => (

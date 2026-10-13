@@ -4,13 +4,14 @@ import { cx, baseField } from "../../lib/styles"
 import { useEffect, useState } from "react"
 import ReactDOM from "react-dom"
 import { apiAuth } from "../../lib/api"
-import { getUser, getRoleId } from "../../lib/auth"
+import { getUser } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
 import { PageLoader, ErrorState } from "../../components/ui"
 import { fmtDays, parseDays } from "../../lib/leaveDays"
 import lineIcon from "../../assets/line-icon.png"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel as getRoleLabel } from "../../lib/roles"
+import { can, myRoleLabel } from "../../lib/permissions"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -84,7 +85,6 @@ const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 export default function MyProfile() {
   const localUser = getUser() || {}
-  const roleId = getRoleId()
 
   const [profile, setProfile] = useState(null)
   const [financial, setFinancial] = useState(null)
@@ -107,7 +107,10 @@ export default function MyProfile() {
     Promise.all([
       apiAuth("/personnel/me"),
       apiAuth("/personnel/me/financial").catch(() => null),
-      apiAuth("/hr/positions").catch(() => []),
+      // GET /hr/positions ต้องมีสิทธิ์ตำแหน่ง/HR (backend PR #13) — พนักงานทั่วไปอ่านตำแหน่งตัวเองจาก /personnel/me/position
+      can("hr.positions.view")
+        ? apiAuth("/hr/positions").catch(() => [])
+        : apiAuth("/personnel/me/position").then((p) => (p && typeof p === "object" && !Array.isArray(p) ? [p] : p)).catch(() => []),
       apiAuth("/order/branch/search").catch(() => []),
       apiAuth("/personnel/me/branches").catch(() => null),
     ])
@@ -147,7 +150,7 @@ export default function MyProfile() {
     ? `${profile.first_name} ${profile.last_name}`
     : localUser.username || "ผู้ใช้"
   const avatarLetter = (displayName[0] || "U").toUpperCase()
-  const roleLabel = getRoleLabel(profile?.role_id ?? roleId)
+  const roleLabel = profile?.role_id ? getRoleLabel(profile.role_id) : myRoleLabel()
 
   const addressParts = Object.keys(addr).length > 0
     ? [addr.h_address, addr.mhoo ? `หมู่ ${addr.mhoo}` : null, addr.soi ? `ซ.${addr.soi}` : null,

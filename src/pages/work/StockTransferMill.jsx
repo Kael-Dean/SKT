@@ -14,6 +14,8 @@ import { cx, baseField, labelCls, helpTextCls, errorTextCls, primaryBtnCls, dang
 import { SkeletonTableRows, EmptyState, ErrorState, Badge, DataList, StickyActionBar, toast } from "../../components/ui"
 import ComboBox from "../../components/ComboBox"
 import { useIsPhone } from "../../hooks/useMediaQuery"
+import useBranchLock from "../../hooks/useBranchLock"
+import BranchLockNote from "../../components/BranchLockNote"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => String(s ?? "").replace(/\D+/g, "")
@@ -150,12 +152,15 @@ function StockTransferMill() {
   const [selectAllKlangs, setSelectAllKlangs] = useState(false)
   const [allKlangsCache, setAllKlangsCache] = useState([]) // [{id,label,branch_id,branch_label}]
 
+  /** สาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่ (โหมดทุกคลังก็ค้นเฉพาะสาขานี้) */
+  const branchLock = useBranchLock()
+
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
     lot_date: new Date().toISOString().slice(0, 10),
     lot_number: "",
     total_weight: "",
-    branch_id: null,
+    branch_id: branchLock.activeId,
     branch_name: "",
     klang_id: null,
     klang_name: "",
@@ -353,6 +358,24 @@ function StockTransferMill() {
     loadStatic()
   }, [])
 
+  // ล็อกสาขา → บังคับเป็นสาขาที่ใช้งานอยู่ + ชื่อจากรายการสาขา
+  useEffect(() => {
+    if (!branchLock.locked) return
+    setAllKlangsCache([])
+    const found = branchOptions.find((b) => String(b.id) === branchLock.activeKey)
+    setForm((p) => {
+      const name = found?.label ?? ""
+      if (String(p.branch_id ?? "") === branchLock.activeKey && p.branch_name === name) return p
+      const sameBranch = String(p.branch_id ?? "") === branchLock.activeKey
+      return {
+        ...p,
+        branch_id: found?.id ?? branchLock.activeId,
+        branch_name: name,
+        ...(sameBranch ? null : { klang_id: null, klang_name: "" }),
+      }
+    })
+  }, [branchLock.locked, branchLock.activeKey, branchLock.activeId, branchOptions])
+
   // branch -> klang
   useEffect(() => {
     const bid = form.branch_id
@@ -507,15 +530,18 @@ function StockTransferMill() {
   /** ---------- All Klangs helper (ทุกสาขา) ---------- */
   const ensureAllKlangs = useCallback(async () => {
     if (allKlangsCache.length > 0) return allKlangsCache
-    // ดึงคลังของทุกสาขา
-    const branchMap = new Map(branchOptions.map((b) => [String(b.id), b.label]))
+    // ดึงคลังของทุกสาขา (ล็อกสาขา → เฉพาะสาขาที่ใช้งานอยู่)
+    const branches = branchLock.locked
+      ? branchOptions.filter((b) => String(b.id) === branchLock.activeKey)
+      : branchOptions
+    const branchMap = new Map(branches.map((b) => [String(b.id), b.label]))
     const results = await Promise.allSettled(
-      branchOptions.map((b) => get(`/order/klang/search?branch_id=${b.id}`))
+      branches.map((b) => get(`/order/klang/search?branch_id=${b.id}`))
     )
     const merged = []
     results.forEach((res, idx) => {
       if (res.status === "fulfilled" && Array.isArray(res.value)) {
-        const b = branchOptions[idx]
+        const b = branches[idx]
         res.value.forEach((k) => {
           merged.push({
             id: k.id,
@@ -528,7 +554,7 @@ function StockTransferMill() {
     })
     setAllKlangsCache(merged)
     return merged
-  }, [allKlangsCache.length, branchOptions])
+  }, [allKlangsCache.length, branchOptions, branchLock.locked, branchLock.activeKey])
 
   /** ---------- Eligible fetch ---------- */
   const fetchEligible = async () => {
@@ -728,7 +754,7 @@ function StockTransferMill() {
 
   const fetchLabel = loadingEligible
     ? (selectAllKlangs ? "กำลังดึงจากทุกคลัง..." : "กำลังดึงคลังที่เข้าเกณฑ์...")
-    : (selectAllKlangs ? "ดึงจากทุกคลัง (ทุกสาขา)" : "ดึงคลังที่เข้าเกณฑ์")
+    : (selectAllKlangs ? (branchLock.locked ? "ดึงจากทุกคลัง (สาขานี้)" : "ดึงจากทุกคลัง (ทุกสาขา)") : "ดึงคลังที่เข้าเกณฑ์")
 
   const progressBadge =
     diff === 0 && requiredTotal > 0 ? (
@@ -881,7 +907,7 @@ function StockTransferMill() {
                 }}
               />
               <label htmlFor="allKlangs" className="min-h-touch flex items-center cursor-pointer select-none">
-                <span>ดึงจาก <b>ทุกคลัง</b> ที่มีข้าวตามสเปค (ทุกสาขา)</span>
+                <span>ดึงจาก <b>ทุกคลัง</b> ที่มีข้าวตามสเปค ({branchLock.locked ? "สาขาที่ใช้งานอยู่" : "ทุกสาขา"})</span>
               </label>
             </div>
 
@@ -905,7 +931,7 @@ function StockTransferMill() {
                     clearEligibleOnly()
                   }}
                   placeholder="— เลือกสาขา —"
-                  disabled={selectAllKlangs} // โหมดทุกคลัง: ไม่ต้องเลือกสาขา
+                  disabled={selectAllKlangs || branchLock.locked} // โหมดทุกคลัง: ไม่ต้องเลือกสาขา
                   buttonRef={branchBtnRef}
                   enterMovesWhenFilled
                   onEnterNext={() => {
@@ -913,7 +939,9 @@ function StockTransferMill() {
                     if (!focusNextAvailable(klangBtnRef)) focusNextAvailable(productBtnRef)
                   }}
                 />
-                {selectAllKlangs && (
+                {branchLock.locked ? (
+                  <BranchLockNote />
+                ) : selectAllKlangs && (
                   <p className={helpTextCls}>โหมด “ทุกคลัง” จะค้นหาทุกสาขาให้อัตโนมัติ</p>
                 )}
               </div>

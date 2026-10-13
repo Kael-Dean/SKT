@@ -1,15 +1,15 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
+import { Lock } from "lucide-react"
 import { apiAuth } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { cx, secondaryBtnCls, baseField } from "../../../lib/styles"
 import { EmptyState, ErrorState } from "../../../components/ui"
-import { getHomeBranch } from "../../../lib/auth"
 import { buildReportRows, computeColTotals, sumRows } from "./buildReportRows"
 import { printDebtTable } from "./printDebtTable"
 import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 import DebtEntryModal from "../debt/DebtEntryModal"
-import { canWriteEntries, isOwnBranchOnly } from "../debt/debtEntryMeta"
+import { canWriteEntries, isOwnBranchOnly, ownBranchId } from "../debt/debtEntryMeta"
 
 /** Line-art printer icon for the export button (currentColor, no emoji). */
 function PrinterIcon() {
@@ -177,9 +177,9 @@ export { ReportHead, STRIPE }
 export default function BranchDebtTable({ programs, fiscalYears, branches, onBack }) {
   const canWrite = canWriteEntries()
   const isGeneralStaff = isOwnBranchOnly()
-  const homeBranch = getHomeBranch()
+  const homeBranch = ownBranchId()
 
-  // Role 5 is branch-locked: pin the view to their own branch.
+  // Own-branch users (scope "own_branch") are branch-locked: pin the view to their branch.
   const lockedToOwnBranch = isGeneralStaff && homeBranch != null
   const [selectedBranchId, setSelectedBranchId] = useState(
     lockedToOwnBranch ? String(homeBranch) : ""
@@ -312,8 +312,13 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
           </div>
         )}
         {lockedToOwnBranch && (
-          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2 text-sm text-slate-700 dark:text-slate-300">
+          <div
+            title="ล็อกที่สาขาที่ใช้งานอยู่"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2 text-sm text-slate-700 dark:text-slate-300"
+          >
+            <Lock aria-hidden="true" className="size-3.5 shrink-0 text-slate-500 dark:text-slate-400" strokeWidth={2} />
             สาขา: <span className="font-semibold">{branchName(homeBranch)}</span>
+            <span className="sr-only">(ล็อกที่สาขาที่ใช้งานอยู่)</span>
           </div>
         )}
         <div className="w-64">

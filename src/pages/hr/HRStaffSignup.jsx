@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../../components/SelectDropdown"
 import { baseField, labelCls, sectionTitleCls, submitBtnCls } from "../../lib/styles"
-import { ASSIGNABLE_ROLE_OPTIONS } from "../../lib/roles"
+import { assignableRoleOptions } from "../../lib/permissions"
 
 const ED_LEVEL_OPTIONS = [
   { value: "มัธยมศึกษาตอนต้น", label: "มัธยมศึกษาตอนต้น (ม.3)" },
@@ -421,7 +421,7 @@ export default function HRStaffSignup() {
                 value={form.role_id}
                 onChange={setField("role_id")}
                 placeholder="— เลือก Role —"
-                options={ASSIGNABLE_ROLE_OPTIONS}
+                options={assignableRoleOptions()}
               />
             </Field>
             <Field label="ตำแหน่ง (Position)">

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { saveAuth, getToken, isTokenExpired } from "../../lib/auth";
+import { loadMyPermissions } from "../../lib/myPermissions";
 import sktBg from "../../assets/skt_bg.webp";
 
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`;
@@ -64,6 +65,8 @@ const Login = () => {
       });
       // resp = { access_token, token_type: "bearer", account_status? }
       const user = saveAuth(resp.access_token);
+      // โหลดสิทธิ์ (GET /auth/me/permissions) ก่อนเข้าหน้าหลัก — เมนูจะได้ถูกตั้งแต่เฟรมแรก
+      await loadMyPermissions({ force: true });
       setFailCount(0);
       setCooldown(0);
       // ถ้า user เคยเปลี่ยนรหัสผ่านไปแล้ว (account_status="register") ห้าม backend override กลับเป็น "new"

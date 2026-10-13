@@ -7,6 +7,8 @@ import Skeleton from "../../components/ui/Skeleton"
 import { ErrorState, EmptyState } from "../../components/ui"
 import ComboBox from "../../components/ComboBox"
 import { useIsPhone } from "../../hooks/useMediaQuery"
+import useBranchLock from "../../hooks/useBranchLock"
+import BranchLockNote from "../../components/BranchLockNote"
 
 /** option value ของหน้านี้ = id ก่อน value (คง default ของ ComboBox copy เดิม) */
 const getOptValue = (o) => o?.id ?? o?.value ?? ""
@@ -315,8 +317,11 @@ const Stock = () => {
   const [klangOptions, setKlangOptions] = useState([])   // [{id,label}]
   const [defaultProductId, setDefaultProductId] = useState("") // ต้องส่งให้ /report/stock/tree
 
+  /** สาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่ */
+  const branchLock = useBranchLock()
+
   /** selections */
-  const [branchId, setBranchId] = useState("")
+  const [branchId, setBranchId] = useState(branchLock.activeKey)
   const [branchName, setBranchName] = useState("")
   const [klangId, setKlangId] = useState("")
   const [klangName, setKlangName] = useState("")
@@ -350,6 +355,13 @@ const Stock = () => {
     }
     loadInitial()
   }, [])
+
+  /** ล็อกสาขา → บังคับเป็นสาขาที่ใช้งานอยู่ + ชื่อจากรายการสาขา */
+  useEffect(() => {
+    if (!branchLock.locked) return
+    setBranchId(branchLock.activeKey)
+    setBranchName(branchOptions.find((b) => b.id === branchLock.activeKey)?.label ?? "")
+  }, [branchLock.locked, branchLock.activeKey, branchOptions])
 
   /** load klang เมื่อเลือกสาขา */
   useEffect(() => {
@@ -472,7 +484,9 @@ const Stock = () => {
                     setBranchName(found?.label ?? "")
                   }}
                   placeholder="— เลือกสาขา —"
+                  disabled={branchLock.locked}
                 />
+                {branchLock.locked && <BranchLockNote />}
               </div>
               <div>
                 <label htmlFor="stock-klang" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">คลัง (ทางเลือก)</label>

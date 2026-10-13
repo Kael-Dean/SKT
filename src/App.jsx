@@ -4,7 +4,7 @@ import AppLayout from "./components/AppLayout"          // shell หลัก �
 import Login from "./pages/work/Login"                  // entry route "/" — เก็บ eager
 import { PageLoader } from "./components/ui"            // fallback ระหว่างโหลด chunk
 import RequirePermission from "./components/RequirePermission"
-import { DOCUMENTS_PERMS, canBringInMill } from "./lib/permissions"
+import { DOCUMENTS_PERMS, HR_HUB_PERMS, canBringInMill } from "./lib/permissions"
 
 /* -------- หน้าทั้งหมด lazy-load: แต่ละ route แตกเป็น chunk แยก โหลดเมื่อเข้าถึง -------- */
 const Home = lazy(() => import("./pages/work/Home"))
@@ -138,7 +138,8 @@ function App() {
         <Route path="/hr/leaves" element={guard("hr.leave.list", <HRLeaveManagement />)} />
         <Route path="/hr/finance" element={guard("hr.employees.editFinancial", <HRFinance />)} />
         <Route path="/hr/relocation" element={guard("hr.relocation.list", <HRRelocation />)} />
-        <Route path="/hr/dashboard" element={guard("hr.dashboard.view", <HRDashboard />)} />
+        {/* หน้า HR รวมแท็บ — เข้าได้ถ้ามีอย่างน้อยหนึ่งแท็บ (แต่ละแท็บเช็คสิทธิ์ของตัวเอง) */}
+        <Route path="/hr/dashboard" element={<RequirePermission anyOf={HR_HUB_PERMS}><HRDashboard /></RequirePermission>} />
         <Route path="/hr/kpi" element={guard("hr.kpi.evaluations.view", <HRKpiPage />)} />
         <Route path="/hr/issues" element={guard("hr.issues.list", <HRIssueReports />)} />
         <Route path="/hr/personnel/:id" element={guard("hr.employees.view", <HRPersonnelDetail />)} />

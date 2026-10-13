@@ -59,6 +59,7 @@ export function isTokenExpired() {
 const AUTH_STORAGE_KEYS = [
   'token', 'access_token', 'jwt', 'role',
   'user', 'userdata', 'profile', 'account', 'current_user',
+  'my_permissions', // สิทธิ์จาก GET /auth/me/permissions (src/lib/myPermissions.js)
 ];
 
 export function logout() {

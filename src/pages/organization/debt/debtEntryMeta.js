@@ -3,8 +3,8 @@
 // Kept framework-free so both the DebtTracking tabs and the report tables can
 // reuse the exact same labels, rules, and request-body builder.
 
-import { getRoleId } from "../../../lib/auth"
-import { can } from "../../../lib/permissions"
+import { getRoleId, getActiveBranch, getHomeBranch } from "../../../lib/auth"
+import { can, canPickAnyBranch, isRbacMode } from "../../../lib/permissions"
 import {
   findCurrentFiscalYearId,
   selectableAppliedFiscalYears,
@@ -14,10 +14,15 @@ import {
 // ─── Permissions (debt surface) — keys in src/lib/permissions.js ─────────────
 // debt.entries.write        → create/patch/delete entries
 // debt.programs.manage      → program mutations
-// debt.entries.ownBranchOnly → writes locked to the user's home branch
+// debt.entries.ownBranchOnly → writes locked to the user's own branch
+//   RBAC backend: same rule as every other branch picker (scope "own_branch" → active branch)
+//   old backend : role-table rule, locked to the home branch (unchanged)
 export const canWriteEntries  = (roleId = getRoleId()) => can("debt.entries.write", roleId)
 export const canManagePrograms = (roleId = getRoleId()) => can("debt.programs.manage", roleId)
-export const isOwnBranchOnly   = (roleId = getRoleId()) => can("debt.entries.ownBranchOnly", roleId)
+export const isOwnBranchOnly   = (roleId = getRoleId()) =>
+  isRbacMode() ? !canPickAnyBranch() : can("debt.entries.ownBranchOnly", roleId)
+/** The branch an own-branch user is locked to (active branch on RBAC backend, home branch on old). */
+export const ownBranchId = () => (isRbacMode() ? getActiveBranch() : getHomeBranch())
 
 // ─── Entry types ────────────────────────────────────────────────────────────
 export const ENTRY_TYPES = ["seed", "new_debt", "full_payoff", "partial_payment"]

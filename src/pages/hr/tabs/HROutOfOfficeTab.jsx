@@ -19,6 +19,8 @@ import {
 } from "../../../lib/approval"
 import Portal from "../../../components/Portal"
 import SelectDropdown from "../../../components/SelectDropdown"
+import BranchLockNote from "../../../components/BranchLockNote"
+import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 import { Skeleton, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import { cx, baseField, tabPanelCls } from "../../../lib/styles"
 import useModalDismiss from "../../../lib/useModalDismiss"
@@ -143,8 +145,14 @@ const STATUS_FILTER_OPTIONS = [
 
 function RequestsPanel({ branchOptions, branchName }) {
   const myStage = myStageStatus()
+  // ตัวกรองสาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่
+  const branchLock = useBranchLock()
 
-  const [filters, setFilters] = useState({ status: myStage || "", branch_id: "", from_date: "", to_date: "" })
+  const [filters, setFilters] = useState({ status: myStage || "", branch_id: branchLock.activeKey, from_date: "", to_date: "" })
+  useEffect(() => {
+    if (!branchLock.locked) return
+    setFilters((f) => (f.branch_id === branchLock.activeKey ? f : { ...f, branch_id: branchLock.activeKey }))
+  }, [branchLock.locked, branchLock.activeKey])
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -160,7 +168,7 @@ function RequestsPanel({ branchOptions, branchName }) {
     setLoading(true)
     setError("")
     const qs = new URLSearchParams()
-    Object.entries(filters).forEach(([k, v]) => { if (v) qs.set(k, v) })
+    Object.entries({ ...filters, branch_id: scopedBranchId(filters.branch_id) }).forEach(([k, v]) => { if (v) qs.set(k, v) })
     const q = qs.toString()
     apiAuth(`/hr/out-of-office${q ? `?${q}` : ""}`)
       .then((data) => setRows(Array.isArray(data) ? data : []))
@@ -181,7 +189,7 @@ function RequestsPanel({ branchOptions, branchName }) {
     setFilters((f) => ({ ...f, [k]: val }))
   }
   const dateRangeInvalid = filters.from_date && filters.to_date && filters.to_date < filters.from_date
-  const hasFilters = Object.values(filters).some(Boolean)
+  const hasFilters = Object.entries(filters).some(([k, v]) => Boolean(v) && !(k === "branch_id" && branchLock.locked))
 
   // Role 6 lists are already scoped to their branches by the API, so no
   // coveredBranchIds is passed — the backend's 403 stays authoritative.
@@ -270,7 +278,9 @@ function RequestsPanel({ branchOptions, branchName }) {
               value={filters.branch_id}
               onChange={setFilter("branch_id")}
               placeholder="ทุกสาขา"
+              disabled={branchLock.locked}
             />
+            {branchLock.locked && <BranchLockNote className="mt-0" />}
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="ooo-f-from" className={labelCls}>ตั้งแต่วันที่</label>
@@ -291,7 +301,7 @@ function RequestsPanel({ branchOptions, branchName }) {
           <button
             type="button"
             disabled={!hasFilters}
-            onClick={() => setFilters({ status: "", branch_id: "", from_date: "", to_date: "" })}
+            onClick={() => setFilters({ status: "", branch_id: branchLock.activeKey, from_date: "", to_date: "" })}
             className={`h-10 rounded-lg px-3 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 cursor-pointer ${focusRing} focus-visible:ring-indigo-500`}
           >
             ล้างตัวกรอง

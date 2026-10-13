@@ -7,11 +7,10 @@ import {
   resetBtnCls, secondaryBtnCls, cardCls, badgeCls,
 } from "../../../lib/styles"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
-import { getHomeBranch } from "../../../lib/auth"
 import DebtEntryModal from "./DebtEntryModal"
 import {
   ENTRY_TYPES, ENTRY_META, ENTRY_BADGE_CLS, entryLabel,
-  PM_LABEL, canWriteEntries, isOwnBranchOnly,
+  PM_LABEL, canWriteEntries, isOwnBranchOnly, ownBranchId,
 } from "./debtEntryMeta"
 import useModalDismiss from "../../../lib/useModalDismiss"
 
@@ -24,7 +23,7 @@ const fmtMoney = (v) =>
 export default function DebtTransactionsTab({ roleId, branches, programs, fiscalYears }) {
   const canWrite = canWriteEntries(roleId)
   const isGeneralStaff = isOwnBranchOnly(roleId)
-  const homeBranch = getHomeBranch()
+  const homeBranch = ownBranchId()
 
   const [entries, setEntries]   = useState([])
   const [loading, setLoading]   = useState(false)

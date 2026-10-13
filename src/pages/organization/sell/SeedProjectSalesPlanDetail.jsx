@@ -6,6 +6,7 @@ import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/u
 import { useCan } from "../../../lib/permissions"
 import { ReadOnlyFieldset, ReadOnlyNotice } from "../../../components/PlanReadOnly"
 import { cx, cellInput as cellInputBase } from "../../../lib/styles"
+import { apiAuth } from "../../../lib/api"
 
 /** ---------------- Utils ---------------- */
 
@@ -24,80 +25,7 @@ const fmtQty = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 3 
 const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(toNumber(n))
 
 /** ---------------- API ---------------- */
-const API_BASE_RAW =
-  import.meta.env.VITE_API_BASE_CUSTOM ||
-  import.meta.env.VITE_API_BASE ||
-  import.meta.env.VITE_API_URL ||
-  ""
-const API_BASE = String(API_BASE_RAW || "").replace(/\/+$/, "")
-
-class ApiError extends Error {
-  constructor(message, meta = {}) {
-    super(message)
-    this.name = "ApiError"
-    Object.assign(this, meta)
-  }
-}
-
-const getToken = () => {
-  const raw =
-    localStorage.getItem("token") ||
-    localStorage.getItem("access_token") ||
-    localStorage.getItem("jwt") ||
-    localStorage.getItem("auth_token") ||
-    ""
-  return String(raw || "").trim()
-}
-const buildAuthHeader = (tokenRaw) => {
-  const t = String(tokenRaw || "").trim()
-  if (!t) return {}
-  if (t.toLowerCase().startsWith("bearer ")) return { Authorization: t }
-  const cleaned = t.replace(/^bearer\s+/i, "").trim()
-  return { Authorization: `Bearer ${cleaned}` }
-}
-
-async function apiAuth(path, { method = "GET", body } = {}) {
-  if (!API_BASE) throw new ApiError("FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE...)", { status: 0 })
-  const token = getToken()
-  const url = `${API_BASE}${path}`
-
-  let res
-  try {
-    res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...buildAuthHeader(token),
-      },
-      body: body != null ? JSON.stringify(body) : undefined,
-      credentials: "include",
-    })
-  } catch (e) {
-    throw new ApiError("FE: เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (Network/CORS/DNS)", {
-      status: 0,
-      url,
-      method,
-      cause: e,
-    })
-  }
-
-  const text = await res.text()
-  let data = null
-  try {
-    data = text ? JSON.parse(text) : null
-  } catch {
-    data = text
-  }
-
-  if (!res.ok) {
-    const msg =
-      (data && (data.detail || data.message)) ||
-      (typeof data === "string" && data) ||
-      `HTTP ${res.status}`
-    throw new ApiError(msg, { status: res.status, url, method, data })
-  }
-  return data
-}
+// API: ใช้ apiAuth กลาง (src/lib/api.js) — แนบ token, 401 → กลับหน้า login, 403 → โหลดสิทธิ์ใหม่
 
 /** ---------------- Constants ---------------- */
 const MONTHS = [

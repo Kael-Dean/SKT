@@ -427,7 +427,7 @@ function StockTransferIn() {
   const requestsEmpty = (
     <EmptyState
       title="ไม่มีรายการรอรับเข้า"
-      description="เมื่อสาขาอื่นโอนออกมาที่นี่ รายการจะขึ้นที่นี่"
+      description="เมื่อสาขาอื่นโอนออกมาที่สาขาที่ใช้งานอยู่ รายการจะขึ้นที่นี่ · ดูของสาขาอื่นให้สลับสาขาที่แถบด้านบน"
       action={
         <button type="button" className={cx(secondaryBtnCls, "h-11 !py-0")} onClick={() => loadRequests()}>
           รีเฟรช
@@ -470,6 +470,9 @@ function StockTransferIn() {
         >
           <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
             <h2 className="text-lg md:text-xl font-semibold">คำขอโอนเข้าที่รอดำเนินการ</h2>
+            <p className="basis-full text-sm text-slate-500 dark:text-slate-400">
+              แสดงเฉพาะรายการที่โอนมายังสาขาที่ใช้งานอยู่ (แถบด้านบน) — ต้องการดูของสาขาอื่น ให้สลับสาขาที่แถบด้านบน
+            </p>
             {loadingRequests && !requestsLoadedOnce ? (
               <Badge tone="neutral">กำลังโหลด…</Badge>
             ) : requestsError ? (

@@ -58,11 +58,12 @@ export function validateTrailers(trailers) {
       String(t.unitPriceBack || "").trim() !== "" ||
       String(t.gramBack || "").trim() !== ""
     if (!String(t.scaleNoFront || "").trim()) te.scaleNoFront = "กรุณากรอกเลขที่ใบชั่งพ่วงหน้า"
-    //if (!String(t.licensePlateFront || "").trim()) te.licensePlateFront = "กรอกทะเบียนพ่วงหน้า"//
+    // ทะเบียนบังคับทุกพ่วงที่มีน้ำหนัก — backend ปฏิเสธค่าว่าง (handoff F5)
+    if (Number(t.frontWeightKg || 0) > 0 && !String(t.licensePlateFront || "").trim()) te.licensePlateFront = "กรอกทะเบียนพ่วงหน้า"
     if (t.frontWeightKg === "" || Number(t.frontWeightKg) <= 0) te.frontWeightKg = "กรอกน้ำหนักสุทธิพ่วงหน้า (> 0)"
     if (t.unitPriceFront === "" || Number(t.unitPriceFront) <= 0) te.unitPriceFront = "กรอกราคาต่อกก. พ่วงหน้า (> 0)"
     if (hasBack) {
-      //if (!String(t.licensePlateBack || "").trim()) te.licensePlateBack = "กรอกทะเบียนพ่วงหลัง"//
+      if (Number(t.backWeightKg || 0) > 0 && !String(t.licensePlateBack || "").trim()) te.licensePlateBack = "กรอกทะเบียนพ่วงหลัง"
       if (t.backWeightKg === "" || Number(t.backWeightKg) <= 0) te.backWeightKg = "กรอกน้ำหนักสุทธิพ่วงหลัง (> 0)"
       if (t.unitPriceBack === "" || Number(t.unitPriceBack) <= 0) te.unitPriceBack = "กรอกราคาต่อกก. พ่วงหลัง (> 0)"
     }
@@ -136,6 +137,8 @@ export const SHORT_LABEL = {
   scaleNoFront: "เลขที่ใบชั่งพ่วงหน้า",
   frontWeightKg: "น้ำหนักพ่วงหน้า",
   unitPriceFront: "ราคาพ่วงหน้า",
+  licensePlateFront: "ทะเบียนพ่วงหน้า",
+  licensePlateBack: "ทะเบียนพ่วงหลัง",
   backWeightKg: "น้ำหนักพ่วงหลัง",
   unitPriceBack: "ราคาพ่วงหลัง",
   _net: "น้ำหนักรวม",
@@ -149,7 +152,7 @@ export const ERROR_KEY_ORDER = {
 }
 
 /** Trailer field order used to report the first missing field inside a trailer. */
-export const TRAILER_ERROR_KEY_ORDER = ["scaleNoFront", "frontWeightKg", "unitPriceFront", "backWeightKg", "unitPriceBack", "_net"]
+export const TRAILER_ERROR_KEY_ORDER = ["scaleNoFront", "unitPriceFront", "licensePlateFront", "frontWeightKg", "unitPriceBack", "licensePlateBack", "backWeightKg", "_net"]
 
 /**
  * Build the toast description "ยังไม่ได้กรอก: a, b, c และอีก k ช่อง" (copy §3.3)

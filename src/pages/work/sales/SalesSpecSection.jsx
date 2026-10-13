@@ -311,8 +311,10 @@ export default function SalesSpecSection({ form }) {
             error={missing.length > 0}
             describedById={missing.length > 0 ? SPEC_ERR_ID : undefined}
           />
-          {missing.length > 0 && (
+          {missing.length > 0 ? (
             <p id={SPEC_ERR_ID} className={errorTextCls}>ฟอร์มนี้ไม่ได้กำหนด{missingNames} · เลือกฟอร์มอื่น</p>
+          ) : (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">ไม่พบฟอร์มที่ต้องการ? ติดต่อผู้ดูแลระบบ/ฝ่ายบัญชีเพื่อเพิ่มรหัสข้าว</p>
           )}
         </div>
         <BranchKlangFields form={form} desktop />

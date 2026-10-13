@@ -113,7 +113,7 @@ export function TrailerSideFields({ form, idx, side = "front", amount = 0, mobil
       </div>
 
       <div>
-        <label className={labelCls} htmlFor={fid(K.plate)}>{lbl("plate")}</label>
+        <label className={labelCls} htmlFor={fid(K.plate)}>{lbl("plate")}<span className="text-red-500"> *</span></label>
         <input
           id={fid(K.plate)}
           ref={getTRef(idx, K.plate)}
@@ -175,7 +175,7 @@ const COLUMNS = [
   { k: "scaleNo", head: "ใบชั่ง", label: "เลขที่ใบชั่ง" },
   { k: "unitPrice", head: "ราคา/กก. (บาท)", label: "ราคาต่อกก. (บาท)", num: true, suffix: "บาท" },
   { k: "gram", head: "คุณภาพ (กรัม)", label: "คุณภาพ (กรัม)", num: true },
-  { k: "plate", head: "ทะเบียน", label: "ทะเบียน" },
+  { k: "plate", head: "ทะเบียน *", label: "ทะเบียน (บังคับเมื่อมีน้ำหนัก)" },
   { k: "weight", head: "น้ำหนักสุทธิ (กก.)", label: "น้ำหนักสุทธิ (กก.)", num: true, suffix: "กก." },
   { k: "amount", head: "เป็นเงิน", label: "เป็นเงิน (บาท)", num: true },
 ]

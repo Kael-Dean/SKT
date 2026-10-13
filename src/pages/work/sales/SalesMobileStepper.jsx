@@ -308,11 +308,11 @@ export default function SalesMobileStepper({ form }) {
 
               <div>
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <label className={cx(labelCls, "mb-0")} htmlFor={fieldId("formTemplate")}>ฟอร์มสำเร็จรูป</label>
+                  <label className={cx(labelCls, "mb-0")} htmlFor={fieldId("formTemplate")}>ฟอร์มสินค้า</label>
                   {formTemplate && <Badge tone="info">สเปคตามฟอร์ม</Badge>}
                 </div>
-                <TemplateCombo form={form} />
-                <p className={helpTextCls}>สเปคสินค้าจะใช้ตามฟอร์มนี้</p>
+                <TemplateCombo form={form} title="ฟอร์มสินค้า" />
+                <p className={helpTextCls}>สเปคสินค้าจะใช้ตามฟอร์มนี้ · ไม่พบฟอร์มที่ต้องการ? ติดต่อผู้ดูแลระบบ/ฝ่ายบัญชีเพื่อเพิ่มรหัสข้าว</p>
               </div>
 
               <div><CustomerStatusChip form={form} /></div>

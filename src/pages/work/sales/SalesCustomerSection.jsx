@@ -59,7 +59,7 @@ export function TemplateCombo({ form, error = false, describedById, title = "ฟ
       }}
       buttonRef={refs.formTemplate}
       searchable
-      placeholder="— เลือกฟอร์ม —"
+      placeholder="ค้นหา/เลือกฟอร์มสินค้า"
       title={title}
       ariaLabel={title}
     />

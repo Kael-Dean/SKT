@@ -297,7 +297,6 @@ const THAI_MSG = [
   [/not found.*member|member.*not found/i, "ไม่พบสมาชิกรหัสนี้"],
   [/not found.*(klang|warehouse)|(klang|warehouse).*not found/i, "ไม่พบคลังที่เลือก"],
   [/duplicate|already exists/i, "รายการนี้มีอยู่แล้ว"],
-  [/unauthorized|forbidden|credentials/i, "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"],
 ]
 export const translateApiMessage = (msg) => {
   const s = String(msg ?? "")
@@ -329,10 +328,21 @@ export const describeApiError = (err) => {
       primary: "edit",
     }
   }
-  if (status === 401 || status === 403)
-    return { kind: "auth", title: "ไม่มีสิทธิ์บันทึก", description: "สิทธิ์ของบัญชีนี้ไม่ครอบคลุมรายการนี้ หรือหมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง", lines: [], primary: "login" }
-  if (status === 409)
+  if (status === 401)
+    return { kind: "auth", title: "หมดเวลาใช้งาน", description: "เข้าสู่ระบบใหม่แล้วลองอีกครั้ง", lines: [], primary: "login" }
+  // 403 พร้อม detail = กฎธุรกิจของ backend (ไม่ใช่หมดเวลาใช้งาน) — แสดง detail ตรง ๆ (handoff F7)
+  if (status === 403) {
+    const d = typeof detail === "string" ? detail : ""
+    return d
+      ? { kind: "403", title: "บันทึกไม่ได้", description: d, lines: [], primary: "edit" }
+      : { kind: "auth", title: "ไม่มีสิทธิ์บันทึก", description: "ตำแหน่งของบัญชีนี้ไม่มีสิทธิ์ทำรายการนี้", lines: [], primary: "edit" }
+  }
+  // 409: สต็อกไม่พอ ฯลฯ — detail ไทยจาก backend แสดงตรง ๆ (handoff F6)
+  if (status === 409) {
+    const d = typeof detail === "string" ? detail : ""
+    if (d && isThai(d)) return { kind: "409", title: /สต็อกไม่พอ/.test(d) ? "สต็อกไม่พอ" : "บันทึกไม่ได้", description: d, lines: [], primary: "edit" }
     return { kind: "409", title: "รายการนี้มีอยู่แล้ว", description: "เลขที่ใบชั่งนี้ถูกบันทึกไปแล้ว ตรวจที่ดูออเดอร์ก่อนบันทึกซ้ำ", lines: [], primary: "orders" }
+  }
   if (status >= 500)
     return { kind: "5xx", title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ", lines: [], primary: "retry" }
   const msg = err?.message

@@ -156,7 +156,6 @@ const MSG_MAP = [
   [["value is not a valid", "type_error"], "รูปแบบข้อมูลบางช่องไม่ถูกต้อง"],
   [["greater than 0", "ensure this value is greater"], "น้ำหนักหรือราคาต้องมากกว่า 0"],
   [["duplicate", "already exists"], "รายการนี้มีอยู่แล้ว"],
-  [["unauthorized", "forbidden", "credentials"], "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"],
 ]
 const hasThai = (s) => /[฀-๿]/.test(String(s || ""))
 
@@ -179,7 +178,7 @@ export const firstDetailMsg = (detail) => {
  */
 export const translateSaveError = (err = {}) => {
   const raw = String(err.message || "")
-  const det = firstDetailMsg(err.detail)
+  const det = firstDetailMsg(err.detail ?? err.data?.detail)
   const candidates = [det, raw].filter(Boolean)
   for (const c of candidates) if (hasThai(c)) return c
   const low = candidates.join(" ").toLowerCase()
@@ -190,8 +189,9 @@ export const translateSaveError = (err = {}) => {
   for (const [needles, th] of MSG_MAP) if (needles.some((n) => low.includes(n))) return th
   const status = err.status
   if (status === 422) return "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่"
-  if (status === 401 || status === 403) return "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"
-  if (status === 409) return "รายการนี้มีอยู่แล้ว"
+  if (status === 401) return "หมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง"
+  if (status === 403) return det || "ตำแหน่งของบัญชีนี้ไม่มีสิทธิ์ทำรายการนี้"
+  if (status === 409) return det || "รายการนี้มีอยู่แล้ว"
   if (status >= 500) return "เซิร์ฟเวอร์ขัดข้อง ลองใหม่ในอีกสักครู่"
   if (!status) return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"
   return "เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง"

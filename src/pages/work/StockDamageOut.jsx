@@ -14,10 +14,12 @@ import {
   spinnerCls,
 } from "../../lib/styles"
 import ComboBox from "../../components/ComboBox"
+import ProductFormPicker from "../../components/ProductFormPicker"
+import useProductForms, { specFromForm } from "../../lib/useProductForms"
 import { StickyActionBar, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
-import useBranchLock from "../../hooks/useBranchLock"
-import BranchLockNote from "../../components/BranchLockNote"
+import { getActiveBranch } from "../../lib/auth"
+import { describeApiError } from "../../lib/apiErrors"
 
 /** ---------- Utils ---------- */
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
@@ -27,49 +29,21 @@ const thb = (n) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(
     isFinite(n) ? n : 0
   )
-/** option value ของหน้านี้ = id ก่อน value (คง default ของ ComboBox copy เดิม) */
-const getOptValue = (o) => o?.id ?? o?.value ?? ""
 
 /** ชื่อฟิลด์สั้นสำหรับ toast "กรอกไม่ครบ" (mobile-copy §3.3) */
 const FIELD_LABELS = {
   damage_date: "วันที่ตัดเสียหาย",
   branch_id: "สาขา",
   klang_id: "คลัง",
-  product_id: "ประเภทสินค้า",
-  species_id: "ชนิดข้าว",
-  variant_id: "ชั้นย่อย",
+  form_id: "ฟอร์มสินค้า",
   weight_out: "น้ำหนักที่ตัดออก",
   cost_per_kg: "ค่าเสียหาย/กก.",
 }
-const MISSING_ORDER = ["damage_date", "branch_id", "klang_id", "product_id", "species_id", "variant_id", "weight_out", "cost_per_kg"]
+const MISSING_ORDER = ["damage_date", "branch_id", "klang_id", "form_id", "weight_out", "cost_per_kg"]
 const missingDescription = (keys) => {
   const names = keys.map((k) => FIELD_LABELS[k]).filter(Boolean)
   const rest = names.length - 3
   return `ยังไม่ได้กรอก: ${names.slice(0, 3).join(", ")}${rest > 0 ? ` และอีก ${rest} ช่อง` : ""}`
-}
-
-/** แปลง error จากหลังบ้านเป็นข้อความไทย (mobile-copy §4.3–4.4) */
-const SAVE_ERR_TH = [
-  [/failed to fetch|networkerror|timeout/i, "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"],
-  [/field required/i, "ข้อมูลบางช่องไม่ครบ"],
-  [/value is not a valid|type_error/i, "รูปแบบข้อมูลบางช่องไม่ถูกต้อง"],
-  [/greater than 0|ensure this value is greater/i, "น้ำหนักหรือราคาต้องมากกว่า 0"],
-  [/not found[\s\S]*(klang|warehouse)|(klang|warehouse)[\s\S]*not found/i, "ไม่พบคลังที่เลือก"],
-  [/duplicate|already exists/i, "รายการนี้มีอยู่แล้ว"],
-  [/unauthorized|forbidden|credentials/i, "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"],
-]
-function describeSaveError(err) {
-  const status = err?.status
-  const raw = String(err?.message || "")
-  const isThai = /[฀-๿]/.test(raw)
-  const hit = SAVE_ERR_TH.find(([re]) => re.test(raw))?.[1]
-  if (hit) return { title: status === 422 ? "ข้อมูลไม่ผ่านการตรวจ" : "บันทึกไม่สำเร็จ", description: hit }
-  if (!status) return { title: "บันทึกไม่สำเร็จ", description: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสัญญาณแล้วลองใหม่ ข้อมูลที่กรอกยังอยู่" }
-  if (status === 401 || status === 403) return { title: "ไม่มีสิทธิ์บันทึก", description: "สิทธิ์ของบัญชีนี้ไม่ครอบคลุมรายการนี้ หรือหมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }
-  if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "รายการนี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
-  if (status === 422) return { title: "ข้อมูลไม่ผ่านการตรวจ", description: isThai ? raw : "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่" }
-  if (status >= 500) return { title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" }
-  return { title: "บันทึกไม่สำเร็จ", description: isThai ? raw : "เกิดข้อผิดพลาดที่ไม่คาดคิด ลองใหม่อีกครั้ง" }
 }
 
 /** ---------- DateInput ---------- */
@@ -109,62 +83,42 @@ const DateInput = forwardRef(function DateInput({ error = false, className = "",
   )
 })
 
+/** วันที่วันนี้ตามเวลาเครื่อง (YYYY-MM-DD) — ไม่ผ่าน UTC */
+const todayLocal = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
 /** ---------- Page: ตัดเสียหาย (นำออกจากคลัง) ---------- */
 const StockDamageOut = () => {
   const isPhone = useIsPhone()
   const [submitting, setSubmitting] = useState(false)
+  const productForms = useProductForms()
+
+  /** สาขา: backend รับเฉพาะสาขาที่ใช้งานอยู่ (แถบบน) — สลับสาขาที่แถบบนแทน */
+  const activeBranchId = getActiveBranch()
 
   /** ---------- Dropdown options ---------- */
   const [branchOptions, setBranchOptions] = useState([])
+  const [branchStatus, setBranchStatus] = useState("loading")
   const [klangOptions, setKlangOptions] = useState([])
-
-  const [productOptions, setProductOptions] = useState([])
-  const [speciesOptions, setSpeciesOptions] = useState([])   // species = ชนิด
-  const [variantOptions, setVariantOptions] = useState([])   // variant = ชั้นย่อย
-
-  // เมตาดาต้า
-  const [conditionOptions, setConditionOptions] = useState([])
-  const [fieldOptions, setFieldOptions] = useState([])
-  const [yearOptions, setYearOptions] = useState([])
-  const [programOptions, setProgramOptions] = useState([])
-  const [businessOptions, setBusinessOptions] = useState([])
-
-  /** สาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่ */
-  const branchLock = useBranchLock()
+  const [klangStatus, setKlangStatus] = useState("idle")
 
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
-    damage_date: new Date().toISOString().slice(0, 10),
-
-    branch_id: branchLock.activeId,
+    damage_date: todayLocal(),
+    branch_id: activeBranchId,
     branch_name: "",
     klang_id: null,
     klang_name: "",
-
-    product_id: "",
-    product_name: "",
-    species_id: "",
-    species_name: "",
-    variant_id: "",
-    variant_name: "",
-
-    // เมตาดาต้า (id)
-    condition_id: "",
-    condition_label: "",
-    field_type_id: "",
-    field_type_label: "",
-    rice_year_id: "",
-    rice_year_label: "",
-    program_id: "",
-    program_label: "",
-    business_type_id: "",
-    business_type_label: "",
-
+    form_id: "",
     weight_out: "",
     cost_per_kg: "",
     reason: "",
   })
   const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
+
+  const selectedForm = productForms.findForm(form.form_id)
 
   /** ---------- Derived ---------- */
   const weightOut = useMemo(() => toNumber(form.weight_out), [form.weight_out])
@@ -186,186 +140,72 @@ const StockDamageOut = () => {
       return rest
     })
 
-  /** ---------- Load dropdowns ---------- */
+  /** ---------- Load branches ---------- */
   useEffect(() => {
-    const loadStatic = async () => {
-      try {
-        const [branches, products, conditions, fields, years, programs, businesses] = await Promise.all([
-          get("/order/branch/search"),
-          get("/order/product/search"),
-          get("/order/condition/search"),
-          get("/order/field/search"),
-          get("/order/year/search"),
-          get("/order/program/search"),
-          get("/order/business/search"),
-        ])
-
+    let alive = true
+    get("/order/branch/search")
+      .then((branches) => {
+        if (!alive) return
         setBranchOptions((branches || []).map((b) => ({ id: b.id, label: b.branch_name })))
-
-        setProductOptions(
-          (products || [])
-            .map((x) => ({
-              id: String(x.id ?? x.product_id ?? x.value ?? ""),
-              label: String(x.product_type ?? x.name ?? x.label ?? "").trim(),
-            }))
-            .filter((o) => o.id && o.label)
-        )
-
-        setConditionOptions((conditions || []).map((c) => ({ id: String(c.id), label: c.condition })))
-
-        setFieldOptions(
-          (fields || [])
-            .map((f) => ({ id: String(f.id), label: String(f.field ?? f.field_type ?? "") }))
-            .filter((o) => o.id && o.label)
-        )
-
-        setYearOptions((years || []).map((y) => ({ id: String(y.id), label: String(y.year) })))
-        setProgramOptions((programs || []).map((p) => ({ id: String(p.id), label: p.program })))
-        setBusinessOptions((businesses || []).map((b) => ({ id: String(b.id), label: b.business })))
-      } catch (e) {
-        console.error("load static error:", e)
-        setBranchOptions([])
-        setProductOptions([])
-        setConditionOptions([])
-        setFieldOptions([])
-        setYearOptions([])
-        setProgramOptions([])
-        setBusinessOptions([])
-      }
-    }
-    loadStatic()
+        setBranchStatus("ready")
+      })
+      .catch((e) => {
+        console.error("load branches error:", e)
+        if (alive) { setBranchOptions([]); setBranchStatus("error") }
+      })
+    return () => { alive = false }
   }, [])
 
-  // ล็อกสาขา → บังคับเป็นสาขาที่ใช้งานอยู่ + ชื่อจากรายการสาขา
+  // ชื่อสาขาที่ใช้งานอยู่
   useEffect(() => {
-    if (!branchLock.locked) return
-    const found = branchOptions.find((b) => String(b.id) === branchLock.activeKey)
-    setForm((p) => {
-      const name = found?.label ?? ""
-      if (String(p.branch_id ?? "") === branchLock.activeKey && p.branch_name === name) return p
-      const sameBranch = String(p.branch_id ?? "") === branchLock.activeKey
-      return {
-        ...p,
-        branch_id: found?.id ?? branchLock.activeId,
-        branch_name: name,
-        ...(sameBranch ? null : { klang_id: null, klang_name: "" }),
-      }
-    })
-  }, [branchLock.locked, branchLock.activeKey, branchLock.activeId, branchOptions])
+    const found = branchOptions.find((b) => String(b.id) === String(form.branch_id ?? ""))
+    if (found && found.label !== form.branch_name) update("branch_name", found.label)
+  }, [branchOptions, form.branch_id, form.branch_name])
 
   // branch -> klang
   useEffect(() => {
     const bid = form.branch_id
-    const bname = form.branch_name?.trim()
-    if (bid == null && !bname) {
+    if (bid == null) {
       setKlangOptions([])
-      update("klang_id", null)
-      update("klang_name", "")
+      setKlangStatus("idle")
       return
     }
-    const loadKlang = async () => {
-      try {
-        const qs = bid != null ? `branch_id=${bid}` : `branch_name=${encodeURIComponent(bname)}`
-        const arr = await get(`/order/klang/search?${qs}`)
+    let alive = true
+    setKlangStatus("loading")
+    get(`/order/klang/search?branch_id=${bid}`)
+      .then((arr) => {
+        if (!alive) return
         setKlangOptions((arr || []).map((k) => ({ id: k.id, label: k.klang_name })))
-      } catch (e) {
+        setKlangStatus("ready")
+      })
+      .catch((e) => {
         console.error("Load klang error:", e)
-        setKlangOptions([])
-      }
-    }
-    loadKlang()
-  }, [form.branch_id, form.branch_name])
-
-  // product -> species
-  useEffect(() => {
-    const pid = form.product_id
-    if (!pid) {
-      setSpeciesOptions([])
-      update("species_id", "")
-      update("species_name", "")
-      update("variant_id", "")
-      update("variant_name", "")
-      return
-    }
-    const loadSpecies = async () => {
-      try {
-        const arr = await get(`/order/species/search?product_id=${encodeURIComponent(pid)}`)
-        setSpeciesOptions(
-          (arr || [])
-            .map((x) => ({
-              id: String(x.id ?? x.species_id ?? x.value ?? ""),
-              label: String(x.species ?? x.name ?? x.label ?? "").trim(),
-            }))
-            .filter((o) => o.id && o.label)
-        )
-      } catch (e) {
-        console.error("load species error:", e)
-        setSpeciesOptions([])
-      }
-    }
-    loadSpecies()
-  }, [form.product_id])
-
-  // species -> variant
-  useEffect(() => {
-    const sid = form.species_id
-    if (!sid) {
-      setVariantOptions([])
-      update("variant_id", "")
-      update("variant_name", "")
-      return
-    }
-    const loadVariant = async () => {
-      try {
-        const arr = await get(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)
-        setVariantOptions(
-          (arr || [])
-            .map((x) => ({
-              id: String(x.id ?? x.variant_id ?? x.value ?? ""),
-              label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
-            }))
-            .filter((o) => o.id && o.label)
-        )
-      } catch (e) {
-        console.error("load variant error:", e)
-        setVariantOptions([])
-      }
-    }
-    loadVariant()
-  }, [form.species_id])
+        if (alive) { setKlangOptions([]); setKlangStatus("error") }
+      })
+    return () => { alive = false }
+  }, [form.branch_id])
 
   /** ---------- Validate ---------- */
   const computeMissingHints = () => {
     const m = {}
     if (!form.damage_date) m.damage_date = true
-
     if (!form.branch_id) m.branch_id = true
     if (!form.klang_id) m.klang_id = true
-
-    if (!form.product_id) m.product_id = true
-    if (!form.species_id) m.species_id = true
-    if (!form.variant_id) m.variant_id = true
-
+    if (!form.form_id) m.form_id = true
     if (!form.weight_out || Number(form.weight_out) <= 0) m.weight_out = true
     if (form.cost_per_kg === "" || Number(form.cost_per_kg) < 0) m.cost_per_kg = true
-
     return m
   }
 
   const validate = () => {
     const e = {}
     if (!form.damage_date) e.damage_date = "กรุณาเลือกวันที่ตัดเสียหาย"
-
-    if (!form.branch_id) e.branch_id = "กรุณาเลือกสาขา"
+    if (!form.branch_id) e.branch_id = "ยังไม่มีสาขาที่ใช้งานอยู่ เลือกสาขาที่แถบด้านบน"
     if (!form.klang_id) e.klang_id = "กรุณาเลือกคลัง"
-
-    if (!form.product_id) e.product_id = "กรุณาเลือกประเภทสินค้า"
-    if (!form.species_id) e.species_id = "กรุณาเลือกชนิดข้าว"
-    if (!form.variant_id) e.variant_id = "กรุณาเลือกชั้นย่อย"
-
+    if (!form.form_id) e.form_id = "กรุณาเลือกฟอร์มสินค้า"
+    else if (!selectedForm) e.form_id = "ฟอร์มสินค้านี้ใช้งานไม่ได้แล้ว เลือกฟอร์มอื่น"
     if (toNumber(form.weight_out) <= 0) e.weight_out = "น้ำหนักต้องมากกว่า 0"
     if (form.cost_per_kg === "" || toNumber(form.cost_per_kg) < 0) e.cost_per_kg = "ค่าเสียหาย/กก. ต้องไม่ติดลบ"
-
     setErrors(e)
     return { ok: Object.keys(e).length === 0, e }
   }
@@ -377,7 +217,6 @@ const StockDamageOut = () => {
     setMissingHints(hints)
     const { ok: okForm, e: ev } = validate()
 
-    // แจ้งเตือนเมื่อฟอร์มไม่ครบ/ไม่ผ่าน (toast แทน alert)
     if (!okForm || Object.values(hints).some(Boolean)) {
       const missingKeys = MISSING_ORDER.filter((k) => hints[k] && (form[k] === "" || form[k] == null))
       if (missingKeys.length) toast.error("กรอกไม่ครบ", { description: missingDescription(missingKeys) })
@@ -390,70 +229,28 @@ const StockDamageOut = () => {
       const priceVal = toNumber(form.cost_per_kg)
       const amountVal = toNumber(form.weight_out)
 
-      // ให้ตรง ProductSpecIn
-      const spec = {
-        product_id: Number(form.product_id),
-        species_id: Number(form.species_id),
-        variant_id: Number(form.variant_id),
-        product_year: form.rice_year_id ? Number(form.rice_year_id) : null,
-        condition_id: form.condition_id ? Number(form.condition_id) : null,
-        field_type: form.field_type_id ? Number(form.field_type_id) : null,
-        program: form.program_id ? Number(form.program_id) : null,
-        business_type: form.business_type_id ? Number(form.business_type_id) : null,
-      }
-
-      // รองรับหลายสคีมาของ BE: ส่งทั้งชุด co_*, cl_* และทั้ง price/prices, amount/cl_amount
+      // POST /cutloss/create — price = บาท/กก. (backend ตัดมูลค่า = price × กก.)
       const payload = {
         date: form.damage_date,
-        spec,
-
-        // ที่ตั้ง
+        spec: specFromForm(selectedForm),
         cl_branch: Number(form.branch_id),
         cl_klang: Number(form.klang_id),
-        co_branch: Number(form.branch_id),
-        co_klang: Number(form.klang_id),
-
-        // ราคา/จำนวน
-        price: priceVal,
-        prices: [priceVal],       // <-- BE ที่ฟ้องหา "prices"
-        amount: amountVal,
         cl_amount: amountVal,
-
+        price: priceVal,
         comment: form.reason?.trim() || null,
       }
 
-      await post("/carryover/create", payload)
+      await post("/cutloss/create", payload)
 
       toast.success("บันทึกตัดเสียหายแล้ว", {
-        description: `ตัด ${nf(amountVal)} กก. · ${thb(totalDamage)}`,
+        description: `${selectedForm.label} · ตัด ${nf(amountVal)} กก. · ${thb(totalDamage)}`,
       })
 
-      setForm((f) => ({
-        ...f,
-        // คงสาขา/คลังไว้
-        product_id: "",
-        product_name: "",
-        species_id: "",
-        species_name: "",
-        variant_id: "",
-        variant_name: "",
-        condition_id: "",
-        condition_label: "",
-        field_type_id: "",
-        field_type_label: "",
-        rice_year_id: "",
-        rice_year_label: "",
-        program_id: "",
-        program_label: "",
-        business_type_id: "",
-        business_type_label: "",
-        weight_out: "",
-        cost_per_kg: "",
-        reason: "",
-      }))
+      // คงสาขา/คลัง/ฟอร์มสินค้าไว้ (มักตัดสินค้าเดิมซ้ำ)
+      setForm((f) => ({ ...f, weight_out: "", cost_per_kg: "", reason: "" }))
     } catch (err) {
       console.error(err)
-      const { title, description } = describeSaveError(err)
+      const { title, description } = describeApiError(err)
       toast.error(title, { description })
     } finally {
       setSubmitting(false)
@@ -461,29 +258,7 @@ const StockDamageOut = () => {
   }
 
   const handleReset = () =>
-    setForm((f) => ({
-      ...f,
-      // เคลียร์เฉพาะข้อมูลสินค้า/น้ำหนัก/ราคา
-      product_id: "",
-      product_name: "",
-      species_id: "",
-      species_name: "",
-      variant_id: "",
-      variant_name: "",
-      condition_id: "",
-      condition_label: "",
-      field_type_id: "",
-      field_type_label: "",
-      rice_year_id: "",
-      rice_year_label: "",
-      program_id: "",
-      program_label: "",
-      business_type_id: "",
-      business_type_label: "",
-      weight_out: "",
-      cost_per_kg: "",
-      reason: "",
-    }))
+    setForm((f) => ({ ...f, form_id: "", weight_out: "", cost_per_kg: "", reason: "" }))
 
   /** ---------- Sticky bar summary (<md) ---------- */
   const barSummary = (
@@ -534,29 +309,13 @@ const StockDamageOut = () => {
               </div>
 
               <div>
-                <label className={labelCls}>สาขา</label>
-                <ComboBox
-                  title="สาขา"
-                  ariaLabel="สาขา"
-                  options={branchOptions}
-                  value={form.branch_id}
-                  getValue={(o) => o.id}
-                  onChange={(_v, found) => {
-                    clearError("branch_id")
-                    clearHint("branch_id")
-                    update("branch_id", found?.id ?? null)
-                    update("branch_name", found?.label ?? "")
-                    update("klang_id", null)
-                    update("klang_name", "")
-                  }}
-                  placeholder="— เลือกสาขา —"
-                  error={!!errors.branch_id}
-                  hintRed={!!missingHints.branch_id}
-                  clearHint={() => clearHint("branch_id")}
-                  disabled={branchLock.locked}
-                />
-                {errors.branch_id && <p className={errorTextCls}>{errors.branch_id}</p>}
-                {branchLock.locked && <BranchLockNote />}
+                <span className={labelCls}>สาขา</span>
+                <div className={cx(baseField, fieldDisabled, (errors.branch_id || missingHints.branch_id) && "border-red-500")}>
+                  {branchStatus === "loading" ? "กำลังโหลด…" : form.branch_name || (form.branch_id ? `สาขา #${form.branch_id}` : "—")}
+                </div>
+                {errors.branch_id
+                  ? <p className={errorTextCls}>{errors.branch_id}</p>
+                  : <p className={helpTextCls}>ตัดเสียหายได้เฉพาะสาขาที่ใช้งานอยู่ — สลับสาขาที่แถบด้านบน</p>}
               </div>
 
               <div>
@@ -573,183 +332,38 @@ const StockDamageOut = () => {
                     update("klang_id", found?.id ?? null)
                     update("klang_name", found?.label ?? "")
                   }}
-                  placeholder="— เลือกคลัง —"
+                  placeholder={klangStatus === "loading" ? "กำลังโหลดคลัง…" : "— เลือกคลัง —"}
+                  loading={klangStatus === "loading"}
+                  emptyText="สาขานี้ยังไม่มีคลัง"
                   disabled={!form.branch_id}
                   error={!!errors.klang_id}
                   hintRed={!!missingHints.klang_id}
                   clearHint={() => clearHint("klang_id")}
                 />
-                {!form.branch_id && <p className={helpTextCls}>เลือกสาขาก่อน</p>}
                 {errors.klang_id && <p className={errorTextCls}>{errors.klang_id}</p>}
+                {klangStatus === "error" && <p className={errorTextCls}>โหลดรายการคลังไม่สำเร็จ รีเฟรชหน้าแล้วลองใหม่</p>}
               </div>
             </div>
           </div>
 
-          {/* กรอบที่ 2: สินค้า / คุณสมบัติ */}
+          {/* กรอบที่ 2: สินค้า — ฟอร์มสินค้าตัวเดียว + ชิปสเปค */}
           <div className={cardSectionCls}>
-            <h2 className={sectionTitleCls}>สินค้า / คุณสมบัติ (ข้าวเปลือก)</h2>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <label className={labelCls}>ประเภทสินค้า</label>
-                <ComboBox
-                  title="ประเภทสินค้า"
-                  ariaLabel="ประเภทสินค้า"
-                  options={productOptions}
-                  value={form.product_id}
-                  getValue={getOptValue}
-                  onChange={(id, found) => {
-                    clearError("product_id")
-                    clearHint("product_id")
-                    update("product_id", id)
-                    update("product_name", found?.label ?? "")
-                    update("species_id", "")
-                    update("species_name", "")
-                    update("variant_id", "")
-                    update("variant_name", "")
-                  }}
-                  placeholder="— เลือกประเภทสินค้า —"
-                  error={!!errors.product_id}
-                  hintRed={!!missingHints.product_id}
-                  clearHint={() => clearHint("product_id")}
-                />
-                {errors.product_id && <p className={errorTextCls}>{errors.product_id}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>ชนิดข้าว</label>
-                <ComboBox
-                  title="ชนิดข้าว"
-                  ariaLabel="ชนิดข้าว"
-                  searchable
-                  options={speciesOptions}
-                  value={form.species_id}
-                  getValue={getOptValue}
-                  onChange={(id, found) => {
-                    clearError("species_id")
-                    clearHint("species_id")
-                    update("species_id", id)
-                    update("species_name", found?.label ?? "")
-                    update("variant_id", "")
-                    update("variant_name", "")
-                  }}
-                  placeholder="— เลือกชนิดข้าว —"
-                  disabled={!form.product_id}
-                  error={!!errors.species_id}
-                  hintRed={!!missingHints.species_id}
-                  clearHint={() => clearHint("species_id")}
-                />
-                {errors.species_id && <p className={errorTextCls}>{errors.species_id}</p>}
-              </div>
-
-              <div>
-                <label className={labelCls}>ชั้นย่อย</label>
-                <ComboBox
-                  title="ชั้นย่อย"
-                  ariaLabel="ชั้นย่อย"
-                  searchable
-                  options={variantOptions}
-                  value={form.variant_id}
-                  getValue={getOptValue}
-                  onChange={(id, found) => {
-                    clearError("variant_id")
-                    clearHint("variant_id")
-                    update("variant_id", id)
-                    update("variant_name", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกชั้นย่อย —"
-                  disabled={!form.species_id}
-                  error={!!errors.variant_id}
-                  hintRed={!!missingHints.variant_id}
-                  clearHint={() => clearHint("variant_id")}
-                />
-                {errors.variant_id && <p className={errorTextCls}>{errors.variant_id}</p>}
-              </div>
-
-              {/* สภาพ/เงื่อนไข */}
-              <div>
-                <label className={labelCls}>สภาพ/เงื่อนไข</label>
-                <ComboBox
-                  title="สภาพ/เงื่อนไข"
-                  ariaLabel="สภาพ/เงื่อนไข"
-                  options={conditionOptions}
-                  value={form.condition_id}
-                  getValue={getOptValue}
-                  onChange={(id, found) => {
-                    update("condition_id", id)
-                    update("condition_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกสภาพ/เงื่อนไข —"
-                />
-              </div>
-
-              {/* ประเภทนา */}
-              <div>
-                <label className={labelCls}>ประเภทนา</label>
-                <ComboBox
-                  title="ประเภทนา"
-                  ariaLabel="ประเภทนา"
-                  options={fieldOptions}
-                  value={form.field_type_id}
-                  getValue={getOptValue}
-                  onChange={(id, found) => {
-                    update("field_type_id", id)
-                    update("field_type_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกประเภทนา —"
-                />
-              </div>
-
-              {/* ปี/ฤดูกาล */}
-              <div>
-                <label className={labelCls}>ปี/ฤดูกาล</label>
-                <ComboBox
-                  title="ปี/ฤดูกาล"
-                  ariaLabel="ปี/ฤดูกาล"
-                  options={yearOptions}
-                  value={form.rice_year_id}
-                  getValue={getOptValue}
-                  onChange={(id, found) => {
-                    update("rice_year_id", id)
-                    update("rice_year_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกปี/ฤดูกาล —"
-                />
-              </div>
-
-              {/* โปรแกรม */}
-              <div>
-                <label className={labelCls}>โปรแกรม (ไม่บังคับ)</label>
-                <ComboBox
-                  title="โปรแกรม"
-                  ariaLabel="โปรแกรม (ไม่บังคับ)"
-                  options={programOptions}
-                  value={form.program_id}
-                  getValue={getOptValue}
-                  onChange={(id, found) => {
-                    update("program_id", id)
-                    update("program_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกโปรแกรม —"
-                />
-              </div>
-
-              {/* ประเภทธุรกิจ */}
-              <div>
-                <label className={labelCls}>ประเภทธุรกิจ</label>
-                <ComboBox
-                  title="ประเภทธุรกิจ"
-                  ariaLabel="ประเภทธุรกิจ"
-                  options={businessOptions}
-                  value={form.business_type_id}
-                  getValue={getOptValue}
-                  onChange={(id, found) => {
-                    update("business_type_id", id)
-                    update("business_type_label", found?.label ?? "")
-                  }}
-                  placeholder="— เลือกประเภทธุรกิจ —"
-                />
-              </div>
-            </div>
+            <h2 className={sectionTitleCls}>สินค้า</h2>
+            <ProductFormPicker
+              id="damage-form"
+              forms={productForms}
+              value={form.form_id}
+              storageKey="damageOut.formTemplate"
+              onChange={(id) => {
+                clearError("form_id")
+                clearHint("form_id")
+                update("form_id", id)
+              }}
+              error={errors.form_id}
+              hintRed={!!missingHints.form_id}
+              clearHint={() => clearHint("form_id")}
+              className="md:max-w-2xl"
+            />
           </div>
 
           {/* กรอบที่ 3: น้ำหนักและค่าเสียหาย */}

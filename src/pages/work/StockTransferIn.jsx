@@ -1,6 +1,7 @@
 // src/pages/StockTransferIn.jsx
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { get, post } from "../../lib/api"
+import { describeApiError } from "../../lib/apiErrors"
 import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, secondaryBtnCls } from "../../lib/styles"
 import { PageLoader, EmptyState, ErrorState, Badge, DataList, StickyActionBar, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
@@ -44,16 +45,17 @@ const SAVE_ERR_TH = [
   [/greater than 0|ensure this value is greater/i, "น้ำหนักหรือราคาต้องมากกว่า 0"],
   [/not found[\s\S]*(klang|warehouse)|(klang|warehouse)[\s\S]*not found/i, "ไม่พบคลังที่เลือก"],
   [/duplicate|already exists/i, "รายการนี้มีอยู่แล้ว"],
-  [/unauthorized|forbidden|credentials/i, "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"],
 ]
 function describeSaveError(err) {
   const status = err?.status
+  // 403 พร้อม detail = กฎธุรกิจ, 409 = เช่น สต็อกไม่พอ → แสดง detail จาก backend (handoff F6/F7)
+  if (status === 403 || status === 409) return describeApiError(err)
   const raw = String(err?.message || "")
   const isThai = /[฀-๿]/.test(raw)
   const hit = SAVE_ERR_TH.find(([re]) => re.test(raw))?.[1]
   if (hit) return { title: status === 422 ? "ข้อมูลไม่ผ่านการตรวจ" : "บันทึกไม่สำเร็จ", description: hit }
   if (!status) return { title: "บันทึกไม่สำเร็จ", description: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสัญญาณแล้วลองใหม่ ข้อมูลที่กรอกยังอยู่" }
-  if (status === 401 || status === 403) return { title: "ไม่มีสิทธิ์บันทึก", description: "สิทธิ์ของบัญชีนี้ไม่ครอบคลุมรายการนี้ หรือหมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }
+  if (status === 401) return { title: "หมดเวลาใช้งาน", description: "เข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }
   if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "รายการนี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
   if (status === 422) return { title: "ข้อมูลไม่ผ่านการตรวจ", description: isThai ? raw : "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่" }
   if (status >= 500) return { title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" }

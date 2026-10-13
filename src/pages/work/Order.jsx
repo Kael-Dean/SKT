@@ -119,7 +119,10 @@ const Order = () => {
   const isPhone = useIsPhone()
 
   /** ---------- State ---------- */
-  const [mode, setMode] = useState("buy") // 'buy' | 'sell'
+  // เปิดโหมดจากลิงก์ได้ เช่น #/order?mode=sell (ปุ่ม "ดูออเดอร์" หลังขายข้าว)
+  const [mode, setMode] = useState(() =>
+    /[?&]mode=sell\b/.test(typeof window !== "undefined" ? window.location.hash : "") ? "sell" : "buy"
+  ) // 'buy' | 'sell'
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   // Phone only: show ErrorState instead of a silent empty list when the fetch fails.
@@ -347,8 +350,6 @@ const Order = () => {
     let revenue = 0
     let deduct = 0
 
-    // ✅ เฉลี่ย “ราคาต่อกก.” แบบเฉลี่ยต่อบิล (ไม่ถ่วงน้ำหนัก)
-    let sumUnitPrice = 0
     let unitCount = 0
 
     rows.forEach((x) => {
@@ -361,31 +362,11 @@ const Order = () => {
 
       const d = Math.max(0, entry - exit - net)
       deduct += d
-
-      // ✅ เอา unit price จากฟิลด์ก่อน ถ้าไม่มีค่อยคำนวณจาก price/weight
-      const rawUnit = toNumber(
-        x.price_per_kilo ??
-        x.price_per_kg ??
-        x.pricePerKilo ??
-        x.pricePerKg ??
-        x.unit_price ??
-        x.unitPrice ??
-        0
-      )
-
-      let unit = rawUnit
-      if (!unit) {
-        const p = toNumber(x.price ?? 0)
-        if (p > 0 && net > 0) unit = p / net
-      }
-
-      if (unit > 0 && Number.isFinite(unit)) {
-        sumUnitPrice += unit
-        unitCount += 1
-      }
+      if (net > 0) unitCount += 1
     })
 
-    const avgUnitPrice = unitCount > 0 ? (sumUnitPrice / unitCount) : 0
+    // ราคาเฉลี่ยต่อกก. = มูลค่ารวม ÷ น้ำหนักรวม (ถ่วงน้ำหนัก — handoff F15)
+    const avgUnitPrice = weight > 0 ? revenue / weight : 0
     return { weight, revenue, deduct, avgUnitPrice, unitCount }
   }, [rows])
 

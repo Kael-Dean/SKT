@@ -16,6 +16,8 @@ import {
 import ComboBox from "../../components/ComboBox"
 import { StickyActionBar, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
+import useBranchLock from "../../hooks/useBranchLock"
+import BranchLockNote from "../../components/BranchLockNote"
 
 /** ---------- Utils ---------- */
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
@@ -127,11 +129,14 @@ const StockDamageOut = () => {
   const [programOptions, setProgramOptions] = useState([])
   const [businessOptions, setBusinessOptions] = useState([])
 
+  /** สาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่ */
+  const branchLock = useBranchLock()
+
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
     damage_date: new Date().toISOString().slice(0, 10),
 
-    branch_id: null,
+    branch_id: branchLock.activeId,
     branch_name: "",
     klang_id: null,
     klang_name: "",
@@ -230,6 +235,23 @@ const StockDamageOut = () => {
     }
     loadStatic()
   }, [])
+
+  // ล็อกสาขา → บังคับเป็นสาขาที่ใช้งานอยู่ + ชื่อจากรายการสาขา
+  useEffect(() => {
+    if (!branchLock.locked) return
+    const found = branchOptions.find((b) => String(b.id) === branchLock.activeKey)
+    setForm((p) => {
+      const name = found?.label ?? ""
+      if (String(p.branch_id ?? "") === branchLock.activeKey && p.branch_name === name) return p
+      const sameBranch = String(p.branch_id ?? "") === branchLock.activeKey
+      return {
+        ...p,
+        branch_id: found?.id ?? branchLock.activeId,
+        branch_name: name,
+        ...(sameBranch ? null : { klang_id: null, klang_name: "" }),
+      }
+    })
+  }, [branchLock.locked, branchLock.activeKey, branchLock.activeId, branchOptions])
 
   // branch -> klang
   useEffect(() => {
@@ -531,8 +553,10 @@ const StockDamageOut = () => {
                   error={!!errors.branch_id}
                   hintRed={!!missingHints.branch_id}
                   clearHint={() => clearHint("branch_id")}
+                  disabled={branchLock.locked}
                 />
                 {errors.branch_id && <p className={errorTextCls}>{errors.branch_id}</p>}
+                {branchLock.locked && <BranchLockNote />}
               </div>
 
               <div>

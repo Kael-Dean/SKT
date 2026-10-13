@@ -18,6 +18,8 @@ import {
 import ComboBox from "../../components/ComboBox"
 import { StickyActionBar, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
+import useBranchLock from "../../hooks/useBranchLock"
+import BranchLockNote from "../../components/BranchLockNote"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -169,11 +171,14 @@ function StockTransferOut() {
   const [programOptions, setProgramOptions] = useState([])
   const [businessOptions, setBusinessOptions] = useState([])
 
+  /** สาขาต้นทาง: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่ (สาขาปลายทางเลือกได้ตามปกติ) */
+  const branchLock = useBranchLock()
+
   /** ---------- Form ---------- */
   const [form, setForm] = useState({
     transfer_date: new Date().toISOString().slice(0, 10),
 
-    from_branch_id: null,
+    from_branch_id: branchLock.activeId,
     from_branch_name: "",
     from_klang_id: null,
     from_klang_name: "",
@@ -486,6 +491,23 @@ function StockTransferOut() {
     }
     loadVariant()
   }, [form.rice_id])
+
+  /** ล็อกสาขาต้นทาง → บังคับเป็นสาขาที่ใช้งานอยู่ + ชื่อจากรายการสาขา */
+  useEffect(() => {
+    if (!branchLock.locked) return
+    const found = fromBranchOptions.find((b) => String(b.id) === branchLock.activeKey)
+    setForm((p) => {
+      const name = found?.label ?? ""
+      if (String(p.from_branch_id ?? "") === branchLock.activeKey && p.from_branch_name === name) return p
+      const sameBranch = String(p.from_branch_id ?? "") === branchLock.activeKey
+      return {
+        ...p,
+        from_branch_id: found?.id ?? branchLock.activeId,
+        from_branch_name: name,
+        ...(sameBranch ? null : { from_klang_id: null, from_klang_name: "" }),
+      }
+    })
+  }, [branchLock.locked, branchLock.activeKey, branchLock.activeId, fromBranchOptions])
 
   /** ---------- โหลดคลัง (ต้นทาง/ปลายทาง) ---------- */
   useEffect(() => {
@@ -1268,7 +1290,7 @@ function StockTransferOut() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault()
-                      focusComboRef(fromBranchRef)
+                      focusComboRef(branchLock.locked ? fromKlangRef : fromBranchRef)
                     }
                   }}
                   placeholder="เช่น 1ขข-1234 กทม."
@@ -1301,8 +1323,10 @@ function StockTransferOut() {
                   error={!!errors.from_branch_id}
                   hintRed={!!missingHints.from_branch_id}
                   clearHint={() => clearHint("from_branch_id")}
+                  disabled={branchLock.locked}
                 />
                 {errors.from_branch_id && <p className={errorTextCls}>{errors.from_branch_id}</p>}
+                {branchLock.locked && <BranchLockNote />}
               </div>
 
               <div>

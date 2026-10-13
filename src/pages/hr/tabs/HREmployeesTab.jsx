@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
+import BranchLockNote from "../../../components/BranchLockNote"
+import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 import Portal from "../../../components/Portal"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 import StatusMsg from "../../../components/hr/StatusMsg"
@@ -91,7 +93,12 @@ export default function HREmployeesTab() {
   const [error, setError] = useState("")
 
   const [search, setSearch] = useState("")
-  const [filterBranch, setFilterBranch] = useState("")
+  // ตัวกรองสาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่
+  const branchLock = useBranchLock()
+  const [filterBranch, setFilterBranch] = useState(branchLock.activeKey)
+  useEffect(() => {
+    if (branchLock.locked) setFilterBranch(branchLock.activeKey)
+  }, [branchLock.locked, branchLock.activeKey])
   const [filterActive, setFilterActive] = useState("true")
   const [branches, setBranches] = useState([])
   const [positions, setPositions] = useState([])
@@ -123,7 +130,8 @@ export default function HREmployeesTab() {
     setError("")
     const params = new URLSearchParams()
     if (search) params.set("name", search)
-    if (filterBranch) params.set("branch_id", filterBranch)
+    const branchId = scopedBranchId(filterBranch)
+    if (branchId) params.set("branch_id", branchId)
     if (filterActive !== "") params.set("is_active", filterActive)
     apiAuth(`/hr/personnel?${params.toString()}`)
       .then(setUsers)
@@ -248,8 +256,8 @@ export default function HREmployeesTab() {
   }
 
   const activeCount = users.filter((u) => u.is_active).length
-  const hasActiveFilters = Boolean(search) || Boolean(filterBranch) || filterActive !== ""
-  const clearFilters = () => { setSearch(""); setFilterBranch(""); setFilterActive("") }
+  const hasActiveFilters = Boolean(search) || (Boolean(filterBranch) && !branchLock.locked) || filterActive !== ""
+  const clearFilters = () => { setSearch(""); setFilterBranch(branchLock.activeKey); setFilterActive("") }
 
   return (
     <div className="space-y-4">
@@ -279,7 +287,8 @@ export default function HREmployeesTab() {
         />
         <div className="w-44 shrink-0">
           <SelectDropdown value={filterBranch} onChange={setFilterBranch} placeholder="ทุกสาขา"
-            options={[{ value: "", label: "ทุกสาขา" }, ...branches]} />
+            options={[{ value: "", label: "ทุกสาขา" }, ...branches]} disabled={branchLock.locked} />
+          {branchLock.locked && <BranchLockNote />}
         </div>
         <div className="w-36 shrink-0">
           <SelectDropdown value={filterActive} onChange={setFilterActive} placeholder="ทุกสถานะ"

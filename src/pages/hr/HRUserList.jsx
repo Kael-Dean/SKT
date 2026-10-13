@@ -7,6 +7,8 @@ import { cx } from "../../lib/styles"
 import { ErrorState, EmptyState, Badge, SkeletonTableRows } from "../../components/ui"
 
 import SelectDropdown from "../../components/SelectDropdown"
+import BranchLockNote from "../../components/BranchLockNote"
+import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock"
 import { roleBadgeTone, roleLabel } from "../../lib/roles"
 
 const COLS = 6 // รหัส · ชื่อ-นามสกุล · ตำแหน่ง · สาขา · Role · สถานะ
@@ -23,7 +25,12 @@ export default function HRUserList() {
 
   const [search, setSearch] = useState("")
   const [filterRole, setFilterRole] = useState("")
-  const [filterBranch, setFilterBranch] = useState("")
+  // ตัวกรองสาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่
+  const branchLock = useBranchLock()
+  const [filterBranch, setFilterBranch] = useState(branchLock.activeKey)
+  useEffect(() => {
+    if (branchLock.locked) setFilterBranch(branchLock.activeKey)
+  }, [branchLock.locked, branchLock.activeKey])
   const [filterActive, setFilterActive] = useState("true")
 
   const [branches, setBranches] = useState([])
@@ -39,7 +46,8 @@ export default function HRUserList() {
     setError("")
     const params = new URLSearchParams()
     if (search) params.set("name", search)
-    if (filterBranch) params.set("branch_id", filterBranch)
+    const branchId = scopedBranchId(filterBranch)
+    if (branchId) params.set("branch_id", branchId)
     if (filterRole) params.set("position_id", filterRole)
     if (filterActive !== "") params.set("is_active", filterActive)
     apiAuth(`/hr/personnel?${params.toString()}`)
@@ -57,12 +65,12 @@ export default function HRUserList() {
 
   // มีตัวกรองที่ทำงานอยู่หรือไม่ (ใช้ตัดสินใจข้อความ empty + ปุ่มล้างตัวกรอง)
   const hasActiveFilters =
-    !!search || !!filterRole || !!filterBranch || filterActive !== "true"
+    !!search || !!filterRole || (!!filterBranch && !branchLock.locked) || filterActive !== "true"
 
   const clearFilters = () => {
     setSearch("")
     setFilterRole("")
-    setFilterBranch("")
+    setFilterBranch(branchLock.activeKey)
     setFilterActive("true")
   }
 
@@ -114,7 +122,9 @@ export default function HRUserList() {
             onChange={setFilterBranch}
             placeholder="ทุกสาขา"
             options={[{ value: "", label: "ทุกสาขา" }, ...branches]}
+            disabled={branchLock.locked}
           />
+          {branchLock.locked && <BranchLockNote />}
         </div>
         <div className="w-36 shrink-0">
           <SelectDropdown

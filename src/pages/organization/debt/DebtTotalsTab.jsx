@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
+import BranchLockNote from "../../../components/BranchLockNote"
+import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 import { cx, cardCls } from "../../../lib/styles"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 
@@ -19,9 +21,16 @@ const num = (v) => parseFloat(v) || 0
  * straight from the report.
  */
 export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
-  const [filters, setFilters] = useState({ branch_id: "", program_id: "", fiscal_year_id: "" })
+  // ตัวกรองสาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่
+  const branchLock = useBranchLock()
+  const [filters, setFilters] = useState({ branch_id: branchLock.activeKey, program_id: "", fiscal_year_id: "" })
   function setFilter(key, val) { setFilters((f) => ({ ...f, [key]: val })) }
-  const hasFilters = filters.branch_id || filters.program_id || filters.fiscal_year_id
+  const hasFilters = (filters.branch_id && !branchLock.locked) || filters.program_id || filters.fiscal_year_id
+
+  useEffect(() => {
+    if (!branchLock.locked) return
+    setFilters((f) => (f.branch_id === branchLock.activeKey ? f : { ...f, branch_id: branchLock.activeKey }))
+  }, [branchLock.locked, branchLock.activeKey])
 
   const [rows, setRows]       = useState([])
   const [loading, setLoading] = useState(false)
@@ -35,7 +44,8 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
     ;(async () => {
       try {
         const params = new URLSearchParams()
-        if (filters.branch_id)  params.set("branch_id", filters.branch_id)
+        const branchId = scopedBranchId(filters.branch_id)
+        if (branchId)  params.set("branch_id", branchId)
         if (filters.program_id) params.set("program_id", filters.program_id)
         const url = `/debt/report${params.toString() ? "?" + params.toString() : ""}`
         const data = await apiAuth(url)
@@ -81,7 +91,8 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">สาขา</label>
-            <SelectDropdown options={branchOpts} value={filters.branch_id} onChange={(val) => setFilter("branch_id", val)} />
+            <SelectDropdown options={branchOpts} value={filters.branch_id} onChange={(val) => setFilter("branch_id", val)} disabled={branchLock.locked} />
+            {branchLock.locked && <BranchLockNote />}
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">โครงการหนี้</label>
@@ -95,7 +106,7 @@ export default function DebtTotalsTab({ branches, programs, fiscalYears }) {
         {hasFilters && (
           <div className="mt-3 flex justify-end">
             <button
-              onClick={() => setFilters({ branch_id: "", program_id: "", fiscal_year_id: "" })}
+              onClick={() => setFilters({ branch_id: branchLock.activeKey, program_id: "", fiscal_year_id: "" })}
               className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
             >
               ล้างตัวกรอง

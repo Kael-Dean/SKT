@@ -6,6 +6,8 @@ import { cx, baseField, primaryBtnCls, neutralBtnCls, focusRingCls } from "../..
 import { EmptyState, ErrorState, SkeletonTableRows, DataList, Badge } from "../../components/ui"
 import ComboBox from "../../components/ComboBox"
 import { useIsPhone } from "../../hooks/useMediaQuery"
+import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock"
+import BranchLockNote from "../../components/BranchLockNote"
 
 /** ----------- Utils ----------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -144,12 +146,15 @@ const Order = () => {
   // เก็บ label ของ variant ไว้ดูชื่อชั้นย่อย
   const [variantLookup, setVariantLookup] = useState({})
 
+  // สาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่
+  const branchLock = useBranchLock()
+
   // filters
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
 
-    branchId: "", branchName: "",
+    branchId: branchLock.activeKey, branchName: "",
     klangId: "", klangName: "",
 
     specId: "", specLabel: "",
@@ -255,6 +260,12 @@ const Order = () => {
     return vLabel ? `ชั้นย่อย: ${vLabel}` : ""
   }
 
+  // ล็อกสาขา (โหลดสิทธิ์เสร็จทีหลัง) → บังคับให้ filter เป็นสาขาที่ใช้งานอยู่
+  useEffect(() => {
+    if (!branchLock.locked) return
+    setFilters((p) => (p.branchId === branchLock.activeKey ? p : { ...p, branchId: branchLock.activeKey, branchName: "", klangId: "", klangName: "" }))
+  }, [branchLock.locked, branchLock.activeKey])
+
   /** ---------- branch → klang ---------- */
   useEffect(() => {
     const loadKlang = async () => {
@@ -284,7 +295,8 @@ const Order = () => {
       const params = new URLSearchParams()
       params.set("start_date", filters.startDate)
       params.set("end_date", filters.endDate)
-      if (filters.branchId) params.set("branch_id", filters.branchId)
+      const branchId = scopedBranchId(filters.branchId)
+      if (branchId) params.set("branch_id", branchId)
       if (filters.klangId) params.set("klang_id", filters.klangId)
       if (filters.q?.trim()) params.set("q", filters.q.trim())
       if (filters.specId) params.append("spec_id", filters.specId) // เผื่อ BE รองรับในอนาคต
@@ -420,13 +432,13 @@ const Order = () => {
       startDate: firstDayThisMonth,
       endDate: today,
 
-      branchId: "", branchName: "",
+      branchId: branchLock.activeKey, branchName: "",
       klangId: "", klangName: "",
 
       specId: "", specLabel: "",
       q: "",
     })
-    setKlangOptions([])
+    if (!branchLock.locked) setKlangOptions([])
     setPage(1); setPageInput("1")
     setErrors({ startDate: "", endDate: "" })
   }
@@ -442,7 +454,7 @@ const Order = () => {
   const activeFilterCount =
     (filters.startDate !== firstDayThisMonth ? 1 : 0) +
     (filters.endDate !== today ? 1 : 0) +
-    (filters.branchId ? 1 : 0) +
+    (filters.branchId && !branchLock.locked ? 1 : 0) +
     (filters.klangId ? 1 : 0) +
     (filters.specId ? 1 : 0) +
     (filters.q.trim() ? 1 : 0)
@@ -492,7 +504,9 @@ const Order = () => {
           placeholder="— เลือกสาขา —"
           title="สาขา"
           ariaLabel="สาขา"
+          disabled={branchLock.locked}
         />
+        {branchLock.locked && <BranchLockNote />}
       </div>
 
       {/* คลัง */}

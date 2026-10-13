@@ -22,6 +22,8 @@ import BusinessPlanRepCostSummaryTableDetail from "./cost/BusinessPlanRepCostSum
 import Thonthun from "./thonthun/Thonthun"
 import useModalDismiss from "../../lib/useModalDismiss"
 import ComboBox from "../../components/ComboBox"
+import BranchLockNote from "../../components/BranchLockNote"
+import useBranchLock from "../../hooks/useBranchLock"
 
 // ---------------- Styles ----------------
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
@@ -159,7 +161,13 @@ const OperationPlan = () => {
 
   const [loadingBranches, setLoadingBranches] = useState(false)
   const [branchOptions, setBranchOptions] = useState([])
-  const [branchId, setBranchId] = useState("")
+  // สาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่
+  const branchLock = useBranchLock()
+  const [branchId, setBranchId] = useState(branchLock.activeKey)
+
+  useEffect(() => {
+    if (branchLock.locked) setBranchId(branchLock.activeKey)
+  }, [branchLock.locked, branchLock.activeKey])
   const [planType, setPlanType] = useState("")
   const [tableKey, setTableKey] = useState("")
   const [modalOpen, setModalOpen] = useState(false)
@@ -291,7 +299,7 @@ const OperationPlan = () => {
                   placeholder="— เลือก: ยอดขาย / ค่าใช้จ่าย / ต้นทุนสินค้า —"
                   getSubLabel={(o) => o?.subLabel || ""}
                   buttonRef={typeRef}
-                  onEnterNext={() => branchRef.current?.focus?.()}
+                  onEnterNext={() => (branchLock.locked ? tableRef : branchRef).current?.focus?.()}
                 />
               </div>
 
@@ -302,10 +310,11 @@ const OperationPlan = () => {
                   value={branchId}
                   onChange={(id) => setBranchId(String(id))}
                   placeholder={loadingBranches ? "กำลังโหลดสาขา..." : "— เลือกสาขา —"}
-                  disabled={loadingBranches || !planType}
+                  disabled={loadingBranches || !planType || branchLock.locked}
                   buttonRef={branchRef}
                   onEnterNext={() => tableRef.current?.focus?.()}
                 />
+                {branchLock.locked && <BranchLockNote />}
                 {branchRequired && !branchId && <div className="mt-2 text-sm text-red-600 dark:text-red-400">* กรุณาเลือกสาขาก่อน</div>}
               </div>
             </div>
@@ -347,7 +356,7 @@ const OperationPlan = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setBranchId("")
+                  setBranchId(branchLock.activeKey)
                   setPlanType("")
                   setTableKey("")
                   setYearBE("2569")

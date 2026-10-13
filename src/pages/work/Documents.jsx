@@ -4,6 +4,8 @@ import { apiAuth, apiDownload } from "../../lib/api"   // helper แนบ token
 import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
 import { can } from "../../lib/permissions"
 import ComboBox from "../../components/ComboBox"
+import BranchLockNote from "../../components/BranchLockNote"
+import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock"
 import { toast } from "../../components/ui"
 
 /** ---------- Utils ---------- */
@@ -876,13 +878,16 @@ function Documents() {
     return d.toISOString().slice(0, 10)
   }, [])
 
+  /** สาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่ */
+  const branchLock = useBranchLock()
+
   /** ---------- State ฟิลเตอร์ ---------- */
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
     productId: "",
     specId: "",
-    branchId: "",
+    branchId: branchLock.activeKey,
     klangId: "",
     // share filters
     memberId: "",
@@ -1023,6 +1028,12 @@ function Documents() {
     loadSpecs()
   }, [])
 
+  /** ล็อกสาขา (รวมถึงลิงก์แชร์ที่ระบุ branch_id อื่น) → บังคับเป็นสาขาที่ใช้งานอยู่ */
+  useEffect(() => {
+    if (!branchLock.locked) return
+    setFilters((p) => (p.branchId === branchLock.activeKey ? p : { ...p, branchId: branchLock.activeKey, klangId: "" }))
+  }, [branchLock.locked, branchLock.activeKey])
+
   /** branch → klang */
   useEffect(() => {
     const bId = filters.branchId
@@ -1120,7 +1131,8 @@ function Documents() {
       p.set("asso_id", String(filters.assoId).trim())
     }
 
-    if (wants("branchId") && filters.branchId) p.set("branch_id", filters.branchId)
+    const branchId = scopedBranchId(filters.branchId)
+    if (wants("branchId") && branchId) p.set("branch_id", branchId)
     if (wants("klangId") && filters.klangId) p.set("klang_id", filters.klangId)
 
     if (wants("klangIds") && String(filters.klangIds || "").trim()) {
@@ -1264,7 +1276,7 @@ function Documents() {
       endDate: new Date().toISOString().slice(0, 10),
       productId: "",
       specId: "",
-      branchId: "",
+      branchId: branchLock.activeKey,
       klangId: "",
       memberId: "",
       assoId: "",
@@ -1361,6 +1373,7 @@ function Documents() {
             onChange={(v) => setFilter("branchId", v)}
             placeholder="— เลือก —"
             error={!!(requireBranch && errors.branchId)}
+            disabled={branchLock.locked}
           />
         ) : (
           <input
@@ -1368,10 +1381,13 @@ function Documents() {
             placeholder="รหัสสาขา (ตัวเลข)"
             value={filters.branchId}
             onChange={(e) => setFilter("branchId", e.target.value)}
+            readOnly={branchLock.locked}
+            aria-readonly={branchLock.locked || undefined}
           />
         )}
 
         {requireBranch && <FieldError name="branchId" />}
+        {branchLock.locked && <BranchLockNote />}
       </div>
 
       {showKlang ? (

@@ -35,14 +35,23 @@ function joinUrl(base, path) {
 async function _call(path, { method = "GET", body, headers } = {}) {
   const isJsonBody = body != null && !(body instanceof FormData);
 
-  const res = await fetch(joinUrl(API_BASE, path), {
-    method,
-    headers: {
-      ...(isJsonBody ? { "Content-Type": "application/json" } : {}),
-      ...(headers || {}),
-    },
-    body: isJsonBody ? JSON.stringify(body) : body,
-  });
+  let res;
+  try {
+    res = await fetch(joinUrl(API_BASE, path), {
+      method,
+      headers: {
+        ...(isJsonBody ? { "Content-Type": "application/json" } : {}),
+        ...(headers || {}),
+      },
+      body: isJsonBody ? JSON.stringify(body) : body,
+    });
+  } catch (e) {
+    // เน็ตหลุด / CORS / DNS — ไม่มี HTTP status (status 0) ให้หน้าเว็บแสดงข้อความไทยแทน "Failed to fetch"
+    const error = new Error("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่");
+    error.status = 0;
+    error.cause = e;
+    throw error;
+  }
 
   const ct = res.headers.get("content-type") || "";
   const data = ct.includes("application/json")

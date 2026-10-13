@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { onMasterDataChanged } from "../../../lib/useProductsByGroup"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
+import { apiAuth } from "../../../lib/api"
+import { getToken } from "../../../lib/auth"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -29,73 +31,7 @@ const fmtDec3Str = (v) => {
 }
 
 /** ---------------- API (token = localStorage.token) ---------------- */
-const API_BASE_RAW =
-  import.meta.env.VITE_API_BASE_CUSTOM ||
-  import.meta.env.VITE_API_BASE ||
-  import.meta.env.VITE_API_URL ||
-  ""
-const API_BASE = String(API_BASE_RAW || "").replace(/\/+$/, "")
-
-class ApiError extends Error {
-  constructor(message, meta = {}) {
-    super(message)
-    this.name = "ApiError"
-    Object.assign(this, meta)
-  }
-}
-
-const getToken = () => (
-  localStorage.getItem("token") ||
-  localStorage.getItem("access_token") ||
-  localStorage.getItem("accessToken") ||
-  localStorage.getItem("jwt") ||
-  ""
-)
-// apiAuth: default ใช้ Bearer token (กัน 401/403)
-// แต่สำหรับบาง GET ที่ไม่ต้อง auth (เช่น /unit-prices/{year}) จะตั้ง auth:false เพื่อลด CORS preflight
-async function apiAuth(path, { method = "GET", body, auth = true } = {}) {
-  if (!API_BASE) throw new ApiError("FE: ยังไม่ได้ตั้ง API Base (VITE_API_BASE...)", { status: 0 })
-  const token = getToken()
-  const url = `${API_BASE}${path}`
-
-  let res
-  try {
-    res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: body != null ? JSON.stringify(body) : undefined,
-      // ✅ ไม่ส่ง cookie เพื่อลดปัญหา session เก่าทับ + ลด CORS complexity
-      credentials: "omit",
-    })
-  } catch (e) {
-    throw new ApiError("FE: เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (Network/CORS/DNS)", {
-      status: 0,
-      url,
-      method,
-      cause: e,
-    })
-  }
-
-  const text = await res.text()
-  let data = null
-  try {
-    data = text ? JSON.parse(text) : null
-  } catch {
-    data = text
-  }
-
-  if (!res.ok) {
-    const msg =
-      (data && (data.detail || data.message)) ||
-      (typeof data === "string" && data) ||
-      `HTTP ${res.status}`
-    throw new ApiError(msg, { status: res.status, url, method, data })
-  }
-  return data
-}
+// API: ใช้ apiAuth กลาง (src/lib/api.js) — แนบ token, 401 → กลับหน้า login, 403 → โหลดสิทธิ์ใหม่
 
 /** ---------------- UI styles ---------------- */
 const readonlyField =

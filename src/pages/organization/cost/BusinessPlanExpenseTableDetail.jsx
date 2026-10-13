@@ -6,6 +6,8 @@ import { SkeletonTableRows, EmptyState } from "../../../components/ui"
 import { cellInput } from "../../../lib/styles"
 import { useCan } from "../../../lib/permissions"
 import { ReadOnlyFieldset, ReadOnlyNotice } from "../../../components/PlanReadOnly"
+import { apiAuth } from "../../../lib/api"
+import { getToken } from "../../../lib/auth"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -29,43 +31,7 @@ const fmtMoney0 = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits:
 const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(toNumber(n))
 
 /** ---------------- API ---------------- */
-const API_BASE_RAW = import.meta.env.VITE_API_BASE_CUSTOM || import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL || ""
-const API_BASE = String(API_BASE_RAW || "").replace(/\/+$/, "")
-
-class ApiError extends Error {
-  constructor(message, meta = {}) {
-    super(message)
-    this.name = "ApiError"; Object.assign(this, meta)
-  }
-}
-
-const getToken = () => localStorage.getItem("token") || ""
-
-async function apiAuth(path, { method = "GET", body } = {}) {
-  if (!API_BASE) throw new ApiError("FE: VITE_API_BASE not set", { status: 0 })
-  const token = getToken()
-  const url = `${API_BASE}${path}`
-
-  let res
-  try {
-    res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: body != null ? JSON.stringify(body) : undefined,
-    })
-  } catch (e) {
-    throw new ApiError("FE: Network/CORS/DNS failure", { status: 0, cause: e })
-  }
-
-  const text = await res.text()
-  let data = text ? JSON.parse(text) : null
-
-  if (!res.ok) {
-    const msg = (data && (data.detail || data.message)) || `HTTP ${res.status}`
-    throw new ApiError(msg, { status: res.status, data })
-  }
-  return data
-}
+// API: ใช้ apiAuth กลาง (src/lib/api.js) — แนบ token, 401 → กลับหน้า login, 403 → โหลดสิทธิ์ใหม่
 
 /** ---------------- Definitions ---------------- */
 const MONTHS = [

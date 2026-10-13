@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { PageLoader, ErrorState, EmptyState } from "../../../components/ui"
+import { apiAuth } from "../../../lib/api"
 
 /** ---------------- Utils ---------------- */
 const cx = (...a) => a.filter(Boolean).join(" ")
@@ -20,47 +21,7 @@ const fmtMoney = (n) =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(toNumber(n))
 
 /** ---------------- API ---------------- */
-const API_BASE = String(
-  import.meta.env.VITE_API_BASE_CUSTOM ||
-  import.meta.env.VITE_API_BASE ||
-  import.meta.env.VITE_API_URL ||
-  ""
-).replace(/\/+$/, "")
-
-class ApiError extends Error {
-  constructor(message, meta = {}) {
-    super(message)
-    this.name = "ApiError"
-    Object.assign(this, meta)
-  }
-}
-
-const getToken = () =>
-  String(
-    localStorage.getItem("token") ||
-    localStorage.getItem("access_token") ||
-    ""
-  ).trim()
-
-async function apiAuth(path, { method = "GET", body } = {}) {
-  if (!API_BASE) throw new ApiError("FE: VITE_API_BASE not set", { status: 0 })
-  const token = getToken()
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: body != null ? JSON.stringify(body) : undefined,
-    credentials: "include",
-  }).catch((e) => { throw new ApiError("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ", { status: 0, cause: e }) })
-
-  const text = await res.text()
-  let data = null
-  try { data = text ? JSON.parse(text) : null } catch { data = text }
-  if (!res.ok) throw new ApiError((data?.detail || data?.message) || `HTTP ${res.status}`, { status: res.status, data })
-  return data
-}
+// API: ใช้ apiAuth กลาง (src/lib/api.js) — แนบ token, 401 → กลับหน้า login, 403 → โหลดสิทธิ์ใหม่
 
 /** ---------------- Definitions ---------------- */
 const MONTHS = [

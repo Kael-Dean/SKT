@@ -1,5 +1,6 @@
 // src/pages/MemberSignup.jsx
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react"
+import { useThaiAddressData } from "../../hooks/useThaiAddressData"
 import { apiAuth } from "../../lib/api"   // ✅ แนบ token อัตโนมัติ + จัดการ 401
 import { cx, baseField, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, secondaryBtnCls, spinnerCls } from "../../lib/styles"
 import { Card, CardHeader, PageLoader, Sheet, StickyActionBar, toast } from "../../components/ui"
@@ -339,6 +340,23 @@ const MemberSignup = () => {
     setTambonOptions(options)
   }
 
+  /** รหัสไปรษณีย์ตามตำบล (เหมือนฟอร์มลูกค้า) — handoff F20 */
+  const thaiAddr = useThaiAddressData()
+  const zipFor = (amphoe, tambon) => {
+    if (!thaiAddr.ready || !amphoe || !tambon) return ""
+    const { dist: DK, subd: SK, prov: PK } = thaiAddr.keys
+    const clean = (x) => String(x ?? "").replace(/^(อำเภอ|อ\.|เขต|ตำบล|ต\.|แขวง)\s*/, "").trim()
+    const prov = thaiAddr.provinces.find((r) => clean(r?.[PK.name]) === clean(PROV_SURIN))
+    const dist = thaiAddr.districts.find(
+      (r) => clean(r?.[DK.name]) === clean(amphoe) && (!prov || String(r?.[DK.provId]) === String(prov?.[PK.id]))
+    )
+    if (!dist) return ""
+    const sub = thaiAddr.subdistricts.find(
+      (r) => String(r?.[SK.distId]) === String(dist?.[DK.id]) && clean(r?.[SK.name]) === clean(tambon)
+    )
+    return sub?.[SK.zip] != null ? String(sub[SK.zip]) : ""
+  }
+
   // โหลดอำเภอครั้งแรก + ล็อกจังหวัดเป็นสุรินทร์เสมอ
   useEffect(() => {
     if (form.province !== PROV_SURIN) {
@@ -398,7 +416,7 @@ const MemberSignup = () => {
   // Hook enter-to-next
   const { onEnter, focusNext } = useEnterNavigation(refs)
 
-  const update = (k, v) => setForm((prev) => ({ ...prev, [k]: v }))
+  const update = (k, v) => { setForm((prev) => ({ ...prev, [k]: v })); clearError(k) }
   const clearError = (key) =>
     setErrors((prev) => {
       if (!(key in prev)) return prev
@@ -534,13 +552,14 @@ const MemberSignup = () => {
       sub_district: form.sub_district.trim(),
       district: form.district.trim(),
       province: PROV_SURIN,
-      subprov: form.subprov === "" ? 0 : Number(form.subprov), // ต้องเป็น int
-      postal_code: form.postal_code === "" ? 0 : Number(form.postal_code),
+      // ช่องว่าง = null (เดิมส่ง 0) — handoff F20
+      subprov: form.subprov === "" ? null : Number(form.subprov),
+      postal_code: form.postal_code === "" ? null : Number(form.postal_code),
       phone_number: (form.phone_number ?? "").toString().trim(),
       sex: form.sex,
 
       // เฉพาะที่ใช้
-      tgs_group: form.tgs_group === "" ? 0 : Number(form.tgs_group),
+      tgs_group: form.tgs_group === "" ? null : Number(form.tgs_group),
       bank_account: (form.bank_account ?? "").toString().trim(),
       tgs_id: form.tgs_id.trim(),
       spouce_name: (form.spouce_name ?? "").toString().trim(),
@@ -740,7 +759,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.member_id && fieldError)}
                   value={form.member_id}
                   onChange={(e) => { clearError("member_id"); update("member_id", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("member_id")}
                   onKeyDown={onEnter("member_id")}
                   placeholder="เช่น 11263"
                   aria-invalid={errors.member_id ? true : undefined}
@@ -775,7 +793,6 @@ const MemberSignup = () => {
                   ref={refs.regis_date}
                   value={form.regis_date}
                   onChange={(e) => { clearError("regis_date"); update("regis_date", e.target.value) }}
-                  onFocus={() => clearError("regis_date")}
                   error={!!errors.regis_date}
                   aria-invalid={errors.regis_date ? true : undefined}
                 />
@@ -791,7 +808,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.first_name && fieldError)}
                   value={form.first_name}
                   onChange={(e) => { clearError("first_name"); update("first_name", e.target.value) }}
-                  onFocus={() => clearError("first_name")}
                   onKeyDown={onEnter("first_name")}
                   placeholder="สมชาย"
                   aria-invalid={errors.first_name ? true : undefined}
@@ -808,7 +824,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.last_name && fieldError)}
                   value={form.last_name}
                   onChange={(e) => { clearError("last_name"); update("last_name", e.target.value) }}
-                  onFocus={() => clearError("last_name")}
                   onKeyDown={onEnter("last_name")}
                   placeholder="ใจดี"
                   aria-invalid={errors.last_name ? true : undefined}
@@ -827,7 +842,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.citizen_id && fieldError)}
                   value={form.citizen_id}
                   onChange={(e) => { clearError("citizen_id"); update("citizen_id", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("citizen_id")}
                   onKeyDown={onEnter("citizen_id")}
                   placeholder="1234567890123"
                   aria-invalid={errors.citizen_id ? true : undefined}
@@ -890,7 +904,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.address && fieldError)}
                   value={form.address}
                   onChange={(e) => { clearError("address"); update("address", e.target.value) }}
-                  onFocus={() => clearError("address")}
                   onKeyDown={onEnter("address")}
                   placeholder="เช่น 123/4"
                   aria-invalid={errors.address ? true : undefined}
@@ -955,7 +968,12 @@ const MemberSignup = () => {
                   <ComboBox
                     options={tambonOptions}
                     value={form.sub_district}
-                    onChange={(v) => { clearError("sub_district"); update("sub_district", v) }}
+                    onChange={(v) => {
+                      clearError("sub_district")
+                      update("sub_district", v)
+                      const zip = zipFor(form.district, v)
+                      if (zip) update("postal_code", zip)
+                    }}
                     placeholder={form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}
                     title="ตำบล"
                     ariaLabel="ตำบล"
@@ -992,7 +1010,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.postal_code && fieldError)}
                   value={form.postal_code}
                   onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("postal_code")}
                   onKeyDown={onEnter("postal_code")}
                   placeholder="32000"
                   aria-invalid={errors.postal_code ? true : undefined}
@@ -1009,7 +1026,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.phone_number && fieldError)}
                   value={form.phone_number}
                   onChange={(e) => { clearError("phone_number"); update("phone_number", e.target.value) }}
-                  onFocus={() => clearError("phone_number")}
                   onKeyDown={onEnter("phone_number")}
                   placeholder="08x-xxx-xxxx"
                   aria-invalid={errors.phone_number ? true : undefined}
@@ -1033,7 +1049,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.tgs_group && fieldError)}
                   value={form.tgs_group}
                   onChange={(e) => { clearError("tgs_group"); update("tgs_group", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("tgs_group")}
                   onKeyDown={onEnter("tgs_group")}
                   placeholder="16"
                   aria-invalid={errors.tgs_group ? true : undefined}
@@ -1115,7 +1130,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.fid && fieldError)}
                   value={form.fid}
                   onChange={(e) => { clearError("fid"); update("fid", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("fid")}
                   onKeyDown={onEnter("fid")}
                   placeholder="เช่น 123456"
                   aria-invalid={errors.fid ? true : undefined}
@@ -1131,7 +1145,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.fid_owner && fieldError)}
                   value={form.fid_owner}
                   onChange={(e) => { clearError("fid_owner"); update("fid_owner", e.target.value) }}
-                  onFocus={() => clearError("fid_owner")}
                   onKeyDown={onEnter("fid_owner")}
                   placeholder="เช่น นายสมชาย ใจดี"
                   aria-invalid={errors.fid_owner ? true : undefined}
@@ -1148,7 +1161,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.agri_type && fieldError)}
                   value={form.agri_type}
                   onChange={(e) => { clearError("agri_type"); update("agri_type", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("agri_type")}
                   onKeyDown={onEnter("agri_type")}
                   placeholder="เช่น 1"
                   aria-invalid={errors.agri_type ? true : undefined}
@@ -1165,7 +1177,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.fertilizing_period && fieldError)}
                   value={form.fertilizing_period}
                   onChange={(e) => { clearError("fertilizing_period"); update("fertilizing_period", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("fertilizing_period")}
                   onKeyDown={onEnter("fertilizing_period")}
                   placeholder="เช่น 2"
                   aria-invalid={errors.fertilizing_period ? true : undefined}
@@ -1182,7 +1193,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.fertilizer_type && fieldError)}
                   value={form.fertilizer_type}
                   onChange={(e) => { clearError("fertilizer_type"); update("fertilizer_type", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("fertilizer_type")}
                   onKeyDown={onEnter("fertilizer_type")}
                   placeholder="เช่น 16160 (แทน 16-16-0)"
                   aria-invalid={errors.fertilizer_type ? true : undefined}

@@ -94,8 +94,9 @@ function normalizeCustomerRecord(raw = {}) {
   const out = {
     asso_id: raw.asso_id ?? raw.assoId ?? raw.id ?? null,
 
-    precode: raw.precode ?? null,
-    sex: raw.sex ?? "",
+    precode: raw.precode != null ? String(raw.precode) : null,
+    // เพศมาจาก API (M/F คำนวณจากคำนำหน้าฝั่ง backend) — ไม่มีค่อยเดาจากคำนำหน้า (handoff F14)
+    sex: raw.sex || sexFromPrefix(raw.precode != null ? String(raw.precode) : "") || "",
 
     first_name: raw.first_name ?? raw.firstname ?? "",
     last_name:  raw.last_name  ?? raw.lastname  ?? "",
@@ -115,7 +116,8 @@ function normalizeCustomerRecord(raw = {}) {
     fid_owner: raw.fid_owner ?? "",
     fid_relationship: raw.fid_relationship ?? null,
 
-    created_at: raw.created_at ?? raw.regis_date ?? null,
+    // null = ลูกค้าที่สร้างก่อน 14 ต.ค. 2026 (ไม่มีบันทึกวันที่) → แสดง "-"
+    created_at: raw.created_at ?? null,
   }
 
   // เติมให้ครบคีย์

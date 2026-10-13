@@ -40,17 +40,18 @@ function useDebounce(value, delay = 400) {
   return debounced
 }
 
-/** แปลงเป็น YYYY-MM-DD แบบปลอดภัย; ถ้าไม่ได้ให้คืน "" */
+/** แปลงเป็น YYYY-MM-DD แบบปลอดภัย (ไม่แปลงผ่าน UTC — เดิมวันที่ถอยทีละวันทุกครั้งที่บันทึก: handoff F2) */
 function toInputDateSafely(v) {
   if (!v) return ""
+  const pad = (n) => String(n).padStart(2, "0")
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10)
   if (typeof v === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(v)) {
     const [dd, mm, yyyyRaw] = v.split("/")
     const yyyy = Number(yyyyRaw) > 2500 ? Number(yyyyRaw) - 543 : Number(yyyyRaw)
-    const d = new Date(Date.UTC(yyyy, Number(mm) - 1, Number(dd)))
-    return isNaN(d) ? "" : d.toISOString().slice(0, 10)
+    return `${yyyy}-${mm}-${dd}`
   }
   const d = new Date(v)
-  return isNaN(d) ? "" : d.toISOString().slice(0, 10)
+  return isNaN(d) ? "" : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 /** แสดงวันที่แบบไทย; ถ้าไม่ได้ให้ "-" */
@@ -77,7 +78,7 @@ function formatShares(v) {
 
 /** ---------- โครงการ ---------- */
 const PROGRAMS = [
-  { key: "seedling_prog", label: "โครงผลิตเมล็ดพันธ์", emoji: "🌱" },
+  { key: "seedling_prog", label: "โครงการผลิตเมล็ดพันธุ์", emoji: "🌱" },
   { key: "slowdown_rice", label: "โครงการชะลอข้าวเปลือก", emoji: "🐢" },
   { key: "organic_prog", label: "โครงการอินทรีย์", emoji: "🌿" },
   { key: "product_loan", label: "โครงการสินค้าเป็นเงินเชื่อ", emoji: "💳" },
@@ -200,6 +201,16 @@ function ProgramToggles({ value, onChange }) {
 
 /** คอลัมน์ตาราง — ✅ เพิ่ม “อำเภอ” ต่อจาก “จังหวัด” */
 const TABLE_COLUMNS = [
+  {
+    key: "member_id",
+    label: "เลขสมาชิก",
+    render: (row) => (
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        {row.member_id ?? "-"}
+        {row.__resigned && <ResignedBadge row={row} />}
+      </span>
+    ),
+  },
   { key: "first_name", label: "ชื่อ", render: (row) => row.first_name ?? "-" },
   { key: "last_name", label: "นามสกุล", render: (row) => row.last_name ?? "-" },
   { key: "citizen_id", label: "เลขบัตรประชาชน", render: (row) => row.citizen_id || "-" },
@@ -210,12 +221,23 @@ const TABLE_COLUMNS = [
   { key: "__programs", label: "โครงการ", render: (row) => <ProgramBadges row={row} /> },
 ]
 
+/** ป้าย "สิ้นสภาพ" (ลาออก/เสียชีวิต ฯลฯ) */
+function ResignedBadge({ row }) {
+  const why = String(row?.__status || "").trim()
+  return (
+    <span className="inline-flex items-center rounded-lg bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-600 dark:text-slate-100">
+      สิ้นสภาพ{why ? ` · ${why}` : ""}
+    </span>
+  )
+}
+
 /** ทำให้เรคคอร์ด “ครบคีย์” + ทำความสะอาดเบื้องต้น */
 function normalizeRecord(raw = {}) {
   const out = {
     asso_id: raw.asso_id ?? raw.assoId ?? raw.id ?? null,
     member_id: raw.member_id != null ? String(raw.member_id) : (raw.memberId != null ? String(raw.memberId) : null),
 
+    precode: raw.precode ?? raw.pre_code ?? raw.prefix_id ?? null,
     first_name: raw.first_name ?? raw.firstname ?? "",
     last_name: raw.last_name ?? raw.lastname ?? "",
     citizen_id: onlyDigits(raw.citizen_id ?? raw.citizenId ?? "") || null,
@@ -260,6 +282,9 @@ function normalizeRecord(raw = {}) {
     slowdown_rice: toBool(raw.slowdown_rice ?? false),
     organic_prog: toBool(raw.organic_prog ?? false),
     product_loan: toBool(raw.product_loan ?? false),
+
+    __resigned: !!raw.__resigned,
+    __status: raw.resign_type ?? raw.termination_type ?? raw.status_label ?? raw.member_status ?? "",
   }
 
   FIELD_CONFIG.forEach(({ key }) => {
@@ -288,6 +313,10 @@ const MemberSearch = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [reloadKey, setReloadKey] = useState(0)   // ↻ สำหรับปุ่ม "ลองใหม่"
+  /** รวมสมาชิกที่สิ้นสภาพ (ลาออก/เสียชีวิต) ในผลค้นหา — handoff F11 */
+  const [showResigned, setShowResigned] = useState(false)
+  /** ค่าตอนเปิดฟอร์ม — ใช้หาว่าผู้ใช้แก้ช่องไหนจริง ๆ */
+  const [baseline, setBaseline] = useState(null)
 
   // modal
   const [open, setOpen] = useState(false)
@@ -314,9 +343,17 @@ const MemberSearch = () => {
       if (!term) return
       setLoading(true)
       try {
-        const data = await apiAuth(`/member/members/search?q=${encodeURIComponent(term)}`)
-        const normalized = (Array.isArray(data) ? data : []).map(normalizeRecord)
-        setRows(normalized)
+        const qs = encodeURIComponent(term)
+        const [data, resigned] = await Promise.all([
+          apiAuth(`/member/members/search?q=${qs}`),
+          showResigned ? apiAuth(`/member/members/resigned/search?q=${qs}`) : Promise.resolve([]),
+        ])
+        const active = (Array.isArray(data) ? data : []).map(normalizeRecord)
+        const seen = new Set(active.map((r) => r.member_id ?? r.asso_id))
+        const gone = (Array.isArray(resigned) ? resigned : [])
+          .map((r) => normalizeRecord({ ...r, __resigned: true }))
+          .filter((r) => !seen.has(r.member_id ?? r.asso_id))
+        setRows([...active, ...gone])
       } catch (e) {
         setError(friendly(e, "ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง"))
       } finally {
@@ -324,7 +361,7 @@ const MemberSearch = () => {
       }
     }
     run()
-  }, [dq, reloadKey])
+  }, [dq, reloadKey, showResigned])
 
   const openModal = (row, { edit = false } = {}) => {
     const r = normalizeRecord(row)
@@ -336,11 +373,12 @@ const MemberSearch = () => {
       if (LAND_KEYS.includes(key)) v = typeof v === "number" ? v : 0
       else if (type === "date" || type === "date-optional") v = toInputDateSafely(v)
       else if (type === "cid") v = onlyDigits(String(v || "")).slice(0, 13)
-      else v = v ?? ""
+      else v = v == null ? "" : String(v)
       d[key] = v
     })
     PROG_KEYS.forEach((k) => { d[k] = !!r[k] })
     setDraft(d)
+    setBaseline(d)
 
     setRowError("")
     setEditing(edit)
@@ -376,35 +414,33 @@ const MemberSearch = () => {
     setRowError("")
     setSaving(true)
     try {
+      // ส่งเฉพาะช่องที่ผู้ใช้แก้จริง (เทียบกับค่าตอนเปิดฟอร์ม) — เดิมส่งทุกช่อง ทำให้คำนำหน้า/จำนวนครั้งที่ซื้อ
+      // กลายเป็น 0 และวันที่สมัครถอยหนึ่งวันทุกครั้งที่บันทึก (handoff F2)
       const diff = {}
-      const keysToCheck = [
-        ...FIELD_CONFIG.map((f) => f.key),
-        ...PROG_KEYS,
-      ]
-
-      keysToCheck.forEach((key) => {
-        const cfg = FIELD_CONFIG.find((f) => f.key === key)
-        const oldV = active[key]
-        let newV = draft[key]
-
-        if (cfg) {
-          if (cfg.type === "date" || cfg.type === "date-optional") {
-            newV = newV ? new Date(newV).toISOString() : null
-          } else if (cfg.type === "number" || cfg.type === "decimal" || LAND_KEYS.includes(key)) {
-            newV = newV === "" || newV == null ? 0 : Number(newV)
-          }
-        } else if (PROG_KEYS.includes(key)) {
-          newV = !!newV
+      ;[...FIELD_CONFIG.map((f) => f.key), ...PROG_KEYS].forEach((key) => {
+        const before = baseline?.[key]
+        const after = draft?.[key]
+        if (PROG_KEYS.includes(key)) {
+          if (!!before !== !!after) diff[key] = !!after
+          return
         }
-
-        if (oldV !== newV) diff[key] = newV
+        if (String(before ?? "") === String(after ?? "")) return
+        const cfg = FIELD_CONFIG.find((f) => f.key === key)
+        if (cfg.type === "date" || cfg.type === "date-optional") diff[key] = after || null // YYYY-MM-DD ตรง ๆ
+        else if (cfg.type === "number" || cfg.type === "decimal" || LAND_KEYS.includes(key)) diff[key] = after === "" || after == null ? null : Number(after)
+        else diff[key] = after === "" ? null : after
       })
+      if (Object.keys(diff).length === 0) {
+        setEditing(false)
+        toast.info("ไม่มีข้อมูลที่เปลี่ยน")
+        return
+      }
 
       const idForPatch = active.member_id
       if (!idForPatch && idForPatch !== 0) throw new Error("รายการนี้ไม่มีเลขสมาชิก จึงบันทึกการแก้ไขไม่ได้")
 
-      // ✅ ส่งค่า member_id กลับไปเป็น string เสมอ (แก้กรณี BE ต้องการ string)
-      diff.member_id = String(idForPatch)
+      // member_id ส่งเฉพาะเมื่อแก้เลขสมาชิก (เป็น string เสมอ)
+      if ("member_id" in diff) diff.member_id = String(diff.member_id ?? "")
 
       setRows((cur) => cur.map((x) => (x.member_id === active.member_id ? { ...x, ...diff } : x)))
 
@@ -422,13 +458,15 @@ const MemberSearch = () => {
         let v = updated[key]
         if (LAND_KEYS.includes(key)) v = typeof v === "number" ? v : 0
         else if (type === "date" || type === "date-optional") v = toInputDateSafely(v)
-        else v = v ?? ""
+        else v = v == null ? "" : String(v)
         nd[key] = v
       })
       PROG_KEYS.forEach((k) => { nd[k] = !!updated[k] })
       setDraft(nd)
+      setBaseline(nd)
 
       setEditing(false)
+      toast.success("บันทึกข้อมูลสมาชิกแล้ว", { description: fullName(updated) })
     } catch (e) {
       setRows((cur) => cur)
       setRowError(friendly(e, "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"))
@@ -475,9 +513,11 @@ const MemberSearch = () => {
           <button type="button" onClick={closeModal} className={cx(neutralBtnCls, "h-12 md:h-10")}>
             ปิด
           </button>
-          <button type="button" onClick={() => setEditing(true)} className={cx(secondaryBtnCls, "h-12 py-0 text-sm md:h-10")}>
-            แก้ไข
-          </button>
+          {!active.__resigned && (
+            <button type="button" onClick={() => setEditing(true)} className={cx(secondaryBtnCls, "h-12 py-0 text-sm md:h-10")}>
+              แก้ไข
+            </button>
+          )}
         </>
       ) : (
         <>
@@ -523,6 +563,15 @@ const MemberSearch = () => {
           {hint && !loading && dq && (
             <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{hint}</div>
           )}
+          <label className="mt-3 flex min-h-touch w-fit cursor-pointer items-center gap-2 text-sm text-slate-700 select-none md:min-h-0 dark:text-slate-200">
+            <input
+              type="checkbox"
+              className="size-4 accent-indigo-600"
+              checked={showResigned}
+              onChange={(e) => setShowResigned(e.target.checked)}
+            />
+            แสดงสมาชิกที่สิ้นสภาพ (ลาออก/เสียชีวิต)
+          </label>
           {error && (
             <ErrorState
               className="mt-3"
@@ -545,11 +594,11 @@ const MemberSearch = () => {
               fields={[
                 { label: "โทรศัพท์", value: (r) => r.phone_number || "-" },
                 { label: "อำเภอ/จังหวัด", value: (r) => [r.district, r.province].filter(Boolean).join(", ") || "-" },
+                { label: "เลขสมาชิก", value: (r) => r.member_id ?? "-" },
                 { label: "วันที่สมัคร", value: (r) => formatDate(r.regis_date) },
-                { label: "เลขสมาชิก", value: (r) => r.member_id ?? "-", align: "right" },
               ]}
               onClick={(r) => openModal(r)}
-              actions={(r) => (
+              actions={(r) => r.__resigned ? <ResignedBadge row={r} /> : (
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); openModal(r, { edit: true }) }}

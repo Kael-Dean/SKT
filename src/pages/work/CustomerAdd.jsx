@@ -147,7 +147,7 @@ const CustomerAdd = () => {
     fid_relationship: "",
   })
 
-  const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
+  const update = (k, v) => { setForm((p) => ({ ...p, [k]: v })); clearError(k) }
   const clearError = (k) =>
     setErrors((prev) => {
       if (!(k in prev)) return prev
@@ -473,7 +473,6 @@ const CustomerAdd = () => {
                   className={cx(baseField, errors.citizen_id && fieldError)}
                   value={form.citizen_id}
                   onChange={(e) => { clearError("citizen_id"); update("citizen_id", onlyDigits(e.target.value).slice(0,13)) }}
-                  onFocus={() => clearError("citizen_id")}
                   placeholder="เช่น 1234567890123"
                   aria-invalid={errors.citizen_id ? true : undefined}
                   {...bindEnter(0)}
@@ -504,7 +503,6 @@ const CustomerAdd = () => {
                   className={cx(baseField, errors.full_name && fieldError)}
                   value={form.full_name}
                   onChange={(e) => { clearError("full_name"); update("full_name", e.target.value) }}
-                  onFocus={() => clearError("full_name")}
                   placeholder="เช่น นายสมชาย ใจดี"
                   aria-invalid={errors.full_name ? true : undefined}
                   {...bindEnter(2)}
@@ -522,7 +520,6 @@ const CustomerAdd = () => {
                   className={cx(baseField, errors.address && fieldError)}
                   value={form.address}
                   onChange={(e) => { clearError("address"); update("address", e.target.value) }}
-                  onFocus={() => clearError("address")}
                   placeholder="เช่น 99/1"
                   aria-invalid={errors.address ? true : undefined}
                   {...bindEnter(3)}
@@ -621,7 +618,6 @@ const CustomerAdd = () => {
                   className={cx(baseField, errors.postal_code && fieldError)}
                   value={form.postal_code}
                   onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value).slice(0,5)) }}
-                  onFocus={() => clearError("postal_code")}
                   placeholder="เช่น 32000"
                   aria-invalid={errors.postal_code ? true : undefined}
                   {...bindEnter(8)}
@@ -666,7 +662,6 @@ const CustomerAdd = () => {
                     className={cx(baseField, errors.fid && fieldError)}
                     value={form.fid}
                     onChange={(e) => { clearError("fid"); update("fid", e.target.value) }}
-                    onFocus={() => clearError("fid")}
                     placeholder="เช่น 123456"
                     aria-invalid={errors.fid ? true : undefined}
                     {...bindEnter(10)}

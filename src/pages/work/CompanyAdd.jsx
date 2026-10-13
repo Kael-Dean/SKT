@@ -154,7 +154,7 @@ const CompanyAddInner = () => {
     branch_postal_code: "",
   })
 
-  const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
+  const update = (k, v) => { setForm((p) => ({ ...p, [k]: v })); clearError(k) }
   const clearError = (k) =>
     setErrors((prev) => {
       if (!(k in prev)) return prev
@@ -315,7 +315,6 @@ const CompanyAddInner = () => {
                     clearError("company_name")
                     update("company_name", e.target.value)
                   }}
-                  onFocus={() => clearError("company_name")}
                   onKeyDown={onEnter("company_name")}
                   placeholder="เช่น บริษัท ตัวอย่าง จำกัด"
                   aria-invalid={errors.company_name ? true : undefined}
@@ -335,7 +334,6 @@ const CompanyAddInner = () => {
                     clearError("tax_id")
                     update("tax_id", onlyDigits(e.target.value))
                   }}
-                  onFocus={() => clearError("tax_id")}
                   onKeyDown={onEnter("tax_id")}
                   placeholder="เช่น 0123456789012"
                   aria-invalid={errors.tax_id ? true : undefined}
@@ -376,7 +374,6 @@ const CompanyAddInner = () => {
                       clearError("hq_address")
                       update("hq_address", e.target.value)
                     }}
-                    onFocus={() => clearError("hq_address")}
                     onKeyDown={onEnter("hq_address")}
                     placeholder="เช่น 99/1 หมู่บ้านตัวอย่าง"
                     aria-invalid={errors.hq_address ? true : undefined}
@@ -406,7 +403,6 @@ const CompanyAddInner = () => {
                       clearError("hq_tambon")
                       update("hq_tambon", e.target.value)
                     }}
-                    onFocus={() => clearError("hq_tambon")}
                     onKeyDown={onEnter("hq_tambon")}
                     placeholder="เช่น หนองปลาไหล"
                     aria-invalid={errors.hq_tambon ? true : undefined}
@@ -424,7 +420,6 @@ const CompanyAddInner = () => {
                       clearError("hq_amphur")
                       update("hq_amphur", e.target.value)
                     }}
-                    onFocus={() => clearError("hq_amphur")}
                     onKeyDown={onEnter("hq_amphur")}
                     placeholder="เช่น เมือง"
                     aria-invalid={errors.hq_amphur ? true : undefined}
@@ -442,7 +437,6 @@ const CompanyAddInner = () => {
                       clearError("hq_province")
                       update("hq_province", e.target.value)
                     }}
-                    onFocus={() => clearError("hq_province")}
                     onKeyDown={onEnter("hq_province")}
                     placeholder="เช่น ขอนแก่น"
                     aria-invalid={errors.hq_province ? true : undefined}
@@ -462,7 +456,6 @@ const CompanyAddInner = () => {
                       clearError("hq_postal_code")
                       update("hq_postal_code", onlyDigits(e.target.value))
                     }}
-                    onFocus={() => clearError("hq_postal_code")}
                     onKeyDown={onEnter("hq_postal_code")}
                     placeholder="เช่น 10110"
                     aria-invalid={errors.hq_postal_code ? true : undefined}
@@ -549,7 +542,6 @@ const CompanyAddInner = () => {
                       clearError("branch_postal_code")
                       update("branch_postal_code", onlyDigits(e.target.value))
                     }}
-                    onFocus={() => clearError("branch_postal_code")}
                     onKeyDown={onEnter("branch_postal_code")}
                     placeholder="เช่น 10220"
                     aria-invalid={errors.branch_postal_code ? true : undefined}

@@ -7,23 +7,32 @@
 //   <RequirePermission perm="hr.dashboard.view">…</RequirePermission>   (route guard)
 //   <Can perm="hr.payroll.generate">…</Can> / const { can } = useCan()   (ซ่อน/แสดง UI)
 //
-// ที่มาของค่า (source of truth ตอนนี้):
-//   คีย์แต่ละตัวผูกกับ "no" = เลขฟังก์ชันใน AMC_Role_Permission_Matrix.xlsx (sheet "Dev reference")
-//   roles = guard ปัจจุบันของ backend (require_role ใน FastAPI) — หน้าเว็บต้อง "ไม่ให้สิทธิ์เกิน backend"
-//   เมื่อลูกค้าส่ง matrix ที่กรอกแล้วกลับมา แก้แค่ array `roles` ในไฟล์นี้ไฟล์เดียว
+// ที่มาของสิทธิ์ (backend PR #13 — AMC_Role_Permission_Matrix.xlsx):
+//   ผู้ใช้แต่ละคนมี "ตำแหน่ง" (role 101–142) หรือ Super Admin (role 1) และแต่ละ API เช็ค "permission code"
+//   (เช่น plan.report.org). หน้าเว็บอ่านรายการ code ของผู้ใช้จาก GET /auth/me/permissions (myPermissions.js)
+//   แล้วเทียบกับ `code` ของคีย์ในตารางนี้ — **ไม่ตัดสินจากเลข role**
 //
-//   roles: number[]  → เฉพาะ role id ที่ระบุ (ดู src/lib/roles.js)
-//          "any"     → ทุกคนที่ล็อกอิน (backend: any login / ไม่มี role guard)
-//          "public"  → ไม่ต้องล็อกอิน
+//   code: ไม่ระบุ        → code ใน rbacMatrix.js ที่มีเลขฟังก์ชัน (no) เดียวกัน
+//         "code.x"        → ต้องมี code นี้
+//         ["a", "b"]      → มีอย่างน้อยหนึ่ง (หน้า list ที่ผู้อนุมัติหลายขั้นเข้าได้ ตรงกับ backend)
+//         "login"         → ทุกคนที่ล็อกอิน (lookup / self-service ที่ backend ไม่เช็ค code)
+//         "superadmin"    → role 1 เท่านั้น
+//         (me) => boolean → กฎเฉพาะหน้าเว็บ (me = { roleId, scope, senior, has(code) })
+//   roles: legacy — guard ของ backend รุ่นก่อน PR #13 (role 1–7). ใช้เฉพาะตอน backend ยังไม่มี
+//          /auth/me/permissions (ตอบ 404) เพื่อให้ main deploy ก่อน backend ได้โดยไม่พัง
+//          number[] = role ที่ได้ · "any" = ทุกคนที่ล็อกอิน · "public" = ไม่ต้องล็อกอิน (ใช้ทั้งสองโหมด)
 //   variant: true    → คีย์ย่อยของฟังก์ชันเดียวกัน (เช่น GET เปิดกว้างกว่า PATCH)
 //   feOnly: true     → กฎเฉพาะหน้าเว็บ (ไม่มีในตาราง matrix) — เช่นเมนู HR แบบย่อ
 //
+// AMC แก้ matrix → backend generate rbac_matrix.py ใหม่ → คัดลอกมาเป็น src/lib/rbacMatrix.js (ไม่ต้องแก้ไฟล์นี้)
 // เพิ่ม permission ใหม่: เพิ่ม entry ที่นี่ (คีย์แบบ dotted ไม่เปลี่ยนชื่อภายหลัง) แล้วใช้ can()/<Can>
 // ห้าม hardcode เลข role ใน component — ใช้คีย์เสมอ
 // ─────────────────────────────────────────────────────────────────────────────
 import { useMemo } from "react"
 import { getRoleId, getUser } from "./auth"
-import { ROLE, ROLE_IDS } from "./roles"
+import { ROLE, ROLE_IDS, ROLE_LABEL, SUPER_ADMIN, HR_POSITION_IDS, MANAGER_POSITION_ID, POSITION_ROLE_OPTIONS } from "./roles"
+import { PERMISSION_MATRIX, POSITION_ROLES } from "./rbacMatrix"
+import { getMyPermissions, getMyPermissionsVersion, useMyPermissionsVersion } from "./myPermissions"
 
 /** ชื่อโมดูลภาษาไทย (คีย์ = module ภาษาอังกฤษจาก matrix) */
 export const MODULE_LABEL = Object.freeze({
@@ -61,7 +70,7 @@ export const PERMISSIONS = Object.freeze({
   "account.login": { no: 1, module: "Account", label: "เข้าสู่ระบบ / ออกจากระบบ", en: "Log in / out", roles: "public" },
   "account.password.change": { no: 2, module: "Account", label: "เปลี่ยนรหัสผ่านของตนเอง", en: "Change own password", roles: "any" },
   "account.password.reset": { no: 3, module: "Account", label: "ขอรีเซ็ตรหัสผ่านผ่าน LINE", en: "Request password reset via LINE", roles: "public" },
-  "account.branch.switch": { no: 4, module: "Account", label: "สลับสาขาที่ทำงาน", en: "Switch active branch", roles: "any" },
+  "account.branch.switch": { code: "login", no: 4, module: "Account", label: "สลับสาขาที่ทำงาน", en: "Switch active branch", roles: "any" },
   "account.notifications": { no: 5, module: "Account", label: "ดูการแจ้งเตือนของตนเอง", en: "View own notifications", roles: "any" },
 
   // ── Employee self-service ──
@@ -95,7 +104,7 @@ export const PERMISSIONS = Object.freeze({
   "hr.employees.branchAssign": { no: 31, module: "HR: Employee records", label: "กำหนดสาขาเพิ่มเติมให้พนักงาน (ดู / เพิ่ม / ถอน)", en: "Assign extra branches to employee", roles: [1] },
 
   // ── HR: Leave ──
-  "hr.leave.list": { no: 32, module: "HR: Leave", label: "ดูรายการใบลาทั้งหมด (กรองสถานะ/สาขา/ช่วงวันที่)", en: "List leave requests", roles: [1, 2, 3, 6, 7] },
+  "hr.leave.list": { code: ["leave.list", "leave.approve.head", "leave.approve.asst", "leave.confirm.manager"], no: 32, module: "HR: Leave", label: "ดูรายการใบลาทั้งหมด (กรองสถานะ/สาขา/ช่วงวันที่)", en: "List leave requests", roles: [1, 2, 3, 6, 7] },
   "hr.leave.approve.branchHead": { no: 33, module: "HR: Leave", label: "อนุมัติ / ไม่อนุมัติใบลาสั้น (<3 วัน) — หัวหน้าสาขา", en: "Branch head approve / deny short leave", roles: [1, 6] },
   "hr.leave.approve.asstManager": { no: 34, module: "HR: Leave", label: "อนุมัติใบลายาว / ใบลาของหัวหน้า — ผู้ช่วยผู้จัดการ", en: "Asst. manager approve long / head leave", roles: [1, 7] },
   "hr.leave.approve.manager": { no: 35, module: "HR: Leave", label: "ยืนยัน / ปฏิเสธใบลา — ผู้จัดการ", en: "Manager confirm / deny leave", roles: [1, 2] },
@@ -107,10 +116,10 @@ export const PERMISSIONS = Object.freeze({
   "hr.leave.print": { no: 41, module: "HR: Leave", label: "พิมพ์ใบลาของพนักงาน", en: "Print employee leave form (PDF)", roles: [1, 3] },
   "hr.leave.calendar": { no: 42, module: "HR: Leave", label: "ดูปฏิทินการลา (แยกตามสาขา)", en: "View leave calendar", roles: [1, 3] },
   "hr.leaveTypes.manage": { no: 43, module: "HR: Leave", label: "ตั้งค่าประเภทการลา (โควตา / เปิด-ปิด)", en: "Configure leave types", roles: [1, 3], note: "PATCH = 1,3 · GET /hr/leave-types = ทุกคนที่ล็อกอิน (ดู hr.leaveTypes.view)" },
-  "hr.leaveTypes.view": { no: 43, module: "HR: Leave", label: "ดูประเภทการลา", en: "View leave types", roles: "any", variant: true },
+  "hr.leaveTypes.view": { code: "login", no: 43, module: "HR: Leave", label: "ดูประเภทการลา", en: "View leave types", roles: "any", variant: true },
 
   // ── HR: Holidays ──
-  "hr.holidays.view": { no: 44, module: "HR: Holidays", label: "ดูวันหยุดประจำปี", en: "View holidays", roles: "any" },
+  "hr.holidays.view": { code: "login", no: 44, module: "HR: Holidays", label: "ดูวันหยุดประจำปี", en: "View holidays", roles: "any" },
   "hr.holidays.manage": { no: 45, module: "HR: Holidays", label: "เพิ่ม / แก้ไข / ยกเลิก / คัดลอกวันหยุดข้ามปี", en: "Create / edit / cancel / copy holidays", roles: [1, 3] },
   "hr.holidayWork.view": { no: 46, module: "HR: Holidays", label: "ดูรายการทำงานในวันหยุด", en: "View holiday-work records", roles: [1, 3, 4] },
   "hr.holidayWork.manage": { no: 47, module: "HR: Holidays", label: "บันทึก / ยกเลิกการทำงานในวันหยุด", en: "Record / cancel holiday work", roles: [1, 3] },
@@ -128,7 +137,7 @@ export const PERMISSIONS = Object.freeze({
   "hr.issues.decide": { no: 55, module: "HR: Issue reports", label: "อนุมัติ / ปฏิเสธคำร้องแก้ไขข้อมูล", en: "Approve / deny data-correction report", roles: [1, 3] },
 
   // ── HR: Out-of-office ──
-  "hr.ooo.list": { no: 56, module: "HR: Out-of-office", label: "ดูรายการ / สรุป / การตั้งค่า ออกนอกพื้นที่", en: "View out-of-office list / summary / settings", roles: [1, 2, 3, 6, 7] },
+  "hr.ooo.list": { code: ["ooo.view", "ooo.approve.head", "ooo.approve.asst", "ooo.confirm.manager", "ooo.reject"], no: 56, module: "HR: Out-of-office", label: "ดูรายการ / สรุป / การตั้งค่า ออกนอกพื้นที่", en: "View out-of-office list / summary / settings", roles: [1, 2, 3, 6, 7] },
   "hr.ooo.approve.branchHead": { no: 57, module: "HR: Out-of-office", label: "อนุมัติ — หัวหน้าสาขา", en: "Branch head approve", roles: [1, 6] },
   "hr.ooo.approve.asstManager": { no: 58, module: "HR: Out-of-office", label: "อนุมัติ — ผู้ช่วยผู้จัดการ", en: "Asst. manager approve", roles: [1, 7] },
   "hr.ooo.approve.manager": { no: 59, module: "HR: Out-of-office", label: "ยืนยัน — ผู้จัดการ", en: "Manager confirm", roles: [1, 2] },
@@ -144,7 +153,7 @@ export const PERMISSIONS = Object.freeze({
   "hr.payroll.payslip": { no: 67, module: "HR: Payroll", label: "พิมพ์สลิปเงินเดือน", en: "Print payslip (PDF)", roles: [1, 3] },
 
   // ── HR: Positions, salary & promotions ──
-  "hr.positions.view": { no: 68, module: "HR: Positions, salary & promotions", label: "ดูรายการตำแหน่ง", en: "View positions", roles: "any" },
+  "hr.positions.view": { code: ["position.view", "position.edit", "position.change", "hr.employee.create"], no: 68, module: "HR: Positions, salary & promotions", label: "ดูรายการตำแหน่ง", en: "View positions", roles: "any" },
   "hr.positions.manage": { no: 69, module: "HR: Positions, salary & promotions", label: "เพิ่ม / แก้ไข / ปิดใช้งานตำแหน่ง", en: "Create / edit / deactivate positions", roles: [1, 3] },
   "hr.positions.assign": { no: 70, module: "HR: Positions, salary & promotions", label: "เปลี่ยนตำแหน่งของพนักงาน + ดูประวัติ", en: "Change employee position / view history", roles: [1, 3] },
   "hr.salaryLadder.view": { no: 71, module: "HR: Positions, salary & promotions", label: "ดูบัญชีเงินเดือน (salary ladder)", en: "View salary ladder", roles: [1, 3] },
@@ -223,11 +232,11 @@ export const PERMISSIONS = Object.freeze({
   "plan.master.branches": { no: 128, module: "Annual plan: master data", label: "จัดการสาขา (ดู / เพิ่ม / แก้ / ลบ)", en: "Manage branches", roles: "any" },
   "plan.master.units": { no: 129, module: "Annual plan: master data", label: "จัดการหน่วยนับ (ดู / เพิ่ม / แก้ / ลบ)", en: "Manage units", roles: "any" },
   "plan.master.costTypes": { no: 130, module: "Annual plan: master data", label: "จัดการประเภทต้นทุน + กำหนดให้สาขา/ผลิตภัณฑ์", en: "Manage cost types (+ assignment)", roles: [1, 2, 4], note: "สร้าง/แก้ผ่าน /cost-types-with-assignment = 1,2,4 (endpoint เดี่ยวไม่มี guard) — ใช้ค่าที่เข้มกว่า" },
-  "plan.master.costTypes.view": { no: 130, module: "Annual plan: master data", label: "ดูประเภทค่าใช้จ่าย", en: "View cost types", roles: "any", variant: true },
+  "plan.master.costTypes.view": { code: "login", no: 130, module: "Annual plan: master data", label: "ดูประเภทค่าใช้จ่าย", en: "View cost types", roles: "any", variant: true },
   "plan.master.earningTypes": { no: 131, module: "Annual plan: master data", label: "จัดการประเภทรายได้ + กำหนดให้สาขา/ผลิตภัณฑ์", en: "Manage earning types (+ assignment)", roles: [1, 2, 4], note: "สร้าง/แก้ผ่าน /earning-types-with-assignment = 1,2,4 (endpoint เดี่ยวไม่มี guard) — ใช้ค่าที่เข้มกว่า" },
-  "plan.master.earningTypes.view": { no: 131, module: "Annual plan: master data", label: "ดูประเภทรายได้", en: "View earning types", roles: "any", variant: true },
+  "plan.master.earningTypes.view": { code: "login", no: 131, module: "Annual plan: master data", label: "ดูประเภทรายได้", en: "View earning types", roles: "any", variant: true },
   "plan.master.auxCosts": { no: 132, module: "Annual plan: master data", label: "จัดการต้นทุนเสริม (aux cost)", en: "Manage auxiliary costs", roles: [1, 2, 4], note: "/aux-costs-with-assignment = 1,2,4 (endpoint เดี่ยวไม่มี guard) — ใช้ค่าที่เข้มกว่า" },
-  "plan.master.auxCosts.view": { no: 132, module: "Annual plan: master data", label: "ดูต้นทุนเสริม", en: "View auxiliary costs", roles: "any", variant: true },
+  "plan.master.auxCosts.view": { code: "login", no: 132, module: "Annual plan: master data", label: "ดูต้นทุนเสริม", en: "View auxiliary costs", roles: "any", variant: true },
 
   // ── Annual plan: data entry ──
   "plan.unitPrices": { no: 133, module: "Annual plan: data entry", label: "กำหนดราคาต่อหน่วยประจำปี (ดู / บันทึก / ลบ)", en: "Set annual unit prices", roles: "any" },
@@ -302,16 +311,21 @@ export const PERMISSIONS = Object.freeze({
   "reports.phase1.p19": { no: 186, module: "Phase 1 reports", label: "รายงาน P19: รายงานสาขา 1 (สรุปข้าว)", en: "Report P19", roles: [1, 3, 4, 7] },
 
   // ── Frontend only (ไม่มีใน matrix — กฎการแสดงผลของหน้าเว็บ ไม่ได้ให้สิทธิ์เพิ่มจาก backend) ──
-  "admin.roles.view": { no: null, module: "Frontend only", label: "ดูหน้าสิทธิ์ตามบทบาท", en: "View role permission matrix", roles: [1], feOnly: true },
-  "approval.anyStage": { no: null, module: "Frontend only", label: "พิจารณาคำขอได้ทุกขั้น (ใบลา / ออกนอกสถานที่)", en: "Act on any approval stage", roles: [1], feOnly: true, note: "สอดคล้อง backend: role 1 อยู่ในทุก guard ของขั้นอนุมัติ" },
-  "nav.hrCompactMenu": { no: null, module: "Frontend only", label: "ใช้เมนูด้านข้างแบบ HR (ย่อ)", en: "Use the compact HR sidebar", roles: [3], feOnly: true },
-  "debt.entries.ownBranchOnly": { no: null, module: "Frontend only", label: "บันทึกหนี้ได้เฉพาะสาขาตนเอง", en: "Debt entries locked to own branch", roles: [5], feOnly: true, note: "สะท้อนการล็อกสาขาของ role 5 ใน backend (debt_router)" },
-  "customers.company.add": { no: null, module: "Frontend only", label: "เพิ่มบริษัท (ลูกค้านิติบุคคล)", en: "Add company customer", roles: [2], feOnly: true, note: "กฎธุรกิจเดิม: role 2 + ผู้ใช้ชื่อ HA ที่เป็น role 4 (ดู canSeeAddCompany) — backend เปิดให้ทุกคนที่ล็อกอิน" },
+  "admin.roles.view": { code: "superadmin", no: null, module: "Frontend only", label: "ดูหน้าสิทธิ์ตามบทบาท", en: "View role permission matrix", roles: [1], feOnly: true },
+  "approval.anyStage": { code: "superadmin", no: null, module: "Frontend only", label: "พิจารณาคำขอได้ทุกขั้น (ใบลา / ออกนอกสถานที่)", en: "Act on any approval stage", roles: [1], feOnly: true, note: "สอดคล้อง backend: role 1 อยู่ในทุก guard ของขั้นอนุมัติ" },
+  "nav.hrCompactMenu": { code: (me) => HR_POSITION_IDS.has(me.roleId), no: null, module: "Frontend only", label: "ใช้เมนูด้านข้างแบบ HR (ย่อ)", en: "Use the compact HR sidebar", roles: [3], feOnly: true },
+  "debt.entries.ownBranchOnly": { code: (me) => me.scope === "own_branch", no: null, module: "Frontend only", label: "บันทึกหนี้ได้เฉพาะสาขาตนเอง", en: "Debt entries locked to own branch", roles: [5], feOnly: true, note: "ตำแหน่ง scope own_branch — backend ล็อกสาขาเอง" },
+  "customers.company.add": { code: (me) => me.roleId === MANAGER_POSITION_ID, no: null, module: "Frontend only", label: "เพิ่มบริษัท (ลูกค้านิติบุคคล)", en: "Add company customer", roles: [2], feOnly: true, note: "กฎธุรกิจเดิม: ผู้จัดการ + ผู้ใช้ชื่อ HA (ดู canSeeAddCompany) — backend เช็คแค่ customer.register" },
 })
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const IS_DEV = Boolean(import.meta.env?.DEV)
 const warned = new Set()
+
+/** เลขฟังก์ชันใน matrix → permission code ของ backend */
+const CODE_BY_NO = Object.freeze(
+  Object.fromEntries(Object.entries(PERMISSION_MATRIX).map(([code, m]) => [m.no, code])),
+)
 
 function lookup(key) {
   const p = PERMISSIONS[key]
@@ -322,22 +336,110 @@ function lookup(key) {
   return p
 }
 
-/** role ids ที่ได้สิทธิ์ของคีย์นี้ ("any"/"public" → ทุก role) */
+/** code ของ backend ที่คีย์นี้ใช้ (string | string[] | "login" | "superadmin" | function | null) */
+export function codeFor(key) {
+  const p = PERMISSIONS[key]
+  if (!p) return null
+  if (p.roles === "public") return "public"
+  if (p.code !== undefined) return p.code
+  return p.no != null ? CODE_BY_NO[p.no] ?? null : null
+}
+
+// ผู้ใช้ปัจจุบันในโหมด RBAC: จาก /auth/me/permissions ถ้าโหลดแล้ว, ถ้ายังไม่ได้แต่ token เป็นตำแหน่ง 101–142
+// ใช้ตาราง rbacMatrix.js ชั่วคราว (กันเมนูว่างระหว่างโหลด). null = backend รุ่นเก่า → ใช้ `roles` เดิม
+let meCache = { version: -1, token: null, me: null }
+
+function makeMe(roleId, scope, senior, codes) {
+  const set = new Set(codes)
+  const superAdmin = roleId === SUPER_ADMIN
+  return Object.freeze({ roleId, scope, senior, superAdmin, has: (c) => superAdmin || set.has(c) })
+}
+
+function rbacMe() {
+  const version = getMyPermissionsVersion()
+  const token = localStorage.getItem("token")
+  if (meCache.version === version && meCache.token === token) return meCache.me
+  let me = null
+  const mine = getMyPermissions()
+  if (mine) {
+    me = makeMe(mine.role_id, mine.scope, mine.senior, mine.permissions)
+  } else {
+    const rid = getRoleId()
+    const pos = POSITION_ROLES[rid]
+    if (pos) {
+      const codes = Object.entries(PERMISSION_MATRIX).filter(([, m]) => m.roles.includes(rid)).map(([c]) => c)
+      me = makeMe(rid, pos.scope, pos.senior, codes)
+    }
+  }
+  meCache = { version, token, me }
+  return me
+}
+
+/** ใช้สิทธิ์แบบ permission code (backend PR #13) อยู่ไหม — false = backend รุ่นเก่า (role 1–7) */
+export function isRbacMode() {
+  return rbacMe() != null
+}
+
+/** ข้อมูลผู้ใช้ในโหมด RBAC: { roleId, scope, senior, superAdmin, has(code) } หรือ null */
+export function currentAccess() {
+  return rbacMe()
+}
+
+/**
+ * ผู้ใช้เลือกสาขาอื่นได้ไหม (scope "all") — false = ล็อกที่สาขาที่ใช้งานอยู่ (scope "own_branch")
+ * backend บังคับเองอยู่แล้ว ตัวนี้แค่ซ่อน/ล็อกตัวเลือกสาขา. backend รุ่นเก่า → true (คงพฤติกรรมเดิม)
+ */
+export function canPickAnyBranch() {
+  const me = rbacMe()
+  if (!me) return true
+  return me.superAdmin || me.scope === "all"
+}
+
+function grantRbac(code, me) {
+  if (code == null) return me.superAdmin
+  if (code === "public" || code === "login") return true
+  if (code === "superadmin") return me.superAdmin
+  if (typeof code === "function") return Boolean(code(me))
+  if (Array.isArray(code)) return code.some((c) => me.has(c))
+  return me.has(code)
+}
+
+function grantLegacy(p, roleId) {
+  const r = Number(roleId)
+  if (!Number.isFinite(r) || r <= 0) return false
+  if (p.roles === "any") return true
+  return Array.isArray(p.roles) && p.roles.includes(r)
+}
+
+/** role ids (legacy 1–7) ที่ได้สิทธิ์ของคีย์นี้ ("any"/"public" → ทุก role) */
 export function rolesFor(key) {
   const p = PERMISSIONS[key]
   if (!p) return []
   return Array.isArray(p.roles) ? p.roles : ROLE_IDS
 }
 
-/** ผู้ใช้ (role ปัจจุบันโดย default) มีสิทธิ์ใช้คีย์นี้ไหม — คีย์ที่ไม่รู้จัก → false */
+/** position ids (101–142) ที่ได้สิทธิ์ของคีย์นี้ตาม rbacMatrix.js (ไม่รวม Super Admin ที่ได้ทุกอย่าง) */
+export function positionsFor(key) {
+  const code = codeFor(key)
+  const ids = Object.keys(POSITION_ROLES).map(Number)
+  return ids.filter((id) => {
+    const pos = POSITION_ROLES[id]
+    const codes = Object.entries(PERMISSION_MATRIX).filter(([, m]) => m.roles.includes(id)).map(([c]) => c)
+    return grantRbac(code, makeMe(id, pos.scope, pos.senior, codes))
+  })
+}
+
+/**
+ * ผู้ใช้ปัจจุบันมีสิทธิ์ใช้คีย์นี้ไหม — คีย์ที่ไม่รู้จัก → false
+ * roleId ใช้เฉพาะโหมด legacy (backend รุ่นเก่า); โหมด RBAC ใช้รายการ code ของผู้ใช้ที่ล็อกอินอยู่เสมอ
+ */
 export function can(key, roleId = getRoleId()) {
   const p = lookup(key)
   if (!p) return false
   if (p.roles === "public") return true
-  const r = Number(roleId)
-  if (!Number.isFinite(r) || r <= 0) return false
-  if (p.roles === "any") return true
-  return p.roles.includes(r)
+  const me = rbacMe()
+  if (me) return grantRbac(codeFor(key), me)
+  return grantLegacy(p, roleId)
 }
 
 export function canAny(keys, roleId = getRoleId()) {
@@ -362,18 +464,38 @@ export function checkAccess({ perm, anyOf, allOf, allow } = {}, roleId = getRole
   return true
 }
 
-/** Hook สำหรับ component — อ่าน role ครั้งเดียวต่อ render */
+/** Hook สำหรับ component — re-render เมื่อโหลดสิทธิ์จาก backend เสร็จ/เปลี่ยน */
 export function useCan() {
   const roleId = getRoleId()
+  const version = useMyPermissionsVersion()
   return useMemo(
     () => ({
       roleId,
+      version,
       can: (key) => can(key, roleId),
       canAny: (keys) => canAny(keys, roleId),
       canAll: (keys) => canAll(keys, roleId),
+      canPickAnyBranch: () => canPickAnyBranch(),
     }),
-    [roleId],
+    [roleId, version],
   )
+}
+
+/** ชื่อตำแหน่งของผู้ใช้ที่ล็อกอินอยู่ (role_name จาก backend → ตาราง role) */
+export function myRoleLabel() {
+  const mine = getMyPermissions()
+  if (mine?.role_name) return mine.role_name
+  const rid = getRoleId()
+  return POSITION_ROLES[rid]?.name ?? ROLE_LABEL[rid] ?? (rid ? `Role ${rid}` : "—")
+}
+
+/**
+ * ตัวเลือก role ตอนสร้างผู้ใช้ / แก้พนักงาน: ตำแหน่ง 101–142 (backend PR #13)
+ * backend รุ่นเก่า → role 2–7 เดิม (ไม่รวม Admin — สร้างผ่านช่องทางผู้ดูแลระบบเท่านั้น)
+ */
+export function assignableRoleOptions() {
+  if (isRbacMode()) return POSITION_ROLE_OPTIONS
+  return ROLE_IDS.filter((id) => id !== ROLE.ADMIN).map((id) => ({ value: id, label: ROLE_LABEL[id] }))
 }
 
 /** แถวทั้งหมดของ registry (เรียงตามเลขฟังก์ชัน, คีย์เฉพาะหน้าเว็บอยู่ท้าย) — ใช้กับหน้า /admin/roles */
@@ -404,10 +526,12 @@ export function canBringInMill(user = getUser()) {
 }
 
 /**
- * เมนู/หน้า "เพิ่มบริษัท" — คีย์ customers.company.add (role 2)
- * + เคสพิเศษ: ผู้ใช้ชื่อ "HA" ที่เป็นหัวหน้าฝ่ายบัญชี/การเงิน (role 4)
+ * เมนู/หน้า "เพิ่มบริษัท" — คีย์ customers.company.add (ผู้จัดการ)
+ * + เคสพิเศษ: ผู้ใช้ชื่อ "HA" (หัวหน้าฝ่ายบัญชี) — ต้องมีสิทธิ์สมัครลูกค้าด้วย
  */
 export function canSeeAddCompany(user = getUser(), roleId = getRoleId()) {
   if (can("customers.company.add", roleId)) return true
-  return user?.username === "HA" && Number(roleId) === ROLE.HEAD_ACCOUNTANT
+  if (user?.username !== "HA") return false
+  if (isRbacMode()) return can("customers.create")
+  return Number(roleId) === ROLE.HEAD_ACCOUNTANT
 }

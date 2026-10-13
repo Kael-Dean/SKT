@@ -1,14 +1,23 @@
 // src/lib/roles.js
 // ─────────────────────────────────────────────────────────────────────────────
-// Role ids ที่ backend ใส่ใน JWT claim `role` (int) — แหล่งความจริงเดียวของเลข role
-// ฝั่ง frontend. Component ห้าม hardcode เลข role เอง: ใช้ permission key จาก
-// src/lib/permissions.js (can / <Can> / <RequirePermission>) แทน
+// Role ids — แหล่งความจริงเดียวของเลข role ฝั่ง frontend. Component ห้าม hardcode เลข role เอง:
+// ใช้ permission key จาก src/lib/permissions.js (can / <Can> / <RequirePermission>) แทน
 //
-// Backend reference: auth.py → require_role(...)
+// Backend PR #13 (RBAC matrix): role 1 = Super Admin (ทำได้ทุกอย่าง) + ตำแหน่ง 101–142
+//   (ชื่อ/scope อยู่ใน src/lib/rbacMatrix.js) — สิทธิ์จริงมาจาก GET /auth/me/permissions
+//
+// Legacy (backend ก่อน PR #13, auth.py → require_role(...)) — ใช้เป็น fallback เท่านั้น:
 //   1 Admin · 2 ผู้จัดการ · 3 HR · 4 หัวหน้าฝ่ายบัญชี/การเงิน · 5 พนักงาน
-//   6 หัวหน้าสาขา/ฝ่าย (ฝั่ง server จำกัดให้เห็นเฉพาะสาขาบ้าน + สาขาที่ได้รับมอบหมาย)
-//   7 ผู้ช่วยผู้จัดการ
+//   6 หัวหน้าสาขา/ฝ่าย · 7 ผู้ช่วยผู้จัดการ
 // ─────────────────────────────────────────────────────────────────────────────
+import { POSITION_ROLES } from "./rbacMatrix"
+
+export const SUPER_ADMIN = 1
+
+/** ตำแหน่งที่ใช้ในกฎเฉพาะหน้าเว็บ (permissions.js) — ไม่ใช่การให้สิทธิ์ */
+export const MANAGER_POSITION_ID = 101
+/** หัวหน้าแผนกบุคคล + เจ้าหน้าที่บุคคล → เมนูด้านข้างแบบ HR */
+export const HR_POSITION_IDS = Object.freeze(new Set([117, 130]))
 
 export const ROLE = Object.freeze({
   ADMIN: 1,
@@ -58,11 +67,11 @@ export const ROLE_BADGE_TONE = Object.freeze({
 
 export const DEFAULT_ROLE_BADGE_TONE = "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
 
-/** ชื่อ role ภาษาไทย; ไม่รู้จัก → "Role N" (หรือ "—" ถ้าไม่มีค่า) */
+/** ชื่อ role ภาษาไทย (ตำแหน่ง 101–142 หรือ role เดิม); ไม่รู้จัก → "Role N" (หรือ "—" ถ้าไม่มีค่า) */
 export function roleLabel(id) {
   const n = Number(id)
   if (!Number.isFinite(n) || n <= 0) return "—"
-  return ROLE_LABEL[n] ?? `Role ${n}`
+  return POSITION_ROLES[n]?.name ?? ROLE_LABEL[n] ?? `Role ${n}`
 }
 
 export function roleShortLabel(id) {
@@ -70,11 +79,25 @@ export function roleShortLabel(id) {
   return ROLE_SHORT_LABEL[n] ?? roleLabel(n)
 }
 
+/** สี badge: ตำแหน่ง 101–142 แยกตามกลุ่ม (บริหาร / หัวหน้า / เจ้าหน้าที่) */
 export function roleBadgeTone(id) {
-  return ROLE_BADGE_TONE[Number(id)] ?? DEFAULT_ROLE_BADGE_TONE
+  const n = Number(id)
+  const pos = POSITION_ROLES[n]
+  if (pos) {
+    if (n <= 103) return ROLE_BADGE_TONE[ROLE.MANAGER]
+    if (HR_POSITION_IDS.has(n)) return ROLE_BADGE_TONE[ROLE.HR]
+    if (pos.senior) return ROLE_BADGE_TONE[ROLE.BRANCH_HEAD]
+    return ROLE_BADGE_TONE[ROLE.STAFF]
+  }
+  return ROLE_BADGE_TONE[n] ?? DEFAULT_ROLE_BADGE_TONE
 }
 
-/** ตัวเลือก role ตอนสร้าง/แก้ผู้ใช้ (ไม่รวม Admin — สร้างผ่านช่องทางผู้ดูแลระบบเท่านั้น) */
+/** ตัวเลือกตำแหน่ง 101–142 (backend PR #13) — ใช้ assignableRoleOptions() ใน permissions.js เพื่อเลือกชุดที่ถูกกับ backend */
+export const POSITION_ROLE_OPTIONS = Object.freeze(
+  Object.entries(POSITION_ROLES).map(([id, r]) => ({ value: Number(id), label: r.name })),
+)
+
+/** @deprecated role เดิม 2–7 — ใช้ assignableRoleOptions() จาก permissions.js */
 export const ASSIGNABLE_ROLE_OPTIONS = Object.freeze(
   ROLE_IDS.filter((id) => id !== ROLE.ADMIN).map((id) => ({ value: id, label: ROLE_LABEL[id] })),
 )

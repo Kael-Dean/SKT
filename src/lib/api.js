@@ -91,6 +91,17 @@ import { getToken, getUser, logout } from "./auth";
 // guard: ป้องกัน 401 หลายตัวพร้อมกัน (เช่น Promise.all) redirect ซ้ำหลายครั้ง
 let _redirecting401 = false;
 
+// 403 = ล็อกอินอยู่แต่ตำแหน่งไม่มีสิทธิ์ใช้ฟังก์ชันนี้ (backend RBAC) → แจ้ง myPermissions.js ให้โหลดสิทธิ์ใหม่
+// (ใช้ event แทน import ตรง ๆ เพื่อไม่ให้ไฟล์ import วนกัน). ข้อความให้ผู้ใช้ = err.message (detail จาก backend)
+export const API_FORBIDDEN_EVENT = "api:forbidden";
+const PERMISSIONS_PATH = "/auth/me/permissions";
+
+function _notifyForbidden(path, err) {
+  if (typeof window === "undefined") return;
+  if (String(path || "").replace(/^\/+/, "/").startsWith(PERMISSIONS_PATH)) return; // กันวน
+  window.dispatchEvent(new CustomEvent(API_FORBIDDEN_EVENT, { detail: { path, message: err?.message } }));
+}
+
 function _expireSession() {
   _redirecting401 = true;
   logout();
@@ -125,6 +136,7 @@ export async function apiAuth(path, opts = {}) {
     if (err.status === 401 && redirectOn401 && !_redirecting401) {
       _expireSession();
     }
+    if (err.status === 403) _notifyForbidden(path, err);
     throw err;
   }
 }
@@ -143,8 +155,18 @@ export async function apiDownload(path, opts = {}) {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    const err = new Error(text || res.statusText || "Download failed");
+    let msg = text;
+    try {
+      const d = JSON.parse(text)?.detail;
+      if (typeof d === "string" && d) msg = d;
+      else if (Array.isArray(d)) msg = d.map((x) => x?.msg || JSON.stringify(x)).join(" | ");
+    } catch {
+      // ไม่ใช่ JSON — ใช้ข้อความดิบ
+    }
+    const err = new Error(msg || res.statusText || "Download failed");
     err.status = res.status;
+    if (res.status === 401 && token && !_redirecting401) _expireSession();
+    if (res.status === 403) _notifyForbidden(path, err);
     throw err;
   }
   const blob = await res.blob();

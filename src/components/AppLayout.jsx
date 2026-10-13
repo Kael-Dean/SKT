@@ -4,6 +4,7 @@ import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
 import Toaster from "./ui/Toaster"
 import { recordVisit } from "../lib/recentRoutes"
+import { loadMyPermissions, useMyPermissionsVersion } from "../lib/myPermissions"
 
 export const SidebarContext = createContext(false)
 export const useSidebarOpen = () => useContext(SidebarContext)
@@ -35,6 +36,11 @@ const AppLayout = () => {
   const [darkMode, setDarkMode] = useState(getInitialDark)
   // หน้าตารางหนักอ่าน SidebarContext — defer เพื่อไม่ให้ re-render บล็อกเฟรมแรกของ drawer slide
   const deferredSidebarOpen = useDeferredValue(isSidebarOpen)
+  // สิทธิ์จาก GET /auth/me/permissions — โหลดตอนเปิดแอป/reload; เปลี่ยนเมื่อไหร่ทั้ง layout re-render (เมนู/ปุ่ม)
+  useMyPermissionsVersion()
+  useEffect(() => {
+    loadMyPermissions()
+  }, [])
 
   const isHome = location.pathname === "/home"
   const isHrDashboard = location.pathname === "/hr/dashboard"

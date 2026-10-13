@@ -11,7 +11,7 @@ import { ChevronLeft, Menu, Moon, Sun, X } from "lucide-react";
 import { getUser, getRoleId } from "../lib/auth";
 import BranchSwitcher from "./BranchSwitcher";
 import NotificationBell from "./NotificationBell";
-import { roleLabel } from "../lib/roles";
+import { myRoleLabel } from "../lib/permissions";
 
 // Shared chrome for the icon buttons; display + size are set per button so
 // `hidden md:inline-flex` on the dark toggle is not out-ranked by `inline-flex`.
@@ -67,7 +67,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
   const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`;
 
   const displayName = userInfo.username || "ไม่พบผู้ใช้";
-  const displayRole = roleLabel(userInfo.roleId);
+  const displayRole = myRoleLabel(); // role_name จาก /auth/me/permissions (DB) — ไม่ใช่ claim ใน JWT ที่อาจเก่า
   const avatarLetter = (displayName[0] || "U").toUpperCase();
 
   return (

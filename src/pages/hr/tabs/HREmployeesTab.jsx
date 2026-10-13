@@ -8,7 +8,8 @@ import Portal from "../../../components/Portal"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 import StatusMsg from "../../../components/hr/StatusMsg"
 import useModalDismiss from "../../../lib/useModalDismiss"
-import { ASSIGNABLE_ROLE_OPTIONS, roleBadgeTone, roleLabel } from "../../../lib/roles"
+import { roleBadgeTone, roleLabel } from "../../../lib/roles"
+import { assignableRoleOptions } from "../../../lib/permissions"
 
 const EMPLOYEE_COLS = 6
 
@@ -394,7 +395,7 @@ export default function HREmployeesTab() {
                 <SelectDropdown value={form.m_status} onChange={(v) => setForm(f => ({ ...f, m_status: v }))} placeholder="เลือกสถานภาพ" options={MARITAL_OPTIONS} />
               </Field>
               <Field label="ตำแหน่ง/Role" required>
-                <SelectDropdown value={form.role_id} onChange={(v) => setForm(f => ({ ...f, role_id: v }))} placeholder="เลือก Role" options={ASSIGNABLE_ROLE_OPTIONS} />
+                <SelectDropdown value={form.role_id} onChange={(v) => setForm(f => ({ ...f, role_id: v }))} placeholder="เลือก Role" options={assignableRoleOptions()} />
               </Field>
               <Field label="สาขา" required>
                 <SelectDropdown value={form.branch_location} onChange={(v) => setForm(f => ({ ...f, branch_location: v }))} placeholder="เลือกสาขา" options={branches} />

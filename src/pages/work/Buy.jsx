@@ -150,7 +150,7 @@ const Buy = () => {
     return vLabel ? `ชั้นย่อย: ${vLabel}` : ""
   }
 
-  /** ⭐ ประเภทผู้ซื้อ */
+  /** ⭐ ประเภทผู้ขาย */
   const buyerTypeOptions = [
     { id: "person", label: "บุคคลธรรมดา" },
     { id: "company", label: "บริษัท / นิติบุคคล" },
@@ -1585,17 +1585,17 @@ const pickNameResult = async (rec) => {
     const programId = /^\d+$/.test(order.programId) ? Number(order.programId) : null
     const paymentId = resolvePaymentIdForBE()
 
-    if (!productId) return scrollToFirstError({ product: true })
-    if (!riceId) return scrollToFirstError({ riceType: true })
-    if (!subriceId) return scrollToFirstError({ subrice: true })
-    if (!riceYearId) return scrollToFirstError({ riceYear: true })
-    if (!conditionId) return scrollToFirstError({ condition: true })
-    if (!fieldTypeId) return scrollToFirstError({ fieldType: true })
-    if (!programId) return scrollToFirstError({ program: true })
-    if (!businessTypeId) return scrollToFirstError({ businessType: true })
-    if (!branchId) return scrollToFirstError({ branchName: true })
-    if (!klangId) return scrollToFirstError({ klangName: true })
-    if (!paymentId) return scrollToFirstError({ payment: true })
+    // ทุกทางออกต้องบอกผู้ใช้ว่าทำไมยังไม่บันทึก — เดิม return เงียบ ทำให้ "กดบันทึกแล้วไม่มีอะไรเกิดขึ้น" (handoff F18)
+    const missingId = [
+      [productId, "product"], [riceId, "riceType"], [subriceId, "subrice"], [riceYearId, "riceYear"],
+      [conditionId, "condition"], [fieldTypeId, "fieldType"], [programId, "program"], [businessTypeId, "businessType"],
+      [branchId, "branchName"], [klangId, "klangName"], [paymentId, "payment"],
+    ].find(([v]) => !v)
+    if (missingId) {
+      const key = missingId[1]
+      reportIncomplete({ [key]: SPEC_LOCKED_KEYS.includes(key) ? "ฟอร์มสินค้านี้ข้อมูลไม่ครบ เลือกฟอร์มอื่น" : "กรอกข้อมูล" })
+      return
+    }
 
     const baseGross = grossFromScale
     const deduction = order.manualDeduct

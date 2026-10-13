@@ -1,10 +1,12 @@
 // src/pages/MemberSignup.jsx
-import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useThaiAddressData } from "../../hooks/useThaiAddressData"
 import { apiAuth } from "../../lib/api"   // ✅ แนบ token อัตโนมัติ + จัดการ 401
 import { cx, baseField, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, secondaryBtnCls, spinnerCls } from "../../lib/styles"
 import { Card, CardHeader, PageLoader, Sheet, StickyActionBar, toast } from "../../components/ui"
 import ComboBox from "../../components/ComboBox"
 import { useIsPhone } from "../../hooks/useMediaQuery"
+import DateInput from "../../components/ThaiDateField"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -169,38 +171,7 @@ const TAMBONS_BY_AMPHOE = {
 }
 
 /** ---------- DateInput ---------- */
-const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
-  const inputRef = useRef(null)
-  useImperativeHandle(ref, () => inputRef.current)
-
-  return (
-    <div className="relative">
-      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
-      <input
-        type="date"
-        ref={inputRef}
-        className={cx(baseField, "pr-12 cursor-pointer", error && fieldError, className)}
-        {...props}
-      />
-      <button
-        type="button"
-        onClick={() => {
-          const el = inputRef.current
-          if (!el) return
-          if (typeof el.showPicker === "function") el.showPicker()
-          else { el.focus(); el.click?.() }
-        }}
-        aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
-                    transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer bg-transparent"
-      >
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
-          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
-        </svg>
-      </button>
-    </div>
-  )
-})
+// ช่องวันที่ไทย (วัน เดือน พ.ศ.) ตัวกลาง — API เหมือน input เดิม (handoff F25)
 
 /** ---------- Receipt (Sheet: bottom sheet <md / dialog ≥md) — ปุ่มพิมพ์ใบเสร็จคงเดิม ---------- */
 function ReceiptModal({ open, onClose, receipt, name }) {
@@ -339,6 +310,23 @@ const MemberSignup = () => {
     setTambonOptions(options)
   }
 
+  /** รหัสไปรษณีย์ตามตำบล (เหมือนฟอร์มลูกค้า) — handoff F20 */
+  const thaiAddr = useThaiAddressData()
+  const zipFor = (amphoe, tambon) => {
+    if (!thaiAddr.ready || !amphoe || !tambon) return ""
+    const { dist: DK, subd: SK, prov: PK } = thaiAddr.keys
+    const clean = (x) => String(x ?? "").replace(/^(อำเภอ|อ\.|เขต|ตำบล|ต\.|แขวง)\s*/, "").trim()
+    const prov = thaiAddr.provinces.find((r) => clean(r?.[PK.name]) === clean(PROV_SURIN))
+    const dist = thaiAddr.districts.find(
+      (r) => clean(r?.[DK.name]) === clean(amphoe) && (!prov || String(r?.[DK.provId]) === String(prov?.[PK.id]))
+    )
+    if (!dist) return ""
+    const sub = thaiAddr.subdistricts.find(
+      (r) => String(r?.[SK.distId]) === String(dist?.[DK.id]) && clean(r?.[SK.name]) === clean(tambon)
+    )
+    return sub?.[SK.zip] != null ? String(sub[SK.zip]) : ""
+  }
+
   // โหลดอำเภอครั้งแรก + ล็อกจังหวัดเป็นสุรินทร์เสมอ
   useEffect(() => {
     if (form.province !== PROV_SURIN) {
@@ -398,7 +386,7 @@ const MemberSignup = () => {
   // Hook enter-to-next
   const { onEnter, focusNext } = useEnterNavigation(refs)
 
-  const update = (k, v) => setForm((prev) => ({ ...prev, [k]: v }))
+  const update = (k, v) => { setForm((prev) => ({ ...prev, [k]: v })); clearError(k) }
   const clearError = (key) =>
     setErrors((prev) => {
       if (!(key in prev)) return prev
@@ -534,13 +522,14 @@ const MemberSignup = () => {
       sub_district: form.sub_district.trim(),
       district: form.district.trim(),
       province: PROV_SURIN,
-      subprov: form.subprov === "" ? 0 : Number(form.subprov), // ต้องเป็น int
-      postal_code: form.postal_code === "" ? 0 : Number(form.postal_code),
+      // ช่องว่าง = null (เดิมส่ง 0) — handoff F20
+      subprov: form.subprov === "" ? null : Number(form.subprov),
+      postal_code: form.postal_code === "" ? null : Number(form.postal_code),
       phone_number: (form.phone_number ?? "").toString().trim(),
       sex: form.sex,
 
       // เฉพาะที่ใช้
-      tgs_group: form.tgs_group === "" ? 0 : Number(form.tgs_group),
+      tgs_group: form.tgs_group === "" ? null : Number(form.tgs_group),
       bank_account: (form.bank_account ?? "").toString().trim(),
       tgs_id: form.tgs_id.trim(),
       spouce_name: (form.spouce_name ?? "").toString().trim(),
@@ -685,7 +674,7 @@ const MemberSignup = () => {
             <CardHeader title="โครงการที่เข้าร่วม" />
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               {[
-                { key: "seedling_prog",  label: "โครงการผลิตเมล็ดพันธ์" },
+                { key: "seedling_prog",  label: "โครงการผลิตเมล็ดพันธุ์" },
                 { key: "slowdown_rice",  label: "โครงการชะลอข้าวเปลือก" },
                 { key: "organic_prog",   label: "โครงการอินทรีย์" },
                 { key: "product_loan",   label: "โครงการสินค้าเป็นเงินเชื่อ" },
@@ -740,7 +729,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.member_id && fieldError)}
                   value={form.member_id}
                   onChange={(e) => { clearError("member_id"); update("member_id", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("member_id")}
                   onKeyDown={onEnter("member_id")}
                   placeholder="เช่น 11263"
                   aria-invalid={errors.member_id ? true : undefined}
@@ -775,7 +763,6 @@ const MemberSignup = () => {
                   ref={refs.regis_date}
                   value={form.regis_date}
                   onChange={(e) => { clearError("regis_date"); update("regis_date", e.target.value) }}
-                  onFocus={() => clearError("regis_date")}
                   error={!!errors.regis_date}
                   aria-invalid={errors.regis_date ? true : undefined}
                 />
@@ -791,7 +778,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.first_name && fieldError)}
                   value={form.first_name}
                   onChange={(e) => { clearError("first_name"); update("first_name", e.target.value) }}
-                  onFocus={() => clearError("first_name")}
                   onKeyDown={onEnter("first_name")}
                   placeholder="สมชาย"
                   aria-invalid={errors.first_name ? true : undefined}
@@ -808,7 +794,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.last_name && fieldError)}
                   value={form.last_name}
                   onChange={(e) => { clearError("last_name"); update("last_name", e.target.value) }}
-                  onFocus={() => clearError("last_name")}
                   onKeyDown={onEnter("last_name")}
                   placeholder="ใจดี"
                   aria-invalid={errors.last_name ? true : undefined}
@@ -827,7 +812,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.citizen_id && fieldError)}
                   value={form.citizen_id}
                   onChange={(e) => { clearError("citizen_id"); update("citizen_id", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("citizen_id")}
                   onKeyDown={onEnter("citizen_id")}
                   placeholder="1234567890123"
                   aria-invalid={errors.citizen_id ? true : undefined}
@@ -890,7 +874,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.address && fieldError)}
                   value={form.address}
                   onChange={(e) => { clearError("address"); update("address", e.target.value) }}
-                  onFocus={() => clearError("address")}
                   onKeyDown={onEnter("address")}
                   placeholder="เช่น 123/4"
                   aria-invalid={errors.address ? true : undefined}
@@ -955,7 +938,12 @@ const MemberSignup = () => {
                   <ComboBox
                     options={tambonOptions}
                     value={form.sub_district}
-                    onChange={(v) => { clearError("sub_district"); update("sub_district", v) }}
+                    onChange={(v) => {
+                      clearError("sub_district")
+                      update("sub_district", v)
+                      const zip = zipFor(form.district, v)
+                      if (zip) update("postal_code", zip)
+                    }}
                     placeholder={form.district ? "— เลือกตำบล —" : "เลือกอำเภอก่อน"}
                     title="ตำบล"
                     ariaLabel="ตำบล"
@@ -992,7 +980,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.postal_code && fieldError)}
                   value={form.postal_code}
                   onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("postal_code")}
                   onKeyDown={onEnter("postal_code")}
                   placeholder="32000"
                   aria-invalid={errors.postal_code ? true : undefined}
@@ -1009,7 +996,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.phone_number && fieldError)}
                   value={form.phone_number}
                   onChange={(e) => { clearError("phone_number"); update("phone_number", e.target.value) }}
-                  onFocus={() => clearError("phone_number")}
                   onKeyDown={onEnter("phone_number")}
                   placeholder="08x-xxx-xxxx"
                   aria-invalid={errors.phone_number ? true : undefined}
@@ -1033,7 +1019,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.tgs_group && fieldError)}
                   value={form.tgs_group}
                   onChange={(e) => { clearError("tgs_group"); update("tgs_group", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("tgs_group")}
                   onKeyDown={onEnter("tgs_group")}
                   placeholder="16"
                   aria-invalid={errors.tgs_group ? true : undefined}
@@ -1115,7 +1100,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.fid && fieldError)}
                   value={form.fid}
                   onChange={(e) => { clearError("fid"); update("fid", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("fid")}
                   onKeyDown={onEnter("fid")}
                   placeholder="เช่น 123456"
                   aria-invalid={errors.fid ? true : undefined}
@@ -1131,7 +1115,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.fid_owner && fieldError)}
                   value={form.fid_owner}
                   onChange={(e) => { clearError("fid_owner"); update("fid_owner", e.target.value) }}
-                  onFocus={() => clearError("fid_owner")}
                   onKeyDown={onEnter("fid_owner")}
                   placeholder="เช่น นายสมชาย ใจดี"
                   aria-invalid={errors.fid_owner ? true : undefined}
@@ -1148,7 +1131,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.agri_type && fieldError)}
                   value={form.agri_type}
                   onChange={(e) => { clearError("agri_type"); update("agri_type", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("agri_type")}
                   onKeyDown={onEnter("agri_type")}
                   placeholder="เช่น 1"
                   aria-invalid={errors.agri_type ? true : undefined}
@@ -1165,7 +1147,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.fertilizing_period && fieldError)}
                   value={form.fertilizing_period}
                   onChange={(e) => { clearError("fertilizing_period"); update("fertilizing_period", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("fertilizing_period")}
                   onKeyDown={onEnter("fertilizing_period")}
                   placeholder="เช่น 2"
                   aria-invalid={errors.fertilizing_period ? true : undefined}
@@ -1182,7 +1163,6 @@ const MemberSignup = () => {
                   className={cx(baseField, errors.fertilizer_type && fieldError)}
                   value={form.fertilizer_type}
                   onChange={(e) => { clearError("fertilizer_type"); update("fertilizer_type", onlyDigits(e.target.value)) }}
-                  onFocus={() => clearError("fertilizer_type")}
                   onKeyDown={onEnter("fertilizer_type")}
                   placeholder="เช่น 16160 (แทน 16-16-0)"
                   aria-invalid={errors.fertilizer_type ? true : undefined}

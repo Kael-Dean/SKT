@@ -1,5 +1,5 @@
 // src/pages/CustomerAdd.jsx
-import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
 
 // ✅ โหลดฐานข้อมูลที่อยู่ไทยแบบ fetch-on-demand (sub_district.json 2.2MB ไม่ถูกฝังใน bundle)
@@ -7,6 +7,7 @@ import { useThaiAddressData } from "../../hooks/useThaiAddressData"
 import { cx, baseField, labelCls, errorTextCls, submitBtnCls, resetBtnCls, spinnerCls } from "../../lib/styles"
 import { Card, CardHeader, PageLoader, ErrorState, toast } from "../../components/ui"
 import ComboBox from "../../components/ComboBox"
+import DateInput from "../../components/ThaiDateField"
 
 /* -------------------------- Utilities & helpers -------------------------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -26,37 +27,7 @@ const fieldError = "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border
 
 
 /* -------------------------------- DateInput ------------------------------- */
-const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
-  const inputRef = useRef(null)
-  useImperativeHandle(ref, () => inputRef.current)
-  return (
-    <div className="relative">
-      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
-      <input
-        type="date"
-        ref={inputRef}
-        className={cx(baseField, "pr-12 cursor-pointer", error && fieldError, className)}
-        {...props}
-      />
-      <button
-        type="button"
-        onClick={() => {
-          const el = inputRef.current
-          if (!el) return
-          if (typeof el.showPicker === "function") el.showPicker()
-          else { el.focus(); el.click?.() }
-        }}
-        aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-                   transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
-      >
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
-          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
-        </svg>
-      </button>
-    </div>
-  )
-})
+// ช่องวันที่ไทย (วัน เดือน พ.ศ.) ตัวกลาง — API เหมือน input เดิม (handoff F25)
 
 /* -------------------------- Prefix/sex helpers --------------------------- */
 const PREFIX_OPTIONS = [
@@ -147,7 +118,7 @@ const CustomerAdd = () => {
     fid_relationship: "",
   })
 
-  const update = (k, v) => setForm((p) => ({ ...p, [k]: v }))
+  const update = (k, v) => { setForm((p) => ({ ...p, [k]: v })); clearError(k) }
   const clearError = (k) =>
     setErrors((prev) => {
       if (!(k in prev)) return prev
@@ -473,7 +444,6 @@ const CustomerAdd = () => {
                   className={cx(baseField, errors.citizen_id && fieldError)}
                   value={form.citizen_id}
                   onChange={(e) => { clearError("citizen_id"); update("citizen_id", onlyDigits(e.target.value).slice(0,13)) }}
-                  onFocus={() => clearError("citizen_id")}
                   placeholder="เช่น 1234567890123"
                   aria-invalid={errors.citizen_id ? true : undefined}
                   {...bindEnter(0)}
@@ -504,7 +474,6 @@ const CustomerAdd = () => {
                   className={cx(baseField, errors.full_name && fieldError)}
                   value={form.full_name}
                   onChange={(e) => { clearError("full_name"); update("full_name", e.target.value) }}
-                  onFocus={() => clearError("full_name")}
                   placeholder="เช่น นายสมชาย ใจดี"
                   aria-invalid={errors.full_name ? true : undefined}
                   {...bindEnter(2)}
@@ -522,7 +491,6 @@ const CustomerAdd = () => {
                   className={cx(baseField, errors.address && fieldError)}
                   value={form.address}
                   onChange={(e) => { clearError("address"); update("address", e.target.value) }}
-                  onFocus={() => clearError("address")}
                   placeholder="เช่น 99/1"
                   aria-invalid={errors.address ? true : undefined}
                   {...bindEnter(3)}
@@ -621,7 +589,6 @@ const CustomerAdd = () => {
                   className={cx(baseField, errors.postal_code && fieldError)}
                   value={form.postal_code}
                   onChange={(e) => { clearError("postal_code"); update("postal_code", onlyDigits(e.target.value).slice(0,5)) }}
-                  onFocus={() => clearError("postal_code")}
                   placeholder="เช่น 32000"
                   aria-invalid={errors.postal_code ? true : undefined}
                   {...bindEnter(8)}
@@ -666,7 +633,6 @@ const CustomerAdd = () => {
                     className={cx(baseField, errors.fid && fieldError)}
                     value={form.fid}
                     onChange={(e) => { clearError("fid"); update("fid", e.target.value) }}
-                    onFocus={() => clearError("fid")}
                     placeholder="เช่น 123456"
                     aria-invalid={errors.fid ? true : undefined}
                     {...bindEnter(10)}

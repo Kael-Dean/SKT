@@ -267,7 +267,9 @@ function DesktopSpecSection({ form }) {
             <p id="buy-formTemplate-warn" className="mt-1 text-sm text-amber-700 dark:text-amber-300">
               ฟอร์มนี้ไม่มี{missingInTemplate.map(([, , l]) => l).join(", ")}
             </p>
-          ) : null}
+          ) : (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">ไม่พบฟอร์มที่ต้องการ? ติดต่อผู้ดูแลระบบ/ฝ่ายบัญชีเพื่อเพิ่มรหัสข้าว</p>
+          )}
         </div>
 
         {/* สาขา — ตามสิทธิ์ผู้ใช้ = แสดงอย่างเดียว */}

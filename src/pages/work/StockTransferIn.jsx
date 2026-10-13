@@ -1,9 +1,11 @@
 // src/pages/StockTransferIn.jsx
-import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { get, post } from "../../lib/api"
+import { describeApiError } from "../../lib/apiErrors"
 import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, secondaryBtnCls } from "../../lib/styles"
 import { PageLoader, EmptyState, ErrorState, Badge, DataList, StickyActionBar, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
+import DateInput from "../../components/ThaiDateField"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -44,16 +46,17 @@ const SAVE_ERR_TH = [
   [/greater than 0|ensure this value is greater/i, "น้ำหนักหรือราคาต้องมากกว่า 0"],
   [/not found[\s\S]*(klang|warehouse)|(klang|warehouse)[\s\S]*not found/i, "ไม่พบคลังที่เลือก"],
   [/duplicate|already exists/i, "รายการนี้มีอยู่แล้ว"],
-  [/unauthorized|forbidden|credentials/i, "ไม่มีสิทธิ์หรือหมดเวลาใช้งาน"],
 ]
 function describeSaveError(err) {
   const status = err?.status
+  // 403 พร้อม detail = กฎธุรกิจ, 409 = เช่น สต็อกไม่พอ → แสดง detail จาก backend (handoff F6/F7)
+  if (status === 403 || status === 409) return describeApiError(err)
   const raw = String(err?.message || "")
   const isThai = /[฀-๿]/.test(raw)
   const hit = SAVE_ERR_TH.find(([re]) => re.test(raw))?.[1]
   if (hit) return { title: status === 422 ? "ข้อมูลไม่ผ่านการตรวจ" : "บันทึกไม่สำเร็จ", description: hit }
   if (!status) return { title: "บันทึกไม่สำเร็จ", description: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสัญญาณแล้วลองใหม่ ข้อมูลที่กรอกยังอยู่" }
-  if (status === 401 || status === 403) return { title: "ไม่มีสิทธิ์บันทึก", description: "สิทธิ์ของบัญชีนี้ไม่ครอบคลุมรายการนี้ หรือหมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }
+  if (status === 401) return { title: "หมดเวลาใช้งาน", description: "เข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }
   if (status === 409) return { title: "รายการนี้มีอยู่แล้ว", description: isThai ? raw : "รายการนี้ถูกบันทึกไปแล้ว ตรวจก่อนบันทึกซ้ำ" }
   if (status === 422) return { title: "ข้อมูลไม่ผ่านการตรวจ", description: isThai ? raw : "เซิร์ฟเวอร์ปฏิเสธข้อมูลบางช่อง ตรวจค่าที่กรอกแล้วลองใหม่" }
   if (status >= 500) return { title: "เซิร์ฟเวอร์ขัดข้อง", description: "ยังไม่ได้บันทึก ลองใหม่ในอีกสักครู่ ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" }
@@ -83,46 +86,7 @@ const rejectBtnCls =
   "inline-flex items-center justify-center rounded-xl border border-red-300 px-3 py-1.5 text-red-600 font-medium transition-colors duration-150 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 dark:border-red-800/70 dark:text-red-300 dark:hover:bg-red-900/20 cursor-pointer"
 
 /** ---------- DateInput ---------- */
-const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
-  const inputRef = useRef(null)
-  useImperativeHandle(ref, () => inputRef.current)
-
-  return (
-    <div className="relative">
-      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
-      <input
-        type="date"
-        ref={inputRef}
-        className={cx(
-          baseField,
-          "pr-12 cursor-pointer",
-          error && "border-red-400 ring-2 ring-red-300/70",
-          className
-        )}
-        {...props}
-      />
-      <button
-        type="button"
-        onClick={() => {
-          const el = inputRef.current
-          if (!el) return
-          if (typeof el.showPicker === "function") el.showPicker()
-          else {
-            el.focus()
-            el.click?.()
-          }
-        }}
-        aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex size-11 md:size-9 items-center justify-center rounded-xl
-        transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer bg-transparent"
-      >
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
-          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
-        </svg>
-      </button>
-    </div>
-  )
-})
+// ช่องวันที่ไทย (วัน เดือน พ.ศ.) ตัวกลาง — API เหมือน input เดิม (handoff F25)
 
 /** ---------- Main Page (รับเข้า) + FormGuard ---------- */
 function StockTransferIn() {
@@ -463,7 +427,7 @@ function StockTransferIn() {
   const requestsEmpty = (
     <EmptyState
       title="ไม่มีรายการรอรับเข้า"
-      description="เมื่อสาขาอื่นโอนออกมาที่นี่ รายการจะขึ้นที่นี่"
+      description="เมื่อสาขาอื่นโอนออกมาที่สาขาที่ใช้งานอยู่ รายการจะขึ้นที่นี่ · ดูของสาขาอื่นให้สลับสาขาที่แถบด้านบน"
       action={
         <button type="button" className={cx(secondaryBtnCls, "h-11 !py-0")} onClick={() => loadRequests()}>
           รีเฟรช
@@ -506,6 +470,9 @@ function StockTransferIn() {
         >
           <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
             <h2 className="text-lg md:text-xl font-semibold">คำขอโอนเข้าที่รอดำเนินการ</h2>
+            <p className="basis-full text-sm text-slate-500 dark:text-slate-400">
+              แสดงเฉพาะรายการที่โอนมายังสาขาที่ใช้งานอยู่ (แถบด้านบน) — ต้องการดูของสาขาอื่น ให้สลับสาขาที่แถบด้านบน
+            </p>
             {loadingRequests && !requestsLoadedOnce ? (
               <Badge tone="neutral">กำลังโหลด…</Badge>
             ) : requestsError ? (

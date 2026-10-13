@@ -136,10 +136,10 @@ function PhoneCustomerSection({ form }) {
 
   return (
     <div className="space-y-4">
-      {/* 1. ประเภทผู้ซื้อ — segmented */}
+      {/* 1. ประเภทผู้ขาย — segmented */}
       <div>
         <div className="mb-1 flex items-center justify-between gap-2">
-          <span className={phoneLabelCls + " mb-0"} id="buy-buyerType-label">ประเภทผู้ซื้อ</span>
+          <span className={phoneLabelCls + " mb-0"} id="buy-buyerType-label">ประเภทผู้ขาย</span>
           {statusBadge}
         </div>
         <div className={segmentedCls} role="radiogroup" aria-labelledby="buy-buyerType-label">
@@ -443,7 +443,7 @@ function BuyerTypeSegmented({ value, onChange, firstRef }) {
     btns.current[n]?.focus()
   }
   return (
-    <div role="radiogroup" aria-label="ประเภทผู้ซื้อ" className={cx(segmentedCls, "w-auto")} onKeyDown={onKeyDown}>
+    <div role="radiogroup" aria-label="ประเภทผู้ขาย" className={cx(segmentedCls, "w-auto")} onKeyDown={onKeyDown}>
       {BUYER_TYPES.map(([v, l], i) => (
         <button
           key={v}
@@ -563,7 +563,7 @@ function DesktopCustomerSection({ form }) {
 
   return (
     <section aria-labelledby="buy-sec-customer" className={cx(cardCls, "p-5")}>
-      {/* หัวการ์ด: ชื่อ · สถานะ · ประเภทผู้ซื้อ */}
+      {/* หัวการ์ด: ชื่อ · สถานะ · ประเภทผู้ขาย */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <h2 id="buy-sec-customer" className={sectionH2Cls}>ลูกค้า</h2>
         <CustomerStatus buyerType={buyerType} memberMeta={memberMeta} />

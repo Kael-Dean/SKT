@@ -1,8 +1,9 @@
 // src/pages/MemberTermination.jsx
-import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api" // ✅ แนบ token อัตโนมัติ + JSON ให้แล้ว
 import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
-import { ErrorState, toast } from "../../components/ui"
+import { ErrorState, ConfirmDialog, toast } from "../../components/ui"
+import DateInput from "../../components/ThaiDateField"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -46,38 +47,7 @@ function SectionCard({ title, subtitle, children, className = "" }) {
 }
 
 /** ---------- DateInput (สไตล์เดียวกับ MemberSignup.last_bought_date) ---------- */
-const DateInput = forwardRef(function DateInput({ error = false, className = "", ...props }, ref) {
-  const inputRef = useRef(null)
-  useImperativeHandle(ref, () => inputRef.current)
-
-  return (
-    <div className="relative">
-      <style>{`input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; }`}</style>
-      <input
-        type="date"
-        ref={inputRef}
-        className={cx(baseField, "pr-12 cursor-pointer", error && fieldError, className)}
-        {...props}
-      />
-      <button
-        type="button"
-        onClick={() => {
-          const el = inputRef.current
-          if (!el) return
-          if (typeof el.showPicker === "function") el.showPicker()
-          else { el.focus(); el.click?.() }
-        }}
-        aria-label="เปิดตัวเลือกวันที่"
-        className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-xl
-                    transition-transform hover:scale-110 active:scale-95 focus:outline-none cursor-pointer bg-transparent"
-      >
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" className="text-slate-600 dark:text-slate-200">
-          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 1 1 1-1zm14 9v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7h18zM7 14h2v2H7v-2zm4 0h2v2h-2v-2z" />
-        </svg>
-      </button>
-    </div>
-  )
-})
+// ช่องวันที่ไทย (วัน เดือน พ.ศ.) ตัวกลาง — API เหมือน input เดิม (handoff F25)
 
 /** ---------- การ์ดเลือกโหมด (toggle style) ---------- */
 function ChoiceCard({ active = false, icon, label, onClick }) {
@@ -147,6 +117,7 @@ function MemberTermination() {
   const [picked, setPicked] = useState(null)
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false) // ยืนยันก่อนบันทึก (handoff F10)
   const topRef = useRef(null)
 
   /** ---------- ฟิลด์ใหม่ตามที่ขอ ---------- */
@@ -308,6 +279,12 @@ function MemberTermination() {
     })
   }
 
+  /** ปุ่มบันทึก → ตรวจ แล้วเปิดกล่องยืนยัน (บันทึกแล้วย้อนกลับในหน้านี้ไม่ได้) */
+  const askConfirm = () => {
+    if (!validate()) return
+    setConfirmOpen(true)
+  }
+
   const submit = async () => {
     if (!validate()) return
     try {
@@ -322,7 +299,10 @@ function MemberTermination() {
           recipient_name: recipient,            // ผู้รับเงิน / ผู้รับผลประโยชน์
         },
       })
-      toast.success(mode === "resigned" ? "บันทึกการลาออกแล้ว" : "บันทึกการเสียชีวิตแล้ว")
+      toast.success(mode === "resigned" ? "บันทึกการลาออกแล้ว" : "บันทึกการเสียชีวิตแล้ว", {
+        description: `${picked.first_name ?? ""} ${picked.last_name ?? ""}`.trim(),
+      })
+      setConfirmOpen(false)
       reset()
     } catch (err) {
       console.error(err)
@@ -603,7 +583,7 @@ function MemberTermination() {
             type="button"
             ref={submitBtnRef}
             disabled={submitting}
-            onClick={submit}
+            onClick={askConfirm}
             className="inline-flex items-center justify-center rounded-2xl 
                       bg-emerald-600 px-6 py-3 text-base font-semibold text-white
                       shadow-[0_6px_16px_rgba(16,185,129,0.35)]
@@ -613,7 +593,7 @@ function MemberTermination() {
                       disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
             aria-busy={submitting ? "true" : "false"}
             onKeyDown={(e) => {
-              if (e.key === "Enter") { e.preventDefault(); submit() }
+              if (e.key === "Enter") { e.preventDefault(); askConfirm() }
             }}
           >
             {submitting ? "กำลังบันทึก..." : actionLabel}
@@ -634,6 +614,30 @@ function MemberTermination() {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={`ยืนยัน${actionLabel}`}
+        description="ตรวจข้อมูลก่อนบันทึก — สมาชิกจะสิ้นสภาพและหายจากการค้นหาปกติ บันทึกแล้วแก้ไขในหน้านี้ไม่ได้"
+        confirmLabel={`ยืนยัน${actionLabel}`}
+        tone="danger"
+        loading={submitting}
+        onConfirm={submit}
+        onCancel={() => setConfirmOpen(false)}
+      >
+        {picked && (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-base">
+            <dt className="text-slate-500 dark:text-slate-400">สมาชิก</dt>
+            <dd className="font-medium text-slate-900 dark:text-slate-100">{`${picked.first_name ?? ""} ${picked.last_name ?? ""}`.trim() || "-"}</dd>
+            <dt className="text-slate-500 dark:text-slate-400">เลขสมาชิก</dt>
+            <dd className="tabular-nums text-slate-900 dark:text-slate-100">{picked.member_id ?? "-"}</dd>
+            <dt className="text-slate-500 dark:text-slate-400">ประเภท</dt>
+            <dd className="font-medium text-slate-900 dark:text-slate-100">{mode === "passed" ? "เสียชีวิต" : "ลาออก"}</dd>
+            <dt className="text-slate-500 dark:text-slate-400">{dynamicRecipientLabel}</dt>
+            <dd className="text-slate-900 dark:text-slate-100">{recipient || "-"}</dd>
+          </dl>
+        )}
+      </ConfirmDialog>
     </div>
   )
 }

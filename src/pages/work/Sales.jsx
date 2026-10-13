@@ -1389,7 +1389,7 @@ function Sales() {
           { key: "total", label: "รวม", value: thb(totalAmt) },
         ],
         primary: { label: "ทำรายการใหม่", onClick: () => { closeResult(); if (!isPhone) focusFirstCustomerField() } },
-        secondary: can("trading.reports.view") ? { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order") } } : undefined,
+        secondary: can("trading.reports.view") ? { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order?mode=sell") } } : undefined,
       }
     }
     const lines = r.results.map((x) => ({

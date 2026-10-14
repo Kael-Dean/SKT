@@ -36,11 +36,15 @@ const TONES = {
   blue:    { chip: "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300",           solid: "bg-blue-500 text-white" },
 }
 
-// เมนูแบบย่อสำหรับผู้ใช้ที่มีสิทธิ์ nav.hrCompactMenu (ฝ่ายบุคคล) — 3 รายการ + ออกจากระบบ
+// เมนูแบบย่อสำหรับผู้ใช้ที่มีสิทธิ์ nav.hrCompactMenu (ฝ่ายบุคคล) — รวมเมนูบริการตนเอง
+// (ยื่นใบลา / คำขอย้ายสาขา / กล่องงานรออนุมัติ) ด้วย perm เดียวกับเมนูปกติ — api-handoff-4 §6
 const HR_MENUS = [
-  { label: "หน้าหลัก",         icon: House,     tone: "indigo", path: "/hr/dashboard",  anyOf: HR_HUB_PERMS },
-  { label: "ข้อมูลส่วนตัว",    icon: UserRound, tone: "sky",    path: "/my-profile",    perm: "self.profile.view" },
-  { label: "ขอออกนอกสถานที่", icon: MapPin,    tone: "orange", path: "/out-of-office", perm: "self.ooo.request" },
+  { label: "หน้าหลัก",            icon: House,          tone: "indigo",  path: "/hr/dashboard",  anyOf: HR_HUB_PERMS },
+  { label: "ข้อมูลส่วนตัว",       icon: UserRound,      tone: "sky",     path: "/my-profile",    perm: "self.profile.view" },
+  { label: "กล่องงานรออนุมัติ",   icon: Inbox,          tone: "amber",   path: "/inbox" },
+  { label: "ยื่นใบลา",            icon: FileText,       tone: "emerald", path: "/leave-request", perm: "self.leave.request" },
+  { label: "ขอออกนอกสถานที่",     icon: MapPin,         tone: "orange",  path: "/out-of-office", perm: "self.ooo.request" },
+  { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet",  path: "/my-relocation", perm: "self.relocation.request" },
 ]
 
 // เมนูส่วนตัว — แต่ละรายการแสดงตาม permission key (src/lib/permissions.js)

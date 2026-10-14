@@ -6,7 +6,8 @@ import { apiAuth, apiDownload } from "../../lib/api"
 import { countLeaveDays, fmtDays, currentFiscalYearBE } from "../../lib/leaveDays"
 import { getUser } from "../../lib/auth"
 import { STATUS_LABEL as APPROVAL_STATUS_LABEL, isPendingStatus } from "../../lib/approval"
-import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
+import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
+import { Skeleton, ErrorState, EmptyState, toast } from "../../components/ui"
 
 // ─── shared style tokens ────────────────────────────────────────────────────
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
@@ -473,7 +474,7 @@ export default function LeaveRequest() {
       await apiAuth(`/personnel/me/leaves/${id}/cancel`, { method: "POST", body: {} })
       fetchHistory()
     } catch (err) {
-      alert(`ยกเลิกไม่สำเร็จ: ${err.message || "เกิดข้อผิดพลาด"}`)
+      toast.error("ยกเลิกไม่สำเร็จ", { description: err.message || "เกิดข้อผิดพลาด" })
     } finally {
       setCancellingId(null)
     }
@@ -1014,13 +1015,14 @@ export default function LeaveRequest() {
                       <p className="font-semibold text-gray-900 dark:text-gray-100">
                         {r.leave_type_name}
                       </p>
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          STATUS_COLOR[r.status] ?? "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {STATUS_LABEL[r.status] ?? r.status}
-                      </span>
+                      {r.status === "pending" ? (
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR.pending ?? "bg-gray-100 text-gray-600"}`}>
+                          {STATUS_LABEL.pending}
+                        </span>
+                      ) : (
+                        <StageBadge req={r} />
+                      )}
+                      <JustificationBadge req={r} />
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -1081,6 +1083,11 @@ export default function LeaveRequest() {
                   {r.comment && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-1.5">
                       เหตุผล: {r.comment}
+                    </p>
+                  )}
+                  {r.justification === "unjust" && r.justification_note && (
+                    <p className="text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 rounded-lg px-3 py-1.5">
+                      ผลตรวจ ไม่สมเหตุสมผล: {r.justification_note}
                     </p>
                   )}
                   {(r.status === "rejected" || r.status === "denied") && (r.reject_reason || r.hr_comment) ? (

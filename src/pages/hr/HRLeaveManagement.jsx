@@ -6,13 +6,14 @@ import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab, to
 import { tabPanelCls } from "../../lib/styles"
 import DecisionModal from "../../components/DecisionModal"
 import LeaveStageActions from "../../components/LeaveStageActions"
-import { isPendingStatus, statusLabel, statusTone } from "../../lib/approval"
+import { stageOf } from "../../lib/approval"
+import ApprovalHistory from "../../components/ApprovalHistory"
+import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import { KIND, requestNotificationsRefresh, rejectionReason } from "../../lib/approvalActions"
 import { can } from "../../lib/permissions"
 
-// legacy "pending" rows (pre-งวด 2) still show a sensible label
-const leaveStatusLabel = (s) => (s === "pending" ? "รอดำเนินการ" : statusLabel(s))
-const isPending = (s) => s === "pending" || isPendingStatus(s)
+// ระหว่างดำเนินการ = ยังรออนุมัติ หรืออนุมัติแล้วรอตรวจสอบ (stage จาก backend — api-handoff-4 §1)
+const isPending = (r) => r?.status === "pending" || !!stageOf(r)
 
 function fmtDate(d) {
   if (!d) return "—"
@@ -61,8 +62,9 @@ export default function HRLeaveManagement() {
 
   useEffect(() => { fetchRequests() }, [fetchRequests])
 
-  const requests = tab === "pending" ? allRequests.filter((r) => isPending(r.status)) : allRequests
-  const pendingCount = allRequests.filter((r) => isPending(r.status)).length
+  const requests = tab === "pending" ? allRequests.filter(isPending) : allRequests
+  const pendingCount = allRequests.filter(isPending).length
+  const [historyId, setHistoryId] = useState(null)
 
   const openDecision = (req, mode) => {
     setBanner(null)
@@ -74,7 +76,7 @@ export default function HRLeaveManagement() {
     setDecision(null)
     setBanner({
       tone: "success",
-      text: `${mode === "approve" ? "บันทึกการอนุมัติ" : "บันทึกการไม่อนุมัติ"}ใบลาของ ${r.user_first_name ?? ""} ${r.user_last_name ?? ""} แล้ว`,
+      text: `${{ approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ สมเหตุสมผล ของ", unjust: "บันทึกผลตรวจ ไม่สมเหตุสมผล ของ" }[mode]}ใบลาของ ${r.user_first_name ?? ""} ${r.user_last_name ?? ""} แล้ว`,
     })
     requestNotificationsRefresh()
     fetchRequests()
@@ -164,9 +166,8 @@ export default function HRLeaveManagement() {
                     <p className="font-semibold text-gray-900 dark:text-gray-100">
                       {r.user_first_name} {r.user_last_name}
                     </p>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(r.status === "pending" ? "pending_branch_head" : r.status)}`}>
-                      {leaveStatusLabel(r.status)}
-                    </span>
+                    <StageBadge req={r} />
+                    <JustificationBadge req={r} />
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
                     <div>
@@ -245,9 +246,25 @@ export default function HRLeaveManagement() {
                     )}
                   </button>
                   )}
-                  <LeaveStageActions req={r} onDecide={openDecision} />
+                  <button
+                    type="button"
+                    onClick={() => setHistoryId((cur) => (cur === r.id ? null : r.id))}
+                    aria-expanded={historyId === r.id}
+                    className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                  >
+                    {historyId === r.id ? "ซ่อนประวัติ" : "ประวัติการอนุมัติ"}
+                  </button>
+                  <LeaveStageActions req={r} kind={KIND.LEAVE} onDecide={openDecision} />
                 </div>
               </div>
+              {r.justification_note && (
+                <p className="mt-2 text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-1.5">
+                  หมายเหตุผลตรวจ: {r.justification_note}
+                </p>
+              )}
+              {historyId === r.id && (
+                <ApprovalHistory kind={KIND.LEAVE} id={r.id} req={r} className="mt-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-700/40" />
+              )}
             </div>
           ))}
         </div>

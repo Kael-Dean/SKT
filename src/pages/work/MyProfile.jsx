@@ -6,7 +6,8 @@ import ReactDOM from "react-dom"
 import { apiAuth } from "../../lib/api"
 import { getUser } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
-import { PageLoader, ErrorState } from "../../components/ui"
+import { PageLoader, ErrorState, toast } from "../../components/ui"
+import DateInput from "../../components/ThaiDateField"
 import { fmtDays, parseDays } from "../../lib/leaveDays"
 import lineIcon from "../../assets/line-icon.png"
 import useModalDismiss from "../../lib/useModalDismiss"
@@ -33,21 +34,15 @@ const QUOTA_ROWS = [
 const GENDER_LABEL = { M: "ชาย", F: "หญิง", other: "อื่นๆ" }
 const MARITAL_LABEL = { single: "โสด", married: "สมรส", divorced: "หย่าร้าง", widowed: "หม้าย" }
 
-const REPORT_CATEGORIES = {
-  personal_info: {
-    label: "ข้อมูลส่วนตัว",
-    fields: ["hired", "cid", "bank_no", "p_number", "line_id", "e_contact", "birthday", "age", "gender", "m_status", "children_number"],
-  },
-  address: {
-    label: "ที่อยู่",
-    fields: ["h_address", "mhoo", "soi", "road", "district", "sub_district", "province", "postal_code"],
-  },
-  financial: {
-    label: "ข้อมูลการเงิน",
-    fields: ["current_salary", "current_loan", "current_slf", "current_wg", "current_ss", "current_reserve", "current_prov", "current_pending", "job_age", "current_pension"],
-  },
-  account: { label: "บัญชีผู้ใช้", fields: ["email", "first_name", "last_name"] },
+/** สถานะคำร้องแจ้งแก้ไขข้อมูล (รายการของฉัน) */
+const ISSUE_STATUS = {
+  pending: { label: "รอ HR ตรวจสอบ", cls: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" },
+  approved: { label: "แก้ไขแล้ว", cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300" },
+  applied: { label: "บันทึกแล้ว", cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300" },
+  denied: { label: "ไม่อนุมัติ", cls: "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300" },
+  rejected: { label: "ไม่อนุมัติ", cls: "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300" },
 }
+const FINANCIAL_OTHER = "financial_other"
 
 function SectionTitle({ children }) {
   return (
@@ -99,6 +94,17 @@ export default function MyProfile() {
   const [reportForm, setReportForm] = useState({ category: "", field_name: "", current_value: "", correct_value: "", description: "" })
   const [reportSubmitting, setReportSubmitting] = useState(false)
   const [reportMsg, setReportMsg] = useState("")
+  // หมวดหมู่ + ข้อมูลที่แก้ได้ จาก backend (ป้ายไทย, เรียงตามที่แสดง) — api-handoff-4 §4
+  const [issueFields, setIssueFields] = useState({ status: "idle", list: [] })
+  // คำร้องของฉัน + สถานะ
+  const [myIssues, setMyIssues] = useState({ status: "loading", list: [] })
+  const loadMyIssues = () => {
+    setMyIssues((p) => ({ ...p, status: "loading" }))
+    apiAuth("/personnel/me/issues")
+      .then((d) => setMyIssues({ status: "ready", list: Array.isArray(d) ? d : Array.isArray(d?.items) ? d.items : [] }))
+      .catch(() => setMyIssues({ status: "error", list: [] }))
+  }
+  useEffect(() => { loadMyIssues() }, [])
   const { backdropProps: reportBackdrop } = useModalDismiss(() => setReportModal(false), { open: reportModal, disabled: reportSubmitting })
 
   const loadProfile = () => {
@@ -162,29 +168,50 @@ export default function MyProfile() {
     setReportForm({ category: "", field_name: "", current_value: "", correct_value: "", description: "" })
     setReportMsg("")
     setReportModal(true)
+    if (issueFields.status !== "ready") {
+      setIssueFields({ status: "loading", list: [] })
+      apiAuth("/personnel/me/report-issue/fields")
+        .then((d) => setIssueFields({ status: "ready", list: Array.isArray(d) ? d : [] }))
+        .catch(() => setIssueFields({ status: "error", list: [] }))
+    }
   }
 
   const handleReport = async (e) => {
     e.preventDefault()
-    if (!reportForm.category || !reportForm.field_name || !reportForm.correct_value) {
-      setReportMsg("⚠️ กรุณากรอกข้อมูลให้ครบ")
+    const isFinOther = reportForm.field_name === FINANCIAL_OTHER
+    if (!reportForm.category || !reportForm.field_name) {
+      setReportMsg("⚠️ กรุณาเลือกหมวดหมู่และข้อมูลที่ต้องการแก้")
+      return
+    }
+    if (isFinOther ? !reportForm.description.trim() : !String(reportForm.correct_value).trim()) {
+      setReportMsg(isFinOther ? "⚠️ กรุณาระบุรายละเอียด" : "⚠️ กรุณากรอกค่าที่ถูกต้อง")
       return
     }
     setReportSubmitting(true)
     setReportMsg("")
     try {
-      await apiAuth("/personnel/me/report-issue", { method: "POST", body: reportForm })
-      setReportMsg("✅ ส่งคำร้องสำเร็จ รอ HR ตรวจสอบ")
-      setTimeout(() => setReportModal(false), 1500)
+      // financial_other: ไม่มีค่าที่ถูกต้องเดียว — ส่ง "-" และใช้รายละเอียดแทน
+      const body = { ...reportForm, correct_value: isFinOther ? "-" : String(reportForm.correct_value).trim() }
+      const res = await apiAuth("/personnel/me/report-issue", { method: "POST", body })
+      // applied = บันทึกทันที (ช่วงแก้ไขเองได้) · created = รอ HR
+      if (res?.status === "applied") toast.success("บันทึกแล้ว", { description: "ข้อมูลของคุณถูกแก้ไขเรียบร้อย" })
+      else toast.success("ส่งให้ฝ่าย HR แล้ว", { description: "ติดตามสถานะได้ที่ “คำร้องของฉัน”" })
+      setReportModal(false)
+      loadMyIssues()
+      if (res?.status === "applied") setTimeout(() => window.location.reload(), 800)
     } catch (err) {
-      if (err.status === 409) setReportMsg("⚠️ มีคำร้องสำหรับ field นี้รออยู่แล้ว")
+      if (err.status === 409) setReportMsg("⚠️ มีคำร้องสำหรับข้อมูลนี้รออยู่แล้ว")
       else setReportMsg(`❌ ${err.message || "ส่งคำร้องไม่สำเร็จ"}`)
     } finally {
       setReportSubmitting(false)
     }
   }
 
-  const selectedCategoryFields = REPORT_CATEGORIES[reportForm.category]?.fields ?? []
+  const selectedCategory = issueFields.list.find((c) => c.category === reportForm.category)
+  const selectedCategoryFields = selectedCategory?.fields ?? []
+  const selectedField = selectedCategoryFields.find((f) => f.field === reportForm.field_name)
+  const inputType = selectedField?.input_type || "text"
+  const isFinOther = reportForm.field_name === FINANCIAL_OTHER
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 pb-10">
@@ -414,6 +441,45 @@ export default function MyProfile() {
         </div>
       )}
 
+      {/* คำร้องแจ้งแก้ไขข้อมูลของฉัน + สถานะ — GET /personnel/me/issues */}
+      <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
+        <SectionTitle>คำร้องแจ้งแก้ไขข้อมูลของฉัน</SectionTitle>
+        {myIssues.status === "loading" ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">กำลังโหลด…</p>
+        ) : myIssues.status === "error" ? (
+          <p className="text-sm text-red-600 dark:text-red-400">โหลดคำร้องไม่สำเร็จ</p>
+        ) : myIssues.list.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">ยังไม่มีคำร้อง</p>
+        ) : (
+          <ul className="divide-y divide-gray-100 dark:divide-gray-700/60">
+            {myIssues.list.map((it) => {
+              const st = ISSUE_STATUS[it.status] || { label: it.status || "-", cls: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300" }
+              return (
+                <li key={it.id} className="flex flex-wrap items-start justify-between gap-2 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {it.field_label || it.field_name}
+                      <span className="font-normal text-gray-500 dark:text-gray-400"> · {it.category_label || it.category}</span>
+                    </p>
+                    {it.correct_value && it.correct_value !== "-" && (
+                      <p className="text-xs text-gray-600 dark:text-gray-300 break-words">แก้เป็น: {it.correct_value}</p>
+                    )}
+                    {it.description && <p className="text-xs text-gray-500 dark:text-gray-400 break-words">{it.description}</p>}
+                    {(it.hr_comment || it.deny_reason) && (
+                      <p className="text-xs text-rose-700 dark:text-rose-300 break-words">HR: {it.hr_comment || it.deny_reason}</p>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${st.cls}`}>{st.label}</span>
+                    {it.created_at && <span className="text-xs text-gray-400 dark:text-gray-500">{fmtDate(it.created_at)}</span>}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+
       <p className="text-xs text-center text-gray-400 dark:text-gray-600">
         หากข้อมูลไม่ถูกต้อง กรุณาใช้ปุ่ม "แจ้งแก้ไขข้อมูล" ด้านบน
       </p>
@@ -435,31 +501,54 @@ export default function MyProfile() {
                   value={reportForm.category}
                   onChange={(val) => setReportForm((p) => ({ ...p, category: val, field_name: "" }))}
                   placeholder="— เลือกหมวดหมู่ —"
-                  options={Object.entries(REPORT_CATEGORIES).map(([k, v]) => ({ value: k, label: v.label }))}
+                  options={issueFields.list.filter((c) => (c.fields || []).length > 0).map((c) => ({ value: c.category, label: c.category_label || c.category }))}
                 />
+                {issueFields.status === "loading" && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">กำลังโหลดรายการ…</p>}
+                {issueFields.status === "error" && <p className="mt-1 text-xs text-red-600 dark:text-red-400">โหลดรายการไม่สำเร็จ ปิดแล้วเปิดใหม่อีกครั้ง</p>}
               </div>
               {reportForm.category && (
                 <div>
-                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ชื่อ Field <span className="text-red-500">*</span></label>
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ข้อมูลที่ต้องการแก้ <span className="text-red-500">*</span></label>
                   <SelectDropdown
                     value={reportForm.field_name}
-                    onChange={(val) => setReportForm((p) => ({ ...p, field_name: val }))}
-                    placeholder="— เลือก field —"
-                    options={selectedCategoryFields.map((f) => ({ value: f, label: f }))}
+                    onChange={(val) => setReportForm((p) => ({ ...p, field_name: val, correct_value: "" }))}
+                    placeholder="— เลือกข้อมูล —"
+                    options={selectedCategoryFields.map((f) => ({ value: f.field, label: f.label || f.field }))}
                   />
                 </div>
               )}
+              {!isFinOther && (
+                <>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ค่าปัจจุบัน (ที่ผิด)</label>
+                    <input type="text" value={reportForm.current_value} onChange={(e) => setReportForm((p) => ({ ...p, current_value: e.target.value }))} className={inputCls} placeholder="ค่าที่แสดงอยู่ตอนนี้" />
+                  </div>
+                  <div>
+                    <label htmlFor="report-correct" className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ค่าที่ถูกต้อง <span className="text-red-500">*</span></label>
+                    {inputType === "date" ? (
+                      <DateInput id="report-correct" ariaLabel="ค่าที่ถูกต้อง" value={reportForm.correct_value} onChange={(e) => setReportForm((p) => ({ ...p, correct_value: e.target.value }))} />
+                    ) : inputType === "textarea" ? (
+                      <textarea id="report-correct" rows={3} value={reportForm.correct_value} onChange={(e) => setReportForm((p) => ({ ...p, correct_value: e.target.value }))} className={inputCls + " resize-none"} placeholder="ค่าที่ควรจะเป็น" />
+                    ) : (
+                      <input
+                        id="report-correct"
+                        type={inputType === "int" ? "number" : "text"}
+                        inputMode={inputType === "int" ? "numeric" : undefined}
+                        step={inputType === "int" ? 1 : undefined}
+                        value={reportForm.correct_value}
+                        onChange={(e) => setReportForm((p) => ({ ...p, correct_value: e.target.value }))}
+                        className={inputCls}
+                        placeholder="ค่าที่ควรจะเป็น"
+                      />
+                    )}
+                  </div>
+                </>
+              )}
               <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ค่าปัจจุบัน (ที่ผิด)</label>
-                <input type="text" value={reportForm.current_value} onChange={(e) => setReportForm((p) => ({ ...p, current_value: e.target.value }))} className={inputCls} placeholder="ค่าที่แสดงอยู่ตอนนี้" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ค่าที่ถูกต้อง <span className="text-red-500">*</span></label>
-                <input type="text" value={reportForm.correct_value} onChange={(e) => setReportForm((p) => ({ ...p, correct_value: e.target.value }))} className={inputCls} placeholder="ค่าที่ควรจะเป็น" required />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">รายละเอียดเพิ่มเติม</label>
-                <textarea value={reportForm.description} onChange={(e) => setReportForm((p) => ({ ...p, description: e.target.value }))} className={inputCls + " resize-none"} rows={2} placeholder="อธิบายเพิ่มเติม (ถ้ามี)" />
+                <label htmlFor="report-desc" className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">
+                  รายละเอียด{isFinOther ? <span className="text-red-500"> *</span> : " เพิ่มเติม"}
+                </label>
+                <textarea id="report-desc" value={reportForm.description} onChange={(e) => setReportForm((p) => ({ ...p, description: e.target.value }))} className={inputCls + " resize-none"} rows={isFinOther ? 4 : 2} placeholder={isFinOther ? "อธิบายว่าข้อมูลการเงินส่วนไหนไม่ถูกต้อง และควรเป็นอย่างไร" : "อธิบายเพิ่มเติม (ถ้ามี)"} />
               </div>
               {reportMsg && (
                 <p className={`text-sm text-center ${reportMsg.startsWith("✅") ? "text-emerald-600" : "text-amber-600 dark:text-amber-400"}`}>{reportMsg}</p>

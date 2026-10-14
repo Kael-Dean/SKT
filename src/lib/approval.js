@@ -25,9 +25,10 @@ export const STATUS = {
 }
 
 export const STATUS_LABEL = {
-  pending_branch_head: "รอหัวหน้าสาขาอนุมัติ",
+  pending_branch_head: "รอหัวหน้าอนุมัติ",
   pending_assistant_manager: "รอผู้ช่วยผู้จัดการอนุมัติ",
-  pending_manager: "รอผู้จัดการยืนยัน",
+  pending_manager: "รอผู้จัดการอนุมัติ",
+  awaiting_check: "อนุมัติแล้ว · รอตรวจสอบ",
   approved: "อนุมัติแล้ว",
   rejected: "ไม่อนุมัติ",
   // leave uses "denied" for rejected
@@ -40,6 +41,7 @@ export const STATUS_TONE = {
   pending_branch_head: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
   pending_assistant_manager: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
   pending_manager: "bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300",
+  awaiting_check: "bg-teal-100 text-teal-800 dark:bg-teal-500/15 dark:text-teal-300",
   approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",
   rejected: "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300",
   denied: "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300",
@@ -47,6 +49,55 @@ export const STATUS_TONE = {
 }
 
 export const statusLabel = (s) => STATUS_LABEL[s] || s || "-"
+
+// ─── v1.5.5: อนุมัติครั้งเดียว + ตรวจสอบภายหลัง (api-handoff-4 §1) ──────────────
+// backend ตัดสินเส้นทางเองทั้งหมด — หน้าเว็บอ่าน `stage` / `can_act` จากแถว ไม่คำนวณเอง
+export const STAGE = {
+  PENDING_BRANCH_HEAD: "pending_branch_head",
+  PENDING_ASSISTANT_MANAGER: "pending_assistant_manager",
+  PENDING_MANAGER: "pending_manager",
+  AWAITING_CHECK: "awaiting_check",
+}
+
+/** ขั้นปัจจุบันของคำขอ (`stage` จาก backend; แถวรุ่นเก่าที่ไม่มี stage → ใช้ status ที่ขึ้นต้น pending) */
+export function stageOf(req) {
+  if (!req) return null
+  if ("stage" in req) return req.stage || null
+  return isPendingStatus(req.status) ? req.status : null
+}
+
+/** ป้ายสถานะ/ขั้นตอน: มี stage → ป้ายของ stage, จบแล้ว → ป้ายของ status */
+export function displayStatusOf(req) {
+  const st = stageOf(req)
+  return st ? statusLabel(st) : statusLabel(req?.status)
+}
+export function displayToneOf(req) {
+  const st = stageOf(req)
+  return st ? statusTone(st) : statusTone(req?.status)
+}
+
+export const CHECK_ROLE_LABEL = {
+  assistant_manager: "ผู้ช่วยผู้จัดการตรวจสอบ",
+  manager: "ผู้จัดการตรวจสอบ",
+}
+export const checkRoleLabel = (r) => CHECK_ROLE_LABEL[r] || "–"
+
+export const JUSTIFICATION_LABEL = {
+  justified: "สมเหตุสมผล",
+  unjust: "ไม่สมเหตุสมผล",
+}
+export const JUSTIFICATION_TONE = {
+  justified: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",
+  unjust: "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300",
+  none: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+}
+
+export const REQUESTER_LEVEL_LABEL = {
+  staff: "พนักงาน",
+  senior: "หัวหน้าฝ่าย/สาขา/ศูนย์",
+  asst: "ผู้ช่วยผู้จัดการ",
+  manager: "ผู้จัดการ",
+}
 export const statusTone = (s) => STATUS_TONE[s] || STATUS_TONE.cancelled
 export const isPendingStatus = (s) => typeof s === "string" && s.startsWith("pending")
 
@@ -90,9 +141,9 @@ export const STAGE_APPROVE_ACTION = {
 }
 
 export const STAGE_APPROVE_LABEL = {
-  pending_branch_head: "อนุมัติ (หัวหน้าสาขา)",
+  pending_branch_head: "อนุมัติ (หัวหน้า)",
   pending_assistant_manager: "อนุมัติ (ผู้ช่วยผู้จัดการ)",
-  pending_manager: "ยืนยัน (ผู้จัดการ)",
+  pending_manager: "อนุมัติ (ผู้จัดการ)",
 }
 
 /**

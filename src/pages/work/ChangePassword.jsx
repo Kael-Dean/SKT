@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useNavigate, Navigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 import { cx, baseField } from "../../lib/styles"
-import { getToken, isTokenExpired } from "../../lib/auth"
+import { getToken, getUser, isTokenExpired } from "../../lib/auth"
 import sktBg from "../../assets/skt_bg.webp"
 
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
@@ -14,6 +14,7 @@ export default function ChangePassword() {
   const accountStatus = localStorage.getItem("account_status")
 
   // state ต้องอยู่ก่อน conditional return เสมอ (Rules of Hooks)
+  const [currentPass, setCurrentPass] = useState("")
   const [newPass, setNewPass] = useState("")
   const [confirmPass, setConfirmPass] = useState("")
   const [loading, setLoading] = useState(false)
@@ -35,6 +36,21 @@ export default function ChangePassword() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError("")
+    if (!currentPass) {
+      setError("กรุณากรอกรหัสผ่านปัจจุบัน")
+      return
+    }
+    // ห้ามตั้งรหัสใหม่เป็นรหัสพนักงาน (ค่าเริ่มต้นที่คนอื่นเดาได้)
+    const u = getUser()
+    const employeeIds = [u?.username, u?.id, u?.user_id, u?.employee_id].filter((v) => v != null && v !== "").map(String)
+    if (employeeIds.includes(newPass.trim())) {
+      setError("รหัสผ่านใหม่ต้องไม่ใช่รหัสพนักงาน")
+      return
+    }
+    if (newPass === currentPass) {
+      setError("รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านปัจจุบัน")
+      return
+    }
     if (newPass.length < 8) {
       setError("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร")
       return
@@ -47,7 +63,7 @@ export default function ChangePassword() {
     try {
       await apiAuth("/auth/change-password", {
         method: "POST",
-        body: { new_password: newPass },
+        body: { current_password: currentPass, new_password: newPass },
       })
       localStorage.setItem("account_status", "register")
       navigate("/home", { replace: true })
@@ -111,6 +127,22 @@ export default function ChangePassword() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label htmlFor="cp-current" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                รหัสผ่านปัจจุบัน
+              </label>
+              <input
+                id="cp-current"
+                type="password"
+                className={inputCls}
+                value={currentPass}
+                onChange={(e) => setCurrentPass(e.target.value)}
+                placeholder="รหัสผ่านที่ใช้เข้าสู่ระบบครั้งนี้"
+                required
+                autoComplete="current-password"
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 รหัสผ่านใหม่

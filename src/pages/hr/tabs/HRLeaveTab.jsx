@@ -4,13 +4,13 @@ import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import DecisionModal from "../../../components/DecisionModal"
 import LeaveStageActions from "../../../components/LeaveStageActions"
+import ApprovalHistory from "../../../components/ApprovalHistory"
+import { StageBadge, JustificationBadge } from "../../../components/ApprovalBadges"
 import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab, toast } from "../../../components/ui"
 import { cx, tabPanelCls } from "../../../lib/styles"
-import { isPendingStatus, statusLabel, statusTone } from "../../../lib/approval"
+import { stageOf } from "../../../lib/approval"
 import { KIND, requestNotificationsRefresh, rejectionReason } from "../../../lib/approvalActions"
 
-// legacy "pending" rows (pre-งวด 2) still show a sensible label
-const leaveStatusLabel = (s) => (s === "pending" ? "รอดำเนินการ" : statusLabel(s))
 
 function fmtDate(d) {
   if (!d) return "—"
@@ -26,6 +26,7 @@ export default function HRLeaveTab() {
   const [decision, setDecision] = useState(null) // { req, mode: "approve"|"reject" }
   const [banner, setBanner] = useState(null) // { tone: "success"|"error", text }
   const [downloadingId, setDownloadingId] = useState(null)
+  const [historyId, setHistoryId] = useState(null) // แถวที่เปิดดูประวัติการอนุมัติ
 
   const handlePdfDownload = async (employeeId, leaveId) => {
     setDownloadingId(leaveId)
@@ -63,9 +64,10 @@ export default function HRLeaveTab() {
   const onDecisionDone = (mode) => {
     const r = decision.req
     setDecision(null)
+    const what = { approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ สมเหตุสมผล ของ", unjust: "บันทึกผลตรวจ ไม่สมเหตุสมผล ของ" }[mode]
     setBanner({
       tone: "success",
-      text: `${mode === "approve" ? "บันทึกการอนุมัติ" : "บันทึกการไม่อนุมัติ"}ใบลาของ ${r.user_first_name ?? ""} ${r.user_last_name ?? ""} แล้ว`,
+      text: `${what}ใบลาของ ${r.user_first_name ?? ""} ${r.user_last_name ?? ""} แล้ว`,
     })
     requestNotificationsRefresh()
     fetchRequests()
@@ -78,19 +80,18 @@ export default function HRLeaveTab() {
     fetchRequests()
   }
 
-  const isPending = (status) => status === "pending" || isPendingStatus(status)
+  // "ระหว่างดำเนินการ" = ยังรออนุมัติ หรืออนุมัติแล้วรอตรวจสอบ (ตาม stage จาก backend)
+  const isPending = (r) => r.status === "pending" || !!stageOf(r)
 
-  const displayRequests = subTab === "pending"
-    ? requests.filter((r) => isPending(r.status))
-    : requests
+  const displayRequests = subTab === "pending" ? requests.filter(isPending) : requests
 
-  const pendingCount = requests.filter((r) => isPending(r.status)).length
+  const pendingCount = requests.filter(isPending).length
 
   return (
     <div className="space-y-4">
       <Tabs
         items={[
-          { value: "pending", label: "รออนุมัติ", count: pendingCount > 0 ? pendingCount : null },
+          { value: "pending", label: "ระหว่างดำเนินการ", count: pendingCount > 0 ? pendingCount : null },
           { value: "all", label: "ทั้งหมด" },
         ]}
         value={subTab}
@@ -146,9 +147,8 @@ export default function HRLeaveTab() {
                     <p className="font-semibold text-gray-900 dark:text-gray-100">
                       {r.user_first_name} {r.user_last_name}
                     </p>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(r.status === "pending" ? "pending_branch_head" : r.status)}`}>
-                      {leaveStatusLabel(r.status)}
-                    </span>
+                    <StageBadge req={r} />
+                    <JustificationBadge req={r} />
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
                     <div>
@@ -193,6 +193,14 @@ export default function HRLeaveTab() {
                       ความเห็นผู้พิจารณา: {r.hr_comment}
                     </p>
                   )}
+                  {r.justification === "unjust" && r.justification_note && (
+                    <p className="text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 rounded-lg px-3 py-1.5">
+                      ผลตรวจ ไม่สมเหตุสมผล: {r.justification_note}
+                    </p>
+                  )}
+                  {historyId === r.id && (
+                    <ApprovalHistory kind={KIND.LEAVE} id={r.id} req={r} className="rounded-xl bg-gray-50 p-3 dark:bg-gray-700/40" />
+                  )}
                   {r.extra_leave_days > 0 && (
                     <p className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-1.5">
                       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5 shrink-0">
@@ -224,7 +232,15 @@ export default function HRLeaveTab() {
                       </>
                     )}
                   </button>
-                  <LeaveStageActions req={r} onDecide={openDecision} />
+                  <button
+                    type="button"
+                    onClick={() => setHistoryId((cur) => (cur === r.id ? null : r.id))}
+                    aria-expanded={historyId === r.id}
+                    className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                  >
+                    {historyId === r.id ? "ซ่อนประวัติ" : "ประวัติการอนุมัติ"}
+                  </button>
+                  <LeaveStageActions req={r} kind={KIND.LEAVE} onDecide={openDecision} />
                 </div>
               </div>
             </div>

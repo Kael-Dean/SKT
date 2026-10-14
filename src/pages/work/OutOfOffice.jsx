@@ -15,6 +15,7 @@ import Portal from "../../components/Portal"
 import SelectDropdown from "../../components/SelectDropdown"
 import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
 import useModalDismiss from "../../lib/useModalDismiss"
+import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -547,8 +548,16 @@ export default function OutOfOffice() {
                               {hhmm(r.time_out)}–{hhmm(r.time_back)} น.
                             </span>
                           </p>
-                          <StatusBadge status={r.status} />
+                          <div className="flex flex-wrap items-center gap-1">
+                            <StageBadge req={r} />
+                            <JustificationBadge req={r} />
+                          </div>
                         </div>
+                        {r.justification === "unjust" && r.justification_note && (
+                          <p className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs text-rose-700 break-words dark:bg-rose-900/20 dark:text-rose-300">
+                            ผลตรวจ ไม่สมเหตุสมผล: {r.justification_note}
+                          </p>
+                        )}
                         <p className="text-sm text-gray-700 dark:text-gray-300 break-words">
                           <span className="text-gray-500 dark:text-gray-400">{OOO_TYPE_LABEL[r.request_type] || r.request_type}</span>
                           {" · "}

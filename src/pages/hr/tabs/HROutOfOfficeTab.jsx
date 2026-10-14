@@ -3,27 +3,25 @@
 //   (a) รายการคำขอ + อนุมัติ/ไม่อนุมัติ ตามขั้น   (b) สรุปรายสาขา   (c) ตั้งค่า
 // Spec: handoff/api-handoff-payment-2.md §1 (approval chain) + §2 (3O)
 // Used by the HR dashboard tab and by /out-of-office/approvals (roles 2/6/7).
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../../../lib/api"
 import { can } from "../../../lib/permissions"
 import {
   OOO_TYPE_LABEL,
   STATUS,
   STATUS_LABEL,
-  STAGE_APPROVE_ACTION,
-  STAGE_APPROVE_LABEL,
-  statusTone,
-  canActOn,
-  myStageStatus,
   hhmm,
 } from "../../../lib/approval"
-import Portal from "../../../components/Portal"
+import { KIND, requestNotificationsRefresh } from "../../../lib/approvalActions"
+import DecisionModal from "../../../components/DecisionModal"
+import LeaveStageActions from "../../../components/LeaveStageActions"
+import ApprovalHistory from "../../../components/ApprovalHistory"
+import { StageBadge, JustificationBadge } from "../../../components/ApprovalBadges"
 import SelectDropdown from "../../../components/SelectDropdown"
 import BranchLockNote from "../../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 import { Skeleton, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import { cx, baseField, tabPanelCls } from "../../../lib/styles"
-import useModalDismiss from "../../../lib/useModalDismiss"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -74,65 +72,9 @@ const focusRing =
 const thCls =
   "px-3 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap"
 const tdCls = "px-3 py-3 align-top text-sm text-gray-800 dark:text-gray-200"
-const approveBtnCls =
-  `inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors duration-200 cursor-pointer whitespace-nowrap ${focusRing} focus-visible:ring-emerald-500`
-const rejectBtnCls =
-  `inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-red-300 hover:bg-red-50 hover:text-red-700 dark:hover:border-red-700 dark:hover:bg-red-900/20 dark:hover:text-red-300 transition-colors duration-200 cursor-pointer whitespace-nowrap ${focusRing} focus-visible:ring-red-500`
-
-function StatusBadge({ status }) {
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${statusTone(status)}`}>
-      {STATUS_LABEL[status] || status || "—"}
-    </span>
-  )
-}
 
 function Spinner() {
   return <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
-}
-
-function ModalShell({ labelledBy, onClose, busy, children }) {
-  const { backdropProps } = useModalDismiss(onClose, { disabled: busy })
-  return (
-    <Portal>
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-        {...backdropProps}
-      >
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={labelledBy}
-          className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4"
-        >
-          {children}
-        </div>
-      </div>
-    </Portal>
-  )
-}
-
-/** One-line summary of a request used inside modals. */
-function RequestSummary({ r, branchName }) {
-  return (
-    <dl className="rounded-xl bg-gray-50 dark:bg-gray-700/40 px-4 py-3 text-sm grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-      <dt className="text-gray-500 dark:text-gray-400">ผู้ขอ</dt>
-      <dd className="font-medium text-gray-900 dark:text-gray-100 break-words">
-        {requesterName(r)}
-        {branchName && <span className="font-normal text-gray-500 dark:text-gray-400"> · {branchName}</span>}
-      </dd>
-      <dt className="text-gray-500 dark:text-gray-400">วันเวลา</dt>
-      <dd className="text-gray-900 dark:text-gray-100 tabular-nums">
-        {fmtThaiShort(r.request_date)} {hhmm(r.time_out)}–{hhmm(r.time_back)} น.
-      </dd>
-      <dt className="text-gray-500 dark:text-gray-400">ประเภท</dt>
-      <dd className="text-gray-900 dark:text-gray-100">{OOO_TYPE_LABEL[r.request_type] || r.request_type}</dd>
-      <dt className="text-gray-500 dark:text-gray-400">สถานที่</dt>
-      <dd className="text-gray-900 dark:text-gray-100 break-words">{r.place}</dd>
-      <dt className="text-gray-500 dark:text-gray-400">เหตุผล</dt>
-      <dd className="text-gray-900 dark:text-gray-100 break-words">{r.reason}</dd>
-    </dl>
-  )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -144,11 +86,11 @@ const STATUS_FILTER_OPTIONS = [
 ]
 
 function RequestsPanel({ branchOptions, branchName }) {
-  const myStage = myStageStatus()
   // ตัวกรองสาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่
   const branchLock = useBranchLock()
 
-  const [filters, setFilters] = useState({ status: myStage || "", branch_id: branchLock.activeKey, from_date: "", to_date: "" })
+  // mine = เฉพาะรายการที่ฉันดำเนินการได้ตอนนี้ (?mine=true) — api-handoff-4 §1
+  const [filters, setFilters] = useState({ status: "", branch_id: branchLock.activeKey, from_date: "", to_date: "", mine: "" })
   useEffect(() => {
     if (!branchLock.locked) return
     setFilters((f) => (f.branch_id === branchLock.activeKey ? f : { ...f, branch_id: branchLock.activeKey }))
@@ -157,12 +99,8 @@ function RequestsPanel({ branchOptions, branchName }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [banner, setBanner] = useState(null) // { tone: "error" | "success", text }
-
-  const [modal, setModal] = useState(null) // { kind: "approve" | "reject", req }
-  const [reason, setReason] = useState("")
-  const [reasonErr, setReasonErr] = useState("")
-  const [busy, setBusy] = useState(false)
-  const [modalErr, setModalErr] = useState("")
+  const [decision, setDecision] = useState(null) // { req, mode }
+  const [historyId, setHistoryId] = useState(null)
 
   const fetchRows = useCallback(() => {
     setLoading(true)
@@ -191,76 +129,42 @@ function RequestsPanel({ branchOptions, branchName }) {
   const dateRangeInvalid = filters.from_date && filters.to_date && filters.to_date < filters.from_date
   const hasFilters = Object.entries(filters).some(([k, v]) => Boolean(v) && !(k === "branch_id" && branchLock.locked))
 
-  // Role 6 lists are already scoped to their branches by the API, so no
-  // coveredBranchIds is passed — the backend's 403 stays authoritative.
-  const actable = (r) => canActOn(r, { kind: "out_of_office" })
-
-  const openModal = (kind, req) => {
-    setModal({ kind, req })
-    setReason("")
-    setReasonErr("")
-    setModalErr("")
+  const onDecisionDone = (mode) => {
+    const req = decision.req
+    setDecision(null)
+    const text = {
+      approve: `อนุมัติคำขอของ ${requesterName(req)} แล้ว`,
+      reject: `ไม่อนุมัติคำขอของ ${requesterName(req)} แล้ว`,
+      justified: `บันทึกผลตรวจ "สมเหตุสมผล" ของ ${requesterName(req)} แล้ว`,
+      unjust: `บันทึกผลตรวจ "ไม่สมเหตุสมผล" ของ ${requesterName(req)} แล้ว`,
+    }[mode]
+    setBanner({ tone: "success", text })
+    requestNotificationsRefresh()
+    fetchRows()
   }
-  const closeModal = useCallback(() => setModal(null), [])
-
-  const submitAction = async () => {
-    if (!modal) return
-    const { kind, req } = modal
-    let path
-    let body
-    if (kind === "reject") {
-      if (!reason.trim()) {
-        setReasonErr("กรุณาระบุเหตุผลที่ไม่อนุมัติ")
-        document.getElementById("ooo-reject-reason")?.focus()
-        return
-      }
-      path = `/hr/out-of-office/${req.id}/reject`
-      body = { reason: reason.trim() }
-    } else {
-      const action = STAGE_APPROVE_ACTION[req.status]
-      if (!action) return
-      path = `/hr/out-of-office/${req.id}/${action}`
-    }
-    setBusy(true)
-    setModalErr("")
-    try {
-      const res = await apiAuth(path, { method: "POST", ...(body ? { body } : {}) })
-      setModal(null)
-      const next = res?.status
-      setBanner({
-        tone: "success",
-        text: kind === "reject"
-          ? `ไม่อนุมัติคำขอของ ${requesterName(req)} แล้ว`
-          : next === "pending_manager"
-            ? `อนุมัติคำขอของ ${requesterName(req)} แล้ว — ส่งต่อให้ผู้จัดการยืนยัน`
-            : `อนุมัติคำขอของ ${requesterName(req)} แล้ว`,
-      })
-      fetchRows()
-    } catch (err) {
-      if (err.status === 403 || err.status === 409) {
-        // stale stage / no permission — show the backend's reason and refresh
-        setModal(null)
-        setBanner({ tone: "error", text: err.message })
-        fetchRows()
-      } else {
-        setModalErr(err.message || "ดำเนินการไม่สำเร็จ")
-      }
-    } finally {
-      setBusy(false)
-    }
+  const onDecisionConflict = (err) => {
+    setDecision(null)
+    setBanner({ tone: "error", text: err?.message || "ดำเนินการไม่สำเร็จ" })
+    fetchRows()
   }
 
-  const renderActions = (r, full = false) =>
-    actable(r) ? (
-      <div className={`flex gap-2 ${full ? "" : "justify-end"}`}>
-        <button type="button" onClick={() => openModal("approve", r)} className={`${approveBtnCls} ${full ? "flex-1" : ""}`}>
-          {STAGE_APPROVE_ACTION[r.status] === "manager-confirm" ? "ยืนยัน" : "อนุมัติ"}
-        </button>
-        <button type="button" onClick={() => openModal("reject", r)} className={`${rejectBtnCls} ${full ? "flex-1" : ""}`}>
-          ไม่อนุมัติ
-        </button>
-      </div>
-    ) : null
+  const toggleHistory = (id) => setHistoryId((cur) => (cur === id ? null : id))
+  const historyBtn = (r) => (
+    <button
+      type="button"
+      onClick={() => toggleHistory(r.id)}
+      aria-expanded={historyId === r.id}
+      className={`rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer ${focusRing} focus-visible:ring-indigo-500`}
+    >
+      {historyId === r.id ? "ซ่อนประวัติ" : "ประวัติ"}
+    </button>
+  )
+  const renderActions = (r, full = false) => (
+    <div className={`flex flex-wrap items-center gap-2 ${full ? "" : "justify-end"}`}>
+      <LeaveStageActions req={r} kind={KIND.OOO} onDecide={(req, mode) => setDecision({ req, mode })} hideReason />
+      {historyBtn(r)}
+    </div>
+  )
 
   return (
     <div className="space-y-4">
@@ -301,7 +205,7 @@ function RequestsPanel({ branchOptions, branchName }) {
           <button
             type="button"
             disabled={!hasFilters}
-            onClick={() => setFilters({ status: "", branch_id: branchLock.activeKey, from_date: "", to_date: "" })}
+            onClick={() => setFilters({ status: "", branch_id: branchLock.activeKey, from_date: "", to_date: "", mine: "" })}
             className={`h-10 rounded-lg px-3 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 cursor-pointer ${focusRing} focus-visible:ring-indigo-500`}
           >
             ล้างตัวกรอง
@@ -310,23 +214,15 @@ function RequestsPanel({ branchOptions, branchName }) {
         {dateRangeInvalid && (
           <p className="mt-2 text-xs text-red-600 dark:text-red-400">วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่ม</p>
         )}
-        {myStage && (
-          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            คำขอที่รอคุณพิจารณาอยู่ในสถานะ “{STATUS_LABEL[myStage]}”
-            {filters.status !== myStage && (
-              <>
-                {" — "}
-                <button
-                  type="button"
-                  onClick={() => setFilters((f) => ({ ...f, status: myStage }))}
-                  className={`font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer rounded ${focusRing} focus-visible:ring-indigo-500`}
-                >
-                  แสดงเฉพาะรายการรอฉัน
-                </button>
-              </>
-            )}
-          </p>
-        )}
+        <label className="mt-3 flex w-fit cursor-pointer items-center gap-2 text-sm text-gray-700 select-none dark:text-gray-200">
+          <input
+            type="checkbox"
+            className="size-4 accent-indigo-600"
+            checked={filters.mine === "true"}
+            onChange={(e) => setFilters((f) => ({ ...f, mine: e.target.checked ? "true" : "" }))}
+          />
+          แสดงเฉพาะรายการที่รอฉันอนุมัติ/ตรวจสอบ
+        </label>
       </div>
 
       {banner && (
@@ -361,7 +257,7 @@ function RequestsPanel({ branchOptions, branchName }) {
       ) : error ? null : rows.length === 0 ? (
         <div className={cardCls}>
           <EmptyState
-            title={filters.status && filters.status === myStage ? "ไม่มีคำขอรอคุณพิจารณา" : "ไม่พบคำขอตามตัวกรอง"}
+            title={filters.mine ? "ไม่มีคำขอรอคุณอนุมัติหรือตรวจสอบ" : "ไม่พบคำขอตามตัวกรอง"}
             description={hasFilters ? "ลองเปลี่ยนสถานะ สาขา หรือช่วงวันที่" : "เมื่อมีพนักงานยื่นคำขอออกนอกสถานที่ รายการจะแสดงที่นี่"}
           />
         </div>
@@ -378,7 +274,10 @@ function RequestsPanel({ branchOptions, branchName }) {
                     <p className="font-semibold text-gray-900 dark:text-gray-100 break-words">{requesterName(r)}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{branchName(r.branch_id) || "ไม่ระบุสาขา"}</p>
                   </div>
-                  <StatusBadge status={r.status} />
+                  <div className="flex flex-col items-end gap-1">
+                    <StageBadge req={r} />
+                    <JustificationBadge req={r} />
+                  </div>
                 </div>
                 <p className="text-sm text-gray-800 dark:text-gray-200 tabular-nums">
                   {fmtThaiShort(r.request_date)} · {hhmm(r.time_out)}–{hhmm(r.time_back)} น.
@@ -391,7 +290,11 @@ function RequestsPanel({ branchOptions, branchName }) {
                     เหตุผลที่ไม่อนุมัติ: {r.reject_reason}
                   </p>
                 )}
+                {r.justification_note && (
+                  <p className="text-xs text-gray-600 dark:text-gray-300 break-words">หมายเหตุผลตรวจ: {r.justification_note}</p>
+                )}
                 {renderActions(r, true)}
+                {historyId === r.id && <ApprovalHistory kind={KIND.OOO} id={r.id} req={r} className="rounded-xl bg-gray-50 p-3 dark:bg-gray-700/40" />}
               </li>
             ))}
           </ul>
@@ -405,13 +308,14 @@ function RequestsPanel({ branchOptions, branchName }) {
                   <th scope="col" className={thCls}>วันเวลา</th>
                   <th scope="col" className={thCls}>ประเภท</th>
                   <th scope="col" className={thCls}>สถานที่ / เหตุผล</th>
-                  <th scope="col" className={thCls}>สถานะ</th>
+                  <th scope="col" className={thCls}>สถานะ/ขั้นตอน · ผลตรวจสอบ</th>
                   <th scope="col" className={`${thCls} text-right`}><span className="sr-only">การดำเนินการ</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/70">
                 {rows.map((r) => (
-                  <tr key={r.id} className="even:bg-gray-50 dark:even:bg-gray-700/30">
+                  <Fragment key={r.id}>
+                  <tr className="even:bg-gray-50 dark:even:bg-gray-700/30">
                     <td className={`${tdCls} max-w-[200px]`}>
                       <p className="font-medium text-gray-900 dark:text-gray-100 break-words">{requesterName(r)}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">{branchName(r.branch_id) || "ไม่ระบุสาขา"}</p>
@@ -428,7 +332,13 @@ function RequestsPanel({ branchOptions, branchName }) {
                       <p className="text-xs text-gray-500 dark:text-gray-400 break-words line-clamp-2" title={r.reason}>{r.reason}</p>
                     </td>
                     <td className={`${tdCls} max-w-[220px]`}>
-                      <StatusBadge status={r.status} />
+                      <div className="flex flex-wrap gap-1">
+                        <StageBadge req={r} />
+                        <JustificationBadge req={r} />
+                      </div>
+                      {r.justification_note && (
+                        <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 break-words">หมายเหตุผลตรวจ: {r.justification_note}</p>
+                      )}
                       {r.reject_reason && (
                         <p className="mt-1 text-xs text-rose-700 dark:text-rose-300 break-words">เหตุผล: {r.reject_reason}</p>
                       )}
@@ -437,6 +347,14 @@ function RequestsPanel({ branchOptions, branchName }) {
                       {renderActions(r)}
                     </td>
                   </tr>
+                  {historyId === r.id && (
+                    <tr>
+                      <td colSpan={6} className="px-3 pb-4">
+                        <ApprovalHistory kind={KIND.OOO} id={r.id} req={r} className="rounded-xl bg-gray-50 p-4 dark:bg-gray-700/40" />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -444,61 +362,17 @@ function RequestsPanel({ branchOptions, branchName }) {
         </>
       )}
 
-      {/* Approve / reject modal */}
-      {modal && (
-        <ModalShell labelledBy="ooo-action-title" onClose={closeModal} busy={busy}>
-          <h3 id="ooo-action-title" className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            {modal.kind === "reject" ? "ไม่อนุมัติคำขอ" : STAGE_APPROVE_LABEL[modal.req.status] || "อนุมัติคำขอ"}
-          </h3>
-          <RequestSummary r={modal.req} branchName={branchName(modal.req.branch_id)} />
-          {modal.kind === "approve" && modal.req.status === "pending_assistant_manager" && (
-            <p className="text-sm text-gray-600 dark:text-gray-400">หลังอนุมัติ คำขอจะส่งต่อให้ผู้จัดการยืนยันอีกขั้น</p>
-          )}
-          {modal.kind === "reject" && (
-            <div className="flex flex-col gap-1">
-              <label htmlFor="ooo-reject-reason" className={labelCls}>
-                เหตุผลที่ไม่อนุมัติ<span className="text-red-500 ml-0.5" aria-hidden="true">*</span>
-              </label>
-              <textarea
-                id="ooo-reject-reason"
-                rows={3}
-                autoFocus
-                value={reason}
-                onChange={(e) => { setReason(e.target.value); setReasonErr("") }}
-                placeholder="ผู้ขอจะเห็นเหตุผลนี้"
-                aria-invalid={reasonErr ? true : undefined}
-                aria-describedby={reasonErr ? "ooo-reject-reason-err" : undefined}
-                className={`${inputCls} resize-y ${reasonErr ? inputErrCls : ""}`}
-              />
-              {reasonErr && <p id="ooo-reject-reason-err" className="text-xs text-red-600 dark:text-red-400">{reasonErr}</p>}
-            </div>
-          )}
-          {modalErr && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{modalErr}</p>}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={closeModal}
-              disabled={busy}
-              autoFocus={modal.kind === "approve"}
-              className={`flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 cursor-pointer disabled:opacity-60 ${focusRing} focus-visible:ring-indigo-500`}
-            >
-              ยกเลิก
-            </button>
-            <button
-              type="button"
-              onClick={submitAction}
-              disabled={busy}
-              className={`flex-1 inline-flex items-center justify-center gap-2 h-10 rounded-xl text-white text-sm font-semibold shadow-sm transition-colors duration-200 cursor-pointer disabled:opacity-60 ${focusRing} ${
-                modal.kind === "reject"
-                  ? "bg-red-600 hover:bg-red-500 focus-visible:ring-red-500"
-                  : "bg-emerald-600 hover:bg-emerald-500 focus-visible:ring-emerald-500"
-              }`}
-            >
-              {busy && <Spinner />}
-              {busy ? "กำลังดำเนินการ..." : modal.kind === "reject" ? "ยืนยันไม่อนุมัติ" : STAGE_APPROVE_ACTION[modal.req.status] === "manager-confirm" ? "ยืนยัน" : "อนุมัติ"}
-            </button>
-          </div>
-        </ModalShell>
+      {decision && (
+        <DecisionModal
+          mode={decision.mode}
+          kind={KIND.OOO}
+          req={decision.req}
+          title={`${requesterName(decision.req)} — ${OOO_TYPE_LABEL[decision.req.request_type] || "ขอออกนอกสถานที่"}`}
+          summary={`${fmtThaiShort(decision.req.request_date)} ${hhmm(decision.req.time_out)}–${hhmm(decision.req.time_back)} น. · ${decision.req.place || ""}`}
+          onClose={() => setDecision(null)}
+          onDone={onDecisionDone}
+          onConflict={onDecisionConflict}
+        />
       )}
     </div>
   )

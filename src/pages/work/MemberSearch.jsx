@@ -431,6 +431,17 @@ const MemberSearch = () => {
         else if (cfg.type === "number" || cfg.type === "decimal" || LAND_KEYS.includes(key)) diff[key] = after === "" || after == null ? null : Number(after)
         else diff[key] = after === "" ? null : after
       })
+      // เลขสมาชิกเดิม 7–8 หลักบันทึกได้ตามเดิม — ตรวจ 10 หลักเฉพาะเมื่อแก้เลขสมาชิก (api-handoff-4 §2)
+      if ("member_id" in diff) {
+        const mid = String(diff.member_id ?? "").replace(/[\s-]/g, "")
+        if (!/^\d{10}$/.test(mid)) {
+          const msg = "เลขสมาชิกใหม่ต้องเป็นตัวเลข 10 หลัก"
+          setRowError(msg)
+          toast.error("บันทึกไม่ได้", { description: msg })
+          return
+        }
+        diff.member_id = mid
+      }
       if (Object.keys(diff).length === 0) {
         setEditing(false)
         toast.info("ไม่มีข้อมูลที่เปลี่ยน")

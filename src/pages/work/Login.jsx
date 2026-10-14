@@ -70,12 +70,15 @@ const Login = () => {
       setFailCount(0);
       setCooldown(0);
       // ถ้า user เคยเปลี่ยนรหัสผ่านไปแล้ว (account_status="register") ห้าม backend override กลับเป็น "new"
+      // ค่า "register" ที่จำไว้ใช้ได้เฉพาะผู้ใช้คนเดียวกัน (เครื่องใช้ร่วมกัน: คนถัดไปต้องถูกบังคับเปลี่ยนรหัส)
       const prevStatus = localStorage.getItem("account_status");
+      const prevUser = localStorage.getItem("account_status_user");
       const backendStatus = resp.account_status;
-      const alreadyRegistered = prevStatus === "register";
+      const alreadyRegistered = prevStatus === "register" && prevUser === String(username);
       if (backendStatus && !alreadyRegistered) {
         localStorage.setItem("account_status", backendStatus);
       }
+      localStorage.setItem("account_status_user", String(username));
       if (backendStatus === "new" && !alreadyRegistered) {
         navigate("/change-password", { replace: true });
       } else {

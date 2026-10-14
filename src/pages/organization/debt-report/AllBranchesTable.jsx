@@ -7,6 +7,7 @@ import { buildReportRows, computeColTotals } from "./buildReportRows"
 import { printDebtTable } from "./printDebtTable"
 import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 import { ReportHead, ReportBody } from "./BranchDebtTable"
+import ReportPdfButton from "../../../components/ReportPdfButton"
 
 /** Line-art printer icon for the export button (currentColor, no emoji). */
 function PrinterIcon() {
@@ -87,6 +88,12 @@ export default function AllBranchesTable({ onBack }) {
           พิมพ์ PDF
         </button>
         {/* Server-side Excel twin of GET /debt/report (no filters = all branches) */}
+        {/* PDF จากระบบ (จัดกลุ่มตามโปรแกรม) — GET /debt/report/pdf ด้วยตัวกรองเดียวกัน */}
+        <ReportPdfButton
+          getPath={() => "/debt/report/pdf"}
+          label="PDF (รายงานระบบ)"
+          fallbackName="debt_report.pdf"
+        />
         <ExcelDownloadButton
           getPdfPath={() => "/debt/report"}
           fallbackName="debt_cohort_report.xlsx"

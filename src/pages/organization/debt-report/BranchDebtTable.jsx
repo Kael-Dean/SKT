@@ -10,6 +10,7 @@ import { printDebtTable } from "./printDebtTable"
 import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 import DebtEntryModal from "../debt/DebtEntryModal"
 import { canWriteEntries, isOwnBranchOnly, ownBranchId } from "../debt/debtEntryMeta"
+import ReportPdfButton from "../../../components/ReportPdfButton"
 
 /** Line-art printer icon for the export button (currentColor, no emoji). */
 function PrinterIcon() {
@@ -388,6 +389,13 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
           พิมพ์ PDF
         </button>
         {/* Server-side Excel twin of GET /debt/report — same filters as the table */}
+        {/* PDF จากระบบ (จัดกลุ่มตามโปรแกรม) — GET /debt/report/pdf ด้วยตัวกรองเดียวกัน */}
+        <ReportPdfButton
+          getPath={() => `/debt/report/pdf${reportQs ? `?${reportQs}` : ""}`}
+          label="PDF (รายงานระบบ)"
+          fallbackName="debt_report.pdf"
+          disabled={onlyOneDate || rangeInverted}
+        />
         <ExcelDownloadButton
           getPdfPath={() => `/debt/report${reportQs ? `?${reportQs}` : ""}`}
           fallbackName="debt_cohort_report.xlsx"

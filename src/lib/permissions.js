@@ -526,7 +526,11 @@ export const PHASE1_REPORT_PERMS = Object.freeze(
  * หน้า "คลังเอกสาร & รายงาน" (/documents) รวมรายงานหลายกลุ่ม — เข้าได้ถ้ามีสิทธิ์อย่างน้อยหนึ่งกลุ่ม
  * (รายงานซื้อ-ขาย · รายงานแผนรายปี · รายงาน Phase 1) — ใช้ร่วมกันใน App.jsx และ Home.jsx
  */
-export const DOCUMENTS_PERMS = Object.freeze(["trading.reports.view", "plan.reports.saleGoal", ...PHASE1_REPORT_PERMS])
+export const DOCUMENTS_PERMS = Object.freeze([
+  "trading.reports.view", "plan.reports.saleGoal", ...PHASE1_REPORT_PERMS,
+  // รายงานฝ่ายบุคคล (report.hr.*) — กล่อง "รายงานฝ่ายบุคคล" ในหน้าเดียวกัน
+  ...Object.keys(PERMISSIONS).filter((k) => k.startsWith("hr.reports.")),
+])
 
 // ─── กฎพิเศษที่ผูกกับ "ผู้ใช้" ไม่ใช่ role (คงไว้โดยเจตนา) ─────────────────────
 const BRING_IN_MILL_USER_IDS = new Set([17, 18])

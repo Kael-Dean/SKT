@@ -128,7 +128,7 @@ export default function HRIssueReports() {
                     </Badge>
                     {r.category && (
                       <span className="rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-0.5 text-xs font-semibold">
-                        {r.category}
+                        {r.category_label || r.category}
                       </span>
                     )}
                   </div>
@@ -137,7 +137,7 @@ export default function HRIssueReports() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                       <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 px-3 py-2">
                         <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">ฟิลด์ที่แจ้ง</p>
-                        <p className="font-semibold text-gray-800 dark:text-gray-200">{r.field_name}</p>
+                        <p className="font-semibold text-gray-800 dark:text-gray-200">{r.field_label || r.field_name}</p>
                       </div>
                       <div className="rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-2">
                         <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">ข้อมูลปัจจุบัน</p>

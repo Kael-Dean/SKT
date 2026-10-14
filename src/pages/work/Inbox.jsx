@@ -10,8 +10,11 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import Portal from "../../components/Portal"
 import DecisionModal from "../../components/DecisionModal"
+import LeaveStageActions from "../../components/LeaveStageActions"
+import ApprovalHistory from "../../components/ApprovalHistory"
+import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import { EmptyState } from "../../components/ui"
-import { getRoleId, getUser } from "../../lib/auth"
+import { getRoleId } from "../../lib/auth"
 import { apiAuth } from "../../lib/api"
 import { ROLE_LABEL } from "../../lib/roles"
 import { can } from "../../lib/permissions"
@@ -20,16 +23,14 @@ import {
   OOO_TYPE_LABEL,
   hhmm,
   isApproverRole,
-  isPendingStatus,
-  myStageStatus,
-  statusLabel,
-  statusTone,
-  canActOn,
+  stageOf,
 } from "../../lib/approval"
 import {
   KIND,
   KIND_LABEL,
   canDecide,
+  canCheck,
+  blockedReason,
   fmtDateTh,
   fmtDateTimeTh,
   relativeTimeTh,
@@ -126,39 +127,17 @@ function toItem(kind, r) {
   }
 }
 
-const isMine = (req) => {
-  const me = getUser()
-  return me?.id != null && req?.user_id != null && Number(me.id) === Number(req.user_id)
-}
-
 /** Explains why the opened request is not actionable for this user (null = actionable). */
-function stateNotice(req, roleId) {
+function stateNotice(req, kind) {
   if (!req) return null
-  const label = statusLabel(req.status)
-  if (!isPendingStatus(req.status)) return { tone: "done", text: `คำขอนี้ดำเนินการไปแล้ว (${label})` }
-  if (canDecide(req)) return null
-  if (!can("approval.anyStage", roleId) && isMine(req)) {
-    return { tone: "info", text: `เป็นคำขอของคุณเอง พิจารณาเองไม่ได้ (${label})` }
-  }
-  if (!myStageStatus(roleId)) return { tone: "info", text: `สถานะปัจจุบัน: ${label}` }
-  // stage check passes but branch doesn't → branch head outside their branches
-  if (canActOn({ status: req.status, user_id: req.user_id })) {
-    return { tone: "info", text: "คำขอนี้อยู่นอกสาขาที่คุณดูแล" }
-  }
-  return { tone: "done", text: `คำขอนี้ดำเนินการไปแล้ว (${label})` }
+  if (canDecide(req, kind) || canCheck(req)) return null
+  const why = blockedReason(req, kind)
+  return why ? { tone: stageOf(req) ? "info" : "done", text: why } : null
 }
 
 const asList = (data) => (Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [])
 
 // ─── small pieces ───────────────────────────────────────────────────────────
-function StatusBadge({ status }) {
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(status)}`}>
-      {statusLabel(status)}
-    </span>
-  )
-}
-
 function Notice({ tone = "info", children, onDismiss }) {
   const toneCls = {
     success: "bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/30",
@@ -201,7 +180,10 @@ function InboxCard({ item, onView, onDecide }) {
           </span>
           <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">#{req.id}</span>
         </div>
-        <StatusBadge status={req.status} />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StageBadge req={req} />
+          <JustificationBadge req={req} />
+        </div>
       </div>
 
       <div>
@@ -232,32 +214,19 @@ function InboxCard({ item, onView, onDecide }) {
         >
           ดูรายละเอียด
         </button>
-        <button
-          type="button"
-          onClick={() => onDecide(item, "reject")}
-          className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/20 cursor-pointer"
-        >
-          ไม่อนุมัติ
-        </button>
-        <button
-          type="button"
-          onClick={() => onDecide(item, "approve")}
-          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800 cursor-pointer"
-        >
-          {STAGE_APPROVE_LABEL[req.status] || "อนุมัติ"}
-        </button>
+        <LeaveStageActions req={req} kind={item.kind} onDecide={(_r, mode) => onDecide(item, mode)} hideReason />
       </div>
     </article>
   )
 }
 
 // ─── Detail modal ───────────────────────────────────────────────────────────
-function DetailModal({ state, roleId, onClose, onDecide }) {
+function DetailModal({ state, onClose, onDecide }) {
   const { backdropProps } = useModalDismiss(onClose)
 
   const { loading, item, error } = state
   const req = item?.req
-  const notice = req ? stateNotice(req, roleId) : null
+  const notice = req ? stateNotice(req, state.kind) : null
   const reason = rejectionReason(req)
   const actionable = req && !notice
 
@@ -333,10 +302,17 @@ function DetailModal({ state, roleId, onClose, onDecide }) {
                   ))}
                 <div className="flex items-center gap-3 px-4 py-2.5 text-sm">
                   <dt className="w-28 shrink-0 text-xs text-gray-500 dark:text-gray-400">สถานะ</dt>
-                  <dd>
-                    <StatusBadge status={req.status} />
+                  <dd className="flex flex-wrap gap-1.5">
+                    <StageBadge req={req} />
+                    <JustificationBadge req={req} />
                   </dd>
                 </div>
+                {req.justification_note && (
+                  <div className="flex items-baseline gap-3 px-4 py-2.5 text-sm">
+                    <dt className="w-28 shrink-0 text-xs text-gray-500 dark:text-gray-400">เหตุผลผลตรวจ</dt>
+                    <dd className="min-w-0 break-words font-medium text-gray-800 dark:text-gray-200">{req.justification_note}</dd>
+                  </div>
+                )}
                 {reason && (
                   <div className="flex items-baseline gap-3 px-4 py-2.5 text-sm">
                     <dt className="w-28 shrink-0 text-xs text-gray-500 dark:text-gray-400">เหตุผลที่ไม่อนุมัติ</dt>
@@ -344,27 +320,15 @@ function DetailModal({ state, roleId, onClose, onDecide }) {
                   </div>
                 )}
               </dl>
+              <ApprovalHistory kind={state.kind} id={req.id} req={req} className="rounded-xl bg-gray-50 p-4 dark:bg-gray-700/40" />
             </>
           )}
 
           <div className="flex flex-wrap gap-3 pt-1">
             {actionable ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => onDecide(item, "reject")}
-                  className="h-10 flex-1 cursor-pointer rounded-xl border border-red-300 text-sm font-semibold text-red-700 transition duration-200 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/20"
-                >
-                  ไม่อนุมัติ
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDecide(item, "approve")}
-                  className="h-10 flex-1 cursor-pointer rounded-xl bg-emerald-600 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800"
-                >
-                  {STAGE_APPROVE_LABEL[req.status] || "อนุมัติ"}
-                </button>
-              </>
+              <div className="w-full">
+                <LeaveStageActions req={req} kind={state.kind} onDecide={(_r, mode) => onDecide(item, mode)} />
+              </div>
             ) : (
               <button
                 type="button"
@@ -382,12 +346,12 @@ function DetailModal({ state, roleId, onClose, onDecide }) {
 }
 
 // ─── data loading ───────────────────────────────────────────────────────────
-async function loadQueue(kind, stage) {
+/** คิวของฉัน: ?mine=true = เฉพาะแถวที่ฉันดำเนินการได้ตอนนี้ (อนุมัติ หรือ ตรวจสอบ) — api-handoff-4 §1 */
+async function loadQueue(kind) {
   const base = kind === KIND.OOO ? "/hr/out-of-office" : "/hr/leave-requests"
-  const data = await apiAuth(stage ? `${base}?status=${stage}` : base)
+  const data = await apiAuth(`${base}?mine=true`)
   return asList(data)
-    .filter((r) => isPendingStatus(r.status))
-    .filter((r) => canDecide(r, kind))
+    .filter((r) => canDecide(r, kind) || canCheck(r))
     .map((r) => toItem(kind, r))
 }
 
@@ -424,7 +388,6 @@ export default function Inbox() {
   const [params, setParams] = useSearchParams()
   const roleId = getRoleId()
   const approver = isApproverRole(roleId)
-  const stage = myStageStatus(roleId)
 
   const [items, setItems] = useState({ [KIND.LEAVE]: [], [KIND.OOO]: [] })
   const [srcError, setSrcError] = useState({ [KIND.LEAVE]: "", [KIND.OOO]: "" })
@@ -438,7 +401,7 @@ export default function Inbox() {
     if (!approver) return
     setLoading(true)
     const kinds = [KIND.LEAVE, KIND.OOO]
-    const results = await Promise.allSettled(kinds.map((k) => loadQueue(k, stage)))
+    const results = await Promise.allSettled(kinds.map((k) => loadQueue(k)))
     const nextItems = {}
     const nextErr = {}
     results.forEach((r, i) => {
@@ -449,7 +412,7 @@ export default function Inbox() {
     setItems(nextItems)
     setSrcError(nextErr)
     setLoading(false)
-  }, [approver, stage])
+  }, [approver])
 
   useEffect(() => {
     refetch()
@@ -518,13 +481,13 @@ export default function Inbox() {
   const onDecisionDone = (mode) => {
     const { item } = decision
     setDecision(null)
-    setBanner({
-      tone: "success",
-      text:
-        mode === "approve"
-          ? `${STAGE_APPROVE_LABEL[item.req.status] || "อนุมัติ"}คำขอของ ${item.name} แล้ว`
-          : `ไม่อนุมัติคำขอของ ${item.name} แล้ว`,
-    })
+    const text = {
+      approve: `${STAGE_APPROVE_LABEL[stageOf(item.req)] || "อนุมัติ"}คำขอของ ${item.name} แล้ว`,
+      reject: `ไม่อนุมัติคำขอของ ${item.name} แล้ว`,
+      justified: `บันทึกผลตรวจ "สมเหตุสมผล" ของ ${item.name} แล้ว`,
+      unjust: `บันทึกผลตรวจ "ไม่สมเหตุสมผล" ของ ${item.name} แล้ว · แจ้งผู้ยื่นและฝ่าย HR แล้ว`,
+    }[mode]
+    setBanner({ tone: "success", text })
     requestNotificationsRefresh()
     refetch()
   }
@@ -547,12 +510,10 @@ export default function Inbox() {
     return [...list].sort((a, b) => String(a.submittedAt || "").localeCompare(String(b.submittedAt || "")))
   }, [items, tab])
 
-  const roleLine =
-    can("approval.anyStage", roleId)
-      ? "คุณพิจารณาในฐานะผู้ดูแลระบบ ทำได้ทุกขั้น"
-      : stage
-        ? `คุณพิจารณาในฐานะ${ROLE_LABEL[roleId]} · ขั้น${statusLabel(stage)}`
-        : "คำขอที่รอคุณพิจารณา"
+  // ใครอนุมัติ/ตรวจสอบขึ้นกับตำแหน่งของผู้ยื่น (backend เป็นคนจัด) — แสดงเฉพาะงานที่รอคุณตอนนี้
+  const roleLine = can("approval.anyStage", roleId)
+    ? "คุณดำเนินการในฐานะผู้ดูแลระบบ"
+    : "คำขอที่รอคุณอนุมัติ หรือรอคุณตรวจสอบหลังอนุมัติ"
 
   const errorKinds = [KIND.LEAVE, KIND.OOO].filter((k) => srcError[k])
   const bothFailed = errorKinds.length === 2
@@ -652,7 +613,7 @@ export default function Inbox() {
               <div className={cardCls}>
                 <EmptyState
                   icon={<IconInbox className="size-12" />}
-                  title={tab === "all" ? "ไม่มีคำขอรอคุณพิจารณา" : `ไม่มี${KIND_LABEL[tab]}รอคุณพิจารณา`}
+                  title={tab === "all" ? "ไม่มีคำขอรอคุณอนุมัติหรือตรวจสอบ" : `ไม่มี${KIND_LABEL[tab]}รอคุณอนุมัติหรือตรวจสอบ`}
                   description="เมื่อมีคำขอใหม่ถึงขั้นของคุณ ระบบจะแจ้งเตือนที่กระดิ่งด้านบน"
                 />
               </div>
@@ -667,7 +628,7 @@ export default function Inbox() {
         </>
       )}
 
-      {detail && <DetailModal state={detail} roleId={roleId} onClose={closeDetail} onDecide={openDecision} />}
+      {detail && <DetailModal state={detail} onClose={closeDetail} onDecide={openDecision} />}
 
       {decision && (
         <DecisionModal

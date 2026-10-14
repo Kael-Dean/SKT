@@ -15,6 +15,10 @@ import {
   isPendingStatus,
   myBranchIds,
   statusLabel,
+  stageOf,
+  displayStatusOf,
+  checkRoleLabel,
+  STAGE,
 } from "./approval"
 
 export const KIND = {
@@ -66,9 +70,14 @@ const isOwn = (req) => {
   return me?.id != null && req?.user_id != null && Number(me.id) === Number(req.user_id)
 }
 
-/** canActOn with branch normalisation + the user's covered branches. */
+/** แถวจาก backend v1.5.5 มี `can_act` — เชื่อค่านั้นแทนการคำนวณสิทธิ์ฝั่งหน้าเว็บ */
+const hasCanAct = (req) => req && typeof req.can_act === "boolean"
+
+/** อนุมัติ/ไม่อนุมัติได้ไหม (ขั้น pending_* เท่านั้น — ขั้นตรวจสอบใช้ canCheck) */
 export function canDecide(req, kind = KIND.LEAVE) {
   if (!req) return false
+  const st = stageOf(req)
+  if (hasCanAct(req)) return req.can_act === true && !!st && st !== STAGE.AWAITING_CHECK
   return canActOn(
     { status: req.status, user_id: req.user_id, branch_id: requestBranchId(req) },
     { coveredBranchIds: myBranchIds(), kind },
@@ -79,8 +88,21 @@ export function canDecide(req, kind = KIND.LEAVE) {
  * Why the current user cannot act on a request (null when they can).
  * Used for the small hint shown instead of the buttons.
  */
+/** ตรวจสอบ (สมเหตุสมผล / ไม่สมเหตุสมผล) ได้ไหม — เฉพาะ stage awaiting_check + can_act */
+export function canCheck(req) {
+  return !!req && stageOf(req) === STAGE.AWAITING_CHECK && req.can_act === true
+}
+
 export function blockedReason(req, kind = KIND.LEAVE) {
   if (!req) return null
+  const st = stageOf(req)
+  if (hasCanAct(req)) {
+    if (req.can_act) return null
+    if (!st) return `คำขอนี้ดำเนินการไปแล้ว (${displayStatusOf(req)})`
+    if (st === STAGE.AWAITING_CHECK) return `อนุมัติแล้ว · รอ${checkRoleLabel(req.check_role).replace(/ตรวจสอบ$/, "")}ตรวจสอบ`
+    if (!can("approval.anyStage") && isOwn(req)) return "เป็นคำขอของคุณเอง พิจารณาเองไม่ได้"
+    return `${displayStatusOf(req)} — ไม่ใช่ขั้นที่คุณดำเนินการ`
+  }
   if (!isPendingStatus(req.status)) return `คำขอนี้ดำเนินการไปแล้ว (${statusLabel(req.status)})`
   if (canDecide(req, kind)) return null
   if (!can("approval.anyStage") && isOwn(req)) return "เป็นคำขอของคุณเอง พิจารณาเองไม่ได้"
@@ -98,7 +120,7 @@ export function blockedReason(req, kind = KIND.LEAVE) {
  * 3O    → POST /hr/out-of-office/{id}/{action}   no body
  */
 export function approveRequest(kind, req, note) {
-  const action = STAGE_APPROVE_ACTION[req?.status]
+  const action = STAGE_APPROVE_ACTION[stageOf(req)]
   if (!action) return Promise.reject(Object.assign(new Error("คำขอนี้ไม่ได้อยู่ในขั้นรออนุมัติ"), { status: 409 }))
   if (kind === KIND.OOO) {
     return apiAuth(`/hr/out-of-office/${req.id}/${action}`, { method: "POST" })
@@ -122,8 +144,28 @@ export function rejectRequest(kind, req, reason) {
   if (kind === KIND.OOO) {
     return apiAuth(`/hr/out-of-office/${req.id}/reject`, { method: "POST", body: { reason: text } })
   }
-  const ep = req.status === "pending_branch_head" ? "branch-head-deny" : "deny"
+  const st = stageOf(req)
+  const ep = st === STAGE.PENDING_BRANCH_HEAD ? "branch-head-deny" : st === STAGE.PENDING_MANAGER ? "manager-deny" : "deny"
   return apiAuth(`/hr/leave-requests/${req.id}/${ep}`, { method: "POST", body: { hr_comment: text } })
+}
+
+/**
+ * ตรวจสอบคำขอที่อนุมัติแล้ว: POST …/{id}/check {justified, note}
+ * ไม่สมเหตุสมผล ต้องมีเหตุผล (backend 422 ถ้าไม่มี) · ผลเป็นที่สุด ไม่มียกเลิก
+ */
+export function checkRequest(kind, req, justified, note) {
+  const text = typeof note === "string" ? note.trim() : ""
+  if (!justified && !text) {
+    return Promise.reject(Object.assign(new Error("ต้องระบุเหตุผลเมื่อบันทึกว่าไม่สมเหตุสมผล"), { status: 0 }))
+  }
+  const base = kind === KIND.OOO ? "/hr/out-of-office" : "/hr/leave-requests"
+  return apiAuth(`${base}/${req.id}/check`, { method: "POST", body: { justified: !!justified, note: text || null } })
+}
+
+/** ประวัติการอนุมัติ: GET /hr/{leave-requests|out-of-office}/{id}/history */
+export function fetchApprovalHistory(kind, id) {
+  const base = kind === KIND.OOO ? "/hr/out-of-office" : "/hr/leave-requests"
+  return apiAuth(`${base}/${encodeURIComponent(id)}/history`)
 }
 
 /** Rejection reason regardless of source (3O `reject_reason`, leave `hr_comment`). */

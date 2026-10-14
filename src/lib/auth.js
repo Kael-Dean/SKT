@@ -60,6 +60,9 @@ const AUTH_STORAGE_KEYS = [
   'token', 'access_token', 'jwt', 'role',
   'user', 'userdata', 'profile', 'account', 'current_user',
   'my_permissions', // สิทธิ์จาก GET /auth/me/permissions (src/lib/myPermissions.js)
+  // สถานะบัญชีของผู้ใช้ก่อนหน้า — ต้องล้างทุกครั้งที่ออกจากระบบ ไม่งั้นเครื่องที่ใช้ร่วมกัน
+  // จะข้ามการบังคับเปลี่ยนรหัสผ่านของผู้ใช้ "new" คนถัดไป (api-handoff-4 TODO)
+  'account_status', 'account_status_user',
 ];
 
 export function logout() {

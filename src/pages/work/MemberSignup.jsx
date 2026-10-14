@@ -410,25 +410,29 @@ const MemberSignup = () => {
     if (mappedSex) clearError("sex")
   }
 
+  /** เลขสมาชิก: ตัวเลข 10 หลักพอดี (ไม่นับช่องว่าง/ขีด, เก็บเลข 0 นำหน้า) — api-handoff-4 §2 */
+  const memberIdDigits = (v) => String(v ?? "").replace(/[\s-]/g, "")
+  const memberIdError = (v) => {
+    const d = memberIdDigits(v)
+    if (!d) return "กรอกเลขสมาชิก"
+    if (!/^\d+$/.test(d)) return "เลขสมาชิกต้องเป็นตัวเลขเท่านั้น"
+    if (d.length !== 10) return `เลขสมาชิกต้องเป็นตัวเลข 10 หลัก (ตอนนี้ ${d.length} หลัก)`
+    return ""
+  }
+
+  // บังคับเพียง 5 ช่อง: เลขสมาชิก, เลขบัตรประชาชน, ชื่อ, นามสกุล, ที่อยู่ — ที่เหลือไม่บังคับ
   const validateAll = () => {
     const e = {}
-    if (!form.member_id) e.member_id = "กรอกเลขสมาชิก"
-    if (!form.precode) e.precode = "เลือกคำนำหน้า"
-    if (!form.first_name) e.first_name = "กรอกชื่อ"
-    if (!form.last_name) e.last_name = "กรอกนามสกุล"
-    if (!validateThaiCitizenId(form.citizen_id)) e.citizen_id = "เลขบัตรประชาชนไม่ถูกต้อง"
-
-    if (!form.address) e.address = "กรอกที่อยู่"
-    if (!form.sub_district) e.sub_district = "เลือกตำบล"
-    if (!form.district) e.district = "เลือกอำเภอ"
-    if (!form.province) e.province = "จังหวัดต้องเป็นสุรินทร์"
-
-    // เพศถูกล็อกจากคำนำหน้า
-    if (!form.sex) e.sex = "เลือกคำนำหน้าเพื่อกำหนดเพศอัตโนมัติ"
+    const midErr = memberIdError(form.member_id)
+    if (midErr) e.member_id = midErr
+    if (!String(form.citizen_id ?? "").trim()) e.citizen_id = "กรอกเลขบัตรประชาชน"
+    if (!form.first_name?.trim()) e.first_name = "กรอกชื่อ"
+    if (!form.last_name?.trim()) e.last_name = "กรอกนามสกุล"
+    if (!form.address?.trim()) e.address = "กรอกที่อยู่"
 
     // ตัวเลขต่าง ๆ
     ;[
-      "member_id","precode","subprov","postal_code",
+      "precode","subprov","postal_code",
       "tgs_group",
       "own_rai","own_ngan","own_wa","rent_rai","rent_ngan","rent_wa","other_rai","other_ngan","other_wa",
       "agri_type","fertilizing_period","fertilizer_type",
@@ -437,12 +441,11 @@ const MemberSignup = () => {
       if (v !== "" && isNaN(Number(v))) e[k] = "ตัวเลขเท่านั้น"
     })
 
-    // ซื้อหุ้น: บังคับ tgs_id + buy_amount ≥ 100 (ตาม BE)
-    const amountNum = Number(form.buy_amount || 0)
-    if (!amountNum || isNaN(amountNum) || amountNum < 100) {
-      e.buy_amount = "มูลค่าที่ซื้อต้องเป็นจำนวนเงิน ≥ 100"
+    // ซื้อหุ้นแรกเข้า: ไม่บังคับ — เว้นว่าง = ไม่ซื้อ, ถ้ากรอกต้อง ≥ 100
+    if (String(form.buy_amount ?? "").trim() !== "") {
+      const amountNum = Number(form.buy_amount)
+      if (isNaN(amountNum) || amountNum < 100) e.buy_amount = "ถ้าซื้อหุ้น มูลค่าต้องไม่ต่ำกว่า 100 บาท (หรือเว้นว่าง)"
     }
-    if (!form.tgs_id) e.tgs_id = "กรอกรหัส TGS เพื่อซื้อหุ้น"
 
     // ช่วงค่าที่ดิน
     const landTriples = [
@@ -456,8 +459,6 @@ const MemberSignup = () => {
       if (vw !== "" && (toNumber(vw) < 0 || toNumber(vw) > 99)) e[w] = "วาต้อง 0–99"
       if (vr !== "" && toNumber(vr) < 0) e[r] = "ไร่ต้อง ≥ 0"
     })
-
-    if (!form.regis_date) e.regis_date = "เลือกวันที่สมัคร"
 
     setErrors(e)
     return Object.keys(e).length === 0
@@ -512,8 +513,8 @@ const MemberSignup = () => {
       organic_prog: !!form.organic_prog,
       product_loan: !!form.product_loan,
 
-      member_id: form.member_id.trim(),
-      precode: Number(form.precode),
+      member_id: memberIdDigits(form.member_id),
+      precode: form.precode ? Number(form.precode) : null,
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
       citizen_id: onlyDigits(form.citizen_id),
@@ -526,24 +527,24 @@ const MemberSignup = () => {
       subprov: form.subprov === "" ? null : Number(form.subprov),
       postal_code: form.postal_code === "" ? null : Number(form.postal_code),
       phone_number: (form.phone_number ?? "").toString().trim(),
-      sex: form.sex,
+      sex: form.sex || null,
 
       // เฉพาะที่ใช้
       tgs_group: form.tgs_group === "" ? null : Number(form.tgs_group),
       bank_account: (form.bank_account ?? "").toString().trim(),
-      tgs_id: form.tgs_id.trim(),
+      tgs_id: form.tgs_id.trim() || null,
       spouce_name: (form.spouce_name ?? "").toString().trim(),
 
       // Land
-      own_rai:  form.own_rai === "" ? 0 : Number(form.own_rai),
-      own_ngan: form.own_ngan === "" ? 0 : Number(form.own_ngan),
-      own_wa:   form.own_wa === "" ? 0 : Number(form.own_wa),
-      rent_rai:  form.rent_rai === "" ? 0 : Number(form.rent_rai),
-      rent_ngan: form.rent_ngan === "" ? 0 : Number(form.rent_ngan),
-      rent_wa:   form.rent_wa === "" ? 0 : Number(form.rent_wa),
-      other_rai:  form.other_rai === "" ? 0 : Number(form.other_rai),
-      other_ngan: form.other_ngan === "" ? 0 : Number(form.other_ngan),
-      other_wa:   form.other_wa === "" ? 0 : Number(form.other_wa),
+      own_rai:  form.own_rai === "" ? null : Number(form.own_rai),
+      own_ngan: form.own_ngan === "" ? null : Number(form.own_ngan),
+      own_wa:   form.own_wa === "" ? null : Number(form.own_wa),
+      rent_rai:  form.rent_rai === "" ? null : Number(form.rent_rai),
+      rent_ngan: form.rent_ngan === "" ? null : Number(form.rent_ngan),
+      rent_wa:   form.rent_wa === "" ? null : Number(form.rent_wa),
+      other_rai:  form.other_rai === "" ? null : Number(form.other_rai),
+      other_ngan: form.other_ngan === "" ? null : Number(form.other_ngan),
+      other_wa:   form.other_wa === "" ? null : Number(form.other_wa),
 
       // 🌾 ข้อมูลเกษตร (🟢 fid เป็น string)
       fid: form.fid === "" ? null : String(form.fid),
@@ -554,29 +555,17 @@ const MemberSignup = () => {
       fertilizer_type: form.fertilizer_type === "" ? null : Number(form.fertilizer_type),
 
       // 🟢 ส่งจำนวนเงินซื้อหุ้นครั้งแรกให้ BE ทำรายการทันที
-      initial_share: String(form.buy_amount).trim(),     // ส่งเป็น string ให้ BE แปลงเป็น Decimal/ตรวจ ≥ 100
-      initial_buy_date: form.buy_date || null,          // ไม่ระบุก็ได้
+      // หุ้นแรกเข้าไม่บังคับ: ว่าง = ไม่ซื้อ (null), ถ้ามีต้อง ≥ 100 (BE แปลงเป็น Decimal)
+      initial_share: String(form.buy_amount ?? "").trim() || null,
+      initial_buy_date: String(form.buy_amount ?? "").trim() ? form.buy_date || null : null,
     }
 
     try {
       // 1) สมัครสมาชิก
       const resp = await apiAuth(`/member/members/signup`, { method: "POST", body: payload })
 
-      // --- ถ้า BE ไม่ได้ทำ initial purchase ให้ FE ซื้อหุ้นต่อเอง ---
-      const buyAmountNum = Number(form.buy_amount || 0)
-      let receiptFromBE = resp?.initial_purchase || null
-
-      if (!receiptFromBE && buyAmountNum >= 100 && form.tgs_id?.trim()) {
-        const shareBody = {
-          amount: buyAmountNum,                 // BE /share/* รับ float
-          buy_date: form.buy_date || null,      // YYYY-MM-DD หรือ null
-        }
-        // เรียกตาม spec ของ BE: /share/{tgs_id}/buy-share
-        receiptFromBE = await apiAuth(`/share/${encodeURIComponent(form.tgs_id.trim())}/buy-share`, {
-          method: "POST",
-          body: shareBody,
-        })
-      }
+      // initial_purchase = null เมื่อไม่ได้ซื้อหุ้นตอนสมัคร (BE ทำรายการซื้อให้เองเมื่อกรอกจำนวน)
+      const receiptFromBE = resp?.initial_purchase || null
 
       if (receiptFromBE) {
         setReceipt(receiptFromBE)
@@ -721,19 +710,31 @@ const MemberSignup = () => {
             <div className="grid gap-4 md:grid-cols-4">
               {/* เลขสมาชิก */}
               <div>
-                <label className={labelCls} htmlFor="ms-member_id">เลขสมาชิก</label>
+                <label className={labelCls} htmlFor="ms-member_id">เลขสมาชิก (10 หลัก)<span className="text-red-500"> *</span></label>
                 <input
                   id="ms-member_id"
                   ref={refs.member_id}
                   inputMode="numeric"
-                  className={cx(baseField, errors.member_id && fieldError)}
+                  maxLength={10}
+                  className={cx(baseField, "tabular-nums", errors.member_id && fieldError)}
                   value={form.member_id}
-                  onChange={(e) => { clearError("member_id"); update("member_id", onlyDigits(e.target.value)) }}
+                  onChange={(e) => {
+                    const v = onlyDigits(e.target.value).slice(0, 10)
+                    update("member_id", v)
+                    // ตรวจสดเมื่อพิมพ์ครบ/เกิน หรือออกจากช่อง (ไม่เตือนระหว่างพิมพ์ตัวแรก ๆ)
+                    if (v.length === 10) clearError("member_id")
+                  }}
+                  onBlur={() => {
+                    const err = form.member_id ? memberIdError(form.member_id) : ""
+                    if (err) setErrors((p) => ({ ...p, member_id: err }))
+                  }}
                   onKeyDown={onEnter("member_id")}
-                  placeholder="เช่น 11263"
+                  placeholder="เช่น 0000011263"
                   aria-invalid={errors.member_id ? true : undefined}
                 />
-                {errors.member_id && <p className={errorTextCls}>{errors.member_id}</p>}
+                {errors.member_id
+                  ? <p className={errorTextCls}>{errors.member_id}</p>
+                  : <p className={helpTextCls} aria-live="polite">ตัวเลข 10 หลัก · {form.member_id.length}/10</p>}
               </div>
 
               {/* คำนำหน้า */}
@@ -771,7 +772,7 @@ const MemberSignup = () => {
 
               {/* ชื่อ */}
               <div className="md:col-span-2">
-                <label className={labelCls} htmlFor="ms-first_name">ชื่อ</label>
+                <label className={labelCls} htmlFor="ms-first_name">ชื่อ<span className="text-red-500"> *</span></label>
                 <input
                   id="ms-first_name"
                   ref={refs.first_name}
@@ -787,7 +788,7 @@ const MemberSignup = () => {
 
               {/* นามสกุล */}
               <div className="md:col-span-2">
-                <label className={labelCls} htmlFor="ms-last_name">นามสกุล</label>
+                <label className={labelCls} htmlFor="ms-last_name">นามสกุล<span className="text-red-500"> *</span></label>
                 <input
                   id="ms-last_name"
                   ref={refs.last_name}
@@ -803,7 +804,7 @@ const MemberSignup = () => {
 
               {/* บัตรประชาชน */}
               <div className="md:col-span-2">
-                <label className={labelCls} htmlFor="ms-citizen_id">เลขบัตรประชาชน (13 หลัก)</label>
+                <label className={labelCls} htmlFor="ms-citizen_id">เลขบัตรประชาชน (13 หลัก)<span className="text-red-500"> *</span></label>
                 <input
                   id="ms-citizen_id"
                   ref={refs.citizen_id}
@@ -867,7 +868,7 @@ const MemberSignup = () => {
             ) : (
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls} htmlFor="ms-address">บ้านเลขที่</label>
+                <label className={labelCls} htmlFor="ms-address">บ้านเลขที่ / ที่อยู่<span className="text-red-500"> *</span></label>
                 <input
                   id="ms-address"
                   ref={refs.address}
@@ -1059,7 +1060,7 @@ const MemberSignup = () => {
             <h3 className="mt-6 mb-3 text-lg font-semibold text-slate-800 dark:text-slate-100">ซื้อหุ้น</h3>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <label className={labelCls} htmlFor="ms-buy_amount">มูลค่าที่ซื้อ (บาท)</label>
+                <label className={labelCls} htmlFor="ms-buy_amount">มูลค่าที่ซื้อ (บาท) — ไม่บังคับ</label>
                 <input
                   id="ms-buy_amount"
                   ref={refs.buy_amount}
@@ -1072,7 +1073,7 @@ const MemberSignup = () => {
                   aria-invalid={errors.buy_amount ? true : undefined}
                 />
                 {errors.buy_amount && <p className={errorTextCls}>{errors.buy_amount}</p>}
-                <p className={helpTextCls}>ไม่ต่ำกว่า 100 บาท • ครั้งแรกมีค่าธรรมเนียม 50 บาท </p>
+                <p className={helpTextCls}>เว้นว่าง = ไม่ซื้อหุ้นตอนสมัคร · ถ้าซื้อต้องไม่ต่ำกว่า 100 บาท • ครั้งแรกมีค่าธรรมเนียม 50 บาท</p>
               </div>
 
               <div>

@@ -323,6 +323,11 @@ const CustomerSearch = () => {
         if (oldV !== newV) diff[key] = newV
       })
 
+      // เลขบัตรไม่บังคับ (ว่าง = null) แต่ถ้ากรอกต้องครบ 13 หลัก — api-handoff-4 §3
+      if (diff.citizen_id != null && String(diff.citizen_id).length !== 13) {
+        throw new Error("เลขบัตรประชาชนต้องครบ 13 หลัก หรือเว้นว่างไว้")
+      }
+
       const idForPatch = active.asso_id ?? active.id
       if (!idForPatch && idForPatch !== 0) throw new Error("ไม่พบข้อมูลลูกค้ารายนี้ในระบบ จึงบันทึกการแก้ไขไม่ได้")
 
@@ -575,7 +580,7 @@ const CustomerSearch = () => {
                 />
               </Field>
               <Field label="เพศ (กำหนดจากคำนำหน้า)" editing={false} display={SEX_LABEL[editing ? sexFromPrefix(draft.precode) : active.sex] || "-"} />
-              <Field label="เลขบัตรประชาชน" editing={editing} display={<span className="tabular-nums">{active.citizen_id}</span>}>
+              <Field label="เลขบัตรประชาชน (ไม่บังคับ)" editing={editing} display={<span className="tabular-nums">{active.citizen_id}</span>}>
                 <input aria-label="เลขบัตรประชาชน" inputMode="numeric" maxLength={13} className={cx(inputCls, "tabular-nums")} value={draft.citizen_id ?? ""} onChange={(e) => onChangeField("citizen_id", e.target.value)} placeholder="13 หลัก" />
               </Field>
               <Field label="โทรศัพท์" editing={editing} display={<span className="tabular-nums">{active.phone_number}</span>}>

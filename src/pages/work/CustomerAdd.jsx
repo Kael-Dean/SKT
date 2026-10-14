@@ -253,7 +253,8 @@ const CustomerAdd = () => {
   const validateAll = () => {
     const e = {}
     const cid = onlyDigits(form.citizen_id)
-    if (cid.length !== 13) e.citizen_id = "กรุณากรอกเลขบัตรประชาชน 13 หลัก"
+    // ไม่บังคับกรอก — ถ้ากรอกต้องครบ 13 หลัก
+    if (cid.length > 0 && cid.length !== 13) e.citizen_id = "เลขบัตรประชาชนต้องครบ 13 หลัก (หรือเว้นว่างไว้)"
 
     if (!form.precode) e.precode = "กรุณาเลือกคำนำหน้า"
     if (!form.full_name.trim()) e.full_name = "กรุณากรอกชื่อ–สกุล"
@@ -289,7 +290,7 @@ const CustomerAdd = () => {
     const payload = {
       first_name,
       last_name,
-      citizen_id: onlyDigits(form.citizen_id),
+      citizen_id: onlyDigits(form.citizen_id) || null,
       precode: form.precode !== "" ? Number(form.precode) : null,
       sex: form.sex || null,
 
@@ -436,7 +437,7 @@ const CustomerAdd = () => {
             {/* แถวบนสุด */}
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <label className={labelCls}>เลขที่บัตรประชาชน (13 หลัก)</label>
+                <label className={labelCls}>เลขที่บัตรประชาชน (13 หลัก · ไม่บังคับ)</label>
                 <input
                   ref={refs.citizen_id}
                   inputMode="numeric"

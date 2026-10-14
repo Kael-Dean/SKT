@@ -71,15 +71,22 @@ const reportErrorMessage = (err) => {
   const raw = String(err?.message || "")
   const thaiDetail = /[฀-๿]/.test(raw) ? raw.slice(0, 200) : ""
 
-  if (status === 404)
+  // 404 ที่มี detail จริง (เช่น "ไม่มีรายการซื้อ/ขายในช่วงวันที่นี้", "Business Plan 3 not found")
+  // แสดงตามนั้น — ใช้ข้อความกลางเฉพาะ 404 ดิบของ FastAPI ("Not Found") — api-handoff §6
+  if (status === 404) {
+    const detail = typeof err?.data?.detail === "string" ? err.data.detail.trim() : raw.trim()
+    if (detail && detail.toLowerCase() !== "not found") return detail.slice(0, 200)
     return "รายงานนี้ยังไม่พร้อมใช้งาน"
+  }
   if (status === 403)
     return "บัญชีนี้ไม่มีสิทธิ์เปิดรายงานนี้ ติดต่อผู้ดูแลระบบถ้าต้องใช้"
   if (status === 401)
     return "หมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง"
 
-  if (status === 422)
-    return thaiDetail || "ข้อมูลที่เลือกไม่ถูกต้อง ตรวจแล้วลองใหม่"
+  if (status === 400 || status === 422) {
+    const detail = typeof err?.data?.detail === "string" ? err.data.detail.trim() : ""
+    return thaiDetail || detail.slice(0, 200) || "ข้อมูลที่เลือกไม่ถูกต้อง ตรวจแล้วลองใหม่"
+  }
 
   return thaiDetail || "ดึงรายงานไม่สำเร็จ ลองใหม่อีกครั้ง"
 }
@@ -297,269 +304,22 @@ function MemberSearchBox({ valueLabel = "", error = false, onPick, onClear }) {
 }
 
 /** ---------- รายการรายงาน ---------- */
-const INTERNAL_REPORTS = [
-  {
-    key: "purchaseGrouped",
-    title: "ซื้อ/ขาย แยกราคาต่อกก. (Excel)",
-    endpoint: "/report/orders/purchase-excel", 
-    type: "excel",
-    badge: "EXCEL",
-    require: ["startDate", "endDate", "specId"],
-    optional: ["branchId", "klangId"],
-  },
-  {
-    key: "salesDaily",
-    title: "ขายรายวัน (Excel)",
-    endpoint: "/report/sales/daily-excel",
-    type: "excel",
-    badge: "EXCEL",
-    require: ["startDate", "endDate", "branchId"],
-    optional: ["specId"],
-  },
-  {
-    key: "purchasesDaily",
-    title: "ซื้อรายวัน (Excel)",
-    endpoint: "/report/purchases/daily-excel",
-    type: "excel",
-    badge: "EXCEL",
-    require: ["startDate", "endDate", "branchId"],
-    optional: ["specId"],
-  },
-  {
-    key: "registerPurchase",
-    title: "ทะเบียนรับซื้อ (Excel)",
-    endpoint: "/report/orders/register-excel", 
-    type: "excel",
-    badge: "EXCEL",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "speciesLike", "addrLine4", "addrLine5"],
-  },
-  {
-    key: "branchRx",
-    title: "สรุปสาขา (RX) (Excel)",
-    endpoint: "/report/branch-rx.xlsx", 
-    type: "excel",
-    badge: "EXCEL",
-    require: ["startDate", "endDate", "branchId", "specId"],
-    optional: [],
-  },
-  {
-    key: "riceSummary",
-    title: "สรุปซื้อขายรวม (Excel)",
-    endpoint: "/report/rice-summary.xlsx", 
-    type: "excel",
-    badge: "EXCEL",
-    require: ["startDate", "endDate"],
-    optional: [],
-  },
-  {
-    // รายงานนี้ออกเป็น JSON เท่านั้น ซ่อนจากหน้ารายงาน (ดู VISIBLE_INTERNAL_REPORTS) · ดูสต็อกที่หน้า "คลังสินค้า"
-    key: "stockTree",
-    title: "โครงสร้างสต็อก",
-    endpoint: "/report/stock/tree", 
-    type: "json",
-    badge: "JSON",
-    require: ["branchId", "productId"],
-    optional: ["klangId"],
-  },
-  {
-    key: "buy-by-day",
-    title: "รับซื้อรายวัน (PDF)",
-    endpoint: "/docs/reports/buy-by-day.pdf", 
-    type: "pdf",
-    badge: "PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "specId"],
-  },
-  {
-    key: "by-price",
-    title: "สรุปตามราคาต่อกก. (PDF)",
-    endpoint: "/docs/reports/by-price.pdf",
-    type: "pdf",
-    badge: "PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "specId"],
-  },
-  {
-    key: "sell-by-day",
-    title: "ขายรายวัน (PDF)",
-    endpoint: "/docs/reports/sell-by-day.pdf",
-    type: "pdf",
-    badge: "PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "specId"],
-  },
-  {
-    key: "rice-summary",
-    title: "สรุปซื้อขายรวม (PDF)",
-    endpoint: "/docs/reports/rice-summary.pdf",
-    type: "pdf",
-    badge: "PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "specId"],
-  },
-  {
-    key: "collection-report",
-    title: "รายงานรวบรวม (PDF)",
-    endpoint: "/docs/reports/collection-report.pdf",
-    type: "pdf",
-    badge: "PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "specId"],
-  },
-  {
-    key: "daily-report",
-    title: "รายงานประจำวัน (PDF)",
-    endpoint: "/docs/reports/daily-report.pdf",
-    type: "pdf",
-    badge: "PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "specId"],
-  },
-  {
-    key: "control-report",
-    title: "รายงานควบคุม (PDF)",
-    endpoint: "/docs/reports/control-report.pdf",
-    type: "pdf",
-    badge: "PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "specId"],
-  },
-  {
-    key: "branch-summary",
-    title: "สรุปสาขา/คลัง (PDF)",
-    endpoint: "/docs/reports/branch-summary.pdf",
-    type: "pdf",
-    badge: "PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "specId"],
-  },
-]
-/** รายงานที่แสดงให้ผู้ใช้เลือก (ไม่รวมรายงานที่ออกเป็น JSON อย่างเดียว) */
-const VISIBLE_INTERNAL_REPORTS = INTERNAL_REPORTS.filter((r) => r.type !== "json")
-
-// -----------------------------
-// PDF (Share) - “รายงานทะเบียนหุ้น”
-// -----------------------------
-const SHARE_REPORTS = [
-  {
-    key: "share-member-signup",
-    reportCode: "member-signup",
-    title: "รายงานทะเบียนหุ้น (PDF)",
-    endpoint: "/share/reports/member-signup.pdf",
-    type: "share_pdf",
-    badge: "SHARE PDF",
-    require: ["startDate", "endDate", "branchId"],
-    optional: [],
-  },
-  {
-    key: "share-member-history",
-    reportCode: "member-history", 
-    title: "รายงานทะเบียนทุนเรือนหุ้น (PDF)",
-    endpoint: "/share/reports/member-history.pdf", 
-    type: "share_pdf",
-    badge: "SHARE PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "memberId", "assoId"],
-    requireAny: [["memberId", "assoId"]],
-    sendTgsIdAlias: false,
-    memberLabel: "เลขสมาชิก",
-    memberPlaceholder: "เช่น 11263",
-    memberHelp: "กรอกเลขสมาชิก หรือรหัสลูกค้าทั่วไป อย่างใดอย่างหนึ่ง",
-    assoLabel: "รหัสลูกค้าทั่วไป",
-    assoPlaceholder: "รหัสลูกค้าทั่วไป",
-    assoHelp: "ใช้แทนเลขสมาชิกได้",
-  },
-  {
-    key: "share-buy-by-day",
-    reportCode: "buy-by-day",
-    title: "รับซื้อรายวัน (PDF)",
-    endpoint: "/share/reports/buy-by-day.pdf",
-    type: "share_pdf",
-    badge: "SHARE PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "klangIds", "specId"],
-  },
-  {
-    key: "share-by-price",
-    reportCode: "by-price",
-    title: "สรุปตามราคาต่อกก. (PDF)",
-    endpoint: "/share/reports/by-price.pdf",
-    type: "share_pdf",
-    badge: "SHARE PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "klangIds", "specId"],
-  },
-  {
-    key: "share-sell-by-day",
-    reportCode: "sell-by-day",
-    title: "ขายรายวัน (PDF)",
-    endpoint: "/share/reports/sell-by-day.pdf",
-    type: "share_pdf",
-    badge: "SHARE PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "klangIds", "specId"],
-  },
-  {
-    key: "share-rice-summary",
-    reportCode: "rice-summary",
-    title: "สรุปซื้อขายรวม (PDF)",
-    endpoint: "/share/reports/rice-summary.pdf",
-    type: "share_pdf",
-    badge: "SHARE PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "klangIds", "specId"],
-  },
-  {
-    key: "share-collection-report",
-    reportCode: "collection-report",
-    title: "รายงานรวบรวม (PDF)",
-    endpoint: "/share/reports/collection-report.pdf",
-    type: "share_pdf",
-    badge: "SHARE PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "klangIds", "specId"],
-  },
-  {
-    key: "share-daily-report",
-    reportCode: "daily-report",
-    title: "รายงานประจำวัน (PDF)",
-    endpoint: "/share/reports/daily-report.pdf",
-    type: "share_pdf",
-    badge: "SHARE PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "klangIds", "specId"],
-  },
-  {
-    key: "share-control-report",
-    reportCode: "control-report",
-    title: "รายงานควบคุม (PDF)",
-    endpoint: "/share/reports/control-report.pdf",
-    type: "share_pdf",
-    badge: "SHARE PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "klangIds", "specId"],
-  },
-  {
-    key: "share-branch-summary",
-    reportCode: "branch-summary",
-    title: "สรุปสาขา/คลัง (PDF)",
-    endpoint: "/share/reports/branch-summary.pdf",
-    type: "share_pdf",
-    badge: "SHARE PDF",
-    require: ["startDate", "endDate"],
-    optional: ["branchId", "klangId", "klangIds", "specId"],
-  },
-  {
-    key: "share-custom",
-    title: "รายงานทะเบียนหุ้น ระบุรหัสรายงานเอง (PDF)",
-    endpoint: (f) => `/share/reports/${encodeURIComponent(String(f.customReportCode || "").trim())}.pdf`,
-    type: "share_pdf",
-    badge: "SHARE PDF",
-    require: ["startDate", "endDate", "customReportCode"],
-    optional: ["branchId", "klangId", "klangIds", "specId"],
-  },
-]
+// รายการ legacy (/docs/reports/*.pdf, /share/reports/*.pdf, /report/*-excel) ไม่มี endpoint ใน backend
+// แล้ว — ลบออก และพาลิงก์ ?report=<คีย์เดิม> ไปรายงานที่ใช้แทน (api-handoff §8–10)
+const LEGACY_REPORT_KEYS = {
+  "buy-by-day": "phase1-p06", "share-buy-by-day": "phase1-p06",
+  "by-price": "phase1-p04", "share-by-price": "phase1-p04",
+  "sell-by-day": "phase1-p02", "share-sell-by-day": "phase1-p02",
+  "rice-summary": "phase1-p19", "share-rice-summary": "phase1-p19",
+  "collection-report": "phase1-p08", "share-collection-report": "phase1-p08",
+  "daily-report": "phase1-p13", "share-daily-report": "phase1-p13",
+  "control-report": "phase1-p07", "share-control-report": "phase1-p07",
+  "branch-summary": "phase1-p12", "share-branch-summary": "phase1-p12",
+  "share-member-signup": "phase1-p14", "member-signup": "phase1-p14",
+  "share-member-history": "phase1-p10", "member-history": "phase1-p10",
+  purchaseGrouped: "phase1-p21", salesDaily: "phase1-p24", purchasesDaily: "phase1-p25",
+  registerPurchase: "phase1-p22", branchRx: "phase1-p20", riceSummary: "phase1-p23",
+}
 
 // -----------------------------
 // PDF (Plan) - “รายงานแผนดำเนินงานประจำปี” (01 - 18)
@@ -608,8 +368,9 @@ const PHASE1_REPORTS = [
     type: "phase1_pdf",
     xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
-    require: ["branchId", "startDate", "endDate"],
-    optional: [],
+    require: ["startDate", "endDate"],
+    optional: ["branchId"],
+    allBranchesOption: true, // ไม่เลือกสาขา = ทุกสาขา
   },
   {
     key: "phase1-p03",
@@ -628,8 +389,9 @@ const PHASE1_REPORTS = [
     type: "phase1_pdf",
     xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
-    require: ["branchId", "startDate", "endDate"],
-    optional: [],
+    require: ["startDate", "endDate"],
+    optional: ["branchId"],
+    allBranchesOption: true, // ไม่เลือกสาขา = ทุกสาขา
   },
   {
     key: "phase1-p05",
@@ -651,19 +413,21 @@ const PHASE1_REPORTS = [
     type: "phase1_pdf",
     xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
-    require: ["branchId", "startDate", "endDate"],
-    optional: [],
+    require: ["startDate", "endDate"],
+    optional: ["branchId"],
+    allBranchesOption: true, // ไม่เลือกสาขา = ทุกสาขา
   },
   {
     key: "phase1-p07",
-    title: "P07 — ทะเบียนคุม",
+    title: "P07 — ทะเบียนคุม (ทุกสาขา)",
     endpoint: "/reports/phase1/P07/pdf",
     type: "phase1_pdf",
     xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
-    // handoff (4): params branch_id, start_date, end_date (no spec_id)
-    require: ["branchId", "startDate", "endDate"],
-    optional: [],
+    require: ["startDate", "endDate"],
+    optional: ["specId"],
+    scopeNote: "ทุกสาขา — รายงานนี้รวมทุกสาขาเสมอ ไม่ต้องเลือกสาขา",
+    specNote: "ไม่เลือก = ทุกสินค้า (แยกตอนละสินค้าที่มีการซื้อ/ขายในช่วงวันที่)",
   },
   {
     key: "phase1-p08",
@@ -672,8 +436,9 @@ const PHASE1_REPORTS = [
     type: "phase1_pdf",
     xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
-    require: ["branchId", "startDate", "endDate"],
+    require: ["startDate", "endDate"],
     optional: [],
+    scopeNote: "ทั้งองค์กร — รายงานนี้รวมทุกสาขาเสมอ",
   },
   {
     key: "phase1-p09",
@@ -725,9 +490,9 @@ const PHASE1_REPORTS = [
     type: "phase1_pdf",
     xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
-    // handoff (4): params branch_id, start_date, end_date (no spec_id)
     require: ["branchId", "startDate", "endDate"],
-    optional: [],
+    optional: ["specId"],
+    specNote: "ไม่เลือก = ทุกสินค้าที่มีการซื้อ/ขายในสาขานี้",
   },
   {
     key: "phase1-p14",
@@ -756,8 +521,9 @@ const PHASE1_REPORTS = [
     type: "phase1_pdf",
     xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
-    require: ["branchId", "startDate", "endDate"],
+    require: ["startDate", "endDate"],
     optional: [],
+    scopeNote: "ทั้งองค์กร — จัดกลุ่มตามอำเภอ ไม่แยกสาขา",
   },
   {
     key: "phase1-p17",
@@ -786,15 +552,79 @@ const PHASE1_REPORTS = [
     type: "phase1_pdf",
     xlsx: true, // Excel twin: /reports/phase1/Pnn/xlsx
     badge: "PHASE1",
-    require: ["branchId", "startDate", "endDate"],
-    optional: [],
+    require: ["startDate", "endDate"],
+    optional: ["branchId"],
+    allBranchesOption: true, // ไม่เลือกสาขา = ทุกสาขา
   },
 ]
 
+// -----------------------------
+// Phase 1 P20–P26 — Excel ซื้อขาย (มี /xlsx + /pdf คู่กัน, สิทธิ์ order.reports)
+// ปุ่มหลักพิมพ์ PDF, ปุ่ม Excel ใช้ /xlsx (excelUrl แปลงจาก /pdf ให้)
+// -----------------------------
+const TRADE_REPORTS = [
+  { key: "phase1-p20", title: "P20 — ทะเบียนคุมสาขา (Branch RX)", endpoint: "/reports/phase1/P20/pdf", require: ["startDate", "endDate", "branchId"], optional: ["specIds"] },
+  { key: "phase1-p21", title: "P21 — รายงานซื้อ-ขายแยกตามราคา", endpoint: "/reports/phase1/P21/pdf", require: ["startDate", "endDate"], optional: ["specIds", "branchId", "klangId"], allBranchesOption: true },
+  { key: "phase1-p22", title: "P22 — ทะเบียนรับซื้อ", endpoint: "/reports/phase1/P22/pdf", require: ["startDate", "endDate"], optional: ["branchId", "klangId", "speciesLike"], allBranchesOption: true },
+  { key: "phase1-p23", title: "P23 — รายงานซื้อขาย (รวม)", endpoint: "/reports/phase1/P23/pdf", require: ["startDate", "endDate"], optional: ["specIds"], scopeNote: "ทั้งองค์กร — ไม่แยกสาขา", specNote: "ไม่เลือก = ทุกสินค้าประเภทธุรกิจ 1" },
+  { key: "phase1-p24", title: "P24 — รายงานการขาย (แยกตามวัน)", endpoint: "/reports/phase1/P24/pdf", require: ["startDate", "endDate", "branchId"], optional: ["specIds"] },
+  { key: "phase1-p25", title: "P25 — รายงานการซื้อ (แยกตามวัน)", endpoint: "/reports/phase1/P25/pdf", require: ["startDate", "endDate", "branchId"], optional: ["specIds"] },
+  { key: "phase1-p26", title: "P26 — ทะเบียนคุม (รายวัน)", endpoint: "/reports/phase1/P26/pdf", require: ["startDate", "endDate", "specId"], optional: ["branchId", "klangId"], allBranchesOption: true },
+].map((r) => ({ type: "phase1_pdf", xlsx: true, badge: "TRADE", perm: "trading.reports.view", ...r }))
+
+// -----------------------------
+// HR reports (/hr/...) — ปี/ปีงบประมาณเป็น พ.ศ. (int) · สิทธิ์ report.hr.* (api-handoff §3, #12)
+// field: month · yearBE · fiscalYear · startDate/endDate (→ from_date/to_date) · employeeId · loanId
+//        · branchId · exitType · showSensitive
+// -----------------------------
+const EXIT_TYPE_OPTIONS = [
+  { id: "", label: "— ทุกประเภท —" },
+  { id: "resigned", label: "ลาออก" },
+  { id: "retired", label: "เกษียณ" },
+  { id: "deceased", label: "เสียชีวิต" },
+  { id: "dismissed", label: "ถูกให้ออก" },
+  { id: "failed_probation", label: "ไม่ผ่านทดลองงาน" },
+  { id: "contract_end", label: "หมดสัญญา" },
+]
+const HR_REPORTS = [
+  { key: "hr-payroll-monthly", title: "รายงานสรุปเงินเดือน", endpoint: "/hr/payroll/report/monthly", require: ["month", "yearBE"], perm: "hr.reports.payrollMonthly", xlsx: true },
+  { key: "hr-payroll-annual", title: "รายงานเงินเดือนประจำปีงบประมาณ", endpoint: "/hr/payroll/report/annual", require: ["fiscalYear"], perm: "hr.reports.payrollAnnual", xlsx: true },
+  { key: "hr-social-security", title: "รายงานเงินสมทบประกันสังคม", endpoint: "/hr/payroll/report/social-security", require: ["month", "yearBE"], perm: "hr.reports.socialSecurity", xlsx: true },
+  { key: "hr-reserve-fund", title: "รายงานเงินสะสม / กองทุนสำรองเลี้ยงชีพ", endpoint: "/hr/payroll/report/reserve-fund", require: ["month", "yearBE"], perm: "hr.reports.reserveFund", xlsx: true },
+  { key: "hr-leave-balance", title: "รายงานสรุปวันลาประจำปีงบประมาณ", endpoint: "/hr/leave/report/balance", require: ["fiscalYear"], perm: "hr.reports.leaveBalance", xlsx: true },
+  { key: "hr-leave-utilization", title: "รายงานการลาของพนักงาน", endpoint: "/hr/leave/report/utilization", require: ["startDate", "endDate"], perm: "hr.reports.leaveUtilization", xlsx: true },
+  { key: "hr-leave-annual", title: "ทะเบียนคุมการลาประจำปีบัญชี", endpoint: "/hr/leave/annual-summary-pdf", require: [], optional: ["fiscalYear", "branchId"], perm: "hr.reports.leaveAnnual", xlsx: true, allBranchesOption: true },
+  { key: "hr-leave-register", title: "ทะเบียนการลาประจำปีบัญชี (เม.ย.–มี.ค.)", endpoint: "/hr/leave/register-pdf", require: [], optional: ["fiscalYear", "branchId"], perm: "hr.reports.leaveRegister", xlsx: true, allBranchesOption: true },
+  { key: "hr-roster", title: "ทะเบียนพนักงาน", endpoint: "/hr/reports/roster", require: [], perm: "hr.reports.roster", xlsx: true },
+  { key: "hr-new-employees", title: "รายงานพนักงานใหม่", endpoint: "/hr/reports/new-employees", require: ["month", "yearBE"], perm: "hr.reports.newEmployees", xlsx: true },
+  { key: "hr-position-changes", title: "รายงานการเปลี่ยนตำแหน่ง", endpoint: "/hr/reports/position-changes", require: ["startDate", "endDate"], perm: "hr.reports.positionChanges", xlsx: true },
+  { key: "hr-relocations", title: "รายงานการโอนย้าย", endpoint: "/hr/reports/relocations", require: ["startDate", "endDate"], perm: "hr.reports.relocations", xlsx: true },
+  { key: "hr-relocation-history", title: "ประวัติการโยกย้ายเจ้าหน้าที่ (ทั้งองค์กร)", endpoint: "/hr/reports/relocation-history-pdf", require: [], optional: ["startDate", "endDate"], perm: "hr.reports.relocations", xlsx: true },
+  { key: "hr-salary-levels", title: "รายงานระดับเงินเดือนพนักงาน", endpoint: "/hr/reports/salary-levels", require: [], perm: "hr.reports.salaryLevels", xlsx: true },
+  { key: "hr-salary-adjustments", title: "รายงานการปรับขั้นเงินเดือน", endpoint: "/hr/reports/salary-adjustments", require: ["fiscalYear"], perm: "hr.reports.salaryAdjustments", xlsx: true },
+  { key: "hr-loans-active", title: "รายงานเงินกู้ที่ยังค้างชำระ", endpoint: "/hr/reports/loans/active", require: [], perm: "hr.reports.activeLoans", xlsx: true },
+  { key: "hr-kpi-branch", title: "รายงาน KPI สาขา", endpoint: "/hr/kpi/report/branch", require: ["fiscalYear"], optional: ["branchId"], perm: "hr.reports.kpiBranch", xlsx: true, allBranchesOption: true },
+  { key: "hr-kpi-org", title: "รายงาน KPI รวมองค์กร", endpoint: "/hr/kpi/report/organisation", require: ["fiscalYear"], perm: "hr.reports.kpiOrganisation", xlsx: true },
+  { key: "hr-resigned", title: "รายชื่อผู้พ้นสภาพ", endpoint: "/hr/reports/resigned-retired-pdf", require: [], optional: ["exitType", "branchId", "startDate", "endDate"], perm: "hr.reports.resignedRetired", xlsx: true, allBranchesOption: true },
+  // รายคน/รายสัญญา (PDF อย่างเดียว ไม่มี Excel)
+  { key: "hr-profile-pdf", title: "ข้อมูลประวัติพนักงาน (รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/profile-pdf`, require: ["employeeId"], optional: ["showSensitive"], perm: "hr.reports.profilePdf" },
+  { key: "hr-salary-history-pdf", title: "ประวัติการปรับขั้นเงินเดือน (รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/salary-history-pdf`, require: ["employeeId"], perm: "hr.reports.salaryHistoryPdf" },
+  { key: "hr-kpi-individual", title: "ผลการประเมิน KPI รายบุคคล", endpoint: (f) => `/hr/kpi/evaluations/${encodeURIComponent(f.employeeId)}/pdf`, require: ["employeeId", "fiscalYear"], perm: "hr.reports.kpiIndividual" },
+  { key: "hr-loan-schedule", title: "ตารางผ่อนชำระเงินกู้ (รายสัญญา)", endpoint: (f) => `/hr/loans/${encodeURIComponent(f.loanId)}/schedule-pdf`, require: ["loanId"], perm: "hr.reports.loanSchedule" },
+].map((r) => ({ type: "hr_pdf", badge: "HR", optional: [], ...r }))
+
+/** ปีงบประมาณปัจจุบัน (พ.ศ.) — 1 เม.ย. → 31 มี.ค. */
+const currentFiscalYearBE = () => {
+  const d = new Date()
+  return (d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1) + 543
+}
+const THAI_MONTH_OPTIONS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
+  .map((label, i) => ({ id: String(i + 1), label }))
+
+/** ปีแผนงาน (พ.ศ.) — plan_id จริง = BusinessPlan.id จาก GET /unit-prices/{year}/plan (ไม่ใช่ลำดับปี) */
 const YEAR_OPTIONS = Array.from({ length: 15 }, (_, i) => {
   const y = String(2569 + i)
-  const pid = String(1 + i) // 2569 - 2568 = 1
-  return { id: pid, label: y }
+  return { id: y, label: y }
 })
 
 /** Phase 1 report ที่ผู้ใช้มีสิทธิ์ (คีย์ "phase1-p01" → permission "reports.phase1.p01") */
@@ -802,6 +632,9 @@ const phase1Perm = (key) => key.replace("phase1-", "reports.phase1.")
 function allowedPhase1Reports() {
   return PHASE1_REPORTS.filter((r) => can(phase1Perm(r.key)))
 }
+const allowedTradeReports = () => TRADE_REPORTS.filter((r) => can(r.perm))
+const allowedHrReports = () => HR_REPORTS.filter((r) => can(r.perm))
+const isPdfType = (t) => t === "pdf" || t === "phase1_pdf" || t === "hr_pdf"
 
 // Phase 1 split for the landing cards: member/share registry vs rice buy/sell.
 // Anything not listed here falls into the rice group.
@@ -817,17 +650,16 @@ function Documents() {
     const m = (pickQS(qs, ["mode", "view", "tab"]) || "").toLowerCase()
     
     if (m === "plan") return "plan"
-    if (m === "share" || m === "registry" || m === "shares" || m === "shop" || m === "store") return "share"
-    if (m === "phase1" || m === "p1" || m === "phase-1") return "phase1"
-
-    return "internal"
+    if (m === "trade" || m === "excel") return "trade"
+    if (m === "hr") return "hr"
+    return "phase1"
   })
 
   const REPORTS = useMemo(() => {
-    if (mode === "share") return SHARE_REPORTS
     if (mode === "plan") return PLAN_REPORTS
-    if (mode === "phase1") return allowedPhase1Reports()
-    return VISIBLE_INTERNAL_REPORTS
+    if (mode === "trade") return allowedTradeReports()
+    if (mode === "hr") return allowedHrReports()
+    return allowedPhase1Reports()
   }, [mode])
 
   /** ---------- โหลดตัวเลือกพื้นฐาน ---------- */
@@ -837,7 +669,6 @@ function Documents() {
   const [errors, setErrors] = useState({})
   const [activeReport, setActiveReport] = useState(null)
 
-  const [productOptions, setProductOptions] = useState([])
   const [specOptions, setSpecOptions] = useState([]) 
   const [branchOptions, setBranchOptions] = useState([])
   const [klangOptions, setKlangOptions] = useState([])
@@ -872,8 +703,19 @@ function Documents() {
     speciesLike: "",
     addrLine4: "",
     addrLine5: "",
-    // Plan filters
+    // Plan filters — planYear = ปี พ.ศ. ที่เลือก, planId = BusinessPlan.id จริง (resolve จาก backend)
+    planYear: "",
     planId: "",
+    // P20–P26: หลายสเปค (csv) → spec_id ซ้ำ key
+    specIds: "",
+    // HR
+    month: String(new Date().getMonth() + 1),
+    yearBE: String(new Date().getFullYear() + 543),
+    fiscalYear: String(currentFiscalYearBE()),
+    employeeId: "",
+    loanId: "",
+    exitType: "",
+    showSensitive: false,
   })
   const setFilter = (k, v) => setFilters((p) => ({ ...p, [k]: v }))
 
@@ -909,6 +751,8 @@ function Documents() {
     if (klangId) patch.klangId = klangId
     if (klangIds) patch.klangIds = klangIds
     if (planId) patch.planId = planId
+    const planYear = pickQS(qs, ["plan_year", "year"])
+    if (planYear) patch.planYear = planYear
 
     // open report by code
     const code = pickQS(qs, ["report", "report_code", "reportCode"])
@@ -918,28 +762,25 @@ function Documents() {
     }
 
     if (code) {
-      const foundShare = SHARE_REPORTS.find((r) => r.reportCode === code || r.key === code)
-      const foundInternal = VISIBLE_INTERNAL_REPORTS.find((r) => r.key === code)
-      const foundPlan = PLAN_REPORTS.find((r) => r.key === code)
-      const foundPhase1 = allowedPhase1Reports().find((r) => r.key === code)
-      const custom = SHARE_REPORTS.find((r) => r.key === "share-custom")
+      // ลิงก์เก่า (?report=sell-by-day ฯลฯ) → รายงานที่ใช้แทน
+      const key = LEGACY_REPORT_KEYS[code] || code
+      const foundPlan = PLAN_REPORTS.find((r) => r.key === key)
+      const foundPhase1 = allowedPhase1Reports().find((r) => r.key === key)
+      const foundTrade = allowedTradeReports().find((r) => r.key === key)
+      const foundHr = allowedHrReports().find((r) => r.key === key)
 
-      if (foundShare) {
-        setMode("share")
-        setActiveReport(foundShare.key)
-      } else if (foundPlan) {
+      if (foundPlan) {
         setMode("plan")
         setActiveReport(foundPlan.key)
       } else if (foundPhase1) {
         setMode("phase1")
         setActiveReport(foundPhase1.key)
-      } else if (foundInternal) {
-        setMode("internal")
-        setActiveReport(foundInternal.key)
-      } else if (custom) {
-        setMode("share")
-        setActiveReport(custom.key)
-        setFilters((p) => ({ ...p, customReportCode: code }))
+      } else if (foundTrade) {
+        setMode("trade")
+        setActiveReport(foundTrade.key)
+      } else if (foundHr) {
+        setMode("hr")
+        setActiveReport(foundHr.key)
       }
     }
   }, [])
@@ -949,18 +790,7 @@ function Documents() {
     const loadOptions = async () => {
       try {
         setLoadingOptions(true)
-        const [products, branches] = await Promise.all([
-          apiAuth("/order/product/search").catch(() => []),
-          apiAuth("/order/branch/search").catch(() => []),
-        ])
-        setProductOptions(
-          (products || [])
-            .map((x) => ({
-              id: String(x.id ?? x.product_id ?? ""),
-              label: String(x.product_type ?? x.name ?? "").trim(),
-            }))
-            .filter((o) => o.id && o.label)
-        )
+        const branches = await apiAuth("/order/branch/search").catch(() => [])
         setBranchOptions(
           (branches || [])
             .map((b) => ({ id: String(b.id), label: b.branch_name }))
@@ -968,7 +798,6 @@ function Documents() {
         )
       } catch (err) {
         console.error("loadOptions error:", err)
-        setProductOptions([])
         setBranchOptions([])
       } finally {
         setLoadingOptions(false)
@@ -1030,6 +859,25 @@ function Documents() {
     })()
   }, [filters.branchId])
 
+  /** ปีแผน → BusinessPlan.id จริง: GET /unit-prices/{year}/plan → {exists, plan:{id, fiscal_year}} */
+  const [planInfo, setPlanInfo] = useState({ status: "idle", id: "", year: "" })
+  useEffect(() => {
+    const y = filters.planYear
+    if (!y) { setPlanInfo({ status: "idle", id: "", year: "" }); return }
+    let alive = true
+    setPlanInfo({ status: "loading", id: "", year: y })
+    apiAuth(`/unit-prices/${encodeURIComponent(y)}/plan`)
+      .then((r) => {
+        if (!alive) return
+        const id = r?.exists && r?.plan?.id != null ? String(r.plan.id) : ""
+        setPlanInfo({ status: id ? "ready" : "missing", id, year: y })
+      })
+      .catch((err) => alive && setPlanInfo({ status: err?.status === 404 ? "missing" : "error", id: "", year: y }))
+    return () => { alive = false }
+  }, [filters.planYear])
+  // plan_id ที่ส่งจริง: จากปีที่เลือก (ถ้ามี) ไม่งั้นจากลิงก์ ?plan_id=
+  const effectivePlanId = filters.planYear ? planInfo.id : filters.planId
+
   /** ---------- Validation ---------- */
   const validate = (report) => {
     const e = {}
@@ -1048,6 +896,13 @@ function Documents() {
 
     for (const field of report.require) {
       if (["startDate", "endDate"].includes(field)) continue
+      if (field === "planId") {
+        if (!filters.planYear && !filters.planId) e.planId = "กรุณาเลือกปีแผนงาน"
+        else if (filters.planYear && planInfo.status === "loading") e.planId = "กำลังตรวจแผนงาน รอสักครู่"
+        else if (filters.planYear && planInfo.status === "missing") e.planId = `ยังไม่มีแผนงานปี ${filters.planYear}`
+        else if (filters.planYear && planInfo.status === "error") e.planId = "ตรวจแผนงานไม่สำเร็จ ลองเลือกปีใหม่"
+        continue
+      }
       const v = filters[field]
       const ok = typeof v === "string" ? v.trim() !== "" : Boolean(v)
       if (!ok) e[field] = "จำเป็นต้องระบุ"
@@ -1074,6 +929,16 @@ function Documents() {
       }
     }
 
+    // ปี พ.ศ. / เดือน (HR)
+    if (report.require.includes("month") && !(Number(filters.month) >= 1 && Number(filters.month) <= 12)) e.month = "เลือกเดือน"
+    for (const f of ["yearBE", "fiscalYear"]) {
+      const wanted = report.require.includes(f) || (report.optional || []).includes(f)
+      if (wanted && String(filters[f] || "").trim() && !/^25\d{2}$/.test(String(filters[f]).trim())) e[f] = "ปี พ.ศ. 4 หลัก เช่น 2569"
+    }
+    for (const f of ["employeeId", "loanId"]) {
+      if (report.require.includes(f) && String(filters[f] || "").trim() && !/^\d+$/.test(String(filters[f]).trim())) e[f] = "ตัวเลขเท่านั้น"
+    }
+
     setErrors(e)
     return e
   }
@@ -1085,10 +950,21 @@ function Documents() {
     const wants = (field) =>
       (report?.require || []).includes(field) || (report?.optional || []).includes(field)
 
-    if (wants("startDate")) p.set("start_date", filters.startDate)
-    if (wants("endDate")) p.set("end_date", filters.endDate)
+    // HR ใช้ from_date/to_date (P-reports ใช้ start_date/end_date)
+    const isHr = report?.type === "hr_pdf"
+    if (wants("startDate") && filters.startDate) p.set(isHr ? "from_date" : "start_date", filters.startDate)
+    if (wants("endDate") && filters.endDate) p.set(isHr ? "to_date" : "end_date", filters.endDate)
 
-    if (wants("planId") && filters.planId) p.set("plan_id", filters.planId)
+    if (wants("planId") && effectivePlanId) p.set("plan_id", effectivePlanId)
+
+    if (wants("month") && filters.month) p.set("month", String(Number(filters.month)))
+    if (wants("yearBE") && String(filters.yearBE).trim()) p.set("year", String(filters.yearBE).trim())
+    if (wants("fiscalYear") && String(filters.fiscalYear).trim()) p.set("fiscal_year", String(filters.fiscalYear).trim())
+    if (wants("exitType") && filters.exitType) p.set("exit_type", filters.exitType)
+    if (wants("showSensitive") && filters.showSensitive) p.set("show_sensitive", "true")
+    if (wants("speciesLike") && String(filters.speciesLike || "").trim()) p.set("species_like", String(filters.speciesLike).trim())
+    // หลายค่า = ซ้ำ key (spec_id=6&spec_id=5) — comma list ได้ 422
+    if (wants("specIds")) for (const n of parseCsvInts(filters.specIds)) p.append("spec_id", String(n))
 
     if (wants("memberId") && String(filters.memberId || "").trim()) {
       const v = String(filters.memberId).trim()
@@ -1118,14 +994,6 @@ function Documents() {
       p.append("spec_id", filters.specId)
     }
 
-    if (filters.productId && report.key === "stockTree") p.set("product_id", filters.productId)
-
-    if (report.key === "registerPurchase") {
-      if (filters.speciesLike) p.set("species_like", filters.speciesLike.trim())
-      if (filters.addrLine4) p.set("addr_line4", filters.addrLine4.trim())
-      if (filters.addrLine5) p.set("addr_line5", filters.addrLine5.trim())
-    }
-
     return p
   }
 
@@ -1134,7 +1002,7 @@ function Documents() {
     const errs = validate(report)
     if (Object.keys(errs).length) return
 
-    const isPdf = report.type === "pdf" || report.type === "share_pdf" || report.type === "phase1_pdf"
+    const isPdf = isPdfType(report.type)
     // หมายเหตุความปลอดภัย: ไม่ใช้ feature "noopener" ตรงนี้ เพราะ noopener จะทำให้
     // window.open() คืนค่า null บนเบราว์เซอร์เป้าหมาย ซึ่งจะทำให้ flow พรีวิว PDF พัง
     // (โค้ดด้านล่างต้องใช้ handle เพื่อเขียน placeholder, set location.href เป็น blob URL,
@@ -1200,7 +1068,7 @@ function Documents() {
       }
 
       if (isPdf) {
-        params.set("preview", "false")
+        if (report.type !== "hr_pdf") params.set("preview", "false")
 
         const { blob } = await apiDownload(`${endpoint}?${params.toString()}`)
         const url = URL.createObjectURL(blob)
@@ -1276,7 +1144,16 @@ function Documents() {
       speciesLike: "",
       addrLine4: "",
       addrLine5: "",
+      planYear: "",
       planId: "",
+      specIds: "",
+      month: String(new Date().getMonth() + 1),
+      yearBE: String(new Date().getFullYear() + 543),
+      fiscalYear: String(currentFiscalYearBE()),
+      employeeId: "",
+      loanId: "",
+      exitType: "",
+      showSensitive: false,
     })
 
   /** ---------- UI helpers ---------- */
@@ -1309,16 +1186,59 @@ function Documents() {
       </label>
       <ComboBox
         options={withEmpty(YEAR_OPTIONS, "— เลือกปี —")}
-        value={filters.planId}
-        onChange={(v) => setFilter("planId", v)}
+        value={filters.planYear}
+        onChange={(v) => { setFilter("planYear", v); setErrors((e) => ({ ...e, planId: undefined })) }}
         placeholder="— เลือกปี —"
         error={!!errors.planId}
+        title="ปีแผนงาน"
       />
       <FieldError name="planId" />
+      {!errors.planId && planInfo.status === "loading" && <p className={helpTextCls}>กำลังตรวจแผนงานปี {planInfo.year}…</p>}
+      {!errors.planId && planInfo.status === "missing" && <p className={errorTextCls}>ยังไม่มีแผนงานปี {planInfo.year}</p>}
+      {!errors.planId && planInfo.status === "error" && <p className={errorTextCls}>ตรวจแผนงานไม่สำเร็จ ลองเลือกปีใหม่</p>}
     </div>
   )
 
-  const FormSpecOnly = ({ requiredSpec = false }) => (
+  /** หลายสเปค (P20–P26): เลือกจากรายการแล้วแสดงเป็นชิป — ส่ง spec_id ซ้ำ key */
+  const FormSpecMulti = ({ note }) => {
+    const picked = parseCsvInts(filters.specIds)
+    const labelOf = (id) => specOptions.find((o) => String(o.id) === String(id))?.label || `สเปค #${id}`
+    return (
+      <div className="md:col-span-3">
+        <label className={labelCls}>รายการสินค้า (เลือกได้หลายรายการ · ไม่บังคับ)</label>
+        <ComboBox
+          options={specOptions.filter((o) => !picked.includes(Number(o.id)))}
+          value=""
+          onChange={(v) => v && setFilter("specIds", toggleCsvId(filters.specIds, v))}
+          placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เพิ่มรายการสินค้า —"}
+          loading={loadingSpecs}
+          searchable
+          title="รายการสินค้า"
+        />
+        {picked.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {picked.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setFilter("specIds", toggleCsvId(filters.specIds, id))}
+                className="rounded-full border border-emerald-500 bg-emerald-50 px-3 py-1 text-sm text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200"
+                aria-label={`เอา ${labelOf(id)} ออก`}
+              >
+                {labelOf(id)} ✕
+              </button>
+            ))}
+            <button type="button" onClick={() => setFilter("specIds", "")} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700/50 dark:text-slate-100">
+              ล้าง
+            </button>
+          </div>
+        )}
+        <p className={helpTextCls}>{note || "ไม่เลือก = ทุกสินค้า"}</p>
+      </div>
+    )
+  }
+
+  const FormSpecOnly = ({ requiredSpec = false, note }) => (
     <div>
       <label className={labelCls}>
         รายการสำเร็จรูป{requiredSpec && <span className="text-red-500"> *</span>}
@@ -1326,7 +1246,8 @@ function Documents() {
 
       {specOptions.length > 0 ? (
         <ComboBox
-          options={withEmpty(specOptions, loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —")}
+          options={withEmpty(specOptions, loadingSpecs ? "— กำลังโหลด… —" : requiredSpec ? "— เลือก —" : "— ทุกสินค้า —")}
+          searchable
           value={filters.specId}
           onChange={(v) => setFilter("specId", v)}
           placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
@@ -1343,13 +1264,14 @@ function Documents() {
       )}
 
       {requiredSpec && <FieldError name="specId" />}
+      {note && <p className={helpTextCls}>{note}</p>}
       {specOptions.length === 0 && !loadingSpecs && (
         <p className={helpTextCls}>รายการไม่ขึ้น พิมพ์รหัสสเปคเป็นตัวเลขแทนได้</p>
       )}
     </div>
   )
 
-  const FormBranchKlang = ({ requireBranch = false, showKlang = true }) => (
+  const FormBranchKlang = ({ requireBranch = false, showKlang = true, allBranches = false }) => (
     <>
       <div>
         <label className={labelCls}>
@@ -1358,10 +1280,10 @@ function Documents() {
 
         {branchOptions.length > 0 ? (
           <ComboBox
-            options={withEmpty(branchOptions, "— เลือก —")}
+            options={withEmpty(branchOptions, allBranches && !branchLock.locked ? "— ทุกสาขา —" : "— เลือก —")}
             value={filters.branchId}
             onChange={(v) => setFilter("branchId", v)}
-            placeholder="— เลือก —"
+            placeholder={allBranches && !branchLock.locked ? "— ทุกสาขา —" : "— เลือก —"}
             error={!!(requireBranch && errors.branchId)}
             disabled={branchLock.locked}
           />
@@ -1377,7 +1299,7 @@ function Documents() {
         )}
 
         {requireBranch && <FieldError name="branchId" />}
-        {branchLock.locked && <BranchLockNote />}
+        {branchLock.locked ? <BranchLockNote /> : allBranches && !filters.branchId && <p className={helpTextCls}>ไม่เลือก = ทุกสาขา</p>}
       </div>
 
       {showKlang ? (
@@ -1551,144 +1473,6 @@ function Documents() {
       )
     }
 
-    if (report.key === "purchaseGrouped") {
-      return (
-        <div className="grid gap-4 md:grid-cols-3">
-          <FormDates report={report} />
-          <FormSpecOnly requiredSpec />
-          <FormBranchKlang requireBranch={false} />
-        </div>
-      )
-    }
-
-    if (report.key === "salesDaily" || report.key === "purchasesDaily") {
-      return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-            <FormBranchKlang requireBranch />
-            <FormSpecOnly requiredSpec={false} />
-          </div>
-          <p className={helpTextCls}>ถ้าไม่เลือกสเปค จะออกรวมทุกชนิดในสาขาที่เลือก</p>
-        </>
-      )
-    }
-
-    if (report.key === "registerPurchase") {
-      return (
-        <div className="grid gap-4 md:grid-cols-3">
-          <FormDates report={report} />
-          <FormBranchKlang requireBranch={false} />
-          <div>
-            <label className={labelCls}>ค้นหาชื่อสายพันธุ์</label>
-            <input className={baseField} placeholder="เช่น มะลิ" value={filters.speciesLike} onChange={(e) => setFilter("speciesLike", e.target.value)} />
-          </div>
-          <div>
-            <label className={labelCls}>ที่อยู่ บรรทัด 4</label>
-            <input className={baseField} value={filters.addrLine4} onChange={(e) => setFilter("addrLine4", e.target.value)} />
-          </div>
-          <div>
-            <label className={labelCls}>ที่อยู่ บรรทัด 5</label>
-            <input className={baseField} value={filters.addrLine5} onChange={(e) => setFilter("addrLine5", e.target.value)} />
-          </div>
-        </div>
-      )
-    }
-
-    if (report.key === "branchRx") {
-      return (
-        <div className="grid gap-4 md:grid-cols-3">
-          <FormDates report={report} />
-          <FormBranchKlang requireBranch />
-          <FormSpecOnly requiredSpec />
-        </div>
-      )
-    }
-
-    if (report.key === "riceSummary") {
-      return (
-        <div className="grid gap-4 md:grid-cols-3">
-          <FormDates report={report} />
-        </div>
-      )
-    }
-
-    if (report.key === "stockTree") {
-      return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormBranchKlang requireBranch />
-            <div>
-              <label className={labelCls}>ประเภทสินค้า *</label>
-              {productOptions.length > 0 ? (
-                <ComboBox
-                  options={withEmpty(productOptions, "— เลือก —")}
-                  value={filters.productId}
-                  onChange={(v) => setFilter("productId", v)}
-                  placeholder="— เลือก —"
-                  error={!!errors.productId}
-                />
-              ) : (
-                <input
-                  className={cx(baseField, errors.productId && "border-red-400 ring-2 ring-red-300/70")}
-                  placeholder="รหัสประเภทสินค้า (ตัวเลข)"
-                  value={filters.productId}
-                  onChange={(e) => setFilter("productId", e.target.value)}
-                />
-              )}
-              <FieldError name="productId" />
-            </div>
-          </div>
-        </>
-      )
-    }
-
-    if (report.type === "pdf") {
-      return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-            <FormBranchKlang requireBranch={false} />
-            <FormSpecOnly requiredSpec={false} />
-          </div>
-          <p className={helpTextCls}>
-            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์
-          </p>
-        </>
-      )
-    }
-
-    if (report.type === "share_pdf") {
-      const req = report.require || []
-      const opt = report.optional || []
-
-      const needBranchKlang = req.includes("branchId") || opt.includes("branchId") || opt.includes("klangId")
-      const needSpec = req.includes("specId") || opt.includes("specId")
-      const needKlangIds = req.includes("klangIds") || opt.includes("klangIds")
-
-      return (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <FormDates report={report} />
-
-            {report.key === "share-custom" ? <FormCustomReportCode /> : null}
-
-            {needBranchKlang ? <FormBranchKlang requireBranch={req.includes("branchId")} showKlang={req.includes("klangId") || opt.includes("klangId")} /> : null}
-
-            {needSpec ? <FormSpecOnly requiredSpec={req.includes("specId")} /> : null}
-
-            {needKlangIds ? <FormShareKlangIds /> : null}
-
-            <FormShareIdentity report={report} />
-          </div>
-
-          <p className={helpTextCls}>
-            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF แล้วพิมพ์
-          </p>
-        </>
-      )
-    }
-
     if (report.type === "phase1_pdf") {
       const req = report.require || []
       const opt = report.optional || []
@@ -1699,13 +1483,28 @@ function Documents() {
       const hasMember = req.includes("memberId") || opt.includes("memberId") || req.includes("assoId") || opt.includes("assoId")
       const hasKlangIds = req.includes("klangIds") || opt.includes("klangIds")
       const hasSpec = req.includes("specId") || opt.includes("specId")
+      const hasSpecs = opt.includes("specIds")
+      const hasKlang = req.includes("klangId") || opt.includes("klangId")
+      const hasSpeciesLike = opt.includes("speciesLike")
 
       return (
         <>
+          {report.scopeNote && (
+            <p className="mb-3 inline-flex rounded-xl bg-sky-50 px-3 py-1.5 text-sm text-sky-800 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-200 dark:ring-sky-500/30">
+              {report.scopeNote}
+            </p>
+          )}
           <div className="grid gap-4 md:grid-cols-3">
             {hasDates && <FormDates report={report} />}
-            {hasBranch && <FormBranchKlang requireBranch={requireBranch} showKlang={false} />}
-            {hasSpec && <FormSpecOnly requiredSpec={req.includes("specId")} />}
+            {hasBranch && <FormBranchKlang requireBranch={requireBranch} showKlang={hasKlang} allBranches={!!report.allBranchesOption} />}
+            {hasSpec && <FormSpecOnly requiredSpec={req.includes("specId")} note={report.specNote} />}
+            {hasSpeciesLike && (
+              <div>
+                <label className={labelCls}>ชื่อพันธุ์ข้าว (ไม่บังคับ)</label>
+                <input className={baseField} placeholder="เช่น มะลิ" value={filters.speciesLike} onChange={(e) => setFilter("speciesLike", e.target.value)} />
+              </div>
+            )}
+            {hasSpecs && <FormSpecMulti note={report.specNote} />}
             {report.memberSearch ? (
               <div className="md:col-span-3">
                 <label className={labelCls}>
@@ -1732,6 +1531,85 @@ function Documents() {
           </div>
           <p className={helpTextCls}>
             กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิดและพิมพ์รายงาน PDF
+          </p>
+        </>
+      )
+    }
+
+    if (report.type === "hr_pdf") {
+      const req = report.require || []
+      const opt = report.optional || []
+      const has = (f) => req.includes(f) || opt.includes(f)
+      const star = (f) => (req.includes(f) ? <span className="text-red-500"> *</span> : null)
+      return (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            {has("month") && (
+              <div>
+                <label className={labelCls}>เดือน{star("month")}</label>
+                <ComboBox options={THAI_MONTH_OPTIONS} value={filters.month} onChange={(v) => setFilter("month", v)} title="เดือน" error={!!errors.month} />
+                <FieldError name="month" />
+              </div>
+            )}
+            {has("yearBE") && (
+              <div>
+                <label className={labelCls}>ปี (พ.ศ.){star("yearBE")}</label>
+                <input inputMode="numeric" maxLength={4} className={cx(baseField, "tabular-nums", errors.yearBE && "border-red-400 ring-2 ring-red-300/70")} value={filters.yearBE} onChange={(e) => setFilter("yearBE", e.target.value.replace(/\D/g, ""))} placeholder="เช่น 2569" />
+                <FieldError name="yearBE" />
+              </div>
+            )}
+            {has("fiscalYear") && (
+              <div>
+                <label className={labelCls}>ปีงบประมาณ (พ.ศ.){star("fiscalYear")}</label>
+                <input inputMode="numeric" maxLength={4} className={cx(baseField, "tabular-nums", errors.fiscalYear && "border-red-400 ring-2 ring-red-300/70")} value={filters.fiscalYear} onChange={(e) => setFilter("fiscalYear", e.target.value.replace(/\D/g, ""))} placeholder="เช่น 2569" />
+                <FieldError name="fiscalYear" />
+                <p className={helpTextCls}>1 เม.ย. – 31 มี.ค.{req.includes("fiscalYear") ? "" : " · เว้นว่าง = ปีปัจจุบัน"}</p>
+              </div>
+            )}
+            {(has("startDate") || has("endDate")) && (
+              <>
+                <div>
+                  <label className={labelCls}>ตั้งแต่วันที่{star("startDate")}</label>
+                  <DateInput value={filters.startDate} onChange={(e) => setFilter("startDate", e.target.value)} error={!!errors.startDate} />
+                  <FieldError name="startDate" />
+                </div>
+                <div>
+                  <label className={labelCls}>ถึงวันที่{star("endDate")}</label>
+                  <DateInput value={filters.endDate} onChange={(e) => setFilter("endDate", e.target.value)} error={!!errors.endDate} />
+                  <FieldError name="endDate" />
+                </div>
+              </>
+            )}
+            {has("branchId") && <FormBranchKlang requireBranch={req.includes("branchId")} showKlang={false} allBranches={!!report.allBranchesOption} />}
+            {has("exitType") && (
+              <div>
+                <label className={labelCls}>ประเภทการพ้นสภาพ</label>
+                <ComboBox options={EXIT_TYPE_OPTIONS} value={filters.exitType} onChange={(v) => setFilter("exitType", v)} title="ประเภทการพ้นสภาพ" />
+              </div>
+            )}
+            {has("employeeId") && (
+              <div>
+                <label className={labelCls}>รหัสพนักงาน{star("employeeId")}</label>
+                <input inputMode="numeric" className={cx(baseField, "tabular-nums", errors.employeeId && "border-red-400 ring-2 ring-red-300/70")} value={filters.employeeId} onChange={(e) => setFilter("employeeId", e.target.value.trim())} placeholder="เช่น 610400001" />
+                <FieldError name="employeeId" />
+              </div>
+            )}
+            {has("loanId") && (
+              <div>
+                <label className={labelCls}>เลขที่สัญญาเงินกู้{star("loanId")}</label>
+                <input inputMode="numeric" className={cx(baseField, "tabular-nums", errors.loanId && "border-red-400 ring-2 ring-red-300/70")} value={filters.loanId} onChange={(e) => setFilter("loanId", e.target.value.trim())} placeholder="รหัสสัญญา (ตัวเลข)" />
+                <FieldError name="loanId" />
+              </div>
+            )}
+            {has("showSensitive") && (
+              <label className="flex items-center gap-2 self-end pb-3 text-sm text-slate-700 dark:text-slate-200">
+                <input type="checkbox" className="size-4 accent-indigo-600" checked={!!filters.showSensitive} onChange={(e) => setFilter("showSensitive", e.target.checked)} />
+                แสดงเลขบัตร/บัญชีธนาคารเต็ม
+              </label>
+            )}
+          </div>
+          <p className={helpTextCls}>
+            กดปุ่ม <span className="font-semibold">🖨️</span> เพื่อเปิด PDF{report.xlsx ? " หรือดาวน์โหลด Excel" : ""}
           </p>
         </>
       )
@@ -1834,6 +1712,59 @@ function Documents() {
             </div>
             )}
 
+            {/* กล่อง: รายงาน Excel ซื้อขาย P20–P26 (สิทธิ์ order.reports) */}
+            {allowedTradeReports().length > 0 && (
+            <div className="flex flex-col rounded-2xl border border-emerald-200 bg-emerald-50/40 p-6 shadow-sm dark:border-emerald-800/50 dark:bg-emerald-900/10 transition-all hover:shadow-md">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 13h2l1 2 1-2h2l-2 3 2 3h-2l-1-2-1 2H8l2-3-2-3z"/>
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-emerald-800 dark:text-emerald-300">รายงานซื้อขาย (Excel)</h2>
+              </div>
+              <p className="mb-6 text-sm text-emerald-700/80 dark:text-emerald-400/80">
+                ทะเบียนคุมสาขา ซื้อ-ขายแยกราคา ทะเบียนรับซื้อ รายงานซื้อ/ขายรายวัน (P20–P26) ได้ทั้ง Excel และ PDF
+              </p>
+              <div className="mt-auto">
+                <ComboBox
+                  options={allowedTradeReports().map((r) => ({ ...r, id: r.key, label: r.title }))}
+                  placeholder="คลิกเพื่อเลือกรายงาน..."
+                  title="รายงานซื้อขาย (Excel)"
+                  value={null}
+                  onChange={(v) => { setMode("trade"); setActiveReport(v); setPreviewJson(null); setErrors({}) }}
+                />
+              </div>
+            </div>
+            )}
+
+            {/* กล่อง: รายงานฝ่ายบุคคล (สิทธิ์ report.hr.*) */}
+            {allowedHrReports().length > 0 && (
+            <div className="flex flex-col rounded-2xl border border-rose-200 bg-rose-50/40 p-6 shadow-sm dark:border-rose-800/50 dark:bg-rose-900/10 transition-all hover:shadow-md">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-rose-800 dark:text-rose-300">รายงานฝ่ายบุคคล</h2>
+              </div>
+              <p className="mb-6 text-sm text-rose-700/80 dark:text-rose-400/80">
+                เงินเดือน ประกันสังคม วันลา ทะเบียนพนักงาน การโยกย้าย เงินกู้ และ KPI (PDF / Excel)
+              </p>
+              <div className="mt-auto">
+                <ComboBox
+                  options={allowedHrReports().map((r) => ({ ...r, id: r.key, label: r.title }))}
+                  placeholder="คลิกเพื่อเลือกรายงาน..."
+                  title="รายงานฝ่ายบุคคล"
+                  searchable
+                  value={null}
+                  onChange={(v) => { setMode("hr"); setActiveReport(v); setPreviewJson(null); setErrors({}) }}
+                />
+              </div>
+            </div>
+            )}
+
             {/* กล่อง 3: รายงานแผนดำเนินงานประจำปี */}
             <div className="flex flex-col rounded-2xl border border-blue-200 bg-blue-50/40 p-6 shadow-sm dark:border-blue-800/50 dark:bg-blue-900/10 transition-all hover:shadow-md">
               <div className="mb-4 flex items-center gap-3">
@@ -1909,7 +1840,7 @@ function Documents() {
               >
                 {reportObj.type === "excel" ? (
                   downloading ? "กำลังเตรียมไฟล์..." : "⬇️ ดาวน์โหลด Excel"
-                ) : reportObj.type === "pdf" || reportObj.type === "share_pdf" || reportObj.type === "phase1_pdf" ? (
+                ) : isPdfType(reportObj.type) ? (
                   downloading ? (
                     "กำลังเตรียม PDF..."
                   ) : (

@@ -151,6 +151,12 @@ export const PERMISSIONS = Object.freeze({
   "hr.payroll.history": { no: 65, module: "HR: Payroll", label: "ดูประวัติเงินเดือนรายพนักงาน", en: "View employee payroll history", roles: [1, 3] },
   "hr.payroll.adjust": { no: 66, module: "HR: Payroll", label: "ปรับปรุงรายการเงินเดือนด้วยมือ (ต้องระบุเหตุผล)", en: "Manually adjust payroll record", roles: [1, 3] },
   "hr.payroll.payslip": { no: 67, module: "HR: Payroll", label: "พิมพ์สลิปเงินเดือน", en: "Print payslip (PDF)", roles: [1, 3] },
+  // งวด 3 (3C) — code ใหม่ของ backend (payroll.settings / payroll.period.approve) ยังไม่มีเลขฟังก์ชันใน matrix ที่ได้รับ
+  // ส่ง/ปิดงวด/คำนวณใหม่ ใช้ payroll.generate เดิม → hr.payroll.generate
+  "hr.payroll.settings.view": { code: ["payroll.view", "payroll.settings"], no: null, module: "HR: Payroll", label: "ดูการตั้งค่าการคำนวณเงินเดือน", en: "View payroll settings", roles: [1, 3], note: "GET /hr/payroll/settings — payroll.view หรือ payroll.settings" },
+  "hr.payroll.settings.edit": { code: "payroll.settings", no: null, module: "HR: Payroll", label: "แก้ไขการตั้งค่าการคำนวณเงินเดือน (อัตราประกันสังคม / เงินสะสม / ภาษี)", en: "Edit payroll settings", roles: [1, 3], note: "PATCH /hr/payroll/settings" },
+  "hr.payroll.periods.view": { code: ["payroll.view", "payroll.period.approve"], no: null, module: "HR: Payroll", label: "ดูสถานะงวดเงินเดือน", en: "View pay periods", roles: [1, 2, 3], note: "GET /hr/payroll/periods" },
+  "hr.payroll.period.approve": { code: "payroll.period.approve", no: null, module: "HR: Payroll", label: "อนุมัติ / ส่งกลับแก้ไขงวดเงินเดือน — ผู้จัดการ", en: "Approve / return pay period (manager)", roles: [1, 2] },
 
   // ── HR: Positions, salary & promotions ──
   "hr.positions.view": { code: ["position.view", "position.edit", "position.change", "hr.employee.create"], no: 68, module: "HR: Positions, salary & promotions", label: "ดูรายการตำแหน่ง", en: "View positions", roles: "any" },
@@ -324,7 +330,7 @@ const warned = new Set()
 
 /** เลขฟังก์ชันใน matrix → permission code ของ backend */
 const CODE_BY_NO = Object.freeze(
-  Object.fromEntries(Object.entries(PERMISSION_MATRIX).map(([code, m]) => [m.no, code])),
+  Object.fromEntries(Object.entries(PERMISSION_MATRIX).filter(([, m]) => m.no != null).map(([code, m]) => [m.no, code])),
 )
 
 function lookup(key) {
@@ -514,7 +520,7 @@ export const HR_KPI_PERMS = Object.freeze(Object.keys(PERMISSIONS).filter((k) =>
  */
 export const HR_HUB_PERMS = Object.freeze([
   "hr.dashboard.view",
-  ...new Set(["hr.employees.list", "hr.positions.view", "hr.promotions.eligible", "hr.promotions.exams", "hr.employees.terminate", "hr.reports.resignedRetired", "hr.leave.list", "hr.reports.leaveAnnual", "hr.reports.leaveRegister", "hr.ooo.list", "hr.holidayWork.view", "hr.relocation.list", "hr.reports.relocations", "hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward", "hr.payroll.list", "hr.loans.list", "hr.salaryCert.list", "hr.leaveTypes.manage", "hr.holidays.manage", "hr.issues.list", "hr.audit.view", ...HR_KPI_PERMS]),
+  ...new Set(["hr.employees.list", "hr.positions.view", "hr.promotions.eligible", "hr.promotions.exams", "hr.employees.terminate", "hr.reports.resignedRetired", "hr.leave.list", "hr.reports.leaveAnnual", "hr.reports.leaveRegister", "hr.ooo.list", "hr.holidayWork.view", "hr.relocation.list", "hr.reports.relocations", "hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward", "hr.payroll.list", "hr.payroll.settings.view", "hr.payroll.period.approve", "hr.loans.list", "hr.salaryCert.list", "hr.leaveTypes.manage", "hr.holidays.manage", "hr.issues.list", "hr.audit.view", ...HR_KPI_PERMS]),
 ])
 
 /** คีย์ Phase 1 report ทั้ง 19 ตัว (P01–P19) */

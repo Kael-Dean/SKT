@@ -559,7 +559,7 @@ const PHASE1_REPORTS = [
 ]
 
 // -----------------------------
-// Phase 1 P20–P26 — Excel ซื้อขาย (มี /xlsx + /pdf คู่กัน, สิทธิ์ order.reports)
+// Phase 1 P20–P27 — Excel ซื้อขาย (มี /xlsx + /pdf คู่กัน, สิทธิ์ order.reports)
 // ปุ่มหลักพิมพ์ PDF, ปุ่ม Excel ใช้ /xlsx (excelUrl แปลงจาก /pdf ให้)
 // -----------------------------
 const TRADE_REPORTS = [
@@ -570,6 +570,12 @@ const TRADE_REPORTS = [
   { key: "phase1-p24", title: "P24 — รายงานการขาย (แยกตามวัน)", endpoint: "/reports/phase1/P24/pdf", require: ["startDate", "endDate", "branchId"], optional: ["specIds"] },
   { key: "phase1-p25", title: "P25 — รายงานการซื้อ (แยกตามวัน)", endpoint: "/reports/phase1/P25/pdf", require: ["startDate", "endDate", "branchId"], optional: ["specIds"] },
   { key: "phase1-p26", title: "P26 — ทะเบียนคุม (รายวัน)", endpoint: "/reports/phase1/P26/pdf", require: ["startDate", "endDate", "specId"], optional: ["branchId", "klangId"], allBranchesOption: true },
+  {
+    key: "phase1-p27", title: "P27 — สรุปการรับซื้อจากสมาชิก (แยกตามสินค้า)", endpoint: "/reports/phase1/P27/pdf",
+    require: ["startDate", "endDate"], optional: ["branchId", "specIds"], allBranchesOption: true,
+    scopeNote: "เฉพาะสมาชิก (ไม่รวมลูกค้าทั่วไป) · ช่วงยาวหรือทุกสาขาใช้เวลาหลายสิบวินาที — แนะนำดาวน์โหลด Excel",
+    specNote: "ไม่เลือก = ทุกสินค้า",
+  },
 ].map((r) => ({ type: "phase1_pdf", xlsx: true, badge: "TRADE", perm: "trading.reports.view", ...r }))
 
 // -----------------------------
@@ -1724,7 +1730,7 @@ function Documents() {
                 <h2 className="text-xl font-bold text-emerald-800 dark:text-emerald-300">รายงานซื้อขาย (Excel)</h2>
               </div>
               <p className="mb-6 text-sm text-emerald-700/80 dark:text-emerald-400/80">
-                ทะเบียนคุมสาขา ซื้อ-ขายแยกราคา ทะเบียนรับซื้อ รายงานซื้อ/ขายรายวัน (P20–P26) ได้ทั้ง Excel และ PDF
+                ทะเบียนคุมสาขา ซื้อ-ขายแยกราคา ทะเบียนรับซื้อ รายงานซื้อ/ขายรายวัน สรุปรับซื้อจากสมาชิก (P20–P27) ได้ทั้ง Excel และ PDF
               </p>
               <div className="mt-auto">
                 <ComboBox

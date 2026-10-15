@@ -3,6 +3,8 @@ import { cx, baseField } from "../../lib/styles"
 // ข้อมูลส่วนตัวของผู้ใช้ปัจจุบัน — GET /personnel/me + GET /personnel/me/financial
 import { useEffect, useState } from "react"
 import ReactDOM from "react-dom"
+import { Link } from "react-router-dom"
+import { ChevronRight } from "lucide-react"
 import { apiAuth } from "../../lib/api"
 import { getUser } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
@@ -385,6 +387,14 @@ export default function MyProfile() {
           <InfoRow label="เงินกู้สหกรณ์" value={fmtMoney(fin.current_loan)} />
           <InfoRow label="ประกันสังคม" value={fmtMoney(fin.current_ss)} />
           <InfoRow label="กองทุนสำรองเลี้ยงชีพ" value={fmtMoney(fin.current_prov)} />
+          {can("self.payroll.view") && (
+            <Link
+              to="/my-payslips"
+              className="mt-3 inline-flex min-h-touch md:min-h-0 items-center gap-1 rounded text-sm font-medium text-indigo-700 hover:underline dark:text-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            >
+              ดูสลิปเงินเดือนของฉัน <ChevronRight aria-hidden="true" className="size-4" />
+            </Link>
+          )}
         </div>
       )}
 

@@ -50,6 +50,7 @@ const HRIssueReports = lazy(() => import("./pages/hr/HRIssueReports.jsx"))
 const HRPersonnelDetail = lazy(() => import("./pages/hr/HRPersonnelDetail.jsx"))
 const HRSalaryTier = lazy(() => import("./pages/hr/HRSalaryTier.jsx"))
 const MyProfile = lazy(() => import("./pages/work/MyProfile.jsx"))
+const MyPayslips = lazy(() => import("./pages/work/MyPayslips.jsx"))
 const LeaveRequest = lazy(() => import("./pages/work/LeaveRequest.jsx"))
 /** งวด 2 — 3O ขอออกนอกสถานที่ */
 const OutOfOffice = lazy(() => import("./pages/work/OutOfOffice.jsx"))
@@ -147,6 +148,7 @@ function App() {
 
         {/* ✅ Personal routes (ทุกคนที่ล็อกอิน) */}
         <Route path="/my-profile" element={guard("self.profile.view", <MyProfile />)} />
+        <Route path="/my-payslips" element={guard("self.payroll.view", <MyPayslips />)} />
         <Route path="/leave-request" element={guard("self.leave.request", <LeaveRequest />)} />
         <Route path="/out-of-office" element={guard("self.ooo.request", <OutOfOffice />)} />
         <Route path="/out-of-office/approvals" element={guard("hr.ooo.list", <OutOfOfficeApprovals />)} />

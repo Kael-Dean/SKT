@@ -30,6 +30,7 @@ import {
   Map,
   PackageCheck,
   PackageMinus,
+  ReceiptText,
   Recycle,
   Settings,
   ShoppingCart,
@@ -113,6 +114,7 @@ export const ALL_FUNCTIONS = [
       { label: "ข้อมูลการเงิน",     path: "/hr/finance",       icon: "💰", perm: "hr.employees.editFinancial" },
       { label: "ย้ายสาขา",          path: "/hr/relocation",    icon: "🏢", perm: "hr.relocation.list" },
       { label: "ขอสินเชื่อ",         path: "/loan-request",     icon: "💳", perm: "self.loan.apply" },
+      { label: "สลิปเงินเดือนของฉัน", path: "/my-payslips",      icon: "🧾", perm: "self.payroll.view" },
     ],
   },
 ]
@@ -168,6 +170,7 @@ const ICONS = {
   "/hr/finance": Wallet,
   "/hr/relocation": Building2,
   "/loan-request": CreditCard,
+  "/my-payslips": ReceiptText,
 }
 
 /** Lucide icon component for a function path (falls back to a generic grid). */

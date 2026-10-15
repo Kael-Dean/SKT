@@ -12,6 +12,7 @@ import {
   LogOut,
   MapPin,
   MapPinCheck,
+  ReceiptText,
   Moon,
   ShieldCheck,
   Sun,
@@ -41,6 +42,7 @@ const TONES = {
 const HR_MENUS = [
   { label: "หน้าหลัก",            icon: House,          tone: "indigo",  path: "/hr/dashboard",  anyOf: HR_HUB_PERMS },
   { label: "ข้อมูลส่วนตัว",       icon: UserRound,      tone: "sky",     path: "/my-profile",    perm: "self.profile.view" },
+  { label: "สลิปเงินเดือนของฉัน",  icon: ReceiptText,    tone: "emerald", path: "/my-payslips",   perm: "self.payroll.view" },
   { label: "กล่องงานรออนุมัติ",   icon: Inbox,          tone: "amber",   path: "/inbox" },
   { label: "ยื่นใบลา",            icon: FileText,       tone: "emerald", path: "/leave-request", perm: "self.leave.request" },
   { label: "ขอออกนอกสถานที่",     icon: MapPin,         tone: "orange",  path: "/out-of-office", perm: "self.ooo.request" },
@@ -53,6 +55,7 @@ const HR_MENUS = [
 const PERSONAL_MENUS = [
   { label: "หน้าหลัก",            icon: House,      tone: "indigo",  path: "/home" },
   { label: "ข้อมูลส่วนตัว",       icon: UserRound,  tone: "sky",     path: "/my-profile",    perm: "self.profile.view" },
+  { label: "สลิปเงินเดือนของฉัน",  icon: ReceiptText, tone: "emerald", path: "/my-payslips",  perm: "self.payroll.view" },
   { label: "กล่องงานรออนุมัติ",   icon: Inbox,      tone: "amber",   path: "/inbox" },
   { label: "ยื่นใบลา",            icon: FileText,   tone: "emerald", path: "/leave-request", perm: "self.leave.request" },
   { label: "ขอออกนอกสถานที่",     icon: MapPin,     tone: "orange",  path: "/out-of-office", perm: "self.ooo.request" },

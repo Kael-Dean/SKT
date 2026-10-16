@@ -1,5 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api-proxy/:path*", "destination": "https://um-backend-staging-hwsazqhuva-as.a.run.app/:path*" }
-  ]
-}

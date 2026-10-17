@@ -25,6 +25,7 @@ import {
   MapPin,
   RotateCw,
   ScrollText,
+  SlidersHorizontal,
   Search,
   Target,
   UserMinus,
@@ -43,6 +44,7 @@ import HRRelocationTab from "./tabs/HRRelocationTab"
 import HRIssueTab from "./tabs/HRIssueTab"
 import HRSalaryTab from "./tabs/HRSalaryTab"
 import HRPayrollTab from "./tabs/HRPayrollTab"
+import HRPayrollSettingsTab from "./tabs/HRPayrollSettingsTab"
 import HRLoansTab from "./tabs/HRLoansTab"
 import HRKpiTab from "./tabs/HRKpiTab"
 import HRPositionsTab from "./tabs/HRPositionsTab"
@@ -120,12 +122,12 @@ const HR_NAV = [
       { key: "salary", anyOf: ["hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward"], label: "เงินเดือน", icon: Coins,
         description: "เลื่อนขั้นเงินเดือนเจ้าหน้าที่ และดูอัตราเงินเดือนแต่ละขั้นของกระบอก",
         keywords: ["ขั้น", "เลื่อนขั้น", "บัญชีเงินเดือน", "กระบอก", "salary"] },
-      { key: "payroll", perm: "hr.payroll.list", label: "จ่ายเงินเดือน", icon: Banknote,
-        description: "สร้างและตรวจรายการเงินเดือนประจำเดือน",
-        keywords: ["สลิป", "จ่าย", "payroll", "เงินเดือน"] },
-      { key: "loans", perm: "hr.loans.list", label: "สินเชื่อ", icon: HandCoins,
-        description: "สินเชื่อของเจ้าหน้าที่และการผ่อนชำระ",
-        keywords: ["กู้", "เงินกู้", "loan", "ผ่อน"] },
+      { key: "payroll", anyOf: ["hr.payroll.list", "hr.payroll.period.approve"], label: "จ่ายเงินเดือน", icon: Banknote,
+        description: "สร้าง ตรวจสอบ อนุมัติ และปิดงวดเงินเดือนประจำเดือน",
+        keywords: ["สลิป", "จ่าย", "payroll", "เงินเดือน", "งวด", "อนุมัติ", "ปิดงวด"] },
+      { key: "loans", anyOf: ["hr.loans.queue", "hr.loans.list", "hr.loans.approve.finance", "hr.loans.overdue", "hr.loans.fundLedger"], label: "สินเชื่อ", icon: HandCoins,
+        description: "คำขอกู้เงินกองทุนสงเคราะห์ที่รอพิจารณา สัญญา ตารางผ่อน และยอดค้างชำระ",
+        keywords: ["กู้", "เงินกู้", "loan", "ผ่อน", "กองทุน", "อนุมัติ", "คณะทำงาน", "ค้างชำระ"] },
       { key: "salary-cert", perm: "hr.salaryCert.list", label: "หนังสือรับรองเงินเดือน", icon: ScrollText,
         description: "คำขอและการออกหนังสือรับรองเงินเดือน",
         keywords: ["หนังสือรับรอง", "รับรองเงินเดือน", "certificate"] },
@@ -140,6 +142,9 @@ const HR_NAV = [
       { key: "leave-types", perm: "hr.leaveTypes.manage", label: "ประเภทการลา", icon: ListChecks,
         description: "กำหนดประเภทการลาและสิทธิ์วันลา",
         keywords: ["ลา", "ประเภท", "สิทธิ์ลา"] },
+      { key: "payroll-settings", perm: "hr.payroll.settings.view", label: "ตั้งค่าเงินเดือน", icon: SlidersHorizontal,
+        description: "อัตราประกันสังคม เงินสะสม วิธีคำนวณภาษี และตัวหารค่าจ้างรายวัน",
+        keywords: ["ประกันสังคม", "ภาษี", "ภ.ง.ด.1", "เงินสะสม", "อัตรา", "settings"] },
       { key: "holiday-calendar", perm: "hr.holidays.manage", label: "ปฏิทินวันหยุด", icon: CalendarDays,
         description: "กำหนดวันหยุดประจำปีขององค์กร",
         keywords: ["วันหยุด", "ปฏิทิน", "holiday"] },
@@ -224,6 +229,7 @@ function renderSection(key, { onGoToPositions }) {
     case "issues":             return <HRIssueTab />
     case "salary":             return <HRSalaryTab onGoToPositions={onGoToPositions} />
     case "payroll":            return <HRPayrollTab />
+    case "payroll-settings":   return <HRPayrollSettingsTab />
     case "loans":              return <HRLoansTab />
     case "kpi":                return <HRKpiTab />
     case "positions":          return <HRPositionsTab />

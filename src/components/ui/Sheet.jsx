@@ -127,7 +127,7 @@ function SheetBody({
           style={vars}
           className={cx(
             "flex w-full flex-col bg-white shadow-2xl ring-1 ring-gray-200 focus:outline-none animate-sheet-in",
-            "dark:bg-gray-800 dark:ring-gray-700",
+            "dark:bg-surface dark:ring-line-strong dark:shadow-black/60",
             "rounded-t-3xl max-h-(--sheet-max-h) mb-(--sheet-lift) md:mb-0 md:rounded-2xl md:max-h-[90dvh]",
             size === "full" && "h-(--sheet-max-h)",
             SIZE[size] ?? SIZE.sm,
@@ -136,11 +136,11 @@ function SheetBody({
         >
           {!hideHandle && (
             <div className="flex shrink-0 justify-center pt-2 md:hidden" aria-hidden="true">
-              <span className="h-1 w-9 rounded-full bg-gray-300 dark:bg-gray-600" />
+              <span className="h-1 w-9 rounded-full bg-gray-300 dark:bg-white/20" />
             </div>
           )}
 
-          <header className="flex shrink-0 items-start gap-3 border-b border-gray-100 px-4 pb-3 pt-3 dark:border-gray-700/70 md:px-6 md:pt-5">
+          <header className="flex shrink-0 items-start gap-3 border-b border-gray-100 px-4 pb-3 pt-3 dark:border-line md:px-6 md:pt-5">
             <div className="min-w-0 flex-1">
               <h2 id={titleId} className="text-base font-bold text-balance leading-snug text-gray-900 dark:text-gray-100 md:text-lg">
                 {title}
@@ -171,7 +171,7 @@ function SheetBody({
           </div>
 
           {footer && (
-            <footer className="shrink-0 border-t border-gray-100 px-4 pt-3 pb-safe-3 dark:border-gray-700/70 md:px-6 md:pb-4">
+            <footer className="shrink-0 border-t border-gray-100 px-4 pt-3 pb-safe-3 dark:border-line md:px-6 md:pb-4">
               {footer}
             </footer>
           )}

@@ -1,4 +1,5 @@
 // src/pages/work/OutOfOffice.jsx
+import { cx, baseField } from "../../lib/styles"
 // 3O ขอออกนอกสถานที่ — ฝั่งพนักงาน: ยื่นคำขอ + ดูรายการของฉัน + ยกเลิก
 // Spec: handoff/api-handoff-payment-2.md §1 (approval chain) + §2 (3O)
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -86,9 +87,8 @@ const NEXT_STEP = {
 }
 
 // ─── styles (match LeaveRequest.jsx) ────────────────────────────────────────
-const inputCls =
-  "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200"
-const inputErrCls = "border-red-400 dark:border-red-500 focus:ring-red-400"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
+const inputErrCls = "!border-red-400 dark:!border-red-500 focus:!ring-red-400"
 const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5"
 const focusRing =

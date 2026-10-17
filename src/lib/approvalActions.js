@@ -51,10 +51,17 @@ export function requestBranchId(req) {
   return v == null ? null : Number(v)
 }
 
-/** Display name of the requester, tolerant of missing name fields (3O). */
+/**
+ * Display name of the requester, tolerant of missing name fields (3O).
+ * `/hr/leave-requests` rows carry `user_display_name` (Thai name with title, else English —
+ * AMC meeting fixes #29), then the Thai first/last pair, then the older English fields.
+ */
 export function requesterName(req) {
   if (!req) return "-"
+  const thai = [req.user_th_first_name, req.user_th_last_name].filter(Boolean).join(" ")
   const full =
+    req.user_display_name ||
+    thai ||
     req.user_full_name ||
     req.full_name ||
     req.requester_name ||

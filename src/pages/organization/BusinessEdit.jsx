@@ -7,6 +7,7 @@ import { SkeletonTableRows, EmptyState } from "../../components/ui"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { can } from "../../lib/permissions"
 import ComboBox from "../../components/ComboBox"
+import { cx, baseField } from "../../lib/styles"
 
 /** ---------- Mapping ---------- */
 const BUSINESS_GROUP_MAP = {
@@ -90,11 +91,8 @@ const TABS = [
 ]
 
 /** ---------- Styles ---------- */
-const baseInput = "w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:focus:border-emerald-400 transition-all"
+const baseInput = cx(baseField, "!rounded-xl !p-2.5 md:!text-sm")
 const labelCls = "mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-
-/** ---------- Reusable ComboBox ---------- */
-const cx = (...a) => a.filter(Boolean).join(" ")
 
 
 /** ---------- Reusable MultiSelect ComboBox ---------- */

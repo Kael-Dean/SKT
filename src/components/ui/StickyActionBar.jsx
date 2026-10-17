@@ -110,7 +110,7 @@ export default function StickyActionBar({
           aria-hidden={hidden || undefined}
           className={cx(
             "fixed inset-x-0 bottom-0 z-30 border-t border-gray-200/80 bg-white/90 px-4 pt-3 pb-safe-3 backdrop-blur-md",
-            "dark:border-gray-800 dark:bg-gray-900/90",
+            "dark:border-line dark:bg-canvas/85",
             "transition-transform duration-200 ease-out motion-reduce:transition-none",
             hidden && "pointer-events-none translate-y-full",
             className,

@@ -4,10 +4,10 @@ import { useSidebarOpen } from "../../../components/AppLayout"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 import { useCan } from "../../../lib/permissions"
 import { ReadOnlyFieldset, ReadOnlyNotice } from "../../../components/PlanReadOnly"
+import { cx, cellInput as cellInputBase } from "../../../lib/styles"
 import { apiAuth } from "../../../lib/api"
 
 /** ---------------- Utils ---------------- */
-const cx = (...a) => a.filter(Boolean).join(" ")
 const toNumber = (v) => {
   if (v === "" || v === null || v === undefined) return 0
   const n = Number(String(v).replace(/,/g, ""))
@@ -26,13 +26,7 @@ const fmtMoney = (n) => new Intl.NumberFormat("th-TH", { minimumFractionDigits: 
 // API: ใช้ apiAuth กลาง (src/lib/api.js) — แนบ token, 401 → กลับหน้า login, 403 → โหลดสิทธิ์ใหม่
 
 /** ---------------- UI styles ---------------- */
-const cellInput =
-  "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
-  "text-right text-[12px] outline-none tabular-nums " +
-  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "transition-colors duration-150 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 " +
-  "disabled:cursor-not-allowed disabled:opacity-60"
+const cellInput = cx(cellInputBase, "!rounded-md md:!text-[12px] disabled:cursor-not-allowed disabled:opacity-60")
 
 /** ---------------- Constants ---------------- */
 const MONTHS = [

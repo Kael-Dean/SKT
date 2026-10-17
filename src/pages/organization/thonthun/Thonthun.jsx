@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { onMasterDataChanged } from "../../../lib/useProductsByGroup"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
+import { cx, cellInput } from "../../../lib/styles"
 import { apiAuth } from "../../../lib/api"
 import { getToken } from "../../../lib/auth"
 
 /** ---------------- Utils ---------------- */
-const cx = (...a) => a.filter(Boolean).join(" ")
 const toNumber = (v) => {
   if (v === "" || v === null || v === undefined) return 0
   const n = Number(String(v).replace(/,/g, ""))
@@ -32,17 +32,6 @@ const fmtDec3Str = (v) => {
 
 /** ---------------- API (token = localStorage.token) ---------------- */
 // API: ใช้ apiAuth กลาง (src/lib/api.js) — แนบ token, 401 → กลับหน้า login, 403 → โหลดสิทธิ์ใหม่
-
-/** ---------------- UI styles ---------------- */
-const readonlyField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
-  "text-black shadow-none dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100"
-
-const cellInput =
-  "w-full min-w-0 max-w-full box-border rounded-lg border border-slate-300 bg-white px-1.5 py-1 " +
-  "text-right text-[12px] md:text-[13px] text-slate-900 tabular-nums outline-none " +
-  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-150"
 
 const trunc = "whitespace-nowrap overflow-hidden text-ellipsis"
 

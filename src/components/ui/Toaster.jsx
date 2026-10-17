@@ -59,7 +59,7 @@ function ToastCard({ t, onDismiss }) {
       onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setPaused(false) }}
       className={cx(
         "pointer-events-auto flex w-full items-start gap-3 rounded-2xl bg-white p-4 shadow-lg ring-1 ring-gray-200",
-        "dark:bg-gray-800 dark:ring-gray-700 sm:w-[22rem]",
+        "dark:bg-raised dark:ring-line-strong dark:shadow-2xl dark:shadow-black/60 sm:w-[22rem]",
         "animate-fade-up" // global prefers-reduced-motion rule in index.css neutralises it
       )}
     >

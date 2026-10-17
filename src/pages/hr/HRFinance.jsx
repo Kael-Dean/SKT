@@ -1,14 +1,11 @@
 // src/pages/hr/HRFinance.jsx
-// จัดการข้อมูลการเงินเจ้าหน้าที่ — GET /hr/personnel + POST /hr/financial/{user_id}
+// จัดการข้อมูลการเงินเจ้าหน้าที่ — GET /hr/personnel + POST /hr/financial/{user_id} (ผ่าน FinancialEditSheet)
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import { ErrorState, EmptyState, SkeletonTableRows, SkeletonStat } from "../../components/ui"
-import StatusMsg from "../../components/hr/StatusMsg"
-import Portal from "../../components/Portal"
-import useModalDismiss from "../../lib/useModalDismiss"
+import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
-const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
 
 export default function HRFinance() {
   const [employees, setEmployees] = useState([])
@@ -16,10 +13,6 @@ export default function HRFinance() {
   const [error, setError] = useState("")
 
   const [editModal, setEditModal] = useState(null) // employee object
-  const [editForm, setEditForm] = useState({ current_salary: "", current_loan: "", job_age: "" })
-  const [saving, setSaving] = useState(false)
-  const [saveMsg, setSaveMsg] = useState("")
-  const { backdropProps: editBackdrop } = useModalDismiss(() => setEditModal(null), { open: !!editModal, disabled: saving })
 
   const fetchEmployees = () => {
     setLoading(true)
@@ -32,34 +25,7 @@ export default function HRFinance() {
 
   useEffect(() => { fetchEmployees() }, [])
 
-  const openEdit = (emp) => {
-    setEditModal(emp)
-    setEditForm({
-      current_salary: emp.financial?.current_salary ?? "",
-      current_loan: emp.financial?.current_loan ?? "",
-      job_age: emp.financial?.job_age ?? "",
-    })
-    setSaveMsg("")
-  }
-
-  const saveEdit = async () => {
-    if (!editModal) return
-    setSaving(true)
-    setSaveMsg("")
-    try {
-      const body = {}
-      if (editForm.current_salary !== "") body.current_salary = parseFloat(editForm.current_salary)
-      if (editForm.current_loan !== "") body.current_loan = parseFloat(editForm.current_loan)
-      if (editForm.job_age !== "") body.job_age = parseInt(editForm.job_age)
-      await apiAuth(`/hr/financial/${editModal.id}`, { method: "POST", body })
-      setSaveMsg({ tone: "success", text: "บันทึกสำเร็จ" })
-      setTimeout(() => { setEditModal(null); fetchEmployees() }, 800)
-    } catch (err) {
-      setSaveMsg({ tone: "error", text: err.message || "บันทึกไม่สำเร็จ" })
-    } finally {
-      setSaving(false)
-    }
-  }
+  const openEdit = (emp) => setEditModal(emp)
 
   // คำนวณยอดรวมจาก financial data ที่มี
   const totalPayroll = employees.reduce((s, e) => s + (Number(e.financial?.current_salary) || 0), 0)
@@ -162,40 +128,14 @@ export default function HRFinance() {
         </div>
       </div>
 
-      {/* Edit Modal */}
-      {editModal && (
-        <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...editBackdrop}>
-          <div role="dialog" aria-modal="true" aria-labelledby="hr-finance-edit-title" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
-            <h3 id="hr-finance-edit-title" className="text-lg font-bold text-gray-900 dark:text-gray-100">แก้ไขข้อมูลการเงิน</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{editModal.first_name} {editModal.last_name}</p>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">เงินเดือน (บาท)</label>
-                <input type="number" value={editForm.current_salary} onChange={(e) => setEditForm((p) => ({ ...p, current_salary: e.target.value }))} className={inputCls} placeholder="25000" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">เงินกู้คงเหลือ (บาท)</label>
-                <input type="number" value={editForm.current_loan} onChange={(e) => setEditForm((p) => ({ ...p, current_loan: e.target.value }))} className={inputCls} placeholder="0" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">อายุงาน (ปี)</label>
-                <input type="number" min="0" value={editForm.job_age} onChange={(e) => setEditForm((p) => ({ ...p, job_age: e.target.value }))} className={inputCls} placeholder="0" />
-              </div>
-            </div>
-            {saveMsg && (
-              <StatusMsg msg={saveMsg} center />
-            )}
-            <div className="flex gap-3">
-              <button onClick={() => setEditModal(null)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">ยกเลิก</button>
-              <button onClick={saveEdit} disabled={saving} className="flex-1 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-sm font-semibold transition shadow-sm cursor-pointer">
-                {saving ? "กำลังบันทึก..." : "บันทึก"}
-              </button>
-            </div>
-          </div>
-        </div>
-        </Portal>
-      )}
+      <FinancialEditSheet
+        open={!!editModal}
+        employeeId={editModal?.id}
+        employeeName={editModal ? `${editModal.first_name ?? ""} ${editModal.last_name ?? ""}`.trim() : ""}
+        financial={editModal?.financial ?? {}}
+        onClose={() => setEditModal(null)}
+        onSaved={fetchEmployees}
+      />
     </div>
   )
 }

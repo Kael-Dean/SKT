@@ -9,6 +9,8 @@ import { FolderOpen, List } from "lucide-react"
 import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 import Portal from "../../../components/Portal"
 import useModalDismiss from "../../../lib/useModalDismiss"
+import RelocationPositionPrefs from "../../../components/hr/RelocationPositionPrefs"
+import { usePositionLookup } from "../../../lib/relocation"
 
 function fmtBE(d) {
   // วันที่จาก BE มาเป็น "DD/MM/BBBB" แล้ว — แสดงตรงๆ
@@ -27,6 +29,7 @@ function PdfIcon() {
 
 export default function HRRelocationHistoryTab() {
   const [subTab, setSubTab] = useSubTab(["history", "requests"], "history")
+  const { positionName } = usePositionLookup()
 
   // ─── 13B: Relocation History ────────────────────────────────────
   const [history,      setHistory]      = useState([])
@@ -305,19 +308,8 @@ export default function HRRelocationHistoryTab() {
                 </div>
               </div>
 
-              {/* Position prefs */}
-              {[1,2,3,4,5].some((n) => detailModal[`position_pref_${n}`]) && (
-                <div>
-                  <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide mb-2">ตำแหน่งที่ต้องการ</p>
-                  <div className="flex flex-wrap gap-2">
-                    {[1,2,3,4,5].map((n) => detailModal[`position_pref_${n}`] && (
-                      <span key={n} className="rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs px-2.5 py-1 font-medium">
-                        {n}. รหัส {detailModal[`position_pref_${n}`]}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Position prefs + "ถ้าเปลี่ยนตำแหน่งไม่ได้ ยังจะย้ายหรือไม่" (AMC #29) */}
+              <RelocationPositionPrefs req={detailModal} positionName={positionName} />
 
               {/* Reasons */}
               {(detailModal.reason || detailModal.reason_2 || detailModal.reason_3) && (

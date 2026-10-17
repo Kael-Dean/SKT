@@ -370,10 +370,13 @@ const ComboBox = forwardRef(function ComboBox(
           phone
             ? "min-h-touch px-4 py-2.5 text-base outline-none focus-visible:bg-indigo-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:focus-visible:bg-indigo-500/15 dark:focus-visible:ring-indigo-400"
             : "min-h-10 rounded-xl px-3 py-2 text-[15px]",
-          isActive && !phone && "bg-indigo-50 dark:bg-indigo-500/15",
+          isActive && !phone && cx("bg-indigo-50", isChosen ? "dark:bg-indigo-500/20" : "dark:bg-white/[.06]"),
           isChosen
-            ? cx("font-semibold text-indigo-700 dark:text-indigo-300", phone && "bg-indigo-50/60 dark:bg-indigo-900/15")
-            : "text-slate-800 dark:text-slate-200",
+            ? cx(
+                "font-semibold text-indigo-700 dark:text-indigo-200",
+                phone ? "bg-indigo-50/60 dark:bg-indigo-500/15" : !isActive && "dark:bg-indigo-500/15",
+              )
+            : "text-slate-800 dark:text-gray-200",
         )}
       >
         <span className="min-w-0 flex-1">
@@ -395,7 +398,7 @@ const ComboBox = forwardRef(function ComboBox(
     )
 
   const searchBox = (phone) => (
-    <div className={cx("relative", phone ? "sticky top-0 z-10 -mx-4 -mt-4 bg-white px-4 py-3 dark:bg-gray-800" : "shrink-0 border-b border-slate-200 dark:border-slate-700")}>
+    <div className={cx("relative", phone ? "sticky top-0 z-10 -mx-4 -mt-4 bg-white px-4 py-3 dark:bg-surface" : "shrink-0 border-b border-slate-200 dark:border-line")}>
       <Search
         aria-hidden="true"
         className={cx("pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-slate-400 dark:text-slate-500", phone ? "left-7" : "left-3")}
@@ -419,7 +422,7 @@ const ComboBox = forwardRef(function ComboBox(
         className={cx(
           "w-full bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-500 dark:text-slate-100 dark:placeholder:text-slate-400",
           phone
-            ? "h-12 rounded-2xl border border-slate-300 bg-slate-100 pl-10 pr-11 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 dark:border-slate-600 dark:bg-slate-800"
+            ? "h-12 rounded-2xl border border-slate-300 bg-slate-100 pl-10 pr-11 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 dark:border-line-field dark:bg-field dark:hover:border-line-field-hover dark:focus:border-indigo-400 dark:focus:ring-1 dark:focus:ring-indigo-400"
             : "h-10 pl-9 pr-9 md:text-sm",
         )}
       />
@@ -463,14 +466,18 @@ const ComboBox = forwardRef(function ComboBox(
         className={cx(
           "flex w-full min-h-12 items-center gap-2 rounded-2xl border p-3 text-left text-base outline-none transition-colors duration-150 md:min-h-0 md:text-[15px]",
           isDisabled
-            ? cx("border-slate-300 dark:border-slate-600", fieldDisabled)
-            : "cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700",
+            ? cx("border-slate-300 dark:border-line-strong", fieldDisabled)
+            : "cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-field dark:hover:bg-field",
           error
             ? "border-red-400 ring-2 ring-red-300/70 dark:border-red-500 dark:ring-red-500/30"
             : open
-              ? "border-indigo-500 ring-2 ring-indigo-500/25 dark:border-indigo-400 dark:ring-indigo-400/25"
-              : "border-slate-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/25 dark:border-slate-600 dark:focus-visible:border-indigo-400",
-          "text-slate-900 dark:text-slate-100",
+              ? "border-indigo-500 ring-2 ring-indigo-500/25 dark:border-indigo-400 dark:ring-1 dark:ring-indigo-400"
+              : cx(
+                  "border-slate-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/25",
+                  "dark:border-line-field dark:focus-visible:border-indigo-400 dark:focus-visible:ring-1 dark:focus-visible:ring-indigo-400",
+                  !isDisabled && "dark:hover:border-line-field-hover",
+                ),
+          "text-slate-900 dark:text-gray-100",
           hintRed && "ring-2 ring-red-300 animate-pulse",
         )}
       >
@@ -508,7 +515,7 @@ const ComboBox = forwardRef(function ComboBox(
             id={listId}
             role="listbox"
             aria-label={ariaLabel}
-            className={cx("-mx-4 divide-y divide-gray-100 dark:divide-gray-700/60", hasSearch ? "mt-1" : "-mt-2")}
+            className={cx("-mx-4 divide-y divide-gray-100 dark:divide-line", hasSearch ? "mt-1" : "-mt-2")}
           >
             {filtered.length === 0 ? emptyNode(true) : filtered.map((opt, idx) => renderOption(opt, idx, true))}
           </ul>
@@ -519,7 +526,7 @@ const ComboBox = forwardRef(function ComboBox(
           <div
             ref={panelRef}
             style={{ ...panelStyle, zIndex: PANEL_Z }}
-            className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
+            className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-line-strong dark:bg-raised dark:shadow-2xl dark:shadow-black/60"
           >
             {hasSearch && searchBox(false)}
             <ul

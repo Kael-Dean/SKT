@@ -1,4 +1,5 @@
 // src/pages/hr/HRPersonnelDetail.jsx
+import { cx, baseField } from "../../lib/styles"
 // โปรไฟล์เจ้าหน้าที่แบบเต็ม — GET /hr/personnel/{user_id}
 import { useEffect, useState, useCallback } from "react"
 import ReactDOM from "react-dom"
@@ -13,6 +14,8 @@ import { fmtDaysUnit } from "../../lib/leaveDays"
 import StatusMsg from "../../components/hr/StatusMsg"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel } from "../../lib/roles"
+import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
+import Can from "../../components/Can"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -61,7 +64,7 @@ function InfoRow({ label, value }) {
   )
 }
 
-const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 export default function HRPersonnelDetail() {
   const { id } = useParams()
@@ -70,11 +73,8 @@ export default function HRPersonnelDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
-  // Financial edit modal
+  // Financial edit sheet (FinancialEditSheet — ใช้ร่วมกับ HRFinance)
   const [editModal, setEditModal] = useState(false)
-  const [editForm, setEditForm] = useState({ current_salary: "", current_loan: "", job_age: "" })
-  const [saving, setSaving] = useState(false)
-  const [saveMsg, setSaveMsg] = useState("")
 
   // Family edit modal
   const [familyModal, setFamilyModal] = useState(false)
@@ -82,7 +82,6 @@ export default function HRPersonnelDetail() {
   const [familySaving, setFamilySaving] = useState(false)
   const [familySaveMsg, setFamilySaveMsg] = useState("")
   const { backdropProps: familyBackdrop } = useModalDismiss(() => setFamilyModal(false), { open: familyModal, disabled: familySaving })
-  const { backdropProps: editBackdrop } = useModalDismiss(() => setEditModal(false), { open: editModal, disabled: saving })
 
   const fetchDetail = useCallback(() => {
     setLoading(true)
@@ -95,34 +94,7 @@ export default function HRPersonnelDetail() {
 
   useEffect(() => { fetchDetail() }, [fetchDetail])
 
-  const openEditModal = () => {
-    const fin = data?.financial ?? {}
-    setEditForm({
-      current_salary: fin.current_salary ?? "",
-      current_loan: fin.current_loan ?? "",
-      job_age: fin.job_age ?? "",
-    })
-    setSaveMsg("")
-    setEditModal(true)
-  }
-
-  const handleSaveFinancial = async () => {
-    setSaving(true)
-    setSaveMsg("")
-    try {
-      const body = {}
-      if (editForm.current_salary !== "") body.current_salary = parseFloat(editForm.current_salary)
-      if (editForm.current_loan !== "") body.current_loan = parseFloat(editForm.current_loan)
-      if (editForm.job_age !== "") body.job_age = parseInt(editForm.job_age)
-      await apiAuth(`/hr/financial/${id}`, { method: "POST", body })
-      setSaveMsg({ tone: "success", text: "บันทึกสำเร็จ" })
-      setTimeout(() => { setEditModal(false); fetchDetail() }, 800)
-    } catch (err) {
-      setSaveMsg({ tone: "error", text: err.message || "บันทึกไม่สำเร็จ" })
-    } finally {
-      setSaving(false)
-    }
-  }
+  const openEditModal = () => setEditModal(true)
 
   const openFamilyModal = () => {
     const s = data.spouse
@@ -247,12 +219,14 @@ export default function HRPersonnelDetail() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={openEditModal}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all duration-200 shadow-sm active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-          >
-            แก้ไขข้อมูลการเงิน
-          </button>
+          <Can perm="hr.employees.editFinancial">
+            <button
+              onClick={openEditModal}
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all duration-200 shadow-sm active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            >
+              แก้ไขข้อมูลการเงิน
+            </button>
+          </Can>
           <button
             onClick={openFamilyModal}
             className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all duration-200 shadow-sm active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
@@ -339,6 +313,15 @@ export default function HRPersonnelDetail() {
           <InfoRow label="อายุงาน" value={fin.job_age != null ? `${fin.job_age} ปี` : null} />
           <InfoRow label="ประกันสังคม" value={fmt(fin.current_ss)} />
           <InfoRow label="กองทุนสำรอง" value={fmt(fin.current_prov)} />
+          {fin.current_reserve !== undefined && (
+            <InfoRow label="เงินสะสม/เดือน" value={Number(fin.current_reserve) > 0 ? fmt(fin.current_reserve) : "ตามอัตรา % ในการตั้งค่า"} />
+          )}
+          {fin.tax_withholding_override !== undefined && (
+            <InfoRow label="ภาษีหัก ณ ที่จ่ายคงที่/เดือน" value={fin.tax_withholding_override != null ? fmt(fin.tax_withholding_override) : "ใช้ภาษีที่ระบบคำนวณ"} />
+          )}
+          {fin.tax_extra_allowance !== undefined && (
+            <InfoRow label="ค่าลดหย่อนเพิ่มเติม/ปี" value={fmt(fin.tax_extra_allowance ?? 0)} />
+          )}
         </div>
       )}
 
@@ -715,38 +698,14 @@ export default function HRPersonnelDetail() {
       )}
 
       {/* Financial Edit Modal */}
-      {editModal && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...editBackdrop}>
-          <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">แก้ไขข้อมูลการเงิน</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{data.first_name} {data.last_name}</p>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">เงินเดือน (บาท)</label>
-                <input type="number" value={editForm.current_salary} onChange={(e) => setEditForm((p) => ({ ...p, current_salary: e.target.value }))} className={inputCls} placeholder="25000" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">เงินกู้คงเหลือ (บาท)</label>
-                <input type="number" value={editForm.current_loan} onChange={(e) => setEditForm((p) => ({ ...p, current_loan: e.target.value }))} className={inputCls} placeholder="0" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">อายุงาน (ปี)</label>
-                <input type="number" min="0" value={editForm.job_age} onChange={(e) => setEditForm((p) => ({ ...p, job_age: e.target.value }))} className={inputCls} placeholder="0" />
-              </div>
-            </div>
-            {saveMsg && (
-              <StatusMsg msg={saveMsg} center />
-            )}
-            <div className="flex gap-3">
-              <button onClick={() => setEditModal(false)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">ยกเลิก</button>
-              <button onClick={handleSaveFinancial} disabled={saving} className="flex-1 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-sm font-semibold transition cursor-pointer">
-                {saving ? "กำลังบันทึก..." : "บันทึก"}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      <FinancialEditSheet
+        open={editModal}
+        employeeId={id}
+        employeeName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()}
+        financial={fin}
+        onClose={() => setEditModal(false)}
+        onSaved={fetchDetail}
+      />
     </div>
   )
 }

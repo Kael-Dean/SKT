@@ -134,11 +134,19 @@ get(path)   post(path, body)   put(path, body)   del(path)
 ### Styling Conventions (Tailwind v4)
 ```
 Dark mode variant: @custom-variant dark (&:where(.dark, .dark *))
-Card:    bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4
-Button:  bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl px-4 py-2 transition-all duration-200
-Input:   border rounded-2xl px-3 py-2 focus:ring-2 focus:ring-indigo-500/20 dark:bg-gray-700
+Card:    bg-white dark:bg-surface ring-1 ring-gray-200/70 dark:ring-line rounded-2xl shadow-sm p-4   (= cardCls / cardPaddedCls)
+Button:  primaryBtnCls / submitBtnCls / neutralBtnCls / dangerBtnCls / iconBtnCls จาก src/lib/styles.js
+Input:   baseField จาก src/lib/styles.js (dark: จมลง bg-field + border-line-field ≥3:1, hover line-field-hover, focus indigo-400)
+         ช่องในตารางหนาแน่นใช้ cellInput; อ่านอย่างเดียวใช้ readonlyFieldCls; disabled ต่อ fieldDisabled
 Table:   overflow-x-auto wrapper, even:bg-gray-50 dark:even:bg-gray-700/30
 ```
+- **Graphite dark palette (ต.ค. 2026):** token ใน `src/index.css` → `canvas` (พื้นแอป) · `surface` (card/modal/sidebar) ·
+  `raised` (popover/menu/active segment) · `field` (พื้น input, เข้มกว่า card) · `line` / `line-strong` (hairline white-alpha) · `line-field` (ขอบช่องกรอก #6a6a74 — ผ่าน WCAG 1.4.11 3:1; ช่องกรอกห้ามใช้ line-strong)
+  ใช้เป็น `dark:bg-surface`, `dark:bg-field`, `dark:border-line` ฯลฯ. ภายใต้ `.dark` ramp `gray-*` และ `slate-*` ถูก remap
+  เป็น graphite ramp เดียวกันใน `index.css` → `dark:bg-gray-800` เดิมยังได้โทน graphite อัตโนมัติ
+- **ห้ามประกาศ `baseField` / `cellInput` / `inputCls` เองในหน้า** — import จาก `src/lib/styles.js` แล้วต่อ layout ที่ต่าง
+  ด้วย `cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")` (ใช้ `!` เพราะไม่มี tailwind-merge; ขนาดตัวอักษรใส่ `md:!text-*`
+  เท่านั้น — `!text-*` บนมือถือจะชนะกฎ 16px กัน iOS zoom). class error ที่ต่อท้ายต้องเป็น `!border-red-*` ด้วยเหตุผลเดียวกัน
 
 ### Component Pattern
 - **ComboBox ใช้ตัวกลาง `src/components/ComboBox.jsx` เท่านั้น** (portaled, keyboard Up/Down/Enter/Esc, มือถือเปิดเป็น picker sheet) — ห้ามเขียน `function ComboBox` ในหน้าอีก. default `getValue = o.value ?? o.id` (ถ้าข้อมูลต้องการ `id` ก่อนให้ส่ง `getValue` เอง); `title` = หัวข้อ picker; `enterMovesWhenFilled` สำหรับหน้าแบบ StockTransferOut

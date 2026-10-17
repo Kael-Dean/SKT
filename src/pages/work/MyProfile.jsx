@@ -1,7 +1,10 @@
 // src/pages/work/MyProfile.jsx
+import { cx, baseField } from "../../lib/styles"
 // ข้อมูลส่วนตัวของผู้ใช้ปัจจุบัน — GET /personnel/me + GET /personnel/me/financial
 import { useEffect, useState } from "react"
 import ReactDOM from "react-dom"
+import { Link } from "react-router-dom"
+import { ChevronRight } from "lucide-react"
 import { apiAuth } from "../../lib/api"
 import { getUser } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
@@ -75,7 +78,7 @@ function maskCID(c) {
   return c[0] + "X".repeat(c.length - 4) + c.slice(-3)
 }
 
-const inputCls = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 export default function MyProfile() {
   const localUser = getUser() || {}
@@ -379,11 +382,17 @@ export default function MyProfile() {
       {financial && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
           <SectionTitle>ข้อมูลทางการเงิน</SectionTitle>
+          {/* รายการหักทั้งหมด / สลิป / ประวัติเลื่อนขั้น อยู่ที่ /my-financial ที่เดียว — ที่นี่แสดงแค่สรุป */}
           <InfoRow label="เงินเดือนปัจจุบัน" value={fmtMoney(fin.current_salary)} />
           <InfoRow label="อายุงาน" value={fin.job_age != null ? `${fin.job_age} ปี` : null} />
-          <InfoRow label="เงินกู้สหกรณ์" value={fmtMoney(fin.current_loan)} />
-          <InfoRow label="ประกันสังคม" value={fmtMoney(fin.current_ss)} />
-          <InfoRow label="กองทุนสำรองเลี้ยงชีพ" value={fmtMoney(fin.current_prov)} />
+          {can("self.payroll.view") && (
+            <Link
+              to="/my-financial"
+              className="mt-3 inline-flex min-h-touch md:min-h-0 items-center gap-1 rounded text-sm font-medium text-indigo-700 hover:underline dark:text-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            >
+              ดูรายการหัก สลิปเงินเดือน และประวัติการเลื่อนขั้น <ChevronRight aria-hidden="true" className="size-4" />
+            </Link>
+          )}
         </div>
       )}
 

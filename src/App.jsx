@@ -50,6 +50,8 @@ const HRIssueReports = lazy(() => import("./pages/hr/HRIssueReports.jsx"))
 const HRPersonnelDetail = lazy(() => import("./pages/hr/HRPersonnelDetail.jsx"))
 const HRSalaryTier = lazy(() => import("./pages/hr/HRSalaryTier.jsx"))
 const MyProfile = lazy(() => import("./pages/work/MyProfile.jsx"))
+const MyPayslips = lazy(() => import("./pages/work/MyPayslips.jsx"))
+const MyFinancial = lazy(() => import("./pages/work/MyFinancial.jsx"))
 const LeaveRequest = lazy(() => import("./pages/work/LeaveRequest.jsx"))
 /** งวด 2 — 3O ขอออกนอกสถานที่ */
 const OutOfOffice = lazy(() => import("./pages/work/OutOfOffice.jsx"))
@@ -61,6 +63,7 @@ const Inbox = lazy(() => import("./pages/work/Inbox.jsx"))
 const FacilityReport = lazy(() => import("./pages/work/FacilityReport.jsx"))
 const ChangePassword = lazy(() => import("./pages/work/ChangePassword.jsx"))
 const MyRelocation = lazy(() => import("./pages/work/MyRelocation.jsx"))
+const HolidayCalendar = lazy(() => import("./pages/work/HolidayCalendar.jsx"))
 const LoanRequest = lazy(() => import("./pages/work/LoanRequest.jsx"))
 const ForgotPassword = lazy(() => import("./pages/work/ForgotPassword.jsx"))
 const ResetPassword = lazy(() => import("./pages/work/ResetPassword.jsx"))
@@ -147,12 +150,16 @@ function App() {
 
         {/* ✅ Personal routes (ทุกคนที่ล็อกอิน) */}
         <Route path="/my-profile" element={guard("self.profile.view", <MyProfile />)} />
+        <Route path="/my-payslips" element={guard("self.payroll.view", <MyPayslips />)} />
+        <Route path="/my-financial" element={guard("self.payroll.view", <MyFinancial />)} />
         <Route path="/leave-request" element={guard("self.leave.request", <LeaveRequest />)} />
         <Route path="/out-of-office" element={guard("self.ooo.request", <OutOfOffice />)} />
         <Route path="/out-of-office/approvals" element={guard("hr.ooo.list", <OutOfOfficeApprovals />)} />
         {/* กล่องงานรออนุมัติ: เปิดให้ทุกคน — เนื้อหาในหน้ากรองตามสิทธิ์อนุมัติเอง */}
         <Route path="/inbox" element={<Inbox />} />
         <Route path="/my-relocation" element={guard("self.relocation.request", <MyRelocation />)} />
+        {/* ปฏิทินวันหยุด (3N) — อ่านอย่างเดียว ทุกคนที่ล็อกอิน; HR จัดการที่ /hr/dashboard → ปฏิทินวันหยุด */}
+        <Route path="/holidays" element={guard("hr.holidays.view", <HolidayCalendar />)} />
         <Route path="/loan-request" element={guard("self.loan.apply", <LoanRequest />)} />
 
         {/* รายรับ-รายจ่ายศูนย์เรียนรู้ */}

@@ -9,7 +9,7 @@ import LeaveStageActions from "../../components/LeaveStageActions"
 import { stageOf } from "../../lib/approval"
 import ApprovalHistory from "../../components/ApprovalHistory"
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
-import { KIND, requestNotificationsRefresh, rejectionReason } from "../../lib/approvalActions"
+import { KIND, requestNotificationsRefresh, rejectionReason, requesterName } from "../../lib/approvalActions"
 import { can } from "../../lib/permissions"
 
 // ระหว่างดำเนินการ = ยังรออนุมัติ หรืออนุมัติแล้วรอตรวจสอบ (stage จาก backend — api-handoff-4 §1)
@@ -76,7 +76,7 @@ export default function HRLeaveManagement() {
     setDecision(null)
     setBanner({
       tone: "success",
-      text: `${{ approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ สมเหตุสมผล ของ", unjust: "บันทึกผลตรวจ ไม่สมเหตุสมผล ของ" }[mode]}ใบลาของ ${r.user_first_name ?? ""} ${r.user_last_name ?? ""} แล้ว`,
+      text: `${{ approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ สมเหตุสมผล ของ", unjust: "บันทึกผลตรวจ ไม่สมเหตุสมผล ของ" }[mode]}ใบลาของ ${requesterName(r)} แล้ว`,
     })
     requestNotificationsRefresh()
     fetchRequests()
@@ -164,7 +164,7 @@ export default function HRLeaveManagement() {
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-gray-900 dark:text-gray-100">
-                      {r.user_first_name} {r.user_last_name}
+                      {requesterName(r)}
                     </p>
                     <StageBadge req={r} />
                     <JustificationBadge req={r} />
@@ -276,7 +276,7 @@ export default function HRLeaveManagement() {
           mode={decision.mode}
           kind={KIND.LEAVE}
           req={decision.req}
-          title={`${decision.req.user_first_name ?? ""} ${decision.req.user_last_name ?? ""} — ${decision.req.leave_type_name ?? "ใบลา"}`}
+          title={`${requesterName(decision.req)} — ${decision.req.leave_type_name ?? "ใบลา"}`}
           summary={`${fmtDate(decision.req.from_date)} – ${fmtDate(decision.req.to_date)} · ${decision.req.total_days ?? "-"} วัน`}
           onClose={() => setDecision(null)}
           onDone={onDecisionDone}

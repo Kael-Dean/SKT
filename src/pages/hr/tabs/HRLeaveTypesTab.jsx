@@ -1,10 +1,11 @@
 // src/pages/hr/tabs/HRLeaveTypesTab.jsx
+import { cx, baseField } from "../../../lib/styles"
 // จัดการประเภทการลา — GET /hr/leave-types, PATCH update/toggle
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
 import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../../../components/ui"
 
-const inputCls = "rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-24 text-right"
+const inputCls = cx(baseField, "!w-24 !rounded-lg !px-3 !py-1.5 md:!text-sm text-right")
 
 export default function HRLeaveTypesTab() {
   const [leaveTypes, setLeaveTypes] = useState([])

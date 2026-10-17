@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { apiAuth } from "../../lib/api"  // ✅ helper รวม token/BASE URL
-import { cx, baseField, primaryBtnCls, neutralBtnCls, focusRingCls } from "../../lib/styles"
+import { cx, baseField, primaryBtnCls, neutralBtnCls, focusRingCls, helpTextCls } from "../../lib/styles"
 import { EmptyState, ErrorState, SkeletonTableRows, DataList, Badge } from "../../components/ui"
 import ComboBox from "../../components/ComboBox"
 import { useIsPhone } from "../../hooks/useMediaQuery"
@@ -272,7 +272,8 @@ const Order = () => {
       if (branchId) params.set("branch_id", branchId)
       if (filters.klangId) params.set("klang_id", filters.klangId)
       if (filters.q?.trim()) params.set("q", filters.q.trim())
-      if (filters.specId) params.append("spec_id", filters.specId) // เผื่อ BE รองรับในอนาคต
+      // สินค้า: เลือกได้ 1 รายการ · ไม่เลือก = ทุกสินค้า (api-handoff §7)
+      if (filters.specId) params.set("spec_id", filters.specId)
 
       const endpoint = mode === "buy" ? `/order/orders/buy-report` : `/order/orders/sell-report`
       const data = await apiAuth(`${endpoint}?${params.toString()}`)
@@ -476,22 +477,23 @@ const Order = () => {
         />
       </div>
 
-      {/* รายการสำเร็จรูป (spec) — โชว์ชั้นย่อยแบบหน้า Buy */}
+      {/* รายการสินค้า (spec) — โชว์ชั้นย่อยแบบหน้า Buy · ส่ง spec_id เดียว, ไม่เลือก = ทุกสินค้า */}
       <div className="md:col-span-2">
-        <label className={labelCls}>รายการสำเร็จรูป</label>
+        <label className={labelCls}>รายการสินค้า (ไม่บังคับ)</label>
         <ComboBox
-          options={specOptions}
+          options={specOptions.length ? [{ id: "", label: "— ทุกสินค้า —" }, ...specOptions] : specOptions}
           value={filters.specId}
           getValue={(o) => o.id}
           getSubLabel={(o) => templateSubLabel(o)}
           onChange={(id, found) =>
             setFilters((p) => ({ ...p, specId: id || "", specLabel: found?.label ?? "" }))}
-          placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
+          placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— ทุกสินค้า —"}
           disabled={loadingSpecs || specOptions.length === 0}
           searchable
-          title="รายการสำเร็จรูป"
-          ariaLabel="รายการสำเร็จรูป"
+          title="รายการสินค้า"
+          ariaLabel="รายการสินค้า"
         />
+        <p className={helpTextCls}>ไม่เลือก = ทุกสินค้า</p>
       </div>
 
       {/* Search box */}

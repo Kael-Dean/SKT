@@ -3,19 +3,12 @@
 import { useEffect, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
-import { cx } from "../../lib/styles"
-import { ErrorState, EmptyState, Badge, SkeletonTableRows } from "../../components/ui"
+import { ErrorState, EmptyState } from "../../components/ui"
+import EmployeeTable from "../../components/hr/EmployeeTable"
 
 import SelectDropdown from "../../components/SelectDropdown"
 import BranchLockNote from "../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock"
-import { roleBadgeTone, roleLabel } from "../../lib/roles"
-
-const COLS = 6 // รหัส · ชื่อ-นามสกุล · ตำแหน่ง · สาขา · Role · สถานะ
-
-
-const thCls =
-  "text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide"
 
 export default function HRUserList() {
   const navigate = useNavigate()
@@ -163,91 +156,37 @@ export default function HRUserList() {
       </div>
 
       {/* Table */}
-      <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto" aria-busy={loading ? "true" : "false"}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
-                <th className={thCls}>รหัส</th>
-                <th className={thCls}>ชื่อ-นามสกุล</th>
-                <th className={cx(thCls, "hidden md:table-cell")}>ตำแหน่ง</th>
-                <th className={cx(thCls, "hidden lg:table-cell")}>สาขา</th>
-                <th className={thCls}>Role</th>
-                <th className={thCls}>สถานะ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-              {loading ? (
-                <SkeletonTableRows rows={8} cols={COLS} />
-              ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan={COLS} className="p-0">
-                    {hasActiveFilters ? (
-                      <EmptyState
-                        title="ไม่พบเจ้าหน้าที่ตามตัวกรอง"
-                        description="ไม่มีรายชื่อที่ตรงกับเงื่อนไขที่เลือก ลองปรับคำค้นหรือล้างตัวกรองเพื่อดูทั้งหมด"
-                        action={
-                          <button
-                            type="button"
-                            onClick={clearFilters}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 transition-colors duration-150 hover:bg-indigo-50 dark:border-indigo-700 dark:bg-transparent dark:text-indigo-300 dark:hover:bg-indigo-900/20 cursor-pointer"
-                          >
-                            ล้างตัวกรอง
-                          </button>
-                        }
-                      />
-                    ) : (
-                      <EmptyState
-                        title="ยังไม่มีข้อมูลเจ้าหน้าที่"
-                        description="เมื่อมีการเพิ่มเจ้าหน้าที่เข้าระบบ รายชื่อจะแสดงที่นี่"
-                      />
-                    )}
-                  </td>
-                </tr>
-              ) : (
-                users.map((u) => (
-                  <tr
-                    key={u.id}
-                    onClick={() => navigate(`/hr/personnel/${u.id}`)}
-                    className="even:bg-gray-50/60 dark:even:bg-gray-900/20 hover:bg-indigo-50 dark:hover:bg-indigo-900/15 transition-colors duration-150 cursor-pointer"
-                  >
-                    <td className="px-4 py-3 font-mono text-gray-500 dark:text-gray-400 text-xs tabular-nums">{u.id}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 shrink-0 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-xs font-bold text-indigo-700 dark:text-indigo-300">
-                          {u.first_name?.[0] ?? "?"}
-                        </div>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">
-                          {u.first_name} {u.last_name}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden md:table-cell">
-                      {u.position ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden lg:table-cell">
-                      {u.branch_location ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={cx(
-                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                        roleBadgeTone(u.role_id),
-                      )}>
-                        {roleLabel(u.role_id)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge tone={u.is_active ? "success" : "danger"}>
-                        {u.is_active ? "ใช้งาน" : "ไม่ใช้งาน"}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <EmployeeTable
+        rows={users}
+        branches={branches}
+        loading={loading}
+        onRowClick={(u) => navigate(`/hr/personnel/${u.id}`)}
+        serverFiltersActive={hasActiveFilters}
+        onClearServerFilters={clearFilters}
+        caption="รายชื่อเจ้าหน้าที่ทั้งหมด"
+        emptyState={
+          hasActiveFilters ? (
+            <EmptyState
+              title="ไม่พบเจ้าหน้าที่ตามตัวกรอง"
+              description="ไม่มีรายชื่อที่ตรงกับเงื่อนไขที่เลือก ลองปรับคำค้นหรือล้างตัวกรองเพื่อดูทั้งหมด"
+              action={
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 transition-colors duration-150 hover:bg-indigo-50 dark:border-indigo-700 dark:bg-transparent dark:text-indigo-300 dark:hover:bg-indigo-900/20 cursor-pointer"
+                >
+                  ล้างตัวกรอง
+                </button>
+              }
+            />
+          ) : (
+            <EmptyState
+              title="ยังไม่มีข้อมูลเจ้าหน้าที่"
+              description="เมื่อมีการเพิ่มเจ้าหน้าที่เข้าระบบ รายชื่อจะแสดงที่นี่"
+            />
+          )
+        }
+      />
     </div>
   )
 }

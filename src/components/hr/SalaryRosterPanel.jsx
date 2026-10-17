@@ -6,6 +6,7 @@
 import { useDeferredValue, useId, useMemo, useState } from "react"
 import { ChevronDown, ChevronUp, ChevronsUpDown, RefreshCw, Search, Users } from "lucide-react"
 import { cx, neutralBtnCls } from "../../lib/styles"
+import { sortRows, thaiCollator } from "../../lib/tableSort"
 import SelectDropdown from "../SelectDropdown"
 import { EmptyState, ErrorState, Skeleton, SkeletonTableRows } from "../ui"
 import usePositions from "./usePositions"
@@ -15,7 +16,8 @@ import { POSITION_TIERS, cardCls, fmtLevel, linkBtn, thCls, thb, tierName } from
 const branchLabel = (r) => (r.branchId == null ? "ไม่ระบุสาขา" : r.branchName ?? `สาขา ${r.branchId}`)
 
 // ─── Sorting ────────────────────────────────────────────────────────────────
-const collator = new Intl.Collator("th")
+// sortRows อยู่ที่ src/lib/tableSort.js (ใช้ร่วมกับ EmployeeTable)
+const collator = thaiCollator
 const valueOf = {
   name: (r) => r.name,
   tier: (r) => r.tierId,
@@ -23,19 +25,12 @@ const valueOf = {
   salary: (r) => (r.salaryStatus === "ok" ? r.salary : null),
 }
 
-function sortRows(rows, { key, dir }) {
-  const sign = dir === "desc" ? -1 : 1
-  const get = valueOf[key]
-  return [...rows].sort((a, b) => {
-    const va = get(a)
-    const vb = get(b)
-    const na = va == null || va === ""
-    const nb = vb == null || vb === ""
-    if (na !== nb) return na ? 1 : -1 // missing / still loading always last
-    const primary = na ? 0 : (key === "name" ? collator.compare(va, vb) : Number(va) - Number(vb)) * sign
-    return primary || collator.compare(a.name, b.name)
+const sortRoster = (rows, sort) =>
+  sortRows(rows, sort, {
+    get: valueOf[sort.key],
+    text: sort.key === "name",
+    tiebreak: (a, b) => collator.compare(a.name, b.name),
   })
-}
 
 const MOBILE_SORTS = [
   { value: "name:asc", label: "ชื่อ ก–ฮ" },
@@ -89,7 +84,7 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
       if (!q) return true
       return `${r.name} ${r.id} ${r.position?.title ?? ""}`.toLowerCase().includes(q)
     })
-    return sortRows(list, sort)
+    return sortRoster(list, sort)
   }, [roster.rows, deferredQuery, branch, tier, sort])
 
   // summary over the filtered rows that already have a salary

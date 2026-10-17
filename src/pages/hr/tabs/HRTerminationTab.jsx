@@ -1,8 +1,10 @@
 // src/pages/hr/tabs/HRTerminationTab.jsx
 import { cx, baseField } from "../../../lib/styles"
 // 13E — Termination Settlement: ค้นหาพนักงาน → GET prefill → POST/PATCH → PDF
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
+import { apiDetail } from "../../../lib/apiErrors"
+import { borrowerName, money, thaiDate, todayIso, warningList } from "../../../lib/loans"
 import Portal from "../../../components/Portal"
 import { ErrorState, EmptyState } from "../../../components/ui"
 import useModalDismiss from "../../../lib/useModalDismiss"
@@ -32,6 +34,57 @@ function fmtNum(n) {
 }
 
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
+
+// 3K (backend PR #30) — GET /hr/employees/{id}/loan-exposure?as_of= : เงินกู้คงค้าง + สัญญาที่ยังค้ำประกันอยู่
+// แสดงตอนสร้างบันทึกการพ้นสภาพ (ช่องเงินกู้ที่เว้นว่าง backend เติมให้อัตโนมัติ). 403/404 = ซ่อนเงียบ
+function LoanExposurePanel({ employeeId, asOf }) {
+  const [state, setState] = useState({ loading: true, data: null, error: "" })
+  useEffect(() => {
+    let alive = true
+    setState((s) => ({ ...s, loading: true, error: "" }))
+    const t = setTimeout(() => {
+      apiAuth(`/hr/employees/${employeeId}/loan-exposure?as_of=${encodeURIComponent(asOf)}`)
+        .then((data) => alive && setState({ loading: false, data, error: "" }))
+        .catch((e) => alive && setState({ loading: false, data: null, error: e.status === 403 || e.status === 404 ? "" : apiDetail(e) || "ตรวจภาระเงินกู้ไม่สำเร็จ" }))
+    }, 250)
+    return () => { alive = false; clearTimeout(t) }
+  }, [employeeId, asOf])
+
+  const { loading, data, error } = state
+  if (loading && !data) return <p role="status" className="text-sm text-gray-500 dark:text-gray-400">กำลังตรวจภาระเงินกู้และการค้ำประกัน…</p>
+  if (error) return <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>
+  if (!data) return null
+  const warns = warningList(data)
+  const guar = Array.isArray(data.guarantor_of) ? data.guarantor_of : []
+  const outstanding = Number(data.loan_outstanding) || 0
+  if (!warns.length && !guar.length && !outstanding) {
+    return <p className="text-sm text-gray-600 dark:text-gray-300">ไม่มีเงินกู้คงค้างและไม่ได้ค้ำประกันสัญญาใด ณ {thaiDate(asOf, { long: true })}</p>
+  }
+  return (
+    <section aria-labelledby="term-loan-h" className="space-y-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
+      <h4 id="term-loan-h" className="font-semibold">ภาระเงินกู้กองทุนฯ ณ {thaiDate(asOf, { long: true })}</h4>
+      {warns.length > 0 && <ul className="list-disc space-y-0.5 pl-5">{warns.map((w) => <li key={w}>{w}</li>)}</ul>}
+      {outstanding > 0 && (
+        <p>เงินกู้คงเหลือ <strong className="tabular-nums">{money(data.loan_outstanding)}</strong> บาท · ดอกเบี้ยประมาณ <strong className="tabular-nums">{money(data.loan_interest_estimate)}</strong> บาท
+          <span className="text-amber-800 dark:text-amber-200/80"> (เว้นช่องเงินกู้ว่างไว้ ระบบจะเติมยอดนี้ให้)</span></p>
+      )}
+      {guar.length > 0 && (
+        <div>
+          <p className="font-medium">ยังเป็นผู้ค้ำประกัน {guar.length} สัญญา:</p>
+          <ul className="mt-1 space-y-0.5">
+            {guar.map((g, i) => (
+              <li key={g.loan_id ?? g.id ?? i} className="tabular-nums">
+                สัญญา #{g.loan_id ?? g.id ?? "—"} · {borrowerName(g)}
+                {g.outstanding != null || g.loan_outstanding != null ? ` · คงเหลือ ${money(g.outstanding ?? g.loan_outstanding)} บาท` : ""}
+                {g.status_label ? ` · ${g.status_label}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  )
+}
 
 export default function HRTerminationTab() {
   const [searchInput, setSearchInput]   = useState("")
@@ -148,7 +201,7 @@ export default function HRTerminationTab() {
       setSaveMsg({ ok: true, text: "บันทึกสำเร็จ" })
       await loadRecord(selectedEmp)
     } catch (e) {
-      setSaveMsg({ ok: false, text: e.status === 409 ? GUARANTOR_BLOCK : e.message || "บันทึกไม่สำเร็จ" })
+      setSaveMsg({ ok: false, text: apiDetail(e) || (e.status === 409 ? GUARANTOR_BLOCK : "บันทึกไม่สำเร็จ") })
     } finally {
       setSaving(false)
     }
@@ -167,7 +220,7 @@ export default function HRTerminationTab() {
       setSaveMsg({ ok: true, text: "บันทึกสำเร็จ — พนักงานถูก deactivate แล้ว" })
       await loadRecord(selectedEmp)
     } catch (e) {
-      setSaveMsg({ ok: false, text: e.status === 409 ? GUARANTOR_BLOCK : e.message || "บันทึกไม่สำเร็จ" })
+      setSaveMsg({ ok: false, text: apiDetail(e) || (e.status === 409 ? GUARANTOR_BLOCK : "บันทึกไม่สำเร็จ") })
     } finally {
       setSaving(false)
     }
@@ -382,6 +435,8 @@ export default function HRTerminationTab() {
               </div>
             ))}
           </div>
+
+          {isNew && <LoanExposurePanel employeeId={selectedEmp.id} asOf={form.exit_date || todayIso()} />}
 
           {saveMsg && (
             <p

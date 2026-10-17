@@ -5,7 +5,7 @@
 //   ปีใน /hr/payroll* เป็น ค.ศ. เสมอ (ส่ง พ.ศ. → 422) — แปลงเป็น พ.ศ. เฉพาะตอนแสดงผล
 //   งวด: draft (ร่าง) → review (ตรวจสอบ) → approved (อนุมัติ) → closed (ปิดงวด)
 //   gross_income = เงินเดือน + ค่าตำแหน่ง + add_pending + add_holiday_pay + add_back_pay
-//   สุทธิ = gross − (ภาษี + ประกันสังคม + เงินสะสม + กองทุนสำรองฯ + เงินกู้ + กยศ. + งดจ่าย)
+//   สุทธิ = gross − (ภาษี + ประกันสังคม + เงินสะสม + กองทุนสำรองฯ + เงินกู้ + กยศ. + งดจ่ายเงิน)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const TH_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
@@ -73,7 +73,10 @@ export const INCOME_LINES = [
   { key: "add_back_pay", label: "เงินเลื่อนขั้นพิเศษตกเบิก" },
 ]
 
-/** รายการหัก — deduct_extra_leave ใช้คำว่า "งดจ่าย" เสมอ (ไม่ใช่ "หัก") */
+/** deduct_extra_leave — ต้องใช้คำว่า "งดจ่ายเงิน" เสมอ ห้ามใช้ "หักเงิน" (AMC: หักเงินกรณีนี้ทำไม่ได้ตามกฎหมาย) */
+export const EXTRA_LEAVE_LABEL = "งดจ่ายเงิน (ลาเกินสิทธิ์)"
+
+/** รายการหัก — ลำดับเดียวกับสลิป PDF */
 export const DEDUCTION_LINES = [
   { key: "income_tax", label: "ภาษีหัก ณ ที่จ่าย" },
   { key: "deduct_ss", label: "ประกันสังคม" },
@@ -81,10 +84,8 @@ export const DEDUCTION_LINES = [
   { key: "deduct_prov", label: "กองทุนสำรองเลี้ยงชีพ" },
   { key: "deduct_loan", label: "เงินกู้" },
   { key: "deduct_slf", label: "กยศ." },
-  { key: "deduct_extra_leave", label: "งดจ่าย (ลาเกินสิทธิ์)" },
+  { key: "deduct_extra_leave", label: EXTRA_LEAVE_LABEL },
 ]
-
-export const EXTRA_LEAVE_LABEL = "งดจ่าย (ลาเกินสิทธิ์)"
 
 /** ยอดหักรวม — ใช้ค่าจาก backend ถ้ามี, ไม่งั้นรวมจากบรรทัด, ไม่มีบรรทัดเลย → gross − net */
 export function totalDeductions(p) {

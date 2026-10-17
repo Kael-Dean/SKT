@@ -9,7 +9,7 @@ import { StageBadge, JustificationBadge } from "../../../components/ApprovalBadg
 import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab, toast } from "../../../components/ui"
 import { cx, tabPanelCls } from "../../../lib/styles"
 import { stageOf } from "../../../lib/approval"
-import { KIND, requestNotificationsRefresh, rejectionReason } from "../../../lib/approvalActions"
+import { KIND, requestNotificationsRefresh, rejectionReason, requesterName } from "../../../lib/approvalActions"
 
 
 function fmtDate(d) {
@@ -67,7 +67,7 @@ export default function HRLeaveTab() {
     const what = { approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ สมเหตุสมผล ของ", unjust: "บันทึกผลตรวจ ไม่สมเหตุสมผล ของ" }[mode]
     setBanner({
       tone: "success",
-      text: `${what}ใบลาของ ${r.user_first_name ?? ""} ${r.user_last_name ?? ""} แล้ว`,
+      text: `${what}ใบลาของ ${requesterName(r)} แล้ว`,
     })
     requestNotificationsRefresh()
     fetchRequests()
@@ -145,7 +145,7 @@ export default function HRLeaveTab() {
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-gray-900 dark:text-gray-100">
-                      {r.user_first_name} {r.user_last_name}
+                      {requesterName(r)}
                     </p>
                     <StageBadge req={r} />
                     <JustificationBadge req={r} />
@@ -254,7 +254,7 @@ export default function HRLeaveTab() {
           mode={decision.mode}
           kind={KIND.LEAVE}
           req={decision.req}
-          title={`${decision.req.user_first_name ?? ""} ${decision.req.user_last_name ?? ""} — ${decision.req.leave_type_name ?? "ใบลา"}`}
+          title={`${requesterName(decision.req)} — ${decision.req.leave_type_name ?? "ใบลา"}`}
           summary={`${fmtDate(decision.req.from_date)} – ${fmtDate(decision.req.to_date)} · ${decision.req.total_days ?? "-"} วัน`}
           onClose={() => setDecision(null)}
           onDone={onDecisionDone}

@@ -20,6 +20,7 @@ import {
   Building,
   Building2,
   CalendarCheck,
+  CalendarDays,
   ClipboardList,
   CreditCard,
   Factory,
@@ -30,6 +31,7 @@ import {
   Map,
   PackageCheck,
   PackageMinus,
+  PiggyBank,
   ReceiptText,
   Recycle,
   Settings,
@@ -115,6 +117,8 @@ export const ALL_FUNCTIONS = [
       { label: "ย้ายสาขา",          path: "/hr/relocation",    icon: "🏢", perm: "hr.relocation.list" },
       { label: "ขอสินเชื่อ",         path: "/loan-request",     icon: "💳", perm: "self.loan.apply" },
       { label: "สลิปเงินเดือนของฉัน", path: "/my-payslips",      icon: "🧾", perm: "self.payroll.view" },
+      { label: "ปฏิทินวันหยุด",      path: "/holidays",         icon: "🗓️", perm: "hr.holidays.view" },
+      { label: "ข้อมูลการเงินของฉัน", path: "/my-financial",     icon: "💵", perm: "self.payroll.view" },
     ],
   },
 ]
@@ -171,6 +175,8 @@ const ICONS = {
   "/hr/relocation": Building2,
   "/loan-request": CreditCard,
   "/my-payslips": ReceiptText,
+  "/my-financial": PiggyBank,
+  "/holidays": CalendarDays,
 }
 
 /** Lucide icon component for a function path (falls back to a generic grid). */

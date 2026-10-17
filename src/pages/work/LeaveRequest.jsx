@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
 import { countLeaveDays, fmtDays, currentFiscalYearBE } from "../../lib/leaveDays"
 import { getUser } from "../../lib/auth"
+import useFormDefaults from "../../hooks/useFormDefaults"
 import { STATUS_LABEL as APPROVAL_STATUS_LABEL, isPendingStatus } from "../../lib/approval"
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import { Skeleton, ErrorState, EmptyState, toast } from "../../components/ui"
@@ -414,11 +415,14 @@ export default function LeaveRequest() {
     lt?.leave_name ?? lt?.type ?? lt?.name ?? lt?.title ?? lt?.label ?? ""
 
   // ── form state ──────────────────────────────────────────────────────────
+  // หัวฟอร์ม (ข้าพเจ้า / ตำแหน่ง / สังกัด) เติมจากข้อมูลบุคลากร — แก้ได้เสมอ; แผนกยังไม่มีที่มา ผู้ใช้พิมพ์ต่อท้ายเอง
+  const { defaults } = useFormDefaults()
+  const fallbackName = user.full_name || user.username || ""
   const blankForm = () => ({
     docDate: today(),
-    fullName: user.full_name || user.username || "",
-    position: "",
-    department: "",
+    fullName: defaults.name || fallbackName,
+    position: defaults.position,
+    department: [defaults.branch, defaults.department].filter(Boolean).join(" / "),
     leaveTypeId: null,
     leaveTypeName: "",
     reason: "",
@@ -432,10 +436,24 @@ export default function LeaveRequest() {
     addressDuringLeave: "",
     contactDuringLeave: "",
     lateReason: "",
-    signatureName: user.full_name || user.username || "",
+    signatureName: defaults.name || fallbackName,
   })
 
   const [form, setForm] = useState(blankForm)
+
+  // ค่าเริ่มต้นมาถึงทีหลัง — เติมเฉพาะช่องที่ผู้ใช้ยังไม่ได้แก้ (ว่าง หรือยังเป็นชื่อล็อกอินเดิม)
+  useEffect(() => {
+    const { name, position, branch, department } = defaults
+    if (!name && !position && !branch) return
+    const untouchedName = (v) => !v || v === fallbackName
+    setForm((prev) => ({
+      ...prev,
+      fullName: name && untouchedName(prev.fullName) ? name : prev.fullName,
+      signatureName: name && untouchedName(prev.signatureName) ? name : prev.signatureName,
+      position: prev.position || position,
+      department: prev.department || [branch, department].filter(Boolean).join(" / "),
+    }))
+  }, [defaults, fallbackName])
   const [holidays, setHolidays] = useState([])
   const [errors, setErrors] = useState({})
   const [submitted, setSubmitted] = useState(false)
@@ -701,7 +719,7 @@ export default function LeaveRequest() {
                   <input
                     type="text"
                     className={`${inputCls} ${errors.department ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
-                    placeholder="ระบุสังกัด"
+                    placeholder="ระบุสังกัด / แผนก"
                     value={form.department}
                     onChange={set("department")}
                   />

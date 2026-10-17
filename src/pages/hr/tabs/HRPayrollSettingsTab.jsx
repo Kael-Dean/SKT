@@ -46,7 +46,7 @@ const GROUPS = [
   { title: "ประกันสังคม", keys: ["sso_rate_pct", "sso_wage_floor", "sso_wage_ceiling"], note: "หักจากค่าจ้างที่อยู่ระหว่างค่าจ้างขั้นต่ำกับเพดาน" },
   { title: "เงินสะสม", keys: ["reserve_rate_pct"] },
   { title: "ภาษีเงินได้หัก ณ ที่จ่าย", keys: ["tax_mode", "tax_flat_rate_pct", "tax_expense_pct", "tax_expense_cap", "tax_personal_allowance"] },
-  { title: "ค่าจ้างรายวัน", keys: ["daily_rate_divisor", "daily_rate_fixed_days"], note: "ใช้คำนวณงดจ่าย (ลาเกินสิทธิ์) และค่าทำงานวันหยุด" },
+  { title: "ค่าจ้างรายวัน", keys: ["daily_rate_divisor", "daily_rate_fixed_days"], note: "ใช้คำนวณงดจ่ายเงิน (ลาเกินสิทธิ์) และค่าทำงานวันหยุด" },
 ]
 
 const KEYS = Object.keys(FIELDS)

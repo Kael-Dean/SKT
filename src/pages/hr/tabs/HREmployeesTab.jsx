@@ -8,14 +8,11 @@ import SelectDropdown from "../../../components/SelectDropdown"
 import BranchLockNote from "../../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 import Portal from "../../../components/Portal"
-import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
+import { ErrorState, EmptyState } from "../../../components/ui"
 import StatusMsg from "../../../components/hr/StatusMsg"
+import EmployeeTable from "../../../components/hr/EmployeeTable"
 import useModalDismiss from "../../../lib/useModalDismiss"
-import { roleBadgeTone, roleLabel } from "../../../lib/roles"
 import { assignableRoleOptions } from "../../../lib/permissions"
-
-const EMPLOYEE_COLS = 6
-
 
 const GENDER_OPTIONS = [
   { value: "M", label: "ชาย" },
@@ -122,7 +119,8 @@ export default function HREmployeesTab() {
       .then((data) => setBranches((data || []).map((b) => ({ value: String(b.id), label: b.branch_name }))))
       .catch(() => {})
     apiAuth("/hr/positions")
-      .then((data) => setPositions((data || []).map((p) => ({ value: p.position_name, label: p.position_name }))))
+      // GET /hr/positions → { id, title, position_tier_id, is_active } (ไม่มี position_name) — ส่ง id ตาม HRStaffSignup
+      .then((data) => setPositions((data || []).map((p) => ({ value: String(p.id), label: p.title }))))
       .catch(() => {})
   }, [])
 
@@ -178,6 +176,7 @@ export default function HREmployeesTab() {
       const body = {
         ...form,
         role_id: Number(form.role_id),
+        position: form.position ? Number(form.position) : undefined,
         age: form.age ? Number(form.age) : undefined,
         children_number: Number(form.children_number ?? 0),
         ...(form.underlying_disease && { underlying_disease: form.underlying_disease.trim() }),
@@ -300,25 +299,14 @@ export default function HREmployeesTab() {
       {error && <ErrorState message={error} onRetry={fetchUsers} />}
 
       {/* Table */}
-      <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">รหัส</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">ชื่อ-นามสกุล</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide hidden md:table-cell">ตำแหน่ง</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide hidden lg:table-cell">สาขา</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Role</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">สถานะ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-              {loading ? (
-                <SkeletonTableRows rows={8} cols={EMPLOYEE_COLS} />
-              ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan={EMPLOYEE_COLS} className="p-0">
+      <EmployeeTable
+        rows={users}
+        branches={branches}
+        loading={loading}
+        onRowClick={(u) => navigate(`/hr/personnel/${u.id}`)}
+        serverFiltersActive={hasActiveFilters}
+        onClearServerFilters={clearFilters}
+        emptyState={
                     <EmptyState
                       title="ไม่พบข้อมูลเจ้าหน้าที่"
                       description={hasActiveFilters
@@ -334,41 +322,8 @@ export default function HREmployeesTab() {
                         </button>
                       ) : null}
                     />
-                  </td>
-                </tr>
-              ) : users.map((u) => (
-                <tr
-                  key={u.id}
-                  onClick={() => navigate(`/hr/personnel/${u.id}`)}
-                  className="hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors cursor-pointer"
-                >
-                  <td className="px-4 py-3 font-mono text-gray-500 dark:text-gray-400 text-xs tabular-nums">{u.id}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 shrink-0 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-xs font-bold text-indigo-700 dark:text-indigo-300">
-                        {u.first_name?.[0] ?? "?"}
-                      </div>
-                      <p className="font-semibold text-gray-900 dark:text-gray-100">{u.first_name} {u.last_name}</p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden md:table-cell">{u.position ?? "—"}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden lg:table-cell">{u.branch_location ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleBadgeTone(u.role_id)}`}>
-                      {roleLabel(u.role_id)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${u.is_active ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"}`}>
-                      {u.is_active ? "ใช้งาน" : "ไม่ใช้งาน"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        }
+      />
 
       {/* Signup Modal */}
       {showSignup && (

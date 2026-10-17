@@ -6,14 +6,19 @@ import { cx, baseField } from "../../../lib/styles"
 // สหกรณ์ไม่ได้ใช้ปฏิทินวันหยุดราชการ — HR ประกาศเองทุกวัน และวันหยุดที่ประกาศ
 // จะถูกตัดออกจากจำนวนวันลาโดยอัตโนมัติ การประกาศ/ยกเลิกจึงมีผลย้อนหลังกับใบลา
 // ที่คร่อมวันนั้น ห้าม optimistic update — ต้องรอ response แล้วโหลดใหม่เสมอ
+//
+// api-handoff (3) §1: เตือนก่อนทั้ง "ประกาศ" และ "ยกเลิก" (ระบบคำนวณใบลาที่รอ/อนุมัติแล้วซึ่งคร่อมวันนั้นใหม่)
+// แล้วแสดง `leaves_adjusted` จาก response (+ `note` เมื่อ `retroactive`). วันที่แก้ไม่ได้ — ย้ายวัน = ยกเลิก + ประกาศใหม่
+//
+// readOnly — ใช้ซ้ำเป็นหน้าดูปฏิทินสำหรับทุกคนที่ล็อกอิน (`hr.holidays.view`, หน้า /holidays).
+// ปุ่มจัดการแสดงเฉพาะผู้มี `hr.holidays.manage`
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
+import { can } from "../../../lib/permissions"
 import Portal from "../../../components/Portal"
-import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../../../components/ui"
+import { SkeletonTableRows, ErrorState, EmptyState, Badge, ConfirmDialog, toast } from "../../../components/ui"
 import { currentFiscalYearBE, fmtDays } from "../../../lib/leaveDays"
 import useModalDismiss from "../../../lib/useModalDismiss"
-
-const HOLIDAY_COLS = 5
 
 const HOLIDAY_TYPES = [
   { value: "annual", label: "วันหยุดประจำปี" },
@@ -33,7 +38,61 @@ function weekday(d) {
   try { return new Date(`${d}T00:00:00`).toLocaleDateString("th-TH", { weekday: "long" }) } catch { return "" }
 }
 
-export default function HRHolidayCalendarTab() {
+/** Response of POST/DELETE /hr/holidays — `leaves_adjusted` + `note` (shown only when `retroactive`). */
+function AdjustResult({ result, verb }) {
+  const rows = Array.isArray(result?.leaves_adjusted) ? result.leaves_adjusted : []
+  return (
+    <div className="space-y-3">
+      {result?.retroactive && result?.note && (
+        <div role="note" className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60 px-3 py-2.5">
+          <p className="text-xs font-semibold text-amber-900 dark:text-amber-200 mb-0.5">มีผลย้อนหลัง</p>
+          <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">{result.note}</p>
+        </div>
+      )}
+
+      <div>
+        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">
+          ใบลาที่ถูกปรับจำนวนวันจากการ{verb} (<span className="tabular-nums">{rows.length}</span> ใบ)
+        </p>
+        {rows.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">ไม่มีใบลาที่ได้รับผลกระทบ</p>
+        ) : (
+          <div className="rounded-xl ring-1 ring-gray-200/70 dark:ring-gray-700/70 overflow-hidden max-h-56 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0">
+                <tr className="bg-gray-50 dark:bg-gray-900">
+                  <th scope="col" className="text-left px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">เลขที่ใบลา</th>
+                  <th scope="col" className="text-left px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">พนักงาน</th>
+                  <th scope="col" className="text-right px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">จำนวนวัน (เดิม → ใหม่)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                {rows.map((l, i) => (
+                  <tr key={l.leave_id ?? i}>
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300 tabular-nums">#{l.leave_id}</td>
+                    <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                      {l.user_display_name || l.user_name || l.full_name || <span className="tabular-nums">รหัส {l.user_id}</span>}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
+                      <span className="text-gray-400 dark:text-gray-500 line-through">{fmtDays(l.days_before)}</span>
+                      <span className="mx-1.5 text-gray-400 dark:text-gray-500" aria-hidden="true">→</span>
+                      <span className="sr-only">เป็น</span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100">{fmtDays(l.days_after)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function HRHolidayCalendarTab({ readOnly = false }) {
+  const canManage = !readOnly && can("hr.holidays.manage")
+  const HOLIDAY_COLS = canManage ? 5 : 4
   const [fiscalYear, setFiscalYear] = useState(currentFiscalYearBE())
   const [yearInput, setYearInput] = useState(String(currentFiscalYearBE()))
   const [includeInactive, setIncludeInactive] = useState(false)
@@ -42,11 +101,12 @@ export default function HRHolidayCalendarTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
-  // { mode: "create" | "edit", holiday? }
+  // { mode: "create" | "edit", holiday?, result? } — result = response ของการประกาศ (leaves_adjusted ฯลฯ)
   const [modal, setModal] = useState(null)
   const [form, setForm] = useState({ holiday_date: "", name: "", holiday_type: "annual", note: "" })
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null) // { ok, text }
+  const [confirmDeclare, setConfirmDeclare] = useState(false)
 
   // { holiday, result? }
   const [cancelModal, setCancelModal] = useState(null)
@@ -58,7 +118,7 @@ export default function HRHolidayCalendarTab() {
   const [copying, setCopying] = useState(false)
   const [copyMsg, setCopyMsg] = useState(null) // { ok, text }
   const [copyResult, setCopyResult] = useState(null)
-  const { backdropProps: formBackdrop } = useModalDismiss(() => setModal(null), { open: !!modal, disabled: saving })
+  const { backdropProps: formBackdrop } = useModalDismiss(() => setModal(null), { open: !!modal, disabled: saving || confirmDeclare })
   const { backdropProps: cancelBackdrop } = useModalDismiss(() => setCancelModal(null), { open: !!cancelModal, disabled: cancelling })
   const { backdropProps: copyBackdrop } = useModalDismiss(() => setCopyModal(false), { open: copyModal, disabled: copying })
 
@@ -92,7 +152,8 @@ export default function HRHolidayCalendarTab() {
     setSaveMsg(null)
   }
 
-  const handleSave = async () => {
+  // ตรวจฟอร์ม → การประกาศต้องผ่านหน้าต่างเตือนก่อน (คำนวณใบลาใหม่) · แก้ไขชื่อ/ประเภท/หมายเหตุ ไม่กระทบใบลา บันทึกได้เลย
+  const requestSave = () => {
     if (modal.mode === "create" && !form.holiday_date) {
       setSaveMsg({ ok: false, text: "กรุณาเลือกวันที่" })
       return
@@ -101,11 +162,17 @@ export default function HRHolidayCalendarTab() {
       setSaveMsg({ ok: false, text: "กรุณากรอกชื่อวันหยุด" })
       return
     }
+    setSaveMsg(null)
+    if (modal.mode === "create") setConfirmDeclare(true)
+    else handleSave()
+  }
+
+  const handleSave = async () => {
     setSaving(true)
     setSaveMsg(null)
     try {
       if (modal.mode === "create") {
-        await apiAuth("/hr/holidays", {
+        const res = await apiAuth("/hr/holidays", {
           method: "POST",
           body: {
             holiday_date: form.holiday_date,
@@ -114,21 +181,25 @@ export default function HRHolidayCalendarTab() {
             note: form.note.trim() || null,
           },
         })
+        setConfirmDeclare(false)
+        setModal((m) => (m ? { ...m, result: res ?? {} } : m))
       } else {
         // วันที่แก้ไม่ได้ — ส่งเฉพาะฟิลด์ที่ backend รับ
         await apiAuth(`/hr/holidays/${modal.holiday.id}`, {
           method: "PATCH",
           body: { name: form.name.trim(), holiday_type: form.holiday_type, note: form.note.trim() || null },
         })
+        setModal(null)
+        toast.success("บันทึกการแก้ไขวันหยุดแล้ว")
       }
-      setSaveMsg({ ok: true, text: "บันทึกสำเร็จ — กำลังคำนวณใบลาที่เกี่ยวข้องใหม่" })
-      setTimeout(() => { setModal(null); fetchHolidays() }, 800)
+      fetchHolidays()
     } catch (err) {
       const text =
         err.status === 409 ? "วันที่นี้ถูกประกาศเป็นวันหยุดอยู่แล้ว"
-        : err.status === 422 ? "ประเภทวันหยุดไม่ถูกต้อง"
+        : err.status === 422 ? (err.message || "ข้อมูลวันหยุดไม่ถูกต้อง")
         : err.status === 403 ? "สิทธิ์ของคุณไม่สามารถประกาศวันหยุดได้"
         : err.message || "บันทึกไม่สำเร็จ"
+      setConfirmDeclare(false)
       setSaveMsg({ ok: false, text })
     } finally {
       setSaving(false)
@@ -209,6 +280,7 @@ export default function HRHolidayCalendarTab() {
           >
             ค้นหา
           </button>
+          {canManage && (
           <label className="flex items-center gap-2 h-10 text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none">
             <input
               type="checkbox" checked={includeInactive}
@@ -217,6 +289,7 @@ export default function HRHolidayCalendarTab() {
             />
             แสดงวันหยุดที่ยกเลิกแล้ว
           </label>
+          )}
           <p className="ml-auto text-xs text-gray-400 dark:text-gray-500 max-w-xs leading-relaxed">
             ปีงบประมาณเริ่ม 1 เมษายน — วันที่ในเดือน ม.ค.–มี.ค. นับเป็นปีงบประมาณก่อนหน้า
           </p>
@@ -227,6 +300,7 @@ export default function HRHolidayCalendarTab() {
         <p className="text-sm text-gray-500 dark:text-gray-400">
           {loading ? "กำลังโหลด…" : `วันหยุดปีงบประมาณ ${fiscalYear} · ${activeCount} วัน`}
         </p>
+        {canManage && (
         <div className="flex items-center gap-2">
           <button
             onClick={openCopy}
@@ -245,6 +319,7 @@ export default function HRHolidayCalendarTab() {
             ประกาศวันหยุด
           </button>
         </div>
+        )}
       </div>
 
       {error && <ErrorState message={error} onRetry={fetchHolidays} />}
@@ -258,7 +333,7 @@ export default function HRHolidayCalendarTab() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">ชื่อวันหยุด</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">ประเภท</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden lg:table-cell">หมายเหตุ</th>
-                <th className="px-4 py-3 w-32"></th>
+                {canManage && <th className="px-4 py-3 w-32"><span className="sr-only">จัดการ</span></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50" aria-busy={loading}>
@@ -269,7 +344,9 @@ export default function HRHolidayCalendarTab() {
                   <td colSpan={HOLIDAY_COLS} className="p-0">
                     <EmptyState
                       title={`ยังไม่มีวันหยุดในปีงบประมาณ ${fiscalYear}`}
-                      description="สหกรณ์เป็นผู้ประกาศวันหยุดเอง ไม่ได้ใช้ปฏิทินวันหยุดราชการ กดประกาศวันหยุดเพื่อเพิ่มวันแรก หรือคัดลอกปฏิทินจากปีก่อนมาแก้ไข"
+                      description={canManage
+                        ? "สหกรณ์เป็นผู้ประกาศวันหยุดเอง ไม่ได้ใช้ปฏิทินวันหยุดราชการ กดประกาศวันหยุดเพื่อเพิ่มวันแรก หรือคัดลอกปฏิทินจากปีก่อนมาแก้ไข"
+                        : "ฝ่ายบุคคลยังไม่ได้ประกาศวันหยุดของปีงบประมาณนี้"}
                     />
                   </td>
                 </tr>
@@ -289,14 +366,14 @@ export default function HRHolidayCalendarTab() {
                       <Badge tone={TYPE_TONE[h.holiday_type] ?? "neutral"}>{TYPE_LABEL[h.holiday_type] ?? h.holiday_type}</Badge>
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 hidden lg:table-cell max-w-xs truncate">{h.note || "—"}</td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                    {canManage && <td className="px-4 py-3 text-right whitespace-nowrap">
                       {!inactive && (
                         <>
                           <button onClick={() => openEdit(h)} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">แก้ไข</button>
                           <button onClick={() => { setCancelModal({ holiday: h }); setCancelErr("") }} className="ml-4 text-xs font-medium text-red-600 dark:text-red-400 hover:underline cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">ยกเลิก</button>
                         </>
                       )}
-                    </td>
+                    </td>}
                   </tr>
                 )
               })}
@@ -312,7 +389,7 @@ export default function HRHolidayCalendarTab() {
             <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                  {modal.mode === "create" ? "ประกาศวันหยุด" : "แก้ไขวันหยุด"}
+                  {modal.result ? "ประกาศวันหยุดแล้ว" : modal.mode === "create" ? "ประกาศวันหยุด" : "แก้ไขวันหยุด"}
                 </h3>
                 <button onClick={() => setModal(null)} aria-label="ปิด" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
                   <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5">
@@ -321,6 +398,21 @@ export default function HRHolidayCalendarTab() {
                 </button>
               </div>
 
+              {modal.result ? (
+                <>
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 px-4 py-3">
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">{form.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">
+                      {fmtDate(form.holiday_date)} · {weekday(form.holiday_date)}
+                    </p>
+                  </div>
+                  <AdjustResult result={modal.result} verb="ประกาศวันหยุด" />
+                  <button onClick={() => setModal(null)} className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">
+                    เสร็จสิ้น
+                  </button>
+                </>
+              ) : (
+              <>
               <div>
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">
                   วันที่ {modal.mode === "create" && <span className="text-red-500">*</span>}
@@ -376,15 +468,37 @@ export default function HRHolidayCalendarTab() {
 
               <div className="flex gap-3">
                 <button onClick={() => setModal(null)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">ยกเลิก</button>
-                <button onClick={handleSave} disabled={saving}
+                <button onClick={requestSave} disabled={saving}
                   className="flex-1 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition shadow-sm disabled:opacity-60 cursor-pointer">
                   {saving ? "กำลังบันทึก..." : modal.mode === "create" ? "ประกาศวันหยุด" : "บันทึก"}
                 </button>
               </div>
+              </>
+              )}
             </div>
           </div>
         </Portal>
       )}
+
+      {/* เตือนก่อนประกาศวันหยุด — ระบบจะคำนวณใบลาที่คร่อมวันนี้ใหม่ */}
+      <ConfirmDialog
+        open={confirmDeclare && !!modal && !modal.result}
+        title="ยืนยันประกาศวันหยุด"
+        description={`${form.name.trim() || "วันหยุด"} · ${fmtDate(form.holiday_date)} (${weekday(form.holiday_date)})`}
+        confirmLabel="ประกาศวันหยุด"
+        loadingLabel="กำลังประกาศ…"
+        loading={saving}
+        onConfirm={handleSave}
+        onCancel={() => setConfirmDeclare(false)}
+      >
+        <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60 px-3 py-2.5">
+          <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-0.5">ใบลาที่คร่อมวันนี้จะถูกคำนวณใหม่</p>
+          <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+            ใบลาทุกใบที่คร่อมวันนี้ ทั้งที่รออนุมัติและอนุมัติแล้ว จะถูกนับจำนวนวันใหม่และคืนวันลาให้พนักงานอัตโนมัติ
+            หากเป็นวันที่ผ่านมาแล้ว ส่วนต่างจะมีผลย้อนหลัง
+          </p>
+        </div>
+      </ConfirmDialog>
 
       {/* ยกเลิกวันหยุด — ยืนยัน แล้วแสดงใบลาที่ถูกปรับ */}
       {cancelModal && (
@@ -412,8 +526,9 @@ export default function HRHolidayCalendarTab() {
               {!cancelModal.result ? (
                 <>
                   <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60 px-3 py-2.5">
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-0.5">ใบลาที่คร่อมวันนี้จะถูกคำนวณใหม่</p>
                     <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                      วันนี้จะกลับไปเป็นวันทำงานปกติ ใบลาที่คร่อมวันนี้จะถูกนับวันเพิ่มให้ใหม่
+                      วันนี้จะกลับไปเป็นวันทำงานปกติ ใบลาทุกใบที่คร่อมวันนี้ ทั้งที่รออนุมัติและอนุมัติแล้ว จะถูกนับวันลาเพิ่มขึ้น
                       หากเป็นวันที่ผ่านมาแล้ว ส่วนต่างจะถูกปรับในงวดเงินเดือนถัดไป
                     </p>
                   </div>
@@ -428,46 +543,7 @@ export default function HRHolidayCalendarTab() {
                 </>
               ) : (
                 <>
-                  {cancelModal.result.retroactive && cancelModal.result.note && (
-                    <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60 px-3 py-2.5">
-                      <p className="text-xs font-semibold text-amber-900 dark:text-amber-200 mb-0.5">การแก้ไขย้อนหลัง</p>
-                      <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">{cancelModal.result.note}</p>
-                    </div>
-                  )}
-
-                  <div>
-                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">
-                      ใบลาที่ถูกปรับจำนวนวัน ({(cancelModal.result.leaves_adjusted ?? []).length} ใบ)
-                    </p>
-                    {(cancelModal.result.leaves_adjusted ?? []).length === 0 ? (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">ไม่มีใบลาที่ได้รับผลกระทบ</p>
-                    ) : (
-                      <div className="rounded-xl ring-1 ring-gray-200/70 dark:ring-gray-700/70 overflow-hidden max-h-56 overflow-y-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="bg-gray-50 dark:bg-gray-900/30">
-                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">เลขที่ใบลา</th>
-                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">รหัสพนักงาน</th>
-                              <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">จำนวนวัน</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                            {cancelModal.result.leaves_adjusted.map((l) => (
-                              <tr key={l.leave_id}>
-                                <td className="px-3 py-2 text-gray-700 dark:text-gray-300 tabular-nums">#{l.leave_id}</td>
-                                <td className="px-3 py-2 text-gray-600 dark:text-gray-400 tabular-nums">{l.user_id}</td>
-                                <td className="px-3 py-2 text-right tabular-nums">
-                                  <span className="text-gray-400 dark:text-gray-500 line-through">{fmtDays(l.days_before)}</span>
-                                  <span className="mx-1.5 text-gray-400 dark:text-gray-500">→</span>
-                                  <span className="font-semibold text-emerald-700 dark:text-emerald-300">{fmtDays(l.days_after)}</span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+                  <AdjustResult result={cancelModal.result} verb="ยกเลิกวันหยุด" />
 
                   <button onClick={() => setCancelModal(null)} className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition shadow-sm cursor-pointer">
                     เสร็จสิ้น

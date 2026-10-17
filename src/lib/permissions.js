@@ -64,6 +64,9 @@ export const MODULE_LABEL = Object.freeze({
   "Frontend only": "เฉพาะหน้าเว็บ",
 })
 
+// ตำแหน่งที่เห็นคิวสินเชื่อ (handoff #30) — ใช้ตารางใน rbacMatrix.js เผื่อ /auth/me/permissions ยังไม่ส่ง code loan.queue
+const LOAN_QUEUE_POSITIONS = new Set(PERMISSION_MATRIX["loan.queue"]?.roles ?? [])
+
 export const PERMISSIONS = Object.freeze({
 
   // ── Account ──
@@ -186,9 +189,16 @@ export const PERMISSIONS = Object.freeze({
   "hr.kpi.approve.manager": { no: 90, module: "HR: KPI evaluation", label: "อนุมัติผลประเมินและปรับขั้นเงินเดือน — ผู้จัดการ", en: "Final approval: manager", roles: [1, 2] },
 
   // ── HR: Staff loans ──
-  "hr.loans.list": { no: 91, module: "HR: Staff loans", label: "ดูรายการคำขอกู้ทั้งหมด", en: "View all loan requests", roles: [1, 3, 4] },
-  "hr.loans.approve.hr": { no: 92, module: "HR: Staff loans", label: "อนุมัติ / ปฏิเสธคำขอกู้ — หัวหน้า HR", en: "HR head approve / reject loan", roles: [1, 3] },
-  "hr.loans.approve.finance": { no: 93, module: "HR: Staff loans", label: "ยืนยัน / ปฏิเสธคำขอกู้ — หัวหน้าการเงิน", en: "Finance head confirm / reject loan", roles: [1, 4] },
+  // 3K (backend PR #30): ผู้บังคับบัญชา → ผู้จัดการ (ส่งคณะทำงานฯ) → บันทึกมติคณะทำงานกองทุนฯ (101/105)
+  "hr.loans.list": { no: 91, module: "HR: Staff loans", label: "ดูรายการสินเชื่อทั้งหมด", en: "View all loans", roles: [1, 2], note: "GET /hr/loans — loan.view (ผู้จัดการเท่านั้น; HR ยังไม่ได้ รอ AMC ตอบ)" },
+  "hr.loans.queue": { code: (me) => me.has("loan.queue") || LOAN_QUEUE_POSITIONS.has(me.roleId), no: null, module: "HR: Staff loans", label: "ดูสินเชื่อที่รอตนพิจารณา + เห็นชอบ / ไม่เห็นชอบ (ผู้บังคับบัญชา)", en: "Loan approval queue / supervisor endorse", roles: [1, 2, 6, 7], note: "GET /hr/loans/queue · supervisor-endorse/-reject — backend ตรวจว่าเป็นผู้บังคับบัญชาของผู้กู้ (คนอื่น 403)" },
+  "hr.loans.approve.hr": { no: 92, module: "HR: Staff loans", label: "ส่งเรื่องเข้าคณะทำงานกองทุนฯ / ไม่อนุมัติ — ผู้จัดการ", en: "Manager forward to committee / reject loan", roles: [1, 2], note: "PATCH /hr/loans/{id}/hr-approve · hr-reject" },
+  "hr.loans.approve.finance": { no: 93, module: "HR: Staff loans", label: "บันทึกมติคณะทำงานกองทุนฯ (อนุมัติจ่าย / ไม่อนุมัติ)", en: "Record committee decision (disburse / reject)", roles: [1, 2], note: "PATCH /hr/loans/{id}/finance-confirm · finance-reject" },
+  "hr.loans.detail": { code: ["loan.view", "loan.approve.hr", "loan.confirm.finance", "loan.queue", "report.hr.loan_schedule"], no: 93, module: "HR: Staff loans", label: "ดูตารางผ่อน / หนังสือกู้และค้ำประกัน (PDF) รายสัญญา", en: "Loan schedule / contract PDF", roles: [1, 2], variant: true, note: "GET /hr/loans/{id}/schedule · contract-pdf (active/closed เท่านั้น) · schedule-pdf" },
+  "hr.loans.payoff": { code: "loan.confirm.finance", no: 93, module: "HR: Staff loans", label: "คำนวณยอดปิดบัญชี / บันทึกการชำระปิดบัญชี", en: "Payoff quote / record payoff", roles: [1, 2], variant: true, note: "GET/POST /hr/loans/{id}/payoff — 101, 105" },
+  "hr.loans.settings": { code: "loan.confirm.finance", no: 93, module: "HR: Staff loans", label: "ตั้งค่ากองทุน (คณะทำงานกองทุนฯ / อายุเกษียณ)", en: "Loan fund settings", roles: [1, 2], variant: true, note: "GET/PATCH /hr/loans/settings — 101, 105" },
+  "hr.loans.overdue": { code: ["loan.view", "loan.confirm.finance"], no: 93, module: "HR: Staff loans", label: "ดูงวดค้างชำระ + เบี้ยปรับ", en: "Overdue instalments", roles: [1, 2], variant: true, note: "GET /hr/loans/overdue" },
+  "hr.loans.fundLedger": { code: "report.hr.loans_active", no: 115, module: "HR: Staff loans", label: "ทะเบียนคุมเงินกองทุนฯ (PDF)", en: "Loan fund ledger PDF", roles: [1, 2, 7], variant: true, note: "GET /hr/reports/loans/fund-ledger?fiscal_year=พ.ศ. — 101, 102" },
 
   // ── HR: Salary certificates ──
   "hr.salaryCert.list": { no: 94, module: "HR: Salary certificates", label: "ดูคำขอหนังสือรับรองเงินเดือน", en: "View salary-cert requests", roles: [1, 3] },
@@ -520,7 +530,7 @@ export const HR_KPI_PERMS = Object.freeze(Object.keys(PERMISSIONS).filter((k) =>
  */
 export const HR_HUB_PERMS = Object.freeze([
   "hr.dashboard.view",
-  ...new Set(["hr.employees.list", "hr.positions.view", "hr.promotions.eligible", "hr.promotions.exams", "hr.employees.terminate", "hr.reports.resignedRetired", "hr.leave.list", "hr.reports.leaveAnnual", "hr.reports.leaveRegister", "hr.ooo.list", "hr.holidayWork.view", "hr.relocation.list", "hr.reports.relocations", "hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward", "hr.payroll.list", "hr.payroll.settings.view", "hr.payroll.period.approve", "hr.loans.list", "hr.salaryCert.list", "hr.leaveTypes.manage", "hr.holidays.manage", "hr.issues.list", "hr.audit.view", ...HR_KPI_PERMS]),
+  ...new Set(["hr.employees.list", "hr.positions.view", "hr.promotions.eligible", "hr.promotions.exams", "hr.employees.terminate", "hr.reports.resignedRetired", "hr.leave.list", "hr.reports.leaveAnnual", "hr.reports.leaveRegister", "hr.ooo.list", "hr.holidayWork.view", "hr.relocation.list", "hr.reports.relocations", "hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward", "hr.payroll.list", "hr.payroll.settings.view", "hr.payroll.period.approve", "hr.loans.list", "hr.loans.queue", "hr.loans.approve.finance", "hr.loans.fundLedger","hr.salaryCert.list", "hr.leaveTypes.manage", "hr.holidays.manage", "hr.issues.list", "hr.audit.view", ...HR_KPI_PERMS]),
 ])
 
 /** คีย์ Phase 1 report ทั้ง 19 ตัว (P01–P19) */

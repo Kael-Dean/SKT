@@ -6,12 +6,11 @@ import { cx, baseField } from "../../../lib/styles"
 // หรือวันหยุดที่ประกาศไว้) ค่าตอบแทนตามระเบียบสหกรณ์คือ 2 เท่าของค่าจ้างรายวัน
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
+import { can } from "../../../lib/permissions"
 import Portal from "../../../components/Portal"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 import { currentFiscalYearBE } from "../../../lib/leaveDays"
 import useModalDismiss from "../../../lib/useModalDismiss"
-
-const WORK_COLS = 6
 
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
@@ -29,6 +28,9 @@ function weekday(d) {
 const emptyForm = () => ({ user_id: "", work_date: "", pay_multiplier: "2.0", order_reference: "", note: "" })
 
 export default function HRHolidayWorkTab() {
+  // ดูได้ = hr.holidayWork.view · บันทึก/ลบ = hr.holidayWork.manage (ผู้ดูอย่างเดียวไม่เห็นปุ่ม)
+  const canManage = can("hr.holidayWork.manage")
+  const WORK_COLS = canManage ? 6 : 5
   const [fiscalYear, setFiscalYear] = useState(currentFiscalYearBE())
   const [yearInput, setYearInput] = useState(String(currentFiscalYearBE()))
   const [userFilter, setUserFilter] = useState("")
@@ -149,13 +151,13 @@ export default function HRHolidayWorkTab() {
         <p className="text-sm text-gray-500 dark:text-gray-400">
           {loading ? "กำลังโหลด…" : `บันทึกทำงานวันหยุด ${rows.length} รายการ`}
         </p>
-        <button onClick={openCreate}
+        {canManage && <button onClick={openCreate}
           className="flex items-center gap-2 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 text-sm font-semibold text-white shadow-sm transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
           </svg>
           บันทึกทำงานวันหยุด
-        </button>
+        </button>}
       </div>
 
       {error && <ErrorState message={error} onRetry={fetchRows} />}
@@ -170,7 +172,7 @@ export default function HRHolidayWorkTab() {
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">ตัวคูณค่าจ้าง</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden md:table-cell">เลขที่คำสั่ง</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden lg:table-cell">หมายเหตุ</th>
-                <th className="px-4 py-3 w-20"></th>
+                {canManage && <th className="px-4 py-3 w-20"><span className="sr-only">จัดการ</span></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50" aria-busy={loading}>
@@ -198,12 +200,12 @@ export default function HRHolidayWorkTab() {
                   <td className="px-4 py-3 text-right font-semibold text-emerald-700 dark:text-emerald-300 tabular-nums">{fmtMul(r.pay_multiplier)}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden md:table-cell">{r.order_reference || "—"}</td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400 hidden lg:table-cell max-w-xs truncate">{r.note || "—"}</td>
-                  <td className="px-4 py-3 text-right">
+                  {canManage && <td className="px-4 py-3 text-right">
                     <button onClick={() => { setRemoveTarget(r); setRemoveErr("") }} disabled={removing === r.id}
                       className="text-xs font-medium text-red-600 dark:text-red-400 hover:underline cursor-pointer disabled:opacity-50 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">
                       {removing === r.id ? "กำลังลบ..." : "ลบ"}
                     </button>
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>

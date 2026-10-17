@@ -1,10 +1,23 @@
 // src/pages/work/MyRelocation.jsx
 import { cx, baseField } from "../../lib/styles"
 // คำขอย้ายสาขา — PUT /personnel/me/relocation (extended 13F) + GET /personnel/me/relocations
+// AMC meeting fixes #29: สาขาที่ต้องการ ≤ 2, ตำแหน่งที่ต้องการ ≤ 2 (ไม่บังคับ) +
+// accept_without_position_change (ถาม/ส่งเฉพาะเมื่อเลือกตำแหน่ง — ไม่เลือกต้องไม่ส่ง ไม่งั้น 422)
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../../components/SelectDropdown"
 import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
+import RelocationPositionPrefs from "../../components/hr/RelocationPositionPrefs"
+import {
+  MAX_BRANCH_PREFS,
+  MAX_POSITION_PREFS,
+  ACCEPT_WITHOUT_POSITION_QUESTION,
+  ACCEPT_WITHOUT_POSITION_OPTIONS,
+  usePositionLookup,
+} from "../../lib/relocation"
+
+const BRANCH_SLOTS = Array.from({ length: MAX_BRANCH_PREFS }, (_, i) => i + 1)
+const POSITION_SLOTS = Array.from({ length: MAX_POSITION_PREFS }, (_, i) => i + 1)
 
 const STATUS_LABEL = { pending: "รออนุมัติ", approved: "อนุมัติแล้ว", denied: "ปฏิเสธ", cancelled: "ยกเลิกแล้ว" }
 const STATUS_COLOR = {
@@ -28,7 +41,7 @@ const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 const selectCls = inputCls
 
 const EMPTY_FORM = {
-  branch_pref_1: "", branch_pref_2: "", branch_pref_3: "", branch_pref_4: "", branch_pref_5: "",
+  branch_pref_1: "", branch_pref_2: "",
   reason: "", reason_2: "", reason_3: "",
   family_address: "",
   family_father_status: "", family_father_occupation: "", family_father_province: "",
@@ -36,7 +49,8 @@ const EMPTY_FORM = {
   family_spouse_status: "", family_spouse_occupation: "", family_spouse_province: "",
   children_count: "", children_with_self: "", children_with_spouse: "", children_with_relatives_province: "",
   siblings_total: "", siblings_deceased: "",
-  position_pref_1: "", position_pref_2: "", position_pref_3: "", position_pref_4: "", position_pref_5: "",
+  position_pref_1: "", position_pref_2: "",
+  accept_without_position_change: "", // "" = ยังไม่ตอบ | "true" | "false"
 }
 
 export default function MyRelocation() {
@@ -56,6 +70,9 @@ export default function MyRelocation() {
 
   const [showFamily,   setShowFamily]   = useState(false)
   const [showPosition, setShowPosition] = useState(false)
+  const [fieldErrors,  setFieldErrors]  = useState({})
+
+  const { positions, loading: loadingPositions, positionName } = usePositionLookup()
 
   useEffect(() => {
     apiAuth("/order/branch/search")
@@ -77,12 +94,29 @@ export default function MyRelocation() {
     if (tab === "history") fetchHistory()
   }, [tab, fetchHistory])
 
-  const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const setField = (k, v) => {
+    setForm((f) => {
+      const next = { ...f, [k]: v }
+      // อันดับ 2 ซ้ำกับอันดับ 1 ไม่ได้ — เลือกอันดับ 1 ใหม่ให้ตรงกับอันดับ 2 → ล้างอันดับ 2
+      if (k === "branch_pref_1" && v && String(v) === String(f.branch_pref_2)) next.branch_pref_2 = ""
+      if (k === "position_pref_1" && v && String(v) === String(f.position_pref_2)) next.position_pref_2 = ""
+      return next
+    })
+    setFieldErrors((e) => (e[k] ? { ...e, [k]: undefined } : e))
+  }
+
+  // เลือกตำแหน่งอย่างน้อย 1 อันดับ (และเปิดส่วนตำแหน่งอยู่) → ต้องตอบคำถาม "ถ้าเปลี่ยนตำแหน่งไม่ได้…"
+  const hasPositionPref = showPosition && POSITION_SLOTS.some((n) => form[`position_pref_${n}`] !== "")
+
+  const toggleShowPosition = () => {
+    setShowPosition((v) => !v)
+    setFieldErrors((e) => ({ ...e, accept_without_position_change: undefined }))
+  }
 
   const buildBody = () => {
     const body = {}
-    // branch prefs
-    for (let n = 1; n <= 5; n++) {
+    // branch prefs (max 2 — pref 3..5 → 422)
+    for (const n of BRANCH_SLOTS) {
       const v = form[`branch_pref_${n}`]
       body[`branch_pref_${n}`] = v ? parseInt(v) : null
     }
@@ -104,19 +138,30 @@ export default function MyRelocation() {
         if (form[k] !== "") body[k] = parseInt(form[k]) || 0
       })
     }
-    // position prefs (optional section)
-    if (showPosition) {
-      for (let n = 1; n <= 5; n++) {
+    // position prefs (optional, max 2) + accept_without_position_change — ส่งเฉพาะเมื่อเลือกตำแหน่ง
+    // (ไม่เลือกตำแหน่งต้องไม่ส่ง flag นี้เลย มิฉะนั้น backend ตอบ 422)
+    if (hasPositionPref) {
+      for (const n of POSITION_SLOTS) {
         const v = form[`position_pref_${n}`]
         body[`position_pref_${n}`] = v ? parseInt(v) : null
       }
+      body.accept_without_position_change = form.accept_without_position_change === "true"
     }
     return body
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.branch_pref_1) { setFormError("กรุณาเลือกสาขาที่ต้องการ (อันดับ 1)"); return }
+    const errs = {}
+    if (!form.branch_pref_1) errs.branch_pref_1 = "กรุณาเลือกสาขาที่ต้องการ (อันดับ 1)"
+    if (hasPositionPref && form.accept_without_position_change === "") {
+      errs.accept_without_position_change = "กรุณาตอบว่าถ้าเปลี่ยนตำแหน่งไม่ได้ ยังจะย้ายหรือไม่"
+    }
+    setFieldErrors(errs)
+    if (Object.keys(errs).length > 0) {
+      setFormError(Object.values(errs)[0])
+      return
+    }
     setFormError("")
     setSubmitting(true)
     try {
@@ -124,12 +169,15 @@ export default function MyRelocation() {
       setSubmitted(true)
     } catch (err) {
       if (err.status === 409) setFormError("มีคำขอย้ายสาขาที่รออนุมัติอยู่แล้ว กรุณารอผลก่อน")
-      else if (err.status === 400) setFormError("ไม่สามารถยื่นคำขอย้ายไปสาขาปัจจุบันได้")
+      else if (err.status === 400) setFormError(err.message || "ไม่สามารถยื่นคำขอย้ายไปสาขาปัจจุบันได้")
       else setFormError(err.message || "เกิดข้อผิดพลาด กรุณาลองใหม่")
     } finally {
       setSubmitting(false)
     }
   }
+
+  const branchOptions = branches.map((b) => ({ value: b.id, label: b.name ?? b.branch_name ?? `สาขา ${b.id}` }))
+  const positionOptions = positions.map((p) => ({ value: p.id, label: positionName(p.id) }))
 
   if (submitted) {
     return (
@@ -141,7 +189,7 @@ export default function MyRelocation() {
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">ยื่นคำขอย้ายสาขาสำเร็จ</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">คำขอของคุณถูกส่งแล้ว รอ HR อนุมัติ</p>
           <div className="flex gap-3">
-            <button onClick={() => { setSubmitted(false); setForm(EMPTY_FORM) }} className="flex-1 h-11 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-500 active:scale-[0.98] transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
+            <button onClick={() => { setSubmitted(false); setForm(EMPTY_FORM); setFieldErrors({}); setShowPosition(false) }}className="flex-1 h-11 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-500 active:scale-[0.98] transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
               ยื่นคำขอใหม่
             </button>
             <button onClick={() => { setSubmitted(false); setTab("history") }} className="flex-1 h-11 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
@@ -178,21 +226,34 @@ export default function MyRelocation() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Branch prefs */}
             <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-3">
-              <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">สาขาที่ต้องการ (เรียงลำดับ)</p>
-              {[1,2,3,4,5].map((n) => (
-                <div key={n} className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                    อันดับ {n} {n === 1 && <span className="text-red-500">*</span>}
-                  </label>
-                  <SelectDropdown
-                    value={form[`branch_pref_${n}`]}
-                    onChange={(val) => setField(`branch_pref_${n}`, val)}
-                    placeholder={loadingBranches ? "กำลังโหลด..." : "— ไม่ระบุ —"}
-                    loading={loadingBranches}
-                    options={branches.map((b) => ({ value: b.id, label: b.name ?? b.branch_name ?? `สาขา ${b.id}` }))}
-                  />
-                </div>
-              ))}
+              <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">สาขาที่ต้องการ (เลือกได้ {MAX_BRANCH_PREFS} อันดับ)</p>
+              {BRANCH_SLOTS.map((n) => {
+                const key = `branch_pref_${n}`
+                const labelId = `relo-branch-${n}-label`
+                const errId = `relo-branch-${n}-err`
+                const opts = n === 1
+                  ? branchOptions
+                  : [{ value: "", label: "— ไม่ระบุ —" }, ...branchOptions.filter((o) => String(o.value) !== String(form.branch_pref_1))]
+                return (
+                  <div key={n} className="flex flex-col gap-1">
+                    <span id={labelId} className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      อันดับ {n} {n === 1 ? <span className="text-red-500">*</span> : <span className="text-gray-400 dark:text-gray-500">(ถ้ามี)</span>}
+                    </span>
+                    <SelectDropdown
+                      value={form[key]}
+                      onChange={(val) => setField(key, val)}
+                      placeholder={loadingBranches ? "กำลังโหลด..." : n === 1 ? "— เลือกสาขา —" : "— ไม่ระบุ —"}
+                      loading={loadingBranches}
+                      searchable={branchOptions.length > 8}
+                      error={!!fieldErrors[key]}
+                      ariaLabelledby={labelId}
+                      ariaDescribedby={fieldErrors[key] ? errId : undefined}
+                      options={opts}
+                    />
+                    {fieldErrors[key] && <p id={errId} className="text-xs text-red-600 dark:text-red-400">{fieldErrors[key]}</p>}
+                  </div>
+                )
+              })}
             </div>
 
             {/* Reasons */}
@@ -266,20 +327,76 @@ export default function MyRelocation() {
 
             {/* ─── Position prefs (optional) ─── */}
             <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-3">
-              <button type="button" onClick={() => setShowPosition((v) => !v)} aria-expanded={showPosition}
+              <button type="button" onClick={toggleShowPosition} aria-expanded={showPosition} aria-controls="relo-position-section"
                 className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`size-3.5 transition-transform duration-200 ${showPosition ? "rotate-90" : ""}`}><path d="m9 18 6-6-6-6" /></svg>
-                ตำแหน่งที่ต้องการ (ถ้ามี)
+                ตำแหน่งที่ต้องการ (ถ้ามี — เลือกได้ {MAX_POSITION_PREFS} อันดับ)
               </button>
               {showPosition && (
-                <div className="space-y-2 pt-1">
-                  {[1,2,3,4,5].map((n) => (
-                    <div key={n} className="flex items-center gap-2">
-                      <label className="text-xs text-gray-500 dark:text-gray-400 w-16 shrink-0">อันดับ {n}</label>
-                      <input type="number" value={form[`position_pref_${n}`]} onChange={(e) => setField(`position_pref_${n}`, e.target.value)}
-                        placeholder="รหัสตำแหน่ง" className={inputCls} />
-                    </div>
-                  ))}
+                <div id="relo-position-section" className="space-y-3 pt-1">
+                  {POSITION_SLOTS.map((n) => {
+                    const key = `position_pref_${n}`
+                    const labelId = `relo-position-${n}-label`
+                    return (
+                      <div key={n} className="flex flex-col gap-1">
+                        <span id={labelId} className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                          อันดับ {n} <span className="text-gray-400 dark:text-gray-500">(ถ้ามี)</span>
+                        </span>
+                        {positionOptions.length > 0 || loadingPositions ? (
+                          <SelectDropdown
+                            value={form[key]}
+                            onChange={(val) => setField(key, val)}
+                            placeholder={loadingPositions ? "กำลังโหลด..." : "— ไม่ระบุ —"}
+                            loading={loadingPositions}
+                            searchable={positionOptions.length > 8}
+                            ariaLabelledby={labelId}
+                            options={[
+                              { value: "", label: "— ไม่ระบุ —" },
+                              ...(n === 1 ? positionOptions : positionOptions.filter((o) => String(o.value) !== String(form.position_pref_1))),
+                            ]}
+                          />
+                        ) : (
+                          // ไม่มีสิทธิ์อ่านรายการตำแหน่ง (GET /hr/positions) → กรอกรหัสตำแหน่งแทน
+                          <input type="number" inputMode="numeric" min="1" value={form[key]} onChange={(e) => setField(key, e.target.value)}
+                            aria-labelledby={labelId} placeholder="รหัสตำแหน่ง" className={inputCls} />
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {hasPositionPref && (
+                    <fieldset
+                      className="rounded-xl bg-gray-50 dark:bg-gray-700/30 ring-1 ring-gray-200/70 dark:ring-line p-3 space-y-2"
+                      aria-describedby={fieldErrors.accept_without_position_change ? "relo-accept-err" : undefined}
+                    >
+                      <legend className="sr-only">{ACCEPT_WITHOUT_POSITION_QUESTION}</legend>
+                      <p aria-hidden="true" className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                        {ACCEPT_WITHOUT_POSITION_QUESTION} <span className="text-red-500">*</span>
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {ACCEPT_WITHOUT_POSITION_OPTIONS.map((o) => (
+                          <label key={o.value}
+                            className={cx(
+                              "inline-flex min-h-touch md:min-h-9 items-center gap-2 rounded-lg px-4 py-2 text-sm cursor-pointer ring-1 transition-colors duration-200",
+                              "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-500",
+                              form.accept_without_position_change === o.value
+                                ? "bg-indigo-50 ring-indigo-500 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200"
+                                : "bg-white ring-gray-300 text-gray-700 hover:ring-indigo-300 dark:bg-gray-800 dark:ring-line-field dark:text-gray-200",
+                              fieldErrors.accept_without_position_change && form.accept_without_position_change === "" && "!ring-red-400 dark:!ring-red-500",
+                            )}>
+                            <input type="radio" name="accept_without_position_change" value={o.value}
+                              checked={form.accept_without_position_change === o.value}
+                              onChange={(e) => setField("accept_without_position_change", e.target.value)}
+                              className="accent-indigo-600" />
+                            {o.label}
+                          </label>
+                        ))}
+                      </div>
+                      {fieldErrors.accept_without_position_change && (
+                        <p id="relo-accept-err" className="text-xs text-red-600 dark:text-red-400">{fieldErrors.accept_without_position_change}</p>
+                      )}
+                    </fieldset>
+                  )}
                 </div>
               )}
             </div>
@@ -345,6 +462,12 @@ export default function MyRelocation() {
                     </div>
                   )}
                 </div>
+                {(r.branch_pref_2_name || r.branch_pref_2 != null) && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    สาขาอันดับ 2: <span className="text-gray-700 dark:text-gray-300">{r.branch_pref_2_name ?? branchOptions.find((o) => String(o.value) === String(r.branch_pref_2))?.label ?? `สาขา #${r.branch_pref_2}`}</span>
+                  </p>
+                )}
+                <RelocationPositionPrefs req={r} positionName={positionName} />
                 {r.reason && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-1.5">เหตุผล: {r.reason}</p>
                 )}

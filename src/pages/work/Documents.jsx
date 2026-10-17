@@ -427,7 +427,7 @@ const PHASE1_REPORTS = [
     require: ["startDate", "endDate"],
     optional: ["specId"],
     scopeNote: "ทุกสาขา — รายงานนี้รวมทุกสาขาเสมอ ไม่ต้องเลือกสาขา",
-    specNote: "ไม่เลือก = ทุกสินค้า (แยกตอนละสินค้าที่มีการซื้อ/ขายในช่วงวันที่)",
+    specNote: "ไม่เลือก = ทุกสินค้า (แยกตอนละสินค้า เฉพาะที่มีการซื้อ/ขายในช่วงวันที่) · ไม่มีรายการในช่วงนี้จะไม่ออกรายงาน",
   },
   {
     key: "phase1-p08",
@@ -492,7 +492,7 @@ const PHASE1_REPORTS = [
     badge: "PHASE1",
     require: ["branchId", "startDate", "endDate"],
     optional: ["specId"],
-    specNote: "ไม่เลือก = ทุกสินค้าที่มีการซื้อ/ขายในสาขานี้",
+    specNote: "ไม่เลือก = ทุกสินค้า (แยกตอนละสินค้า เฉพาะที่มีการซื้อ/ขายในสาขานี้) · ไม่มีรายการในช่วงนี้จะไม่ออกรายงาน",
   },
   {
     key: "phase1-p14",
@@ -569,7 +569,7 @@ const TRADE_REPORTS = [
   { key: "phase1-p23", title: "P23 — รายงานซื้อขาย (รวม)", endpoint: "/reports/phase1/P23/pdf", require: ["startDate", "endDate"], optional: ["specIds"], scopeNote: "ทั้งองค์กร — ไม่แยกสาขา", specNote: "ไม่เลือก = ทุกสินค้าประเภทธุรกิจ 1" },
   { key: "phase1-p24", title: "P24 — รายงานการขาย (แยกตามวัน)", endpoint: "/reports/phase1/P24/pdf", require: ["startDate", "endDate", "branchId"], optional: ["specIds"] },
   { key: "phase1-p25", title: "P25 — รายงานการซื้อ (แยกตามวัน)", endpoint: "/reports/phase1/P25/pdf", require: ["startDate", "endDate", "branchId"], optional: ["specIds"] },
-  { key: "phase1-p26", title: "P26 — ทะเบียนคุม (รายวัน)", endpoint: "/reports/phase1/P26/pdf", require: ["startDate", "endDate", "specId"], optional: ["branchId", "klangId"], allBranchesOption: true },
+  { key: "phase1-p26", title: "P26 — ทะเบียนคุม (รายวัน)", endpoint: "/reports/phase1/P26/pdf", require: ["startDate", "endDate", "specId"], optional: ["branchId", "klangId"], allBranchesOption: true, specNote: "ต้องเลือกสินค้า 1 รายการ — รายงานนี้ออกทีละสินค้า" },
   {
     key: "phase1-p27", title: "P27 — สรุปการรับซื้อจากสมาชิก (แยกตามสินค้า)", endpoint: "/reports/phase1/P27/pdf",
     require: ["startDate", "endDate"], optional: ["branchId", "specIds"], allBranchesOption: true,
@@ -911,7 +911,11 @@ function Documents() {
       }
       const v = filters[field]
       const ok = typeof v === "string" ? v.trim() !== "" : Boolean(v)
-      if (!ok) e[field] = "จำเป็นต้องระบุ"
+      if (!ok) e[field] = field === "specId" ? "กรุณาเลือกสินค้า" : "จำเป็นต้องระบุ"
+    }
+    // spec_id ต้องเป็นตัวเลข (กรณีรายการไม่ขึ้นแล้วพิมพ์รหัสเอง) — กัน 422
+    if ((report.require.includes("specId") || (report.optional || []).includes("specId")) && String(filters.specId || "").trim() && !/^\d+$/.test(String(filters.specId).trim())) {
+      e.specId = "รหัสสินค้าต้องเป็นตัวเลข"
     }
 
     const niceField = (f) => {
@@ -1244,33 +1248,39 @@ function Documents() {
     )
   }
 
+  /** สินค้ารายการเดียว (P07, P13 ไม่บังคับ · P26 บังคับ) — ส่ง spec_id ตัวเดียว */
   const FormSpecOnly = ({ requiredSpec = false, note }) => (
     <div>
       <label className={labelCls}>
-        รายการสำเร็จรูป{requiredSpec && <span className="text-red-500"> *</span>}
+        รายการสินค้า{requiredSpec ? <span className="text-red-500"> *</span> : " (ไม่บังคับ)"}
       </label>
 
       {specOptions.length > 0 ? (
         <ComboBox
-          options={withEmpty(specOptions, loadingSpecs ? "— กำลังโหลด… —" : requiredSpec ? "— เลือก —" : "— ทุกสินค้า —")}
+          options={requiredSpec ? specOptions : withEmpty(specOptions, "— ทุกสินค้า —")}
           searchable
           value={filters.specId}
           onChange={(v) => setFilter("specId", v)}
-          placeholder={loadingSpecs ? "— กำลังโหลด… —" : "— เลือก —"}
+          placeholder={loadingSpecs ? "— กำลังโหลด… —" : requiredSpec ? "— เลือกสินค้า —" : "— ทุกสินค้า —"}
           disabled={loadingSpecs || specOptions.length === 0}
           error={!!(requiredSpec && errors.specId)}
+          title="รายการสินค้า"
+          ariaLabel="รายการสินค้า"
         />
       ) : (
         <input
-          className={cx(baseField, requiredSpec && errors.specId && "border-red-400 ring-2 ring-red-300/70")}
+          className={cx(baseField, requiredSpec && errors.specId && "!border-red-400 ring-2 ring-red-300/70")}
           placeholder="รหัสสเปค (ตัวเลข)"
+          inputMode="numeric"
+          aria-label="รหัสสเปค"
+          aria-invalid={requiredSpec && errors.specId ? true : undefined}
           value={filters.specId}
           onChange={(e) => setFilter("specId", e.target.value)}
         />
       )}
 
       {requiredSpec && <FieldError name="specId" />}
-      {note && <p className={helpTextCls}>{note}</p>}
+      <p className={helpTextCls}>{note || (requiredSpec ? "ต้องเลือก 1 รายการ" : "ไม่เลือก = ทุกสินค้า")}</p>
       {specOptions.length === 0 && !loadingSpecs && (
         <p className={helpTextCls}>รายการไม่ขึ้น พิมพ์รหัสสเปคเป็นตัวเลขแทนได้</p>
       )}

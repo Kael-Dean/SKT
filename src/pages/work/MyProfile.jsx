@@ -382,17 +382,15 @@ export default function MyProfile() {
       {financial && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
           <SectionTitle>ข้อมูลทางการเงิน</SectionTitle>
+          {/* รายการหักทั้งหมด / สลิป / ประวัติเลื่อนขั้น อยู่ที่ /my-financial ที่เดียว — ที่นี่แสดงแค่สรุป */}
           <InfoRow label="เงินเดือนปัจจุบัน" value={fmtMoney(fin.current_salary)} />
           <InfoRow label="อายุงาน" value={fin.job_age != null ? `${fin.job_age} ปี` : null} />
-          <InfoRow label="เงินกู้สหกรณ์" value={fmtMoney(fin.current_loan)} />
-          <InfoRow label="ประกันสังคม" value={fmtMoney(fin.current_ss)} />
-          <InfoRow label="กองทุนสำรองเลี้ยงชีพ" value={fmtMoney(fin.current_prov)} />
           {can("self.payroll.view") && (
             <Link
-              to="/my-payslips"
+              to="/my-financial"
               className="mt-3 inline-flex min-h-touch md:min-h-0 items-center gap-1 rounded text-sm font-medium text-indigo-700 hover:underline dark:text-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
-              ดูสลิปเงินเดือนของฉัน <ChevronRight aria-hidden="true" className="size-4" />
+              ดูรายการหัก สลิปเงินเดือน และประวัติการเลื่อนขั้น <ChevronRight aria-hidden="true" className="size-4" />
             </Link>
           )}
         </div>

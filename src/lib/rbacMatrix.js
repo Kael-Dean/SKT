@@ -150,6 +150,9 @@ export const PERMISSION_MATRIX = Object.freeze({
   "loan.view": { no: 91, roles: [101] },
   "loan.approve.hr": { no: 92, roles: [101] },
   "loan.confirm.finance": { no: 93, roles: [101, 105] },
+  // งวด 3 (3K, backend PR #30) — GET /hr/loans/queue: หัวหน้า 110–124, ผช.ผจก. 102/103, 101, 105
+  // เพิ่มตาม api-handoff ระหว่างรอ rbac_matrix.py ฉบับใหม่ (ยังไม่มีเลขฟังก์ชัน) — คัดลอกไฟล์จาก backend ทับได้เลย
+  "loan.queue": { no: null, roles: [101, 102, 103, 105, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124] },
   "salary_cert.view": { no: 94, roles: [101] },
   "salary_cert.decide": { no: 95, roles: [101] },
   "salary_cert.pdf": { no: 96, roles: [117, 130] },

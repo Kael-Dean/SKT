@@ -16,6 +16,8 @@ import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } f
 import Portal from "../../../components/Portal"
 import RelocationTransferModal from "../../../components/hr/RelocationTransferModal"
 import useModalDismiss from "../../../lib/useModalDismiss"
+import RelocationPositionPrefs from "../../../components/hr/RelocationPositionPrefs"
+import { usePositionLookup } from "../../../lib/relocation"
 
 const TABS = [
   { key: "pending_branch_head", label: "รอหัวหน้าสาขา" },
@@ -85,6 +87,8 @@ export default function HRRelocationTab() {
   }, [])
   const branchMap = useMemo(() => new Map(branches.map((b) => [String(b.id), b.branch_name])), [branches])
   const branchName = useCallback((id) => (id == null ? "—" : branchMap.get(String(id)) ?? `สาขา #${id}`), [branchMap])
+
+  const { positionName } = usePositionLookup()
 
   const [transferOpen, setTransferOpen] = useState(false)
   const [notice, setNotice] = useState("")
@@ -249,6 +253,8 @@ export default function HRRelocationTab() {
                       )}
                     </div>
 
+                    <RelocationPositionPrefs req={r} positionName={positionName} />
+
                     {(r.selected_branch_id != null || r.move_date) && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
                         {r.selected_branch_id != null && (
@@ -327,6 +333,12 @@ export default function HRRelocationTab() {
                 <span className="font-semibold text-gray-900 dark:text-gray-100">{modal.req.user_first_name} {modal.req.user_last_name}</span>
                 {" "}ขอย้ายสาขา
               </p>
+
+              <RelocationPositionPrefs
+                req={modal.req}
+                positionName={positionName}
+                className="rounded-xl bg-gray-50 dark:bg-gray-700/40 px-3 py-2.5"
+              />
 
               {isMgrApprove && (
                 <>

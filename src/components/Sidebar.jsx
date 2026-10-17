@@ -8,10 +8,10 @@ import {
   FileText,
   House,
   Inbox,
-  LayoutDashboard,
   LogOut,
   MapPin,
   MapPinCheck,
+  PiggyBank,
   ReceiptText,
   Moon,
   ShieldCheck,
@@ -37,34 +37,35 @@ const TONES = {
   blue:    { chip: "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300",           solid: "bg-blue-500 text-white" },
 }
 
-// เมนูแบบย่อสำหรับผู้ใช้ที่มีสิทธิ์ nav.hrCompactMenu (ฝ่ายบุคคล) — รวมเมนูบริการตนเอง
-// (ยื่นใบลา / คำขอย้ายสาขา / กล่องงานรออนุมัติ) ด้วย perm เดียวกับเมนูปกติ — api-handoff-4 §6
-const HR_MENUS = [
-  { label: "หน้าหลัก",            icon: House,          tone: "indigo",  path: "/hr/dashboard",  anyOf: HR_HUB_PERMS },
+// บริการตนเอง — รายการชุดเดียวที่ทั้งสองเมนูใช้ร่วมกัน (api-handoff 2026-10-17 §4–5)
+// เพิ่ม/ลบที่นี่ที่เดียว เมนูตามตำแหน่งจะได้ไม่ตกหล่นรายการใดรายการหนึ่ง
+//   perm      = ต้องมีสิทธิ์นี้
+//   unlessAny = ซ่อนถ้ามีสิทธิ์ใดสิทธิ์หนึ่งในนี้ (เช่น KPI: คนที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้นแทน)
+const SELF_SERVICE_MENUS = [
   { label: "ข้อมูลส่วนตัว",       icon: UserRound,      tone: "sky",     path: "/my-profile",    perm: "self.profile.view" },
+  { label: "ข้อมูลการเงินของฉัน",  icon: PiggyBank,      tone: "teal",    path: "/my-financial",  perm: "self.payroll.view" },
   { label: "สลิปเงินเดือนของฉัน",  icon: ReceiptText,    tone: "emerald", path: "/my-payslips",   perm: "self.payroll.view" },
   { label: "กล่องงานรออนุมัติ",   icon: Inbox,          tone: "amber",   path: "/inbox" },
   { label: "ยื่นใบลา",            icon: FileText,       tone: "emerald", path: "/leave-request", perm: "self.leave.request" },
   { label: "ขอออกนอกสถานที่",     icon: MapPin,         tone: "orange",  path: "/out-of-office", perm: "self.ooo.request" },
   { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet",  path: "/my-relocation", perm: "self.relocation.request" },
+  { label: "ขอสินเชื่อ",           icon: CreditCard,     tone: "rose",    path: "/loan-request",  perm: "self.loan.apply" },
+  // KPI v1.4.0 — ผจก. อนุมัติ / ผช.ผจก. ตรวจสอบ (ผู้ที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้น)
+  { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target,     tone: "indigo",  path: "/hr/kpi",       perm: "hr.kpi.evaluations.view", unlessAny: HR_HUB_PERMS },
 ]
 
-// เมนูส่วนตัว — แต่ละรายการแสดงตาม permission key (src/lib/permissions.js)
-//   perm  = ต้องมีสิทธิ์นี้
-//   unless = ซ่อนถ้ามีสิทธิ์นี้ (เช่น KPI: คนที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้นแทน)
+// เมนูแบบย่อสำหรับผู้ใช้ที่มีสิทธิ์ nav.hrCompactMenu (ฝ่ายบุคคล) — หน้าหลักของกลุ่มนี้คือ /hr/dashboard
+const HR_MENUS = [
+  { label: "หน้าหลัก",            icon: House,          tone: "indigo",  path: "/hr/dashboard",  anyOf: HR_HUB_PERMS },
+  ...SELF_SERVICE_MENUS,
+]
+
+// เมนูปกติ — งานที่มีการ์ดในหน้าหลัก (/home) อยู่แล้วไม่ต้องซ้ำในนี้ (§6): เอา "Dashboard HR" ออก
+// เพราะการ์ด "ภาพรวมงานบุคคล" ใน Home ใช้สิทธิ์ชุดเดียวกัน (HR_HUB_PERMS)
 const PERSONAL_MENUS = [
   { label: "หน้าหลัก",            icon: House,      tone: "indigo",  path: "/home" },
-  { label: "ข้อมูลส่วนตัว",       icon: UserRound,  tone: "sky",     path: "/my-profile",    perm: "self.profile.view" },
-  { label: "สลิปเงินเดือนของฉัน",  icon: ReceiptText, tone: "emerald", path: "/my-payslips",  perm: "self.payroll.view" },
-  { label: "กล่องงานรออนุมัติ",   icon: Inbox,      tone: "amber",   path: "/inbox" },
-  { label: "ยื่นใบลา",            icon: FileText,   tone: "emerald", path: "/leave-request", perm: "self.leave.request" },
-  { label: "ขอออกนอกสถานที่",     icon: MapPin,     tone: "orange",  path: "/out-of-office", perm: "self.ooo.request" },
-  { label: "อนุมัติออกนอกสถานที่", icon: MapPinCheck, tone: "teal", path: "/out-of-office/approvals", perm: "hr.ooo.list" },
-  { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet", path: "/my-relocation", perm: "self.relocation.request" },
-  { label: "ขอสินเชื่อ",           icon: CreditCard, tone: "rose",    path: "/loan-request",  perm: "self.loan.apply" },
-  // KPI v1.4.0 — ผจก. อนุมัติ / ผช.ผจก. ตรวจสอบ (ผู้ที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้น)
-  { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target, tone: "indigo", path: "/hr/kpi", perm: "hr.kpi.evaluations.view", unlessAny: HR_HUB_PERMS },
-  { label: "Dashboard HR",        icon: LayoutDashboard, tone: "blue", path: "/hr/dashboard", anyOf: HR_HUB_PERMS },
+  ...SELF_SERVICE_MENUS,
+  { label: "อนุมัติออกนอกสถานที่", icon: MapPinCheck, tone: "teal",  path: "/out-of-office/approvals", perm: "hr.ooo.list" },
   { label: "สิทธิ์ตามบทบาท",      icon: ShieldCheck, tone: "violet", path: "/admin/roles", perm: "admin.roles.view" },
   // "รายรับ-รายจ่ายสถานที่" ย้ายไปกลุ่ม "รายงาน & แผน" ในหน้า Home แล้ว
 ]

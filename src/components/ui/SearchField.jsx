@@ -69,7 +69,7 @@ export function SearchResults({
       aria-label={ariaLabel}
       aria-busy={loading || undefined}
       className={cx(
-        "overflow-y-auto overscroll-contain rounded-2xl bg-white p-1 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700",
+        "overflow-y-auto overscroll-contain rounded-2xl bg-white p-1 shadow-xl ring-1 ring-gray-200 dark:bg-raised dark:ring-line-strong dark:shadow-2xl dark:shadow-black/60",
         asInline ? "mt-2 max-h-80" : "",
       )}
       style={asInline ? undefined : { ...style, zIndex: PANEL_Z }}
@@ -92,7 +92,7 @@ export function SearchResults({
               onClick={() => onPick?.(item, i)}
               className={cx(
                 "flex min-h-touch cursor-pointer items-center rounded-xl px-3 py-2 text-sm text-gray-800 transition-colors duration-100 dark:text-gray-200",
-                active && "bg-indigo-50 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-100",
+                active && "bg-indigo-50 text-indigo-800 dark:bg-white/[.06] dark:text-gray-100",
               )}
             >
               <div className="min-w-0 flex-1">{renderResult ? renderResult(item, { active }) : String(item?.label ?? item)}</div>

@@ -100,7 +100,7 @@ function DialogBody({
           tabIndex={-1}
           className={cx(
             "w-[min(28rem,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-lg",
-            "ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700 focus:outline-none animate-dialog-in"
+            "ring-1 ring-gray-200 dark:bg-surface dark:ring-line-strong dark:shadow-2xl dark:shadow-black/60 focus:outline-none animate-dialog-in"
           )}
         >
           <h2 id={titleId} className="text-lg font-bold text-balance text-gray-900 dark:text-gray-100">

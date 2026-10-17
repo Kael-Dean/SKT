@@ -19,7 +19,7 @@ const chromeBtnBase =
   "shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-white text-gray-600 shadow-sm " +
   "transition-all duration-150 hover:bg-gray-50 hover:text-gray-900 active:scale-95 cursor-pointer " +
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 " +
-  "dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white";
+  "dark:border-line-strong dark:bg-white/[.04] dark:text-gray-300 dark:shadow-none dark:hover:bg-white/[.08] dark:hover:text-white";
 const chromeBtnCls = `inline-flex size-11 md:size-10 ${chromeBtnBase}`;
 
 const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = null }) => {
@@ -73,7 +73,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900/70"
+      className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 backdrop-blur-md transition-colors duration-300 dark:border-line dark:bg-canvas/80"
     >
       <div className="flex items-center justify-between gap-2 px-3 py-2 md:gap-4 md:px-6 md:py-3">
 
@@ -134,7 +134,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
             <input
               type="text"
               placeholder="ค้นหา"
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-sm outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:placeholder:text-gray-500 dark:focus:border-indigo-500 dark:focus:bg-gray-750 dark:focus:ring-indigo-500/20"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-sm outline-none transition-all duration-150 placeholder:text-gray-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-line-field dark:bg-field dark:text-gray-100 dark:placeholder:text-gray-400 dark:hover:border-line-field-hover dark:focus:border-indigo-400 dark:focus:bg-field dark:focus:ring-1 dark:focus:ring-indigo-400"
               onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
               aria-label="ค้นหา"
             />
@@ -171,7 +171,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
           <div className="hidden h-5 w-px bg-gray-200 dark:bg-gray-700 md:block" />
 
           <button
-            className="group inline-flex min-h-11 items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white px-2 py-1.5 shadow-sm transition-all duration-150 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 md:min-h-0 md:px-2.5"
+            className="group inline-flex min-h-11 items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white px-2 py-1.5 shadow-sm transition-all duration-150 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-line-strong dark:bg-white/[.04] dark:shadow-none dark:hover:bg-white/[.08] md:min-h-0 md:px-2.5"
             title="โปรไฟล์ฉัน"
             aria-label={`โปรไฟล์: ${displayName} · ${displayRole}`}
             type="button"

@@ -21,7 +21,7 @@ import SelectDropdown from "../../../components/SelectDropdown"
 import BranchLockNote from "../../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 import { Skeleton, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
-import { tabPanelCls } from "../../../lib/styles"
+import { cx, baseField, tabPanelCls } from "../../../lib/styles"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -62,9 +62,8 @@ const yearOptionsFor = () => {
 }
 
 // ─── shared styles ──────────────────────────────────────────────────────────
-const inputCls =
-  "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200 disabled:bg-gray-50 disabled:text-gray-500 dark:disabled:bg-gray-800/60 dark:disabled:text-gray-400 disabled:cursor-not-allowed"
-const inputErrCls = "border-red-400 dark:border-red-500 focus:ring-red-400"
+const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm disabled:cursor-not-allowed disabled:opacity-60")
+const inputErrCls = "!border-red-400 dark:!border-red-500 focus:!ring-red-400"
 const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70"
 const labelCls = "text-xs font-medium text-gray-600 dark:text-gray-400"

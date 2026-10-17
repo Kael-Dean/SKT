@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ
 import { SkeletonTableRows, ErrorState, EmptyState, Sheet, SearchField, DataList, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
-import { cx, neutralBtnCls, secondaryBtnCls, submitBtnCls } from "../../lib/styles"
+import { cx, baseField, readonlyFieldCls, neutralBtnCls, secondaryBtnCls, submitBtnCls } from "../../lib/styles"
 import DateInput from "../../components/ThaiDateField"
 
 /** ไอคอนแว่นขยาย (inline SVG — currentColor, ไม่มี emoji) */
@@ -491,10 +491,8 @@ const MemberSearch = () => {
   const loaderCols = TABLE_COLUMNS.length + 1
 
   /* ── shared field-input class for the detail sheet ── */
-  const inputCls =
-    "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-black placeholder:text-slate-400 outline-none " +
-    "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-  const readCls = "rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base break-words text-gray-900 dark:border-slate-700 dark:bg-slate-700/60 dark:text-gray-100"
+  const inputCls = cx(baseField, "!rounded-xl !px-4 !py-3 md:!text-base")
+  const readCls = cx(readonlyFieldCls, "!rounded-xl !px-4 !py-3 md:!text-base break-words")
   const inputModeFor = (type) => (type === "cid" || type === "number" ? "numeric" : type === "decimal" ? "decimal" : undefined)
 
   const fullName = (r) => `${r?.first_name ?? ""} ${r?.last_name ?? ""}`.trim() || "(ไม่มีชื่อ)"

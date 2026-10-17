@@ -1,10 +1,10 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import StickyTableScrollbar from "../../../components/StickyTableScrollbar"
 import { PageLoader, ErrorState, EmptyState } from "../../../components/ui"
+import { cx, cellInput as cellInputBase } from "../../../lib/styles"
 import { apiAuth } from "../../../lib/api"
 
 /** ---------------- Utils ---------------- */
-const cx = (...a) => a.filter(Boolean).join(" ")
 const toNumber = (v) => {
   if (v === "" || v === null || v === undefined) return 0
   const n = Number(String(v).replace(/,/g, ""))
@@ -59,11 +59,7 @@ const STRIPE = {
 const monthStripeHead = (mi) => (mi % 2 === 1 ? STRIPE.headOdd : STRIPE.headEven)
 const monthStripeCell = (mi) => (mi % 2 === 1 ? STRIPE.cellOdd : STRIPE.cellEven)
 
-const cellInput =
-  "w-full min-w-0 box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
-  "text-right text-[12px] tabular-nums outline-none " +
-  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-150"
+const cellInput = cx(cellInputBase, "!rounded-md md:!text-[12px]")
 
 /** =======================================================================
  * ThonthunDetail — ประมาณการต้นทุนสินค้า (รายเดือน)

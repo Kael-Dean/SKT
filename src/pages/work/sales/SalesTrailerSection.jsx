@@ -57,7 +57,7 @@ export function TrailerSideFields({ form, idx, side = "front", amount = 0, mobil
   const terr = errors?.trailers?.[idx] || {}
   const { keys: K, labels: L, ph: P } = SIDE[side]
   const lbl = (k) => (mobile ? MOBILE_LABELS[k] : (L[k] ?? MOBILE_LABELS[k]))
-  const red = (key) => terr[key] && "border-red-500 ring-2 ring-red-300"
+  const red = (key) => terr[key] && "!border-red-500 ring-2 !ring-red-300 dark:!border-red-400 dark:!ring-red-500/40"
   const numCls = mobile ? "text-right tabular-nums" : ""
   // a11y: K.* already carries the side (scaleNoFront…), so `sales-t{idx}-{key}` is unique
   const fid = (key) => trailerFieldId(idx, key)
@@ -189,12 +189,10 @@ const SANITIZE = {
 }
 const INPUT_MODE = { unitPrice: "decimal", gram: "numeric", weight: "decimal" }
 
-const cellInputCls =
-  "h-10 w-full min-w-0 rounded-xl border border-gray-300 bg-white px-2.5 text-[15px] text-gray-900 outline-none " +
-  "placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 " +
-  "dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 " +
-  "dark:focus:border-indigo-400 dark:focus:ring-indigo-400/25 transition-colors duration-150"
-const cellErrCls = "border-red-500 ring-2 ring-red-300 dark:border-red-400 dark:ring-red-500/40"
+// baseField (not cellInput): these cells stay ≥16px on phones, so no `cell-input` opt-out.
+// Padding stays non-important so the `xl:pr-11` suffix gutter can still win.
+const cellInputCls = cx(baseField, "h-10 min-w-0 !rounded-xl px-2.5 py-0")
+const cellErrCls = "!border-red-500 ring-2 !ring-red-300 dark:!border-red-400 dark:!ring-red-500/40"
 
 /** One side (หน้า/หลัง) of trailer `idx` — a table row at ≥lg, a labelled 3-col grid at md. */
 function TrailerRow({ form, idx, side, amount }) {

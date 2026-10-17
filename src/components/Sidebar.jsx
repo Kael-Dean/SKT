@@ -8,10 +8,11 @@ import {
   FileText,
   House,
   Inbox,
-  LayoutDashboard,
   LogOut,
   MapPin,
   MapPinCheck,
+  PiggyBank,
+  ReceiptText,
   Moon,
   ShieldCheck,
   Sun,
@@ -36,32 +37,35 @@ const TONES = {
   blue:    { chip: "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300",           solid: "bg-blue-500 text-white" },
 }
 
-// เมนูแบบย่อสำหรับผู้ใช้ที่มีสิทธิ์ nav.hrCompactMenu (ฝ่ายบุคคล) — รวมเมนูบริการตนเอง
-// (ยื่นใบลา / คำขอย้ายสาขา / กล่องงานรออนุมัติ) ด้วย perm เดียวกับเมนูปกติ — api-handoff-4 §6
-const HR_MENUS = [
-  { label: "หน้าหลัก",            icon: House,          tone: "indigo",  path: "/hr/dashboard",  anyOf: HR_HUB_PERMS },
+// บริการตนเอง — รายการชุดเดียวที่ทั้งสองเมนูใช้ร่วมกัน (api-handoff 2026-10-17 §4–5)
+// เพิ่ม/ลบที่นี่ที่เดียว เมนูตามตำแหน่งจะได้ไม่ตกหล่นรายการใดรายการหนึ่ง
+//   perm      = ต้องมีสิทธิ์นี้
+//   unlessAny = ซ่อนถ้ามีสิทธิ์ใดสิทธิ์หนึ่งในนี้ (เช่น KPI: คนที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้นแทน)
+const SELF_SERVICE_MENUS = [
   { label: "ข้อมูลส่วนตัว",       icon: UserRound,      tone: "sky",     path: "/my-profile",    perm: "self.profile.view" },
+  { label: "ข้อมูลการเงินของฉัน",  icon: PiggyBank,      tone: "teal",    path: "/my-financial",  perm: "self.payroll.view" },
+  { label: "สลิปเงินเดือนของฉัน",  icon: ReceiptText,    tone: "emerald", path: "/my-payslips",   perm: "self.payroll.view" },
   { label: "กล่องงานรออนุมัติ",   icon: Inbox,          tone: "amber",   path: "/inbox" },
   { label: "ยื่นใบลา",            icon: FileText,       tone: "emerald", path: "/leave-request", perm: "self.leave.request" },
   { label: "ขอออกนอกสถานที่",     icon: MapPin,         tone: "orange",  path: "/out-of-office", perm: "self.ooo.request" },
   { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet",  path: "/my-relocation", perm: "self.relocation.request" },
+  { label: "ขอสินเชื่อ",           icon: CreditCard,     tone: "rose",    path: "/loan-request",  perm: "self.loan.apply" },
+  // KPI v1.4.0 — ผจก. อนุมัติ / ผช.ผจก. ตรวจสอบ (ผู้ที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้น)
+  { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target,     tone: "indigo",  path: "/hr/kpi",       perm: "hr.kpi.evaluations.view", unlessAny: HR_HUB_PERMS },
 ]
 
-// เมนูส่วนตัว — แต่ละรายการแสดงตาม permission key (src/lib/permissions.js)
-//   perm  = ต้องมีสิทธิ์นี้
-//   unless = ซ่อนถ้ามีสิทธิ์นี้ (เช่น KPI: คนที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้นแทน)
+// เมนูแบบย่อสำหรับผู้ใช้ที่มีสิทธิ์ nav.hrCompactMenu (ฝ่ายบุคคล) — หน้าหลักของกลุ่มนี้คือ /hr/dashboard
+const HR_MENUS = [
+  { label: "หน้าหลัก",            icon: House,          tone: "indigo",  path: "/hr/dashboard",  anyOf: HR_HUB_PERMS },
+  ...SELF_SERVICE_MENUS,
+]
+
+// เมนูปกติ — งานที่มีการ์ดในหน้าหลัก (/home) อยู่แล้วไม่ต้องซ้ำในนี้ (§6): เอา "Dashboard HR" ออก
+// เพราะการ์ด "ภาพรวมงานบุคคล" ใน Home ใช้สิทธิ์ชุดเดียวกัน (HR_HUB_PERMS)
 const PERSONAL_MENUS = [
   { label: "หน้าหลัก",            icon: House,      tone: "indigo",  path: "/home" },
-  { label: "ข้อมูลส่วนตัว",       icon: UserRound,  tone: "sky",     path: "/my-profile",    perm: "self.profile.view" },
-  { label: "กล่องงานรออนุมัติ",   icon: Inbox,      tone: "amber",   path: "/inbox" },
-  { label: "ยื่นใบลา",            icon: FileText,   tone: "emerald", path: "/leave-request", perm: "self.leave.request" },
-  { label: "ขอออกนอกสถานที่",     icon: MapPin,     tone: "orange",  path: "/out-of-office", perm: "self.ooo.request" },
-  { label: "อนุมัติออกนอกสถานที่", icon: MapPinCheck, tone: "teal", path: "/out-of-office/approvals", perm: "hr.ooo.list" },
-  { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet", path: "/my-relocation", perm: "self.relocation.request" },
-  { label: "ขอสินเชื่อ",           icon: CreditCard, tone: "rose",    path: "/loan-request",  perm: "self.loan.apply" },
-  // KPI v1.4.0 — ผจก. อนุมัติ / ผช.ผจก. ตรวจสอบ (ผู้ที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้น)
-  { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target, tone: "indigo", path: "/hr/kpi", perm: "hr.kpi.evaluations.view", unlessAny: HR_HUB_PERMS },
-  { label: "Dashboard HR",        icon: LayoutDashboard, tone: "blue", path: "/hr/dashboard", anyOf: HR_HUB_PERMS },
+  ...SELF_SERVICE_MENUS,
+  { label: "อนุมัติออกนอกสถานที่", icon: MapPinCheck, tone: "teal",  path: "/out-of-office/approvals", perm: "hr.ooo.list" },
   { label: "สิทธิ์ตามบทบาท",      icon: ShieldCheck, tone: "violet", path: "/admin/roles", perm: "admin.roles.view" },
   // "รายรับ-รายจ่ายสถานที่" ย้ายไปกลุ่ม "รายงาน & แผน" ในหน้า Home แล้ว
 ]
@@ -140,13 +144,13 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
         aria-label="เมนูส่วนตัว"
         aria-hidden={isOpen ? undefined : "true"}
         inert={!isOpen}
-        className={`fixed left-0 top-0 z-[9999] h-dvh w-72 bg-white will-change-transform transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none dark:bg-gray-900 ${
+        className={`fixed left-0 top-0 z-[9999] h-dvh w-72 bg-white will-change-transform transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none dark:bg-surface dark:ring-1 dark:ring-line ${
           isOpen ? "translate-x-0 shadow-xl" : "-translate-x-full shadow-none"
         }`}
       >
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200/70 py-3.5 pl-4 pr-3 dark:border-gray-800">
+          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200/70 py-3.5 pl-4 pr-3 dark:border-line">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-xs font-bold text-white">
               AMC
             </div>
@@ -159,7 +163,7 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
               type="button"
               aria-label="ปิดเมนู"
               onClick={() => setIsOpen(false)}
-              className="flex size-11 md:size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+              className="flex size-11 md:size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-gray-400 dark:hover:bg-white/[.06] dark:hover:text-gray-100"
             >
               <X aria-hidden="true" strokeWidth={1.75} className="size-5" />
             </button>
@@ -183,8 +187,8 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
                       aria-current={active ? "page" : undefined}
                       className={`relative flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
                         active
-                          ? "bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200"
-                          : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                          ? "bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/[.12] dark:text-indigo-200"
+                          : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/[.06] dark:hover:text-gray-100"
                       }`}
                     >
                       <span
@@ -203,7 +207,7 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
             </ul>
 
             {tradingMenus.length > 0 && (
-              <div className="mt-3 border-t border-gray-200/70 pt-3 md:hidden dark:border-gray-800">
+              <div className="mt-3 border-t border-gray-200/70 pt-3 md:hidden dark:border-line">
                 <p className="px-2 pb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">{TRADING_GROUP.group}</p>
                 <ul className="space-y-1">
                   {tradingMenus.map((item) => {
@@ -220,8 +224,8 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
                           aria-current={active ? "page" : undefined}
                           className={`relative flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
                             active
-                              ? "bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200"
-                              : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                              ? "bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/[.12] dark:text-indigo-200"
+                              : "font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/[.06] dark:hover:text-gray-100"
                           }`}
                         >
                           <span
@@ -243,14 +247,14 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
           </nav>
 
           {/* Dark mode (phone — the Topbar toggle is hidden below md) + Logout */}
-          <div className="shrink-0 space-y-2 border-t border-gray-200/70 p-3 pb-safe-3 dark:border-gray-800">
+          <div className="shrink-0 space-y-2 border-t border-gray-200/70 p-3 pb-safe-3 dark:border-line">
             {setDarkMode && (
               <button
                 type="button"
                 role="switch"
                 aria-checked={darkMode}
                 onClick={() => setDarkMode((v) => !v)}
-                className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100 md:hidden"
+                className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:text-gray-300 dark:hover:bg-white/[.06] dark:hover:text-gray-100 md:hidden"
               >
                 <span aria-hidden="true" className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${TONES.indigo.chip}`}>
                   {darkMode ? <Sun strokeWidth={1.75} className="size-[18px]" /> : <Moon strokeWidth={1.75} className="size-[18px]" />}
@@ -259,7 +263,7 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
                 <span
                   aria-hidden="true"
                   className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors duration-200 ${
-                    darkMode ? "bg-indigo-600 dark:bg-indigo-500" : "bg-gray-300 dark:bg-gray-600"
+                    darkMode ? "bg-indigo-600 dark:bg-indigo-500" : "bg-gray-300 dark:bg-gray-500"
                   }`}
                 >
                   <span

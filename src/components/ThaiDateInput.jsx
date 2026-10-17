@@ -104,7 +104,7 @@ export default function ThaiDateInput({ value = "", onChange, className = "", ar
         aria-label="วัน"
         value={day}
         onChange={handleDay}
-        className="w-10 text-center bg-transparent outline-none border-none p-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-sm"
+        className="w-10 text-center bg-transparent outline-none border-none p-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-sm dark:placeholder:text-gray-400"
       />
 
       <span className="text-gray-400 select-none">/</span>
@@ -134,7 +134,7 @@ export default function ThaiDateInput({ value = "", onChange, className = "", ar
         aria-label="ปี พ.ศ."
         value={beYear}
         onChange={handleYear}
-        className="w-16 text-center bg-transparent outline-none border-none p-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-sm"
+        className="w-16 text-center bg-transparent outline-none border-none p-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-sm dark:placeholder:text-gray-400"
       />
     </div>
   )

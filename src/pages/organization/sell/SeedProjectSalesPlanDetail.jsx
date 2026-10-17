@@ -5,10 +5,10 @@ import { fetchProductsByGroup, onMasterDataChanged, ensureUnitPricesForProducts 
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 import { useCan } from "../../../lib/permissions"
 import { ReadOnlyFieldset, ReadOnlyNotice } from "../../../components/PlanReadOnly"
+import { cx, cellInput as cellInputBase } from "../../../lib/styles"
 import { apiAuth } from "../../../lib/api"
 
 /** ---------------- Utils ---------------- */
-const cx = (...a) => a.filter(Boolean).join(" ")
 
 const toNumber = (v) => {
   if (v === "" || v === null || v === undefined) return 0
@@ -47,18 +47,7 @@ const PLACEHOLDER_UNITS = [{ id: -1, name: "ปร", short: "ปร" }]
 const SEED_GROUP_ID = 5
 
 /** ---------------- Styles ---------------- */
-const baseField =
-  "w-full rounded-2xl border border-slate-300 bg-slate-100 p-3 text-[15px] md:text-base " +
-  "text-black outline-none placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 shadow-none " +
-  "dark:border-slate-500/40 dark:bg-slate-700/80 dark:text-slate-100 dark:placeholder:text-slate-300 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30"
-
-const cellInput =
-  "w-full min-w-0 max-w-full box-border rounded-md border border-slate-300 bg-white px-1.5 py-1 " +
-  "text-right text-[12px] outline-none tabular-nums " +
-  "focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 " +
-  "transition-colors duration-150 " +
-  "dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 " +
-  "disabled:cursor-not-allowed disabled:opacity-60"
+const cellInput = cx(cellInputBase, "!rounded-md md:!text-[12px] disabled:cursor-not-allowed disabled:opacity-60")
 
 const COL_W = {
   product: 200,

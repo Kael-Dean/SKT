@@ -382,6 +382,38 @@ const TABS = [
   { value: KIND.OOO, label: "ขอออกนอกสถานที่" },
 ]
 
+// ─── สินเชื่อกองทุนฯ (3K) — คิวพิจารณาอยู่ที่ /hr/dashboard?tab=loans ─────────
+// หัวหน้าที่ไม่มีเมนู HR อื่นก็เห็นทางเข้าจากกล่องงานนี้ (GET /hr/loans/queue)
+function LoanQueueNotice() {
+  const navigate = useNavigate()
+  const [count, setCount] = useState(null)
+  useEffect(() => {
+    let alive = true
+    apiAuth("/hr/loans/queue")
+      .then((d) => {
+        const list = Array.isArray(d) ? d : d?.items ?? d?.loans ?? []
+        if (alive) setCount(list.length)
+      })
+      .catch(() => alive && setCount(null))
+    return () => { alive = false }
+  }, [])
+  if (!count) return null
+  return (
+    <div className={`${cardCls} flex flex-wrap items-center justify-between gap-3`}>
+      <p className="text-sm text-gray-700 dark:text-gray-200">
+        คำขอกู้เงินกองทุนสงเคราะห์รอคุณพิจารณา <strong className="tabular-nums text-gray-900 dark:text-gray-100">{count}</strong> รายการ
+      </p>
+      <button
+        type="button"
+        onClick={() => navigate("/hr/dashboard?tab=loans&sub=queue")}
+        className="inline-flex cursor-pointer items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
+      >
+        ไปพิจารณาสินเชื่อ
+      </button>
+    </div>
+  )
+}
+
 // ─── page ───────────────────────────────────────────────────────────────────
 export default function Inbox() {
   const navigate = useNavigate()
@@ -537,6 +569,8 @@ export default function Inbox() {
           </button>
         )}
       </div>
+
+      {can("hr.loans.queue", roleId) && <LoanQueueNotice />}
 
       {banner && (
         <Notice tone={banner.tone} onDismiss={() => setBanner(null)}>

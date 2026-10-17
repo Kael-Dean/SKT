@@ -11,11 +11,13 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
 import { can } from "../../../lib/permissions"
-import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
+import { baseField, cardCls, cx, tabPanelCls } from "../../../lib/styles"
 import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import Portal from "../../../components/Portal"
 import RelocationTransferModal from "../../../components/hr/RelocationTransferModal"
 import useModalDismiss from "../../../lib/useModalDismiss"
+import RelocationPositionPrefs from "../../../components/hr/RelocationPositionPrefs"
+import { usePositionLookup } from "../../../lib/relocation"
 
 const TABS = [
   { key: "pending_branch_head", label: "รอหัวหน้าสาขา" },
@@ -43,10 +45,7 @@ const STATUS_COLOR = {
   cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
 }
 
-const inputCls =
-  "w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm " +
-  "text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 " +
-  "focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-colors duration-200"
+const inputCls = cx(baseField, "!rounded-xl !px-3 !py-2 md:!text-sm")
 const labelCls = "block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
 
 function fmtDate(value) {
@@ -88,6 +87,8 @@ export default function HRRelocationTab() {
   }, [])
   const branchMap = useMemo(() => new Map(branches.map((b) => [String(b.id), b.branch_name])), [branches])
   const branchName = useCallback((id) => (id == null ? "—" : branchMap.get(String(id)) ?? `สาขา #${id}`), [branchMap])
+
+  const { positionName } = usePositionLookup()
 
   const [transferOpen, setTransferOpen] = useState(false)
   const [notice, setNotice] = useState("")
@@ -252,6 +253,8 @@ export default function HRRelocationTab() {
                       )}
                     </div>
 
+                    <RelocationPositionPrefs req={r} positionName={positionName} />
+
                     {(r.selected_branch_id != null || r.move_date) && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
                         {r.selected_branch_id != null && (
@@ -330,6 +333,12 @@ export default function HRRelocationTab() {
                 <span className="font-semibold text-gray-900 dark:text-gray-100">{modal.req.user_first_name} {modal.req.user_last_name}</span>
                 {" "}ขอย้ายสาขา
               </p>
+
+              <RelocationPositionPrefs
+                req={modal.req}
+                positionName={positionName}
+                className="rounded-xl bg-gray-50 dark:bg-gray-700/40 px-3 py-2.5"
+              />
 
               {isMgrApprove && (
                 <>

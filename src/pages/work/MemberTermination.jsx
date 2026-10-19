@@ -4,6 +4,7 @@ import { apiAuth } from "../../lib/api" // ✅ แนบ token อัตโน�
 import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
 import { ErrorState, ConfirmDialog, toast } from "../../components/ui"
 import DateInput from "../../components/ThaiDateField"
+import PageTitle from "../../components/PageTitle"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -324,28 +325,7 @@ function MemberTermination() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-5xl p-5 md:p-6 lg:p-8">
-        <h1 ref={topRef} tabIndex={-1} className="mb-1 flex items-center gap-2 text-3xl font-bold">
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="size-7 text-emerald-600 dark:text-emerald-400"
-          >
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
-          สมาชิกสิ้นสภาพ
-        </h1>
-        <p className="mb-5 text-slate-600 dark:text-slate-300">
-          เลือกประเภท <span className="font-medium">“ลาออก”</span> หรือ <span className="font-medium">“เสียชีวิต”</span> (เลือกได้อย่างใดอย่างหนึ่ง)
-          แล้วค้นหาและเลือกสมาชิกเพื่อบันทึกสถานะไปยังระบบ
-        </p>
+        <PageTitle title="สมาชิกสิ้นสภาพ" ref={topRef} tabIndex={-1} />
 
         {/* เลือกโหมด */}
         <SectionCard title="ประเภทการสิ้นสภาพ" className="mb-6">

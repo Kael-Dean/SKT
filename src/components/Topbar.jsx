@@ -3,8 +3,11 @@
 // so page-level `sticky top-(--topbar-h)` elements (Stepper, table headers)
 // stack under it now that <body> is the scroller.
 //
-// <md layout:  [back ◀ 44px][☰ 44px] ……… [branch (compact)][🔔][avatar]
-// ≥md layout:  [☰][logo + org name]  [search (decorative)]  [branch][🔔][dark][profile]
+// <md layout:  [back ◀ 44px][☰ 44px][page title …] [branch (compact)][🔔][avatar]
+// ≥md layout:  [☰][logo][‹ back][page title]  [search (decorative)]  [branch][🔔][dark][profile]
+//              (หน้าหลัก: [☰][logo + org name] — ไม่มี back / title)
+// ชื่อหน้า (title) มาจาก <PageTitle> ในหน้า ผ่าน AppLayout — h1 จริงอยู่ในหน้า (sr-only),
+// ข้อความที่นี่จึง aria-hidden เพื่อไม่ให้ screen reader อ่านซ้ำ
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Menu, Moon, Sun, X } from "lucide-react";
@@ -22,7 +25,7 @@ const chromeBtnBase =
   "dark:border-line-strong dark:bg-white/[.04] dark:text-gray-300 dark:shadow-none dark:hover:bg-white/[.08] dark:hover:text-white";
 const chromeBtnCls = `inline-flex size-11 md:size-10 ${chromeBtnBase}`;
 
-const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = null }) => {
+const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = null, title = null }) => {
   const navigate = useNavigate();
   const headerRef = useRef(null);
   const [userInfo, setUserInfo] = useState({ username: "", id: null, roleId: 0 });
@@ -77,8 +80,8 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
     >
       <div className="flex items-center justify-between gap-2 px-3 py-2 md:gap-4 md:px-6 md:py-3">
 
-        {/* Left: back (phone) + hamburger + logo */}
-        <div className="flex min-w-0 items-center gap-2 md:gap-4">
+        {/* Left: back (phone) + hamburger + logo + back/title (desktop) */}
+        <div className="flex min-w-0 flex-1 items-center gap-2 md:flex-initial md:gap-4">
           {back && (
             <button
               type="button"
@@ -105,7 +108,14 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
             )}
           </button>
 
-          <div className="hidden select-none items-center gap-3 md:flex">
+          {/* Phone: page title */}
+          {title && (
+            <p aria-hidden="true" className="min-w-0 truncate text-[15px] font-semibold text-gray-900 dark:text-gray-100 md:hidden">
+              {title}
+            </p>
+          )}
+
+          <div className="hidden min-w-0 select-none items-center gap-3 md:flex">
             <img
               src={darkMode ? asset("/logo/skt-logo-dark.png") : asset("/logo/skt-logo.png")}
               onError={(e) => {
@@ -116,15 +126,35 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
                 if (cur !== alt) e.currentTarget.src = alt;
               }}
               alt="โลโก้องค์กร"
-              className="h-9 w-auto rounded object-contain"
+              title="สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.สุรินทร์ จำกัด"
+              className="h-9 w-auto shrink-0 rounded object-contain"
               loading="eager"
               decoding="async"
               fetchPriority="high"
             />
-            <div className="h-5 w-px bg-gray-200 dark:bg-gray-700" />
-            <span className="whitespace-nowrap text-sm font-semibold tracking-tight text-gray-700 dark:text-gray-200 lg:text-[15px]">
-              สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.สุรินทร์ จำกัด
-            </span>
+            <div className="h-5 w-px shrink-0 bg-gray-200 dark:bg-gray-700" />
+            {title ? (
+              <div className="flex min-w-0 items-center gap-2.5">
+                {back && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(back.to)}
+                    aria-label={`ย้อนกลับไป ${back.label}`}
+                    className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-lg px-2 text-sm font-medium text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-gray-400 dark:hover:bg-white/[.08] dark:hover:text-white"
+                  >
+                    <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={2.25} />
+                    <span className="max-w-[10rem] truncate">{back.label}</span>
+                  </button>
+                )}
+                <p aria-hidden="true" title={title} className="min-w-0 truncate text-base font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+                  {title}
+                </p>
+              </div>
+            ) : (
+              <span className="whitespace-nowrap text-sm font-semibold tracking-tight text-gray-700 dark:text-gray-200 lg:text-[15px]">
+                สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.สุรินทร์ จำกัด
+              </span>
+            )}
           </div>
         </div>
 

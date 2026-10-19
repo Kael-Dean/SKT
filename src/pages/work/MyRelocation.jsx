@@ -15,6 +15,7 @@ import {
   ACCEPT_WITHOUT_POSITION_OPTIONS,
   usePositionLookup,
 } from "../../lib/relocation"
+import PageTitle from "../../components/PageTitle"
 
 const BRANCH_SLOTS = Array.from({ length: MAX_BRANCH_PREFS }, (_, i) => i + 1)
 const POSITION_SLOTS = Array.from({ length: MAX_POSITION_PREFS }, (_, i) => i + 1)
@@ -203,10 +204,7 @@ export default function MyRelocation() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 pb-10">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">คำขอย้ายสาขา</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">ยื่นคำขอย้ายสาขาและติดตามสถานะ</p>
-      </div>
+      <PageTitle title="คำขอย้ายสาขา" />
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">

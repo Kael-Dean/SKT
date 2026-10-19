@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import { ErrorState, EmptyState, SkeletonTableRows, SkeletonStat } from "../../components/ui"
 import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
+import PageTitle from "../../components/PageTitle"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
@@ -34,7 +35,7 @@ export default function HRFinance() {
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ข้อมูลการเงินเจ้าหน้าที่</h1>
+          <PageTitle title="ข้อมูลการเงินเจ้าหน้าที่" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {loading ? "กำลังโหลด..." : `ยอดเงินเดือนรวม: `}
             {!loading && <span className="font-semibold text-indigo-700 dark:text-indigo-300 tabular-nums">{fmt(totalPayroll)} บาท/เดือน</span>}

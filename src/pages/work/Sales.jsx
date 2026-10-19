@@ -22,6 +22,7 @@ import SalesCustomerSection from "./sales/SalesCustomerSection"
 import SalesSpecSection from "./sales/SalesSpecSection"
 import SalesTrailerSection from "./sales/SalesTrailerSection"
 import SalesMobileStepper from "./sales/SalesMobileStepper"
+import PageTitle from "../../components/PageTitle"
 
 // =====================================================================
 //                              Sales Page (ขาย: หลายพ่วง)
@@ -1461,7 +1462,7 @@ function Sales() {
       {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด */}
       <div ref={pageTopRef} />
 
-      <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-gray-50">บันทึกออเดอร์ขาย</h1>
+      <PageTitle title="บันทึกออเดอร์ขาย" />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="min-w-0 space-y-5">

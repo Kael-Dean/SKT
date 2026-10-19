@@ -9,6 +9,7 @@ import ComboBox from "../../components/ComboBox"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import useBranchLock from "../../hooks/useBranchLock"
 import BranchLockNote from "../../components/BranchLockNote"
+import PageTitle from "../../components/PageTitle"
 
 /** option value ของหน้านี้ = id ก่อน value (คง default ของ ComboBox copy เดิม) */
 const getOptValue = (o) => o?.id ?? o?.value ?? ""
@@ -455,14 +456,7 @@ const Stock = () => {
   return (
     <div className="p-4 sm:p-6">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-          คลังสินค้า
-          <span className="block text-sm font-normal text-gray-500 dark:text-gray-400">
-            สรุปตาม <span className="font-medium">สาขา</span> และ <span className="font-medium">คลัง</span>
-          </span>
-        </h1>
-      </div>
+      <PageTitle title="คลังสินค้า" />
 
       {/* Controls */}
       <div className="grid lg:grid-cols-12 gap-4 mb-4">

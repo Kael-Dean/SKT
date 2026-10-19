@@ -12,6 +12,7 @@ import { useIsPhone } from "../../hooks/useMediaQuery"
 import useBranchLock from "../../hooks/useBranchLock"
 import BranchLockNote from "../../components/BranchLockNote"
 import DateInput from "../../components/ThaiDateField"
+import PageTitle from "../../components/PageTitle"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => String(s ?? "").replace(/\D+/g, "")
@@ -575,18 +576,7 @@ function StockTransferMill() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
-        <h1 className="mb-4 flex items-center gap-2.5 text-xl md:text-3xl font-bold text-gray-900 dark:text-white">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-6 md:size-7 shrink-0 text-indigo-600 dark:text-indigo-400">
-            <path d="M17 18a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2" />
-            <path d="M3 21h18" />
-            <path d="M3 7v14" />
-            <path d="M21 7v14" />
-            <path d="M3 7 7 3h10l4 4" />
-            <path d="M3 7h18" />
-            <path d="M12 11v3" />
-          </svg>
-          ส่งสี / สร้างล็อตสี
-        </h1>
+        <PageTitle title="ส่งสี / สร้างล็อตสี" />
 
         <form onSubmit={handleSubmit}>
           {/* กรอบที่ 1: ข้อมูล LOT */}

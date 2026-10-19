@@ -6,6 +6,7 @@ import { cardCls, tabPanelCls } from "../../lib/styles"
 import { PageLoader, ErrorState, EmptyState, Badge, Tabs, tabId, panelId, useSubTab } from "../../components/ui"
 import Portal from "../../components/Portal"
 import useModalDismiss from "../../lib/useModalDismiss"
+import PageTitle from "../../components/PageTitle"
 
 const STATUS_LABEL = { pending: "รอดำเนินการ", approved: "อนุมัติแล้ว", denied: "ปฏิเสธ" }
 const STATUS_TONE = { pending: "pending", approved: "success", denied: "danger" }
@@ -67,7 +68,7 @@ export default function HRIssueReports() {
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">รายงานปัญหาข้อมูล</h1>
+          <PageTitle title="รายงานปัญหาข้อมูล" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {loading ? "กำลังโหลด..." : `${tab === "pending" ? `รอดำเนินการ ${reports.length} รายการ` : `ทั้งหมด ${reports.length} รายการ`}`}
           </p>

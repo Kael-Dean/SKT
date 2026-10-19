@@ -9,6 +9,7 @@ import BranchLockNote from "../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock"
 import { toast } from "../../components/ui"
 import DateInput from "../../components/ThaiDateField"
+import PageTitle from "../../components/PageTitle"
 
 /** ---------- Utils ---------- */
 
@@ -1654,7 +1655,7 @@ function Documents() {
         
         {/* Header - เอาปุ่มเลือก Mode ทั้ง 3 อันด้านบนออกไปแล้ว */}
         <div className="mb-8 flex items-center gap-3">
-          <h1 className="text-3xl font-bold">📚 คลังเอกสาร & รายงาน</h1>
+          <PageTitle title="คลังเอกสาร & รายงาน" />
           {!loadingOptions && !loadingSpecs && (
             <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
               พร้อมใช้งาน

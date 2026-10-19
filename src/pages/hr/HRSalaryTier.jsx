@@ -7,6 +7,7 @@ import SalaryLadderPanel from "../../components/hr/SalaryLadderPanel"
 import SalaryStepPanel from "../../components/hr/SalaryStepPanel"
 import PositionsManager from "../../components/hr/PositionsManager"
 import { Tabs, panelId, tabId, useSubTab } from "../../components/ui"
+import PageTitle from "../../components/PageTitle"
 
 const ID_BASE = "salary-tier"
 const TABS = [
@@ -21,12 +22,7 @@ export default function HRSalaryTier() {
 
   return (
     <div className="space-y-5 pb-10">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">บัญชีเงินเดือนและตำแหน่ง</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-          ดูและแก้เงินเดือนแต่ละขั้นของกระบอก เลื่อนขั้นเจ้าหน้าที่ และกำหนดระดับของตำแหน่งงาน
-        </p>
-      </div>
+      <PageTitle title="บัญชีเงินเดือนและตำแหน่ง" />
 
       <Tabs items={TABS} value={tab} onChange={setTab} ariaLabel="บัญชีเงินเดือนและตำแหน่ง" idBase={ID_BASE} />
 

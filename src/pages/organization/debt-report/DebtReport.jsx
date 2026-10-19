@@ -3,7 +3,7 @@ import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
 import SelectDropdown from "../../../components/SelectDropdown"
 import {
-  cx, cardCls, pageTitleCls, labelCls, baseField,
+  cx, cardCls, labelCls, baseField,
   submitBtnCls, secondaryBtnCls, modalCardCls, modalTitleCls,
 } from "../../../lib/styles"
 import { PageLoader, ErrorState } from "../../../components/ui"
@@ -11,6 +11,7 @@ import { canManagePrograms } from "../debt/debtEntryMeta"
 import BranchDebtTable from "./BranchDebtTable"
 import AllBranchesTable from "./AllBranchesTable"
 import useModalDismiss from "../../../lib/useModalDismiss"
+import PageTitle from "../../../components/PageTitle"
 
 /** Line-art building icon — branch / per-unit debt entry card. */
 function BranchIcon() {
@@ -183,13 +184,8 @@ export default function DebtReport() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 py-2">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className={pageTitleCls}>ตารางหนี้</h1>
-          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-            บันทึกและดูข้อมูลหนี้คงค้างรายสาขา
-          </p>
-        </div>
+      <div className="flex items-start justify-end">
+        <PageTitle title="ตารางหนี้" />
         {canAddProgram && (
           <button
             onClick={openAddProgram}

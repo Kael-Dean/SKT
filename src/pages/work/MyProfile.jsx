@@ -15,6 +15,7 @@ import lineIcon from "../../assets/line-icon.png"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel as getRoleLabel } from "../../lib/roles"
 import { can, myRoleLabel } from "../../lib/permissions"
+import PageTitle from "../../components/PageTitle"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -217,8 +218,8 @@ export default function MyProfile() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 pb-10">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ข้อมูลส่วนตัว</h1>
+      <div className="flex items-start justify-end gap-3 flex-wrap">
+        <PageTitle title="ข้อมูลส่วนตัว" />
         <button
           onClick={openReportModal}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"

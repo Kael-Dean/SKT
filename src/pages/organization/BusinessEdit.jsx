@@ -8,6 +8,7 @@ import useModalDismiss from "../../lib/useModalDismiss"
 import { can } from "../../lib/permissions"
 import ComboBox from "../../components/ComboBox"
 import { cx, baseField } from "../../lib/styles"
+import PageTitle from "../../components/PageTitle"
 
 /** ---------- Mapping ---------- */
 const BUSINESS_GROUP_MAP = {
@@ -440,20 +441,7 @@ const BusinessEdit = () => {
       <div className="min-h-screen bg-slate-50 text-black dark:bg-slate-900 dark:text-white rounded-2xl md:p-6 p-4">
         <div className="mx-auto max-w-[1400px]">
 
-          <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h1 className="flex items-center gap-2 text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-white">
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-7 text-indigo-500 dark:text-indigo-400 shrink-0">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
-                </svg>
-                แก้ไขข้อมูลธุรกิจ (Master Data)
-              </h1>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                เพิ่ม/แก้ไข/ลบ ข้อมูลพื้นฐานที่ใช้ในระบบ (แท็บที่บทบาทของคุณไม่มีสิทธิ์จัดการจะดูได้อย่างเดียว)
-              </p>
-            </div>
-          </div>
+          <PageTitle title="แก้ไขข้อมูลธุรกิจ (Master Data)" />
 
           {/* --- TABS --- */}
           <div className="mb-6 flex flex-wrap gap-2 rounded-xl bg-white p-2 shadow-sm dark:bg-slate-800 border border-slate-300 dark:border-slate-700">

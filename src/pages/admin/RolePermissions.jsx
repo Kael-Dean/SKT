@@ -9,9 +9,10 @@ import { AlertTriangle, Check, Info, Search, X } from "lucide-react"
 import SelectDropdown from "../../components/SelectDropdown"
 import { EmptyState } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
-import { cx, cardCls, pageTitleCls } from "../../lib/styles"
+import { cx, cardCls } from "../../lib/styles"
 import { POSITION_ROLES } from "../../lib/rbacMatrix"
 import { MODULE_LABEL, codeFor, isRbacMode, permissionRows, positionsFor, useCan } from "../../lib/permissions"
+import PageTitle from "../../components/PageTitle"
 
 const POSITION_IDS = Object.keys(POSITION_ROLES)
   .map(Number)
@@ -140,12 +141,7 @@ export default function RolePermissions() {
 
   return (
     <div className="space-y-4 p-4 md:p-6">
-      <header className="space-y-1">
-        <h1 className={pageTitleCls}>สิทธิ์ตามบทบาท</h1>
-        <p className="max-w-3xl text-sm text-gray-600 dark:text-gray-300">
-          ฟังก์ชันที่แต่ละตำแหน่งงานใช้ได้ จัดกลุ่มตามโมดูล — หน้านี้ดูอย่างเดียว
-        </p>
-      </header>
+      <PageTitle title="สิทธิ์ตามบทบาท" />
 
       <div id={noteId} className="max-w-3xl space-y-2">
         <p className="flex items-start gap-2 rounded-xl bg-indigo-50 px-3 py-2.5 text-sm text-indigo-900 ring-1 ring-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-100 dark:ring-indigo-500/20">

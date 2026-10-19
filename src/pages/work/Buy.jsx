@@ -43,6 +43,7 @@ import BuyCustomerSection from "./buy/BuyCustomerSection"
 import BuySpecSection from "./buy/BuySpecSection"
 import BuyWeighSection from "./buy/BuyWeighSection"
 import BuyMobileStepper from "./buy/BuyMobileStepper"
+import PageTitle from "../../components/PageTitle"
 
 /** ---------- Component ---------- */
 const Buy = () => {
@@ -1972,7 +1973,7 @@ if (buyerType === "person") {
       <div className="min-h-dvh bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-base">
         <div className="mx-auto max-w-7xl p-4">
           <div ref={pageTopRef} />
-          <h1 className="mb-3 text-xl font-bold leading-relaxed text-gray-900 dark:text-white">บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
+          <PageTitle title="บันทึกออเดอร์ซื้อข้าวเปลือก" />
           <BuyMobileStepper form={form} />
         </div>
         {resultSheet}
@@ -2001,7 +2002,7 @@ if (buyerType === "person") {
         {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด */}
         <div ref={pageTopRef} />
 
-        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-gray-50">บันทึกออเดอร์ซื้อข้าวเปลือก</h1>
+        <PageTitle title="บันทึกออเดอร์ซื้อข้าวเปลือก" />
 
         <form
           id="buy-form"

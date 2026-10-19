@@ -21,6 +21,7 @@ import { useIsPhone } from "../../hooks/useMediaQuery"
 import { getActiveBranch } from "../../lib/auth"
 import { describeApiError } from "../../lib/apiErrors"
 import DateInput from "../../components/ThaiDateField"
+import PageTitle from "../../components/PageTitle"
 
 /** ---------- Utils ---------- */
 const toNumber = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v))
@@ -244,14 +245,7 @@ const StockDamageOut = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
-        <h1 className="mb-4 flex items-center gap-2.5 text-xl md:text-3xl font-bold text-gray-900 dark:text-white">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-6 md:size-7 text-red-600 dark:text-red-400">
-            <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-            <line x1="12" y1="9" x2="12" y2="13" />
-            <line x1="12" y1="17" x2="12.01" y2="17" />
-          </svg>
-          ตัดเสียหาย
-        </h1>
+        <PageTitle title="ตัดเสียหาย" />
 
         <form onSubmit={handleSubmit}>
           {/* กรอบที่ 1: ที่ตั้ง (สาขา/คลัง) & วันที่ */}

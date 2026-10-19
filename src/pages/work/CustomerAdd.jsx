@@ -8,6 +8,7 @@ import { cx, baseField, labelCls, errorTextCls, submitBtnCls, resetBtnCls, spinn
 import { Card, CardHeader, PageLoader, ErrorState, toast } from "../../components/ui"
 import ComboBox from "../../components/ComboBox"
 import DateInput from "../../components/ThaiDateField"
+import PageTitle from "../../components/PageTitle"
 
 /* -------------------------- Utilities & helpers -------------------------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -361,12 +362,7 @@ const CustomerAdd = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <div ref={topRef} tabIndex={-1} className="mb-5 outline-none">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">เพิ่มลูกค้าทั่วไป</h1>
-          <p className="mt-1 text-[15px] text-slate-600 dark:text-slate-400">
-            กรอกข้อมูลลูกค้าทั่วไปเพื่อบันทึกเข้าสู่ระบบ ช่องที่มีกรอบสีแดงคือช่องที่ต้องแก้ไข
-          </p>
-        </div>
+        <PageTitle title="เพิ่มลูกค้าทั่วไป" ref={topRef} tabIndex={-1} />
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* โครงการ (UI-only) */}

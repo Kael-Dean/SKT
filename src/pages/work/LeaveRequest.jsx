@@ -9,6 +9,7 @@ import useFormDefaults from "../../hooks/useFormDefaults"
 import { STATUS_LABEL as APPROVAL_STATUS_LABEL, isPendingStatus } from "../../lib/approval"
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import { Skeleton, ErrorState, EmptyState, toast } from "../../components/ui"
+import PageTitle from "../../components/PageTitle"
 
 // ─── shared style tokens ────────────────────────────────────────────────────
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
@@ -659,12 +660,7 @@ export default function LeaveRequest() {
 
       <div className="max-w-2xl mx-auto space-y-5 pb-12 no-print">
         {/* Page title */}
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ใบลา</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์ จำกัด
-          </p>
-        </div>
+        <PageTitle title="ใบลา" />
 
         {/* Tabs */}
         <div className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">

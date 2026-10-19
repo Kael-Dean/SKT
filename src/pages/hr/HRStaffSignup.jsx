@@ -5,6 +5,7 @@ import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../../components/SelectDropdown"
 import { baseField, labelCls, sectionTitleCls, submitBtnCls } from "../../lib/styles"
 import { assignableRoleOptions } from "../../lib/permissions"
+import PageTitle from "../../components/PageTitle"
 
 const ED_LEVEL_OPTIONS = [
   { value: "มัธยมศึกษาตอนต้น", label: "มัธยมศึกษาตอนต้น (ม.3)" },
@@ -383,12 +384,7 @@ export default function HRStaffSignup() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 pb-10">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ลงทะเบียนเจ้าหน้าที่ใหม่</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-          ระบบจะสร้าง username และ password อัตโนมัติ และส่งผ่าน Line / Email ให้เจ้าหน้าที่
-        </p>
-      </div>
+      <PageTitle title="ลงทะเบียนเจ้าหน้าที่ใหม่" />
 
       {error && (
         <div className="flex items-start gap-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">

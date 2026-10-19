@@ -17,6 +17,7 @@ import { cardCls, cx, focusRingCls } from "../../lib/styles"
 import { EmptyState, ErrorState, SkeletonText } from "../../components/ui"
 import MyPayslipsPanel from "../../components/hr/MyPayslipsPanel"
 import PageTitle from "../../components/PageTitle"
+import { backState } from "../../lib/drill"
 
 // ─── a) ค่าที่บันทึกไว้ ────────────────────────────────────────────────────────
 // `always` = แสดงแม้เป็น 0 (ให้เห็นว่าไม่มีรายการนี้), ไม่งั้นแสดงเฉพาะที่มีค่า
@@ -133,7 +134,7 @@ function OnFileCard() {
       {state === "ready" && can("self.issue.report") && (
         <p className="mt-4 border-t border-gray-100 pt-3 text-sm text-gray-600 dark:border-line dark:text-gray-400">
           ข้อมูลไม่ตรงกับที่ได้รับจริง?{" "}
-          <Link to="/my-profile" className={cx("inline-flex min-h-touch md:min-h-0 items-center gap-0.5 rounded font-medium text-indigo-700 hover:underline dark:text-indigo-300", focusRingCls)}>
+          <Link to="/my-profile" state={backState("ข้อมูลการเงินของฉัน")} className={cx("inline-flex min-h-touch md:min-h-0 items-center gap-0.5 rounded font-medium text-indigo-700 hover:underline dark:text-indigo-300", focusRingCls)}>
             แจ้งแก้ไขที่หน้าข้อมูลส่วนตัว <ChevronRight aria-hidden="true" className="size-4" />
           </Link>
         </p>

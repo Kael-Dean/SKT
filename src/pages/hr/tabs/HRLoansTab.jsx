@@ -23,6 +23,7 @@ import {
   LOAN_PURPOSE_LABEL, asList, borrowerName, loanStatusLabel, loanStatusTone, money, stageActions, thaiDate, todayIso,
 } from "../../../lib/loans"
 import { LoanDecisionSheet, LoanDetailSheet, LoanPdfButton, LoanSettingsSheet } from "./HRLoanSheets"
+import { keepBackState } from "../../../lib/drill"
 
 const ID_BASE = "hr-loans"
 const fieldCls = cx(baseField, "!rounded-xl !px-3 !py-2 md:!text-sm")
@@ -268,7 +269,7 @@ export default function HRLoansTab() {
   const raw = params.get("sub")
   const sub = subs.some((s) => s.value === raw) ? raw : subs[0]?.value
   const changeSub = (next) =>
-    setParams((prev) => { const p = new URLSearchParams(prev); p.set("sub", String(next)); return p }, { replace: true })
+    setParams((prev) => { const p = new URLSearchParams(prev); p.set("sub", String(next)); return p }, { replace: true, state: keepBackState() })
 
   const loadQueue = useCallback(async () => {
     if (!canQueue) return

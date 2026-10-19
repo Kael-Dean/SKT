@@ -216,6 +216,14 @@ const PARENT_ROUTES = {
 
   ป้ายปุ่ม (`label`) จะแสดงชื่อหน้า parent ให้ผู้ใช้รู้ว่ากำลังจะกลับไปไหน
 
+**Drill-down (กระโดดจากรายการไปมุมมองย่อย/หน้าอื่น) ต้องใช้ `src/lib/drill.js` เสมอ** — เช่น แถวในรายชื่อ → เลื่อนขั้นคนนั้น,
+รายชื่อเจ้าหน้าที่ → โปรไฟล์, กล่องงาน → คิวสินเชื่อ, ลิงก์ข้ามหน้า self-service:
+- `const { drillTo, drillParams } = useDrill()` → `drillTo(path, "ป้ายที่จะกลับไป")` / `drillParams((p) => { p.set("sub", "step"); return p }, "รายชื่อเงินเดือน")`
+- `<Link to="/x" state={backState("ชื่อหน้านี้")}>` สำหรับลิงก์
+- push history + `state.backLabel` → Topbar ขึ้น "‹ <ป้าย>" กดแล้ว history -1 (คืนแท็บย่อย/ตัวกรองเดิม) แม้อยู่บนหน้าหลักของ role (เช่น HR dashboard)
+- สลับแท็บย่อยแบบ `replace` ต้องส่ง `state: keepBackState()` (useSubTab ทำให้แล้ว) ไม่งั้นปุ่มย้อนกลับหาย
+- ห้ามกระโดดด้วย `setParams(..., { replace: true })` หรือ `navigate(path)` เปล่า ๆ — ผู้ใช้จะติดอยู่ในมุมมองย่อยโดยไม่มีปุ่มกลับ
+
 ---
 
 ## ทีม

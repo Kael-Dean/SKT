@@ -44,6 +44,7 @@ import BuySpecSection from "./buy/BuySpecSection"
 import BuyWeighSection from "./buy/BuyWeighSection"
 import BuyMobileStepper from "./buy/BuyMobileStepper"
 import PageTitle from "../../components/PageTitle"
+import { backState } from "../../lib/drill"
 
 /** ---------- Component ---------- */
 const Buy = () => {
@@ -1942,7 +1943,7 @@ if (buyerType === "person") {
       return {
         // ฟอร์มถูก reset แล้ว — ปิด = ทำรายการใหม่
         primary: { label: "ทำรายการใหม่", onClick: () => { closeResult(); stepApiRef.current?.goTo(0); scrollToPageTop(); focusFirstCustomerField() } },
-        secondary: can("trading.reports.view") ? { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order") } } : undefined,
+        secondary: can("trading.reports.view") ? { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order", { state: backState() }) } } : undefined,
       }
     }
     const retry = { label: "ลองอีกครั้ง", onClick: () => { closeResult(); setTimeout(() => handleSubmit(), 0) } }
@@ -1950,7 +1951,7 @@ if (buyerType === "person") {
     switch (result.primary) {
       case "edit": return { primary: { label: "แก้ไขข้อมูล", onClick: closeResult }, secondary: close }
       case "login": return { primary: { label: "เข้าสู่ระบบใหม่", onClick: () => { logout(); navigate("/") } }, secondary: close }
-      case "orders": return { primary: { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order") } }, secondary: close }
+      case "orders": return { primary: { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order", { state: backState() }) } }, secondary: close }
       default: return { primary: retry, secondary: close }
     }
   })()

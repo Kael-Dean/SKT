@@ -27,6 +27,7 @@ import ReturnPeriodSheet from "../../../components/hr/ReturnPeriodSheet"
 import StatusMsg from "../../../components/hr/StatusMsg"
 import HRPayrollPayoutSheet from "./HRPayrollPayoutSheet"
 import HRPayrollReviewPanel from "./HRPayrollReviewPanel"
+import { keepBackState, useDrill } from "../../../lib/drill"
 
 const PAYROLL_COLS = 5
 const ID_BASE = "payroll"
@@ -502,11 +503,13 @@ export default function HRPayrollTab() {
   const sub = subs.some((s) => s.value === raw) ? raw : fallback
 
   const changeSub = (next) =>
-    setParams((prev) => { const p = new URLSearchParams(prev); p.set("sub", String(next)); return p }, { replace: true })
+    setParams((prev) => { const p = new URLSearchParams(prev); p.set("sub", String(next)); return p }, { replace: true, state: keepBackState() })
 
+  // รออนุมัติ → งวดของเดือนนั้น = drill-down: Topbar "‹ งวดรออนุมัติ" พากลับ
+  const { drillParams } = useDrill()
   const openMonth = (year, month) => {
     setFilterMonth(`${year}-${String(month).padStart(2, "0")}`)
-    changeSub("month")
+    drillParams((p) => { p.set("sub", "month"); return p }, "งวดรออนุมัติ")
   }
 
   const onCountChange = useCallback((n) => setReviewCount(n), [])

@@ -64,6 +64,7 @@ import { HR_KPI_PERMS, can, checkAccess } from "../../lib/permissions"
 import { useMyPermissionsVersion } from "../../lib/myPermissions"
 import { ForbiddenState } from "../../components/RequirePermission"
 import PageTitle from "../../components/PageTitle"
+import { backState, keepBackState } from "../../lib/drill"
 
 // ─── Navigation config (single source of truth) ──────────────────────────────
 
@@ -689,7 +690,7 @@ export default function HRDashboard() {
         p.set("tab", activeKey)
         p.delete("sub")
         return p
-      }, { replace: true })
+      }, { replace: true, state: keepBackState() })
     }
   }, [rawTab, activeKey, setSearchParams])
 
@@ -719,7 +720,14 @@ export default function HRDashboard() {
     else window.scrollTo({ top: 0, behavior })
   }, [setSearchParams])
 
-  const goToPositions = useCallback(() => setTab("positions"), [setTab])
+  // เงินเดือน → ตำแหน่งงาน เป็น drill-down: Topbar "‹ เงินเดือน" พากลับแท็บเดิม (คนที่เลือกไว้ยังอยู่ใน URL)
+  const goToPositions = useCallback(() => {
+    setSearchParams({ tab: "positions" }, { state: backState("เงินเดือน") })
+    const main = rootRef.current?.closest("main")
+    const behavior = prefersReducedMotion() ? "auto" : "smooth"
+    if (main) main.scrollTo({ top: 0, behavior })
+    else window.scrollTo({ top: 0, behavior })
+  }, [setSearchParams])
 
   const openSwitcher = useCallback(() => {
     openerRef.current = document.activeElement

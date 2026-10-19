@@ -2,7 +2,6 @@
 import { cx, baseField } from "../../../lib/styles"
 // รายชื่อเจ้าหน้าที่ + ลงทะเบียนเจ้าหน้าที่ใหม่
 import { useEffect, useState, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
 import BranchLockNote from "../../../components/BranchLockNote"
@@ -13,6 +12,7 @@ import StatusMsg from "../../../components/hr/StatusMsg"
 import EmployeeTable from "../../../components/hr/EmployeeTable"
 import useModalDismiss from "../../../lib/useModalDismiss"
 import { assignableRoleOptions } from "../../../lib/permissions"
+import { useDrill } from "../../../lib/drill"
 
 const GENDER_OPTIONS = [
   { value: "M", label: "ชาย" },
@@ -85,7 +85,7 @@ const emptyWork = () => ({ company_name: "", position: "", from_date: "", to_dat
 const emptyCrime = () => ({ charge: "", court: "", case_date: "", outcome: "" })
 
 export default function HREmployeesTab() {
-  const navigate = useNavigate()
+  const { drillTo } = useDrill()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -303,7 +303,7 @@ export default function HREmployeesTab() {
         rows={users}
         branches={branches}
         loading={loading}
-        onRowClick={(u) => navigate(`/hr/personnel/${u.id}`)}
+        onRowClick={(u) => drillTo(`/hr/personnel/${u.id}`, "เจ้าหน้าที่")}
         serverFiltersActive={hasActiveFilters}
         onClearServerFilters={clearFilters}
         emptyState={

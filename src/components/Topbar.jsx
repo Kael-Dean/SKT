@@ -15,6 +15,7 @@ import { getUser, getRoleId } from "../lib/auth";
 import BranchSwitcher from "./BranchSwitcher";
 import NotificationBell from "./NotificationBell";
 import { myRoleLabel } from "../lib/permissions";
+import { canGoBack } from "../lib/drill";
 
 // Shared chrome for the icon buttons; display + size are set per button so
 // `hidden md:inline-flex` on the dark toggle is not out-ranked by `inline-flex`.
@@ -72,6 +73,8 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
   const displayName = userInfo.username || "ไม่พบผู้ใช้";
   const displayRole = myRoleLabel(); // role_name จาก /auth/me/permissions (DB) — ไม่ใช่ claim ใน JWT ที่อาจเก่า
   const avatarLetter = (displayName[0] || "U").toUpperCase();
+  // back.history = มาจาก drill-down → กลับ entry ก่อนหน้า (คืนแท็บย่อย/ตัวกรอง); เปิดลิงก์ตรง → ไปหน้าแม่
+  const goBack = () => (back?.history && canGoBack() ? navigate(-1) : navigate(back.to));
 
   return (
     <header
@@ -85,7 +88,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
           {back && (
             <button
               type="button"
-              onClick={() => navigate(back.to)}
+              onClick={goBack}
               aria-label={`ย้อนกลับไป ${back.label}`}
               title={back.label}
               className={`${chromeBtnCls} md:hidden`}
@@ -138,7 +141,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
                 {back && (
                   <button
                     type="button"
-                    onClick={() => navigate(back.to)}
+                    onClick={goBack}
                     aria-label={`ย้อนกลับไป ${back.label}`}
                     className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-lg px-2 text-sm font-medium text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-gray-400 dark:hover:bg-white/[.08] dark:hover:text-white"
                   >

@@ -1,9 +1,9 @@
 // src/pages/Home.jsx
 import { useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { Navigate, useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 import { getUser, getRoleId } from "../../lib/auth"
-import { myRoleLabel } from "../../lib/permissions"
+import { HR_HUB_PERMS, can, canAny, myRoleLabel } from "../../lib/permissions"
 import { useMyPermissionsVersion } from "../../lib/myPermissions"
 import { ALL_FUNCTIONS, ALL_ITEMS, canAccessItem, lucideFor } from "../../lib/homeFunctions"
 import { getRecent } from "../../lib/recentRoutes"
@@ -185,6 +185,9 @@ export default function Home() {
     month: "long",
     day: "numeric",
   })
+
+  // ตำแหน่ง HR: หน้าหลัก = แดชบอร์ด HR อย่างเดียว (ไม่แสดงการ์ดซื้อขาย/สมาชิก ฯลฯ)
+  if (can("home.hrDashboardOnly") && canAny(HR_HUB_PERMS)) return <Navigate to="/hr/dashboard" replace />
 
   if (loading) {
     return (

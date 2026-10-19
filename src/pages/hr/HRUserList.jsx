@@ -1,7 +1,6 @@
 // src/pages/hr/HRUserList.jsx
 // รายชื่อเจ้าหน้าที่ทั้งหมด — Admin / HR เท่านั้น (GET /hr/personnel)
 import { useEffect, useState, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 import { ErrorState, EmptyState } from "../../components/ui"
 import EmployeeTable from "../../components/hr/EmployeeTable"
@@ -10,9 +9,10 @@ import SelectDropdown from "../../components/SelectDropdown"
 import BranchLockNote from "../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock"
 import PageTitle from "../../components/PageTitle"
+import { useDrill } from "../../lib/drill"
 
 export default function HRUserList() {
-  const navigate = useNavigate()
+  const { drillTo } = useDrill()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -161,7 +161,7 @@ export default function HRUserList() {
         rows={users}
         branches={branches}
         loading={loading}
-        onRowClick={(u) => navigate(`/hr/personnel/${u.id}`)}
+        onRowClick={(u) => drillTo(`/hr/personnel/${u.id}`, "รายชื่อเจ้าหน้าที่")}
         serverFiltersActive={hasActiveFilters}
         onClearServerFilters={clearFilters}
         caption="รายชื่อเจ้าหน้าที่ทั้งหมด"

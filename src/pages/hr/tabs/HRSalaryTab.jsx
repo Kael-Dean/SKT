@@ -18,6 +18,7 @@ import { useEmployeeSalary } from "../../../components/hr/salaryData"
 import { getCachedPersonnel, loadPersonnel } from "../../../components/hr/personnelCache"
 import { cardCls } from "../../../components/hr/positionUtils"
 import { EmptyState, ErrorState, Tabs, panelId, tabId, useSubTab } from "../../../components/ui"
+import { keepBackState, useDrill } from "../../../lib/drill"
 
 const ID_BASE = "salary"
 const SUB_TABS = [
@@ -32,6 +33,7 @@ export default function HRSalaryTab({ onGoToPositions }) {
   const [sub] = useSubTab(SUB_VALUES, "roster")
   const [, setParams] = useSearchParams()
   const navigate = useNavigate()
+  const { drillParams } = useDrill()
   const empParam = useEmpParam()
 
   // tab click: switch sub-tab and drop any preselected employee (one URL write — replace)
@@ -41,16 +43,15 @@ export default function HRSalaryTab({ onGoToPositions }) {
       p.set("sub", String(next))
       p.delete("emp")
       return p
-    }, { replace: true })
+    }, { replace: true, state: keepBackState() })
 
-  // roster row action → step/history with that person preselected (push, so Back returns to the roster)
+  // roster row action → step/history with that person preselected — drill-down: Topbar "‹ รายชื่อเงินเดือน" returns here
   const openEmployee = (next, id) =>
-    setParams((prev) => {
-      const p = new URLSearchParams(prev)
+    drillParams((p) => {
       p.set("sub", next)
       p.set("emp", String(id))
       return p
-    })
+    }, "รายชื่อเงินเดือน")
 
   // picking someone inside step/history keeps &emp= in sync (no remount: the panels read it only at mount)
   const syncEmp = (id) =>
@@ -59,7 +60,7 @@ export default function HRSalaryTab({ onGoToPositions }) {
       if (id) p.set("emp", String(id))
       else p.delete("emp")
       return p
-    }, { replace: true })
+    }, { replace: true, state: keepBackState() })
   // HRDashboard ส่ง onGoToPositions มา (rail navigation); ถ้าไม่มีใช้ ?tab= ตรง ๆ แทน
   const goToPositions = onGoToPositions ?? (() => navigate("/hr/dashboard?tab=positions"))
 

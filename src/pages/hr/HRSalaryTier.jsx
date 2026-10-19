@@ -8,6 +8,7 @@ import SalaryStepPanel from "../../components/hr/SalaryStepPanel"
 import PositionsManager from "../../components/hr/PositionsManager"
 import { Tabs, panelId, tabId, useSubTab } from "../../components/ui"
 import PageTitle from "../../components/PageTitle"
+import { useDrill } from "../../lib/drill"
 
 const ID_BASE = "salary-tier"
 const TABS = [
@@ -19,6 +20,9 @@ const TAB_VALUES = TABS.map((t) => t.value)
 
 export default function HRSalaryTier() {
   const [tab, setTab] = useSubTab(TAB_VALUES, "ladder")
+  const { drillParams } = useDrill()
+  // เลื่อนขั้น → ตำแหน่งงาน (ลิงก์ในแผง) = drill-down: Topbar "‹ เลื่อนขั้น" พากลับ
+  const goToPositions = () => drillParams((p) => { p.set("sub", "positions"); return p }, "เลื่อนขั้น")
 
   return (
     <div className="space-y-5 pb-10">
@@ -34,7 +38,7 @@ export default function HRSalaryTier() {
         className="rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
       >
         {tab === "ladder" && <SalaryLadderPanel />}
-        {tab === "step" && <SalaryStepPanel onGoToPositions={() => setTab("positions")} />}
+        {tab === "step" && <SalaryStepPanel onGoToPositions={goToPositions} />}
         {tab === "positions" && <PositionsManager />}
       </div>
     </div>

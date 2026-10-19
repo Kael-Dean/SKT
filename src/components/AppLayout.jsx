@@ -62,7 +62,11 @@ const AppLayout = () => {
   // <md: ปุ่มย้อนกลับย้ายเข้า Topbar (ซ้ายสุด 44px) — ปุ่ม inline ด้านล่างเป็น hidden md:flex
   // HR: /hr/dashboard คือหน้าหลัก — ไม่มีปุ่มย้อนกลับ (กลับ /home ก็เด้งมาที่เดิม)
   const isEffectiveHome = isHome || (isHrDashboard && can("home.hrDashboardOnly") && canAny(HR_HUB_PERMS))
-  const back = !isEffectiveHome ? { to: backTo, label: backLabel } : null
+  // มาจาก drill-down (lib/drill.js) → ปุ่มย้อนกลับพากลับไปมุมมองเดิม (history -1) แม้อยู่บนหน้าหลักของ role
+  const drillLabel = location.state?.backLabel
+  const back = drillLabel
+    ? { to: backTo, label: drillLabel, history: true }
+    : !isEffectiveHome ? { to: backTo, label: backLabel } : null
 
   // ชื่อหน้าใน Topbar — หน้าที่ตั้งเอง (<PageTitle> / usePageTitle) ก่อน, ไม่งั้นใช้ชื่อเมนู
   const registeredTitle = useCurrentPageTitle()

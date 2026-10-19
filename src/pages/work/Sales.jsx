@@ -23,6 +23,7 @@ import SalesSpecSection from "./sales/SalesSpecSection"
 import SalesTrailerSection from "./sales/SalesTrailerSection"
 import SalesMobileStepper from "./sales/SalesMobileStepper"
 import PageTitle from "../../components/PageTitle"
+import { backState } from "../../lib/drill"
 
 // =====================================================================
 //                              Sales Page (ขาย: หลายพ่วง)
@@ -1390,7 +1391,7 @@ function Sales() {
           { key: "total", label: "รวม", value: thb(totalAmt) },
         ],
         primary: { label: "ทำรายการใหม่", onClick: () => { closeResult(); if (!isPhone) focusFirstCustomerField() } },
-        secondary: can("trading.reports.view") ? { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order?mode=sell") } } : undefined,
+        secondary: can("trading.reports.view") ? { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order?mode=sell", { state: backState() }) } } : undefined,
       }
     }
     const lines = r.results.map((x) => ({

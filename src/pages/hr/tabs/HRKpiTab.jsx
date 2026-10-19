@@ -16,6 +16,7 @@ import ProfitResultPanel from "../../../components/hr/kpi/ProfitResultPanel"
 import MonthlyKpiPanel from "../../../components/hr/kpi/MonthlyKpiPanel"
 import { useFiscalYearInfo, useKpiPeople } from "../../../components/hr/kpi/useKpi"
 import { currentFiscalYear, getKpiPerms, num, windowPhase } from "../../../components/hr/kpi/kpiUtils"
+import { keepBackState } from "../../../lib/drill"
 
 const ID_BASE = "hr-kpi"
 
@@ -29,7 +30,7 @@ export default function HRKpiTab() {
       const p = new URLSearchParams(prev)
       p.set("fy", String(next))
       return p
-    }, { replace: true }),
+    }, { replace: true, state: keepBackState() }),
     [setParams]
   )
 

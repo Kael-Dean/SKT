@@ -16,6 +16,7 @@ import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel as getRoleLabel } from "../../lib/roles"
 import { can, myRoleLabel } from "../../lib/permissions"
 import PageTitle from "../../components/PageTitle"
+import { backState } from "../../lib/drill"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -389,6 +390,7 @@ export default function MyProfile() {
           {can("self.payroll.view") && (
             <Link
               to="/my-financial"
+              state={backState("ข้อมูลส่วนตัว")}
               className="mt-3 inline-flex min-h-touch md:min-h-0 items-center gap-1 rounded text-sm font-medium text-indigo-700 hover:underline dark:text-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
               ดูรายการหัก สลิปเงินเดือน และประวัติการเลื่อนขั้น <ChevronRight aria-hidden="true" className="size-4" />

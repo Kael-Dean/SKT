@@ -30,6 +30,9 @@ export function usePageTitle(title) {
   }, [title])
 }
 
+/** ชื่อหน้าปัจจุบัน (อ่านครั้งเดียว ไม่ re-render) — ใช้ตั้งป้ายปุ่มย้อนกลับตอนกระโดดไปหน้าอื่น */
+export const getCurrentPageTitle = () => current?.title ?? null
+
 /** ชื่อหน้าที่หน้าปัจจุบันตั้งไว้ (null = ไม่ได้ตั้ง) */
 export function useCurrentPageTitle() {
   return useSyncExternalStore(subscribe, () => current?.title ?? null)

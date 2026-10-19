@@ -7,7 +7,7 @@
 // detail after re-checking the request's *current* status (notifications can
 // be stale). One source failing (e.g. 403 for the role) never hides the other.
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useSearchParams } from "react-router-dom"
 import Portal from "../../components/Portal"
 import DecisionModal from "../../components/DecisionModal"
 import LeaveStageActions from "../../components/LeaveStageActions"
@@ -40,6 +40,7 @@ import {
 } from "../../lib/approvalActions"
 import useModalDismiss from "../../lib/useModalDismiss"
 import PageTitle from "../../components/PageTitle"
+import { keepBackState, useDrill } from "../../lib/drill"
 
 const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5"
@@ -386,7 +387,7 @@ const TABS = [
 // ─── สินเชื่อกองทุนฯ (3K) — คิวพิจารณาอยู่ที่ /hr/dashboard?tab=loans ─────────
 // หัวหน้าที่ไม่มีเมนู HR อื่นก็เห็นทางเข้าจากกล่องงานนี้ (GET /hr/loans/queue)
 function LoanQueueNotice() {
-  const navigate = useNavigate()
+  const { drillTo } = useDrill()
   const [count, setCount] = useState(null)
   useEffect(() => {
     let alive = true
@@ -406,7 +407,7 @@ function LoanQueueNotice() {
       </p>
       <button
         type="button"
-        onClick={() => navigate("/hr/dashboard?tab=loans&sub=queue")}
+        onClick={() => drillTo("/hr/dashboard?tab=loans&sub=queue", "กล่องงานรออนุมัติ")}
         className="inline-flex cursor-pointer items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
       >
         ไปพิจารณาสินเชื่อ
@@ -417,7 +418,7 @@ function LoanQueueNotice() {
 
 // ─── page ───────────────────────────────────────────────────────────────────
 export default function Inbox() {
-  const navigate = useNavigate()
+  const { drillTo } = useDrill()
   const [params, setParams] = useSearchParams()
   const roleId = getRoleId()
   const approver = isApproverRole(roleId)
@@ -488,7 +489,7 @@ export default function Inbox() {
 
   const detailFromLink = !!detail?.fromLink
   const closeDetail = useCallback(() => {
-    if (detailFromLink) setParams({}, { replace: true })
+    if (detailFromLink) setParams({}, { replace: true, state: keepBackState() })
     setDetail(null)
   }, [detailFromLink, setParams])
 
@@ -588,7 +589,7 @@ export default function Inbox() {
             action={
               <button
                 type="button"
-                onClick={() => navigate("/leave-request")}
+                onClick={() => drillTo("/leave-request", "กล่องงานรออนุมัติ")}
                 className="rounded-2xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:bg-gray-700/50"
               >
                 ไปหน้าใบลาของฉัน

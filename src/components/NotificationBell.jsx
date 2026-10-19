@@ -4,9 +4,9 @@
 // z-index above StickyTableScrollbar — same pattern as SelectDropdown.jsx.
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { useNavigate } from "react-router-dom"
 import useNotifications from "../hooks/useNotifications"
 import { inboxLink, relativeTimeTh, fmtDateTimeTh, KIND_LABEL } from "../lib/approvalActions"
+import { useDrill } from "../lib/drill"
 
 const PANEL_Z = 10050
 const PANEL_W = 380
@@ -112,7 +112,7 @@ function NotificationRow({ n, onOpen }) {
 }
 
 export default function NotificationBell() {
-  const navigate = useNavigate()
+  const { drillTo } = useDrill()
   const { items, unreadCount, loading, loaded, error, markRead, markAllRead, refresh } = useNotifications()
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, right: 0, width: PANEL_W, maxH: 480 })
@@ -179,7 +179,7 @@ export default function NotificationBell() {
   const openNotification = (n) => {
     markRead(n.id)
     setOpen(false)
-    navigate(inboxLink(n.ref_type, n.ref_id))
+    drillTo(inboxLink(n.ref_type, n.ref_id))
   }
 
   const badge = unreadCount > 99 ? "99+" : String(unreadCount)
@@ -280,7 +280,7 @@ export default function NotificationBell() {
                 type="button"
                 onClick={() => {
                   setOpen(false)
-                  navigate("/inbox")
+                  drillTo("/inbox")
                 }}
                 className="w-full px-4 py-2.5 text-center text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus-visible:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/50 dark:hover:text-white"
               >

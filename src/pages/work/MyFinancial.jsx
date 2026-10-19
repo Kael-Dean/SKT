@@ -16,6 +16,7 @@ import { fmtDate, fmtLevel, reasonLabel } from "../../components/hr/positionUtil
 import { cardCls, cx, focusRingCls } from "../../lib/styles"
 import { EmptyState, ErrorState, SkeletonText } from "../../components/ui"
 import MyPayslipsPanel from "../../components/hr/MyPayslipsPanel"
+import PageTitle from "../../components/PageTitle"
 
 // ─── a) ค่าที่บันทึกไว้ ────────────────────────────────────────────────────────
 // `always` = แสดงแม้เป็น 0 (ให้เห็นว่าไม่มีรายการนี้), ไม่งั้นแสดงเฉพาะที่มีค่า
@@ -217,10 +218,7 @@ export default function MyFinancial() {
   const { can } = useCan()
   return (
     <div className="mx-auto max-w-4xl space-y-8 pb-10">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ข้อมูลการเงินของฉัน</h1>
-        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">เงินเดือน รายการหัก สลิปเงินเดือน และประวัติการเลื่อนขั้นของคุณ</p>
-      </div>
+      <PageTitle title="ข้อมูลการเงินของฉัน" />
 
       <OnFileCard />
 

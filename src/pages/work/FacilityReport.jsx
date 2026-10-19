@@ -9,6 +9,7 @@ import Portal from "../../components/Portal"
 import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
 import ExcelDownloadButton from "../../components/ExcelDownloadButton"
 import useModalDismiss from "../../lib/useModalDismiss"
+import PageTitle from "../../components/PageTitle"
 
 
 // ─── utils ────────────────────────────────────────────────────────────────────
@@ -592,12 +593,7 @@ export default function FacilityReport() {
   return (
     <div className="max-w-3xl mx-auto space-y-5 pb-12">
       {/* Page title */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-          บันทึกรายได้-ค่าใช้จ่ายรายวัน และสร้างรายงาน PDF
-        </p>
-      </div>
+      <PageTitle title="รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์" />
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl bg-gray-100 dark:bg-gray-800 p-1 w-fit">

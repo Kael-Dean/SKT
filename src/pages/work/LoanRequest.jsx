@@ -22,6 +22,7 @@ import {
   LOAN_PURPOSE_LABEL, LOAN_PURPOSE_OPTIONS, asList, guarantorText, loanStatusLabel, loanStatusTone,
   money, thaiDate, warningList,
 } from "../../lib/loans"
+import PageTitle from "../../components/PageTitle"
 
 const MAX_MONTHS = 180
 const PREVIEW_DELAY = 450
@@ -415,10 +416,7 @@ export default function LoanRequest() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-5 pb-10">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ขอกู้เงินกองทุนสงเคราะห์</h1>
-        <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-300">ผู้บังคับบัญชาเห็นชอบ → ผู้จัดการ → คณะทำงานกองทุนฯ พิจารณา</p>
-      </div>
+      <PageTitle title="ขอกู้เงินกองทุนสงเคราะห์" />
 
       <Tabs items={tabs} value={tab} onChange={setTab} ariaLabel="ขอกู้เงิน" idBase={ID_BASE} />
 

@@ -9,6 +9,7 @@ import EmployeeTable from "../../components/hr/EmployeeTable"
 import SelectDropdown from "../../components/SelectDropdown"
 import BranchLockNote from "../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock"
+import PageTitle from "../../components/PageTitle"
 
 export default function HRUserList() {
   const navigate = useNavigate()
@@ -71,7 +72,7 @@ export default function HRUserList() {
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">รายชื่อเจ้าหน้าที่ทั้งหมด</h1>
+          <PageTitle title="รายชื่อเจ้าหน้าที่ทั้งหมด" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {loading ? "กำลังโหลด…" : `เจ้าหน้าที่ ${users.length} คน · ใช้งานอยู่ ${activeCount} คน`}
           </p>

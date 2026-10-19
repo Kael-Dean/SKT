@@ -2,12 +2,13 @@ import { useEffect, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { apiAuth } from "../../../lib/api"
 import { getRoleId } from "../../../lib/auth"
-import { cx, cardCls, pageTitleCls } from "../../../lib/styles"
+import { cx, cardCls } from "../../../lib/styles"
 import { PageLoader, ErrorState } from "../../../components/ui"
 import DebtTotalsTab       from "./DebtTotalsTab"
 import DebtTransactionsTab from "./DebtTransactionsTab"
 import DebtProgramsTab     from "./DebtProgramsTab"
 import { canManagePrograms as canManageDebtPrograms } from "./debtEntryMeta"
+import PageTitle from "../../../components/PageTitle"
 
 
 export default function DebtTracking() {
@@ -98,12 +99,7 @@ export default function DebtTracking() {
   return (
     <div className="space-y-5 py-2">
       {/* Page header */}
-      <div>
-        <h1 className={pageTitleCls}>ติดตามผลหนี้</h1>
-        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-          บันทึกและติดตามยอดหนี้คงค้างของสมาชิก
-        </p>
-      </div>
+      <PageTitle title="ติดตามผลหนี้" />
 
       {errorRefs && (
         <ErrorState

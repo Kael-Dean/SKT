@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom"
 import { can } from "../../../lib/permissions"
-import { cx, cardCls, pageTitleCls } from "../../../lib/styles"
+import { cx, cardCls } from "../../../lib/styles"
+import PageTitle from "../../../components/PageTitle"
 
 // ฟังก์ชันย่อยภายใต้ "ติดตามหนี้"
 const SUB_FUNCTIONS = [
@@ -56,12 +57,7 @@ export default function DebtHub() {
 
   return (
     <div className="space-y-5 p-4 md:p-6">
-      <div>
-        <h1 className={pageTitleCls}>ติดตามหนี้</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          เลือกฟังก์ชันที่ต้องการ
-        </p>
-      </div>
+      <PageTitle title="ติดตามหนี้" />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {items.map((item, i) => {

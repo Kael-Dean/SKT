@@ -150,6 +150,7 @@ Table:   overflow-x-auto wrapper, even:bg-gray-50 dark:even:bg-gray-700/30
 
 ### Component Pattern
 - **ComboBox ใช้ตัวกลาง `src/components/ComboBox.jsx` เท่านั้น** (portaled, keyboard Up/Down/Enter/Esc, มือถือเปิดเป็น picker sheet) — ห้ามเขียน `function ComboBox` ในหน้าอีก. default `getValue = o.value ?? o.id` (ถ้าข้อมูลต้องการ `id` ก่อนให้ส่ง `getValue` เอง); `title` = หัวข้อ picker; `enterMovesWhenFilled` สำหรับหน้าแบบ StockTransferOut
+- **หัวข้อหน้า = `<PageTitle title="…" />`** (`src/components/PageTitle.jsx`) — h1 แบบ sr-only + ชื่อไปแสดงใน Topbar (sticky) คู่ปุ่มย้อนกลับ. ห้ามทำหัวข้อใหญ่ + คำอธิบายใต้หัวข้อในหน้าอีก (กินพื้นที่ต้นหน้า ผู้ใช้ต้องเลื่อน). หัวข้อที่เป็นข้อมูล (เช่นชื่อพนักงาน) แสดงในหน้าได้ แล้วตั้งชื่อหน้าใน Topbar ด้วย `usePageTitle("…")` (`src/lib/pageTitle.js`). หน้าที่ไม่ตั้ง → ใช้ชื่อเมนูจาก `homeFunctions`
 - Page padding: `p-4 md:p-6`
 - Animation duration: `duration-200` (hover/focus), `duration-300` (layout animations)
 - **Popup / Modal ต้อง render ผ่าน `<Portal>` เสมอ** (`src/components/Portal.jsx`) — ทำแบบ popup หน้า "กล่องงานรออนุมัติ" (Inbox). ห้าม render overlay `fixed inset-0` ไว้กลาง component tree ตรง ๆ เพราะถ้ามี ancestor ที่มี `transform`/`filter`/`backdrop-filter` `position: fixed` จะอิงกล่องนั้นแทน viewport → modal ไม่อยู่กลางจอ. Portal render เข้าที่ `document.body` + lock body scroll ให้อัตโนมัติ

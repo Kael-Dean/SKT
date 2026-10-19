@@ -23,6 +23,7 @@ import BranchLockNote from "../../components/BranchLockNote"
 import { getActiveBranch } from "../../lib/auth"
 import { StickyActionBar, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
+import PageTitle from "../../components/PageTitle"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/[^\d]/g, "")
@@ -379,14 +380,7 @@ function StockBringIn() {
         {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด (เหมือนหน้า Sales) */}
         <div ref={pageTopRef} />
 
-        <h1 className="mb-4 flex items-center gap-2.5 text-xl md:text-3xl font-bold text-gray-900 dark:text-white">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-6 md:size-7 text-indigo-600 dark:text-indigo-400">
-            <path d="M12 13V2" />
-            <path d="m8 9 4 4 4-4" />
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          </svg>
-          ยอดยกมา
-        </h1>
+        <PageTitle title="ยอดยกมา" />
 
         {/* สินค้า — ฟอร์มสินค้าตัวเดียว + ชิปสเปค (handoff F30) */}
         <div className={cardSectionCls}>

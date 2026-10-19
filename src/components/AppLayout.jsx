@@ -1,11 +1,13 @@
 import { createContext, useContext, useDeferredValue, useEffect, useState } from "react"
-import { Outlet, useNavigate, useLocation } from "react-router-dom"
+import { Outlet, useLocation } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
 import Toaster from "./ui/Toaster"
 import { recordVisit } from "../lib/recentRoutes"
 import { loadMyPermissions, useMyPermissionsVersion } from "../lib/myPermissions"
 import { HR_HUB_PERMS, can, canAny } from "../lib/permissions"
+import { useCurrentPageTitle } from "../lib/pageTitle"
+import { ALL_ITEMS } from "../lib/homeFunctions"
 
 export const SidebarContext = createContext(false)
 export const useSidebarOpen = () => useContext(SidebarContext)
@@ -31,7 +33,6 @@ const getInitialDark = () => {
 // works, and `position: sticky` inside pages sticks below the Topbar via
 // `top-(--topbar-h)` (Topbar.jsx measures itself into that variable).
 const AppLayout = () => {
-  const navigate = useNavigate()
   const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(getInitialDark)
@@ -62,6 +63,11 @@ const AppLayout = () => {
   // HR: /hr/dashboard คือหน้าหลัก — ไม่มีปุ่มย้อนกลับ (กลับ /home ก็เด้งมาที่เดิม)
   const isEffectiveHome = isHome || (isHrDashboard && can("home.hrDashboardOnly") && canAny(HR_HUB_PERMS))
   const back = !isEffectiveHome ? { to: backTo, label: backLabel } : null
+
+  // ชื่อหน้าใน Topbar — หน้าที่ตั้งเอง (<PageTitle> / usePageTitle) ก่อน, ไม่งั้นใช้ชื่อเมนู
+  const registeredTitle = useCurrentPageTitle()
+  const menuTitle = ALL_ITEMS.find((i) => i.path.toLowerCase() === location.pathname.toLowerCase())?.label
+  const pageTitle = isEffectiveHome && !isHrDashboard ? null : registeredTitle ?? menuTitle ?? null
 
   // ใส่/เอาออก class 'dark' ที่ <html>
   useEffect(() => {
@@ -102,6 +108,7 @@ const AppLayout = () => {
           darkMode={darkMode}
           setDarkMode={setDarkMode}
           back={back}
+          title={pageTitle}
         />
 
         <main className="min-w-0 flex-1">
@@ -112,20 +119,6 @@ const AppLayout = () => {
               isFullWidth ? "w-full" : isHrDashboard ? "mx-auto max-w-[1600px]" : "mx-auto max-w-7xl"
             }`}
           >
-            {back && (
-              <div className="mb-6 hidden items-center gap-3 md:flex">
-                <button
-                  onClick={() => navigate(back.to)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm transition-all duration-150 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:border-line-strong dark:bg-white/[.04] dark:text-gray-300 dark:shadow-none dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-200 cursor-pointer"
-                  type="button"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                  {back.label}
-                </button>
-              </div>
-            )}
             <Outlet />
           </div>
           </SidebarContext.Provider>

@@ -6,6 +6,7 @@ import { ErrorState, SearchField, StickyActionBar, ResultSheet, ConfirmDialog, t
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import { describeApiError, thb } from "./buy/buyShared"
 import DateInput from "../../components/ThaiDateField"
+import PageTitle from "../../components/PageTitle"
 
 /** ---------- Utils ---------- */
 // debounce สำหรับช่องค้นหา
@@ -345,25 +346,7 @@ function Share() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-5xl p-5 md:p-6 lg:p-8">
-        <h1 className="mb-1 flex items-center gap-2 text-xl md:text-3xl font-bold">
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="size-6 md:size-7 text-emerald-600 dark:text-emerald-400"
-          >
-            <path d="M3 3v18h18" />
-            <path d="m19 9-5 5-4-4-3 3" />
-          </svg>
-          ซื้อหุ้น
-        </h1>
-        <p className="mb-5 text-sm md:text-base leading-relaxed text-slate-600 dark:text-slate-300">
-          ค้นหาและเลือกสมาชิก กรอกวันที่และจำนวนที่ซื้อ แล้วกดซื้อหุ้น
-        </p>
+        <PageTitle title="ซื้อหุ้น" />
 
         {/* เลือกสมาชิก */}
         <SectionCard title="เลือกสมาชิก" className="mb-6">

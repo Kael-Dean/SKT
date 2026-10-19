@@ -14,6 +14,7 @@ import { useIsPhone } from "../../hooks/useMediaQuery";
 import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock";
 import BranchLockNote from "../../components/BranchLockNote";
 import DateInput from "../../components/ThaiDateField";
+import PageTitle from "../../components/PageTitle"
 
 /* ---------------- Utilities (ทนทานต่อค่าที่ไม่ใช่สตริง) ---------------- */
 const asString = (v) => (v === null || v === undefined ? "" : String(v));
@@ -716,10 +717,8 @@ function OrderCorrection() {
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-7xl p-4 md:p-6">
         {/* หัวเรื่อง + สลับโหมด */}
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            แก้ไขออเดอร์ {mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}
-          </h1>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <PageTitle title={`แก้ไขออเดอร์ ${mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}`} />
           <div className="inline-flex items-center rounded-2xl border border-slate-300 p-1 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-600">
             <button
               type="button"

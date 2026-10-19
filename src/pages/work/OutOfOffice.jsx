@@ -16,6 +16,7 @@ import SelectDropdown from "../../components/SelectDropdown"
 import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
+import PageTitle from "../../components/PageTitle"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -345,12 +346,7 @@ export default function OutOfOffice() {
   return (
     <>
       <div className="max-w-6xl mx-auto space-y-5 pb-12">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">ขอออกนอกสถานที่</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            ออกนอกสถานที่ระหว่างวันทำงานได้ไม่เกินครึ่งวัน ถ้านานกว่านั้นให้ยื่นใบลา
-          </p>
-        </div>
+        <PageTitle title="ขอออกนอกสถานที่" />
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] items-start">
           {/* ══════════ FORM ══════════ */}

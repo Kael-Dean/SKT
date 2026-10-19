@@ -63,6 +63,7 @@ import useModalDismiss from "../../lib/useModalDismiss"
 import { HR_KPI_PERMS, can, checkAccess } from "../../lib/permissions"
 import { useMyPermissionsVersion } from "../../lib/myPermissions"
 import { ForbiddenState } from "../../components/RequirePermission"
+import PageTitle from "../../components/PageTitle"
 
 // ─── Navigation config (single source of truth) ──────────────────────────────
 
@@ -788,12 +789,7 @@ export default function HRDashboard() {
 
   return (
     <div ref={rootRef} className="space-y-6 pb-10">
-      <header>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">งานบุคคล (HR)</h1>
-        <p className="mt-0.5 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-          จัดการข้อมูลเจ้าหน้าที่ การลา การย้ายสาขา และเงินเดือน
-        </p>
-      </header>
+      <PageTitle title="งานบุคคล (HR)" />
 
       {canSeeStats && (
         <StatStrip
@@ -826,7 +822,7 @@ export default function HRDashboard() {
           </div>
 
           <div ref={contentRef} className={cx(cardCls, "min-w-0 p-4 lg:p-5 xl:p-6")}>
-            <PageSection key={activeKey} title={active.label} description={active.description} icon={active.icon}>
+            <PageSection key={activeKey} title={active.label} icon={active.icon}>
               {renderSection(activeKey, { onGoToPositions: goToPositions })}
             </PageSection>
           </div>

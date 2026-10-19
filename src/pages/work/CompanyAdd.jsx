@@ -4,6 +4,7 @@ import { apiAuth } from "../../lib/api"
 import { canSeeAddCompany } from "../../lib/permissions"
 import { cx, baseField, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, spinnerCls } from "../../lib/styles"
 import { Card, CardHeader, toast } from "../../components/ui"
+import PageTitle from "../../components/PageTitle"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -293,12 +294,7 @@ const CompanyAddInner = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-5 md:p-6 lg:p-8">
-        <div className="mb-5">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">เพิ่มบริษัท / นิติบุคคล</h1>
-          <p className="mt-1 text-[15px] text-slate-600 dark:text-slate-400">
-            บันทึกข้อมูลนิติบุคคลพร้อมที่อยู่สำนักงานใหญ่ ส่วนสาขากรอกเพิ่มได้ภายหลัง
-          </p>
-        </div>
+        <PageTitle title="เพิ่มบริษัท / นิติบุคคล" />
 
         <form onSubmit={handleSubmit}>
           <Card>

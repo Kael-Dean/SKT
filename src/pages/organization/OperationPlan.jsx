@@ -24,6 +24,7 @@ import useModalDismiss from "../../lib/useModalDismiss"
 import ComboBox from "../../components/ComboBox"
 import BranchLockNote from "../../components/BranchLockNote"
 import useBranchLock from "../../hooks/useBranchLock"
+import PageTitle from "../../components/PageTitle"
 
 // ---------------- Styles ----------------
 const labelCls = "mb-1 block text-[15px] md:text-base font-medium text-slate-700 dark:text-slate-200"
@@ -265,12 +266,7 @@ const OperationPlan = () => {
         <div className="mx-auto max-w-[1400px] p-4 md:p-6">
           <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-extrabold">🗺️ แผนปฏิบัติงาน</h1>
-                <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  เลือกปี → เลือกประเภทตาราง → เลือกสาขา → เลือกตาราง → กรอกข้อมูล
-                </div>
-              </div>
+              <PageTitle title="แผนปฏิบัติงาน" />
 
               <div className="inline-flex items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-200">
                 MODE: Form Entry

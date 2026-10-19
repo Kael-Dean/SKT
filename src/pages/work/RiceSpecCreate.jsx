@@ -5,6 +5,7 @@ import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, subm
 import { Card, CardHeader, PageLoader, ErrorState, StickyActionBar, toast } from "../../components/ui"
 import ComboBox from "../../components/ComboBox"
 import { useIsPhone } from "../../hooks/useMediaQuery"
+import PageTitle from "../../components/PageTitle"
 
 /** ---------- Utils ---------- */
 const toInt = (v) => {
@@ -422,10 +423,7 @@ function RiceSpecCreate() {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-5xl p-4 md:p-6 lg:p-8">
-        <h1 className="mb-1 text-xl md:text-3xl font-bold text-gray-900 dark:text-white">เพิ่มรหัสข้าว</h1>
-        <p className="mb-5 text-slate-600 dark:text-slate-300">
-          เลือกข้อมูลให้ครบ (อย่างน้อย 3 ช่องแรก) แล้วกดบันทึก ชื่อรหัสข้าวจะสร้างให้อัตโนมัติ
-        </p>
+        <PageTitle title="เพิ่มรหัสข้าว" />
 
         <Card className="mb-4 md:mb-6">
           <CardHeader title="ข้อมูลรหัสข้าว" subtitle="ช่องที่มี * เป็นช่องบังคับ" />

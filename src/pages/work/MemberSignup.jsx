@@ -7,6 +7,7 @@ import { Card, CardHeader, PageLoader, Sheet, StickyActionBar, toast } from "../
 import ComboBox from "../../components/ComboBox"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import DateInput from "../../components/ThaiDateField"
+import PageTitle from "../../components/PageTitle"
 
 /** ---------- Utils ---------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -649,12 +650,7 @@ const MemberSignup = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
       <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
-        <div ref={topRef} tabIndex={-1} className="mb-5 outline-none">
-          <h1 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-white">สมัครสมาชิก</h1>
-          <p className="mt-1 text-[15px] text-slate-600 dark:text-slate-400">
-            กรอกข้อมูลสมาชิกและรายการซื้อหุ้นครั้งแรก · จังหวัดสุรินทร์
-          </p>
-        </div>
+        <PageTitle title="สมัครสมาชิก" ref={topRef} tabIndex={-1} />
 
         {/* ฟอร์ม — แต่ละส่วนเป็นการ์ดแยก (ไม่ซ้อนการ์ด) */}
         <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">

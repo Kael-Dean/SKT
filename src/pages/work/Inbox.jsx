@@ -39,6 +39,7 @@ import {
   requestNotificationsRefresh,
 } from "../../lib/approvalActions"
 import useModalDismiss from "../../lib/useModalDismiss"
+import PageTitle from "../../components/PageTitle"
 
 const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5"
@@ -554,7 +555,7 @@ export default function Inbox() {
     <div className="mx-auto max-w-3xl space-y-5 pb-12">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">กล่องงานรออนุมัติ</h1>
+          <PageTitle title="กล่องงานรออนุมัติ" />
           <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{roleLine}</p>
         </div>
         {approver && (

@@ -9,6 +9,7 @@ import { useIsPhone } from "../../hooks/useMediaQuery"
 import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock"
 import BranchLockNote from "../../components/BranchLockNote"
 import DateInput from "../../components/ThaiDateField"
+import PageTitle from "../../components/PageTitle"
 
 /** ----------- Utils ----------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -610,35 +611,8 @@ const Order = () => {
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
       <div className="mx-auto max-w-[1800px] p-4 md:p-6">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="flex items-center gap-2.5 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="size-7 shrink-0 text-emerald-600 dark:text-emerald-400"
-            >
-              {mode === "buy" ? (
-                <>
-                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-                  <path d="m3.27 6.96 8.73 5.05 8.73-5.05" />
-                  <path d="M12 22.08V12" />
-                </>
-              ) : (
-                <>
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <path d="M14 2v6h6" />
-                  <path d="M8 13h8" />
-                  <path d="M8 17h8" />
-                </>
-              )}
-            </svg>
-            {mode === "buy" ? "รายการออเดอร์ซื้อข้าวเปลือก" : "รายการออเดอร์ขายข้าวเปลือก"}
-          </h1>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <PageTitle title={mode === "buy" ? "รายการออเดอร์ซื้อข้าวเปลือก" : "รายการออเดอร์ขายข้าวเปลือก"} />
 
           {/* Toggle Buy/Sell — stays outside the filter disclosure on phones */}
           <div role="radiogroup" aria-label="โหมด" className="inline-flex items-center rounded-2xl border border-slate-300 p-1 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-600">

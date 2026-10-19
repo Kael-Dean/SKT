@@ -16,6 +16,7 @@ import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel } from "../../lib/roles"
 import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 import Can from "../../components/Can"
+import { usePageTitle } from "../../lib/pageTitle"
 import { TerminationSheet } from "../../components/hr/TerminationForm"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
@@ -70,6 +71,7 @@ const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 export default function HRPersonnelDetail() {
   const { id } = useParams()
   const [data, setData] = useState(null)
+  usePageTitle("ข้อมูลเจ้าหน้าที่")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 

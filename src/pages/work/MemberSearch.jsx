@@ -5,6 +5,7 @@ import { SkeletonTableRows, ErrorState, EmptyState, Sheet, SearchField, DataList
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import { cx, baseField, readonlyFieldCls, neutralBtnCls, secondaryBtnCls, submitBtnCls } from "../../lib/styles"
 import DateInput from "../../components/ThaiDateField"
+import PageTitle from "../../components/PageTitle"
 
 /** ไอคอนแว่นขยาย (inline SVG — currentColor, ไม่มี emoji) */
 function SearchIcon({ className = "size-5" }) {
@@ -550,10 +551,7 @@ const MemberSearch = () => {
   return (
     <div className="min-h-screen rounded-2xl bg-white text-black dark:bg-slate-900 dark:text-white">
       <div className="mx-auto max-w-6xl p-4 md:p-6 text-base md:text-lg">
-        <h1 className="mb-4 flex items-center gap-2 text-xl md:text-3xl font-bold">
-          <SearchIcon className="size-6 text-indigo-600 dark:text-indigo-400" />
-          ค้นหาสมาชิก
-        </h1>
+        <PageTitle title="ค้นหาสมาชิก" />
 
         {/* การ์ดค้นหา */}
         <div className="rounded-2xl border border-slate-200/60 bg-white p-4 md:p-6 shadow-sm dark:border-white/10 dark:bg-slate-800/60">

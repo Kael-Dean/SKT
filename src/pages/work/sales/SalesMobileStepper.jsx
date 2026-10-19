@@ -30,6 +30,7 @@ import {
 import { SpecCombos, BranchKlangFields } from "./SalesSpecSection"
 import { TrailerCountCombo, TrailerSideFields } from "./SalesTrailerSection"
 import { SalesCommentField } from "./SalesSummary"
+import PageTitle from "../../../components/PageTitle"
 
 const STEPS = [
   { key: "customer", label: "ลูกค้า", shortLabel: "ลูกค้า" },
@@ -267,8 +268,8 @@ export default function SalesMobileStepper({ form }) {
 
   return (
     <div className="pb-2">
-      <div className="mb-2 flex items-center justify-between gap-3 px-4 pt-3">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">บันทึกออเดอร์ขาย</h1>
+      <div className="mb-2 flex items-center justify-end gap-3 px-4 pt-3">
+        <PageTitle title="บันทึกออเดอร์ขาย" />
         <button type="button" onClick={() => setConfirmReset(true)} className={cx("-mr-2 min-h-touch px-2 text-sm text-gray-500 dark:text-gray-400", focusRingCls, "rounded-lg")}>
           ล้างฟอร์ม
         </button>

@@ -11,6 +11,7 @@ import ApprovalHistory from "../../components/ApprovalHistory"
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import { KIND, requestNotificationsRefresh, rejectionReason, requesterName } from "../../lib/approvalActions"
 import { can } from "../../lib/permissions"
+import PageTitle from "../../components/PageTitle"
 
 // ระหว่างดำเนินการ = ยังรออนุมัติ หรืออนุมัติแล้วรอตรวจสอบ (stage จาก backend — api-handoff-4 §1)
 const isPending = (r) => r?.status === "pending" || !!stageOf(r)
@@ -93,7 +94,7 @@ export default function HRLeaveManagement() {
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">จัดการคำขอลา</h1>
+          <PageTitle title="จัดการคำขอลา" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {loading ? "กำลังโหลด..." : `${tab === "pending" ? `รออนุมัติ ${requests.length} รายการ` : `ทั้งหมด ${requests.length} รายการ`}`}
           </p>

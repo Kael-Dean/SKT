@@ -3,7 +3,7 @@ import { cx, baseField } from "../../lib/styles"
 // โปรไฟล์เจ้าหน้าที่แบบเต็ม — GET /hr/personnel/{user_id}
 import { useEffect, useState, useCallback } from "react"
 import ReactDOM from "react-dom"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
 import { PageLoader, ErrorState, Badge } from "../../components/ui"
 import BranchAssignmentCard from "./BranchAssignmentCard"
@@ -16,6 +16,7 @@ import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel } from "../../lib/roles"
 import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 import Can from "../../components/Can"
+import { TerminationSheet } from "../../components/hr/TerminationForm"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -68,13 +69,15 @@ const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 export default function HRPersonnelDetail() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
   // Financial edit sheet (FinancialEditSheet — ใช้ร่วมกับ HRFinance)
   const [editModal, setEditModal] = useState(false)
+
+  // ออกจากงาน — popup ฟอร์มบันทึกการพ้นสภาพ (TerminationSheet)
+  const [termOpen, setTermOpen] = useState(false)
 
   // Family edit modal
   const [familyModal, setFamilyModal] = useState(false)
@@ -93,6 +96,11 @@ export default function HRPersonnelDetail() {
   }, [id])
 
   useEffect(() => { fetchDetail() }, [fetchDetail])
+
+  // รีเฟรชแบบเงียบ (ไม่ขึ้น PageLoader) — ให้ popup ที่เปิดอยู่ไม่ถูก unmount
+  const refreshDetail = useCallback(() => {
+    apiAuth(`/hr/personnel/${id}`).then(setData).catch(() => {})
+  }, [id])
 
   const openEditModal = () => setEditModal(true)
 
@@ -233,19 +241,25 @@ export default function HRPersonnelDetail() {
           >
             แก้ไขข้อมูลครอบครัว
           </button>
-          {data.is_active && (
+          <Can perm="hr.employees.terminate">
             <button
-              onClick={() => navigate("/hr/dashboard?tab=termination")}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-all duration-200 shadow-sm active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+              type="button"
+              onClick={() => setTermOpen(true)}
+              className={cx(
+                "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 shadow-sm active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                data.is_active
+                  ? "bg-red-600 hover:bg-red-500 text-white focus-visible:ring-red-500"
+                  : "bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50 focus-visible:ring-indigo-500 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700",
+              )}
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                 <polyline points="16 17 21 12 16 7" />
                 <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
-              ออกจากงาน
+              {data.is_active ? "ออกจากงาน" : "ข้อมูลการออกจากงาน"}
             </button>
-          )}
+          </Can>
         </div>
       </div>
 
@@ -698,6 +712,12 @@ export default function HRPersonnelDetail() {
       )}
 
       {/* Financial Edit Modal */}
+      <TerminationSheet
+        open={termOpen}
+        onClose={() => setTermOpen(false)}
+        employee={{ id: Number(id), first_name: data.first_name, last_name: data.last_name }}
+        onSaved={refreshDetail}
+      />
       <FinancialEditSheet
         open={editModal}
         employeeId={id}

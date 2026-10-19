@@ -5,7 +5,7 @@ import Topbar from "./Topbar"
 import Toaster from "./ui/Toaster"
 import { recordVisit } from "../lib/recentRoutes"
 import { loadMyPermissions, useMyPermissionsVersion } from "../lib/myPermissions"
-import { HR_HUB_PERMS, canAny } from "../lib/permissions"
+import { HR_HUB_PERMS, can, canAny } from "../lib/permissions"
 
 export const SidebarContext = createContext(false)
 export const useSidebarOpen = () => useContext(SidebarContext)
@@ -59,7 +59,9 @@ const AppLayout = () => {
   const backTo = parent ? parent.path : hrBack ? "/hr/dashboard" : "/home"
   const backLabel = parent ? parent.label : hrBack ? "งานบุคคล (HR)" : "หน้าหลัก"
   // <md: ปุ่มย้อนกลับย้ายเข้า Topbar (ซ้ายสุด 44px) — ปุ่ม inline ด้านล่างเป็น hidden md:flex
-  const back = !isHome ? { to: backTo, label: backLabel } : null
+  // HR: /hr/dashboard คือหน้าหลัก — ไม่มีปุ่มย้อนกลับ (กลับ /home ก็เด้งมาที่เดิม)
+  const isEffectiveHome = isHome || (isHrDashboard && can("home.hrDashboardOnly") && canAny(HR_HUB_PERMS))
+  const back = !isEffectiveHome ? { to: backTo, label: backLabel } : null
 
   // ใส่/เอาออก class 'dark' ที่ <html>
   useEffect(() => {

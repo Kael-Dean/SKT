@@ -11,6 +11,7 @@ import { apiDetail } from "../../lib/apiErrors"
 import { borrowerName, money, thaiDate, todayIso, warningList } from "../../lib/loans"
 import { cx, baseField } from "../../lib/styles"
 import { ConfirmDialog, ErrorState, Sheet } from "../ui"
+import SelectDropdown from "../SelectDropdown"
 
 // TerminationReason (backend v1.1.0). สามค่าแรกคือค่าที่พบจริงในข้อมูลย้อนหลัง
 // ของสหกรณ์ — เรียงไว้ก่อนเพื่อให้ HR เลือกได้เร็ว
@@ -325,10 +326,16 @@ export default function TerminationForm({ employee, onSaved, showHeader = true }
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor={`term-exit_type-${empId}`} className={labelCls}>ประเภทการออก <span className="text-red-500">*</span></label>
-          <select id={`term-exit_type-${empId}`} value={form.exit_type ?? ""} onChange={(e) => setField("exit_type", e.target.value)} className={inputCls}>
-            <option value="">— เลือก —</option>
-            {EXIT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
+          <SelectDropdown
+            id={`term-exit_type-${empId}`}
+            options={EXIT_TYPES}
+            value={form.exit_type ?? ""}
+            onChange={(v) => setField("exit_type", v)}
+            placeholder="— เลือก —"
+            size="sm"
+            showSwatch={false}
+            required
+          />
         </div>
         <div>
           <label htmlFor={`term-exit_date-${empId}`} className={labelCls}>วันที่ออก (วันที่มีผล) <span className="text-red-500">*</span></label>

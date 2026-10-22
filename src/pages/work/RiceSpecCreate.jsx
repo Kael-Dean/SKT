@@ -67,7 +67,8 @@ function RiceSpecCreate() {
     () => ({
       createSpec: "/spec/",
 
-      products: "/order/product/search",
+      // Phase 1 products only (ข้าวเปลือก, ข้าวโพด) — backend rejects others with 400
+      products: "/lists/product/search?phase1=true",
       species: "/order/species/search", // ?product_id=
       variants: "/order/variant/search", // ?species_id=
       years: "/order/year/search",
@@ -102,21 +103,34 @@ function RiceSpecCreate() {
 
   const [loadErr, setLoadErr] = useState({}) // per list error message
 
+  // labelKey can be a list of fallbacks (e.g. /lists/product/search sends product_type or product_name)
   const mapIdLabel = (arr, labelKey) => {
     const safe = Array.isArray(arr) ? arr : []
+    const keys = Array.isArray(labelKey) ? labelKey : [labelKey]
     return safe
       .map((x) => ({
         id: String(x?.id ?? ""),
-        label: String(x?.[labelKey] ?? "").trim(),
+        label: String(keys.map((k) => x?.[k]).find((v) => v != null && v !== "") ?? "").trim(),
       }))
       .filter((x) => x.id && x.label)
   }
 
-  const safeFetch = async ({ key, url, labelKey }) => {
+  // Year labels look like "2568/2569". Newest first so the current crop year is the
+  // first option (ComboBox highlights index 0 on open), and drop typo'd far-future
+  // rows (e.g. 2585/2586) that are easy to pick by accident.
+  const sortYears = (list) => {
+    const startOf = (label) => Number(String(label).match(/\d{4}/)?.[0] ?? NaN)
+    const maxStart = new Date().getFullYear() + 543 + 1
+    return list
+      .filter((y) => !(startOf(y.label) > maxStart))
+      .sort((a, b) => (startOf(b.label) || 0) - (startOf(a.label) || 0))
+  }
+
+  const safeFetch = async ({ key, url, labelKey, transform }) => {
     try {
       const data = await apiAuth(url)
       const arr = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []
-      const mapped = mapIdLabel(arr, labelKey)
+      const mapped = transform ? transform(mapIdLabel(arr, labelKey)) : mapIdLabel(arr, labelKey)
       setLoadErr((p) => ({ ...p, [key]: undefined }))
       return mapped
     } catch (e) {
@@ -134,8 +148,8 @@ function RiceSpecCreate() {
     try {
       const [products, years, conditions, fieldTypes, programs, businessTypes] =
         await Promise.all([
-          safeFetch({ key: "products", url: API.products, labelKey: "product_type" }),
-          safeFetch({ key: "years", url: API.years, labelKey: "year" }),
+          safeFetch({ key: "products", url: API.products, labelKey: ["product_type", "product_name", "name"] }),
+          safeFetch({ key: "years", url: API.years, labelKey: "year", transform: sortYears }),
           safeFetch({ key: "conditions", url: API.conditions, labelKey: "condition" }),
           safeFetch({ key: "fieldTypes", url: API.fieldTypes, labelKey: "field" }),
           safeFetch({ key: "programs", url: API.programs, labelKey: "program" }),
@@ -348,19 +362,22 @@ function RiceSpecCreate() {
     } catch (err) {
       console.error(err)
       const isDup = err?.status === 409
-      const msg = /[฀-๿]/.test(err?.message || "")
+      // 400 = product not Phase 1 / species not under product / variant not under species —
+      // backend `detail` explains which, so always show it as-is
+      const isInvalid = err?.status === 400
+      const msg = (isInvalid && err?.message) || /[฀-๿]/.test(err?.message || "")
         ? err.message
         : isDup
           ? "มีรหัสข้าวสเปคนี้อยู่แล้ว ใช้รหัสเดิมได้เลย"
           : "ข้อมูลที่เลือกยังอยู่ ลองบันทึกใหม่อีกครั้ง"
       setSubmitError(msg)
-      toast.error(isDup ? "รายการนี้มีอยู่แล้ว" : "บันทึกไม่สำเร็จ", { description: msg })
+      toast.error(isDup ? "รายการนี้มีอยู่แล้ว" : isInvalid ? "ข้อมูลที่เลือกไม่ถูกต้อง" : "บันทึกไม่สำเร็จ", { description: msg })
     } finally {
       setSubmitting(false)
     }
   }
 
-  // preview (ประกอบจาก label ที่เลือกได้ เพื่อช่วยตรวจทานก่อนบันทึก)
+  // สรุปตัวเลือก (ไว้ตรวจทานเท่านั้น — ไม่ส่งไป backend; prod_name backend สร้างเองตามรูปแบบ AMC)
   const previewName = useMemo(() => {
     const findLabel = (arr, v) => arr.find((x) => String(x.id) === String(v))?.label
 
@@ -591,7 +608,7 @@ function RiceSpecCreate() {
 
           {/* preview */}
           <div className="mt-5">
-            <div className="text-sm text-slate-600 dark:text-slate-300">ตัวอย่างชื่อ</div>
+            <div className="text-sm text-slate-600 dark:text-slate-300">สรุปที่เลือก</div>
             <div
               className={cx(
                 "mt-2 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-base md:text-lg leading-relaxed",
@@ -605,7 +622,7 @@ function RiceSpecCreate() {
               {previewName || "— เลือกข้อมูลเพื่อแสดงตัวอย่าง —"}
             </div>
             <p className={helpTextCls}>
-              * ชื่อที่บันทึกจริงอาจต่างจากตัวอย่างเล็กน้อย
+              * ชื่อรหัสข้าวระบบตั้งให้หลังบันทึก (เช่น ข้าวเปลือกหอมมะลิสด - ERM ปกติ นาปี 2568/2569)
             </p>
           </div>
 

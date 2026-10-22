@@ -59,7 +59,7 @@ export function validateWeigh({ order, grossFromScale }) {
 
   if (order.moisturePct === "" || isNaN(Number(order.moisturePct))) e.moisturePct = "กรอกความชื้น (%)"
   if (order.impurityPct === "" || isNaN(Number(order.impurityPct))) e.impurityPct = "กรอกสิ่งเจือปน (%)"
-  if (order.gram === "" || isNaN(Number(order.gram))) e.gram = "กรอกคุณภาพข้าว (กรัม)"
+  if (order.gram !== "" && isNaN(Number(order.gram))) e.gram = "กรอกคุณภาพข้าว (กรัม)"
   if (order.unitPrice === "" || isNaN(Number(order.unitPrice))) e.unitPrice = "กรอกราคาต่อกก. (บาท)"
 
   const amt = moneyToNumber(order.amountTHB)

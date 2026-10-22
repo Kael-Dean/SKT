@@ -85,7 +85,7 @@ function PhoneSummary({ form, onEdit }) {
         <Row label="น้ำหนักเข้า" value={`${nf(toNumber(order.entryWeightKg))} กก.`} />
         <Row label="น้ำหนักออก" value={`${nf(toNumber(order.exitWeightKg))} กก.`} />
         <Row label="จากตาชั่ง" value={`${nf(grossFromScale)} กก.`} />
-        <Row label={`หัก (ชื้น ${order.moisturePct || 0}% + เจือปน ${order.impurityPct || 0}%)`} value={`${nf(toNumber(autoDeduct))} กก.`} />
+        <Row label={order.manualDeduct ? `หัก (ชื้น ${order.moisturePct || 0}% + เจือปน ${order.impurityPct || 0}%)` : "หัก (ไม่หัก)"} value={`${nf(toNumber(autoDeduct))} กก.`} />
         <Row label="สุทธิ" value={`${nf(netWeight)} กก.`} bold />
         <Row label="คุณภาพ (กรัม)" value={order.gram} />
       </Group>

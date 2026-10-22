@@ -19,6 +19,9 @@
 //                         of `value`, so it never shifts when the list is filtered
 //   showSublabelInTrigger second line in the trigger with the selected sublabel
 //   id, ariaLabel, ariaLabelledby, ariaDescribedby  → applied to the trigger
+//   required              sets aria-required on the trigger (label still shows the *)
+//   size                  "md" (default, rounded-2xl py-3) | "sm" — compact trigger that
+//                         matches cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm") inputs
 // Option shape: { value, label, sublabel?, subtitle? (alias), keywords?: string[] | string }
 //
 // Keyboard: closed trigger — Enter/Space/↓ open on the selected (or first) option,
@@ -102,6 +105,8 @@ export default function SelectDropdown({
   ariaLabel,
   ariaLabelledby,
   ariaDescribedby,
+  required = false,
+  size = "md",
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -315,7 +320,8 @@ export default function SelectDropdown({
         }}
         onKeyDown={onTriggerKeyDown}
         className={[
-          "w-full min-w-0 rounded-2xl border py-3 pl-4 pr-9 text-left text-sm outline-none transition-all relative",
+          "w-full min-w-0 border pr-9 text-left text-sm outline-none transition-all relative",
+          size === "sm" ? "rounded-lg py-2.5 pl-3 md:py-2" : "rounded-2xl py-3 pl-4",
           isDisabled
             ? "cursor-not-allowed opacity-60 bg-slate-100 dark:bg-white/[.03] border-slate-300"
             : "cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-field dark:hover:bg-field border-slate-300",
@@ -339,6 +345,7 @@ export default function SelectDropdown({
         aria-labelledby={ariaLabelledby}
         aria-describedby={ariaDescribedby}
         aria-invalid={error ? true : undefined}
+        aria-required={required || undefined}
         title={selected?.label}
       >
         <span className="flex min-w-0 items-center gap-2.5">
